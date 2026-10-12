@@ -1410,11 +1410,13 @@ export class RuntimeImpl implements Runtime {
     // (see onDecision), so the queue runs it behind fresh ones. A delivery released without waiting is still
     // decided (detection, reports, standing questions) at its own priority; the decision cannot act any more.
     const stale = ctl.stale && (waits || spec.trigger !== "delivery") ? () => !!ctl.stale!() : undefined;
-    // A held subject's answer that arrives after its deadline (the queue already moved on and released it) is still
-    // a decision: recorded, reported ("the decision arrived after the hold budget expired") and a latency sample.
-    // Until 0.2.1 it was ignored: the first decision of a page load, 30 ms over a budget sized to the warm-up pass,
-    // was lost with its detection, and the queue read as stuck until some other answer arrived.
-    const late = waits
+    // A held request's or write's answer that arrives after its deadline (the queue already moved on and released
+    // it) is still a decision: recorded, reported ("the decision arrived after the hold budget expired") and a
+    // latency sample. Until 0.2.1 it was ignored: the first decision of a page load, 30 ms over a budget sized to
+    // the warm-up pass, was lost with its detection, and the queue read as stuck until some other answer arrived.
+    // A held delivery released at its budget is not covered: its chain's writes get their own decisions (and late
+    // reverts), so its own late answer stays ignored rather than reporting one incident twice.
+    const late = waits && spec.trigger !== "delivery"
       ? (res: DecideResult) => {
           try {
             if (this.destroyed || this.clock.now() - t0 > BACKGROUND_DEADLINE_MS) return;
