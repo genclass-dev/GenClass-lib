@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Fix: the first salient situation of every page load was lost.** The hold budget before the first decision came
+  from the warm-up pass, a small (~430-token) situation, so it was 150 ms on a device whose real decisions (~1,100
+  tokens) take about 180 ms. The first held decision then missed its deadline and was dropped with no detection, no
+  report and no audit record, the queue read as "stuck", and the next situation was not held either. On genclass.dev
+  that was the double-click demo failing for every first-time visitor; on a real store, 64 of 102 decisions "too
+  late to act". Now the warm-up time is scaled by its per-token cost to a typical situation (plus the worker round
+  trip) before the first decision, a late answer is recorded and reported ("the decision arrived after the hold
+  budget expired") instead of being discarded, and a queued decision whose subject already went its way runs behind
+  fresh ones rather than being dropped. A held subject's added latency is unchanged (still released at the budget).
+
 ## 0.2.1 (2026-10-10)
 
 - **Telemetry: no page text by default.** `telemetry.include.situation` now defaults to **false**: decision events

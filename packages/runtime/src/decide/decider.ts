@@ -1,7 +1,8 @@
-// Decider queue (CONTRACT §8): one evaluation at a time, highest priority first (held writes/requests), a small
-// cache of identical requests, deadlines (a request whose deadline passed while queued is dropped, never
-// computed; the time left is passed to the provider as `timeoutMs`), latency samples for the automatic hold
-// budget, and fail-open on any provider error (not ready, too many tokens, timeout, busy, ...).
+// Decider queue (CONTRACT §8): one evaluation at a time, highest priority first (held writes/requests; items whose
+// subject already went its way run last, see `prio`), a small cache of identical requests, deadlines (a request
+// whose deadline passed while queued is dropped, never computed; the time left is passed to the provider as
+// `timeoutMs`), latency samples for the automatic hold budget, and fail-open on any provider error (not ready, too
+// many tokens, timeout, busy, ...).
 
 import type { Answer, Clock, DecisionProvider, EvaluateRequest } from "../types.js";
 import { fnv1a, stableStringify } from "../util.js";
@@ -19,7 +20,7 @@ interface QueueItem {
   req: EvaluateRequest;
   /** Absolute clock time after which the answer is useless. */
   deadline?: number;
-  /** The subject was superseded (already delivered, overwritten, aborted): drop instead of computing. */
+  /** The subject was superseded (already delivered, sent, applied): compute behind fresh items (detection only). */
   stale?: () => boolean;
   resolve: (r: DecideResult | null) => void;
   seq: number;
@@ -97,12 +98,14 @@ export class DeciderQueue {
       if (stale) item.stale = stale;
       this.q.push(item);
       if (this.q.length > MAX_QUEUE) {
-        // drop the lowest-priority, oldest item
+        // drop the lowest-priority (superseded first), oldest item
         let worst = 0;
         for (let i = 1; i < this.q.length; i++) {
           const a = this.q[i];
           const b = this.q[worst];
-          if ((a.req.priority ?? 0) < (b.req.priority ?? 0) || ((a.req.priority ?? 0) === (b.req.priority ?? 0) && a.seq < b.seq)) worst = i;
+          const pa = this.prio(a);
+          const pb = this.prio(b);
+          if (pa < pb || (pa === pb && a.seq < b.seq)) worst = i;
         }
         const [dropped] = this.q.splice(worst, 1);
         dropped.resolve(null);
@@ -111,13 +114,32 @@ export class DeciderQueue {
     });
   }
 
+  /**
+   * Effective priority: an item whose subject already went its way (`stale()` true: the request was sent, the
+   * response delivered, the write applied) can only produce a detection and a report, so it runs behind every item
+   * that can still act. It is not dropped for that: a lost answer is a lost detection (and, until 0.2.1, a queue
+   * that read as stuck).
+   */
+  private prio(it: QueueItem): number {
+    let superseded = false;
+    try {
+      superseded = !!it.stale?.();
+    } catch {
+      superseded = false;
+    }
+    const p = it.req.priority ?? 0;
+    return superseded ? Math.min(p, 0) - 1 : p;
+  }
+
   private next(): QueueItem | undefined {
     if (!this.q.length) return undefined;
     let best = 0;
     for (let i = 1; i < this.q.length; i++) {
       const a = this.q[i];
       const b = this.q[best];
-      if ((a.req.priority ?? 0) > (b.req.priority ?? 0) || ((a.req.priority ?? 0) === (b.req.priority ?? 0) && a.seq < b.seq)) best = i;
+      const pa = this.prio(a);
+      const pb = this.prio(b);
+      if (pa > pb || (pa === pb && a.seq < b.seq)) best = i;
     }
     return this.q.splice(best, 1)[0];
   }
@@ -128,16 +150,6 @@ export class DeciderQueue {
       if (!item) return;
       const now = this.clock.now();
       if (item.deadline !== undefined && now >= item.deadline) {
-        item.resolve(null);
-        continue;
-      }
-      let superseded = false;
-      try {
-        superseded = !!item.stale?.();
-      } catch {
-        superseded = false;
-      }
-      if (superseded) {
         item.resolve(null);
         continue;
       }

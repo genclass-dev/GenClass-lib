@@ -114,6 +114,13 @@ const DECISIONS_KEPT = 200;
 export const LATE_REVERT_MS = 800;
 /** Non-held triggers (stall, inconsistency, transition, error) are not worth answering after this long. */
 const BACKGROUND_DEADLINE_MS = 5000;
+/**
+ * The warm-up pass is a small situation (about 430 tokens); a typical real one is about 1,100 tokens (observed p50
+ * 1,135 on genclass.dev). Before the first measured decision the host's per-token cost is scaled to this size, plus
+ * the worker round trip, so the first hold budget is not sized to the warm-up pass alone.
+ */
+const WARM_TYPICAL_TOKENS = 1200;
+const WARM_OVERHEAD_MS = 20;
 /** A delivery `discard` keeps dropping the chain's writes over newer data for this long. */
 const DISCARD_MARK_MS = 10_000;
 /** A salient delivery waits at most this long for its body (a buffered clone) before deciding without it. */
@@ -1398,14 +1405,14 @@ export class RuntimeImpl implements Runtime {
         passive();
       }, budget);
     }
-    // deadline for the answer: held subjects need it within the hold budget (a held write may still be reverted
-    // shortly after it applied); background decisions within a few seconds
-    const lateOk = waits && !!ctl.revert;
-    const deadline = waits ? t0 + budget + (lateOk ? LATE_REVERT_MS : 0) : t0 + BACKGROUND_DEADLINE_MS;
-    // A delivery's controller is stale once the delivery was released: that only makes a queued decision useless
-    // when the delivery waits for it. A delivery released without waiting is still decided (detection, reports,
-    // standing questions); the decision cannot act any more (see onDecision).
-    const stale = ctl.stale && (waits || spec.trigger !== "delivery") ? () => !!ctl.stale!() : undefined;
+    // deadline for the answer: a few seconds for every decision. A held subject is released by its budget timer
+    // when the answer is late; the late answer is still recorded and reported ("the decision arrived after the hold
+    // budget expired", onDecision) rather than dropped unseen. Until 0.2.1 the deadline of a held subject was its
+    // budget: a late first answer was lost together with its detection, and the queue read as stuck, so the next
+    // subject was not held either.
+    const deadline = t0 + Math.max(BACKGROUND_DEADLINE_MS, budget + LATE_REVERT_MS);
+    // A released subject's queued decision can only report (see onDecision): the queue runs it behind fresh ones.
+    const stale = ctl.stale ? () => !!ctl.stale!() : undefined;
     this.queue
       .submit(
         {
@@ -1926,12 +1933,21 @@ export class RuntimeImpl implements Runtime {
   /**
    * The model's latency before any real decision: the warm pass timed after the pipelines compiled (WebGPU compiles
    * on the first pass, so the first pass alone would read as seconds and the first salient request after load would
-   * never be held), else the warm-up pass itself.
+   * never be held), else the warm-up pass itself. The warm pass is a small situation, so its time alone under-states
+   * a real decision by about 2.5× (61 ms vs 172 ms on genclass.dev); a budget derived from it expired before the first
+   * answer, which was then dropped unseen. Scale it by the per-token cost to a typical situation when the host
+   * reports one.
    */
   private warmLatency(): number {
     const st = this.decider?.status;
-    const warm = st?.latency?.p50;
-    if (typeof warm === "number" && warm > 0) return warm;
+    const lat = st?.latency;
+    const warm = lat?.p50;
+    if (typeof warm === "number" && warm > 0) {
+      if (lat?.source === "warmup" && typeof lat.msPerToken === "number" && lat.msPerToken > 0) {
+        return Math.max(warm, Math.round(lat.msPerToken * WARM_TYPICAL_TOKENS + WARM_OVERHEAD_MS));
+      }
+      return warm;
+    }
     return st?.warmupMs ?? 0;
   }
 
