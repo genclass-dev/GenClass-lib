@@ -82,7 +82,7 @@ import { installEventSource } from "./observe/eventsource.js";
 import { opLabel } from "./situation/describe.js";
 import { BUILTIN_ACTIONS, diagnosisVocabulary, PASSIVE, TRIGGER_ACTIONS } from "./situation/questions.js";
 import { STATE_CHAR_BUDGET, stateText } from "./situation/serialize.js";
-import { DeciderQueue, typicalLatency } from "./decide/decider.js";
+import { DeciderQueue, typicalLatency, type DecideResult } from "./decide/decider.js";
 import { aggressivenessLevel, effectiveGates, gate, holdBudget, parseGate, permittedActions, policyConfig, RateLimiter, restriction, type PolicyConfig } from "./decide/policy.js";
 import { decisionLine, detectionLine, interventionLine, Reporter } from "./decide/report.js";
 import type { ActionEffect, Controller, EndOpts, NetHost, TriggerOpts } from "./decide/exec.js";
@@ -113,8 +113,8 @@ const DECISIONS_KEPT = 200;
  */
 export const LATE_REVERT_MS = 800;
 /**
- * No decision is worth answering after this long. A held subject is released at its hold budget regardless; its
- * answer is then recorded and reported but cannot act.
+ * Non-held triggers (stall, inconsistency, transition, error) are not worth answering after this long, and a held
+ * subject's answer arriving this long after it was asked is no longer recorded.
  */
 export const BACKGROUND_DEADLINE_MS = 5000;
 /** A delivery `discard` keeps dropping the chain's writes over newer data for this long. */
@@ -1401,14 +1401,30 @@ export class RuntimeImpl implements Runtime {
         passive();
       }, budget);
     }
-    // deadline for the answer: a few seconds for every decision. A held subject is released by its budget timer
-    // when the answer is late; the late answer is still recorded and reported ("the decision arrived after the hold
-    // budget expired", onDecision) rather than dropped unseen. Until 0.2.1 the deadline of a held subject was its
-    // budget: a late first answer was lost together with its detection, and the queue read as stuck, so the next
-    // subject was not held either.
-    const deadline = t0 + Math.max(BACKGROUND_DEADLINE_MS, budget + LATE_REVERT_MS);
-    // A released subject's queued decision can only report (see onDecision): the queue runs it behind fresh ones.
-    const stale = ctl.stale ? () => !!ctl.stale!() : undefined;
+    // deadline for the answer: held subjects need it within the hold budget (a held write may still be reverted
+    // shortly after it applied); background decisions within a few seconds. At the deadline the queue moves on
+    // (fail-open, the subject released); the answer that arrives later is not thrown away, see `late` below.
+    const lateOk = waits && !!ctl.revert;
+    const deadline = waits ? t0 + budget + (lateOk ? LATE_REVERT_MS : 0) : t0 + BACKGROUND_DEADLINE_MS;
+    // A held subject's controller is stale once the subject was released: its queued decision can only report
+    // (see onDecision), so the queue runs it behind fresh ones. A delivery released without waiting is still
+    // decided (detection, reports, standing questions) at its own priority; the decision cannot act any more.
+    const stale = ctl.stale && (waits || spec.trigger !== "delivery") ? () => !!ctl.stale!() : undefined;
+    // A held subject's answer that arrives after its deadline (the queue already moved on and released it) is still
+    // a decision: recorded, reported ("the decision arrived after the hold budget expired") and a latency sample.
+    // Until 0.2.1 it was ignored: the first decision of a page load, 30 ms over a budget sized to the warm-up pass,
+    // was lost with its detection, and the queue read as stuck until some other answer arrived.
+    const late = waits
+      ? (res: DecideResult) => {
+          try {
+            if (this.destroyed || this.clock.now() - t0 > BACKGROUND_DEADLINE_MS) return;
+            this.sum.decision(res.latencyMs);
+            this.onDecision(built, res.answers, this.clock.now() - t0, ctl, passive, { waits, covers: false, expired: true, passiveRan: () => passiveRan, hold: opts.hold, budget, block, subjectOp });
+          } catch (e) {
+            this.log("late decision failed", e);
+          }
+        }
+      : undefined;
     this.queue
       .submit(
         {
@@ -1421,6 +1437,7 @@ export class RuntimeImpl implements Runtime {
         },
         deadline,
         stale,
+        late,
       )
       .then((res) => {
         if (budgetTimer !== null) this.clock.clearTimeout(budgetTimer);

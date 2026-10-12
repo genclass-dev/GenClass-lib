@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { holdBudget, policyConfig } from "../src/decide/policy.js";
-import { BACKGROUND_DEADLINE_MS, LATE_REVERT_MS } from "../src/runtime.js";
+import { LATE_REVERT_MS } from "../src/runtime.js";
 import { sectionLimits, stateChars, stateText } from "../src/situation/serialize.js";
 import type { EvaluateRequest } from "../src/types.js";
 import { ManualDecider, defaultScript, setup, type Setup } from "./helpers.js";
@@ -170,7 +170,7 @@ describe("hold budget", () => {
     expect(a.get()).toBe(1);
   });
 
-  it("a held write is released at its budget; its decision keeps the background deadline and expired queued requests are never computed", async () => {
+  it("held requests carry timeoutMs = the time left in the hold budget; expired queued requests are never computed", async () => {
     const manual = new ManualDecider();
     const { rt, clock } = setup({ decider: manual, triage: "always", policy: { holdBudgetMs: 200, holdWrites: true } });
     const a = rt.atom("a", 0);
@@ -179,26 +179,22 @@ describe("hold budget", () => {
     void rt.op("w2", () => b.set(1)); // queued behind w1
     expect(manual.pending.length).toBe(1);
     const first: EvaluateRequest = manual.pending[0].req;
-    // the answer is useful (recorded, reported, late-revertable within LATE_REVERT_MS) well after the budget, so the
-    // provider gets the background deadline, not the budget: a late first answer is no longer thrown away unseen
-    expect(first.timeoutMs).toBe(Math.max(BACKGROUND_DEADLINE_MS, 200 + LATE_REVERT_MS));
-    await clock.advance(250);
-    expect(a.get()).toBe(1); // w1 released at its 200 ms budget (fail-open), still awaiting its answer
-    expect(b.get()).toBe(1);
-    await clock.advance(BACKGROUND_DEADLINE_MS);
+    expect(first.timeoutMs).toBe(200 + LATE_REVERT_MS); // held write: budget + late-revert window
+    await clock.advance(2300);
     manual.answer(defaultScript()); // w1 answered after w2's deadline passed
     await clock.flush();
     expect(manual.pending.length).toBe(0); // w2 was dropped, not computed
+    expect(b.get()).toBe(1); // and it applied (fail-open)
   });
 
-  it("a held request (fetch) also keeps the background deadline for its answer", async () => {
+  it("held requests (fetch) carry the remaining budget without a late window", async () => {
     const { rt, clock, server, fetch, decider } = setup({ triage: "always", policy: { holdBudgetMs: 250 } });
     server.on("GET", "/api/x", { body: 1, latency: 5 });
     const p = fetch("/api/x");
     await clock.advance(50);
     await p;
     const req = decider.calls.find((c) => c.trigger === "request")!;
-    expect(req.timeoutMs).toBe(BACKGROUND_DEADLINE_MS);
+    expect(req.timeoutMs).toBe(250);
     void rt;
   });
 });

@@ -50,6 +50,8 @@ interface QueueItem {
   deadline?: number;
   /** The subject was superseded (already delivered, sent, applied): compute behind fresh items (detection only). */
   stale?: () => boolean;
+  /** Receives the answer when it arrives after the deadline (the item was already resolved null and the queue moved on). */
+  late?: (r: DecideResult) => void;
   resolve: (r: DecideResult | null) => void;
   seq: number;
   t0: number;
@@ -119,11 +121,12 @@ export class DeciderQueue {
     return [...this.lat];
   }
 
-  submit(req: EvaluateRequest, deadline?: number, stale?: () => boolean): Promise<DecideResult | null> {
+  submit(req: EvaluateRequest, deadline?: number, stale?: () => boolean, late?: (r: DecideResult) => void): Promise<DecideResult | null> {
     return new Promise((resolve) => {
       const item: QueueItem = { req, resolve, seq: ++this.seq, t0: this.clock.now() };
       if (deadline !== undefined) item.deadline = deadline;
       if (stale) item.stale = stale;
+      if (late) item.late = late;
       this.q.push(item);
       if (this.q.length > MAX_QUEUE) {
         // drop the lowest-priority (superseded first), oldest item
@@ -269,7 +272,19 @@ export class DeciderQueue {
           }
           this.lat.push(t2 - t1);
           if (this.lat.length > LATENCY_SAMPLES) this.lat.shift();
-          done({ answers, latencyMs: t2 - t1, waitMs: t1 - item.t0, cached: false });
+          const r = { answers, latencyMs: t2 - t1, waitMs: t1 - item.t0, cached: false };
+          if (settled) {
+            // the deadline passed and the queue moved on: the answer still counts (record, report, latency sample)
+            if (item.late && !this.disposed) {
+              try {
+                item.late(r);
+              } catch (e) {
+                this.onError?.(e);
+              }
+            }
+            return;
+          }
+          done(r);
         } else done(null);
       },
       (e) => {

@@ -8,9 +8,11 @@
   report and no audit record, the queue read as "stuck", and the next situation was not held either. On genclass.dev
   that was the double-click demo failing for every first-time visitor; on a real store, 64 of 102 decisions "too
   late to act". Now the warm-up time is scaled by its per-token cost to a typical situation (plus the worker round
-  trip) before the first decision, a late answer is recorded and reported ("the decision arrived after the hold
-  budget expired") instead of being discarded, and a queued decision whose subject already went its way runs behind
-  fresh ones rather than being dropped. A held subject's added latency is unchanged (still released at the budget).
+  trip) before the first decision; an answer that arrives after a held subject's deadline (the queue has moved on
+  and released it, as before) is recorded and reported ("the decision arrived after the hold budget expired"),
+  counts as a latency sample and clears the queue's "stuck" state instead of being ignored; and a held subject's
+  queued decision whose subject already went its way runs behind fresh ones, while decisions are fast (median
+  ≤ 300 ms), rather than being dropped. A held subject's added latency and the queue's timing are unchanged.
 
 ## 0.2.1 (2026-10-10)
 

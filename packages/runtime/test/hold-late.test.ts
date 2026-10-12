@@ -185,6 +185,31 @@ describe("DeciderQueue: superseded items run behind fresh ones, never dropped fo
     expect(log).toEqual(["s"]);
   });
 
+  it("an answer arriving after the deadline reaches `late`, counts as a latency sample and clears 'stuck'", async () => {
+    const clock = new FakeClock();
+    const log: string[] = [];
+    const p = {
+      status: { state: "ready" as const, model: "p" },
+      ready: () => Promise.resolve(),
+      evaluate: (r: EvaluateRequest) =>
+        new Promise<Record<string, Answer>>((resolve) => {
+          log.push(r.trigger);
+          clock.setTimeout(() => resolve({ ok: { type: "noul", noul: 1 } as unknown as Answer }), 400);
+        }),
+    };
+    const q = new DeciderQueue(clock, () => p);
+    const lateSeen: number[] = [];
+    const a = q.submit(req("a"), clock.now() + 150, undefined, (r) => lateSeen.push(r.latencyMs));
+    await clock.advance(160);
+    expect(await a).toBeNull(); // the queue moved on at the deadline
+    expect(q.stuck).toBe(true);
+    expect(q.computing).toBe(false);
+    await clock.advance(300);
+    expect(lateSeen).toEqual([400]); // the answer still arrived, 250 ms late
+    expect(q.stuck).toBe(false);
+    expect(q.latencies()).toEqual([400]);
+  });
+
   it("still drops an item whose deadline passed while it queued", async () => {
     const clock = new FakeClock();
     const log: string[] = [];
