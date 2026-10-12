@@ -4,8 +4,36 @@
 // `timeoutMs`), latency samples for the automatic hold budget, and fail-open on any provider error (not ready, too
 // many tokens, timeout, busy, ...).
 
-import type { Answer, Clock, DecisionProvider, EvaluateRequest } from "../types.js";
+import type { Answer, Clock, DecisionProvider, EvaluateRequest, ModelStatus } from "../types.js";
 import { fnv1a, stableStringify } from "../util.js";
+
+/**
+ * The warm-up pass is a small situation (about 430 tokens); a typical real one is about 1,100 tokens (observed p50
+ * 1,135 on genclass.dev). Before the first measured decision the host's per-token cost is scaled to this size, plus
+ * the worker round trip, so the first hold budget is not sized to the warm-up pass alone (0.2.1 did that: the first
+ * held decision of every page load missed its 150 ms budget and was lost).
+ */
+export const TYPICAL_TOKENS = 1200;
+export const ROUND_TRIP_MS = 20;
+/**
+ * A superseded item (its subject already went its way; the answer can only be reported) is computed only while
+ * decisions are at most this fast: the queue runs one evaluation at a time without preemption, so on a slow device
+ * (WASM: 500–800 ms per decision) a superseded evaluation could make a fresh held duplicate submit miss its budget.
+ */
+export const SUPERSEDED_MAX_MS = 300;
+
+/** The model's typical decision latency from its status alone (no measured decisions yet). */
+export function typicalLatency(st: ModelStatus | undefined): number {
+  const lat = st?.latency;
+  const warm = lat?.p50;
+  if (typeof warm === "number" && warm > 0) {
+    if (lat?.source === "warmup" && typeof lat.msPerToken === "number" && lat.msPerToken > 0) {
+      return Math.max(warm, Math.round(lat.msPerToken * TYPICAL_TOKENS + ROUND_TRIP_MS));
+    }
+    return warm;
+  }
+  return st?.warmupMs ?? 0;
+}
 
 export interface DecideResult {
   answers: Record<string, Answer>;
@@ -131,6 +159,15 @@ export class DeciderQueue {
     return superseded ? Math.min(p, 0) - 1 : p;
   }
 
+  /** Median of the measured decision latencies, else the provider's own estimate (0 when it has none). */
+  private typicalMs(p: DecisionProvider): number {
+    if (this.lat.length) {
+      const a = [...this.lat].sort((x, y) => x - y);
+      return a[Math.floor((a.length - 1) / 2)];
+    }
+    return typicalLatency(p.status);
+  }
+
   private next(): QueueItem | undefined {
     if (!this.q.length) return undefined;
     let best = 0;
@@ -155,6 +192,12 @@ export class DeciderQueue {
       }
       const p = this.provider();
       if (!p || p.status.state !== "ready") {
+        item.resolve(null);
+        continue;
+      }
+      // a superseded item can only be reported: compute it when decisions are fast (it then delays a fresh held
+      // item by at most SUPERSEDED_MAX_MS, which the hold logic accounts for), skip it on a slow device
+      if (this.prio(item) < 0 && this.typicalMs(p) > SUPERSEDED_MAX_MS) {
         item.resolve(null);
         continue;
       }

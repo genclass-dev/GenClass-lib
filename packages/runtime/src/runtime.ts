@@ -82,7 +82,7 @@ import { installEventSource } from "./observe/eventsource.js";
 import { opLabel } from "./situation/describe.js";
 import { BUILTIN_ACTIONS, diagnosisVocabulary, PASSIVE, TRIGGER_ACTIONS } from "./situation/questions.js";
 import { STATE_CHAR_BUDGET, stateText } from "./situation/serialize.js";
-import { DeciderQueue } from "./decide/decider.js";
+import { DeciderQueue, typicalLatency } from "./decide/decider.js";
 import { aggressivenessLevel, effectiveGates, gate, holdBudget, parseGate, permittedActions, policyConfig, RateLimiter, restriction, type PolicyConfig } from "./decide/policy.js";
 import { decisionLine, detectionLine, interventionLine, Reporter } from "./decide/report.js";
 import type { ActionEffect, Controller, EndOpts, NetHost, TriggerOpts } from "./decide/exec.js";
@@ -112,15 +112,11 @@ const DECISIONS_KEPT = 200;
  * After about a second the user has been looking at the new value; reverting it is a second visible change.
  */
 export const LATE_REVERT_MS = 800;
-/** Non-held triggers (stall, inconsistency, transition, error) are not worth answering after this long. */
-const BACKGROUND_DEADLINE_MS = 5000;
 /**
- * The warm-up pass is a small situation (about 430 tokens); a typical real one is about 1,100 tokens (observed p50
- * 1,135 on genclass.dev). Before the first measured decision the host's per-token cost is scaled to this size, plus
- * the worker round trip, so the first hold budget is not sized to the warm-up pass alone.
+ * No decision is worth answering after this long. A held subject is released at its hold budget regardless; its
+ * answer is then recorded and reported but cannot act.
  */
-const WARM_TYPICAL_TOKENS = 1200;
-const WARM_OVERHEAD_MS = 20;
+export const BACKGROUND_DEADLINE_MS = 5000;
 /** A delivery `discard` keeps dropping the chain's writes over newer data for this long. */
 const DISCARD_MARK_MS = 10_000;
 /** A salient delivery waits at most this long for its body (a buffered clone) before deciding without it. */
@@ -1939,16 +1935,7 @@ export class RuntimeImpl implements Runtime {
    * reports one.
    */
   private warmLatency(): number {
-    const st = this.decider?.status;
-    const lat = st?.latency;
-    const warm = lat?.p50;
-    if (typeof warm === "number" && warm > 0) {
-      if (lat?.source === "warmup" && typeof lat.msPerToken === "number" && lat.msPerToken > 0) {
-        return Math.max(warm, Math.round(lat.msPerToken * WARM_TYPICAL_TOKENS + WARM_OVERHEAD_MS));
-      }
-      return warm;
-    }
-    return st?.warmupMs ?? 0;
+    return typicalLatency(this.decider?.status);
   }
 
   private expectedLatency(): number {

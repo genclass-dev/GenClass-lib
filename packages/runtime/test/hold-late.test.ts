@@ -83,7 +83,7 @@ describe("a decision that arrives after the hold budget (§8)", () => {
     expect(d!.action).toBe("coalesce");
     expect(rt.summary().model.decisions).toBe(1);
     expect(rt.interventions()).toHaveLength(0);
-    expect(reports.join("\n")).toMatch(/Flagged a duplicate request: .*Not acted on \(would have done coalesce 0\.97\): the decision arrived after the hold budget expired/);
+    expect(reports.join("\n")).toMatch(/Flagged a duplicate .*Not acted on \(would have done coalesce 0\.97\): the decision arrived after the hold budget expired/);
   });
 
   it("a late answer does not leave the queue 'stuck': the next salient request is held and acted on", async () => {
@@ -135,6 +135,54 @@ describe("DeciderQueue: superseded items run behind fresh ones, never dropped fo
     expect(await a).not.toBeNull();
     expect(await b).not.toBeNull();
     expect(await c).not.toBeNull();
+  });
+
+  it("skips a superseded item on a slow provider, so a fresh held item is never queued behind one", async () => {
+    const clock = new FakeClock();
+    const log: string[] = [];
+    // WASM-class device: 600 ms per decision
+    const p = {
+      status: { state: "ready" as const, model: "p" },
+      ready: () => Promise.resolve(),
+      evaluate: (r: EvaluateRequest) =>
+        new Promise<Record<string, Answer>>((resolve) => {
+          log.push(r.trigger);
+          clock.setTimeout(() => resolve({}), 600);
+        }),
+    };
+    const q = new DeciderQueue(clock, () => p);
+    const a = q.submit(req("a"), clock.now() + 5000); // measures the 600 ms
+    await clock.advance(700);
+    expect(await a).not.toBeNull();
+    const b = q.submit(req("b"), clock.now() + 5000, () => true); // superseded: would occupy the model for 600 ms
+    const c = q.submit(req("c"), clock.now() + 5000);
+    await clock.advance(10);
+    expect(log).toEqual(["a", "c"]); // c runs now; b was skipped, not computed
+    expect(await b).toBeNull();
+    await clock.advance(700);
+    expect(await c).not.toBeNull();
+  });
+
+  it("the provider's own warm-up estimate decides before any measurement (scaled to a typical situation)", async () => {
+    const clock = new FakeClock();
+    const log: string[] = [];
+    const mk = (p50: number, msPerToken: number) => ({
+      status: { state: "ready" as const, model: "p", latency: { p50, p90: p50, n: 0, tokensP50: 434, msPerToken, source: "warmup" as const } },
+      ready: () => Promise.resolve(),
+      evaluate: (r: EvaluateRequest) => {
+        log.push(r.trigger);
+        return Promise.resolve({} as Record<string, Answer>);
+      },
+    });
+    // WebGPU: 61 ms warm pass → ≈ 189 ms typical: superseded items are computed
+    const fast = mk(61, 0.141);
+    const q1 = new DeciderQueue(clock, () => fast);
+    expect(await q1.submit(req("s"), clock.now() + 5000, () => true)).not.toBeNull();
+    // WASM: 200 ms warm pass → ≈ 573 ms typical: superseded items are skipped
+    const slow = mk(200, 0.461);
+    const q2 = new DeciderQueue(clock, () => slow);
+    expect(await q2.submit(req("t"), clock.now() + 5000, () => true)).toBeNull();
+    expect(log).toEqual(["s"]);
   });
 
   it("still drops an item whose deadline passed while it queued", async () => {
