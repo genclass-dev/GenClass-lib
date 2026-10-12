@@ -15,7 +15,13 @@
   try {
     rt = GC && GC.init({
       mode: qs.get("lab-mode") || "guard",
-      ...(thr !== "default" ? { policy: { thresholds: { guard: Number(thr), heal: Number(thr) } } } : {}),
+      policy: {
+        ...(thr !== "default" ? { thresholds: { guard: Number(thr), heal: Number(thr) } } : {}),
+        // Explicit hold budget: runtime 0.2.1 sizes its first budget to the warm-up pass (150 ms) while a real
+        // decision takes ~180 ms, so the first double-click of every visit was released undecided (fixed in the
+        // runtime by genclass-dev/GenClass-lib#4; this keeps the demo honest until that ships).
+        holdBudgetMs: 500,
+      },
       aggressiveness: "eager",
       telemetry: false,
       report: "console",
