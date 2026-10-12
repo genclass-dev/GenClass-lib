@@ -2,17 +2,16 @@
 
 ## Unreleased
 
-- **Fix: the first salient situation of every page load was lost.** The hold budget before the first decision came
-  from the warm-up pass, a small (~430-token) situation, so it was 150 ms on a device whose real decisions (~1,100
-  tokens) take about 180 ms. The first held decision then missed its deadline and was dropped with no detection, no
-  report and no audit record, the queue read as "stuck", and the next situation was not held either. On genclass.dev
-  that was the double-click demo failing for every first-time visitor; on a real store, 64 of 102 decisions "too
-  late to act". Now the warm-up time is scaled by its per-token cost to a typical situation (plus the worker round
-  trip) before the first decision; an answer that arrives after a held subject's deadline (the queue has moved on
-  and released it, as before) is recorded and reported ("the decision arrived after the hold budget expired"),
-  counts as a latency sample and clears the queue's "stuck" state instead of being ignored; and a held subject's
-  queued decision whose subject already went its way runs behind fresh ones, while decisions are fast (median
-  ≤ 300 ms), rather than being dropped. A held subject's added latency and the queue's timing are unchanged.
+- **The first decision of a page load has a realistic hold budget, and a late answer is no longer thrown away.**
+  Before any measured decision the budget came from the warm-up pass, a ~430-token situation (49–74 ms on an Apple
+  GPU), so it was the 150 ms floor, while the first real decision measured 137 ms there: 13 ms of margin, and none
+  on a slower GPU. The warm-up time is now scaled by its per-token cost to a typical situation (1,200 tokens, plus
+  the worker round trip): 49 ms warm-up → 234 ms budget. An answer that arrives after a held request's or write's
+  deadline (the queue has moved on and released the subject, as before) was ignored entirely; it is now recorded
+  and reported ("the decision arrived after the hold budget expired"), counts as a latency sample and clears the
+  queue's "stuck" state. A held subject's queued decision whose subject already went its way runs behind fresh ones
+  while decisions are fast (median ≤ 300 ms) rather than being dropped. Deadlines, release timing and the queue's
+  occupancy are unchanged. (Not a fix for a hidden tab: held decisions are skipped there by design.)
 
 ## 0.2.1 (2026-10-10)
 
