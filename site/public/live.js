@@ -1,7 +1,8 @@
 // Live GenClass lab on genclass.dev: the real @genclass/runtime (script tag from jsDelivr, model on this device).
 // "Without GenClass" uses the browser's original fetch (captured before the runtime loaded); "With GenClass" uses the
-// page's fetch, which GenClass observes. The demo runs at maximum aggressiveness (gain margins 0) unless
-// ?lab-thr=default (production margins) or ?lab-thr=<n>; ?lab-mode= picks the mode.
+// page's fetch, which GenClass observes. The demo runs guard with every gain margin at 0 and the eager profile unless
+// ?lab-thr=default (the shipped defaults: observe mode, the balanced profile, the model's own gates; nothing
+// overridden) or ?lab-thr=<n> (that margin, eager); ?lab-mode= picks the mode in either case.
 (() => {
   const $ = (id) => document.getElementById(id);
   const lab = $("lab");
@@ -11,19 +12,13 @@
   const GC = window.GenClass;
   const qs = new URLSearchParams(location.search);
   const thr = qs.get("lab-thr") ?? "0";
-  const hold = qs.get("lab-hold") ?? "auto";
+  const shipped = thr === "default"; // no policy or aggressiveness override at all
+  const mode = qs.get("lab-mode") || (shipped ? "observe" : "guard");
   let rt = null;
   try {
     rt = GC && GC.init({
-      mode: qs.get("lab-mode") || "guard",
-      policy: {
-        ...(thr !== "default" ? { thresholds: { guard: Number(thr), heal: Number(thr) } } : {}),
-        // The hold budget is the runtime's own (automatic) unless ?lab-hold=<ms> sets one, for experiments.
-        // Note for anyone scripting this page: the runtime skips held decisions in a hidden tab by design, so a
-        // background tab or an embedded, occluded browser pane shows "2 identical invoices" on both sides.
-        ...(hold === "auto" ? {} : { holdBudgetMs: Number(hold) }),
-      },
-      aggressiveness: "eager",
+      mode,
+      ...(shipped ? {} : { policy: { thresholds: { guard: Number(thr), heal: Number(thr) } }, aggressiveness: "eager" }),
       telemetry: false,
       report: "console",
       observe: { untrustedEvents: true },
@@ -34,6 +29,19 @@
   const text = (el, s) => { if (el) el.textContent = s; };
   const el = (tag, cls, s) => { const x = document.createElement(tag); if (cls) x.className = cls; if (s !== undefined) x.textContent = s; return x; };
   const pct = (p) => Math.round(p * 100) + "%";
+
+  // ---------- label this run's settings exactly ----------
+  text($("lab-cfg"), shipped
+    ? `mode: "${mode}", aggressiveness: "balanced"`
+    : `mode: "${mode}", aggressiveness: "eager", policy: { thresholds: { guard: ${Number(thr)}, heal: ${Number(thr)} } }`);
+  text($("lab-chip"), shipped ? `${mode} · balanced · shipped gates` : `${mode} · gain margins ${Number(thr)} · eager profile (demo)`);
+  if (shipped) {
+    const what = mode === "observe" ? "defaults: observe mode and" : "gates: " + mode + " mode with";
+    const expect = mode === "observe" ? "no action: observe never changes what the app does" : "few or no actions: at the shipped gates it acts on under 8% of the cases where acting would help";
+    text($("lab-intro"), `This run uses the shipped ${what} the balanced profile, nothing overridden. Expect reports, and ${expect}. Keep this tab in front: the model loads at idle and the stock poll pauses while the tab is hidden.`);
+    const alt = $("lab-alt");
+    if (alt) { alt.href = "/#lab"; alt.textContent = "back to the demo setting (guard, margins 0)"; }
+  }
 
   // ---------- status ----------
   let ready = false;

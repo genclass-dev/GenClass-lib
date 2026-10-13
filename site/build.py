@@ -9,14 +9,17 @@ TODAY = datetime.date.today().isoformat()
 GH = "https://github.com/genclass-dev/GenClass-lib"
 NPM = "https://www.npmjs.com/package/@genclass/runtime"
 RT = "0.2.1"  # the pinned @genclass/runtime version shown on the site; "{{rt}}" in src/ renders as this
+MODEL = "0.2.0"  # the model package the pinned runtime loads
+CONTACT = "mehar@daybot.ca"  # the contact in SECURITY.md; GitHub issues and discussions are not enabled on the repo
+HEADLINE = "Catch the bugs that never throw. Then stop them."  # the one line: H1, og.png, og:image:alt
 
 css = (SRC / "css/base.css").read_text() + "\n" + (SRC / "css/components.css").read_text()
 (PUB / "styles.css").write_text(css)
 CSSV = hashlib.sha1(css.encode()).hexdigest()[:8]
 JSV = hashlib.sha1((PUB / "app.js").read_bytes()).hexdigest()[:8]
 
-NAV = [("Cloud", "/cloud", "cloud"), ("Enterprise", "/enterprise", "enterprise"), ("Pricing", "/pricing", "pricing"),
-       ("Docs", "/docs", "docs"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides")]
+# Cloud, Enterprise and Pricing are planned products with no customers yet: reachable from the footer, not the top nav.
+NAV = [("Docs", "/docs", "docs"), ("How it works", "/how-it-works", "how"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides")]
 
 def nav(active):
     links = "".join(f'<a href="{h}"{" class=\"on\" aria-current=\"page\"" if k == active else ""}>{t}</a>' for t, h, k in NAV)
@@ -34,16 +37,16 @@ def nav(active):
 FOOTER = f'''<footer class="end">
   <div class="wrap">
     <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Free to run. Built to scale.</h2>
+    <h2>Add one line and read what it reports.</h2>
     <div class="row">
       <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn green" href="/cloud#early-access">Join Cloud early access</a>
+      <a class="btn ghost" href="{GH}">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/cloud">GenClass Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a></div>
-      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="{GH}">GitHub</a><a href="{NPM}">npm</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="{GH}">GitHub</a><a href="{NPM}">npm</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="{GH}/blob/main/LICENSE">License (Apache-2.0)</a><a href="{GH}/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="mailto:{CONTACT}?subject=GenClass%20false%20detection">Report a false detection</a><a href="{GH}/blob/main/LICENSE">License (Apache-2.0)</a><a href="{GH}/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
@@ -88,15 +91,15 @@ def page(meta, body):
 <meta property="og:url" content="{url}">
 <meta property="og:title" content="{meta.get("og_title", title)}">
 <meta property="og:description" content="{desc}">
-<meta property="og:image" content="{SITE}/og.png?v=4">
+<meta property="og:image" content="{SITE}/og.png?v=5">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="GenClass: catch race conditions and stale data in production">
+<meta property="og:image:alt" content="GenClass: {HEADLINE}">
 <meta property="og:locale" content="en_US">
 {extra}<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{meta.get("og_title", title)}">
 <meta name="twitter:description" content="{desc}">
-<meta name="twitter:image" content="{SITE}/og.png?v=4">
+<meta name="twitter:image" content="{SITE}/og.png?v=5">
 <link rel="icon" href="/brand/mark-32.png?v=2" sizes="32x32" type="image/png">
 <link rel="icon" href="/brand/mark-64.png?v=2" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -132,7 +135,7 @@ ICONS = {
 def dashboard():
     side = "".join(f'<button type="button" data-view="{k}" aria-current="{"true" if k == "overview" else "false"}"><svg viewBox="0 0 24 24" aria-hidden="true">{p}</svg>{k.capitalize()}</button>' for k, p in ICONS.items())
     return f'''<div class="app" data-app>
-  <div class="app-top"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="url">app.genclass.dev / acme / storefront-web</span><span class="badge n sample">Preview · sample data</span></div>
+  <div class="app-top"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="url">app.genclass.dev / acme / storefront-web</span><span class="badge n sample">Mock-up · sample data</span></div>
   <div class="app-body">
     <div class="app-side" role="tablist" aria-label="GenClass Cloud sections">
       <div class="proj"><img src="/brand/mark-64.png?v=2" alt="" width="26" height="26"><div><b>storefront-web</b><span>production</span></div></div>
@@ -213,7 +216,7 @@ def dashboard():
       </div>
     </div>
   </div>
-  <p class="app-note">Product preview with sample data. GenClass Cloud is not available yet; figures here illustrate the planned dashboard and are not customer results.</p>
+  <p class="app-note">Mock-up with sample data. GenClass Cloud is not available and has no customers; every figure here is invented to show the planned layout and is not a measurement.</p>
 </div>'''
 
 def waitlist(plan, heading, text):
@@ -232,9 +235,14 @@ def waitlist(plan, heading, text):
   </form>
 </div>'''
 
+def planned(what):
+    return (f'<p class="notice planned"><b>Planned.</b> No customers yet; we are looking for design partners. '
+            f'{what} is not available; the open-source runtime is what ships today.</p>')
+
 def blocks(s):
     s = s.replace("<!--@dashboard-->", dashboard())
     s = re.sub(r'<!--@waitlist (\w+) "([^"]*)" "([^"]*)"-->', lambda m: waitlist(m.group(1), m.group(2), m.group(3)), s)
+    s = re.sub(r'<!--@planned ([^-]+?)-->', lambda m: planned(m.group(1).strip()), s)
     for name in ("trace", "demo", "figs", "data", "status", "how", "lab"):
         p = SRC / "partials" / f"{name}.html"
         if p.exists(): s = s.replace(f"<!--@{name}-->", p.read_text())
@@ -323,4 +331,45 @@ for p, pr in sorted(urls, key=lambda x: -float(x[1])):
     sm.append(f"  <url><loc>{SITE}{p}</loc><lastmod>{TODAY}</lastmod><priority>{pr}</priority></url>")
 sm.append("</urlset>")
 (PUB / "sitemap.xml").write_text("\n".join(sm) + "\n")
+
+# ---------- llms.txt: generated here so the version and the numbers cannot drift from the pages ----------
+# Sources: docs/runtime/RESULTS.md (model numbers), compat/RESULTS.md (matrix), packages/runtime/README.md (costs, telemetry).
+LLMS = f"""# GenClass
+
+> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. GenClass Cloud and GenClass Enterprise are planned paid products with no customers yet.
+
+## Shipped
+- `@genclass/runtime` {RT} with `@genclass/runtime-model` {MODEL} (training run r17-v2dT). Default mode observe, default aggressiveness "balanced", report threshold 0.90.
+- Install: `npm install @genclass/runtime`, then `import "@genclass/runtime/auto"` as the first line of the entry file. CLI: `npx @genclass/runtime init`. Script tag, first in <head>: `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@{RT}"></script>` (pin the version: the unversioned URL may serve an older release from the CDN cache).
+- Modes: observe (default; changes nothing), guard (opt-in: discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync).
+- Cost: +98 KB of JavaScript on first load; about 13 MB downloaded once at idle on WASM (18 MB on WebGPU), then cached; 190 to 280 MB of memory in a Web Worker while the model is loaded; no device floor by default (`model.loadIf` sets one; `model: false` installs no model and then detects nothing).
+- Telemetry: anonymous diagnostics are on by default on public hosts and off on localhost and private hosts; they contain no page text. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
+- Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging, Sentry or PostHog.
+
+## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
+- Model {MODEL} at the shipped setting (balanced), held-out real apps: detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state; guard acts on 7.5% of the cases where acting would help.
+- False interventions, model {MODEL}, held-out simulated apps: guard 0.005% / 0.13% / 0.54% and heal 0.26% / 0.59% / 1.84% for cautious / balanced / eager (targets 0.1% guard, 0.5% heal: cautious meets both, balanced is slightly over). 0.00% on held-out real apps at every profile.
+- Compatibility matrix (runtime 0.1.0-beta.4, the code shipped as {RT}; model {MODEL}, balanced; run 2026-10-10): 7 frameworks, 15 data layers, 8 scenarios, 10 seeds, every mode. 350 of 351 cells pass; 0 bugs introduced in 3,510 runs; 0 non-passive actions on correct apps in 1,760 guard and heal runs; guard left 249 of 250 latent-bug runs buggy; observe mode produced 49 false findings in 880 runs on correct apps. https://genclass.dev/docs/compatibility
+- Never-worse check: 0 of 396 clean real-app runs changed (66 apps × 6 seeds, always-passive model, v2 runtime as of 0.1.0-alpha.1; not re-run on {RT}).
+- Six demo apps under network chaos, model {MODEL}, balanced: bug rate 72% with GenClass off, 70% observe, 72% guard, 73% heal. Nothing is healed at the shipped gates.
+- Previous model 0.1.0 (r17-v2b), observe mode at report threshold 0.70: 96% detection precision on 16,600 held-out real-app situations, 0.62% false detections on clean traffic. Not re-measured for {MODEL}.
+- Model: 8.8M parameters, 10.2 MB q8, about 180 ms per decision on one WASM thread (182 ms for the shipped export), faster on WebGPU.
+- Training data: about 17.6M labelled runtime situations, including 837,623 real-browser rows from 158 apps.
+
+## Planned, no customers yet
+- GenClass Cloud (a dashboard across apps) and GenClass Enterprise: https://genclass.dev/cloud, https://genclass.dev/enterprise, https://genclass.dev/pricing
+
+## Guides
+- How to fix race conditions in React data fetching: https://genclass.dev/guides/race-conditions-react
+- Out-of-order responses and stale search results: https://genclass.dev/guides/stale-responses-out-of-order
+- How to prevent duplicate form submissions: https://genclass.dev/guides/prevent-duplicate-submissions
+
+## Links
+- Docs: https://genclass.dev/docs
+- How it works: https://genclass.dev/how-it-works
+- GitHub: {GH}
+- npm: {NPM}
+- Contact (GitHub issues are not enabled): {CONTACT}
+"""
+(PUB / "llms.txt").write_text(LLMS)
 print("built", len(urls), "indexable pages:", ", ".join(p for p, _ in urls))
