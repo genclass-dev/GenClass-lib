@@ -432,8 +432,11 @@ class Devtools {
         /* runtime without this event */
       }
     };
-    on("decide", (d) => this.addDecision(d));
-    on("detect", (d) => this.addDet(d, true));
+    // detections from their decisions: the "detect" event carries possible ones only when the app asked for them
+    on("decide", (d) => {
+      this.addDecision(d);
+      if (d.detection) this.addDet(d, true);
+    });
     on("act", (a) => this.addAct(a, true));
     on("report", (r) => this.addReport(r));
     on("event", (e) => this.addEvent(e));
@@ -459,7 +462,7 @@ class Devtools {
       this.seen(d.at);
     }
     for (const a of safe(() => this.rt.interventions(MAX_CARDS), [] as ActionRecord[]).slice().sort((x, y) => x.at - y.at)) this.addAct(a, false);
-    // the tier the runtime recorded with the gates it decided with: the same detections the "detect" event carried
+    // the tier the runtime recorded with the gates it decided with: the same detections the console and telemetry reported
     for (const d of decs) {
       if (d.detection) this.addDet(d, false);
     }
@@ -542,7 +545,8 @@ class Devtools {
     }
     bound(this.dets, MAX_CARDS, (e) => e.el?.remove());
     bound(this.detOf, 1000);
-    if (live) this.notify("d");
+    // a possible detection is a secondary card: no pulse, not counted as unseen
+    if (live && d.detection !== "possible") this.notify("d");
     this.mark(LISTS);
   }
 

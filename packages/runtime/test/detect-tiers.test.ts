@@ -1,8 +1,9 @@
 // Detection tiers (CONTRACT §8, InitOptions.detect): in observe, a top diagnosis other than `expected` is "likely" at
 // or above the report gate (the aggressiveness profile's value from the model meta) and "possible" at or above the
-// eager profile's report value but below it. Possible ones print with console.debug and "(possible)", reach the
-// "detect" event, reports, explain(), the summary and telemetry with their tier, and sinks only on request. Guard and
-// heal keep their gates: the tiers are reporting only.
+// eager profile's report value but below it. Possible ones print with console.debug and "(possible)", reach
+// explain(), the devtools, the summary and telemetry with their tier, and the "detect" event, "report" listeners, a
+// report function and sinks only on request (detect: "possible" for the first three, possible: true for a sink).
+// Guard and heal keep their gates: the tiers are reporting only.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { detectionTier, possibleGate } from "../src/decide/policy.js";
 import type { Answer, Detection, EvaluateRequest, ModelGate, ModelStatus, Report, SinkRecord, TelemetryTransport } from "../src/types.js";
@@ -61,25 +62,28 @@ describe("detection tiers: likely and possible (CONTRACT §8, InitOptions.detect
     expect(possibleGate({ profiles: { balanced: { report: 0.9 } } }, 0.9)).toBeUndefined(); // no eager profile
   });
 
-  it("observe (default): 0.80 is a possible detection, 0.95 a likely one, 0.60 nothing; both reach the detect event with their tier", async () => {
+  it("observe (default): 0.80 is a possible detection, 0.95 a likely one, 0.60 nothing; the detect event and a report function get the likely one", async () => {
     const t = tiers();
     expect(t.rt.gates()).toMatchObject({ report: 0.9, possible: 0.7, mode: "observe" });
+    const listened: string[] = [];
+    t.rt.on("report", (r) => void (r.kind === "detect" && listened.push(r.decision!.detection!)));
+    const decided: string[] = [];
+    t.rt.on("decide", (d) => void decided.push(d.detection ?? "-"));
     await t.write(0.8);
     await t.write(0.95);
     await t.write(0.6);
     expect(t.rt.decisions().map((d) => d.detection)).toEqual(["possible", "likely", undefined]);
-    expect(t.detections.map((d) => d.detection)).toEqual(["possible", "likely"]);
-    expect(t.reports.map((r) => [r.kind, r.decision?.detection])).toEqual([
-      ["detect", "possible"],
-      ["detect", "likely"],
-    ]);
-    // the same line format; possible ones end in "(possible)"
-    expect(t.reports[0].message).toMatch(/^\[GenClass\] Flagged a stale write: .* \(stale, 0\.80\) \(possible\)$/);
-    expect(t.reports[1].message).toMatch(/^\[GenClass\] Flagged a stale write: .* \(stale, 0\.95\)$/);
-    // explain() uses the tier recorded at decision time
+    // as in 0.2.x, what an app wired to rt.on("detect"), rt.on("report") or report: fn receives is the likely ones;
+    // every decision, with its tier, is on "decide"
+    expect(t.detections.map((d) => d.detection)).toEqual(["likely"]);
+    expect(listened).toEqual(["likely"]);
+    expect(decided).toEqual(["possible", "likely", "-"]);
+    expect(t.reports.map((r) => [r.kind, r.decision?.detection])).toEqual([["detect", "likely"]]);
+    expect(t.reports[0].message).toMatch(/^\[GenClass\] Flagged a stale write: .* \(stale, 0\.95\)$/);
+    // explain() uses the tier recorded at decision time: the same line format, possible ones end in "(possible)"
     const [d1, d2, d3] = t.rt.decisions();
-    expect(t.rt.explain(d1.id)!.message).toBe(t.reports[0].message);
-    expect(t.rt.explain(d2.id)!.message).toBe(t.reports[1].message);
+    expect(t.rt.explain(d1.id)!.message).toMatch(/^\[GenClass\] Flagged a stale write: .* \(stale, 0\.80\) \(possible\)$/);
+    expect(t.rt.explain(d2.id)!.message).toBe(t.reports[0].message);
     expect(t.rt.explain(d3.id)!.message).toMatch(/^\[GenClass\] Checked /);
     expect(t.rt.explain(d1.id)!.gates).toMatchObject({ report: 0.9, possible: 0.7 });
     // summary counts per tier
@@ -110,6 +114,29 @@ describe("detection tiers: likely and possible (CONTRACT §8, InitOptions.detect
     await t.write(0.75);
     await t.clock.advance(61_000);
     expect(debug.mock.calls.map((c) => String(c[0])).filter((l) => l.includes("more in the last minute"))).toHaveLength(1);
+  });
+
+  it('detect: "possible" set explicitly: possible detections reach the detect event, "report" listeners and a report function too', async () => {
+    const t = tiers({ detect: "possible" });
+    const listened: string[] = [];
+    t.rt.on("report", (r) => void (r.kind === "detect" && listened.push(r.decision!.detection!)));
+    await t.write(0.8);
+    await t.write(0.95);
+    expect(t.detections.map((d) => d.detection)).toEqual(["possible", "likely"]);
+    expect(listened).toEqual(["possible", "likely"]);
+    expect(t.reports.map((r) => [r.kind, r.decision?.detection])).toEqual([
+      ["detect", "possible"],
+      ["detect", "likely"],
+    ]);
+    expect(t.reports[0].message).toMatch(/^\[GenClass\] Flagged a stale write: .* \(stale, 0\.80\) \(possible\)$/);
+    expect(t.rt.explain(t.rt.decisions()[0].id)!.message).toBe(t.reports[0].message);
+    // report: "interventions" (listeners only for detections) follows the same rule
+    const u = tiers({ report: "interventions" });
+    const heard: string[] = [];
+    u.rt.on("report", (r) => void (r.kind === "detect" && heard.push(r.decision!.detection!)));
+    await u.write(0.8);
+    await u.write(0.95);
+    expect(heard).toEqual(["likely"]);
   });
 
   it('detect: "likely" turns the possible tier off; so does an explicit policy.thresholds.report', async () => {
@@ -146,7 +173,9 @@ describe("detection tiers: likely and possible (CONTRACT §8, InitOptions.detect
     const t = tiers({ mode: "guard", routes: [{ match: "/search", mode: "observe" }] });
     expect(t.rt.gates()).toMatchObject({ mode: "observe", possible: 0.7 });
     await t.write(0.8);
-    expect(t.detections.map((d) => d.detection)).toEqual(["possible"]);
+    expect(t.rt.decisions().map((d) => d.detection)).toEqual(["possible"]);
+    expect(t.rt.summary().possibleDetections).toEqual({ stale: 1 });
+    expect(t.detections).toEqual([]); // not asked for explicitly
   });
 
   it("without gate profiles (no lower eager report value) there is no possible tier", async () => {
@@ -154,7 +183,7 @@ describe("detection tiers: likely and possible (CONTRACT §8, InitOptions.detect
     t.decider.status = { state: "ready", model: "m", gate: { report: 0.9 } } as ModelStatus;
     expect(t.rt.gates().possible).toBeUndefined();
     await t.write(0.8);
-    expect(t.detections).toEqual([]);
+    expect(t.rt.decisions()[0].detection).toBeUndefined();
   });
 
   it("sinks get likely detections by default and possible ones with possible: true", async () => {

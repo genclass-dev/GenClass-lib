@@ -475,9 +475,11 @@ export interface ModelOptions {
   /** Model evaluations per sliding minute (default 30; Infinity disables). Over it, decisions fail open. */
   maxDecisionsPerMinute?: number;
   /**
-   * Tear the model down after this long without an evaluation (default false); the next salient situation reloads it
-   * from cache (OPTIONS-SPEC §4.18; in observe that situation is decided once the model is back, elsewhere it fails
-   * open). Before 0.3.0 nothing reloaded it.
+   * Tear the model down after this long without an evaluation (default false; hidden-tab time counts as idle); the
+   * next salient situation in a visible tab reloads it from cache (OPTIONS-SPEC §4.18; in observe that situation is
+   * decided once the model is back, elsewhere it fails open), as does the tab becoming visible with deferred
+   * situations waiting. Before 0.3.0 nothing reloaded it, so guard and heal stopped acting for good; now they act
+   * again after the reload.
    */
   unloadAfterIdleMs?: number | false;
 }
@@ -611,7 +613,8 @@ export interface SinkObject {
   evidence?: boolean;
   /**
    * Also receive "possible" detections (observe's lower tier: `SinkRecord.detection` "possible"; InitOptions.detect).
-   * Default false: a sink gets the likely ones only, as before 0.3.0. A plain function sink never gets possible ones.
+   * Default false: a sink gets the likely ones only, as before 0.3.0. A plain function sink never gets possible ones
+   * (`detect: "possible"` does not change what sinks get).
    */
   possible?: boolean;
   flush?(): Promise<void>;
@@ -807,11 +810,14 @@ export interface InitOptions {
    * report gate (`gates().report`: the aggressiveness profile's report value from the model's meta gate, 0.90 at
    * balanced with model 0.2.0, or `policy.thresholds.report`). "possible": also those at or above the eager profile's
    * report value (0.70 with model 0.2.0) and below the report gate, as `Decision.detection` "possible": a
-   * `console.debug` line ending in "(possible)" (hidden at Chrome's default console level), the "detect" event and
-   * reports with that tier, a secondary card in the devtools, `summary().possibleDetections`, the telemetry `detect`
-   * event with `tier: "possible"`, and sinks that set `possible: true`. Default: "possible" where the subject's
-   * effective mode is observe and `policy.thresholds.report` is not set, else "likely". Reporting only: no action
-   * gate changes, so guard and heal act exactly as before.
+   * `console.debug` line ending in "(possible)" (hidden at Chrome's default console level), a secondary card in the
+   * devtools, `summary().possibleDetections`, the telemetry `detect` event with `tier: "possible"`, and sinks that set
+   * `possible: true`. Default: "possible" where the subject's effective mode is observe and `policy.thresholds.report`
+   * is not set, else "likely". Possible detections reach the "detect" event, "report" listeners and a `report`
+   * function only when `detect: "possible"` is set explicitly (by default those get the likely ones, as in 0.2.x).
+   * Where the possible tier is in force in observe, situations raised while the model loads or the tab is hidden are
+   * kept and decided later, reported at the possible tier at most (OPTIONS-SPEC §5.3); "likely" skips them, as 0.2.x
+   * did. Reporting only: no action gate changes.
    */
   detect?: "likely" | "possible";
   policy?: PolicyOptions;
@@ -1075,9 +1081,10 @@ export interface TelemetryOptions {
 export interface TelemetryTransport {
   /**
    * `beacon`: the page is going away (pagehide / hidden); prefer navigator.sendBeacon. Reject to report a failed
-   * request: an error whose `status` is 429, or that carries `retryAfterMs` (a Retry-After header, in ms), is a
-   * back-off (the batch is queued again and sending pauses), never one of the failures that stop telemetry; any other
-   * rejection (a network error, a 5xx) counts as a failure.
+   * request: an error whose `status` is 429, or 503 with `retryAfterMs` (a Retry-After header, in ms), is a back-off
+   * (the batch is queued again and sending pauses for 30 s doubling per back-off in a row, or the Retry-After when it
+   * is longer, at most 5 min); after 8 back-offs in a row a refusal counts as a failure. Any other rejection (a network
+   * error, another status) counts as a failure; three in a row stop telemetry for the page.
    */
   send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown>;
 }
@@ -1250,8 +1257,8 @@ export interface Decision {
   fn?: string;
   /**
    * Set when this decision is a detection: "likely" (top diagnosis not `expected`, probability ≥ the report gate) or
-   * "possible" (≥ the possible gate, below the report gate; InitOptions.detect). `explain()`, the console line and the
-   * devtools read it, so they always agree with the "detect" event.
+   * "possible" (≥ the possible gate, below the report gate; InitOptions.detect; also any detection decided late from a
+   * deferred situation, OPTIONS-SPEC §5.3). `explain()`, the console line, the devtools and telemetry read it.
    */
   detection?: "likely" | "possible";
 }
@@ -1375,7 +1382,10 @@ export interface Plugin {
 // ---------------------------------------------------------------------------------------- runtime (§2)
 
 export interface RuntimeEvents {
-  /** A detection, likely or possible (`Decision.detection`; InitOptions.detect). */
+  /**
+   * A detection: likely ones, and possible ones only with `detect: "possible"` set explicitly (`Decision.detection`;
+   * every detection is also on "decide" with `detection` set).
+   */
   detect: Detection;
   decide: Decision;
   act: ActionRecord;

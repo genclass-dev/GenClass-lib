@@ -54,4 +54,42 @@ describe("devtools: possible detections are secondary (CONTRACT §8)", () => {
     dt.unmount();
     s.rt.destroy();
   });
+
+  it("a live possible detection is listed (from its decision: the detect event does not carry it) without the pill's detection pulse", async () => {
+    const p = { value: 0.8 };
+    const script = (req: EvaluateRequest): Record<string, Answer> => {
+      const out: Record<string, Answer> = {};
+      const dq = req.questions.diagnosis;
+      if (dq?.type === "choice") out.diagnosis = choice("stale", Object.keys(dq.criteria), p.value);
+      const aq = req.questions.action;
+      if (aq?.type === "choice") out.action = choice(Object.keys(aq.criteria)[0], Object.keys(aq.criteria), 0.97);
+      return out;
+    };
+    const s = setup({ mode: undefined, triage: "always", script });
+    s.decider.status = READY;
+    const dt = mountDevtools(s.rt, { collapsed: true });
+    const sr = dt.element!.shadowRoot!;
+    await frame();
+    const pill = sr.querySelector<HTMLElement>('[data-part="pill"]')!;
+    const a = s.rt.atom("a", 0);
+    void s.rt.op("w1", () => a.set(1)); // 0.80: possible
+    await s.clock.flush();
+    await frame();
+    expect(s.rt.decisions()[0].detection).toBe("possible");
+    expect(pill.classList.contains("pdd")).toBe(false);
+    expect(sr.querySelector(".pc.d b")?.textContent).toBe("0");
+    (pill as HTMLElement).click();
+    await frame();
+    (sr.querySelector('[data-tab="detections"]') as HTMLElement).click();
+    await frame();
+    expect(sr.querySelectorAll('[data-pane="detections"] .card.possible').length).toBe(1);
+    // a likely one pulses as before
+    p.value = 0.95;
+    const b = s.rt.atom("b", 0);
+    void s.rt.op("w2", () => b.set(1));
+    await s.clock.flush();
+    expect(pill.classList.contains("pdd")).toBe(true);
+    dt.unmount();
+    s.rt.destroy();
+  });
 });

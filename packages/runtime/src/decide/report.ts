@@ -2,7 +2,9 @@
 // the decision's facts with generic templates (reporting only, never decisions), followed by a collapsed group
 // with the evidence. Identical repeats within a minute are summarised as "×N in the last minute". A "possible"
 // detection (observe's lower tier, InitOptions.detect) is the same line ending in "(possible)", printed with
-// console.debug only (hidden at Chrome's default console level); its evidence is in explain(id).
+// console.debug only (hidden at Chrome's default console level); its evidence is in explain(id). Unless the app asked
+// for possible detections (`detect: "possible"`), the runtime emits them `quiet`: the console only, no listener and
+// no report function.
 
 import type { ActionRecord, Clock, Decision, Expectation, Explanation, Report, TriggerKind } from "../types.js";
 
@@ -141,22 +143,16 @@ export class Reporter {
     this.seen.clear();
   }
 
-  emit(r: Report): void {
-    try {
-      this.listener?.(r);
-    } catch {
-      /* listeners never break reporting */
-    }
+  /** `quiet`: the console only (a possible detection nobody asked for: no listener, no report function). */
+  emit(r: Report, quiet = false): void {
     const sink = this.sink;
-    if (sink === "silent") return;
-    if (typeof sink === "function") {
-      try {
-        sink(r);
-      } catch {
-        /* reporting never breaks the app */
-      }
-      return;
+    try {
+      if (!quiet) this.listener?.(r);
+      if (typeof sink === "function") return void (quiet || sink(r));
+    } catch {
+      /* listeners and report functions never break reporting or the app */
     }
+    if (sink === "silent" || typeof sink === "function") return;
     if (r.kind !== "status" && !this.dedupe(this.key(r.kind, r.decision, r.action, r.expectation), r)) return;
     const con = (globalThis as { console?: Console }).console;
     if (!con) return;
