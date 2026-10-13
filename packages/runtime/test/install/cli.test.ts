@@ -724,8 +724,10 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
     expect(r.code, r.out).toBe(0);
     expect(r.out).toContain("telemetry off");
     expect(readFileSync(join(dir, "src/main.js"), "utf8").split("\n").slice(0, 2)).toEqual([`import "./genclass.config"; // genclass:init`, `import genclass from "@genclass/runtime/auto"; // genclass:init`]);
+    // --telemetry takes the opt-out out (back to the default) and never writes `telemetry: true`, which would be an
+    // explicit opt-in that also sends from local hosts
     expect(cli(dir, "init", "--yes", "--no-install", "--telemetry").code).toBe(0);
-    expect(readFileSync(join(dir, "src/genclass.config.js"), "utf8")).toContain("GENCLASS_CONFIG = { telemetry: true };");
+    expect(readFileSync(join(dir, "src/genclass.config.js"), "utf8")).toContain("GENCLASS_CONFIG = {};");
     expect(cli(dir, "init", "--yes", "--no-install", "--telemetry").out).toContain("Nothing to do");
     expect(cli(dir, "remove", "--yes").code).toBe(0);
     expect(snapshot(dir)).toEqual(before);
@@ -738,7 +740,8 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
     const f = join(dir, "genclass.config.ts");
     writeFileSync(f, readFileSync(f, "utf8").replace("{ telemetry: false }", "{ telemetry: false, debug: true }"));
     cli(dir, "init", "--yes", "--no-install", "--telemetry");
-    expect(readFileSync(f, "utf8")).toContain("{ telemetry: true, debug: true }");
+    expect(readFileSync(f, "utf8")).toContain("GENCLASS_CONFIG = { debug: true };");
+    expect(readFileSync(f, "utf8")).not.toMatch(/telemetry\s*:/);
     const r = cli(dir, "remove", "--yes");
     expect(r.code, r.out).toBe(0);
     expect(snapshot(dir)).toEqual(before);
@@ -775,6 +778,17 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
     const b = roundTrip(nuxt, "--no-telemetry");
     expect(b["genclass.config.js"]).toContain("telemetry: false");
     expect(b["plugins/genclass.client.js"]).toContain(`import "../genclass.config";`);
+  });
+
+  it("a new setup with --telemetry writes no options file: it is the default, and `telemetry: true` would send from local hosts", () => {
+    const after = roundTrip(viteVue(), "--telemetry");
+    expect(Object.keys(after).some((f) => /genclass\.config/.test(f))).toBe(false);
+    expect(after["src/main.js"]).not.toContain("genclass.config");
+    const html = roundTrip(project({ "index.html": PAGE }), "--telemetry", "--no-sri");
+    expect(html["index.html"]).not.toContain("data-telemetry");
+    // with another option the file is written, without a telemetry key
+    const both = roundTrip(viteVue(), "--telemetry", "--model-url", "/m/");
+    expect(both["src/genclass.config.js"]).toContain(`globalThis.GENCLASS_CONFIG = { model: { baseUrl: "/m/", ortWasmPaths: "/m/ort/" } };`);
   });
 
   it("--telemetry with --no-telemetry is a usage error", () => {

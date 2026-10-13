@@ -53,7 +53,8 @@ no model. Use [`createRuntime`](#headless-use-tests-ssr-simulation) for headless
 `telemetry: { include: { situation: true } }`) to `DEFAULT_TELEMETRY_ENDPOINT` and prints one console notice per
 page. Off with `telemetry: false`, `?genclass=no-telemetry` (or `?genclass=off`),
 `localStorage["genclass.telemetry"] = "off"`, or Global Privacy Control; off by default on localhost and private
-hosts, outside a browser and in `createRuntime()`. Schema and details:
+hosts (`0.2.1` and `0.2.2` send from them too, by mistake; fixed in the next release), outside a browser and in
+`createRuntime()`. An explicit `telemetry: true` also sends from local hosts. Schema and details:
 [packages/runtime/TELEMETRY.md](../../packages/runtime/TELEMETRY.md).
 
 **App token and dashboard** (Unreleased: `0.2.2` ignores `token`). `token: "gc_..."` (from

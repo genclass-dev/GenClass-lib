@@ -41,8 +41,8 @@ token and has no `protect` export.
 
 > **Privacy notice: anonymous diagnostics are on by default.** `GenClass.init()` in a browser sends GenClass's
 > decisions and counts, without any text from your page, to the GenClass maintainers to improve the model; it is
-> off on `localhost` and other local hosts (from the next release: `0.2.2` sends from them too, by mistake), and the
-> situation text is sent only if you opt in. Opt out with
+> off on `localhost` and other local hosts (`0.2.1` and `0.2.2` send from them too, by mistake; fixed in the next
+> release), and the situation text is sent only if you opt in. Opt out with
 > `npx @genclass/runtime init --no-telemetry`, `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, or
 > `localStorage["genclass.telemetry"] = "off"`;
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
@@ -922,7 +922,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 ## Privacy and telemetry
 
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
-- **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (0.2.1 and 0.2.2 send from local hosts too, by mistake; fixed in the next release, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
+- **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` and `0.2.2` send from local hosts too, by mistake; fixed in the next release, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and for each decision the trigger, the diagnosis and its confidence, the action and gate, the outcome, latency and counts. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
