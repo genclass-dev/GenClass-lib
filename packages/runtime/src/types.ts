@@ -826,7 +826,10 @@ export interface LearnOptions {
   minSupport?: number;
   /** Share of observations in which a step must have occurred to be expected. Default 0.95. */
   minShare?: number;
-  /** Distinct sessions a flow must have been seen in before anything is expected of it. Default 2 (1 when persist is false). */
+  /**
+   * Distinct sessions a flow must have been seen in before anything is expected of it (for `response`: sessions on
+   * this origin, this one included). Default 2 (1 when persist is false).
+   */
   minSessions?: number;
 }
 
@@ -872,14 +875,19 @@ export interface LearnedFlow {
   route: string;
   /** e.g. 'click button "Place order"' (a label not seen this session shows as `button #<hash>`). */
   action: string;
-  /** Observations and distinct sessions. */
+  /** Observations, those that repeated the action within a page load, and distinct sessions. */
   n: number;
+  repeats: number;
   sessions: number;
   /** Time from the action to its last request's end. */
   settleMs?: { p50: number; p95: number };
-  /** Requests the action starts; `expected` once the support, share and session thresholds are met. */
-  children: { signature: string; n: number; share: number; expected: boolean; protected?: boolean; delayMs?: { p50: number; p95: number } }[];
-  /** Fields each request's response chain writes. */
+  /**
+   * Requests the action starts (`onRepeat`: of them, in repeats). `expected`: its absence is reported the first time
+   * the action happens in a page load (support, share and session thresholds met, a method that changes data, not
+   * protected); `expectedOnRepeat`: also on a repeat (the share holds among `repeats` too).
+   */
+  children: { signature: string; n: number; share: number; onRepeat: number; expected: boolean; expectedOnRepeat: boolean; protected?: boolean; delayMs?: { p50: number; p95: number } }[];
+  /** Fields each request's response handler writes (a refetch's writes are the refetch's). */
   writes: { signature: string; field: string; n: number; of: number; share: number; expected: boolean }[];
   /** Requests that start after another one of the flow completes. */
   followUps: { after: string; then: string; n: number; of: number; share: number; expected: boolean; delayMs?: { p50: number; p95: number } }[];

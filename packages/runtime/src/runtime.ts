@@ -57,6 +57,7 @@ import type {
   AuditModel,
   Expectation,
   Learned,
+  LearnedFlow,
 } from "./types.js";
 import { AuditLog, type AuditDraft } from "./decide/audit.js";
 import { expandPresets } from "./presets.js";
@@ -411,6 +412,8 @@ export class RuntimeImpl implements Runtime {
         clearTimeout: (h) => this.clock.clearTimeout(h),
         hidden: () => this.hidden(),
         online: () => this.online(),
+        quiet: () => this.paused,
+        startedSince: (sig, t) => this.startedSince(sig, t),
         report: (e) => this.emitExpectation(e),
         changed: () => {
           if (this.persist) this.saveProfilesSoon();
@@ -492,6 +495,10 @@ export class RuntimeImpl implements Runtime {
       discarded: () => this.scheduleSettle(),
       proposed: (m) => {
         if (this.deliveryAnalysis.size) this.finalizeDeliveries(m.cause);
+        // flow expectations: a response handler that wrote (even an unchanged value, or a write GenClass then held or
+        // dropped) handled its response; the fields it changed are added when the write applies
+        const by = m.cause;
+        if (by && !m.genclass && this.flows.isOpen(by.root)) this.flow((f) => f.onWrite(by, [by, ...this.ops.ancestors(by, 8)], []));
         try {
           const h: { id: number; store: string; paths: string[]; cause?: number; changes: ReturnType<typeof toChanges> } = {
             id: m.id,
@@ -537,12 +544,15 @@ export class RuntimeImpl implements Runtime {
     if (typeof g.addEventListener === "function") {
       let sent = false;
       const end = () => {
+        this.flushLearn();
         if (sent) return;
         sent = true;
         this.emitSummary();
       };
       const vis = () => {
-        if (this.hidden()) end();
+        if (!this.hidden()) return;
+        this.flow((f) => f.onHidden());
+        end();
       };
       try {
         g.addEventListener("pagehide", end);
@@ -949,13 +959,15 @@ export class RuntimeImpl implements Runtime {
 
   learned(): Learned {
     const route = this.currentRoute();
-    return {
-      route: flowRoute(route),
-      session: this.flows.session,
-      flows: this.flows.learned(route),
-      deviations: [...this.flows.deviations],
-      relations: this.miner.learned().map(({ text, held }) => ({ text, held })),
-    };
+    let flows: LearnedFlow[] = [];
+    let relations: Learned["relations"] = [];
+    try {
+      flows = this.flows.learned(route);
+      relations = this.miner.learned().map(({ text, held }) => ({ text, held }));
+    } catch (e) {
+      this.log("learned() failed", e);
+    }
+    return { route: flowRoute(route), session: this.flows.session, flows, deviations: [...this.flows.deviations], relations };
   }
 
   get learn(): { clear(): void } {
@@ -1044,7 +1056,10 @@ export class RuntimeImpl implements Runtime {
         installNav(g, this, (route) => {
           this.events.push(this.clock.now(), "nav", route, { data: { route } });
           this.computeScope();
-          this.flows.onNav(route);
+          // the flow whose causal chain navigated (peek: a lazy timer op is not materialised for this)
+          const amb = this.ctx.peek();
+          const near = amb instanceof LazyOp ? amb.nearest : amb;
+          this.flow((f) => f.onNav(route, near ? near.root ?? near.id : undefined));
         }),
       );
     if (on("storage")) tryAdd("storage", () => installStorage(g, (area, op, key) => this.onStorage(area, op, key)));
@@ -1273,8 +1288,8 @@ export class RuntimeImpl implements Runtime {
     if (op.instant && PROFILED.has(kind) && !op.genclass) this.queueProfile(op);
     // flow expectations: a user action opens a flow; the requests under it are its steps
     if (this.enabledState === "on" && !op.genclass) {
-      if (kind === "user") this.flows.onUser(op);
-      else if ((kind === "fetch" || kind === "xhr") && op.root !== op.id) this.flows.onChild(op);
+      if (kind === "user") this.flow((f) => f.onUser(op));
+      else if ((kind === "fetch" || kind === "xhr") && op.root !== op.id) this.flow((f) => f.onChild(op));
     }
     try {
       this.hooks.opCreated?.(op);
@@ -1304,7 +1319,7 @@ export class RuntimeImpl implements Runtime {
       }
     }
     if (PROFILED.has(op.kind) && !op.genclass && status !== "aborted" && !o.synthetic) this.queueProfile(op);
-    if ((op.kind === "fetch" || op.kind === "xhr") && !op.genclass) this.flows.onChildEnd(op);
+    if ((op.kind === "fetch" || op.kind === "xhr") && !op.genclass) this.flow((f) => f.onChildEnd(op));
     this.scheduleSettle();
   }
 
@@ -2531,9 +2546,10 @@ export class RuntimeImpl implements Runtime {
       } catch (e) {
         this.log("marking writes failed", e);
       }
-      // flow expectations: which requests of the flow wrote these fields (normalised like transition profiles)
-      const fields = changes.filter((c) => !!c.afterLeaf).map((c) => normalizeFieldPath(c.path));
-      if (fields.length) this.flows.onWrite(writer, [writer, ...this.ops.ancestors(writer, 8)], fields);
+      // flow expectations: which part of the flow (the action's handler, or a response's) wrote these fields
+      // (normalised like transition profiles)
+      const fields = this.flows.isOpen(writer.root) ? changes.filter((c) => !!c.afterLeaf).map((c) => normalizeFieldPath(c.path)) : [];
+      if (fields.length) this.flow((f) => f.onWrite(writer, [writer, ...this.ops.ancestors(writer, 8)], fields));
     }
     this.miner.noteChanged(changes.map((c) => c.path));
     this.miner.noteValues(changes.map((c) => [c.path, c.afterLeaf] as [string, Leaf | undefined]));
@@ -2767,8 +2783,8 @@ export class RuntimeImpl implements Runtime {
       this.trigger({ trigger: "stall", op, req }, ctl(), { hold: false, priority: 1 });
       if (bound === null) return;
       const left = op.start + bound - this.clock.now();
-      if (left <= 0) this.expectResponse(op, bound);
-      else h2 = this.clock.setTimeout(() => this.expectResponse(op, bound), left);
+      if (left <= 0) this.flow(() => this.expectResponse(op, bound));
+      else h2 = this.clock.setTimeout(() => this.flow(() => this.expectResponse(op, bound)), left);
     }, at);
     return () => {
       this.clock.clearTimeout(h);
@@ -2778,12 +2794,13 @@ export class RuntimeImpl implements Runtime {
 
   /**
    * The learned response bound of a signature: max(2 × p99 of its recent latencies, 1 s) once at least
-   * learn.minSupport completions were timed and at least learn.minShare of its recent outcomes answered; null otherwise.
+   * learn.minSupport completions were timed and at least learn.minShare of its recent outcomes answered, and this
+   * origin has been seen in learn.minSessions sessions (this one included); null otherwise.
    */
   private responseDeadline(sig: string): number | null {
-    if (!this.flows.enabled) return null;
-    const s = this.base.stats(sig);
     const cfg = this.flows.cfg;
+    if (!this.flows.enabled || this.flows.session < cfg.minSessions) return null;
+    const s = this.base.stats(sig);
     if (!s || s.lat.length < cfg.minSupport) return null;
     const fc = this.base.failureCounts(sig);
     if (fc.of < cfg.minSupport || (fc.of - fc.failed) / fc.of < cfg.minShare) return null;
@@ -2792,7 +2809,7 @@ export class RuntimeImpl implements Runtime {
 
   /** The request is still in flight past its learned bound: one `expectation` report (kind "response"). */
   private expectResponse(op: OpRec, bound: number): void {
-    if (op.end !== undefined || this.destroyed || op.genclass || op.scope?.protected || this.hidden() || this.online() === false) return;
+    if (op.end !== undefined || this.destroyed || this.paused || op.genclass || op.scope?.protected || this.hidden() || this.online() === false) return;
     const s = this.base.stats(op.name);
     if (!s) return;
     const fc = this.base.failureCounts(op.name);
@@ -2814,6 +2831,23 @@ export class RuntimeImpl implements Runtime {
       at: now,
       message: `[GenClass] Expected a response: ${op.name} usually answers within ${fmtSec(p99)} (p99 of the last ${s.lat.length}; ${answered} of ${fc.of} recent requests answered); this one has been waiting ${fmtSec(waited)} (bound ${fmtSec(bound)}).`,
     });
+  }
+
+  /** Flow expectations are reporting only: whatever goes wrong in them never reaches the app's call. */
+  private flow(fn: (f: FlowProfiles) => void): void {
+    try {
+      fn(this.flows);
+    } catch (e) {
+      this.log("flow expectations failed", e);
+    }
+  }
+
+  /** A request with this signature (not GenClass's own) is in flight, or started at or after `t`, whatever caused it. */
+  private startedSince(sig: string, t: number): boolean {
+    const st = this.base.stats(sig)?.starts;
+    if (st?.length && st[st.length - 1] >= t) return true;
+    for (const op of this.ops.inFlight) if (op.name === sig && !op.genclass && (op.kind === "fetch" || op.kind === "xhr")) return true;
+    return false;
   }
 
   /** An expectation report: the `expectation` event, then the report path (console, listeners, sinks). */
@@ -3488,33 +3522,60 @@ export class RuntimeImpl implements Runtime {
     if (this.persistTimer !== null || this.destroyed || !this.storage(this.learnStore ?? "local")) return;
     this.persistTimer = this.clock.setTimeout(() => {
       this.persistTimer = null;
-      const st = this.storage(this.learnStore ?? "local");
-      const json = st ? this.serializeLearn() : null;
-      if (!st || json === null) return;
-      this.selfStorage = true;
-      try {
-        st.setItem(this.learnKey, json);
-      } catch {
-        /* quota or privacy mode */
-      } finally {
-        this.selfStorage = false;
-      }
+      this.writeLearn();
     }, 5000);
+  }
+
+  /** A pending save runs now (the page is hidden or unloading: the 5 s timer may never fire). */
+  private flushLearn(): void {
+    if (this.persistTimer === null) return;
+    this.clock.clearTimeout(this.persistTimer);
+    this.persistTimer = null;
+    this.writeLearn();
+  }
+
+  private writeLearn(): void {
+    const st = this.storage(this.learnStore ?? "local");
+    const json = st ? this.serializeLearn() : null;
+    if (!st || json === null) return;
+    this.selfStorage = true;
+    try {
+      st.setItem(this.learnKey, json);
+    } catch {
+      /* quota or privacy mode */
+    } finally {
+      this.selfStorage = false;
+    }
   }
 
   /**
    * The learned state as stored (version, sessions, profiles with hashed user-action signatures, flows without
-   * labels), trimmed to learn.maxBytes by dropping the least-used flows and the smallest profiles; null when it
-   * cannot be made to fit.
+   * labels), within learn.maxBytes: the most-used flows and the profiles with the most completions are kept, taken
+   * in turn. Only the stored copy is trimmed; what is in memory stays as it is.
    */
   private serializeLearn(): string | null {
-    for (let i = 0; i < 12; i++) {
-      const json = JSON.stringify({ version: this.learnVersion, sessions: this.flows.session, profiles: this.profiles.toJSON(), flows: this.flows.toJSON() });
-      if (json.length <= this.learnMaxBytes) return json;
-      const dropped = this.flows.dropLeastUsed(Math.max(1, Math.ceil(this.flows.byKey.size / 10))) + this.profiles.dropLeast(Math.max(1, Math.ceil(this.profiles.bySig.size / 10)));
-      if (!dropped) return null;
+    const head = `{${this.learnVersion !== undefined ? `"version":${JSON.stringify(this.learnVersion)},` : ""}"sessions":${this.flows.session},`;
+    let left = this.learnMaxBytes - head.length - '"profiles":[],"flows":[]}'.length;
+    if (left < 0) return null;
+    const lists = [
+      this.flows.toJSON().sort((a, b) => b.used - a.used).map((f) => JSON.stringify(f)),
+      this.profiles.toJSON().sort((a, b) => b.n - a.n).map((p) => JSON.stringify(p)),
+    ];
+    const keep: string[][] = [[], []];
+    const at = [0, 0];
+    const open = [true, true];
+    for (let turn = 0; open[0] || open[1]; turn = 1 - turn) {
+      if (!open[turn]) continue;
+      const item = lists[turn][at[turn]++];
+      const cost = item === undefined ? Infinity : item.length + (keep[turn].length ? 1 : 0);
+      if (cost > left) {
+        open[turn] = false;
+        continue;
+      }
+      keep[turn].push(item);
+      left -= cost;
     }
-    return null;
+    return `${head}"profiles":[${keep[1].join(",")}],"flows":[${keep[0].join(",")}]}`;
   }
 }
 

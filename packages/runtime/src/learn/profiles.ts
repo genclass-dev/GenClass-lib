@@ -186,17 +186,6 @@ export class Profiles {
     return [...this.bySig.values()].map((p) => (p.sig.startsWith(USER) ? { ...p, sig: persistedSig(p.sig) } : p));
   }
 
-  /** Drop the `k` profiles with the fewest completions (the storage size cap). Returns how many were dropped. */
-  dropLeast(k: number): number {
-    const list = [...this.bySig.values()].sort((a, b) => a.n - b.n);
-    let n = 0;
-    for (const p of list.slice(0, k)) {
-      this.bySig.delete(p.sig);
-      n++;
-    }
-    return n;
-  }
-
   load(list: unknown): void {
     if (!Array.isArray(list)) return;
     for (const p of list as Profile[]) {
