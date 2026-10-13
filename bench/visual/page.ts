@@ -63,6 +63,7 @@ interface Bench {
   shifts: { t: number; value: number }[];
   injectedAt: number | null;
   faults: FaultResult[];
+  nowTimeouts: number;
   inflight(): number;
   passes(): number;
   summary(): VisualSummary | null;
@@ -72,7 +73,7 @@ interface Bench {
   inject(kind: string, seed: number, extra?: Record<string, unknown>): FaultResult;
   truth(id: string): { ok: boolean; why: string; value?: number };
   darkSupport(): { supported: boolean | null; signals: string[] };
-  rootColors(): { html: string; body: string; color: string };
+  rootColors(): Record<string, string>;
   quietPoint(): { x: number; y: number };
   hoverTargets(max: number): { x: number; y: number }[];
 }
@@ -165,9 +166,16 @@ function boot(): void {
     summary: () => B.engine?.summary()?.visual ?? null,
     now: async () => {
       if (!B.engine) return -1;
-      await B.engine.now();
+      // a pass queues behind the one running; on a page that is never idle that can take long: 20 s at most here
+      const t = new Promise<"timeout">((res) => setTimeout(() => res("timeout"), 20_000));
+      const r = await Promise.race([B.engine.now(), t]);
+      if (r === "timeout") {
+        B.nowTimeouts++;
+        return -2;
+      }
       return B.findings.length;
     },
+    nowTimeouts: 0,
     serial: () => B.findings.map((f, i) => serial(f, i)),
     element: (i) => B.findings[i]?.element() ?? null,
     inject: (kind, seed, extra) => {
@@ -178,11 +186,7 @@ function boot(): void {
     },
     truth: (id) => truth(id, B),
     darkSupport,
-    rootColors: () => {
-      const h = getComputedStyle(document.documentElement);
-      const b = document.body ? getComputedStyle(document.body) : h;
-      return { html: h.backgroundColor, body: b.backgroundColor, color: b.color };
-    },
+    rootColors,
     quietPoint,
     hoverTargets,
   } as Bench;
@@ -296,6 +300,26 @@ function darkSupport(): { supported: boolean | null; signals: string[] } {
   }
   if (signals.length) return { supported: true, signals };
   return { supported: unreadable ? null : false, signals: unreadable ? [`${unreadable} unreadable stylesheets`] : [] };
+}
+
+/** Colours that change when a site has a dark design: the root's, and the painted background and text colour at
+ * three points of the viewport (header, centre, lower third). */
+function rootColors(): Record<string, string> {
+  const h = getComputedStyle(document.documentElement);
+  const b = document.body ? getComputedStyle(document.body) : h;
+  const out: Record<string, string> = { html: h.backgroundColor, body: b.backgroundColor, color: b.color };
+  for (const [k, fy] of [["top", 0.08], ["mid", 0.5], ["low", 0.75]] as const) {
+    let el = document.elementFromPoint(Math.floor(innerWidth / 2), Math.floor(innerHeight * fy));
+    out[`${k}Color`] = el ? getComputedStyle(el).color : "";
+    for (; el; el = el.parentElement) {
+      const c = getComputedStyle(el).backgroundColor;
+      if (c && c !== "rgba(0, 0, 0, 0)" && c !== "transparent") {
+        out[`${k}Bg`] = c;
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 /** A point over the page itself (not an inner scroller, not a fixed bar), for wheel events. */

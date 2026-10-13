@@ -34,7 +34,7 @@ export interface Win {
   PerformanceObserver?: typeof PerformanceObserver;
   CSSStyleSheet?: typeof CSSStyleSheet;
   MutationObserver?: typeof MutationObserver;
-  requestIdleCallback?: (fn: (d: { timeRemaining(): number }) => void, o?: { timeout: number }) => unknown;
+  requestIdleCallback?: (fn: (d: { timeRemaining(): number; didTimeout?: boolean }) => void, o?: { timeout: number }) => unknown;
   CSS?: { escape?(s: string): string };
 }
 

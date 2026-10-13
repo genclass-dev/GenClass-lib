@@ -477,7 +477,7 @@ export class Visual implements VisualController {
     });
   }
 
-  private idle(): Promise<{ timeRemaining(): number } | null> {
+  private idle(): Promise<{ timeRemaining(): number; didTimeout?: boolean } | null> {
     return new Promise((res) => {
       const ric = this.win.requestIdleCallback;
       if (typeof ric === "function") {
@@ -581,7 +581,10 @@ export class Visual implements VisualController {
           break;
         }
         const elapsed = this.clock.now() - t0;
-        if (elapsed >= this.cfg.budgetMs || (deadline && deadline.timeRemaining() <= 0)) break;
+        // an idle callback that fired on its 1 s timeout (a page that is never idle, for example one that animates
+        // on every frame) has no idle time left: it still gets one slice of budgetMs, or a pass would advance by one
+        // step per second (measured on a public site by bench/visual)
+        if (elapsed >= this.cfg.budgetMs || (deadline && !deadline.didTimeout && deadline.timeRemaining() <= 0)) break;
       }
       const slice = this.clock.now() - t0;
       this.account(slice);

@@ -59,6 +59,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class NotMeasured extends Error {}
 
+/** Resolves with fn's result, or with null after ms (the caller closes the context, which ends whatever hung). */
+function bounded(p, ms) {
+  let t;
+  return Promise.race([p.finally(() => clearTimeout(t)), new Promise((res) => (t = setTimeout(() => res(null), ms)))]);
+}
+const LOAD_MS = 240_000;
+
 async function ev(page, fn, arg) {
   try {
     return await page.evaluate(fn, arg);
@@ -81,8 +88,19 @@ async function pool(items, n, fn) {
   return out;
 }
 
+/**
+ * The phone identifies as a phone (Android, "Mobile"), as a real one does: sites that pick their mobile layout by user
+ * agent (an m. domain, a fixed-width desktop layout otherwise) would else be measured in their desktop layout on a
+ * phone screen. It keeps the HeadlessChrome token, so the load is not disguised as a person's browser.
+ */
+function userAgent(browser, viewport) {
+  if (viewport !== "phone") return undefined;
+  return `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/${browser.version()} Mobile Safari/537.36`;
+}
+
 async function openPage(browser, spec, o) {
-  const ctx = await browser.newContext({ ...VIEWPORTS[o.viewport], colorScheme: o.scheme ?? "light" });
+  const ua = userAgent(browser, o.viewport);
+  const ctx = await browser.newContext({ ...VIEWPORTS[o.viewport], colorScheme: o.scheme ?? "light", ...(ua ? { userAgent: ua } : {}) });
   const blocked = new Set();
   if (spec.local) await ctx.route("**/*", localRoute(blocked));
   await ctx.addInitScript(
@@ -235,12 +253,29 @@ async function collect(page, rec, crops) {
 const idOf = (spec, o) => `${spec.id.replace(/[^\w-]+/g, "_")}-${o.viewport}-${o.scheme ?? "light"}${o.throttle ? `-x${o.throttle}` : ""}${o.fault ? `-${o.fault.replace(/[^\w-]+/g, "_")}` : ""}`;
 
 async function cleanLoad(browser, spec, o) {
-  const rec = { id: idOf(spec, o), group: spec.group, page: spec.id, url: spec.url, part: o.throttle ? "cost" : "clean", viewport: o.viewport, scheme: o.scheme, throttle: o.throttle ?? 1, measured: false };
+  return guarded(cleanLoadInner, browser, spec, o, idOf(spec, o));
+}
+
+/** A load that hangs (a page that blocks its main thread, a dialog) ends after LOAD_MS as "not measured". */
+async function guarded(fn, browser, spec, o, id) {
+  const holder = {};
+  const r = await bounded(fn(browser, spec, o, holder), LOAD_MS);
+  if (r) return r;
+  await bounded(holder.ctx?.close() ?? Promise.resolve(), 15_000);
+  const rec = { ...(holder.rec ?? { id, group: spec.group, page: spec.id, viewport: o.viewport, scheme: o.scheme }), measured: false, notMeasured: `timed out after ${LOAD_MS / 1000} s`, findings: [] };
+  log(`${id}: not measured (${rec.notMeasured})`);
+  return rec;
+}
+
+async function cleanLoadInner(browser, spec, o, holder) {
+  const rec = (holder.rec = { id: idOf(spec, o), group: spec.group, page: spec.id, url: spec.url, part: o.throttle ? "cost" : "clean", viewport: o.viewport, scheme: o.scheme, throttle: o.throttle ?? 1, measured: false });
   const t0 = Date.now();
   const { ctx, page, blocked, errors } = await openPage(browser, spec, { ...o, bench: { mode: spec.local ? "guard" : "observe", fix: !!spec.local, seed: SEED } });
+  holder.ctx = ctx;
   try {
     spec.reset?.();
     await arrive(page, spec, rec, t0);
+    if (o.viewport === "desktop" && !o.throttle) rec.root = await ev(page, () => window.__gcBench.rootColors());
     if (!spec.local) await page.screenshot({ path: join(OUT, "crops", `${rec.id}-view.jpg`), type: "jpeg", quality: 55, timeout: 8000 }).then(() => (rec.view = `${rec.id}-view.jpg`), () => undefined);
     if (o.throttle) {
       await ev(page, () => window.__gcBench.now());
@@ -253,7 +288,6 @@ async function cleanLoad(browser, spec, o) {
     await collect(page, rec, !o.throttle);
     if (o.viewport === "desktop" && !o.throttle) {
       rec.dark = await ev(page, () => window.__gcBench.darkSupport());
-      rec.root = await ev(page, () => window.__gcBench.rootColors());
     }
   } catch (e) {
     rec.notMeasured = e instanceof NotMeasured ? e.message : `error: ${String(e?.message ?? e).split("\n")[0].slice(0, 300)}`;
@@ -261,7 +295,7 @@ async function cleanLoad(browser, spec, o) {
     rec.ms = Date.now() - t0;
     rec.blocked = [...blocked].slice(0, 20);
     rec.pageErrors = errors;
-    await ctx.close().catch(() => undefined);
+    await bounded(ctx.close().catch(() => undefined), 15_000);
   }
   log(`${rec.id}: ${rec.measured ? `${rec.findings.length} finding(s)${rec.findings.length ? ` [${[...new Set(rec.findings.map((f) => f.kind))].join(", ")}]` : ""}` : `not measured (${rec.notMeasured})`} ${Math.round(rec.ms / 1000)} s`);
   return rec;
@@ -331,10 +365,25 @@ function match(rec) {
 }
 
 async function faultLoad(browser, spec, o) {
-  const rec = { id: idOf(spec, o), group: spec.group, page: spec.id, url: spec.url, part: "faults", fault: o.fault, viewport: o.viewport, scheme: "light", measured: false, planted: [] };
+  return guarded(faultLoadInner, browser, spec, o, idOf(spec, o));
+}
+
+async function faultLoadInner(browser, spec, o, holder) {
+  const rec = (holder.rec = { id: idOf(spec, o), group: spec.group, page: spec.id, url: spec.url, part: "faults", fault: o.fault, viewport: o.viewport, scheme: "light", measured: false, planted: [] });
   const t0 = Date.now();
   const early = EARLY.has(o.fault) ? o.fault : undefined;
   const { ctx, page, blocked, errors } = await openPage(browser, spec, { viewport: o.viewport, scheme: "light", bench: { mode: "guard", fix: true, early, seed: SEED } });
+  holder.ctx = ctx;
+  if (o.fault === "viewport-meta-missing") {
+    // the page as served without its viewport meta tag (removing it after parsing does not change the layout width)
+    await ctx.route("**/*", async (route) => {
+      if (route.request().resourceType() !== "document") return route.fallback();
+      const r = await route.fetch();
+      const body = (await r.text()).replace(/<meta\b[^>]*name\s*=\s*["']?viewport["']?[^>]*>/gi, "");
+      const headers = Object.fromEntries(Object.entries(r.headers()).filter(([k]) => !/^(content-length|content-encoding|transfer-encoding)$/i.test(k)));
+      return route.fulfill({ status: r.status(), headers, body });
+    });
+  }
   try {
     spec.reset?.();
     await arrive(page, spec, rec, t0);
@@ -354,7 +403,7 @@ async function faultLoad(browser, spec, o) {
     rec.ms = Date.now() - t0;
     rec.blocked = [...blocked].slice(0, 20);
     rec.pageErrors = errors;
-    await ctx.close().catch(() => undefined);
+    await bounded(ctx.close().catch(() => undefined), 15_000);
   }
   const took = rec.planted.filter((p) => p.ok && p.truth?.ok);
   log(`${rec.id}: ${rec.measured ? `${took.filter((p) => p.detected).length}/${took.length} found (${rec.planted.length} planted), ${rec.collateral?.length ?? 0} other` : `not measured (${rec.notMeasured})`}`);
@@ -363,10 +412,14 @@ async function faultLoad(browser, spec, o) {
 
 /** The real integration: the page's own runtime with visual on (the stub, the chunk loaded by URL), no harness. */
 async function integrationLoad(browser, spec) {
+  return guarded((b, s, _o, h) => integrationLoadInner(b, s, h), browser, spec, { viewport: "desktop", scheme: "light" }, `${idOf(spec, { viewport: "desktop", scheme: "light" })}-integration`);
+}
+
+async function integrationLoadInner(browser, spec, holder) {
   const u = new URL(spec.url);
   u.searchParams.delete("genclass-visual");
   const s2 = { ...spec, url: u.href };
-  const rec = { id: `${idOf(spec, { viewport: "desktop", scheme: "light" })}-integration`, group: spec.group, page: spec.id, part: "integration", viewport: "desktop", scheme: "light", measured: false };
+  const rec = (holder.rec = { id: `${idOf(spec, { viewport: "desktop", scheme: "light" })}-integration`, group: spec.group, page: spec.id, part: "integration", viewport: "desktop", scheme: "light", measured: false });
   const t0 = Date.now();
   const init = () => {
     const I = (window.__gcInt = { checks: [], rt: null, firstPassAt: null });
@@ -386,6 +439,7 @@ async function integrationLoad(browser, spec) {
     });
   };
   const { ctx, page, blocked, errors } = await openPage(browser, s2, { viewport: "desktop", scheme: "light", harness: false, init });
+  holder.ctx = ctx;
   try {
     spec.reset?.();
     const resp = await page.goto(s2.url, { waitUntil: "load", timeout: spec.timeoutMs });
@@ -426,7 +480,7 @@ async function integrationLoad(browser, spec) {
     rec.ms = Date.now() - t0;
     rec.blocked = [...blocked].slice(0, 20);
     rec.pageErrors = errors;
-    await ctx.close().catch(() => undefined);
+    await bounded(ctx.close().catch(() => undefined), 15_000);
   }
   log(`${rec.id}: ${rec.measured ? `first pass at ${rec.firstPassAtMs} ms (load ${rec.loadEventMs} ms, chunk requested at ${rec.chunkRequestMs} ms), ${rec.checks.length} finding(s)` : `not measured (${rec.notMeasured})`}`);
   return rec;
@@ -449,12 +503,12 @@ async function main() {
         out.loads.push(light);
         if (light.measured) {
           out.loads.push(await cleanLoad(browser, spec, { viewport: "phone", scheme: "light" }));
-          if (light.dark?.supported !== false) {
-            const dd = await cleanLoad(browser, spec, { viewport: "desktop", scheme: "dark" });
-            dd.darkDesign = light.dark?.supported === true || (!!dd.root && JSON.stringify(dd.root) !== JSON.stringify(light.root));
-            out.loads.push(dd);
-            if (dd.darkDesign) out.loads.push(Object.assign(await cleanLoad(browser, spec, { viewport: "phone", scheme: "dark" }), { darkDesign: true }));
-          }
+          // a dark design: a prefers-color-scheme rule, a color-scheme value, or colours that differ in the dark load
+          // (sites that switch with a script and a class have no media rule to find)
+          const dd = await cleanLoad(browser, spec, { viewport: "desktop", scheme: "dark" });
+          dd.darkDesign = dd.measured && (light.dark?.supported === true || (!!dd.root && !!light.root && JSON.stringify(dd.root) !== JSON.stringify(light.root)));
+          out.loads.push(dd);
+          if (dd.darkDesign) out.loads.push(Object.assign(await cleanLoad(browser, spec, { viewport: "phone", scheme: "dark" }), { darkDesign: true }));
         }
         save();
       }

@@ -41,7 +41,10 @@ function rng(seed: number): () => number {
   };
 }
 
+/** Elements whose style a fault changed (text colour, font, outline): no other fault goes in or around them. */
 const used = new Set<Element>();
+/** Elements that received an appended span (several span faults may share one element). */
+const hosts = new Set<Element>();
 const planted = new Map<string, { el: Element; color?: string; bg?: RGBA; extra?: Record<string, unknown> }>();
 let cspAtInject = 0;
 let box: HTMLElement | null = null;
@@ -64,10 +67,21 @@ function firstText(el: Element): Text | null {
 }
 
 /** Overlaps an element already used by another fault (itself, an ancestor or a descendant). */
-function clash(el: Element): boolean {
+function clash(el: Element, spans = false): boolean {
   for (const u of used) if (u === el || u.contains(el) || el.contains(u)) return true;
+  if (!spans) for (const h of hosts) if (h === el || h.contains(el) || el.contains(h)) return true;
   return false;
 }
+
+/** A leaf-like text element: no block, list, table or control inside it. */
+function leafish(el: Element): boolean {
+  return !el.querySelector("p, h1, h2, h3, h4, h5, h6, li, ul, ol, div, section, article, aside, nav, header, footer, main, table, form, button, input, select, textarea, img, svg, video");
+}
+
+const intersects = (el: Element): boolean => {
+  const r = el.getBoundingClientRect();
+  return r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight;
+};
 
 function pinned(el: Element): boolean {
   for (let x: Element | null = el; x && x !== document.body; x = x.parentElement) {
@@ -85,15 +99,15 @@ function translucentOrFiltered(el: Element): boolean {
   return false;
 }
 
-/** Visible text elements in the viewport, not overlapping earlier faults, in document order. */
-function textCands(): HTMLElement[] {
+/** Visible leaf-like text elements in the viewport, not overlapping earlier faults, in document order. */
+function textCands(spans = false): HTMLElement[] {
   const out: HTMLElement[] = [];
   const all = document.body?.querySelectorAll("*") ?? [];
   for (let i = 0; i < all.length && i < 6000 && out.length < 300; i++) {
     const el = all[i] as HTMLElement;
     if (!TEXT_TAGS.has(el.tagName) || !firstText(el)) continue;
     if (el.closest("code, pre, svg, textarea, select, genclass-devtools, [data-genclass-ignore], [aria-hidden='true'], [inert], [data-bench-box], [contenteditable], :disabled, [aria-disabled='true']")) continue;
-    if (clash(el) || !inView(el) || !visible(el)) continue;
+    if (clash(el, spans) || !leafish(el) || !inView(el) || !visible(el)) continue;
     const s = getComputedStyle(el);
     if (parseFloat(s.fontSize) < 10 || s.textShadow !== "none") continue;
     const t = (firstText(el)?.data ?? "").trim();
@@ -212,7 +226,7 @@ function openOverlay(): boolean {
 }
 
 function interactiveInView(r: () => number): HTMLElement | undefined {
-  const list = [...document.querySelectorAll('button, a[href], [role="button"], input[type="checkbox"], input[type="submit"]')].filter((el) => {
+  const list = [...document.querySelectorAll('button, a[href], [role="button"], input:not([type="hidden"]), select, textarea, summary')].filter((el) => {
     if (el.closest("genclass-devtools, [data-bench-box]") || pinned(el) || !visible(el)) return false;
     const rc = el.getBoundingClientRect();
     if (rc.width < 12 || rc.height < 12 || !inView(el, 0.95)) return false;
@@ -272,7 +286,9 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
         addStyle(`.${cls} { color: ${color} !important; transition: none !important; }`);
         el.classList.add(cls);
         mark(el, "text-invisible", id);
-        planted.set(id, { el, color, bg });
+        const got = parseColor(getComputedStyle(el).color);
+        const took = !!got && Math.abs(got[0] - fg[0]) <= 1 && Math.abs(got[1] - fg[1]) <= 1 && Math.abs(got[2] - fg[2]) <= 1;
+        planted.set(id, { el, color, bg, extra: { took, fg } });
         return { kind: base, id, ok: true, info: { color, bg: toHex(bg), ratio: Math.round(contrast(fg, bg) * 100) / 100, tag: el.tagName.toLowerCase() } };
       }
       case "font-failed": {
@@ -299,14 +315,15 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
       case "text-template-leak:nan":
       case "text-encoding":
       case "text-placeholder": {
-        const el = pick(textCands(), r);
+        const el = pick(textCands(true), r);
         if (!el) return fail("no visible text element in the viewport");
         const text = kind === "text-template-leak:object" ? " Total: [object Object]" : kind === "text-template-leak:nan" ? " $NaN" : kind === "text-encoding" ? " CafÃ© â€“ open" : " Lorem ipsum dolor sit amet.";
         const span = document.createElement("span");
         span.textContent = text;
         el.appendChild(span);
-        mark(span, base, id);
-        used.add(el);
+        span.setAttribute("data-bench-fault", base);
+        span.setAttribute("data-bench-id", id);
+        hosts.add(el);
         planted.set(id, { el: span });
         return { kind: base, id, ok: true };
       }
@@ -369,9 +386,11 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
         const l = document.createElement("link");
         l.rel = "stylesheet";
         l.href = `__bench/missing-${seed}.css`;
+        const rec: { errored: boolean } = { errored: false };
+        l.addEventListener("error", () => void (rec.errored = true), { once: true });
         mark(l, base, id);
         (document.head ?? document.documentElement).appendChild(l);
-        planted.set(id, { el: l });
+        planted.set(id, { el: l, extra: rec });
         return { kind: base, id, ok: true };
       }
       case "csp-blocked": {
@@ -401,7 +420,7 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
       case "pointer-events-leak": {
         if (openOverlay()) return fail("a dialog or menu is open on this page");
         document.body.style.setProperty("pointer-events", "none");
-        planted.set(id, { el: document.body });
+        planted.set(id, { el: document.body, extra: { took: getComputedStyle(document.body).pointerEvents === "none" } });
         return { kind: base, id, ok: true };
       }
       case "scroll-lock-stuck": {
@@ -413,7 +432,8 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
           document.body.appendChild(sp);
         }
         document.body.style.setProperty("overflow", "hidden");
-        planted.set(id, { el: document.body });
+        const bs = getComputedStyle(document.body);
+        planted.set(id, { el: document.body, extra: { took: /hidden|clip/.test(bs.overflowY) && document.documentElement.scrollHeight > innerHeight + 100, overflowY: bs.overflowY } });
         return { kind: base, id, ok: true, point: quiet() };
       }
       case "click-blocked": {
@@ -429,7 +449,8 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
       }
       case "control-unreachable": {
         const wrap = document.createElement("div");
-        setImp(wrap, { display: "flex", "flex-direction": "column", "justify-content": "flex-end", "align-items": "flex-end", "min-height": "110vh", padding: "0 24px 12px 0", "box-sizing": "border-box", width: "100%", clear: "both" });
+        // bottom left: the devtools overlay's launcher sits bottom right on development pages
+        setImp(wrap, { display: "flex", "flex-direction": "column", "justify-content": "flex-end", "align-items": "flex-start", "min-height": "110vh", padding: "0 0 12px 24px", "box-sizing": "border-box", width: "100%", clear: "both" });
         const b = document.createElement("button");
         b.type = "button";
         b.textContent = "Load more";
@@ -437,7 +458,8 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
         wrap.appendChild(b);
         mark(b, base, id);
         document.body.appendChild(wrap);
-        scrollTo(0, document.documentElement.scrollHeight);
+        // instant: a page with scroll-behavior: smooth would still be on its way down when the button is measured
+        scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" as ScrollBehavior });
         const rc = b.getBoundingClientRect();
         const cover = document.createElement("div");
         cover.setAttribute("data-bench-cover", "");
@@ -445,8 +467,8 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
         if (h > innerHeight * 0.38) return fail("the button does not reach the bottom of the page");
         setImp(cover, { position: "fixed", bottom: "0", left: `${Math.max(0, Math.floor(rc.left - 20))}px`, width: `${Math.ceil(rc.width + 40)}px`, height: `${Math.ceil(h)}px`, "z-index": "2147483000", background: "#2563eb", "border-radius": "24px 24px 0 0" });
         document.body.appendChild(cover);
-        scrollBy(0, -300);
-        planted.set(id, { el: b, extra: { cover } });
+        scrollBy({ top: -300, behavior: "instant" as ScrollBehavior });
+        planted.set(id, { el: b, extra: { cover, at: { top: Math.round(rc.top), left: Math.round(rc.left), h, scrollH: document.documentElement.scrollHeight } } });
         return { kind: base, id, ok: true, point: quiet() };
       }
       case "focus-obscured": {
@@ -530,11 +552,12 @@ export function truth(id: string, B: BenchState): { ok: boolean; why: string; va
   const no = (why: string) => ({ ok: false, why });
   switch (kind) {
     case "text-invisible": {
-      if (!el.isConnected || !visible(el) || !inView(el, 1)) return no("the element left the viewport or the page");
+      // the planted colour (a runtime fix may have changed the computed one since)
+      if (!p.extra?.took) return no("the planted colour did not apply (a more specific rule or an inline !important wins)");
+      if (!el.isConnected || !visible(el) || !intersects(el)) return no("the element left the viewport or the page");
       const bg = bgOf(el);
-      const fg = parseColor(getComputedStyle(el).color);
-      if (!bg || !fg) return no("background no longer a known solid colour");
-      const ratio = contrast(fg, bg);
+      if (!bg) return no("background no longer a known solid colour");
+      const ratio = contrast(p.extra.fg as RGBA, bg);
       return ratio < 1.5 ? { ok: true, why: "", value: Math.round(ratio * 100) / 100 } : no(`ratio is ${ratio.toFixed(2)}`);
     }
     case "font-failed":
@@ -542,7 +565,7 @@ export function truth(id: string, B: BenchState): { ok: boolean; why: string; va
       const fam = String(p.extra?.fam ?? "").toLowerCase();
       const faces = [...(document.fonts as unknown as Iterable<FontFace>)].filter((f) => f.family.replace(/["']/g, "").toLowerCase() === fam);
       if (!faces.length || !faces.every((f) => f.status === "error")) return no(`font status ${faces.map((f) => f.status).join(",") || "none"}`);
-      if (!el.isConnected || !visible(el) || !inView(el, 1)) return no("the element left the viewport");
+      if (!el.isConnected || !visible(el) || !intersects(el)) return no("the element left the viewport");
       return { ok: true, why: "" };
     }
     case "css-var-undefined":
@@ -574,8 +597,12 @@ export function truth(id: string, B: BenchState): { ok: boolean; why: string; va
       const code = v.error?.code ?? 0;
       return visible(v) && (code >= 2 || v.networkState === 3) ? { ok: true, why: "", value: code } : no(`error ${code}, networkState ${v.networkState}`);
     }
-    case "stylesheet-failed":
-      return (el as HTMLLinkElement).sheet === null ? { ok: true, why: "" } : no("the stylesheet loaded");
+    case "stylesheet-failed": {
+      const href = (el as HTMLLinkElement).href;
+      const e = (performance.getEntriesByType("resource") as (PerformanceResourceTiming & { responseStatus?: number })[]).find((x) => x.name === href);
+      if (p.extra?.errored || (e?.responseStatus ?? 0) >= 400) return { ok: true, why: "" };
+      return no(`the stylesheet loaded (status ${e?.responseStatus ?? "unknown"}, the server answers missing files with a page)`);
+    }
     case "csp-blocked":
       return B.csp > cspAtInject ? { ok: true, why: "" } : no("no securitypolicyviolation event (the meta policy did not apply)");
     case "page-overflow-x": {
@@ -587,13 +614,10 @@ export function truth(id: string, B: BenchState): { ok: boolean; why: string; va
     }
     case "pointer-events-leak":
       if (openOverlay()) return no("a dialog or menu is open");
-      return getComputedStyle(document.body).pointerEvents === "none" ? { ok: true, why: "" } : no("body has pointer events");
-    case "scroll-lock-stuck": {
+      return p.extra?.took ? { ok: true, why: "" } : no("body kept its pointer events");
+    case "scroll-lock-stuck":
       if (openOverlay()) return no("a dialog or menu is open");
-      const s = getComputedStyle(document.body);
-      const tall = document.documentElement.scrollHeight > innerHeight + 100;
-      return /hidden|clip/.test(s.overflowY) && tall ? { ok: true, why: "" } : no(`overflow-y ${s.overflowY}, tall ${tall}`);
-    }
+      return p.extra?.took ? { ok: true, why: "" } : no(`the lock did not apply (overflow-y ${p.extra?.overflowY})`);
     case "click-blocked": {
       const ctl = p.extra?.ctl as Element | undefined;
       if (!ctl?.isConnected || !el.isConnected) return no("the control or the overlay is gone");
@@ -606,8 +630,11 @@ export function truth(id: string, B: BenchState): { ok: boolean; why: string; va
       if (!cover?.isConnected) return no("not planted");
       const atMax = scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
       if (!atMax) return no("the page is not at its end");
-      const ok = five(el.getBoundingClientRect()).every((q) => document.elementFromPoint(q.x, q.y) === cover);
-      return ok ? { ok: true, why: "" } : no("the cover does not hide all 5 points of the button");
+      const rc = el.getBoundingClientRect();
+      const hits = five(rc).map((q) => document.elementFromPoint(q.x, q.y));
+      if (hits.every((h) => h === cover)) return { ok: true, why: "" };
+      const top = hits.find((h) => h !== cover);
+      return no(`the cover does not hide all 5 points of the button (button at ${Math.round(rc.left)},${Math.round(rc.top)}, planted at ${JSON.stringify(p.extra?.at)}, scrollHeight ${document.documentElement.scrollHeight}, a point hits ${top ? top.tagName.toLowerCase() + (top.id ? "#" + top.id : "") : "nothing"})`);
     }
     case "focus-obscured": {
       const cover = p.extra?.cover as Element | undefined;
