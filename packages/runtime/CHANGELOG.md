@@ -38,7 +38,9 @@
   ids); and no `decision` / `detect` / `veto` records at all after 200 decisions in a page load
   (`telemetry.maxDecisions`). `summary` events still count every decision, detection, action and veto, and their
   `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped`; the `session` event names
-  both settings. This narrows what is sent; nothing new about the page is sent. TELEMETRY.md, "Volume".
+  both settings. This narrows what is sent; nothing new about the page is sent. Measured in CI for one page over a
+  simulated hour at 30 decisions a minute (scripted decisions, situation text off): 205 KB uploaded when all are
+  routine and 229 KB when all are detections, against 2,065 KB with every record (TELEMETRY.md, "Volume").
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
 - **WebSocket and EventSource messages are no longer JSON-parsed inside the dispatch.** Every incoming text message
   (≤ 16 KB) was parsed and summarised before the app's listeners ran, and parsed a second time when its delivery was

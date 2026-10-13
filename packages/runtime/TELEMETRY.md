@@ -101,6 +101,18 @@ says how many decisions' records were sent (`decisionRecords`), sampled out and 
 it received. `telemetry: { decisionSample: 1, maxDecisions: Infinity }` sends every record (your own collector,
 debugging).
 
+How much that is, measured in CI (2026-10-13) by `test/telemetry.test.ts` "an hour at the built-in model's maximum
+rate": one page, 30 decisions a minute for a simulated hour (1,800 decisions from a scripted decider, not the model;
+situation text off), all bytes of all requests counted:
+
+| decisions | defaults | `decisionSample: 1, maxDecisions: Infinity` (every record, as before this version) |
+|---|---|---|
+| all routine | 205 KB | not measured |
+| every one a detection | 229 KB | 2,065 KB |
+
+The test fails if either default case reaches 300 KB. A real page takes far fewer decisions than this (only salient
+situations go to the model), so these are ceilings, not typical volumes.
+
 ### Transport
 
 - Batches every 10 s (`flushMs`) of activity, and on `pagehide` / when the tab becomes hidden via

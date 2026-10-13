@@ -227,7 +227,7 @@ describe("telemetry: batching, flush and page exit", () => {
   });
 
   it("after MAX_FAIL_STREAK failed requests in a row a page stops sending (a CSP block logs at most 3 violations)", async () => {
-    const { rt, clock, transport } = tsetup({ triage: "always" }, {}, "reject");
+    const { rt, clock, transport } = tsetup({ triage: "always" }, { decisionSample: 1 }, "reject");
     const a = rt.atom("a", 1);
     for (let i = 0; i < 6; i++) {
       void rt.op(`w${i}`, () => a.set(i + 2));
@@ -255,7 +255,7 @@ describe("telemetry: batching, flush and page exit", () => {
         return ok ? Promise.resolve() : Promise.reject(new Error("HTTP 503"));
       },
     };
-    const s = setup({ triage: "always", telemetry: { transport }, extraGlobal: { crypto: globalThis.crypto } });
+    const s = setup({ triage: "always", telemetry: { transport, decisionSample: 1 }, extraGlobal: { crypto: globalThis.crypto } });
     const a = s.rt.atom("a", 1);
     for (let i = 0; i < 8; i++) {
       void s.rt.op(`w${i}`, () => a.set(i + 2));
@@ -438,6 +438,9 @@ describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sam
     expect(routine.sum.counts.decisions).toBe(1800);
     expect(noisy.sum.telemetry.decisionRecords).toBe(200);
     expect(bytes(noisy.transport)).toBeLessThan(bytes(full.transport) / 3);
+    // TELEMETRY.md quotes the CI measurement (2026-10-13: 205 KB, 229 KB, 2,065 KB) and this ceiling
+    expect(bytes(routine.transport) / 1024).toBeLessThan(300);
+    expect(bytes(noisy.transport) / 1024).toBeLessThan(300);
   }, 120_000);
 });
 
