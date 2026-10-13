@@ -191,12 +191,14 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
 <li>The <code>fetch</code> and <code>sendBeacon</code> captured when <code>@genclass/runtime</code> loaded, so GenClass never observes, holds or decides
   about its own requests.</li>
 <li>At most 1,000 queued events; beyond that new events are dropped and counted. A failed request is dropped, never
-  retried. Telemetry never throws into your app, never changes what the model sees, and never delays a decision.</li>
+  retried; after 3 failures in a row the page stops sending (<code>MAX_FAIL_STREAK</code>). Telemetry never throws into your app, never changes what the model sees, and never delays a decision.</li>
 </ul>
 <h2 id="where-it-goes">Where it goes</h2>
 <ul>
-<li><strong>Endpoint:</strong> <code>https://genclass-telemetry.mehar-144.workers.dev/v1/events</code> (<code>DEFAULT_TELEMETRY_ENDPOINT</code>), a
-  Cloudflare Worker operated by the GenClass maintainers (source: <code>telemetry-worker/</code> in the repository).</li>
+<li><strong>Endpoint:</strong> <code>https://genclass.dev/api/v1/events</code> (<code>DEFAULT_TELEMETRY_ENDPOINT</code>; before 0.2.2 the same worker's
+  <code>https://genclass-telemetry.mehar-144.workers.dev/v1/events</code>, which still works), a Cloudflare Worker operated by the
+  GenClass maintainers (source: <code>telemetry-worker/</code> in the repository). With a Content-Security-Policy, allow
+  <code>https://genclass.dev</code> in <code>connect-src</code> or turn telemetry off; after 3 failed requests in a row a page stops sending.</li>
 <li><strong>Storage:</strong> a private Cloudflare R2 bucket (<code>genclass-telemetry</code>), gzip JSON Lines, one object per batch,
   partitioned by UTC date, runtime version and model version. The collector adds only the time it received the
   batch and the visitor's coarse <strong>country</strong> (two letters, from Cloudflare). It does not store IP addresses, user
@@ -279,7 +281,7 @@ the session event names your hostname. Depending on your users and jurisdiction 
       <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="mailto:mehar@daybot.ca?subject=GenClass%20false%20detection">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="mailto:mehar@daybot.ca?subject=GenClass%20false%20detection">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
