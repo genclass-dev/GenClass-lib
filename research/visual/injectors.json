@@ -5,13 +5,13 @@
   "conventions": {
     "purpose": "Fault-injection recipes a harness applies from outside to a correct page, to produce labelled examples for visual-check recall, false-report measurement and training data. Nothing here is added to demos, compat apps or templates (AGENTS.md rule 4); the harness injects with page.addInitScript, page.evaluate or page.route.",
     "kind": "fault: a detector should report it. control: a lookalike that is correct; a detector must stay quiet. Count reports on control targets as false reports.",
-    "phase": "before-load: rewrite the HTML response before parse. network: route a request. init: script before page scripts. after-load: after the VISUAL.md section 2.3 settle gates, on a visible tab. on-interaction: applied while the harness opens, closes or navigates.",
-    "env": "Emulation the fault needs to be visible: viewport [w, h], colorScheme, reducedMotion, hasTouch, classicScrollbars (Chromium: inject ::-webkit-scrollbar { width: 16px } or run on Linux or Windows), browser (chromium, firefox, webkit). Empty means the default 1280x800 desktop profile.",
+    "phase": "before-load: rewrite the HTML response before parse. network: route a request. init: script before page scripts. after-load: after the VISUAL.md section 2.3 settle gates, on a visible tab. on-interaction: applied while the harness opens, closes or navigates, or uses real input or an emulation a visitor would trigger (Tab focus, a tap, a click on a link or an export control, print).",
+    "env": "Emulation the fault needs to be visible: viewport [w, h], colorScheme, reducedMotion, hasTouch, classicScrollbars (Chromium: inject ::-webkit-scrollbar { width: 16px } or run on Linux or Windows), browser (chromium, firefox, webkit), forcedColors ('active': page.emulateMedia({ forcedColors: 'active' })), media ('print': page.emulateMedia({ media: 'print' })), keyboard (true: the harness moves focus with Tab and checks each focused control). A runner that cannot apply a recipe's env must skip the recipe, not run it without the emulation. Empty means the default 1280x800 desktop profile.",
     "operation": "Plain JS run in the page, using the helpers below. Operations assume a clean page; apply one fault per page load unless an experiment says otherwise.",
     "label": "expect: finding or no-finding. kind: the catalog id. v1_kind: the VISUAL.md v1 kind that should report it, or null when no v1 kind covers it. attribute: target (the marked element is the finding's element), culprit (the marked element is the cause of a page-level symptom, such as the element that widens the page), page (the finding is page-level). visible: when a visitor would see it: always, phone, touch, keyboard, dark, interaction, classic-scrollbars.",
     "verdicts": "Record each finding against the labels as true positive, false positive, or NOI (real but not observable, as in VERVE: the DOM shows a fault that pixels do not). Confirm layout labels with a pixel check where the operation could be invisible, for example overlap inside an overflow hidden ancestor.",
     "dedupe": "Drop near-duplicate captures before training (OwlEyes used ORB similarity over 0.8).",
-    "network": "Injectors that set third-party URLs (image-invented-unsplash, image-dead-placeholder-host) need network and depend on the host's state that day; image-route-404 is the offline equivalent."
+    "network": "Injectors that set third-party URLs (image-invented-unsplash, image-dead-placeholder-host) need network and depend on the host's state that day; image-route-404 is the offline equivalent. Gap-merge recipes that load third-party content: embed-rickroll-placeholder, control-embed-real-video, embed-youtube-dead-id, control-embed-live-video, embed-maps-placeholder-key, control-maps-query-embed (YouTube and Google Maps) and video-source-dead-sample (Google's sample bucket). The ids and URLs were checked once on 2026-10-13; video-source-404 is the offline equivalent for video."
   },
   "helpers": {
     "sel": "the injector's select string",
@@ -26,7 +26,7 @@
     "setText(el, text)": "replace the first non-empty text node of el",
     "textNodes(el)": "the non-empty text nodes under el",
     "resolvedBackground(el)": "the VISUAL.md 2.4 effective background colour of el; skip the injector when it abstains",
-    "route(urlOrRegExp, response)": "harness network interception (Playwright page.route): { status } fails the request, { delayMs } delays it, { status, body, contentType } replaces it, an image response replaces it with that image",
+    "route(urlOrRegExp, response)": "harness network interception (Playwright page.route): urlOrRegExp may also be a predicate (url: URL) => boolean; { status } fails the request, { delayMs } delays it, { status, body, contentType } replaces it, an image response replaces it with that image; times: n in the response applies it to the first n matching requests only",
     "resizedImage(url, width)": "an image response holding the original scaled to width",
     "firstJsonListRequest": "the first same-origin GET with a JSON array response seen on a clean load",
     "rewriteHtml(fn)": "route the document request and replace its body with fn(html) before parse",
@@ -38,13 +38,21 @@
     "onReady(fn)": "run fn at DOMContentLoaded (for init-phase injectors)",
     "onNavigate(fn)": "run fn after the next pushState or popstate",
     "openFirstDialog(), closeFirstDialog(), openFirstMenu(), openFirstSelect(), openMobileMenu()": "harness interactions with real input events (CDP), waiting for transitions to end",
-    "photoUrl, lightPhotoUrl, seed": "a bundled same-origin photo, a bundled light photo, the run's RNG seed"
+    "photoUrl, lightPhotoUrl, seed": "a bundled same-origin photo, a bundled light photo, the run's RNG seed",
+    "click(el)": "harness click with real input events (CDP) on el, then wait for the VISUAL.md 2.3 settle gates; after a route change, main-content mutations quiet for 300 ms plus two frames",
+    "tap(el)": "harness touch tap on el with real touch events in a hasTouch context, finger lifted, then 500 ms",
+    "byText(selector, regExp)": "the first visible match whose text or aria-label matches regExp; the injector is skipped when there is none",
+    "inAppLink({ lazy }?)": "a visible same-origin link whose pathname differs from the current one and that has no hash, chosen by the seeded RNG; lazy true or false keeps only links whose navigation did or did not request a new same-origin script on a clean run; skipped when there is none",
+    "inAppRoutes()": "same-origin pathnames other than the current one linked from the page on a clean load, in seeded order; skipped when there are none",
+    "gotoDirect(path)": "harness fresh document navigation to path (page.goto), not pushState; the rest of the operation runs in the new document",
+    "cleanLoadUrls": "the set of request URLs seen during the clean load",
+    "openFirstDatePicker()": "harness interaction: open the first control that shows a [role=grid] calendar, waiting for transitions to end"
   },
   "counts": {
-    "injectors": 163,
-    "faults": 151,
-    "controls": 12,
-    "catalog_entries_covered": 103
+    "injectors": 216,
+    "faults": 178,
+    "controls": 38,
+    "catalog_entries_covered": 119
   },
   "injectors": [
     {
@@ -534,6 +542,298 @@
       }
     },
     {
+      "id": "embed-youtube-dead-id",
+      "catalog_id": "embed-unavailable",
+      "family": "media",
+      "kind": "fault",
+      "description": "A YouTube embed pointed at 0QeZhC7Y0-4 (oEmbed 404 on 2026-10-13; re-verify before each run): 'Video unavailable'.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "a visible YouTube iframe, or else a section to insert one into",
+      "operation": "const src = 'https://www.youtube.com/embed/0QeZhC7Y0-4'; const yt = Array.from(document.querySelectorAll('iframe[src*=\"youtube.com/embed/\"], iframe[src*=\"youtube-nocookie.com/embed/\"]')).find((f) => f.getBoundingClientRect().width > 100); if (yt) { yt.src = src; mark(yt); } else { const f = document.createElement('iframe'); f.width = '560'; f.height = '315'; f.style.maxWidth = '100%'; f.title = 'Product demo'; f.src = src; pick(sel).append(f); mark(f); }",
+      "label": {
+        "expect": "finding",
+        "kind": "embed-unavailable",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "embed-maps-placeholder-key",
+      "catalog_id": "embed-unavailable",
+      "family": "media",
+      "kind": "fault",
+      "description": "A 400x300 Static Maps image with key=YOUR_API_KEY (HTTP 403 on 2026-10-13) in the contact section.",
+      "phase": "after-load",
+      "env": {},
+      "select": "#contact, [id*=contact], main section:last-of-type, footer",
+      "targets": "the contact section, or else the last section or the footer",
+      "operation": "const img = document.createElement('img'); img.src = 'https://maps.googleapis.com/maps/api/staticmap?center=0,0&zoom=1&size=400x300&key=YOUR_API_KEY'; img.width = 400; img.height = 300; img.alt = 'Map to our office'; img.style.maxWidth = '100%'; pick(sel).append(img); mark(img);",
+      "label": {
+        "expect": "finding",
+        "kind": "embed-unavailable",
+        "v1_kind": "image-broken",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-embed-live-video",
+      "catalog_id": "embed-unavailable",
+      "family": "media",
+      "kind": "control",
+      "description": "An embed of a live id (jNQXAC9IVRw, oEmbed 200 on 2026-10-13); must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "a visible YouTube iframe, or else a section to insert one into",
+      "operation": "const src = 'https://www.youtube.com/embed/jNQXAC9IVRw'; const yt = Array.from(document.querySelectorAll('iframe[src*=\"youtube.com/embed/\"], iframe[src*=\"youtube-nocookie.com/embed/\"]')).find((f) => f.getBoundingClientRect().width > 100); if (yt) { yt.src = src; mark(yt); } else { const f = document.createElement('iframe'); f.width = '560'; f.height = '315'; f.style.maxWidth = '100%'; f.title = 'Product demo'; f.src = src; pick(sel).append(f); mark(f); }",
+      "label": {
+        "expect": "no-finding",
+        "kind": "embed-unavailable",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-maps-query-embed",
+      "catalog_id": "embed-unavailable",
+      "family": "media",
+      "kind": "control",
+      "description": "A key-free maps iframe built from a place query (200 on 2026-10-13); must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "#contact, [id*=contact], main section:last-of-type, footer",
+      "targets": "the contact section, or else the last section or the footer",
+      "operation": "const f = document.createElement('iframe'); f.width = '400'; f.height = '300'; f.style.maxWidth = '100%'; f.style.border = '0'; f.title = 'Map'; f.src = 'https://www.google.com/maps?q=Toronto&output=embed'; pick(sel).append(f); mark(f);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "embed-unavailable",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "video-autoplay-unmuted",
+      "catalog_id": "video-failed",
+      "family": "media",
+      "kind": "fault",
+      "description": "A muted autoplay video unmuted and reloaded; Chromium's default policy blocks unmuted autoplay without a gesture, so it stays on its first frame.",
+      "phase": "after-load",
+      "env": {},
+      "select": "video[autoplay]",
+      "targets": "a visible muted autoplay video that plays on a clean load (the harness must keep the default autoplay policy)",
+      "operation": "const v = pick(sel); v.pause(); v.removeAttribute('muted'); v.muted = false; v.load(); mark(v);",
+      "label": {
+        "expect": "finding",
+        "kind": "video-failed",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "video-no-playsinline-ios",
+      "catalog_id": "video-failed",
+      "family": "media",
+      "kind": "fault",
+      "description": "playsinline removed from an autoplay video at an iPhone size under WebKit (confirm on an iOS simulator where Playwright WebKit differs).",
+      "phase": "after-load",
+      "env": {
+        "browser": "webkit",
+        "viewport": [
+          390,
+          844
+        ],
+        "hasTouch": true
+      },
+      "select": "video[autoplay]",
+      "targets": "a visible muted autoplay video",
+      "operation": "const v = pick(sel); v.pause(); v.removeAttribute('playsinline'); v.removeAttribute('webkit-playsinline'); v.playsInline = false; v.load(); mark(v);",
+      "label": {
+        "expect": "finding",
+        "kind": "video-failed",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "video-source-404",
+      "catalog_id": "video-failed",
+      "family": "media",
+      "kind": "fault",
+      "description": "The video source routed to 404 (VISUAL.md `media-failed`).",
+      "phase": "network",
+      "env": {},
+      "select": "video",
+      "targets": "one visible video",
+      "operation": "const v = pick(sel); const s = v.currentSrc || v.src; const u = s + (s.includes('?') ? '&' : '?') + 'bench=404'; route(u, { status: 404 }); for (const el of v.querySelectorAll('source')) el.remove(); v.src = u; v.load(); mark(v);",
+      "label": {
+        "expect": "finding",
+        "kind": "video-failed",
+        "v1_kind": "media-failed",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "video-source-dead-sample",
+      "catalog_id": "video-failed",
+      "family": "media",
+      "kind": "fault",
+      "description": "The video source set to Google's BigBuckBunny sample file, which returned 403 on 2026-10-13.",
+      "phase": "after-load",
+      "env": {},
+      "select": "video",
+      "targets": "one visible video",
+      "operation": "const v = pick(sel); for (const el of v.querySelectorAll('source')) el.remove(); v.src = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'; v.load(); mark(v);",
+      "label": {
+        "expect": "finding",
+        "kind": "video-failed",
+        "v1_kind": "media-failed",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-video-muted-autoplay",
+      "catalog_id": "video-failed",
+      "family": "media",
+      "kind": "control",
+      "description": "A muted, playsinline autoplay video that plays; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "video[autoplay]",
+      "targets": "a visible autoplay video with a working source",
+      "operation": "const v = pick(sel); v.muted = true; v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.play().catch(() => {}); mark(v);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "video-failed",
+        "v1_kind": "media-failed",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-video-controls",
+      "catalog_id": "video-failed",
+      "family": "media",
+      "kind": "control",
+      "description": "A paused video with controls and no autoplay, meant to be started by the visitor; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "video",
+      "targets": "one visible video with a working source",
+      "operation": "const v = pick(sel); v.pause(); v.removeAttribute('autoplay'); v.autoplay = false; v.controls = true; v.currentTime = 0; mark(v);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "video-failed",
+        "v1_kind": "media-failed",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "webgl-context-null",
+      "catalog_id": "webgl-canvas-blank",
+      "family": "media",
+      "kind": "fault",
+      "description": "getContext returns null for WebGL before page scripts run, so the scene never initialises.",
+      "phase": "init",
+      "env": {},
+      "select": "canvas",
+      "targets": "a page whose hero or main visual is a WebGL canvas (skip pages without one)",
+      "operation": "const get = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (type, ...a) { return /^(webgl2?|experimental-webgl)$/.test(type) ? null : get.call(this, type, ...a); }; onReady(() => markPage());",
+      "label": {
+        "expect": "finding",
+        "kind": "webgl-canvas-blank",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "webgl-context-lost",
+      "catalog_id": "webgl-canvas-blank",
+      "family": "media",
+      "kind": "fault",
+      "description": "The largest visible WebGL canvas loses its context (WEBGL_lose_context) with no fallback.",
+      "phase": "after-load",
+      "env": {},
+      "select": "canvas",
+      "targets": "a WebGL canvas covering 20% or more of the viewport",
+      "operation": "const big = Array.from(document.querySelectorAll('canvas')).filter((c) => { const r = c.getBoundingClientRect(); return r.width * r.height >= 0.2 * innerWidth * innerHeight; }).sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight); for (const c of big) { const gl = c.getContext('webgl2') || c.getContext('webgl'); const ext = gl && gl.getExtension('WEBGL_lose_context'); if (ext) { ext.loseContext(); mark(c); break; } }",
+      "label": {
+        "expect": "finding",
+        "kind": "webgl-canvas-blank",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-webgl-fallback-shown",
+      "catalog_id": "webgl-canvas-blank",
+      "family": "media",
+      "kind": "control",
+      "description": "The same lost context with a visible image fallback over the canvas; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "canvas",
+      "targets": "a WebGL canvas covering 20% or more of the viewport",
+      "operation": "const big = Array.from(document.querySelectorAll('canvas')).filter((c) => { const r = c.getBoundingClientRect(); return r.width * r.height >= 0.2 * innerWidth * innerHeight; }).sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight); for (const c of big) { const gl = c.getContext('webgl2') || c.getContext('webgl'); const ext = gl && gl.getExtension('WEBGL_lose_context'); if (ext) { ext.loseContext(); const p = c.parentElement; if (getComputedStyle(p).position === 'static') p.style.position = 'relative'; const img = document.createElement('img'); img.src = photoUrl; img.alt = ''; img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover'; p.append(img); mark(c); break; } }",
+      "label": {
+        "expect": "no-finding",
+        "kind": "webgl-canvas-blank",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "csp-meta-blocks-assets",
+      "catalog_id": "csp-blocked",
+      "family": "media",
+      "kind": "fault",
+      "description": "A CSP meta with img-src 'self' and font-src 'self' at the top of head: remote images and web fonts are blocked (VISUAL.md `csp-blocked`).",
+      "phase": "before-load",
+      "env": {},
+      "select": "head",
+      "targets": "a page with remote images or web fonts (skip if none)",
+      "operation": "rewriteHtml((html) => html.replace(/<head(\\s[^>]*)?>/i, `<head$1><meta http-equiv=\"Content-Security-Policy\" content=\"img-src 'self'; font-src 'self'\">`)); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "csp-blocked",
+        "v1_kind": "csp-blocked",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-csp-allows-hosts",
+      "catalog_id": "csp-blocked",
+      "family": "media",
+      "kind": "control",
+      "description": "A CSP that allows every image and font host; nothing is blocked and nothing must be reported.",
+      "phase": "before-load",
+      "env": {},
+      "select": "head",
+      "targets": "a page with remote images or web fonts",
+      "operation": "rewriteHtml((html) => html.replace(/<head(\\s[^>]*)?>/i, `<head$1><meta http-equiv=\"Content-Security-Policy\" content=\"img-src * data: blob:; font-src * data:\">`)); markPage();",
+      "label": {
+        "expect": "no-finding",
+        "kind": "csp-blocked",
+        "v1_kind": "csp-blocked",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
       "id": "token-undefined",
       "catalog_id": "css-token-invalid",
       "family": "styles",
@@ -916,6 +1216,94 @@
         "v1_kind": null,
         "attribute": "target",
         "visible": "always"
+      }
+    },
+    {
+      "id": "calendar-v8-classnames-on-v9",
+      "catalog_id": "calendar-version-mismatch",
+      "family": "styles",
+      "kind": "fault",
+      "description": "An open calendar loses every non-rdp class on its descendants and react-day-picker's own rules, as when v9 ignores v8 classNames.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": ".rdp-root, .rdp, [data-slot=calendar]",
+      "targets": "the open calendar's root (skip pages without a date picker)",
+      "operation": "openFirstDatePicker(); const root = pick(sel); for (const el of root.querySelectorAll('*')) el.setAttribute('class', Array.from(el.classList).filter((c) => c.startsWith('rdp')).join(' ')); deleteRules((r) => r instanceof CSSStyleRule && /\\.rdp/.test(r.selectorText)); mark(root);",
+      "label": {
+        "expect": "finding",
+        "kind": "calendar-version-mismatch",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-calendar-open",
+      "catalog_id": "calendar-version-mismatch",
+      "family": "styles",
+      "kind": "control",
+      "description": "A correctly styled calendar, opened and left untouched; must not be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": ".rdp-root, .rdp, [data-slot=calendar]",
+      "targets": "the open calendar's root",
+      "operation": "openFirstDatePicker(); mark(pick(sel));",
+      "label": {
+        "expect": "no-finding",
+        "kind": "calendar-version-mismatch",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "bootstrap4-attrs-on-5",
+      "catalog_id": "bootstrap-version-mix",
+      "family": "styles",
+      "kind": "fault",
+      "description": "On a Bootstrap 5 page the navbar toggler gets the v4 data-toggle and data-target, and the nav list ml-auto: the toggler does nothing.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          740
+        ],
+        "hasTouch": true
+      },
+      "select": ".navbar-toggler[data-bs-toggle]",
+      "targets": "the navbar toggler of a Bootstrap 5 page (skip other pages)",
+      "operation": "const t = pick(sel); t.setAttribute('data-toggle', t.getAttribute('data-bs-toggle')); t.removeAttribute('data-bs-toggle'); if (t.hasAttribute('data-bs-target')) { t.setAttribute('data-target', t.getAttribute('data-bs-target')); t.removeAttribute('data-bs-target'); } for (const ul of document.querySelectorAll('.navbar-nav.ms-auto')) ul.classList.replace('ms-auto', 'ml-auto'); mark(t);",
+      "label": {
+        "expect": "finding",
+        "kind": "bootstrap-version-mix",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "control-bootstrap-both-attrs",
+      "catalog_id": "bootstrap-version-mix",
+      "family": "styles",
+      "kind": "control",
+      "description": "A toggler that carries both the v4 and the v5 attributes, which still works; must not be reported.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          740
+        ],
+        "hasTouch": true
+      },
+      "select": ".navbar-toggler[data-bs-toggle]",
+      "targets": "the navbar toggler of a Bootstrap 5 page",
+      "operation": "const t = pick(sel); t.setAttribute('data-toggle', t.getAttribute('data-bs-toggle')); if (t.hasAttribute('data-bs-target')) t.setAttribute('data-target', t.getAttribute('data-bs-target')); mark(t);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "bootstrap-version-mix",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
       }
     },
     {
@@ -2014,6 +2402,125 @@
       }
     },
     {
+      "id": "scroller-scrollbar-hidden",
+      "catalog_id": "scroller-hidden-scrollbar",
+      "family": "controls",
+      "kind": "fault",
+      "description": "A horizontal row that overflows with its scrollbar hidden and its arrow buttons removed; a mouse-wheel user cannot reach the rest.",
+      "phase": "after-load",
+      "env": {
+        "classicScrollbars": true,
+        "viewport": [
+          1280,
+          800
+        ]
+      },
+      "select": "main .overflow-x-auto, main .overflow-x-scroll, main [role=tablist], main .flex-wrap",
+      "targets": "a visible horizontal scroller, tab list or chip row in main with at least 4 items",
+      "operation": "const el = pick(sel); el.style.overflowX = 'auto'; if (getComputedStyle(el).display.includes('flex')) el.style.flexWrap = 'nowrap'; const need = Array.from(el.children).reduce((s, c) => s + c.getBoundingClientRect().width, 0); if (el.scrollWidth <= el.clientWidth + 24) el.style.maxWidth = Math.max(160, Math.round(need * 0.6)) + 'px'; el.style.scrollbarWidth = 'none'; css('[data-bench-fault~=\"' + id + '\"]::-webkit-scrollbar{display:none}'); for (const b of (el.parentElement || document.body).querySelectorAll('button')) if (!el.contains(b) && /next|prev|scroll|more|chevron|arrow/i.test((b.getAttribute('aria-label') || '') + ' ' + b.className)) b.style.display = 'none'; mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "scroller-hidden-scrollbar",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "classic-scrollbars"
+      }
+    },
+    {
+      "id": "control-scroller-scrollbar-visible",
+      "catalog_id": "scroller-hidden-scrollbar",
+      "family": "controls",
+      "kind": "control",
+      "description": "The same overflowing row with its scrollbar shown; must not be reported.",
+      "phase": "after-load",
+      "env": {
+        "classicScrollbars": true,
+        "viewport": [
+          1280,
+          800
+        ]
+      },
+      "select": "main .overflow-x-auto, main .overflow-x-scroll, main [role=tablist], main .flex-wrap",
+      "targets": "a visible horizontal scroller, tab list or chip row in main with at least 4 items",
+      "operation": "const el = pick(sel); el.style.overflowX = 'auto'; if (getComputedStyle(el).display.includes('flex')) el.style.flexWrap = 'nowrap'; const need = Array.from(el.children).reduce((s, c) => s + c.getBoundingClientRect().width, 0); if (el.scrollWidth <= el.clientWidth + 24) el.style.maxWidth = Math.max(160, Math.round(need * 0.6)) + 'px'; el.style.scrollbarWidth = 'auto'; css('[data-bench-fault~=\"' + id + '\"]::-webkit-scrollbar{display:block!important;height:12px}'); mark(el);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "scroller-hidden-scrollbar",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "classic-scrollbars"
+      }
+    },
+    {
+      "id": "control-scroller-with-arrows",
+      "catalog_id": "scroller-hidden-scrollbar",
+      "family": "controls",
+      "kind": "control",
+      "description": "The same hidden scrollbar with visible Previous and Next buttons that scroll the row; must not be reported.",
+      "phase": "after-load",
+      "env": {
+        "classicScrollbars": true,
+        "viewport": [
+          1280,
+          800
+        ]
+      },
+      "select": "main .overflow-x-auto, main .overflow-x-scroll, main [role=tablist], main .flex-wrap",
+      "targets": "a visible horizontal scroller, tab list or chip row in main with at least 4 items",
+      "operation": "const el = pick(sel); el.style.overflowX = 'auto'; if (getComputedStyle(el).display.includes('flex')) el.style.flexWrap = 'nowrap'; const need = Array.from(el.children).reduce((s, c) => s + c.getBoundingClientRect().width, 0); if (el.scrollWidth <= el.clientWidth + 24) el.style.maxWidth = Math.max(160, Math.round(need * 0.6)) + 'px'; el.style.scrollbarWidth = 'none'; css('[data-bench-fault~=\"' + id + '\"]::-webkit-scrollbar{display:none}'); const btn = (label, text, dx) => { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', label); b.textContent = text; b.style.cssText = 'min-width:32px;min-height:32px'; b.addEventListener('click', () => el.scrollBy({ left: dx * el.clientWidth * 0.8 })); return b; }; el.before(btn('Previous', '<', -1)); el.after(btn('Next', '>', 1)); mark(el);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "scroller-hidden-scrollbar",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "classic-scrollbars"
+      }
+    },
+    {
+      "id": "focus-shadow-only-forced",
+      "catalog_id": "forced-colors-focus-lost",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Focused controls get outline-style none and a box-shadow ring, which forced colors removes.",
+      "phase": "on-interaction",
+      "env": {
+        "forcedColors": "active",
+        "keyboard": true
+      },
+      "select": "",
+      "targets": "a page whose controls have outline-based focus styles",
+      "operation": "css(':is(button,a,input,select,textarea,[role=button]):focus-visible{outline-style:none!important;box-shadow:0 0 0 3px rgb(59 130 246 / .5)!important}'); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "forced-colors-focus-lost",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "keyboard"
+      }
+    },
+    {
+      "id": "control-focus-transparent-outline-forced",
+      "catalog_id": "forced-colors-focus-lost",
+      "family": "controls",
+      "kind": "control",
+      "description": "The same ring over a 2px transparent outline (the Tailwind v3 outline-none), which forced colors shows; must not be reported.",
+      "phase": "on-interaction",
+      "env": {
+        "forcedColors": "active",
+        "keyboard": true
+      },
+      "select": "",
+      "targets": "a page whose controls have outline-based focus styles",
+      "operation": "css(':is(button,a,input,select,textarea,[role=button]):focus-visible{outline:2px solid transparent!important;outline-offset:2px!important;box-shadow:0 0 0 3px rgb(59 130 246 / .5)!important}'); markPage();",
+      "label": {
+        "expect": "no-finding",
+        "kind": "forced-colors-focus-lost",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "keyboard"
+      }
+    },
+    {
       "id": "labels-to-placeholders",
       "catalog_id": "placeholder-only-labels",
       "family": "other",
@@ -2166,6 +2673,25 @@
       }
     },
     {
+      "id": "og-image-builder-default",
+      "catalog_id": "share-preview-default",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "og:image set to the Lovable template image and twitter:site to @lovable_dev in the served HTML.",
+      "phase": "before-load",
+      "env": {},
+      "select": "meta[property='og:image'], meta[name='twitter:site']",
+      "targets": "the head",
+      "operation": "rewriteHtml((html) => html.replace(/<meta[^>]+(og:image|twitter:image|twitter:site)[^>]*>/gi, '').replace(/<\\/head>/i, '<meta property=\"og:image\" content=\"https://lovable.dev/opengraph-image-p98pqg.png\"><meta name=\"twitter:site\" content=\"@lovable_dev\"></head>')); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "share-preview-default",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
       "id": "builder-badge-and-title",
       "catalog_id": "builder-branding",
       "family": "leaks",
@@ -2178,6 +2704,44 @@
       "operation": "const a = document.createElement('a'); a.href = 'https://lovable.dev'; a.textContent = 'Edit with Lovable'; a.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:50'; document.body.append(a); document.title = 'Vite + React + TS'; let l = document.querySelector('link[rel=icon]'); if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.append(l); } l.href = '/vite.svg'; mark(a);",
       "label": {
         "expect": "finding",
+        "kind": "builder-branding",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "title-template-default",
+      "catalog_id": "builder-branding",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "Served title set to Vite + React + TS and the description meta to Lovable Generated Project.",
+      "phase": "before-load",
+      "env": {},
+      "select": "title, meta[name=description]",
+      "targets": "a page whose title comes from the served HTML (not set at runtime)",
+      "operation": "rewriteHtml((html) => { const t = '<title>Vite + React + TS</title>'; const d = '<meta name=\"description\" content=\"Lovable Generated Project\">'; let h = /<title[\\s>]/i.test(html) ? html.replace(/<title[^>]*>[^<]*<\\/title>/i, t) : html.replace(/<\\/head>/i, t + '</head>'); h = /<meta[^>]+name=[\"']description[\"']/i.test(h) ? h.replace(/<meta[^>]+name=[\"']description[\"'][^>]*>/i, d) : h.replace(/<\\/head>/i, d + '</head>'); return h; }); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "builder-branding",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-title-with-app",
+      "catalog_id": "builder-branding",
+      "family": "leaks",
+      "kind": "control",
+      "description": "A real product title that contains the word App; must not be reported.",
+      "phase": "before-load",
+      "env": {},
+      "select": "title",
+      "targets": "a page whose title comes from the served HTML",
+      "operation": "rewriteHtml((html) => { const t = '<title>Ledgerly App: shared budgets for households</title>'; return /<title[\\s>]/i.test(html) ? html.replace(/<title[^>]*>[^<]*<\\/title>/i, t) : html.replace(/<\\/head>/i, t + '</head>'); }); markPage();",
+      "label": {
+        "expect": "no-finding",
         "kind": "builder-branding",
         "v1_kind": null,
         "attribute": "page",
@@ -2205,6 +2769,120 @@
         "kind": "starter-template-css",
         "v1_kind": null,
         "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "markdown-raw-text",
+      "catalog_id": "llm-markdown-raw",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "A paragraph replaced by an unrendered markdown answer (bold, heading, bullets, table header) in pre-wrap.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p",
+      "targets": "one visible paragraph, preferably in a chat bubble or card",
+      "operation": "const el = pick(sel); el.textContent = '**Summary**\\n## Next steps\\n- Check the logs\\n- Retry the request\\n| Plan | Price |\\n|---|---|'; el.style.whiteSpace = 'pre-wrap'; mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "llm-markdown-raw",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-markdown-in-code",
+      "catalog_id": "llm-markdown-raw",
+      "family": "leaks",
+      "kind": "control",
+      "description": "The same markdown inside pre and code, where literal markers are correct; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p",
+      "targets": "one visible paragraph",
+      "operation": "const p = pick(sel); const pre = document.createElement('pre'); const code = document.createElement('code'); code.textContent = '**Summary**\\n## Next steps\\n- Check the logs\\n- Retry the request\\n| Plan | Price |\\n|---|---|'; pre.append(code); p.after(pre); mark(pre);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "llm-markdown-raw",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-markdown-rendered",
+      "catalog_id": "llm-markdown-raw",
+      "family": "leaks",
+      "kind": "control",
+      "description": "The same words rendered as HTML (strong, h2, ul, table); must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p",
+      "targets": "one visible paragraph",
+      "operation": "const p = pick(sel); const d = document.createElement('div'); const add = (tag, text, parent = d) => { const e = document.createElement(tag); e.textContent = text; parent.append(e); return e; }; add('strong', 'Summary', add('p', '')); add('h2', 'Next steps'); const ul = add('ul', ''); add('li', 'Check the logs', ul); add('li', 'Retry the request', ul); const tr = add('tr', '', add('tbody', '', add('table', ''))); add('th', 'Plan', tr); add('th', 'Price', tr); p.replaceWith(d); mark(d);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "llm-markdown-raw",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "embed-rickroll-placeholder",
+      "catalog_id": "embed-placeholder-video",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "A YouTube embed pointed at dQw4w9WgXcQ, the placeholder models reach for (or one inserted into a section).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "a visible YouTube iframe, or else a section to insert one into",
+      "operation": "const src = 'https://www.youtube.com/embed/dQw4w9WgXcQ'; const yt = Array.from(document.querySelectorAll('iframe[src*=\"youtube.com/embed/\"], iframe[src*=\"youtube-nocookie.com/embed/\"]')).find((f) => f.getBoundingClientRect().width > 100); if (yt) { yt.src = src; mark(yt); } else { const f = document.createElement('iframe'); f.width = '560'; f.height = '315'; f.style.maxWidth = '100%'; f.title = 'Product demo'; f.src = src; pick(sel).append(f); mark(f); }",
+      "label": {
+        "expect": "finding",
+        "kind": "embed-placeholder-video",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-embed-real-video",
+      "catalog_id": "embed-placeholder-video",
+      "family": "leaks",
+      "kind": "control",
+      "description": "An embed of a live id that is not on the placeholder list (jNQXAC9IVRw, oEmbed 200 on 2026-10-13); must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "a visible YouTube iframe, or else a section to insert one into",
+      "operation": "const src = 'https://www.youtube.com/embed/jNQXAC9IVRw'; const yt = Array.from(document.querySelectorAll('iframe[src*=\"youtube.com/embed/\"], iframe[src*=\"youtube-nocookie.com/embed/\"]')).find((f) => f.getBoundingClientRect().width > 100); if (yt) { yt.src = src; mark(yt); } else { const f = document.createElement('iframe'); f.width = '560'; f.height = '315'; f.style.maxWidth = '100%'; f.title = 'Product demo'; f.src = src; pick(sel).append(f); mark(f); }",
+      "label": {
+        "expect": "no-finding",
+        "kind": "embed-placeholder-video",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-embed-id-in-code",
+      "catalog_id": "embed-placeholder-video",
+      "family": "leaks",
+      "kind": "control",
+      "description": "A code block that prints the placeholder id as text; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "one visible section",
+      "operation": "const pre = document.createElement('pre'); pre.textContent = \"const demoVideo = 'https://youtu.be/dQw4w9WgXcQ';\"; pick(sel).append(pre); mark(pre);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "embed-placeholder-video",
+        "v1_kind": null,
+        "attribute": "target",
         "visible": "always"
       }
     },
@@ -2281,6 +2959,215 @@
         "kind": "missing-ui-states",
         "v1_kind": null,
         "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "spa-deep-link-host-404",
+      "catalog_id": "spa-deep-link-404",
+      "family": "blank",
+      "kind": "fault",
+      "description": "A direct navigation to an in-app route answered with a host-style 404 page that loads none of the app.",
+      "phase": "network",
+      "env": {},
+      "select": "a[href]",
+      "targets": "an in-app route linked from the home page (skip single-route apps)",
+      "operation": "const path = inAppRoutes()[0]; route(location.origin + path, { status: 404, contentType: 'text/html', body: '<h1>Page Not Found</h1><p>Looks like you followed a broken link.</p>' }); gotoDirect(path); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "spa-deep-link-404",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-spa-deep-link-ok",
+      "catalog_id": "spa-deep-link-404",
+      "family": "blank",
+      "kind": "control",
+      "description": "The same direct navigation answered by the app; must not be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "a[href]",
+      "targets": "an in-app route on a host that serves the app for every path (check on a clean run)",
+      "operation": "const path = inAppRoutes()[0]; gotoDirect(path); markPage();",
+      "label": {
+        "expect": "no-finding",
+        "kind": "spa-deep-link-404",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-spa-unknown-route",
+      "catalog_id": "spa-deep-link-404",
+      "family": "blank",
+      "kind": "control",
+      "description": "An unknown path that the app renders as its own NotFound route; a correct 404 that must not be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "",
+      "targets": "an app with its own NotFound route on a host that serves the app for unknown paths",
+      "operation": "gotoDirect('/bench-unknown-' + seed); markPage();",
+      "label": {
+        "expect": "no-finding",
+        "kind": "spa-deep-link-404",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "stale-chunk-404",
+      "catalog_id": "stale-chunk-blank",
+      "family": "blank",
+      "kind": "fault",
+      "description": "Every same-origin script the clean load did not request fails with 404, as after a redeploy; then a link to a lazy route is clicked.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "a[href]",
+      "targets": "a link to a lazily loaded route: its navigation requested a new same-origin script on a clean run (skip apps without lazy routes)",
+      "operation": "const origin = location.origin; const fresh = (u) => u.origin === origin && /\\.m?js$/.test(u.pathname) && !cleanLoadUrls.has(u.href); route(fresh, { status: 404 }); markPage(); click(inAppLink({ lazy: true }));",
+      "label": {
+        "expect": "finding",
+        "kind": "stale-chunk-blank",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-stale-chunk-recovers",
+      "catalog_id": "stale-chunk-blank",
+      "family": "blank",
+      "kind": "control",
+      "description": "The same failure, once, on a page with a vite:preloadError handler that reloads once; the page recovers and nothing lasting must be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "a[href]",
+      "targets": "a link to a lazily loaded route in a Vite app",
+      "operation": "window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); if (!sessionStorage.getItem('bench-reloaded')) { sessionStorage.setItem('bench-reloaded', '1'); location.reload(); } }); const origin = location.origin; const fresh = (u) => u.origin === origin && /\\.m?js$/.test(u.pathname) && !cleanLoadUrls.has(u.href); route(fresh, { status: 404, times: 1 }); markPage(); click(inAppLink({ lazy: true }));",
+      "label": {
+        "expect": "no-finding",
+        "kind": "stale-chunk-blank",
+        "v1_kind": "page-blank",
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-stale-chunk-eager-route",
+      "catalog_id": "stale-chunk-blank",
+      "family": "blank",
+      "kind": "control",
+      "description": "The same failing scripts, then a link to a route whose code is in the main bundle; nothing fails and nothing must be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "a[href]",
+      "targets": "a link whose navigation requested no new script on a clean run",
+      "operation": "const origin = location.origin; const fresh = (u) => u.origin === origin && /\\.m?js$/.test(u.pathname) && !cleanLoadUrls.has(u.href); route(fresh, { status: 404 }); markPage(); click(inAppLink({ lazy: false }));",
+      "label": {
+        "expect": "no-finding",
+        "kind": "stale-chunk-blank",
+        "v1_kind": "page-blank",
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "chrome-header-cloned",
+      "catalog_id": "duplicate-chrome",
+      "family": "blank",
+      "kind": "fault",
+      "description": "The site header rendered twice: a copy with ids stripped directly after the original (in the flow when the original is fixed or sticky).",
+      "phase": "after-load",
+      "env": {},
+      "select": "header:not(main header):not(article header):not(section header), [role=banner]",
+      "targets": "the site header, with 3 or more links",
+      "operation": "const h = pick(sel); const c = h.cloneNode(true); for (const el of [c, ...c.querySelectorAll('[id]')]) el.removeAttribute('id'); if (/fixed|sticky/.test(getComputedStyle(h).position)) c.style.position = 'relative'; h.after(c); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "duplicate-chrome",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "chrome-footer-cloned",
+      "catalog_id": "duplicate-chrome",
+      "family": "blank",
+      "kind": "fault",
+      "description": "The site footer rendered twice: a copy with ids stripped inserted before the original.",
+      "phase": "after-load",
+      "env": {},
+      "select": "footer:not(main footer):not(article footer):not(section footer), [role=contentinfo]",
+      "targets": "the site footer",
+      "operation": "const f = pick(sel); const c = f.cloneNode(true); for (const el of [c, ...c.querySelectorAll('[id]')]) el.removeAttribute('id'); f.before(c); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "duplicate-chrome",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "chrome-section-repeated",
+      "catalog_id": "duplicate-chrome",
+      "family": "blank",
+      "kind": "fault",
+      "description": "A top-level block of main (a hero or call to action) repeated directly after itself.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main > *",
+      "targets": "a top-level child of main with over 200 characters of text",
+      "operation": "const s = pick(sel); const c = s.cloneNode(true); for (const el of [c, ...c.querySelectorAll('[id]')]) el.removeAttribute('id'); s.after(c); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "duplicate-chrome",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-nav-mobile-hidden",
+      "catalog_id": "duplicate-chrome",
+      "family": "blank",
+      "kind": "control",
+      "description": "A copy of the nav that is display none at this width, like a mobile drawer; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "nav",
+      "targets": "the main navigation",
+      "operation": "const n = pick(sel); const c = n.cloneNode(true); for (const el of [c, ...c.querySelectorAll('[id]')]) el.removeAttribute('id'); c.style.setProperty('display', 'none', 'important'); n.after(c); mark(c);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "duplicate-chrome",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-logo-marquee",
+      "catalog_id": "duplicate-chrome",
+      "family": "blank",
+      "kind": "control",
+      "description": "A logo marquee whose items are duplicated for looping, the copy aria-hidden; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const m = document.createElement('div'); m.setAttribute('aria-label', 'Customers'); m.style.cssText = 'overflow:hidden;white-space:nowrap;padding:16px 0'; const row = () => { const r = document.createElement('div'); r.style.cssText = 'display:inline-flex;gap:48px;padding-right:48px'; for (const n of ['Harbor Labs', 'Fieldstone', 'Lumen Coffee', 'Oak and Ivy', 'Parallel Bikes', 'Kestrel']) { const s = document.createElement('span'); s.textContent = n; r.append(s); } return r; }; const copy = row(); copy.setAttribute('aria-hidden', 'true'); m.append(row(), copy); pick(sel).append(m); mark(m);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "duplicate-chrome",
+        "v1_kind": null,
+        "attribute": "target",
         "visible": "always"
       }
     },
@@ -2604,6 +3491,63 @@
       }
     },
     {
+      "id": "route-scroll-kept-wrapped",
+      "catalog_id": "route-scroll-kept",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Scroll resets ignored for 1 s after each pushState, then a link clicked from 80% down the page: the new route opens mid-page.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "a[href]",
+      "targets": "a client-routed app that resets scroll on navigation on a clean run, with a link to another route (skip apps that do full page loads)",
+      "operation": "history.scrollRestoration = 'manual'; let until = 0; const push = history.pushState; history.pushState = function (...a) { until = performance.now() + 1000; return push.apply(this, a); }; const gate = (f) => function (...a) { if (performance.now() < until) return; return f.apply(this, a); }; window.scrollTo = gate(window.scrollTo); window.scroll = gate(window.scroll); Element.prototype.scrollTo = gate(Element.prototype.scrollTo); Element.prototype.scrollIntoView = gate(Element.prototype.scrollIntoView); const top = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop'); Object.defineProperty(document.scrollingElement, 'scrollTop', { configurable: true, get() { return top.get.call(this); }, set(v) { if (performance.now() >= until) top.set.call(this, v); } }); window.scrollTo(0, document.documentElement.scrollHeight * 0.8); markPage(); click(inAppLink());",
+      "label": {
+        "expect": "finding",
+        "kind": "route-scroll-kept",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-route-scroll-reset",
+      "catalog_id": "route-scroll-kept",
+      "family": "motion",
+      "kind": "control",
+      "description": "The same scroll-then-click navigation with no wrappers; a correct app opens the new route at the top and nothing must be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "a[href]",
+      "targets": "a client-routed app that resets scroll on navigation (check on a clean run)",
+      "operation": "window.scrollTo(0, document.documentElement.scrollHeight * 0.8); markPage(); click(inAppLink());",
+      "label": {
+        "expect": "no-finding",
+        "kind": "route-scroll-kept",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-route-hash-link",
+      "catalog_id": "route-scroll-kept",
+      "family": "motion",
+      "kind": "control",
+      "description": "A same-page hash link that scrolls to a section on purpose; must not be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "main [id]:not(script):not(style)",
+      "targets": "an element with an id well below the fold",
+      "operation": "const t = pick(sel); const a = document.createElement('a'); a.href = '#' + t.id; a.textContent = 'Jump to section'; (document.querySelector('main') || document.body).prepend(a); markPage(); click(a);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "route-scroll-kept",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
       "id": "regression-token-swap",
       "catalog_id": "visual-regression-after-edit",
       "family": "other",
@@ -2722,6 +3666,48 @@
       "operation": "removeInlineThemeScript(); onReady(() => { document.documentElement.classList.remove('dark'); setTimeout(() => document.documentElement.classList.add('dark'), 400); }); markPage();",
       "label": {
         "expect": "finding",
+        "kind": "theme-flash",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "dark"
+      }
+    },
+    {
+      "id": "theme-script-removed-stored",
+      "catalog_id": "theme-flash",
+      "family": "dark",
+      "kind": "fault",
+      "description": "The inline theme script removed while a dark theme is stored: the app's own provider applies it after first paint.",
+      "phase": "init",
+      "env": {
+        "colorScheme": "light"
+      },
+      "select": "html",
+      "targets": "a client-rendered app whose default theme is light and whose inline head script applies a stored theme (skip if it has none)",
+      "operation": "removeInlineThemeScript(); try { localStorage.setItem('theme', 'dark'); localStorage.setItem('vite-ui-theme', 'dark'); } catch (e) {} onReady(() => markPage());",
+      "label": {
+        "expect": "finding",
+        "kind": "theme-flash",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "dark"
+      }
+    },
+    {
+      "id": "control-theme-script-kept",
+      "catalog_id": "theme-flash",
+      "family": "dark",
+      "kind": "control",
+      "description": "The same stored dark theme with the inline script kept: dark from the first paint, nothing to report.",
+      "phase": "init",
+      "env": {
+        "colorScheme": "light"
+      },
+      "select": "html",
+      "targets": "a client-rendered app whose default theme is light and whose inline head script applies a stored theme (skip if it has none)",
+      "operation": "try { localStorage.setItem('theme', 'dark'); localStorage.setItem('vite-ui-theme', 'dark'); } catch (e) {} onReady(() => markPage());",
+      "label": {
+        "expect": "no-finding",
         "kind": "theme-flash",
         "v1_kind": null,
         "attribute": "page",
@@ -3409,6 +4395,93 @@
         "v1_kind": null,
         "attribute": "page",
         "visible": "always"
+      }
+    },
+    {
+      "id": "export-oklch-html2canvas",
+      "catalog_id": "export-render-broken",
+      "family": "other",
+      "kind": "fault",
+      "description": "oklch() colours forced on main, then the export control is clicked: html2canvas 1.x throws on the colour function.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "button, a, [role=button]",
+      "targets": "an export, download or PDF control whose handler uses html2canvas 1.x, html2pdf.js or jsPDF.html() (skip if none)",
+      "operation": "css('main, main *{color:oklch(0.35 0.02 260)!important;background-color:oklch(0.98 0 0)!important}'); markPage(); click(byText(sel, /export|download|pdf|save as image/i));",
+      "label": {
+        "expect": "finding",
+        "kind": "export-render-broken",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "print-styles-removed",
+      "catalog_id": "export-render-broken",
+      "family": "other",
+      "kind": "fault",
+      "description": "Every @media print rule and print stylesheet removed, then the page printed (print media emulated, as a visitor's Print would).",
+      "phase": "on-interaction",
+      "env": {
+        "media": "print"
+      },
+      "select": "",
+      "targets": "a page with @media print rules or a print stylesheet (skip if none)",
+      "operation": "deleteRules((r) => r instanceof CSSMediaRule && /print/.test(r.media.mediaText)); for (const l of document.querySelectorAll('link[rel=stylesheet][media*=print]')) l.disabled = true; markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "export-render-broken",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-print-hides-chrome",
+      "catalog_id": "export-render-broken",
+      "family": "other",
+      "kind": "control",
+      "description": "A print stylesheet that hides the header, nav and footer and sets dark text on white; must not be reported.",
+      "phase": "on-interaction",
+      "env": {
+        "media": "print"
+      },
+      "select": "",
+      "targets": "a page whose only fixed or sticky bars are the header and nav",
+      "operation": "css('@media print{header,nav,footer,[role=banner],[role=navigation],[role=contentinfo]{display:none!important}body,main{color:#000!important;background:#fff!important}}'); markPage();",
+      "label": {
+        "expect": "no-finding",
+        "kind": "export-render-broken",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "hover-sticky-after-tap",
+      "catalog_id": "sticky-hover-touch",
+      "family": "other",
+      "kind": "fault",
+      "description": "Card hover rules with an 8px lift and a large shadow, then one card tapped under touch WebKit: the hover state stays after the finger lifts.",
+      "phase": "on-interaction",
+      "env": {
+        "hasTouch": true,
+        "viewport": [
+          390,
+          844
+        ],
+        "browser": "webkit"
+      },
+      "select": "[class*=card]:not(a):not(:has(a, button))",
+      "targets": "a card that is not a link and holds no link or button",
+      "operation": "css('.card:hover, [class*=card]:hover{transform:translateY(-8px)!important;box-shadow:0 20px 25px -5px rgb(0 0 0 / .25)!important}'); const c = pick(sel); tap(c); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "sticky-hover-touch",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "touch"
       }
     }
   ]
