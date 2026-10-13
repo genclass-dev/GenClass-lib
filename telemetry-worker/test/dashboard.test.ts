@@ -386,3 +386,27 @@ describe("retention", () => {
     expect(sql.rows("SELECT COUNT(*) AS n FROM daily")[0]!.n).toBe(0);
   });
 });
+
+describe("sample dashboard", () => {
+  it("serves a labelled, simulated sample at /dashboard/sample without touching D1", async () => {
+    const { env } = setup();
+    const page = await handle(new Request("https://genclass.dev/dashboard/sample"), env, opts);
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toContain("simulated data");
+    expect(html).not.toMatch(/ style="/);
+    for (const range of ["24h", "7d", "30d"]) {
+      const res = await handle(new Request(`https://genclass.dev/api/projects/sample?range=${range}`), env, opts);
+      expect(res.status).toBe(200);
+      const s = (await res.json()) as any;
+      expect(s.name).toContain("simulated");
+      expect(s.typeSeries).toHaveLength(range === "24h" ? 24 : range === "7d" ? 7 : 30);
+      expect(s.totals.sessions).toBeGreaterThan(0);
+      const issues = (s.breakdowns.detect_issue as { count: number }[]).reduce((a, x) => a + x.count, 0);
+      expect(issues).toBe(s.totals.detections);
+    }
+    const again = (await (await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).json()) as any;
+    const first = (await (await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).json()) as any;
+    expect(again.typeSeries).toEqual(first.typeSeries); // deterministic for the same time
+  });
+});
