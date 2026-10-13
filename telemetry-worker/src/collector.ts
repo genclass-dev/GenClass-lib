@@ -58,6 +58,8 @@ export interface Env {
   CREATE_LIMITER?: RateLimiterLike;
   /** Workers Rate Limiting binding for batches (60 / 60 s per client IP; the IP is only the counter key, never stored). */
   LIMIT?: RateLimiterLike;
+  /** Workers Rate Limiting binding for batches per session id (the `sid` in the body). */
+  SESSION_LIMIT?: RateLimiterLike;
   /** Service binding to the site worker (`genclass-site`), for genclass.dev paths this worker does not serve. */
   SITE?: { fetch(request: Request): Promise<Response> };
   /** Origin used in dashboard links (default https://genclass.dev). */
@@ -175,6 +177,16 @@ export async function handle(request: Request, env: Env, opts: HandleOptions = {
   return reply(404, { ok: false, error: "not found" });
 }
 
+/** One limiter check. A missing or failing limiter lets the request through (the limiters are best effort). */
+async function allowed(limiter: RateLimiterLike | undefined, key: string): Promise<boolean> {
+  if (!limiter) return true;
+  try {
+    return (await limiter.limit({ key })).success;
+  } catch {
+    return true;
+  }
+}
+
 async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<Response> {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method !== "POST") return reply(405, { ok: false, error: "method not allowed" });
@@ -184,15 +196,11 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
     return reply(415, { ok: false, error: "content-type must be application/json or text/plain" });
   }
 
-  // Abuse guard: a sliding per-IP budget of batches (the runtime sends at most one every 10 s per page).
-  if (env.LIMIT) {
-    let ok = true;
-    try {
-      ok = (await env.LIMIT.limit({ key: request.headers.get("cf-connecting-ip") ?? "unknown" })).success;
-    } catch {
-      /* the limiter is best effort */
-    }
-    if (!ok) return reply(429, { ok: false, error: "too many batches; slow down" });
+  // Abuse guard, per IP: a ceiling high enough for an office or campus behind one address (the runtime sends at most
+  // one batch every 10 s per page, and since 0.2.2 a page stops sending after 3 failed requests in a row, so a low
+  // per-IP limit would silence every page behind a shared NAT for good). The per-session budget below is the tight one.
+  if (!(await allowed(env.LIMIT, request.headers.get("cf-connecting-ip") ?? "unknown"))) {
+    return reply(429, { ok: false, error: "too many batches; slow down" });
   }
 
   const raw = await readCapped(request, MAX_BODY_BYTES);
@@ -206,6 +214,8 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
   }
   const batch = validate(parsed);
   if (typeof batch === "string") return reply(400, { ok: false, error: batch });
+  // Per session: one page sends about 6 batches a minute; the budget leaves room for flushes on hide and unload.
+  if (!(await allowed(env.SESSION_LIMIT, `sid:${batch.sid}`))) return reply(429, { ok: false, error: "too many batches; slow down" });
 
   const now = (opts.now ?? (() => new Date()))();
   const receivedAt = now.toISOString();
