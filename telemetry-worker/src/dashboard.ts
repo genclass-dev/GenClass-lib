@@ -7,6 +7,8 @@
 
 export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
 export const SECRET_RE = /^[A-Za-z0-9]{32}$/;
+/** A project's stable id (16 lowercase hex), used in account URLs; the token stays the public key. */
+export const PROJECT_ID_RE = /^[0-9a-f]{16}$/;
 export const RECENT_CAP = 500;
 export const RETENTION_DAYS = 90;
 /** Distinct counters one batch may touch (bounds D1 writes per batch). */
@@ -46,6 +48,8 @@ export function randomBase62(n: number): string {
 
 export const newToken = (): string => `gc_${randomBase62(22)}`;
 export const newSecret = (): string => randomBase62(32);
+/** 16 lowercase hex, the same shape migration 0003 gave existing projects (lower(hex(randomblob(8)))). */
+export const newProjectId = (): string => [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 export async function sha256Hex(s: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -67,35 +71,59 @@ export const hourKey = (d: Date): string => d.toISOString().slice(0, 13);
 // --------------------------------------------------------------------------------------------- projects
 
 export interface Project {
+  /** Stable id (PROJECT_ID_RE); null only for a row written by code older than migration 0003. */
+  id: string | null;
   token: string;
   name: string;
   created: string;
   last_event: string | null;
+  first_event: string | null;
+  /** The owning account, or null for a project known only by its private dashboard link. */
+  account_id: string | null;
 }
 
-export async function createProject(db: D1Like, name: string, now: Date): Promise<{ token: string; secret: string; name: string; created: string }> {
+export const PROJECT_COLUMNS = "id, token, name, created, last_event, first_event, account_id";
+
+/**
+ * Create a project. Without an account it is reachable through its private dashboard link (the secret, returned once).
+ * With an account the secret is generated and hashed the same way (the column is required) but the caller does not
+ * show it: the app is opened from the account.
+ */
+export async function createProject(
+  db: D1Like,
+  name: string,
+  now: Date,
+  accountId: string | null = null,
+): Promise<{ id: string; token: string; secret: string; name: string; created: string }> {
   for (let attempt = 0; ; attempt++) {
+    const id = newProjectId();
     const token = newToken();
     const secret = newSecret();
     const created = now.toISOString();
     try {
       await db
-        .prepare("INSERT INTO projects (token, secret_hash, name, created) VALUES (?, ?, ?, ?)")
-        .bind(token, await sha256Hex(secret), name, created)
+        .prepare("INSERT INTO projects (id, token, secret_hash, name, created, account_id) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(id, token, await sha256Hex(secret), name, created, accountId)
         .run();
       tokenCache.set(token, { ok: true, exp: now.getTime() + CACHE_OK_MS });
-      return { token, secret, name, created };
+      return { id, token, secret, name, created };
     } catch (e) {
       if (attempt >= 2) throw e; // a collision is astronomically unlikely; anything else is a real error
     }
   }
 }
 
+/** Projects created after `since` (all clients together), for the global creation ceiling. */
+export async function projectsCreatedSince(db: D1Like, since: Date): Promise<number> {
+  const row = await db.prepare("SELECT COUNT(*) AS n FROM projects WHERE created > ?").bind(since.toISOString()).first<{ n: number }>();
+  return Number(row?.n ?? 0);
+}
+
 /** Look a project up by its dashboard secret (by hash, so lookup time does not depend on how much of it matches). */
 export async function projectBySecret(db: D1Like, secret: string): Promise<Project | null> {
   if (!SECRET_RE.test(secret)) return null;
   return db
-    .prepare("SELECT token, name, created, last_event FROM projects WHERE secret_hash = ?")
+    .prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE secret_hash = ?`)
     .bind(await sha256Hex(secret))
     .first<Project>();
 }
@@ -352,7 +380,7 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
   const stmts: D1Stmt[] = [
     ...upserts(db, "daily", "day", token, day, counters),
     ...upserts(db, "hourly", "hour", token, hourKey(now), counters),
-    db.prepare("UPDATE projects SET last_event = ? WHERE token = ?").bind(iso, token),
+    db.prepare("UPDATE projects SET last_event = ?1, first_event = COALESCE(first_event, ?1) WHERE token = ?2").bind(iso, token),
   ];
   if (sessionStmt) stmts.push(sessionStmt);
   for (const r of recent) {
