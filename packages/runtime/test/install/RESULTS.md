@@ -34,6 +34,13 @@ in it.
 **15/15 pass.** CLI unit tests (`test/install/cli.test.ts`): 20/20. Browser checks for the script tag and `/auto`
 (`test/install/cdn-check.mjs`): 26/26.
 
+**Since app tokens (unreleased, not re-run yet):** `init` creates a project at `https://genclass.dev/api/projects` by
+default on a new setup, so `frameworks.mjs` now runs every project with `--no-token` (no network, no `.genclass.local`),
+and two variants, `vite-react-ts-token` and `plain-html-token`, pass a fixed `--token` (no network either). Both are
+judged on top of the steps above: no project created (no `.genclass.local`, no dashboard link printed) and, for the
+variants, the token written into what init adds (`genclass.config.ts` or `data-token`). The table is the 2026-10-08
+run, from before tokens.
+
 Notes:
 - React Router, first dev start only: its Vite plugin does not pre-scan app files, so newly added dependencies
   (`@genclass/runtime/auto`, `/devtools`) are found on the first page load. Vite re-optimizes and reloads the page,
