@@ -203,7 +203,7 @@ export function startPage(nonce: string): string {
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
     <div class="row"><a id="open" class="btn" href="#">Open dashboard</a></div>
   </div>
-  <div class="card stack"><h2 class="h2l">Install</h2><div id="snips" class="stack"></div></div>
+  <div class="card stack"><h2 class="h2l">Install</h2><p class="muted small">The token needs @genclass/runtime 0.3.0 or later; earlier versions ignore it. Local hosts (localhost, *.local, *.test and private networks) never send anything, token or not, unless you pass telemetry: true.</p><div id="snips" class="stack"></div></div>
 </section>
 <footer>Dashboards show counts only (never the situation text) and keep data for 90 days.
 See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">privacy</a> and
@@ -254,7 +254,9 @@ export function notFoundPage(nonce: string): string {
 // problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
 // Chart colours: blue, orange, violet, yellow, magenta (dataviz reference hues, light and dark steps, validated in this
 // order against the light and dark page); no green, which the brand keeps for "GenClass fixed it". Five problem types
-// get a slot, the rest share "Other". Every dynamic string goes through textContent.
+// get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow: outlined bars in
+// the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the confirmed counts.
+// Every dynamic string goes through textContent.
 
 const DASH_CSS = `
 :root{--t1:#2a78d6;--t2:#eb6834;--t3:#4a3aa7;--t4:#eda100;--t5:#e87ba4;--t0:#8a93a8;--grid:#E6EAF1;
@@ -289,6 +291,14 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2);margin-top:14px}
 .legend span{display:inline-flex;align-items:center;gap:7px}
 .key{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.key.ring{background:transparent;border:1.5px solid var(--ink3)}
+.poss-fig{margin-top:40px}
+.poss-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.poss-h h3{font:600 17px var(--sans);letter-spacing:-.01em}
+.poss-h .aside{font-size:13.5px;color:var(--ink3)}
+.poss-note{font-size:14px;color:var(--ink2);margin-top:12px;max-width:72ch}
+.find.poss .n{font-weight:500;color:var(--ink2)}
+table.dt td.poss-n{color:var(--ink3)}
 figure{margin:0}
 figcaption{font:12px var(--mono);color:var(--ink3);margin-top:12px}
 .plot{position:relative;margin-top:14px}
@@ -362,7 +372,7 @@ main.wrap:has(.app){max-width:1360px}
 .mainc .dh{margin-top:32px}
 section[id]{scroll-margin-top:16px}
 @media (max-width:920px){
-  .app{grid-template-columns:1fr}
+  .app{grid-template-columns:minmax(0,1fr)}
   .side{position:sticky;top:0;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
   .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
   .side .seg{margin-top:0;width:auto}
@@ -432,9 +442,12 @@ const DASH_JS = `
   function share(a, b){ if (!b) return "-"; var r = 100 * a / b; return (r > 99.5 && a < b ? Math.floor(r * 10) / 10 : Math.round(r)) + "%"; }
   function sum(list){ return (list || []).reduce(function(s, x){ return s + x.count; }, 0); }
   function map(list){ var m = {}; (list || []).forEach(function(x){ m[x.key] = (m[x.key] || 0) + x.count; }); return m; }
-  function issues(B){
+  // distinct keys in the period (breakdown lists stop at their top 25)
+  function count(S, m){ var d = S.distinct || {}; return d[m] != null ? d[m] : (S.breakdowns[m] || []).length; }
+  function ring(color){ var s = el("span", "key ring"); s.style.borderColor = color; return s; }
+  function issues(B, m){
     var out = {};
-    (B.detect_issue || []).forEach(function(x){
+    (B[m || "detect_issue"] || []).forEach(function(x){
       var i = x.key.indexOf("\\t"); if (i < 0) return;
       var d = x.key.slice(0, i), r = x.key.slice(i + 1);
       (out[d] = out[d] || []).push({ route: r, count: x.count });
@@ -448,10 +461,11 @@ const DASH_JS = `
   // ---------- summary and tiles
   function summary(S){
     var T0 = S.totals, B = S.breakdowns, host = document.getElementById("summary"); host.textContent = "";
-    var pages = (B.detect_route || []).length, modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0;
+    var pages = count(S, "detect_route"), modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0, poss = T0.possible || 0;
     function put(t, bold){ host.appendChild(bold ? el("b", null, t) : document.createTextNode(t)); }
     if (!T0.sessions) { put("No page loads in this period yet."); return; }
     put(RANGE[S.range] + " GenClass watched "); put(plural(T0.sessions, "page load", "page loads"), true);
+    if (!T0.detections && poss) { put(" and confirmed no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
     if (!T0.detections) { put(" and found nothing wrong. It only reports situations that stand out, so a quiet stretch is normal."); return; }
     put(" and found "); put(plural(T0.detections, "problem", "problems"), true);
     if (pages) { put(" on "); put(plural(pages, "page", "pages"), true); }
@@ -459,6 +473,7 @@ const DASH_JS = `
     if (acting && T0.interventions) { put("It stepped in "); put(plural(T0.interventions, "time", "times"), true); var u = map(B.action_outcome).undone || 0; put(u ? ", and " + plural(u, "change was", "changes were") + " undone." : ", and nothing it changed was undone."); }
     else if (acting) put("It is allowed to step in and did not need to.");
     else put("It is in observe mode, so it reported them and changed nothing.");
+    if (poss) { put(" It also flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately and not counted as problems."); }
   }
   function delta(now, before){
     if (!before && !now) return "";
@@ -474,7 +489,8 @@ const DASH_JS = `
     var ready = T0.model_ready || 0, failed = T0.model_load_failed || 0, modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0;
     var outcomes = map(B.action_outcome), applied = outcomes.applied || T0.interventions || 0, undone = outcomes.undone || 0;
     host.appendChild(stat("Problems found", fmt(T0.detections), delta(T0.detections || 0, (S.previous || {}).detections || 0)));
-    host.appendChild(stat("Pages affected", fmt((B.detect_route || []).length), (B.page_route || []).length ? "of " + plural((B.page_route || []).length, "page", "pages") + " that sent data" : ""));
+    var seenPages = count(S, "page_route");
+    host.appendChild(stat("Pages affected", fmt(count(S, "detect_route")), seenPages ? "of " + plural(seenPages, "page", "pages") + " that sent data" : ""));
     host.appendChild(stat("Stopped by GenClass", fmt(T0.interventions), acting ? (applied ? Math.round(100 * undone / applied) + "% undone by users" : "nothing needed stopping") : "observe mode reports only"));
     host.appendChild(stat("Model loaded", share(ready, ready + failed), ready ? "average " + (T0.modelLoadAvgMs >= 1000 ? (T0.modelLoadAvgMs / 1000).toFixed(1) + " s" : fmt(T0.modelLoadAvgMs) + " ms") + ", " + plural(failed, "failure", "failures") : "no model loads yet"));
   }
@@ -492,6 +508,9 @@ const DASH_JS = `
     var order = SLOTS.concat(["other"]).filter(function(s){ return rows.some(function(r){ return r.parts[s]; }); });
     var total = rows.reduce(function(s, r){ return s + r.total; }, 0);
     document.getElementById("trendn").textContent = plural(total, "problem", "problems");
+    var poss = {}, ptotal = 0;
+    (S.series || []).forEach(function(b){ poss[b.bucket] = b.possible || 0; ptotal += b.possible || 0; });
+    if (total || ptotal) trendTable(tbl, rows, order, hourly, poss, ptotal);
     if (!total) { host.appendChild(el("p", "quiet", "No problems found in this period.")); return; }
     if (order.length > 1) order.forEach(function(s){ var x = el("span"); x.appendChild(key(colorOf(s))); x.appendChild(document.createTextNode(s === "other" ? "Other" : TYPES[s].name)); leg.appendChild(x); });
     var W = 720, H = 210, PL = 30, PB = 24, PT = 6, n = rows.length, plotW = W - PL, plotH = H - PB - PT;
@@ -526,10 +545,51 @@ const DASH_JS = `
       g.appendChild(hit);
     });
     host.appendChild(g); host.appendChild(tip);
+  }
+  function trendTable(tbl, rows, order, hourly, poss, ptotal){
     var tb = el("table", "dt"), hr = el("tr"); hr.appendChild(el("th", null, hourly ? "Hour" : "Day")); order.forEach(function(s){ hr.appendChild(el("th", null, s === "other" ? "Other" : TYPES[s].name)); }); hr.appendChild(el("th", null, "Total"));
+    if (ptotal) hr.appendChild(el("th", null, "Possible (not in total)"));
     var th = el("thead"); th.appendChild(hr); tb.appendChild(th); var body = el("tbody");
-    rows.forEach(function(r){ var tr = el("tr"); tr.appendChild(el("td", null, label(r.bucket, hourly))); order.forEach(function(s){ tr.appendChild(el("td", null, fmt(r.parts[s] || 0))); }); tr.appendChild(el("td", null, fmt(r.total))); body.appendChild(tr); });
+    rows.forEach(function(r){ var tr = el("tr"); tr.appendChild(el("td", null, label(r.bucket, hourly))); order.forEach(function(s){ tr.appendChild(el("td", null, fmt(r.parts[s] || 0))); }); tr.appendChild(el("td", null, fmt(r.total))); if (ptotal) tr.appendChild(el("td", "poss-n", fmt(poss[r.bucket] || 0))); body.appendChild(tr); });
     tb.appendChild(body); var wrap = el("div", "tablewrap"); wrap.appendChild(tb); tbl.appendChild(wrap);
+  }
+  // ---------- possible issues over time (Fig. 2): one series, hollow bars in the muted ink, its own axis
+  function possibleTrend(S){
+    var host = document.getElementById("possplot"), fig = document.getElementById("possfig"); host.textContent = "";
+    var hourly = S.range === "24h", rows = (S.series || []).map(function(b){ return { bucket: b.bucket, n: b.possible || 0 }; });
+    var total = rows.reduce(function(s, r){ return s + r.n; }, 0);
+    document.getElementById("unit2").textContent = hourly ? "hour" : "day";
+    document.getElementById("possn").textContent = plural(total, "possible issue", "possible issues");
+    fig.classList.toggle("hidden", !total);
+    if (!total) return;
+    var W = 720, H = 120, PL = 30, PB = 24, PT = 6, n = rows.length, plotW = W - PL, plotH = H - PB - PT;
+    var max = niceMax(Math.max.apply(null, rows.map(function(r){ return r.n; })));
+    var g = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Possible issues (lower confidence) per " + (hourly ? "hour" : "day") });
+    [0, max].forEach(function(v){
+      var y = PT + plotH - plotH * v / max;
+      g.appendChild(svg("line", { x1: PL, x2: W, y1: y, y2: y, stroke: v ? "var(--grid)" : "var(--rule2)", "stroke-width": 1 }));
+      var t = svg("text", { x: PL - 6, y: y + 4, "text-anchor": "end" }); t.textContent = fmt(v); g.appendChild(t);
+    });
+    var step = plotW / n, bw = Math.max(2, Math.min(28, step * 0.64)), tip = el("div", "tip hidden");
+    rows.forEach(function(r, i){
+      var x = PL + i * step + (step - bw) / 2;
+      if (r.n) { var h = Math.max(2, plotH * r.n / max); g.appendChild(svg("rect", { x: x + 0.75, y: PT + plotH - h + 0.75, width: Math.max(1, bw - 1.5), height: h - 0.75, rx: 2, fill: "var(--panel)", stroke: "var(--ink3)", "stroke-width": 1.5 })); }
+      if (i === 0 || i === n - 1 || i === Math.floor(n / 2)) {
+        var lt = svg("text", { x: PL + i * step + step / 2, y: H - 6, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }); lt.textContent = label(r.bucket, hourly); g.appendChild(lt);
+      }
+      var hit = svg("rect", { x: PL + i * step, y: PT, width: step, height: plotH, fill: "transparent", tabindex: 0 });
+      function show(){
+        tip.textContent = ""; tip.appendChild(el("div", "t", label(r.bucket, hourly) + ": " + plural(r.n, "possible issue", "possible issues")));
+        var row = el("div", "r"), a = el("span"); a.appendChild(ring("var(--ink3)")); a.appendChild(document.createTextNode("Not counted as problems")); row.appendChild(a); tip.appendChild(row);
+        tip.classList.remove("hidden");
+        var box = host.getBoundingClientRect(), left = (PL + i * step + step / 2) / W * box.width;
+        tip.style.left = Math.min(Math.max(0, left - 80), box.width - 170) + "px"; tip.style.top = "0px";
+      }
+      hit.addEventListener("mouseenter", show); hit.addEventListener("focus", show);
+      hit.addEventListener("mouseleave", function(){ tip.classList.add("hidden"); }); hit.addEventListener("blur", function(){ tip.classList.add("hidden"); });
+      g.appendChild(hit);
+    });
+    host.appendChild(g); host.appendChild(tip);
   }
 
   // ---------- one card per kind of problem
@@ -563,27 +623,57 @@ const DASH_JS = `
       host.appendChild(c);
     });
   }
+  // the lower-confidence tier: its own cards (ring keys), never merged into the ones above
+  function possibleCards(S){
+    var B = S.breakdowns, host = document.getElementById("possible"), byIssue = issues(B, "possible_issue"); host.textContent = "";
+    var list = (B.possible_diagnosis || []).filter(function(x){ return x.key !== "expected"; }), total = sum(list);
+    document.getElementById("possible-s").classList.toggle("hidden", !list.length);
+    list.forEach(function(x){
+      var t = T(x.key), c = el("article", "find poss");
+      var top = el("div", "top"), h = el("h3"); h.appendChild(ring(colorOf(slotOf(x.key)))); h.appendChild(document.createTextNode(t.name)); top.appendChild(h);
+      var nw = el("div", "nw"); nw.appendChild(el("span", "n", fmt(x.count))); nw.appendChild(el("span", "share", total ? Math.round(100 * x.count / total) + "% of possible issues" : "")); top.appendChild(nw); c.appendChild(top);
+      if (t.what) c.appendChild(el("p", null, t.what));
+      var where = (byIssue[x.key] || []).slice().sort(function(a, b){ return b.count - a.count; });
+      if (where.length) {
+        var ul = el("ul", "where");
+        where.slice(0, 4).forEach(function(w){ var li = el("li"); li.appendChild(el("code", null, w.route)); li.appendChild(el("span", null, fmt(w.count))); ul.appendChild(li); });
+        c.appendChild(ul);
+      }
+      host.appendChild(c);
+    });
+  }
 
   // ---------- pages, actions, health
   function pages(S){
-    var B = S.breakdowns, host = document.getElementById("pages"), byIssue = issues(B); host.textContent = "";
+    var B = S.breakdowns, T0 = S.totals, host = document.getElementById("pages"), byIssue = issues(B), byPoss = issues(B, "possible_issue"); host.textContent = "";
     var routes = {};
-    Object.keys(byIssue).forEach(function(d){ byIssue[d].forEach(function(w){ var r = routes[w.route] = routes[w.route] || { route: w.route, total: 0, parts: {} }; var s = slotOf(d); r.parts[s] = (r.parts[s] || 0) + w.count; r.total += w.count; }); });
+    function at(route){ return routes[route] = routes[route] || { route: route, total: 0, parts: {}, poss: 0 }; }
+    Object.keys(byIssue).forEach(function(d){ byIssue[d].forEach(function(w){ var r = at(w.route); var s = slotOf(d); r.parts[s] = (r.parts[s] || 0) + w.count; r.total += w.count; }); });
+    if (!Object.keys(routes).length) (B.detect_route || []).forEach(function(x){ at(x.key).total += x.count; });
+    if (Object.keys(byPoss).length) Object.keys(byPoss).forEach(function(d){ byPoss[d].forEach(function(w){ at(w.route).poss += w.count; }); });
+    else (B.possible_route || []).forEach(function(x){ at(x.key).poss += x.count; });
     var list = Object.keys(routes).map(function(k){ return routes[k]; });
-    if (!list.length) list = (B.detect_route || []).map(function(x){ return { route: x.key, total: x.count, parts: {} }; });
-    list.sort(function(a, b){ return b.total - a.total; });
+    list.sort(function(a, b){ return b.total - a.total || b.poss - a.poss; });
     if (!list.length) { host.appendChild(el("p", "quiet", "No problems on any page in this period.")); return; }
+    var anyPoss = list.some(function(r){ return r.poss; });
     var max = list[0].total || 1, tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
     hr.appendChild(el("th", null, "Page")); hr.appendChild(el("th", "num", "Problems")); hr.appendChild(el("th", null, "By type"));
+    if (anyPoss) hr.appendChild(el("th", "num", "Possible"));
     hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
     list.slice(0, 8).forEach(function(r){
       var tr = el("tr"); var rc = el("td", "route", r.route); rc.title = r.route; tr.appendChild(rc); tr.appendChild(el("td", "num", fmt(r.total)));
       var td = el("td", "wide"), mix = el("div", "mix"), parts = SLOTS.concat(["other"]).filter(function(s){ return r.parts[s]; });
-      if (!parts.length) { var i0 = el("i"); i0.style.width = (100 * r.total / max) + "%"; i0.style.background = "var(--bar3)"; mix.appendChild(i0); }
+      if (!parts.length && r.total) { var i0 = el("i"); i0.style.width = (100 * r.total / max) + "%"; i0.style.background = "var(--bar3)"; mix.appendChild(i0); }
       parts.forEach(function(s){ var i = el("i"); i.style.width = (100 * r.parts[s] / max) + "%"; i.style.background = colorOf(s); i.title = (s === "other" ? "Other" : TYPES[s].name) + ": " + fmt(r.parts[s]); mix.appendChild(i); });
-      td.appendChild(mix); tr.appendChild(td); body.appendChild(tr);
+      td.appendChild(mix); tr.appendChild(td);
+      if (anyPoss) tr.appendChild(el("td", "num poss-n", r.poss ? fmt(r.poss) : "-"));
+      body.appendChild(tr);
     });
     tb.appendChild(body); host.appendChild(tb);
+    var notes = [], withPage = T0.detectionsWithPage;
+    if (anyPoss) notes.push("Possible: lower-confidence issues on that page, not counted in Problems.");
+    if (typeof withPage === "number" && T0.detections > withPage) notes.push(plural(T0.detections - withPage, "problem", "problems") + " arrived without a page (the page comes with the decision record, which was in another batch or not sent); the totals count them.");
+    if (notes.length) host.appendChild(el("figcaption", null, notes.join(" ")));
   }
   function acted(S){
     var B = S.breakdowns, T0 = S.totals, host = document.getElementById("acted"); host.textContent = "";
@@ -618,6 +708,11 @@ const DASH_JS = `
     row(dl, "Where it ran", be.length ? be.map(function(x){ return (x.key === "webgpu" ? "WebGPU" : x.key === "wasm" ? "WASM" : x.key) + " " + Math.round(100 * x.count / beTot) + "%"; }).join(", ") : "-", T0.modelLoadAvgMs ? "average load " + (T0.modelLoadAvgMs >= 1000 ? (T0.modelLoadAvgMs / 1000).toFixed(1) + " s" : fmt(T0.modelLoadAvgMs) + " ms") : "");
     row(dl, "Decision time", T0.latency_ms_n ? fmt(T0.latencyAvgMs) + " ms" : "-", T0.latency_ms_n ? "average over " + plural(T0.latency_ms_n, "decision", "decisions") : "no decisions yet");
     row(dl, "Ran without a decision", fmt(T0.failOpens), "times the app went ahead without a decision (model not ready, budget, hidden tab)", T0.failOpens ? null : ["ok", "none"]);
+    var hs = T0.hidden_skipped || 0, md = T0.model_dropped || 0;
+    row(dl, "Not checked", fmt(hs + md), hs + md ? [hs ? fmt(hs) + " in hidden tabs" : "", md ? fmt(md) + " over the decision rate limit" : ""].filter(Boolean).join(", ") : "situations skipped in hidden tabs or over the decision rate limit", hs + md ? null : ["ok", "none"]);
+    if (T0.actionLimits) row(dl, "Action limits reached", fmt(T0.actionLimits), "times GenClass ran the passive action because an action limit was reached");
+    var so = T0.records_sampled_out || 0, rc = T0.records_capped || 0, td = T0.telemetry_dropped || 0;
+    if (so + rc + td) row(dl, "Records not sent", fmt(so + rc + td), [so ? fmt(so) + " routine decisions sampled out" : "", rc ? fmt(rc) + " over the per-page cap" : "", td ? fmt(td) + " dropped in the browser" : ""].filter(Boolean).join(", ") + ". The totals above still count every decision and detection; pages and functions come from the records that arrived.");
     if (errs.length) {
       var dd = row(dl, "Load errors", plural(sum(errs), "error", "errors"), "the model did not load on these page loads; the page still worked, without GenClass decisions", null), ul = el("ul");
       errs.slice(0, 4).forEach(function(x){ var li = el("li", null, fmt(x.count) + " \\u00D7 " + x.key); li.title = x.key; ul.appendChild(li); });
@@ -646,10 +741,10 @@ const DASH_JS = `
     var B = S.breakdowns, host = document.getElementById("adv"); host.textContent = "";
     [["Triggers", B.trigger], ["Diagnoses (all decisions)", B.diagnosis], ["Top routes (decisions)", B.route], ["Top pages (page loads)", B.page_route], ["Protected functions", B.fn],
      ["Model load states", B.model_state], ["Decision latency", B.latency_bucket], ["Fail-opens (reason:trigger)", B.fail_open], ["Modes", B.mode], ["Model versions", B.model_version],
-     ["Hosts seen", B.host]].forEach(function(p){
+     ["Hosts seen", B.host], ["Possible issues (lower confidence)", B.possible_diagnosis], ["Action limits", B.action_limits]].forEach(function(p){
       var c = el("div"); c.appendChild(el("h2", null, p[0]));
       if (!p[1] || !p[1].length) { c.appendChild(el("p", "empty", "None in this period.")); host.appendChild(c); return; }
-      var max = p[1][0].count || 1, ul = el("ul", "bars");
+      var max = Math.max.apply(null, p[1].map(function(x){ return x.count; })) || 1, ul = el("ul", "bars");
       p[1].slice(0, 10).forEach(function(x){ var li = el("li"); var k = el("span", "k", x.key); k.title = x.key; li.appendChild(k); li.appendChild(el("span", "n", fmt(x.count))); var tr = el("span", "track"); var fi = el("span", "fill"); fi.style.display = "block"; fi.style.width = Math.max(2, 100 * x.count / max) + "%"; tr.appendChild(fi); li.appendChild(tr); ul.appendChild(li); });
       c.appendChild(ul); host.appendChild(c);
     });
@@ -663,11 +758,11 @@ const DASH_JS = `
     document.getElementById("nodata").classList.toggle("hidden", live);
     document.getElementById("content").classList.toggle("hidden", !live);
     if (!live) { document.getElementById("install").open = true; return; }
-    summary(S); tiles(S); trend(S); cards(S); pages(S); acted(S); health(S); recent(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
-    document.getElementById("c-pages").textContent = String((B2.detect_route || []).length);
+    document.getElementById("c-pages").textContent = String(count(S, "detect_route"));
     document.getElementById("c-did").textContent = fmt(T2.interventions);
   }
 
@@ -750,7 +845,9 @@ export function dashboardPage(nonce: string, project: { name: string; token: str
   <p class="summary" id="summary"></p>
 </section>
 <section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
-Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts (localhost, *.test) only send data with an explicit token.</p></section>
+Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime 0.3.0 or later; earlier
+versions ignore it. Local hosts (localhost, *.local, *.test and private networks) never send anything, token or not,
+unless you pass telemetry: true.</p></section>
 <div id="content" class="hidden">
 <div class="statrow" id="tiles"></div>
 <section class="blk" id="trend">
@@ -760,12 +857,22 @@ Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts 
     <div class="plot" id="trendplot"></div>
     <figcaption>Fig. 1. Problems GenClass found, per <span id="unit">day</span>, by type. Hover a bar for its breakdown.</figcaption>
   </figure>
+  <figure class="poss-fig hidden" id="possfig">
+    <div class="poss-h"><h3>Possible issues</h3><span class="aside" id="possn"></span></div>
+    <div class="plot" id="possplot"></div>
+    <figcaption>Fig. 2. Possible issues per <span id="unit2">day</span>, at lower confidence: the model leaned 70% or more towards a problem but stayed under the threshold it reports at. Not counted in Fig. 1.</figcaption>
+  </figure>
   <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
 </section>
 <section class="blk" id="found">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
+  <div id="possible-s" class="hidden mt-l">
+    <div class="poss-h"><h3>Possible issues, lower confidence</h3><span class="aside">Not counted as problems</span></div>
+    <p class="poss-note">The model leaned towards a problem (70% or more) but stayed under the threshold it reports at. Worth a look when one keeps coming back on the same page.</p>
+    <div class="finds" id="possible"></div>
+  </div>
 </section>
 <section class="blk two" id="where">
   <div><div class="blk-h"><h2>Pages</h2><span class="aside">Table 1. Pages with the most problems</span></div><div id="pages"></div></div>
@@ -785,6 +892,7 @@ Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts 
 </div>
 <section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
   <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
+  <p class="muted small mt-s">The token needs @genclass/runtime 0.3.0 or later. Local hosts never send anything unless you pass telemetry: true.</p>
   <div id="snips" class="stack mt-s"></div></details></section>
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
 decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept 90 days (hourly detail 48 hours). Keep this

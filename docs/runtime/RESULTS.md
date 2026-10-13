@@ -299,3 +299,38 @@ trained v2 model once it exists.
 | next | 150M teacher on v2 gold, teacher labels on unlabeled rows, distil R17/R32, DAgger rounds (SIM `--on-policy`), EVAL. |
 
 Compute: Azure CPU nodes (F80 and D64 sizes); the day-by-day record is kept internally.
+
+## 9. Dashboard counts and the possible-issues tier (telemetry-worker, 2026-10-13)
+
+Branch `wave2/dash-detect`. The worker now takes each page load's totals (page loads, decisions, detections by
+diagnosis, acted, triggers, diagnoses, action outcomes, vetoes, breaker trips, fail-opens, model errors, action
+limits, hidden-tab skips, rate-limit drops, browser drops, sampled-out and capped records) from its cumulative
+`summary`, through a per-page-load high-water mark, and from its events until the first summary arrives
+(`telemetry-worker/README.md`, "Exact totals"). Routes, functions and recent rows still come from the events.
+
+| what | value | how |
+|---|---|---|
+| Counted totals vs the page load's own summary, unit fixtures | equal in every case, 0 double counts | `telemetry-worker/test/dashboard.test.ts` (CI): a repeated batch, bigger / late older / partial summaries, a split flush in three orders including both parts processed at once, a client that sent 4 decision records for 500 decisions and 260 detections, state from the previous worker format, state swept after 2 days, a corrupt state row. Fixtures, not production traffic |
+| Local replay: 30 batches, 240 decisions, 120 detections, 5 summaries | dashboard 240 / 120; page-load state row 723 bytes | scratch replay through `aggregate()` and `stats()` on `node:sqlite` with the real migrations |
+| Dashboard page HTML (`/dashboard/<secret>`) | 50,737 → 60,288 bytes (gzip 15,500 → 17,358) | `dashboardPage()` output, `origin/main` vs this branch; a worker page, not part of the runtime's first-load budget |
+| `/start` HTML; sample stats JSON (7 d) | 12,700 → 12,934 bytes; 8,580 → 9,676 bytes | same |
+| Fig. 2 (possible issues) bar outline contrast | 5.72:1 light (`--ink3` #5A6684 on #FFFFFF), 7.00:1 dark (#97A3C2 on #0B1736) | dataviz `validate_palette.js` `contrast()`; one series, no new hue (ring keys reuse the validated type hues), so no CVD pair to check |
+
+**Possible issues.** A decision counts in this tier when its top diagnosis is not `expected` and its diagnosis
+confidence is at least 0.70 but below that decision's own report gate (sent with every decision as `gates.report`; at
+or above it the runtime reports a detection). The tier is shown apart from detections, labelled lower confidence,
+and never added to the problem counts. It changes nothing in the app: no action, so FIR 0 by construction. **Its own
+false-report rate is not measured yet**: the repo has no held-out decision-level confidences for model 0.2.0 (the
+bench results keep findings, not confidences, and the per-gate reports are not in the repo). The nearest
+measured numbers, from `packages/runtime-model/MODEL_CARD.md` and `training/EVAL.md` (model 0.2.0, held-out test): at
+the default report gate 0.90 (`balanced`) the model detects 75% / 30% / 6% of duplicate / stale / broken real-app
+cases with a report false-detection limit of ≤ 2% REAL / ≤ 3% SIM; at 0.70 (`eager`, the tier's floor) 77% / 45% / 13%
+with a limit of ≤ 5% / ≤ 6% (limits met on held-out test; the exact rates are unpublished). The tier at `balanced` is
+the band between those two rows, so its false-report share is expected to be well above the confirmed tier's. On
+correct apps the compat matrix already records 49 false observe findings in 880 runs at `balanced`
+(`compat/RESULTS.md`, all in scenario g, polling and fan-out). With `decisionSample` < 1 (wave1/defaults-footprint)
+routine decision records are sampled, so the tier counts a sample of them, while detections stay exact from the
+summaries.
+
+Not measured: anything on production data. No released runtime sends a token yet (`0.3.0` will), so no real page
+load reaches a dashboard.

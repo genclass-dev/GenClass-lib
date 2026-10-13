@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import worker from "../src/index.js";
 import { handle, MAX_PROJECTS_PER_MINUTE, validate, type Env } from "../src/collector.js";
-import { RECENT_CAP, resetTokenCache, retention, sanitizeName, sha256Hex, TOKEN_RE, type D1Like, type D1Stmt } from "../src/dashboard.js";
+import { aggregate, POSSIBLE_MIN, RECENT_CAP, resetTokenCache, retention, sanitizeName, SESSION_KEEP_MS, sha256Hex, stats, TOKEN_RE, type D1Like, type D1Stmt } from "../src/dashboard.js";
+import { sampleStats } from "../src/sample.js";
 
 // D1 stand-in backed by node:sqlite running the real migration, so the SQL itself is under test.
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");
@@ -14,20 +15,37 @@ function d1() {
   const db = new DatabaseSync(":memory:");
   db.exec(MIGRATION);
   let batches = 0;
-  const stmt = (sql: string, params: unknown[] = []): D1Stmt => ({
+  // holdReads(n): the next n reads of page-load state wait for each other, so n batches of one page load all read the
+  // same state before any of them writes (what concurrent requests to the worker can do)
+  let gate: { n: number; waiting: (() => void)[] } | null = null;
+  type Stmt = D1Stmt & { sync(): { results: unknown[] } };
+  const stmt = (sql: string, params: unknown[] = []): Stmt => ({
     bind: (...v: unknown[]) => stmt(sql, v),
-    first: async <T>() => (db.prepare(sql).get(...(params as never[])) ?? null) as T | null,
+    first: async <T>() => {
+      if (gate && sql.startsWith("SELECT counts FROM sessions")) {
+        const g = gate;
+        await new Promise<void>((go) => {
+          g.waiting.push(go);
+          if (g.waiting.length >= g.n) {
+            gate = null;
+            for (const w of g.waiting) w();
+          }
+        });
+      }
+      return (db.prepare(sql).get(...(params as never[])) ?? null) as T | null;
+    },
     all: async <T>() => ({ results: db.prepare(sql).all(...(params as never[])) as T[] }),
     run: async () => db.prepare(sql).run(...(params as never[])),
+    sync: () => ({ results: db.prepare(sql).all(...(params as never[])) }),
   });
   const api: D1Like = {
     prepare: (sql) => stmt(sql),
+    // one transaction, run without yielding (D1 runs a batch as one serialized transaction)
     async batch(stmts) {
       batches++;
       db.exec("BEGIN");
       try {
-        const out = [];
-        for (const s of stmts) out.push(await s.all());
+        const out = stmts.map((s) => (s as Stmt).sync());
         db.exec("COMMIT");
         return out;
       } catch (e) {
@@ -36,7 +54,15 @@ function d1() {
       }
     },
   };
-  return { api, db, rows: (sql: string, ...p: unknown[]) => db.prepare(sql).all(...(p as never[])) as Record<string, unknown>[], batches: () => batches };
+  return {
+    api,
+    db,
+    rows: (sql: string, ...p: unknown[]) => db.prepare(sql).all(...(p as never[])) as Record<string, unknown>[],
+    batches: () => batches,
+    holdReads: (n: number) => {
+      gate = { n, waiting: [] };
+    },
+  };
 }
 
 function setup(limiter?: Env["CREATE_LIMITER"]) {
@@ -217,7 +243,7 @@ describe("token on telemetry batches", () => {
     expect(bd("model_errors")).toEqual({ inference_failed: 1 });
     expect(bd("latency_bucket")).toEqual({ "<50 ms": 1, "100-250 ms": 1 });
     expect(s.series).toHaveLength(7);
-    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1 });
+    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1, possible: 0 });
     // the dashboard's type x page view and per-type timeline, and the period before for deltas
     expect(bd("detect_issue")).toEqual({ "stale\t/cart/:id": 1 });
     expect(s.typeSeries).toHaveLength(7);
@@ -225,7 +251,8 @@ describe("token on telemetry batches", () => {
     expect(s.typeSeries[0]).toEqual({ bucket: "2026-10-02", counts: {} });
     expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0 });
     expect(s.recent).toEqual([
-      { t: NOW.toISOString(), route: "/cart/:id", fn: "saveCart", trigger: "mutation", diagnosis: "stale", action: "discard", ran: "discard", confidence: 0.95, mode: "heal", executed: true, acted: true, kind: "detect" },
+      // the diagnosis confidence (0.97), not p(action) (0.95)
+      { t: NOW.toISOString(), route: "/cart/:id", fn: "saveCart", trigger: "mutation", diagnosis: "stale", action: "discard", ran: "discard", confidence: 0.97, mode: "heal", executed: true, acted: true, kind: "detect" },
     ]);
     expect(JSON.stringify(s)).not.toContain("SITUATION");
 
@@ -408,5 +435,229 @@ describe("sample dashboard", () => {
     const again = (await (await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).json()) as any;
     const first = (await (await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).json()) as any;
     expect(again.typeSeries).toEqual(first.typeSeries); // deterministic for the same time
+  });
+});
+
+// ------------------------------------------------------------------------------------------ exact totals
+
+const SID = "a1b2c3d4e5f6a7b8c9d0e1f2";
+const TOK = "gc_abcdefghijklmnopqrstuv";
+const PROJ = { token: TOK, name: "t", created: NOW.toISOString(), last_event: null };
+type E = Record<string, unknown>;
+const batchOf = (events: E[], runtime = "0.3.0-beta.0") => ({ sid: SID, runtime, model: "2.0.0-rc4t", events });
+const sess = (): E => ({ t: "session", seq: 0, at: 0, host: "shop.example", route: "/", effectiveMode: "observe" });
+const dec = (seq: number, id: string, o: E = {}): E => ({
+  t: "decision", seq, at: seq * 10, id, trigger: "delivery", route: "/search", diagnosis: "stale", diagnosisConfidence: 0.95, gates: { report: 0.9, guard: 0.95, heal: 0.9 },
+  action: "deliver", confidence: 0.9, ran: "deliver", executed: true, acted: false, effectiveMode: "observe", ...o,
+});
+const det = (seq: number, id: string, diagnosis = "stale", p = 0.95): E => ({ t: "detect", seq, at: seq * 10, decision: id, trigger: "delivery", diagnosis, p });
+const summ = (seq: number, counts: E, extra: E = {}): E => ({ t: "summary", seq, at: seq * 10, reason: "periodic", counts, ...extra });
+const statsOf = (sql: ReturnType<typeof d1>) => stats(sql.api, PROJ, "7d", NOW);
+const bdOf = (s: Awaited<ReturnType<typeof stats>>, m: string) => Object.fromEntries((s.breakdowns[m] ?? []).map((x) => [x.key, x.count]));
+const stateOf = (sql: ReturnType<typeof d1>) => JSON.parse(String(sql.rows("SELECT counts FROM sessions")[0]!.counts));
+
+describe("exact totals from page-load summaries (high-water marks per page load)", () => {
+  it("counts cumulative summaries once: a repeated batch, a bigger summary, a late older one, a partial one", async () => {
+    const { sql } = setup();
+    const first = [
+      sess(), dec(1, "d1"), det(2, "d1"), dec(3, "d2", { diagnosis: "expected", diagnosisConfidence: 0.99 }), dec(4, "d3", { trigger: "request", diagnosis: "duplicate" }), det(5, "d3", "duplicate"),
+      summ(6, { decisions: 3, acted: 0, detections: 2, byTrigger: { delivery: 2, request: 1 }, byDiagnosis: { stale: 1, expected: 1, duplicate: 1 }, detectionsByDiagnosis: { stale: 1, duplicate: 1 } }),
+    ];
+    await aggregate(sql.api, TOK, batchOf(first), NOW);
+    let s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, decisions: 3, detections: 2 });
+
+    // the same request again: nothing changes, not even the event-only counters or the recent rows
+    const recentRows = sql.rows("SELECT COUNT(*) AS n FROM recent")[0]!.n;
+    await aggregate(sql.api, TOK, batchOf(first), NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, decisions: 3, detections: 2 });
+    expect(bdOf(s, "route")).toEqual({ "/search": 3 });
+    expect(sql.rows("SELECT COUNT(*) AS n FROM recent")[0]!.n).toBe(recentRows);
+
+    // a later summary from a client that sent few decision records (sampling, per-page caps): totals follow it
+    await aggregate(sql.api, TOK, batchOf([dec(7, "d7"), summ(40, { decisions: 500, acted: 0, detections: 260, byTrigger: { delivery: 380, request: 120 }, byDiagnosis: { stale: 300, expected: 140, duplicate: 60 }, detectionsByDiagnosis: { stale: 200, duplicate: 60 } })]), NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, decisions: 500, detections: 260 });
+    expect(bdOf(s, "detect_diagnosis")).toEqual({ stale: 200, duplicate: 60 });
+    expect(bdOf(s, "trigger")).toEqual({ delivery: 380, request: 120 });
+    expect(bdOf(s, "diagnosis")).toEqual({ stale: 300, expected: 140, duplicate: 60 });
+    expect(s.series.at(-1)).toMatchObject({ sessions: 1, decisions: 500, detections: 260 });
+    expect(s.typeSeries.at(-1)!.counts).toEqual({ stale: 200, duplicate: 60 });
+
+    // an older summary arriving late and one without some fields never lower or double anything
+    await aggregate(sql.api, TOK, batchOf([summ(20, { decisions: 120, detections: 70, detectionsByDiagnosis: { stale: 70 } })]), NOW);
+    await aggregate(sql.api, TOK, batchOf([summ(41, { failOpen: { "not-ready:delivery": 2 } })]), NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, decisions: 500, detections: 260, failOpens: 2 });
+    // pages and routes come from the records that arrived
+    expect(bdOf(s, "route")).toEqual({ "/search": 4 });
+    expect(s.totals.detectionsWithPage).toBe(2);
+  });
+
+  it("a split flush counts once whichever part is processed first, and when both parts are processed at once", async () => {
+    const partA = [sess(), dec(1, "d1"), det(2, "d1"), dec(3, "d2", { diagnosis: "expected", diagnosisConfidence: 0.99 })];
+    const partB = [dec(4, "d3"), det(5, "d3"), summ(6, { decisions: 3, acted: 0, detections: 2, byTrigger: { delivery: 3 }, detectionsByDiagnosis: { stale: 2 } })];
+    for (const order of ["a,b", "b,a", "concurrent"]) {
+      const { sql } = setup();
+      if (order === "concurrent") {
+        sql.holdReads(2); // both read the page load's state before either writes
+        await Promise.all([aggregate(sql.api, TOK, batchOf(partA), NOW), aggregate(sql.api, TOK, batchOf(partB), NOW)]);
+      } else {
+        for (const part of order === "a,b" ? [partA, partB] : [partB, partA]) await aggregate(sql.api, TOK, batchOf(part), NOW);
+      }
+      const s = await statsOf(sql);
+      expect(s.totals, order).toMatchObject({ sessions: 1, decisions: 3, detections: 2 });
+      expect(bdOf(s, "detect_diagnosis"), order).toEqual({ stale: 2 });
+      expect(bdOf(s, "trigger"), order).toEqual({ delivery: 3 });
+      expect(bdOf(s, "diagnosis"), order).toEqual({ stale: 2, expected: 1 }); // not in this summary: from the events
+      expect(bdOf(s, "route"), order).toEqual({ "/search": 3 });
+      expect(stateOf(sql).rev, order).toBe(2); // two writes; the concurrent loser read again and retried
+    }
+  });
+
+  it("before the first summary events count as before; the summary then adds only what is new", async () => {
+    const { sql } = setup();
+    await aggregate(sql.api, TOK, batchOf([sess(), dec(1, "d1"), det(2, "d1"), dec(3, "d2", { diagnosis: "expected", diagnosisConfidence: 0.99, acted: true })]), NOW);
+    let s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, decisions: 2, detections: 1, acted: 1 });
+    await aggregate(sql.api, TOK, batchOf([summ(4, { decisions: 5, acted: 1, detections: 1 })]), NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, decisions: 5, detections: 1, acted: 1 });
+    // events without a seq (another client) still count, as they did before
+    await aggregate(sql.api, TOK, { ...batchOf([{ t: "decision", id: "n1", trigger: "delivery", diagnosis: "stale" }]), sid: "zzzzzzzzzzzzzzzz" }, NOW);
+    expect((await statsOf(sql)).totals.decisions).toBe(6);
+  });
+
+  it("loss counters come from the summaries: hidden tabs, the decision rate limit, browser drops, unsent records, action limits", async () => {
+    const { sql } = setup();
+    const s1 = summ(1, { decisions: 10, failOpen: { "not-ready:delivery": 3 }, limits: { perMinute: 2 } }, { runtime: { model: { decisions: 10, dropped: 4, hiddenSkipped: 6 } }, telemetry: { dropped: 1, decisionsSampledOut: 7, decisionsCapped: 0 } });
+    const s2 = summ(2, { decisions: 12, failOpen: { "not-ready:delivery": 3, "no-answer:request": 1 }, limits: { perMinute: 2, perSession: 1 } }, { runtime: { model: { decisions: 12, dropped: 5, hiddenSkipped: 9 } }, telemetry: { dropped: 1, decisionsSampledOut: 8, decisionsCapped: 2 } });
+    await aggregate(sql.api, TOK, batchOf([sess(), s1]), NOW);
+    await aggregate(sql.api, TOK, batchOf([s2]), NOW);
+    await aggregate(sql.api, TOK, batchOf([s2]), NOW); // repeated
+    const s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ sessions: 1, decisions: 12, failOpens: 4, hidden_skipped: 9, model_dropped: 5, telemetry_dropped: 1, records_sampled_out: 8, records_capped: 2, actionLimits: 3 });
+    expect(bdOf(s, "fail_open")).toEqual({ "not-ready:delivery": 3, "no-answer:request": 1 });
+    expect(bdOf(s, "action_limits")).toEqual({ perMinute: 2, perSession: 1 });
+  });
+
+  it("state from the previous worker version, or swept after SESSION_KEEP_MS, sets a baseline instead of recounting", async () => {
+    const { sql } = setup();
+    const sidHash = (await sha256Hex(`${TOK}:${SID}`)).slice(0, 32);
+    sql.db.prepare("INSERT INTO sessions (sid_hash, token, day, counts) VALUES (?, ?, ?, ?)").run(sidHash, TOK, "2026-10-08", JSON.stringify({ failOpen: { "timeout:response": 2 }, modelErrors: {} }));
+    await aggregate(sql.api, TOK, batchOf([summ(30, { decisions: 50, detections: 9, failOpen: { "timeout:response": 3 } }), dec(31, "d31"), det(32, "d31")]), NOW);
+    let s = await statsOf(sql);
+    // the old state had counted 2 fail-opens (1 is new); decisions and detections: only the events after that summary
+    expect(s.totals).toMatchObject({ failOpens: 1, decisions: 1, detections: 1 });
+    expect(s.totals.sessions ?? 0).toBe(0);
+    // from then on the page load counts normally
+    await aggregate(sql.api, TOK, batchOf([summ(40, { decisions: 54, detections: 11, failOpen: { "timeout:response": 3 } })]), NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ failOpens: 1, decisions: 4, detections: 2 });
+    expect(stateOf(sql).base).toBeUndefined();
+
+    // a page load quiet for longer than its state is kept: its next summary is a baseline, later ones count
+    const { sql: q } = setup();
+    const late = (seq: number, decisions: number) => ({ ...summ(seq, { decisions, detections: 12 }), at: SESSION_KEEP_MS + seq * 1000 });
+    await aggregate(q.api, TOK, batchOf([late(900, 80)]), NOW);
+    s = await stats(q.api, PROJ, "7d", NOW);
+    expect(s.totals.decisions ?? 0).toBe(0);
+    expect(s.totals.sessions ?? 0).toBe(0);
+    await aggregate(q.api, TOK, batchOf([late(910, 83)]), NOW);
+    expect((await stats(q.api, PROJ, "7d", NOW)).totals.decisions).toBe(3);
+  });
+
+  it("page-load state stays small: out-of-order ranges are merged (at most 16 kept), and a corrupt row is a baseline", async () => {
+    const { sql } = setup();
+    for (let i = 0; i < 40; i++) await aggregate(sql.api, TOK, batchOf([dec(1000 - i * 10, `x${i}`)]), NOW);
+    const state = stateOf(sql);
+    expect(state.seen.length).toBeLessThanOrEqual(16);
+    expect(JSON.stringify(state).length).toBeLessThan(2048);
+    expect((await statsOf(sql)).totals.decisions).toBe(40);
+
+    sql.db.prepare("UPDATE sessions SET counts = 'not json'").run();
+    await aggregate(sql.api, TOK, batchOf([summ(2000, { decisions: 900 }), dec(2001, "y")]), NOW);
+    expect((await statsOf(sql)).totals.decisions).toBe(41);
+  });
+});
+
+describe("possible issues (the lower-confidence tier)", () => {
+  it("counts non-expected decisions from 0.70 up to, not including, their own report gate; never as detections", async () => {
+    const { sql } = setup();
+    const events = [
+      sess(),
+      dec(1, "a", { diagnosisConfidence: 0.6999 }), // under the floor
+      dec(2, "b", { diagnosisConfidence: POSSIBLE_MIN, route: "/a" }), // at the floor: possible
+      dec(3, "c", { diagnosisConfidence: 0.8999, diagnosis: "duplicate", route: "/b" }), // just under the gate: possible
+      dec(4, "d", { diagnosisConfidence: 0.9 }), det(5, "d"), // at the gate: a detection
+      dec(6, "e", { diagnosis: "expected", diagnosisConfidence: 0.85 }), // expected never counts
+      dec(7, "f", { diagnosisConfidence: 0.85, gates: undefined }), // no gate sent: left out
+      dec(8, "g", { diagnosisConfidence: 0.72, gates: { report: 0.7 } }), det(9, "g", "stale", 0.72), // gate 0.70 (eager): a detection
+      dec(10, "h", { diagnosisConfidence: 0.65, gates: { report: 0.6 } }), det(11, "h", "stale", 0.65), // gate under the floor: a detection
+      dec(12, "i", { diagnosisConfidence: 0.94, gates: { report: 0.95 }, diagnosis: "slow", route: "/b", fn: "loadCart" }), // gate 0.95: possible
+    ];
+    await aggregate(sql.api, TOK, batchOf(events, "0.2.1"), NOW); // 0.2.x clients send these fields too
+    const s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ decisions: 9, detections: 3, possible: 3 });
+    expect(bdOf(s, "possible_diagnosis")).toEqual({ stale: 1, duplicate: 1, slow: 1 });
+    expect(bdOf(s, "possible_route")).toEqual({ "/a": 1, "/b": 2 });
+    expect(bdOf(s, "possible_issue")).toEqual({ "stale\t/a": 1, "duplicate\t/b": 1, "slow\t/b": 1 });
+    expect(bdOf(s, "possible_fn")).toEqual({ loadCart: 1 });
+    expect(bdOf(s, "detect_diagnosis")).toEqual({ stale: 3 });
+    expect(s.series.at(-1)).toMatchObject({ detections: 3, possible: 3 });
+    expect(s.typeSeries.at(-1)!.counts).toEqual({ stale: 3 });
+    expect(s.recent.every((r) => r.kind === "detect")).toBe(true);
+    expect(s.recent).toHaveLength(3);
+  });
+});
+
+describe("dashboard counts (display fixes)", () => {
+  it("counts every affected page, not only the top 25 a breakdown keeps", async () => {
+    const { sql } = setup();
+    const events: E[] = [sess()];
+    for (let i = 0; i < 30; i++) events.push(dec(1 + 2 * i, `p${i}`, { route: `/page/${i}` }), det(2 + 2 * i, `p${i}`));
+    await aggregate(sql.api, TOK, batchOf(events), NOW);
+    const s = await statsOf(sql);
+    expect(s.breakdowns.detect_route).toHaveLength(25);
+    expect(s.distinct.detect_route).toBe(30);
+    expect(s.totals).toMatchObject({ detections: 30, detectionsWithPage: 30 });
+  });
+
+  it("recent activity shows the diagnosis confidence, also for interventions", async () => {
+    const { sql } = setup();
+    await aggregate(sql.api, TOK, batchOf([dec(1, "a", { diagnosis: "duplicate", diagnosisConfidence: 0.91, action: "coalesce", confidence: 0.62, ran: "coalesce", acted: true, effectiveMode: "guard", gates: { report: 0.95 } })]), NOW);
+    const s = await statsOf(sql);
+    expect(s.recent).toMatchObject([{ kind: "acted", diagnosis: "duplicate", confidence: 0.91 }]);
+  });
+
+  it("/start and the empty dashboard say local hosts send nothing without telemetry: true and the token needs 0.3.0", async () => {
+    const { env } = setup();
+    const start = await (await handle(new Request("https://genclass.dev/start"), env, opts)).text();
+    const { json } = await create(env);
+    const dash = await (await handle(new Request(json.dashboardUrl), env, opts)).text();
+    for (const html of [start, dash]) {
+      expect(html).toContain("needs @genclass/runtime 0.3.0 or later");
+      expect(html).toContain("unless you pass telemetry: true");
+      expect(html).not.toContain("only send data with an explicit token");
+    }
+  });
+});
+
+describe("sample dashboard: possible issues", () => {
+  it("shows the possible tier too, still simulated, never inside the problem counts", () => {
+    const total = (l: { count: number }[] | undefined) => (l ?? []).reduce((a, x) => a + x.count, 0);
+    for (const range of ["24h", "7d", "30d"]) {
+      const s = sampleStats(range, NOW);
+      expect(s.name).toContain("simulated");
+      if (range !== "24h") expect(s.totals.possible).toBeGreaterThan(0);
+      expect(total(s.breakdowns.possible_issue)).toBe(s.totals.possible);
+      expect(total(s.breakdowns.possible_diagnosis)).toBe(s.totals.possible);
+      expect(s.series.reduce((a, b) => a + b.possible, 0)).toBe(s.totals.possible);
+      expect(total(s.breakdowns.detect_issue)).toBe(s.totals.detections);
+      expect(s.series.reduce((a, b) => a + b.detections, 0)).toBe(s.totals.detections);
+      expect(s.typeSeries.reduce((a, b) => a + Object.values(b.counts).reduce((x, y) => x + y, 0), 0)).toBe(s.totals.detections);
+      expect(s.distinct.detect_route).toBe(s.breakdowns.detect_route!.length);
+    }
   });
 });
