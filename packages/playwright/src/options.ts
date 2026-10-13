@@ -18,7 +18,7 @@ function finite(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
 
-/** A `*` glob as a string ("**/api/**", "/api/*") or a RegExp -> RegExp tested against the whole URL. */
+/** A `*` glob as a string ("/api/*", "*graphql*") or a RegExp -> RegExp tested against the whole URL. */
 export function routePattern(p: RegExp | string): RegExp | null {
   if (p instanceof RegExp) return p;
   if (typeof p !== "string" || !p) return null;
