@@ -1,0 +1,98 @@
+name: Playwright reporter
+
+# Runs the @genclass/playwright fixture and reporter against the demos (demos/) and one self-contained page, in
+# headless Chromium with network chaos, and uploads the markdown report as an artifact. On a pull request from this
+# repository it also posts the report as one sticky comment (GITHUB_TOKEN only, no new secrets). Separate from the
+# main CI workflow: it is never required to merge and its failures do not block ci.yml.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "packages/playwright/**"
+      - "packages/runtime/src/**"
+      - "demos/**"
+      - ".github/workflows/playwright-reporter.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-reporter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: "@genclass/playwright: demos under chaos, report"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write # the sticky PR comment; ignored on forks (read-only token)
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build @genclass/runtime
+        run: npm run build -w @genclass/runtime
+
+      - name: Build @genclass/playwright
+        run: npm run build -w @genclass/playwright
+
+      - name: Build the demos
+        run: npm run build -w @genclass/demos
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # The report is the product, not the assertions: a failed test still leaves its findings in the report.
+      - name: Run the fixture against the demos
+        id: e2e
+        working-directory: packages/playwright
+        continue-on-error: true
+        run: npx playwright test --config e2e/playwright.config.ts
+
+      - name: Report to the job summary
+        if: always()
+        run: |
+          if [ -f packages/playwright/e2e/genclass-report.md ]; then
+            cat packages/playwright/e2e/genclass-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "no report was written (the run did not reach the reporter)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: genclass-report
+          path: |
+            packages/playwright/e2e/genclass-report.md
+            packages/playwright/e2e/genclass-report.json
+            packages/playwright/e2e/test-results/**/genclass*.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      # One comment per PR, updated in place. Needs pull-requests: write; a fork's token is read-only, so it is
+      # skipped there and never fails the job.
+      - name: Post the report on the pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: genclass-report
+          path: packages/playwright/e2e/genclass-report.md
+
+      - name: Fail if the tests failed
+        if: steps.e2e.outcome == 'failure'
+        run: |
+          echo "the Playwright run failed (see the 'Run the fixture against the demos' step); the report above is still valid for the tests that ran"
+          exit 1

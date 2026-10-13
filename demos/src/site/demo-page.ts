@@ -201,8 +201,10 @@ async function bootInteractive(def: DemoDefinition): Promise<void> {
 
   await def.mount({ gc, el: body, mode, embed: false });
 
-  // Hooks for the screenshot tour (e2e/eval.ts): scripted sessions on the interactive page.
+  // Hooks for the screenshot tour (e2e/eval.ts): scripted sessions on the interactive page. `gc` is the runtime,
+  // for @genclass/playwright (packages/playwright/e2e: `handle: "__demo.gc"` reads rt.audit() from it).
   (window as unknown as { __demo: unknown }).__demo = {
+    gc,
     scenario: def.scenario,
     setChaos: (p: Parameters<ServerLink["setChaos"]>[0]) => link.setChaos(p),
     world: (a: string, args?: unknown) => link.world(a, args),
