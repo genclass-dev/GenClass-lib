@@ -23,7 +23,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
 | `site/`, `telemetry-worker/` | genclass.dev and the diagnostics collector (Cloudflare Workers) |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
-| `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, **`RESULTS.md`** (every measured number) |
+| `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, `VISUAL.md` (measured visual checks: design), **`RESULTS.md`** (every measured number) |
 | `scripts/` | Azure VM helpers (`vm.sh`, `azvm.sh`, `launch_run.sh`); `internal/` is gitignored working notes |
 
 ## Build and test
@@ -51,7 +51,11 @@ Azure, `git push`, `npm publish`.
    erroring means the passive action. Report FIR (false interventions on clean runs) next to every recall number.
 2. **No hardcoded bug patterns.** The runtime computes facts and triages (`runtime.ts` → `trigger`); it never maps a
    fact pattern to a diagnosis or action with an if/then. `situation/build.ts` → `builtinApplicable` only says
-   whether an action *can* run.
+   whether an action *can* run. Exception (owner, 2026-10-13): visual checks in `src/visual/` are measured checks,
+   labelled as such (deterministic measurements with documented thresholds, reported as kind `"check"`, never as a
+   model finding); they never decide network actions and never feed situations, facts, the event log, the gate or
+   the model. Their runtime fixes follow rule 1: opt-in, reversible, never in `observe`. Design:
+   `docs/runtime/VISUAL.md`.
 3. **Model-visible text is frozen** (tag `situation-v2.3`). Any change to `src/situation/*`, facts, question, action
    or diagnosis wording, `util.ts` formatting/redaction, op or event names means a new tag, regenerated data, an
    `rt.py` mirror and retraining. Do not make such a change without an explicit go-ahead; exact-text tests exist.
