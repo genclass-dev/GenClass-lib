@@ -581,8 +581,9 @@ adapter sends the structured fields only. A sink never gets the full situation t
 response bodies, headers or cookies. The webhook POSTs exactly those records as
 `{ schema: "genclass-sink/1", version, records }`, by `navigator.sendBeacon` (which GenClass never wraps, and which
 survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so parse it
-as JSON. Batches go 5 s after the first record, at 50 records and on page hide. `headers` switches it to `fetch`;
-then list the URL in `requests.ignore` (the zero-code forms do that for you).
+as JSON. One POST carries the records GenClass hands over in one idle-time round (at most 50 per POST), and what is
+left goes on page hide; pass a `clock` and `flushMs` to batch over a time window instead. `headers` switches it to
+`fetch`; then list the URL in `requests.ignore` (the zero-code forms do that for you).
 
 ## Extend it
 

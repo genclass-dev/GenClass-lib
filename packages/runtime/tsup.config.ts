@@ -135,6 +135,9 @@ export default defineConfig([
     // onnxruntime-web is a dependency, which tsup would leave external as is: ortFromCdnDir rewrites it instead
     noExternal: [/^onnxruntime-web/],
     esbuildPlugins: [ortFromCdnDir as never],
+    // the version as a constant for modules that must not import src/version.ts (src/sinks/webhook.ts: an adapter
+    // that shared a chunk with the runtime would split that chunk out of every app's first load)
+    define: { __GENCLASS_PKG_VERSION__: JSON.stringify(pkg.version) },
   },
   globalBuild(false),
   globalBuild(true),

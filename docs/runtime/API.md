@@ -493,9 +493,10 @@ datadog({ rum: datadogRum, as: "error" });
 consoleJson({ method: "log", kinds });
 // console.log('{"source":"genclass","schema":1,"kind":"detection",...}'), one line per record, every kind (summary too).
 
-webhook({ url: "/genclass", flushMs: 5000, maxBatch: 50, headers, kinds, sampleRate });
+webhook({ url: "/genclass", maxBatch: 50, headers, kinds, sampleRate, clock, flushMs: 5000 });
 // POST { schema: "genclass-sink/1", version, records: SinkRecord[] } by navigator.sendBeacon, else fetch keepalive, as JSON
-// in a text/plain body; sent flushMs after the first record, at maxBatch, and on page hide. The records and nothing else
+// in a text/plain body; one POST per idle-time delivery round (a microtask after it; with a clock: flushMs after the first
+// record instead), at maxBatch, and on page hide. The records and nothing else
 // (route, diagnosis, action, ..., the evidence text above): never the situation text, bodies, headers or cookies.
 // With headers (fetch only) or no sendBeacon, list the URL in requests.ignore.
 ```

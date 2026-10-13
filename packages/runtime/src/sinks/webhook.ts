@@ -14,14 +14,20 @@
 // where GenClass observes fetch, list the URL in `requests.ignore` so the sink's own POSTs are never decided about
 // (the zero-code entries do this for `webhook:<url>`).
 //
-// Batching: records are sent `flushMs` after the first one queued, at `maxBatch` records, and on `flush()` (pagehide);
-// a batch is split before it exceeds what sendBeacon / keepalive accept (64 KiB). Timers come from the Clock
-// (default browserClock, the runtime's own; pass the test clock in tests). Never throws; send failures are dropped.
+// Batching: the runtime hands sinks their records in idle-time rounds (SinkDispatcher), and by default the records of
+// one round go in one POST (sent in a microtask after the round); also at `maxBatch` records and on `flush()`
+// (pagehide). With a `clock` the batch waits `flushMs` after its first record instead. A batch is split before it
+// exceeds what sendBeacon / keepalive accept (64 KiB). Never throws; send failures are dropped.
+//
+// Imports nothing from the runtime but types (the version is a build-time constant), so loading this adapter adds no
+// shared chunk to an app's first load (test/bundle.test.ts).
 
-import { browserClock } from "../clock.js";
 import type { Clock, SinkKind, SinkObject, SinkRecord } from "../types.js";
-import { RUNTIME_VERSION } from "../version.js";
 import { globalOf } from "./common.js";
+
+declare const __GENCLASS_PKG_VERSION__: string;
+/** The @genclass/runtime version, defined at build time (tsup, vitest). */
+const VERSION: string = typeof __GENCLASS_PKG_VERSION__ === "string" ? __GENCLASS_PKG_VERSION__ : "0.0.0";
 
 export const WEBHOOK_SCHEMA = "genclass-sink/1";
 /** keepalive fetch and sendBeacon refuse bodies over 64 KiB. */
@@ -42,7 +48,7 @@ export interface WebhookSinkOptions {
   kinds?: SinkKind[];
   /** Session-deterministic sampling (SinkObject.sampleRate); interventions, undos and breaker trips are never dropped. */
   sampleRate?: number;
-  /** Send this long after the first queued record (default 5,000 ms; at least 100). */
+  /** With `clock`: send this long after the first queued record (default 5,000 ms; at least 100). */
   flushMs?: number;
   /** Send once this many records are queued (default 50). */
   maxBatch?: number;
@@ -50,7 +56,7 @@ export interface WebhookSinkOptions {
   headers?: Record<string, string>;
   /** Your own transport (tests, a queue of yours): gets the URL and the JSON body. */
   send?: (url: string, body: string) => unknown;
-  /** The clock for the batch timer (default: the runtime's browserClock). */
+  /** A clock to batch over `flushMs` instead of per delivery round (your own, or the test clock). */
   clock?: Clock;
   /**
    * Send the redacted evidence: the console line, the subject and the timeline (default true). Timeline lines can hold
@@ -89,16 +95,17 @@ function defaultTransport(g: Record<string, unknown>, headers: Record<string, st
 export function webhook(o: WebhookSinkOptions): SinkObject {
   const url = String(o?.url ?? "");
   const g = globalOf(o);
-  const clock = o?.clock ?? browserClock;
+  const clock = o?.clock;
   const flushMs = num(o?.flushMs, 100, 600_000, 5000);
   const maxBatch = Math.floor(num(o?.maxBatch, 1, 500, 50));
   const transport = typeof o?.send === "function" ? o.send : defaultTransport(g, o?.headers);
   let queue: SinkRecord[] = [];
+  /** A clock timer, or true while a microtask flush is pending. */
   let timer: unknown = null;
 
   const post = (records: SinkRecord[]): void => {
     if (!records.length) return;
-    const batch: WebhookBatch = { schema: WEBHOOK_SCHEMA, version: RUNTIME_VERSION, records };
+    const batch: WebhookBatch = { schema: WEBHOOK_SCHEMA, version: VERSION, records };
     try {
       const res = transport(url, JSON.stringify(batch));
       if (res && typeof (res as Promise<unknown>).catch === "function") (res as Promise<unknown>).catch(() => undefined);
@@ -108,14 +115,14 @@ export function webhook(o: WebhookSinkOptions): SinkObject {
   };
 
   const drain = (): void => {
-    if (timer !== null) {
+    if (timer !== null && clock) {
       try {
         clock.clearTimeout(timer);
       } catch {
         /* ignore */
       }
-      timer = null;
     }
+    timer = null;
     const all = queue;
     queue = [];
     // split before a body exceeds what sendBeacon / keepalive accept (the envelope is small; record sizes add up)
@@ -148,7 +155,15 @@ export function webhook(o: WebhookSinkOptions): SinkObject {
         if (!url) return;
         queue.push(r);
         if (queue.length >= maxBatch) drain();
-        else if (timer === null) timer = clock.setTimeout(drain, flushMs);
+        else if (timer === null) {
+          if (clock) timer = clock.setTimeout(drain, flushMs);
+          else {
+            timer = true;
+            void Promise.resolve().then(() => {
+              if (timer === true) drain();
+            });
+          }
+        }
       } catch {
         /* never into the app */
       }

@@ -97,9 +97,12 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       const stdin = Object.keys(outs).find((k) => outs[k].entryPoint === "<stdin>");
       expect(stdin, `${entry}: the stdin entry in the metafile`).toBeDefined();
       walk(stdin!);
-      const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
+      const per = [...first].map((k) => gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length);
+      const gz = per.reduce((n, b) => n + b, 0);
       sizes[entry] = gz / 1024;
-      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(2)} KB minified + gzip (limit ${LIMIT_KB[entry]} KB)`);
+      // each file is gzipped on its own, so a chunk split out of the first load costs its own overhead too
+      const files = per.map((b) => (b / 1024).toFixed(2)).join(" + ");
+      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(2)} KB minified + gzip in ${per.length} file(s): ${files} (limit ${LIMIT_KB[entry]} KB)`);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
       expect(code, entry).not.toContain("BPE dropout is not supported at inference"); // src/model/tokenizer.ts
@@ -116,5 +119,42 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       else expect(code, entry).not.toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
     }
     for (const entry of Object.keys(sizes)) expect(sizes[entry], entry).toBeLessThan(LIMIT_KB[entry]);
+  });
+
+  // Reported, never failing: the minified bytes the sink code and its neighbours add to /auto's first load, built from
+  // src/ (the per-module view the dist build above cannot give).
+  it("reports what the zero-code sink code adds to /auto's first load (minified bytes per module)", async () => {
+    const { build } = await import("esbuild");
+    try {
+      const r = await build({
+        entryPoints: [join(PKG, "src", "auto.ts")],
+        bundle: true,
+        splitting: true,
+        format: "esm",
+        minify: true,
+        write: false,
+        outdir: "/out",
+        metafile: true,
+        platform: "browser",
+        external: ["react", "redux", "zustand", "onnxruntime-web", "onnxruntime-web/*"],
+        logLevel: "silent",
+      });
+      const outs = r.metafile!.outputs;
+      const entry = Object.keys(outs).find((k) => /src[\\/]auto\.ts$/.test(outs[k].entryPoint ?? ""))!;
+      const first = new Set<string>();
+      const walk = (k: string) => {
+        if (first.has(k)) return;
+        first.add(k);
+        for (const i of outs[k].imports) if (i.kind === "import-statement" && outs[i.path]) walk(i.path);
+      };
+      walk(entry);
+      const per: Record<string, number> = {};
+      for (const k of first) for (const [inp, v] of Object.entries(outs[k].inputs)) per[inp] = (per[inp] ?? 0) + v.bytesInOutput;
+      const pick = Object.entries(per).filter(([k]) => /cdn[\\/](sinks|config|auto-start)|decide[\\/]summary|clock|version|src[\\/]sinks[\\/]/.test(k));
+      const total = Object.values(per).reduce((n, b) => n + b, 0);
+      console.log(`src first load of /auto: ${first.size} file(s), ${total} B minified; ${pick.map(([k, b]) => `${k.replace(/^.*src[\\/]/, "")} ${b} B`).join(", ")}`);
+    } catch (e) {
+      console.log(`src first-load report failed: ${(e as Error).message}`);
+    }
   });
 });

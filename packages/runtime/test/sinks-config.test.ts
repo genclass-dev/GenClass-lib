@@ -79,8 +79,8 @@ describe("sink names (cdn/sinks-fanout.ts, cdn/sinks.ts)", () => {
     expect(warns).toHaveLength(1);
     expect(warns[0]).toContain("sink=webhook:https://evil.example/c");
     expect(warns[0]).toContain("data-sink");
-    // only a cross-origin webhook: no sinks key at all; protocol-relative is another host too
-    expect(readMetaConfig(head("sink=webhook://evil.example/c"), { location: loc })).toEqual({});
+    // only a cross-origin webhook: no sinks left; protocol-relative is another host too
+    expect(readMetaConfig(head("sink=webhook://evil.example/c"), { location: loc })).toEqual({ sinks: [] });
     // one warning for model and webhook together
     const both: string[] = [];
     readMetaConfig(head("model=https://evil.example/m/, sink=webhook:https://evil.example/c"), { location: loc, warn: (m) => both.push(m) });

@@ -9,7 +9,8 @@
   diagnosis), `genclass.mode`, `genclass.action` and a per-bug fingerprint (or breadcrumbs with `as: "breadcrumb"`);
   `posthog.capture("genclass_<kind>", { ... })`; `DD_RUM.addError` (`GenClassDetection`, `GenClassIntervention`) and
   `DD_RUM.addAction("genclass_<kind>")`; one JSON line per record on the console; batched POSTs of
-  `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch` keepalive.
+  `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch` keepalive
+  (one POST per idle-time delivery round, or per `flushMs` window with a `clock`).
   No new dependency: each finds the SDK on the page at send time (or takes the client you pass) and never throws. They
   send only the record the runtime built: kind, diagnosis, probability, action, route, session tags and the redacted
   evidence (the console line, subject and timeline, URL query values as `…`; timeline lines can hold short fragments

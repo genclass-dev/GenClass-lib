@@ -10,7 +10,7 @@ import { sentry } from "../src/sinks/sentry.js";
 import { WEBHOOK_MAX_BODY_BYTES, WEBHOOK_SCHEMA, webhook } from "../src/sinks/webhook.js";
 import type { Sink, SinkRecord } from "../src/types.js";
 import { RUNTIME_VERSION } from "../src/version.js";
-import { FakeClock, defaultScript, setup } from "./helpers.js";
+import { FakeClock, defaultScript, drain, setup } from "./helpers.js";
 
 const DELAY = defaultScript({ request: { diagnosis: "overload", action: "delay" } });
 
@@ -325,7 +325,33 @@ describe("sinks/console-json", () => {
 });
 
 describe("sinks/webhook", () => {
-  it("batches: sent flushMs after the first record, at maxBatch, and on flush(); the body is the records and nothing else", async () => {
+  it("without a clock: the records of one delivery round go in one POST, a microtask after the round", async () => {
+    const send = vi.fn();
+    const w = webhook({ url: "/genclass", send });
+    w.send(rec());
+    w.send(rec({ id: "r2" }));
+    w.send(rec({ id: "r3" }));
+    expect(send).not.toHaveBeenCalled();
+    await drain(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(send.mock.calls[0][1] as string) as { version: string; records: SinkRecord[] };
+    expect(body.records.map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
+    expect(body.version).toBe(RUNTIME_VERSION);
+    // a later round is its own POST; flush() before the microtask sends at once, and only once
+    w.send(rec({ id: "r4" }));
+    await w.flush!();
+    expect(send).toHaveBeenCalledTimes(2);
+    await drain(1);
+    expect(send).toHaveBeenCalledTimes(2);
+    // through the runtime, with the defaults: the intervention arrives without a timer
+    const rt = vi.fn();
+    await intervene([webhook({ url: "/genclass", send: rt })]);
+    await drain();
+    expect(rt).toHaveBeenCalled();
+    expect((JSON.parse(rt.mock.calls[0][1] as string) as { records: SinkRecord[] }).records.some((r) => r.kind === "intervention")).toBe(true);
+  });
+
+  it("with a clock: sent flushMs after the first record, at maxBatch, and on flush(); the body is the records and nothing else", async () => {
     const clock = new FakeClock();
     const send = vi.fn();
     const w = webhook({ url: "/genclass", send, clock, flushMs: 5000 });

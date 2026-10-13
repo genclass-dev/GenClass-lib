@@ -200,16 +200,13 @@ export function readMetaConfig(
       if (dropped.length && !Object.keys(m).length) delete c.model;
     }
     // a webhook sink would send the records to its URL: same-origin only from a meta tag, like the model
-    if (c.sinks) {
-      const kept = c.sinks.filter((s) => {
+    if (c.sinks)
+      c.sinks = c.sinks.filter((s) => {
         const u = typeof s === "string" ? webhookUrl(s) : undefined;
         if (!u || sameOriginUrl(u, o.location)) return true;
         dropped.push(`sink=${s}`);
         return false;
       });
-      if (kept.length < c.sinks.length && !kept.length) delete c.sinks;
-      else c.sinks = kept;
-    }
     if (dropped.length) {
       o.warn?.(
         `[GenClass] Ignored cross-origin ${dropped.join(", ")} in <meta name="genclass">; use data-model/data-ort/data-sink, GENCLASS_CONFIG or GenClass.init().`,
