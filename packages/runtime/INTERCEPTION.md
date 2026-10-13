@@ -160,9 +160,8 @@ not ready, slow, erroring or over its rate limit, the subject proceeds unchanged
 
 Every term can only lower the mode: `routes` rules, `sample`, the breaker (after 2 undos or 3 errors following actions,
 the session drops to `observe`), a hidden tab (nothing new is held, background decisions are skipped) and
-`?genclass-mode`. One
-URL switch can raise it: `?genclass=guard` (or `localStorage.genclass = "guard"`) turns guard on when the app did not
-set a mode; `heal` from the URL needs `debug: true` (see [THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md)).
+`?genclass-mode`. Since 0.2.2 no URL or `localStorage` switch can raise it on a production host: `?genclass=guard`
+or `heal` raises only with `debug: true` or on a development host (see [THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md)).
 
 ## What it never does
 

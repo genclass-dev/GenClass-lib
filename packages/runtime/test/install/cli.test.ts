@@ -16,7 +16,7 @@ import { libraryEvidence } from "../../bin/lib/detect.mjs";
 import { assetBase } from "../../src/cdn/global.js";
 import { GenClass } from "../../src/index.js";
 import { DEFAULT_MODEL_BASE_URL } from "../../src/model/host.js";
-import { devtoolsOptions, fromDataset, fromPairs, isKilled, isLocalHost, mergeConfig, parsePairs, readMetaConfig } from "../../src/cdn/config.js";
+import { sameOriginUrl, devtoolsOptions, fromDataset, fromPairs, isKilled, isLocalHost, mergeConfig, parsePairs, readMetaConfig } from "../../src/cdn/config.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(HERE, "..", "..", "bin", "genclass-runtime.mjs");
@@ -280,6 +280,34 @@ describe("page config", () => {
     expect(mergeConfig({ model: { baseUrl: "/a/" } }, { model: false })).toEqual({ model: false });
     const doc = { querySelectorAll: () => [{ getAttribute: () => "mode=observe" }, { getAttribute: () => "devtools" }] };
     expect(readMetaConfig(doc)).toEqual({ mode: "observe", devtools: true });
+  });
+  it("meta tags: only under <head>; model and ORT URLs from a meta tag must be same-origin (THREAT-MODEL T8)", () => {
+    const tag = (content: string) => ({ getAttribute: () => content });
+    const loc = { href: "https://shop.example/p", origin: "https://shop.example" };
+    const warns: string[] = [];
+    const doc = {
+      head: { querySelectorAll: () => [tag("mode=guard, model=https://evil.example/m/, ort=//evil.example/ort/")] },
+      querySelectorAll: () => [tag("mode=heal"), tag("mode=guard, model=https://evil.example/m/")],
+    };
+    expect(readMetaConfig(doc, { location: loc, warn: (m) => warns.push(m) })).toEqual({ mode: "guard" });
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain("evil.example");
+    // a meta tag outside <head> (injected into the body) is not read
+    expect(readMetaConfig({ head: { querySelectorAll: () => [] }, querySelectorAll: () => [tag("mode=heal")] }, { location: loc })).toEqual({});
+    // same-origin model and ORT URLs stay, with no warning
+    const ok: string[] = [];
+    expect(readMetaConfig({ head: { querySelectorAll: () => [tag("model=/genclass-model/, ort=https://shop.example/ort/, device=wasm")] } }, { location: loc, warn: (m) => ok.push(m) })).toEqual({
+      model: { baseUrl: "/genclass-model/", ortWasmPaths: "https://shop.example/ort/", device: "wasm" },
+    });
+    expect(ok).toEqual([]);
+    // a cross-origin model next to other model keys keeps the other keys
+    expect(readMetaConfig({ head: { querySelectorAll: () => [tag("model=https://evil.example/m/, device=wasm")] } }, { location: loc })).toEqual({ model: { device: "wasm" } });
+    expect(sameOriginUrl("/m/", null)).toBe(true);
+    expect(sameOriginUrl("models/", { href: "https://shop.example/" })).toBe(true);
+    expect(sameOriginUrl("https://shop.example/m/", { href: "https://shop.example/a" })).toBe(true);
+    expect(sameOriginUrl("https://cdn.jsdelivr.net/npm/x/", { href: "https://shop.example/" })).toBe(false);
+    expect(sameOriginUrl("//cdn.example/x", { href: "https://shop.example/" })).toBe(false);
+    expect(sameOriginUrl("https://cdn.example/x", null)).toBe(false);
   });
   it("devtools=local only on development hosts; kill switch", () => {
     expect(isLocalHost({ hostname: "localhost" })).toBe(true);

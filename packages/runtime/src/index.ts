@@ -3,6 +3,7 @@
 //   import { GenClass } from "@genclass/runtime";
 //   GenClass.init();
 
+import { isLocalHost } from "./telemetry/config.js";
 import type { Clock, CreateOptions, DecisionProvider, DeviceEnv, EvaluateRequest, InitOptions, Mode, ModelOptions, ModelStatus, ObserverName, Runtime } from "./types.js";
 import { browserClock } from "./clock.js";
 import { RuntimeImpl } from "./runtime.js";
@@ -286,10 +287,18 @@ function initUnsafe(options: InitOptions): Runtime {
       (current as RuntimeImpl).telemetry = telemetryOff("kill-switch");
       return current;
     }
-    // the kill switch may only demote (OPTIONS-SPEC §3), unless debug
+    // The URL / localStorage switch may only demote from the app's mode (OPTIONS-SPEC §3; observe when the app sets
+    // none), so a crafted link cannot raise a production site to guard or heal. It may raise only with `debug: true`
+    // or on a development host (localhost, *.local, *.test, private networks), where nobody else's link reaches it.
     const rank = (m: string | undefined) => (m === "heal" ? 2 : m === "guard" ? 1 : 0);
-    const base = options.mode ?? "guard";
-    const mode = ks && (MODES as readonly string[]).includes(ks) && (options.debug || rank(ks) <= rank(base)) ? (ks as Mode) : options.mode;
+    const base = options.mode ?? "observe";
+    let devHost = false;
+    try {
+      devHost = isLocalHost((g.location as { hostname?: unknown } | undefined)?.hostname);
+    } catch {
+      devHost = false;
+    }
+    const mode = ks && (MODES as readonly string[]).includes(ks) && (options.debug || devHost || rank(ks) <= rank(base)) ? (ks as Mode) : options.mode;
     if (typeof g.window !== "object" || typeof g.document !== "object") {
       // Not a browser (SSR, Node, workers): never instrument a server's fetch or load the model there.
       current = createRuntime({ ...options, observe: ALL_OFF, model: false, decider: options.decider ?? null, report: options.report ?? "silent", ...(mode ? { mode } : {}) });

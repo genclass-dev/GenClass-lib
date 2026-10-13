@@ -360,22 +360,37 @@ describe("ModelHost inline fallback", () => {
   }) as unknown as typeof fetch;
   const ortLoader = async () => ({ env: { wasm: {}, versions: { web: "1.30.0" } } }) as any;
 
+  /** Advance fake time until p settles: a failed model-card download is retried once after a network error (loader.ts). */
+  async function settleWith<T>(p: Promise<T>, clock: FakeClock): Promise<T> {
+    let done = false;
+    p.then(
+      () => (done = true),
+      () => (done = true),
+    );
+    // The inline backend starts after a real dynamic import, so wait in real time and step fake time slowly.
+    for (let i = 0; i < 500 && !done; i++) {
+      await new Promise((r) => setTimeout(r, 5));
+      await clock.advance(50);
+    }
+    return p;
+  }
+
   it("falls back inline when the worker cannot be created", async () => {
-    const { host } = setup({ workerFactory: () => { throw new Error("CSP: worker-src 'none'"); }, fetch: failingFetch, ortLoader });
+    const { host, clock } = setup({ workerFactory: () => { throw new Error("CSP: worker-src 'none'"); }, fetch: failingFetch, ortLoader });
     expect(host.status).toMatchObject({ state: "loading", worker: false });
-    const err = await host.ready().catch((e) => e);
+    const err = await settleWith(host.ready().catch((e) => e), clock);
     expect(err).toBeInstanceOf(ModelLoadError);
     expect(host.status).toMatchObject({ state: "error", worker: false });
     expect(host.status.error).toContain("network down");
   });
 
   it("falls back inline when the worker errors before saying hello (e.g. a 404 worker script)", async () => {
-    const { host, w } = setup({ fetch: failingFetch, ortLoader });
+    const { host, w, clock } = setup({ fetch: failingFetch, ortLoader });
     expect(host.status.worker).toBe(true);
     w().fail("Failed to fetch worker script");
     expect(w().terminated).toBe(true);
     expect(host.status).toMatchObject({ state: "loading", worker: false, workerError: "Failed to fetch worker script" });
-    await host.ready().catch(() => undefined);
+    await settleWith(host.ready().catch(() => undefined), clock);
     expect(host.status.worker).toBe(false);
   });
 

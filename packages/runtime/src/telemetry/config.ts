@@ -10,8 +10,11 @@
 import type { TelemetryOptions, TelemetryTransport } from "../types.js";
 import { nativeTransport, nativeTransportAvailable } from "./transport.js";
 
-/** The GenClass collector (Cloudflare Worker `genclass-telemetry`, telemetry-worker/). */
-export const DEFAULT_TELEMETRY_ENDPOINT = "https://genclass-telemetry.mehar-144.workers.dev/v1/events";
+/**
+ * The GenClass collector (Cloudflare Worker `genclass-telemetry`, telemetry-worker/), on the project domain: the same
+ * worker serves `genclass.dev/api/v1/events` through its zone route. It was the worker's workers.dev URL before 0.2.2.
+ */
+export const DEFAULT_TELEMETRY_ENDPOINT = "https://genclass.dev/api/v1/events";
 export const TELEMETRY_SCHEMA = "genclass-telemetry/1";
 export const TELEMETRY_NOTICE =
   "[GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry.";
