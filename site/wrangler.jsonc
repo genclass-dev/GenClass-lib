@@ -19,7 +19,8 @@
     { "binding": "DASH_DB", "database_name": "genclass-dashboard", "database_id": "694d7d16-8a47-4810-8e0d-e9c89533460a" }
   ],
   "r2_buckets": [
-    { "binding": "TELEMETRY", "bucket_name": "genclass-telemetry" }
+    { "binding": "TELEMETRY", "bucket_name": "genclass-telemetry" },
+    { "binding": "MODELS", "bucket_name": "genclass-models" }
   ],
   "triggers": { "crons": ["* * * * *"] },
   "ratelimits": [
