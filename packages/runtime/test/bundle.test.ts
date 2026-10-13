@@ -63,8 +63,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
   // 91 KB for GenClass.init)
   // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
-  const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 92 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 99 / 91 KB)", async () => {
+  const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 93 }; // index.js 92.05 KB with SubjectRef.cellConflicts (CI run 38373009659)
+  it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 93 KB (README: about 99 / 92 KB)", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
     for (const entry of ["auto.js", "index.js"]) {
