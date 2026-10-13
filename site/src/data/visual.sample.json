@@ -1,0 +1,57 @@
+{
+  "$comment": "SHAPE ONLY. Every number in this file is made up to show the format and to preview the layout; none was measured. The build never reads this file unless VISUAL_DATA points at it, and then it stamps every figure and table 'Sample data, not measured'. Copy the shape into visual.json, never the numbers.",
+  "status": "sample",
+  "updated": "2026-10-14",
+  "ready_by": "2026-10-14T18:00:00-04:00",
+  "checks_in_runtime": null,
+  "model": {
+    "name": "GenClass visual model",
+    "version": "0.0.0-sample",
+    "input": "each element's computed styles, layout box and a few hit tests, never pixels",
+    "trained_on": {
+      "sites_ai": 1111,
+      "sites_control": 222,
+      "injected_faults": 33333,
+      "elements": 4444444
+    },
+    "eval": {
+      "data": "sample crawl, faults injected from outside the page",
+      "split": "sample split: sites held out from training",
+      "false_reports_per": "clean element"
+    },
+    "families": [
+      { "id": "text", "name": "Unreadable text", "recall_at_fp_0_1": 0.61, "recall_at_fp_1": 0.82, "examples": 1200 },
+      { "id": "media", "name": "Missing or broken media", "recall_at_fp_0_1": 0.74, "recall_at_fp_1": 0.9, "examples": 1500 },
+      { "id": "styles", "name": "Missing styles or fonts", "recall_at_fp_0_1": 0.38, "recall_at_fp_1": 0.57, "examples": 2100 },
+      { "id": "overflow", "name": "Layout overflow and clipping", "recall_at_fp_0_1": 0.52, "recall_at_fp_1": 0.71, "examples": 1700 },
+      { "id": "occlusion", "name": "Overlap and occlusion", "recall_at_fp_0_1": 0.29, "recall_at_fp_1": 0.48, "examples": 1300 },
+      { "id": "controls", "name": "Hidden or unreachable controls", "recall_at_fp_0_1": 0.33, "recall_at_fp_1": 0.55, "examples": 2300 },
+      { "id": "leaks", "name": "Template and data leaks", "recall_at_fp_0_1": 0.8, "recall_at_fp_1": 0.93, "examples": 800 }
+    ],
+    "natural_precision": 0.9,
+    "natural_pages": 555,
+    "size_kb": 666,
+    "ms_per_element": 0.07,
+    "cost_measured_on": "sample device, one WASM thread"
+  },
+  "crawl": {
+    "date": "2026-10-13",
+    "sites_ai": 1111,
+    "sites_control": 222,
+    "measured_by": "the sample model at 0.1% false reports per clean element",
+    "prevalence": [
+      { "id": "text", "name": "Unreadable text", "share_of_ai_sites": 0.42, "share_of_control_sites": 0.21 },
+      { "id": "media", "name": "Missing or broken media", "share_of_ai_sites": 0.37, "share_of_control_sites": 0.12 },
+      { "id": "overflow", "name": "Layout overflow and clipping", "share_of_ai_sites": 0.33, "share_of_control_sites": 0.09 },
+      { "id": "leaks", "name": "Template and data leaks", "share_of_ai_sites": 0.18, "share_of_control_sites": 0.04 },
+      { "id": "controls", "name": "Hidden or unreachable controls", "share_of_ai_sites": 0.27, "share_of_control_sites": 0.15 },
+      { "id": "styles", "name": "Missing styles or fonts", "share_of_ai_sites": 0.11, "share_of_control_sites": 0.06 },
+      { "id": "occlusion", "name": "Overlap and occlusion", "share_of_ai_sites": 0.08, "share_of_control_sites": 0.05 }
+    ]
+  },
+  "sources": [
+    { "id": "catalog", "title": "Visual and CSS bugs in AI-generated web apps: catalog", "path": "research/visual/CATALOG.md", "used_for": "the bug families and their order" },
+    { "id": "checks", "title": "GenClass visual checks: design", "path": "docs/runtime/VISUAL.md", "used_for": "the measured checks, their thresholds and the opt-in fixes" },
+    { "id": "results", "title": "Sample results file", "url": "https://example.com/sample-results", "used_for": "every number on the page (sample only)" }
+  ]
+}

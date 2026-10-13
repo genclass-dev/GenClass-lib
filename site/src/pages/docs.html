@@ -18,7 +18,7 @@
     <nav class="toc" aria-label="On this page">
       <b>Start</b><a href="#install">Install</a><a href="#init">Initialize</a><a href="#first">The first five minutes</a><a href="#modes">Modes</a><a href="#profiles">Aggressiveness</a>
       <b>Operate</b><a href="#reports">Where reports go</a><a href="#explain">Explain and undo</a><a href="#off">Kill switch</a><a href="#costs">What it costs</a><a href="#selfhost">Self-host the model</a><a href="#skip">When to skip it</a><a href="#privacy">Privacy and telemetry</a>
-      <b>Planned</b><a href="#cloud">Cloud (planned)</a><b>Reference</b><a href="/docs/api">API</a><a href="/docs/options">Options</a><a href="/docs/architecture">Architecture</a><a href="/docs/compatibility">Compatibility</a>
+      <b>In testing</b><a href="#visual">Visual bugs</a><b>Planned</b><a href="#cloud">Cloud (planned)</a><b>Reference</b><a href="/docs/api">API</a><a href="/docs/options">Options</a><a href="/docs/architecture">Architecture</a><a href="/docs/compatibility">Compatibility</a>
     </nav>
     <div class="prose">
       <h2 id="install">Install</h2>
@@ -124,6 +124,9 @@ npx @genclass/runtime init --model-url /genclass-model/</code></pre>
 
       <h2 id="privacy">Privacy and telemetry</h2>
       <p>Decisions are made on the device. From runtime 0.2.1, anonymous diagnostics are on by default on public hosts. From 0.2.2 they are off on local and private hosts (<code>localhost</code>, <code>*.localhost</code>, <code>*.local</code>, <code>*.test</code>, <code>127.0.0.1</code>, <code>::1</code>, private IP ranges); 0.2.1 sent from those hosts too, by mistake. They go to the GenClass maintainers' collector to improve the model. By default they contain no text from the page: a random per-page session id, versions, mode, device class, your hostname and id-normalised path, and per decision the trigger, diagnosis and confidence, action, gate, outcome, latency and counts. The situation text the model read is sent only if you opt in with <code>telemetry: { include: { situation: true } }</code>. Turn it off with <code>GenClass.init({ telemetry: false })</code>, <code>npx @genclass/runtime init --no-telemetry</code>, <code>?genclass=no-telemetry</code>, <code>localStorage</code> <code>genclass.telemetry=off</code>, or Global Privacy Control. Apps that ship GenClass may need to disclose this to their users. See <a href="/docs/telemetry">telemetry</a> and <a href="/privacy">privacy</a>.</p>
+
+      <h2 id="visual">Visual bugs (in testing)</h2>
+      <p>Measured checks for bugs that render without an error are built and in testing: text the same colour as its background, images, fonts and stylesheets that failed to load, pages that scroll sideways on a phone, "undefined" or "[object Object]" on the page, and controls under an invisible layer. They are not in runtime {{rt}}. <a href="/visual">Visual bugs</a> says what they find, how they measure it and what they do not catch yet, and has a box to scan one public page.</p>
 
       <h2 id="cloud">GenClass Cloud (planned)</h2>
       <!--@planned GenClass Cloud-->

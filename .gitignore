@@ -24,6 +24,8 @@ packages/runtime-model/files/
 
 # demos: the search demo city index is source code, not data
 !demos/src/server/data/
+# the site's data files (site/src/data/README.md): visual.json is rendered into genclass.dev
+!site/src/data/
 
 # internal working notes (never published)
 internal/

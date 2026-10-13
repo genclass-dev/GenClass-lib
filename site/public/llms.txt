@@ -20,6 +20,9 @@
 - Model: 8.8M parameters, 10.2 MB q8, about 180 ms per decision on one WASM thread (182 ms for the shipped export), faster on WebGPU.
 - Training data: about 17.6M labelled runtime situations, including 837,623 real-browser rows from 158 apps.
 
+## In testing, not in 0.2.1
+- Visual bug checks (unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", stylesheets and fonts that fail, covered controls): measured checks with documented thresholds, and a model being trained on crawled pages with injected faults. No published numbers yet. https://genclass.dev/visual
+
 ## Planned, no customers yet
 - GenClass Cloud (a dashboard across apps) and GenClass Enterprise: https://genclass.dev/cloud, https://genclass.dev/enterprise, https://genclass.dev/pricing
 
