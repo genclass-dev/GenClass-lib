@@ -818,7 +818,10 @@ export interface LearnOptions {
   key?: string;
   /** Discards stored state learned under another version. Default: session.tags.release at init. */
   version?: string;
-  /** Size cap of the stored state in characters (least-used flows and smallest profiles are dropped first). Default 200,000. */
+  /**
+   * Size cap of the stored state in characters: the most-used flows and the profiles with the most completions are
+   * kept; only the stored copy is trimmed, never what is in memory. Default 200,000.
+   */
   maxBytes?: number;
   /** Flow expectations (`expectation` reports, rt.learned().flows). Default true; false learns and reports nothing. */
   expectations?: boolean;
@@ -887,9 +890,12 @@ export interface LearnedFlow {
    * protected); `expectedOnRepeat`: also on a repeat (the share holds among `repeats` too).
    */
   children: { signature: string; n: number; share: number; onRepeat: number; expected: boolean; expectedOnRepeat: boolean; protected?: boolean; delayMs?: { p50: number; p95: number } }[];
-  /** Fields each request's response handler writes (a refetch's writes are the refetch's). */
+  /**
+   * Fields each request's response handler writes (a refetch's writes are the refetch's). `expected`: a missing write
+   * is reported (thresholds met and the request changes data: not GET, HEAD or OPTIONS).
+   */
   writes: { signature: string; field: string; n: number; of: number; share: number; expected: boolean }[];
-  /** Requests that start after another one of the flow completes. */
+  /** Requests that start after another one of the flow answers ok; `expected` needs one of the pair to change data. */
   followUps: { after: string; then: string; n: number; of: number; share: number; expected: boolean; delayMs?: { p50: number; p95: number } }[];
   /** Routes the action leads to. */
   nav: { to: string; n: number; share: number; expected: boolean }[];

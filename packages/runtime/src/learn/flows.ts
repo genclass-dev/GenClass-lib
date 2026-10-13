@@ -11,8 +11,9 @@
 //
 // False-positive controls (EXPECTATIONS.md §3) are learned, never hardcoded patterns: a step is expected only on the
 // branch of the handler it was learned on (the same set of fields written), a repeat of an action within a page load
-// only when repeats did the step before, a request's absence only when it changes data (a GET may have been answered
-// by an app cache) or follows one that did.
+// only when repeats did the step before, a request's absence or a response's missing write only when the request
+// changes data (a GET may have been answered by an app cache, or its unchanged answer left unwritten), a missing
+// follow-up only when one of the pair changes data.
 
 import type { OpRec } from "../trace/ops.js";
 import type { Expectation, LearnedFlow, UserAction } from "../types.js";
@@ -147,6 +148,11 @@ interface Inst {
   hidden: boolean;
   /** The page navigated for another action while this one was open: neither learned from nor reported. */
   left: boolean;
+  /**
+   * The same action happened again while this instance was open (a stepper clicked three times, a second submit):
+   * a later answer may supersede this one's, so its responses' writes are neither checked nor learned.
+   */
+  repeated: boolean;
   /** One report per instance. */
   reported: boolean;
 }
@@ -344,13 +350,17 @@ export class FlowProfiles {
     const rec = this.record(flowRoute(op.scope?.route), kind, a.target ?? "");
     // the same action again while its previous instance is open (a second submit while the first is in flight, which
     // an app's own in-flight guard ignores by design): neither checked nor learned
-    for (const o of this.open.values()) if (o.rec === rec) return;
+    for (const o of this.open.values())
+      if (o.rec === rec) {
+        o.repeated = true;
+        return;
+      }
     const repeat = this.seen.has(rec.h);
     if (!repeat) {
       this.seen.add(rec.h);
       if (this.seen.size > MAX_SEEN) this.seen.delete(this.seen.values().next().value as string);
     }
-    const inst: Inst = { user: op, rec, opened: now, repeat, children: [], started: new Set(), wrote: new Map(), own: new Set(), checks: [], nav: null, navAt: 0, closeAt: now + this.closeAfter(rec), timer: null, hidden: this.env.hidden(), left: false, reported: false };
+    const inst: Inst = { user: op, rec, opened: now, repeat, children: [], started: new Set(), wrote: new Map(), own: new Set(), checks: [], nav: null, navAt: 0, closeAt: now + this.closeAfter(rec), timer: null, hidden: this.env.hidden(), left: false, repeated: false, reported: false };
     for (const [sig, st] of Object.entries(rec.children)) {
       if (!this.expectedStep(rec, sig, repeat)) continue;
       inst.checks.push({ kind: "request", sig, at: now + this.deadline(st.delay) });
@@ -568,8 +578,10 @@ export class FlowProfiles {
     if (this.suppressed(inst) || !this.qualifies(rec)) return;
     const who = actionPhrase(rec);
     const seenSig = new Set<string>();
-    for (const o of inst.children) {
-      if (!okEnd(o) || o.genclass || o.scope?.protected || seenSig.has(o.name)) continue;
+    // a response's missing write: only for a request that changes data (an unchanged GET answer is often left
+    // unwritten by design: structural sharing, a stale answer dropped), and not when a repeat may have superseded it
+    for (const o of inst.repeated ? [] : inst.children) {
+      if (!okEnd(o) || o.genclass || o.scope?.protected || !mutating(o.name) || seenSig.has(o.name)) continue;
       seenSig.add(o.name);
       const W = rec.writes[o.name];
       if (!W || W.n < this.cfg.minSupport || inst.wrote.has(o.id)) continue;
@@ -650,7 +662,7 @@ export class FlowProfiles {
       push(st.delay, Math.min(...ops.map((o) => o.start)) - u);
       if (ops.some(okEnd)) st.done++;
       if (ops.some((o) => o.scope?.protected)) st.protected = true;
-      if (st.protected) continue;
+      if (st.protected || inst.repeated) continue;
       for (const o of ops) {
         if (!okEnd(o)) continue;
         let W = rec.writes[sig];
@@ -724,7 +736,7 @@ export class FlowProfiles {
           if (st.delay.length) c.delayMs = stat(st.delay);
           return c;
         }),
-        writes: Object.entries(rec.writes).flatMap(([signature, W]) => Object.entries(W.fields).map(([field, n]) => ({ signature, field, n, of: W.n, share: W.n ? n / W.n : 0, expected: q && W.n >= this.cfg.minSupport && n / W.n >= this.cfg.minShare }))),
+        writes: Object.entries(rec.writes).flatMap(([signature, W]) => Object.entries(W.fields).map(([field, n]) => ({ signature, field, n, of: W.n, share: W.n ? n / W.n : 0, expected: q && mutating(signature) && W.n >= this.cfg.minSupport && n / W.n >= this.cfg.minShare }))),
         followUps: Object.entries(rec.follows).map(([pair, f]) => {
           const i = pair.indexOf(PAIR);
           const after = pair.slice(0, i);

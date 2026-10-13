@@ -1162,6 +1162,10 @@ export class RuntimeImpl implements Runtime {
           user = w.user;
         }
         hub.observe(s, value, op, user);
+        // flow expectations: an observed write that changed nothing still handled its response (the hub raises no
+        // `proposed` for it; the fields it changed, if any, were added when it applied)
+        const by = op;
+        if (by && !by.genclass && rt.flows.isOpen(by.root)) rt.flow((f) => f.onWrite(by, [by, ...rt.ops.ancestors(by, 8)], []));
       },
     };
   }
