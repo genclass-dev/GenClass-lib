@@ -55,6 +55,8 @@ import type {
   AuditEntry,
   AuditKind,
   AuditModel,
+  Expectation,
+  Learned,
 } from "./types.js";
 import { AuditLog, type AuditDraft } from "./decide/audit.js";
 import { expandPresets } from "./presets.js";
@@ -74,6 +76,7 @@ import { Cadence } from "./learn/cadence.js";
 import { analyzeBody, createdIds, vhash } from "./situation/content.js";
 import { commitAmbiguity, failureOf, hostOfSig } from "./situation/evidence.js";
 import { Profiles, shapeOf } from "./learn/profiles.js";
+import { DEFAULT_MIN_SESSIONS, DEFAULT_MIN_SHARE, DEFAULT_MIN_SUPPORT, FlowProfiles, flowRoute, fmtSec, quantile } from "./learn/flows.js";
 import { buildSituation, deliveryDroppable, relatedInFlight, type BuildOptions, type BuiltSituation } from "./situation/build.js";
 import { computeFacts, NO_BASELINE_STALL_MS } from "./situation/facts.js";
 import type { ChainWriteInfo, CreateRec, DeliverySpec, ErrorInfo, OutcomeRec, ReqMeta, SitEnv, SubjectSpec, Violation } from "./situation/env.js";
@@ -125,6 +128,10 @@ const LONG_RUNNING_MS = 10_000;
 const PROFILED: ReadonlySet<OpKind> = new Set<OpKind>(["fetch", "xhr", "user", "task", "ws"]);
 const TYPING_BURST_MS = 1000;
 const PROFILE_KEY = "genclass.profiles.v1";
+/** learn.maxBytes default: the stored learned state (profiles and flows) is trimmed to this many characters. */
+const LEARN_MAX_BYTES = 200_000;
+/** A request with a learned latency is expected to answer within max(2 × p99, this). */
+const RESPONSE_MIN_MS = 1000;
 
 interface ExplainRec {
   decision: Decision;
@@ -216,6 +223,8 @@ export class RuntimeImpl implements Runtime {
   readonly hub: StoreHub;
   readonly base = new Baselines();
   readonly profiles = new Profiles();
+  /** Flow expectations (src/learn/flows.ts; reporting only). */
+  readonly flows: FlowProfiles;
   readonly miner: InvariantMiner;
   readonly cache: ResponseCache;
 
@@ -255,6 +264,7 @@ export class RuntimeImpl implements Runtime {
     breaker: new Set(),
     limit: new Set(),
     modelBudget: new Set(),
+    expectation: new Set(),
   };
   // ---- configuration extensions (OPTIONS-SPEC)
   /** "on", "pending" (an async enabled predicate: pass-through), "off" (an EnabledSource flipped off), "disabled". */
@@ -282,6 +292,9 @@ export class RuntimeImpl implements Runtime {
   private learnStore: "local" | "session" | null = null;
   private learnKey = "genclass:learn";
   private learnVersion: string | undefined;
+  private learnMaxBytes = LEARN_MAX_BYTES;
+  /** The runtime is writing its own learned state: the storage observer must not record it. */
+  private selfStorage = false;
   private reportMode: "console" | "interventions" | "silent" | "fn" = "console";
   private uninstall: (() => void)[] = [];
   private teardowns: (() => void)[] = [];
@@ -379,11 +392,35 @@ export class RuntimeImpl implements Runtime {
     }
     this.budgetOpt = o.situation?.budget ?? "auto";
     this.appFn = o.app;
-    this.persist = !!o.learn?.persist;
-    this.learnStore = o.learn?.persist === "session" ? "session" : o.learn?.persist ? "local" : null;
+    // learned state persists by default (localStorage, per origin, no page text); learn.persist: false keeps it in memory
+    const lp = o.learn?.persist;
+    this.persist = lp !== false;
+    this.learnStore = lp === "session" ? "session" : this.persist ? "local" : null;
     if (o.learn?.key) this.learnKey = o.learn.key;
+    if (typeof o.learn?.maxBytes === "number" && o.learn.maxBytes > 0) this.learnMaxBytes = Math.floor(o.learn.maxBytes);
     const rel = o.session?.tags?.release;
     this.learnVersion = o.learn?.version ?? (rel !== undefined ? String(rel) : undefined);
+    const num = (v: unknown, d: number, min: number) => (typeof v === "number" && Number.isFinite(v) && v >= min ? v : d);
+    this.flows = new FlowProfiles(
+      {
+        now: () => this.clock.now(),
+        setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms),
+        clearTimeout: (h) => this.clock.clearTimeout(h),
+        hidden: () => this.hidden(),
+        online: () => this.online(),
+        report: (e) => this.emitExpectation(e),
+        changed: () => {
+          if (this.persist) this.saveProfilesSoon();
+        },
+      },
+      {
+        minSupport: Math.floor(num(o.learn?.minSupport, DEFAULT_MIN_SUPPORT, 1)),
+        minShare: Math.min(1, num(o.learn?.minShare, DEFAULT_MIN_SHARE, 0)),
+        // without persistence no flow can ever be seen in a second session
+        minSessions: Math.floor(num(o.learn?.minSessions, this.persist ? DEFAULT_MIN_SESSIONS : 1, 1)),
+      },
+    );
+    this.flows.enabled = o.learn?.expectations !== false;
     this.decider = o.decider ?? null;
     this.ownsDecider = !!o.ownsDecider;
     this.queue = new DeciderQueue(this.clock, () => this.decider, (e) => {
@@ -855,6 +892,10 @@ export class RuntimeImpl implements Runtime {
       if (paths.length) rec.changed = [...paths];
     }
     if (kind === "undo") rec.undone = true;
+    if (r.expectation) {
+      const e = r.expectation;
+      rec.expectation = { kind: e.kind, route: e.route, ...(e.signature ? { signature: e.signature } : {}), ...(e.field ? { field: e.field } : {}), ...(e.after ? { after: e.after } : {}), ...(e.to ? { to: e.to } : {}), seen: e.seen, of: e.of, sessions: e.sessions, waitedMs: e.waitedMs };
+    }
     if (this.sinks.wantsEvidence()) {
       const ex = a ? this.explain(a.id) : d ? this.explain(d.id) : null;
       rec.evidence = {
@@ -903,10 +944,22 @@ export class RuntimeImpl implements Runtime {
     };
   }
 
+  learned(): Learned {
+    const route = this.currentRoute();
+    return {
+      route: flowRoute(route),
+      session: this.flows.session,
+      flows: this.flows.learned(route),
+      deviations: [...this.flows.deviations],
+      relations: this.miner.learned().map(({ text, held }) => ({ text, held })),
+    };
+  }
+
   get learn(): { clear(): void } {
     return {
       clear: () => {
         this.profiles.bySig.clear();
+        this.flows.clear();
         for (const k of ["local", "session"] as const) {
           try {
             this.storage(k)?.removeItem(this.learnKey);
@@ -988,6 +1041,7 @@ export class RuntimeImpl implements Runtime {
         installNav(g, this, (route) => {
           this.events.push(this.clock.now(), "nav", route, { data: { route } });
           this.computeScope();
+          this.flows.onNav(route);
         }),
       );
     if (on("storage")) tryAdd("storage", () => installStorage(g, (area, op, key) => this.onStorage(area, op, key)));
@@ -1181,6 +1235,7 @@ export class RuntimeImpl implements Runtime {
   }
 
   private onStorage(area: string, op: string, key: string): void {
+    if (this.selfStorage) return; // the runtime saving its learned state is not app activity
     const amb = this.ctx.op();
     const redacted = this.redactFn(key, key) !== key ? "[redacted]" : key;
     this.events.push(this.clock.now(), "storage", `${area}.${op}`, { ...(amb ? { op: amb.id } : {}), data: { key: redacted } });
@@ -1213,6 +1268,11 @@ export class RuntimeImpl implements Runtime {
     }
     // instant ops are complete at creation: profile them at the next settled point (their chains finish by then)
     if (op.instant && PROFILED.has(kind) && !op.genclass) this.queueProfile(op);
+    // flow expectations: a user action opens a flow; the requests under it are its steps
+    if (this.enabledState === "on" && !op.genclass) {
+      if (kind === "user") this.flows.onUser(op);
+      else if ((kind === "fetch" || kind === "xhr") && op.root !== op.id) this.flows.onChild(op);
+    }
     try {
       this.hooks.opCreated?.(op);
     } catch {
@@ -1241,6 +1301,7 @@ export class RuntimeImpl implements Runtime {
       }
     }
     if (PROFILED.has(op.kind) && !op.genclass && status !== "aborted" && !o.synthetic) this.queueProfile(op);
+    if ((op.kind === "fetch" || op.kind === "xhr") && !op.genclass) this.flows.onChildEnd(op);
     this.scheduleSettle();
   }
 
@@ -2448,6 +2509,9 @@ export class RuntimeImpl implements Runtime {
       } catch (e) {
         this.log("marking writes failed", e);
       }
+      // flow expectations: which requests of the flow wrote these fields (normalised like transition profiles)
+      const fields = changes.filter((c) => !!c.afterLeaf).map((c) => normalizeFieldPath(c.path));
+      if (fields.length) this.flows.onWrite(writer, [writer, ...this.ops.ancestors(writer, 8)], fields);
     }
     this.miner.noteChanged(changes.map((c) => c.path));
     this.miner.noteValues(changes.map((c) => [c.path, c.afterLeaf] as [string, Leaf | undefined]));
@@ -2671,12 +2735,75 @@ export class RuntimeImpl implements Runtime {
     const lat = this.base.latency(req.signature);
     // without a latency baseline (fewer than 5 completions) a request is checked once it has been in flight 10 s
     const at = lat ? Math.max(4 * lat.median, 2 * lat.p95, STALL_MIN_MS) : NO_BASELINE_STALL_MS;
+    // the response expectation (reporting only) rides on the same timer: a request that usually answers is reported
+    // once it has waited past max(2 × p99, 1 s), whether or not the model was asked about the stall
+    const bound = this.responseDeadline(req.signature);
+    let h2: unknown = null;
     const h = this.clock.setTimeout(() => {
       if (op.end !== undefined || this.destroyed || op.triggered?.has("stall")) return;
       (op.triggered ??= new Set()).add("stall");
       this.trigger({ trigger: "stall", op, req }, ctl(), { hold: false, priority: 1 });
+      if (bound === null) return;
+      const left = op.start + bound - this.clock.now();
+      if (left <= 0) this.expectResponse(op, bound);
+      else h2 = this.clock.setTimeout(() => this.expectResponse(op, bound), left);
     }, at);
-    return () => this.clock.clearTimeout(h);
+    return () => {
+      this.clock.clearTimeout(h);
+      if (h2 !== null) this.clock.clearTimeout(h2);
+    };
+  }
+
+  /**
+   * The learned response bound of a signature: max(2 × p99 of its recent latencies, 1 s) once at least
+   * learn.minSupport completions were timed and at least learn.minShare of its recent outcomes answered; null otherwise.
+   */
+  private responseDeadline(sig: string): number | null {
+    if (!this.flows.enabled) return null;
+    const s = this.base.stats(sig);
+    const cfg = this.flows.cfg;
+    if (!s || s.lat.length < cfg.minSupport) return null;
+    const fc = this.base.failureCounts(sig);
+    if (fc.of < cfg.minSupport || (fc.of - fc.failed) / fc.of < cfg.minShare) return null;
+    return Math.max(2 * quantile(s.lat, 0.99), RESPONSE_MIN_MS);
+  }
+
+  /** The request is still in flight past its learned bound: one `expectation` report (kind "response"). */
+  private expectResponse(op: OpRec, bound: number): void {
+    if (op.end !== undefined || this.destroyed || op.genclass || op.scope?.protected || this.hidden() || this.online() === false) return;
+    const s = this.base.stats(op.name);
+    if (!s) return;
+    const fc = this.base.failureCounts(op.name);
+    const now = this.clock.now();
+    const waited = now - op.start;
+    const p99 = quantile(s.lat, 0.99);
+    const answered = fc.of - fc.failed;
+    this.flows.note({
+      kind: "response",
+      route: flowRoute(op.scope?.route),
+      action: op.name,
+      op: op.id,
+      signature: op.name,
+      seen: answered,
+      of: fc.of,
+      sessions: 1,
+      waitedMs: waited,
+      usualMs: p99,
+      at: now,
+      message: `[GenClass] Expected a response: ${op.name} usually answers within ${fmtSec(p99)} (p99 of the last ${s.lat.length}; ${answered} of ${fc.of} recent requests answered); this one has been waiting ${fmtSec(waited)} (bound ${fmtSec(bound)}).`,
+    });
+  }
+
+  /** An expectation report: the `expectation` event, then the report path (console, listeners, sinks). */
+  private emitExpectation(e: Expectation): void {
+    if (this.destroyed || this.enabledState !== "on") return;
+    this.fire("expectation", e);
+    this.emitReport({ kind: "expectation", message: e.message, expectation: e }, this.ops.get(e.op) ?? null);
+  }
+
+  private online(): boolean | undefined {
+    const n = this.global.navigator as { onLine?: unknown } | undefined;
+    return typeof n?.onLine === "boolean" ? n.onLine : undefined;
   }
 
   // ------------------------------------------------------------------------------------------ situation env
@@ -2724,10 +2851,7 @@ export class RuntimeImpl implements Runtime {
       creates: () => this.createsBuf,
       cadence: (sig, now) => this.cadence.get(sig, now),
       outcomes: () => this.outcomesBuf,
-      online: () => {
-        const n = this.global.navigator as { onLine?: unknown } | undefined;
-        return typeof n?.onLine === "boolean" ? n.onLine : undefined;
-      },
+      online: () => this.online(),
       idempotencyHeaders: () => this.policy.idempotencyHeaders,
       idempotencyBodyFields: () => this.policy.idempotencyBodyFields,
     };
@@ -3274,6 +3398,7 @@ export class RuntimeImpl implements Runtime {
     this.queue.dispose();
     this.deliveryAnalysis.clear();
     this.reporter.dispose();
+    this.flows.dispose();
     this.auditLog.drain(); // entries recorded so far reach the audit sink (rt.audit() keeps working after destroy)
     if (this.settleTimer !== null) this.clock.clearTimeout(this.settleTimer);
     if (this.persistTimer !== null) this.clock.clearTimeout(this.persistTimer);
@@ -3317,13 +3442,20 @@ export class RuntimeImpl implements Runtime {
       if (!raw) return;
       const v = JSON.parse(raw) as { version?: string; profiles?: unknown } | unknown;
       if (v && typeof v === "object" && "profiles" in (v as object)) {
-        const w = v as { version?: string; profiles: unknown };
+        const w = v as { version?: string; profiles: unknown; flows?: unknown; sessions?: unknown };
         // a release/version change discards what was learned under the old one
         if (w.version !== this.learnVersion) {
-          st?.removeItem(this.learnKey);
+          this.selfStorage = true;
+          try {
+            st?.removeItem(this.learnKey);
+          } finally {
+            this.selfStorage = false;
+          }
           return;
         }
         this.profiles.load(w.profiles as never);
+        this.flows.load(w.flows);
+        if (typeof w.sessions === "number" && Number.isFinite(w.sessions) && w.sessions >= 0) this.flows.session = Math.floor(w.sessions) + 1;
       } else if (this.learnVersion === undefined) this.profiles.load(v as never);
     } catch {
       /* ignore */
@@ -3331,15 +3463,36 @@ export class RuntimeImpl implements Runtime {
   }
 
   private saveProfilesSoon(): void {
-    if (this.persistTimer !== null) return;
+    if (this.persistTimer !== null || this.destroyed || !this.storage(this.learnStore ?? "local")) return;
     this.persistTimer = this.clock.setTimeout(() => {
       this.persistTimer = null;
+      const st = this.storage(this.learnStore ?? "local");
+      const json = st ? this.serializeLearn() : null;
+      if (!st || json === null) return;
+      this.selfStorage = true;
       try {
-        this.storage(this.learnStore ?? "local")?.setItem(this.learnKey, JSON.stringify({ version: this.learnVersion, profiles: this.profiles.toJSON() }));
+        st.setItem(this.learnKey, json);
       } catch {
         /* quota or privacy mode */
+      } finally {
+        this.selfStorage = false;
       }
     }, 5000);
+  }
+
+  /**
+   * The learned state as stored (version, sessions, profiles with hashed user-action signatures, flows without
+   * labels), trimmed to learn.maxBytes by dropping the least-used flows and the smallest profiles; null when it
+   * cannot be made to fit.
+   */
+  private serializeLearn(): string | null {
+    for (let i = 0; i < 12; i++) {
+      const json = JSON.stringify({ version: this.learnVersion, sessions: this.flows.session, profiles: this.profiles.toJSON(), flows: this.flows.toJSON() });
+      if (json.length <= this.learnMaxBytes) return json;
+      const dropped = this.flows.dropLeastUsed(Math.max(1, Math.ceil(this.flows.byKey.size / 10))) + this.profiles.dropLeast(Math.max(1, Math.ceil(this.profiles.bySig.size / 10)));
+      if (!dropped) return null;
+    }
+    return null;
   }
 }
 
