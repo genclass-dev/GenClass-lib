@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **The first decision of a page load has a realistic hold budget, and a late answer is no longer thrown away.**
+  Before any measured decision the budget came from the warm-up pass, a ~430-token situation (49–74 ms on an Apple
+  GPU), so it was the 150 ms floor, while the first real decision measured 137 ms there: 13 ms of margin, and none
+  on a slower GPU. The warm-up time is now scaled by its per-token cost to a typical situation (1,200 tokens, plus
+  the worker round trip): 49 ms warm-up → 234 ms budget. An answer that arrives after a held request's or write's
+  deadline (the queue has moved on and released the subject, as before) was ignored entirely; it is now recorded
+  and reported ("the decision arrived after the hold budget expired"), counts as a latency sample and clears the
+  queue's "stuck" state. A held subject's queued decision whose subject already went its way runs behind fresh ones
+  while decisions are fast (median ≤ 300 ms) rather than being dropped. Deadlines, release timing and the queue's
+  occupancy are unchanged. (Not a fix for a hidden tab: held decisions are skipped there by design.)
+
 ## 0.2.1 (2026-10-10)
 
 - **Telemetry: no page text by default.** `telemetry.include.situation` now defaults to **false**: decision events
