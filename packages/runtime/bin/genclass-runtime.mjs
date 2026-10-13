@@ -5,6 +5,8 @@
 //   genclass-runtime remove [--yes] [--dry-run] [--keep-package]
 //       Set GenClass up in a project (framework detection, install, one marked import in the entry file, an app token
 //       and private dashboard link from genclass.dev) and take it out again. Implemented in bin/lib/ (owner: INSTALL).
+//   genclass-runtime login [--yes] [--no-browser] [--no-connect] | connect [--app <id|name>] [--name <name>] | whoami | logout
+//       A GenClass account for the CLI (device sign-in, the app's token from the account): bin/lib/login.mjs.
 //   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
 //       Download a GenClass model directory (model.json + model files) so an app can self-host it, plus the
 //       onnxruntime-web files the runtime loads (into <dir>/ort/, the version the runtime bundles):
@@ -52,12 +54,19 @@ const ROLES = ["tokenizer", "calibration", "meta"];
 const USAGE = `Usage:
   genclass-runtime init [--mode observe|guard|heal] [--token <gc_...> | --no-token] [--yes] [--dry-run] [--no-install] [--no-devtools]
   genclass-runtime remove [--yes] [--dry-run] [--keep-package]
+  genclass-runtime login [--yes] [--no-browser] [--no-connect]
+  genclass-runtime connect [--app <id|name>] [--name <name>] [--yes] [--dry-run] [--no-install]
+  genclass-runtime whoami
+  genclass-runtime logout
   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
   genclass-runtime info <dir>
 
 init sets GenClass up in the current project (shows the diff and asks first) and, once you approve, creates this
 app's token and private dashboard link at genclass.dev (--no-token: no network); remove undoes it
 (\`genclass-runtime init --help\` for details).
+login signs you in to your GenClass account in the browser and connects the app in this folder; connect does the
+second half alone; whoami shows the account and its apps; logout ends the CLI session
+(\`genclass-runtime login --help\` for details).
 fetch-model downloads a GenClass model directory for self-hosting (default --variant all). The default --from is
 @genclass/runtime-model@0.2.0 on npm via jsDelivr, the runtime's own default model:
   ${DEFAULT_FROM}
@@ -481,6 +490,11 @@ async function main() {
   const argv = process.argv.slice(2);
   if (argv[0] === "init" || argv[0] === "remove") {
     const { run } = await import("./lib/init.mjs");
+    process.exitCode = await run(argv[0], argv.slice(1));
+    return;
+  }
+  if (["login", "connect", "whoami", "logout"].includes(argv[0])) {
+    const { run } = await import("./lib/login.mjs");
     process.exitCode = await run(argv[0], argv.slice(1));
     return;
   }

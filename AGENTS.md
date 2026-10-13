@@ -14,7 +14,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 
 | path | what |
 |---|---|
-| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`), `test/` (vitest; `test/install/`, `test/browser/`), `bin/` (CLI: `init`, `remove`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
+| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`), `test/` (vitest; `test/install/`, `test/browser/`), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
 | `packages/runtime-model/` | the data-only model package (`files/` is gitignored, filled at release) and `MODEL_CARD.md` |
 | `sim/` | deterministic training-data simulator driving the real runtime (`SEPARABILITY.md`, `README.md`) |
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
