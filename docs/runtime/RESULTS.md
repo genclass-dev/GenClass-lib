@@ -310,7 +310,7 @@ limits, hidden-tab skips, rate-limit drops, browser drops, sampled-out and cappe
 
 | what | value | how |
 |---|---|---|
-| Counted totals vs the page load's own summary, unit fixtures | equal in every case, 0 double counts | `telemetry-worker/test/dashboard.test.ts` (CI): a repeated batch, bigger / late older / partial summaries, a split flush in three orders including both parts processed at once, a client that sent 4 decision records for 500 decisions and 260 detections, state from the previous worker format, state swept after 2 days, a corrupt state row. Fixtures, not production traffic |
+| Counted totals vs the page load's own summary, unit fixtures | equal in every case, 0 double counts | `telemetry-worker/test/dashboard.test.ts` (CI run 38465992209, commit 8b0e949: 40 worker tests passed): a repeated batch, bigger / late older / partial summaries, a split flush in three orders including both parts processed at once, a client that sent 4 decision records for 500 decisions and 260 detections, state from the previous worker format, state swept after 2 days, a corrupt state row. Fixtures, not production traffic |
 | Local replay: 30 batches, 240 decisions, 120 detections, 5 summaries | dashboard 240 / 120; page-load state row 723 bytes | scratch replay through `aggregate()` and `stats()` on `node:sqlite` with the real migrations |
 | Dashboard page HTML (`/dashboard/<secret>`) | 50,737 → 60,288 bytes (gzip 15,500 → 17,358) | `dashboardPage()` output, `origin/main` vs this branch; a worker page, not part of the runtime's first-load budget |
 | `/start` HTML; sample stats JSON (7 d) | 12,700 → 12,934 bytes; 8,580 → 9,676 bytes | same |
