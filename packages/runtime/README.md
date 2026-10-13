@@ -793,12 +793,13 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
 
 - **Bundle:** what every page loads is about 100 KB gzip for `@genclass/runtime/auto` with automatic state
   discovery and 92 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild (`test/bundle.test.ts` prints them and keeps them under 100 KB and 92 KB: 99.8 KB and 91.8 KB in CI on
-  2026-10-13). The model worker, ONNX Runtime Web's JavaScript (about 70 KB gzip for WASM, 115 KB with WebGPU,
-  minified), the devtools and the sink adapters are separate chunks loaded on demand.
+  esbuild (`test/bundle.test.ts` prints them and keeps them under 100 KB and 92 KB: 99.9 KB and 91.8 KB in CI on
+  2026-10-13, docs/runtime/RESULTS.md §8). The model worker, ONNX Runtime Web's JavaScript (about 70 KB gzip for
+  WASM, 115 KB with WebGPU, minified), the devtools and the sink adapters are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  110 KB gzip (with discovery); its model worker and ONNX Runtime glue load on demand.
+  115 KB gzip (114.8 KB in the same CI run, with discovery and the sink names' proxy); its model worker, ONNX Runtime
+  glue and sink adapters load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass
   took about 182 / 330 / 599 ms at 500 / 780 / 1,170 tokens: about 180 ms per decision at the single-thread budget

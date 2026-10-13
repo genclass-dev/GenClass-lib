@@ -299,3 +299,22 @@ trained v2 model once it exists.
 | next | 150M teacher on v2 gold, teacher labels on unlabeled rows, distil R17/R32, DAgger rounds (SIM `--on-policy`), EVAL. |
 
 Compute: Azure CPU nodes (F80 and D64 sizes); the day-by-day record is kept internally.
+
+## 8. Install footprint (first-load JavaScript, CI)
+
+`packages/runtime/test/bundle.test.ts` bundles the published `dist/` the way an app's bundler would (esbuild, minified,
+code splitting) and gzips (level 9) every file of the first load on its own; it prints the sizes and fails above the
+limits. No model is involved, so there is no threshold or FIR here. GitHub Actions `ci.yml`, Node 22, branch
+`wave1/dev-visible-reports` (sink adapters and sinks by name):
+
+| entry | first load, minified + gzip | limit | CI run |
+|---|---|---|---|
+| `@genclass/runtime/auto` (with automatic state discovery and the sink names' proxy) | 99.79 KB in 3 files | 100 KB | 38362414761 |
+| main entry, `GenClass.init({})` | 91.79 KB in 3 files | 92 KB | 38362414761 |
+| `@genclass/runtime/auto`, plus the exact webhook matcher, the browser-grade same-origin check and the normalised `route` | 99.92 KB in 3 files (97.00 + 2.74 + 0.19) | 100 KB | 38367123457 |
+| main entry, plus the normalised `route` | 91.83 KB in 3 files (88.90 + 2.74 + 0.19) | 92 KB | 38367123457 |
+| script tag, `dist/genclass.global.min.js` (one file; worker, ONNX Runtime and sink adapters load on demand) | 114.81 KB (337.0 KB minified) | none | 38367123457 |
+
+The sink adapters themselves, their name table and the fan-out are absent from both first loads (asserted in the same
+test). Not measured: the same sizes on `main` (0.2.2), because its bundle test does not print them (its comment
+says "0.2.2: +0.35 KB ... (main: 98.86 KB)", a hand note, not a CI printout).
