@@ -46,6 +46,18 @@ jobs:
           NODE_OPTIONS: --expose-gc
         run: npx vitest run --exclude "test/browser/**" --exclude test/review-perf.test.ts
 
+      # @genclass/playwright (the fixture + reporter): tsc, tsup, vitest. Its browser run against the demos is the
+      # separate playwright-reporter.yml workflow, which never blocks this job.
+      - name: "@genclass/playwright: typecheck"
+        run: npm run typecheck -w @genclass/playwright
+
+      - name: "@genclass/playwright: build"
+        run: npm run build -w @genclass/playwright
+
+      - name: "@genclass/playwright: unit tests"
+        working-directory: packages/playwright
+        run: npx vitest run
+
       # Reported, not blocking: shared GitHub runners are ~10% slower than the machines these budgets were set on
       # (redux-style dispatch measured 1.08-1.10 ms vs its 1 ms bound on 2026-10-09). Run them on a quiet machine
       # before a release.
