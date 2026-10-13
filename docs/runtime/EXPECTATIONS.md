@@ -3,7 +3,9 @@
 Status: in `@genclass/runtime` Unreleased (after 0.2.2) as a deterministic, reporting-only layer.
 Code: `packages/runtime/src/learn/flows.ts`, wired in `src/runtime.ts`; tests in `test/expectations.test.ts`.
 Nothing here is model-visible (CONTRACT §0 rule 1 and AGENTS.md rule 3 are untouched: no new fact, trigger,
-question or situation text), and nothing here acts in any mode.
+question or situation text), and nothing here acts in any mode. The one learned state the model does read, the
+transition profiles, is persisted exactly as before this change (only with an explicit `learn.persist`, CONTRACT
+§4), so what reaches the model in a default install is unchanged (§4).
 
 The idea it implements: GenClass should learn how users interact with the page, build a picture of what is
 supposed to happen after each action, and report the gap when something that usually happens does not. Every
@@ -39,18 +41,26 @@ background tab; an abandoned flow says nothing about the usual one).
 
 Bounds: 500 flows in total, 64 per route (least-recently-used dropped), 64 open instances (the oldest is dropped
 unchecked and unlearned), one timer per open instance, 2,000 flow keys remembered per page load for the repeat
-rule. The existing transition profiles (`learn/profiles.ts`) and baselines are unchanged and still feed the model;
-the flow layer reads nothing the model reads and writes nothing it reads.
+rule; stored records are held to the same bounds (flows per route and in total, steps, pairs, routes, branches and
+fields per flow) when they are loaded. When a flow reaches 64 observations every count in it is halved (steps,
+pairs, routes and branches that reach 0 are dropped): shares stay, and what the app does now outweighs what it did
+long ago. The existing transition profiles (`learn/profiles.ts`) and baselines are unchanged and still feed the
+model; the flow layer reads nothing the model reads and writes nothing it reads.
 
 ## 2. What is reported, and when
 
-A step is **expected** when the flow has `n ≥ minSupport` (default 8) observations over `sessions ≥ minSessions`
-(default 2; 1 when `learn.persist` is false, because a second session can then never be seen) and the step occurred
-in `≥ minShare` (default 0.95) of them. All three are `InitOptions.learn` options. The 0.95 share is the brief's
-number; with `n = 8` it means 8 of 8, at `n = 20` it allows one miss. For a **repeat** of the action within the same
-page load the step must also have occurred in `≥ minShare` of `≥ minSupport` earlier repeats (a tab whose data an
-app cache serves the second time it is opened is held to what second opens did). A step is checked only on the
-branch it was learned on (§3).
+A step is **expected** when the flow has enough observations (`learn.minSupport`: 8 while every observation is from
+this page load, 20 once stored observations from earlier page loads count, the audit's "n ≥ 8 in-session or ≥ 20
+persisted"), spread over `sessions ≥ minSessions` (default 3 when learned state is kept in localStorage; 1 when
+nothing is stored or it is kept in sessionStorage, because another session can then never be seen), and the step
+occurred in `≥ minShare` (default 0.95) of them, and it was not reported missing since it was last seen (below).
+All three are `InitOptions.learn` options; a number for `minSupport` sets both supports. A **session** is a
+browsing session of a tab: its ordinal is kept in sessionStorage (`genclass:learn:session`), so a reload continues
+it and only another tab or a later visit is a new one (without sessionStorage every page load counts). The 0.95
+share is the brief's number; with `n = 8` it means 8 of 8, at `n = 20` it allows one miss. For a **repeat** of the
+action within the same page load the step must also have occurred in `≥ minShare` of as many earlier repeats (a tab
+whose data an app cache serves the second time it is opened is held to what second opens did). A step is checked
+only on the branch it was learned on (§3).
 
 | kind | condition | when it is checked | message (one console line; `Report.expectation` carries the numbers) |
 |---|---|---|---|
@@ -58,7 +68,7 @@ branch it was learned on (§3).
 | `follow-up` | A answered ok (status below 400), and B, which follows A in `≥ minShare` of A's ok answers (`≥ minSupport` of them), did not start; A or B changes data | `max(1 s, 2 × p95 of the learned A→B delay)` after A's end | `Expected a follow-up on /checkout: after POST /api/orders completes, clicking button "Place order" usually sends GET /api/orders (40 of 41 times, within 0.1 s); this time nothing followed in 1.0 s.` |
 | `write` | a request of the flow that changes data answered ok and its handler wrote nothing (not even the value the store already had), while in `≥ minShare` of `≥ minSupport` ok answers it wrote a field; not for a repeated instance | when the instance closes | `Expected a state change on /cart: the response to POST /api/cart after clicking button "Add to cart" usually writes cart.items (41 of 41 times); this time it wrote nothing.` |
 | `navigation` | the action usually leads to a route (`≥ minShare` of `n`), no navigation happened during the flow, and no request of the flow is still in flight | when the instance closes | `Expected a navigation on /checkout: clicking button "Place order" usually leads to /confirmation (41 of 41 times, within 1.2 s); this time the page stayed on /checkout for 3.0 s.` |
-| `response` | a request whose signature has `≥ minSupport` timed completions in this page load and answered in `≥ minShare` of its recent outcomes is still in flight past `max(2 × p99 latency, 1 s)`, and this origin has been seen in `≥ minSessions` sessions (this one included) | on the stall timer (`watchStall`, extended) | `Expected a response: GET /api/items usually answers within 0.4 s (p99 of the last 64; 20 of 20 recent requests answered); this one has been waiting 2.1 s (bound 1.0 s).` |
+| `response` | a request whose signature has `≥ minSupport` (8) timed completions in this page load and answered in `≥ minShare` of its recent outcomes is still in flight past `max(2 × p99 latency, 1 s)`, this origin has been seen in `≥ minSessions` sessions (this one included), and no line was printed for the signature since one of its requests last answered | on the stall timer (`watchStall`, extended) | `Expected a response: GET /api/items usually answers within 0.4 s (p99 of the last 64; 20 of 20 recent requests answered); this one has been waiting 2.1 s (bound 1.0 s).` |
 
 A signature that is a learned follow-up of another request is reported only through the follow-up check (so a
 failed POST never produces a "missing GET" line, and a missing GET after a good POST is one line, not two). One
@@ -71,10 +81,16 @@ time, that no model and no action were involved, `GenClass.runtime.learned()`, h
 (`SinkRecord.kind "expectation"`, `SinkRecord.expectation` with the counts and signatures; the action label only in
 `evidence.message` when the sink asked for evidence). `report: "interventions"` prints none of them. Telemetry
 never sends them: the telemetry client forwards decisions, detections, actions, undos, breaker and limit events
-only (`src/telemetry/client.ts`); TELEMETRY.md says so under its event table. Each miss is also learned into the
-flow (the app's behaviour defines "usual"), so a permanent change in the app's behaviour silences itself after one
-line, and after a single miss at `n = 8` the step needs about 11 clean observations before it is expected again; an
-intermittent bug is reported each time the share recovers.
+only (`src/telemetry/client.ts`); TELEMETRY.md says so under its event table.
+
+**After a report.** The step that was reported missing is marked (`missed` in `rt.learned()`, stored with the flow)
+and is not expected again until it is seen again; the miss is also learned into the counts (the app's behaviour
+defines "usual"). So a permanent change in the app's behaviour (an endpoint renamed, a refetch dropped) gives one
+line per changed step, not one per returning visitor: without the mark, a step seen 41 of 41 times would stay above
+0.95 for two more misses (41 of 42, 41 of 43), and for about n/19 misses at larger n. An intermittent bug is reported
+again the first time it recurs after the step was seen again, and only while the share stays at or above
+`minShare`. `test/expectations.test.ts` checks this with 42 stored observations, a renamed endpoint and three more
+visits: one line.
 
 Known limits of v1 (not detected): a DOM change that never rendered (the runtime has no DOM or render observer;
 store writes and React commits are the proxy), a GET that was never sent or whose answer was never written (an app
@@ -92,8 +108,15 @@ One false "your button did nothing" on a working checkout costs the same trust a
 layer reports only when all of these hold. Each control is a learned count or a property of the request (its
 method, its answer's status class); none maps a pattern of facts to a verdict.
 
-- support: `n ≥ minSupport`, `sessions ≥ minSessions`, share `≥ minShare` (above); flows are per route, so
-  `Save` on `/editor` and on `/settings` never share counts;
+- support: `n ≥ 8` in one page load or `≥ 20` with stored observations, `sessions ≥ 3` with persistence, share
+  `≥ minShare` (above; the audit's recommendation); flows are per route, so `Save` on `/editor` and on `/settings`
+  never share counts. The thresholds alone do not make a handler that skips its request 10% of the time by design
+  safe (a `confirm()` cancelled, a check kept in state GenClass does not see): it shows 8 of 8 with probability
+  0.9^8 ≈ 0.43 and 19 or more of 20 with 0.9^20 + 20 × 0.1 × 0.9^19 ≈ 0.39. What bounds the cost is the next control
+  and the share: after one reported skip the share is below 0.95 (at most 19 of 21), so such a handler gets an
+  occasional line when its share drifts back up, not one per skip;
+- **once per change**: a step reported missing is not expected again until it is seen again (§2, "After a report");
+  a run of hanging requests of one signature is one `response` line;
 - **branch**: a step is expected only on the branch of the handler it was learned on. For a request, the branch is
   the set of fields the action's own handler wrote (a submit whose handler wrote a validation error and sent nothing
   is another branch: not a gap; the same submit that marked the form as placing and sent nothing is); for a
@@ -119,7 +142,7 @@ method, its answer's status class); none maps a pattern of facts to a verdict.
 - a navigation is not missing while a request of the flow is still in flight (a slow answer), and the flow stays
   open for its usual tail after its last answer;
 - deadlines come from the learned delay distribution (p95, doubled) with a 1 s floor, so a slow backend does not
-  turn a late request into a missing one; `response` needs twice the p99, at least a second, and a second session;
+  turn a late request into a missing one; `response` needs twice the p99, at least a second, and (with persistence) the third session;
 - one report per instance; reporter rate limit per minute; nothing is ever held, delayed, retried or changed
   because of a report; the layer runs inside `try/catch` and never throws into the app.
 
@@ -129,37 +152,68 @@ not part of CI and was not run for this change (see the status note at the end).
 
 ## 4. Persistence
 
-Learned state persists per origin **by default** (`learn.persist` defaults to `"local"`; `"session"` uses
-sessionStorage; `false` keeps it in memory). One key (`learn.key`, default `genclass:learn`), one JSON value:
+What is stored depends on `learn.persist`:
+
+| `learn.persist` | flows (this layer; reporting only) | transition profiles (read by the model) |
+|---|---|---|
+| unset (the default) | localStorage | memory only, as in 0.2.2 and CONTRACT §4 |
+| `true` / `"local"` | localStorage | localStorage |
+| `"session"` | sessionStorage | sessionStorage |
+| `false` | memory only | memory only |
+
+With `learn.persist` unset, nothing is stored when the page runs in jsdom or happy-dom (an app's unit tests, which
+would otherwise share learned state from one test to the next), when `learn.expectations` is false, or when storage
+does not work (a probe key, `genclass:learn:probe`, is set and removed once at init; a privacy mode or a full quota
+throws). Without stored state the thresholds are those of one page load (8 observations, 1 session), so the layer
+still works and says why in `debug` mode.
+
+**Why profiles are not stored by default.** Transition profiles raise `transition` triggers once an operation has 20
+completions; storing them by default would let those counts build up across page loads, so more `transition`
+situations would reach the model, and in guard or heal its `rollback` or `resync` could act on them. Neither the
+demos' nor the real apps' FIR and never-worse runs cover that path (they start each trial in a fresh browser
+context), and after an app deploy without a `learn.version` the stored profiles would describe the old app. So this
+layer leaves the model's inputs as they were: profiles are stored only when the app asks for it, which is the
+0.2.2 behaviour. Storing them by default needs the owner's approval in CONTRACT §13 and a two-session clean-trial
+FIR run first.
+
+One key (`learn.key`, default `genclass:learn`), one JSON value:
 
 ```json
-{ "version": "<learn.version | session.tags.release>", "sessions": 7, "profiles": [...], "flows": [...] }
+{ "format": 2, "lib": "<runtime version>", "version": "<learn.version | session.tags.release>", "sessions": 7, "profiles": [], "flows": [...] }
 ```
 
-`sessions` counts the sessions that persisted state before; the current session's ordinal is `sessions + 1`
-(`rt.learned().session`), and a flow's `sessions` counts the distinct ordinals it was observed in. What is stored:
-request signatures (ids normalised), normalised routes, normalised field names (secret-named ones never), counts,
-delay samples, branch hashes, and for user actions only `fnv1a(route | kind label)`: no element text, no values, no
-URLs with query strings. Transition profiles of user actions (`user click button "…"`) are stored under
-`user#<fnv1a>` for the same reason and renamed back in memory when the action is seen again. The stored value is
-capped at `learn.maxBytes` (default 200,000 characters): the most-used flows and the profiles with the most
-completions are kept, taken in turn, until the next one does not fit; only the stored copy is trimmed, what is in
-memory stays. Stored state is checked field by field when it is loaded (anything malformed is dropped or zeroed). A
-`version` change discards the stored value; `rt.learn.clear()` forgets memory and storage. The runtime's own
-`setItem`/`removeItem` are not recorded by the storage observer (so they never enter a timeline). Saves are
-debounced (5 s), flushed when the page is hidden or unloads, and never run from a hold path. Base latency baselines
-are not persisted, so `response` always measures this page load's latencies.
+A value of another `format`, another runtime version (`lib`) or another `version` is discarded, never migrated (the
+0.2.2 value, which had no format, too): learning starts over after every library upgrade and every release that
+sets `session.tags.release` or `learn.version`. Without either, an app deploy keeps the stored flows; the `missed`
+mark (§2) and the halving at 64 observations (§1) bound what an outdated flow can cost.
 
-Before this change `learn.persist` defaulted to false, which is why user-action learning almost never activated:
-transition profiles need 20 completions of the same action and nobody clicks "Place order" 20 times in one visit.
+`sessions` counts the sessions that stored state; a new session's ordinal is `sessions + 1` (`rt.learned().session`),
+a reload in the same tab keeps the tab's ordinal (sessionStorage, `genclass:learn:session`), and a flow's `sessions`
+counts the distinct ordinals it was observed in. A new session schedules one save, so sessions are counted even when
+nothing was clicked.
 
-**Conflict with CONTRACT.md, stated rather than resolved here:** CONTRACT §4 ("Transition profiles") says profiles
-are "per app session (in memory), optionally persisted to `localStorage` behind `learn: { persist: true }`". This
-change makes persistence the default (the brief for this layer asks for it; `learn.persist: false` restores the
-contract's behaviour). CONTRACT §13 is where the owner records approved deviations; until it does, the contract text
-and the shipped default disagree on this one point. Nothing else here departs from the contract: §8's reporting
-(one line, collapsed evidence, rate-limited repeats) is reused as is, and the `Report.kind` union it lists had
-already been extended (`undo`, `breaker`, `error`) before `expectation` was added.
+What is stored: request signatures (id-like path segments normalised), routes, field names (keys with digits
+normalised; secret-named fields never), counts, delay samples, branch hashes, `missed` marks, and for user actions
+only `fnv1a(route | kind label)`: no element text, no values, no query strings. Routes and field names are stored as
+the app has them apart from that normalisation: a path segment that does not look like an id (`/u/jane.doe@example.com`,
+`/search/red-shoes`) or a store keyed by something other than an id (an email as a map key) is stored as is. Transition
+profiles of user actions (`user click button "…"`), when stored, are kept under `user#<fnv1a>` and renamed back in
+memory when the action is seen again. The stored value is capped at `learn.maxBytes` (default 200,000 characters):
+the most-used flows and the profiles with the most completions are kept, taken in turn, until the next one does not
+fit; only the stored copy is trimmed, what is in memory stays, and a cap below the value's header removes the stored
+value. Stored state is checked field by field and against the learner's bounds when it is loaded (anything malformed
+is dropped or zeroed, anything beyond a bound dropped, least used first). `rt.learn.clear()` forgets memory, storage
+and a pending save. The runtime's own `setItem`/`removeItem` are not recorded by the storage observer (so they never
+enter a timeline). Saves are debounced (5 s), written when the page is hidden or unloads and on `rt.destroy()`, and
+never run from a hold path. With several tabs open, the last one to save wins. Base latency baselines are not stored,
+so `response` always measures this page load's latencies.
+
+**CONTRACT.md.** CONTRACT §4 covers transition profiles only, and their default is unchanged. Storing the learned
+flows by default is a new default (a value in the visitor's localStorage on every origin that installs GenClass,
+including in observe mode); it should be recorded as a §13 addition once the owner approves it. Nothing else here
+departs from the contract: §8's reporting (one line, collapsed evidence, rate-limited repeats) is reused as is, and
+the `Report.kind` union it lists had already been extended (`undo`, `breaker`, `error`) before `expectation` was
+added.
 
 ## 5. Developer-facing output
 
@@ -171,8 +225,9 @@ already been extended (`undo`, `breaker`, `error`) before `expectation` was adde
 - Devtools: an **Expectations** tab (`@genclass/runtime/devtools`) listing recent deviations, the learned flows as
   `click button "Place order" on /checkout: 41 observations (12 repeated in a visit), 6 sessions, settles in 0.8 s`
   followed by its steps (`→ POST /api/orders (41/41, within 0.4 s) · expected`, `✎ POST /api/orders writes
-  orders.items (41/41)`, `↳ GET /api/orders after POST /api/orders (40/41)`, `⇒ /confirmation (41/41)`), and the
-  learned relations.
+  orders.items (41/41)`, `↳ GET /api/orders after POST /api/orders (40/41)`, `⇒ /confirmation (41/41)`; a step
+  reported missing shows `· missed: not expected until seen again`), and the learned relations
+  (`test/devtools.test.ts` checks the tab on a real runtime).
 - Console: one line per deviation in the house style, with the collapsed evidence group described in §2.
 
 ## 6. v2 candidates: filling the gap safely
@@ -206,11 +261,13 @@ stuck-"Placing…" and lost-commit cases. That is the owner's call (AGENTS.md ru
 
 ## Status note
 
-Done in this change: §1–§5 (learner, five absence kinds, the false-positive controls of §3, persistence on by
-default with hashing and a size cap, `rt.learned()`, the devtools tab, console/listener/sink output), with unit
-tests on the fake clock (`test/expectations.test.ts`, run in CI). Not done: the clean-trial acceptance run on the
-demos (needs Playwright, not in CI); fleet aggregation across visitors (needs a server and an opt-in); the model
-phase (§7). The counts in the example lines are illustrations of the format, not measurements. The one measured
+Done in this change: §1–§5 (learner, five absence kinds, the false-positive controls of §3, flows stored by default
+with hashing, a size cap, a format and runtime-version tag, `rt.learned()`, the devtools tab,
+console/listener/sink output), with unit tests on the fake clock (`test/expectations.test.ts`,
+`test/devtools.test.ts`, run in CI). Not done: the clean-trial acceptance run on the demos (needs Playwright, not in
+CI), including a two-session run on the stored path; a stable learning key (role + label + nearest form or test id:
+dynamic or localised labels still split one button into several flows); fleet aggregation across visitors (needs a
+server and an opt-in); the model phase (§7). The counts in the example lines are illustrations of the format, not measurements. The one measured
 number is the first-load JavaScript cost, quoted with its source in RESULTS.md ("Flow expectations") and the
 package README ("Costs"). Recall and false-report rate on the demos are unmeasured until the acceptance run above;
 the site must not quote this layer until then.

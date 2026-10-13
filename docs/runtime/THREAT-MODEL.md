@@ -44,7 +44,7 @@ response contents), the app's availability and latency, and the integrity of the
 | the model files (`model.baseUrl`) and onnxruntime-web (`model.ortWasmPaths`) | integrity-checked, not trusted blindly | default: jsDelivr, from the npm packages (T2) |
 | the telemetry collector | receives redacted diagnostics only | default on for `GenClass.init` in a browser (T5) |
 | the developer's configuration | trusted | but parts of it can come from the URL, `localStorage` or meta tags (T8) |
-| learned state in storage (`genclass:learn`, persisted by default since the flow expectations, EXPECTATIONS.md §4) | data, checked field by field on load | holds signatures, normalised routes and field names, counts and hashes, no page text or values; a script that rewrites it can make reports wrong or silent, which any same-origin script could already do (T1) |
+| learned state in storage (`genclass:learn`; the learned flows by default since the flow expectations, transition profiles only with `learn.persist`, EXPECTATIONS.md §4) | data, checked field by field and against the learner's bounds on load, discarded on a format or runtime-version change | holds request signatures, routes and field names (id-like segments and keys normalised; other path segments and map keys, such as `/u/jane.doe@example.com` or a store keyed by email, as they are), counts and hashes of action labels, no element text or values; a script that rewrites the flows can make expectation reports wrong or silent, and, when profiles are stored, change which `transition` situations reach the model, which any same-origin script could already do (T1) |
 
 ## T1. Other scripts on the page
 

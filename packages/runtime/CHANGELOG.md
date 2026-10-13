@@ -7,7 +7,8 @@
 A deterministic, reporting-only layer (`docs/runtime/EXPECTATIONS.md`). For every user action on a route (click,
 submit, change, Enter; never typing) the runtime learns which requests it starts and how soon, which request follows
 which, what each response's handler writes, where the page navigates and how long the flow settles. Once a step
-was seen in at least 95% of 8 or more observations over 2 or more visits, a flow in which it did not happen is
+was seen in at least 95% of 20 or more observations over 3 or more visits (8 or more in one page load when nothing
+is stored), a flow in which it did not happen is
 reported: a click that sent nothing within its learned deadline, a follow-up request that never came after its
 predecessor answered, a response whose handler wrote nothing, a navigation that did not happen, and a request still
 waiting past twice its p99 latency. The model is never consulted for these and nothing acts on them in any mode. No model-visible
@@ -18,8 +19,12 @@ text changed (no new fact, trigger or situation text).
   style, with a collapsed group; folded repeats as for every report. `report: "interventions"` prints none.
 - `rt.learned()`: the learned flows (current route first) with their steps, counts, shares and delays, the recent
   deviations and the learned relations. Devtools: an **Expectations** tab shows the same.
-- `learn.expectations` (default true), `learn.minSupport` (8), `learn.minShare` (0.95), `learn.minSessions` (2; 1
-  without persistence) and `learn.maxBytes` (200,000).
+- `learn.expectations` (default true), `learn.minSupport` (8 while every observation is from this page load, 20
+  once stored ones count; a number sets both), `learn.minShare` (0.95), `learn.minSessions` (3 when learned state is
+  kept in localStorage, else 1; a reload in the same tab is not a new session) and `learn.maxBytes` (200,000).
+- A step reported missing is not expected again until it is seen again (`missed` in `rt.learned()`), so an app whose
+  behaviour changed gets one line, not one per visit; a flow's counts are halved when it reaches 64 observations; a
+  run of hanging requests of one signature is one `response` line until one of them answers.
 - False-positive controls (EXPECTATIONS.md §3), all learned counts or properties of the request: a step is
   checked only on the branch of the handler it was learned on (the same set of fields written: a submit that showed
   a validation error and sent nothing is not a gap); a repeat of the action within a page load is held to what
@@ -36,16 +41,22 @@ text changed (no new fact, trigger or situation text).
 - First-load size: see the package README "Costs" (measured by `test/bundle.test.ts` in CI). Telemetry does not
   send expectation reports (TELEMETRY.md's event table is unchanged).
 
-### Learned state persists by default
+### Learned flows are stored by default; transition profiles only when asked
 
-`learn.persist` now defaults to `"local"` (it was `false`): transition profiles and flows are kept per origin in
-`localStorage` under `genclass:learn`, discarded when `learn.version` (default `session.tags.release`) changes, capped
-at `learn.maxBytes` (the stored copy only), saved 5 s after a change and when the page is hidden or unloads, checked
-field by field when loaded, cleared by `rt.learn.clear()`; `learn.persist: false` keeps everything in memory. What
-is stored: request signatures, normalised routes and field names, counts, delay samples and branch hashes;
-user-action labels only as hashes (transition profiles of user actions are stored under `user#<hash>`), never
-values. The storage observer does not record the runtime's own writes. Before this, user-action learning almost never activated in a default install
-(20 completions of the same action within one page load).
+With `learn.persist` unset, the learned flows (reporting only) are now kept per origin in `localStorage` under
+`genclass:learn`; transition profiles, which the model reads, stay in memory as before (CONTRACT §4), so what
+reaches the model in a default install is unchanged. `true` / `"local"` stores both in localStorage, `"session"`
+both in sessionStorage, `false` nothing. Nothing is stored by default in jsdom or happy-dom (an app's unit tests) or
+when storage throws (then learning stays in memory with this page load's thresholds). The stored value carries a
+format number and the runtime version and is discarded, never migrated, when either or `learn.version` (default
+`session.tags.release`) changes; the 0.2.2 value is discarded too. It is capped at `learn.maxBytes` (the stored copy
+only; a cap below its header removes it), saved 5 s after a change, when the page is hidden or unloads and on
+`rt.destroy()`, checked field by field and against the learner's bounds when loaded, and cleared (with a pending
+save) by `rt.learn.clear()`. What is stored: request signatures, routes and field names (id-like path segments and
+keys normalised; other path segments and map keys as they are), counts, delay samples and branch hashes; user-action
+labels only as hashes (transition profiles of user actions, when stored, under `user#<hash>`), never values. A tab's
+sessionStorage keeps its session ordinal (`genclass:learn:session`) so a reload is not a new session. The storage
+observer does not record the runtime's own writes.
 
 ## 0.2.2 (2026-10-13)
 

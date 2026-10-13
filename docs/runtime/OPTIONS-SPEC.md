@@ -45,7 +45,7 @@ order: off < observe < guard < heal
 | 11 | `sinks` + `rt.summary()` | telemetry | `[]` | new |
 | 12 | `session` + `rt.setSession()` | telemetry | random id, `{}` | new |
 | 13 | `report` | telemetry | `"console"` | extended (`"interventions"`) |
-| 14 | `learn` (+ `rt.learn.clear()`) | persistence | `{persist:"local"}` (was `false`; EXPECTATIONS.md §4) | extended |
+| 14 | `learn` (+ `rt.learn.clear()`) | persistence | flows stored, profiles in memory (EXPECTATIONS.md §4) | extended |
 | 15 | `model.loadIf`, `model.inlineFallback` | load | `{saveData:"lazy"}`, `true` | new |
 | 16 | `model.threads`, `model.timeoutMs` | load | `"auto"`, `10000` | promoted from internal |
 | 17 | `model.maxDecisionsPerMinute` | load | `30` | new |
@@ -458,10 +458,12 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - An intervention is printed.
 
 ### 4.14 `learn` (extended) and `rt.learn.clear()`
-**Type** `{ persist?: boolean|"local"|"session"; key?; version?; maxBytes?; expectations?; minSupport?; minShare?; minSessions? }`. **Defaults** `persist:"local"` (was `false` until the flow-expectations change; see `docs/runtime/EXPECTATIONS.md` §4), `key:"genclass:learn"`, `version` equal to `session.tags.release` **as read once at init**, `maxBytes:200000`.
+**Type** `{ persist?: boolean|"local"|"session"; key?; version?; maxBytes?; expectations?; minSupport?; minShare?; minSessions? }`. **Defaults** `persist` unset: the learned flows (reporting only) are stored in localStorage and transition profiles stay in memory (see `docs/runtime/EXPECTATIONS.md` §4); `key:"genclass:learn"`, `version` equal to `session.tags.release` **as read once at init**, `maxBytes:200000`.
 
 **Semantics.**
-- `true` means `"local"`, which matches today's behaviour.
+- `true` means `"local"`, which matches the 0.2.2 behaviour for transition profiles, and stores the flows too. `false` stores nothing.
+- Unset in jsdom / happy-dom, or with storage that throws on a probe write: nothing is stored.
+- The stored value also carries a format number and the runtime version; a mismatch of either discards it.
 - If the stored version differs from the configured one, the stored state is discarded at load. A later `setSession` change does not reload it.
 - `rt.learn.clear()` clears both storage and memory.
 - All storage access is wrapped in try/catch.
