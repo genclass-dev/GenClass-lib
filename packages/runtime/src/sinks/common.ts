@@ -56,9 +56,31 @@ export function warnOnce(o: { global?: object } | undefined, message: string): (
   };
 }
 
-/** A grouping key with op ids and numbers normalised, so repeats of one bug land in one issue. */
+/**
+ * Whether one path segment names an entity rather than a route: a UUID, long hex, a long token with letters and
+ * digits, a short slug id ("tasks-1cam", "x7k2p", "PPBqWA9"; never "v2", "sha256" or "item42"), or anything holding
+ * an "@" (an email). The main cases of util.ts isIdSegment, copied so that the adapters import nothing from the
+ * runtime (an adapter's chunk stays its own, test/bundle.test.ts).
+ */
+export function idLike(seg: string): boolean {
+  if (/@|%40/i.test(seg)) return true;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg) || /^(?=[0-9a-f]*\d)[0-9a-f]{8,}$/i.test(seg)) return true;
+  if (!/^[\w-]+$/.test(seg) || !/\d/.test(seg) || !/[A-Za-z]/.test(seg)) return false;
+  if (seg.length >= 16) return true;
+  if (seg.length < 4 || /^v\d+([a-z]+\d*)?$/i.test(seg)) return false;
+  if (seg.length >= 6 && /[a-z]/.test(seg) && /[A-Z]/.test(seg)) return true;
+  return seg.split(/[-_]/).some((p) => /\d/.test(p) && /[A-Za-z]/.test(p) && (/^\d/.test(p) || (p.match(/[A-Za-z](?=\d)|\d(?=[A-Za-z])/g) ?? []).length >= 2));
+}
+
+/**
+ * A grouping key with op ids, numbers and id-like path segments (UUIDs, hex, tokens, slugs, emails: `idLike`)
+ * normalised, so repeats of one bug on different entities land in one issue and share one `maxPerSignature` cap.
+ */
 export function signature(r: SinkRecord): string {
-  const subject = (r.evidence?.subject ?? "").replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n");
+  const subject = (r.evidence?.subject ?? "")
+    .replace(/\/([^\s/?#()]+)/g, (m, seg: string) => (idLike(seg) ? "/:id" : m))
+    .replace(/#\d+/g, "#")
+    .replace(/\d+(\.\d+)?/g, "n");
   return [r.kind, r.trigger ?? "", r.diagnosis ?? "", r.action ?? "", subject].join("|");
 }
 

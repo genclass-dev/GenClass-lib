@@ -70,6 +70,17 @@ describe("sinks/sentry", () => {
     // op ids and numbers never split one bug into many issues
     expect(signature(rec({ evidence: { subject: "response to GET /api/search?q=… (#17)" } }))).toBe(signature(rec({ evidence: { subject: "response to GET /api/search?q=… (#3)" } })));
     expect(signature(rec({ diagnosis: "duplicate" }))).not.toBe(signature(rec()));
+    // nor do ids with letters in the request's path (UUIDs, hex, tokens, slug ids, emails): one issue per bug, not per entity
+    const on = (path: string) => signature(rec({ evidence: { subject: `response to GET ${path}?q=… (#4)` } }));
+    expect(on("/api/orders/550e8400-e29b-41d4-a716-446655440000")).toBe(on("/api/orders/7c9e6679-7425-40de-944b-e07fc1f90ae7"));
+    expect(on("/api/orders/5f3a9c0e1b2d")).toBe(on("/api/orders/a1b2c3d4e5f6"));
+    expect(on("/api/users/ann%40example.com/cart")).toBe(on("/api/users/bob@example.org/cart"));
+    expect(on("/api/tasks/tasks-1cam")).toBe(on("/api/tasks/x7k2p"));
+    expect(on("/api/s/AbCdEfGhIjKlMnOp12")).toBe(on("/api/s/ZyXwVuTsRqPoNmLk34"));
+    expect(on("/api/orders/550e8400-e29b-41d4-a716-446655440000")).toContain("GET /api/orders/:id?q=… (#)");
+    // a route stays itself: another endpoint, a version or a word with a number is not an id
+    expect(on("/api/orders/550e8400-e29b-41d4-a716-446655440000")).not.toBe(on("/api/carts/550e8400-e29b-41d4-a716-446655440000"));
+    expect(on("/api/v2/sha256/item42/report.pdf")).toContain("GET /api/vn/shan/itemn/report.pdf?q=…");
   });
 
   it("no SDK: nothing and no throw; a throwing SDK is contained; the SDK is looked up on every record, so a late load works", () => {
@@ -493,14 +504,23 @@ describe("sinks/webhook", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
-  it("a batch is split before it exceeds what sendBeacon accepts; an unserialisable record is skipped, not its batch", async () => {
+  it("a batch is split before it exceeds what sendBeacon accepts, one POST per round; an unserialisable record is skipped, not its batch", async () => {
     const clock = new FakeClock();
     const send = vi.fn();
     const w = webhook({ url: "/genclass", send, clock, flushMs: 100, maxBatch: 500 });
     const big = "x".repeat(30_000);
     for (let i = 0; i < 4; i++) w.send(rec({ id: `r${i}`, evidence: { message: big } }));
     await clock.advance(100);
-    expect(send.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // one ~30 KB record per POST, and one POST per round: the rest waits flushMs for the next round, oldest first
+    expect(send).toHaveBeenCalledTimes(1);
+    await clock.advance(99);
+    expect(send).toHaveBeenCalledTimes(1);
+    await clock.advance(1);
+    expect(send).toHaveBeenCalledTimes(2);
+    await clock.advance(200);
+    expect(send).toHaveBeenCalledTimes(4);
+    expect(clock.pending).toBe(0);
+    expect((send.mock.calls as [string, string][]).map(([, b]) => (JSON.parse(b) as { records: { id: string }[] }).records.map((r) => r.id))).toEqual([["r0"], ["r1"], ["r2"], ["r3"]]);
     let total = 0;
     for (const [, body] of send.mock.calls as [string, string][]) {
       expect(body.length).toBeLessThan(65_536);
@@ -525,7 +545,8 @@ describe("sinks/webhook", () => {
     // 12,000 CJK characters: 12,000 UTF-16 units but 36,000 bytes each
     for (let i = 0; i < 3; i++) w.send(rec({ id: `r${i}`, evidence: { message: "測".repeat(12_000) } }));
     for (let i = 0; i < 20; i++) w.send(rec({ id: `s${i}`, evidence: { message: "é".repeat(1_000) } }));
-    await clock.advance(100);
+    await clock.advance(1_000); // one POST per round, flushMs apart
+    expect(clock.pending).toBe(0);
     let total = 0;
     for (const [, body] of send.mock.calls as [string, string][]) {
       const recs = (JSON.parse(body) as { records: unknown[] }).records;
@@ -536,6 +557,78 @@ describe("sinks/webhook", () => {
     }
     expect(total).toBe(23);
     expect(WEBHOOK_MAX_BODY_BYTES).toBeLessThanOrEqual(32_768);
+  });
+
+  it("one POST per round: a storm larger than one beacon never takes the page's keepalive budget; flush() sends one batch and drops the rest", async () => {
+    // a browser's quota: 64 KiB of sendBeacon / keepalive bodies in flight per page, shared with the app's own beacons
+    let inflight = 0;
+    let refused = 0;
+    const flying: number[] = [];
+    const quota = (body: string): boolean => {
+      const n = utf8Length(body);
+      if (inflight + n > 65_536) {
+        refused++;
+        return false;
+      }
+      inflight += n;
+      flying.push(n);
+      return true;
+    };
+    const land = () => {
+      for (const n of flying.splice(0)) inflight -= n;
+    };
+    const sendBeacon = vi.fn((_url: string, body: string) => quota(body));
+    // no fetch: a refused beacon would be dropped, so a refusal shows up in `refused`
+    const w = webhook({ url: "/genclass", global: { navigator: { sendBeacon } }, maxPerSignature: 0, maxBatch: 500 });
+    const ids = () => sendBeacon.mock.calls.map(([, b]) => (JSON.parse(b) as { records: SinkRecord[] }).records.map((r) => r.id));
+    // about 175 KB of records in one delivery round (40 of about 4.4 KB)
+    for (let i = 0; i < 40; i++) w.send(rec({ id: `r${i}`, evidence: { message: "x".repeat(4_000) } }));
+    await drain(1);
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
+    expect(inflight).toBeLessThanOrEqual(WEBHOOK_MAX_BODY_BYTES + 200);
+    expect(quota("y".repeat(30_000))).toBe(true); // the app's own beacon in the same moment still fits
+    land();
+    // the next round sends the next batch, where the first one stopped, and again only one
+    w.send(rec({ id: "n1", evidence: { message: "x".repeat(4_000) } }));
+    await drain(1);
+    expect(sendBeacon).toHaveBeenCalledTimes(2);
+    expect(ids()[1][0]).toBe(`r${ids()[0].length}`);
+    land();
+    // page exit: one batch, the session summary first; what is left is dropped, and the app's pagehide beacon still goes
+    w.send(rec({ id: "sum", kind: "summary" }));
+    await w.flush!();
+    expect(sendBeacon).toHaveBeenCalledTimes(3);
+    expect(ids()[2][0]).toBe("sum");
+    expect(quota("y".repeat(30_000))).toBe(true);
+    await drain(2);
+    w.send(rec({ id: "later" }));
+    await drain(1);
+    expect(ids()[3]).toEqual(["later"]); // nothing left over from before the flush
+    expect(refused).toBe(0);
+    const all = ids().flat();
+    expect(new Set(all).size).toBe(all.length); // nothing sent twice
+    expect(all.length).toBeLessThan(43); // three batches of about 32 KB cannot hold 175 KB: the rest was dropped at exit
+    for (const [, b] of sendBeacon.mock.calls) expect(utf8Length(b)).toBeLessThan(WEBHOOK_MAX_BODY_BYTES + 200);
+  });
+
+  it("without a clock, a transport that says when it is done (fetch, or a send returning a promise) carries the rest on when it settles", async () => {
+    const done: (() => void)[] = [];
+    const send = vi.fn(() => new Promise<void>((r) => done.push(r)));
+    const w = webhook({ url: "/genclass", send, maxBatch: 2 });
+    for (let i = 0; i < 5; i++) w.send(rec({ id: `r${i}` }));
+    await drain(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    done.shift()!();
+    await drain(1);
+    expect(send).toHaveBeenCalledTimes(2);
+    done.shift()!();
+    await drain(1);
+    expect(send).toHaveBeenCalledTimes(3);
+    done.shift()!();
+    await drain(1);
+    expect(send).toHaveBeenCalledTimes(3);
+    const ids = (send.mock.calls as unknown as [string, string][]).map(([, b]) => (JSON.parse(b) as { records: { id: string }[] }).records.map((r) => r.id));
+    expect(ids).toEqual([["r0", "r1"], ["r2", "r3"], ["r4"]]);
   });
 
   it("caps repeats of one bug at maxPerSignature (10) per page load, like the tool adapters; the summary always goes; 0 = no cap", async () => {
@@ -549,6 +642,12 @@ describe("sinks/webhook", () => {
     expect(ids.filter((id) => id.startsWith("r"))).toHaveLength(10);
     expect(ids).toContain("d");
     expect(ids).toContain("sum");
+    // ids with letters in the path are one bug too: 25 orders' UUIDs share one cap
+    const uu = vi.fn();
+    const v = webhook({ url: "/genclass", send: uu, maxBatch: 500 });
+    for (let i = 0; i < 25; i++) v.send(rec({ id: `u${i}`, evidence: { subject: `response to GET /api/orders/${(0x10000000 + i * 7919).toString(16)}-e29b-41d4-a716-446655440000 (#${i})` } }));
+    await v.flush!();
+    expect((JSON.parse(uu.mock.calls[0][1] as string) as { records: unknown[] }).records).toHaveLength(10);
     const all = vi.fn();
     const u = webhook({ url: "/genclass", send: all, maxBatch: 500, maxPerSignature: 0 });
     for (let i = 0; i < 25; i++) u.send(rec({ id: `r${i}` }));
@@ -559,6 +658,7 @@ describe("sinks/webhook", () => {
   it("through the runtime: the POST holds the record's own fields (route, diagnosis, action, evidence), no situation text and no query value", async () => {
     const send = vi.fn();
     const s = await intervene([webhook({ url: "/genclass", send, maxBatch: 1 })]);
+    await drain();
     expect(send).toHaveBeenCalledTimes(1);
     const body = JSON.parse(send.mock.calls[0][1] as string) as { records: SinkRecord[] };
     const r = body.records[0];
@@ -578,6 +678,7 @@ describe("sinks/webhook", () => {
     // evidence: false: the same record without the evidence text
     const bare = vi.fn();
     await intervene([webhook({ url: "/genclass", send: bare, maxBatch: 1, evidence: false })]);
+    await drain();
     const r2 = (JSON.parse(bare.mock.calls[0][1] as string) as { records: SinkRecord[] }).records[0];
     expect(r2.kind).toBe("intervention");
     expect(r2.route).toBe("/search");

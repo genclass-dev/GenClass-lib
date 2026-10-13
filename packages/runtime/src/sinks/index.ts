@@ -6,5 +6,5 @@ export { sentry, type SentryLike, type SentryLevel, type SentrySinkOptions } fro
 export { posthog, type PostHogLike, type PostHogSinkOptions } from "./posthog.js";
 export { datadog, type DatadogRumLike, type DatadogSinkOptions } from "./datadog.js";
 export { consoleJson, type ConsoleJsonSinkOptions, type ConsoleLike } from "./console-json.js";
-export { webhook, WEBHOOK_MAX_BODY_BYTES, WEBHOOK_SCHEMA, type WebhookBatch, type WebhookSinkOptions } from "./webhook.js";
+export { webhook, WEBHOOK_MAX_BODY_BYTES, WEBHOOK_MAX_QUEUED, WEBHOOK_SCHEMA, type WebhookBatch, type WebhookSinkOptions } from "./webhook.js";
 export { DEFAULT_KINDS, DEFAULT_MAX_PER_SIGNATURE, signature, type AdapterOptions } from "./common.js";
