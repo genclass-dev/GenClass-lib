@@ -314,7 +314,11 @@ limits. No model is involved, so there is no threshold or FIR here. GitHub Actio
 | `@genclass/runtime/auto`, plus the exact webhook matcher, the browser-grade same-origin check and the normalised `route` | 99.92 KB in 3 files (97.00 + 2.74 + 0.19) | 100 KB | 38367123457 |
 | main entry, plus the normalised `route` | 91.83 KB in 3 files (88.90 + 2.74 + 0.19) | 92 KB | 38367123457 |
 | script tag, `dist/genclass.global.min.js` (one file; worker, ONNX Runtime and sink adapters load on demand) | 114.81 KB (337.0 KB minified) | none | 38367123457 |
+| `@genclass/runtime/auto`, after merging `main` 3f06672 (0.2.2's local-host telemetry fix) | 99.93 KB in 3 files (97.01 + 2.74 + 0.19) | 100 KB | 38438495221 |
+| main entry, after the same merge | 91.83 KB in 3 files (88.91 + 2.74 + 0.19) | 92 KB | 38438495221 |
+| script tag, after the same merge | 114.82 KB (337.0 KB minified) | none | 38438495221 |
 
 The sink adapters themselves, their name table and the fan-out are absent from both first loads (asserted in the same
-test). Not measured: the same sizes on `main` (0.2.2), because its bundle test does not print them (its comment
+test). Headroom after the merge: 0.07 KB under the `/auto` limit and 0.17 KB under the main entry's, so the next
+change that adds to the first load needs a measured limit change. Not measured: the same sizes on `main` (0.2.2), because its bundle test does not print them (its comment
 says "0.2.2: +0.35 KB ... (main: 98.86 KB)", a hand note, not a CI printout).
