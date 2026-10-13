@@ -56,6 +56,11 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `GET /start` | "Get a token" page |
 | `GET /dashboard/<secret>` | the dashboard (404 page for an unknown secret); `GET /dashboard` redirects to `/start` |
 
+Rate limits on batches: `LIMIT`, 1200 per 60 s per client IP (a ceiling for offices and campuses behind one address;
+since runtime 0.2.2 a page stops sending after 3 failed requests in a row, so a low per-IP limit would silence every
+page behind a shared NAT), and `SESSION_LIMIT`, 30 per 60 s per `sid` (one page sends about 6 a minute). Over either
+gives 429 and nothing is stored; a failing limiter lets the batch through. The IP is never stored.
+
 Rate limits on project creation: the Workers Rate Limiting binding `CREATE_LIMITER` (10 per 60 s per client, keyed by
 a SHA-256 of `cf-connecting-ip`; the IP is never stored; the binding is per location and eventually consistent, so it
 is approximate) plus a global ceiling of 60 new projects per minute checked in D1.
