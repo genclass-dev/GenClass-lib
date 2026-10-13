@@ -82,7 +82,9 @@ interface InitOptions {
     sample?: number;                                    // [1] fraction of page loads that send
     flushMs?: number;                                   // [10000] batch interval; also sent on pagehide / hidden tab (sendBeacon)
     maxBatch?: number;                                  // [100] events per request (requests also ≤ 60 KB)
-    include?: { situation?: boolean };                  // [true] include the redacted situation text
+    include?: { situation?: boolean };                  // [false] include the redacted situation text
+    decisionSample?: number;                            // [0.25] share of routine decisions whose record is sent; detections, actions, vetoes always; counts exact
+    maxDecisions?: number;                              // [200] most decisions' records per page load (Infinity: no cap); summaries continue
     transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown> }; // tests / custom pipelines
   };
   autoState?: boolean | { react?: boolean; redux?: boolean; zustand?: boolean; pinia?: boolean };

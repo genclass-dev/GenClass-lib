@@ -8,10 +8,13 @@
 //   page from sending. Bounded queue (MAX_QUEUE events).
 // - Timers come from the runtime's Clock; times are ms since this session started (no wall clock: the collector
 //   stamps receivedAt). The session id is random per page load and never stored.
+// - Volume (TELEMETRY.md "Volume"): every decision is counted in `summary`; its own records are sent for every
+//   detection, action or veto and for a `decisionSample` share of routine decisions (a hash of the session and
+//   decision ids, no randomness), and for at most `maxDecisions` decisions per page load.
 
 import type { RuntimeImpl } from "../runtime.js";
 import type { ActionRecord, Answer, Decision, ModelStatus, TelemetryStatus } from "../types.js";
-import { normalizePath } from "../util.js";
+import { fnv1a, normalizePath } from "../util.js";
 import { RUNTIME_VERSION } from "../version.js";
 import { TELEMETRY_SCHEMA, type TelemetryConfig } from "./config.js";
 
@@ -22,6 +25,8 @@ export const MAX_REQUEST_BYTES = 60_000;
 export const MAX_FAIL_STREAK = 3;
 export const SUMMARY_MS = 60_000;
 const MAX_ERROR_EVENTS = 20;
+/** Decisions whose send verdict is remembered (a decision's `detect` record follows its `decision` record). */
+const VERDICT_MEMO = 64;
 
 type Ev = Record<string, unknown>;
 type Counts = Record<string, number>;
@@ -81,6 +86,11 @@ export class TelemetryClient implements TelemetryStatus {
   /** Consecutive failed requests; at MAX_FAIL_STREAK the page stops sending (a CSP block or a dead endpoint). */
   private failStreak = 0;
   private sentEvents = 0;
+  /** Decisions whose records were sent, routine ones sampled out (decisionSample), and any over maxDecisions. */
+  private decisionRecords = 0;
+  private decisionsSampledOut = 0;
+  private decisionsCapped = 0;
+  private readonly verdicts = new Map<string, boolean>();
   private pending = new Set<Promise<void>>();
   private offs: (() => void)[] = [];
   private readonly c = {
@@ -185,7 +195,29 @@ export class TelemetryClient implements TelemetryStatus {
       }),
       sample: this.cfg.sample,
       situation: this.cfg.situation,
+      decisionSample: this.cfg.decisionSample,
+      maxDecisions: this.cfg.maxDecisions,
     });
+  }
+
+  /**
+   * Whether this decision's records are sent. `notable` (it detected, acted or was vetoed): yes while under the
+   * per-page cap. Routine: a `decisionSample` share, drawn from a hash of the session and decision ids. The verdict
+   * is remembered so a later `detect` record goes with its `decision` record. Counts are kept either way.
+   */
+  private sends(id: string, notable: boolean): boolean {
+    const known = this.verdicts.get(id);
+    if (known !== undefined) return known;
+    let v = false;
+    if (this.decisionRecords >= this.cfg.maxDecisions) this.decisionsCapped++;
+    else if (!notable && this.cfg.decisionSample < 1 && parseInt(fnv1a(`${this.cfg.sessionId}:${id}`), 16) / 0x100000000 >= this.cfg.decisionSample) this.decisionsSampledOut++;
+    else {
+      this.decisionRecords++;
+      v = true;
+    }
+    this.verdicts.set(id, v);
+    if (this.verdicts.size > VERDICT_MEMO) this.verdicts.delete(this.verdicts.keys().next().value as string);
+    return v;
   }
 
   private statusKeyOf(s: ModelStatus): string {
@@ -235,8 +267,14 @@ export class TelemetryClient implements TelemetryStatus {
     inc(c.byAction, d.ran);
     const acted = d.executed && d.tier !== "passive";
     if (acted) c.acted++;
+    const vetoed = d.reason === "vetoed" || d.reason === "would-veto";
+    if (vetoed) c.vetoes++;
     const info = this.rt.decisionInfo(d.id);
     const gates = info?.gates;
+    // the runtime reports a detection when the diagnosis is not "expected" and clears the report gate (its "detect"
+    // event follows this one); only which records are sampled depends on this, never what is counted
+    const detects = d.diagnosis !== "expected" && typeof gates?.report === "number" && d.diagnosisConfidence >= gates.report;
+    if (!this.sends(d.id, acted || vetoed || detects || !!d.shadow?.wouldPass)) return;
     this.push({
       t: "decision",
       id: d.id,
@@ -274,16 +312,14 @@ export class TelemetryClient implements TelemetryStatus {
       effectiveMode: d.effectiveMode,
       shadow: d.shadow ? compact({ action: d.shadow.action, tier: d.shadow.tier, wouldPass: d.shadow.wouldPass, reason: cut(d.shadow.reason, 120) }) : undefined,
     });
-    if (d.reason === "vetoed" || d.reason === "would-veto") {
-      c.vetoes++;
-      this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
-    }
+    if (vetoed) this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
   }
 
   private onDetect(d: Decision): void {
     this.dirty = true;
     this.c.detections++;
     inc(this.c.detectionsByDiagnosis, d.diagnosis);
+    if (!this.sends(d.id, true)) return;
     this.push({ t: "detect", decision: d.id, trigger: d.trigger, diagnosis: d.diagnosis, p: r4(d.diagnosisConfidence) });
   }
 
@@ -459,7 +495,15 @@ export class TelemetryClient implements TelemetryStatus {
             errors: rs.errors,
           }
         : undefined,
-      telemetry: { queued: this.queue.length, dropped: this.dropped, sendFailures: this.sendFailures, sentEvents: this.sentEvents },
+      telemetry: {
+        queued: this.queue.length,
+        dropped: this.dropped,
+        sendFailures: this.sendFailures,
+        sentEvents: this.sentEvents,
+        decisionRecords: this.decisionRecords,
+        decisionsSampledOut: this.decisionsSampledOut,
+        decisionsCapped: this.decisionsCapped,
+      },
     });
   }
 

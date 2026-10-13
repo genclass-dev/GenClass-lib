@@ -157,7 +157,7 @@ describe("telemetry: defaults and opt-outs (TELEMETRY.md)", () => {
 
 describe("telemetry: batching, flush and page exit", () => {
   it("batches on the flush interval, splits by maxBatch, and keeps a bounded queue", async () => {
-    const { rt, clock, transport } = tsetup({ triage: "always" }, { flushMs: 5000, maxBatch: 3 });
+    const { rt, clock, transport } = tsetup({ triage: "always" }, { flushMs: 5000, maxBatch: 3, decisionSample: 1 });
     expect(rt.telemetry?.enabled).toBe(true);
     expect(transport.sent).toHaveLength(0);
     const a = rt.atom("a", 1);
@@ -370,6 +370,75 @@ describe("telemetry: event shapes and the situation text", () => {
     };
     expect(await run(true)).toEqual(await run(false));
   });
+});
+
+describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sampled, all capped, counts exact", () => {
+  const STALE = defaultScript({ mutation: { diagnosis: "stale", action: "discard" } });
+  /** n mutation decisions, one every `everyMs`, then a final summary; returns what was sent. */
+  async function run(n: number, everyMs: number, opts: Parameters<typeof setup>[0], telemetry: Record<string, unknown> = {}) {
+    const s = tsetup({ triage: "always", mode: undefined, ...opts }, telemetry);
+    const a = s.rt.atom("a", 0);
+    for (let i = 0; i < n; i++) {
+      void s.rt.op("w", () => a.set(i + 1));
+      await s.clock.advance(everyMs);
+    }
+    (s.rt.telemetry as unknown as { summary(r: string): void }).summary("periodic");
+    await s.rt.telemetry!.flush();
+    const sum = ofType(s.transport, "summary").at(-1) as Record<string, any>;
+    return { ...s, sum, decisions: ofType(s.transport, "decision"), detects: ofType(s.transport, "detect") };
+  }
+
+  it("routine decisions: about 1 in 4 records by default, the same verdict for the same session and decision ids; counts exact", async () => {
+    const r = await run(80, 500, {});
+    expect(r.sum.counts.decisions).toBe(80);
+    const t = r.sum.telemetry;
+    expect(t.decisionRecords + t.decisionsSampledOut).toBe(80);
+    expect(t.decisionsCapped).toBe(0);
+    expect(r.decisions).toHaveLength(t.decisionRecords);
+    expect(t.decisionRecords).toBeGreaterThan(5); // a hash draw at 0.25 of 80: about 20
+    expect(t.decisionRecords).toBeLessThan(40);
+    expect(ofType(r.transport, "session")[0]).toMatchObject({ decisionSample: 0.25, maxDecisions: 200 });
+    // decisionSample: 1 sends every record, 0 none of the routine ones
+    expect((await run(10, 500, {}, { decisionSample: 1 })).decisions).toHaveLength(10);
+    const none = await run(10, 500, {}, { decisionSample: 0 });
+    expect(none.decisions).toHaveLength(0);
+    expect(none.sum.counts.decisions).toBe(10);
+    expect(none.sum.telemetry.decisionsSampledOut).toBe(10);
+  });
+
+  it("detections, actions and vetoes are never sampled out: their decision, detect and veto records all go", async () => {
+    const det = await run(12, 500, { script: STALE }, { decisionSample: 0 });
+    expect(det.sum.counts.detections).toBe(12);
+    expect(det.decisions).toHaveLength(12);
+    expect(det.detects.map((e) => e.decision)).toEqual(det.decisions.map((e) => e.id));
+    const vetoed = await run(5, 500, { mode: "guard", onBeforeAction: () => false, script: STALE }, { decisionSample: 0 });
+    expect(ofType(vetoed.transport, "veto")).toHaveLength(5);
+    expect(vetoed.sum.counts.vetoes).toBe(5);
+  });
+
+  it("maxDecisions caps every per-decision record for the page load; summaries keep the exact counts", async () => {
+    const r = await run(20, 500, { script: STALE }, { maxDecisions: 6 });
+    expect(r.decisions).toHaveLength(6);
+    expect(r.detects).toHaveLength(6);
+    expect(r.sum.counts.decisions).toBe(20);
+    expect(r.sum.counts.detections).toBe(20);
+    expect(r.sum.telemetry).toMatchObject({ decisionRecords: 6, decisionsCapped: 14 });
+    const all = await run(20, 500, { script: STALE }, { maxDecisions: Infinity });
+    expect(all.decisions).toHaveLength(20);
+  });
+
+  it("an hour at the built-in model's maximum rate (30 decisions a minute) stays bounded", async () => {
+    const bytes = (t: { sent: Sent[] }) => t.sent.reduce((n, x) => n + new TextEncoder().encode(JSON.stringify(x.body)).length, 0);
+    const routine = await run(1800, 2000, {});
+    const noisy = await run(1800, 2000, { script: STALE });
+    const full = await run(1800, 2000, { script: STALE }, { decisionSample: 1, maxDecisions: Infinity });
+    const kb = (n: number) => Math.round(n / 102.4) / 10;
+    // the numbers TELEMETRY.md quotes come from this line of the CI log
+    console.info(`[telemetry volume] 1 h at 30 decisions/min: routine ${kb(bytes(routine.transport))} KB, every decision a detection ${kb(bytes(noisy.transport))} KB, uncapped and unsampled ${kb(bytes(full.transport))} KB`);
+    expect(routine.sum.counts.decisions).toBe(1800);
+    expect(noisy.sum.telemetry.decisionRecords).toBe(200);
+    expect(bytes(noisy.transport)).toBeLessThan(bytes(full.transport) / 3);
+  }, 120_000);
 });
 
 describe("telemetry: GenClass never observes its own requests", () => {

@@ -70,18 +70,36 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 
 | `t` | when | fields |
 |---|---|---|
-| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included) |
+| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included), `decisionSample`, `maxDecisions` (see [Volume](#volume)) |
 | `model` | model state changes | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError`, `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
-| `decision` | every model decision | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow` |
-| `detect` | a decision reported as a detection | `decision`, `trigger`, `diagnosis`, `p` |
+| `decision` | a model decision: every one that detected, acted or was vetoed, a `decisionSample` share (default 1 in 4) of the routine ones, at most `maxDecisions` (default 200) per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow` |
+| `detect` | a decision reported as a detection (within `maxDecisions`, with its `decision` record) | `decision`, `trigger`, `diagnosis`, `p` |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
-| `veto` | `onBeforeAction` vetoed an action | `decision`, `action`, `enforced` |
+| `veto` | `onBeforeAction` vetoed an action (within `maxDecisions`) | `decision`, `action`, `enforced` |
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars) |
-| `summary` | every ≥ 60 s with activity, when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent) |
+| `summary` | every ≥ 60 s with activity, when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
 
 Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/telemetry/client.ts`.
+
+### Volume
+
+The built-in model takes up to 30 decisions a minute (`model.maxDecisionsPerMinute`), and before this version every
+one of them was sent as a `decision` record with its answers, gates and shadow fields, so a busy tab left open kept
+uploading for as long as it stayed open. Two defaults bound that, and neither changes a count:
+
+- **`decisionSample` (default `0.25`):** a decision that detected something, ran an action, was vetoed or would have
+  acted in shadow mode always has its records sent. Of the routine ones (diagnosis `expected`, passive action), one
+  in four is sent. The draw is a hash of the session id and the decision id, not a random number at decision time.
+- **`maxDecisions` (default `200`):** after 200 decisions' records in a page load, no more `decision`, `detect` or
+  `veto` records are sent. `summary` (once a minute while the page is active), `action`, `model`, `status`,
+  `breaker` and `model-error` events continue.
+
+`summary.counts` count every decision, detection, action and veto whatever was sampled, and `summary.telemetry`
+says how many decisions' records were sent (`decisionRecords`), sampled out and capped, so a collector can scale what
+it received. `telemetry: { decisionSample: 1, maxDecisions: Infinity }` sends every record (your own collector,
+debugging).
 
 ### Transport
 
@@ -115,6 +133,8 @@ GenClass.init({
   telemetry: {
     endpoint: "https://…",          // default DEFAULT_TELEMETRY_ENDPOINT
     sample: 0.25,                    // fraction of page loads that send (default 1)
+    decisionSample: 1,               // share of routine decisions whose record is sent (default 0.25; counts stay exact)
+    maxDecisions: 1_000,             // most decisions' records per page load (default 200; Infinity: no cap)
     flushMs: 10_000,                 // batch interval
     maxBatch: 100,                   // events per request
     include: { situation: true },    // also send the redacted situation text (default: off)

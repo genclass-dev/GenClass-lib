@@ -31,6 +31,15 @@
   64 KB is not cloned at all; it, and a body that turns out larger while being read, is not replayable (`retry` is
   not offered for it; before, the template made it replayable at any size). String, form, Blob and BufferSource
   bodies passed in `init` are unchanged.
+- **Telemetry volume is bounded per page load; counts stay exact.** Every model decision used to be sent as a
+  `decision` record (up to 30 a minute with the built-in model, for as long as a tab stayed open). Now a decision
+  that detected something, ran an action, was vetoed or would have acted in shadow mode always has its records sent;
+  of the routine ones, one in four (`telemetry.decisionSample`, default `0.25`, a hash of the session and decision
+  ids); and no `decision` / `detect` / `veto` records at all after 200 decisions in a page load
+  (`telemetry.maxDecisions`). `summary` events still count every decision, detection, action and veto, and their
+  `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped`; the `session` event names
+  both settings. This narrows what is sent; nothing new about the page is sent. TELEMETRY.md, "Volume".
+  (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
 
 ## 0.2.2 (2026-10-13)
 

@@ -850,6 +850,17 @@ export interface TelemetryOptions {
   maxBatch?: number;
   /** situation (default false): include the redacted situation text the model read in decision events. */
   include?: { situation?: boolean };
+  /**
+   * Share of routine decisions (no detection, no action, no veto) whose `decision` record is sent (0..1, default
+   * 0.25), drawn per decision from a hash of the session and decision ids. Decisions that detected, acted or were
+   * vetoed are always sent (within `maxDecisions`). `summary` counts every decision whatever the share.
+   */
+  decisionSample?: number;
+  /**
+   * Most decisions per page load whose records (`decision`, `detect`, `veto`) are sent (default 200; `Infinity` for
+   * no cap). After that only `summary` events (counts) are sent, so an open tab's upload stays bounded.
+   */
+  maxDecisions?: number;
   /** Advanced (tests, custom pipelines): replaces the network transport. Errors are swallowed. */
   transport?: TelemetryTransport;
 }
