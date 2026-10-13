@@ -240,13 +240,15 @@ In the Google Cloud console, project of your choice, open **Google Auth Platform
 1. **Branding**: app name `GenClass`, a user support email, app home page `https://genclass.dev`, privacy policy
    `https://genclass.dev/privacy`, terms of service `https://genclass.dev/terms`, authorized domain `genclass.dev`,
    and a developer contact email.
-2. **Audience**: user type External, then publish the app (In production). With only the `openid`, `email` and
-   `profile` scopes no verification review is needed.
+2. **Audience**: user type External, then publish the app (In production). `openid`, `email` and `profile` are
+   non-sensitive scopes, so there is no sensitive-scope review; Google may still ask to verify the brand (app name,
+   domain) before the consent screen shows them. Until it is published, only listed test users can sign in.
 3. **Data Access**: scopes `openid`, `.../auth/userinfo.email` and `.../auth/userinfo.profile` only.
 4. **Clients**: create a client of type Web application, authorized JavaScript origin `https://genclass.dev`,
    authorized redirect URI `https://genclass.dev/auth/google/callback`.
 5. In `telemetry-worker`: `npx wrangler secret put GOOGLE_CLIENT_ID` and `npx wrangler secret put GOOGLE_CLIENT_SECRET`
-   (paste the values when asked). The Google button appears on the next request; no deploy is needed for secrets.
+   (paste the values when asked). `secret put` redeploys the current version with the secret, so once this
+   accounts code is deployed the Google button appears on the next request.
 
 ### Owner steps: GitHub sign-in
 
