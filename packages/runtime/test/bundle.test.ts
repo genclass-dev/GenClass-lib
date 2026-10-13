@@ -62,12 +62,12 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // /auto carries automatic state discovery (autoState, beta.4: about 6.5 KB); the main entry does not. The audit trail,
   // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
   // 91 KB for GenClass.init)
-  // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
-  // Sinks by name (Unreleased): only the proxy (src/cdn/sinks.ts, 975 B minified) is in /auto's first load; the name
-  // table, the fan-out and the adapters are lazy chunks (asserted below), and the adapters import nothing the first
-  // load needs, so they split no chunk out of it. CI, 2026-10-13: 99.79 KB / 91.79 KB, three files each (run
-  // 38362414761); with the exact webhook matcher, the browser-grade same-origin check and the normalised route,
-  // 99.92 KB / 91.83 KB (run 38367123457; docs/runtime/RESULTS.md §8). Both sizes are printed before either is asserted.
+  // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (a hand note
+  // said 98.86 KB for /auto; this test measures 0.2.2 at 99.17 KB / 91.70 KB, CI run 38441488459)
+  // Sinks by name (Unreleased): only the proxy (src/cdn/sinks.ts) is in /auto's first load; the name table, the fan-out
+  // and the adapters are lazy chunks (asserted below), and the adapters import nothing the first load needs, so they
+  // split no chunk out of it. CI, 2026-10-13: 99.97 KB / 91.83 KB, three files each (run 38443030760;
+  // docs/runtime/RESULTS.md §8): 0.03 KB / 0.17 KB under the limits. Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 92 };
   it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 100 / 92 KB)", async () => {
     const { build } = await import("esbuild");
