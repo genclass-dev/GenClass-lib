@@ -56,7 +56,8 @@ export interface OpRec extends Op {
 export interface StartOpts {
   /** Scope snapshot (network observers pass the request's; others get the current route scope). */
   scope?: OpScope;
-  detail?: string;
+  /** A function: computed on first read of `op.detail`, once (a push message's summary parses JSON; most are never read). */
+  detail?: string | (() => string);
   cause?: OpRec | null;
   identity?: string;
   attempt?: number;
@@ -66,6 +67,33 @@ export interface StartOpts {
   url?: string;
   startSeq: number;
   t: number;
+}
+
+/**
+ * `op` with a `detail` that `fn` computes on first read and keeps (empty → undefined, as an unset detail). Readers see
+ * the same text an eager detail would have; nothing is computed for an op whose detail nobody reads.
+ */
+function lazyDetail(op: OpRec, fn: () => string): OpRec {
+  let memo: string | undefined;
+  let done = false;
+  return {
+    ...op,
+    get detail(): string | undefined {
+      if (!done) {
+        done = true;
+        try {
+          memo = fn() || undefined;
+        } catch {
+          memo = undefined;
+        }
+      }
+      return memo;
+    },
+    set detail(v: string | undefined) {
+      done = true;
+      memo = v;
+    },
+  };
 }
 
 const MAX_OPS = 2000;
@@ -84,7 +112,7 @@ export class OpRegistry {
   start(kind: OpKind, name: string, o: StartOpts): OpRec {
     const cause = o.cause ?? null;
     const id = this.nextId++;
-    const op: OpRec = {
+    const base: OpRec = {
       id,
       kind,
       name,
@@ -95,7 +123,8 @@ export class OpRegistry {
       wrote: 0,
       children: 0,
     };
-    if (o.detail) op.detail = o.detail;
+    const op = typeof o.detail === "function" ? lazyDetail(base, o.detail) : base;
+    if (typeof o.detail === "string" && o.detail) op.detail = o.detail;
     if (o.identity) op.identity = o.identity;
     if (o.meta) op.meta = o.meta;
     if (o.method) op.method = o.method;

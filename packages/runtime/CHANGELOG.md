@@ -40,6 +40,13 @@
   `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped`; the `session` event names
   both settings. This narrows what is sent; nothing new about the page is sent. TELEMETRY.md, "Volume".
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
+- **WebSocket and EventSource messages are no longer JSON-parsed inside the dispatch.** Every incoming text message
+  (≤ 16 KB) was parsed and summarised before the app's listeners ran, and parsed a second time when its delivery was
+  analysed; every text `send` was summarised too. Now the summary and the parsed body are computed only when
+  something reads them (the delivery decision of a salient message, a situation that lists the op, devtools), once
+  each and from one shared parse. In observe mode a message that nothing finds salient is never parsed. The op, its
+  event and the delivery gate are unchanged, and the summary text is the same when it is read (the model sees the
+  same situation). Binary messages are still sized at once.
 
 ## 0.2.2 (2026-10-13)
 
