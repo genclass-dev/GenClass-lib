@@ -36,7 +36,7 @@ export function sentry(o: SentrySinkOptions = {}): SinkObject {
   const level = o.level ?? "warning";
   const missing = warnOnce(
     o,
-    `The Sentry sink found no Sentry SDK (window.Sentry) for a record, so it was dropped (and later ones are until there is one). An npm-installed SDK sets no global: pass it, sentry({ sentry: Sentry }) (npx @genclass/runtime init --sink sentry writes that), or set window.Sentry = Sentry.`,
+    `The Sentry sink found no Sentry SDK (window.Sentry) for a record, so it was dropped (and later ones are until there is one). An npm-installed SDK sets no global: pass it, sentry({ sentry: Sentry }) (npx @genclass/runtime init --sink sentry writes that), or expose it as window.Sentry.`,
   );
   return {
     kinds: o.kinds ?? DEFAULT_KINDS,

@@ -29,7 +29,7 @@ export function posthog(o: PostHogSinkOptions = {}): SinkObject {
   const prefix = o.prefix ?? "genclass_";
   const missing = warnOnce(
     o,
-    `The PostHog sink found no PostHog client (window.posthog) for a record, so it was dropped (and later ones are until there is one). posthog-js from npm sets no global: pass it, posthog({ posthog }) (npx @genclass/runtime init --sink posthog writes that), or set window.posthog = posthog.`,
+    `The PostHog sink found no PostHog client (window.posthog) for a record, so it was dropped (and later ones are until there is one). posthog-js from npm sets no global: pass it, posthog({ posthog }) (npx @genclass/runtime init --sink posthog writes that), or expose it as window.posthog.`,
   );
   return {
     kinds: o.kinds ?? DEFAULT_KINDS,
