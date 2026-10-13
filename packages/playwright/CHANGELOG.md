@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- First version: the `genclass` fixture (`install: "inject" | "app"`, `runtime: "local" | "cdn" | <path>`,
-  `handle`, `chaos` with latency, reorder and failure injection through `page.route`, `settle`), the
-  `@genclass/playwright/reporter` reporter (markdown + JSON, findings vs info, recurring-pattern folding, honest
-  interventions line), and the `playwright-reporter.yml` workflow that runs the demos under chaos and posts the
-  report on pull requests.
+- First version, reader only: `@genclass/playwright/reporter` (a Playwright reporter by shape: reads
+  `test-results/genclass/*.json` in the `genclass-races/1` format at the end of the run, writes and prints
+  `genclass-report.md`), `@genclass/playwright/summarize` (the pure files-to-markdown function, with
+  `buildSummary`, `renderMarkdown`, `parseRaces` and `validateRaces`), and the `genclass-playwright-report` command
+  for sharded runs. Groups by test and by signature, marks signatures flagged in 2 or more seeds as reproducible,
+  lists files that fail validation with the reason, and says nothing about interventions. No runtime dependencies.
+- The fixture that writes the files (runtime injection, seeded chaos with `page.route`) is not part of this package;
+  it is developed separately.
