@@ -257,17 +257,22 @@ visits (`learn.minShare`, `learn.minSupport`, `learn.minSessions`), a flow in wh
 
 ```
 [GenClass] Expected a request on /cart: clicking button "Add to cart" usually sends POST /api/cart (41 of 41 times across 6 sessions, within 0.4 s); this time nothing was sent in 2.0 s.
-[GenClass] Expected a follow-up on /checkout: after POST /api/orders completes, clicking button "Place order" usually sends GET /api/orders (40 of 41 times, within 0.1 s); this time nothing followed in 0.5 s.
+[GenClass] Expected a follow-up on /checkout: after POST /api/orders completes, clicking button "Place order" usually sends GET /api/orders (40 of 41 times, within 0.1 s); this time nothing followed in 1.0 s.
 [GenClass] Expected a state change on /cart: the response to POST /api/cart after clicking button "Add to cart" usually writes cart.items (41 of 41 times); this time it wrote nothing.
 [GenClass] Expected a navigation on /checkout: clicking button "Place order" usually leads to /confirmation (41 of 41 times, within 1.2 s); this time the page stayed on /checkout for 3.0 s.
 [GenClass] Expected a response: GET /api/items usually answers within 0.4 s (p99 of the last 64; 20 of 20 recent requests answered); this one has been waiting 2.1 s (bound 1.0 s).
 ```
 
 These are deterministic reports from learned counts: the model is not consulted and nothing is held, retried or
-changed in any mode. They are skipped while the page is hidden or offline, for requests under `requests.protect`,
-for the second click of a double click and for disabled controls. Deadlines come from the learned delays (twice the
-p95, at least 0.5 s; a response needs twice the p99 and at least 1 s). The counts are illustrations of the format,
-not measurements. Design, false-positive controls and what v2 may do with them: [EXPECTATIONS.md](EXPECTATIONS.md).
+changed in any mode. Only a request that changes data (not GET, HEAD or OPTIONS) is expected to start or to write
+after its answer; a step is checked only on the branch of the handler it was learned on (the same fields written, so
+a submit that showed a validation error and sent nothing is not a gap); a repeat of the action within a page load is
+held to what earlier repeats did. They are skipped while the page is hidden or offline or the runtime is paused, for
+requests under `requests.protect`, for answers with status 400 or above, for the second click of a double click, for
+disabled controls, and for an action repeated while its flow is still open. Deadlines come from the learned delays
+(twice the p95, at least 1 s; a response needs twice the p99, at least 1 s, and a second visit). The counts are
+illustrations of the format, not measurements. Design, false-positive controls and what v2 may do with them:
+[EXPECTATIONS.md](EXPECTATIONS.md).
 
 ```ts
 rt.learned(): Learned                 // { route, session, flows: LearnedFlow[], deviations: Expectation[], relations }
@@ -278,7 +283,8 @@ GenClass.init({ learn: { expectations: false } }) // learn and report nothing of
 **Persistence.** Learned state (transition profiles and flows) is kept per origin in `localStorage` by default
 (`learn.persist: "local"`; `"session"` for sessionStorage, `false` for memory only), under `learn.key`
 (`genclass:learn`), discarded when `learn.version` (default `session.tags.release`) changes, capped at
-`learn.maxBytes` (200,000 characters; least-used flows and smallest profiles go first), cleared by
+`learn.maxBytes` (200,000 characters; the most-used flows and largest profiles are kept, and only the stored
+copy is trimmed), flushed when the page is hidden or unloads, cleared by
 `rt.learn.clear()`. It holds request signatures, normalised routes and field names, counts and delay samples; user
 action labels are stored only as hashes, never as text, and values never. The devtools overlay shows what was
 learned under its **Expectations** tab.
@@ -661,7 +667,7 @@ interface ActionRecord { id: string; decisionId: string; action: string; tier; t
 type SubjectRef = { kind: "delivery"; op: number; paths?: string[]; store?: string } | { kind: "mutation"; ... } | ...
 interface Explanation { message: string; decision: Decision; situationText: string; facts: string[]; timeline: string[]; answers: Record<string, Answer>; action?: ActionRecord; changed?: string; gates?: EffectiveGates }
 interface Expectation { kind: "request" | "response" | "write" | "follow-up" | "navigation"; route: string; action: string; op: number; signature?: string; field?: string; after?: string; to?: string; seen: number; of: number; sessions: number; waitedMs: number; usualMs?: number; at: number; message: string }
-interface LearnedFlow { route: string; action: string; n: number; sessions: number; settleMs?: { p50; p95 }; children: { signature; n; share; expected; protected?; delayMs? }[]; writes: { signature; field; n; of; share; expected }[]; followUps: { after; then; n; of; share; expected; delayMs? }[]; nav: { to; n; share; expected }[] }
+interface LearnedFlow { route: string; action: string; n: number; repeats: number; sessions: number; settleMs?: { p50; p95 }; children: { signature; n; share; onRepeat; expected; expectedOnRepeat; protected?; delayMs? }[]; writes: { signature; field; n; of; share; expected }[]; followUps: { after; then; n; of; share; expected; delayMs? }[]; nav: { to; n; share; expected }[] }
 interface Learned { route: string; session: number; flows: LearnedFlow[]; deviations: Expectation[]; relations: { text: string; held: number }[] }
 interface EffectiveGates { kind: "mass" | "gain"; tauGain?: number; trigger?: TriggerKind; report: number; guard: number; heal: number; source: { report: "policy" | "model" | "default"; guard: …; heal: … } }
 interface RtEvent { seq: number; t: number; kind: "user"|"op.start"|"op.end"|"state"|"error"|"nav"|"perf"|"storage"|"custom"|"decision"|"action"; name: string; op?: number; cause?: number; data?: Record<string, unknown> }
