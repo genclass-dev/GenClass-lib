@@ -19,6 +19,7 @@ CSSV = hashlib.sha1(css.encode()).hexdigest()[:8]
 JSV = hashlib.sha1((PUB / "app.js").read_bytes()).hexdigest()[:8]
 
 # Cloud, Enterprise and Pricing are planned products with no customers yet: reachable from the footer, not the top nav.
+# /login, /signup and /account are served by the telemetry worker, not built here; the header only links to /login.
 NAV = [("Docs", "/docs", "docs"), ("How it works", "/how-it-works", "how"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides")]
 
 def nav(active):
@@ -30,7 +31,7 @@ def nav(active):
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
     <nav aria-label="Main">{links}</nav>
     <a class="gh" href="{GH}">GitHub</a>
-    <a class="gh" href="/login">Sign in</a>
+    <a class="gh signin" href="/login">Sign in</a>
     <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel">{mlinks}</div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
@@ -345,7 +346,7 @@ LLMS = f"""# GenClass
 - Install: `npm install @genclass/runtime`, then `import "@genclass/runtime/auto"` as the first line of the entry file. CLI: `npx @genclass/runtime init`. Script tag, first in <head>: `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@{RT}"></script>` (pin the version: the unversioned URL may serve an older release from the CDN cache).
 - Modes: observe (default; changes nothing), guard (opt-in: discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync).
 - Cost: +98 KB of JavaScript on first load; about 13 MB downloaded once at idle on WASM (18 MB on WebGPU), then cached; 190 to 280 MB of memory in a Web Worker while the model is loaded; no device floor by default (`model.loadIf` sets one; `model: false` installs no model and then detects nothing).
-- Telemetry: anonymous diagnostics are on by default on public hosts and off on localhost and private hosts; they contain no page text. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
+- Telemetry: anonymous diagnostics are on by default on public hosts; from runtime 0.2.2 they are off on localhost and private hosts (0.2.1 sent from those too, by mistake); they contain no page text. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
 - Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging, Sentry or PostHog.
 
 ## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
