@@ -1,11 +1,11 @@
 import { defineConfig } from "tsup";
 
-// Two ESM entries: the fixture (`@genclass/playwright`) and the reporter (`@genclass/playwright/reporter`).
-// No splitting: each entry is one file, so Playwright can load the reporter by path without chunk lookups.
-// The functions that run inside the browser (src/page.ts) are serialised by Playwright with toString(): they
-// must survive bundling untouched, so no minification and no name mangling.
+// Four ESM entries: the pure summariser (`@genclass/playwright` and `@genclass/playwright/summarize`), the
+// Playwright reporter (`@genclass/playwright/reporter`, loaded by Playwright by module name, default export) and the
+// command (`bin/genclass-playwright-report.mjs` imports dist/cli.js). No splitting: each entry is one file. Nothing
+// is external because nothing is imported besides Node built-ins.
 export default defineConfig({
-  entry: { index: "src/index.ts", reporter: "src/reporter.ts" },
+  entry: { index: "src/index.ts", summarize: "src/summarize.ts", reporter: "src/reporter.ts", cli: "src/cli.ts" },
   format: ["esm"],
   platform: "node",
   target: "node20",
@@ -15,5 +15,4 @@ export default defineConfig({
   splitting: false,
   minify: false,
   treeshake: true,
-  external: ["@playwright/test", "@genclass/runtime"],
 });

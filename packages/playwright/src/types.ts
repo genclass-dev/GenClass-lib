@@ -1,179 +1,66 @@
-// Shared shapes of @genclass/playwright: the fixture options, what one test attaches (the `genclass` attachment,
-// JSON) and what the reporter builds from those attachments. Everything here is JSON-serialisable: the fixture
-// writes it with JSON.stringify, the reporter reads it back in another process.
+// The files this package reads, defined locally (no import from the fixture or from @genclass/runtime): the
+// GenClass Playwright fixture writes one JSON file per test to `test-results/genclass/<test-id>.json` in the format
+// "genclass-races/1" (contract agreed with the fixture's owners on 2026-10-13). This package only reads them; it
+// never injects anything into a page, never routes a request and never starts a runtime.
+//
+// Wording follows @genclass/runtime (src/types.ts): `trigger` is a TriggerKind ("request", "delivery", "failure",
+// ...), `diagnosis` is the model's diagnosis label ("duplicate", "stale", "failing", ...) and `confidence` is the
+// probability the model gave that diagnosis (Decision.diagnosisConfidence). `evidence` is the line the runtime
+// printed for the decision.
 
-import type { AuditEntry, EffectiveGates, Mode, ModelStatus, SessionSummary } from "@genclass/runtime";
+/** The value of the `schema` field of every file this package reads. */
+export const RACES_SCHEMA = "genclass-races/1";
 
-/** Network chaos applied with page.route to the requests that match `routes`. */
-export interface ChaosOptions {
-  /** Added latency per matched request: one number, or [min, max] ms picked uniformly. Default 0. */
-  latencyMs?: number | [number, number];
-  /**
-   * Let a newer request of the same method and path land before an older one still in flight: the older response
-   * is held until just after the newer one (the classic stale-response race). Default false.
-   */
-  reorder?: boolean;
-  /** Probability in [0, 1] that a matched request is answered with `failStatus` instead of reaching the server. Default 0. */
-  failRate?: number;
-  /** HTTP status of injected failures. Default 503. */
-  failStatus?: number;
-  /** Which requests chaos applies to: regular expressions (or `*` globs as strings) tested against the full URL. Default [/\/api\//]. */
-  routes?: (RegExp | string)[];
-  /** Seed of the chaos random stream, so a run can be replayed. Default: derived from the test title. */
-  seed?: number | string;
-}
-
-export interface GenClassOptions {
-  /** Mode of the injected runtime. Default "observe" (reports only, never holds or changes anything). */
-  mode?: Mode;
-  /**
-   * "inject" (default): an init script puts the script-tag build of @genclass/runtime on every page before the
-   * page's own scripts run. "app": the app already installs GenClass itself; nothing is injected and the runtime is
-   * read from `handle`.
-   */
-  install?: "inject" | "app";
-  /**
-   * Where the injected build comes from. "cdn": jsDelivr, pinned to the installed @genclass/runtime version.
-   * "local" (default): the installed @genclass/runtime package's own dist/, served through Playwright routing under
-   * the same CDN URLs, so the runtime itself needs no network. A path: another checkout of the package (its root
-   * directory, containing dist/). The model and ONNX Runtime still come from jsDelivr unless `config.model` says
-   * otherwise.
-   */
-  runtime?: "cdn" | "local" | string;
-  /**
-   * Where to find the runtime on the page, as dotted paths from `window`, tried in order. The defaults
-   * ("GenClass.runtime", the script-tag build; "__genclass") are always tried after yours. For an ESM install,
-   * expose it in your app: `window.__genclass = GenClass.init(...)`.
-   */
-  handle?: string | string[];
-  /** Chaos for the requests that match `chaos.routes`. `true` = { latencyMs: [50, 800], reorder: true, failRate: 0.05 }. Default off. */
-  chaos?: ChaosOptions | boolean;
-  /** Extra InitOptions for the injected runtime (window.GENCLASS_CONFIG): `model`, `requests`, `policy`, ... */
-  config?: Record<string, unknown>;
-  /** How long the fixture waits at the end of a test for decisions still in flight: quiet for `quietMs`, at most `maxMs`. */
-  settle?: { quietMs?: number; maxMs?: number };
-  /** Attach the collected JSON to the test (default true). The reporter needs it. */
-  attach?: boolean;
-  /** Add a one-line `genclass` annotation per test (default true). */
-  annotate?: boolean;
-}
-
-export interface ResolvedChaos {
-  latencyMs: [number, number];
-  reorder: boolean;
-  failRate: number;
-  failStatus: number;
-  routes: RegExp[];
-  seed: number | string | null;
-}
-
-export interface ResolvedOptions {
-  mode: Mode;
-  install: "inject" | "app";
-  runtime: "cdn" | "local" | string;
-  handle: string[];
-  chaos: ResolvedChaos | null;
-  config: Record<string, unknown>;
-  settle: { quietMs: number; maxMs: number };
-  attach: boolean;
-  annotate: boolean;
-  /** Options that were ignored or corrected, in words; they end up in the report. */
-  warnings: string[];
-}
-
-export interface ChaosStats {
-  matched: number;
-  delayed: number;
-  failed: number;
-  reordered: number;
-}
-
-/** A decision as the fixture copies it out of the page (Decision minus answers and probabilities). */
-export interface DecisionSnapshot {
-  id: string;
+/** One distinct race signature seen in a test: `sig` is "trigger|diagnosis|op" with ids normalised by the fixture. */
+export interface RaceSignature {
+  /** "trigger|diagnosis|op", e.g. "request|duplicate|POST /api/orders". The grouping key. */
+  sig: string;
+  /** The trigger kind of the decision (runtime TriggerKind: "request", "delivery", "failure", ...). */
   trigger: string;
-  subject: string;
-  at: number;
+  /** The model's diagnosis ("duplicate", "stale", "failing", "transient", "inconsistent", ...). */
   diagnosis: string;
-  diagnosisConfidence: number;
-  action: string;
+  /** The operation the decision was about, ids normalised ("POST /api/orders", "GET /api/items/:id"). */
+  op: string;
+  /** The model's probability for `diagnosis`, in [0, 1] (the runtime's Decision.diagnosisConfidence). */
   confidence: number;
-  executed: boolean;
-  ran: string;
-  tier: string;
-  reason?: string;
-  candidate?: string;
-  effectiveMode?: string;
-  latencyMs: number;
-  facts: string[];
-  /** rt.explain(id).message: the console line with the evidence (absent when the runtime no longer keeps it). */
-  message?: string;
-  timeline?: string[];
+  /** The evidence line the runtime printed for this decision (one line, query values already replaced by "…"). */
+  evidence: string;
+  /** The seeds in which the fixture saw this signature for this test. */
+  seeds: number[];
 }
 
-/** An action that ran (rt.interventions()), minus its undo function. */
-export interface ActionSnapshot {
-  id: string;
-  decisionId: string;
-  action: string;
-  tier: string;
-  trigger: string;
-  subject: string;
-  at: number;
-  ok: boolean;
-  error?: string;
-  changed: string;
-  late?: boolean;
-  dropped?: string[];
-}
-
-/** What the fixture reads from the runtime on the page at the end of a test. */
-export interface RuntimeSnapshot {
-  /** The dotted path the runtime was found at. */
-  handle: string;
-  href: string;
-  title: string;
-  mode: Mode;
-  status: ModelStatus;
-  gates: EffectiveGates | null;
-  summary: SessionSummary | null;
-  audit: AuditEntry[];
-  decisions: DecisionSnapshot[];
-  interventions: ActionSnapshot[];
-}
-
-/** The `genclass` attachment of one test (contentType application/json). */
-export interface GenClassAttachment {
-  schema: 1;
-  package: string;
-  runtimeVersion: string;
-  test: { title: string; titlePath: string[]; file: string; line: number };
-  options: { mode: Mode; install: "inject" | "app"; runtime: string; handle: string[] };
-  /** install "inject": whether the init script managed to put the runtime on the last page (and why not). */
-  injected: { ok: boolean; error?: string } | null;
-  chaos: (ChaosStats & { latencyMs: [number, number]; reorder: boolean; failRate: number; seed: number | string }) | null;
-  /** "[GenClass] Model ready" console lines seen in this test: more than one per page load means two runtimes. */
-  modelReadyLines: number;
-  warnings: string[];
-  runtime: RuntimeSnapshot | null;
-}
-
-/** State of the model as reported by ready(): the runtime's ModelStatus.state, or why there is none. */
-export type ReadyState = ModelStatus["state"] | "missing" | "timeout";
-
-/** The value of the `genclass` fixture inside a test. */
-export interface GenClassSession {
-  readonly options: ResolvedOptions;
-  /** Chaos counters so far (null when chaos is off). */
-  readonly chaos: ChaosStats | null;
+/** One file of `test-results/genclass/`: what the fixture saw in one test. */
+export interface GenClassRacesFile {
+  schema: typeof RACES_SCHEMA;
+  /** The test, as the fixture names it (Playwright's title path, e.g. "checkout.spec.ts > checkout > places one order"). */
+  test: string;
+  /** The chaos seed of this run (with one file per seed) or the first seed (with one file per test). */
+  seed: number;
+  /** Distinct signatures the runtime flagged in the page under test. */
+  signatures: RaceSignature[];
   /**
-   * Waits until the runtime is found on the page and its model has finished loading (ready, or a terminal state:
-   * error, skipped, off, disabled, unloaded). Resolves "missing" when no runtime appears within `timeout` ms
-   * (default 120 s) and "timeout" when one did but its model never settled. Never throws.
+   * The fixture's shadow-mode record. Carried through and validated only as "present or absent"; this package
+   * draws no conclusion from it (it says nothing about interventions).
    */
-  ready(opts?: { timeout?: number }): Promise<ReadyState>;
-  /** Waits until the audit trail and in-flight operations have been quiet for `quietMs` (defaults: the fixture's `settle` option). Never throws. */
-  settle(opts?: { quietMs?: number; maxMs?: number }): Promise<void>;
-  /** The runtime's state right now, or null when GenClass is not on the page. Never throws. */
-  snapshot(): Promise<RuntimeSnapshot | null>;
+  shadow?: unknown;
+  /** Optional: the mode the page's runtime ran in ("observe", "guard", ...), shown when present. */
+  mode?: string;
+  /**
+   * Optional: the page's model status when the fixture collected (null: GenClass never started in the page). A run
+   * whose model was not "ready" could not flag anything, and the report says so.
+   */
+  model?: { state?: string; name?: string; version?: string; device?: string } | null;
+  /** Optional: the chaos the fixture applied (its `chaos` option), shown when present. */
+  chaos?: { latencyMs?: [number, number]; reorder?: boolean; failRate?: number; routes?: unknown[] } | null;
 }
+
+/** One input of the summariser: a file's name (shown in the report) and its content (JSON text or parsed). */
+export interface RacesFileInput {
+  name: string;
+  content: string | unknown;
+  /** Set when the file could not be read: it is listed as skipped with this reason and `content` is ignored. */
+  error?: string;
+}
+
+/** Result of validating one file. */
+export type RacesParseResult = { ok: true; file: GenClassRacesFile } | { ok: false; errors: string[] };

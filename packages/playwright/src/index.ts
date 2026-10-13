@@ -1,14 +1,8 @@
-// @genclass/playwright: the fixture (this entry) and the reporter (`@genclass/playwright/reporter`).
+// @genclass/playwright: reads the race files the GenClass Playwright fixture writes (`test-results/genclass/*.json`,
+// format "genclass-races/1") and turns them into a markdown report for the pull request. This entry is pure (no
+// Node APIs): the format, its validator and the summariser, the same as `@genclass/playwright/summarize`. The
+// Playwright reporter is `@genclass/playwright/reporter` and the command `genclass-playwright-report`.
 //
-//   import { test as base } from "@playwright/test";
-//   import { genclass, type GenClassFixtures } from "@genclass/playwright";
-//   export const test = base.extend<GenClassFixtures>(genclass({ mode: "observe", chaos: true }));
+// This package injects nothing: it does not route requests, start a runtime or touch a page.
 
-export { genclass, cdnScriptUrl, runtimePackage, localRuntimeFile, isRuntimeCdnUrl } from "./fixture.js";
-export { ATTACHMENT_NAME, PACKAGE_VERSION } from "./constants.js";
-export type { GenClassFixtures } from "./fixture.js";
-export { resolveOptions, resolveChaos, routePattern, DEFAULT_CHAOS, DEFAULT_HANDLES, DEFAULT_ROUTES } from "./options.js";
-export { ChaosScheduler, hashSeed, mulberry32, requestKey } from "./chaos.js";
-export { summarise, summariseAttachment, renderMarkdown, oneLine, normaliseSubject, FINDING_DIAGNOSES, INFO_DIAGNOSES } from "./summarise.js";
-export type { Summary, TestSummary, TestInput, Finding, EndpointFailure, SummariseOptions } from "./summarise.js";
-export type * from "./types.js";
+export * from "./summarize.js";
