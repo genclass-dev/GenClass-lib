@@ -652,6 +652,26 @@ describe("flow expectations: persistence (EXPECTATIONS.md §4)", () => {
     t.rt.destroy();
   });
 
+  it("malformed stored state is dropped or zeroed field by field (persisted by default, so never trusted as is)", async () => {
+    const ls = new MemStorage();
+    const profiles = [null, { sig: 1 }, { sig: "GET /api/x", n: -1 }, { sig: "POST /api/cart", n: 3, sets: { "": "many", "cart.items": 3 }, kinds: { "cart.items": { array: 3, bad: null } }, status: 5 }];
+    const flows = [{ h: "zz", n: 2, route: "/search", children: { "POST /api/cart": { n: "2" }, "POST /api/ok": { n: 2, delay: [1, "x", 2], own: { "": 2, b: "y" } } }, nav: { "/a": 1, "/b": "c" } }, 7, "s"];
+    ls.setItem("genclass:learn", JSON.stringify({ sessions: "x", profiles, flows }));
+    const s = setup({ extraGlobal: { localStorage: ls } });
+    expect(s.rt.learned().session).toBe(1);
+    expect([...s.rt.profiles.bySig.keys()]).toEqual(["POST /api/cart"]);
+    expect(s.rt.profiles.get("POST /api/cart")).toEqual({ sig: "POST /api/cart", n: 3, sets: { "cart.items": 3 }, kinds: { "cart.items": { array: 3 } }, wrote: {}, status: {}, writes: {}, dur: {} });
+    const f = s.rt.learned().flows;
+    expect(f).toHaveLength(1);
+    expect(f[0].children.map((c) => [c.signature, c.n, c.delayMs])).toEqual([["POST /api/ok", 2, { p50: 1, p95: 2 }]]);
+    expect(f[0].nav.map((x) => x.to)).toEqual(["/a"]);
+    // and the runtime learns on top of it
+    const c = cartApp(s);
+    for (let i = 0; i < 3; i++) await c.click();
+    expect(s.rt.learned().flows.find((x) => x.action === 'click button "Add to cart"')).toMatchObject({ n: 3 });
+    expect(s.rt.profiles.get("POST /api/cart")!.n).toBe(6);
+  });
+
   it("learn.maxBytes caps the stored copy (most-used flows first); what is in memory is never dropped for it", async () => {
     const run = async (maxBytes?: number) => {
       const ls = new MemStorage();

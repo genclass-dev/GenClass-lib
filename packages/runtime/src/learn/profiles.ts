@@ -186,10 +186,28 @@ export class Profiles {
     return [...this.bySig.values()].map((p) => (p.sig.startsWith(USER) ? { ...p, sig: persistedSig(p.sig) } : p));
   }
 
+  /** Profiles from storage (persisted by default): anything malformed is dropped or zeroed, never trusted as is. */
   load(list: unknown): void {
     if (!Array.isArray(list)) return;
-    for (const p of list as Profile[]) {
-      if (p && typeof p.sig === "string" && typeof p.n === "number") this.bySig.set(p.sig, p);
+    for (const p of list as Record<string, unknown>[]) {
+      if (!p || typeof p !== "object") continue;
+      const sig = p.sig;
+      const n = p.n;
+      if (typeof sig !== "string" || !isCount(n)) continue;
+      const kinds: Record<string, Record<string, number>> = {};
+      if (p.kinds && typeof p.kinds === "object") for (const [f, v] of Object.entries(p.kinds as Record<string, unknown>)) kinds[f] = counts(v);
+      this.bySig.set(sig, { sig, n, sets: counts(p.sets), kinds, wrote: counts(p.wrote), status: counts(p.status), writes: counts(p.writes), dur: counts(p.dur) });
     }
   }
+}
+
+function isCount(x: unknown): x is number {
+  return typeof x === "number" && Number.isFinite(x) && x >= 0;
+}
+
+/** A stored `key -> count` map, keeping only finite non-negative counts. */
+function counts(x: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (x && typeof x === "object" && !Array.isArray(x)) for (const [k, v] of Object.entries(x as Record<string, unknown>)) if (isCount(v)) out[k] = v;
+  return out;
 }
