@@ -15,10 +15,12 @@
   const ctx = cv.getContext("2d");
   if (!ctx) return;
   const INK = "14,31,77", RED = "240,69,28", GREEN = "20,184,106";
-  const RED_TXT = "194,54,15", GREEN_TXT = "8,121,74"; // darker red-orange and green for the 11px note text
-  const MONO = '11px "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
-  // Lattice strength: AMAX in the open, AMIN under the text (still visible, but the headline stays easy to read).
-  const AMAX = 0.56, AMIN = 0.1, FADE = 72;
+  const RED_TXT = "194,54,15", GREEN_TXT = "8,121,74"; // darker red-orange and green for the note text (11px, 12px on a phone)
+  const FONT = 'px "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+  // Lattice strength: AMAX in the open, AMIN under the text (still visible, but the headline stays easy to read). FADE
+  // is how far from the text the lattice reaches full strength; a phone uses a shorter one (FADE_PHONE) and soft boxes
+  // that hug each line of text, so open lattice shows beside the ragged lines and between the blocks, not only below.
+  const AMAX = 0.56, AMIN = 0.1, FADE = 72, FADE_PHONE = 40;
   const at = (f) => AMIN + (AMAX - AMIN) * f;
   const SOFT = at(0.12); // under or right next to the text: no dots, no red or green, no pointer damage
   const OPEN = at(0.6); // where the scripted breaks may start
@@ -34,8 +36,9 @@
   stage.append(cap);
   const drag = !mq("(pointer: coarse)"); // on a phone a drag scrolls the page, so the caption does not offer it
 
-  let TEXT = [];
+  let TEXT = [], BODY = []; // the soft boxes; BODY leaves out the caption (the breaks keep their centres above it)
   let W = 0, H = 0, DPR = 1, S = 22, bump = 0, LW = 1.35, K = 1, N = 0, cols = 0, rows = 0, RH = 0, E = 0, capTop = 0;
+  let phone = false, MONO = "11" + FONT, NH = 18; // NH: a note's height
   let EV = { stale: 62, dup: 50, tear: 170 };
   let hx, hy, x, y, vx, vy, st, ts, ta, al, ea, eb, a0, adj, fresh;
   const ghosts = [], labels = [];
@@ -53,13 +56,17 @@
     cv.style.width = W + "px";
     cv.style.height = H + "px";
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    S = (W < 700 ? 26 : 22) + bump; // a slow device gets a coarser lattice (bump), never a finer one
+    phone = W < 700;
+    S = (phone ? 26 : 22) + bump; // a slow device gets a coarser lattice (bump), never a finer one
     // On a 1x screen a line wider than one device pixel loses the fast thin-line path; where the canvas is drawn on
     // the CPU that costs about 8x per frame. There the lines stay 1px and a little stronger (K) for the same weight.
     const thin = DPR < 1.5;
-    LW = thin ? 1 : W < 700 ? 1.25 : 1.35;
-    K = thin ? 1.3 : 1;
-    EV = W < 700 ? { stale: 44, dup: 36, tear: 110 } : { stale: 62, dup: 50, tear: 170 }; // a phone's open band is short
+    LW = thin ? 1 : phone ? 1.25 : 1.35;
+    K = (thin ? 1.3 : 1) * (phone ? 0.88 : 1); // on a phone the open lattice is most of the screen: a touch lighter
+    // a phone's open field is short, so its breaks are smaller; its notes are a size larger so they read at arm's length
+    EV = phone ? { stale: 38, dup: 30, tear: 104 } : { stale: 62, dup: 50, tear: 170 };
+    MONO = (phone ? "12" : "11") + FONT;
+    NH = phone ? 20 : 18;
     RH = S * 0.8660254;
     cols = Math.ceil(W / S) + 2;
     rows = Math.ceil(H / RH) + 2;
@@ -112,26 +119,39 @@
     nextEvent = now + 2800;
   }
 
-  // Lines soften under the text so the headline stays readable, and fade at the top and bottom edges.
+  // Lines soften under the text so the headline stays readable, and fade at the top and bottom edges. On a phone the
+  // soft boxes are each line of the headline and lede and each button and name, and the caption is one too (so no
+  // note covers it); the breaks only keep their centres above the caption, as on a wide screen.
   function mask() {
-    const sr = stage.getBoundingClientRect();
-    TEXT = [...stage.querySelectorAll(".announce,h1,.lede,.ctas,.install-line,.fw")]
-      .map((el) => el.getBoundingClientRect())
-      .filter((b) => b.width > 0)
-      .map((b) => [b.left - sr.left - 12, b.top - sr.top - 8, b.right - sr.left + 12, b.bottom - sr.top + 8]);
+    const sr = stage.getBoundingClientRect(), els = [...stage.querySelectorAll(".announce,h1,.lede,.ctas,.install-line,.fw")];
+    let boxes = els.map((el) => el.getBoundingClientRect());
+    if (phone) {
+      boxes = [];
+      for (const el of els) {
+        if (el.matches("h1,.lede")) { const rg = document.createRange(); rg.selectNodeContents(el); boxes.push(...rg.getClientRects()); }
+        else if (el.matches(".ctas,.fw")) boxes.push(...[...el.children].map((c) => c.getBoundingClientRect()));
+        else boxes.push(el.getBoundingClientRect());
+      }
+    }
+    const gx = phone ? 8 : 12, gy = phone ? 5 : 8, fade = phone ? FADE_PHONE : FADE, foot = phone ? 56 : 120;
+    const soft = (list) => list
+      .filter((b) => b.width > 0 && b.height > 0)
+      .map((b) => [b.left - sr.left - gx, b.top - sr.top - gy, b.right - sr.left + gx, b.bottom - sr.top + gy]);
+    BODY = soft(boxes);
+    TEXT = phone ? BODY.concat(soft([cap.getBoundingClientRect()])) : BODY;
     const cr = cap.getBoundingClientRect();
     capTop = cr.height > 0 ? cr.top - sr.top : H - 34;
     for (let k = 0; k < N; k++) {
       const d = clear(hx[k], hy[k]);
-      const f = d >= FADE ? 1 : d <= 0 ? 0 : (d / FADE) * (d / FADE) * (3 - 2 * (d / FADE));
-      const edge = Math.min(1, Math.max(0, hy[k] / 48), Math.max(0, (H - hy[k]) / 120));
+      const f = d >= fade ? 1 : d <= 0 ? 0 : (d / fade) * (d / fade) * (3 - 2 * (d / fade));
+      const edge = Math.min(1, Math.max(0, hy[k] / 48), Math.max(0, (H - hy[k]) / foot));
       al[k] = at(f) * edge;
     }
   }
   // distance from a point to the nearest text box (0 inside one)
-  function clear(px, py) {
+  function clear(px, py, list = TEXT) {
     let d = 1e9;
-    for (const [l, t, r, b] of TEXT) {
+    for (const [l, t, r, b] of list) {
       const dx = Math.max(l - px, 0, px - r), dy = Math.max(t - py, 0, py - b);
       d = Math.min(d, Math.hypot(dx, dy));
     }
@@ -165,22 +185,22 @@
   function spot(R) {
     for (let n = 0; n < 80; n++) {
       const k = (Math.random() * N) | 0, px = hx[k], py = hy[k];
-      if (al[k] > OPEN && px > 40 && px < W - 40 && py > 60 && py < Math.min(H - 90, capTop - 30) && clear(px, py) > R + 12) return [px, py];
+      if (al[k] > OPEN && px > 40 && px < W - 40 && py > 60 && py < Math.min(H - 90, capTop - 30) && clear(px, py, BODY) > R + 12) return [px, py];
     }
     return null;
   }
   // A note goes where it overlaps no text and no other note and stays inside the canvas; if there is no such place, no note.
   function label(cx, cy, bad, good, heal) {
     ctx.font = MONO;
-    const w = Math.max(ctx.measureText(bad).width, ctx.measureText(good).width) + 10, h = 18;
-    if (w > W - 24 || (W < 700 && labels.length)) return; // a phone shows one note at a time
+    const w = Math.max(ctx.measureText(bad).width, ctx.measureText(good).width) + 10, h = NH;
+    if (w > W - 24 || (phone && labels.length)) return; // a phone shows one note at a time
     const xs = [Math.min(Math.max(12, cx - w / 2), W - 12 - w), cx + 18, cx - 18 - w], ys = [cy + 52, cy - 52, cy + 78, cy - 78];
     for (const ly of ys) for (const lx of xs) {
       const l = lx - 4, t = ly - h / 2 - 4, r = lx + w + 4, b = ly + h / 2 + 4;
       if (l < 8 || r > W - 8 || t < 50 || b > Math.min(H - 34, capTop - 6)) continue;
       if (TEXT.some(([tl, tt, tr, tb]) => l < tr && r > tl && t < tb && b > tt)) continue;
       if (labels.some((o) => l < o.lx + o.w && r > o.lx - 9 && t < o.ly + 13 && b > o.ly - 13)) continue; // nor another note
-      labels.push({ lx: lx + 5, ly, w, bad, good, t0: now, tg: now + heal });
+      labels.push({ lx: lx + 5, ly, w, h, bad, good, t0: now, tg: now + heal });
       return;
     }
   }
@@ -225,7 +245,7 @@
     if (now >= nextEvent) {
       const [fn, reach] = KINDS[kind++ % KINDS.length], p = spot(reach());
       if (p) fn(p[0], p[1]);
-      nextEvent = now + (!p ? 400 : W < 700 ? 2200 + Math.random() * 1400 : 1500 + Math.random() * 1200);
+      nextEvent = now + (!p ? 400 : phone ? 2200 + Math.random() * 1400 : 1500 + Math.random() * 1200);
     }
     for (let k = 0; k < N; k++) {
       const s = st[k];
@@ -321,7 +341,7 @@
       const healed = now >= L.tg, text = healed ? L.good : L.bad;
       const a = Math.min(1, age / 160, (3600 - age) / 450);
       ctx.fillStyle = `rgba(255,255,255,${0.9 * a})`;
-      ctx.fillRect(L.lx - 5, L.ly - 9, L.w, 18);
+      ctx.fillRect(L.lx - 5, L.ly - L.h / 2, L.w, L.h);
       ctx.fillStyle = `rgba(${healed ? GREEN_TXT : RED_TXT},${a})`;
       ctx.fillText(text, L.lx, L.ly);
     }
