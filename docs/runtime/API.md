@@ -61,7 +61,10 @@ hosts (`0.2.1` and `0.2.2` send from them too, by mistake; fixed in the next rel
 `npx @genclass/runtime init` or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
 show up on its private dashboard (`https://genclass.dev/dashboard/<secret>`); with a token, decision events also
 carry `fn` (see "Protected functions"). Public; malformed values log one warning and are ignored; it does nothing
-while telemetry is off (on a local host the console says so once). `rt.telemetry.token` reports it.
+while telemetry is off (on a local host the console says so once). `rt.telemetry.token` reports it while telemetry
+is on. `token` and `scope` are fixed when GenClass starts: on a runtime already started by `/auto` or the script tag,
+`GenClass.init({ token, scope })` is ignored with one console warning (set them in `window.GENCLASS_CONFIG`, the meta
+tag or `data-token` / `data-scope`).
 
 ## Options
 
@@ -101,7 +104,7 @@ interface InitOptions {
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
   token?: string;                                       // (Unreleased) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
-  scope?: "app" | "functions";                          // (Unreleased) ["app"]; "functions": decisions only for activity inside protect()ed functions (rt.ask() still answered)
+  scope?: "app" | "functions";                          // (Unreleased) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
   enabled?: boolean | (() => boolean | Promise<boolean>) | { get(): boolean | Promise<boolean>; subscribe?(cb: () => void): () => void };
@@ -301,12 +304,15 @@ const submitOrder = protect("checkout submit", async (cart: Cart) => { /* fetch,
 
 `protect(name, fn)` returns a function with `fn`'s signature. Each call runs as a `"task"` operation named `name`
 (like `rt.op`), so what it starts is linked to it, and decisions about that carry `Decision.fn = name` (the
-outermost protected function when they nest; also `fn` on telemetry `decision` events when a token is set). `this`, arguments, return
+outermost protected function when they nest; also `fn` on telemetry `decision` events when a token is set, as
+`"[redacted]"` when the label looks like data: an e-mail address, a URL, 4+ digits in a row, 12+ hex digits). `this`, arguments, return
 value and thrown errors pass through; a sync function stays sync; an async function's promise is replaced by one
 that settles the same way; other thenables are returned untouched. It looks up `GenClass.runtime` on every call and
 calls `fn` directly when there is none. It never throws on its own. With `scope: "functions"` everything is still
-recorded, but decisions are raised only for subjects inside a protected call (explicit `rt.ask()` / `rt.decide()`
-are answered as before). There is no per-function `mode` option yet.
+recorded, but decisions are raised only for subjects inside a protected call, and standing questions
+(`rt.question()`, plugin `questions`) are asked only about them (explicit `rt.ask()` / `rt.decide()` are answered as
+before). For an async `fn` the operation and the situation are the same as with `rt.op(name, fn)`; a sync `fn`'s
+operation ends when it returns. There is no per-function `mode` option yet.
 
 ## Asking the model
 

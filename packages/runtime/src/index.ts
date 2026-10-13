@@ -201,6 +201,9 @@ export function createRuntime(options: CreateOptions = {}): Runtime {
   return buildRuntime(options, false);
 }
 
+/** The valid token each runtime started with (GenClass.init's "already running" warning compares against it). */
+const tokenOf = new WeakMap<Runtime, string>();
+
 /**
  * createRuntime, with `telemetryDefaultOn` for GenClass.init in a browser: an unset `telemetry` option then means
  * "on, except where the default stays off" (local and private hosts, see resolveTelemetry). Passing `telemetry: true`
@@ -218,6 +221,7 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
   const rt = new RuntimeImpl({ ...options, decider: decider ?? null, ownsDecider: owns });
   const con = () => (rt.global.console as Console | undefined) ?? (globalThis as { console?: Console }).console;
   const token = resolveToken(options.token, (m) => con()?.warn?.(`[GenClass] ${m}`));
+  if (token) tokenOf.set(rt, token);
   if (options.enabled === false) rt.telemetry = telemetryOff("disabled");
   else
     rt.telemetry = startTelemetry(
@@ -282,13 +286,12 @@ export const GenClass = {
    */
   init(options: InitOptions = {}): Runtime {
     if (current) {
-      if (options.mode && options.mode !== current.mode && warnedIgnored !== current) {
-        warnedIgnored = current;
-        const g = globalThis as unknown as Record<string, unknown>;
-        (g.console as Console | undefined)?.warn?.(
-          `[GenClass] Already running in ${current.mode} mode (started by @genclass/runtime/auto, the script tag or an earlier GenClass.init()), so this call's options are ignored. ` +
-            `To change the mode: GenClass.runtime.setMode("${options.mode}"), or re-run \`npx @genclass/runtime init --mode ${options.mode}\`.`,
-        );
+      if (warnedIgnored !== current) {
+        try {
+          warnIgnored(current, options);
+        } catch {
+          /* a warning never breaks the app */
+        }
       }
       return current;
     }
@@ -315,6 +318,32 @@ export const GenClass = {
 };
 
 setProtectResolver(() => (current instanceof RuntimeImpl ? current : null));
+
+/**
+ * GenClass.init on a running runtime ignores its options: one console warning per runtime when the call asks for a
+ * different mode, token or scope, saying where each can be set instead (the zero-code entries start GenClass before
+ * app code runs, so a later GenClass.init({ token, scope }) cannot reach them).
+ */
+function warnIgnored(rt: Runtime, options: InitOptions): void {
+  const mode = !!options.mode && options.mode !== rt.mode;
+  const token = typeof options.token === "string" && options.token.trim() !== "" && options.token.trim() !== (tokenOf.get(rt) ?? "");
+  const runningScope = (rt as unknown as { scope?: string }).scope ?? "app";
+  const scope = (options.scope === "app" || options.scope === "functions") && options.scope !== runningScope;
+  if (!mode && !token && !scope) return;
+  warnedIgnored = rt;
+  const g = globalThis as unknown as Record<string, unknown>;
+  const parts = [
+    `[GenClass] Already running in ${rt.mode} mode (started by @genclass/runtime/auto, the script tag or an earlier GenClass.init()), so this call's options are ignored.`,
+  ];
+  if (mode) parts.push(`To change the mode: GenClass.runtime.setMode("${options.mode}"), or re-run \`npx @genclass/runtime init --mode ${options.mode}\`.`);
+  if (token || scope) {
+    const what = [token ? "token" : null, scope ? `scope "${options.scope}"` : null].filter(Boolean).join(" and ");
+    parts.push(
+      `The ${what} must be set where GenClass starts: window.GENCLASS_CONFIG = { ${token ? 'token: "gc_..."' : ""}${token && scope ? ", " : ""}${scope ? `scope: "${options.scope}"` : ""} } before the auto import (\`npx @genclass/runtime init\` writes it to genclass.config.ts/js), <meta name="genclass" content="${[token ? "token=gc_..." : null, scope ? `scope=${options.scope}` : null].filter(Boolean).join(", ")}"> in <head>, or ${[token ? "data-token" : null, scope ? "data-scope" : null].filter(Boolean).join(" / ")} on the script tag.`,
+    );
+  }
+  (g.console as Console | undefined)?.warn?.(parts.join(" "));
+}
 
 function initUnsafe(options: InitOptions): Runtime {
   {

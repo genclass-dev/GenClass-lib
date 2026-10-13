@@ -8,6 +8,8 @@ import { fromDataset, fromPairs, mergeConfig, parsePairs, readMetaConfig, readWi
 import { setProtectResolver } from "../src/protect.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import { resetTelemetryNotice } from "../src/telemetry/index.js";
+import { fnLabel } from "../src/telemetry/client.js";
+import { TELEMETRY_NOTICE, TELEMETRY_TOKEN_NOTICE } from "../src/telemetry/config.js";
 import type { Answer, EvaluateRequest, TelemetryTransport } from "../src/types.js";
 import { defaultScript, setup, type Setup } from "./helpers.js";
 
@@ -99,6 +101,19 @@ describe("token from every config source", () => {
     expect(info.mock.calls.filter((c) => String(c[0]).includes("telemetry is off"))).toHaveLength(1);
     quiet.destroy();
     loud.destroy();
+  });
+
+  it("with a token, the one console notice also says the diagnostics feed the app's dashboard", async () => {
+    resetTelemetryNotice();
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const s = setup({ token: TOKEN, telemetry: { transport: recorder() }, extraGlobal: { crypto: globalThis.crypto, console } });
+    const notices = () => info.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith(TELEMETRY_NOTICE));
+    expect(notices()).toEqual([`${TELEMETRY_NOTICE} ${TELEMETRY_TOKEN_NOTICE}`]);
+    s.rt.destroy();
+    resetTelemetryNotice();
+    const s2 = setup({ telemetry: { transport: recorder() }, extraGlobal: { crypto: globalThis.crypto, console } });
+    expect(notices()).toEqual([`${TELEMETRY_NOTICE} ${TELEMETRY_TOKEN_NOTICE}`, TELEMETRY_NOTICE]);
+    s2.rt.destroy();
   });
 
   it("opt-outs still win over a token (GPC)", () => {
@@ -202,6 +217,89 @@ describe("protect(): same function, tracked", () => {
     const evs = transport.sent.flatMap((b) => b.body.events).filter((e) => e.t === "decision" && e.trigger === "failure");
     expect(evs.map((e) => e.fn).sort()).toEqual(["checkout submit", undefined]);
     s.rt.destroy();
+  });
+});
+
+describe("protect(): a label that looks like data is redacted in telemetry (TELEMETRY.md, App tokens)", () => {
+  it("static names pass; e-mail addresses, URLs, 4+ digit runs and long hex ids are sent as [redacted]", () => {
+    for (const ok of ["checkout submit", "cart save", "search v2", "Send invoice", "x".repeat(80)]) expect(fnLabel(ok)).toBe(ok);
+    expect(fnLabel("y".repeat(90))).toBe("y".repeat(80));
+    for (const bad of ["save jane@example.com", "load https://api.example.com/x", "order 10423", "card 4242 4242 4242 4242", "user 3f2a9c1e7b4d40aa"]) expect(fnLabel(bad), bad).toBe("[redacted]");
+    expect(fnLabel(undefined)).toBeUndefined();
+  });
+
+  it("the Decision keeps the full label; the telemetry event carries [redacted]", async () => {
+    const transport = recorder();
+    const s = setup({ token: TOKEN, triage: "always", telemetry: { transport }, extraGlobal: { crypto: globalThis.crypto }, script: defaultScript({ failure: { diagnosis: "transient" } }) });
+    setProtectResolver(() => s.rt);
+    s.server.on("POST", "/api/orders", { status: 500, body: {}, latency: 20 });
+    const email = "jane@example.com";
+    const submit = protect(`save ${email}`, () => s.fetch("/api/orders", { method: "POST", body: "{}" }).catch(() => undefined));
+    void submit();
+    await s.clock.advance(2000);
+    expect(s.rt.decisions().find((x) => x.trigger === "failure")?.fn).toBe(`save ${email}`);
+    await s.rt.telemetry!.flush();
+    const evs = transport.sent.flatMap((b) => b.body.events).filter((e) => e.t === "decision" && e.trigger === "failure");
+    expect(evs.map((e) => e.fn)).toEqual(["[redacted]"]);
+    expect(JSON.stringify(transport.sent)).not.toContain(email);
+    s.rt.destroy();
+  });
+});
+
+describe("protect(): the same situation as runtime.op() (README: each call is tracked)", () => {
+  async function run(wrap: "protect" | "op") {
+    const s = setup({ triage: "always", script: defaultScript({ failure: { diagnosis: "transient" } }) });
+    setProtectResolver(() => s.rt);
+    s.server.on("GET", "/api/cart", { status: 200, body: { id: 1 }, latency: 20 });
+    s.server.on("POST", "/api/orders", { status: 500, body: {}, latency: 20 });
+    const body = async () => {
+      const cart = await (await s.fetch("/api/cart")).json();
+      return s.fetch("/api/orders", { method: "POST", body: JSON.stringify(cart) });
+    };
+    const submit = wrap === "protect" ? protect("checkout submit", body) : () => s.rt.op("checkout submit", body);
+    void submit().catch(() => undefined);
+    await s.clock.advance(2000);
+    const d = s.rt.decisions().find((x) => x.trigger === "failure" && x.subject.includes("/api/orders"));
+    const req = s.decider.calls.find((c) => c.trigger === "failure" && c.subject?.op === d?.subjectRef?.op);
+    const history = s.rt.history().filter((e) => e.kind !== "decision").map((e) => `${e.kind} ${e.name}`);
+    s.rt.destroy();
+    return { d, state: req?.state, history };
+  }
+
+  it("an async function: byte-identical EvaluateRequest state and the same history; only the Decision carries fn", async () => {
+    const p = await run("protect");
+    const o = await run("op");
+    expect(p.state).toBeDefined();
+    expect(JSON.stringify(p.state)).toBe(JSON.stringify(o.state));
+    expect(p.history).toEqual(o.history);
+    expect(p.d?.fn).toBe("checkout submit");
+    expect(o.d?.fn).toBeUndefined();
+  });
+});
+
+describe("GenClass.init on a running runtime: a different token or scope is ignored, with one warning", () => {
+  const quiet = { model: false as const, report: "silent" as const, telemetry: false as const };
+
+  it("says once where token and scope must be set (the zero-code entries start before app code)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const rt = GenClass.init(quiet);
+    expect(GenClass.init({ token: TOKEN, scope: "functions" })).toBe(rt);
+    expect(GenClass.init({ token: TOKEN, scope: "functions" })).toBe(rt);
+    const lines = warn.mock.calls.map((c) => String(c[0])).filter((l) => l.includes("Already running"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('The token and scope "functions" must be set where GenClass starts');
+    expect(lines[0]).toContain('GENCLASS_CONFIG = { token: "gc_...", scope: "functions" }');
+    expect(lines[0]).toContain('content="token=gc_..., scope=functions"');
+    expect(lines[0]).not.toContain("setMode");
+    expect((rt as RuntimeImpl).scope).toBe("app");
+  });
+
+  it("the same token and scope again: no warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    GenClass.init({ ...quiet, token: TOKEN, scope: "functions" });
+    GenClass.init({ token: TOKEN, scope: "functions" });
+    GenClass.init({ token: ` ${TOKEN} ` });
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes("Already running"))).toHaveLength(0);
   });
 });
 

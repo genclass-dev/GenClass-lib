@@ -26,18 +26,24 @@ sends (less on local hosts, see Fixes).
   the telemetry batch envelope's top-level `token`; `runtime.telemetry.token` reports it. A malformed token logs one
   console warning and is ignored; never throws. It does nothing while telemetry is off: on a local host the console
   says so once (local hosts never feed a dashboard), otherwise only with `debug: true`. Opt-outs and Global Privacy
-  Control still win.
+  Control still win. With a token, the telemetry console notice says the diagnostics also feed the app's dashboard.
+  `token` and `scope` are fixed when GenClass starts: `GenClass.init({ token, scope })` on a runtime that `/auto` or
+  the script tag already started is ignored with one console warning that says where to set them
+  (`window.GENCLASS_CONFIG`, the meta tag, `data-token` / `data-scope`); before, only a different `mode` warned.
 - **`protect(name, fn)`** (named export, `GenClass.protect`, and `window.GenClass.protect` on the script tag): returns
   a function with the same signature whose calls run as an operation named `name` (like `runtime.op`), so the
   requests, state writes, timers and errors it causes are linked to it. `this`, arguments, return value and thrown
   errors pass through; sync stays sync; an async function's promise is replaced by one that settles the same way;
   other thenables are returned untouched. Safe to wrap at import time: without a runtime it calls `fn` directly.
-- **`InitOptions.scope`**: `"app"` (default, unchanged) or `"functions"`: the runtime raises decisions only for
-  activity inside protected functions; everything is still recorded as context, and `runtime.ask()` is still
-  answered everywhere. Also `data-scope` / `scope=` in the meta tag.
+- **`InitOptions.scope`**: `"app"` (default, unchanged) or `"functions"`: the runtime raises decisions, and asks
+  standing questions (`runtime.question()`, plugin `questions`), only for activity inside protected functions;
+  everything is still recorded as context, and `runtime.ask()` / `runtime.decide()` are still answered everywhere.
+  Also `data-scope` / `scope=` in the meta tag. Test: for an async function, `protect()` and `runtime.op()` give a
+  byte-identical situation.
 - **`Decision.fn`**: the outermost protected function in the subject's cause chain (the name the app chose, at most
   80 characters), also on a held subject's answer that arrives after the hold budget. Telemetry `decision` events
-  carry it as `fn` **only when the app set a token** (it feeds that app's dashboard).
+  carry it as `fn` **only when the app set a token** (it feeds that app's dashboard); a label that looks like data
+  (an e-mail address, a URL, 4+ digits in a row, 12+ hex digits) is sent as `[redacted]`.
 - **`init` can create a project**: after you approve the diff (or with `--yes`), `npx @genclass/runtime init` calls
   `POST https://genclass.dev/api/projects` with the `name` from `package.json`, writes the token into what it adds
   (`genclass.config.*`, `data-token`, or the Astro meta line), prints the private dashboard link and saves both in

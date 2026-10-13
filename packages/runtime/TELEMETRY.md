@@ -113,7 +113,11 @@ Unreleased (not in `0.2.2`, which ignores a token and sends neither `token` nor 
   Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
   console says so once when a token is set; otherwise only with `debug: true`.
 - Only batches that carry a token have `fn` on `decision` events: the name the app chose for the `protect()`ed
-  function the decision was about (at most 80 characters). Without a token `fn` is never sent.
+  function the decision was about (at most 80 characters). A name that looks like it carries data rather than
+  naming a function (an e-mail address, a URL, 4 or more digits in a row, 12 or more hex digits) is sent as
+  `[redacted]`, so use fixed names. Without a token `fn` is never sent.
+- With a token, the console notice ends with one more sentence: `With this app's token they also feed its private
+  GenClass dashboard.`
 - `npx @genclass/runtime init` creates a token (a "project") only on a new setup and only after the developer
   approved its changes (or passed `--yes`): it sends one request, `POST https://genclass.dev/api/projects` with
   `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,

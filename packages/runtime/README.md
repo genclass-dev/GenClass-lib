@@ -259,7 +259,7 @@ on a few functions that matter (a checkout submit, a search, a save) rather than
 ```ts
 import { GenClass, protect } from "@genclass/runtime";
 
-GenClass.init({ token: "gc_...", scope: "functions" }); // early, e.g. in your entry file
+GenClass.init({ token: "gc_...", scope: "functions" }); // early in your entry file (with /auto or the script tag: see below)
 
 // Wrap at module level; calls made before GenClass.init() simply run fn.
 export const submitOrder = protect("checkout submit", async (cart: Cart) => {
@@ -286,13 +286,16 @@ What `protect(name, fn)` does:
   errors pass through, and a sync function stays sync. For an `async` function you get a promise that settles
   exactly like `fn`'s (it is a new promise object, as with `runtime.op`). Other thenables are returned untouched.
   `protect` itself never throws.
-- **Each call is tracked.** The call runs as an operation named `name` (the same as `runtime.op(name, fn)`). The
+- **Each call is tracked.** The call runs as an operation named `name`: for an `async` function the same operation,
+  and the same situation, as `runtime.op(name, fn)` (a sync function's operation ends as soon as it returns). The
   requests, state writes, timers and errors it starts are linked to it, directly or through the causal chain GenClass
   already follows (a request started after an `await` on one of the function's own requests counts). Work started
   from somewhere else, such as a WebSocket message or another click handler, does not.
 - **Decisions name the function.** A decision about something a protected call caused carries `fn: name`
   (`rt.on("decide", (d) => d.fn)`, and, when your app sets a token, the telemetry `decision` event and your
   dashboard; without a token the name is never sent). With nested protected functions, the outermost one is named.
+  Use a fixed name: in telemetry, a label that looks like data (an e-mail address, a URL, 4 or more digits in a row,
+  12 or more hex digits) is sent as `[redacted]`; `d.fn` in your app keeps it as written.
 - **No runtime, no cost.** A protected function looks up `GenClass.runtime` on every call. Before `GenClass.init()`
   (or after `GenClass.destroy()`) it calls `fn` directly.
 - **Also** as `GenClass.protect`, and on the script tag's `window.GenClass.protect`. With the script tag, use
@@ -300,10 +303,17 @@ What `protect(name, fn)` does:
 
 **`scope: "functions"`** (`InitOptions.scope`; also `data-scope="functions"` / `scope=functions` in the meta tag):
 GenClass still observes the whole app and keeps it as context in the situations it builds, but it raises decisions
-only for activity inside protected functions; it never holds or acts on anything else. Explicit questions
+only for activity inside protected functions; it never holds or acts on anything else. Standing questions from
+plugins (`rt.question()`, a plugin's `questions`) are only asked about protected activity too. Explicit questions
 (`rt.ask()`, `rt.decide()`) are still answered everywhere. The default,
 `scope: "app"`, decides about the whole app as before; `protect()` then only adds the function names. The mode still
 applies: in `observe` (the default) GenClass reports, in `guard` it may act on what protected functions cause.
+
+**With `/auto` or the script tag** (what `npx @genclass/runtime init` sets up), GenClass is already running before
+your code, so a later `GenClass.init({ token, scope })` is ignored (the console says so once). Set them where GenClass
+starts: `window.GENCLASS_CONFIG = { token: "gc_...", scope: "functions" }` in the `genclass.config.ts`/`.js` that
+`init` imports right before `/auto`, `<meta name="genclass" content="scope=functions">` in `<head>`, or
+`data-scope="functions"` on the script tag. Then wrap your functions with `protect()` as above.
 
 A per-function mode (`protect(name, fn, { mode })`) does not exist yet: use `routes` or `requests.protect` to narrow
 where GenClass acts.
@@ -408,7 +418,8 @@ These hold for the runtime; whether the model's decisions are good is a separate
   it changed carry an `x-genclass` header.
 - **Off in one step.** `?genclass=off` in the URL installs nothing, and observe (the default) never changes
   execution.
-- **Small on the main thread.** The main entry is about 92 KB gzip (minified, without the optional devtools). The
+- **Small on the main thread.** The main entry is about 91 KB gzip in `0.2.2` (minified, without the optional
+  devtools; see Performance for the next release). The
   default model is 10.2 MB on WASM (13.6 MB fp16 on WebGPU with `shader-f16`), downloaded once at idle and cached.
   It runs in a worker that holds 190 to 280 MB while loaded: see [Costs](#costs).
 
