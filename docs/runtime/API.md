@@ -115,7 +115,8 @@ interface InitOptions {
   redact?: (path: string, value: unknown, kind?: "state" | "url" | "header" | "input") => unknown; // runs after built-in redaction; a throw → "[redacted]"
   report?: "console" | "interventions" | "silent" | ((r: Report) => void);    // "interventions": console prints interventions, undos, breaker only
   learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string }; // version defaults to session.tags.release; mismatch discards
-  // model: also loadIf [{ saveData: "lazy" }], inlineFallback [true], threads ["auto"], timeoutMs [10000],
+  // model: also loadIf [{ minDeviceMemoryGB: 4, saveData: "skip" }: no model on devices reporting ≤ 2 GB or on Save-Data; () => true forces],
+  //        inlineFallback [true; false: a failed worker means no model, never the main thread], threads ["auto"], timeoutMs [10000],
   //        maxDecisionsPerMinute [30], unloadAfterIdleMs [false]
 }
 ```

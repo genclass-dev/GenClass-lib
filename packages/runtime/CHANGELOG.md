@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **A device floor by default.** `model.loadIf` now defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`: the
+  model (about 13 MB downloaded on a first visit and 190 to 280 MB more renderer memory while it is loaded, README
+  "Costs") is not loaded on devices whose `navigator.deviceMemory` is under 4 GB, which, as the value is quantised
+  to powers of two, means exactly the devices reporting 2 GB or less, nor on Save-Data connections (before:
+  Save-Data only made the load lazy). The runtime then keeps observing without a model (`status.state`
+  "skipped", reason `device-memory` / `save-data`; nothing is detected or prevented on that device) and prints
+  one line: `[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least
+  4 GB. …`. Browsers that do not report `deviceMemory` (Safari, Firefox) load as before. An object `loadIf`
+  without `saveData` now skips on Save-Data too (`saveData: "lazy"` keeps the old behaviour).
+  `model: { loadIf: () => true }` forces the load. `DEFAULT_LOAD_IF` is exported next to `deviceEnv` and
+  `evalLoadIf` (now in `src/model/device.ts`).
+
 ## 0.2.2 (2026-10-13)
 
 - **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so

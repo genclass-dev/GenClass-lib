@@ -61,8 +61,9 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
   load is never a delivery decision: the runtime first has to see what that request writes.
 - The devtools overlay: `Alt+Shift+G` on localhost (the `init` command loads it in development only).
 - The first-visit cost: about 13 MB downloaded from jsDelivr on WASM (model 10 MB plus ONNX Runtime's wasm) or
-  18 MB on WebGPU, cached afterwards, and 190–280 MB of memory in a Web Worker while the model is loaded. For
-  phones and strict Content-Security-Policies see
+  18 MB on WebGPU, cached afterwards, and 190–280 MB of memory in a Web Worker while the model is loaded. Devices
+  that report 2 GB of memory or less, and Save-Data connections, do not load the model by default (they observe
+  without it and say so in one console line). For phones and strict Content-Security-Policies see
   [self-hosting](packages/runtime/README.md#content-security-policy-and-self-hosting) and
   [`loadIf`](packages/runtime/README.md#costs) in the package README.
 

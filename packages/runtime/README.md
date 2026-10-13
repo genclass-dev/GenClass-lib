@@ -585,7 +585,7 @@ const rt = GenClass.init({
   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init
   model: {
     preload: "idle",
-    loadIf: { minDeviceMemoryGB: 2, saveData: "lazy" },
+    loadIf: { minDeviceMemoryGB: 8, saveData: "skip" },   // default { minDeviceMemoryGB: 4, saveData: "skip" }
     threads: 2,
     timeoutMs: 10_000,
     maxDecisionsPerMinute: 30,
@@ -722,9 +722,11 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   `Cross-Origin-Embedder-Policy: require-corp` enables WASM threads (about 3× faster with 4 threads in Chromium,
   measured with the round-1 model of the same size).
 - **Loading:** the model loads at idle after page load (`model.preload: "idle"`) from
-  `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`. It is cached in Cache Storage and checked
-  with sha256. To self-host, see [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting).
-  `model: false` loads no model (nothing is detected or prevented then).
+  `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`, except on devices that report 2 GB of
+  memory or less and on Save-Data connections (the default `model.loadIf`, see [Costs](#costs)). It is cached in
+  Cache Storage and checked with sha256. To self-host, see
+  [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting). `model: false` loads no
+  model (nothing is detected or prevented then).
 
 ## Costs
 
@@ -754,14 +756,19 @@ without `?genclass=off`:
 | Long tasks (> 50 ms) | unchanged (1 per run, 65 to 70 ms, with and without) |
 
 **On phones** the memory and the download are what matter (the page may also run a call, the camera or a
-recorder). Options that exist today:
+recorder). **By default the model is not loaded on devices that report 2 GB of memory or less, nor on Save-Data
+connections** (`model.loadIf` defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`; `navigator.deviceMemory` is
+quantised to powers of two, so 4 is exactly that floor; Safari and Firefox do not report it and load). The runtime
+then keeps observing without a model (nothing is detected or prevented on that device) and prints one line,
+`[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least 4 GB. …`.
+Options on top of that:
 
 ```ts
 GenClass.init({
   model: {
-    // no model on phones (Chromium reports userAgentData.mobile; Safari does not), or on small devices
-    loadIf: (env) => !env.mobile && (env.deviceMemoryGB ?? 8) >= 4,
-    // or: loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }   (skip on Save-Data connections too)
+    // no model on phones at all (Chromium reports userAgentData.mobile; Safari does not), or a higher floor
+    loadIf: (env) => !env.mobile && (env.deviceMemoryGB ?? 8) >= 8,
+    // or everywhere, floor and Save-Data ignored: loadIf: () => true
     preload: "lazy",            // download on the first salient situation, not at idle on every page
     unloadAfterIdleMs: 60_000,  // free the worker's memory after a minute without a decision
   },
@@ -769,7 +776,6 @@ GenClass.init({
 ```
 
 `model: false` keeps the runtime observing (console reports, `rt.status`, devtools) with no download and no worker.
-The default `loadIf` already loads lazily on Save-Data connections.
 
 ## Content-Security-Policy and self-hosting
 

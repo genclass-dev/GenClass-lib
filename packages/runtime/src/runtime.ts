@@ -95,6 +95,7 @@ import { installNav } from "./observe/nav.js";
 import { installStorage } from "./observe/storage.js";
 import { installPerf } from "./observe/perf.js";
 import { installWebSocket } from "./observe/websocket.js";
+import { deviceEnv, memoryFloor, skippedMessage } from "./model/device.js";
 import { installTimers } from "./observe/timers.js";
 import { defaultRedact, normalizeFieldPath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
 import { blockedMessage } from "./model/blocked.js";
@@ -485,6 +486,9 @@ export class RuntimeImpl implements Runtime {
       });
       this.uninstall.push(off);
     }
+    // the device floor (model.loadIf, src/model/device.ts): the model is not loaded here; say so once
+    if (this.ownsDecider && this.decider?.status.state === "skipped")
+      this.emitReport({ kind: "status", message: skippedMessage(this.decider.status.reason, deviceEnv(this.global), memoryFloor(mo)) });
     if (this.persist) this.loadProfiles();
     // enabled (OPTIONS-SPEC §4.1): false installs nothing; a predicate, Promise or flag runs pass-through until true
     const en = o.enabled;

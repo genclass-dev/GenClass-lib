@@ -443,11 +443,20 @@ export interface ModelOptions {
   ortWasmPaths?: string;
   cacheName?: string;
   /**
-   * Whether to load the model on this device. Default `{ saveData: "lazy" }` (Save-Data connections load lazily).
-   * false / "skip" → no download (status.state "skipped"); "lazy" → preload "lazy". Unknown values count as allowed.
+   * Whether to load the model on this device. Default `{ minDeviceMemoryGB: 4, saveData: "skip" }`: no model on
+   * devices whose `navigator.deviceMemory` is under 4 GB (the value is quantised to powers of two, so that is
+   * exactly "2 GB or less"; browsers that do not report it load) nor on Save-Data connections. The runtime then
+   * observes without a model (status.state "skipped" with `reason` "device-memory" / "save-data" / "loadIf") and
+   * prints one console line. `() => true` forces the load everywhere. false / "skip" → no download; "lazy" →
+   * preload "lazy"; `saveData: "ignore"` loads on Save-Data connections. Unknown values count as allowed.
    */
   loadIf?: { minDeviceMemoryGB?: number; saveData?: "skip" | "lazy" | "ignore" } | ((env: DeviceEnv) => boolean | "lazy");
-  /** Run inference on the main thread when the worker cannot start (default true). */
+  /**
+   * Run inference on the main thread when the model worker cannot start or crashes before it is up (default true).
+   * `false`: the model is then not loaded at all (status.state "skipped", reason "worker-unavailable", one console
+   * line naming the worker error) and the runtime observes without it; `worker: false` still runs inline, since
+   * that asks for the main thread explicitly.
+   */
   inlineFallback?: boolean;
   /** WASM threads (default "auto" = min(4, max(1, cores - 1))). */
   threads?: number | "auto";

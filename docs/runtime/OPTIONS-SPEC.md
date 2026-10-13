@@ -4,7 +4,7 @@ Status: ready for implementation. Branch `runtime`, package `packages/runtime`. 
 
 ## 0. Design rules
 
-1. **Every new option narrows behaviour or exports data. None of them widens it.** A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, `holdBudgetMs` is a hard ceiling, model loading is lazy on Save-Data, hidden tabs skip background evaluation, and query values are redacted in what the model sees.
+1. **Every new option narrows behaviour or exports data. None of them widens it.** A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, `holdBudgetMs` is a hard ceiling, model loading is skipped on small devices and Save-Data connections, hidden tabs skip background evaluation, and query values are redacted in what the model sees.
 2. **There is no bug knowledge in config.** Options control where the runtime watches or acts, how much it may do, and where findings go. The model alone decides what is wrong. Labels go to reports only by default (§4.4). Tags and correlation ids never reach the model or the gate.
 3. **One effective-mode function, and every term can only demote:**
 ```
@@ -46,7 +46,7 @@ order: off < observe < guard < heal
 | 12 | `session` + `rt.setSession()` | telemetry | random id, `{}` | new |
 | 13 | `report` | telemetry | `"console"` | extended (`"interventions"`) |
 | 14 | `learn` (+ `rt.learn.clear()`) | persistence | `{persist:false}` | extended |
-| 15 | `model.loadIf`, `model.inlineFallback` | load | `{saveData:"lazy"}`, `true` | new |
+| 15 | `model.loadIf`, `model.inlineFallback` | load | `{minDeviceMemoryGB:4, saveData:"skip"}`, `true` | new |
 | 16 | `model.threads`, `model.timeoutMs` | load | `"auto"`, `10000` | promoted from internal |
 | 17 | `model.maxDecisionsPerMinute` | load | `30` | new |
 | 18 | `model.unloadAfterIdleMs` | load | `false` | new |
@@ -476,20 +476,22 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Changing the release tag after init → no reload.
 
 ### 4.15 `model.loadIf` and `model.inlineFallback`
-**Defaults** `loadIf: { saveData:"lazy" }`, `inlineFallback: true`.
+**Defaults** `loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }` (unreleased; 0.2.2 and earlier: `{ saveData: "lazy" }`), `inlineFallback: true`.
 
 **Semantics.**
 - `loadIf` is evaluated before the ModelHost is constructed. Unknown device values count as allowed, and a throwing predicate counts as allowed, with a warning.
-- `false` or `"skip"` → no download, `status.model.state="skipped"` with a reason, and the runtime behaves as if `model:false`.
+- The default is a device floor: the model (10 MB on the wire, a worker of 190 to 280 MB) is not loaded on devices whose `navigator.deviceMemory` is under 4 GB, nor on Save-Data connections. `deviceMemory` is quantised to powers of two (0.25 … 8), so the floor skips exactly the devices reporting 2 GB or less; browsers that do not report it (Safari, Firefox) load. `model: { loadIf: () => true }` forces the load.
+- `false` or `"skip"` → no download, `status.state="skipped"` with a reason (`device-memory`, `save-data`, `loadIf`), the runtime behaves as if `model:false` (observes without a model) and prints one console status line saying so (`[GenClass] Model not loaded: …`; silent with `report: "silent"`).
 - `"lazy"` → `preload` is forced to `"lazy"`.
-- `inlineFallback:false` → if the worker fails, ORT does not run on the main thread, and the state is `skipped` with reason `worker-unavailable`.
+- `inlineFallback:false` → if the worker cannot be created or fails before it is up, ORT does not run on the main thread: the state is `skipped` with reason `worker-unavailable` and one console line names the worker error. `worker:false` still runs inline (explicit).
 - `loadIf` never affects decisions.
 
 **Tests.**
-- Save-Data with the default → lazy.
+- A 2 GB device (and 1, 0.5, 0.25) with the default → skipped; 4 GB, 8 GB and unknown → load; Save-Data with the default → skipped.
 - `minDeviceMemoryGB:4` with a 2 GB device → skipped, with zero model fetches.
 - Unknown device memory → loads.
-- A worker failure with `inlineFallback:false` → no ORT on the main thread.
+- `loadIf: () => true` on a 0.5 GB Save-Data device → loads.
+- A worker failure with `inlineFallback:false` → no ORT on the main thread, `skipped` / `worker-unavailable`.
 
 ### 4.16 `model.threads` and `model.timeoutMs`
 **Defaults** `"auto"` = `min(4, max(1, cores-1))`, and `10000`.
@@ -613,7 +615,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
 >   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init
 >   model: {
 >     preload: "idle",
->     loadIf: { minDeviceMemoryGB: 2, saveData: "lazy" },
+>     loadIf: { minDeviceMemoryGB: 8, saveData: "skip" },   // default { minDeviceMemoryGB: 4, saveData: "skip" }
 >     threads: 2,
 >     timeoutMs: 10_000,
 >     maxDecisionsPerMinute: 30,
@@ -639,7 +641,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
   1. `breaker` is on by default. Opt out with `breaker:false`.
   2. New `perSubject:10` (per rolling minute) and `perSession:200` limits. Opt out with `Infinity`. This may suppress frequent retries on polling endpoints.
   3. `holdBudgetMs` is now a hard ceiling that includes defers and `onBeforeAction` time.
-  4. `model.loadIf.saveData:"lazy"` forces lazy preload on Save-Data connections.
+  4. `model.loadIf` defaults to a device floor: no model on devices reporting 2 GB or less or on Save-Data connections (`{ minDeviceMemoryGB: 4, saveData: "skip" }`; the earlier draft said `saveData:"lazy"`).
   5. Hidden tabs skip background evaluation and release held items immediately (counted in `summary.model.hiddenSkipped`).
   6. Query and fragment values in recorded URLs are now `…` in situation text. **Model input changes, so add this to the eval plan and re-measure accuracy before release.** Sent URLs are unchanged.
   7. URL overrides can no longer raise mode or aggressiveness without `debug:true`.
