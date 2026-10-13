@@ -4,47 +4,74 @@
 
 ### App tokens and dashboards; function-specific protection with `protect()`
 
-Merged from PR #3 (`feat/projects`). Each web app can have a token that groups its diagnostics under a private
-dashboard on genclass.dev, and GenClass can be pointed at a few functions instead of the whole app. The dashboard
-server (`telemetry-worker/`: `/start`, `/dashboard/<secret>`, `/api/*` on genclass.dev) is already deployed; the
-published `0.2.1` ignores tokens, so the runtime side needs the next release. No situation text or other
-model-visible text changes (`scope: "functions"` changes which subjects are decided, never what the model reads
-about one). Nothing changes in what telemetry sends by default (no page text, off on local hosts) or in the
-opt-outs; the only additions to a batch are the envelope's `token` and `fn` on `decision` events (`fn` is sent with
-or without a token). Checked against the deployed collector on 2026-10-13 with a synthetic batch carrying a fresh
-token: accepted (202) at `/v1/events` and at `genclass.dev/api/v1/events`, and shown on that project's dashboard.
+Each web app can have a token that groups its diagnostics under a private dashboard on genclass.dev, and GenClass can
+be pointed at a few functions instead of the whole app. No model-visible text changes (`scope: "functions"` changes
+which subjects are decided, never what the model reads about one). Without a token, telemetry sends exactly what
+0.2.2 sends.
 
-- **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">`,
+- **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">` in `<head>`,
   `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as
   the telemetry batch envelope's top-level `token`; `runtime.telemetry.token` reports it. A malformed token logs one
-  console warning and is ignored; never throws. It does nothing while telemetry is off (with `debug: true` the
-  console says so once); opt-outs and Global Privacy Control still win.
+  console warning and is ignored; never throws. It does nothing while telemetry is off: on a local host the console
+  says so once (local hosts never feed a dashboard), otherwise only with `debug: true`. Opt-outs and Global Privacy
+  Control still win.
 - **`protect(name, fn)`** (named export, `GenClass.protect`, and `window.GenClass.protect` on the script tag): returns
   a function with the same signature whose calls run as an operation named `name` (like `runtime.op`), so the
   requests, state writes, timers and errors it causes are linked to it. `this`, arguments, return value and thrown
   errors pass through; sync stays sync; an async function's promise is replaced by one that settles the same way;
   other thenables are returned untouched. Safe to wrap at import time: without a runtime it calls `fn` directly.
-- **`InitOptions.scope`**: `"app"` (default, unchanged) or `"functions"`: decisions only for activity inside
-  protected functions (gated where triggers are raised and at the delivery gate); everything is still recorded as
-  context. Also `data-scope` / `scope=` in the meta tag.
-- **`Decision.fn`** and **`fn` on telemetry `decision` events**: the outermost protected function in the subject's
-  cause chain (the name the app chose, at most 80 characters).
-- **`init` creates a project**: by default `npx @genclass/runtime init` calls `POST https://genclass.dev/api/projects`
-  (name from `package.json`), writes the token into what it adds (`genclass.config.*`, `data-token`, or the Astro
-  meta line), prints the private dashboard link ("keep this link private; it is the only way to open your
-  dashboard"), and saves both in `.genclass.local` (added to `.gitignore` when there is one; `remove` keeps it).
-  `--token <gc_...>` uses an existing token without network, `--no-token` skips it, `--no-telemetry` implies no
-  token, `--dry-run` never calls the network. A network failure or HTTP error warns, continues without a token and
-  points to https://genclass.dev/start. Running `init` again reuses the token. The install tests preload a fake
-  `fetch`, so no test reaches genclass.dev.
-- **Not done:** a per-function mode (`protect(name, fn, { mode })`): route scopes are snapshotted per request, not
-  inherited through a call's cause chain, so it was left out.
-- **Cost:** about +1 KB gzip on each entry: `/auto` 99.6 KB and the main entry 92.3 KB, measured by
-  `test/bundle.test.ts` in CI (run 38336154873; 98 / 91 KB before). Its ceilings are now 101 KB / 93 KB and it prints
-  the measured sizes.
+- **`InitOptions.scope`**: `"app"` (default, unchanged) or `"functions"`: the runtime raises decisions only for
+  activity inside protected functions; everything is still recorded as context, and `runtime.ask()` is still
+  answered everywhere. Also `data-scope` / `scope=` in the meta tag.
+- **`Decision.fn`**: the outermost protected function in the subject's cause chain (the name the app chose, at most
+  80 characters), also on a held subject's answer that arrives after the hold budget. Telemetry `decision` events
+  carry it as `fn` **only when the app set a token** (it feeds that app's dashboard).
+- **`init` can create a project**: after you approve the diff (or with `--yes`), `npx @genclass/runtime init` calls
+  `POST https://genclass.dev/api/projects` with the `name` from `package.json`, writes the token into what it adds
+  (`genclass.config.*`, `data-token`, or the Astro meta line), prints the private dashboard link and saves both in
+  `.genclass.local` (added to `.gitignore` when there is one; `remove` keeps it). Nothing is sent when you decline,
+  when there is no terminal and no `--yes`, with `--dry-run`, `--token <gc_...>`, `--no-token` or `--no-telemetry`,
+  or when the project already has a token. A network failure or HTTP error warns, sets GenClass up without a token
+  and points to https://genclass.dev/start. Running `init` again reuses the token; on a setup made without one it
+  never creates a project as a side effect (pass `--token`).
+- **Not done:** a per-function mode (`protect(name, fn, { mode })`).
+- **Cost:** about +1 KB gzip on each entry (0.2.2: about 99 KB for `/auto`, 91 KB for the main entry;
+  `test/bundle.test.ts` prints the measured sizes).
 - **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
-  the token, the `fn` field and who can see dashboard data (90-day retention). Dashboards show counts, hostnames,
-  routes, function names, labels and versions, never situation text.
+  the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
+  see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
+
+## 0.2.2 (2026-10-13)
+
+- **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
+  `?genclass=guard|heal` and `localStorage.genclass` now only demote, from the app's mode or from `observe` when it
+  sets none (before, they opted a visitor into guard when the app set no mode, so a crafted link could turn on
+  guard-tier actions on a production site). Raising from the URL still works with `debug: true` or on a development
+  host (`localhost`, `*.local`, `*.test`, private networks). The zero-code entries (`/auto`, the script tag) read
+  `<meta name="genclass">` only inside `<head>` (before: anywhere, so markup injected into the body could set the
+  mode and the model URL), and a meta tag's model and onnxruntime-web URLs must be same-origin: a cross-origin one is
+  ignored with one console warning (use `data-model` / `data-ort`, `window.GENCLASS_CONFIG` or `GenClass.init()` for
+  a CDN of your own). THREAT-MODEL T8 updated.
+- **The first decision of a page load has a realistic hold budget, and a late answer is no longer thrown away.**
+  Before any measured decision the budget came from the warm-up pass, a ~430-token situation (49–74 ms on an Apple
+  GPU), so it was the 150 ms floor, while the first real decision measured 137 ms there: 13 ms of margin, and none
+  on a slower GPU. The warm-up time is now scaled by its per-token cost to a typical situation (1,200 tokens, plus
+  the worker round trip): 49 ms warm-up → 234 ms budget. An answer that arrives after a held request's or write's
+  deadline (the queue has moved on and released the subject, as before) was ignored entirely; it is now recorded
+  and reported ("the decision arrived after the hold budget expired"), counts as a latency sample and clears the
+  queue's "stuck" state. A held subject's queued decision whose subject already went its way runs behind fresh ones
+  while decisions are fast (median ≤ 300 ms) rather than being dropped. Deadlines, release timing and the queue's
+  occupancy are unchanged. (Not a fix for a hidden tab: held decisions are skipped there by design.)
+- **Telemetry goes to `https://genclass.dev/api/v1/events`** (the same collector worker, on the project domain instead
+  of a personal workers.dev URL), and **a page stops sending after 3 failed requests in a row**. A strict
+  Content-Security-Policy that does not allow the endpoint (the README's own example did not) logged a violation on
+  every 10 s flush; now it logs at most 3. Allow `https://genclass.dev` in `connect-src` or pass `telemetry: false`.
+  Nothing new is sent.
+- **Model downloads retry transient failures.** The model card and model files are retried on HTTP 408, 429 and 5xx
+  (after 1 s and 3 s, or a numeric `Retry-After` of at most 8 s) and once after a network error. A cached model card
+  is still used at once when the network fails, without waiting. Other statuses (a 404) are never retried. Before,
+  one rate-limited answer from jsDelivr left the page without a model: on the one production deployment, 5 of about
+  65 sessions on 2026-10-11/12 failed with "model card download failed: HTTP 429".
 
 ## 0.2.1 (2026-10-10)
 

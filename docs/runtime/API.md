@@ -147,9 +147,10 @@ Gate order (each request/decision): protected → cross-origin → op scope (cre
 mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → `policy.actionLimits`
 (`limit:perMinute|perSubject|perSession`; defaults 60/min global, 10/min per subject, 200 per session) → `onBeforeAction` (`vetoed`, `would-veto`, or
 `limit:hold` past the budget) → execute. effectiveMode = min(mode, sample cap, breaker cap, route rule); URL overrides
-(`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`) only demote unless `debug: true`, with one
-exception: when the app sets no `mode`, `?genclass=guard` (or `localStorage.genclass = "guard"`) opts that visitor into
-guard; an explicit `mode` makes it demote-only. `policy.holdBudgetMs` is a hard ceiling that includes defers, the
+(`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, `localStorage.genclass`) only demote, from the
+app's mode or from `observe` when it sets none; they may raise only with `debug: true` or on a development host
+(`localhost`, `*.local`, `*.test`, private networks). Before 0.2.2, `?genclass=guard` opted a visitor into guard when
+the app set no mode. `policy.holdBudgetMs` is a hard ceiling that includes defers, the
 wait for a response or request body, a held write's deferred re-decisions and the veto hook.
 
 Protected requests (`requests.protect`) are never held, never wait for their body to be read, and neither they nor

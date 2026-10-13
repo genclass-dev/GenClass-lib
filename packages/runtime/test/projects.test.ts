@@ -8,8 +8,8 @@ import { fromDataset, fromPairs, mergeConfig, parsePairs, readMetaConfig, readWi
 import { setProtectResolver } from "../src/protect.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import { resetTelemetryNotice } from "../src/telemetry/index.js";
-import type { TelemetryTransport } from "../src/types.js";
-import { defaultScript, setup } from "./helpers.js";
+import type { Answer, EvaluateRequest, TelemetryTransport } from "../src/types.js";
+import { defaultScript, setup, type Setup } from "./helpers.js";
 
 const TOKEN = "gc_AbCdEfGhIjKlMnOpQrStUv";
 
@@ -202,6 +202,55 @@ describe("protect(): same function, tracked", () => {
     const evs = transport.sent.flatMap((b) => b.body.events).filter((e) => e.t === "decision" && e.trigger === "failure");
     expect(evs.map((e) => e.fn).sort()).toEqual(["checkout submit", undefined]);
     s.rt.destroy();
+  });
+});
+
+/** The scripted decider answers `delay` ms of fake-clock time after it is asked. */
+function slowDecider(s: Setup, delay: number): void {
+  const d = s.decider;
+  const script = d.script;
+  d.evaluate = (req: EvaluateRequest) => {
+    d.calls.push(req);
+    return new Promise<Record<string, Answer>>((resolve) => s.clock.setTimeout(() => resolve(script(req)), delay));
+  };
+}
+
+describe("protect(): a held request answered after the hold budget (CONTRACT §8)", () => {
+  it("the late decision still carries fn, on the Decision and on the telemetry event", async () => {
+    const transport = recorder();
+    const s = setup({
+      token: TOKEN,
+      policy: { holdBudgetMs: 150 },
+      telemetry: { transport },
+      extraGlobal: { crypto: globalThis.crypto },
+      script: defaultScript({ request: { diagnosis: "duplicate", action: "coalesce" } }),
+    });
+    setProtectResolver(() => s.rt);
+    const { rt, clock, server } = s;
+    const reports: string[] = [];
+    rt.on("report", (r) => reports.push(r.message));
+    server.on("POST", "/api/orders", ({ n }) => ({ status: 201, body: { order: n }, latency: 1500 }));
+    slowDecider(s, 400); // answers 400 ms after it is asked: after the 150 ms budget
+    const submitOrder = protect("checkout submit", () => s.fetch("/api/orders", { method: "POST", body: JSON.stringify({ invoice: "INV-1042", amount: 2400 }) }));
+    const click = () =>
+      rt.user({ kind: "click", target: 'button "Send invoice"' }, () => {
+        void submitOrder().catch(() => undefined);
+      });
+    click();
+    await clock.advance(90);
+    click();
+    await clock.advance(3200);
+    // released at the budget (both POSTs sent, nothing coalesced), then the answer arrived and was recorded
+    expect(server.hits.get("POST /api/orders")).toBe(2);
+    expect(rt.interventions()).toHaveLength(0);
+    expect(reports.join("\n")).toMatch(/the decision arrived after the hold budget expired/);
+    const d = rt.decisions().find((x) => x.trigger === "request");
+    expect(d).toBeDefined();
+    expect(d!.fn).toBe("checkout submit");
+    await rt.telemetry!.flush();
+    const ev = transport.sent.flatMap((b) => b.body.events).find((e) => e.t === "decision" && e.trigger === "request");
+    expect(ev?.fn).toBe("checkout submit");
+    rt.destroy();
   });
 });
 

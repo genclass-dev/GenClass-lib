@@ -1,6 +1,7 @@
 // Anonymous diagnostics (InitOptions.telemetry, TELEMETRY.md): defaults, opt-outs, batching, page exit, event
 // shapes, the redacted situation text, transport failures, and that GenClass never observes its own requests.
 
+import { MAX_FAIL_STREAK } from "../src/telemetry/client.js";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenClass, createRuntime, DEFAULT_TELEMETRY_ENDPOINT, RUNTIME_VERSION, TELEMETRY_NOTICE } from "../src/index.js";
@@ -89,7 +90,7 @@ describe("telemetry: defaults and opt-outs (TELEMETRY.md)", () => {
     await rt.telemetry!.flush();
     const mine = sent.filter((s) => s.url === m.DEFAULT_TELEMETRY_ENDPOINT);
     expect(mine.length).toBeGreaterThan(0);
-    expect(m.DEFAULT_TELEMETRY_ENDPOINT).toBe("https://genclass-telemetry.mehar-144.workers.dev/v1/events");
+    expect(m.DEFAULT_TELEMETRY_ENDPOINT).toBe("https://genclass.dev/api/v1/events");
     const req = mine[0].init;
     expect(req.method).toBe("POST");
     expect(req.keepalive).toBe(true);
@@ -223,6 +224,46 @@ describe("telemetry: batching, flush and page exit", () => {
       expect(s.telemetry.sendFailures).toBeGreaterThanOrEqual(1);
       expect(() => rt.destroy()).not.toThrow();
     }
+  });
+
+  it("after MAX_FAIL_STREAK failed requests in a row a page stops sending (a CSP block logs at most 3 violations)", async () => {
+    const { rt, clock, transport } = tsetup({ triage: "always" }, {}, "reject");
+    const a = rt.atom("a", 1);
+    for (let i = 0; i < 6; i++) {
+      void rt.op(`w${i}`, () => a.set(i + 2));
+      await clock.flush();
+      await rt.telemetry!.flush();
+    }
+    expect(transport.sent).toHaveLength(MAX_FAIL_STREAK);
+    void rt.op("later", () => a.set(100));
+    await clock.advance(60_000);
+    await rt.telemetry!.flush();
+    expect(transport.sent).toHaveLength(MAX_FAIL_STREAK);
+    expect(a.get()).toBe(100);
+    expect(() => rt.destroy()).not.toThrow();
+    expect(transport.sent).toHaveLength(MAX_FAIL_STREAK);
+  });
+
+  it("a successful request resets the failure streak", async () => {
+    const sent: number[] = [];
+    let n = 0;
+    const outcomes = [false, false, true, false, false, true, false, false];
+    const transport = {
+      send: () => {
+        const ok = outcomes[n++] ?? true;
+        sent.push(n);
+        return ok ? Promise.resolve() : Promise.reject(new Error("HTTP 503"));
+      },
+    };
+    const s = setup({ triage: "always", telemetry: { transport }, extraGlobal: { crypto: globalThis.crypto } });
+    const a = s.rt.atom("a", 1);
+    for (let i = 0; i < 8; i++) {
+      void s.rt.op(`w${i}`, () => a.set(i + 2));
+      await s.clock.flush();
+      await s.rt.telemetry!.flush();
+    }
+    expect(sent.length).toBe(8);
+    s.rt.destroy();
   });
 });
 

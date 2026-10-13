@@ -90,6 +90,44 @@ async function demoApi(request, url) {
   return demoJson({ error: "not found" }, 404);
 }
 
+// ---------- model files from R2: genclass.dev/model/@genclass/runtime-model@<version>/files/<name> ----------
+// A first-party mirror of the published @genclass/runtime-model files, so the runtime does not depend on a third-party
+// CDN (jsDelivr answered HTTP 429 to real visitors of a production site on 2026-10-11). One immutable path per
+// version; CORS open (the model is public and the runtime verifies every file's sha256 against model.json).
+const MODEL_KEY = /^@genclass\/runtime-model@\d+\.\d+\.\d+(?:-[\w.]+)?\/files\/[\w.-]+$/;
+const MODEL_TYPES = { json: "application/json", onnx: "application/octet-stream" };
+async function serveModel(request, env, url, ctx) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-methods": "GET, HEAD", "access-control-max-age": "86400" } });
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+  let key;
+  try {
+    key = decodeURIComponent(url.pathname.slice("/model/".length));
+  } catch {
+    return new Response("Not found", { status: 404 });
+  }
+  if (!MODEL_KEY.test(key)) return new Response("Not found", { status: 404 });
+  const cache = caches.default;
+  const cacheKey = new Request(`${url.origin}${url.pathname}`, { method: "GET" });
+  const hit = await cache.match(cacheKey);
+  if (hit) return request.method === "HEAD" ? new Response(null, hit) : hit;
+  const obj = await env.MODELS.get(key);
+  if (!obj) return new Response("Not found", { status: 404 });
+  const headers = new Headers({
+    "content-type": MODEL_TYPES[key.slice(key.lastIndexOf(".") + 1)] || "application/octet-stream",
+    "content-length": String(obj.size),
+    etag: obj.httpEtag,
+    "cache-control": "public, max-age=31536000, immutable",
+    "access-control-allow-origin": "*",
+    "cross-origin-resource-policy": "cross-origin",
+    "x-content-type-options": "nosniff",
+  });
+  const res = new Response(obj.body, { status: 200, headers });
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return request.method === "HEAD" ? new Response(null, { status: 200, headers }) : res;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -97,6 +135,7 @@ export default {
       url.hostname = CANONICAL;
       return Response.redirect(url.toString(), 301);
     }
+    if (url.pathname.startsWith("/model/")) return serveModel(request, env, url, ctx);
     if (url.pathname === "/forms/waitlist") {
       if (request.method !== "POST") return new Response("Method not allowed", { status: 405, headers: { allow: "POST" } });
       return waitlist(request, env);

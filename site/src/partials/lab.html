@@ -1,10 +1,10 @@
 <div class="lab" id="lab" data-rt="{{rt}}">
   <div class="lab-tabs">
     <b class="lab-title">Live demo</b>
-    <span class="lab-chip">guard · maximum aggressiveness (demo)</span><a class="lab-chip-link" href="/?lab-thr=default#lab">production defaults</a>
+    <span class="lab-chip" id="lab-chip">guard · gain margins 0 · eager profile (demo)</span><a class="lab-chip-link" id="lab-alt" href="/?lab-thr=default#lab">shipped defaults (observe, balanced)</a>
     <span class="lab-live"><i></i><span id="gc-live">Loading GenClass {{rt}} on your device…</span></span>
   </div>
-  <p class="lab-intro">This demo runs guard at its most aggressive setting so you can see it act; production defaults act far less often.</p>
+  <p class="lab-intro" id="lab-intro">This demo runs guard mode with every gain margin at 0 and the eager profile, so you can see it act. The shipped defaults, observe mode and the balanced profile, report and do not act. Keep this tab in front: the model loads at idle and the stock poll pauses while the tab is hidden.</p>
 
   <div class="dup">
     <div class="dup-head">
@@ -31,7 +31,7 @@
 
   <div class="radar">
     <div class="radar-app">
-      <h3>Bugs that never throw, caught live</h3>
+      <h3>Bugs that never throw, reported live</h3>
       <p>A search box whose answers race each other, and a stock widget whose API you can break. No errors are thrown. Watch what GenClass reports.</p>
       <div class="radar-ctl">
         <label class="sr-only" for="lab-q">Search cities</label>
@@ -44,10 +44,10 @@
       </div>
     </div>
     <div class="radar-feed">
-      <div class="radar-feed-h"><b>GenClass</b><span><b id="gc-n">0</b> checked · <b id="gc-bugs">0</b> caught · <b id="gc-a">0</b> fixed</span></div>
+      <div class="radar-feed-h"><b>GenClass</b><span><b id="gc-n">0</b> checked · <b id="gc-bugs">0</b> flagged · <b id="gc-a">0</b> acted on</span></div>
       <ol id="gc-feed" aria-live="polite"><li class="feed-empty">Type in the search box or break the API. Detections appear here with the model's confidence and evidence.</li></ol>
     </div>
   </div>
 
-  <p class="lab-foot">Everything above is the real <code>@genclass/runtime@{{rt}}</code> from npm, deciding on your device (<span id="gc-backend">model loading</span>). The demo runs guard mode at maximum aggressiveness (<code>policy: { thresholds: { guard: 0 } }</code>); production defaults act less often and are <a href="/benchmarks">tuned for near-zero false fixes</a> (<a href="/?lab-thr=default#lab">try them here</a>). Telemetry is off on this site. Open DevTools to see the same <code>[GenClass]</code> lines.</p>
+  <p class="lab-foot">Everything above is the real <code>@genclass/runtime@{{rt}}</code> from npm, deciding on your device (<span id="gc-backend">model loading</span>). This run's settings: <code id="lab-cfg">mode: "guard", aggressiveness: "eager", policy: { thresholds: { guard: 0, heal: 0 } }</code>. The shipped defaults are <code>mode: "observe", aggressiveness: "balanced"</code>: <a href="/?lab-thr=default#lab">run the demo with them</a>, or with <a href="/?lab-mode=guard&amp;lab-thr=default#lab">guard at its shipped gates</a>. In the <a href="/docs/compatibility">compatibility matrix</a> guard at those gates left 249 of 250 runs with a latent bug buggy, so with the defaults this demo shows reports and no fix. The endpoint is real; the page asks for the delays so the race is reproducible. Telemetry is off on this site. Open DevTools to see the same <code>[GenClass]</code> lines.</p>
 </div>

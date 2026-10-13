@@ -82,7 +82,7 @@ import { installEventSource } from "./observe/eventsource.js";
 import { opLabel } from "./situation/describe.js";
 import { BUILTIN_ACTIONS, diagnosisVocabulary, PASSIVE, TRIGGER_ACTIONS } from "./situation/questions.js";
 import { STATE_CHAR_BUDGET, stateText } from "./situation/serialize.js";
-import { DeciderQueue } from "./decide/decider.js";
+import { DeciderQueue, typicalLatency, type DecideResult } from "./decide/decider.js";
 import { aggressivenessLevel, effectiveGates, gate, holdBudget, parseGate, permittedActions, policyConfig, RateLimiter, restriction, type PolicyConfig } from "./decide/policy.js";
 import { decisionLine, detectionLine, interventionLine, Reporter } from "./decide/report.js";
 import type { ActionEffect, Controller, EndOpts, NetHost, TriggerOpts } from "./decide/exec.js";
@@ -112,8 +112,11 @@ const DECISIONS_KEPT = 200;
  * After about a second the user has been looking at the new value; reverting it is a second visible change.
  */
 export const LATE_REVERT_MS = 800;
-/** Non-held triggers (stall, inconsistency, transition, error) are not worth answering after this long. */
-const BACKGROUND_DEADLINE_MS = 5000;
+/**
+ * Non-held triggers (stall, inconsistency, transition, error) are not worth answering after this long, and a held
+ * subject's answer arriving this long after it was asked is no longer recorded.
+ */
+export const BACKGROUND_DEADLINE_MS = 5000;
 /** A delivery `discard` keeps dropping the chain's writes over newer data for this long. */
 const DISCARD_MARK_MS = 10_000;
 /** A salient delivery waits at most this long for its body (a buffered clone) before deciding without it. */
@@ -1405,13 +1408,31 @@ export class RuntimeImpl implements Runtime {
       }, budget);
     }
     // deadline for the answer: held subjects need it within the hold budget (a held write may still be reverted
-    // shortly after it applied); background decisions within a few seconds
+    // shortly after it applied); background decisions within a few seconds. At the deadline the queue moves on
+    // (fail-open, the subject released); the answer that arrives later is not thrown away, see `late` below.
     const lateOk = waits && !!ctl.revert;
     const deadline = waits ? t0 + budget + (lateOk ? LATE_REVERT_MS : 0) : t0 + BACKGROUND_DEADLINE_MS;
-    // A delivery's controller is stale once the delivery was released: that only makes a queued decision useless
-    // when the delivery waits for it. A delivery released without waiting is still decided (detection, reports,
-    // standing questions); the decision cannot act any more (see onDecision).
+    // A held subject's controller is stale once the subject was released: its queued decision can only report
+    // (see onDecision), so the queue runs it behind fresh ones. A delivery released without waiting is still
+    // decided (detection, reports, standing questions) at its own priority; the decision cannot act any more.
     const stale = ctl.stale && (waits || spec.trigger !== "delivery") ? () => !!ctl.stale!() : undefined;
+    // A held request's or write's answer that arrives after its deadline (the queue already moved on and released
+    // it) is still a decision: recorded, reported ("the decision arrived after the hold budget expired") and a
+    // latency sample. Until 0.2.1 it was ignored: the first decision of a page load, 30 ms over a budget sized to
+    // the warm-up pass, was lost with its detection, and the queue read as stuck until some other answer arrived.
+    // A held delivery released at its budget is not covered: its chain's writes get their own decisions (and late
+    // reverts), so its own late answer stays ignored rather than reporting one incident twice.
+    const late = waits && spec.trigger !== "delivery"
+      ? (res: DecideResult) => {
+          try {
+            if (this.destroyed || this.clock.now() - t0 > BACKGROUND_DEADLINE_MS) return;
+            this.sum.decision(res.latencyMs);
+            this.onDecision(built, res.answers, this.clock.now() - t0, ctl, passive, { waits, covers: false, expired: true, passiveRan: () => passiveRan, hold: opts.hold, budget, block, subjectOp, ...(fn !== undefined ? { fn } : {}) });
+          } catch (e) {
+            this.log("late decision failed", e);
+          }
+        }
+      : undefined;
     this.queue
       .submit(
         {
@@ -1424,6 +1445,7 @@ export class RuntimeImpl implements Runtime {
         },
         deadline,
         stale,
+        late,
       )
       .then((res) => {
         if (budgetTimer !== null) this.clock.clearTimeout(budgetTimer);
@@ -1934,13 +1956,13 @@ export class RuntimeImpl implements Runtime {
   /**
    * The model's latency before any real decision: the warm pass timed after the pipelines compiled (WebGPU compiles
    * on the first pass, so the first pass alone would read as seconds and the first salient request after load would
-   * never be held), else the warm-up pass itself.
+   * never be held), else the warm-up pass itself. The warm pass is a small situation, so its time alone under-states
+   * a real decision by about 2.5× (61 ms vs 172 ms on genclass.dev); a budget derived from it expired before the first
+   * answer, which was then dropped unseen. Scale it by the per-token cost to a typical situation when the host
+   * reports one.
    */
   private warmLatency(): number {
-    const st = this.decider?.status;
-    const warm = st?.latency?.p50;
-    if (typeof warm === "number" && warm > 0) return warm;
-    return st?.warmupMs ?? 0;
+    return typicalLatency(this.decider?.status);
   }
 
   private expectedLatency(): number {

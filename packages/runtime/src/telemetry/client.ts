@@ -4,7 +4,8 @@
 // - Read-only on the runtime: it listens (rt.on, rt.tap) and reads decisionInfo(); nothing it does feeds a
 //   decision or changes model input (situation-v2 freeze). The situation text it sends is the exact text built
 //   from the state the model received, after the redactor.
-// - Never throws into the app or the runtime; failures drop the batch. Bounded queue (MAX_QUEUE events).
+// - Never throws into the app or the runtime; failures drop the batch, and MAX_FAIL_STREAK failures in a row stop the
+//   page from sending. Bounded queue (MAX_QUEUE events).
 // - Timers come from the runtime's Clock; times are ms since this session started (no wall clock: the collector
 //   stamps receivedAt). The session id is random per page load and never stored.
 
@@ -17,6 +18,8 @@ import { TELEMETRY_SCHEMA, type TelemetryConfig } from "./config.js";
 export const MAX_QUEUE = 1000;
 /** keepalive fetch and sendBeacon refuse bodies over 64 KiB. */
 export const MAX_REQUEST_BYTES = 60_000;
+/** Consecutive failed requests after which a page stops sending telemetry (a CSP block, a dead endpoint). */
+export const MAX_FAIL_STREAK = 3;
 export const SUMMARY_MS = 60_000;
 const MAX_ERROR_EVENTS = 20;
 
@@ -75,6 +78,8 @@ export class TelemetryClient implements TelemetryStatus {
   private errorEvents = 0;
   private dropped = 0;
   private sendFailures = 0;
+  /** Consecutive failed requests; at MAX_FAIL_STREAK the page stops sending (a CSP block or a dead endpoint). */
+  private failStreak = 0;
   private sentEvents = 0;
   private pending = new Set<Promise<void>>();
   private offs: (() => void)[] = [];
@@ -537,18 +542,39 @@ export class TelemetryClient implements TelemetryStatus {
       p = Promise.resolve(this.cfg.transport.send(this.cfg.endpoint, body, { beacon })).then(
         () => {
           this.sentEvents += n;
+          this.failStreak = 0;
         },
-        () => {
-          this.sendFailures++;
-        },
+        () => this.failed(),
       );
     } catch {
-      this.sendFailures++;
+      this.failed();
       return Promise.resolve();
     }
     this.pending.add(p);
     void p.finally(() => this.pending.delete(p));
     return p;
+  }
+
+  /**
+   * A request failed. After MAX_FAIL_STREAK failures in a row the page stops sending for good: a Content-Security-Policy
+   * that does not allow the endpoint would otherwise log a violation on every flush, and a dead endpoint costs a request
+   * every 10 s for nothing. The queue is dropped; nothing is retried.
+   */
+  private failed(): void {
+    this.sendFailures++;
+    this.failStreak++;
+    if (this.failStreak < MAX_FAIL_STREAK || this.stopped) return;
+    this.dropped += this.queue.length;
+    this.queue.length = 0;
+    this.stopped = true;
+    if (this.timer !== null) {
+      try {
+        this.rt.clock.clearTimeout(this.timer);
+      } catch {
+        /* ignore */
+      }
+      this.timer = null;
+    }
   }
 
   /** Final summary and flush (runtime destroyed). */

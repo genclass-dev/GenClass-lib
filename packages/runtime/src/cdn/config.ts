@@ -13,10 +13,12 @@
 // (off/false/no: no automatic state discovery; on by default in these entries), token (the app's dashboard token,
 // gc_...), scope (app or functions).
 //
-// Trust: every `<meta name="genclass">` in the document is read (head or body, first to last), and its keys can set
-// the mode and the model and onnxruntime-web URLs. That is deliberate (no build step needed), but on a page that
-// renders untrusted HTML able to contain <meta> tags, set those keys in window.GENCLASS_CONFIG (it wins over meta
-// tags) or call GenClass.init(options) instead of using /auto or the script tag's automatic start.
+// Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
+// (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model and
+// onnxruntime-web URLs it names must be same-origin (relative, or on the page's own origin): a cross-origin model or
+// ORT URL is ignored with one warning. Cross-origin URLs (a CDN of your own) go in the script tag's data-* attributes,
+// window.GENCLASS_CONFIG or GenClass.init(options). The URL switch (`?genclass=guard`) can no longer raise the mode
+// of a production site (index.ts).
 //
 // Remote code: an `integrity` attribute on the script tag covers that one file only. What it loads later at runtime
 // (dist/cdn/worker.js, dist/cdn/ort-*.js, dist/devtools/index.js, onnxruntime-web's wasm and the model files) is
@@ -145,16 +147,60 @@ export function mergeConfig(...configs: (PageConfig | null | undefined)[]): Page
   return out as PageConfig;
 }
 
-interface DocLike {
+interface MetaRoot {
   querySelectorAll?(sel: string): ArrayLike<{ getAttribute(name: string): string | null }>;
 }
+interface DocLike extends MetaRoot {
+  /** Only meta tags under <head> are read; a document-like object without `head` is searched whole (tests). */
+  head?: MetaRoot | null;
+}
 
-/** Every `<meta name="genclass" content="...">`, in document order. */
-export function readMetaConfig(doc: DocLike | null | undefined): PageConfig {
+/** Whether `url` (as written in a meta tag) resolves to the page's own origin. Relative URLs are same-origin. */
+export function sameOriginUrl(url: string, loc: { href?: string; origin?: string } | null | undefined): boolean {
+  const v = url.trim();
+  if (!v) return true;
+  if (v.startsWith("//")) return false; // protocol-relative: another host
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) return true; // no scheme: a path on this origin
+  try {
+    const base = loc?.href;
+    const origin = loc?.origin ?? (base ? new URL(base).origin : undefined);
+    return !!origin && new URL(v, base).origin === origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `<meta name="genclass" content="...">` tags under <head>, in document order. Model and onnxruntime-web URLs that are
+ * not same-origin are dropped (`warn` is told once).
+ */
+export function readMetaConfig(
+  doc: DocLike | null | undefined,
+  o: { location?: { href?: string; origin?: string } | null; warn?: (msg: string) => void } = {},
+): PageConfig {
   let c: PageConfig = {};
   try {
-    const metas = doc?.querySelectorAll?.('meta[name="genclass"]');
+    const root: MetaRoot | null | undefined = doc && "head" in doc ? doc.head : doc;
+    const metas = root?.querySelectorAll?.('meta[name="genclass"]');
     for (let i = 0; metas && i < metas.length; i++) c = mergeConfig(c, fromPairs(parsePairs(metas[i].getAttribute("content"))));
+    const m = c.model;
+    if (m && typeof m === "object") {
+      const dropped: string[] = [];
+      if (typeof m.baseUrl === "string" && !sameOriginUrl(m.baseUrl, o.location)) {
+        dropped.push(`model=${m.baseUrl}`);
+        delete m.baseUrl;
+      }
+      if (typeof m.ortWasmPaths === "string" && !sameOriginUrl(m.ortWasmPaths, o.location)) {
+        dropped.push(`ort=${m.ortWasmPaths}`);
+        delete m.ortWasmPaths;
+      }
+      if (dropped.length) {
+        o.warn?.(
+          `[GenClass] Ignored cross-origin ${dropped.join(", ")} in <meta name="genclass">; use data-model/data-ort, GENCLASS_CONFIG or GenClass.init().`,
+        );
+        if (!Object.keys(m).length) delete c.model;
+      }
+    }
   } catch {
     /* never break the page over configuration */
   }
