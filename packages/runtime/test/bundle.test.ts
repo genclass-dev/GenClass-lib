@@ -65,7 +65,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
   // Unreleased (wave1/defaults-footprint): the device floor's and the worker-unavailable lines, inlineFallback in the
   // host, Request replays rebuilt from their bytes, telemetry sampling and lazy push-message summaries; /auto measured
-  // over 100 KB in CI, so both limits move up by 1.5 KB (the CI log prints the measured sizes)
+  // over 100 KB in CI, so both limits move up by 1.5 KB (CI 2026-10-13: 100.61 / 93.13 KB; the log prints the sizes)
   const LIMIT_KB: Record<string, number> = { "auto.js": 101.5, "index.js": 93.5 };
   it("first-load cost of /auto and the main entry, minified + gzip: under 101.5 KB / 93.5 KB", async () => {
     const { build } = await import("esbuild");
