@@ -844,6 +844,8 @@ export class RuntimeImpl implements Runtime {
     const rec: SinkRecord = { schema: 1, kind, id: this.sinks.nextId(), ts: this.clock.now(), sessionId: this.sessionId, tags: { ...this.sessionTags }, mode: r.mode ?? this.sessionMode(), sampled: this.sampled };
     if (r.correlationId) rec.correlationId = r.correlationId;
     if (r.label) rec.label = r.label;
+    const route = op?.scope?.route ?? this.routeScope.route;
+    if (route) rec.route = route;
     if (d) {
       rec.diagnosis = d.diagnosis;
       rec.p = d.confidence;
@@ -866,7 +868,6 @@ export class RuntimeImpl implements Runtime {
         ...(ex ? { timeline: ex.timeline.map(redactUrlText) } : {}),
       };
     }
-    void op;
     return rec;
   }
 

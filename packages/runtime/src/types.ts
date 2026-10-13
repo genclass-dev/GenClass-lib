@@ -558,6 +558,8 @@ export interface SinkRecord {
   tier?: Tier;
   trigger?: TriggerKind;
   label?: string;
+  /** The page route (`location.pathname`) the subject's operation was created on, else the current one. */
+  route?: string;
   changed?: string[];
   undone?: boolean;
   shadow?: { action: string; tier: Tier; wouldPass: boolean; reason?: string };
@@ -731,7 +733,12 @@ export interface InitOptions {
   onBeforeAction?: (a: ActionRequest) => boolean | void;
   /** "report": call the hook and record its verdict but act anyway (default "enforce"). */
   vetoMode?: "enforce" | "report";
-  /** Structured, redacted records for your telemetry. */
+  /**
+   * Structured, redacted records for your own tools (OPTIONS-SPEC §4.11). Ready-made adapters, no dependencies:
+   * `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}`. The zero-code entries also take them by
+   * name: `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`, `<meta name="genclass"
+   * content="sink=sentry">`, `data-sink="sentry"` on the script tag, or `npx @genclass/runtime init --sink sentry`.
+   */
   sinks?: Sink[];
   /** Session id and tags stamped on records (never shown to the model). */
   session?: { id?: string; tags?: Record<string, string | number | boolean> };

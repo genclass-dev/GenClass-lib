@@ -73,7 +73,15 @@ export class SinkDispatcher {
     private readonly global: Record<string, unknown>,
     private readonly onError: (msg: string) => void,
   ) {
-    this.sinks = (sinks ?? []).filter(Boolean).map((s) => ({ o: typeof s === "function" ? { send: s } : s, n: 0, lastErr: -Infinity }));
+    this.sinks = [];
+    for (const s of sinks ?? []) {
+      if (typeof s === "function") this.sinks.push({ o: { send: s }, n: 0, lastErr: -Infinity });
+      else if (s && typeof s === "object" && typeof (s as SinkObject).send === "function") this.sinks.push({ o: s, n: 0, lastErr: -Infinity });
+      else if (s)
+        onError(
+          `sink ${JSON.stringify(s)} is neither a function nor { send }; ignored. Sinks by name ("sentry", "posthog", "datadog", "console-json", "webhook:<url>") work in the page configuration of /auto and the script tag; with GenClass.init() import the adapter from @genclass/runtime/sinks.`,
+        );
+    }
   }
 
   get size(): number {
