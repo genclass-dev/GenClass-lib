@@ -790,6 +790,9 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   build there). The WebGPU build's wasm is 27 MB, over the 25 MiB per-file limit of some static hosts (Cloudflare).
 - The policy also needs `'wasm-unsafe-eval'` in `script-src` (WebAssembly) and `worker-src 'self'` (or `blob:`
   for the script tag).
+- Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
+  `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
+  requests, so the policy logs at most 3 violations.
 
 ## Privacy and telemetry
 

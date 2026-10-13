@@ -12,6 +12,12 @@
   queue's "stuck" state. A held subject's queued decision whose subject already went its way runs behind fresh ones
   while decisions are fast (median ≤ 300 ms) rather than being dropped. Deadlines, release timing and the queue's
   occupancy are unchanged. (Not a fix for a hidden tab: held decisions are skipped there by design.)
+- **Telemetry goes to `https://genclass.dev/api/v1/events`** (the same collector worker, on the project domain instead
+  of a personal workers.dev URL), and **a page stops sending after 3 failed requests in a row**. A strict
+  Content-Security-Policy that does not allow the endpoint (the README's own example did not) logged a violation on
+  every 10 s flush; now it logs at most 3. Allow `https://genclass.dev` in `connect-src` or pass `telemetry: false`.
+  Nothing new is sent.
+
 - **Model downloads retry transient failures.** The model card and model files are retried on HTTP 408, 429 and 5xx
   (after 1 s and 3 s, or a numeric `Retry-After` of at most 8 s) and once after a network error. A cached model card
   is still used at once when the network fails, without waiting. Other statuses (a 404) are never retried. Before,
