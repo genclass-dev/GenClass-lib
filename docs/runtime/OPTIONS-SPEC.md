@@ -108,6 +108,7 @@ export interface SinkRecord {
   tags: Record<string, string | number | boolean>;
   correlationId?: string;      // from requests.correlate; never model-visible
   mode: ModeOrOff;             // effective mode at decision
+  route?: string;              // location.pathname the subject's op was created on (else the current one)
   sampled: boolean;
   diagnosis?: string; p?: number;
   action?: string; tier?: Tier;
@@ -420,7 +421,7 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Dispatch is queued (a microtask batch, then `requestIdleCallback`) and never runs on the decision or hold path.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On `pagehide`, or once on `visibilitychange→hidden` as a fallback, one `summary` record is emitted and each sink's `flush()` is called.
-- `rt.summary()` is always available. Vendor adapters are left to separate packages.
+- `rt.summary()` is always available. Vendor adapters ship as entries of the package, outside the first-load bundle: `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}` (`src/sinks/`, each a function returning a `SinkObject` that finds the SDK on the page at send time, never throws and sends only the record). The zero-code entries take them by name (`src/cdn/sinks.ts`: `window.GENCLASS_CONFIG.sinks: ["sentry"]`, `<meta name="genclass" content="sink=sentry">`, `data-sink`, `init --sink`), as a lazy proxy that loads the adapter on demand; a `webhook:<url>` joins `requests.ignore`. A string in `GenClass.init({ sinks })` is ignored with one warning.
 
 **Hooks.** `report.ts` (`toSinkRecord`, `SinkDispatcher`), the new `decide/summary.ts`, and a pagehide listener in `runtime.ts`.
 

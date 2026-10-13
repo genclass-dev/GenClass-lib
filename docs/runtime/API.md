@@ -109,6 +109,7 @@ interface InitOptions {
   onBeforeAction?: (a: ActionRequest) => boolean | void;// final sync veto (false or throw); counts against the hold budget
   vetoMode?: "enforce" | "report";                      // ["enforce"]; "report" records would-veto and runs the action
   sinks?: (SinkFn | { send: SinkFn; kinds?: SinkKind[]; sampleRate?: number; evidence?: boolean; flush?(): Promise<void> })[];
+                                                        // adapters: @genclass/runtime/sinks ("See it where you already look" below)
   session?: { id?: string; tags?: Record<string, string | number | boolean> }; // never shown to the model
   audit?: { size?: number; sink?: (e: AuditEntry) => void }; // [1000 kept in memory] the audit trail (rt.audit()); sink: your own logging
   redact?: (path: string, value: unknown, kind?: "state" | "url" | "header" | "input") => unknown; // runs after built-in redaction; a throw → "[redacted]"
@@ -459,6 +460,51 @@ A custom `report` function receives `{ kind: "detect" | "intervene" | "status", 
 
 Your own debug UI: GenClass ignores user events from inside any element marked `data-genclass-ignore` (the devtools
 overlay uses it), so debugging tools never become causes in situations.
+
+### See it where you already look
+
+`sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
+`sampled`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `label`, `route` (the page route the subject's operation was
+created on), `changed` (paths), `reason`, `shadow`, `correlationId`, and with `evidence: true` the redacted `message`,
+`subject` and `timeline`. Five adapters, no dependencies, each a function returning that sink shape, each finding the
+SDK on the page at send time (or taking the client you pass), never throwing, and sending nothing beyond the record:
+
+```ts
+import { consoleJson, datadog, posthog, sentry, webhook } from "@genclass/runtime/sinks"; // or @genclass/runtime/sinks/<name>
+
+sentry({ sentry: Sentry, as: "event", level: "warning", kinds, sampleRate, maxPerSignature: 10 });
+// Sentry.captureMessage(line, { level, tags: { genclass: diagnosis, "genclass.kind", "genclass.mode", "genclass.action",
+//   "genclass.trigger", "genclass.route" }, extra: { genclass: record }, fingerprint: ["genclass", <per-bug signature>] });
+// as: "breadcrumb" → Sentry.addBreadcrumb({ category: "genclass", message: line, data: record }) only.
+// Default SDK: globalThis.Sentry (the loader / CDN bundles); the npm SDK sets no global, so pass it.
+
+posthog({ posthog: client, prefix: "genclass_" });
+// posthog.capture("genclass_detection" | "genclass_intervention" | "genclass_undo" | "genclass_breaker" | "genclass_error",
+//   { ...record, message, subject, timeline, signature }). Default client: globalThis.posthog (the snippet's stub queues too).
+
+datadog({ rum: datadogRum, as: "error" });
+// detections and interventions: DD_RUM.addError(Error named GenClassDetection / GenClassIntervention, { genclass: record });
+// undo, breaker, error: DD_RUM.addAction("genclass_<kind>", { genclass: record }); as: "action" sends everything as actions.
+// Default SDK: globalThis.DD_RUM (the async stub's onReady is honoured).
+
+consoleJson({ method: "log", kinds });
+// console.log('{"source":"genclass","schema":1,"kind":"detection",...}'), one line per record, every kind (summary too).
+
+webhook({ url: "/genclass", flushMs: 5000, maxBatch: 50, headers, kinds, sampleRate });
+// POST { schema: "genclass-sink/1", version, records: SinkRecord[] } by navigator.sendBeacon, else fetch keepalive, as JSON
+// in a text/plain body; sent flushMs after the first record, at maxBatch, and on page hide. The records and nothing else:
+// no page text, no query values. With headers (fetch only) or no sendBeacon, list the URL in requests.ignore.
+```
+
+The tool adapters (sentry, posthog, datadog) default to `kinds: ["detection", "intervention", "undo", "breaker",
+"error"]` and cap repeats of one bug (same kind, trigger, diagnosis, action and subject shape) at `maxPerSignature`
+10 per page load; `consoleJson` and `webhook` forward every kind. The zero-code entries take sinks by name and load the
+adapter on demand (`dist/sinks/<name>.js`; `requests.ignore` gets a webhook URL): `window.GENCLASS_CONFIG = { sinks:
+["sentry", "webhook:/genclass"] }`, `<meta name="genclass" content="sink=sentry+posthog">` (`+` joins names, since
+commas separate the meta keys), `data-sink="sentry,posthog"` on the script tag, or `npx @genclass/runtime init --sink
+sentry`, which also suggests the flag when `package.json` depends on `@sentry/*`, `posthog-js` or
+`@datadog/browser-rum`. A name handed to `GenClass.init({ sinks })` directly is ignored with one warning: import the
+adapter there. The console default is unchanged.
 
 ### Audit trail
 

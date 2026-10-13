@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- **Findings reach the developer: sink adapters for the tools you already open.** `@genclass/runtime/sinks/sentry`,
+  `/posthog`, `/datadog`, `/console-json` and `/webhook` (also `@genclass/runtime/sinks`) forward every detection,
+  intervention, undo, breaker trip and runtime error: `Sentry.captureMessage` at level `warning` with tags `genclass`
+  (the diagnosis), `genclass.mode`, `genclass.action` and a per-bug fingerprint (or breadcrumbs with
+  `as: "breadcrumb"`); `posthog.capture("genclass_<kind>", { ... })`; `DD_RUM.addError` (`GenClassDetection`,
+  `GenClassIntervention`) and `DD_RUM.addAction("genclass_<kind>")`; one JSON line per record on the console; batched
+  POSTs of `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch`
+  keepalive. No new dependency: each finds the SDK on the page at send time (or takes the client you pass), never
+  throws, and sends only the record's own fields (the redacted console line, subject and timeline, diagnosis,
+  probability, action, route, session tags; never page text). Separate entries, so the first-load bundle is unchanged.
+- **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`,
+  `<meta name="genclass" content="sink=sentry+posthog">`, `data-sink="sentry,posthog"` on the script tag, and
+  `npx @genclass/runtime init --sink sentry` (repeatable; written to the option file, the tag or the Astro meta line;
+  `remove` takes it out). The zero-code entries load the adapter on demand and hand over the records queued meanwhile;
+  a `webhook:<url>` joins `requests.ignore`. `init` suggests the flag when `package.json` depends on `@sentry/*`,
+  `posthog-js` or `@datadog/browser-rum`. A string passed to `GenClass.init({ sinks })` directly is ignored with one
+  warning instead of failing silently.
+- `SinkRecord.route`: the page route (`location.pathname`) the subject's operation was created on.
+- The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
+
 ## 0.2.2 (2026-10-13)
 
 - **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**

@@ -128,12 +128,14 @@ Options without editing code (also on a project `init` already set up; `remove` 
 ```bash
 npx @genclass/runtime init --no-telemetry                # anonymous diagnostics off (--telemetry: explicitly on)
 npx @genclass/runtime init --model-url /genclass-model/  # a self-hosted model (see Content-Security-Policy below)
+npx @genclass/runtime init --sink sentry                 # findings in Sentry too: also posthog, datadog, console-json,
+                                                         # webhook:<url> ("See it where you already look" below)
 ```
 
 They go into a marked `genclass.config.ts` (or `.js`) next to your entry, which sets `window.GENCLASS_CONFIG` and is
 imported right before the `/auto` import (an ES module's imports run before its own code, so options cannot be set
 above the import in the same file). Any `GenClass.init()` option works in that file. Plain HTML gets
-`data-telemetry="off"` (and `data-model`, `data-ort`) on the script tag, Astro a `<meta name="genclass">` line.
+`data-telemetry="off"` (and `data-model`, `data-ort`, `data-sink`) on the script tag, Astro a `<meta name="genclass">` line.
 
 `init` also says that telemetry is on by default and how to turn it off, and when your app sets a
 Content-Security-Policy (`next.config` headers, a proxy or middleware, a `<meta http-equiv>`, helmet, `vercel.json`,
@@ -511,6 +513,67 @@ if (import.meta.env.DEV) {
 }
 ```
 
+### See it where you already look
+
+In production the console line prints in your users' browsers, not yours. Five sink adapters forward every detection,
+intervention, undo, breaker trip and runtime error to a tool you already open. They add no dependency: each uses the
+SDK already on the page (or the client you pass), never throws, and sends only the record the runtime built: the
+console line, the subject and timeline (query values already `…`), the diagnosis and its probability, the action, the
+route, your session tags. Never the situation text or any page text. They are entries of their own, so the first-load
+bundle does not change.
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { consoleJson, datadog, posthog, sentry, webhook } from "@genclass/runtime/sinks";
+import * as Sentry from "@sentry/browser";
+import posthogClient from "posthog-js";
+import { datadogRum } from "@datadog/browser-rum";
+
+GenClass.init({
+  sinks: [
+    sentry({ sentry: Sentry }),          // Sentry.captureMessage, level "warning", tags genclass (the diagnosis) / genclass.mode /
+                                         // genclass.action, one issue per bug (fingerprint), the record under extra.genclass;
+                                         // as: "breadcrumb" files breadcrumbs only
+    posthog({ posthog: posthogClient }), // posthog.capture("genclass_detection" | "genclass_intervention" | ..., { diagnosis, action, message, ... })
+    datadog({ rum: datadogRum }),        // DD_RUM.addError (GenClassDetection / GenClassIntervention) for detections and interventions,
+                                         // DD_RUM.addAction("genclass_undo" | "genclass_breaker" | "genclass_error") for the rest
+    consoleJson(),                       // one JSON line per record, every kind: {"source":"genclass","schema":1,"kind":"detection",...}
+    webhook({ url: "/genclass" }),       // batched POSTs of { schema: "genclass-sink/1", version, records } to your own endpoint
+  ],
+});
+```
+
+Each is also its own entry (`@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`, `/console-json`, `/webhook`).
+Without the client option they use the page's global (`window.Sentry` as the Sentry loader sets it, `window.posthog`,
+`window.DD_RUM`), looked up on every record, so a snippet that loads later still gets them. The tool adapters skip the
+per-session `summary` record, cap repeats of one bug at 10 per page load (`maxPerSignature`) and take `kinds` and
+`sampleRate`.
+
+The webhook sends the records and nothing else: `{ schema: "genclass-sink/1", version, records }`, each record with
+`kind`, `route`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `mode`, `label`, `reason`, `changed` (paths), `sessionId`,
+`tags` and the redacted `evidence` (`message`, `subject`, `timeline`). It goes by `navigator.sendBeacon` (never wrapped
+by GenClass, survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so
+parse it as JSON. Batches go 5 s after the first record, at 50 records and on page hide; `headers` switches it to
+`fetch`. List the URL in `requests.ignore` when `fetch` can be used (the zero-code forms below do).
+
+With no code, in the zero-code entries (`/auto`, the script tag) and from `init`:
+
+```bash
+npx @genclass/runtime init --sink sentry   # or posthog, datadog, console-json, webhook:/genclass; repeat it or comma-separate
+```
+
+```html
+<meta name="genclass" content="sink=sentry+posthog">     <!-- + joins names: commas separate the meta keys -->
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1" data-sink="sentry,posthog"></script>
+<script>window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] };</script>
+```
+
+A name becomes a small proxy at init; the adapter loads on demand (a lazy chunk of `/auto`, `dist/sinks/<name>.js` on
+the CDN for the script tag) and the records queued meanwhile are handed over. These forms use the page's global SDK:
+with an npm-installed Sentry either expose it (`window.Sentry = Sentry`) or pass the client to `GenClass.init`. `init`
+suggests the flag when your `package.json` depends on `@sentry/*`, `posthog-js` or `@datadog/browser-rum`. The
+console default is unchanged.
+
 ## Extend it
 
 Plugins can add their own observers, facts, actions and questions:
@@ -539,7 +602,7 @@ GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that ap
 - **Activation**: `enabled` (a boolean, a predicate, or a subscribable feature flag; while it is false the model is never downloaded), `rt.disable({ undo: true })` (remote kill that also rolls back recent actions), `sample` (the fraction of sessions allowed to act; the rest only observe).
 - **Scope**: `routes` (per-route mode and aggressiveness, which can only be lowered), `requests.ignore` (analytics traffic), `requests.protect` (endpoints that are never held, retried, cached or discarded), `requests.labels` (endpoint names for reports), `requests.correlate` (attach your trace id to records).
 - **Safety**: `breaker` (automatic downgrade after undos, or after errors that follow an action), `shadow` (records what a higher mode would have done), `onBeforeAction` + `vetoMode` (a synchronous veto, or a report-only trial of one), `policy.actionLimits` (per-minute, per-subject and per-session caps), `policy.holdBudgetMs` (a hard ceiling on added latency).
-- **Your own telemetry**: `sinks` (structured, redacted records), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
+- **Your own telemetry**: `sinks` (structured, redacted records; ready-made adapters in `@genclass/runtime/sinks` for Sentry, PostHog, Datadog, JSON console lines and a webhook, see "See it where you already look"), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
 - **Loading and cost**: `model.loadIf`, `model.threads`, `model.timeoutMs`, `model.maxDecisionsPerMinute`, `model.unloadAfterIdleMs`.
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.
