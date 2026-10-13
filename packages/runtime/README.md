@@ -16,10 +16,12 @@ WASM, in a Web Worker) answers two questions: what is happening, and which of th
 runtime has no list of known bugs: triage picks the situations, the model decides. By default it only reports; in
 `guard` mode it can also stop the failure before your users see it.
 
-**One line covers the whole app.** First in `<head>`:
+Two ways to use it:
+
+**Easy: one line, the whole app.** First in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1" data-token="gc_your_app_token"></script>
 ```
 
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`):
@@ -28,11 +30,33 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 import "@genclass/runtime/auto";
 ```
 
-That is the whole setup. Network traffic, user actions, errors and timing are observed, and so is your app's state:
-React component state (`useState`, `useReducer`, `useSyncExternalStore`, class state), Redux and Redux Toolkit
-stores, and Zustand stores with `devtools` are found automatically, with no store to register
-([Automatic state discovery](#automatic-state-discovery)). It starts in observe mode: it reports, and never changes
-what your app does (see Known limitations). `npx @genclass/runtime init` writes the line for you.
+`npx @genclass/runtime init` writes the line for you, creates your app's token and dashboard link, and puts the
+token where the line reads it. That is the whole setup. Network traffic, user actions, errors and timing are
+observed, and so is your app's state: React component state (`useState`, `useReducer`, `useSyncExternalStore`, class
+state), Redux and Redux Toolkit stores, and Zustand stores with `devtools` are found automatically, with no store to
+register ([Automatic state discovery](#automatic-state-discovery)). It starts in observe mode: it reports, and never
+changes what your app does (see Known limitations).
+
+**Function-specific: only the functions you choose.**
+
+```ts
+import { GenClass, protect } from "@genclass/runtime";
+
+GenClass.init({ token: "gc_your_app_token", scope: "functions" });
+
+export const submitOrder = protect("checkout submit", async (cart) => {
+  const res = await fetch("/api/orders", { method: "POST", body: JSON.stringify(cart) });
+  if (!res.ok) throw new Error(`order failed: ${res.status}`);
+  return res.json();
+});
+```
+
+GenClass then decides only about what `submitOrder` causes (a double submit, overlapping calls, a failure) and
+reports it under "checkout submit"; the rest of the app is recorded as context only.
+[Function-specific: protect()](#function-specific-protect).
+
+**Your dashboard.** The token sends your app's diagnostics to a private dashboard at genclass.dev: decisions,
+detections, actions, top routes and functions, model load and latency. [Your dashboard](#your-dashboard).
 
 > **Privacy notice: anonymous diagnostics are on by default.** `GenClass.init()` in a browser sends GenClass's
 > decisions and counts, without any text from your page, to the GenClass maintainers to improve the model; it is
@@ -69,7 +93,8 @@ what your app does (see Known limitations). `npx @genclass/runtime init` writes 
 
 ## Contents
 
-[Install](#install) · [Automatic state discovery](#automatic-state-discovery) ·
+[Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
+[Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [State it can protect](#state-it-can-protect) ·
 [Ask it questions](#ask-it-questions) · [Observability](#observability) · [Extend it](#extend-it) ·
@@ -123,6 +148,28 @@ npx @genclass/runtime remove             # undo exactly what init added
 Other flags: `--no-install`, `--no-devtools`, `--cwd <dir>`, `--cdn <url>` and `--no-sri` (plain HTML),
 `remove --keep-package`.
 
+**Token and dashboard.** By default `init` also creates a project for your app at genclass.dev (named after
+`package.json`'s `name`), writes its token into what it adds, and prints your private dashboard link:
+
+```
+  Your dashboard  https://genclass.dev/dashboard/...
+  Keep this link private; it is the only way to open your dashboard.
+  Saved in .genclass.local (added to .gitignore).
+```
+
+The link is saved in `.genclass.local` (with the token), and `.genclass.local` is added to `.gitignore` when the
+project has one; `remove` leaves that file alone. Running `init` again reuses the token (no new project).
+
+```bash
+npx @genclass/runtime init --token gc_...   # use a token you already have (no network)
+npx @genclass/runtime init --no-token       # no token, no network
+```
+
+`--no-telemetry` implies `--no-token` (a dashboard only gets data while telemetry is on). If genclass.dev cannot be
+reached, `init` says so, sets GenClass up without a token, and points you to
+[genclass.dev/start](https://genclass.dev/start); run `init --token gc_...` later. `--dry-run` never calls the
+network.
+
 Options without editing code (also on a project `init` already set up; `remove` takes them out too):
 
 ```bash
@@ -175,8 +222,9 @@ import "@genclass/runtime/auto/observe";  // observe, explicitly
 import rt from "@genclass/runtime/auto";  // the same, and the runtime it started
 ```
 
-Optional page configuration, read once: `<meta name="genclass" content="mode=guard, devtools=local">` or
-`window.GENCLASS_CONFIG = { mode: "guard", devtools: true }` (any `InitOptions`), set before the import runs. During
+Optional page configuration, read once: `<meta name="genclass" content="token=gc_..., mode=guard, devtools=local">` or
+`window.GENCLASS_CONFIG = { token: "gc_...", mode: "guard", devtools: true }` (any `InitOptions`), set before the
+import runs. During
 SSR or in Node, `/auto` installs nothing and returns an inert runtime.
 
 **3. One script tag** (no build step), first in `<head>`:
@@ -185,9 +233,11 @@ SSR or in Node, `/auto` installs nothing and returns an inert runtime.
 <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime" data-mode="observe" data-devtools="local"></script>
 ```
 
-It exposes `window.GenClass`, discovers the app's state like the import does, and loads the model worker, ONNX
-Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
-overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Pin a version in production
+It exposes `window.GenClass` (with `GenClass.protect`), discovers the app's state like the import does, and loads the
+model worker, ONNX Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe`
+(the default), `guard` or `heal`; `data-token="gc_..."` is your app's token; `data-scope="functions"` limits decisions
+to protected functions; `data-devtools="local"` shows the overlay only on localhost; `data-manual` skips the automatic
+`GenClass.init()`. Pin a version in production
 (`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 
@@ -201,7 +251,7 @@ npm install @genclass/runtime
 // first thing in your entry file
 import { GenClass } from "@genclass/runtime";
 
-const rt = GenClass.init(); // observe; GenClass.init({ mode: "guard" }) to let it act
+const rt = GenClass.init({ token: "gc_..." }); // observe; add mode: "guard" to let it act
 ```
 
 `GenClass.init()` does not discover state on its own: register stores ([State it can protect](#state-it-can-protect)),
@@ -211,6 +261,85 @@ The unscoped `genclass-runtime` alias is deprecated; use `@genclass/runtime`.
 
 **ESM only.** The package ships ES modules (no `require`). Jest users need a `transformIgnorePatterns` entry that lets
 `@genclass/runtime` be transformed, for example `["/node_modules/(?!@genclass/runtime)"]`.
+
+## Function-specific: protect()
+
+Use this when you want GenClass on a few functions that matter (a checkout submit, a search, a save) rather than on
+the whole app.
+
+```ts
+import { GenClass, protect } from "@genclass/runtime";
+
+GenClass.init({ token: "gc_...", scope: "functions" }); // early, e.g. in your entry file
+
+// Wrap at module level; calls made before GenClass.init() simply run fn.
+export const submitOrder = protect("checkout submit", async (cart: Cart) => {
+  const res = await fetch("/api/orders", { method: "POST", body: JSON.stringify(cart) });
+  if (!res.ok) throw new Error(`order failed: ${res.status}`);
+  return res.json();
+});
+
+export const search = protect("search", async (q: string) => {
+  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+  return (await res.json()) as Result[];
+});
+
+class CartStore {
+  save = protect("cart save", function (this: CartStore, items: Item[]) {
+    return api.put("/api/cart", items); // `this` is the store, as without protect
+  });
+}
+```
+
+What `protect(name, fn)` does:
+
+- **Same function.** It returns a function with the same signature: `this`, arguments, return value and thrown
+  errors pass through, and a sync function stays sync. For an `async` function you get a promise that settles
+  exactly like `fn`'s (it is a new promise object, as with `runtime.op`). Other thenables are returned untouched.
+  `protect` itself never throws.
+- **Each call is tracked.** The call runs as an operation named `name` (the same as `runtime.op(name, fn)`). The
+  requests, state writes, timers and errors it starts are linked to it, directly or through the causal chain GenClass
+  already follows (a request started after an `await` on one of the function's own requests counts). Work started
+  from somewhere else, such as a WebSocket message or another click handler, does not.
+- **Decisions name the function.** A decision about something a protected call caused carries `fn: name`
+  (`rt.on("decide", (d) => d.fn)`, the telemetry `decision` event, and your dashboard). With nested protected
+  functions, the outermost one is named.
+- **No runtime, no cost.** A protected function looks up `GenClass.runtime` on every call. Before `GenClass.init()`
+  (or after `GenClass.destroy()`) it calls `fn` directly.
+- **Also** as `GenClass.protect`, and on the script tag's `window.GenClass.protect`. With the script tag, use
+  `window.GenClass.protect`: a copy imported from npm would not see the script tag's runtime.
+
+**`scope: "functions"`** (`InitOptions.scope`; also `data-scope="functions"` / `scope=functions` in the meta tag):
+GenClass still observes the whole app and keeps it as context in the situations it builds, but it raises decisions
+only for activity inside protected functions. Everything else is never decided, held or acted on. The default,
+`scope: "app"`, decides about the whole app as before; `protect()` then only adds the function names. The mode still
+applies: in `observe` (the default) GenClass reports, in `guard` it may act on what protected functions cause.
+
+A per-function mode (`protect(name, fn, { mode })`) does not exist yet: use `routes` or `requests.protect` to narrow
+where GenClass acts.
+
+## Your dashboard
+
+Each web app gets a **token** and a private **dashboard link**:
+
+| | what | who may see it |
+|---|---|---|
+| token | `gc_` + 22 letters and digits, e.g. `gc_4fQ9...` | public: it ships in your page. It only lets your app's diagnostics be grouped together. |
+| dashboard link | `https://genclass.dev/dashboard/<secret>` | **private**: anyone with the link sees your app's stats, and it is the only way to open them |
+
+**Get one:** `npx @genclass/runtime init` (creates both, writes the token, prints the link and saves it in
+`.genclass.local`), or click "Get a token" at [genclass.dev/start](https://genclass.dev/start) and pass the token
+yourself: `GenClass.init({ token })`, `data-token="..."`, `<meta name="genclass" content="token=...">` or
+`window.GENCLASS_CONFIG = { token }`. A malformed token logs one console warning and is ignored.
+
+**What it shows:** decisions, detections by diagnosis, actions taken, top routes and protected functions,
+model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections.
+
+**What it needs:** telemetry on (the default with `GenClass.init()` in a browser). With telemetry off, a token does
+nothing (with `debug: true` the console says so once). Visitors who opt out (`?genclass=no-telemetry`,
+`localStorage["genclass.telemetry"] = "off"`) or whose browser sends Global Privacy Control are not counted. The
+token is sent with each telemetry batch; nothing else changes about what is sent ([Privacy and
+telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
 
 ## Automatic state discovery
 
@@ -536,6 +665,7 @@ measured.
 
 GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that applies once you opt into guard or heal, circuit breaker on). The options below narrow where it acts, cap how much it does, and send findings to your tools. None of them tell the model what a bug looks like. They only scope and limit it.
 
+- **Your app**: `token` (your dashboard, see [Your dashboard](#your-dashboard)), `scope` (`"app"` or `"functions"`, see [protect()](#function-specific-protect)).
 - **Activation**: `enabled` (a boolean, a predicate, or a subscribable feature flag; while it is false the model is never downloaded), `rt.disable({ undo: true })` (remote kill that also rolls back recent actions), `sample` (the fraction of sessions allowed to act; the rest only observe).
 - **Scope**: `routes` (per-route mode and aggressiveness, which can only be lowered), `requests.ignore` (analytics traffic), `requests.protect` (endpoints that are never held, retried, cached or discarded), `requests.labels` (endpoint names for reports), `requests.correlate` (attach your trace id to records).
 - **Safety**: `breaker` (automatic downgrade after undos, or after errors that follow an action), `shadow` (records what a higher mode would have done), `onBeforeAction` + `vetoMode` (a synchronous veto, or a report-only trial of one), `policy.actionLimits` (per-minute, per-subject and per-session caps), `policy.holdBudgetMs` (a hard ceiling on added latency).
@@ -798,6 +928,10 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and for each decision the trigger, the diagnosis and its confidence, the action and gate, the outcome, latency and counts. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
+- **With a token** (`token` option, `data-token`, `token=` in the meta tag), each batch also carries your app's public
+  token, and decisions about `protect()`ed functions carry the function's name (`fn`), so the same diagnostics also
+  show on your app's private dashboard (whoever holds its link can open it). Nothing else changes about what is
+  sent; without telemetry, a token does nothing.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 - Other telemetry options: `npx @genclass/runtime init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, flushMs, maxBatch, include }` sends to your own collector, samples page loads, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - **Inputs:** typed values of password fields, `cc-*` / `one-time-code` / password autocomplete fields, and fields
