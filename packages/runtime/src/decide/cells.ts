@@ -6,7 +6,7 @@
 // simulator, the real-app harness) can compare it with its own oracle before the fact is ever worded for the model.
 
 import type { Conflict } from "../situation/conflicts.js";
-import { vhash, type Cmp } from "../situation/content.js";
+import { itemIdKey, itemMap, vhash, type Cmp } from "../situation/content.js";
 import { isPlainObject } from "../util.js";
 
 /** SubjectRef.cellConflicts. */
@@ -15,77 +15,42 @@ export interface CellConflicts {
   cells: number;
   /** Conflicted fields with at least one such cell. */
   fields: number;
-  /** Some field's history did not reach back to the operation's start, so its cells were counted as conflicting. */
+  /** Some field's history did not reach back to the operation's start, so its changed cells were all counted. */
   approx: boolean;
 }
 
-const ITEM_ID = ["id", "_id", "uuid", "slug", "key"];
-const MAX_ITEMS = 2000;
-
-type Obj = Record<string, unknown>;
-
-function idKeyOf(items: unknown[]): string | undefined {
-  const sample = items.find(isPlainObject) as Obj | undefined;
-  return sample ? ITEM_ID.find((k) => typeof sample[k] === "string" || typeof sample[k] === "number") : undefined;
-}
-
-function byId(items: unknown[], key: string): Map<string, Obj> | null {
-  const m = new Map<string, Obj>();
-  for (const x of items.slice(0, MAX_ITEMS)) {
-    if (!isPlainObject(x)) return null;
-    const v = (x as Obj)[key];
-    if (typeof v !== "string" && typeof v !== "number") return null;
-    m.set(String(v), x as Obj);
-  }
-  return m;
-}
-
-/** Count one field: cells the incoming value changes whose current value differs from the value at the start. */
-function fieldCells(cmp: Cmp): { cells: number; approx: boolean } {
-  const startKnown = !!cmp.start;
-  const start = cmp.start?.value;
-  if (Array.isArray(cmp.current) && Array.isArray(cmp.incoming)) {
-    const key = idKeyOf([...cmp.current, ...cmp.incoming]);
-    const C = key ? byId(cmp.current, key) : null;
-    const I = key ? byId(cmp.incoming, key) : null;
+/** One field: cells the incoming value changes whose current value differs from the value at the start. */
+function fieldCells(c: Cmp): [number, boolean] {
+  const st = c.start, sv = st?.value;
+  if (Array.isArray(c.current) && Array.isArray(c.incoming)) {
+    const sample = [...c.current, ...c.incoming].find(isPlainObject);
+    const key = sample && itemIdKey(sample);
+    const C = key ? itemMap(c.current, key) : null, I = key && C ? itemMap(c.incoming, key) : null;
     if (key && C && I) {
-      const S = startKnown && Array.isArray(start) ? byId(start, key) : null;
-      let cells = 0;
+      const S = st && Array.isArray(sv) ? itemMap(sv, key) : null;
+      let n = 0;
       for (const [id, ci] of C) {
-        const ii = I.get(id);
-        if (!ii) continue;
-        const si = S?.get(id);
-        for (const k of Object.keys(ci)) {
-          if (k === key || !(k in ii) || vhash(ii[k]) === vhash(ci[k])) continue; // the response does not change it
-          if (!S) cells++; // start unknown: counted, approx
-          else if (!si || !(k in si) || vhash(si[k]) !== vhash(ci[k])) cells++; // newer than at the start
-        }
+        const ii = I.get(id), si = S?.get(id);
+        if (ii) for (const k in ci) if (k !== key && k in ii && vhash(ii[k]) !== vhash(ci[k]) && (!S || !si || !(k in si) || vhash(si[k]) !== vhash(ci[k]))) n++;
       }
-      return { cells, approx: !S };
+      return [n, !S];
     }
   }
   // a scalar, an object, or a list without an id key: the whole field is one cell
-  if (cmp.same) return { cells: 0, approx: false };
-  if (!startKnown) return { cells: 1, approx: true };
-  return { cells: vhash(start) === vhash(cmp.current) ? 0 : 1, approx: false };
+  if (c.same) return [0, false];
+  return st ? [vhash(sv) === vhash(c.current) ? 0 : 1, false] : [1, true];
 }
 
 /** The cell-level conflicts of a delivery over its conflicted fields; undefined when nothing was compared. */
 export function cellConflicts(conflicts: Conflict[], cmps: Cmp[]): CellConflicts | undefined {
-  if (!conflicts.length || !cmps.length) return undefined;
   const out: CellConflicts = { cells: 0, fields: 0, approx: false };
-  const seen = new Set<string>();
   let compared = 0;
-  for (const c of conflicts) {
-    if (seen.has(c.path)) continue;
-    seen.add(c.path);
-    const cmp = cmps.find((x) => x.path === c.path);
-    if (!cmp) continue;
+  for (const p of new Set(conflicts.map((x) => x.path))) {
+    const c = cmps.find((x) => x.path === p);
+    if (!c) continue;
     compared++;
-    const r = fieldCells(cmp);
-    out.cells += r.cells;
-    if (r.cells > 0) out.fields++;
-    if (r.approx && r.cells > 0) out.approx = true;
+    const [n, approx] = fieldCells(c);
+    if (n) { out.cells += n; out.fields++; if (approx) out.approx = true; }
   }
   return compared ? out : undefined;
 }

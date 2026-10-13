@@ -36,7 +36,7 @@ export function vhash(v: unknown): string {
   return leafOf(v).hash;
 }
 
-function itemIdKey(o: Obj): string | undefined {
+export function itemIdKey(o: Obj): string | undefined {
   return ITEM_ID.find((k) => typeof o[k] === "string" || typeof o[k] === "number");
 }
 
@@ -246,7 +246,7 @@ function sameChain(env: SitEnv, a: OpRec, writer: number | null): boolean {
   return !!w && (env.ops.isAncestorOrSelf(a, w) || env.ops.isAncestorOrSelf(w, a));
 }
 
-function itemMap(arr: unknown[], key: string): Map<string, Obj> | null {
+export function itemMap(arr: unknown[], key: string): Map<string, Obj> | null {
   const m = new Map<string, Obj>();
   for (const x of arr.slice(0, MAX_ITEMS)) {
     if (!isPlainObject(x)) return null;
