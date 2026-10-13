@@ -102,8 +102,8 @@ neither ever drops a detection:
   and so is every decision whose top diagnosis is not `expected` (a near-miss below the report gate included), every
   decision that ran an action or would have in shadow mode, and every veto.
 - **`decisionSample` (default `0.25`):** of the routine decisions (top diagnosis `expected`, passive action, no veto),
-  one in four is sent. The draw is a hash of the session id and the decision id, not a random number at decision
-  time.
+  one in four is sent. The draw is a hash of the session id and the decision id (mixed, so every page sends close to
+  that share), not a random number at decision time.
 - **`maxDecisions` (default `200`):** after 200 routine decisions' records in a page load, no more routine records are
   sent. Detections and the other events (`summary`, about once a minute while decisions continue, so the exact counts
   keep arriving; `action`, `veto`, `model`, `status`, `breaker`, `model-error`) continue. Summaries are not capped:

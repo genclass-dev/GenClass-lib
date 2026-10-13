@@ -1,7 +1,7 @@
 // Anonymous diagnostics (InitOptions.telemetry, TELEMETRY.md): defaults, opt-outs, batching, page exit, event
 // shapes, the redacted situation text, transport failures, and that GenClass never observes its own requests.
 
-import { MAX_FAIL_STREAK } from "../src/telemetry/client.js";
+import { MAX_FAIL_STREAK, decisionDraw } from "../src/telemetry/client.js";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenClass, createRuntime, DEFAULT_TELEMETRY_ENDPOINT, RUNTIME_VERSION, TELEMETRY_NOTICE } from "../src/index.js";
@@ -427,6 +427,22 @@ describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sam
     expect(none.decisions).toHaveLength(0);
     expect(none.sum.counts.decisions).toBe(10);
     expect(none.sum.telemetry.decisionsSampledOut).toBe(10);
+  });
+
+  it("the routine-record draw is even for every session: decision ids that differ only in their last digits do not skew a page's share", () => {
+    // fnv1a alone gave one session 0 of 80 and another 59 of 80 at 0.25; the finalizer keeps every session near 20
+    const per: number[] = [];
+    for (let k = 0; k < 200; k++) {
+      const sid = `${((k * 2654435761) >>> 0).toString(16).padStart(8, "0")}-4c0a-4b65-9e3f-${k.toString(16).padStart(12, "0")}`;
+      let n = 0;
+      for (let i = 1; i <= 80; i++) if (decisionDraw(`${sid}:d${i}`) < 0.25) n++;
+      per.push(n);
+    }
+    expect(Math.min(...per)).toBeGreaterThanOrEqual(5);
+    expect(Math.max(...per)).toBeLessThanOrEqual(36);
+    const share = per.reduce((a, b) => a + b, 0) / (200 * 80);
+    expect(share).toBeGreaterThan(0.23);
+    expect(share).toBeLessThan(0.27);
   });
 
   it("detections, actions and vetoes are never sampled out: their decision, detect and veto records all go", async () => {

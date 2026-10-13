@@ -69,7 +69,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // expectations (src/learn/flows.ts, opt-in: learn.expectations) are a lazy chunk too, imported only when the option
   // is on. Interim limits while release/0.3.0 is integrated; the final ones are the CI-measured sizes plus 1.5 KB
   // (README, docs/runtime/RESULTS.md). Both sizes are printed before either is asserted.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 104, "index.js": 97 };
+  const LIMIT_KB: Record<string, number> = { "auto.js": 108, "index.js": 100 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };

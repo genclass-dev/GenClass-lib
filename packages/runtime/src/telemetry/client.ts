@@ -62,6 +62,18 @@ export function fnLabel(s: unknown): string | undefined {
   if (v === undefined) return undefined;
   return DATA_LIKE.test(v) ? REDACTED : v;
 }
+/**
+ * A deterministic draw in [0, 1) from a string: fnv1a, then murmur3's 32-bit finalizer. fnv1a alone hardly mixes the
+ * last characters into the high bits, and decision ids ("d1", "d2", ...) differ only there, so the share a page sent
+ * swung with its session id (44 of 80 routine records at decisionSample 0.25 in one CI run).
+ */
+export function decisionDraw(s: string): number {
+  let h = parseInt(fnv1a(s), 16) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
+}
+
 const inc = (c: Counts, k: string, by = 1) => {
   c[k] = (c[k] ?? 0) + by;
 };
@@ -239,7 +251,7 @@ export class TelemetryClient implements TelemetryStatus {
         this.decisionsCapped++;
         return false;
       }
-      if (this.cfg.decisionSample < 1 && parseInt(fnv1a(`${this.cfg.sessionId}:${id}`), 16) / 0x100000000 >= this.cfg.decisionSample) {
+      if (this.cfg.decisionSample < 1 && decisionDraw(`${this.cfg.sessionId}:${id}`) >= this.cfg.decisionSample) {
         this.decisionsSampledOut++;
         return false;
       }
