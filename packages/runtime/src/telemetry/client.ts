@@ -243,8 +243,8 @@ export class TelemetryClient implements TelemetryStatus {
       }),
       sample: this.cfg.sample,
       situation: this.cfg.situation,
-      decisionSample: this.cfg.decisionSample,
-      maxDecisions: this.cfg.maxDecisions,
+      // decisionSample / maxDecisions are not sent (no owner OK for the page's config values, AGENTS.md rule 8): a
+      // collector scales from summary.telemetry (decisionRecords, decisionsSampledOut, decisionsCapped)
     });
   }
 

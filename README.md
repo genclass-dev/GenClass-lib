@@ -85,7 +85,9 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 - **Token and dashboard.** A token (`gc_` plus 22 letters and digits, public) groups your app's diagnostics under a
   private dashboard link (`https://genclass.dev/dashboard/...`; whoever holds the link sees the stats). Get one at
   [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. The
-  dashboard fills only from deployed pages with telemetry on, never from `localhost`. Data is kept for 90 days.
+  dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`,
+  private networks) do not send by default; `telemetry: true` or any telemetry options object (`telemetry: { ... }`)
+  is an explicit opt-in that sends from them too, with the token. Data is kept for 90 days.
 - **`protect(name, fn)`** returns a function with the same signature (same `this`, arguments, return value and
   errors); decisions about what it causes carry `fn: name`. Without a runtime it just calls `fn`.
   [Package README](packages/runtime/README.md#function-specific-protect).

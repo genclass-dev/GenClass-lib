@@ -1,7 +1,8 @@
 // Telemetry configuration: defaults, opt-outs and sampling (packages/runtime/TELEMETRY.md).
 //
-// On by default only through GenClass.init() in a browser on a public host (never on localhost, *.local, *.test or
-// private networks); createRuntime() and Node/SSR need an explicit option. The situation text the model read is
+// On by default only through GenClass.init() in a browser on a public host (the default stays off on localhost,
+// *.local, *.test and private networks, where an explicit `true` or options object still sends); createRuntime() and
+// Node/SSR need an explicit option. The situation text the model read is
 // sent only with `include: { situation: true }`.
 // Off, in this order: `telemetry: false`; `?genclass=no-telemetry` or `?genclass=off`; localStorage
 // "genclass.telemetry" = "off"; Global Privacy Control (navigator.globalPrivacyControl === true, an opt-out of
@@ -21,7 +22,10 @@ export const DEFAULT_TELEMETRY_ENDPOINT = "https://genclass.dev/api/v1/events";
 export const TELEMETRY_SCHEMA = "genclass-telemetry/1";
 /** Default share of routine decisions (no detection, no action, no veto) whose records are sent. Counts stay exact. */
 export const DEFAULT_DECISION_SAMPLE = 0.25;
-/** Default most decisions per page load whose records are sent; after that only `summary` counts go out. */
+/**
+ * Default most routine decisions (top diagnosis "expected", nothing acted) per page load whose `decision` records are
+ * sent; after that routine decisions are only counted in `summary`. Detections, actions and vetoes are never capped.
+ */
 export const DEFAULT_MAX_DECISIONS = 200;
 const MAX_DECISIONS_CEILING = 1_000_000;
 export const TELEMETRY_NOTICE =
@@ -55,7 +59,10 @@ export interface TelemetryConfig {
   situation: boolean;
   /** Share of routine decisions whose `decision` record is sent (0..1); detections, actions and vetoes always are. */
   decisionSample: number;
-  /** Most decisions per page load whose records (`decision`, `detect`, `veto`) are sent. */
+  /**
+   * Most routine decisions per page load whose `decision` records are sent. Only routine records are capped:
+   * `detect` and `veto` events, and the records of detections, near-misses, actions and vetoes, never are.
+   */
   maxDecisions: number;
   transport: TelemetryTransport;
   sessionId: string;

@@ -102,7 +102,7 @@ interface InitOptions {
     include?: { situation?: boolean };                  // [false]; true: include the redacted situation text
     decisionSample?: number;                            // [0.25] share of routine decisions (top diagnosis "expected", nothing acted) whose record is sent; every other decision always; counts exact
     maxDecisions?: number;                              // [200] most routine decisions' records per page load (Infinity: no cap); detections are never capped; summaries continue
-    transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown> }; // tests / custom pipelines
+    transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown> }; // tests / custom pipelines; a rejection with `status` 429 or `retryAfterMs` is a back-off (0.3.0)
   };
   autoState?: boolean | { react?: boolean; redux?: boolean; zustand?: boolean; pinia?: boolean };
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
@@ -282,8 +282,8 @@ on nearly every write are left out unless they are a learned sum or count of a l
 
 **Opt-in in 0.3.0** (`learn: { expectations: true }`): off by default until its false-report rate on correct apps is
 measured (docs/runtime/RESULTS.md, "Flow expectations"). Off, nothing below is learned, stored or reported, and its
-code (`src/learn/flows.ts`) is never loaded; on, the runtime imports it after the first idle (a lazy chunk, so it adds
-nothing to the first load) and learns from then on.
+code (`src/learn/flows.ts`) is never loaded; on, the runtime imports it on the next task after init (a 0 ms timer on
+the injected clock; a lazy chunk, so it adds nothing to the first load) and learns from then on.
 
 For every user action on a route (a click, a submit, a change, Enter; never typing) GenClass learns which requests it
 starts and how soon, which request follows which, what each response writes, where the page navigates and how long

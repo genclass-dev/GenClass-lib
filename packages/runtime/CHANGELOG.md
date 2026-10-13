@@ -21,6 +21,11 @@ text is still `situation-v2.3` and the default model is still `@genclass/runtime
   install nothing is stored; transition profiles are stored only with `learn.persist`, as before.
 - New and opt-in: sink adapters (`@genclass/runtime/sinks/*`, `init --sink`), flow expectations
   (`learn: { expectations: true }`), `protect()` and `scope: "functions"`.
+- **Sink adapters, if you add one, cap repeats and send evidence by default.** Unlike telemetry, the Sentry, PostHog,
+  Datadog and webhook adapters forward at most 10 records per bug signature per page load (`maxPerSignature`, `0`
+  for no cap), a sink's `sampleRate` below 1 can drop detections, and they send the redacted evidence (console line,
+  subject, timeline, which can hold short fragments of typed input) to that tool unless you pass `evidence: false`
+  (or `<name>:noevidence`).
 - **Observe reports more** (below): "possible" detections on `console.debug`, and situations from while the model
   loads or the tab is hidden, decided once it can. `detect: "likely"` restores 0.2.x's reports; guard and heal act
   exactly as before.
@@ -89,7 +94,8 @@ sends.
   `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as
   the telemetry batch envelope's top-level `token`; `runtime.telemetry.token` reports it. A malformed token logs one
   console warning and is ignored; never throws. It does nothing while telemetry is off: on a local host the console
-  says so once (local hosts never feed a dashboard), otherwise only with `debug: true`. Opt-outs and Global Privacy
+  says so once (local hosts feed a dashboard only with an explicit `telemetry: true` or telemetry options object),
+  otherwise only with `debug: true`. Opt-outs and Global Privacy
   Control still win. With a token, the telemetry console notice says the diagnostics also feed the app's dashboard.
   `token` and `scope` are fixed when GenClass starts: `GenClass.init({ token, scope })` on a runtime that `/auto` or
   the script tag already started is ignored with one console warning that says where to set them
@@ -135,8 +141,8 @@ sends.
   thinned: one in four is sent (`telemetry.decisionSample`, default `0.25`, drawn from a mixed hash of the session
   and decision ids, so every page sends close to that share), and no routine records after 200 in a page load
   (`telemetry.maxDecisions`). `summary` events still count every decision, detection, action and veto, and their
-  `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped`; the `session` event names
-  both settings. Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
+  `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped` (counts; the two settings
+  themselves are not sent). Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
   arriving after the cap (about 40 KB an hour). This narrows what is sent; nothing new about the page is sent.
   Measured in CI for one page over a simulated hour at 30 decisions a minute (scripted decisions, not the model;
   situation text off; run 38465242176): all routine, 250.3 KB in 163 requests (61 summaries, 39.3 KB); every
@@ -144,12 +150,13 @@ sends.
   docs/runtime/RESULTS.md §10).
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
 - **A 429 is a back-off, not a failure.** 0.2.2 stopped a page's telemetry after 3 failed requests in a row, and an
-  HTTP 429 from the collector's per-address limit counted as one, so pages behind a busy shared IP could go silent for
-  good. Now a 429, or any response with a `Retry-After` the page can read, puts the refused batch back at the front
-  of the queue and pauses sending for the `Retry-After` (seconds), else 30 s doubling per 429 in a row up to 5 minutes
-  (page exit still sends by `sendBeacon`); it is not a strike. Network errors and 5xx without a `Retry-After` still
-  count toward the stop. The default transport puts the HTTP `status` and a readable `retryAfterMs` on its error; a
-  custom transport can do the same (`TelemetryTransport`).
+  HTTP 429 from the collector's per-address limit counted as one, so pages behind a busy shared IP (an office or
+  campus network) could go silent for good, detections included. Now a 429, or any response with a `Retry-After`
+  the page can read, puts the refused batch back at the front of the queue and pauses sending for the `Retry-After`
+  (seconds), else 30 s doubling per 429 in a row up to 5 minutes (page exit still sends by `sendBeacon`); it is not
+  a strike. Network errors and 5xx without a `Retry-After` still count toward the stop. The default transport puts
+  the HTTP `status` and a readable `retryAfterMs` on its error; a custom transport can do the same
+  (`TelemetryTransport`).
 - **A page the device floor skips still reports why.** Its `session` event says `modelState: "skipped"`, and a
   `model` event with the reason (`device-memory`, `save-data`, `loadIf`) follows it; before, the reason was only in
   the console line, because the model never changed state after telemetry started.
@@ -221,7 +228,7 @@ sends.
 **Off by default** (`learn: { expectations: true }` turns it on) until its false-report rate on correct apps is
 measured (docs/runtime/RESULTS.md, "Flow expectations": the demos' clean-trial gate has not been run). Off, nothing
 is learned, stored or reported, and its code is never loaded: `src/learn/flows.ts` is a lazy chunk the runtime
-imports, after the first idle (on the injected clock), only when the option is on, so it adds nothing to the first
+imports on the next task after init (a 0 ms timer on the injected clock), only when the option is on, so it adds nothing to the first
 load (the script-tag file carries it inline). Activity before it loads is not learned.
 
 A deterministic, reporting-only layer (`docs/runtime/EXPECTATIONS.md`). For every user action on a route (click,
@@ -323,17 +330,17 @@ observer does not record the runtime's own writes.
 
 ### First-load size
 
-Minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38465242176, commit bff4a71): `/auto` (with state
-discovery) **106.24 KB** and the main entry (`GenClass.init()`) **98.21 KB**, against 99.17 KB and 91.70 KB in
-`0.2.2`. The test's limits are now those sizes plus 1.5 KB, **107.74 KB** and **99.71 KB** (owner-approved for
-0.3.0). Each first load is four files now (100.26 + 3.05 + 2.74 + 0.19 KB for `/auto`): the util code the lazy flow
+Minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38477010836, commit 7c7c6d6): `/auto` (with state
+discovery) **106.59 KB** and the main entry (`GenClass.init()`) **98.57 KB**, against 99.17 KB and 91.70 KB in
+`0.2.2`. The test's limits are the sizes at bff4a71 (106.24 / 98.21 KB, CI run 38465242176) plus 1.5 KB,
+**107.74 KB** and **99.71 KB** (owner-approved for 0.3.0); the telemetry 429 back-off added about 0.35 KB since. Each first load is four files now (100.26 + 3.05 + 2.74 + 0.19 KB for `/auto`): the util code the lazy flow
 chunk shares is a chunk of its own. Where it goes (CI, step by step, docs/runtime/RESULTS.md §10): app tokens and
 `protect()` about +1.8 KB; the device floor, telemetry sampling and Request replays about +1.5 KB; the sink names'
 proxy +0.8 KB on `/auto`; the flow expectations' runtime side and learned-state persistence about +3.3 KB (the flow
 layer itself, about 4 KB by difference, is a lazy chunk loaded only with `learn.expectations`). The script-tag file is
-126.12 KB (it carries the flow layer inline). Observe's detection tiers and deferred situations then add 1.42 KB to
-`/auto` and 1.48 KB to the main entry: **107.66 KB** and **99.69 KB** (CI run 38471973596; script tag 127.63 KB), still
-under the same limits (docs/runtime/RESULTS.md §11).
+126.45 KB (it carries the flow layer inline). Observe's detection tiers and deferred situations then add 1.07 KB to
+`/auto` and 1.12 KB to the main entry (the 429 back-off they brought is counted above): **107.66 KB** and
+**99.69 KB** (CI run 38471973596; script tag 127.63 KB), still under the same limits (docs/runtime/RESULTS.md §11).
 
 ## 0.2.2 (2026-10-13)
 

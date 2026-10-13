@@ -65,7 +65,7 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
   "token": "gc_…",           // only when the app configured a valid token (InitOptions.token); see "App tokens"
   "sid": "3f9c…",            // 24 hex chars from crypto.getRandomValues, new on every page load, never stored
   "sent": 12034,             // ms since this page's GenClass started (no wall-clock time is sent)
-  "runtime": "0.2.1", // @genclass/runtime version
+  "runtime": "0.3.0-beta.0", // @genclass/runtime version
   "model": "2.0.0-rc4t",     // model card version, or null without a model
   "events": [ /* ≤ 100 events, ≤ 60 KB per request */ ]
 }
@@ -75,7 +75,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 
 | `t` | when | fields |
 |---|---|---|
-| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included), `decisionSample`, `maxDecisions` (see [Volume](#volume)) |
+| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included). Not the page's `decisionSample` or `maxDecisions` setting: `summary.telemetry` says how many records were sent and withheld ([Volume](#volume)) |
 | `model` | model state changes, and once right after `session` when the model was skipped or failed before telemetry started (the device floor: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`) | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError` (why the model worker was not used, URLs replaced by `<url>`), `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
 | `decision` | a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted or was vetoed, always; a `decisionSample` share (default 1 in 4) of the routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
@@ -202,7 +202,7 @@ GenClass.init({
     endpoint: "https://…",          // default DEFAULT_TELEMETRY_ENDPOINT
     sample: 0.25,                    // fraction of page loads that send (default 1)
     decisionSample: 1,               // share of routine decisions whose record is sent (default 0.25; counts stay exact)
-    maxDecisions: 1_000,             // most decisions' records per page load (default 200; Infinity: no cap)
+    maxDecisions: 1_000,             // most routine decisions' records per page load (default 200; Infinity: no cap; detections never capped)
     flushMs: 10_000,                 // batch interval
     maxBatch: 100,                   // events per request
     include: { situation: true },    // also send the redacted situation text (default: off)

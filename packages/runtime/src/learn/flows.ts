@@ -19,7 +19,7 @@
 // follow-up only when one of the pair changes data.
 //
 // Opt-in (learn.expectations, default false until the false-report rate is measured): the runtime imports this module
-// with a dynamic import after the first idle only when the option is on, so it is never part of the first load. It also
+// with a dynamic import on the next task after init (a 0 ms timer) only when the option is on, so it is never part of the first load. It also
 // holds the `response` kind's bound and line (the runtime's stall timer asks it), so the runtime imports only types.
 
 import type { OpRec } from "../trace/ops.js";

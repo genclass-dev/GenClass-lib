@@ -421,7 +421,10 @@ describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sam
     expect(r.decisions).toHaveLength(t.decisionRecords);
     expect(t.decisionRecords).toBeGreaterThan(5); // a hash draw at 0.25 of 80: about 20
     expect(t.decisionRecords).toBeLessThan(40);
-    expect(ofType(r.transport, "session")[0]).toMatchObject({ decisionSample: 0.25, maxDecisions: 200 });
+    // the page's sampling settings are not sent (AGENTS.md rule 8): summary.telemetry is what a collector scales by
+    const session = ofType(r.transport, "session")[0];
+    expect(session).not.toHaveProperty("decisionSample");
+    expect(session).not.toHaveProperty("maxDecisions");
     // decisionSample: 1 sends every record, 0 none of the routine ones
     expect((await run(10, 500, {}, { decisionSample: 1 })).decisions).toHaveLength(10);
     const none = await run(10, 500, {}, { decisionSample: 0 });

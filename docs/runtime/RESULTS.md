@@ -388,7 +388,8 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | + flow expectations, `src/learn/flows.ts` lazy (`fcefedb`, run 38463736575) | 106.16 KB in 4 files | 98.13 KB in 4 files | 126.03 KB |
 | + even sampling draw (`c2f0b54`, run 38464240236) | 106.23 KB | 98.20 KB | 126.11 KB |
 | **0.3.0-beta.0** (`bff4a71`, run 38465242176) | **106.24 KB** (100.26 + 3.05 + 2.74 + 0.19) | **98.21 KB** (92.24 + 3.05 + 2.74 + 0.19) | **126.12 KB** (369.4 KB minified) |
-| limit in `bundle.test.ts` (measured + 1.5 KB, owner-approved for 0.3.0) | 107.74 KB | 99.71 KB | none |
+| + telemetry 429 back-off, no sampling settings in `session` (`7c7c6d6`, run 38477010836) | **106.59 KB** (100.62 + 3.05 + 2.74 + 0.19) | **98.57 KB** (92.59 + 3.05 + 2.74 + 0.19) | **126.45 KB** (370.5 KB minified) |
+| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0) | 107.74 KB | 99.71 KB | none |
 
 The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's
 99.17 KB on wave1/expectations, run 38455195053). Imported lazily, and only with `learn.expectations: true`, they
@@ -407,7 +408,8 @@ routine records per page load):
 |---|---|---|---|
 | `738a05b` (38461782967) | 242.4 KB, 106 requests | 2,064.7 KB, 361 requests | 2,064.7 KB, 361 requests |
 | `c2f0b54` (38464240236), the even draw below | 249.0 KB, 162 requests | 2,064.7 KB, 361 requests | 2,064.7 KB, 361 requests |
-| **`bff4a71` (38465242176)**, 0.3.0-beta.0 (a longer version string in every envelope) | **250.3 KB, 163 requests** | **2,067.1 KB, 361 requests** | 2,067.1 KB, 361 requests |
+| `bff4a71` (38465242176), 0.3.0-beta.0 (a longer version string in every envelope) | 250.3 KB, 163 requests | 2,067.1 KB, 361 requests | 2,067.1 KB, 361 requests |
+| **`7c7c6d6` (38477010836)**: 429 back-off; `session` without `decisionSample` / `maxDecisions` (about 40 bytes once per page load, below the 0.1 KB rounding) | **250.3 KB, 163 requests** | **2,067.1 KB, 361 requests** | 2,067.1 KB, 361 requests |
 
 Summaries: 61 per hour in every case, 39.3 KB (routine) and 40.8 KB (detections).
 
@@ -418,6 +420,13 @@ script over 200 fixed session ids, 80 decisions each: fnv1a alone sent 0 to 59 o
 with murmur3's 32-bit finalizer after it (`c2f0b54`) 9 to 32 of 80 (0.2499 overall). The unit test "the
 routine-record draw is even for every session" asserts the finalized draw on the same 200 sessions (5 to 36 per
 page, 0.23 to 0.27 overall). Detections never go through this draw.
+
+**The 429 back-off** (`7c7c6d6`, ported from wave2/detect-observe): `test/telemetry.test.ts` "a 429 or a
+Retry-After is a back-off" asserts, with a scripted transport, that five 429s in a row (more than the three failures
+that stop a page) never stop it, that nothing is sent during a back-off (30 s, 60 s, 120 s, 240 s, then 5 minutes
+with no Retry-After; exactly 5 s with `Retry-After: 5`), and that the refused batch is sent in order once the
+collector accepts it. These are behaviour checks, not rates: how many pages behind one address hit the collector's
+limit in production is not measured.
 
 **Not measured here:** browser timings, the install suite (`test/install/run-all.sh`, VM only), the demos'
 clean-trial gate for the flow expectations (§5), and any number with the model.

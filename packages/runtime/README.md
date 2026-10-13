@@ -344,8 +344,9 @@ yourself: `GenClass.init({ token })`, `data-token="..."`, `<meta name="genclass"
 model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections.
 
 **What it needs:** telemetry on (the default with `GenClass.init()` in a browser) on a deployed host. Local hosts
-(`localhost`, `*.local`, `*.test`, private networks) never send, so a page there does not feed the dashboard (the
-console says so once when a token is set). With telemetry off for any other reason, a token does nothing (with
+(`localhost`, `*.local`, `*.test`, private networks) do not send by default, so a page there does not feed the
+dashboard (the console says so once when a token is set). `telemetry: true` or any telemetry options object (for
+example `telemetry: { decisionSample: 1 }`) is an explicit opt-in that sends from local hosts too, token included. With telemetry off for any other reason, a token does nothing (with
 `debug: true` the console says so once). Visitors who opt out (`?genclass=no-telemetry`,
 `localStorage["genclass.telemetry"] = "off"`) or whose browser sends Global Privacy Control are not counted. With a
 token, each telemetry batch carries it and decisions about protected functions carry their `fn` name; nothing else
