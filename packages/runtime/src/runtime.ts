@@ -1967,8 +1967,8 @@ export class RuntimeImpl implements Runtime {
     if (st.fn !== undefined) decision.fn = st.fn;
     // likely (≥ the report gate) or possible (observe's lower tier; a deferred one at most): reporting only, nothing
     // above reads it
-    const tier = detectionTier(diagnosis, diagnosisConfidence, gates);
-    const detection = tier && st.detectOnly ? "possible" : tier;
+    const dt = detectionTier(diagnosis, diagnosisConfidence, gates);
+    const detection = dt && st.detectOnly ? "possible" : dt;
     if (detection) decision.detection = detection;
     this.decisionsBuf.push(decision);
     if (this.decisionsBuf.length > DECISIONS_KEPT) this.decisionsBuf.shift();
