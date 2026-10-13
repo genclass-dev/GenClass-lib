@@ -458,7 +458,7 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - An intervention is printed.
 
 ### 4.14 `learn` (extended) and `rt.learn.clear()`
-**Type** `{ persist?: boolean|"local"|"session"; key?; version? }`. **Defaults** `persist:false`, `key:"genclass:learn"`, and `version` equal to `session.tags.release` **as read once at init**.
+**Type** `{ persist?: boolean|"local"|"session"; key?; version?; maxBytes?; expectations?; minSupport?; minShare?; minSessions? }`. **Defaults** `persist:"local"` (was `false` until the flow-expectations change; see `docs/runtime/EXPECTATIONS.md` §4), `key:"genclass:learn"`, `version` equal to `session.tags.release` **as read once at init**, `maxBytes:200000`.
 
 **Semantics.**
 - `true` means `"local"`, which matches today's behaviour.

@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+### Flow expectations: learn what each action usually does, report the step that did not happen
+
+A deterministic, reporting-only layer (`docs/runtime/EXPECTATIONS.md`). For every user action on a route (click,
+submit, change, Enter; never typing) the runtime learns which requests it starts and how soon, which request follows
+which, what each response's chain writes, where the page navigates and how long the flow settles. Once a step was
+seen in at least 95% of 8 or more observations over 2 or more visits, a flow in which it did not happen is reported:
+a click that sent nothing within its learned deadline, a follow-up request that never came after its predecessor
+completed, a response whose chain wrote nothing, a navigation that did not happen, and a request still waiting past
+twice its p99 latency. The model is never consulted for these and nothing acts on them in any mode. No model-visible
+text changed (no new fact, trigger or situation text).
+
+- `Report.kind "expectation"` with `Report.expectation` (the learned counts); `rt.on("expectation", fn)`; sink
+  records of kind `expectation` (counts and signatures, no page text); one console line per deviation in the usual
+  style, with a collapsed group; folded repeats as for every report. `report: "interventions"` prints none.
+- `rt.learned()`: the learned flows (current route first) with their steps, counts, shares and delays, the recent
+  deviations and the learned relations. Devtools: an **Expectations** tab shows the same.
+- `learn.expectations` (default true), `learn.minSupport` (8), `learn.minShare` (0.95), `learn.minSessions` (2; 1
+  without persistence) and `learn.maxBytes` (200,000).
+- Skipped while the page is hidden or offline, for requests under `requests.protect`, on routes with `mode: "off"`,
+  for the second click of a double click and for disabled controls (the DOM observer now records
+  `UserAction.data.disabled`; not model-visible).
+
+### Learned state persists by default
+
+`learn.persist` now defaults to `"local"` (it was `false`): transition profiles and flows are kept per origin in
+`localStorage` under `genclass:learn`, discarded when `learn.version` (default `session.tags.release`) changes, capped
+at `learn.maxBytes`, cleared by `rt.learn.clear()`; `learn.persist: false` keeps everything in memory. What is
+stored: request signatures, normalised routes and field names, counts and delay samples; user-action labels only as
+hashes (transition profiles of user actions are stored under `user#<hash>`), never values. The storage observer does
+not record the runtime's own writes. Before this, user-action learning almost never activated in a default install
+(20 completions of the same action within one page load).
+
 ## 0.2.1 (2026-10-10)
 
 - **Telemetry: no page text by default.** `telemetry.include.situation` now defaults to **false**: decision events
