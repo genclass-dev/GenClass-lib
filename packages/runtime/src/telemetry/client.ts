@@ -5,7 +5,9 @@
 //   decision or changes model input (situation-v2 freeze). The situation text it sends is the exact text built
 //   from the state the model received, after the redactor.
 // - Never throws into the app or the runtime; failures drop the batch, and MAX_FAIL_STREAK failures in a row stop the
-//   page from sending. Bounded queue (MAX_QUEUE events).
+//   page from sending. A 429 (or any response with a Retry-After) is a back-off, not a failure: the batch goes back to
+//   the front of the queue and nothing is sent until the Retry-After (else BACKOFF_MS, doubling to MAX_BACKOFF_MS)
+//   has passed; only page exit (sendBeacon) sends during it. Bounded queue (MAX_QUEUE events).
 // - Timers come from the runtime's Clock; times are ms since this session started (no wall clock: the collector
 //   stamps receivedAt). The session id is random per page load and never stored.
 // - Volume (TELEMETRY.md "Volume"): every decision is counted in `summary`. Detections are never sampled or capped:
@@ -29,6 +31,9 @@ export const MAX_QUEUE = 1000;
 export const MAX_REQUEST_BYTES = 60_000;
 /** Consecutive failed requests after which a page stops sending telemetry (a CSP block, a dead endpoint). */
 export const MAX_FAIL_STREAK = 3;
+/** First back-off after a 429 without a readable Retry-After; doubled for each 429 in a row, up to MAX_BACKOFF_MS. */
+export const BACKOFF_MS = 30_000;
+export const MAX_BACKOFF_MS = 300_000;
 export const SUMMARY_MS = 60_000;
 const MAX_ERROR_EVENTS = 20;
 
@@ -117,6 +122,9 @@ export class TelemetryClient implements TelemetryStatus {
   private sendFailures = 0;
   /** Consecutive failed requests; at MAX_FAIL_STREAK the page stops sending (a CSP block or a dead endpoint). */
   private failStreak = 0;
+  /** Back-off (429, Retry-After): nothing is sent before this clock time except on page exit; 429s in a row. */
+  private backoffUntil = -Infinity;
+  private backoffs = 0;
   private sentEvents = 0;
   /** Decisions whose records were sent, routine ones sampled out (decisionSample), and routine ones over maxDecisions. */
   private decisionRecords = 0;
@@ -234,8 +242,8 @@ export class TelemetryClient implements TelemetryStatus {
       }),
       sample: this.cfg.sample,
       situation: this.cfg.situation,
-      decisionSample: this.cfg.decisionSample,
-      maxDecisions: this.cfg.maxDecisions,
+      // decisionSample / maxDecisions are not sent (no owner OK for the page's config values, AGENTS.md rule 8): a
+      // collector scales from summary.telemetry (decisionRecords, decisionsSampledOut, decisionsCapped)
     });
   }
 
@@ -563,26 +571,36 @@ export class TelemetryClient implements TelemetryStatus {
   private arm(): void {
     if (this.timer !== null || this.stopped) return;
     try {
+      // during a back-off the next send waits for its end
+      const wait = Math.max(this.cfg.flushMs, this.backoffUntil - this.rt.clock.now());
       this.timer = this.rt.clock.setTimeout(() => {
         this.timer = null;
         if (this.dirty && this.rt.clock.now() - this.lastSummaryAt >= SUMMARY_MS) this.summary("periodic");
         void this.flush(false);
-      }, this.cfg.flushMs);
+      }, wait);
     } catch {
       this.timer = null;
     }
   }
 
-  /** Send everything queued, in requests of ≤ maxBatch events and ≤ MAX_REQUEST_BYTES. Never rejects. */
+  /**
+   * Send everything queued, in requests of ≤ maxBatch events and ≤ MAX_REQUEST_BYTES. Never rejects. During a
+   * back-off only a page-exit flush (`beacon`) sends; otherwise the queue waits for the back-off to end.
+   */
   flush(beacon = false): Promise<void> {
     try {
       if (this.timer !== null) {
         this.rt.clock.clearTimeout(this.timer);
         this.timer = null;
       }
+      if (!beacon && this.rt.clock.now() < this.backoffUntil) {
+        if (this.queue.length) this.arm();
+        return Promise.resolve();
+      }
       const sends: Promise<void>[] = [];
       while (this.queue.length) {
         const parts: string[] = [];
+        const batch: Ev[] = [];
         let n = 0;
         const head = this.header();
         let bytes = head.length + 2;
@@ -602,13 +620,13 @@ export class TelemetryClient implements TelemetryStatus {
             continue;
           }
           if (bytes + s.length + 1 > MAX_REQUEST_BYTES) break;
-          this.queue.shift();
+          batch.push(this.queue.shift()!);
           parts.push(s);
           bytes += s.length + 1;
           n++;
         }
         if (!n) continue;
-        sends.push(this.send(`${head}${parts.join(",")}]}`, n, beacon));
+        sends.push(this.send(`${head}${parts.join(",")}]}`, batch, beacon));
       }
       return Promise.all(sends).then(() => undefined);
     } catch {
@@ -628,23 +646,58 @@ export class TelemetryClient implements TelemetryStatus {
     return `{"schema":${JSON.stringify(TELEMETRY_SCHEMA)},${token}"sid":${JSON.stringify(this.cfg.sessionId)},"sent":${this.at()},"runtime":${JSON.stringify(RUNTIME_VERSION)},"model":${JSON.stringify(model)},"events":[`;
   }
 
-  private send(body: string, n: number, beacon: boolean): Promise<void> {
+  private send(body: string, batch: Ev[], beacon: boolean): Promise<void> {
     let p: Promise<void>;
     try {
       p = Promise.resolve(this.cfg.transport.send(this.cfg.endpoint, body, { beacon })).then(
         () => {
-          this.sentEvents += n;
+          this.sentEvents += batch.length;
           this.failStreak = 0;
+          this.backoffs = 0;
         },
-        () => this.failed(),
+        (e: unknown) => this.refused(e, batch),
       );
-    } catch {
-      this.failed();
+    } catch (e) {
+      this.refused(e, batch);
       return Promise.resolve();
     }
     this.pending.add(p);
     void p.finally(() => this.pending.delete(p));
     return p;
+  }
+
+  /** A rejected send: a back-off (429, Retry-After) or a failure. */
+  private refused(e: unknown, batch: Ev[]): void {
+    const b = backoffOf(e);
+    if (b === null) this.failed();
+    else this.backOff(b, batch);
+  }
+
+  /**
+   * The collector asked this page to slow down (429, or a Retry-After): not a failure. The batch goes back to the
+   * front of the queue (within MAX_QUEUE; what does not fit counts as dropped) and nothing is sent until the
+   * Retry-After, else BACKOFF_MS doubling per 429 in a row up to MAX_BACKOFF_MS, has passed.
+   */
+  private backOff(retryAfterMs: number | undefined, batch: Ev[]): void {
+    if (this.stopped) return;
+    this.backoffs++;
+    // a Retry-After of at most an hour (backoffOf: ≥ 0), else the doubling schedule
+    const ms = retryAfterMs ?? Math.min(MAX_BACKOFF_MS, BACKOFF_MS * 2 ** (this.backoffs - 1));
+    this.backoffUntil = Math.max(this.backoffUntil, this.rt.clock.now() + Math.min(3_600_000, ms));
+    const room = Math.max(0, MAX_QUEUE - this.queue.length);
+    if (batch.length > room) this.dropped += batch.length - room;
+    this.queue.unshift(...batch.slice(0, room));
+    // several requests of one flush refused: keep the events in the order they were queued
+    this.queue.sort((a, b) => (a.seq as number) - (b.seq as number));
+    if (this.timer !== null) {
+      try {
+        this.rt.clock.clearTimeout(this.timer);
+      } catch {
+        /* ignore */
+      }
+      this.timer = null;
+    }
+    this.arm();
   }
 
   /**
@@ -700,6 +753,18 @@ export class TelemetryClient implements TelemetryStatus {
   settled(): Promise<void> {
     return Promise.all([...this.pending]).then(() => undefined);
   }
+}
+
+/**
+ * A rejected send that asks for a back-off: the error's `status` is 429, or it carries `retryAfterMs` (the transport
+ * read a Retry-After header). Returns the wait in ms (undefined: none given), or null for an ordinary failure.
+ */
+export function backoffOf(e: unknown): number | undefined | null {
+  if (!e || typeof e !== "object") return null;
+  const x = e as { status?: unknown; retryAfterMs?: unknown };
+  const ra = typeof x.retryAfterMs === "number" && Number.isFinite(x.retryAfterMs) && x.retryAfterMs >= 0 ? x.retryAfterMs : undefined;
+  if (ra !== undefined) return ra;
+  return x.status === 429 ? undefined : null;
 }
 
 /** runtime.telemetry when nothing is sent. */

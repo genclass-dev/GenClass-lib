@@ -459,8 +459,11 @@ class Devtools {
       this.seen(d.at);
     }
     for (const a of safe(() => this.rt.interventions(MAX_CARDS), [] as ActionRecord[]).slice().sort((x, y) => x.at - y.at)) this.addAct(a, false);
+    // the runtime's own detection rule with the report gate it decided with (explain().gates; else the trigger's gate
+    // now): exactly the decisions the "detect" event, the console and telemetry reported, never a threshold of its own
+    const report = (d: Decision): number => safe(() => this.rt.explain(d.id)?.gates?.report ?? this.rt.gates(d.trigger).report, Infinity);
     for (const d of decs) {
-      if (d.diagnosis && d.diagnosis !== "expected" && diagP(d) >= 0.6) this.addDet(d, false);
+      if (d.diagnosis && d.diagnosis !== "expected" && d.diagnosisConfidence >= report(d)) this.addDet(d, false);
     }
     for (const e of safe(() => this.rt.history(MAX_ROWS), [] as RtEvent[])) this.addEvent(e);
   }

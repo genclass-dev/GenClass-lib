@@ -147,8 +147,8 @@ salient request, response or failure. `policy.holdBudgetMs` lowers it; `observe`
 
 **Threat.** Diagnostics, sink records, reports or the audit trail carry personal data.
 
-**Mitigations.** Telemetry (on by default for `GenClass.init` in a browser on a public host, never on localhost or
-private networks) sends only what [TELEMETRY.md](../../packages/runtime/TELEMETRY.md) lists: decisions, action
+**Mitigations.** Telemetry (on by default for `GenClass.init` in a browser on a public host; off by default on localhost
+and private networks, where only an explicit `telemetry: true` or options object sends) sends only what [TELEMETRY.md](../../packages/runtime/TELEMETRY.md) lists: decisions, action
 outcomes and counts, the hostname and id-normalised route; no page text unless the app opts in with
 `telemetry: { include: { situation: true } }`, and never input values of sensitive fields, cookies, headers, bodies
 or the sentences describing changes. With situation text opted in, it can carry request names with query strings,

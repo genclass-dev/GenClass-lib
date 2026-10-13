@@ -801,10 +801,12 @@ export interface InitOptions {
   situation?: { budget?: number | "auto" };
   /**
    * Anonymous diagnostics sent to the GenClass maintainers to improve the model (packages/runtime/TELEMETRY.md):
-   * session info, every decision (trigger, its calibrated answers, the gate and what ran; the redacted situation
-   * text the model read only with `include: { situation: true }`), action outcomes, detections, model errors and
-   * periodic counts. Never raw input values, cookies, headers or storage. **Default: on with `GenClass.init()` in a
-   * browser on a public host** (one console notice per page; never on localhost or private networks); off in
+   * session info, decisions (trigger, its calibrated answers, the gate and what ran: every detection, near-miss,
+   * action and veto; a `decisionSample` share of routine ones; the redacted situation text the model read only with
+   * `include: { situation: true }`), action outcomes, detections, model errors and periodic counts. Never raw input
+   * values, cookies, headers or storage. **Default: on with `GenClass.init()` in a browser on a public host** (one
+   * console notice per page; the default is off on localhost and private networks, where `true` or an options
+   * object is an explicit opt-in that sends from them too); off in
    * Node/SSR and with `createRuntime()` unless set here. Off with `false`, `?genclass=no-telemetry` (or `off`),
    * `localStorage["genclass.telemetry"] = "off"`, or when the browser sends Global Privacy Control
    * (`navigator.globalPrivacyControl === true`).
@@ -869,7 +871,7 @@ export interface LearnOptions {
   /**
    * Flow expectations (`expectation` reports, rt.learned().flows). Default false (opt-in until their false-report rate
    * is measured, docs/runtime/RESULTS.md): nothing is learned, stored or reported, and src/learn/flows.ts is never
-   * loaded. true: the layer is imported after the first idle (a lazy chunk, no first-load cost) and learns from then on.
+   * loaded. true: the layer is imported on the next task after init (a lazy chunk, no first-load cost) and learns from then on.
    */
   expectations?: boolean;
   /**
@@ -1028,7 +1030,12 @@ export interface TelemetryOptions {
 }
 
 export interface TelemetryTransport {
-  /** `beacon`: the page is going away (pagehide / hidden); prefer navigator.sendBeacon. */
+  /**
+   * `beacon`: the page is going away (pagehide / hidden); prefer navigator.sendBeacon. Reject to report a failed
+   * request: an error whose `status` is 429, or that carries `retryAfterMs` (a Retry-After header, in ms), is a
+   * back-off (the batch is queued again and sending pauses), never one of the failures that stop telemetry; any other
+   * rejection (a network error, a 5xx) counts as a failure.
+   */
   send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown>;
 }
 

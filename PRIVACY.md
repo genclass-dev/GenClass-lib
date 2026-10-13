@@ -11,8 +11,9 @@ GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: karan@daybot.ca
 
 ## What we collect
 
-When a website runs GenClass with telemetry on (the default on public websites; never on localhost or private
-networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2.2), the browser sends us:
+When a website runs GenClass with telemetry on (the default on public websites; off by default on localhost and
+private networks unless the website's developer opts in explicitly with `telemetry: true` or a telemetry options
+object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2.2), the browser sends us:
 
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
   write), the model's diagnosis and suggested action, its confidence, and whether anything was changed or undone.
@@ -26,9 +27,14 @@ networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2
   their users.
 - **Technical details:** GenClass and model versions, settings, device type (WebGPU or WASM), load times and error
   counts, and the website's hostname.
+- **The page's path**, with id-like segments replaced by `:id` and no query string or fragment (for example
+  `/orders/:id`), on each page load and each decision.
 - **Your approximate country**, from our server provider.
-- **The website's GenClass token**, if the site set one. It tells us which website the data came from, so that
-  website's owner can see it on their dashboard.
+- **The website's GenClass token**, if the site set one (from runtime 0.3.0). It tells us which website the data
+  came from, so that website's owner can see it on their dashboard.
+- **Names of protected functions, only if the site set a token** (from runtime 0.3.0): the name the developer gave a
+  function wrapped with `protect()`, on the decisions about what that function caused. A name that looks like data
+  (an e-mail address, a URL, 4 or more digits in a row, a long hex id) is sent as `[redacted]`.
 
 We do **not** store IP addresses, browser user-agent strings or cookies, and we do not set cookies. Each page
 load gets a random session ID that is not saved anywhere.

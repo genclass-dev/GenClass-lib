@@ -140,7 +140,10 @@ const TYPING_BURST_MS = 1000;
 const LEARN_FORMAT = 2;
 /** learn.maxBytes default: the stored learned state (profiles and flows) is trimmed to this many characters. */
 const LEARN_MAX_BYTES = 200_000;
-/** With learn.expectations on, src/learn/flows.ts is imported this long after init (injected clock): after the first idle. */
+/**
+ * With learn.expectations on, src/learn/flows.ts is imported this long after init, on the injected clock: a 0 ms timer,
+ * so the next task after init (not an idle callback; the import itself is asynchronous).
+ */
 const FLOWS_LOAD_MS = 0;
 
 interface ExplainRec {
@@ -564,7 +567,7 @@ export class RuntimeImpl implements Runtime {
       this.enabledState = "disabled";
       return;
     }
-    // flow expectations (opt-in): imported after the first idle, never on the first load
+    // flow expectations (opt-in): imported on the next task after init (a 0 ms timer), never on the first load
     if (this.flowsWanted)
       this.flowsTimer = this.clock.setTimeout(() => {
         this.flowsTimer = null;
