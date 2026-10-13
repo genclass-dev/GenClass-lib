@@ -18,8 +18,9 @@ import { hostConfig } from "../../bin/lib/host.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(HERE, "..", "..", "bin", "genclass-runtime.mjs");
 const MOCK = pathToFileURL(resolve(HERE, "mock-account.mjs")).href;
-const SESSION = "gcs_TestSession0123456789abcdefghijklmnop";
-const ACCOUNT = { id: "acc_test1", email: "dev@example.com", github_login: null };
+const PKG_VERSION = JSON.parse(readFileSync(resolve(HERE, "..", "..", "package.json"), "utf8")).version as string;
+const SESSION = "gcs_TestSession0123456789abcdefghijklmnopqrstuv";
+const ACCOUNT = { id: "TestAccount0123456789a", email: "dev@example.com", github_login: null };
 const NEW_TOKEN = "gc_NewAcctToken0123456789";
 const ANON_TOKEN = "gc_TestToken0123456789abc";
 const ANON_LINK = "https://genclass.dev/dashboard/TestSecret0123456789abcdefghijkl";
@@ -104,13 +105,15 @@ describe("login: the device flow (RFC 8628 shapes, fake genclass.dev)", () => {
     const config = tmp("gc-cfg-");
     const r = run(["login", "--no-connect"], { config, env: { GENCLASS_TEST_DEVICE: "pending,ok" } });
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toContain("ABCD-EFGH");
-    expect(r.out).toContain("https://genclass.dev/login/device?code=ABCD-EFGH");
+    expect(r.out).toContain("BCDF-GHJK");
+    expect(r.out).toContain("https://genclass.dev/login/device?code=BCDF-GHJK");
     expect(r.out).toMatch(/Signed in\s+dev@example\.com/);
     expect(r.out).not.toContain("Opening it in your browser"); // not a terminal: never starts a browser
     expect(routes(r.calls)).toEqual(["POST /api/device/code", "POST /api/device/token", "POST /api/device/token"]);
     expect(r.calls.every((c) => c.url.startsWith("https://genclass.dev/") && c.auth === null)).toBe(true);
-    expect(r.calls[1].body).toEqual({ device_code: "dc_TestDeviceCode0123456789abcdef" });
+    // the CLI names itself (package and version only): genclass.dev labels the CLI session with it
+    expect(r.calls[0].body).toEqual({ client_name: `genclass-runtime ${PKG_VERSION}` });
+    expect(r.calls[1].body).toEqual({ device_code: "TestDeviceCode0123456789abcdefghijklmnopqrs" });
     const saved = JSON.parse(readFileSync(credFile(config), "utf8"));
     expect(Object.keys(saved).sort()).toEqual(["access_token", "account", "created", "host"]);
     expect(saved).toMatchObject({ host: "https://genclass.dev", access_token: SESSION, account: ACCOUNT });
@@ -139,6 +142,17 @@ describe("login: the device flow (RFC 8628 shapes, fake genclass.dev)", () => {
     expect(t[1] - t[0]).toBeGreaterThanOrEqual(90);
     expect(t[2] - t[1]).toBeGreaterThanOrEqual(190);
     expect(t[3] - t[2]).toBeGreaterThanOrEqual(190);
+  });
+
+  it("slow_down naming a longer interval (genclass.dev sends one): every later poll waits that long", () => {
+    // 50x faster: 5 s -> 100 ms; the server asks for 20 s -> 400 ms (more than the 5 s RFC 8628 minimum step)
+    const r = run(["login", "--no-connect"], { env: { GENCLASS_TEST_DEVICE: "pending,slow_down,pending,ok", GENCLASS_TEST_SLOW: "20", GENCLASS_TEST_TIMERS: "50" } });
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain("every 20 s");
+    const t = r.calls.filter((c) => c.url.endsWith("/api/device/token")).map((c) => c.t);
+    expect(t).toHaveLength(4);
+    expect(t[2] - t[1]).toBeGreaterThanOrEqual(390);
+    expect(t[3] - t[2]).toBeGreaterThanOrEqual(390);
   });
 
   it("denied or expired: says so, exits 1 and saves nothing", () => {
@@ -215,7 +229,7 @@ describe("login: the device flow (RFC 8628 shapes, fake genclass.dev)", () => {
     expect(readFileSync(join(dir, "src/main.ts"), "utf8").split("\n")[0]).toBe(`import "./genclass.config"; // genclass:init`);
     // an app in the account has no secret link: nothing to keep in .genclass.local
     expect(existsSync(join(dir, ".genclass.local"))).toBe(false);
-    expect(r.out).toContain("https://genclass.dev/account/apps/p_new1");
+    expect(r.out).toContain("https://genclass.dev/account/apps/0123456789abcdef");
   });
 
   it("is outside a project: no connect question, a hint instead", () => {
@@ -328,10 +342,23 @@ describe("connect: the app in this folder and an app of the account", () => {
     expect(r.calls[1].body).toEqual({ dashboard_url: ANON_LINK });
     expect(r.out).toContain("added to your account");
     expect(snapshot(dir)).toEqual(files);
-    // the server refuses: says how to add it on the account page, changes nothing
-    const refused = run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env: { GENCLASS_TEST_CLAIM: "404" } });
-    expect(refused.code).toBe(1);
-    expect(refused.out).toContain("Add an existing dashboard");
+    // the server refuses (the worker's answers): each says what to do instead, and nothing changes. The account page
+    // gives the same 404 and 409, so it is suggested only for an error that may pass.
+    const unknown = run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env: { GENCLASS_TEST_CLAIM: "404" } });
+    expect(unknown.code).toBe(1);
+    expect(unknown.out).toContain("does not know the dashboard link in .genclass.local");
+    expect(unknown.out).toContain("npx @genclass/runtime connect --name shop-web");
+    expect(unknown.out).not.toContain("Add an existing dashboard");
+    const taken = run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env: { GENCLASS_TEST_CLAIM: "409" } });
+    expect(taken.code).toBe(1);
+    expect(taken.out).toContain("That dashboard belongs to another GenClass account");
+    expect(taken.out).toContain("npx @genclass/runtime connect --name shop-web");
+    expect(taken.out).not.toContain("Add an existing dashboard");
+    const down = run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env: { GENCLASS_TEST_CLAIM: "500" } });
+    expect(down.code).toBe(1);
+    expect(down.out).toContain("HTTP 500: internal error");
+    expect(down.out).toContain("Add an existing dashboard");
+    for (const r of [unknown, taken, down]) expect(routes(r.calls)).toEqual(["GET /api/me", "POST /api/account/projects/claim"]);
     expect(snapshot(dir)).toEqual(files);
     // declined, then a new app: the old key is replaced, and its link is said to stay in .genclass.local
     const replaced = run(["connect", "--no-install", "--cwd", dir], { config, input: "n\ny\n" });

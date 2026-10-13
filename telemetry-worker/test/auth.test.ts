@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// The CLI's own request functions (packages/runtime/bin/lib/account.mjs), run against this worker below.
+// @ts-expect-error plain ESM module without types
+import * as cli from "../../packages/runtime/bin/lib/account.mjs";
 import { handle, type Env, type HandleOptions } from "../src/collector.js";
 import {
   authRetention,
@@ -13,7 +16,7 @@ import {
   USER_CODE_RE,
 } from "../src/auth.js";
 import { decodeCbor, decodeFirst } from "../src/cbor.js";
-import { resetTokenCache } from "../src/dashboard.js";
+import { resetTokenCache, sha256Hex } from "../src/dashboard.js";
 import { derToRaw } from "../src/webauthn.js";
 import { b64url, cbor, FLAGS, makeAuthenticator, rawToDer } from "./authenticator.mjs";
 import { d1 } from "./d1.js";
@@ -536,6 +539,11 @@ describe("accounts: apps owned by an account", () => {
     expect(html).toContain(`GenClass.init({ token: &#34;${project.token}&#34; })`);
     expect(html).toContain(`data-token=&#34;${project.token}&#34;`);
     expect(html).toContain("0.3.0 or later");
+    // as the runtime behaves (src/telemetry/config.ts isLocalHost; its console says so): a key does not make a
+    // local host send, so the first event comes from a deployed page
+    expect(html).toContain("Local hosts (localhost, *.local, *.test, private networks) do not send, even with a key");
+    expect(html).not.toContain("send only when a key is set");
+    expect(html).not.toContain("only send data with an explicit token");
     expect(html).toContain(`/api/account/projects/${project.id}/stats`);
     expect((await call(env, "GET", `/account/apps/${project.id}`, { cookie: b.cookie })).status).toBe(404);
     expect((await call(env, "GET", `/api/account/projects/${project.id}/stats`, { cookie: b.cookie })).status).toBe(404);
@@ -880,5 +888,189 @@ describe("accounts: CBOR, signatures, links (unit)", () => {
     await authRetention(sql.api, clock);
     for (const t of ["challenges", "device_codes", "auth_sessions"]) expect(sql.rows(`SELECT COUNT(*) AS n FROM ${t}`)[0]!.n).toBe(0);
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(1);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------- the CLI
+
+describe("accounts: the CLI's own requests (packages/runtime/bin/lib/account.mjs) against this worker", () => {
+  // The CLI half was built against the contract with a fake server (packages/runtime/test/install/mock-account.mjs).
+  // Here its real request functions talk to the real router. The worker's clock is the fake timers' clock that also
+  // drives the CLI's polling, so both sides see the same intervals.
+  afterEach(() => vi.useRealTimers());
+
+  interface Seen {
+    method: string;
+    path: string;
+    headers: Record<string, string>;
+    body: any;
+    at: number;
+    status?: number;
+    answer?: any;
+  }
+
+  /** A fetch for the CLI that hands each request to handle() and records it with the answer. */
+  function wire(env: Env) {
+    const log: Seen[] = [];
+    const fetchFn = async (url: string, init: RequestInit = {}): Promise<Response> => {
+      const req = new Request(url, init);
+      const seen: Seen = { method: req.method, path: new URL(url).pathname, headers: Object.fromEntries(req.headers), body: init.body ? JSON.parse(String(init.body)) : null, at: Date.now() };
+      log.push(seen);
+      const res = await handle(req, env, { now: () => new Date(Date.now()) });
+      seen.status = res.status;
+      seen.answer = res.status === 204 ? null : await res.clone().json();
+      return res;
+    };
+    return { log, fetchFn };
+  }
+
+  const fakeTime = () => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: clock });
+
+  /** Runs fake time forward in small steps (letting real I/O such as WebCrypto finish between them) until p settles. */
+  async function settle<T>(p: Promise<T>, maxMs = 15 * 60_000): Promise<T> {
+    let done = false;
+    let value: T;
+    void p.then((v) => {
+      done = true;
+      value = v;
+    });
+    for (let t = 0; !done; t += 250) {
+      if (t > maxMs) throw new Error("the CLI's poll did not finish");
+      await vi.advanceTimersByTimeAsync(250);
+      for (let i = 0; i < 4; i++) await new Promise((r) => setImmediate(r));
+    }
+    return value!;
+  }
+
+  const decide = (env: Env, userCode: string, cookie: string, approve: boolean) => call(env, "POST", "/api/device/approve", { body: { user_code: userCode, approve }, cookie });
+
+  it("login, apps, claim and logout: the worker accepts every request as the CLI sends it, and the CLI reads every answer", async () => {
+    const { env, sql } = setup();
+    const ada = await signedIn(env, "ada@example.com");
+    const bob = await signedIn(env, "bob@example.com");
+    const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old app" }, origin: null })).json()) as any;
+    const bobToken = await cliToken(env, bob.cookie);
+    fakeTime();
+    const { log, fetchFn } = wire(env);
+
+    const dev = await cli.startDeviceLogin({ host: ORIGIN, fetchFn });
+    expect(dev).toEqual({
+      ok: true,
+      device_code: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      user_code: expect.stringMatching(USER_CODE_RE),
+      verification_uri: `${ORIGIN}/login/device`,
+      verification_uri_complete: `${ORIGIN}/login/device?code=${dev.user_code}`,
+      expires_in: 600,
+      interval: 5,
+    });
+    // JSON with the CLI's name (it labels the session), and no Origin or cookie: a bearer client has no ambient
+    // credentials, so the CSRF rule does not apply to it
+    expect(log[0]!.body).toEqual({ client_name: cli.CLIENT_NAME });
+    expect(cli.CLIENT_NAME).toMatch(/^genclass-runtime \S+$/);
+    expect(log[0]!.headers).toMatchObject({ "content-type": "application/json", "user-agent": expect.stringMatching(/^genclass-runtime-cli\//) });
+    expect(log[0]!.headers.origin).toBeUndefined();
+    expect(log[0]!.headers.cookie).toBeUndefined();
+
+    // the code shows on the approval page with the CLI's name
+    const page = await (await call(env, "GET", `/login/device?code=${dev.user_code}`, { cookie: ada.cookie })).text();
+    expect(page).toContain(cli.CLIENT_NAME);
+
+    let approval: Promise<Response> | null = null;
+    let slowDowns = 0;
+    const r = await settle(
+      cli.pollDeviceLogin(dev, {
+        host: ORIGIN,
+        fetchFn,
+        onWait: () => {
+          approval ??= decide(env, dev.user_code, ada.cookie, true);
+        },
+        onSlowDown: () => slowDowns++,
+      }),
+    );
+    expect((await approval!)!.status).toBe(200);
+    expect(r).toEqual({ ok: true, access_token: expect.stringMatching(CLI_TOKEN_RE), expires_in: 90 * 86_400, account: { id: ada.account.id, email: "ada@example.com", github_login: null } });
+    // the CLI keeps to the interval it was given, so the worker never has to answer slow_down
+    expect(slowDowns).toBe(0);
+    const polls = log.filter((e) => e.path === "/api/device/token");
+    expect(polls.map((e) => e.answer?.error ?? "token")).toEqual(["authorization_pending", "token"]);
+    expect(polls.every((e) => e.body.device_code === dev.device_code)).toBe(true);
+    // the CLI session carries the name the CLI gave
+    expect(sql.rows("SELECT label FROM auth_sessions WHERE kind = 'cli' AND account_id = ?", ada.account.id)).toEqual([{ label: cli.CLIENT_NAME }]);
+
+    const creds = { host: ORIGIN, access_token: r.access_token, account: r.account };
+    expect(await cli.fetchMe(creds, { fetchFn })).toEqual({ ok: true, account: r.account, projects: [] });
+
+    const made = await cli.createAccountProject(creds, "shop-web", { fetchFn });
+    expect(made).toMatchObject({ ok: true, account: true, name: "shop-web", token: expect.stringMatching(/^gc_[A-Za-z0-9]{22}$/), id: expect.stringMatching(/^[0-9a-f]{16}$/) });
+    expect(made.dashboardUrl).toBe(`${ORIGIN}/account/apps/${made.id}`);
+
+    // claim with the CLI session (bearer): the private-link app joins the account and keeps its token
+    const claimed = await cli.claimProject(creds, anon.dashboardUrl, { fetchFn });
+    expect(claimed).toMatchObject({ ok: true, project: { token: anon.token, name: "Old app", dashboard_url: expect.stringMatching(new RegExp(`^${ORIGIN}/account/apps/[0-9a-f]{16}$`)) } });
+    const me1 = await cli.fetchMe(creds, { fetchFn });
+    expect(me1.ok).toBe(true);
+    expect(me1.projects.map((p: any) => p.token).sort()).toEqual([made.token, anon.token].sort());
+    // every app passed the CLI's checks (token format, a dashboard link on the host it talks to)
+    expect(me1.projects.every((p: any) => p.dashboard_url !== null && p.created !== null)).toBe(true);
+
+    // the refusals the CLI explains (login.mjs): another account's dashboard, an unknown link
+    const bobCreds = { host: ORIGIN, access_token: bobToken, account: null };
+    expect(await cli.claimProject(bobCreds, anon.dashboardUrl, { fetchFn })).toMatchObject({ ok: false, status: 409, reason: expect.stringContaining("another account") });
+    expect(await cli.claimProject(creds, `${ORIGIN}/dashboard/${"Z".repeat(32)}`, { fetchFn })).toMatchObject({ ok: false, status: 404 });
+
+    for (const e of log.filter((x) => x.path === "/api/me" || x.path.startsWith("/api/account/"))) {
+      expect(e.headers.authorization).toMatch(/^Bearer gcs_/);
+      expect(e.headers.origin).toBeUndefined();
+      expect(e.headers.cookie).toBeUndefined();
+    }
+
+    // logout: 204, the token stops working (the CLI then says to sign in again), a second logout counts as done
+    expect(await cli.revokeSession(creds, { fetchFn })).toEqual({ ok: true, already: false });
+    expect(log.at(-1)).toMatchObject({ method: "DELETE", path: "/api/account/sessions/current", status: 204 });
+    expect(await cli.fetchMe(creds, { fetchFn })).toMatchObject({ ok: false, status: 401 });
+    expect(await cli.revokeSession(creds, { fetchFn })).toEqual({ ok: true, already: true });
+    expect((await me(env, { cookie: ada.cookie })).status).toBe(200); // the browser session is not touched
+  });
+
+  it("slow_down: the CLI's next polls keep the interval the worker sets; a denial in the browser ends the poll", async () => {
+    // AUTH_LIMIT refuses the first poll (as for a busy network), so the worker answers slow_down
+    const pollKey = (await sha256Hex("auth:poll:unknown")).slice(0, 32);
+    let tripped = false;
+    const { env } = setup({
+      AUTH_LIMIT: {
+        async limit({ key }: { key: string }) {
+          if (key === pollKey && !tripped) {
+            tripped = true;
+            return { success: false };
+          }
+          return { success: true };
+        },
+      },
+    });
+    const ada = await signedIn(env);
+    fakeTime();
+    const { log, fetchFn } = wire(env);
+    const dev = await cli.startDeviceLogin({ host: ORIGIN, fetchFn });
+    expect(dev.ok).toBe(true);
+    const told: number[] = [];
+    let denial: Promise<Response> | null = null;
+    const r = await settle(
+      cli.pollDeviceLogin(dev, {
+        host: ORIGIN,
+        fetchFn,
+        onSlowDown: (s: number) => told.push(s),
+        onWait: () => {
+          denial ??= decide(env, dev.user_code, ada.cookie, false);
+        },
+      }),
+    );
+    expect((await denial!)!.status).toBe(200);
+    expect(r).toMatchObject({ ok: false, error: "access_denied" });
+    const polls = log.filter((e) => e.path === "/api/device/token");
+    expect(polls.map((e) => e.answer.error)).toEqual(["slow_down", "authorization_pending", "access_denied"]);
+    expect(polls[0]!.answer.interval).toBe(10);
+    expect(told).toEqual([10]);
+    expect(polls[1]!.at - polls[0]!.at).toBeGreaterThanOrEqual(10_000);
+    expect(polls[2]!.at - polls[1]!.at).toBeGreaterThanOrEqual(10_000);
   });
 });

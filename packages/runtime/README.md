@@ -359,8 +359,10 @@ Inside an app's folder, `login` then asks whether to connect that app; `connect`
 
 An app's dashboard in your account opens for you when you are signed in at genclass.dev. Until the app's first event
 arrives it shows the key and these same two ways to connect it; you can also sign up at genclass.dev, create an app
-there, and pass its key yourself (below). What the CLI sends: `login` asks genclass.dev for a sign-in code and polls
-until you approve it, then reads your account's apps; creating an app sends its name. Nothing is sent until you run
+there, and pass its key yourself (below). What the CLI sends: `login` asks genclass.dev for a sign-in code, naming
+itself `genclass-runtime <version>` (the approval page shows that name and your account page lists the session
+under it), and polls until you approve it, then reads your account's apps; creating an app sends its name, and
+adding an existing dashboard sends its link from `.genclass.local`. Nothing is sent until you run
 one of these commands (or approve `init`'s changes). The CLI session (`gcs_...`) is a secret: `logout` ends it at
 genclass.dev and deletes the file, and you can revoke it from your account page. What an account stores:
 [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).

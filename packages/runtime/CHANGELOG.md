@@ -43,11 +43,13 @@ sends.
   and points to https://genclass.dev/start. Running `init` again reuses the token; on a setup made without one it
   never creates a project as a side effect (pass `--token`).
 - **Accounts in the CLI: `login`, `connect`, `whoami`, `logout`** (no new dependencies; Node 20 or later).
-  `npx @genclass/runtime login` signs in with the device flow (RFC 8628): it prints a code and
-  `https://genclass.dev/login/device?code=...`, opens the browser when it can (not over SSH, not without a display,
-  not with `--no-browser`; it goes on either way), polls `POST /api/device/token` at the interval the server gives
-  (5 s more after each `slow_down` or HTTP 429), and stops on approval, denial or expiry. Ctrl-C stops it and saves
-  nothing (exit 130). The CLI session (`gcs_...`) is saved as `{ host, access_token, account, created }` in
+  `npx @genclass/runtime login` signs in with the device flow (RFC 8628): it asks for a code with
+  `POST /api/device/code { client_name: "genclass-runtime <version>" }` (the approval page shows that name and the
+  account page labels the session with it), prints the code and `https://genclass.dev/login/device?code=...`,
+  opens the browser when it can (not over SSH, not without a display, not with `--no-browser`; it goes on either
+  way), polls `POST /api/device/token` at the interval the server gives (5 s more after each `slow_down` or HTTP
+  429, or the longer interval a `slow_down` names), and stops on approval, denial or expiry. Ctrl-C stops it and
+  saves nothing (exit 130). The CLI session (`gcs_...`) is saved as `{ host, access_token, account, created }` in
   `$XDG_CONFIG_HOME/genclass/credentials.json` or `~/.config/genclass/credentials.json` (Windows
   `%APPDATA%\genclass\`), mode 600 in a directory with mode 700, and is only used for the host it was made for.
   Inside an app's folder `login` then asks whether to connect the app; `connect` does that alone: it picks one of the
@@ -55,7 +57,9 @@ sends.
   with `POST /api/account/projects` only after you approve the diff, and writes the token with init's own edits
   (a setup init made gets it in place; a new one is set up as by init; a hand-written one gets the snippet printed,
   nothing edited). An app init created with a private link can be added to the account instead
-  (`POST /api/account/projects/claim` with the link from `.genclass.local`), keeping its token. An app in an account
+  (`POST /api/account/projects/claim` with the link from `.genclass.local`), keeping its token; when genclass.dev
+  refuses (the dashboard belongs to another account, or the link is unknown) `connect` says so and how to give the
+  folder a new app instead (`--name`), and changes nothing. An app in an account
   has no secret link, so nothing goes into `.genclass.local` for it. `whoami` prints the account and its apps;
   `logout` calls `DELETE /api/account/sessions/current` and deletes the file. `--yes` skips the questions,
   `--dry-run` (connect) sends and writes nothing.
@@ -64,13 +68,28 @@ sends.
   `GENCLASS_HOST` environment variable (an origin; plain http only on loopback hosts) points every command at
   another server, for tests and a local `wrangler dev` only, and every command prints it when set. Questions now
   take answers typed ahead, and Ctrl-C at a question exits with code 130. Tests: `test/install/account.test.ts`
-  against a fake genclass.dev (`mock-account.mjs`).
+  against a fake genclass.dev (`mock-account.mjs`, with the worker's own formats and error answers), and
+  `telemetry-worker/test/auth.test.ts` runs the CLI's request functions against the real worker.
+- **Accounts on genclass.dev** (the server side, `telemetry-worker/`; deployed separately from this package, see
+  `telemetry-worker/README.md`). Sign up and sign in at `https://genclass.dev/signup` and `/login` with a passkey
+  (WebAuthn, verified with WebCrypto and no dependencies), Google (OpenID Connect) or GitHub, each provider shown
+  only once its client is configured. A Google or GitHub identity joins an existing account only through "Link" on
+  `/account` while signed in, never because an email matches. `/account` lists the apps (project key, last event,
+  dashboard link), adds an existing private-link dashboard, and lists passkeys and CLI sessions with Revoke.
+  An app's dashboard in the account (`/account/apps/<id>`) shows a Connect panel until its first event arrives: the
+  project key with a copy button, `npx @genclass/runtime login`, the `GenClass.init({ token })`, `data-token` and
+  meta snippets, and a status line that checks every 5 seconds. `/login/device` approves or denies a CLI sign-in.
+  Private-link dashboards and `/start` keep working without an account.
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
 - **Cost:** about +1.8 KB gzip on `/auto`: 100.68 KB (98.86 KB in 0.2.2), and the main entry 93.19 KB, minified
   and gzipped by `test/bundle.test.ts` in CI (run 38436014497). Its ceilings are 101 KB and 94 KB.
 - **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
   the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
   see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
+  PRIVACY.md ("Accounts on genclass.dev") and genclass.dev/privacy list what an account stores: the email as typed
+  or as Google returned it and whether it is verified, passkey public keys, the Google `sub` and the GitHub id and
+  login when used, session records (a hash, times, the CLI's name) and the apps it owns. An account changes nothing
+  the runtime sends.
 
 ## 0.2.2 (2026-10-13)
 

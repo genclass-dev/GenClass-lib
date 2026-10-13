@@ -4,9 +4,11 @@
 // The credentials file holds one CLI session: { host, access_token ("gcs_..."), account { id, email, github_login },
 // created }. It lives in $XDG_CONFIG_HOME/genclass/credentials.json, else ~/.config/genclass/credentials.json
 // (Windows: %APPDATA%\genclass\credentials.json), mode 600 in a directory with mode 700, and is only used for the
-// host it was made for. The session token can read the account's apps and create apps in it; `logout` revokes it
-// on genclass.dev and deletes the file. Nothing here touches the network unless a command calls one of the request
-// functions, and none of them rejects: each resolves { ok: true, ... } or { ok: false, reason, status? }.
+// host it was made for. The session token can read the account's apps, create apps in it and add a private-link
+// app to it (claim); `logout` revokes it on genclass.dev and deletes the file. Nothing here touches the network
+// unless a command calls one of the request functions, and none of them rejects: each resolves { ok: true, ... } or
+// { ok: false, reason, status? }. The request and answer shapes are genclass.dev's (telemetry-worker/src/auth.ts);
+// telemetry-worker/test/auth.test.ts runs these functions against that worker.
 
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -27,6 +29,14 @@ const VERSION = (() => {
   }
 })();
 const USER_AGENT = `genclass-runtime-cli/${VERSION}`;
+/**
+ * What the CLI calls itself when it asks for a sign-in code (`client_name`): genclass.dev shows it on the approval
+ * page and keeps it as the CLI session's label on the account page (PRIVACY.md). Only the package and its version:
+ * nothing about the machine.
+ */
+export const CLIENT_NAME = `genclass-runtime ${VERSION}`;
+/** The longest poll interval the CLI accepts from a slow_down answer (seconds). */
+const MAX_INTERVAL_S = 300;
 
 // ------------------------------------------------------------------------------------------ credentials
 
@@ -161,12 +171,12 @@ export function cleanProject(p, host = apiHost()) {
 // ------------------------------------------------------------------------------------------- device flow
 
 /**
- * POST /api/device/code. Resolves { ok: true, device_code, user_code, verification_uri, verification_uri_complete,
- * expires_in, interval } (URLs checked to be on the host) or { ok: false, reason }.
+ * POST /api/device/code { client_name }. Resolves { ok: true, device_code, user_code, verification_uri,
+ * verification_uri_complete, expires_in, interval } (URLs checked to be on the host) or { ok: false, reason }.
  */
 export async function startDeviceLogin(opts = {}) {
   const host = opts.host ?? apiHost();
-  const r = await request("/api/device/code", { method: "POST", body: {}, host, fetchFn: opts.fetchFn });
+  const r = await request("/api/device/code", { method: "POST", body: { client_name: CLIENT_NAME }, host, fetchFn: opts.fetchFn });
   if (!r.ok) return { ok: false, reason: failure(r) };
   const j = r.json ?? {};
   const uri = typeof j.verification_uri === "string" && sameOrigin(j.verification_uri, host) ? j.verification_uri : null;
@@ -190,7 +200,8 @@ const sleep = (ms, signal) =>
 
 /**
  * Polls POST /api/device/token until the code is approved, denied or expired, waiting `interval` seconds between
- * polls (5 more after each slow_down, and on HTTP 429). Resolves { ok: true, access_token, expires_in, account } or
+ * polls (5 more after each slow_down, and on HTTP 429; or the larger `interval` a slow_down answer names, as
+ * genclass.dev's does). Resolves { ok: true, access_token, expires_in, account } or
  * { ok: false, error: "access_denied" | "expired_token" | "cancelled" | "failed", reason }.
  */
 export async function pollDeviceLogin(dev, opts = {}) {
@@ -218,7 +229,8 @@ export async function pollDeviceLogin(dev, opts = {}) {
     }
     if ((r.status === 400 && code === "slow_down") || r.status === 429) {
       failures = 0;
-      interval += 5;
+      const told = Number(r.json?.interval);
+      interval = Math.max(interval + 5, Number.isFinite(told) && told <= MAX_INTERVAL_S ? told : 0);
       opts.onSlowDown?.(interval);
       continue;
     }

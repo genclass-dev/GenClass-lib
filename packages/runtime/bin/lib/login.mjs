@@ -133,6 +133,30 @@ function printManual(token) {
   out();
 }
 
+/**
+ * Why POST /api/account/projects/claim refused, and what to do instead. genclass.dev answers 409 when the dashboard
+ * belongs to another account and 404 (400 for a malformed link) when it does not know the link; the account page's
+ * "Add an existing dashboard" gives the same answers, so it is suggested only for errors that may pass.
+ */
+function claimFailed(r, pkgName) {
+  if (r.status === 401) return sessionGone();
+  const fresh = `${CMD} connect --name ${/^[A-Za-z0-9._@/-]+$/.test(pkgName) ? pkgName : JSON.stringify(pkgName)}`;
+  if (r.status === 409) {
+    err(`  ${c.red(sym.cross)} That dashboard belongs to another GenClass account, so it was not added to this one.`);
+    err(`  Sign in with that account (${c.cyan(`${CMD} logout`)}, then ${c.cyan("login")}), or give this folder a new app in your`);
+    err(`  account with ${c.cyan(fresh)} (its key replaces the one in your setup).`);
+    return;
+  }
+  if (r.status === 404 || r.status === 400) {
+    err(`  ${c.red(sym.cross)} ${apiHost()} does not know the dashboard link in ${LOCAL_FILE} (it may have been deleted).`);
+    err(`  Give this folder a new app in your account with ${c.cyan(fresh)}`);
+    err(`  (its key replaces the one in your setup).`);
+    return;
+  }
+  err(`  ${c.red(sym.cross)} Could not add it (${r.reason}).`);
+  err(`  Try again, or open ${c.cyan(hostUrl("/account"))} and paste the link from ${LOCAL_FILE} under "Add an existing dashboard".`);
+}
+
 // ----------------------------------------------------------------------------------------------- connect
 
 /**
@@ -189,8 +213,7 @@ async function connectApp(o, creds, st, me) {
     if (ok) {
       const r = await claimProject(creds, st.local.dashboardUrl);
       if (!r.ok) {
-        err(`  ${c.red(sym.cross)} Could not add it (${r.reason}).`);
-        err(`  Open ${c.cyan(hostUrl("/account"))} and paste the link from ${LOCAL_FILE} under "Add an existing dashboard".`);
+        claimFailed(r, pkgName);
         out();
         return 1;
       }

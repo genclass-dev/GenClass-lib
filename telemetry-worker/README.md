@@ -124,9 +124,11 @@ never stored; the client IP is only a hashed rate-limit key.
 ## Accounts
 
 Optional. Everything above keeps working without one: `/start`, secret dashboard links, ingest. An account keeps
-several apps in one place and lets the CLI (`npx @genclass/runtime login`, built on the `wave2/accounts-cli` branch)
-connect an app without copying keys around. Code: `src/auth.ts` (routes and rules), `src/webauthn.ts` +
-`src/cbor.ts` (passkeys), `src/account-pages.ts` (pages); tests in `test/auth.test.ts`.
+several apps in one place and lets the CLI (`npx @genclass/runtime login`, in `packages/runtime/bin/lib/login.mjs`
+and `account.mjs`, from `@genclass/runtime` 0.3.0) connect an app without copying keys around. Code: `src/auth.ts`
+(routes and rules), `src/webauthn.ts` + `src/cbor.ts` (passkeys), `src/account-pages.ts` (pages); tests in
+`test/auth.test.ts`, which also runs the CLI's own request functions (`account.mjs`) against this router: a change
+on either side that breaks the other fails CI.
 
 ### Ways to sign in
 
@@ -190,7 +192,7 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `POST /api/auth/passkey/login/options` | Origin | `{}` → `{ id, publicKey }` (empty `allowCredentials`) |
 | `POST /api/auth/passkey/login/verify` | Origin | `{ id, credential: { ..., response: { clientDataJSON, authenticatorData, signature, userHandle } } }` → `{ ok, account }` + session |
 | `POST /api/auth/pending` | Origin + `gc_pending` | create the separate account a Google sign-in asked about |
-| `POST /api/device/code` | - | `{ client_name? }` → 200 `{ device_code, user_code: "ABCD-EFGH", verification_uri: "https://genclass.dev/login/device", verification_uri_complete: ".../login/device?code=ABCD-EFGH", expires_in: 600, interval: 5 }` |
+| `POST /api/device/code` | - | `{ client_name? }` (the CLI sends `genclass-runtime <version>`; shown on the approval page and kept as the session's label) → 200 `{ device_code, user_code: "ABCD-EFGH", verification_uri: "https://genclass.dev/login/device", verification_uri_complete: ".../login/device?code=ABCD-EFGH", expires_in: 600, interval: 5 }` |
 | `POST /api/device/token` | - | `{ device_code }` (JSON or a form) → 200 `{ access_token: "gcs_...", token_type: "Bearer", expires_in: 7776000, account: { id, email, github_login } }` or 400 `{ error: authorization_pending \| slow_down (with the new interval) \| expired_token \| access_denied \| invalid_request, error_description }` |
 | `POST /api/device/approve` | cookie + Origin | `{ user_code, approve: true \| false }` → `{ ok, status }`; 404 for an unknown, expired or used code |
 | `GET /api/me` | bearer or cookie | `{ account: { id, email, github_login }, projects: [project] }` |
@@ -297,6 +299,13 @@ so every account write fails the Origin check with 403. `.dev.vars` (git-ignored
 and `AUTH_RP_ID=localhost`: passkeys work on `http://localhost` (browsers treat it as a secure context), and session
 cookies drop `Secure` only on a plain-HTTP localhost origin. Google and GitHub need their own development OAuth
 clients there (callback `http://localhost:8787/auth/<provider>/callback`); without them only passkeys are offered.
+
+The CLI talks to this local worker with `GENCLASS_HOST=http://localhost:8787` (exactly `AUTH_ORIGIN`: the CLI only
+opens a sign-in link and only shows a dashboard link that is on the host it talks to), for example
+`GENCLASS_HOST=http://localhost:8787 node packages/runtime/bin/genclass-runtime.mjs login --no-browser`, then open
+the printed link, sign up with a passkey and approve the code. The credentials file holds one session, marked with
+its host, so this replaces a genclass.dev session saved on the same machine (sign out of that first, or set
+`XDG_CONFIG_HOME` to a scratch directory for the local run); `logout` with the same `GENCLASS_HOST` ends it.
 
 There is no `wrangler r2 object list`; list keys with the Cloudflare API
 (`GET /client/v4/accounts/<id>/r2/buckets/genclass-telemetry/objects?prefix=events/`) or the dashboard, then

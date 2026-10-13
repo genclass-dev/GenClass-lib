@@ -863,7 +863,7 @@ function connectPanel(token: string, connected: boolean): string {
   </div>
   <p class="cstat" id="cstatus" aria-live="polite"><i></i><span id="cstatust">Waiting for the first event from this app</span></p>
   <p class="fine">The key needs @genclass/runtime 0.3.0 or later, the next release: 0.2.x does not send it, and <code>login</code> ships in 0.3.0 too.
-  Events arrive in batches every 10 seconds. Local hosts (localhost, *.test) send only when a key is set. This line checks every 5 seconds.</p>
+  Events arrive in batches every 10 seconds. Local hosts (localhost, *.local, *.test, private networks) do not send, even with a key, so the first event comes from your deployed site. This line checks every 5 seconds.</p>
 </section>`;
 }
 
@@ -928,7 +928,7 @@ export function dashboardPage(
 </section>
 ${acct ? connectPanel(project.token, !!project.lastEvent) : ""}
 <section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
-Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts (localhost, *.test) only send data with an explicit token.</p></section>
+Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts (localhost, *.local, *.test, private networks) do not send, even with a token: load a page of your deployed site.</p></section>
 <div id="content" class="hidden">
 <div class="statrow" id="tiles"></div>
 <section class="blk" id="trend">
