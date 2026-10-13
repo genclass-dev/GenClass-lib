@@ -190,9 +190,9 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - **With a token** (`token` option, `data-token`, `token=` in the meta tag), each batch also carries your app's public
-  token, and decisions about `protect()`ed functions carry the function's name (`fn`), so the same diagnostics also
-  show on your app's private dashboard (whoever holds its link can open it). Nothing else changes about what is
-  sent; without telemetry, a token does nothing.
+  token, so the same diagnostics also show on your app's private dashboard (whoever holds its link can open it).
+  Decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose) with or without a
+  token. Nothing else changes about what is sent; without telemetry, a token does nothing.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](packages/runtime/TELEMETRY.md).
 
 ## Security

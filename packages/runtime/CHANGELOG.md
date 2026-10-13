@@ -10,7 +10,9 @@ server (`telemetry-worker/`: `/start`, `/dashboard/<secret>`, `/api/*` on gencla
 published `0.2.1` ignores tokens, so the runtime side needs the next release. No situation text or other
 model-visible text changes (`scope: "functions"` changes which subjects are decided, never what the model reads
 about one). Nothing changes in what telemetry sends by default (no page text, off on local hosts) or in the
-opt-outs; the only additions to a batch are the envelope's `token` and `fn` on `decision` events.
+opt-outs; the only additions to a batch are the envelope's `token` and `fn` on `decision` events (`fn` is sent with
+or without a token). Checked against the deployed collector on 2026-10-13 with a synthetic batch carrying a fresh
+token: accepted (202) at `/v1/events` and at `genclass.dev/api/v1/events`, and shown on that project's dashboard.
 
 - **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">`,
   `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as

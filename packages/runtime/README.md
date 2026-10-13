@@ -933,9 +933,9 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - **With a token** (`token` option, `data-token`, `token=` in the meta tag), each batch also carries your app's public
-  token, and decisions about `protect()`ed functions carry the function's name (`fn`), so the same diagnostics also
-  show on your app's private dashboard (whoever holds its link can open it). Nothing else changes about what is
-  sent; without telemetry, a token does nothing.
+  token, so the same diagnostics also show on your app's private dashboard (whoever holds its link can open it).
+  Decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose) with or without a
+  token. Nothing else changes about what is sent; without telemetry, a token does nothing.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 - Other telemetry options: `npx @genclass/runtime init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, flushMs, maxBatch, include }` sends to your own collector, samples page loads, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - **Inputs:** typed values of password fields, `cc-*` / `one-time-code` / password autocomplete fields, and fields
