@@ -92,9 +92,11 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
   errors); decisions about what it causes carry `fn: name`. Without a runtime it just calls `fn`.
   [Package README](packages/runtime/README.md#function-specific-protect).
 - **More sensitive observe mode.** Observe also reports *possible* detections (below the report gate, at the
-  `eager` profile's value; one `console.debug` line each, ending in `(possible)`; `detect: "likely"` turns them off),
-  and decides what happens while the model loads or the tab is hidden once it can, instead of skipping it. Their
-  telemetry `detect` events carry `tier: "possible"`; nothing new about the page is sent.
+  `eager` profile's value; one `console.debug` line each, ending in `(possible)`; your `rt.on("detect")` and report
+  function get them only with `detect: "possible"`; `detect: "likely"` turns them off), and decides what happens
+  while the model loads or the tab is hidden once it can, instead of skipping it, reporting those at the possible
+  tier at most until their false-report rate is measured. Their telemetry `detect` events carry `tier: "possible"`;
+  nothing new about the page is sent.
   [Package README](packages/runtime/README.md#modes).
 
 ## How it works

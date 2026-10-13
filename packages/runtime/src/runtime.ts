@@ -17,6 +17,7 @@ import type {
   LearnOptions,
   Decision,
   DecisionProvider,
+  EvaluateRequest,
   Explanation,
   Guarded,
   Mode,
@@ -212,6 +213,12 @@ const UNDO_WINDOW_MS = 60_000;
 /** Query and fragment values of URLs in free text → "…" (sink evidence, OPTIONS-SPEC §4.10). */
 export function redactUrlText(t: string): string {
   return String(t).replace(/([?&#][^=&#\s"]+)=([^&#\s"]*)/g, (_m, k: string) => `${k}=…`);
+}
+
+/** The queue request for a built situation (fresh in trigger, or deferred in drainDeferred). */
+function evalRequest(built: BuiltSituation, priority: number): EvaluateRequest {
+  const sit = built.situation;
+  return { trigger: built.spec.trigger, state: sit.state, questions: sit.questions, priority, subject: built.subjectRef, ...(sit.notOffered ? { notOffered: { ...sit.notOffered } } : {}) };
 }
 
 /** The op a decision's subject is about (its trigger op, a write's cause, an error's ambient op). */
@@ -1646,19 +1653,7 @@ export class RuntimeImpl implements Runtime {
         }
       : undefined;
     this.queue
-      .submit(
-        {
-          trigger: spec.trigger,
-          state: built.situation.state,
-          questions: built.situation.questions,
-          priority: waits ? opts.priority : Math.min(opts.priority, 1),
-          subject: built.subjectRef,
-          ...(built.situation.notOffered ? { notOffered: { ...built.situation.notOffered } } : {}),
-        },
-        deadline,
-        stale,
-        late,
-      )
+      .submit(evalRequest(built, waits ? opts.priority : Math.min(opts.priority, 1)), deadline, stale, late)
       .then((res) => {
         if (budgetTimer !== null) this.clock.clearTimeout(budgetTimer);
         this.heldPassives.delete(passive);
@@ -1682,8 +1677,6 @@ export class RuntimeImpl implements Runtime {
         this.tapFailOpen("error", spec.trigger);
         passive();
       });
-    // deferred situations still waiting go behind this one (submitted first: a fresh held one never waits for them)
-    this.wake();
   }
 
   // ------------------------------------------------------------------------- deferred observe situations
@@ -1711,8 +1704,9 @@ export class RuntimeImpl implements Runtime {
 
   /**
    * Decide the deferred situations once the model is ready and the tab visible: now, or when `ready` resolves, asking
-   * for the model (a lazy or idle-unloaded one loads; never from a hidden tab). From defer, the tab becoming visible,
-   * resume() and each fresh decision.
+   * for the model (a lazy or idle-unloaded one loads; never from a hidden tab). From defer, the tab becoming visible
+   * and resume(); the model's "ready" status drains them too. Never from trigger(): a fresh situation is not queued
+   * behind them (a held one waits at most for the one deferred decision being computed, as for any background one).
    */
   private wake(): void {
     if (!this.deferred.length || this.hidden() || !this.consultable(null, "observe")) return;
@@ -1750,51 +1744,30 @@ export class RuntimeImpl implements Runtime {
   private drainDeferred(): void {
     if (this.deferring || !this.deferred.length || !this.consultable() || this.hidden() || this.decider?.status.state !== "ready") return;
     const e = this.deferred.shift()!;
-    const next = () => {
-      if (e.delivery) this.deliveryPending.delete(e.delivery);
-      this.deferring = false;
-      this.drainDeferred();
-    };
     if (this.effectiveMode(e.subjectOp) !== "observe") {
       this.dropOne(e);
       return this.drainDeferred();
     }
     this.deferring = true;
-    const built = e.built;
+    const trig = e.spec.trigger;
     const t1 = this.clock.now();
-    const stale = e.ctl.stale && e.spec.trigger !== "delivery" ? () => !!e.ctl.stale!() : undefined;
     this.queue
-      .submit(
-        {
-          trigger: e.spec.trigger,
-          state: built.situation.state,
-          questions: built.situation.questions,
-          priority: Math.min(e.opts.priority, 1),
-          subject: built.subjectRef,
-          ...(built.situation.notOffered ? { notOffered: { ...built.situation.notOffered } } : {}),
-        },
-        t1 + DEFERRED_DEADLINE_MS,
-        stale,
-      )
-      .then(
-        (res) => {
-          try {
-            if (this.destroyed) return;
-            if (!res) return this.tapFailOpen("no-answer", e.spec.trigger);
-            this.sum.decision(res.latencyMs);
-            this.onDecision(built, res.answers, this.clock.now() - t1, e.ctl, e.passive, { waits: false, covers: e.delivery !== null, expired: false, passiveRan: () => true, hold: e.opts.hold, block: e.block, subjectOp: e.subjectOp, detectOnly: true, fn: e.fn, route: e.route });
-          } catch (err) {
-            this.log("deferred decision failed", err);
-          } finally {
-            next();
-          }
-        },
-        (err) => {
-          this.log("deferred decision failed", err);
-          this.tapFailOpen("error", e.spec.trigger);
-          next();
-        },
-      );
+      .submit(evalRequest(e.built, Math.min(e.opts.priority, 1)), t1 + DEFERRED_DEADLINE_MS, e.ctl.stale && trig !== "delivery" ? () => !!e.ctl.stale!() : undefined)
+      .then((res) => {
+        if (this.destroyed) return;
+        if (!res) return this.tapFailOpen("no-answer", trig);
+        this.sum.decision(res.latencyMs);
+        this.onDecision(e.built, res.answers, this.clock.now() - t1, e.ctl, e.passive, { waits: false, covers: e.delivery !== null, expired: false, passiveRan: () => true, hold: e.opts.hold, block: e.block, subjectOp: e.subjectOp, detectOnly: true, fn: e.fn, route: e.route });
+      })
+      .catch((err) => {
+        this.log("deferred decision failed", err);
+        this.tapFailOpen("error", trig);
+      })
+      .finally(() => {
+        if (e.delivery) this.deliveryPending.delete(e.delivery);
+        this.deferring = false;
+        this.drainDeferred();
+      });
   }
 
   private onDecision(
@@ -3141,6 +3114,7 @@ export class RuntimeImpl implements Runtime {
         f.load(this.storedFlows);
         this.storedFlows = undefined;
         this.flows = f;
+        this.reporter.expect = m.printExpectation;
       })
       .catch((e) => this.log("flow expectations could not be loaded", e))
       .finally(() => this.flowsReadyResolve());

@@ -26,6 +26,25 @@ import type { OpRec } from "../trace/ops.js";
 import type { Expectation, LearnOptions, LearnedFlow, UserAction } from "../types.js";
 import { defaultRedact, fnv1a, normalizePath, plural } from "../util.js";
 
+const s2 = (x: number): string => (Number.isFinite(x) ? x.toFixed(2) : "?");
+
+/**
+ * The collapsed console evidence of an expectation report (decide/report.ts Reporter.expect): what was learned, what
+ * happened this time, how to see the flows and turn them off.
+ */
+export function printExpectation(con: Console, message: string, e: Expectation): void {
+  if (typeof con.groupCollapsed !== "function") return void (con.info ?? con.log).call(con, message);
+  con.groupCollapsed(message);
+  const usual = e.usualMs !== undefined ? ` within ${s2(e.usualMs / 1000)} s` : "";
+  const what = e.kind === "request" ? `${e.action} sends ${e.signature}` : e.kind === "follow-up" ? `${e.signature} follows ${e.after}` : e.kind === "write" ? `the response to ${e.signature} writes ${e.field}` : e.kind === "navigation" ? `${e.action} leads to ${e.to}` : `${e.action} answers`;
+  con.log(`Learned on ${e.route}: ${what}${usual} (${e.seen} of ${e.of}, ${e.sessions} session${e.sessions === 1 ? "" : "s"}).`);
+  con.log(`This time: nothing after ${s2(e.waitedMs / 1000)} s (op #${e.op}).`);
+  con.log("Deterministic report from learned counts; no model, no action taken in any mode.");
+  con.log("Flows learned for this page: GenClass.runtime.learned()");
+  con.log("Turn this off: GenClass.init({ learn: { expectations: false } })");
+  con.groupEnd();
+}
+
 export interface FlowConfig {
   /** Observations of a flow (or completions of a request) before anything is expected of it, all from this page load. */
   minSupport: number;

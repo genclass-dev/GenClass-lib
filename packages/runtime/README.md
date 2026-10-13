@@ -444,15 +444,20 @@ its probability reaches the report gate (0.90 at `balanced` with model 0.2.0), a
 with its evidence, as before. In observe GenClass also reports *possible* detections: at least the `eager`
 profile's report value (0.70) but below the report gate. They print with `console.debug` only, ending in
 `(possible)` (Chrome hides them unless the console level includes "Verbose"), show as dimmed cards in the devtools,
-and are counted on their own (`summary().possibleDetections`, telemetry); sinks get them only with
+and are counted on their own (`summary().possibleDetections`, telemetry). Your own wiring gets them only if you ask:
+`rt.on("detect")`, `rt.on("report")` and `report: (r) => …` receive the likely ones unless you set
+`detect: "possible"` (every decision, with `detection` set, is on `rt.on("decide")`), and sinks need
 `possible: true`. `detect: "likely"` turns them off; `detect: "possible"` turns them on in guard and heal too (reporting
 only: what guard and heal do is unchanged). Setting `policy.thresholds.report` turns them off unless `detect` asks.
 Measured effect and false-detection bounds:
 [RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md).
 
 Observe no longer goes blind while the model loads or the tab is hidden (`0.3.0`): situations raised then are built
-at once and decided when the model is ready and the tab visible (at most 32 wait). In guard and heal, nothing waits:
-they fail open, as before.
+at once and decided when the model is ready and the tab visible (at most 32 wait; a hidden tab never loads the
+model, the tab becoming visible does). Until their false-report rate is measured, what they find is reported at the
+possible tier at most. `detect: "likely"` turns this off too. In guard and heal, nothing waits: they skip, as before.
+Three `0.3.0` fixes can add likely reports in observe that `detect: "likely"` does not turn off, at a rate not
+measured yet (overwritten writes decided on slow devices, the body-wait and idle-unload fixes; CHANGELOG).
 
 ## How eager should it be?
 
@@ -653,7 +658,8 @@ Standing questions ride along with built-in decisions: `rt.question({ id, on: ["
 
 - **Console:** one line per detection and per intervention, with the evidence collapsed below it. Identical repeats
   within a minute are summarised. `report: "silent"` or `report: (r) => …` to route them yourself. Possible
-  detections (observe, `0.3.0`) are one `console.debug` line each, ending in `(possible)`.
+  detections (observe, `0.3.0`) are one `console.debug` line each, ending in `(possible)`; a report function gets
+  them only with `detect: "possible"`.
 - **Events:** `rt.on("detect" | "decide" | "act" | "event" | "status" | "report", fn)` returns an unsubscribe function.
 - **`rt.explain(id)`:** the exact situation text the model read, its facts and timeline, every answer with
   probabilities, and what changed.
@@ -917,8 +923,10 @@ What this means in practice:
 
 - **Observe (default).** Expect roughly 1 to 4 false flags per 100 decisions where nothing was wrong (model 0.1.0;
   `cautious` raises the report threshold to 0.95, `eager` lowers it to 0.70). `0.3.0` adds *possible* detections at
-  the `eager` value (0.70) in observe, on `console.debug` only: the 0.2.0 fit bounds their false-detection rate on
-  held-out test at ≤ 5% (real apps) / ≤ 6% (simulated), against ≤ 2% / ≤ 3% for the likely ones at `balanced`
+  the `eager` value (0.70) in observe, on `console.debug` only. The 0.2.0 fit held eager-profile detections (likely
+  and possible together) to at most 5% (real apps) / 6% (simulated) false per clean decision on held-out test,
+  against 2% / 3% at `balanced`; the share of possible detections that are false is not measured and is expected to
+  be well above the likely tier's
   ([RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)).
   - In one held-out real app, `oss-rtk-conduit`, the model flagged 25% of clean decisions as `stale`, all on its
     `article.inProgress` field. A single recurring pattern in your app can do the same.

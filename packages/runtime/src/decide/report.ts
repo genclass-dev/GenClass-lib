@@ -99,22 +99,15 @@ export class Reporter {
   private key(kind: string, d: Decision | undefined, a: ActionRecord | undefined, e?: Expectation): string {
     if (e) return `${kind}|${e.kind}|${e.route}|${e.action.replace(/\d+(\.\d+)?/g, "n")}|${e.signature ?? ""}|${e.field ?? ""}|${e.after ?? ""}|${e.to ?? ""}`;
     const subj = (d?.subject ?? "").replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n");
-    return `${kind}|${a?.action ?? d?.action ?? ""}|${d?.diagnosis ?? ""}|${d?.trigger ?? ""}|${subj}${kind === "detect" && d?.detection === "possible" ? "|possible" : ""}`;
+    return `${kind}|${a?.action ?? d?.action ?? ""}|${d?.diagnosis ?? ""}|${d?.trigger ?? ""}|${subj}|${d?.detection}`;
   }
 
-  /** The collapsed evidence of an expectation report: what was learned, what happened, how to see the flows. */
-  private printExpectation(con: Console, r: Report, e: Expectation): void {
-    if (typeof con.groupCollapsed !== "function") return void (con.info ?? con.log).call(con, r.message);
-    con.groupCollapsed(r.message);
-    const usual = e.usualMs !== undefined ? ` within ${p2(e.usualMs / 1000)} s` : "";
-    const what = e.kind === "request" ? `${e.action} sends ${e.signature}` : e.kind === "follow-up" ? `${e.signature} follows ${e.after}` : e.kind === "write" ? `the response to ${e.signature} writes ${e.field}` : e.kind === "navigation" ? `${e.action} leads to ${e.to}` : `${e.action} answers`;
-    con.log(`Learned on ${e.route}: ${what}${usual} (${e.seen} of ${e.of}, ${e.sessions} session${e.sessions === 1 ? "" : "s"}).`);
-    con.log(`This time: nothing after ${p2(e.waitedMs / 1000)} s (op #${e.op}).`);
-    con.log("Deterministic report from learned counts; no model, no action taken in any mode.");
-    con.log("Flows learned for this page: GenClass.runtime.learned()");
-    con.log("Turn this off: GenClass.init({ learn: { expectations: false } })");
-    con.groupEnd();
-  }
+  /**
+   * Prints an expectation report's collapsed evidence (what was learned, what happened, how to see the flows): set by
+   * the runtime from the flow expectations chunk (learn/flows.ts printExpectation), the only source of those reports,
+   * so its text is not part of the first load.
+   */
+  expect?: (con: Console, message: string, e: Expectation) => void;
 
   /** True when the report should be printed now (first of its window); repeats are counted for the summary. */
   private dedupe(k: string, r: Report): boolean {
@@ -161,7 +154,7 @@ export class Reporter {
       con.info?.(line);
       return;
     }
-    if (r.kind === "expectation" && r.expectation) return this.printExpectation(con, r, r.expectation);
+    if (r.kind === "expectation" && r.expectation) return this.expect ? this.expect(con, line, r.expectation) : void con.info?.(line);
     if (possible(r)) return void (con.debug ?? con.log)?.call(con, line);
     const ev = r.action ? this.explain(r.action.id) : r.decision ? this.explain(r.decision.id) : null;
     if (ev && typeof con.groupCollapsed === "function") {

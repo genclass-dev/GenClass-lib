@@ -140,8 +140,6 @@ export class TelemetryClient implements TelemetryStatus {
   /** Routine decisions whose records were sent: the count maxDecisions caps. */
   private routineRecords = 0;
   private pending = new Set<Promise<void>>();
-  /** Queued routine decision records: the first to go when the queue is full (push). */
-  private routineEvs = new WeakSet<Ev>();
   private offs: (() => void)[] = [];
   private readonly c = {
     decisions: 0,
@@ -198,8 +196,9 @@ export class TelemetryClient implements TelemetryStatus {
     if (this.stopped) return;
     if (this.queue.length >= MAX_QUEUE) {
       this.dropped++;
-      // full (a long back-off): the oldest routine decision record makes room, never a detection or its record
-      const i = this.queue.findIndex((x) => this.routineEvs.has(x));
+      // full (a long back-off): the oldest routine decision record (top diagnosis "expected", nothing acted) makes
+      // room, never a detection or its record
+      const i = this.queue.findIndex((x) => x.t === "decision" && x.diagnosis === "expected" && !x.acted);
       if (i < 0) return;
       this.queue.splice(i, 1);
     }
@@ -347,7 +346,7 @@ export class TelemetryClient implements TelemetryStatus {
       this.arm();
       return;
     }
-    const ev: Ev = {
+    this.push({
       t: "decision",
       id: d.id,
       trigger: d.trigger,
@@ -386,9 +385,7 @@ export class TelemetryClient implements TelemetryStatus {
       // the protect()ed function the subject ran inside (a name the app chose), only on batches that carry the app's
       // token: it feeds that app's dashboard and is not sent otherwise; a label that looks like data is redacted
       fn: this.cfg.token ? fnLabel(d.fn) : undefined,
-    };
-    if (routine) this.routineEvs.add(ev);
-    this.push(ev);
+    });
     if (vetoed) this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
     // every detection, likely or possible, from its decision (the "detect" event carries possible ones only when the
     // app asked for them)
