@@ -261,7 +261,8 @@ changes on a browser global, and whether `destroy()` restores it or leaves it in
 listeners it adds to `window` and `document` (all removed by `destroy()`). `sites` lines count the patch sites per file
 in `src/` (`addEventListener(` calls, `Object.defineProperty(`, `Reflect.set`/`defineProperty`, assignments to
 global, prototype and hook objects): a change in a count fails the test until the rows above and this block are
-updated.
+updated. `src/protect.ts` counts two `Object.defineProperty(` calls that are not interceptions: `protect()` sets
+`name` and `length` on the wrapper function it returns (its own object, never a page global; nothing to restore).
 
 <!-- inventory:start -->
 ```text
@@ -319,6 +320,7 @@ sites src/observe/storage.ts 6
 sites src/observe/timers.ts 4
 sites src/observe/websocket.ts 4
 sites src/observe/xhr.ts 15
+sites src/protect.ts 2
 sites src/runtime.ts 1
 sites src/telemetry/client.ts 2
 ```

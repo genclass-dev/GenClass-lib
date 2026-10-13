@@ -60,10 +60,10 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   }, 60_000);
 
   // /auto carries automatic state discovery (autoState, beta.4: about 6.5 KB); the main entry does not. The audit trail,
-  // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
-  // 91 KB for GenClass.init)
-  const LIMIT_KB: Record<string, number> = { "auto.js": 99, "index.js": 92 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 99 KB / 92 KB (README: about 98 / 91 KB)", async () => {
+  // protect presets and the hold-budget fixes (0.2.0) added about 1.6 KB to both; app tokens and protect() (Unreleased)
+  // about 1 KB more (/auto measured 99.56 KB in CI, run 38335925772). The measured sizes are printed below.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 101, "index.js": 93 };
+  it("first-load cost of /auto and the main entry, minified + gzip: under 101 KB / 93 KB", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
     for (const entry of ["auto.js", "index.js"]) {
@@ -91,6 +91,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       };
       walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
+      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(2)} KB gzip (limit ${LIMIT_KB[entry]} KB)`);
       expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
