@@ -23,6 +23,12 @@ Contents: [init and modes](#init-and-modes) · [options](#options) · [state](#s
 GenClass.init(options?: InitOptions): Runtime   // idempotent: a second call returns the same runtime
 GenClass.runtime: Runtime | null
 GenClass.destroy(): void                        // uninstall observers, restore globals, terminate the model worker
+GenClass.protect: typeof protect                // the same as the named export below (0.3.0: not in 0.2.x)
+
+// named exports (0.3.0: not in 0.2.x)
+protect<F extends (...args: never[]) => unknown>(name: string, fn: F): F   // see "Protected functions"
+TOKEN_PATTERN: RegExp                           // /^gc_[A-Za-z0-9]{22}$/
+isValidToken(v: unknown): v is string
 ```
 
 | mode | what it does |
@@ -51,6 +57,15 @@ hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), outside a bro
 `createRuntime()`. An explicit `telemetry: true` also sends from local hosts. Schema and details:
 [packages/runtime/TELEMETRY.md](../../packages/runtime/TELEMETRY.md).
 
+**App token and dashboard** (0.3.0: `0.2.x` ignores `token`). `token: "gc_..."` (from
+`npx @genclass/runtime init` or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
+show up on its private dashboard (`https://genclass.dev/dashboard/<secret>`); with a token, decision events also
+carry `fn` (see "Protected functions"). Public; malformed values log one warning and are ignored; it does nothing
+while telemetry is off (on a local host the console says so once). `rt.telemetry.token` reports it while telemetry
+is on. `token` and `scope` are fixed when GenClass starts: on a runtime already started by `/auto` or the script tag,
+`GenClass.init({ token, scope })` is ignored with one console warning (set them in `window.GENCLASS_CONFIG`, the meta
+tag or `data-token` / `data-scope`).
+
 ## Options
 
 ```ts
@@ -72,7 +87,7 @@ interface InitOptions {
   plugins?: Plugin[];
   historySize?: number;                                 // events kept, default 500
   debug?: boolean;                                      // console.debug every decision
-  learn?: { persist?: boolean };                        // keep transition profiles in localStorage
+  learn?: LearnOptions;                                 // learned state and flow expectations; see "Learned flows and expectations"
   aggressiveness?: "cautious" | "balanced" | "eager" | number; // how eagerly to act (default "balanced"; see Policy)
   vocabulary?: { diagnoses?: Record<string, string>; actions?: Record<string, string> };
   settleMs?: number;                                    // quiet time that makes a settled point, default 60
@@ -82,12 +97,16 @@ interface InitOptions {
     sample?: number;                                    // [1] fraction of page loads that send
     flushMs?: number;                                   // [10000] batch interval; also sent on pagehide / hidden tab (sendBeacon)
     maxBatch?: number;                                  // [100] events per request (requests also ≤ 60 KB)
-    include?: { situation?: boolean };                  // [true] include the redacted situation text
-    transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown> }; // tests / custom pipelines
+    include?: { situation?: boolean };                  // [false]; true: include the redacted situation text
+    decisionSample?: number;                            // [0.25] share of routine decisions (top diagnosis "expected", nothing acted) whose record is sent; every other decision always; counts exact
+    maxDecisions?: number;                              // [200] most routine decisions' records per page load (Infinity: no cap); detections are never capped; summaries continue
+    transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown> }; // tests / custom pipelines; a rejection with `status` 429 or `retryAfterMs` is a back-off (0.3.0)
   };
   autoState?: boolean | { react?: boolean; redux?: boolean; zustand?: boolean; pinia?: boolean };
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
+  token?: string;                                       // (0.3.0) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
+  scope?: "app" | "functions";                          // (0.3.0) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
   enabled?: boolean | (() => boolean | Promise<boolean>) | { get(): boolean | Promise<boolean>; subscribe?(cb: () => void): () => void };
@@ -110,19 +129,22 @@ interface InitOptions {
   onBeforeAction?: (a: ActionRequest) => boolean | void;// final sync veto (false or throw); counts against the hold budget
   vetoMode?: "enforce" | "report";                      // ["enforce"]; "report" records would-veto and runs the action
   sinks?: (SinkFn | { send: SinkFn; kinds?: SinkKind[]; sampleRate?: number; evidence?: boolean; flush?(): Promise<void> })[];
+                                                        // adapters: @genclass/runtime/sinks ("See it where you already look" below)
   session?: { id?: string; tags?: Record<string, string | number | boolean> }; // never shown to the model
   audit?: { size?: number; sink?: (e: AuditEntry) => void }; // [1000 kept in memory] the audit trail (rt.audit()); sink: your own logging
   redact?: (path: string, value: unknown, kind?: "state" | "url" | "header" | "input") => unknown; // runs after built-in redaction; a throw → "[redacted]"
   report?: "console" | "interventions" | "silent" | ((r: Report) => void);    // "interventions": console prints interventions, undos, breaker only
-  learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string }; // version defaults to session.tags.release; mismatch discards
-  // model: also loadIf [{ saveData: "lazy" }], inlineFallback [true], threads ["auto"], timeoutMs [10000],
+  learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string; maxBytes?: number; // persist [unset: profiles in memory; flows in localStorage when expectations are on; true/"local"/"session": both; false: nothing]; key ["genclass:learn"]; version [session.tags.release]: mismatch discards; maxBytes [200000]
+            expectations?: boolean; minSupport?: number; minShare?: number; minSessions?: number }; // [false: opt-in until its false-report rate is measured], [8 in one page load, 20 with stored counts], [0.95], [3 with localStorage, else 1] (docs/runtime/EXPECTATIONS.md)
+  // model: also loadIf [{ minDeviceMemoryGB: 4, saveData: "skip" }: no model on devices reporting ≤ 2 GB or on Save-Data; () => true forces],
+  //        inlineFallback [true; false: a failed worker means no model, never the main thread], threads ["auto"], timeoutMs [10000],
   //        maxDecisionsPerMinute [30], unloadAfterIdleMs [false]
 }
 ```
 
 Runtime additions: `rt.audit(n?)` (the audit trail, below), `rt.disable({ undo? })` (permanent; `undo: true` rolls back the last minute's actions),
 `rt.summary(): SessionSummary`, `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
-events `shadow`, `breaker`, `limit`, `modelBudget`. `status` adds `effectiveMode`, `sampled`, `breaker`, `scope`,
+`rt.learned()` (below), events `shadow`, `breaker`, `limit`, `modelBudget`, `expectation`. `status` adds `effectiveMode`, `sampled`, `breaker`, `scope`,
 `modelBudget`, and states `"disabled" | "skipped" | "unloaded"`. `status.scope` is what is in force on the current
 route: `mode` is the effective mode there (equal to `effectiveMode`: the requested mode demoted by sampling, the breaker
 and the matching `routes[]` rule) and `aggressiveness` the effective level; with a matching rule it also has `rule`
@@ -130,6 +152,11 @@ and the matching `routes[]` rule) and `aggressiveness` the effective level; with
 `scope.mode` was that ceiling ("heal" when no rule matched). `rt.gates()` carries `mode` (the same effective mode).
 `status.blocked` (state "error"): `{ url, origin, csp, directive? }` when the browser blocked a model or ORT download.
 `status.sha256` (state "ready"): the sha256 from `model.json` that the loaded variant was verified against.
+`status.reason` (state "skipped", since 0.3.0): `"device-memory"`, `"save-data"` or `"loadIf"` when `model.loadIf`
+kept the model from loading on this device (the default is the exported `DEFAULT_LOAD_IF`,
+`{ minDeviceMemoryGB: 4, saveData: "skip" }`), and `"worker-unavailable"` when the model worker could not start and
+`model.inlineFallback` is `false` (`status.workerError` says why). The runtime keeps observing without a model and
+prints one console line either way.
 
 Gate order (each request/decision): protected → cross-origin → op scope (created under off/observe) →
 mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → `policy.actionLimits`
@@ -240,11 +267,69 @@ it changed. Reads that bypass GenClass (a Redux middleware's `store.getState()`)
 GenClass also learns, at *settled* points (no requests in flight, `settleMs` of quiet), generic relations between
 your fields (`a == b` for fields with related names, `a == len(B)`, `a == sum(B[*].f)`, `a == sum(B[*].f * B[*].g)`,
 `a == count(B[*].k == v)`, `a >= 0`, `a ∈ B[*].k`, `B[*].id unique`, stable types, non-null) and each operation's usual
-effects on state. When a learned relation breaks, or an operation changes state unlike it normally does, the model is
+effects on state (after about 20 completions of the same operation; kept between visits only with `learn.persist`, see below). When a learned
+relation breaks, or an operation changes state unlike it normally does, the model is
 consulted. To avoid false alarms on correct apps: a selection holding 0, -1, "" or null means nothing is selected;
 uniqueness is only learned for id columns; pagination metadata (page, offset, limit, cursor, and a total next to them)
 never enters a relation; stores you are typing into are checked once typing pauses for a second; counters that change
 on nearly every write are left out unless they are a learned sum or count of a list.
+
+### Learned flows and expectations
+
+**Opt-in in 0.3.0** (`learn: { expectations: true }`): off by default until its false-report rate on correct apps is
+measured (docs/runtime/RESULTS.md, "Flow expectations"). Off, nothing below is learned, stored or reported, and its
+code (`src/learn/flows.ts`) is never loaded; on, the runtime imports it on the next task after init (a 0 ms timer on
+the injected clock; a lazy chunk, so it adds nothing to the first load) and learns from then on.
+
+For every user action on a route (a click, a submit, a change, Enter; never typing) GenClass learns which requests it
+starts and how soon, which request follows which, what each response writes, where the page navigates and how long
+the flow takes to settle. Once a step was seen in at least 95% of 20 or more observations spread over 3 or more
+visits (with the default persistence; 8 or more observations in one page load when nothing is stored:
+`learn.minShare`, `learn.minSupport`, `learn.minSessions`), a flow in which it did not happen is reported:
+
+```
+[GenClass] Expected a request on /cart: clicking button "Add to cart" usually sends POST /api/cart (41 of 41 times across 6 sessions, within 0.4 s); this time nothing was sent in 2.0 s.
+[GenClass] Expected a follow-up on /checkout: after POST /api/orders completes, clicking button "Place order" usually sends GET /api/orders (40 of 41 times, within 0.1 s); this time nothing followed in 1.0 s.
+[GenClass] Expected a state change on /cart: the response to POST /api/cart after clicking button "Add to cart" usually writes cart.items (41 of 41 times); this time it wrote nothing.
+[GenClass] Expected a navigation on /checkout: clicking button "Place order" usually leads to /confirmation (41 of 41 times, within 1.2 s); this time the page stayed on /checkout for 3.0 s.
+[GenClass] Expected a response: GET /api/items usually answers within 0.4 s (p99 of the last 64; 20 of 20 recent requests answered); this one has been waiting 2.1 s (bound 1.0 s).
+```
+
+These are deterministic reports from learned counts: the model is not consulted and nothing is held, retried or
+changed in any mode. Only a request that changes data (not GET, HEAD or OPTIONS) is expected to start or to write
+after its answer; a step is checked only on the branch of the handler it was learned on (the same fields written, so
+a submit that showed a validation error and sent nothing is not a gap); a repeat of the action within a page load is
+held to what earlier repeats did. They are skipped while the page is hidden or offline or the runtime is paused, for
+requests under `requests.protect`, for answers with status 400 or above, for the second click of a double click, for
+disabled controls, and for an action repeated while its flow is still open. Deadlines come from the learned delays
+(twice the p95, at least 1 s; a response needs twice the p99, at least 1 s, and the third visit with persistence). A
+step reported missing is not expected again until it is seen again, so an app whose behaviour changed gets one line,
+not one per visit, and a flow's counts are halved at 64 observations, so what the app does now outweighs what it did
+long ago. The counts are illustrations of the format, not measurements. Design, false-positive controls and what v2
+may do with them: [EXPECTATIONS.md](EXPECTATIONS.md).
+
+```ts
+rt.learned(): Learned                 // { route, expectations, session, flows: LearnedFlow[], deviations: Expectation[], relations }
+rt.on("expectation", (e: Expectation) => void)   // also a Report of kind "expectation" (report option, "report" event, sinks)
+GenClass.init({ learn: { expectations: true } })  // opt in (default false: learn and report nothing of this)
+```
+
+**Sinks.** An `expectation` record reaches a sink that forwards every kind (a function, `{ send }` without `kinds`,
+the webhook and console-json adapters) only while the layer is on; the Sentry, PostHog and Datadog adapters leave it
+out of their default kinds (add `"expectation"` to `kinds` to forward it).
+
+**Persistence.** With `learn.expectations` on, the learned flows (they only produce reports) are kept per origin in `localStorage` by default;
+transition profiles, which the model reads, stay in memory unless `learn.persist` is set (`true` or `"local"`:
+both in `localStorage`; `"session"`: both in sessionStorage; `false`: nothing is stored). Nothing is stored by
+default in a DOM test environment (jsdom, happy-dom) or when storage does not work. The value lives under
+`learn.key` (`genclass:learn`), is discarded when its format, the runtime version or `learn.version` (default
+`session.tags.release`) changes, is capped at `learn.maxBytes` (200,000 characters; the most-used flows and largest
+profiles are kept, and only the stored copy is trimmed), is written 5 s after a change, when the page is hidden or
+unloads and on `rt.destroy()`, and is cleared by `rt.learn.clear()`. A tab's sessionStorage keeps its session
+ordinal (`genclass:learn:session`), so a reload is not a new visit. It holds request signatures, routes and field
+names (id-like path segments and keys normalised, other segments and map keys as they are, secret-named fields
+never), counts and delay samples; user action labels are stored only as hashes, and values never. The devtools
+overlay shows what was learned under its **Expectations** tab.
 
 ## Operations and user actions
 
@@ -273,6 +358,29 @@ Causality is tracked through `await` on a best-effort basis: the operation that 
 user handler or `rt.op` body runs, after a fetch/XHR settles and when its body (`json()`, `text()`, ...) is read,
 and inside timers scheduled during an operation; it is cleared at the end of the task. Writes record the ambient
 operation as their cause; operations started while another is ambient get it as their parent.
+
+### Protected functions
+
+0.3.0 (not in `0.2.x`).
+
+```ts
+import { GenClass, protect } from "@genclass/runtime";
+GenClass.init({ token: "gc_...", scope: "functions" });
+
+const submitOrder = protect("checkout submit", async (cart: Cart) => { /* fetch, writes, ... */ });
+```
+
+`protect(name, fn)` returns a function with `fn`'s signature. Each call runs as a `"task"` operation named `name`
+(like `rt.op`), so what it starts is linked to it, and decisions about that carry `Decision.fn = name` (the
+outermost protected function when they nest; also `fn` on telemetry `decision` events when a token is set, as
+`"[redacted]"` when the label looks like data: an e-mail address, a URL, 4+ digits in a row, 12+ hex digits). `this`, arguments, return
+value and thrown errors pass through; a sync function stays sync; an async function's promise is replaced by one
+that settles the same way; other thenables are returned untouched. It looks up `GenClass.runtime` on every call and
+calls `fn` directly when there is none. It never throws on its own. With `scope: "functions"` everything is still
+recorded, but decisions are raised only for subjects inside a protected call, and standing questions
+(`rt.question()`, plugin `questions`) are asked only about them (explicit `rt.ask()` / `rt.decide()` are answered as
+before). For an async `fn` the operation and the situation are the same as with `rt.op(name, fn)`; a sync `fn`'s
+operation ends when it returns. There is no per-function `mode` option yet.
 
 ## Asking the model
 
@@ -314,6 +422,7 @@ rt.on("act", (a: ActionRecord) => void)      // every non-passive action that ra
 rt.on("event", (e: RtEvent) => void)         // every traced event
 rt.on("status", (s: ModelStatus) => void)    // model loading progress and state
 rt.on("report", (r: Report) => void)         // every report line (even with report: "silent")
+rt.on("expectation", (e: Expectation) => void) // a learned step did not happen (see "Learned flows and expectations")
 // each returns an unsubscribe function
 ```
 
@@ -334,6 +443,7 @@ rt.interventions(n?): ActionRecord[]
 rt.audit(n?): AuditEntry[]         // the audit trail, oldest first (see Reports, explain and undo)
 rt.inflight(): Op[]
 rt.stores(): StoreInfo[]           // registered and discovered stores: { name, kind: "atom"|"guard"|"adapter"|"observed", source?, writable, fields, version }
+rt.learned(): Learned              // learned flows per user action and route, recent deviations, learned relations
 rt.setMode(mode); rt.pause(); rt.resume(); rt.destroy()
 rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise<void> } // reason when off: option, headless, url, localStorage, gpc, sampled-out, kill-switch, disabled, ...
 ```
@@ -455,11 +565,85 @@ a.undo?.();         // discard: applies the dropped values now; late revert: re-
 rt.explain(a.id);   // { decision, situationText, facts, timeline, answers, action, changed }
 ```
 
-A custom `report` function receives `{ kind: "detect" | "intervene" | "status", message, decision?, action? }`.
-`explain(id).message` is the same line for any decision or action, also when it was not printed.
+A custom `report` function receives `{ kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error" | "expectation", message, decision?, action?, expectation? }`.
+`explain(id).message` is the same line for any decision or action, also when it was not printed. An `expectation`
+report (a learned step that did not happen) carries no decision: its evidence is the learned counts in
+`report.expectation` and the console group prints them.
 
 Your own debug UI: GenClass ignores user events from inside any element marked `data-genclass-ignore` (the devtools
 overlay uses it), so debugging tools never become causes in situations.
+
+### See it where you already look
+
+0.3.0 (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
+in `0.2.x`.
+
+`sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
+`sampled`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `label`, `route` (the page path the subject's operation was
+created on, normalised as telemetry sends it: id-like and email segments as `:id`, at most 200 chars), `changed`
+(paths), `reason`, `shadow`, `correlationId`, and with `evidence: true` the redacted `message`,
+`subject` and `timeline` (URL query and fragment values as `…`; timeline lines can hold short fragments of app data,
+as the console does: a store value summary, an error message, text typed into an ordinary input). Five adapters, no
+dependencies, each a function returning that sink shape, each finding the SDK on the page at send time (or taking the
+client you pass), never throwing, and sending nothing beyond the record. Each takes `kinds`, `sampleRate` and
+`evidence` (default true; false sends the structured fields only):
+
+```ts
+import { consoleJson, datadog, posthog, sentry, webhook } from "@genclass/runtime/sinks"; // or @genclass/runtime/sinks/<name>
+
+sentry({ sentry: Sentry, as: "event", level: "warning", kinds, sampleRate, maxPerSignature: 10 });
+// Sentry.captureMessage(line, { level, tags: { genclass: diagnosis, "genclass.kind", "genclass.mode", "genclass.action",
+//   "genclass.trigger", "genclass.route" }, extra: { genclass: record }, fingerprint: ["genclass", <per-bug signature>] });
+// as: "breadcrumb" → Sentry.addBreadcrumb({ category: "genclass", message: line, data: record }) only.
+// Default SDK: globalThis.Sentry (the loader / CDN bundles); the npm SDK sets no global, so pass it.
+
+posthog({ posthog: client, prefix: "genclass_" });
+// posthog.capture("genclass_detection" | "genclass_intervention" | "genclass_undo" | "genclass_breaker" | "genclass_error",
+//   { ...record, message, subject, timeline, signature }). Default client: globalThis.posthog (the snippet's stub queues too).
+
+datadog({ rum: datadogRum, as: "error" });
+// detections and interventions: DD_RUM.addError(Error named GenClassDetection / GenClassIntervention, { genclass: record });
+// undo, breaker, error: DD_RUM.addAction("genclass_<kind>", { genclass: record }); as: "action" sends everything as actions.
+// Default SDK: globalThis.DD_RUM (the async stub's onReady is honoured).
+
+consoleJson({ method: "log", kinds });
+// console.log('{"source":"genclass","schema":1,"kind":"detection",...}'), one line per record, every kind (summary too).
+
+webhook({ url: "/genclass", maxBatch: 50, maxPerSignature: 10, headers, kinds, sampleRate, clock, flushMs: 5000 });
+// POST { schema: "genclass-sink/1", version, records: SinkRecord[] } by navigator.sendBeacon, else fetch keepalive, as JSON
+// in a text/plain body; at most one POST per idle-time delivery round (a microtask after it; with a clock: flushMs after
+// the first record, or at once at maxBatch), holding at most maxBatch records and 32,000 UTF-8 bytes of them (about half
+// the page's 64 KiB keepalive budget, which the app's own beacons share). The rest waits, oldest first, for the next
+// round (with a clock: flushMs later; without: the next records' round, or the previous fetch settling); on page hide
+// one batch goes, the session summary first, and what is left is dropped. At most 500 records wait. The records and
+// nothing else (route, diagnosis, action, ..., the evidence text above): never the situation text, bodies, headers or
+// cookies. With headers (fetch only) or no sendBeacon, list the URL in requests.ignore.
+```
+
+The tool adapters (sentry, posthog, datadog) default to `kinds: ["detection", "intervention", "undo", "breaker",
+"error"]`; they and `webhook` cap repeats of one bug (same kind, trigger, diagnosis, action and subject shape, with op
+ids, numbers and id-like path segments such as UUIDs, hex, tokens, slug ids and emails as one) at `maxPerSignature` 10
+per page load (the webhook never caps its `summary` record); `consoleJson` and `webhook` forward every kind. A tool
+adapter that finds no SDK when a record arrives prints one console warning naming the fix.
+
+Sinks by name, with no code, in the zero-code entries (`/auto`, the script tag): `window.GENCLASS_CONFIG = { sinks:
+["sentry", "webhook:/genclass"] }`, `<meta name="genclass" content="sink=sentry+posthog">` (`+` joins names, since
+commas separate the meta keys), `data-sink="sentry,posthog"` on the script tag, or `npx @genclass/runtime init --sink
+sentry`. A name finds its SDK as a page global (`window.Sentry`, `window.posthog`, `window.DD_RUM`); `<name>:noevidence`
+(`sentry:noevidence`) makes its adapter with `evidence: false`. `init` suggests the flag when `package.json` depends on
+a Sentry browser SDK (`@sentry/react`, `@sentry/vue`, `@sentry/nextjs`, ...; not its build plugins or server SDKs),
+`posthog-js` or `@datadog/browser-rum`, and in an option file it writes a `sentry` or `posthog` sink whose SDK comes
+from npm (which sets no global) as the adapter with that SDK passed in: `import * as Sentry from "@sentry/vue"; import
+{ sentry as sentrySink } from "@genclass/runtime/sinks/sentry"; globalThis.GENCLASS_CONFIG = { sinks: [sentrySink({
+sentry: Sentry })] };` (GENCLASS_CONFIG passes sink objects through). The names become one proxy sink at init that
+queues records (at most 200) and loads the adapters on the first record (never before: a page that reports nothing,
+or runs with `?genclass=off`, fetches none): a lazy chunk of `/auto`, `dist/sinks/<name>.js` from the CDN for the
+script tag. Only the proxy is in the first-load bundle. A webhook URL is made absolute at init (against
+`document.baseURI`) and its endpoint (origin and path) joins `requests.ignore` as an exact match; from a `<meta>` tag it
+must be same-origin as the browser resolves it, against the page and `document.baseURI` (a cross-origin one is ignored
+with one warning, as for the model and ORT URLs). An unknown name, or an adapter that cannot load, is one console
+warning. A name handed to `GenClass.init({ sinks })` directly is ignored with one warning: import the adapter there.
+The console default is unchanged.
 
 ### Audit trail
 
@@ -585,15 +769,21 @@ situation size.
 The local model host is exported for direct use: `createModelHost(options)` (a `DecisionProvider` with `measure()`,
 `evaluateDetailed()`, `stats`), `DEFAULT_MODEL_BASE_URL`, and the model errors (`ModelNotReadyError`,
 `MaxTokensExceededError`, `ModelTimeoutError`, `ModelBusyError`, `ModelLoadError`, ...; each has a `code`). Any
-provider error makes the runtime fail open.
+provider error makes the runtime fail open. The device floor is exported too: `deviceEnv(globalThis)` (what the page
+can tell about the device: `deviceMemoryGB`, `saveData`, `mobile`, `cores`, `webgpu`, `effectiveType`),
+`evalLoadIf(modelOptions, env, warn)` (`"load" | "lazy" | { skip: "device-memory" | "save-data" | "loadIf" }`) and
+`DEFAULT_LOAD_IF` (`{ minDeviceMemoryGB: 4, saveData: "skip" }`, since 0.3.0; `navigator.deviceMemory` is quantised
+to powers of two, so 4 skips exactly the devices reporting 2 GB or less).
 
 ## Adapters and devtools
 
 Subpath exports: `@genclass/runtime/react` (`useGenClassState(name, initial, opts?)`, `useAtom(atom)`,
 `useGenClass()`), `@genclass/runtime/redux` (`genclassEnhancer(runtime, { name })`), `@genclass/runtime/zustand`
 (`genclass(runtime, name)(stateCreator)`), `@genclass/runtime/devtools` (`mountDevtools(runtime, opts?)`),
-`@genclass/runtime/discover` (automatic state discovery for `GenClass.init({ autoState: true })`; import it first). They are
-documented with their source. To integrate another state library use:
+`@genclass/runtime/discover` (automatic state discovery for `GenClass.init({ autoState: true })`; import it first),
+`@genclass/runtime/sinks` (`sentry`, `posthog`, `datadog`, `consoleJson`, `webhook`; 0.3.0) and one subpath per
+adapter, `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}` (each also its default export; see
+"See it where you already look"). They are documented with their source. To integrate another state library use:
 
 ```ts
 rt.adapter<T>(name: string, io: { get(): T; set?(v: T): void; subscribe?(fn: () => void): () => void }, opts?): {
@@ -619,6 +809,9 @@ type Detection = Decision;
 interface ActionRecord { id: string; decisionId: string; action: string; tier; trigger; subject: string; at: number; ok: boolean; error?: string; changed: string; undo?: () => void; late?: boolean; dropped?: string[] /* delivery discard: fields dropped */ }
 type SubjectRef = { kind: "delivery"; op: number; paths?: string[]; store?: string } | { kind: "mutation"; ... } | ...
 interface Explanation { message: string; decision: Decision; situationText: string; facts: string[]; timeline: string[]; answers: Record<string, Answer>; action?: ActionRecord; changed?: string; gates?: EffectiveGates }
+interface Expectation { kind: "request" | "response" | "write" | "follow-up" | "navigation"; route: string; action: string; op: number; signature?: string; field?: string; after?: string; to?: string; seen: number; of: number; sessions: number; waitedMs: number; usualMs?: number; at: number; message: string }
+interface LearnedFlow { route: string; action: string; n: number; repeats: number; sessions: number; settleMs?: { p50; p95 }; children: { signature; n; share; onRepeat; expected; expectedOnRepeat; protected?; missed?; delayMs? }[]; writes: { signature; field; n; of; share; expected; missed? }[]; followUps: { after; then; n; of; share; expected; missed?; delayMs? }[]; nav: { to; n; share; expected; missed? }[] } // missed: reported missing, not expected until seen again
+interface Learned { route: string; session: number; flows: LearnedFlow[]; deviations: Expectation[]; relations: { text: string; held: number }[] }
 interface EffectiveGates { kind: "mass" | "gain"; tauGain?: number; trigger?: TriggerKind; report: number; guard: number; heal: number; source: { report: "policy" | "model" | "default"; guard: …; heal: … } }
 interface RtEvent { seq: number; t: number; kind: "user"|"op.start"|"op.end"|"state"|"error"|"nav"|"perf"|"storage"|"custom"|"decision"|"action"; name: string; op?: number; cause?: number; data?: Record<string, unknown> }
 interface Op { id: number; kind: "user"|"fetch"|"xhr"|"ws"|"task"|"timer"|"genclass"; name: string /* e.g. "GET /api/x", "WS message /live", "SSE update /stream" */; detail?: string; start: number; end?: number; status?: "ok"|"error"|"aborted"|"blocked"; code?: number | string; cause?: number; root?: number; attempt: number; reads: Map<string, number>; identity?: string }

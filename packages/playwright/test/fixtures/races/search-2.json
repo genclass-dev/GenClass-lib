@@ -1,0 +1,17 @@
+{
+  "schema": "genclass-races/1",
+  "test": "search.spec.ts > search > shows the results of the last query",
+  "seed": 2,
+  "signatures": [
+    {
+      "sig": "delivery|stale|GET /api/search",
+      "trigger": "delivery",
+      "diagnosis": "stale",
+      "op": "GET /api/search",
+      "confidence": 0.91,
+      "evidence": "The response of GET /api/search (#21) arrives after a newer GET /api/search (#23) was answered; it would replace results.query, which #23 wrote 0.31s ago.",
+      "seeds": [2]
+    }
+  ],
+  "shadow": "guard"
+}

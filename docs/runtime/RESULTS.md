@@ -255,6 +255,21 @@ removes the other while the next ticket poll is answered 3 s late): **3 / 3 deli
 with `autoState: false`**, all `expected` (correct: the app drops stale polls; no bug in any mode). Overhead: see the
 package README "Costs" (+7 KB first-load JS, walk p95 under 2 ms at 4× throttling, +0.5 MB heap, no new long tasks).
 
+### Flow expectations (0.3.0, opt-in: `learn.expectations`): not yet measured
+
+The layer ships **off by default** in 0.3.0 (owner decision, 2026-10-13) until the gate below has run; its
+first-load cost with the lazy import is in §10.
+
+The learned-flow expectations layer (`docs/runtime/EXPECTATIONS.md`; reporting only, no model, no action) has unit
+tests on the fake clock but no demo or real-app measurement yet. Its acceptance gate before any public claim: zero
+`expectation` reports across the six demos' clean trials (15 per mode per demo, `bench/heal/`), reported next to
+how many of the demos' silent-flow bugs (stuck "Placing…", lost commit) it names, plus a two-session run on the
+stored path (the trials start in a fresh browser context, so they never load stored flows). Measured so far:
+first-load JavaScript, minified + gzip, `/auto` 106.5 KB and `GenClass.init()` 99.1 KB (`test/bundle.test.ts`, CI
+run 38455195053 on branch `wave1/expectations`, 2026-10-13, after the review fixes; 105.8 / 98.3 KB in run
+38448983470 before them), against about 99 KB and 91 KB before the layer (the README's figures at 0.2.2, where
+`test/bundle.test.ts` kept them under 100 / 92 KB): about +7.5 KB per entry.
+
 ### v0.1 model, untrained for this (2026-10-08, baseline only)
 
 | Demo | Bug rate Off | Guard | Heal | False interventions on clean runs |
@@ -300,7 +315,123 @@ trained v2 model once it exists.
 
 Compute: Azure CPU nodes (F80 and D64 sizes); the day-by-day record is kept internally.
 
-## 9. Dashboard counts and the possible-issues tier (telemetry-worker, 2026-10-13)
+## 8. Runtime footprint and telemetry volume (CI)
+
+Measured by unit tests in GitHub CI (Node on `ubuntu-latest`), not in a browser and without the model. Branch
+`wave1/defaults-footprint`, 2026-10-13; each value is the line the test prints in the "Unit tests" log of that run.
+
+**First-load JavaScript** (`packages/runtime/test/bundle.test.ts`: esbuild bundles the built `dist/` the way an app
+would, minified, gzip level 9, first-load chunks only; the model worker, ONNX Runtime Web and the devtools are
+separate chunks loaded on demand):
+
+| entry | `a7b60d7` (run 38442191071) | `e26c0dc` (run 38442394416) | `ebbe912` (run 38445206305) | limit |
+|---|---|---|---|---|
+| `@genclass/runtime/auto` (with state discovery) | 100.61 KB | 100.61 KB | 100.70 KB | 101.5 KB |
+| main entry, `GenClass.init({})` | 93.13 KB | 93.13 KB | 93.22 KB | 93.5 KB |
+
+**Telemetry volume** (`packages/runtime/test/telemetry.test.ts`, "an hour at the built-in model's maximum rate"): one
+page, 1,800 mutation decisions, one every 2 s (30 a minute, the `model.maxDecisionsPerMinute` default) for a simulated
+hour on a fake clock. No model: a scripted decider answers `expected` (routine) or `stale` at p = 0.97 (every decision
+a detection, above the default report gate). Observe mode, situation text off, every request body counted. Defaults
+are `decisionSample: 0.25`, `maxDecisions: 200` (`packages/runtime/TELEMETRY.md`, "Volume").
+
+| commit (run) | routine, defaults | every one a detection, defaults | every one a detection, every record (`decisionSample: 1, maxDecisions: Infinity`) |
+|---|---|---|---|
+| `a7b60d7` (38442191071), `e26c0dc` (38442394416): summaries stopped after the cap (a bug) | 203.4 KB, 204.1 KB | 228.7 KB, 228.7 KB | 2,064.7 KB, 2,064.7 KB |
+| `ebbe912` (38445206305): a summary about once a minute for the whole hour | 241.6 KB, 100 requests | 271.4 KB, 95 requests | 2,064.7 KB, 361 requests |
+| of which `summary` events, `ebbe912` | 61, 39.4 KB | 61, 40.8 KB | 61, 40.8 KB |
+
+The routine column depends on which decisions the session-id hash samples, so it moves between runs. The test fails
+if either default case reaches 300 KB. A real page sends far fewer decisions to the model (only salient situations),
+so these are upper bounds for one tab, not typical volumes. **Superseded for 0.3.0 by §10:** detections are no
+longer sampled or capped, so the "every one a detection, defaults" case now sends every record.
+
+## 9. Install footprint (first-load JavaScript, CI)
+
+`packages/runtime/test/bundle.test.ts` bundles the built `dist/` the way an app's bundler would (esbuild, minified,
+code splitting) and gzips (level 9) every file of the first load on its own; it prints the sizes and fails above the
+limits. No model is involved, so no model, threshold or FIR applies. GitHub Actions `ci.yml`, Node 22, the same test
+for both columns:
+
+| entry | 0.2.2 | Unreleased (sink adapters, sinks by name) | limit |
+|---|---|---|---|
+| `@genclass/runtime/auto` (automatic state discovery; Unreleased also the sink names' proxy) | 99.17 KB in 3 files (96.25 + 2.74 + 0.19) | 99.97 KB in 3 files (97.04 + 2.74 + 0.19) | 100 KB |
+| main entry, `GenClass.init({})` | 91.70 KB in 3 files (88.77 + 2.74 + 0.19) | 91.83 KB in 3 files (88.91 + 2.74 + 0.19) | 92 KB |
+| script tag, `dist/genclass.global.min.js` (one file; the worker, ONNX Runtime and the sink adapters load on demand) | 113.49 KB (333.8 KB minified) | 114.86 KB (337.2 KB minified) | none |
+
+CI runs: 0.2.2 is run 38441488459 (`packages/runtime` as tagged `v0.2.2`, which is also `main` 87481d7, with only the
+size-printing bundle test added); Unreleased is run 38443030760. The Unreleased changes add 0.80 KB to `/auto`,
+0.13 KB to the main entry (`SinkRecord.route` and the sink-shape check) and 1.37 KB to the script tag; the sink
+adapters, their name table and the fan-out are absent from both first loads (asserted in the same test). That leaves
+0.03 KB under the `/auto` limit and 0.17 KB under the main entry's, so the next change that adds to the first load
+needs a smaller first load or a new limit. The 0.3.0-beta.0 sizes and limits are in §10.
+
+## 10. Release 0.3.0-beta.0: first load and telemetry volume (CI)
+
+Branch `release/0.3.0` (wave2/accounts-base = main 88df703 + wave1/projects, then wave1/defaults-footprint,
+wave1/dev-visible-reports, wave1/expectations made opt-in and lazy, and wave1/playwright), 2026-10-13. GitHub
+Actions `ci.yml`, Node 22; each value is the line the test prints in the "Unit tests" log of that run. No model is
+involved (esbuild bundles and a scripted decider), so no recall, false-intervention or false-detection rate applies
+to these numbers.
+
+**First-load JavaScript** (`packages/runtime/test/bundle.test.ts`: esbuild bundles the built `dist/` as an app
+would, minified, code splitting, every first-load file gzipped on its own at level 9). From `53b04f2` on, the test
+walks the first load from the app's own entry (`<stdin>`) and counts every file; the `738a05b` row used the earlier
+walk, which missed the two shared chunks (2.74 + 0.19 KB).
+
+| step (commit, CI run) | `/auto` | main entry `GenClass.init({})` | script tag (one file) |
+|---|---|---|---|
+| 0.2.2 (§9, run 38441488459) | 99.17 KB | 91.70 KB | 113.49 KB |
+| + app tokens, `protect()` (wave1/projects 625a491, run 38436300545; earlier walk) | 100.68 KB | 93.19 KB | not printed |
+| + device floor, telemetry sampling (`738a05b`, run 38461782967; earlier walk) | 102.16 KB | 94.66 KB | not printed |
+| + sink adapters, sinks by name (`53b04f2`, run 38462380432) | 102.94 KB in 3 files | 94.79 KB in 3 files | 117.96 KB |
+| + flow expectations, `src/learn/flows.ts` lazy (`fcefedb`, run 38463736575) | 106.16 KB in 4 files | 98.13 KB in 4 files | 126.03 KB |
+| + even sampling draw (`c2f0b54`, run 38464240236) | 106.23 KB | 98.20 KB | 126.11 KB |
+| **0.3.0-beta.0** (`bff4a71`, run 38465242176) | **106.24 KB** (100.26 + 3.05 + 2.74 + 0.19) | **98.21 KB** (92.24 + 3.05 + 2.74 + 0.19) | **126.12 KB** (369.4 KB minified) |
+| + telemetry 429 back-off, no sampling settings in `session` (`7c7c6d6`, run 38477010836) | **106.59 KB** (100.62 + 3.05 + 2.74 + 0.19) | **98.57 KB** (92.59 + 3.05 + 2.74 + 0.19) | **126.45 KB** (370.5 KB minified) |
+| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0) | 107.74 KB | 99.71 KB | none |
+
+The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's
+99.17 KB on wave1/expectations, run 38455195053). Imported lazily, and only with `learn.expectations: true`, they
+add +3.3 KB (102.94 to 106.24 KB): the runtime side (learned-state persistence, the console line, the hooks) and
+the overhead of the util code the lazy chunk shares becoming a 3.05 KB chunk of its own. So the lazy import moves
+about 4 KB (by difference, not measured on its own) out of every first load. The script-tag build has no code
+splitting and carries the flow layer inline.
+
+**Telemetry volume** (`packages/runtime/test/telemetry.test.ts`, "an hour at the built-in model's maximum rate"; the
+setup of §8: one page, 1,800 decisions from a scripted decider at p = 0.97, observe mode, situation text off, every
+request body counted). Since `738a05b` detections, near-misses (a top diagnosis other than `expected`), actions and
+vetoes are never sampled or capped; only routine decisions are (`decisionSample: 0.25`, `maxDecisions: 200`
+routine records per page load):
+
+| commit (run) | all routine, defaults | every one a detection, defaults | every record (`decisionSample: 1, maxDecisions: Infinity`) |
+|---|---|---|---|
+| `738a05b` (38461782967) | 242.4 KB, 106 requests | 2,064.7 KB, 361 requests | 2,064.7 KB, 361 requests |
+| `c2f0b54` (38464240236), the even draw below | 249.0 KB, 162 requests | 2,064.7 KB, 361 requests | 2,064.7 KB, 361 requests |
+| `bff4a71` (38465242176), 0.3.0-beta.0 (a longer version string in every envelope) | 250.3 KB, 163 requests | 2,067.1 KB, 361 requests | 2,067.1 KB, 361 requests |
+| **`7c7c6d6` (38477010836)**: 429 back-off; `session` without `decisionSample` / `maxDecisions` (about 40 bytes once per page load, below the 0.1 KB rounding) | **250.3 KB, 163 requests** | **2,067.1 KB, 361 requests** | 2,067.1 KB, 361 requests |
+
+Summaries: 61 per hour in every case, 39.3 KB (routine) and 40.8 KB (detections).
+
+**The routine-record draw** (`decisionDraw` in `src/telemetry/client.ts`). The 0.25 share was drawn from fnv1a of
+"<session id>:<decision id>", whose high bits hardly depend on the last characters, and decision ids (`d1`, `d2`,
+...) differ only there: CI run 38463736575 failed on a page that sent 44 of 80 routine records. Measured with a Node
+script over 200 fixed session ids, 80 decisions each: fnv1a alone sent 0 to 59 of 80 per page (0.2554 overall);
+with murmur3's 32-bit finalizer after it (`c2f0b54`) 9 to 32 of 80 (0.2499 overall). The unit test "the
+routine-record draw is even for every session" asserts the finalized draw on the same 200 sessions (5 to 36 per
+page, 0.23 to 0.27 overall). Detections never go through this draw.
+
+**The 429 back-off** (`7c7c6d6`, ported from wave2/detect-observe): `test/telemetry.test.ts` "a 429 or a
+Retry-After is a back-off" asserts, with a scripted transport, that five 429s in a row (more than the three failures
+that stop a page) never stop it, that nothing is sent during a back-off (30 s, 60 s, 120 s, 240 s, then 5 minutes
+with no Retry-After; exactly 5 s with `Retry-After: 5`), and that the refused batch is sent in order once the
+collector accepts it. These are behaviour checks, not rates: how many pages behind one address hit the collector's
+limit in production is not measured.
+
+**Not measured here:** browser timings, the install suite (`test/install/run-all.sh`, VM only), the demos'
+clean-trial gate for the flow expectations (§5), and any number with the model.
+
+## 12. Dashboard counts and the possible-issues tier (telemetry-worker, 2026-10-13)
 
 Branch `wave2/dash-detect`. The worker now takes each page load's totals (page loads, decisions, detections by
 diagnosis, acted, triggers, diagnoses, action outcomes, vetoes, breaker trips, fail-opens, model errors, action

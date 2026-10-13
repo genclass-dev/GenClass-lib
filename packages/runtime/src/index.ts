@@ -8,8 +8,11 @@ import type { Clock, CreateOptions, DecisionProvider, DeviceEnv, EvaluateRequest
 import { browserClock } from "./clock.js";
 import { RuntimeImpl } from "./runtime.js";
 import { createModelHost } from "./model/host.js";
+import { deviceEnv, evalLoadIf } from "./model/device.js";
 import { startTelemetry } from "./telemetry/index.js";
 import { telemetryOff } from "./telemetry/client.js";
+import { resolveToken } from "./token.js";
+import { protect, setProtectResolver } from "./protect.js";
 
 export * from "./types.js";
 export { browserClock } from "./clock.js";
@@ -40,6 +43,8 @@ export { RUNTIME_VERSION } from "./version.js";
 export { PROTECT_PRESETS, PRESET_PREFIX, protectPreset } from "./presets.js";
 export type { ProtectPresetName } from "./presets.js";
 export { AUDIT_SCHEMA } from "./decide/audit.js";
+export { protect } from "./protect.js";
+export { TOKEN_PATTERN, isValidToken } from "./token.js";
 
 /** fetch as it was when this module loaded: the model host downloads with it, so GenClass never observes itself. */
 const NATIVE_FETCH: typeof fetch | undefined =
@@ -60,42 +65,7 @@ function skippedProvider(reason: string): DecisionProvider {
   return { status: { state: "skipped", reason }, ready: () => Promise.reject(err), evaluate: () => Promise.reject(err) };
 }
 
-/** What the page can tell about the device (OPTIONS-SPEC §4.15). Unknown values stay undefined (= allowed). */
-export function deviceEnv(g: Record<string, unknown>): DeviceEnv {
-  const nav = (g.navigator ?? {}) as {
-    deviceMemory?: number;
-    hardwareConcurrency?: number;
-    gpu?: unknown;
-    connection?: { saveData?: boolean; effectiveType?: string };
-    userAgentData?: { mobile?: boolean };
-  };
-  const env: DeviceEnv = { webgpu: !!nav.gpu };
-  if (typeof nav.userAgentData?.mobile === "boolean") env.mobile = nav.userAgentData.mobile;
-  if (typeof nav.deviceMemory === "number") env.deviceMemoryGB = nav.deviceMemory;
-  if (typeof nav.hardwareConcurrency === "number") env.cores = nav.hardwareConcurrency;
-  if (typeof nav.connection?.saveData === "boolean") env.saveData = nav.connection.saveData;
-  if (typeof nav.connection?.effectiveType === "string") env.effectiveType = nav.connection.effectiveType;
-  return env;
-}
-
-/** loadIf → "load" | "lazy" | skip reason. A throwing predicate counts as allowed. */
-export function evalLoadIf(m: ModelOptions, env: DeviceEnv, warn: (s: string) => void): "load" | "lazy" | { skip: string } {
-  const li = m.loadIf ?? { saveData: "lazy" as const };
-  if (typeof li === "function") {
-    try {
-      const v = li(env);
-      return v === "lazy" ? "lazy" : v === false ? { skip: "loadIf" } : "load";
-    } catch (e) {
-      warn(`model.loadIf threw (${(e as Error)?.message ?? e}); loading anyway.`);
-      return "load";
-    }
-  }
-  if (typeof li.minDeviceMemoryGB === "number" && typeof env.deviceMemoryGB === "number" && env.deviceMemoryGB < li.minDeviceMemoryGB) return { skip: "device-memory" };
-  const sd = li.saveData ?? "lazy";
-  if (env.saveData === true && sd === "skip") return { skip: "save-data" };
-  if (env.saveData === true && sd === "lazy") return "lazy";
-  return "load";
-}
+export { deviceEnv, evalLoadIf, DEFAULT_LOAD_IF } from "./model/device.js";
 
 function hostOptions(m: ModelOptions, env: DeviceEnv): Record<string, unknown> {
   const { loadIf: _l, inlineFallback: _i, threads, timeoutMs, maxDecisionsPerMinute: _d, unloadAfterIdleMs: _u, ...rest } = m;
@@ -103,7 +73,7 @@ function hostOptions(m: ModelOptions, env: DeviceEnv): Record<string, unknown> {
   if (typeof threads === "number" && threads >= 1) out.maxThreads = Math.floor(threads);
   else if (threads === "auto" && typeof env.cores === "number") out.maxThreads = Math.min(4, Math.max(1, env.cores - 1));
   if (typeof timeoutMs === "number" && timeoutMs > 0) out.timeoutMs = timeoutMs;
-  // inlineFallback:false needs a host option (src/model/**, not CORE): flagged, passed through for the host to honour.
+  // inlineFallback:false: the host then never runs the model on the main thread (status "skipped", worker-unavailable)
   if (m.inlineFallback === false) out.inlineFallback = false;
   return out;
 }
@@ -197,6 +167,9 @@ export function createRuntime(options: CreateOptions = {}): Runtime {
   return buildRuntime(options, false);
 }
 
+/** The valid token each runtime started with (GenClass.init's "already running" warning compares against it). */
+const tokenOf = new WeakMap<Runtime, string>();
+
 /**
  * createRuntime, with `telemetryDefaultOn` for GenClass.init in a browser: an unset `telemetry` option then means
  * "on, except where the default stays off" (local and private hosts, see resolveTelemetry). Passing `telemetry: true`
@@ -212,14 +185,37 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
     decider = makeHost(options.model, nf, options.clock, (options.global ?? globalThis) as never);
   }
   const rt = new RuntimeImpl({ ...options, decider: decider ?? null, ownsDecider: owns });
+  const con = () => (rt.global.console as Console | undefined) ?? (globalThis as { console?: Console }).console;
+  const token = resolveToken(options.token, (m) => con()?.warn?.(`[GenClass] ${m}`));
+  if (token) tokenOf.set(rt, token);
   if (options.enabled === false) rt.telemetry = telemetryOff("disabled");
   else
-    rt.telemetry = startTelemetry(rt, options.telemetry, telemetryDefaultOn, {
-      model: owns ? "local" : decider ? "custom" : "off",
-      ...(options.triage ? { triage: options.triage } : {}),
-      ...(options.shadow ? { shadow: options.shadow } : {}),
-      ...(options.policy?.holdWrites ? { holdWrites: true } : {}),
-    });
+    rt.telemetry = startTelemetry(
+      rt,
+      options.telemetry,
+      telemetryDefaultOn,
+      {
+        model: owns ? "local" : decider ? "custom" : "off",
+        ...(options.triage ? { triage: options.triage } : {}),
+        ...(options.shadow ? { shadow: options.shadow } : {}),
+        ...(options.policy?.holdWrites ? { holdWrites: true } : {}),
+      },
+      token,
+    );
+  // a token with telemetry off: say so once in debug; on a local host always (a developer trying the dashboard from
+  // localhost would otherwise wait for data that never comes)
+  const local = rt.telemetry.reason === "local";
+  if (token && !rt.telemetry.enabled && (options.debug || local)) {
+    try {
+      con()?.info?.(
+        local
+          ? "[GenClass] A token is set, but telemetry is off on local hosts (localhost, *.local, *.test, private networks), so this page does not feed your dashboard; your deployed site does."
+          : `[GenClass] A token is set, but telemetry is off (${rt.telemetry.reason ?? "off"}), so nothing reaches your dashboard from this page.`,
+      );
+    } catch {
+      /* ignore */
+    }
+  }
   return rt;
 }
 
@@ -256,13 +252,12 @@ export const GenClass = {
    */
   init(options: InitOptions = {}): Runtime {
     if (current) {
-      if (options.mode && options.mode !== current.mode && warnedIgnored !== current) {
-        warnedIgnored = current;
-        const g = globalThis as unknown as Record<string, unknown>;
-        (g.console as Console | undefined)?.warn?.(
-          `[GenClass] Already running in ${current.mode} mode (started by @genclass/runtime/auto, the script tag or an earlier GenClass.init()), so this call's options are ignored. ` +
-            `To change the mode: GenClass.runtime.setMode("${options.mode}"), or re-run \`npx @genclass/runtime init --mode ${options.mode}\`.`,
-        );
+      if (warnedIgnored !== current) {
+        try {
+          warnIgnored(current, options);
+        } catch {
+          /* a warning never breaks the app */
+        }
       }
       return current;
     }
@@ -284,7 +279,37 @@ export const GenClass = {
     current = null;
     r?.destroy();
   },
+  /** The same as the named export protect(): wrap a function so GenClass tracks and protects each call. */
+  protect,
 };
+
+setProtectResolver(() => (current instanceof RuntimeImpl ? current : null));
+
+/**
+ * GenClass.init on a running runtime ignores its options: one console warning per runtime when the call asks for a
+ * different mode, token or scope, saying where each can be set instead (the zero-code entries start GenClass before
+ * app code runs, so a later GenClass.init({ token, scope }) cannot reach them).
+ */
+function warnIgnored(rt: Runtime, options: InitOptions): void {
+  const mode = !!options.mode && options.mode !== rt.mode;
+  const token = typeof options.token === "string" && options.token.trim() !== "" && options.token.trim() !== (tokenOf.get(rt) ?? "");
+  const runningScope = (rt as unknown as { scope?: string }).scope ?? "app";
+  const scope = (options.scope === "app" || options.scope === "functions") && options.scope !== runningScope;
+  if (!mode && !token && !scope) return;
+  warnedIgnored = rt;
+  const g = globalThis as unknown as Record<string, unknown>;
+  const parts = [
+    `[GenClass] Already running in ${rt.mode} mode (started by @genclass/runtime/auto, the script tag or an earlier GenClass.init()), so this call's options are ignored.`,
+  ];
+  if (mode) parts.push(`To change the mode: GenClass.runtime.setMode("${options.mode}"), or re-run \`npx @genclass/runtime init --mode ${options.mode}\`.`);
+  if (token || scope) {
+    const what = [token ? "token" : null, scope ? `scope "${options.scope}"` : null].filter(Boolean).join(" and ");
+    parts.push(
+      `The ${what} must be set where GenClass starts: GENCLASS_CONFIG = { ${token ? 'token: "gc_..."' : ""}${token && scope ? ", " : ""}${scope ? `scope: "${options.scope}"` : ""} } on window before the auto import (\`npx @genclass/runtime init\` writes it to genclass.config.ts/js), <meta name="genclass" content="${[token ? "token=gc_..." : null, scope ? `scope=${options.scope}` : null].filter(Boolean).join(", ")}"> in <head>, or ${[token ? "data-token" : null, scope ? "data-scope" : null].filter(Boolean).join(" / ")} on the script tag.`,
+    );
+  }
+  (g.console as Console | undefined)?.warn?.(parts.join(" "));
+}
 
 function initUnsafe(options: InitOptions): Runtime {
   {

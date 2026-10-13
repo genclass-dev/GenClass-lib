@@ -18,13 +18,17 @@ Details under [Opting out](#opting-out).
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
 
+In `0.2.1` the local-host row did not apply to `GenClass.init()` (and so to `/auto` and the script tag): it passed
+an explicit `telemetry: true` internally, so local and private hosts sent too. Fixed in `0.2.2`
+([CHANGELOG](CHANGELOG.md)).
+
 When it is on, the console shows one notice per page:
 
 ```
 [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry.
 ```
 
-`runtime.telemetry` reports `{ enabled, reason?, endpoint?, sessionId?, flush() }`; `reason` says why it is off
+`runtime.telemetry` reports `{ enabled, reason?, endpoint?, sessionId?, token?, flush() }`; `reason` says why it is off
 (`option`, `headless`, `local`, `url`, `localStorage`, `gpc`, `sampled-out`, `no-crypto`, `no-transport`,
 `kill-switch`, `disabled`).
 
@@ -58,9 +62,10 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
 ```jsonc
 {
   "schema": "genclass-telemetry/1",
+  "token": "gc_…",           // only when the app configured a valid token (InitOptions.token); see "App tokens"
   "sid": "3f9c…",            // 24 hex chars from crypto.getRandomValues, new on every page load, never stored
   "sent": 12034,             // ms since this page's GenClass started (no wall-clock time is sent)
-  "runtime": "0.2.1", // @genclass/runtime version
+  "runtime": "0.3.0-beta.0", // @genclass/runtime version
   "model": "2.0.0-rc4t",     // model card version, or null without a model
   "events": [ /* ≤ 100 events, ≤ 60 KB per request */ ]
 }
@@ -70,18 +75,61 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 
 | `t` | when | fields |
 |---|---|---|
-| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included) |
-| `model` | model state changes | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError`, `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
+| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included). Not the page's `decisionSample` or `maxDecisions` setting: `summary.telemetry` says how many records were sent and withheld ([Volume](#volume)) |
+| `model` | model state changes, and once right after `session` when the model was skipped or failed before telemetry started (the device floor: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`) | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError` (why the model worker was not used, URLs replaced by `<url>`), `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
-| `decision` | every model decision | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow` |
-| `detect` | a decision reported as a detection | `decision`, `trigger`, `diagnosis`, `p` |
+| `decision` | a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted or was vetoed, always; a `decisionSample` share (default 1 in 4) of the routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
+| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record | `decision`, `trigger`, `diagnosis`, `p` |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
-| `veto` | `onBeforeAction` vetoed an action | `decision`, `action`, `enforced` |
+| `veto` | `onBeforeAction` vetoed an action (every one) | `decision`, `action`, `enforced` |
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars) |
-| `summary` | every ≥ 60 s with activity, when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent) |
+| `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
+
+Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
+else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
 
 Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/telemetry/client.ts`.
+
+### Volume
+
+The built-in model takes up to 30 decisions a minute (`model.maxDecisionsPerMinute`), and in `0.2.2` and earlier
+every one of them was sent as a `decision` record with its answers, gates and shadow fields, so a busy tab left open kept
+uploading for as long as it stayed open. Two defaults bound the routine part of that. Neither changes a count, and
+neither ever drops a detection:
+
+- **Detections are never sampled or capped.** Every `detect` event is sent with the `decision` record it points to,
+  and so is every decision whose top diagnosis is not `expected` (a near-miss below the report gate included), every
+  decision that ran an action or would have in shadow mode, and every veto.
+- **`decisionSample` (default `0.25`):** of the routine decisions (top diagnosis `expected`, passive action, no veto),
+  one in four is sent. The draw is a hash of the session id and the decision id (mixed, so every page sends close to
+  that share), not a random number at decision time.
+- **`maxDecisions` (default `200`):** after 200 routine decisions' records in a page load, no more routine records are
+  sent. Detections and the other events (`summary`, about once a minute while decisions continue, so the exact counts
+  keep arriving; `action`, `veto`, `model`, `status`, `breaker`, `model-error`) continue. Summaries are not capped:
+  their cost grows with how long a busy tab stays open, not with how many decisions it takes (see the table).
+
+`summary.counts` count every decision, detection, action and veto whatever was sampled, and `summary.telemetry`
+says how many decisions' records were sent (`decisionRecords`), and how many routine ones were sampled out
+(`decisionsSampledOut`) and capped (`decisionsCapped`), so a collector can scale what it received.
+`telemetry: { decisionSample: 1, maxDecisions: Infinity }` sends every record (your own collector, debugging).
+
+How much that is, measured in CI ([RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#10-release-030-beta0-first-load-and-telemetry-volume-ci) §10)
+by `test/telemetry.test.ts` "an hour at the built-in model's maximum rate": one page, 30 decisions a minute for a
+simulated hour (1,800 decisions from a scripted decider, not the model; situation text off), all bytes of all
+request bodies counted:
+
+| decisions | defaults (`0.3.0-beta.0`, CI run 38465242176) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
+|---|---|---|
+| all routine | 250.3 KB in 163 requests (which routine decisions are sampled follows the random session id: 249.0 to 250.3 KB in the last three runs) | not measured |
+| every one a detection | 2,067.1 KB in 361 requests: every record (detections are never sampled or capped) | 2,067.1 KB in 361 requests |
+| of which `summary` events | 61 summaries, 39.3 KB (routine) and 40.8 KB (detections) | 61 summaries, 40.8 KB |
+
+A page where every decision is a detection sends every record, as `0.2.2` did: the detections are what the
+diagnostics are for. A page whose decisions are routine costs about 40 KB an hour in summaries after the cap, plus
+the batch envelopes, for as long as it stays open and keeps deciding; the test fails if that case reaches 300 KB. A
+real page takes far fewer decisions than this (only salient situations go to the model), so these are ceilings, not
+typical volumes.
 
 ### Transport
 
@@ -89,20 +137,55 @@ Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/
   `navigator.sendBeacon` (falling back to `fetch` with `keepalive`).
 - The `fetch` and `sendBeacon` captured when `@genclass/runtime` loaded, so GenClass never observes, holds or decides
   about its own requests.
-- At most 1,000 queued events; beyond that new events are dropped and counted. A failed request is dropped, never
-  retried; after 3 failures in a row the page stops sending (`MAX_FAIL_STREAK`). Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
+- At most 1,000 queued events; beyond that new events are dropped and counted. A failed request (a network error, a
+  5xx) is dropped, never retried; after 3 failures in a row the page stops sending (`MAX_FAIL_STREAK`). Since 0.3.0
+  an HTTP 429, or any response with a `Retry-After` the page can read, is a back-off, not a failure: the refused batch
+  goes back to the front of the queue and nothing is sent until the `Retry-After` (in seconds), else 30 s doubling per
+  429 in a row up to 5 minutes, has passed (page exit still sends, by `sendBeacon`). Until then a busy network address
+  (an office or campus behind one IP, against the collector's per-address limit) could stop its pages for good after
+  three 429s. Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
+
+## App tokens and dashboards
+
+New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An app can set a **token**
+(`InitOptions.token`, `data-token`, `<meta name="genclass" content="token=...">` or `window.GENCLASS_CONFIG.token`):
+`gc_` followed by 22 letters or digits, created by `npx @genclass/runtime init` or at https://genclass.dev/start.
+
+- The token is public (it is in the page). It is sent as the batch envelope's top-level `token` and nowhere else; it
+  lets the collector group the batches of one app. A malformed token logs one console warning and is not sent.
+- Whoever holds the app's private dashboard link (`https://genclass.dev/dashboard/<secret>`, given once when the
+  token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, actions, the
+  app's hostnames, top routes and protected functions, model load, backend and latency, versions) and its recent
+  detections. Dashboard data is also deleted after 90 days.
+- A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
+  Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
+  console says so once when a token is set; otherwise only with `debug: true`.
+- Only batches that carry a token have `fn` on `decision` events: the name the app chose for the `protect()`ed
+  function the decision was about (at most 80 characters). A name that looks like it carries data rather than
+  naming a function (an e-mail address, a URL, 4 or more digits in a row, 12 or more hex digits) is sent as
+  `[redacted]`, so use fixed names. Without a token `fn` is never sent.
+- With a token, the console notice ends with one more sentence: `With this app's token they also feed its private
+  GenClass dashboard.`
+- `npx @genclass/runtime init` creates a token (a "project") only on a new setup and only after the developer
+  approved its changes (or passed `--yes`): it sends one request, `POST https://genclass.dev/api/projects` with
+  `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,
+  that name, the creation time, the time of the last batch, and a SHA-256 hash of the dashboard secret (never the
+  secret itself). Project records have no automatic expiry; the aggregated dashboard data does (90 days). To delete
+  a project and its dashboard data, write to the contact in PRIVACY.md with the token.
 
 ## Where it goes
 
 - **Endpoint:** `https://genclass.dev/api/v1/events` (`DEFAULT_TELEMETRY_ENDPOINT`; before 0.2.2 the same worker's
   `https://genclass-telemetry.mehar-144.workers.dev/v1/events`, which still works), a Cloudflare Worker operated by the
   GenClass maintainers (source: `telemetry-worker/` in the repository). With a Content-Security-Policy, allow
-  `https://genclass.dev` in `connect-src` or turn telemetry off; after 3 failed requests in a row a page stops sending.
+  `https://genclass.dev` in `connect-src` or turn telemetry off; after 3 failed requests in a row a page stops sending
+  (a 429 is a back-off, not a failure, since 0.3.0).
 - **Storage:** a private Cloudflare R2 bucket (`genclass-telemetry`), gzip JSON Lines, one object per batch,
   partitioned by UTC date, runtime version and model version. The collector adds only the time it received the
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.
-- **Use:** model evaluation and training by the GenClass maintainers. Not sold, not used for advertising.
+- **Use:** model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
+  app's dashboard. Not sold, not used for advertising.
 - **Retention:** 90 days. An R2 lifecycle rule (`expire-90d`, prefix `events/`) deletes every stored batch 90 days after it
   was written. The maintainers may change this later; changes are recorded in the CHANGELOG.
 - **Your own endpoint:** `telemetry: { endpoint: "https://…" }` sends the same batches to a collector you run
@@ -115,6 +198,8 @@ GenClass.init({
   telemetry: {
     endpoint: "https://…",          // default DEFAULT_TELEMETRY_ENDPOINT
     sample: 0.25,                    // fraction of page loads that send (default 1)
+    decisionSample: 1,               // share of routine decisions whose record is sent (default 0.25; counts stay exact)
+    maxDecisions: 1_000,             // most routine decisions' records per page load (default 200; Infinity: no cap; detections never capped)
     flushMs: 10_000,                 // batch interval
     maxBatch: 100,                   // events per request
     include: { situation: true },    // also send the redacted situation text (default: off)

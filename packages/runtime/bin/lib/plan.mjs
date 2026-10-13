@@ -21,6 +21,7 @@ import {
   isEmptyConfig,
   lineIndexAt,
   linesOf,
+  sinkImports,
   switchMetaConfig,
   tagWithConfig,
   writtenConfig,
@@ -359,7 +360,7 @@ export function configFileFor(p, entry) {
 }
 
 /** The options file: one marked block setting window.GENCLASS_CONFIG. */
-export const configFileChange = (file, cfg) => createFile(file, [CONFIG_COMMENT, configStatement(cfg, /\.[cm]?tsx?$/.test(file))]);
+export const configFileChange = (file, cfg) => createFile(file, [CONFIG_COMMENT, ...sinkImports(cfg), configStatement(cfg, /\.[cm]?tsx?$/.test(file))]);
 
 /** { entry?, changes, notes?, manual? } for the detected project. opts.config: { telemetry?, model? } to write. */
 export function planInit(project, opts, ctx) {
@@ -375,6 +376,12 @@ export function planInit(project, opts, ctx) {
         if (next === ch.after) (r.notes ??= []).push(`${posix(relative(project.dir, ch.file))}: GenClass is inline in <head>, so its options were not written there: add <meta name="genclass" content="telemetry=off"> yourself.`);
         ch.after = next;
       }
+      // a meta tag only takes a same-origin webhook URL (src/cdn/config.ts readMetaConfig); say so instead of writing a dead sink
+      const far = (cfg.sinks ?? []).filter((s) => /^webhook[:=](?:[\\/]{2}|[a-z][a-z0-9+.-]*:)/i.test(s));
+      if (far.length)
+        (r.notes ??= []).push(
+          `${far.join(", ")}: a <meta name="genclass"> tag only takes a same-origin webhook URL (one on another origin is ignored there, with a console warning). Prefer a path on your own site (webhook:/genclass), or set window.GENCLASS_CONFIG = { sinks: ${JSON.stringify(far)} } in an inline script before GenClass's.`,
+        );
     } else {
       const file = configFileFor(project, r.entry);
       if (isFile(file)) return { changes: [], manual: `${posix(relative(project.dir, file))} already exists (init writes its options there)` };

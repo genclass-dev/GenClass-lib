@@ -2,10 +2,10 @@
 // text-edit helpers and the page-config parser. The real-framework builds are in test/install/frameworks.sh (VM).
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, describe, expect, it, vi } from "vitest";
 // @ts-expect-error plain ESM module without types
 import { appendEnd, bodyTagEnd, codeStyle, insertTop, planRemoval, removeMarked, switchMode, topOffset } from "../../bin/lib/edit.mjs";
@@ -55,9 +55,20 @@ function snapshot(dir: string): Record<string, string> {
   return out;
 }
 
+// Every CLI run gets a fake fetch (no test reaches the network; by default it fails like being offline).
+const MOCK_FETCH = resolve(HERE, "mock-fetch.mjs");
+
 function cli(dir: string, ...args: string[]): { code: number; out: string } {
+  return cliEnv({}, dir, ...args);
+}
+
+function cliEnv(env: Record<string, string>, dir: string, ...args: string[]): { code: number; out: string } {
   try {
-    const out = execFileSync(process.execPath, [BIN, ...args, "--cwd", dir], { encoding: "utf8", env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" }, stdio: ["ignore", "pipe", "pipe"] });
+    const out = execFileSync(process.execPath, ["--import", pathToFileURL(MOCK_FETCH).href, BIN, ...args, "--cwd", dir], {
+      encoding: "utf8",
+      env: { ...process.env, GENCLASS_TEST_FETCH: "fail", ...env, NO_COLOR: "1", FORCE_COLOR: "0" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     return { code: 0, out };
   } catch (e) {
     const err = e as { status: number; stdout: string; stderr: string };
@@ -857,5 +868,206 @@ describe("init suggests requests.protect for payment flows (INTERCEPTION.md, mon
 
   it("no payment code: no payment advice", () => {
     expect(cli(vite({}), "init", "--dry-run", "--no-install").out).not.toContain("Payments (found");
+  });
+});
+
+describe("init: app token and private dashboard link (fetch mocked; never the real genclass.dev)", () => {
+  const TOKEN = "gc_TestToken0123456789abc";
+  const LINK = "https://genclass.dev/dashboard/TestSecret0123456789abcdefghijkl";
+  const viteApp = (extra: Record<string, string> = {}) =>
+    project({ "package.json": pkg({ vite: "^7" }, { name: "shop-web" }), "index.html": VITE_HTML.replace("main.tsx", "main.ts"), "src/main.ts": "console.log(1);\n", ...extra });
+  const calls = (log: string) => {
+    try {
+      return readFileSync(log, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l) as { url: string; method: string; body: string });
+    } catch {
+      return [];
+    }
+  };
+  const logFile = () => join(mkdtempSync(join(tmpdir(), "gc-fetch-")), "calls.jsonl");
+
+  it("by default creates a project named after package.json, writes the token, prints and saves the private link", () => {
+    const dir = viteApp({ ".gitignore": "node_modules\n" });
+    const log = logFile();
+    roots.push(dirname(log));
+    const r = cliEnv({ GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log }, dir, "init", "--yes", "--no-install");
+    expect(r.code, r.out).toBe(0);
+    expect(calls(log)).toEqual([{ url: "https://genclass.dev/api/projects", method: "POST", body: JSON.stringify({ name: "shop-web" }) }]);
+    const files = snapshot(dir);
+    expect(files["src/genclass.config.ts"]).toContain(`GENCLASS_CONFIG = { token: "${TOKEN}" };`);
+    expect(files["src/main.ts"].split("\n")[0]).toBe(`import "./genclass.config"; // genclass:init`);
+    expect(files[".genclass.local"]).toContain(`GENCLASS_TOKEN=${TOKEN}\nGENCLASS_DASHBOARD=${LINK}\n`);
+    expect(files[".gitignore"]).toBe("node_modules\n.genclass.local\n");
+    expect(r.out).toContain(LINK);
+    expect(r.out).toContain("keep this link private; it is the only way to open your dashboard".replace(/^k/, "K"));
+    // again: the token is already there, no network, nothing to do
+    const r2 = cliEnv({ GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log }, dir, "init", "--yes", "--no-install");
+    expect(r2.code, r2.out).toBe(0);
+    expect(r2.out).toContain("Nothing to do");
+    expect(calls(log)).toHaveLength(1);
+    expect(snapshot(dir)).toEqual(files);
+    // remove takes out what init wrote and keeps the link file (the only copy of the dashboard link)
+    const r3 = cli(dir, "remove", "--yes");
+    expect(r3.code, r3.out).toBe(0);
+    expect(r3.out).toContain(".genclass.local stays");
+    expect(r3.out).toContain("so does its .gitignore line");
+    const left = snapshot(dir);
+    expect(left["src/main.ts"]).toBe("console.log(1);\n");
+    expect(left["src/genclass.config.ts"]).toBeUndefined();
+    expect(left[".genclass.local"]).toBe(files[".genclass.local"]);
+    // the line stays with the file, so the link never becomes committable
+    expect(left[".gitignore"]).toBe("node_modules\n.genclass.local\n");
+  });
+
+  const git = (cwd: string, ...args: string[]) => {
+    try {
+      execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+      return 0;
+    } catch (e) {
+      return (e as { status: number }).status;
+    }
+  };
+  const hasGit = git(tmpdir(), "--version") === 0;
+
+  it.skipIf(!hasGit)("a monorepo package without a .gitignore: git is asked, and .genclass.local ends up ignored", () => {
+    // root .gitignore that does not list it: a new apps/web/.gitignore with the one line
+    const root = project({ ".gitignore": "node_modules\n", "apps/web/package.json": pkg({ vite: "^7" }, { name: "web" }), "apps/web/index.html": VITE_HTML.replace("main.tsx", "main.ts"), "apps/web/src/main.ts": "console.log(1);\n" });
+    expect(git(root, "init", "-q")).toBe(0);
+    const web = join(root, "apps/web");
+    const r = cliEnv({ GENCLASS_TEST_FETCH: "ok" }, web, "init", "--yes", "--no-install");
+    expect(r.code, r.out).toBe(0);
+    expect(readFileSync(join(web, ".genclass.local"), "utf8")).toContain(`GENCLASS_TOKEN=${TOKEN}`);
+    expect(readFileSync(join(web, ".gitignore"), "utf8")).toBe(".genclass.local\n");
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe("node_modules\n");
+    expect(git(web, "check-ignore", "-q", ".genclass.local")).toBe(0);
+    expect(r.out).toContain("added to a new .gitignore here");
+    // a root .gitignore that already covers it: nothing is added anywhere
+    const root2 = project({ ".gitignore": "*.local\n", "apps/web/package.json": pkg({ vite: "^7" }, { name: "web" }), "apps/web/index.html": VITE_HTML.replace("main.tsx", "main.ts"), "apps/web/src/main.ts": "console.log(1);\n" });
+    expect(git(root2, "init", "-q")).toBe(0);
+    const web2 = join(root2, "apps/web");
+    const r2 = cliEnv({ GENCLASS_TEST_FETCH: "ok" }, web2, "init", "--yes", "--no-install");
+    expect(r2.code, r2.out).toBe(0);
+    expect(existsSync(join(web2, ".genclass.local"))).toBe(true);
+    expect(existsSync(join(web2, ".gitignore"))).toBe(false);
+    expect(readFileSync(join(root2, ".gitignore"), "utf8")).toBe("*.local\n");
+    expect(r2.out).toContain("git already ignores it");
+  });
+
+  const isRoot = typeof process.getuid === "function" && process.getuid() === 0;
+  it.skipIf(isRoot || process.platform === "win32")("a project created, then a file cannot be written: the link is saved and printed anyway", () => {
+    const dir = viteApp({ ".gitignore": "node_modules\n" });
+    chmodSync(join(dir, "src/main.ts"), 0o444);
+    try {
+      const r = cliEnv({ GENCLASS_TEST_FETCH: "ok" }, dir, "init", "--yes", "--no-install");
+      expect(r.code, r.out).toBe(1);
+      expect(r.out).toContain("Could not write src/main.ts");
+      expect(r.out).toContain(`--token ${TOKEN}`);
+      expect(r.out).toContain(LINK);
+      expect(readFileSync(join(dir, ".genclass.local"), "utf8")).toContain(`GENCLASS_DASHBOARD=${LINK}`);
+      expect(readFileSync(join(dir, "src/main.ts"), "utf8")).toBe("console.log(1);\n");
+    } finally {
+      chmodSync(join(dir, "src/main.ts"), 0o644);
+    }
+  });
+
+  it("nothing is sent before the changes are approved: no terminal and no --yes means no project and no link", () => {
+    const dir = viteApp({ ".gitignore": "node_modules\n" });
+    const before = snapshot(dir);
+    const log = logFile();
+    roots.push(dirname(log));
+    const r = cliEnv({ GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log }, dir, "init", "--no-install");
+    expect(r.code, r.out).toBe(1);
+    expect(r.out).toContain("Not a terminal, so nothing was written");
+    // the diff shows where the token will go and says what creating it sends
+    expect(r.out).toContain("once you apply these changes");
+    expect(r.out).toContain("https://genclass.dev/api/projects");
+    expect(r.out).toContain("gc_new-token-created-when-you-apply");
+    expect(calls(log)).toHaveLength(0);
+    expect(r.out).not.toContain("https://genclass.dev/dashboard/");
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("an existing setup without a token never gets a project as a side effect (a mode switch, a re-run)", () => {
+    const dir = viteApp();
+    expect(cli(dir, "init", "--yes", "--no-install").code).toBe(0); // offline: set up without a token
+    const log = logFile();
+    roots.push(dirname(log));
+    const env = { GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log };
+    const again = cliEnv(env, dir, "init", "--yes", "--no-install");
+    expect(again.out).toContain("Nothing to do");
+    expect(again.out).toContain("https://genclass.dev/start");
+    const g = cliEnv(env, dir, "init", "--yes", "--no-install", "--mode", "guard");
+    expect(g.code, g.out).toBe(0);
+    expect(readFileSync(join(dir, "src/main.ts"), "utf8").split("\n")[0]).toBe(`import genclass from "@genclass/runtime/auto/guard"; // genclass:init`);
+    expect(calls(log)).toHaveLength(0);
+    expect(snapshot(dir)["src/genclass.config.ts"]).toBeUndefined();
+  });
+
+  it("--token uses that token without any network; --no-token and --no-telemetry write none", () => {
+    const log = logFile();
+    roots.push(dirname(log));
+    const env = { GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log };
+    const a = viteApp();
+    const mine = "gc_Mine0123456789abcdefgh";
+    expect(cliEnv(env, a, "init", "--yes", "--no-install", "--token", mine).code).toBe(0);
+    expect(snapshot(a)["src/genclass.config.ts"]).toContain(`token: "${mine}"`);
+    expect(snapshot(a)[".genclass.local"]).toBeUndefined();
+    const b = viteApp();
+    const rb = cliEnv(env, b, "init", "--yes", "--no-install", "--no-token");
+    expect(rb.code).toBe(0);
+    expect(rb.out).toContain("none (--no-token)");
+    expect(snapshot(b)["src/genclass.config.ts"]).toBeUndefined();
+    const c2 = viteApp();
+    expect(cliEnv(env, c2, "init", "--yes", "--no-install", "--no-telemetry").code).toBe(0);
+    expect(snapshot(c2)["src/genclass.config.ts"]).toContain("GENCLASS_CONFIG = { telemetry: false };");
+    // --dry-run: no network either
+    const d = viteApp();
+    const rd = cliEnv(env, d, "init", "--dry-run");
+    expect(rd.code).toBe(0);
+    expect(rd.out).toContain("dry run: no network");
+    expect(calls(log)).toHaveLength(0);
+  });
+
+  it("flag errors: a malformed --token, --token with --no-token or --no-telemetry", () => {
+    const dir = viteApp();
+    for (const args of [["--token", "gc_short"], ["--token", "gc_Mine0123456789abcdefgh", "--no-token"], ["--token", "gc_Mine0123456789abcdefgh", "--no-telemetry"]]) {
+      const r = cli(dir, "init", "--yes", "--no-install", ...args);
+      expect(r.code, r.out).toBe(2);
+    }
+  });
+
+  it("network failure, HTTP 429 or a bad answer: warns, sets GenClass up without a token, says where to get one", () => {
+    for (const mode of ["fail", "429", "500", "bad"]) {
+      const dir = viteApp({ ".gitignore": "dist\n" });
+      const r = cliEnv({ GENCLASS_TEST_FETCH: mode }, dir, "init", "--yes", "--no-install");
+      expect(r.code, r.out).toBe(0);
+      expect(r.out).toContain("could not create one");
+      expect(r.out).toContain("https://genclass.dev/start");
+      const files = snapshot(dir);
+      expect(files["src/main.ts"].split("\n")[0]).toBe(`import genclass from "@genclass/runtime/auto"; // genclass:init`);
+      expect(files["src/genclass.config.ts"]).toBeUndefined();
+      expect(files[".genclass.local"]).toBeUndefined();
+      expect(files[".gitignore"]).toBe("dist\n");
+    }
+  });
+
+  it("an existing setup gets the token added in place; .genclass.local is reused without network", () => {
+    const dir = viteApp();
+    expect(cli(dir, "init", "--yes", "--no-install").code).toBe(0); // offline: no token
+    writeFileSync(join(dir, ".genclass.local"), `GENCLASS_TOKEN=${TOKEN}\nGENCLASS_DASHBOARD=${LINK}\n`);
+    const log = logFile();
+    roots.push(dirname(log));
+    const r = cliEnv({ GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log }, dir, "init", "--yes", "--no-install");
+    expect(r.code, r.out).toBe(0);
+    expect(calls(log)).toHaveLength(0);
+    expect(snapshot(dir)["src/genclass.config.ts"]).toContain(`token: "${TOKEN}"`);
+    expect(r.out).toContain(LINK);
+  });
+
+  it("plain HTML gets data-token on the script tag (and remove gives the page back byte for byte)", () => {
+    const html = project({ "index.html": `<html>\n<head>\n  <title>x</title>\n</head>\n<body></body>\n</html>\n` });
+    expect(cliEnv({ GENCLASS_TEST_FETCH: "ok" }, html, "init", "--yes", "--no-install", "--cdn", "https://example.test/g.js", "--no-sri").code).toBe(0);
+    expect(snapshot(html)["index.html"]).toContain(`<script src="https://example.test/g.js" data-devtools="local" data-token="${TOKEN}"></script> <!-- genclass:init -->`);
+    expect(cli(html, "remove", "--yes").code).toBe(0);
+    expect(snapshot(html)["index.html"]).toBe(`<html>\n<head>\n  <title>x</title>\n</head>\n<body></body>\n</html>\n`);
   });
 });

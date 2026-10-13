@@ -60,4 +60,46 @@ describe("status report: Model ready (CONTRACT §10, model status)", () => {
     expect(lines.join("\n")).toContain("Model unavailable (bad model); observing only.");
     expect(readyLines(lines)).toEqual([]);
   });
+
+  it("a model running inline says so in the ready line", () => {
+    const { decider, lines } = run();
+    decider.set({ ...READY, worker: false, workerError: "CSP" });
+    expect(readyLines(lines)).toEqual(["[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.78s; inline on the main thread). Mode: observe."]);
+  });
+
+  it("inlineFallback: false with an unavailable worker: one warning naming the worker error and the CSP directive, no ready line", () => {
+    const warned: string[] = [];
+    const clock = new FakeClock();
+    const decider = new StatusDecider();
+    const lines: string[] = [];
+    const g = makeGlobal(new FakeServer(clock), { console: { warn: (...a: unknown[]) => warned.push(a.map(String).join(" ")), info() {}, log() {}, error() {} } });
+    createRuntime({ clock, global: g, decider, report: (r) => lines.push(r.message), telemetry: false });
+    decider.set({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "CSP: worker-src 'none'" });
+    decider.set({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "CSP: worker-src 'none'" });
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toContain("The model worker could not start (CSP: worker-src 'none') and model.inlineFallback is false");
+    expect(warned[0]).toContain("worker-src 'self'");
+    expect(readyLines(lines)).toEqual([]);
+  });
+
+  it("inlineFallback: false with preload eager and no Worker: the host is skipped before the runtime subscribes, and the same one warning is printed", () => {
+    const warned: string[] = [];
+    const clock = new FakeClock();
+    const lines: string[] = [];
+    const g = makeGlobal(new FakeServer(clock), { console: { warn: (...a: unknown[]) => warned.push(a.map(String).join(" ")), info() {}, log() {}, error() {} } });
+    const model = {
+      preload: "eager",
+      inlineFallback: false,
+      loadIf: () => true,
+      workerFactory: () => {
+        throw new Error("CSP: worker-src 'none'");
+      },
+    } as never;
+    const rt = createRuntime({ clock, global: g, model, report: (r) => lines.push(r.message), telemetry: false, observe: { fetch: false, timers: false } });
+    expect(rt.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", workerError: "CSP: worker-src 'none'" });
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toContain("The model worker could not start (CSP: worker-src 'none') and model.inlineFallback is false");
+    expect(lines.filter((l) => l.includes("Model not loaded"))).toEqual([]);
+    rt.destroy();
+  });
 });

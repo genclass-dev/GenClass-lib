@@ -4,7 +4,7 @@ Status: ready for implementation. Branch `runtime`, package `packages/runtime`. 
 
 ## 0. Design rules
 
-1. **Every new option narrows behaviour or exports data. None of them widens it.** A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, `holdBudgetMs` is a hard ceiling, model loading is lazy on Save-Data, hidden tabs skip background evaluation, and query values are redacted in what the model sees.
+1. **Every new option narrows behaviour or exports data. None of them widens it.** A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, `holdBudgetMs` is a hard ceiling, model loading is skipped on small devices and Save-Data connections, hidden tabs skip background evaluation, and query values are redacted in what the model sees.
 2. **There is no bug knowledge in config.** Options control where the runtime watches or acts, how much it may do, and where findings go. The model alone decides what is wrong. Labels go to reports only by default (§4.4). Tags and correlation ids never reach the model or the gate.
 3. **One effective-mode function, and every term can only demote:**
 ```
@@ -45,8 +45,8 @@ order: off < observe < guard < heal
 | 11 | `sinks` + `rt.summary()` | telemetry | `[]` | new |
 | 12 | `session` + `rt.setSession()` | telemetry | random id, `{}` | new |
 | 13 | `report` | telemetry | `"console"` | extended (`"interventions"`) |
-| 14 | `learn` (+ `rt.learn.clear()`) | persistence | `{persist:false}` | extended |
-| 15 | `model.loadIf`, `model.inlineFallback` | load | `{saveData:"lazy"}`, `true` | new |
+| 14 | `learn` (+ `rt.learn.clear()`, `rt.learned()`) | persistence | `{persist:unset, expectations:false}`: nothing stored; with `expectations: true`, flows stored, profiles in memory (EXPECTATIONS.md §4) | extended |
+| 15 | `model.loadIf`, `model.inlineFallback` | load | `{minDeviceMemoryGB:4, saveData:"skip"}`, `true` | new |
 | 16 | `model.threads`, `model.timeoutMs` | load | `"auto"`, `10000` | promoted from internal |
 | 17 | `model.maxDecisionsPerMinute` | load | `30` | new |
 | 18 | `model.unloadAfterIdleMs` | load | `false` | new |
@@ -108,6 +108,7 @@ export interface SinkRecord {
   tags: Record<string, string | number | boolean>;
   correlationId?: string;      // from requests.correlate; never model-visible
   mode: ModeOrOff;             // effective mode at decision
+  route?: string;              // the path the subject's op was created on (else the current one), id-like and email segments as :id, <= 200 chars
   sampled: boolean;
   diagnosis?: string; p?: number;
   action?: string; tier?: Tier;
@@ -415,19 +416,19 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 
 **Semantics.**
 - Sinks are independent of `report`.
-- Each `Report` maps to a `SinkRecord` (schema 1). By default the record is minimal: no situation text, no URLs, no values, and only paths in `changed`. `evidence:true` adds redacted `message`, `trigger`, subject label and the `explain()` timeline.
+- Each `Report` maps to a `SinkRecord` (schema 1). By default the record is minimal: no situation text, no request URLs, no values, and only paths in `changed`; `route` is the page path normalised as telemetry sends it (id-like and email segments as `:id`, at most 200 chars). `evidence:true` adds redacted `message`, `trigger`, subject label and the `explain()` timeline.
 - `kinds` filters records. `sampleRate` is deterministic per session (`hash(sessionId+index)`) and never drops `intervention`, `undo` or `breaker`.
 - Dispatch is queued (a microtask batch, then `requestIdleCallback`) and never runs on the decision or hold path.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On `pagehide`, or once on `visibilitychange→hidden` as a fallback, one `summary` record is emitted and each sink's `flush()` is called.
-- `rt.summary()` is always available. Vendor adapters are left to separate packages.
+- `rt.summary()` is always available. Vendor adapters ship as entries of the package, outside the first-load bundle: `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}` (`src/sinks/`, each a function returning a `SinkObject` that finds the SDK on the page at send time, never throws and sends only the record). The zero-code entries take them by name (`src/cdn/sinks.ts`: `window.GENCLASS_CONFIG.sinks: ["sentry"]`, `<meta name="genclass" content="sink=sentry">`, `data-sink`, `init --sink`), as one proxy sink that queues records and loads the adapters on the first record, never before (`src/cdn/sinks-fanout.ts`, a lazy chunk of `/auto`; `dist/sinks/<name>.js` from the CDN for the script tag), so only the proxy is in the first load; a `webhook:<url>` is made absolute at init (against `document.baseURI`) and its endpoint (origin and path) joins `requests.ignore` as an exact match, and from a `<meta>` tag it must be same-origin as the browser resolves it (against the page and `document.baseURI`). `init --sink sentry` / `posthog` with that SDK from npm (which sets no page global) writes the adapter with the SDK passed in. Each adapter takes `evidence` (default true; false sends the structured fields only; `<name>:noevidence` in the no-code forms); a tool adapter that finds no SDK when a record arrives warns once; the tool adapters and the webhook cap repeats of one bug at `maxPerSignature` (10) per page load. A string in `GenClass.init({ sinks })` is ignored with one warning.
 
 **Hooks.** `report.ts` (`toSinkRecord`, `SinkDispatcher`), the new `decide/summary.ts`, and a pagehide listener in `runtime.ts`.
 
 **Tests.**
 - Three sinks and the console all receive records.
 - A throwing sink, or one whose Promise takes 2 s, does not delay a hold release.
-- Snapshot of the default record: no URL and no situation text.
+- Snapshot of the default record: no request URL (the page path only, normalised) and no situation text.
 - `evidence:true` adds fields that are still redacted.
 - `sampleRate:0` still delivers interventions.
 - pagehide → exactly one summary and `flush` called.
@@ -458,10 +459,12 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - An intervention is printed.
 
 ### 4.14 `learn` (extended) and `rt.learn.clear()`
-**Type** `{ persist?: boolean|"local"|"session"; key?; version? }`. **Defaults** `persist:false`, `key:"genclass:learn"`, and `version` equal to `session.tags.release` **as read once at init**.
+**Type** `{ persist?: boolean|"local"|"session"; key?; version?; maxBytes?; expectations?; minSupport?; minShare?; minSessions? }`. **Defaults** `expectations: false` (opt-in in 0.3.0 until its false-report rate is measured; off, src/learn/flows.ts is never loaded and nothing is stored); `persist` unset: with `expectations: true` the learned flows (reporting only) are stored in localStorage, and transition profiles stay in memory either way (see `docs/runtime/EXPECTATIONS.md` §4); `key:"genclass:learn"`, `version` equal to `session.tags.release` **as read once at init**, `maxBytes:200000`.
 
 **Semantics.**
-- `true` means `"local"`, which matches today's behaviour.
+- `true` means `"local"`, which matches the 0.2.2 behaviour for transition profiles, and stores the flows too. `false` stores nothing.
+- Unset in jsdom / happy-dom, or with storage that throws on a probe write: nothing is stored.
+- The stored value also carries a format number and the runtime version; a mismatch of either discards it.
 - If the stored version differs from the configured one, the stored state is discarded at load. A later `setSession` change does not reload it.
 - `rt.learn.clear()` clears both storage and memory.
 - All storage access is wrapped in try/catch.
@@ -476,20 +479,22 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Changing the release tag after init → no reload.
 
 ### 4.15 `model.loadIf` and `model.inlineFallback`
-**Defaults** `loadIf: { saveData:"lazy" }`, `inlineFallback: true`.
+**Defaults** `loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }` (0.3.0; 0.2.x: `{ saveData: "lazy" }`), `inlineFallback: true`.
 
 **Semantics.**
 - `loadIf` is evaluated before the ModelHost is constructed. Unknown device values count as allowed, and a throwing predicate counts as allowed, with a warning.
-- `false` or `"skip"` → no download, `status.model.state="skipped"` with a reason, and the runtime behaves as if `model:false`.
+- The default is a device floor: the model (10 MB on the wire, a worker of 190 to 280 MB) is not loaded on devices whose `navigator.deviceMemory` is under 4 GB, nor on Save-Data connections. `deviceMemory` is quantised to powers of two (0.25 … 8), so the floor skips exactly the devices reporting 2 GB or less; browsers that do not report it (Safari, Firefox) load. `model: { loadIf: () => true }` forces the load.
+- `false` or `"skip"` → no download, `status.state="skipped"` with a reason (`device-memory`, `save-data`, `loadIf`), the runtime behaves as if `model:false` (observes without a model) and prints one console status line saying so (`[GenClass] Model not loaded: …`; silent with `report: "silent"`).
 - `"lazy"` → `preload` is forced to `"lazy"`.
-- `inlineFallback:false` → if the worker fails, ORT does not run on the main thread, and the state is `skipped` with reason `worker-unavailable`.
+- `inlineFallback:false` → if the worker cannot be created or fails before it is up, ORT does not run on the main thread: the state is `skipped` with reason `worker-unavailable` and one console line names the worker error. `worker:false` still runs inline (explicit).
 - `loadIf` never affects decisions.
 
 **Tests.**
-- Save-Data with the default → lazy.
+- A 2 GB device (and 1, 0.5, 0.25) with the default → skipped; 4 GB, 8 GB and unknown → load; Save-Data with the default → skipped.
 - `minDeviceMemoryGB:4` with a 2 GB device → skipped, with zero model fetches.
 - Unknown device memory → loads.
-- A worker failure with `inlineFallback:false` → no ORT on the main thread.
+- `loadIf: () => true` on a 0.5 GB Save-Data device → loads.
+- A worker failure with `inlineFallback:false` → no ORT on the main thread, `skipped` / `worker-unavailable`.
 
 ### 4.16 `model.threads` and `model.timeoutMs`
 **Defaults** `"auto"` = `min(4, max(1, cores-1))`, and `10000`.
@@ -613,7 +618,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
 >   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init
 >   model: {
 >     preload: "idle",
->     loadIf: { minDeviceMemoryGB: 2, saveData: "lazy" },
+>     loadIf: { minDeviceMemoryGB: 8, saveData: "skip" },   // default { minDeviceMemoryGB: 4, saveData: "skip" }
 >     threads: 2,
 >     timeoutMs: 10_000,
 >     maxDecisionsPerMinute: 30,
@@ -639,7 +644,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
   1. `breaker` is on by default. Opt out with `breaker:false`.
   2. New `perSubject:10` (per rolling minute) and `perSession:200` limits. Opt out with `Infinity`. This may suppress frequent retries on polling endpoints.
   3. `holdBudgetMs` is now a hard ceiling that includes defers and `onBeforeAction` time.
-  4. `model.loadIf.saveData:"lazy"` forces lazy preload on Save-Data connections.
+  4. `model.loadIf` defaults to a device floor: no model on devices reporting 2 GB or less or on Save-Data connections (`{ minDeviceMemoryGB: 4, saveData: "skip" }`; the earlier draft said `saveData:"lazy"`).
   5. Hidden tabs skip background evaluation and release held items immediately (counted in `summary.model.hiddenSkipped`).
   6. Query and fragment values in recorded URLs are now `…` in situation text. **Model input changes, so add this to the eval plan and re-measure accuracy before release.** Sent URLs are unchanged.
   7. URL overrides can no longer raise mode or aggressiveness without `debug:true`.

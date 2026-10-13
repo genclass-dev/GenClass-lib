@@ -847,7 +847,7 @@ export function dashboardPage(nonce: string, project: { name: string; token: str
 <section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
 Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime 0.3.0 or later; earlier
 versions ignore it. Local hosts (localhost, *.local, *.test and private networks) never send anything, token or not,
-unless you pass telemetry: true.</p></section>
+unless you pass telemetry: true; your deployed site does.</p></section>
 <div id="content" class="hidden">
 <div class="statrow" id="tiles"></div>
 <section class="blk" id="trend">

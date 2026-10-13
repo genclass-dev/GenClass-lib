@@ -11,8 +11,9 @@ GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: karan@daybot.ca
 
 ## What we collect
 
-When a website runs GenClass with telemetry on (the default on public websites; never on localhost or private
-networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2.2), the browser sends us:
+When a website runs GenClass with telemetry on (the default on public websites; off by default on localhost and
+private networks unless the website's developer opts in explicitly with `telemetry: true` or a telemetry options
+object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2.2), the browser sends us:
 
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
   write), the model's diagnosis and suggested action, its confidence, and whether anything was changed or undone.
@@ -26,20 +27,41 @@ networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2
   their users.
 - **Technical details:** GenClass and model versions, settings, device type (WebGPU or WASM), load times and error
   counts, and the website's hostname.
+- **The page's path**, with id-like segments replaced by `:id` and no query string or fragment (for example
+  `/orders/:id`), on each page load and each decision.
 - **Your approximate country**, from our server provider.
+- **The website's GenClass token**, if the site set one (from runtime 0.3.0). It tells us which website the data
+  came from, so that website's owner can see it on their dashboard.
+- **Names of protected functions, only if the site set a token** (from runtime 0.3.0): the name the developer gave a
+  function wrapped with `protect()`, on the decisions about what that function caused. A name that looks like data
+  (an e-mail address, a URL, 4 or more digits in a row, a long hex id) is sent as `[redacted]`.
 
 We do **not** store IP addresses, browser user-agent strings or cookies, and we do not set cookies. Each page
 load gets a random session ID that is not saved anywhere.
 
 ## Why we collect it
 
-To measure how well the model works and to train better versions of it. We do not sell the data, use it for
-advertising, or try to identify individual people.
+To measure how well the model works and to train better versions of it, and to show website owners how GenClass
+works on their own site. We do not sell the data, use it for advertising, or try to identify individual people.
+
+## Dashboards for website owners
+
+A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated
+diagnostics for that site (counts of decisions, detections and actions, the site's hostnames, routes, the names the
+developer gave to protected functions, model speed, versions) and a list of recent detections (time, route or
+function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
+send Global Privacy Control never reaches a dashboard.
+
+When a developer creates a token with `npx @genclass/runtime init`, after approving its changes, the tool sends us
+the name in their project's `package.json`. We keep one record per token: the token, that name, when it was created,
+when data last arrived, and a one-way hash of the dashboard link's secret. These records are kept until the owner
+asks us to delete them (contact below, with the token); the dashboard data itself is deleted after 90 days.
 
 ## Where it goes and how long we keep it
 
 Data is sent to our collector on Cloudflare and stored in Cloudflare R2. It is deleted automatically after
-**90 days**. Only GenClass maintainers can access it. Cloudflare processes it on our behalf.
+**90 days**; dashboard data is deleted after 90 days too. Only GenClass maintainers can access the stored data, and
+the owner of a website's dashboard link can see that website's dashboard. Cloudflare processes it on our behalf.
 
 ## How to turn it off
 

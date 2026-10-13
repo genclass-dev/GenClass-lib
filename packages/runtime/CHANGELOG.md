@@ -1,5 +1,289 @@
 # Changelog
 
+## 0.3.0-beta.0 (unreleased)
+
+The first 0.3.0 prerelease, for the `beta` dist-tag (release.yml publishes a prerelease version to the dist-tag
+named after it; `latest` stays where it is until the owner moves it). No model-visible text changed: the situation
+text is still `situation-v2.3` and the default model is still `@genclass/runtime-model@0.2.0`.
+
+### What changes when you upgrade from 0.2.x
+
+- **App tokens and dashboards:** a page with `token` set also feeds that app's private dashboard on genclass.dev
+  (below). Without a token, telemetry sends the same kinds of data as 0.2.2.
+- **Detections are never sampled or capped in telemetry.** Only routine decisions (top diagnosis `expected`, nothing
+  acted) are thinned, to one in four and at most 200 per page load (Telemetry, below).
+- **No model on devices reporting 2 GB of memory or less, or on Save-Data connections** (`model.loadIf` default;
+  `loadIf: () => true` restores loading everywhere). Such a page observes without a model, detects nothing and says
+  why, in the console and in telemetry.
+- **`init` creates a project** (a dashboard) after you approve its diff, unless you pass `--no-token`,
+  `--token <gc_...>`, `--no-telemetry` or `--dry-run`.
+- **Stored learned state from 0.2.2 is discarded once** (a new format, tagged with the runtime version). In a default
+  install nothing is stored; transition profiles are stored only with `learn.persist`, as before.
+- New and opt-in: sink adapters (`@genclass/runtime/sinks/*`, `init --sink`), flow expectations
+  (`learn: { expectations: true }`), `protect()` and `scope: "functions"`.
+- **Sink adapters, if you add one, cap repeats and send evidence by default.** Unlike telemetry, the Sentry, PostHog,
+  Datadog and webhook adapters forward at most 10 records per bug signature per page load (`maxPerSignature`, `0`
+  for no cap), a sink's `sampleRate` below 1 can drop detections, and they send the redacted evidence (console line,
+  subject, timeline, which can hold short fragments of typed input) to that tool unless you pass `evidence: false`
+  (or `<name>:noevidence`).
+
+### App tokens, dashboards and function-specific protection with `protect()`
+
+Each web app can have a token that groups its diagnostics under a private dashboard on genclass.dev, and GenClass can
+be pointed at a few functions instead of the whole app. No model-visible text changes (`scope: "functions"` changes
+which subjects are decided, never what the model reads about one). Without a token, telemetry sends what 0.2.2
+sends.
+
+- **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">` in `<head>`,
+  `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as
+  the telemetry batch envelope's top-level `token`; `runtime.telemetry.token` reports it. A malformed token logs one
+  console warning and is ignored; never throws. It does nothing while telemetry is off: on a local host the console
+  says so once (local hosts feed a dashboard only with an explicit `telemetry: true` or telemetry options object),
+  otherwise only with `debug: true`. Opt-outs and Global Privacy
+  Control still win. With a token, the telemetry console notice says the diagnostics also feed the app's dashboard.
+  `token` and `scope` are fixed when GenClass starts: `GenClass.init({ token, scope })` on a runtime that `/auto` or
+  the script tag already started is ignored with one console warning that says where to set them
+  (`window.GENCLASS_CONFIG`, the meta tag, `data-token` / `data-scope`); before, only a different `mode` warned.
+- **`protect(name, fn)`** (named export, `GenClass.protect`, and `window.GenClass.protect` on the script tag): returns
+  a function with the same signature whose calls run as an operation named `name` (like `runtime.op`), so the
+  requests, state writes, timers and errors it causes are linked to it. `this`, arguments, return value and thrown
+  errors pass through; sync stays sync; an async function's promise is replaced by one that settles the same way;
+  other thenables are returned untouched. Safe to wrap at import time: without a runtime it calls `fn` directly.
+- **`InitOptions.scope`**: `"app"` (default, unchanged) or `"functions"`: the runtime raises decisions, and asks
+  standing questions (`runtime.question()`, plugin `questions`), only for activity inside protected functions;
+  everything is still recorded as context, and `runtime.ask()` / `runtime.decide()` are still answered everywhere.
+  Also `data-scope` / `scope=` in the meta tag. Test: for an async function, `protect()` and `runtime.op()` give a
+  byte-identical situation.
+- **`Decision.fn`**: the outermost protected function in the subject's cause chain (the name the app chose, at most
+  80 characters), also on a held subject's answer that arrives after the hold budget. Telemetry `decision` events
+  carry it as `fn` **only when the app set a token** (it feeds that app's dashboard); a label that looks like data
+  (an e-mail address, a URL, 4+ digits in a row, 12+ hex digits) is sent as `[redacted]`.
+- **`init` can create a project**: after you approve the diff (or with `--yes`), `npx @genclass/runtime init` calls
+  `POST https://genclass.dev/api/projects` with the `name` from `package.json`, writes the token into what it adds
+  (`genclass.config.*`, `data-token`, or the Astro meta line), prints the private dashboard link and saves both in
+  `.genclass.local` before writing anything else (git is asked whether it is ignored; if not, it goes into the
+  project's `.gitignore`, created inside a git repository when missing; `remove` keeps the file and that line). A
+  file init cannot write still leaves the link saved and printed, with how to retry. Nothing is sent when you decline,
+  when there is no terminal and no `--yes`, with `--dry-run`, `--token <gc_...>`, `--no-token` or `--no-telemetry`,
+  or when the project already has a token. A network failure or HTTP error warns, sets GenClass up without a token
+  and points to https://genclass.dev/start. Running `init` again reuses the token; on a setup made without one it
+  never creates a project as a side effect (pass `--token`).
+- **Not done:** a per-function mode (`protect(name, fn, { mode })`).
+- **Cost:** about +1.8 KB gzip on each first load (CI run 38436014497); the release's total is under "First-load
+  size" below.
+- **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
+  the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
+  see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
+
+### Telemetry
+
+- **Telemetry volume is bounded per page load; detections are never dropped; counts stay exact.** Every model
+  decision used to be sent as a `decision` record (up to 30 a minute with the built-in model, for as long as a tab
+  stayed open). Now every detection is sent, with its `decision` record, never sampled or capped, and so is every
+  decision whose top diagnosis is not `expected` (near-misses below the report gate too), that ran an action, was
+  vetoed or would have acted in shadow mode. Only routine decisions (top diagnosis `expected`, passive action) are
+  thinned: one in four is sent (`telemetry.decisionSample`, default `0.25`, drawn from a mixed hash of the session
+  and decision ids, so every page sends close to that share), and no routine records after 200 in a page load
+  (`telemetry.maxDecisions`). `summary` events still count every decision, detection, action and veto, and their
+  `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped` (counts; the two settings
+  themselves are not sent). Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
+  arriving after the cap (about 40 KB an hour). This narrows what is sent; nothing new about the page is sent.
+  Measured in CI for one page over a simulated hour at 30 decisions a minute (scripted decisions, not the model;
+  situation text off; run 38465242176): all routine, 250.3 KB in 163 requests (61 summaries, 39.3 KB); every
+  decision a detection, 2,067.1 KB in 361 requests, the same as with every record (TELEMETRY.md, "Volume";
+  docs/runtime/RESULTS.md §10).
+  (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
+- **A 429 is a back-off, not a failure.** 0.2.2 stopped a page's telemetry after 3 failed requests in a row, and an
+  HTTP 429 from the collector's per-address limit counted as one, so pages behind a busy shared IP (an office or
+  campus network) could go silent for good, detections included. Now a 429, or any response with a `Retry-After`
+  the page can read, puts the refused batch back at the front of the queue and pauses sending for the `Retry-After`
+  (seconds), else 30 s doubling per 429 in a row up to 5 minutes (page exit still sends by `sendBeacon`); it is not
+  a strike. Network errors and 5xx without a `Retry-After` still count toward the stop. The default transport puts
+  the HTTP `status` and a readable `retryAfterMs` on its error; a custom transport can do the same
+  (`TelemetryTransport`).
+- **A page the device floor skips still reports why.** Its `session` event says `modelState: "skipped"`, and a
+  `model` event with the reason (`device-memory`, `save-data`, `loadIf`) follows it; before, the reason was only in
+  the console line, because the model never changed state after telemetry started.
+- **Telemetry: `workerError` in the `model` event carries no URLs.** This version also records the Worker
+  constructor's exception in `status.workerError` (see `inlineFallback` below; before, nothing was recorded), and a browser's text
+  for it can name the worker script's URL and the page's origin (a Content-Security-Policy or cross-origin
+  `SecurityError`). Telemetry replaces every URL in `workerError` with `<url>`, for that and for the errors a worker
+  reports before it comes up; `status.workerError` and the console warning keep the full text.
+- **Disclosed:** the app token in every batch of a page that sets one, `fn` on its `decision` events, and the
+  project `init` creates (the `name` from `package.json`) are approved by the owner for 0.3.0 and described in
+  TELEMETRY.md, PRIVACY.md, both READMEs and the console notice. Without a token nothing new is sent.
+
+### Reports where developers look: sink adapters
+
+- **Findings reach the developer: sink adapters for the tools you already open.** In production the `[GenClass]`
+  console lines print in your users' browsers; `@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`,
+  `/console-json` and `/webhook` (all five in `@genclass/runtime/sinks`) forward every detection, intervention, undo,
+  breaker trip and runtime error as well: `Sentry.captureMessage` at level `warning` with tags `genclass` (the
+  diagnosis), `genclass.mode`, `genclass.action` and a per-bug fingerprint (or breadcrumbs with `as: "breadcrumb"`);
+  `posthog.capture("genclass_<kind>", { ... })`; `DD_RUM.addError` (`GenClassDetection`, `GenClassIntervention`) and
+  `DD_RUM.addAction("genclass_<kind>")`; one JSON line per record on the console; batched POSTs of
+  `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch` keepalive
+  (at most one POST per idle-time delivery round, or per `flushMs` window with a `clock`).
+  No new dependency: each finds the SDK on the page at send time (or takes the client you pass) and never throws. They
+  send only the record the runtime built: kind, diagnosis, probability, action, route, session tags and the redacted
+  evidence (the console line, subject and timeline, URL query values as `…`; timeline lines can hold short fragments
+  of app data, as the console does). `evidence: false` on any adapter sends the structured fields only. Never the
+  situation text, bodies, headers or cookies. Separate entries, never in the first-load bundle. A tool adapter that
+  finds no SDK when a record arrives says so once in the console, naming the fix. The tool adapters and the webhook
+  cap repeats of one bug at 10 per page load (`maxPerSignature`); a bug's signature treats op ids, numbers and id-like
+  path segments (UUIDs, hex, tokens, slug ids, emails) as one, so one bug on many orders is one Sentry issue and one
+  cap. The webhook sends at most 50 records and 32,000 UTF-8 bytes per POST and at most one POST per round (the
+  browser's 64 KiB keepalive budget is shared with the app's own beacons); the rest waits for the next round, at most
+  500 records wait, and on page hide one batch goes (the session summary first) and the rest is dropped.
+- **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`,
+  `<meta name="genclass" content="sink=sentry+posthog">`, `data-sink="sentry,posthog"` on the script tag, and
+  `npx @genclass/runtime init --sink sentry` (repeatable; written to the option file, the tag or the Astro meta line;
+  `remove` takes it out). `<name>:noevidence` (`sentry:noevidence`, `--sink posthog:noevidence`) sends the structured
+  fields only. The names become one proxy sink that queues records (at most 200) and loads the adapters on the first
+  record, never before (a page with `?genclass=off`, or one that reports nothing, fetches none); the name table and the
+  adapters are lazy chunks of `/auto` and come from the CDN for the script tag, so only the proxy is in the first
+  load. A `webhook:<url>` is made absolute at init and only its own endpoint (origin and path) joins `requests.ignore`
+  (`webhook:/collect` never hides `/collections`); from a `<meta>` tag it must be same-origin, like the model URL (a
+  cross-origin one is ignored with one warning; THREAT-MODEL T8), and `init` says so for an absolute webhook URL on
+  Astro. A string passed to `GenClass.init({ sinks })` directly is now ignored with one warning that names the fix
+  (before, every record failed with "a sink failed: … is not a function", reported at most once a minute). Turning
+  page-config sinks into options never throws into the app (it runs before `GenClass.init`'s own guard, while `/auto`
+  is imported): a `requests.ignore` that is not a list stays as written, for `GenClass.init` to report as it would
+  without sinks, and any other failure is one warning.
+- **`init` reaches npm-installed SDKs.** It suggests `--sink` when `package.json` depends on a Sentry browser SDK
+  (`@sentry/react`, `@sentry/vue`, `@sentry/nextjs`, ...; no longer its build plugins or server SDKs), `posthog-js` or
+  `@datadog/browser-rum`. The npm Sentry and PostHog SDKs set no page global, so in its option file `init` writes such a
+  sink as the adapter with your SDK passed in (`import * as Sentry from "@sentry/vue"; ... sinks:
+  [sentrySink({ sentry: Sentry })]`); another `--sink` rewrites those imports, and `remove` takes them out. On plain
+  HTML and Astro, where only names fit, it says to add `window.Sentry = Sentry`.
+- **Security: the same-origin check on meta-tag URLs resolves them as the browser does.** A model, ORT or webhook URL
+  in `<meta name="genclass">` is now resolved with the WHATWG URL parser against the page and `document.baseURI`, so
+  `/\evil.example/`, a tab inside `//` or an injected `<base href>` no longer pass as a same-origin path (the 0.2.2
+  check let them through for model and ORT URLs too).
+- `SinkRecord.route`: the page path the subject's operation was created on, normalised as telemetry sends it (id-like
+  and email segments as `:id`, at most 200 chars).
+- Every adapter sends the evidence (the console line, subject and timeline) by default, while a sink you write
+  yourself still gets it only with `evidence: true` (`SinkObject.evidence`, default false). `:noevidence` /
+  `evidence: false` turns it off per adapter.
+- The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
+
+### Flow expectations (opt-in): learn what each action usually does, report the step that did not happen
+
+**Off by default** (`learn: { expectations: true }` turns it on) until its false-report rate on correct apps is
+measured (docs/runtime/RESULTS.md, "Flow expectations": the demos' clean-trial gate has not been run). Off, nothing
+is learned, stored or reported, and its code is never loaded: `src/learn/flows.ts` is a lazy chunk the runtime
+imports on the next task after init (a 0 ms timer on the injected clock), only when the option is on, so it adds nothing to the first
+load (the script-tag file carries it inline). Activity before it loads is not learned.
+
+A deterministic, reporting-only layer (`docs/runtime/EXPECTATIONS.md`). For every user action on a route (click,
+submit, change, Enter; never typing) the runtime learns which requests it starts and how soon, which request follows
+which, what each response's handler writes, where the page navigates and how long the flow settles. Once a step
+was seen in at least 95% of 20 or more observations over 3 or more visits (8 or more in one page load when nothing
+is stored), a flow in which it did not happen is
+reported: a click that sent nothing within its learned deadline, a follow-up request that never came after its
+predecessor answered, a response whose handler wrote nothing, a navigation that did not happen, and a request still
+waiting past twice its p99 latency. The model is never consulted for these and nothing acts on them in any mode. No model-visible
+text changed (no new fact, trigger or situation text).
+
+- `Report.kind "expectation"` with `Report.expectation` (the learned counts); `rt.on("expectation", fn)`; sink
+  records of kind `expectation` (counts and signatures, no page text), which reach a sink that forwards every kind
+  (a function, `{ send }` without `kinds`, the webhook and console-json adapters) only while the layer is on, and
+  never the Sentry, PostHog or Datadog adapters unless `kinds` lists `"expectation"`; one console line per deviation
+  in the usual style, with a collapsed group; folded repeats as for every report. `report: "interventions"` prints
+  none.
+- `rt.learned()`: whether the layer is on (`expectations`), the learned flows (current route first) with their
+  steps, counts, shares and delays, the recent deviations and the learned relations. Devtools: an **Expectations**
+  tab shows the same, and says how to turn the layer on when it is off.
+- `learn.expectations` (default false), `learn.minSupport` (8 while every observation is from this page load, 20
+  once stored ones count; a number sets both), `learn.minShare` (0.95), `learn.minSessions` (3 when learned state is
+  kept in localStorage, else 1; a reload in the same tab is not a new session) and `learn.maxBytes` (200,000).
+- A step reported missing is not expected again until it is seen again (`missed` in `rt.learned()`), so an app whose
+  behaviour changed gets one line, not one per visit; a flow's counts are halved when it reaches 64 observations; a
+  run of hanging requests of one signature is one `response` line until one of them answers.
+- False-positive controls (EXPECTATIONS.md §3), all learned counts or properties of the request: a step is
+  checked only on the branch of the handler it was learned on (the same set of fields written: a submit that showed
+  a validation error and sent nothing is not a gap); a repeat of the action within a page load is held to what
+  earlier repeats did; only a request that changes data (not GET, HEAD or OPTIONS) is expected to start or to write
+  after its answer; an answer with status 400 or above is no missing write and no predecessor of a follow-up; a
+  request with the signature started from anywhere since the action counts as sent; a write that left the value as
+  it was counts as handling the answer; an action repeated while its flow is open (a stepper) opens nothing and its
+  open flow's writes are not checked; a flow whose page was left for another action is neither learned nor
+  reported; deadlines have a 1 s floor.
+- Skipped while the page is hidden or offline or the runtime is paused, for requests under `requests.protect`, on
+  routes with `mode: "off"`, for the second click of a double click and for disabled controls (the DOM observer now
+  records `UserAction.data.disabled`; not model-visible). The layer runs inside `try/catch` and never throws into
+  the app.
+- First-load size: see the package README "Costs" (measured by `test/bundle.test.ts` in CI). Telemetry does not
+  send expectation reports (TELEMETRY.md's event table is unchanged).
+
+#### Learned flows are stored (with the layer on); transition profiles only when asked
+
+With `learn.expectations` on and `learn.persist` unset, the learned flows (reporting only) are kept per origin in `localStorage` under
+`genclass:learn`; transition profiles, which the model reads, stay in memory as before (CONTRACT §4), so what
+reaches the model in a default install is unchanged. `true` / `"local"` stores both in localStorage, `"session"`
+both in sessionStorage, `false` nothing. Nothing is stored by default in jsdom or happy-dom (an app's unit tests) or
+when storage throws (then learning stays in memory with this page load's thresholds). The stored value carries a
+format number and the runtime version and is discarded, never migrated, when either or `learn.version` (default
+`session.tags.release`) changes; the 0.2.2 value is discarded too. It is capped at `learn.maxBytes` (the stored copy
+only; a cap below its header removes it), saved 5 s after a change, when the page is hidden or unloads and on
+`rt.destroy()`, checked field by field and against the learner's bounds when loaded, and cleared (with a pending
+save) by `rt.learn.clear()`. What is stored: request signatures, routes and field names (id-like path segments and
+keys normalised; other path segments and map keys as they are), counts, delay samples and branch hashes; user-action
+labels only as hashes (transition profiles of user actions, when stored, under `user#<hash>`), never values. A tab's
+sessionStorage keeps its session ordinal (`genclass:learn:session`) so a reload is not a new session. The storage
+observer does not record the runtime's own writes.
+
+### Defaults, footprint and fixes
+
+- **A device floor by default.** `model.loadIf` now defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`: the
+  model (about 13 MB downloaded on a first visit and 190 to 280 MB more renderer memory while it is loaded, README
+  "Costs") is not loaded on devices whose `navigator.deviceMemory` is under 4 GB, which, as the value is quantised
+  to powers of two, means exactly the devices reporting 2 GB or less, nor on Save-Data connections (before:
+  Save-Data only made the load lazy). The runtime then keeps observing without a model (`status.state`
+  "skipped", reason `device-memory` / `save-data`; nothing is detected or prevented on that device) and prints
+  one line: `[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least
+  4 GB. …`. Browsers that do not report `deviceMemory` (Safari, Firefox) load as before. An object `loadIf`
+  without `saveData` now skips on Save-Data too (`saveData: "lazy"` keeps the old behaviour).
+  `model: { loadIf: () => true }` forces the load. `DEFAULT_LOAD_IF` is exported next to `deviceEnv` and
+  `evalLoadIf` (now in `src/model/device.ts`).
+- **Fix: `model.inlineFallback: false` is honoured.** The option was documented since 0.2.0 but the model host
+  ignored it and ran the model on the main thread whenever the worker could not be created, errored before it
+  came up or never came up (a `worker-src` policy, `file:`). Now `false` means the model is not loaded in those
+  cases: `status.state` is `skipped` with reason `worker-unavailable` and `workerError` naming the failure, pending
+  evaluations fail open, `rt.ready` rejects, `load()` tries the worker again (with its one WebGPU-to-WASM retry), and
+  one console warning names the error and the `worker-src` fix. `worker: false` still runs inline (that asks for the
+  main thread). The default stays `true` as documented; the `Model ready` line now says `inline on the main thread`
+  when it is, and `status.workerError` records why the worker was not used. `npx @genclass/runtime init` mentions `worker-src` in
+  its CSP advice.
+- **`fetch(new Request(...))` with a body no longer keeps a second copy of the upload.** The fetch observer cloned
+  such a Request twice: once to read up to 64 KB for the request's identity, and once as a pristine template for a
+  later retry or hedge. Nothing read the template until a replay, so its stream tee queued the whole body in memory
+  for the request's lifetime (uploads through axios's fetch adapter or ky, which pass a `Request`). Now there is one
+  clone, read up to 64 KB (then cancelled, which stops its tee from buffering), and a retry rebuilds the Request from
+  the original's URL and fields with those bytes, only when it happens. A Request whose `content-length` is over
+  64 KB is not cloned at all; it, and a body that turns out larger while being read, is not replayable (`retry` is
+  not offered for it; before, the template made it replayable at any size). String, form, Blob and BufferSource
+  bodies passed in `init` are unchanged.
+- **WebSocket and EventSource messages are no longer JSON-parsed inside the dispatch.** Every incoming text message
+  (≤ 16 KB) was parsed and summarised before the app's listeners ran, and parsed a second time when its delivery was
+  analysed; every text `send` was summarised too. Now the summary and the parsed body are computed only when
+  something reads them (the delivery decision of a salient message, a situation that lists the op, devtools), once
+  each and from one shared parse. In observe mode a message that nothing finds salient is never parsed. The op, its
+  event and the delivery gate are unchanged, and the summary text is the same when it is read (the model sees the
+  same situation). Binary messages are still sized at once.
+
+### First-load size
+
+Minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38477010836, commit 7c7c6d6): `/auto` (with state
+discovery) **106.59 KB** and the main entry (`GenClass.init()`) **98.57 KB**, against 99.17 KB and 91.70 KB in
+`0.2.2`. The test's limits are the sizes at bff4a71 (106.24 / 98.21 KB, CI run 38465242176) plus 1.5 KB,
+**107.74 KB** and **99.71 KB** (owner-approved for 0.3.0); the telemetry 429 back-off added about 0.35 KB since. Each first load is four files now (100.26 + 3.05 + 2.74 + 0.19 KB for `/auto`): the util code the lazy flow
+chunk shares is a chunk of its own. Where it goes (CI, step by step, docs/runtime/RESULTS.md §10): app tokens and
+`protect()` about +1.8 KB; the device floor, telemetry sampling and Request replays about +1.5 KB; the sink names'
+proxy +0.8 KB on `/auto`; the flow expectations' runtime side and learned-state persistence about +3.3 KB (the flow
+layer itself, about 4 KB by difference, is a lazy chunk loaded only with `learn.expectations`). The script-tag file is
+126.45 KB (it carries the flow layer inline).
+
 ## 0.2.2 (2026-10-13)
 
 - **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so

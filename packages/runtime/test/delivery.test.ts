@@ -1,5 +1,7 @@
 // Situation v2: decide at the network boundary (the `delivery` trigger), never hold store writes by default.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { messageSummary } from "../src/observe/messages.js";
+import { defaultRedact } from "../src/util.js";
 import type { Answer, EvaluateRequest, Op } from "../src/types.js";
 import { stateText } from "../src/situation/serialize.js";
 import { FakeClock, ManualDecider, defaultScript, setup, type Setup } from "./helpers.js";
@@ -354,6 +356,77 @@ describe("delivery: WebSocket messages", () => {
     expect(s.decider.calls).toHaveLength(0);
     const w = s.rt.history().filter((e) => e.kind === "state").pop()!;
     expect(s.rt.ops.get(w.op)!.name).toBe("WS message /live");
+  });
+});
+
+describe("delivery: push messages are parsed and summarised only when read (INTERCEPTION.md, WebSocket)", () => {
+  const feed = (s: Setup) => {
+    const got: unknown[] = [];
+    const ws = new (s.g.WebSocket as typeof FakeWS)("ws://app.test/feed");
+    ws.addEventListener("message", (e) => got.push((e as MessageEvent).data));
+    return { ws, got, socket: FakeWS.all[FakeWS.all.length - 1] };
+  };
+  const PAYLOADS: unknown[] = [{ n: 1, sym: "ACME", price: 101.5 }, [1, 2, 3], { password: "hunter2", user: "ada" }, { deep: { a: { b: { c: 1 } } } }];
+
+  it("observe mode, nothing salient: no JSON.parse on the dispatch path; the op detail and event summary read back as the same text", async () => {
+    const s = setup({ mode: undefined, observe: { fetch: true, websocket: true }, extraGlobal: { WebSocket: FakeWS } });
+    const { got, socket } = feed(s);
+    const parse = vi.spyOn(JSON, "parse");
+    try {
+      for (const p of PAYLOADS) socket.emit(p);
+      socket.dispatchEvent(new MessageEvent("message", { data: "not json {" }));
+      socket.dispatchEvent(new MessageEvent("message", { data: "x".repeat(20_000) }));
+      await s.clock.flush();
+      expect(parse).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
+    }
+    expect(got).toHaveLength(PAYLOADS.length + 2);
+    expect(s.decider.calls).toHaveLength(0);
+    const texts = [...PAYLOADS.map((p) => JSON.stringify(p)), "not json {", "x".repeat(20_000)];
+    const ops = [...s.rt.ops.byId.values()].filter((o) => o.name === "WS message /feed");
+    // exactly what the eager summary was (the model-visible text is unchanged), secrets redacted as before
+    expect(ops.map((o) => o.detail)).toEqual(texts.map((t) => messageSummary(t, defaultRedact)));
+    expect(ops.map((o) => o.detail).join(" ")).not.toContain("hunter2");
+    const evs = s.rt.history().filter((e) => e.name === "ws.message");
+    expect(evs.map((e) => (e.data as { summary: string }).summary)).toEqual(ops.map((o) => o.detail));
+  });
+
+  it("a salient message is parsed once: its summary and the delivery analysis share the parse", async () => {
+    const s = setup({ mode: undefined, triage: "always", observe: { fetch: true, websocket: true }, extraGlobal: { WebSocket: FakeWS } });
+    const { got, socket } = feed(s);
+    const text = JSON.stringify({ n: 7, card: "c1", col: "done" });
+    const parse = vi.spyOn(JSON, "parse");
+    try {
+      socket.dispatchEvent(new MessageEvent("message", { data: text }));
+      await s.clock.flush();
+      expect(parse.mock.calls.filter(([t]) => t === text)).toHaveLength(1);
+    } finally {
+      parse.mockRestore();
+    }
+    expect(got).toEqual([text]);
+    const d = s.decider.calls.find((c) => c.trigger === "delivery")!;
+    const summary = messageSummary(text, defaultRedact);
+    expect(stateText(d.state)).toContain(summary); // the model reads the same summary as before
+  });
+
+  it("outgoing sends: a text send is summarised when read; binary sizes are taken at send time", async () => {
+    const s = setup({ mode: undefined, observe: { fetch: true, websocket: true }, extraGlobal: { WebSocket: FakeWS } });
+    const { ws, socket } = feed(s);
+    const text = JSON.stringify({ op: "subscribe", ch: "ticker" });
+    const parse = vi.spyOn(JSON, "parse");
+    try {
+      ws.send(text);
+      expect(parse).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
+    }
+    const buf = new ArrayBuffer(8);
+    ws.send(buf);
+    structuredClone(buf, { transfer: [buf] }); // the app hands the buffer to a worker: detached (byteLength 0)
+    expect(socket.sent).toEqual([text, buf]);
+    const sends = [...s.rt.ops.byId.values()].filter((o) => o.name === "WS send /feed");
+    expect(sends.map((o) => o.detail)).toEqual([messageSummary(text, defaultRedact), "8 bytes"]);
   });
 });
 

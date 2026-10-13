@@ -443,11 +443,20 @@ export interface ModelOptions {
   ortWasmPaths?: string;
   cacheName?: string;
   /**
-   * Whether to load the model on this device. Default `{ saveData: "lazy" }` (Save-Data connections load lazily).
-   * false / "skip" → no download (status.state "skipped"); "lazy" → preload "lazy". Unknown values count as allowed.
+   * Whether to load the model on this device. Default `{ minDeviceMemoryGB: 4, saveData: "skip" }`: no model on
+   * devices whose `navigator.deviceMemory` is under 4 GB (the value is quantised to powers of two, so that is
+   * exactly "2 GB or less"; browsers that do not report it load) nor on Save-Data connections. The runtime then
+   * observes without a model (status.state "skipped" with `reason` "device-memory" / "save-data" / "loadIf") and
+   * prints one console line. `() => true` forces the load everywhere. false / "skip" → no download; "lazy" →
+   * preload "lazy"; `saveData: "ignore"` loads on Save-Data connections. Unknown values count as allowed.
    */
   loadIf?: { minDeviceMemoryGB?: number; saveData?: "skip" | "lazy" | "ignore" } | ((env: DeviceEnv) => boolean | "lazy");
-  /** Run inference on the main thread when the worker cannot start (default true). */
+  /**
+   * Run inference on the main thread when the model worker cannot start or crashes before it is up (default true).
+   * `false`: the model is then not loaded at all (status.state "skipped", reason "worker-unavailable", one console
+   * line naming the worker error) and the runtime observes without it; `worker: false` still runs inline, since
+   * that asks for the main thread explicitly.
+   */
   inlineFallback?: boolean;
   /** WASM threads (default "auto" = min(4, max(1, cores - 1))). */
   threads?: number | "auto";
@@ -540,7 +549,7 @@ export interface ActionRequest {
   label?: string;
 }
 
-export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error";
+export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error" | "expectation";
 
 export interface SinkRecord {
   schema: 1;
@@ -558,11 +567,18 @@ export interface SinkRecord {
   tier?: Tier;
   trigger?: TriggerKind;
   label?: string;
+  /**
+   * The page path (`location.pathname`) the subject's operation was created on, else the current one, normalised as
+   * telemetry sends it: id-like segments (numbers, UUIDs, long hex and tokens) and email segments as ":id", ≤ 200 chars.
+   */
+  route?: string;
   changed?: string[];
   undone?: boolean;
   shadow?: { action: string; tier: Tier; wouldPass: boolean; reason?: string };
   reason?: string;
   summary?: SessionSummary;
+  /** expectation: the learned step that did not happen (no page text: the action label is in `evidence.message` only). */
+  expectation?: { kind: ExpectationKind; route: string; signature?: string; field?: string; after?: string; to?: string; seen: number; of: number; sessions: number; waitedMs: number };
   evidence?: { message?: string; trigger?: TriggerKind; subject?: string; timeline?: string[] };
 }
 
@@ -731,7 +747,14 @@ export interface InitOptions {
   onBeforeAction?: (a: ActionRequest) => boolean | void;
   /** "report": call the hook and record its verdict but act anyway (default "enforce"). */
   vetoMode?: "enforce" | "report";
-  /** Structured, redacted records for your telemetry. */
+  /**
+   * Structured, redacted records for your own tools (OPTIONS-SPEC §4.11). Ready-made adapters, no dependencies:
+   * `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}`. The zero-code entries also take them by
+   * name (found as a page global; `sentry:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = { sinks:
+   * ["sentry", "webhook:/genclass"] }`, `<meta name="genclass" content="sink=sentry">`, `data-sink="sentry"` on the
+   * script tag, or `npx @genclass/runtime init --sink sentry` (which passes an npm-installed Sentry or posthog-js SDK
+   * to the adapter, since those set no global).
+   */
   sinks?: Sink[];
   /** Session id and tags stamped on records (never shown to the model). */
   session?: { id?: string; tags?: Record<string, string | number | boolean> };
@@ -759,11 +782,8 @@ export interface InitOptions {
   historySize?: number;
   /** Console logging of every decision. */
   debug?: boolean;
-  /**
-   * Learned state (transition profiles): persist: true / "local" (localStorage) or "session" (sessionStorage); default
-   * false. `key` default "genclass:learn"; `version` (default session.tags.release at init) discards stale state.
-   */
-  learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string };
+  /** Learned state (transition profiles, flow expectations) and its persistence; see LearnOptions. */
+  learn?: LearnOptions;
   /** Override the diagnosis vocabulary and action descriptions the model sees. */
   vocabulary?: Vocabulary;
   /** Quiet time after the last mutation before a settled point (default 60 ms). */
@@ -781,10 +801,12 @@ export interface InitOptions {
   situation?: { budget?: number | "auto" };
   /**
    * Anonymous diagnostics sent to the GenClass maintainers to improve the model (packages/runtime/TELEMETRY.md):
-   * session info, every decision (trigger, its calibrated answers, the gate and what ran; the redacted situation
-   * text the model read only with `include: { situation: true }`), action outcomes, detections, model errors and
-   * periodic counts. Never raw input values, cookies, headers or storage. **Default: on with `GenClass.init()` in a
-   * browser on a public host** (one console notice per page; never on localhost or private networks); off in
+   * session info, decisions (trigger, its calibrated answers, the gate and what ran: every detection, near-miss,
+   * action and veto; a `decisionSample` share of routine ones; the redacted situation text the model read only with
+   * `include: { situation: true }`), action outcomes, detections, model errors and periodic counts. Never raw input
+   * values, cookies, headers or storage. **Default: on with `GenClass.init()` in a browser on a public host** (one
+   * console notice per page; the default is off on localhost and private networks, where `true` or an options
+   * object is an explicit opt-in that sends from them too); off in
    * Node/SSR and with `createRuntime()` unless set here. Off with `false`, `?genclass=no-telemetry` (or `off`),
    * `localStorage["genclass.telemetry"] = "off"`, or when the browser sends Global Privacy Control
    * (`navigator.globalPrivacyControl === true`).
@@ -801,6 +823,155 @@ export interface InitOptions {
    * single sources off (`{ react: false }`). Also `<meta name="genclass" content="autostate=off">`.
    */
   autoState?: boolean | AutoStateOptions;
+  /**
+   * Your app's GenClass token (`gc_` + 22 letters/digits; get one with `npx @genclass/runtime init` or at
+   * https://genclass.dev/start). Public: it only lets this app's telemetry batches be grouped under your private
+   * dashboard link. It does nothing while telemetry is off (opt-outs and Global Privacy Control still win). An invalid
+   * value logs one console warning and is ignored. Also `data-token`, `<meta name="genclass" content="token=...">`,
+   * `window.GENCLASS_CONFIG.token`. Fixed when GenClass starts: a later GenClass.init() on a running runtime (one
+   * started by `/auto` or the script tag) ignores it, with one console warning.
+   */
+  token?: string;
+  /**
+   * Where GenClass raises decisions. "app" (default): the whole app. "functions": only for activity inside functions
+   * wrapped with `protect()` (their fetches, state writes, timers and errors); everything else is still observed
+   * and recorded as context, but the runtime raises no decision about it and never acts on it; standing questions
+   * (`runtime.question()`, plugin `questions`) are only asked about protected activity too. Explicit questions
+   * (`runtime.ask()`, `runtime.decide()`) are still answered everywhere. Fixed when GenClass starts, like `token`
+   * (also `data-scope`, `scope=functions` in the meta tag, `window.GENCLASS_CONFIG.scope`).
+   */
+  scope?: "app" | "functions";
+}
+
+/**
+ * InitOptions.learn: what GenClass learns about the page (transition profiles per operation, flow expectations per
+ * user action; docs/runtime/EXPECTATIONS.md) and where it keeps it between visits.
+ */
+export interface LearnOptions {
+  /**
+   * Keep learned state per origin between page loads. Unset (the default): the flows behind `expectation` reports
+   * (reporting only) are kept in localStorage; transition profiles, which feed the model, stay in memory (CONTRACT
+   * §4). true / "local": flows and transition profiles in localStorage; "session": both in sessionStorage; false:
+   * nothing is stored. Without working storage, or by default in a DOM test environment (jsdom, happy-dom), nothing
+   * is stored either. What is stored: request signatures, routes and field names (id-like segments and keys
+   * normalised; other path segments and map keys as they are), hashes of user-action labels, counts and delay
+   * samples; never element text or values. Capped at `maxBytes`; discarded when `version` or the runtime version
+   * changes.
+   */
+  persist?: boolean | "local" | "session";
+  /** Storage key. Default "genclass:learn". */
+  key?: string;
+  /** Discards stored state learned under another version (as does a new runtime version). Default: session.tags.release at init. */
+  version?: string;
+  /**
+   * Size cap of the stored state in characters: the most-used flows and the profiles with the most completions are
+   * kept; only the stored copy is trimmed, never what is in memory. Default 200,000.
+   */
+  maxBytes?: number;
+  /**
+   * Flow expectations (`expectation` reports, rt.learned().flows). Default false (opt-in until their false-report rate
+   * is measured, docs/runtime/RESULTS.md): nothing is learned, stored or reported, and src/learn/flows.ts is never
+   * loaded. true: the layer is imported on the next task after init (a lazy chunk, no first-load cost) and learns from then on.
+   */
+  expectations?: boolean;
+  /**
+   * Observations of a flow (or completions of a request) before a step is expected of it. Default 8 while all of
+   * them are from this page load, 20 once stored observations from earlier page loads count; a number sets both.
+   */
+  minSupport?: number;
+  /** Share of observations in which a step must have occurred to be expected. Default 0.95. */
+  minShare?: number;
+  /**
+   * Distinct sessions a flow must have been seen in before anything is expected of it (for `response`: sessions on
+   * this origin, this one included). A session is a browsing session of a tab: a reload continues it. Default 3
+   * when learned state is kept in localStorage, else 1.
+   */
+  minSessions?: number;
+}
+
+/** A learned step that did not happen this time (reporting only; never an action). */
+export type ExpectationKind = "request" | "response" | "write" | "follow-up" | "navigation";
+
+/**
+ * An `expectation` report (rt.on("expectation"), Report.expectation, docs/runtime/EXPECTATIONS.md): a step that the
+ * same user action on the same route usually produces (`seen` of `of` observations across `sessions` sessions) and
+ * this time did not within the learned bound. Counts are learned, never decided by the model.
+ */
+export interface Expectation {
+  kind: ExpectationKind;
+  /** Normalised route the flow was learned on. */
+  route: string;
+  /** The user action, e.g. 'clicking button "Add to cart"' (`response`: the request signature). */
+  action: string;
+  /** The user op (`response`: the request op). */
+  op: number;
+  /** request / follow-up / write / response: the request signature. */
+  signature?: string;
+  /** write: the field(s) usually written. */
+  field?: string;
+  /** follow-up: the request after whose completion `signature` usually follows. */
+  after?: string;
+  /** navigation: the route the action usually leads to. */
+  to?: string;
+  /** Times the step was seen, out of the observations it is measured against, and the sessions behind them. */
+  seen: number;
+  of: number;
+  sessions: number;
+  /** How long GenClass waited before reporting (ms). */
+  waitedMs: number;
+  /** The learned bound the wait was compared with (p95 of the step's delay; p99 of the latency for `response`). */
+  usualMs?: number;
+  at: number;
+  /** The console line. */
+  message: string;
+}
+
+/** One learned flow (rt.learned().flows): what a user action on a route usually does. */
+export interface LearnedFlow {
+  route: string;
+  /** e.g. 'click button "Place order"' (a label not seen this session shows as `button #<hash>`). */
+  action: string;
+  /** Observations, those that repeated the action within a page load, and distinct sessions. */
+  n: number;
+  repeats: number;
+  sessions: number;
+  /** Time from the action to its last request's end. */
+  settleMs?: { p50: number; p95: number };
+  /**
+   * Requests the action starts (`onRepeat`: of them, in repeats). `expected`: its absence is reported the first time
+   * the action happens in a page load (support, share and session thresholds met, a method that changes data, not
+   * protected, not `missed`); `expectedOnRepeat`: also on a repeat (the share holds among `repeats` too). `missed`:
+   * its absence was reported, and it is not expected again until it is seen again (on every step kind below too).
+   */
+  children: { signature: string; n: number; share: number; onRepeat: number; expected: boolean; expectedOnRepeat: boolean; protected?: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
+  /**
+   * Fields each request's response handler writes (a refetch's writes are the refetch's). `expected`: a missing write
+   * is reported (thresholds met and the request changes data: not GET, HEAD or OPTIONS).
+   */
+  writes: { signature: string; field: string; n: number; of: number; share: number; expected: boolean; missed?: boolean }[];
+  /** Requests that start after another one of the flow answers ok; `expected` needs one of the pair to change data. */
+  followUps: { after: string; then: string; n: number; of: number; share: number; expected: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
+  /** Routes the action leads to. */
+  nav: { to: string; n: number; share: number; expected: boolean; missed?: boolean }[];
+}
+
+/** rt.learned(): what GenClass learned about the page (reporting only). */
+export interface Learned {
+  /** The current route (normalised). */
+  route: string;
+  /** Flow expectations are on (learn.expectations: true); false: `flows` and `deviations` stay empty. */
+  expectations: boolean;
+  /**
+   * This session's ordinal on this origin: 1 + the sessions that stored learned state before it, or, after a reload
+   * in the same tab, the ordinal the tab already had (kept in sessionStorage). Always 1 when nothing is stored.
+   */
+  session: number;
+  /** Learned flows, the current route's first. */
+  flows: LearnedFlow[];
+  /** Recent expectation reports (last 50), oldest first. */
+  deviations: Expectation[];
+  /** Learned relations between fields (invariants), as text, with the settled points they held at. */
+  relations: { text: string; held: number }[];
 }
 
 /** InitOptions.autoState as an object: each source defaults to on. */
@@ -841,12 +1012,30 @@ export interface TelemetryOptions {
   maxBatch?: number;
   /** situation (default false): include the redacted situation text the model read in decision events. */
   include?: { situation?: boolean };
+  /**
+   * Share of routine decisions (top diagnosis "expected", no action, no veto, no shadow pass) whose `decision` record
+   * is sent (0..1, default 0.25), drawn per decision from a hash of the session and decision ids. Every other
+   * decision, every detection among them, is always sent and never capped. `summary` counts every decision whatever
+   * the share.
+   */
+  decisionSample?: number;
+  /**
+   * Most routine decisions per page load whose `decision` records are sent (default 200; `Infinity` for no cap).
+   * Detections and the other decisions are never capped; `summary` events (counts) continue, so an open tab's upload
+   * stays bounded for routine traffic.
+   */
+  maxDecisions?: number;
   /** Advanced (tests, custom pipelines): replaces the network transport. Errors are swallowed. */
   transport?: TelemetryTransport;
 }
 
 export interface TelemetryTransport {
-  /** `beacon`: the page is going away (pagehide / hidden); prefer navigator.sendBeacon. */
+  /**
+   * `beacon`: the page is going away (pagehide / hidden); prefer navigator.sendBeacon. Reject to report a failed
+   * request: an error whose `status` is 429, or that carries `retryAfterMs` (a Retry-After header, in ms), is a
+   * back-off (the batch is queued again and sending pauses), never one of the failures that stop telemetry; any other
+   * rejection (a network error, a 5xx) counts as a failure.
+   */
   send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown>;
 }
 
@@ -858,6 +1047,11 @@ export interface TelemetryStatus {
   readonly endpoint?: string;
   /** Random per page load (not persisted). */
   readonly sessionId?: string;
+  /**
+   * The app token sent with each batch (InitOptions.token), when one is configured and valid and telemetry is on;
+   * undefined while telemetry is off, even with a token configured.
+   */
+  readonly token?: string;
   /** Send what is queued now (resolves when the requests settle; never rejects). */
   flush(): Promise<void>;
 }
@@ -1009,6 +1203,8 @@ export interface Decision {
   answers: Record<string, Answer>;
   /** Structured reference to the subject (same as EvaluateRequest.subject). */
   subjectRef?: SubjectRef;
+  /** The protect()ed function the subject ran inside (the outermost one in its cause chain); unset otherwise. */
+  fn?: string;
 }
 
 export type Detection = Decision;
@@ -1035,10 +1231,12 @@ export interface ActionRecord {
 }
 
 export interface Report {
-  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error";
+  /** `expectation`: a learned step did not happen (Report.expectation; reporting only). */
+  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error" | "expectation";
   message: string;
   decision?: Decision;
   action?: ActionRecord;
+  expectation?: Expectation;
   /** Effective mode at the decision. */
   mode?: ModeOrOff;
   correlationId?: string;
@@ -1138,6 +1336,8 @@ export interface RuntimeEvents {
   breaker: { tripped: boolean; reason: "undos" | "errors" | "reset"; decisionIds: string[]; counts: { undos: number; errors: number } };
   limit: { kind: "perMinute" | "perSubject" | "perSession"; subject: string };
   modelBudget: { decisionsLastMinute: number; dropped: number };
+  /** A learned step did not happen (also a Report of kind "expectation"). */
+  expectation: Expectation;
 }
 
 export interface Runtime {
@@ -1200,7 +1400,10 @@ export interface Runtime {
   /** Replace the session id and merge tags (later records only). */
   setSession(p: { id?: string; tags?: Record<string, string | number | boolean> }): void;
   readonly breaker: { reset(): void; readonly tripped: boolean };
+  /** `clear()` forgets everything learned (profiles, flows) in memory and in storage. */
   readonly learn: { clear(): void };
+  /** What GenClass learned about the page: flows per user action and route, recent deviations, relations. */
+  learned(): Learned;
   pause(): void;
   resume(): void;
   destroy(): void;

@@ -4,7 +4,7 @@
 import type { RuntimeImpl } from "../runtime.js";
 import type { TelemetryOptions, TelemetryStatus } from "../types.js";
 import { TelemetryClient, telemetryOff, type TelemetrySessionInfo } from "./client.js";
-import { TELEMETRY_NOTICE, resolveTelemetry } from "./config.js";
+import { TELEMETRY_NOTICE, TELEMETRY_TOKEN_NOTICE, resolveTelemetry } from "./config.js";
 
 export { DEFAULT_TELEMETRY_ENDPOINT, TELEMETRY_NOTICE, TELEMETRY_SCHEMA, resolveTelemetry } from "./config.js";
 export { TelemetryClient, MAX_QUEUE, MAX_REQUEST_BYTES } from "./client.js";
@@ -22,15 +22,17 @@ export function startTelemetry(
   opt: boolean | TelemetryOptions | undefined,
   defaultOn: boolean,
   info: TelemetrySessionInfo,
+  token?: string,
 ): TelemetryStatus {
   try {
     const res = resolveTelemetry(opt, rt.global, defaultOn);
     if (!res.on) return telemetryOff(res.reason);
+    if (token) res.config.token = token;
     const client = new TelemetryClient(rt, res.config, rt.global, info);
     if (!noticeShown) {
       noticeShown = true;
       try {
-        ((rt.global.console as Console | undefined) ?? (globalThis as { console?: Console }).console)?.info?.(TELEMETRY_NOTICE);
+        ((rt.global.console as Console | undefined) ?? (globalThis as { console?: Console }).console)?.info?.(token ? `${TELEMETRY_NOTICE} ${TELEMETRY_TOKEN_NOTICE}` : TELEMETRY_NOTICE);
       } catch {
         /* ignore */
       }

@@ -60,13 +60,23 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   }, 60_000);
 
   // /auto carries automatic state discovery (autoState, beta.4: about 6.5 KB); the main entry does not. The audit trail,
-  // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
-  // 91 KB for GenClass.init)
-  // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
-  const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 92 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 99 / 91 KB)", async () => {
+  // protect presets and the hold-budget fixes (0.2.0) added about 1.6 KB to both; 0.2.2 +0.35 KB (URL/meta hardening,
+  // model download retries, the telemetry failure streak; this test measures 0.2.2 at 99.17 KB / 91.70 KB, CI run
+  // 38441488459); app tokens and protect() (0.3.0) about 1.8 KB more (/auto 100.68 KB, the main entry 93.19 KB, CI run
+  // 38436014497); the device floor, telemetry sampling and Request replays about 1.5 KB more; the sink names' proxy
+  // about 0.8 KB on /auto (102.94 / 94.79 KB, CI run 38462380432). Sinks by name: only the proxy (src/cdn/sinks.ts) is
+  // in /auto's first load; the name table, the fan-out and the adapters are lazy chunks (asserted below). The flow
+  // expectations (src/learn/flows.ts, opt-in: learn.expectations) are a lazy chunk too, imported only when the option
+  // is on; their runtime side (learned-state persistence, the report line, the hooks) and the util chunk it shares
+  // with them add about 3.3 KB. 0.3.0-beta.0 measures 106.24 / 98.21 KB (CI run 38465242176); the limits are those
+  // plus 1.5 KB, as the owner approved for 0.3.0 (README "Performance", docs/runtime/RESULTS.md §10). The telemetry
+  // 429 back-off took 0.35 KB of that: 106.59 / 98.57 KB (CI run 38477010836). Both sizes are printed before either is
+  // asserted.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 107.74, "index.js": 99.71 };
+  it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
+    const measured: { entry: string; kb: number; code: string }[] = [];
     for (const entry of ["auto.js", "index.js"]) {
       const spec = JSON.stringify(join(DIST, entry));
       const r = await build({
@@ -90,17 +100,52 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
         first.add(k);
         for (const i of outs[k].imports) if (i.kind === "import-statement" && outs[i.path]) walk(i.path);
       };
-      walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
-      const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
-      expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
-      // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
+      // the app's own entry: the metafile marks a lazily imported chunk (a sink adapter of /auto) as an entry point too
+      const stdin = Object.keys(outs).find((k) => outs[k].entryPoint === "<stdin>");
+      expect(stdin, `${entry}: the stdin entry in the metafile`).toBeDefined();
+      walk(stdin!);
+      const per = [...first].map((k) => gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length);
+      const gz = per.reduce((n, b) => n + b, 0);
+      // each file is gzipped on its own, so a chunk split out of the first load costs its own overhead too
+      const files = per.map((b) => (b / 1024).toFixed(2)).join(" + ");
+      console.info(`[bundle] ${entry}: ${(gz / 1024).toFixed(2)} KB minified + gzip in ${per.length} file(s): ${files} (limit ${LIMIT_KB[entry]} KB)`);
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
+      measured.push({ entry, kb: gz / 1024, code });
+    }
+    for (const { entry, kb, code } of measured) {
+      expect(kb, entry).toBeLessThan(LIMIT_KB[entry]);
+      // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       expect(code, entry).not.toContain("BPE dropout is not supported at inference"); // src/model/tokenizer.ts
       expect(code, entry).toContain("new Worker("); // the host itself is there
+      // the sink adapters (@genclass/runtime/sinks/*) and the name table and fan-out (src/cdn/sinks-fanout.ts) are lazy
+      // chunks of /auto and absent from the main entry
+      expect(code, entry).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
+      expect(code, entry).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
+      expect(code, entry).not.toContain("console-json"); // src/cdn/sinks-fanout.ts SINK_NAMES, src/cdn/sinks-load.ts
+      expect(code, entry).not.toContain("unknown sink"); // src/cdn/sinks-fanout.ts
+      // the flow expectations (src/learn/flows.ts) are a lazy chunk, loaded only with learn.expectations
+      expect(code, entry).not.toContain("Expected a follow-up on"); // src/learn/flows.ts
+      expect(code, entry).not.toContain("Expected a response:"); // src/learn/flows.ts
       // state discovery survives an app's bundler in /auto (a dropped side-effect import once lost it) and stays out
       // of the main entry
       if (entry === "auto.js") expect(code, entry).toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
       else expect(code, entry).not.toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
     }
+  });
+
+  // the script tag's one file (README "Install", option 3): printed so the README can quote a measured number; it
+  // carries the sink names' proxy and fan-out, and loads the adapters themselves from dist/sinks/ on demand
+  it("the script tag's file, dist/genclass.global.min.js, minified + gzip: printed; no sink adapter inside it", async () => {
+    const { readFileSync } = await import("node:fs");
+    const f = join(DIST, "genclass.global.min.js");
+    if (!existsSync(f)) return;
+    const buf = readFileSync(f);
+    const gz = gzipSync(buf, { level: 9 }).length / 1024;
+    console.info(`[bundle] script tag genclass.global.min.js: ${gz.toFixed(2)} KB minified + gzip (${(buf.length / 1024).toFixed(1)} KB minified)`);
+    const code = buf.toString("utf8");
+    expect(code).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
+    expect(code).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
+    expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
+    expect(gz).toBeGreaterThan(0);
   });
 });

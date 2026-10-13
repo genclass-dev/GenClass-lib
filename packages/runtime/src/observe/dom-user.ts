@@ -261,7 +261,9 @@ export function installDomUser(g: Record<string, unknown>, sink: UserSink): (() 
   const onClick = (e: Event) => {
     const el = interactive(originOf(e));
     const detail = (e as MouseEvent).detail;
-    sink.user({ kind: "click", target: describeElement(el), ...(typeof detail === "number" && detail > 0 ? { clicks: detail } : {}) });
+    // a disabled control does nothing by design: recorded for the flow expectations (never model-visible)
+    const disabled = !!el && (el.hasAttribute("disabled") || el.getAttribute("aria-disabled") === "true");
+    sink.user({ kind: "click", target: describeElement(el), ...(typeof detail === "number" && detail > 0 ? { clicks: detail } : {}), ...(disabled ? { data: { disabled: true } } : {}) });
   };
   const onInput = (e: Event) => {
     const el = originOf(e) as HTMLInputElement | null;

@@ -2,8 +2,13 @@
 // completions of the store fields its causal chain wrote, each written value's kind, the response status class,
 // the number of writes and a duration bucket. A completed op whose shape component was seen in < 1% of >= 20
 // previous completions is unusual. Generic: no knowledge of what any field or op means.
+//
+// Persistence (learn.persist, on by default): a user action's profile is keyed by its element description, which is
+// page text, so it is stored under a hash of that key (`user#<fnv1a>`) and renamed back the first time the action is
+// seen again in a session.
 
 import type { ChainWrite } from "../trace/ops.js";
+import { fnv1a } from "../util.js";
 
 export const MIN_COMPLETIONS = 20;
 export const RARE = 0.01;
@@ -91,16 +96,24 @@ function top(rec: Record<string, number>): [string, number] {
   return [best, Math.max(0, n)];
 }
 
+const USER = "user ";
+
+/** The form a signature takes in storage: user-action signatures (page text) become `user#<hash>`. */
+export function persistedSig(sig: string): string {
+  return sig.startsWith(USER) ? `user#${fnv1a(sig.slice(USER.length))}` : sig;
+}
+
 export class Profiles {
   readonly bySig = new Map<string, Profile>();
 
+  /** The profile of a signature, also when it was loaded from storage under its hashed form. */
   get(sig: string): Profile | undefined {
-    return this.bySig.get(sig);
+    return this.bySig.get(sig) ?? (sig.startsWith(USER) ? this.bySig.get(persistedSig(sig)) : undefined);
   }
 
   /** Compare a shape against the profile (before adding it). */
   check(sig: string, s: Shape): Unusual[] {
-    const p = this.bySig.get(sig);
+    const p = this.get(sig);
     if (!p || p.n < MIN_COMPLETIONS) return [];
     const out: Unusual[] = [];
     const rare = (seen: number, of: number) => of >= MIN_COMPLETIONS && seen < RARE * of;
@@ -133,6 +146,16 @@ export class Profiles {
 
   add(sig: string, s: Shape): void {
     let p = this.bySig.get(sig);
+    if (!p && sig.startsWith(USER)) {
+      // loaded under its hash: from now on it lives under the plain signature (memory only)
+      const h = persistedSig(sig);
+      p = this.bySig.get(h);
+      if (p) {
+        this.bySig.delete(h);
+        p.sig = sig;
+        this.bySig.set(sig, p);
+      }
+    }
     if (!p) {
       p = { sig, n: 0, sets: {}, kinds: {}, wrote: {}, status: {}, writes: {}, dur: {} };
       this.bySig.set(sig, p);
@@ -158,14 +181,33 @@ export class Profiles {
     p.dur[s.dur] = (p.dur[s.dur] ?? 0) + 1;
   }
 
+  /** Profiles as stored: user-action signatures hashed (no page text). */
   toJSON(): Profile[] {
-    return [...this.bySig.values()];
+    return [...this.bySig.values()].map((p) => (p.sig.startsWith(USER) ? { ...p, sig: persistedSig(p.sig) } : p));
   }
 
+  /** Profiles from storage (persisted by default): anything malformed is dropped or zeroed, never trusted as is. */
   load(list: unknown): void {
     if (!Array.isArray(list)) return;
-    for (const p of list as Profile[]) {
-      if (p && typeof p.sig === "string" && typeof p.n === "number") this.bySig.set(p.sig, p);
+    for (const p of list as Record<string, unknown>[]) {
+      if (!p || typeof p !== "object") continue;
+      const sig = p.sig;
+      const n = p.n;
+      if (typeof sig !== "string" || !isCount(n)) continue;
+      const kinds: Record<string, Record<string, number>> = {};
+      if (p.kinds && typeof p.kinds === "object") for (const [f, v] of Object.entries(p.kinds as Record<string, unknown>)) kinds[f] = counts(v);
+      this.bySig.set(sig, { sig, n, sets: counts(p.sets), kinds, wrote: counts(p.wrote), status: counts(p.status), writes: counts(p.writes), dur: counts(p.dur) });
     }
   }
+}
+
+function isCount(x: unknown): x is number {
+  return typeof x === "number" && Number.isFinite(x) && x >= 0;
+}
+
+/** A stored `key -> count` map, keeping only finite non-negative counts. */
+function counts(x: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (x && typeof x === "object" && !Array.isArray(x)) for (const [k, v] of Object.entries(x as Record<string, unknown>)) if (isCount(v)) out[k] = v;
+  return out;
 }

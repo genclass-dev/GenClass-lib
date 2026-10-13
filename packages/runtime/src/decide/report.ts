@@ -2,7 +2,7 @@
 // the decision's facts with generic templates (reporting only, never decisions), followed by a collapsed group
 // with the evidence. Identical repeats within a minute are summarised as "×N in the last minute".
 
-import type { ActionRecord, Clock, Decision, Explanation, Report, TriggerKind } from "../types.js";
+import type { ActionRecord, Clock, Decision, Expectation, Explanation, Report, TriggerKind } from "../types.js";
 
 const NOUN: Record<TriggerKind, string> = {
   mutation: "write",
@@ -89,9 +89,24 @@ export class Reporter {
     this.sink = s;
   }
 
-  private key(kind: string, d: Decision | undefined, a: ActionRecord | undefined): string {
+  private key(kind: string, d: Decision | undefined, a: ActionRecord | undefined, e?: Expectation): string {
+    if (e) return `${kind}|${e.kind}|${e.route}|${e.action.replace(/\d+(\.\d+)?/g, "n")}|${e.signature ?? ""}|${e.field ?? ""}|${e.after ?? ""}|${e.to ?? ""}`;
     const subj = (d?.subject ?? "").replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n");
     return `${kind}|${a?.action ?? d?.action ?? ""}|${d?.diagnosis ?? ""}|${d?.trigger ?? ""}|${subj}`;
+  }
+
+  /** The collapsed evidence of an expectation report: what was learned, what happened, how to see the flows. */
+  private printExpectation(con: Console, r: Report, e: Expectation): void {
+    if (typeof con.groupCollapsed !== "function") return void (con.info ?? con.log).call(con, r.message);
+    con.groupCollapsed(r.message);
+    const usual = e.usualMs !== undefined ? ` within ${p2(e.usualMs / 1000)} s` : "";
+    const what = e.kind === "request" ? `${e.action} sends ${e.signature}` : e.kind === "follow-up" ? `${e.signature} follows ${e.after}` : e.kind === "write" ? `the response to ${e.signature} writes ${e.field}` : e.kind === "navigation" ? `${e.action} leads to ${e.to}` : `${e.action} answers`;
+    con.log(`Learned on ${e.route}: ${what}${usual} (${e.seen} of ${e.of}, ${e.sessions} session${e.sessions === 1 ? "" : "s"}).`);
+    con.log(`This time: nothing after ${p2(e.waitedMs / 1000)} s (op #${e.op}).`);
+    con.log("Deterministic report from learned counts; no model, no action taken in any mode.");
+    con.log("Flows learned for this page: GenClass.runtime.learned()");
+    con.log("Turn this off: GenClass.init({ learn: { expectations: false } })");
+    con.groupEnd();
   }
 
   /** True when the report should be printed now (first of its window); repeats are counted for the summary. */
@@ -137,7 +152,7 @@ export class Reporter {
       }
       return;
     }
-    if (r.kind !== "status" && !this.dedupe(this.key(r.kind, r.decision, r.action), r)) return;
+    if (r.kind !== "status" && !this.dedupe(this.key(r.kind, r.decision, r.action, r.expectation), r)) return;
     const con = (globalThis as { console?: Console }).console;
     if (!con) return;
     const line = r.message;
@@ -145,6 +160,7 @@ export class Reporter {
       con.info?.(line);
       return;
     }
+    if (r.kind === "expectation" && r.expectation) return this.printExpectation(con, r, r.expectation);
     const ev = r.action ? this.explain(r.action.id) : r.decision ? this.explain(r.decision.id) : null;
     if (ev && typeof con.groupCollapsed === "function") {
       con.groupCollapsed(line);
