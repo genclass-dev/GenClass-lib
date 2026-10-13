@@ -41,7 +41,7 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     const r = rng([...b].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7));
     const counts: Record<string, number> = {};
     for (const [k, w] of TYPES) {
-      const n = Math.max(0, Math.round((w + (r() - 0.45) * 2.2) * scale + (hourly && r() < w / 8 ? 1 : 0)));
+      const n = hourly ? (r() < w / 7 ? 1 + (r() < 0.25 ? 1 : 0) : 0) : Math.max(0, Math.round(w * (0.35 + r() * 1.3)));
       if (n) {
         counts[k] = n;
         tot[k] = (tot[k] ?? 0) + n;
