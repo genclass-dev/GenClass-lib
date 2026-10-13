@@ -344,7 +344,10 @@ describe("accounts: sessions, logout and CSRF", () => {
     expect(csp).toMatch(/default-src 'none'; script-src 'nonce-[A-Za-z0-9]{22}'/);
     expect(csp).toContain("form-action 'self'");
     expect(login.headers.get("x-frame-options")).toBe("DENY");
+    // with no-referrer, browsers send `Origin: null` on the same-origin sign-out form post; same-origin keeps it
+    expect(login.headers.get("referrer-policy")).toBe("same-origin");
     const html = await login.text();
+    expect(html).toContain('<meta name="referrer" content="same-origin">');
     expect(html).not.toContain("evil.example");
     expect(html).toContain("Sign in with a passkey");
     expect(html).not.toMatch(/ style="/);

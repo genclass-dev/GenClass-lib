@@ -6,11 +6,16 @@
 
 export const CDN_SCRIPT = "https://cdn.jsdelivr.net/npm/@genclass/runtime";
 
-export function securityHeaders(nonce: string, extra: Record<string, string> = {}, opts: { formSelf?: boolean } = {}): Record<string, string> {
+/**
+ * Headers for every HTML page. `account: true` (the account pages) allows same-origin form posts (the sign-out form)
+ * and uses the referrer policy `same-origin`: with `no-referrer` browsers send `Origin: null` on a same-origin form
+ * post, which the CSRF check refuses; `same-origin` still sends no referrer to any other site.
+ */
+export function securityHeaders(nonce: string, extra: Record<string, string> = {}, opts: { account?: boolean } = {}): Record<string, string> {
   return {
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store",
-    "referrer-policy": "no-referrer",
+    "referrer-policy": opts.account ? "same-origin" : "no-referrer",
     "x-robots-tag": "noindex, nofollow",
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
@@ -18,7 +23,7 @@ export function securityHeaders(nonce: string, extra: Record<string, string> = {
     "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
     "content-security-policy":
       `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; ` +
-      `img-src 'self' data: https://genclass.dev; base-uri 'none'; form-action ${opts.formSelf ? "'self'" : "'none'"}; frame-ancestors 'none'`,
+      `img-src 'self' data: https://genclass.dev; base-uri 'none'; form-action ${opts.account ? "'self'" : "'none'"}; frame-ancestors 'none'`,
     ...extra,
   };
 }
@@ -164,6 +169,8 @@ export interface ShellOptions {
   nav?: string;
   /** No top header: the sign-in pages put the lockup at the top of their own column. */
   bare?: boolean;
+  /** An account page: the referrer policy `same-origin` (see securityHeaders), which the meta tag must repeat. */
+  account?: boolean;
 }
 
 const DEFAULT_NAV =
@@ -180,7 +187,7 @@ export function shell(nonce: string, title: string, body: string, script: string
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="${opts.account ? "same-origin" : "no-referrer"}">
 <title>${esc(title)}</title>
 <link rel="icon" href="${ICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -393,8 +400,8 @@ main.wrap:has(.app){max-width:1360px}
 .connect{margin-top:36px}
 .connect .keyrow{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);padding:18px 0;border-bottom:1px solid var(--rule)}
 .connect .keyrow .k{font:500 12.5px var(--mono);color:var(--ink3);padding-top:7px}
-.connect .kv{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;min-width:0}
-.connect .kv code{font:500 16px var(--mono);overflow-wrap:anywhere}
+.connect .kval{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;min-width:0}
+.connect .kval code{font:500 16px var(--mono);overflow-wrap:anywhere}
 .connect .kn{grid-column:2;font-size:13.5px;color:var(--ink2);margin-top:8px;max-width:62ch}
 .connect .ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:0 48px}
 .connect .way{padding:22px 0;border-bottom:1px solid var(--rule);min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-content:start}
@@ -415,7 +422,7 @@ main.wrap:has(.app){max-width:1360px}
 .mainc .dh{margin-top:32px}
 section[id]{scroll-margin-top:16px}
 @media (max-width:920px){
-  .app{grid-template-columns:1fr}
+  .app{grid-template-columns:minmax(0,1fr)}
   .side{position:sticky;top:0;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
   .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
   .side .seg{margin-top:0;width:auto}
@@ -424,6 +431,7 @@ section[id]{scroll-margin-top:16px}
   .side nav a{margin:0;white-space:nowrap;padding:6px 10px;font-size:13px}
   .side nav a span{display:none}
   .side nav.apps{display:none}
+  section[id]{scroll-margin-top:64px}
 }
 `;
 
@@ -835,7 +843,7 @@ function connectPanel(token: string, connected: boolean): string {
   <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime 0.3.0 or later</span></div>
   <div class="keyrow">
     <div class="k">Project API key</div>
-    <div class="kv"><code id="ckey">${t}</code><button class="btn sm ghost" type="button" data-copy="${t}">Copy</button></div>
+    <div class="kval"><code id="ckey">${t}</code><button class="btn sm ghost" type="button" data-copy="${t}">Copy</button></div>
     <p class="kn">Public, and safe in front-end code: it can only add telemetry to this app. It cannot open this dashboard or change anything.</p>
   </div>
   <div class="ways">
@@ -958,5 +966,5 @@ ${setup}
 decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept 90 days (hourly detail 48 hours). ${privacy}</footer>
 </div>
 </div>`;
-  return shell(nonce, `${project.name} | GenClass dashboard`, body, acct ? DASH_JS + CONNECT_JS : DASH_JS, acct ? { nav: SIGNED_IN_NAV } : {});
+  return shell(nonce, `${project.name} | GenClass dashboard`, body, acct ? DASH_JS + CONNECT_JS : DASH_JS, acct ? { nav: SIGNED_IN_NAV, account: true } : {});
 }

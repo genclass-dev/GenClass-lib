@@ -183,7 +183,7 @@ function redirect(location: string, cookies: string[] = [], status = 302): Respo
 
 function page(status: number, render: (nonce: string) => string, cookies: string[] = []): Response {
   const nonce = randomBase62(22);
-  return withCookies(new Response(render(nonce), { status, headers: securityHeaders(nonce, {}, { formSelf: true }) }), cookies);
+  return withCookies(new Response(render(nonce), { status, headers: securityHeaders(nonce, {}, { account: true }) }), cookies);
 }
 
 function setCookie(c: C, name: string, value: string, maxAgeS: number, path = "/"): string {

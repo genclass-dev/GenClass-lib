@@ -36,8 +36,9 @@ code{font-family:var(--mono);font-size:.9em}
 .opt{margin-top:10px;font-size:13px;line-height:1.5;color:var(--ink3)}
 .notice{margin-top:22px;padding:12px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--rule);font-size:14.5px;color:var(--ink2)}
 .notice b{font-weight:600;color:var(--ink)}
-.notice.ok b{color:var(--accent)}
-.notice.bad b{color:var(--warn)}
+.auth .notice{border:0;padding:0;margin-top:16px;color:var(--ink)}
+.notice.n-ok b{color:var(--accent)}
+.notice.n-bad b{color:var(--warn)}
 .ucode{font:500 clamp(36px,10vw,50px)/1 var(--mono);letter-spacing:.06em;margin-top:26px;font-variant-numeric:tabular-nums;white-space:nowrap}
 dl.req{display:grid;grid-template-columns:minmax(110px,auto) minmax(0,1fr);border-top:1px solid var(--ink);margin-top:24px}
 dl.req dt,dl.req dd{padding:11px 0;border-bottom:1px solid var(--rule);font-size:14.5px;min-width:0;overflow-wrap:anywhere}
@@ -51,13 +52,23 @@ dl.req dt{font:500 12.5px var(--mono);color:var(--ink3);padding-top:13px;padding
 .acct-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:20px;max-width:680px}
 .acct-form .f{flex:1 1 260px;min-width:0}
 .blk p.intro{font-size:14.5px;color:var(--ink2);margin-top:14px;max-width:70ch}
-table.dt td.key{font:13px var(--mono)}
+table.dt td.pkey{font:13px var(--mono)}
+table.dt td.pkey .btn{margin-left:8px}
 table.dt td .btn.sm{min-height:30px}
 table.dt td.act{text-align:right}
 table.dt td a{color:var(--ink)}
 .mainc .dh .eb{margin-bottom:10px}
 .who{font:12.5px var(--mono);color:var(--ink3);margin-top:12px;overflow-wrap:anywhere}
 @media (max-width:920px){.side.acct{display:none}}
+@media (max-width:600px){
+  table.dt.rows thead{display:none}
+  table.dt.rows tr{display:block;padding:12px 0;border-bottom:1px solid var(--rule)}
+  table.dt.rows td{display:block;border:0;padding:3px 0;white-space:normal;overflow-wrap:anywhere}
+  table.dt.rows td:first-child{font-weight:600}
+  table.dt.rows td:empty{display:none}
+  table.dt.rows td[data-l]::before{content:attr(data-l) " ";font:500 12px var(--mono);color:var(--ink3)}
+  table.dt.rows td.act{text-align:left;padding-top:8px}
+}
 `;
 
 const GOOGLE_G =
@@ -121,7 +132,7 @@ function gcTimes(){
     if (f === "ago") {
       var s = (Date.now() - d.getTime()) / 1000;
       t.textContent = s < 90 ? "just now" : s < 5400 ? Math.round(s / 60) + " min ago" : s < 129600 ? Math.round(s / 3600) + " h ago" : d.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
-    } else if (f === "time") t.textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } else if (f === "time") t.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     else t.textContent = d.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
     t.title = d.toLocaleString();
   });
@@ -148,7 +159,7 @@ function providerButtons(p: { google: boolean; github: boolean }, next: string |
 }
 
 function authPage(nonce: string, title: string, inner: string, script: string): string {
-  return shell(nonce, title, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true });
+  return shell(nonce, title, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, account: true });
 }
 
 export interface AuthPageOptions {
@@ -289,7 +300,7 @@ export function devicePage(nonce: string, v: DeviceView): string {
   const entry = `
 <form id="cf" novalidate>
   <div><label for="code">Code from your terminal</label>
-  <input id="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="ABCD-EFGH"></div>
+  <input id="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="BCDF-GHJK"></div>
   <button class="btn" type="submit"><span>Continue</span></button>
 </form>
 <p class="err" id="err" role="alert"></p>`;
@@ -346,7 +357,7 @@ ${details}
   if (cf) cf.addEventListener("submit", function(ev){
     ev.preventDefault();
     var s = document.getElementById("code").value.toUpperCase().replace(/[^A-Z]/g, "");
-    if (s.length !== 8) { document.getElementById("err").textContent = "The code has 8 letters, like ABCD-EFGH."; return; }
+    if (s.length !== 8) { document.getElementById("err").textContent = "The code has 8 letters, like BCDF-GHJK."; return; }
     location.href = "/login/device?code=" + s.slice(0, 4) + "-" + s.slice(4);
   });
   var yes = document.getElementById("yes"), no = document.getElementById("no");
@@ -364,7 +375,7 @@ ${details}
   no.addEventListener("click", function(){ answer(false); });
 })();`;
   if (v.signedIn) {
-    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV });
+    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true });
   }
   return authPage(nonce, "Command line sign-in | GenClass", inner, script);
 }
@@ -394,11 +405,11 @@ export function accountPage(nonce: string, v: AccountView): string {
   const who = a.email ? `${esc(a.email)}${a.emailVerified ? " (verified by Google)" : ""}` : a.githubLogin ? `@${esc(a.githubLogin)} on GitHub` : "No email";
   const appsNav = v.projects.map((p) => `<a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a>`).join("");
   const apps = v.projects.length
-    ? `<div class="tablewrap"><table class="dt"><thead><tr><th>Name</th><th>Project API key</th><th>Last event</th><th></th></tr></thead><tbody>
+    ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Name</th><th>Project API key</th><th>Last event</th><th></th></tr></thead><tbody>
 ${v.projects
   .map(
     (p) =>
-      `<tr><td><a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a></td><td class="key">${esc(p.token)} <button class="btn sm ghost" type="button" data-copy="${esc(p.token)}">Copy</button></td><td>${time(p.last_event, "ago", "waiting for the first event")}</td><td class="act"><a href="/account/apps/${esc(p.id)}">Open dashboard →</a></td></tr>`,
+      `<tr><td><a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a></td><td class="pkey">${esc(p.token)}<button class="btn sm ghost" type="button" data-copy="${esc(p.token)}">Copy</button></td><td data-l="Last event">${time(p.last_event, "ago", "waiting for the first event")}</td><td class="act"><a href="/account/apps/${esc(p.id)}">Open dashboard →</a></td></tr>`,
   )
   .join("\n")}
 </tbody></table></div>`
@@ -407,7 +418,7 @@ ${v.projects
   const keyRows = v.passkeys
     .map((k, i) => {
       const where = k.transports.map((t) => TRANSPORT_WORDS[t]).filter(Boolean);
-      return `<tr><td>Passkey ${i + 1}</td><td>${where.length ? `on ${esc(where.join(", "))}` : '<span class="muted">-</span>'}</td><td>${time(k.created)}</td><td>${time(k.lastUsed, "ago")}</td><td class="act"><button class="btn sm ghost" type="button" data-rmkey="${esc(k.id)}">Remove</button></td></tr>`;
+      return `<tr><td>Passkey ${i + 1}</td><td>${where.length ? `on ${esc(where.join(", "))}` : '<span class="muted">-</span>'}</td><td data-l="Added">${time(k.created)}</td><td data-l="Last used">${time(k.lastUsed, "ago")}</td><td class="act"><button class="btn sm ghost" type="button" data-rmkey="${esc(k.id)}">Remove</button></td></tr>`;
     })
     .join("\n");
   const google = v.providers.google || a.google
@@ -417,11 +428,11 @@ ${v.projects
     ? `<tr><td>GitHub</td><td>${a.githubLogin ? `Linked as @${esc(a.githubLogin)}` : '<span class="muted">Not linked</span>'}</td><td></td><td></td><td class="act">${a.githubLogin ? "" : '<a class="btn sm ghost" href="/auth/github?link=1">Link GitHub</a>'}</td></tr>`
     : "";
   const cli = v.cli.length
-    ? `<div class="tablewrap"><table class="dt"><thead><tr><th>Name</th><th>Signed in</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>
+    ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Name</th><th>Signed in</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>
 ${v.cli
   .map(
     (s) =>
-      `<tr><td>${esc(s.label)}</td><td>${time(s.created)}</td><td>${time(s.lastUsed, "ago")}</td><td>${time(s.expires)}</td><td class="act"><button class="btn sm ghost" type="button" data-revoke="${esc(s.id)}">Revoke</button></td></tr>`,
+      `<tr><td>${esc(s.label)}</td><td data-l="Signed in">${time(s.created)}</td><td data-l="Last used">${time(s.lastUsed, "ago")}</td><td data-l="Expires">${time(s.expires)}</td><td class="act"><button class="btn sm ghost" type="button" data-revoke="${esc(s.id)}">Revoke</button></td></tr>`,
   )
   .join("\n")}
 </tbody></table></div>`
@@ -441,9 +452,9 @@ ${v.cli
 <section class="dh" id="top">
   <div class="eb">Account</div>
   <h1>Your apps</h1>
-  <p class="who">Signed in as ${who} · account since ${time(a.created)}</p>
+  <p class="who">Signed in as ${who} · account since ${time(a.created)} · id ${esc(a.id)}</p>
 </section>
-${v.notice ? `<p class="notice ${v.notice.kind}" role="status"><b>${v.notice.kind === "ok" ? "Done." : "Not changed."}</b> ${esc(v.notice.text)}</p>` : ""}
+${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.kind === "ok" ? "Done." : "Not changed."}</b> ${esc(v.notice.text)}</p>` : ""}
 <section class="blk" id="apps">
   <div class="blk-h"><h2>Apps</h2><span class="aside">Table 1. Apps in this account</span></div>
   ${apps}
@@ -464,7 +475,7 @@ ${v.notice ? `<p class="notice ${v.notice.kind}" role="status"><b>${v.notice.kin
 </section>
 <section class="blk" id="signin">
   <div class="blk-h"><h2>Sign-in methods</h2><span class="aside">Table 2. Ways into this account</span></div>
-  <div class="tablewrap"><table class="dt"><thead><tr><th>Method</th><th>Details</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>
+  <div class="tablewrap"><table class="dt rows"><thead><tr><th>Method</th><th>Details</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>
   ${keyRows}
   ${google}
   ${github}
@@ -523,5 +534,5 @@ else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://gen
     gcRegister().then(function(){ location.reload(); }, function(e){ pkerr.textContent = gcWhy(e); gcBusy(add, false); });
   });
 })();`;
-  return shell(nonce, "Account | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV });
+  return shell(nonce, "Account | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true });
 }
