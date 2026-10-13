@@ -48,6 +48,10 @@ describe("dashboard page: possible issues tier", () => {
     expect(doc.querySelectorAll("#possible .key.ring").length).toBe(st.breakdowns.possible_diagnosis!.length);
     expect(doc.querySelectorAll("#issues .key.ring").length).toBe(0);
     expect(text("#possible-s")).toContain("Not counted as problems");
+    // the tier's floor is the runtime's (the eager setting's threshold from the model), not a fixed number on the page
+    expect(text("#possible-s")).toContain("from the eager setting's threshold up");
+    expect(text("#possfig figcaption")).toContain("from the eager setting's threshold up");
+    expect(text("#possible-s .poss-note") + text("#possfig figcaption")).not.toMatch(/\d+%/);
     // pages table: a separate Possible column, and pages that only have possible issues
     expect(heads("#pages")).toEqual(["Page", "Problems", "By type", "Possible"]);
     expect(text("#pages")).toContain("/account");
@@ -62,7 +66,9 @@ describe("dashboard page: possible issues tier", () => {
     st.breakdowns = { ...st.breakdowns, detect_diagnosis: [], detect_issue: [], detect_route: [] };
     st.distinct = { ...st.distinct, detect_route: 0 };
     const { text, hidden, heads, close } = await render(st);
-    expect(text("#summary")).toContain(`confirmed no problems. It flagged ${nf.format(st.totals.possible!)} possible issues at lower confidence`);
+    // "found", not "confirmed": GenClass only judges the situations that stand out
+    expect(text("#summary")).toContain(`found no problems. It flagged ${nf.format(st.totals.possible!)} possible issues at lower confidence`);
+    expect(text("#summary")).not.toContain("confirmed");
     expect(text("#trendplot")).toBe("No problems found in this period.");
     expect(hidden("possfig")).toBe(false);
     expect(heads("#trendtable")).toContain("Possible (not in total)");
@@ -107,6 +113,27 @@ describe("dashboard page: display fixes", () => {
     expect([...doc.querySelectorAll("#recent td")].map((x) => x.textContent)).toContain("97%");
     expect(text("#pages figcaption")).toContain("4 problems arrived without a page");
     await close();
+  });
+
+  it("possible issues without a page are explained like problems without one", async () => {
+    const st = sampleStats("7d", NOW);
+    st.totals.possibleWithPage = st.totals.possible! - 3;
+    const { text, close } = await render(st);
+    expect(text("#pages figcaption")).toContain("3 possible issues arrived without a page.");
+    await close();
+  });
+
+  it("decision time says it is an average of the records received, and leans when routine records were sampled", async () => {
+    const st = sampleStats("7d", NOW);
+    Object.assign(st.totals, { latency_ms_n: 35, latencyAvgMs: 120, records_sampled_out: 0, records_capped: 0 });
+    let r = await render(st);
+    expect(r.text("#health")).toContain("average of 35 decision records received");
+    expect(r.text("#health")).not.toContain("leans");
+    await r.close();
+    Object.assign(st.totals, { records_sampled_out: 75 });
+    r = await render(st);
+    expect(r.text("#health")).toContain("average of 35 decision records received; routine decisions are sampled, so it leans towards the others");
+    await r.close();
   });
 
   it("health lists what was not checked or not sent; the empty state explains local hosts and the 0.3.0 token", async () => {

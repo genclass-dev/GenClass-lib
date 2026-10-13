@@ -7,8 +7,11 @@
 //   from each page load's cumulative `summary` once it arrives, and from its events until then, through a per-page-load
 //   high-water mark (sessions table) updated under optimistic concurrency, so a repeated, split or concurrently
 //   processed batch is never counted twice. Routes, functions and recent rows always come from the events.
-// - "Possible issues": decisions whose top diagnosis is not `expected` with diagnosis confidence at least
-//   POSSIBLE_MIN but below that decision's own report gate. Their own counters, never added to detections.
+// - "Possible issues": the runtime's own lower detection tier (0.3.0, observe mode: under the report gate, at or over
+//   the eager profile's report value), sent as `detect` events with `tier: "possible"` and counted in
+//   `summary.counts.possibleDetections`. Their own metrics (possible, possible_*), exact like detections, never in
+//   detections or detect_diagnosis. The worker never derives the tier from decision records: what the dashboard lists
+//   is what the page's console listed.
 // - Retention (daily cron): daily counters and recent rows 90 days, hourly counters 48 hours, summary state 2 days.
 
 export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
@@ -17,8 +20,6 @@ export const RECENT_CAP = 500;
 export const RETENTION_DAYS = 90;
 /** Distinct counters one batch may touch (bounds D1 writes per batch). */
 export const MAX_COUNTERS = 300;
-/** Lower bound (diagnosis confidence) of the "possible issues" tier; its upper bound is each decision's report gate. */
-export const POSSIBLE_MIN = 0.7;
 /** Page-load state is kept this long after its last batch (retention); a page load quiet for longer starts a baseline. */
 export const SESSION_KEEP_MS = 2 * 86_400_000;
 const KEY_MAX = 120;
@@ -261,6 +262,8 @@ export function summaryValues(e: Ev): SummaryValues {
   one("decisions", counts.decisions);
   one("acted", counts.acted);
   one("detections", counts.detections);
+  // 0.3.0: observe's possible detections, which `detections` (the likely ones) leaves out
+  one("possible", counts.possibleDetections);
   one("vetoes", counts.vetoes);
   one("breaker_trips", counts.breakerTrips);
   many("trigger", counts.byTrigger);
@@ -349,11 +352,24 @@ export function summarize(batch: AggBatch): { counters: Counters; recent: Recent
         break;
       }
       case "detect": {
+        const d = typeof e.decision === "string" ? decisions.get(e.decision) : undefined;
+        if (e.tier === "possible") {
+          // runtime 0.3.0's possible tier: its own metrics, never a detection (no tier, or any other value, is one)
+          x("possible");
+          x("possible_diagnosis", ekey(e.diagnosis, "(unknown)"));
+          if (d) {
+            const route = str(d.route) ?? "(unknown)";
+            c.add("possible_route", route);
+            c.add("possible_issue", `${str(e.diagnosis) ?? "(unknown)"}\t${route}`);
+            const fn = str(d.fn);
+            if (fn) c.add("possible_fn", fn);
+          }
+          break;
+        }
         x("detections");
         x("detect_diagnosis", ekey(e.diagnosis, "(unknown)"));
         c.add("detect_trigger", str(e.trigger) ?? "(unknown)");
         if (typeof e.decision === "string") detected.add(e.decision);
-        const d = typeof e.decision === "string" ? decisions.get(e.decision) : undefined;
         if (d) {
           c.add("detect_route", str(d.route) ?? "(unknown)");
           // type x page, for the dashboard's "where" view (tab-separated: diagnosis, route)
@@ -386,23 +402,6 @@ export function summarize(batch: AggBatch): { counters: Counters; recent: Recent
         break;
       }
     }
-  }
-
-  // The "possible issues" tier: not expected, diagnosis confidence in [POSSIBLE_MIN, the decision's report gate).
-  // A decision at or over its gate is a detection (it has a detect event); one without a gate is left out.
-  for (const [id, d] of decisions) {
-    if (detected.has(id)) continue;
-    const diagnosis = str(d.diagnosis);
-    const p = num(d.diagnosisConfidence);
-    const gate = num(obj(d.gates).report);
-    if (!diagnosis || diagnosis === "expected" || p === undefined || gate === undefined || p < POSSIBLE_MIN || p >= gate) continue;
-    const route = str(d.route) ?? "(unknown)";
-    c.add("possible");
-    c.add("possible_diagnosis", diagnosis);
-    c.add("possible_route", route);
-    c.add("possible_issue", `${diagnosis}\t${route}`);
-    const fn = str(d.fn);
-    if (fn) c.add("possible_fn", fn);
   }
 
   for (const [id, d] of decisions) {
@@ -729,8 +728,9 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
   totals.modelErrors = sumOf("model_errors");
   totals.interventions = sumOf("intervention");
   totals.actionLimits = sumOf("action_limits");
-  // detections whose page is known (their decision record came in the same batch); the rest have no route
+  // detections (and possible ones) whose page is known (their decision record came in the same batch); the rest have no route
   totals.detectionsWithPage = sumOf("detect_route");
+  totals.possibleWithPage = sumOf("possible_route");
   if (breakdowns.latency_bucket) {
     const order = LATENCY_BUCKETS.map(([, l]) => l);
     breakdowns.latency_bucket.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));

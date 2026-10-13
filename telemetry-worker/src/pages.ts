@@ -465,7 +465,7 @@ const DASH_JS = `
     function put(t, bold){ host.appendChild(bold ? el("b", null, t) : document.createTextNode(t)); }
     if (!T0.sessions) { put("No page loads in this period yet."); return; }
     put(RANGE[S.range] + " GenClass watched "); put(plural(T0.sessions, "page load", "page loads"), true);
-    if (!T0.detections && poss) { put(" and confirmed no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
+    if (!T0.detections && poss) { put(" and found no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
     if (!T0.detections) { put(" and found nothing wrong. It only reports situations that stand out, so a quiet stretch is normal."); return; }
     put(" and found "); put(plural(T0.detections, "problem", "problems"), true);
     if (pages) { put(" on "); put(plural(pages, "page", "pages"), true); }
@@ -673,6 +673,8 @@ const DASH_JS = `
     var notes = [], withPage = T0.detectionsWithPage;
     if (anyPoss) notes.push("Possible: lower-confidence issues on that page, not counted in Problems.");
     if (typeof withPage === "number" && T0.detections > withPage) notes.push(plural(T0.detections - withPage, "problem", "problems") + " arrived without a page (the page comes with the decision record, which was in another batch or not sent); the totals count them.");
+    var possWithPage = T0.possibleWithPage;
+    if (anyPoss && typeof possWithPage === "number" && (T0.possible || 0) > possWithPage) notes.push(plural(T0.possible - possWithPage, "possible issue", "possible issues") + " arrived without a page.");
     if (notes.length) host.appendChild(el("figcaption", null, notes.join(" ")));
   }
   function acted(S){
@@ -706,7 +708,9 @@ const DASH_JS = `
     row(dl, "Model loads", ready + failed ? share(ready, ready + failed) + " succeeded" : "-", plural(ready, "load", "loads") + ", " + plural(failed, "failure", "failures"), (ready + failed) && failed / (ready + failed) > 0.02 ? ["bad", "needs a look"] : ready ? ["ok", "healthy"] : null);
     var be = B.backend || [], beTot = sum(be);
     row(dl, "Where it ran", be.length ? be.map(function(x){ return (x.key === "webgpu" ? "WebGPU" : x.key === "wasm" ? "WASM" : x.key) + " " + Math.round(100 * x.count / beTot) + "%"; }).join(", ") : "-", T0.modelLoadAvgMs ? "average load " + (T0.modelLoadAvgMs >= 1000 ? (T0.modelLoadAvgMs / 1000).toFixed(1) + " s" : fmt(T0.modelLoadAvgMs) + " ms") : "");
-    row(dl, "Decision time", T0.latency_ms_n ? fmt(T0.latencyAvgMs) + " ms" : "-", T0.latency_ms_n ? "average over " + plural(T0.latency_ms_n, "decision", "decisions") : "no decisions yet");
+    // from the decision records that arrived: routine ones are sampled (0.3.0), so the average leans towards the rest
+    var sampled = (T0.records_sampled_out || 0) + (T0.records_capped || 0) > 0;
+    row(dl, "Decision time", T0.latency_ms_n ? fmt(T0.latencyAvgMs) + " ms" : "-", T0.latency_ms_n ? "average of " + plural(T0.latency_ms_n, "decision record", "decision records") + " received" + (sampled ? "; routine decisions are sampled, so it leans towards the others" : "") : "no decisions yet");
     row(dl, "Ran without a decision", fmt(T0.failOpens), "times the app went ahead without a decision (model not ready, budget, hidden tab)", T0.failOpens ? null : ["ok", "none"]);
     var hs = T0.hidden_skipped || 0, md = T0.model_dropped || 0;
     row(dl, "Not checked", fmt(hs + md), hs + md ? [hs ? fmt(hs) + " in hidden tabs" : "", md ? fmt(md) + " over the decision rate limit" : ""].filter(Boolean).join(", ") : "situations skipped in hidden tabs or over the decision rate limit", hs + md ? null : ["ok", "none"]);
@@ -739,8 +743,8 @@ const DASH_JS = `
   }
   function advanced(S){
     var B = S.breakdowns, host = document.getElementById("adv"); host.textContent = "";
-    [["Triggers", B.trigger], ["Diagnoses (all decisions)", B.diagnosis], ["Top routes (decisions)", B.route], ["Top pages (page loads)", B.page_route], ["Protected functions", B.fn],
-     ["Model load states", B.model_state], ["Decision latency", B.latency_bucket], ["Fail-opens (reason:trigger)", B.fail_open], ["Modes", B.mode], ["Model versions", B.model_version],
+    [["Triggers", B.trigger], ["Diagnoses (all decisions)", B.diagnosis], ["Top routes (decision records)", B.route], ["Top pages (page loads)", B.page_route], ["Protected functions", B.fn],
+     ["Model load states", B.model_state], ["Decision latency (records)", B.latency_bucket], ["Fail-opens (reason:trigger)", B.fail_open], ["Modes", B.mode], ["Model versions", B.model_version],
      ["Hosts seen", B.host], ["Possible issues (lower confidence)", B.possible_diagnosis], ["Action limits", B.action_limits]].forEach(function(p){
       var c = el("div"); c.appendChild(el("h2", null, p[0]));
       if (!p[1] || !p[1].length) { c.appendChild(el("p", "empty", "None in this period.")); host.appendChild(c); return; }
@@ -860,7 +864,7 @@ unless you pass telemetry: true; your deployed site does.</p></section>
   <figure class="poss-fig hidden" id="possfig">
     <div class="poss-h"><h3>Possible issues</h3><span class="aside" id="possn"></span></div>
     <div class="plot" id="possplot"></div>
-    <figcaption>Fig. 2. Possible issues per <span id="unit2">day</span>, at lower confidence: the model leaned 70% or more towards a problem but stayed under the threshold it reports at. Not counted in Fig. 1.</figcaption>
+    <figcaption>Fig. 2. Possible issues per <span id="unit2">day</span>: problems the model leaned towards with less confidence than it reports at (observe mode, from the eager setting's threshold up). Not counted in Fig. 1.</figcaption>
   </figure>
   <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
 </section>
@@ -870,7 +874,7 @@ unless you pass telemetry: true; your deployed site does.</p></section>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
   <div id="possible-s" class="hidden mt-l">
     <div class="poss-h"><h3>Possible issues, lower confidence</h3><span class="aside">Not counted as problems</span></div>
-    <p class="poss-note">The model leaned towards a problem (70% or more) but stayed under the threshold it reports at. Worth a look when one keeps coming back on the same page.</p>
+    <p class="poss-note">By default in observe mode GenClass also reports problems the model leaned towards with less confidence than it reports at, from the eager setting's threshold up; the console marks them (possible). Worth a look when one keeps coming back on the same page.</p>
     <div class="finds" id="possible"></div>
   </div>
 </section>

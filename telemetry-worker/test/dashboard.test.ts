@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import worker from "../src/index.js";
 import { handle, MAX_PROJECTS_PER_MINUTE, validate, type Env } from "../src/collector.js";
-import { aggregate, POSSIBLE_MIN, RECENT_CAP, resetTokenCache, retention, sanitizeName, SESSION_KEEP_MS, sha256Hex, stats, TOKEN_RE, type D1Like, type D1Stmt } from "../src/dashboard.js";
+import { aggregate, RECENT_CAP, resetTokenCache, retention, sanitizeName, SESSION_KEEP_MS, sha256Hex, stats, TOKEN_RE, type D1Like, type D1Stmt } from "../src/dashboard.js";
 import { sampleStats } from "../src/sample.js";
 
 // D1 stand-in backed by node:sqlite running the real migration, so the SQL itself is under test.
@@ -582,33 +582,94 @@ describe("exact totals from page-load summaries (high-water marks per page load)
   });
 });
 
-describe("possible issues (the lower-confidence tier)", () => {
-  it("counts non-expected decisions from 0.70 up to, not including, their own report gate; never as detections", async () => {
+const pdet = (seq: number, id: string, diagnosis = "stale", p = 0.8): E => ({ ...det(seq, id, diagnosis, p), tier: "possible" });
+
+describe("possible issues: runtime 0.3.0's lower tier (detect events with tier \"possible\")", () => {
+  it("counts them in their own metrics, never as detections, and derives nothing from decision records", async () => {
     const { sql } = setup();
     const events = [
       sess(),
-      dec(1, "a", { diagnosisConfidence: 0.6999 }), // under the floor
-      dec(2, "b", { diagnosisConfidence: POSSIBLE_MIN, route: "/a" }), // at the floor: possible
-      dec(3, "c", { diagnosisConfidence: 0.8999, diagnosis: "duplicate", route: "/b" }), // just under the gate: possible
-      dec(4, "d", { diagnosisConfidence: 0.9 }), det(5, "d"), // at the gate: a detection
-      dec(6, "e", { diagnosis: "expected", diagnosisConfidence: 0.85 }), // expected never counts
-      dec(7, "f", { diagnosisConfidence: 0.85, gates: undefined }), // no gate sent: left out
-      dec(8, "g", { diagnosisConfidence: 0.72, gates: { report: 0.7 } }), det(9, "g", "stale", 0.72), // gate 0.70 (eager): a detection
-      dec(10, "h", { diagnosisConfidence: 0.65, gates: { report: 0.6 } }), det(11, "h", "stale", 0.65), // gate under the floor: a detection
-      dec(12, "i", { diagnosisConfidence: 0.94, gates: { report: 0.95 }, diagnosis: "slow", route: "/b", fn: "loadCart" }), // gate 0.95: possible
+      dec(1, "a", { diagnosisConfidence: 0.8, route: "/a" }), pdet(2, "a"),
+      dec(3, "b", { diagnosis: "duplicate", diagnosisConfidence: 0.75, route: "/b", fn: "loadCart" }), pdet(4, "b", "duplicate", 0.75),
+      dec(5, "c", { diagnosisConfidence: 0.95 }), det(6, "c"), // likely: no tier, as from every runtime before 0.3.0
+      // under the report gate with no detect event (guard or heal, policy.thresholds.report, detect: "likely", an
+      // acted decision): the runtime reported nothing, so neither does the dashboard
+      dec(7, "d", { diagnosisConfidence: 0.85, route: "/d" }),
+      dec(8, "e", { diagnosisConfidence: 0.82, route: "/e", effectiveMode: "guard", acted: true, ran: "discard", tier: "guard", gates: { report: 0.9, source: { report: "policy" } } }),
+      { ...det(9, "z", "conflict", 0.95), tier: "likely" }, // any other tier value is a detection; its decision is in another batch
     ];
-    await aggregate(sql.api, TOK, batchOf(events, "0.2.1"), NOW); // 0.2.x clients send these fields too
+    await aggregate(sql.api, TOK, batchOf(events), NOW);
     const s = await statsOf(sql);
-    expect(s.totals).toMatchObject({ decisions: 9, detections: 3, possible: 3 });
-    expect(bdOf(s, "possible_diagnosis")).toEqual({ stale: 1, duplicate: 1, slow: 1 });
-    expect(bdOf(s, "possible_route")).toEqual({ "/a": 1, "/b": 2 });
-    expect(bdOf(s, "possible_issue")).toEqual({ "stale\t/a": 1, "duplicate\t/b": 1, "slow\t/b": 1 });
+    expect(s.totals).toMatchObject({ decisions: 5, detections: 2, possible: 2, detectionsWithPage: 1, possibleWithPage: 2 });
+    expect(bdOf(s, "possible_diagnosis")).toEqual({ stale: 1, duplicate: 1 });
+    expect(bdOf(s, "possible_route")).toEqual({ "/a": 1, "/b": 1 });
+    expect(bdOf(s, "possible_issue")).toEqual({ "stale\t/a": 1, "duplicate\t/b": 1 });
     expect(bdOf(s, "possible_fn")).toEqual({ loadCart: 1 });
-    expect(bdOf(s, "detect_diagnosis")).toEqual({ stale: 3 });
-    expect(s.series.at(-1)).toMatchObject({ detections: 3, possible: 3 });
-    expect(s.typeSeries.at(-1)!.counts).toEqual({ stale: 3 });
-    expect(s.recent.every((r) => r.kind === "detect")).toBe(true);
+    expect(bdOf(s, "detect_diagnosis")).toEqual({ stale: 1, conflict: 1 });
+    expect(bdOf(s, "detect_route")).toEqual({ "/search": 1 });
+    expect(s.series.at(-1)).toMatchObject({ detections: 2, possible: 2 });
+    expect(s.typeSeries.at(-1)!.counts).toEqual({ stale: 1, conflict: 1 });
+    // recent rows: the two detections and the intervention, no possible ones
+    expect(s.recent.map((r) => [r.kind, r.diagnosis])).toEqual(expect.arrayContaining([["detect", "stale"], ["detect", "conflict"], ["acted", "stale"]]));
     expect(s.recent).toHaveLength(3);
+  });
+
+  it("one sent before any summary stays out of Problems when the summary counts only likely detections", async () => {
+    // observe at balanced (report 0.90): stale at 0.80 is a possible detection; its record and detect event arrive
+    // first, the 60 s summary later carries detections 0 and possibleDetections 1
+    const { sql } = setup();
+    const first = [sess(), dec(1, "d1", { diagnosisConfidence: 0.8 }), pdet(2, "d1")];
+    await aggregate(sql.api, TOK, batchOf(first), NOW);
+    let s = await statsOf(sql);
+    expect(s.totals.detections ?? 0).toBe(0);
+    expect(s.totals.possible).toBe(1);
+    await aggregate(sql.api, TOK, batchOf([summ(3, { decisions: 1, acted: 0, detections: 0, possibleDetections: 1, byDiagnosis: { stale: 1 }, detectionsByDiagnosis: {} })]), NOW);
+    await aggregate(sql.api, TOK, batchOf(first), NOW); // repeated
+    s = await statsOf(sql);
+    expect(s.totals.detections ?? 0).toBe(0);
+    expect(s.totals).toMatchObject({ decisions: 1, possible: 1 });
+    expect(bdOf(s, "possible_diagnosis")).toEqual({ stale: 1 });
+    expect(bdOf(s, "detect_diagnosis")).toEqual({});
+    expect(s.series.at(-1)).toMatchObject({ detections: 0, possible: 1 });
+    // a later summary is exact for the tier too (events lost in the browser are counted there)
+    await aggregate(sql.api, TOK, batchOf([pdet(20, "d9", "slow"), summ(21, { decisions: 9, detections: 1, possibleDetections: 6, detectionsByDiagnosis: { stale: 1 } })]), NOW);
+    s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ decisions: 9, detections: 1, possible: 6 });
+    expect(bdOf(s, "possible_diagnosis")).toEqual({ stale: 1, slow: 1 }); // by diagnosis: from the events that arrived
+  });
+
+  it("one whose decision record came in another batch counts once, without a page, in either order", async () => {
+    const partA = [sess(), dec(1, "d1", { diagnosisConfidence: 0.8, route: "/a" })];
+    const partB = [pdet(2, "d1"), summ(3, { decisions: 1, detections: 0, possibleDetections: 1 })];
+    for (const order of ["a,b", "b,a"]) {
+      const { sql } = setup();
+      for (const part of order === "a,b" ? [partA, partB] : [partB, partA]) await aggregate(sql.api, TOK, batchOf(part), NOW);
+      const s = await statsOf(sql);
+      expect(s.totals, order).toMatchObject({ sessions: 1, decisions: 1, possible: 1, possibleWithPage: 0 });
+      expect(s.totals.detections ?? 0, order).toBe(0);
+      expect(bdOf(s, "possible_diagnosis"), order).toEqual({ stale: 1 });
+      expect(bdOf(s, "possible_route"), order).toEqual({});
+      expect(s.recent, order).toHaveLength(0);
+    }
+  });
+
+  it("through the collector: a page batch with a possible, a likely and a tier-less detection", async () => {
+    const { env } = setup();
+    const { json } = await create(env);
+    const extra = [
+      { t: "decision", seq: 9, at: 4100, id: "d3", trigger: "delivery", route: "/cart/:id", model: "genclass-2", latencyMs: 90, diagnosis: "stale", diagnosisConfidence: 0.8, action: "deliver", confidence: 0.9, tier: "passive", ran: "deliver", executed: true, acted: false, effectiveMode: "observe" },
+      { t: "detect", seq: 10, at: 4101, decision: "d3", trigger: "delivery", diagnosis: "stale", p: 0.8, tier: "possible" },
+      { t: "detect", seq: 11, at: 4102, decision: "d9", trigger: "mutation", diagnosis: "conflict", p: 0.95, tier: "likely" },
+    ];
+    expect((await handle(post(pageBatch(json.token, undefined, extra)), env, opts)).status).toBe(202);
+    const s = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts)).json()) as Record<string, any>;
+    expect(s.totals).toMatchObject({ decisions: 3, detections: 2, possible: 1 });
+    const bd = (m: string) => Object.fromEntries((s.breakdowns[m] ?? []).map((x: any) => [x.key, x.count]));
+    expect(bd("detect_diagnosis")).toEqual({ stale: 1, conflict: 1 });
+    expect(bd("possible_diagnosis")).toEqual({ stale: 1 });
+    expect(bd("possible_issue")).toEqual({ "stale\t/cart/:id": 1 });
+    expect(s.series.at(-1)).toMatchObject({ detections: 2, possible: 1 });
+    expect(s.recent.filter((r: any) => r.kind === "detect")).toHaveLength(2); // d1 (its decision) and d9 (event only)
   });
 });
 
