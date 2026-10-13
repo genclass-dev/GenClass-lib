@@ -37,8 +37,9 @@ opt-outs; the only additions to a batch are the envelope's `token` and `fn` on `
   `fetch`, so no test reaches genclass.dev.
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`): route scopes are snapshotted per request, not
   inherited through a call's cause chain, so it was left out.
-- **Cost:** first-load size stays under the limits `test/bundle.test.ts` enforces (99 KB gzip for `/auto`, 92 KB for
-  the main entry); the README's "about 98 / 91 KB" figures were not re-measured.
+- **Cost:** about +1 KB gzip on each entry: `/auto` 99.6 KB and the main entry 92.3 KB, measured by
+  `test/bundle.test.ts` in CI (run 38336154873; 98 / 91 KB before). Its ceilings are now 101 KB / 93 KB and it prints
+  the measured sizes.
 - **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
   the token, the `fn` field and who can see dashboard data (90-day retention). Dashboards show counts, hostnames,
   routes, function names, labels and versions, never situation text.

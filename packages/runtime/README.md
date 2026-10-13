@@ -415,7 +415,7 @@ These hold for the runtime; whether the model's decisions are good is a separate
   it changed carry an `x-genclass` header.
 - **Off in one step.** `?genclass=off` in the URL installs nothing, and observe (the default) never changes
   execution.
-- **Small on the main thread.** The main entry is about 91 KB gzip (minified, without the optional devtools). The
+- **Small on the main thread.** The main entry is about 92 KB gzip (minified, without the optional devtools). The
   default model is 10.2 MB on WASM (13.6 MB fp16 on WebGPU with `shader-f16`), downloaded once at idle and cached.
   It runs in a worker that holds 190 to 280 MB while loaded: see [Costs](#costs).
 
@@ -830,9 +830,10 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | Redux-style dispatch on 5,000 entities | about 0.7 ms |
   | settled-point check | 0.3 ms |
 
-- **Bundle:** what every page loads is about 98 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 91 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild (`test/bundle.test.ts` keeps them under 99 KB and 92 KB). The model worker, ONNX Runtime Web's JavaScript
+- **Bundle:** what every page loads is about 100 KB gzip for `@genclass/runtime/auto` with automatic state
+  discovery and 92 KB for the main entry with `GenClass.init()`, which does not carry discovery (99.6 KB and 92.3 KB
+  measured with esbuild in CI; `test/bundle.test.ts` keeps them under 101 KB and 93 KB and prints the sizes; app
+  tokens and `protect()` added about 1 KB to each). The model worker, ONNX Runtime Web's JavaScript
   (about 70 KB gzip for WASM, 115 KB with WebGPU, minified) and the devtools are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
@@ -865,7 +866,7 @@ without `?genclass=off`:
 
 | | with GenClass |
 |---|---|
-| JavaScript on every page (first load, gzip) | about +98 KB (`/auto` with discovery; 91 KB for the main entry, see Performance) |
+| JavaScript on every page (first load, gzip) | about +100 KB (`/auto` with discovery; 92 KB for the main entry, see Performance) |
 | Main thread: load event, LCP, long tasks | no measurable change; main JS heap +0.4 MB |
 | **Memory: renderer process (holds the model worker)** | **+190 to 280 MB RSS** while the model is loaded (cold 448 vs 169 MB, warm 361 vs 171 MB) |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build |
@@ -878,7 +879,7 @@ without `?genclass=off`:
 
 | | cost |
 |---|---|
-| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the 98 KB `/auto` entry; `GenClass.init()` setups do not load it) |
+| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the `/auto` entry, then 98 KB; `GenClass.init()` setups do not load it) |
 | React commit walk, 4× CPU throttling | p50 0.2 ms, p95 1.8 ms, max 2.1 ms per commit including recording the change; total about 5 ms over the `/order` visit |
 | React commit walk, no throttling, 54 bench trials (about 2,000 commits) | p50 below 0.1 ms (the timer's resolution), p95 0.8 to 0.9 ms, max 3.8 ms |
 | Main-thread JS heap (after GC, 4× throttling) | 5.7 MB vs 5.2 MB without discovery |
