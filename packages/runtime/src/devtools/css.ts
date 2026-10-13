@@ -235,6 +235,12 @@ white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;scrol
 .none{font-size:12px;color:var(--fg3)}
 .acts{display:flex;flex-wrap:wrap;gap:6px}
 .m0{margin:0}
+.tc .n.on{background:var(--bad-bg);color:var(--bad)}
+.chk .ci{color:var(--bad);background:var(--bad-bg)}
+.chk.sev-medium .ci{color:var(--warn);background:var(--warn-bg)}
+.chk.sev-low .ci{color:var(--fg2);background:var(--bg3)}
+.badge{font-size:10.5px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--fg2);background:var(--bg3);border-radius:5px;padding:1px 6px}
+.hl{position:fixed;pointer-events:none;border:2px solid var(--bad);border-radius:4px;box-shadow:0 0 0 4000px rgba(0,0,0,.08);z-index:1;transition:opacity .3s}
 
 @media (prefers-reduced-motion:reduce){.root *,.root *::before,.root *::after{animation:none!important;transition:none!important}}
 `;

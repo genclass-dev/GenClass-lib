@@ -11,12 +11,15 @@
 // Everything heavy loads on demand from the same place as this file (on jsDelivr/unpkg: the exact version of this
 // file): the model worker (dist/cdn/worker.js, started from a same-origin Blob URL because browsers refuse
 // cross-origin worker URLs), onnxruntime-web (bundled in dist/cdn/; its wasm comes from the jsDelivr
-// onnxruntime-web package or `data-ort`), and the devtools overlay (dist/devtools/index.js).
+// onnxruntime-web package or `data-ort`), the devtools overlay (dist/devtools/index.js) and the measured visual checks
+// (dist/visual/index.js, docs/runtime/VISUAL.md; `data-visual="on"` turns them on outside development hosts).
 
 import { registerDiscovery } from "../discover/index.js";
 import { GenClass, createRuntime, GenClassUnavailableError } from "../index.js";
 import type { DevtoolsHandle, DevtoolsOptions } from "../devtools/index.js";
 import type { InitOptions, ModelOptions, Runtime } from "../types.js";
+import type { VisualChunk } from "../visual/host.js";
+import { visualRegistry } from "../visual/registry.js";
 import { devtoolsOptions, fromDataset, isKilled, mergeConfig, readMetaConfig, readWindowConfig, splitConfig, whenBody, type PageConfig } from "./config.js";
 
 declare const __GENCLASS_VERSION__: string;
@@ -103,6 +106,8 @@ function install(): void {
     return assetBase(script?.src);
   })();
   const load = (path: string): Promise<unknown> => import(/* @vite-ignore */ /* webpackIgnore: true */ base + path);
+  // the visual checks chunk comes from the same place as this file (never inlined into the script tag)
+  visualRegistry.loader = () => load("visual/index.js") as Promise<VisualChunk>;
 
   const withCdnModel = (opts: InitOptions): InitOptions => {
     if (opts.decider !== undefined || opts.model === false) return opts;

@@ -10,7 +10,8 @@
 // Keys of the meta tag and data attributes: mode, model (a model directory URL, or "off"), device, preload, ort
 // (onnxruntime-web wasm directory), worker, report, debug, triage, devtools (bare / true, "local" = only on
 // localhost, false, or a corner such as "bottom-left"), telemetry (off/false/no: no anonymous diagnostics), autostate
-// (off/false/no: no automatic state discovery; on by default in these entries).
+// (off/false/no: no automatic state discovery; on by default in these entries), visual (measured visual checks: on,
+// off, local, or fix = on with runtime fixes, which still need guard or heal mode).
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model and
@@ -117,6 +118,10 @@ export function fromPairs(pairs: Record<string, string>): PageConfig {
       case "telemetry":
         // anonymous diagnostics (TELEMETRY.md): only an opt-out here; on is the GenClass.init default
         if (isOff(lv)) c.telemetry = false;
+        break;
+      case "visual":
+        // measured visual checks (docs/runtime/VISUAL.md): "local" is the GenClass.init default
+        c.visual = isOff(lv) ? false : lv === "local" ? "local" : lv === "fix" ? { on: true, fix: true } : true;
         break;
     }
   }

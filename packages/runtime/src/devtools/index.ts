@@ -11,6 +11,7 @@
 import type {
   ActionRecord,
   Answer,
+  CheckFinding,
   Clock,
   Decision,
   EffectiveGates,
@@ -59,7 +60,7 @@ import {
 } from "./ui.js";
 
 export type DevtoolsPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
-export type DevtoolsTab = "interventions" | "detections" | "activity" | "now";
+export type DevtoolsTab = "interventions" | "detections" | "checks" | "activity" | "now";
 
 export interface DevtoolsOptions {
   /** Corner of the viewport. Default "bottom-right". */
@@ -106,6 +107,7 @@ const rawSetTimeout = g.setTimeout?.bind(g);
 const TABS: [DevtoolsTab, string][] = [
   ["interventions", "Interventions"],
   ["detections", "Detections"],
+  ["checks", "Checks"],
   ["activity", "Activity"],
   ["now", "Now"],
 ];
@@ -209,6 +211,12 @@ class Devtools {
   private readonly emptyA: HTMLElement;
   private readonly emptyD: HTMLElement;
   private readonly emptyE: HTMLElement;
+  private readonly listC: HTMLElement;
+  private readonly emptyC: HTMLElement;
+  private readonly nC: HTMLElement;
+  /** Measured visual checks (rt.checks(), the "check" event), newest last. */
+  private chks = new Map<string, { f: CheckFinding; el?: HTMLElement; dirty: boolean }>();
+  private hlBox: HTMLElement | null = null;
   private readonly evs: HTMLElement;
   private readonly nowEl: HTMLElement;
 
@@ -305,7 +313,7 @@ class Devtools {
         {
           type: "button",
           role: "tab",
-          class: `tab${id === "interventions" ? " ta" : id === "detections" ? " td" : ""}`,
+          class: `tab${id === "interventions" ? " ta" : id === "detections" ? " td" : id === "checks" ? " tc" : ""}`,
           id: `gc-t-${id}`,
           "data-tab": id,
           "aria-controls": `gc-p-${id}`,
@@ -314,11 +322,12 @@ class Devtools {
           onclick: () => this.setTab(id, true),
         },
         label,
-        id === "interventions" || id === "detections" ? h("span", { class: "n", text: "0" }) : null,
+        id === "interventions" || id === "detections" || id === "checks" ? h("span", { class: "n", text: "0" }) : null,
       ),
     );
     this.nA = this.tabBtns[0].querySelector(".n") as HTMLElement;
     this.nD = this.tabBtns[1].querySelector(".n") as HTMLElement;
+    this.nC = this.tabBtns[2].querySelector(".n") as HTMLElement;
     const tabs = h(
       "div",
       { class: "tabs" },
@@ -337,11 +346,18 @@ class Devtools {
     this.emptyA = h("div", { class: "empty" });
     this.emptyD = empty("eye", "Nothing flagged", "Findings the model reports but GenClass did not act on appear here, with the evidence and what it would have done.");
     this.emptyE = empty("pulse", "Waiting for activity", "User actions, requests, state writes and errors appear here as they happen.");
+    this.listC = h("div", { class: "list", role: "feed", "aria-label": "Measured visual checks" });
+    this.emptyC = empty(
+      "scan",
+      "No visual problems measured",
+      "Measured checks with fixed thresholds (unreadable text, broken images, sideways scrolling, covered controls, and more) appear here with the CSS change to make. They are measurements, not model findings.",
+    );
     this.evs = h("div", { class: "evs", role: "log", "aria-label": "Runtime activity" });
     this.nowEl = h("div", { class: "now" });
     this.panes = {
       interventions: pane("interventions", this.listA, this.emptyA),
       detections: pane("detections", this.listD, this.emptyD),
+      checks: pane("checks", this.listC, this.emptyC),
       activity: pane("activity", this.filterBar(), this.evs, this.emptyE),
       now: pane("now", this.nowEl),
     };
@@ -432,6 +448,15 @@ class Devtools {
     on("report", (r) => this.addReport(r));
     on("event", (e) => this.addEvent(e));
     on("status", () => this.mark(STATUS | MODE)); // setMode() is announced as a status change too
+    on("check", (f) => this.addCheck(f));
+    on("report", (r) => {
+      // a fix line (applied, undone, dropped) changes that finding's card
+      const c = r.kind === "check" && r.check ? this.chks.get(r.check.id) : undefined;
+      if (c) {
+        c.dirty = true;
+        this.mark(LISTS);
+      }
+    });
     // The runtime's clock (virtual in tests/sim), for "4s ago" labels and the overlay's own timers.
     try {
       const off = this.rt.use({
@@ -457,6 +482,17 @@ class Devtools {
       if (d.diagnosis && d.diagnosis !== "expected" && diagP(d) >= 0.6) this.addDet(d, false);
     }
     for (const e of safe(() => this.rt.history(MAX_ROWS), [] as RtEvent[])) this.addEvent(e);
+    const checks = (this.rt as { checks?: (n?: number) => CheckFinding[] }).checks;
+    if (typeof checks === "function") for (const f of safe(() => checks.call(this.rt, MAX_CARDS), [] as CheckFinding[])) this.addCheck(f);
+    // mounting the overlay means someone is looking: start the measured visual checks when the option is "local"
+    safe(() => (this.rt as { vis?: { start(): void } | null }).vis?.start(), undefined);
+  }
+
+  private addCheck(f: CheckFinding): void {
+    if (!f || this.chks.has(f.id)) return;
+    this.chks.set(f.id, { f, dirty: false });
+    bound(this.chks, MAX_CARDS, (c) => c.el?.remove());
+    this.mark(LISTS);
   }
 
   // -------------------------------------------------------------------------------------- data intake
@@ -604,6 +640,7 @@ class Devtools {
     if (this.isOpen && !this.paused) {
       if (b & LISTS) this.renderList(this.acts, this.listA, this.emptyA);
       if (b & LISTS) this.renderList(this.dets, this.listD, this.emptyD);
+      if (b & LISTS) this.renderChecks();
       if (b & EVENTS) this.renderEvents();
       b &= ~(LISTS | EVENTS);
     }
@@ -623,6 +660,8 @@ class Devtools {
     this.nD.textContent = String(nd);
     this.nA.classList.toggle("on", na > 0);
     this.nD.classList.toggle("on", nd > 0);
+    this.nC.textContent = String(this.chks.size);
+    this.nC.classList.toggle("on", this.chks.size > 0);
     const s = safe(() => this.rt.status.state, "off");
     this.pill.setAttribute("aria-label", `Open GenClass devtools: ${na} interventions, ${nd} detections, model ${s}`);
     this.pz.hidden = !this.paused;
@@ -715,6 +754,96 @@ class Devtools {
       e.dirty = false;
     }
     emptyEl.hidden = m.size > 0;
+  }
+
+  // ------------------------------------------------------------------------------------- measured checks
+
+  private renderChecks(): void {
+    for (const c of this.chks.values()) {
+      if (!c.el) {
+        c.el = this.checkCard(c.f);
+        this.listC.prepend(c.el);
+      } else if (c.dirty) {
+        const old = c.el;
+        c.el = this.checkCard(c.f);
+        old.replaceWith(c.el);
+      }
+      c.dirty = false;
+    }
+    this.emptyC.hidden = this.chks.size > 0;
+  }
+
+  /** One finding: kind, target, what was measured against which threshold, the CSS to make, Show and Undo. */
+  private checkCard(f: CheckFinding): HTMLElement {
+    const line = f.message.replace(/^\[GenClass\] Check \(measured\): /, "");
+    const cut = line.indexOf(" Suggested CSS: ");
+    const body = cut >= 0 ? line.slice(0, cut) : line;
+    const css = f.suggestion ? `${f.suggestion.selector} { ${f.suggestion.css} }` : "";
+    const fix = f.fix;
+    return h(
+      "article",
+      { class: `card chk sev-${f.severity}`, "data-id": f.id, "data-kind": f.kind, "aria-label": `${f.kind} on ${f.target}` },
+      h("div", { class: "ci" }, icon("scan")),
+      h(
+        "div",
+        { class: "cb" },
+        h(
+          "div",
+          { class: "ch" },
+          h("span", { class: "ct", text: f.kind }),
+          h("span", { class: "badge", text: "measured", title: "A deterministic measurement against a fixed threshold, not a model finding" }),
+          h("time", { class: "ago", "data-at": String(f.at), text: ago(this.now() - f.at), title: `runtime clock ${clockT(f.at)}` }),
+        ),
+        h("p", { class: "cx", text: body }),
+        h(
+          "div",
+          { class: "chips" },
+          h("span", { class: `chip t-${f.severity === "high" ? "bad" : f.severity === "medium" ? "warn" : "ok"}` }, h("span", { class: "cd" }), h("b", { text: f.severity })),
+          h("span", { class: "chip", title: f.threshold.source }, `threshold ${f.threshold.value} ${f.threshold.unit}`),
+          f.count && f.count > 1 ? h("span", { class: "chip", text: `${f.count}×` }) : null,
+          f.context.state && f.context.state !== "rest" ? h("span", { class: "chip", text: f.context.state }) : null,
+        ),
+        css ? sec("Suggested CSS", copyBtn(css), h("pre", { class: "code", "data-part": "css", text: css }), f.suggestion?.note ? h("p", { class: "none", text: f.suggestion.note }) : null) : null,
+        fix?.applied
+          ? h("div", { class: "note chg" }, icon("check"), h("span", { text: `Runtime fix applied: ${fix.css ?? ""}` }))
+          : fix?.reason
+            ? h("div", { class: "note" }, icon("info"), h("span", { text: `Runtime fix: ${fix.reason}` }))
+            : null,
+        h(
+          "div",
+          { class: "cf" },
+          h("button", { class: "btn", type: "button", "data-act": "show", title: "Scroll to the element and outline it", onclick: () => this.show(f) }, icon("eye"), "Show"),
+          fix?.applied
+            ? h("button", { class: "btn u", type: "button", "data-act": "undo", title: "Remove the runtime fix", onclick: () => this.undoFix(f) }, icon("undo"), "Undo")
+            : null,
+        ),
+      ),
+    );
+  }
+
+  /** Scroll to the finding's element and outline it inside the overlay's own shadow root (nothing is written to the app's DOM). */
+  private show(f: CheckFinding): void {
+    const el = safe(() => f.element(), null);
+    if (!el) return;
+    safe(() => el.scrollIntoView({ block: "center" }), undefined);
+    this.after(250, () => {
+      const r = el.getBoundingClientRect();
+      const box = this.hlBox ?? h("div", { class: "hl", "data-part": "highlight" });
+      this.hlBox = box;
+      Object.assign(box.style, { left: `${r.left - 3}px`, top: `${r.top - 3}px`, width: `${r.width + 6}px`, height: `${r.height + 6}px`, opacity: "1" });
+      (this.sr.querySelector(".root") as HTMLElement | null)?.appendChild(box);
+      this.after(1800, () => {
+        box.style.opacity = "0";
+      });
+    });
+  }
+
+  private undoFix(f: CheckFinding): void {
+    safe(() => f.fix?.undo(), false);
+    const c = this.chks.get(f.id);
+    if (c) c.dirty = true;
+    this.bits |= LISTS;
+    this.flush();
   }
 
   // --------------------------------------------------------------------------------------------- cards
@@ -1227,6 +1356,8 @@ class Devtools {
       for (const e of m.values()) e.el?.remove();
       m.clear();
     }
+    for (const c of this.chks.values()) c.el?.remove();
+    this.chks.clear();
     for (const r of this.rows) r.remove();
     this.rows = [];
     this.rowBySeq.clear();
@@ -1236,7 +1367,7 @@ class Devtools {
     this.unseen = 0;
     this.bits |= ALL;
     this.flush();
-    this.emptyA.hidden = this.emptyD.hidden = this.emptyE.hidden = false;
+    this.emptyA.hidden = this.emptyD.hidden = this.emptyE.hidden = this.emptyC.hidden = false;
   }
 
   private roving(e: KeyboardEvent, items: HTMLElement[], pick: (el: HTMLElement) => void): void {

@@ -53,7 +53,8 @@
       "redux": ["./dist/adapters/redux.d.ts"],
       "zustand": ["./dist/adapters/zustand.d.ts"],
       "devtools": ["./dist/devtools/index.d.ts"],
-      "discover": ["./dist/discover.d.ts"]
+      "discover": ["./dist/discover.d.ts"],
+      "visual": ["./dist/visual.d.ts"]
     }
   },
   "unpkg": "./dist/genclass.global.min.js",
@@ -98,6 +99,10 @@
     "./discover": {
       "types": "./dist/discover.d.ts",
       "import": "./dist/discover.js"
+    },
+    "./visual": {
+      "types": "./dist/visual.d.ts",
+      "import": "./dist/visual.js"
     },
     "./worker": {
       "import": "./dist/worker.js"

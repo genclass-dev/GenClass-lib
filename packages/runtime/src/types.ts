@@ -540,7 +540,11 @@ export interface ActionRequest {
   label?: string;
 }
 
-export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error";
+/**
+ * `"check"`: a measured visual check (InitOptions.visual), delivered only to sinks whose `kinds` lists it, so an
+ * existing sink without a `kinds` filter sees no new record kind.
+ */
+export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error" | "check";
 
 export interface SinkRecord {
   schema: 1;
@@ -563,7 +567,12 @@ export interface SinkRecord {
   shadow?: { action: string; tier: Tier; wouldPass: boolean; reason?: string };
   reason?: string;
   summary?: SessionSummary;
-  evidence?: { message?: string; trigger?: TriggerKind; subject?: string; timeline?: string[] };
+  /** kind "check": the measured check, its severity and whether a runtime fix was applied. Never selectors or text. */
+  check?: { kind: CheckKind; severity: CheckSeverity; fixed: boolean };
+  /** kind "check": the normalised route the check ran on. */
+  route?: string;
+  /** With `evidence: true`; for "check" records also the element description and its selector (built locally). */
+  evidence?: { message?: string; trigger?: TriggerKind; subject?: string; timeline?: string[]; target?: string; selector?: string };
 }
 
 export type SinkFn = (r: SinkRecord) => void | Promise<void>;
@@ -590,10 +599,16 @@ export interface SessionSummary {
   model: { state: ModelStatus["state"]; p50Ms?: number; p95Ms?: number; decisions: number; dropped: number; hiddenSkipped: number };
   heldMs: { total: number; max: number };
   errors: number;
+  /**
+   * Measured visual checks (InitOptions.visual): findings per kind and per route, fixes, cost and coverage. Present
+   * only once the checks have run, so a summary without them is unchanged.
+   */
+  visual?: VisualSummary;
 }
 
 /** What an audit entry records (rt.audit()). */
-export type AuditKind = "decision" | "action" | "undo" | "breaker" | "control";
+/** `"fix"`: a measured visual check's runtime fix was applied, undone or dropped (no model fields). */
+export type AuditKind = "decision" | "action" | "undo" | "breaker" | "control" | "fix";
 
 /** The model an audit entry was decided with (from rt.status at the time). */
 export interface AuditModel {
@@ -681,6 +696,8 @@ export interface AuditEntry {
   breaker?: { tripped: boolean; reason: "undos" | "errors" | "reset"; decisionIds: string[]; counts: { undos: number; errors: number } };
   /** control: what changed (setMode, setAggressiveness, pause, resume, enabled, disable) and from/to. */
   control?: { what: "setMode" | "setAggressiveness" | "pause" | "resume" | "enabled" | "disable"; from?: string | number; to?: string | number };
+  /** fix: a visual check's runtime fix (InitOptions.visual.fix): applied, undone or dropped, and the CSS involved. */
+  fix?: { what: "apply" | "undo" | "drop"; checkId: string; kind: CheckKind; css: string; reason?: string };
 }
 
 /** InitOptions.audit: the in-memory audit trail and an optional sink for the app's own logging. */
@@ -801,6 +818,151 @@ export interface InitOptions {
    * single sources off (`{ react: false }`). Also `<meta name="genclass" content="autostate=off">`.
    */
   autoState?: boolean | AutoStateOptions;
+  /**
+   * Measured visual checks (docs/runtime/VISUAL.md): text you cannot read against its background, images, fonts,
+   * stylesheets and media that failed to load, pages that scroll sideways, layers that swallow clicks, dialogs
+   * covered by other elements, "[object Object]" and similar leaks. These are deterministic measurements with fixed,
+   * documented thresholds, reported as kind "check" (`rt.on("check")`, `rt.checks()`); the model is not involved and
+   * they never feed a decision. **Default: "local" with `GenClass.init()` in a browser** (on for development hosts and
+   * when the devtools overlay is mounted, off on public hosts); off in `createRuntime()`. `true` turns report-only
+   * checks on everywhere. `?genclass-visual=off` turns them off; `?genclass-visual=on` turns on report-only checks on
+   * any host (never fixes). Runtime fixes need `{ fix: true }` and a guard or heal mode; observe never changes the page.
+   */
+  visual?: boolean | "local" | VisualOptions;
+}
+
+// --------------------------------------------------------------------------- measured visual checks (VISUAL.md)
+
+/** The v1 measured visual checks (docs/runtime/VISUAL.md section 3). */
+export type CheckKind =
+  | "image-broken"
+  | "image-css-broken"
+  | "media-failed"
+  | "stylesheet-failed"
+  | "font-failed"
+  | "icon-font-failed"
+  | "csp-blocked"
+  | "text-invisible"
+  | "text-template-leak"
+  | "text-placeholder"
+  | "text-encoding"
+  | "css-var-undefined"
+  | "image-distorted"
+  | "page-overflow-x"
+  | "viewport-meta-missing"
+  | "layout-shift"
+  | "page-blank"
+  | "click-blocked"
+  | "pointer-events-leak"
+  | "scroll-lock-stuck"
+  | "control-unreachable"
+  | "focus-obscured"
+  | "dialog-covered";
+
+/** The checks that may apply a runtime fix (opt-in, reversible, never in observe). */
+export type VisualFixKind = "text-invisible" | "pointer-events-leak" | "scroll-lock-stuck";
+
+/** high: content or controls cannot be read, seen or used; medium: visibly wrong but usable; low: small visible effect. */
+export type CheckSeverity = "high" | "medium" | "low";
+
+/** InitOptions.visual as an object. */
+export interface VisualOptions {
+  /** Same values as the shorthand. Default "local" in GenClass.init() (browser), false in createRuntime(). */
+  on?: boolean | "local";
+  /** Turn single kinds on or off. Default: every v1 kind on. */
+  checks?: Partial<Record<CheckKind, boolean>>;
+  /**
+   * Runtime fixes (VISUAL.md section 11). Default false. true allows the three fix kinds; or a list of them. A fix
+   * runs only in guard or heal mode (heal alone never turns fixes on), in a sampled-in session, and is undone on
+   * setMode("observe"), the breaker, disable(), pause() and destroy().
+   */
+  fix?: boolean | VisualFixKind[];
+  /** Selectors (and image hosts, for text-placeholder) never checked, for example third-party widgets. */
+  ignore?: string[];
+  /** Per idle slice, ms. Default 8, clamped to 2..16. */
+  budgetMs?: number;
+  /** Check time per pass, ms. Default 100; the pass then ends as partial. */
+  passBudgetMs?: number;
+  /** Candidate elements per pass. Default 2,000. */
+  maxElements?: number;
+  /** Low-end devices: "light" (default) runs only the near-free checks; "full" runs all; "off" runs none. */
+  lowEnd?: "light" | "full" | "off";
+  /** Fraction of sessions that run the measured layout and text checks (default 1); deterministic per session id. */
+  sample?: number;
+  /** Console lines per pass before folding (default 10). */
+  maxConsoleLines?: number;
+}
+
+/**
+ * One measured visual check (VISUAL.md section 9.1). A measurement against a fixed threshold, never a model finding:
+ * `source` is always "check".
+ */
+export interface CheckFinding {
+  /** "c1", "c2", ... per runtime (a counter). */
+  id: string;
+  /** Always "check": a measurement, never a model finding. */
+  source: "check";
+  basis?: "measurement" | "baseline";
+  kind: CheckKind;
+  severity: CheckSeverity;
+  /** Clock time. */
+  at: number;
+  /** Normalised route the finding was made on. */
+  route?: string;
+  /** Element description, for example 'paragraph "Ship faster with"'. */
+  target: string;
+  /** A CSS selector for the element, built locally for the developer; never sent anywhere unless the app opts in. */
+  selector: string;
+  /** The element while it is still connected, else null. */
+  element(): Element | null;
+  /** What was measured, for example { ratio: 1.04, fg: "#ffffff", bg: "#fafafa", fontPx: 16 }. */
+  measured: Record<string, number | string | boolean>;
+  /** The threshold the measurement was compared with, and where it comes from. */
+  threshold: { value: number | string; unit: string; source: string };
+  context: {
+    scheme: "light" | "dark";
+    state?: "rest" | "hover" | "focus" | "touch";
+    viewport: { w: number; h: number };
+    coarse: boolean;
+    tier: "full" | "light";
+  };
+  /** The console line. */
+  message: string;
+  /** The collapsed console group: measured values, threshold source, selector, how to ignore. */
+  details: string[];
+  /** A CSS change for the developer. */
+  suggestion?: { selector: string; css: string; note?: string };
+  /** A runtime fix (visual.fix, guard or heal mode only). */
+  fix?: { id: string; applied: boolean; css?: string; reason?: string; undo(): boolean };
+  /** Elements folded into this finding (same kind and same suggested selector). */
+  count?: number;
+}
+
+/** SessionSummary.visual: what the visual checks found, fixed, cost and covered in this session. */
+export interface VisualSummary {
+  /** Findings reported, per kind. */
+  checks: Partial<Record<CheckKind, number>>;
+  /** The same counts per normalised route (at most 20 routes). */
+  checksByRoute: Record<string, Partial<Record<CheckKind, number>>>;
+  /** Runtime fixes applied and undone (by the developer or automatically). */
+  fixes: { applied: number; undone: number };
+  /** Passes run (a pass measures the page or the subtrees that changed). */
+  passes: number;
+  /** Candidate elements measured. */
+  elements: number;
+  /** Total check time (Clock ms) and the longest slice. */
+  ms: number;
+  maxSliceMs: number;
+  /** Passes that ran out of their budget. */
+  partial: number;
+  /** Measurements that abstained (for example text over an image or a gradient), counted, never reported. */
+  abstained: number;
+  /** Kinds this browser cannot measure (no browser signal), recorded instead of a zero. */
+  unsupported: CheckKind[];
+  /** "light" on low-end devices and sampled-out sessions: only the near-free checks ran. */
+  tier: "full" | "light";
+  /** The session budget ran out: incremental checks stopped for the rest of the window. */
+  stopped?: boolean;
 }
 
 /** InitOptions.autoState as an object: each source defaults to on. */
@@ -1035,8 +1197,11 @@ export interface ActionRecord {
 }
 
 export interface Report {
-  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error";
+  /** "check": a measured visual check or one of its runtime fixes (never a model finding). */
+  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error" | "check";
   message: string;
+  /** kind "check": the finding. */
+  check?: CheckFinding;
   decision?: Decision;
   action?: ActionRecord;
   /** Effective mode at the decision. */
@@ -1138,6 +1303,8 @@ export interface RuntimeEvents {
   breaker: { tripped: boolean; reason: "undos" | "errors" | "reset"; decisionIds: string[]; counts: { undos: number; errors: number } };
   limit: { kind: "perMinute" | "perSubject" | "perSession"; subject: string };
   modelBudget: { decisionsLastMinute: number; dropped: number };
+  /** A measured visual check was confirmed (InitOptions.visual). Never fires `detect`. */
+  check: CheckFinding;
 }
 
 export interface Runtime {
@@ -1206,4 +1373,14 @@ export interface Runtime {
   destroy(): void;
   /** Anonymous diagnostics for this page (InitOptions.telemetry). */
   readonly telemetry?: TelemetryStatus;
+  /**
+   * The last `n` measured visual check findings (InitOptions.visual), oldest first; at most 200 are kept. An empty
+   * list until the checks have run (or when they are off).
+   */
+  checks(n?: number): CheckFinding[];
+  /**
+   * Run a measured visual check pass now (loads the checks if needed; a URL or the option set to off still wins) and
+   * resolve with the findings it confirmed. Report-only unless the fix gate allows (InitOptions.visual.fix).
+   */
+  checkNow(): Promise<CheckFinding[]>;
 }

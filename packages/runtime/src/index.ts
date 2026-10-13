@@ -10,6 +10,7 @@ import { RuntimeImpl } from "./runtime.js";
 import { createModelHost } from "./model/host.js";
 import { startTelemetry } from "./telemetry/index.js";
 import { telemetryOff } from "./telemetry/client.js";
+import { startVisual } from "./visual/start.js";
 
 export * from "./types.js";
 export { browserClock } from "./clock.js";
@@ -213,13 +214,17 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
   }
   const rt = new RuntimeImpl({ ...options, decider: decider ?? null, ownsDecider: owns });
   if (options.enabled === false) rt.telemetry = telemetryOff("disabled");
-  else
+  else {
+    // measured visual checks (docs/runtime/VISUAL.md): "local" by default with GenClass.init() in a browser
+    rt.vis = startVisual(rt, options.visual, telemetryDefaultOn);
     rt.telemetry = startTelemetry(rt, options.telemetry, telemetryDefaultOn, {
       model: owns ? "local" : decider ? "custom" : "off",
       ...(options.triage ? { triage: options.triage } : {}),
       ...(options.shadow ? { shadow: options.shadow } : {}),
       ...(options.policy?.holdWrites ? { holdWrites: true } : {}),
+      visual: rt.vis?.setting,
     });
+  }
   return rt;
 }
 

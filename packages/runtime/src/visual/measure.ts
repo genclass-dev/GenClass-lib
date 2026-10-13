@@ -1,0 +1,447 @@
+// DOM reads for the measured visual checks (docs/runtime/VISUAL.md section 2). This module and the checks only
+// read: computed styles, rects, hit tests, natural sizes, scroll positions. Nothing here writes to the page (the
+// only writes are in fix.ts, behind the fix gate).
+//
+// A Reader lives for one pass: it caches computed styles and visibility verdicts, so one pass forces at most one
+// layout per slice (reads only, no writes in between).
+
+import { parseColor, type RGBA } from "./math.js";
+
+/** Elements whose content is a replaced box or an embedded document: text over them is never judged. */
+export const REPLACED = new Set(["IMG", "PICTURE", "VIDEO", "CANVAS", "SVG", "IFRAME", "OBJECT", "EMBED"]);
+/** Interactive elements (click-blocked, control-unreachable, text-invisible states). */
+export const INTERACTIVE_SEL =
+  'a[href], button, input:not([type="hidden"]), select, textarea, label, summary, [role="button"], [role="link"], [role="checkbox"], [role="menuitem"], [role="tab"], [role="switch"], [role="option"], [tabindex]:not([tabindex="-1"]), [contenteditable=""], [contenteditable="true"]';
+/** Open dialogs and menus (pointer-events-leak, scroll-lock-stuck: something open owns the lock). */
+export const OPEN_SEL = '[role="dialog"], [role="alertdialog"], dialog[open], [aria-modal="true"], [role="menu"], [role="listbox"], [data-state="open"]';
+/** Dialog-like elements (dialog-covered, control-unreachable and focus-obscured exclusions). */
+export const DIALOG_SEL = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog';
+const FOCUSABLE_SEL = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"]), [contenteditable=""], [contenteditable="true"]';
+
+export interface Win {
+  document: Document;
+  innerWidth: number;
+  innerHeight: number;
+  scrollX: number;
+  scrollY: number;
+  getComputedStyle(el: Element, pseudo?: string | null): CSSStyleDeclaration;
+  matchMedia?(q: string): MediaQueryList;
+  location?: { pathname?: string; hostname?: string; origin?: string; href?: string; hash?: string };
+  screen?: { width: number; height: number };
+  visualViewport?: { scale: number } | null;
+  navigator?: { deviceMemory?: number; hardwareConcurrency?: number; connection?: { saveData?: boolean } };
+  performance?: Performance;
+  PerformanceObserver?: typeof PerformanceObserver;
+  CSSStyleSheet?: typeof CSSStyleSheet;
+  MutationObserver?: typeof MutationObserver;
+  requestIdleCallback?: (fn: (d: { timeRemaining(): number }) => void, o?: { timeout: number }) => unknown;
+  CSS?: { escape?(s: string): string };
+}
+
+/** The parent element, crossing open shadow roots. */
+export function parentOf(el: Element): Element | null {
+  if (el.parentElement) return el.parentElement;
+  const root = el.getRootNode?.() as ShadowRoot | undefined;
+  return root && (root as { host?: Element }).host ? (root as { host: Element }).host : null;
+}
+
+/** el contains other, crossing open shadow roots downwards from el. */
+export function containsDeep(el: Element, other: Element | null): boolean {
+  for (let x: Element | null = other; x; x = parentOf(x)) if (x === el) return true;
+  return false;
+}
+
+/** The element is in a shadow tree. */
+export function inShadow(el: Element): boolean {
+  const r = el.getRootNode?.();
+  return !!r && r !== el.ownerDocument && !!(r as { host?: unknown }).host;
+}
+
+const GENERATED_ID = /^[:«]|[:»]$|^(headlessui|radix|react-aria|mui|chakra|ember|ext-gen|yui_|j_id|rc_|__next)|^[a-f0-9-]{12,}$|\d{4,}/i;
+const HASHED_CLASS = /^(css|sc|jsx|svelte|emotion|jss|makeStyles|tss)-|_[A-Za-z0-9-]{5}$|__[A-Za-z0-9-]{5,}$|^[a-z]{1,3}[A-Z0-9][A-Za-z0-9]{4,}$|\d{3,}/;
+const UTILITY = /^(text|bg|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|w|h|min|max|flex|grid|gap|items|justify|rounded|border|shadow|font|leading|tracking|z|top|left|right|bottom|inset|block|inline|hidden|relative|absolute|fixed|sticky|overflow|opacity|transition|duration|ease|space|col|row|order|self|place|cursor|select|pointer|sr|not|dark|hover|focus|md|lg|sm|xl|2xl)(-|:|$)/;
+
+export class Reader {
+  private styles = new Map<Element, CSSStyleDeclaration>();
+  private vis = new Map<Element, boolean>();
+  private hiddenAnc = new Map<Element, boolean>();
+  /** Elements that are, or are inside, a running animation or transition target (collected once per pass). */
+  private anim: Set<Element> | null = null;
+  readonly doc: Document;
+  /** Reads done (for budgets and stats). */
+  reads = 0;
+
+  constructor(
+    readonly win: Win,
+    readonly ignore: string[],
+  ) {
+    this.doc = win.document;
+  }
+
+  cs(el: Element): CSSStyleDeclaration {
+    let s = this.styles.get(el);
+    if (!s) {
+      this.reads++;
+      s = this.win.getComputedStyle(el);
+      this.styles.set(el, s);
+    }
+    return s;
+  }
+
+  pseudo(el: Element, which: "::before" | "::after"): CSSStyleDeclaration | null {
+    try {
+      this.reads++;
+      return this.win.getComputedStyle(el, which);
+    } catch {
+      return null;
+    }
+  }
+
+  rect(el: Element): DOMRect {
+    this.reads++;
+    return el.getBoundingClientRect();
+  }
+
+  get vw(): number {
+    return this.doc.documentElement.clientWidth || this.win.innerWidth;
+  }
+  get vh(): number {
+    return this.win.innerHeight;
+  }
+
+  /** The element is ignored by the app (data-genclass-ignore, visual.ignore) or hidden from people (aria-hidden, inert, closed details). */
+  hiddenByAncestor(el: Element): boolean {
+    const c = this.hiddenAnc.get(el);
+    if (c !== undefined) return c;
+    let v = false;
+    if (el.getAttribute("aria-hidden") === "true" || el.hasAttribute("inert") || el.hasAttribute("data-genclass-ignore")) v = true;
+    else if (this.ignore.length && this.ignore.some((s) => safeMatches(el, s))) v = true;
+    else {
+      const p = parentOf(el);
+      if (p) {
+        if (p.tagName === "DETAILS" && !(p as HTMLDetailsElement).open && el.tagName !== "SUMMARY") v = true;
+        else v = this.hiddenByAncestor(p);
+      }
+    }
+    this.hiddenAnc.set(el, v);
+    return v;
+  }
+
+  /** Screen-reader-only patterns on the element or an ancestor (clip, clip-path inset(50%), 1 px boxes, off-screen). */
+  srOnly(el: Element): boolean {
+    for (let x: Element | null = el, depth = 0; x && depth < 8; x = parentOf(x), depth++) {
+      if (x === this.doc.body || x === this.doc.documentElement) break;
+      const s = this.cs(x);
+      if (s.position === "absolute" || s.position === "fixed") {
+        if (/rect\(\s*0(px)?[,\s]+0(px)?[,\s]+0(px)?[,\s]+0(px)?\s*\)/.test(s.clip)) return true;
+        const r = this.rect(x);
+        if (r.width <= 1 && r.height <= 1 && s.overflow !== "visible") return true;
+        if (r.right + this.win.scrollX <= 0 || r.bottom + this.win.scrollY <= 0) return true;
+      }
+      if (/inset\(\s*50%/.test(s.clipPath)) return true;
+      if (parseFloat(s.textIndent) <= -999) return true;
+    }
+    return false;
+  }
+
+  /** VISUAL.md 2.1: visible to a person (cached for the pass). */
+  visible(el: Element): boolean {
+    const c = this.vis.get(el);
+    if (c !== undefined) return c;
+    const v = this.computeVisible(el);
+    this.vis.set(el, v);
+    return v;
+  }
+
+  private computeVisible(el: Element): boolean {
+    if (!el.isConnected) return false;
+    const cv = (el as Element & { checkVisibility?: (o: Record<string, boolean>) => boolean }).checkVisibility;
+    if (typeof cv === "function") {
+      this.reads++;
+      if (!cv.call(el, { opacityProperty: true, visibilityProperty: true, contentVisibilityAuto: true, checkOpacity: true, checkVisibilityCSS: true })) return false;
+    } else {
+      for (let x: Element | null = el; x; x = parentOf(x)) {
+        const s = this.cs(x);
+        if (s.display === "none" || (x === el && s.visibility !== "visible") || s.opacity === "0") return false;
+      }
+    }
+    const r = this.rect(el);
+    if (r.width < 2 || r.height < 2) return false;
+    if (this.hiddenByAncestor(el)) return false;
+    if (this.srOnly(el)) return false;
+    return true;
+  }
+
+  /** The border box intersects the layout viewport. */
+  inViewport(el: Element): boolean {
+    const r = this.rect(el);
+    return r.right > 0 && r.bottom > 0 && r.left < this.win.innerWidth && r.top < this.win.innerHeight;
+  }
+
+  /** Running CSS animations and transitions (document.getAnimations()), once per pass. */
+  animating(el: Element): boolean {
+    if (!this.anim) {
+      this.anim = new Set();
+      try {
+        const list = (this.doc as Document & { getAnimations?: () => Animation[] }).getAnimations?.() ?? [];
+        for (const a of list) {
+          if (a.playState !== "running") continue;
+          const t = (a.effect as KeyframeEffect | null)?.target;
+          if (t) this.anim.add(t);
+        }
+      } catch {
+        /* no Web Animations API */
+      }
+    }
+    if (!this.anim.size) return false;
+    for (let x: Element | null = el; x; x = parentOf(x)) if (this.anim.has(x)) return true;
+    return false;
+  }
+
+  /** An ancestor-or-self with opacity strictly between 0 and 1. */
+  translucent(el: Element): boolean {
+    for (let x: Element | null = el; x; x = parentOf(x)) {
+      const o = parseFloat(this.cs(x).opacity);
+      if (o > 0 && o < 1) return true;
+    }
+    return false;
+  }
+
+  /** Fixed or sticky, itself or an ancestor: that element, else null. */
+  pinned(el: Element): Element | null {
+    for (let x: Element | null = el; x && x !== this.doc.body && x !== this.doc.documentElement; x = parentOf(x)) {
+      const p = this.cs(x).position;
+      if (p === "fixed" || p === "sticky") return x;
+    }
+    return null;
+  }
+
+  /** Hit test (null outside the viewport). */
+  at(x: number, y: number): Element | null {
+    if (x < 0 || y < 0 || x >= this.win.innerWidth || y >= this.win.innerHeight) return null;
+    this.reads++;
+    return this.doc.elementFromPoint(x, y);
+  }
+
+  stack(x: number, y: number): Element[] {
+    if (x < 0 || y < 0 || x >= this.win.innerWidth || y >= this.win.innerHeight) return [];
+    this.reads++;
+    return this.doc.elementsFromPoint(x, y);
+  }
+}
+
+export function safeMatches(el: Element, sel: string): boolean {
+  try {
+    return el.matches(sel);
+  } catch {
+    return false;
+  }
+}
+
+export function isInteractive(el: Element, r: Reader): boolean {
+  if (safeMatches(el, INTERACTIVE_SEL)) return true;
+  return r.cs(el).cursor === "pointer";
+}
+
+export function focusableInside(el: Element): Element[] {
+  try {
+    return [...el.querySelectorAll(FOCUSABLE_SEL)];
+  } catch {
+    return [];
+  }
+}
+
+export function isDialog(el: Element): boolean {
+  return safeMatches(el, DIALOG_SEL);
+}
+
+/** The element is, or is inside, a dialog-like element. */
+export function inDialog(el: Element): boolean {
+  for (let x: Element | null = el; x; x = parentOf(x)) if (isDialog(x)) return true;
+  return false;
+}
+
+function esc(win: Win, s: string): string {
+  const e = win.CSS?.escape;
+  return typeof e === "function" ? e(s) : s.replace(/[^\w-]/g, (c) => `\\${c}`);
+}
+
+/**
+ * A selector for the developer (VISUAL.md 2.6): a stable #id, then [data-testid], then the tag with up to two stable
+ * classes, else an nth-of-type path of up to 4 levels under the nearest ancestor with a stable id. `structural` is
+ * true for the last form.
+ */
+export function selectorOf(el: Element, win: Win): { selector: string; structural: boolean } {
+  const tag = el.tagName.toLowerCase();
+  if (el === win.document.documentElement) return { selector: "html", structural: false };
+  if (el === win.document.body) return { selector: "body", structural: false };
+  if (el.id && !GENERATED_ID.test(el.id)) return { selector: `#${esc(win, el.id)}`, structural: false };
+  const tid = el.getAttribute("data-testid") ?? el.getAttribute("data-test-id");
+  if (tid) return { selector: `[data-testid="${tid.replace(/["\\]/g, "")}"]`, structural: false };
+  const cls = [...el.classList].filter((c) => /^[A-Za-z_-][\w-]*$/.test(c) && !HASHED_CLASS.test(c));
+  const named = cls.filter((c) => !UTILITY.test(c));
+  const pick = (named.length ? named : cls).slice(0, 2);
+  if (pick.length) return { selector: `${tag}${pick.map((c) => `.${c}`).join("")}`, structural: false };
+  const parts: string[] = [];
+  let x: Element | null = el;
+  for (let depth = 0; x && depth < 4; depth++) {
+    const p = x.parentElement;
+    if (!p) break;
+    const t = x.tagName.toLowerCase();
+    const same = [...p.children].filter((c) => c.tagName === x!.tagName);
+    parts.unshift(same.length > 1 ? `${t}:nth-of-type(${same.indexOf(x) + 1})` : t);
+    x = p;
+    if (x.id && !GENERATED_ID.test(x.id)) {
+      parts.unshift(`#${esc(win, x.id)}`);
+      return { selector: parts.join(" > "), structural: true };
+    }
+    if (x === win.document.body) {
+      parts.unshift("body");
+      return { selector: parts.join(" > "), structural: true };
+    }
+  }
+  return { selector: parts.join(" > ") || tag, structural: true };
+}
+
+/** One layer of the paint stack under a point, as text-invisible needs it. */
+export interface Layer {
+  /** The element painting this layer (absent in unit-test fixtures). */
+  el?: Element;
+  bg: string;
+  /** Why this layer makes the background unknowable (image, gradient, replaced element, filter, blend, pseudo layer). */
+  abstain?: string;
+}
+
+/** What the background resolver needs about the root and the visitor's colour scheme. */
+export interface RootInfo {
+  html: string;
+  body: string;
+  /** The root allows dark (computed color-scheme) and the visitor prefers dark: the UA canvas is dark. */
+  darkCanvas: boolean;
+}
+
+/** The layers under a point from `el` down (el first), or "covered" when something else is on top. */
+export function layersAt(r: Reader, el: Element, x: number, y: number): Layer[] | "covered" | "outside" {
+  const st = r.stack(x, y);
+  if (!st.length) return "outside";
+  if (!containsDeep(el, st[0])) return "covered";
+  const i = st.indexOf(el);
+  if (i < 0) return "covered";
+  const out: Layer[] = [];
+  for (let j = i; j < st.length; j++) {
+    const e = st[j];
+    const s = r.cs(e);
+    const l: Layer = { el: e, bg: s.backgroundColor };
+    if (s.backgroundImage && s.backgroundImage !== "none") l.abstain = "background-image";
+    else if (REPLACED.has(e.tagName.toUpperCase()) && j > i) l.abstain = "replaced";
+    else if ((s.filter && s.filter !== "none") || (s.backdropFilter && s.backdropFilter !== "none") || ((s as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter ?? "none") !== "none")
+      l.abstain = "filter";
+    else if (s.mixBlendMode && s.mixBlendMode !== "normal") l.abstain = "blend";
+    else {
+      for (const p of ["::before", "::after"] as const) {
+        const ps = r.pseudo(e, p);
+        if (!ps || ps.content === "none" || ps.content === "normal") continue;
+        const pc = parseColor(ps.backgroundColor);
+        if ((pc && pc[3] > 0) || (ps.backgroundImage && ps.backgroundImage !== "none")) {
+          l.abstain = "pseudo-layer";
+          break;
+        }
+      }
+    }
+    out.push(l);
+    const c = parseColor(l.bg);
+    if (c && c[3] >= 1) break;
+  }
+  return out;
+}
+
+export function rootInfo(r: Reader): RootInfo {
+  const html = r.doc.documentElement;
+  const body = r.doc.body;
+  const scheme = r.cs(html).colorScheme || "normal";
+  let prefersDark = false;
+  try {
+    prefersDark = !!r.win.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  } catch {
+    prefersDark = false;
+  }
+  return { html: r.cs(html).backgroundColor, body: body ? r.cs(body).backgroundColor : "transparent", darkCanvas: prefersDark && /\bdark\b/.test(scheme) };
+}
+
+/** Points to test a text element at: its first direct text node's first and last line boxes, and its content box. */
+export function textPoints(r: Reader, el: Element): { x: number; y: number }[] {
+  const pts: { x: number; y: number }[] = [];
+  let tn: Text | null = null;
+  for (const n of el.childNodes) if (n.nodeType === 3 && (n as Text).data.trim()) {
+    tn = n as Text;
+    break;
+  }
+  if (tn) {
+    try {
+      const range = r.doc.createRange();
+      range.selectNodeContents(tn);
+      const rects = [...range.getClientRects()].filter((x) => x.width > 0 && x.height > 0);
+      r.reads++;
+      if (rects.length) {
+        const a = rects[0];
+        const b = rects[rects.length - 1];
+        pts.push({ x: a.left + a.width / 2, y: a.top + a.height / 2 });
+        if (rects.length > 1) pts.push({ x: b.left + b.width / 2, y: b.top + b.height / 2 });
+      }
+    } catch {
+      /* no Range support */
+    }
+  }
+  const rc = r.rect(el);
+  const s = r.cs(el);
+  const pl = parseFloat(s.paddingLeft) + parseFloat(s.borderLeftWidth) || 0;
+  const pr = parseFloat(s.paddingRight) + parseFloat(s.borderRightWidth) || 0;
+  const pt = parseFloat(s.paddingTop) + parseFloat(s.borderTopWidth) || 0;
+  const pb = parseFloat(s.paddingBottom) + parseFloat(s.borderBottomWidth) || 0;
+  if (rc.width - pl - pr > 1 && rc.height - pt - pb > 1) pts.push({ x: rc.left + pl + (rc.width - pl - pr) / 2, y: rc.top + pt + (rc.height - pt - pb) / 2 });
+  return pts.map((p) => ({ x: Math.floor(p.x), y: Math.floor(p.y) }));
+}
+
+/** Five hit points of a rect: its centre and 4 points 25% in from each edge. */
+export function fivePoints(rc: { left: number; top: number; width: number; height: number }): { x: number; y: number }[] {
+  const cx = rc.left + rc.width / 2;
+  const cy = rc.top + rc.height / 2;
+  return [
+    { x: cx, y: cy },
+    { x: rc.left + rc.width * 0.25, y: cy },
+    { x: rc.left + rc.width * 0.75, y: cy },
+    { x: cx, y: rc.top + rc.height * 0.25 },
+    { x: cx, y: rc.top + rc.height * 0.75 },
+  ].map((p) => ({ x: Math.floor(p.x), y: Math.floor(p.y) }));
+}
+
+/** Same-site: the same registrable domain, approximated by the last two labels (three for co.uk-style suffixes). */
+export function sameSite(url: string, loc: { hostname?: string; origin?: string; href?: string } | undefined): boolean {
+  try {
+    const u = new URL(url, loc?.href ?? "http://x.invalid/");
+    if (u.protocol === "data:" || u.protocol === "blob:") return true;
+    const site = (h: string) => {
+      const p = h.toLowerCase().split(".");
+      if (p.length <= 2 || /^\d+$/.test(p[p.length - 1])) return h.toLowerCase();
+      const n = p[p.length - 2].length <= 3 && p[p.length - 1].length === 2 ? 3 : 2;
+      return p.slice(-n).join(".");
+    };
+    return site(u.hostname) === site(loc?.hostname ?? "");
+  } catch {
+    return false;
+  }
+}
+
+export function sameOrigin(url: string, loc: { origin?: string; href?: string } | undefined): boolean {
+  try {
+    const u = new URL(url, loc?.href ?? "http://x.invalid/");
+    return u.origin === (loc?.origin ?? new URL(loc?.href ?? "http://x.invalid/").origin);
+  } catch {
+    return false;
+  }
+}
+
+/** A colour string from computed style, parsed (null: abstain). */
+export function color(s: string | null | undefined): RGBA | null {
+  return parseColor(s);
+}
