@@ -283,19 +283,20 @@ export function selectorOf(el: Element, win: Win): { selector: string; structura
   const pick = (named.length ? named : cls).slice(0, 2);
   if (pick.length) return { selector: `${tag}${pick.map((c) => `.${c}`).join("")}`, structural: false };
   const parts: string[] = [];
-  let x: Element | null = el;
-  for (let depth = 0; x && depth < 4; depth++) {
-    const p = x.parentElement;
+  let x: Element = el;
+  for (let depth = 0; depth < 4; depth++) {
+    const cur: Element = x;
+    const p: Element | null = cur.parentElement;
     if (!p) break;
-    const t = x.tagName.toLowerCase();
-    const same = [...p.children].filter((c) => c.tagName === x!.tagName);
-    parts.unshift(same.length > 1 ? `${t}:nth-of-type(${same.indexOf(x) + 1})` : t);
+    const t = cur.tagName.toLowerCase();
+    const same = [...p.children].filter((c) => c.tagName === cur.tagName);
+    parts.unshift(same.length > 1 ? `${t}:nth-of-type(${same.indexOf(cur) + 1})` : t);
     x = p;
-    if (x.id && !GENERATED_ID.test(x.id)) {
-      parts.unshift(`#${esc(win, x.id)}`);
+    if (p.id && !GENERATED_ID.test(p.id)) {
+      parts.unshift(`#${esc(win, p.id)}`);
       return { selector: parts.join(" > "), structural: true };
     }
-    if (x === win.document.body) {
+    if (p === win.document.body) {
       parts.unshift("body");
       return { selector: parts.join(" > "), structural: true };
     }
