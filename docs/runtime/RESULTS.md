@@ -260,10 +260,12 @@ package README "Costs" (+7 KB first-load JS, walk p95 under 2 ms at 4× throttli
 The learned-flow expectations layer (`docs/runtime/EXPECTATIONS.md`; reporting only, no model, no action) has unit
 tests on the fake clock but no demo or real-app measurement yet. Its acceptance gate before any public claim: zero
 `expectation` reports across the six demos' clean trials (15 per mode per demo, `bench/heal/`), reported next to
-how many of the demos' silent-flow bugs (stuck "Placing…", lost commit) it names. Measured so far: first-load
-JavaScript, minified + gzip, `/auto` 105.8 KB and `GenClass.init()` 98.3 KB (`test/bundle.test.ts`, CI run
-38448983470 on branch `wave1/expectations`, 2026-10-13), against about 99 KB and 91 KB before it (the README's
-figures at 0.2.2, where `test/bundle.test.ts` kept them under 100 / 92 KB): about +7 KB per entry.
+how many of the demos' silent-flow bugs (stuck "Placing…", lost commit) it names, plus a two-session run on the
+stored path (the trials start in a fresh browser context, so they never load stored flows). Measured so far:
+first-load JavaScript, minified + gzip, `/auto` 106.5 KB and `GenClass.init()` 99.1 KB (`test/bundle.test.ts`, CI
+run 38455195053 on branch `wave1/expectations`, 2026-10-13, after the review fixes; 105.8 / 98.3 KB in run
+38448983470 before them), against about 99 KB and 91 KB before the layer (the README's figures at 0.2.2, where
+`test/bundle.test.ts` kept them under 100 / 92 KB): about +7.5 KB per entry.
 
 ### v0.1 model, untrained for this (2026-10-08, baseline only)
 
