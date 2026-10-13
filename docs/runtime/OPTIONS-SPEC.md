@@ -45,7 +45,7 @@ order: off < observe < guard < heal
 | 11 | `sinks` + `rt.summary()` | telemetry | `[]` | new |
 | 12 | `session` + `rt.setSession()` | telemetry | random id, `{}` | new |
 | 13 | `report` | telemetry | `"console"` | extended (`"interventions"`) |
-| 14 | `learn` (+ `rt.learn.clear()`) | persistence | `{persist:false}` | extended |
+| 14 | `learn` (+ `rt.learn.clear()`) | persistence | `{persist:"local"}` (was `false`; EXPECTATIONS.md §4) | extended |
 | 15 | `model.loadIf`, `model.inlineFallback` | load | `{saveData:"lazy"}`, `true` | new |
 | 16 | `model.threads`, `model.timeoutMs` | load | `"auto"`, `10000` | promoted from internal |
 | 17 | `model.maxDecisionsPerMinute` | load | `30` | new |

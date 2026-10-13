@@ -116,6 +116,14 @@ from a hold path.
 Before this change `learn.persist` defaulted to false, which is why user-action learning almost never activated:
 transition profiles need 20 completions of the same action and nobody clicks "Place order" 20 times in one visit.
 
+**Conflict with CONTRACT.md, stated rather than resolved here:** CONTRACT §4 ("Transition profiles") says profiles
+are "per app session (in memory), optionally persisted to `localStorage` behind `learn: { persist: true }`". This
+change makes persistence the default (the brief for this layer asks for it; `learn.persist: false` restores the
+contract's behaviour). CONTRACT §13 is where the owner records approved deviations; until it does, the contract text
+and the shipped default disagree on this one point. Nothing else here departs from the contract: §8's reporting
+(one line, collapsed evidence, rate-limited repeats) is reused as is, and the `Report.kind` union it lists had
+already been extended (`undo`, `breaker`, `error`) before `expectation` was added.
+
 ## 5. Developer-facing output
 
 - `rt.learned()`: `{ route, session, flows, deviations, relations }`, the flows of the current route first, each

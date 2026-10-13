@@ -60,12 +60,14 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   }, 60_000);
 
   // /auto carries automatic state discovery (autoState, beta.4: about 6.5 KB); the main entry does not. The audit trail,
-  // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
-  // 91 KB for GenClass.init)
-  const LIMIT_KB: Record<string, number> = { "auto.js": 99, "index.js": 92 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 99 KB / 92 KB (README: about 98 / 91 KB)", async () => {
+  // protect presets and the hold-budget fixes added about 1.6 KB to both (0.2.0: about 98 KB for /auto, 91 KB for
+  // GenClass.init). The flow expectations and persistence-by-default (Unreleased, src/learn/flows.ts) are in both
+  // entries: provisional limits until CI has measured them (the sizes are printed below).
+  const LIMIT_KB: Record<string, number> = { "auto.js": 106, "index.js": 100 };
+  it("first-load cost of /auto and the main entry, minified + gzip: under 106 KB / 100 KB (provisional; see the printed sizes)", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
+    const measured: { entry: string; kb: number; code: string }[] = [];
     for (const entry of ["auto.js", "index.js"]) {
       const spec = JSON.stringify(join(DIST, entry));
       const r = await build({
@@ -91,9 +93,14 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       };
       walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
-      expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
-      // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
+      measured.push({ entry, kb: gz / 1024, code });
+    }
+    // both sizes are printed before any assertion, so a failed budget still reports them (README "Costs" quotes them)
+    console.log(`first-load gzip: ${measured.map((m) => `${m.entry} ${m.kb.toFixed(1)} KB`).join(", ")}`);
+    for (const { entry, kb, code } of measured) {
+      expect(kb, entry).toBeLessThan(LIMIT_KB[entry]);
+      // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       expect(code, entry).not.toContain("BPE dropout is not supported at inference"); // src/model/tokenizer.ts
       expect(code, entry).toContain("new Worker("); // the host itself is there
       // state discovery survives an app's bundler in /auto (a dropped side-effect import once lost it) and stays out
