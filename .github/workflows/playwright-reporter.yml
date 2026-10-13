@@ -1,9 +1,10 @@
 name: Playwright reporter
 
 # @genclass/playwright (packages/playwright): typecheck, build and the unit tests of the reporter, the summariser and
-# the command. No browser: the package only reads the files the GenClass Playwright fixture writes, and the fixture
-# lives elsewhere. A separate workflow from ci.yml so it never blocks the main CI job. It renders the unit-test
-# fixture's report into the job summary to show what a pull-request comment would look like; it posts nothing.
+# the command, then one real Playwright run that loads the reporter by its module name. No browser: the package only
+# reads the files the GenClass Playwright fixture writes, and the fixture lives elsewhere. A separate workflow from
+# ci.yml so it never blocks the main CI job. It renders the unit-test fixture's report into the job summary to show
+# what a pull-request comment would look like; it posts nothing.
 
 on:
   push:
