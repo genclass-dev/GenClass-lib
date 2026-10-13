@@ -28,6 +28,11 @@ export interface ConsoleJsonSinkOptions {
    * sends the structured fields only (kind, diagnosis, p, action, route, ...).
    */
   evidence?: boolean;
+  /**
+   * Also forward "possible" detections (observe's lower tier, `SinkRecord.detection` "possible"; InitOptions.detect).
+   * Default false: likely detections only.
+   */
+  possible?: boolean;
   /** Where `console` is looked up (default `globalThis`). */
   global?: object;
 }
@@ -42,6 +47,7 @@ export function consoleJson(o: ConsoleJsonSinkOptions = {}): SinkObject {
     kinds: o.kinds,
     sampleRate: o.sampleRate,
     evidence: o.evidence ?? true,
+    possible: o.possible === true,
     send(r: SinkRecord): void {
       try {
         const con = o.console ?? (globalOf(o).console as ConsoleLike | undefined);

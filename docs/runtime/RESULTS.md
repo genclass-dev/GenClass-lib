@@ -421,3 +421,55 @@ page, 0.23 to 0.27 overall). Detections never go through this draw.
 
 **Not measured here:** browser timings, the install suite (`test/install/run-all.sh`, VM only), the demos'
 clean-trial gate for the flow expectations (§5), and any number with the model.
+
+## 11. Observe-mode detection in 0.3.0: the "possible" tier and deferred situations
+
+Branch `wave2/detect-observe` (from `release/0.3.0`), 2026-10-13. Two kinds of change: a lower reporting tier in
+observe (`InitOptions.detect`, CONTRACT §8), and observe situations that used to be dropped and are now decided later
+(while the model loads or reloads, while the tab is hidden; OPTIONS-SPEC §5.1, §5.3), plus four fixes (idle unload,
+the body wait, superseded writes in observe, priority aging). No model-visible text changed and no action gate
+reads the tiers, so the **false-intervention rate is unchanged (no action path changed; deferred decisions are gated
+as observe)**. Nothing in this section was measured end to end on this branch; the numbers below are earlier
+measurements of the same thresholds, which is what the "possible" tier uses.
+
+**Expected effect of the "possible" tier, from measurements already made.** In observe at the default `balanced`
+profile, likely + possible detections are exactly the detections at the `eager` profile's report gate (0.70; the
+likely ones alone are those at `balanced`'s 0.90). In observe the profile changes nothing but that gate, so the
+`eager` measurements are the expected effect:
+
+| measured | balanced (report 0.90): likely only, 0.2.x | eager (report 0.70): likely + possible, 0.3.0 observe default | source |
+|---|---|---|---|
+| detected with the right diagnosis, held-out real apps: duplicate submits | 75% | 77% | `training/EVAL.md`, `@genclass/runtime-model@0.2.0` = r17-v2dT table (REAL eval test split, q8) |
+| same: stale overwrites (situation v2 / v2.3) | 21% / 30% | 40% / 45% | same |
+| same: genuine breaks | 6% | 13% | same |
+| report false-detection limit the 0.2.0 fit was held to, met on held-out test (real / sim) | ≤ 2% / ≤ 3% | ≤ 5% / ≤ 6% | same ("All profiles meet their limits on held-out test"); the exact rates are not published (the gate-fit curves are on a deallocated training node) |
+| bench demos, observe, buggy chaos trials with at least one detection | 39 / 42 | 41 / 43 | `bench/heal/results/demos/results-baseline-beta4-m020.json` and `results-baseline-beta4-m020-aggr-eager.json` (model 0.2.0, runtime 0.1.0-beta.4, Playwright, model preloaded, visible tab), counted again for this section with a Python script over their `raw` trials |
+| bench demos, observe, clean trials with a detection (a false-detection proxy) | 2 / 30 | 3 / 29 (search seeds 1502, 1503 and status 1503, all `delivery:stale`; one of the 30 eager clean trials showed a bug and is left out) | same files |
+
+Read with care: the bench counts are trial-level co-occurrence (a trial with any finding), not per-bug matches, and
+n is small (one more clean trial with a finding in about 30). The compat matrix's false-finding baseline is at
+`balanced` only (49 false findings in 880 correct-app runs, all in scenario g, polling and fan-out:
+`compat/RESULTS.md`); the possible tier will add to it, by an amount not measured. Possible detections print with
+`console.debug` only, so what a developer sees by default is the likely ones, as before.
+
+**Deferred situations and the fixes: expected direction, not measured.**
+
+- *Model loading.* Every page view used to drop everything salient before the model was ready: the idle preload
+  (after the load event, up to 5 s, then up to 2 s of idle) and then the load itself, 3.76 s on average on the one
+  production site reporting telemetry (runtime 0.2.1, the maintainers' admin view on 2026-10-13). Those situations are now decided once the
+  model is ready (at most 32 per page load). How many detections that adds is unmeasured: the bench and the compat
+  matrix wait for the model before each trial (`await gc.ready`, preload eager), so they never exercised this path.
+- *Hidden tabs.* Unmeasured for the same reason (the trials run in a visible tab). In production the loss counters
+  (`summary.runtime.model.hiddenSkipped`, `summary.counts.failOpen`) only reach the raw R2 objects; no aggregate reads
+  them yet.
+- *Idle unload, the 100 ms body wait, overwritten writes on slow devices, priority aging, the telemetry back-off:*
+  regression tests on the fake clock (`test/deferred.test.ts`, `test/observe-delivery.test.ts`,
+  `test/hold-late.test.ts`, `test/telemetry.test.ts`), no recall or false-detection number.
+- *CPU on the user's device:* unchanged ceiling, 30 model evaluations a minute (`model.maxDecisionsPerMinute`);
+  deferred decisions count against it. Raising it was not measured, so it stays.
+
+**Not yet measured end to end** (needs the owner's OK for the VM or a training node): the false-detection rate of the
+possible tier on the 0.3.0 runtime (compat scenarios c to h and the bench clean trials, observe, default `detect`); the
+exact 0.2.0 report curve (`out/gates/r17-v2dT*-report.json`); and a cold-start run (no `await gc.ready`, default
+idle preload, plus hidden-tab trials) that would show how many detections the deferral adds and how many false ones
+come with them.

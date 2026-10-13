@@ -79,12 +79,12 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `model` | model state changes, and once right after `session` when the model was skipped or failed before telemetry started (the device floor: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`) | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError` (why the model worker was not used, URLs replaced by `<url>`), `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
 | `decision` | a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted or was vetoed, always; a `decisionSample` share (default 1 in 4) of the routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
-| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record | `decision`, `trigger`, `diagnosis`, `p` |
+| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record; since 0.3.0 also observe's "possible" ones (`InitOptions.detect`: below the report gate, at or above the eager profile's report value) | `decision`, `trigger`, `diagnosis`, `p`, `tier` (0.3.0: `"possible"` on a possible detection; absent on a likely one, as from earlier runtimes. It follows from `p` and the decision record's `gates.report`, which are already sent) |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
 | `veto` | `onBeforeAction` vetoed an action (every one) | `decision`, `action`, `enforced` |
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars) |
-| `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
+| `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart), actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
 
 Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
 else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
@@ -137,8 +137,13 @@ typical volumes.
   `navigator.sendBeacon` (falling back to `fetch` with `keepalive`).
 - The `fetch` and `sendBeacon` captured when `@genclass/runtime` loaded, so GenClass never observes, holds or decides
   about its own requests.
-- At most 1,000 queued events; beyond that new events are dropped and counted. A failed request is dropped, never
-  retried; after 3 failures in a row the page stops sending (`MAX_FAIL_STREAK`). Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
+- At most 1,000 queued events; beyond that new events are dropped and counted. A failed request (a network error, a
+  5xx) is dropped, never retried; after 3 failures in a row the page stops sending (`MAX_FAIL_STREAK`). Since 0.3.0
+  an HTTP 429, or any response with a `Retry-After` the page can read, is a back-off, not a failure: the refused batch
+  goes back to the front of the queue and nothing is sent until the `Retry-After` (in seconds), else 30 s doubling per
+  429 in a row up to 5 minutes, has passed (page exit still sends, by `sendBeacon`). Until then a busy network address
+  (an office or campus behind one IP, against the collector's per-address limit) could stop its pages for good after
+  three 429s. Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
 
 ## App tokens and dashboards
 
@@ -173,7 +178,8 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
 - **Endpoint:** `https://genclass.dev/api/v1/events` (`DEFAULT_TELEMETRY_ENDPOINT`; before 0.2.2 the same worker's
   `https://genclass-telemetry.mehar-144.workers.dev/v1/events`, which still works), a Cloudflare Worker operated by the
   GenClass maintainers (source: `telemetry-worker/` in the repository). With a Content-Security-Policy, allow
-  `https://genclass.dev` in `connect-src` or turn telemetry off; after 3 failed requests in a row a page stops sending.
+  `https://genclass.dev` in `connect-src` or turn telemetry off; after 3 failed requests in a row a page stops sending
+  (a 429 is a back-off, not a failure, since 0.3.0).
 - **Storage:** a private Cloudflare R2 bucket (`genclass-telemetry`), gzip JSON Lines, one object per batch,
   partitioned by UTC date, runtime version and model version. The collector adds only the time it received the
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user

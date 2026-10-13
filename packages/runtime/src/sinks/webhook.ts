@@ -92,6 +92,11 @@ export interface WebhookSinkOptions {
    * sends the structured fields only (kind, diagnosis, p, action, route, ...).
    */
   evidence?: boolean;
+  /**
+   * Also forward "possible" detections (observe's lower tier, `SinkRecord.detection` "possible"; InitOptions.detect).
+   * Default false: likely detections only.
+   */
+  possible?: boolean;
   /** Where navigator / fetch are looked up (default `globalThis`). */
   global?: object;
 }
@@ -203,6 +208,7 @@ export function webhook(o: WebhookSinkOptions): SinkObject {
     kinds: o?.kinds,
     sampleRate: o?.sampleRate,
     evidence: o?.evidence ?? true,
+    possible: o?.possible === true,
     send(r: SinkRecord): void {
       try {
         if (!url || (r.kind !== "summary" && overCap(seen, r, cap))) return;

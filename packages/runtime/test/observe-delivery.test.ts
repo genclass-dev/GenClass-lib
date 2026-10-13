@@ -452,3 +452,41 @@ describe("guard mode is unchanged", () => {
     expect(x.rt.interventions().map((r) => [r.trigger, r.action, r.late])).toEqual([["mutation", "discard", true]]);
   });
 });
+
+describe("observe: a response body slower than the 100 ms wait does not hide a pending change or typed text (CONTRACT §6)", () => {
+  it("only a pending local change and a 300 ms body: the delivery stays salient and undecided, so its write is decided on its own", async () => {
+    const ref: { clock?: FakeClock } = {};
+    let n = 0;
+    const fetchFn = streamingFetch(ref, (url) => {
+      if (url.pathname !== "/api/board") return { body: { ok: true }, latency: 800 };
+      const first = n++ === 0;
+      // the second load's response puts back c1 = "todo" (what the user's pending move replaced), its body 300 ms late
+      return { body: { cards: { c1: "todo", c2: first ? "doing" : "review" } }, latency: 50, bodyDelay: first ? 0 : 300 };
+    });
+    const s = setup({ mode: undefined, script: stale, extraGlobal: { fetch: fetchFn } });
+    ref.clock = s.clock;
+    const b = s.rt.atom("board", { cards: { c1: "", c2: "" } as Record<string, string> });
+    const load = () =>
+      s.rt.op("load", async () => {
+        const res = await s.fetch("/api/board");
+        const d = (await res.json()) as { cards: Record<string, string> };
+        b.set({ cards: d.cards });
+      });
+    void load(); // learns what GET /api/board writes
+    await s.clock.advance(100);
+    s.rt.user({ kind: "click", target: 'button "Move c1 to done"' }, () => {
+      b.set((v) => ({ cards: { ...v.cards, c1: "done" } }));
+      void s.fetch("/api/cards/c1", { method: "PATCH", body: '{"col":"done"}' });
+    });
+    await s.clock.advance(50);
+    void load();
+    await s.clock.advance(1000);
+    expect(b.get().cards.c1).toBe("todo"); // observe: the app's write applied
+    // before 0.3.0 the body timer settled the delivery as not salient, which covered its write: no decision at all
+    const ds = s.rt.decisions().filter((d) => d.trigger !== "request");
+    expect(ds).toHaveLength(1);
+    expect(ds[0]).toMatchObject({ trigger: "mutation", diagnosis: "stale", executed: false });
+    expect(ds[0].facts[0]).toMatch(/^board\.cards\.c1 has a pending local change: user clicked button "Move c1 to done" \(#\d+\)/);
+    expect(s.rt.interventions()).toEqual([]);
+  });
+});

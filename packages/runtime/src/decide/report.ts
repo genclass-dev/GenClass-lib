@@ -1,6 +1,8 @@
 // Console reporting (CONTRACT §0.5, §8): one plain-English line per detection and per intervention, built from
 // the decision's facts with generic templates (reporting only, never decisions), followed by a collapsed group
-// with the evidence. Identical repeats within a minute are summarised as "×N in the last minute".
+// with the evidence. Identical repeats within a minute are summarised as "×N in the last minute". A "possible"
+// detection (observe's lower tier, InitOptions.detect) is the same line ending in "(possible)", printed with
+// console.debug only (hidden at Chrome's default console level); its evidence is in explain(id).
 
 import type { ActionRecord, Clock, Decision, Expectation, Explanation, Report, TriggerKind } from "../types.js";
 
@@ -61,8 +63,11 @@ export function detectionLine(d: Decision): string {
     const would = d.candidate && d.candidate !== d.action && d.mass !== undefined ? `${d.candidate} ${p2(d.mass)} for permitted actions` : `${d.action} ${p2(d.confidence)}`;
     why = ` Not acted on (would have done ${would}): ${d.reason}.`;
   }
-  return `[GenClass] Flagged ${noun(d)}: ${topFact(d)}${why} (${d.diagnosis}, ${p2(d.diagnosisConfidence)})`;
+  return `[GenClass] Flagged ${noun(d)}: ${topFact(d)}${why} (${d.diagnosis}, ${p2(d.diagnosisConfidence)})${d.detection === "possible" ? " (possible)" : ""}`;
 }
+
+/** A possible detection's report (printed with console.debug). */
+const possible = (r: Report): boolean => r.kind === "detect" && r.decision?.detection === "possible";
 
 /** A decision that was neither a detection nor an intervention (for explain()). */
 export function decisionLine(d: Decision): string {
@@ -92,7 +97,7 @@ export class Reporter {
   private key(kind: string, d: Decision | undefined, a: ActionRecord | undefined, e?: Expectation): string {
     if (e) return `${kind}|${e.kind}|${e.route}|${e.action.replace(/\d+(\.\d+)?/g, "n")}|${e.signature ?? ""}|${e.field ?? ""}|${e.after ?? ""}|${e.to ?? ""}`;
     const subj = (d?.subject ?? "").replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n");
-    return `${kind}|${a?.action ?? d?.action ?? ""}|${d?.diagnosis ?? ""}|${d?.trigger ?? ""}|${subj}`;
+    return `${kind}|${a?.action ?? d?.action ?? ""}|${d?.diagnosis ?? ""}|${d?.trigger ?? ""}|${subj}${kind === "detect" && d?.detection === "possible" ? "|possible" : ""}`;
   }
 
   /** The collapsed evidence of an expectation report: what was learned, what happened, how to see the flows. */
@@ -128,7 +133,7 @@ export class Reporter {
     if (!s || s.n === 0 || typeof this.sink !== "string" || this.sink !== "console") return;
     const con = (globalThis as { console?: Console }).console;
     const line = `${s.first.message} (×${s.n} more in the last minute)`;
-    (s.first.kind === "intervene" ? con?.warn ?? con?.log : con?.info ?? con?.log)?.call(con, line);
+    (s.first.kind === "intervene" ? con?.warn ?? con?.log : possible(s.first) ? con?.debug ?? con?.log : con?.info ?? con?.log)?.call(con, line);
   }
 
   dispose(): void {
@@ -161,6 +166,7 @@ export class Reporter {
       return;
     }
     if (r.kind === "expectation" && r.expectation) return this.printExpectation(con, r, r.expectation);
+    if (possible(r)) return void (con.debug ?? con.log)?.call(con, line);
     const ev = r.action ? this.explain(r.action.id) : r.decision ? this.explain(r.decision.id) : null;
     if (ev && typeof con.groupCollapsed === "function") {
       con.groupCollapsed(line);

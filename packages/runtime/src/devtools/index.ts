@@ -459,8 +459,9 @@ class Devtools {
       this.seen(d.at);
     }
     for (const a of safe(() => this.rt.interventions(MAX_CARDS), [] as ActionRecord[]).slice().sort((x, y) => x.at - y.at)) this.addAct(a, false);
+    // the tier the runtime recorded with the gates it decided with: the same detections the "detect" event carried
     for (const d of decs) {
-      if (d.diagnosis && d.diagnosis !== "expected" && diagP(d) >= 0.6) this.addDet(d, false);
+      if (d.detection) this.addDet(d, false);
     }
     for (const e of safe(() => this.rt.history(MAX_ROWS), [] as RtEvent[])) this.addEvent(e);
   }
@@ -623,8 +624,13 @@ class Devtools {
 
   private renderCounts(): void {
     const na = this.acts.size;
+    // possible detections (observe's lower tier) are listed as secondary cards, not counted in the badges
     let nd = 0;
-    for (const e of this.dets.values()) nd += e.count;
+    let np = 0;
+    for (const e of this.dets.values()) {
+      if (e.decision?.detection === "possible") np += e.count;
+      else nd += e.count;
+    }
     (this.pcA.lastElementChild as HTMLElement).textContent = String(na);
     (this.pcD.lastElementChild as HTMLElement).textContent = String(nd);
     this.pcA.classList.toggle("on", na > 0);
@@ -633,6 +639,7 @@ class Devtools {
     this.nD.textContent = String(nd);
     this.nA.classList.toggle("on", na > 0);
     this.nD.classList.toggle("on", nd > 0);
+    this.nD.title = np ? `${nd} likely, ${np} possible` : "";
     const s = safe(() => this.rt.status.state, "off");
     this.pill.setAttribute("aria-label", `Open GenClass devtools: ${na} interventions, ${nd} detections, model ${s}`);
     this.pz.hidden = !this.paused;
@@ -742,9 +749,10 @@ class Devtools {
     if (!body) body = topFact(d?.facts) || a?.subject || d?.subject || "";
     const evId = `gc-ev-${e.kind}-${e.id}`;
     const dp = d ? diagP(d) : NaN;
+    const possible = !isAct && d?.detection === "possible";
     const el = h(
       "article",
-      { class: `card ${e.kind}${e.undone ? " undone" : ""}${e.fresh ? " new" : ""}${e.open ? " open" : ""}`, "data-id": e.id, "aria-label": title },
+      { class: `card ${e.kind}${possible ? " possible" : ""}${e.undone ? " undone" : ""}${e.fresh ? " new" : ""}${e.open ? " open" : ""}`, "data-id": e.id, "aria-label": possible ? `Possible: ${title}` : title },
       h("div", { class: "ci" }, icon(isAct ? "shield" : "eye")),
       h(
         "div",
@@ -763,6 +771,7 @@ class Devtools {
           d?.diagnosis
             ? h("span", { class: `chip t-${diagTone(d.diagnosis)}`, title: `Diagnosis, calibrated probability ${dp.toFixed(2)}` }, h("span", { class: "cd" }), h("b", { text: d.diagnosis }), h("span", { class: "p", text: pct(dp) }))
             : null,
+          possible ? h("span", { class: "chip poss", title: "Possible: below the report gate, at or above observe's possible gate (rt.gates().possible)" }, "possible") : null,
           a ? h("span", { class: "chip", title: `Action, ${a.tier} tier` }, h("code", { text: a.action }), h("span", { class: "tier", text: a.tier })) : null,
         ),
         isAct ? this.changedNote(e) : this.wouldNote(d),

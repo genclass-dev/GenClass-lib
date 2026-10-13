@@ -82,7 +82,7 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).
 | `window` (capture, passive) | `click`, `input`, `change`, `submit`, `keydown` (Enter and Escape only), plus `focusin`, `pointerdown`, `mousedown` to find open shadow roots | [src/observe/dom-user.ts](src/observe/dom-user.ts) `installDomUser` | user actions: the target's accessible name, the typed value (empty for password, card, one-time-code and secret-named fields: `isSensitiveField`), the option text | yes (also the per-shadow-root `change`/`submit` listeners) |
 | `window` | `error`, `unhandledrejection` | [src/observe/errors.ts](src/observe/errors.ts) `installErrors` | errors become `error` triggers (message, file name and line) | yes |
 | `window` | `popstate`, `hashchange` | [src/observe/nav.ts](src/observe/nav.ts) `installNav` | navigation (route scopes are recomputed) | yes |
-| `window` / `document` | `pagehide` / `visibilitychange` | [src/runtime.ts](src/runtime.ts) constructor | the session summary for your `sinks` | yes |
+| `window` / `document` | `pagehide` / `visibilitychange` | [src/runtime.ts](src/runtime.ts) constructor | the session summary for your `sinks`; in observe (0.3.0), deciding the situations deferred while the tab was hidden | yes |
 | `window` / `document` | `pagehide` / `visibilitychange` | [src/telemetry/client.ts](src/telemetry/client.ts) `TelemetryClient` | the final telemetry flush (only while telemetry is on) | yes |
 | `window` | `load` (once) | [src/model/host.ts](src/model/host.ts) `scheduleIdle` | start the model download at idle after the page loaded | yes |
 | `document` | `securitypolicyviolation` (while the model loads) | [src/model/host.ts](src/model/host.ts) `watchCsp` | name a CSP-blocked model download in one warning | yes, when loading ends |
@@ -159,7 +159,8 @@ including the time spent waiting for a body, deferred re-decisions and `onBefore
 not ready, slow, erroring or over its rate limit, the subject proceeds unchanged (fail open).
 
 Every term can only lower the mode: `routes` rules, `sample`, the breaker (after 2 undos or 3 errors following actions,
-the session drops to `observe`), a hidden tab (nothing new is held, background decisions are skipped) and
+the session drops to `observe`), a hidden tab (nothing new is held; background decisions are skipped in guard and heal, and deferred until the tab is
+visible in observe, where they can only detect) and
 `?genclass-mode`. Since 0.2.2 no URL or `localStorage` switch can raise it on a production host: `?genclass=guard`
 or `heal` raises only with `debug: true` or on a development host (see [THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md)).
 

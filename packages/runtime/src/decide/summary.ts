@@ -1,5 +1,6 @@
 // Session summary (rt.summary()) and sink dispatch (OPTIONS-SPEC §4.11). Sink records are minimal by default (no
-// situation text, no URLs, no values; only paths in `changed`). Dispatch is queued (a microtask batch, then idle
+// situation text, no URLs, no values; only paths in `changed`). A sink gets "possible" detections only with
+// `possible: true`. Dispatch is queued (a microtask batch, then idle
 // time) and never runs on a decision or hold path; sink errors are swallowed.
 
 import type { Clock, ModelStatus, SessionSummary, Sink, SinkKind, SinkObject, SinkRecord } from "../types.js";
@@ -13,6 +14,7 @@ export class SummaryTracker {
       startedAt: clock.now(),
       durationMs: 0,
       detections: {},
+      possibleDetections: {},
       interventions: {},
       undos: 0,
       lateReverts: 0,
@@ -44,6 +46,7 @@ export class SummaryTracker {
       ...this.s,
       durationMs: this.clock.now() - this.s.startedAt,
       detections: { ...this.s.detections },
+      possibleDetections: { ...this.s.possibleDetections },
       interventions: { ...this.s.interventions },
       denied: { ...this.s.denied },
       shadow: { ...this.s.shadow },
@@ -122,6 +125,8 @@ export class SinkDispatcher {
     for (const r of batch) {
       for (const s of this.sinks) {
         if (s.o.kinds && !s.o.kinds.includes(r.kind)) continue;
+        // possible detections (observe's lower tier) only to sinks that ask for them
+        if (r.detection === "possible" && s.o.possible !== true) continue;
         const idx = s.n++;
         if (!NEVER_DROPPED.has(r.kind) && typeof s.o.sampleRate === "number" && s.o.sampleRate < 1) {
           if (hash32(`${r.sessionId}:${idx}`) / 4294967296 >= Math.max(0, s.o.sampleRate)) continue;

@@ -385,7 +385,12 @@ it is under the rate limit, and the decision arrived within the hold budget (els
 Every model decision produces a `Decision { id, trigger, subject, at, latencyMs, model, diagnosis,
 diagnosisConfidence, diagnosisProbabilities, action, confidence (= probabilities[action]), probabilities,
 executed, reason?, facts }`. A `Detection` (same fields) is emitted when the top diagnosis is not `expected` and
-its probability ≥ `thresholds.report`. An `ActionRecord { id, decisionId, action, tier, trigger, subject, at, ok,
+its probability ≥ `thresholds.report` (a **likely** detection; `Decision.detection: "likely"`). Since 0.3.0, where the
+subject's effective mode is `observe` and the app set no `thresholds.report` (or with `detect: "possible"`), one whose
+probability is below that but ≥ the eager profile's report value from the same model meta is a **possible**
+detection (`Decision.detection: "possible"`): the same `detect` event, report and record with that tier, printed only
+with `console.debug` and "(possible)", and sent to sinks only on request. Both are thresholds on the model's output
+and reporting only; no action gate reads them, so guard and heal act exactly as before. An `ActionRecord { id, decisionId, action, tier, trigger, subject, at, ok,
 error?, changed: string /* exactly what GenClass altered, in one sentence */, undo?: () => void }` is emitted for
 every non-passive action that ran. Decisions are kept in a ring buffer (200).
 
@@ -441,7 +446,11 @@ bit-for-bit compatible with the PyTorch packer (parity fixtures exist in the Gen
 - CLI `npx genclass-runtime fetch-model <dir> [--from <url>]` downloads a model directory (Node fetch, follows
   redirects) so apps can self-host (`model: { baseUrl: "/genclass-model/" }`).
 - Preload modes (`eager` | `idle` via `requestIdleCallback` with a timeout fallback | `lazy` on the first
-  `evaluate`/`ready`); a decision requested while the model is still loading fails open immediately (passive).
+  `evaluate`/`ready`); a decision requested while the model is still loading fails open immediately (passive). In
+  observe (0.3.0), where nothing is held, a salient situation raised while the model loads or reloads, or while the tab
+  is hidden, is built at its trigger and decided once the model is ready and the tab visible (at most 32 wait,
+  oldest first; a dropped one counts as fail-open `not-ready`); such a decision only detects and never acts
+  (OPTIONS-SPEC §5.3).
 - Size target for the runtime model: ≤ 25 MB q8 (lead prunes the vocabulary and quantises embeddings at export;
   the tokenizer/packer must work with a pruned `tokenizer.json`, i.e. no hardcoded vocab size or marker ids:
   read them from the files).

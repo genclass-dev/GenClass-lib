@@ -136,7 +136,8 @@ model; beyond it decisions fail open: [decide/decider.ts](../../packages/runtime
 bounded (32) and stale items are dropped; each evaluation times out (10 s, `model.timeoutMs`); while the model is not
 answering, nothing is held (`expectedLatency` is infinite). A hold never exceeds the hold budget (at most 800 ms with
 "auto"; `test/invariants/*` "the hold budget caps"), and only guard and heal hold at all. Hidden tabs skip
-background evaluations. Inference runs off the main thread. React discovery stops after 1 ms per commit. The model
+background evaluations in guard and heal; in observe (0.3.0) at most 32 situations raised while the tab is hidden
+(or the model loads) wait, and are decided within the same per-minute budget once the tab is visible. Inference runs off the main thread. React discovery stops after 1 ms per commit. The model
 is not loaded on devices reporting 2 GB or less nor on Save-Data connections (`model.loadIf` default), can be skipped or unloaded when idle
 (`model.unloadAfterIdleMs`).
 

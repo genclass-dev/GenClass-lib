@@ -1,6 +1,7 @@
 // Telemetry transport: the page's fetch and navigator.sendBeacon as they were when this module loaded, so GenClass
 // never observes (or holds, or decides about) its own diagnostics, exactly like the model host's downloads
-// (index.ts -> NATIVE_FETCH). Never throws; failures are reported to the caller as a rejected promise only.
+// (index.ts -> NATIVE_FETCH). Never throws; failures are reported to the caller as a rejected promise only, with the
+// HTTP status (and a readable Retry-After) on the error.
 
 import type { TelemetryTransport } from "../types.js";
 
@@ -20,6 +21,15 @@ const NATIVE_BEACON: ((url: string, data?: BodyInit | null) => boolean) | undefi
 /** Whether this environment can send at all (fetch or sendBeacon captured at module load). */
 export function nativeTransportAvailable(): boolean {
   return !!NATIVE_FETCH || !!NATIVE_BEACON;
+}
+
+/**
+ * A Retry-After header's delay-seconds in ms (undefined for none or an HTTP date, which would need the wall clock;
+ * a 429 without a usable value backs off by the client's own schedule).
+ */
+export function retryAfterMs(v: string | null | undefined): number | undefined {
+  if (typeof v !== "string" || !/^\s*\d{1,6}\s*$/.test(v)) return undefined;
+  return Number(v.trim()) * 1000;
 }
 
 /**
@@ -45,7 +55,13 @@ export const nativeTransport: TelemetryTransport = {
         referrerPolicy: "no-referrer",
         cache: "no-store",
       }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (r.ok) return;
+        // the status, and a Retry-After the collector exposes, decide back-off (429) vs failure (client.ts backoffOf)
+        const e = new Error(`HTTP ${r.status}`) as Error & { status?: number; retryAfterMs?: number };
+        e.status = r.status;
+        const ra = retryAfterMs(r.headers?.get?.("retry-after"));
+        if (ra !== undefined) e.retryAfterMs = ra;
+        throw e;
       });
     } catch (e) {
       return Promise.reject(e);

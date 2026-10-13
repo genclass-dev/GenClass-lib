@@ -33,6 +33,11 @@ export interface AdapterOptions {
    * sends the structured fields only (kind, diagnosis, p, action, route, ...).
    */
   evidence?: boolean;
+  /**
+   * Also forward "possible" detections (observe's lower tier, `SinkRecord.detection` "possible"; InitOptions.detect).
+   * Default false: likely detections only.
+   */
+  possible?: boolean;
   /** Where the SDK global is looked up (default `globalThis`). */
   global?: object;
 }

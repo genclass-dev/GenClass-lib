@@ -438,6 +438,21 @@ These hold for the runtime; whether the model's decisions are good is a separate
 | `guard` (opt-in) | Also prevents failures with minimal, reversible guard-tier actions: `discard`, `defer`, `coalesce`, `delay` (drop a stale response, reuse a duplicate's result, back off). Only when the model's gate says acting beats doing nothing (with model 0.2.0 at `balanced`: about 90% sure). | guard tier |
 | `heal` (**experimental**) | Also recovers: `retry`, `serve_cached`, `block`, `hedge`, `rollback`, `resync`, plus your own actions. | guard + heal tier |
 
+**Detections in observe (`0.3.0`).** A detection is *likely* when the model's top diagnosis is not `expected` and
+its probability reaches the report gate (0.90 at `balanced` with model 0.2.0), and is printed as one console line
+with its evidence, as before. In observe GenClass also reports *possible* detections: at least the `eager`
+profile's report value (0.70) but below the report gate. They print with `console.debug` only, ending in
+`(possible)` (Chrome hides them unless the console level includes "Verbose"), show as dimmed cards in the devtools,
+and are counted on their own (`summary().possibleDetections`, telemetry); sinks get them only with
+`possible: true`. `detect: "likely"` turns them off; `detect: "possible"` turns them on in guard and heal too (reporting
+only: what guard and heal do is unchanged). Setting `policy.thresholds.report` turns them off unless `detect` asks.
+Measured effect and false-detection bounds:
+[RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md).
+
+Observe no longer goes blind while the model loads or the tab is hidden (`0.3.0`): situations raised then are built
+at once and decided when the model is ready and the tab visible (at most 32 wait). In guard and heal, nothing waits:
+they fail open, as before.
+
 ## How eager should it be?
 
 Once you opt into `guard` or `heal`, GenClass only acts when the model is confident enough. You choose how confident:
@@ -451,7 +466,8 @@ GenClass.runtime.setAggressiveness("eager");   // change it later (the devtools 
 somewhat higher risk of acting when it did not need to. A number in between interpolates (0 = cautious,
 0.5 = balanced, 1 = eager). Try a level without redeploying with `?genclass-aggr=eager` in the URL. The model ships
 tuned thresholds for each level; explicit `policy.thresholds` still override them. `runtime.gates()` shows what is
-in force.
+in force. In observe, aggressiveness only moves the report gate (what counts as a likely detection); the possible
+tier below it stays at the `eager` value (see [Modes](#modes)).
 
 ## Connect your state (optional)
 
@@ -635,7 +651,8 @@ Standing questions ride along with built-in decisions: `rt.question({ id, on: ["
 ## Observability
 
 - **Console:** one line per detection and per intervention, with the evidence collapsed below it. Identical repeats
-  within a minute are summarised. `report: "silent"` or `report: (r) => …` to route them yourself.
+  within a minute are summarised. `report: "silent"` or `report: (r) => …` to route them yourself. Possible
+  detections (observe, `0.3.0`) are one `console.debug` line each, ending in `(possible)`.
 - **Events:** `rt.on("detect" | "decide" | "act" | "event" | "status" | "report", fn)` returns an unsubscribe function.
 - **`rt.explain(id)`:** the exact situation text the model read, its facts and timeline, every answer with
   probabilities, and what changed.
@@ -898,7 +915,10 @@ have not been re-measured for 0.2.0:
 What this means in practice:
 
 - **Observe (default).** Expect roughly 1 to 4 false flags per 100 decisions where nothing was wrong (model 0.1.0;
-  `cautious` raises the report threshold to 0.95, `eager` lowers it to 0.70).
+  `cautious` raises the report threshold to 0.95, `eager` lowers it to 0.70). `0.3.0` adds *possible* detections at
+  the `eager` value (0.70) in observe, on `console.debug` only: the 0.2.0 fit bounds their false-detection rate on
+  held-out test at ≤ 5% (real apps) / ≤ 6% (simulated), against ≤ 2% / ≤ 3% for the likely ones at `balanced`
+  ([RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)).
   - In one held-out real app, `oss-rtk-conduit`, the model flagged 25% of clean decisions as `stale`, all on its
     `article.inProgress` field. A single recurring pattern in your app can do the same.
   - Each flag names its evidence, and identical lines within a minute are summarised.

@@ -156,6 +156,9 @@ color:var(--fg2);background:var(--bg3);white-space:nowrap}
 .done{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;font-size:12px;font-weight:500;color:var(--ok)}
 .done .i{width:14px;height:14px}
 .err{font-size:12px;color:var(--bad);padding:0 8px}
+.card.possible{border-style:dashed;opacity:.72}
+.card.possible .ci{color:var(--fg3)}
+.chip.poss{color:var(--fg3);border-style:dashed}
 .card.undone .ci{color:var(--fg3);background:var(--bg3)}
 .card.undone .ct{color:var(--fg2)}
 

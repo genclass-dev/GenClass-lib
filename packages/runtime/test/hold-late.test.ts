@@ -222,3 +222,70 @@ describe("DeciderQueue: superseded items run behind fresh ones, never dropped fo
     expect(log).toEqual(["a"]);
   });
 });
+
+describe("DeciderQueue in observe (nothing can be held): superseded items computed, priorities age (CONTRACT §8)", () => {
+  const req = (trigger: string, priority = 1): EvaluateRequest => ({ trigger, state: { trigger }, questions: {}, priority });
+  /** A WASM-class provider: 600 ms per decision. */
+  const slowProvider = (log: string[], clock: FakeClock) => ({
+    status: { state: "ready" as const, model: "p" },
+    ready: () => Promise.resolve(),
+    evaluate: (r: EvaluateRequest) =>
+      new Promise<Record<string, Answer>>((resolve) => {
+        log.push(r.trigger);
+        clock.setTimeout(() => resolve({}), 600);
+      }),
+  });
+
+  it("a superseded item is computed on a slow provider when no item can be held", async () => {
+    const clock = new FakeClock();
+    const log: string[] = [];
+    const q = new DeciderQueue(clock, () => slowProvider(log, clock));
+    q.holds = () => false;
+    const a = q.submit(req("a"), clock.now() + 5000); // measures the 600 ms
+    await clock.advance(700);
+    expect(await a).not.toBeNull();
+    const b = q.submit(req("b"), clock.now() + 5000, () => true);
+    const c = q.submit(req("c"), clock.now() + 5000);
+    await clock.advance(1300);
+    expect(log).toEqual(["a", "c", "b"]); // fresh first, then the superseded one, computed
+    expect(await b).not.toBeNull();
+    expect(await c).not.toBeNull();
+  });
+
+  it("an error (priority 0) that waited AGING_MS goes before later writes (priority 1); held queues keep strict priority", async () => {
+    const order = async (holds: boolean) => {
+      const clock = new FakeClock();
+      const log: string[] = [];
+      const q = new DeciderQueue(clock, () => slowProvider(log, clock));
+      q.holds = () => holds;
+      void q.submit(req("x"), clock.now() + 9000); // computing for 600 ms
+      void q.submit(req("error", 0), clock.now() + 9000);
+      for (const w of ["w1", "w2", "w3"]) void q.submit(req(w), clock.now() + 9000);
+      await clock.advance(4000);
+      return log;
+    };
+    // observe: at 600 ms the error has waited 600 ms (still 0) and w1 goes; at 1,200 ms it has aged to 1, and is older
+    expect(await order(false)).toEqual(["x", "w1", "error", "w2", "w3"]);
+    expect(await order(true)).toEqual(["x", "w1", "w2", "w3", "error"]);
+  });
+});
+
+describe("observe computes overwritten writes on a slow device; guard still skips them (CONTRACT §8)", () => {
+  const run = async (mode: "guard" | undefined) => {
+    const s = setup({ mode, triage: "always" });
+    slow(s, () => 400);
+    const a = s.rt.atom("a", 0);
+    const b = s.rt.atom("b", 0);
+    void s.rt.op("w0", () => b.set(1)); // measures 400 ms (over SUPERSEDED_MAX_MS)
+    await s.clock.advance(500);
+    void s.rt.op("wb", () => b.set(2)); // computing
+    void s.rt.op("w1", () => a.set(1)); // queued
+    void s.rt.op("w2", () => a.set(2)); // overwrites w1's field: w1 is superseded
+    await s.clock.advance(2000);
+    return s.rt.decisions().length;
+  };
+  it("all four writes are decided in observe, three in guard", async () => {
+    expect(await run(undefined)).toBe(4);
+    expect(await run("guard")).toBe(3);
+  });
+});

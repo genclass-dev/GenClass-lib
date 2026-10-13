@@ -1,7 +1,8 @@
 // Anonymous diagnostics (InitOptions.telemetry, TELEMETRY.md): defaults, opt-outs, batching, page exit, event
 // shapes, the redacted situation text, transport failures, and that GenClass never observes its own requests.
 
-import { MAX_FAIL_STREAK, decisionDraw } from "../src/telemetry/client.js";
+import { BACKOFF_MS, MAX_FAIL_STREAK, backoffOf, decisionDraw } from "../src/telemetry/client.js";
+import { retryAfterMs } from "../src/telemetry/transport.js";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenClass, createRuntime, DEFAULT_TELEMETRY_ENDPOINT, RUNTIME_VERSION, TELEMETRY_NOTICE } from "../src/index.js";
@@ -612,6 +613,122 @@ describe("telemetry: GenClass never observes its own requests", () => {
     expect(rt.history().filter((e) => e.kind === "op.start").map((e) => e.name)).toEqual([expect.stringContaining("/api/items")]);
     rt.destroy();
     vi.restoreAllMocks();
+  });
+});
+
+describe("telemetry: a 429 or a Retry-After is a back-off, not a failure (TELEMETRY.md, Transport)", () => {
+  it("429 and Retry-After back off; network errors and 5xx without a Retry-After are failures", () => {
+    expect(backoffOf(Object.assign(new Error("HTTP 429"), { status: 429 }))).toBeUndefined();
+    expect(backoffOf({ status: 429, retryAfterMs: 5000 })).toBe(5000);
+    expect(backoffOf({ status: 503, retryAfterMs: 2000 })).toBe(2000);
+    expect(backoffOf(Object.assign(new Error("HTTP 500"), { status: 500 }))).toBeNull();
+    expect(backoffOf(new Error("HTTP 500"))).toBeNull();
+    expect(backoffOf(new TypeError("Failed to fetch"))).toBeNull();
+    expect(backoffOf(undefined)).toBeNull();
+    expect(retryAfterMs("120")).toBe(120_000);
+    expect(retryAfterMs(" 3 ")).toBe(3000);
+    expect(retryAfterMs("Wed, 21 Oct 2015 07:28:00 GMT")).toBeUndefined(); // a date would need the wall clock
+    expect(retryAfterMs(null)).toBeUndefined();
+  });
+
+  it("the default transport puts the status and a readable Retry-After on the error", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("{}", { status: 429, headers: { "retry-after": "7" } }))));
+    const t = await import("../src/telemetry/transport.js");
+    await expect(t.nativeTransport.send("https://collector.test/v1/events", "{}", { beacon: false })).rejects.toMatchObject({ status: 429, retryAfterMs: 7000 });
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("{}", { status: 500 }))));
+    const t2 = await import("../src/telemetry/transport.js");
+    const e = (await t2.nativeTransport.send("https://collector.test/v1/events", "{}", { beacon: false }).then(
+      () => null,
+      (x: unknown) => x,
+    )) as { status?: number; retryAfterMs?: number };
+    expect(e).toMatchObject({ status: 500 });
+    expect(e.retryAfterMs).toBeUndefined();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("429s in a row never stop the page: nothing is sent during the back-off, and the refused batch goes once accepted", async () => {
+    let refuse = true;
+    const sent: { events: Record<string, unknown>[] }[] = [];
+    const accepted: { events: Record<string, unknown>[] }[] = [];
+    const transport: TelemetryTransport = {
+      send(_u, body) {
+        const b = JSON.parse(body) as { events: Record<string, unknown>[] };
+        sent.push(b);
+        if (refuse) return Promise.reject(Object.assign(new Error("HTTP 429"), { status: 429 }));
+        accepted.push(b);
+        return Promise.resolve();
+      },
+    };
+    const s = setup({ triage: "always", telemetry: { transport, decisionSample: 1 }, extraGlobal: { crypto: globalThis.crypto } });
+    const a = s.rt.atom("a", 1);
+    void s.rt.op("w", () => a.set(2));
+    await s.clock.flush();
+    await s.rt.telemetry!.flush();
+    expect(sent).toHaveLength(1);
+    await s.rt.telemetry!.flush(); // during the back-off: nothing
+    expect(sent).toHaveLength(1);
+    // BACKOFF_MS, doubling: four more 429s (more than MAX_FAIL_STREAK in a row)
+    await s.clock.advance(BACKOFF_MS * (1 + 2 + 4 + 8) + 1000);
+    expect(sent).toHaveLength(5);
+    expect(sent.length).toBeGreaterThan(MAX_FAIL_STREAK);
+    refuse = false;
+    await s.clock.advance(300_000 + 1000);
+    expect(accepted.length).toBeGreaterThanOrEqual(1);
+    const evs = accepted.flatMap((b) => b.events);
+    expect(evs[0]).toMatchObject({ t: "session", seq: 0 }); // the refused batch, in order
+    expect(evs.filter((e) => e.t === "decision")).toHaveLength(1);
+    // and the page keeps sending
+    void s.rt.op("w2", () => a.set(3));
+    await s.clock.flush();
+    await s.rt.telemetry!.flush();
+    expect(accepted.flatMap((b) => b.events).filter((e) => e.t === "decision")).toHaveLength(2);
+    s.rt.destroy();
+  });
+
+  it("a Retry-After is honoured (also on a 5xx) and is not a strike; 5xx without one still stop the page after three", async () => {
+    let mode: "retry" | "fail" | "ok" = "retry";
+    const sent: number[] = [];
+    const clockRef: { now?: () => number } = {};
+    const transport: TelemetryTransport = {
+      send() {
+        sent.push(clockRef.now!());
+        if (mode === "retry") return Promise.reject({ status: 503, retryAfterMs: 5000 });
+        if (mode === "fail") return Promise.reject(Object.assign(new Error("HTTP 503"), { status: 503 }));
+        return Promise.resolve();
+      },
+    };
+    const s = setup({ triage: "always", telemetry: { transport, flushMs: 1000, decisionSample: 1 }, extraGlobal: { crypto: globalThis.crypto } });
+    clockRef.now = () => s.clock.now();
+    const a = s.rt.atom("a", 1);
+    const step = async (i: number) => {
+      void s.rt.op(`w${i}`, () => a.set(i + 2));
+      await s.clock.flush();
+    };
+    await step(0);
+    await s.rt.telemetry!.flush();
+    expect(sent).toHaveLength(1);
+    await s.clock.advance(4000);
+    expect(sent).toHaveLength(1); // not before the Retry-After
+    await s.clock.advance(1500);
+    expect(sent).toHaveLength(2);
+    expect(sent[1] - sent[0]).toBe(5000);
+    mode = "fail";
+    await s.clock.advance(5500);
+    expect(sent).toHaveLength(3); // failure 1: the back-offs before it did not count
+    for (const i of [1, 2]) {
+      await step(i);
+      await s.rt.telemetry!.flush();
+    }
+    expect(sent).toHaveLength(5); // failures 2 and 3: the page stops
+    mode = "ok";
+    await step(3);
+    await s.clock.advance(60_000);
+    await s.rt.telemetry!.flush();
+    expect(sent).toHaveLength(5);
+    s.rt.destroy();
   });
 });
 

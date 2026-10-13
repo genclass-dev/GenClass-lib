@@ -21,6 +21,62 @@ text is still `situation-v2.3` and the default model is still `@genclass/runtime
   install nothing is stored; transition profiles are stored only with `learn.persist`, as before.
 - New and opt-in: sink adapters (`@genclass/runtime/sinks/*`, `init --sink`), flow expectations
   (`learn: { expectations: true }`), `protect()` and `scope: "functions"`.
+- **Observe reports more** (below): "possible" detections on `console.debug`, and situations from while the model
+  loads or the tab is hidden, decided once it can. `detect: "likely"` restores 0.2.x's reports; guard and heal act
+  exactly as before.
+
+### Observe-mode detection: a "possible" tier, and no blind windows
+
+No model-visible text changed (`git diff` of `src/situation` is empty) and no rule maps a fact to a diagnosis: the
+tiers are thresholds on the model's own output, the rest is when a situation is decided.
+
+- **Two detection tiers** (`InitOptions.detect`, `Decision.detection`). *Likely*: the top diagnosis is not `expected`
+  and its probability reaches the report gate (`gates().report`: the aggressiveness profile's value from the model
+  meta, 0.90 at balanced with model 0.2.0), as before. *Possible* (new): at least the eager profile's report value from
+  the same meta (`gates().possible`, 0.70) and below the report gate. On by default only where the effective mode is
+  observe and the app set no `policy.thresholds.report`; `detect: "likely"` turns it off, `detect: "possible"` on in
+  guard and heal too (reporting only: no action gate reads either tier). A likely detection prints exactly as before.
+  A possible one prints the same line plus ` (possible)` with `console.debug` only (hidden at Chrome's default console
+  level; repeats fold per tier), reaches `rt.on("detect")` and reports with `detection: "possible"`, shows as a
+  dimmed devtools card left out of the badge counts, is counted in `summary().possibleDetections` (`detections` keeps
+  the likely ones), and goes to sinks only with `possible: true` (`SinkRecord.detection`; the adapters take `possible`
+  too; plain function sinks and sinks by name never get them). Telemetry: the same `detect` event with
+  `tier: "possible"` (absent on likely ones; the tier follows from `p` and the `gates.report` already sent), and
+  `summary.counts.possibleDetections`; nothing new about the page. Expected effect, from measurements already made
+  for the 0.2.0 profiles (eager vs balanced on held-out real apps: stale 30 → 45%, broken 6 → 13%, duplicate 75 → 77%;
+  false-detection bounds checked on held-out test: ≤ 5% real / 6% sim vs ≤ 2% / 3%), and what is not measured end to
+  end: docs/runtime/RESULTS.md §11.
+- **`explain()` and the devtools use the same gate as the "detect" event.** Both read the tier recorded with the
+  decision; the devtools backfill (a panel opened after the fact) used a fixed 0.6 before, so it listed decisions
+  that were never reported (0.6 to 0.9 at balanced) and missed reported ones under a report gate below 0.6.
+- **Situations raised while the model loads are decided once it is ready** (observe only). Until now everything in the
+  first seconds of every page view (the idle preload, then about 4 s of loading in production) was dropped before
+  triage, uncounted. Now a salient situation is built at its trigger (the same text it would have had) and kept, at
+  most 32 (the oldest dropped, counted as failOpen `not-ready`), then decided in order as a background decision with
+  a detection-only deadline (30 s from its submission). A lazy model starts loading at the first one. A deferred
+  decision never acts: it is gated as observe whatever the mode is by then, and dropped (counted) if its subject is no
+  longer in observe. Guard and heal do not defer (a background decision there can still late-revert); while the model
+  loads their salient situations now fail open as `not-ready` (counted; before, dropped before triage, uncounted).
+- **Hidden tabs (observe only):** salient situations raised while the tab is hidden are built at once and decided when
+  it is visible again, in order (the same queue of 32; a dropped one counts in `summary.model.hiddenSkipped`). Before,
+  observe skipped them like guard and heal still do (OPTIONS-SPEC §5.1).
+- **Fix: with `model.unloadAfterIdleMs`, detection stopped for good after the first idle unload.** The "unloaded"
+  state was not consultable, so nothing ever asked for the model again. Now the next salient situation reloads it
+  (OPTIONS-SPEC §4.18): in observe that situation is decided once the model is back, in guard and heal it fails open
+  and the next one is decided. The reloaded model is idle-unloaded again later.
+- **Fix: a response body slower than 100 ms hid pending-change and typed-text overwrites in observe.** A delivery
+  whose only conflicts were a pending local change or text the user typed was settled as not salient when its body
+  wait ran out, which covered its writes: neither the delivery nor the write was decided. Now, where those writes
+  cannot act (observe), the delivery stays salient and undecided, as when the app writes before the body, so its
+  writes get their own decisions. Guard and heal still decide such a delivery without its body.
+- **Observe computes overwritten writes on slow devices.** The queue skipped a superseded decision (the write was
+  overwritten before the model got to it) whenever decisions took over 300 ms, which is most single-thread WASM
+  devices, to keep a fresh held item from waiting behind it. Nothing is held in observe, so there it is computed now;
+  guard and heal keep the skip.
+- **Priority aging in observe:** a queued decision gains one priority level per second it waits, up to the background
+  level, so error and transition decisions (priority 0) go before newer writes instead of waiting out their deadline
+  in a burst. Still 30 model evaluations a minute (`model.maxDecisionsPerMinute`); the provider timeout (10 s) also
+  bounds the longer deadline of deferred situations.
 
 ### App tokens, dashboards and function-specific protection with `protect()`
 
@@ -87,6 +143,13 @@ sends.
   decision a detection, 2,067.1 KB in 361 requests, the same as with every record (TELEMETRY.md, "Volume";
   docs/runtime/RESULTS.md §10).
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
+- **A 429 is a back-off, not a failure.** 0.2.2 stopped a page's telemetry after 3 failed requests in a row, and an
+  HTTP 429 from the collector's per-address limit counted as one, so pages behind a busy shared IP could go silent for
+  good. Now a 429, or any response with a `Retry-After` the page can read, puts the refused batch back at the front
+  of the queue and pauses sending for the `Retry-After` (seconds), else 30 s doubling per 429 in a row up to 5 minutes
+  (page exit still sends by `sendBeacon`); it is not a strike. Network errors and 5xx without a `Retry-After` still
+  count toward the stop. The default transport puts the HTTP `status` and a readable `retryAfterMs` on its error; a
+  custom transport can do the same (`TelemetryTransport`).
 - **A page the device floor skips still reports why.** Its `session` event says `modelState: "skipped"`, and a
   `model` event with the reason (`device-memory`, `save-data`, `loadIf`) follows it; before, the reason was only in
   the console line, because the model never changed state after telemetry started.
