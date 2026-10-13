@@ -34,6 +34,7 @@ export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
 
 export const USAGE = `Usage:
   genclass-runtime init   [--mode observe|guard|heal] [--no-telemetry | --telemetry] [--model-url <url>]
+                          [--sink sentry|posthog|datadog|console-json|webhook:<url>]
                           [--yes] [--dry-run] [--no-install] [--no-devtools] [--cwd <dir>]
   genclass-runtime remove [--yes] [--dry-run] [--keep-package] [--cwd <dir>]
 
@@ -50,6 +51,13 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --telemetry      keep them on, written explicitly (on an existing setup: undoes --no-telemetry)
   --model-url <u>  use a self-hosted model directory (made with \`fetch-model\`), e.g. /genclass-model/,
                    with ONNX Runtime from <u>ort/ (for a Content-Security-Policy without cdn.jsdelivr.net)
+  --sink <name>    send every detection and intervention to a tool you already open, with no code and no
+                   new dependency: sentry (Sentry.captureMessage), posthog (posthog.capture), datadog
+                   (DD_RUM.addError / addAction), console-json (one JSON line per record), webhook:<url>
+                   (batched POSTs of the records to your own endpoint). Repeat the flag or separate names
+                   with commas. Written as sinks: [...] in the option file, data-sink on a script tag,
+                   sink= in the Astro meta line (the adapter loads on demand; README "See it where you
+                   already look")
   --yes, -y        apply without asking
   --dry-run        show what would change; write nothing
   --no-install     do not run the package manager
@@ -77,6 +85,8 @@ const BOOL = {
   h: "help",
 };
 const VALUE = { mode: "mode", from: "from", cdn: "cdn", cwd: "cwd", strategy: "strategy", "model-url": "modelUrl" };
+/** A --sink value: a name, or webhook:<url> (src/cdn/sinks.ts parses the same). */
+const SINK_RE = /^(?:sentry|posthog|datadog|console-json|webhook[:=]\S+)$/;
 
 function parse(argv) {
   const o = {};
@@ -87,6 +97,16 @@ function parse(argv) {
     const key = (eq > 0 ? a.slice(0, eq) : a).replace(/^--?/, "");
     if (BOOL[key]) {
       o[BOOL[key]] = true;
+      continue;
+    }
+    if (key === "sink") {
+      // repeatable, and "sentry,posthog" (a webhook URL holds no comma)
+      const v = eq > 0 ? a.slice(eq + 1) : argv[++i];
+      if (v === undefined || v.startsWith("--")) throw new UsageError(`--sink needs a value`);
+      for (const s of v.split(",").map((x) => x.trim()).filter(Boolean)) {
+        if (!SINK_RE.test(s)) throw new UsageError(`--sink ${s}: the sinks are sentry, posthog, datadog, console-json and webhook:<url>`);
+        if (!(o.sinks ??= []).includes(s)) o.sinks.push(s);
+      }
       continue;
     }
     if (VALUE[key]) {
@@ -298,7 +318,7 @@ function printRecommendations(recs) {
 
 // ----------------------------------------------------------------------------------------- options
 
-/** The options init writes: { telemetry?, model? } (empty: none). */
+/** The options init writes: { telemetry?, model?, sinks? } (empty: none). */
 export function configOf(o) {
   const c = {};
   if (o.noTelemetry) c.telemetry = false;
@@ -307,8 +327,58 @@ export function configOf(o) {
     const u = o.modelUrl.endsWith("/") ? o.modelUrl : `${o.modelUrl}/`;
     c.model = { baseUrl: u, ortWasmPaths: `${u}ort/` };
   }
+  if (o.sinks?.length) c.sinks = [...o.sinks];
   return c;
 }
+
+const README_URL = `${REPO}/packages/runtime/README.md`;
+/** What each sink does, for the notices. */
+const SINK_WHAT = {
+  sentry: "Sentry.captureMessage per record, grouped per bug",
+  posthog: "posthog.capture(\"genclass_<kind>\")",
+  datadog: "DD_RUM.addError (detections, interventions) / addAction",
+  "console-json": "one JSON line per record on the console",
+  webhook: "batched POSTs of the records to your endpoint (route, diagnosis, action, evidence text; no page text)",
+};
+const sinkName = (s) => String(s).split(/[:=]/)[0];
+
+/** Where findings go besides the console: the sinks init writes. */
+function sinksNotice(cfg, where) {
+  if (!cfg.sinks?.length) return;
+  row("Findings", `${c.bold(cfg.sinks.join(", "))} ${c.gray(`(--sink${where ? `, written to ${where}` : ""})`)}`);
+  out(`             Every detection, intervention, undo and breaker trip goes there as well as to the console:`);
+  for (const s of cfg.sinks) out(`             ${sym.dot} ${s}: ${SINK_WHAT[sinkName(s)] ?? ""}`);
+  out(`             The adapter loads on demand and uses the SDK already on the page; no dependency is added.`);
+}
+
+/** Monitoring SDKs the project depends on, each with the sink that forwards to it. */
+const MONITORING = [
+  [/^@sentry\//, "sentry"],
+  [/^posthog-js$/, "posthog"],
+  [/^@datadog\/browser-rum(?:-slim)?$/, "datadog"],
+];
+export function monitoringSdks(project) {
+  const found = [];
+  for (const dep of Object.keys(project?.deps ?? {})) for (const [re, sink] of MONITORING) if (re.test(dep) && !found.some((f) => f.sink === sink)) found.push({ sink, dep });
+  return found;
+}
+
+/** The project uses Sentry / PostHog / Datadog and nothing points GenClass there: suggest --sink (nothing is applied). */
+function printSinkAdvice(project, cfg, alreadySet) {
+  if (alreadySet) return;
+  const have = new Set((cfg.sinks ?? []).map(sinkName));
+  const missing = monitoringSdks(project).filter((f) => !have.has(f.sink));
+  if (!missing.length) return;
+  out(`  ${c.bold("Findings")} ${c.gray(`(found ${missing.map((f) => f.dep).join(", ")}; not applied)`)}`);
+  out(`    In production GenClass's detections print to your users' browser console, not yours. Send them to`);
+  out(`    ${missing.map((f) => f.dep).join(" and ")} as well, with no code and no new dependency:`);
+  out(`        ${c.cyan(`${CMD} init --sink ${missing.map((f) => f.sink).join(",")}`)}`);
+  out(`    (or sinks: [${missing.map((f) => JSON.stringify(f.sink)).join(", ")}] in window.GENCLASS_CONFIG; ${README_URL}#see-it-where-you-already-look)`);
+  out();
+}
+
+/** True when the files init wrote already name a sink. */
+const currentSinks = (files) => files.some((f) => /\bsinks\s*:\s*\[|data-sink=|\bsink=/.test(readText(f) ?? ""));
 
 /** Telemetry disclosure: it is on by default, what it sends, how to turn it off, where the policy is. */
 function telemetryNotice(cfg, where) {
@@ -443,8 +513,9 @@ async function switchModes(o, project, changes, install, spec, cwd, what) {
   return 0;
 }
 
-/** "telemetry off, model /genclass-model/" */
-const describeConfig = (cfg) => [cfg.telemetry === false ? "telemetry off" : cfg.telemetry ? "telemetry on" : null, cfg.model ? `model ${cfg.model.baseUrl}` : null].filter(Boolean).join(", ");
+/** "telemetry off, model /genclass-model/, sinks sentry" */
+const describeConfig = (cfg) =>
+  [cfg.telemetry === false ? "telemetry off" : cfg.telemetry ? "telemetry on" : null, cfg.model ? `model ${cfg.model.baseUrl}` : null, cfg.sinks?.length ? `sinks ${cfg.sinks.join(", ")}` : null].filter(Boolean).join(", ");
 
 /** Telemetry as the marked files set it (an existing setup): false when init wrote the opt-out. */
 function currentConfig(files) {
@@ -525,8 +596,10 @@ async function init(o) {
     const optionsChanged = switches.some((ch) => !o.mode || ch.kind === "create" || switchMode(ch.before, o.mode) !== ch.after);
     out();
     telemetryNotice(isEmptyConfig(cfg) ? currentConfig(marked) : { ...currentConfig(marked), ...cfg }, null);
+    sinksNotice(cfg, null);
     cspAdvice(project, files, cfg);
     out();
+    printSinkAdvice(project, cfg, currentSinks(marked));
     if (switches.length) return switchModes(o, project, switches, install, spec, cwd, { mode: !!o.mode && switches.some((ch) => switchMode(ch.before, o.mode) !== ch.before), options: optionsChanged && !isEmptyConfig(cfg) ? describeConfig(cfg) : null });
     if (!install) {
       out(`  ${c.green("Nothing to do.")}${marked.length ? ` To take it out: ${c.cyan(`${CMD} remove`)}` : ""}`);
@@ -557,8 +630,9 @@ async function init(o) {
   }
   row("Entry", posix(relative(cwd, plan.entry)));
   row("Mode", `${o.mode ?? "observe"}${o.mode ? "" : c.gray(" (default: reports only, never changes anything; --mode guard lets it act)")}`);
-  const cfgAt = plan.changes.find((ch) => /genclass\.config\.[cm]?[jt]s$/.test(ch.file))?.rel ?? (cfg.telemetry === false ? plan.changes[0]?.rel : null);
+  const cfgAt = plan.changes.find((ch) => /genclass\.config\.[cm]?[jt]s$/.test(ch.file))?.rel ?? (cfg.telemetry === false || cfg.sinks?.length ? plan.changes[0]?.rel : null);
   telemetryNotice(cfg, cfgAt);
+  sinksNotice(cfg, cfgAt);
   cspAdvice(project, files, cfg);
   out();
   out(`  ${c.bold("Changes")}`);
@@ -574,6 +648,7 @@ async function init(o) {
   if (o.dryRun) {
     printRecommendations(recs);
     printMoneyAdvice(money, cfgAt);
+    printSinkAdvice(project, cfg, false);
     out(`  ${c.gray("Dry run: nothing was written.")}`);
     out();
     return 0;
@@ -607,12 +682,14 @@ async function init(o) {
   if (project.framework === "html") out(`    ${sym.dot} Open your page. GenClass starts before your other scripts.`);
   else if (script) out(`    ${sym.dot} Run ${c.cyan(runCmd(project.pm, script))} and open the app.`);
   out(`    ${sym.dot} Detections and actions appear in the browser console as ${c.cyan("[GenClass] ...")} lines.`);
+  if (cfg.sinks?.length) out(`    ${sym.dot} They also reach ${c.cyan(cfg.sinks.join(", "))}: ${cfg.sinks.map((s) => SINK_WHAT[sinkName(s)] ?? s).join("; ")}.`);
   if (devtools && plan.changes.some((ch) => /devtools/.test(ch.after))) out(`    ${sym.dot} In development an overlay shows what GenClass sees (bottom-right, ${c.bold("Alt+Shift+G")}).`);
   out(`    ${sym.dot} Rule it out while debugging: add ${c.cyan("?genclass=off")} to the URL.`);
 
   out();
   printRecommendations(recs);
   printMoneyAdvice(money, cfgAt);
+  printSinkAdvice(project, cfg, false);
   out(`  Undo: ${c.cyan(`${CMD} remove`)}`);
   out();
   return 0;

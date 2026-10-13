@@ -441,16 +441,20 @@ export function bodyTagEnd(text) {
 
 export const CONFIG_COMMENT = "// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).";
 
-const isEmptyConfig = (cfg) => !cfg || (cfg.telemetry === undefined && !cfg.model);
+const isEmptyConfig = (cfg) => !cfg || (cfg.telemetry === undefined && !cfg.model && !(cfg.sinks && cfg.sinks.length));
 export { isEmptyConfig };
 
 const modelLiteral = (m) => `model: { baseUrl: ${JSON.stringify(m.baseUrl)}, ortWasmPaths: ${JSON.stringify(m.ortWasmPaths)}${m.device ? `, device: ${JSON.stringify(m.device)}` : ""} }`;
+/** `sinks: ["sentry", "webhook:/genclass"]` (names the zero-code entries resolve: src/cdn/sinks.ts). */
+const sinksLiteral = (sinks) => `sinks: [${sinks.map((s) => JSON.stringify(s)).join(", ")}]`;
+const SINKS_RE = /\bsinks\s*:\s*\[[^\]]*\]/;
 
-/** The object init writes: `{ telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." } }`. */
+/** The object init writes: `{ telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." }, sinks: ["sentry"] }`. */
 export function configLiteral(cfg) {
   const parts = [];
   if (cfg.telemetry !== undefined) parts.push(`telemetry: ${cfg.telemetry ? "true" : "false"}`);
   if (cfg.model) parts.push(modelLiteral(cfg.model));
+  if (cfg.sinks?.length) parts.push(sinksLiteral(cfg.sinks));
   return parts.length ? `{ ${parts.join(", ")} }` : "{}";
 }
 
@@ -466,23 +470,25 @@ export function updateConfigText(text, cfg) {
       b = /\btelemetry\s*:\s*(?:true|false)/.test(b) ? b.replace(/\btelemetry\s*:\s*(?:true|false)/, v) : `${v}, ${b.trim()}`;
     }
     if (cfg.model) b = /\bmodel\s*:\s*\{[^}]*\}/.test(b) ? b.replace(/\bmodel\s*:\s*\{[^}]*\}/, modelLiteral(cfg.model)) : `${b.trim().replace(/,\s*$/, "")}, ${modelLiteral(cfg.model)}`;
+    if (cfg.sinks?.length) b = SINKS_RE.test(b) ? b.replace(SINKS_RE, sinksLiteral(cfg.sinks)) : `${b.trim().replace(/,\s*$/, "")}, ${sinksLiteral(cfg.sinks)}`;
     b = b.trim().replace(/^,\s*/, "").replace(/,\s*$/, "");
     return b ? `${open} ${b} ${close.trimStart()}` : `${open}${close.trimStart()}`;
   });
 }
 
-/** `telemetry=off, model=/genclass-model/, ort=/genclass-model/ort/` (meta content), "" when nothing to say. */
+/** `telemetry=off, model=/genclass-model/, ort=/genclass-model/ort/, sink=sentry+posthog` (meta content; `+` joins sink names since commas separate keys), "" when nothing to say. */
 export function metaContent(cfg) {
   const parts = [];
   if (cfg.telemetry === false) parts.push("telemetry=off");
   if (cfg.model) parts.push(`model=${cfg.model.baseUrl}`, `ort=${cfg.model.ortWasmPaths}`, ...(cfg.model.device ? [`device=${cfg.model.device}`] : []));
+  if (cfg.sinks?.length) parts.push(`sink=${cfg.sinks.join("+")}`);
   return parts.join(", ");
 }
 
-const TAG_ATTRS = { telemetry: "data-telemetry", model: "data-model", ort: "data-ort", device: "data-device" };
+const TAG_ATTRS = { telemetry: "data-telemetry", model: "data-model", ort: "data-ort", device: "data-device", sink: "data-sink" };
 const attrRe = (name) => new RegExp(String.raw`\s+${name}\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)`, "i");
 
-/** A script tag with data-telemetry / data-model / data-ort set for cfg (telemetry true removes the opt-out). */
+/** A script tag with data-telemetry / data-model / data-ort / data-sink set for cfg (telemetry true removes the opt-out). */
 export function tagWithConfig(tag, cfg) {
   const set = (t, name, value) => {
     const re = attrRe(name);
@@ -499,6 +505,7 @@ export function tagWithConfig(tag, cfg) {
     t = set(t, TAG_ATTRS.ort, cfg.model.ortWasmPaths);
     if (cfg.model.device) t = set(t, TAG_ATTRS.device, cfg.model.device);
   }
+  if (cfg.sinks?.length) t = set(t, TAG_ATTRS.sink, cfg.sinks.join(","));
   return t;
 }
 
@@ -530,6 +537,7 @@ export function switchMetaConfig(text, cfg) {
     if (cfg.telemetry === false) pairs.telemetry = "off";
     if (cfg.telemetry === true) delete pairs.telemetry;
     if (cfg.model) Object.assign(pairs, { model: cfg.model.baseUrl, ort: cfg.model.ortWasmPaths, ...(cfg.model.device ? { device: cfg.model.device } : {}) });
+    if (cfg.sinks?.length) pairs.sink = cfg.sinks.join("+");
     const content = Object.entries(pairs).map(([k, v]) => `${k}=${v}`).join(", ");
     if (!content) {
       lines[metaAt] = "";
