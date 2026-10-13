@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased
+
+- **New: measured visual checks** ([docs/runtime/VISUAL.md](../../docs/runtime/VISUAL.md)). GenClass now finds visual
+  and CSS bugs that never throw an error: text you cannot read because it is nearly the colour of its background
+  (below 1.5:1, including on hover, on focus and in dark mode), images, CSS background images, stylesheets, web fonts,
+  icon fonts and media that failed to load, styles and images a Content-Security-Policy blocked, `[object Object]`,
+  `$NaN`, `{{ }}`, `Invalid Date`, mojibake and lorem ipsum in rendered text, `var(--x)` with `--x` defined nowhere,
+  stretched images, pages that scroll sideways (with the element that causes it), a missing viewport meta tag on
+  phones, layout shifts above 0.25, a blank main region, invisible layers that swallow clicks, `pointer-events: none`
+  or a scroll lock left on `body`, controls under a fixed bar, focus or anchor targets under a sticky header, and
+  dialogs covered by other elements: 23 kinds. Each report names the element, what was measured and the threshold,
+  and suggests a CSS change for that selector (or the URL, header or HTML change when CSS is not the fix). These are
+  deterministic measurements with documented thresholds, reported as kind `"check"` with the line
+  `[GenClass] Check (measured): ...`; the model is not involved, they never feed a decision, and they abstain on what
+  they cannot know (text over images and gradients, filters, partial opacity, forced colours, page translation).
+  - **Where they run.** `visual` defaults to `"local"` with `GenClass.init()`, `/auto` and the script tag: on for
+    development hosts and when the devtools overlay mounts, off on public hosts. `visual: true` (or
+    `data-visual="on"`, `<meta name="genclass" content="visual=on">`) turns them on everywhere; `?genclass-visual=on`
+    turns on report-only checks for the person who opened the link; `visual: false` or `?genclass-visual=off` turns
+    them off. `createRuntime()` leaves them off.
+  - **Cost.** First load grows by under 0.5 KB gzip (the stub; measured against main in CI). The checks are a lazy
+    chunk (`dist/visual/index.js`, about 35 KB gzip) loaded 1.5 s after `load`, with every pass in idle slices of
+    8 ms, 100 ms per pass and 1,000 ms per 10 minutes of check time. Low-end devices run only the near-free checks.
+  - **Runtime fixes (opt-in).** With `visual: { on: true, fix: true }` and guard or heal mode, three narrow fixes can
+    run: a readable text colour (one owned stylesheet rule and a `data-genclass-fix` attribute), and removing a leaked
+    inline `pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did
+    not help, can be undone (`finding.fix.undo()`, the devtools Undo button), and is undone on `setMode("observe")`,
+    the breaker, `pause()`, `disable()` and `destroy()`. Observe mode never changes the page.
+  - **API.** `rt.on("check", f => ...)`, `rt.checks(n?)`, `rt.checkNow()`, `Report.kind "check"`, `rt.summary().visual`
+    (counts per kind and per route, fixes, cost), sink records of kind `"check"` (only for sinks whose `kinds` lists
+    it), audit entries of kind `"fix"`, a Checks tab in the devtools overlay (with Copy, Show and Undo), and
+    `@genclass/runtime/visual` with `checkPage()` for your own Playwright or Cypress tests.
+  - **Telemetry (owner to confirm before release).** The summary event gains `visual` (counts per check kind and per
+    normalised route, fix counts, passes and check time) and the session event the `visual` setting. No selectors,
+    text, colours or URLs are sent. [TELEMETRY.md](TELEMETRY.md).
+  - Not covered yet: text over photos, video and gradients, canvas and WebGL content, the colour scheme or viewport
+    the visitor is not using, layout shifts and failed CSS images outside Chromium, low contrast that is readable but
+    below WCAG AA. No precision figure is measured yet; [VISUAL.md section 15](../../docs/runtime/VISUAL.md) has the
+    bench plan.
+
 ## 0.2.2 (2026-10-13)
 
 - **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so

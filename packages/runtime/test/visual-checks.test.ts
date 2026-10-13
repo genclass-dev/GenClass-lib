@@ -10,6 +10,7 @@ import { dialogReportable } from "../src/visual/checks/interact.js";
 import { excerpt, placeholderHost, scanText } from "../src/visual/patterns.js";
 import { fold, toFinding } from "../src/visual/report.js";
 import { hash32, KINDS, LIGHT, resolveCfg, transitionMs } from "../src/visual/engine.js";
+import { hashedClass } from "../src/visual/measure.js";
 import type { Draft } from "../src/visual/draft.js";
 
 const light = { html: "rgba(0, 0, 0, 0)", body: "rgba(0, 0, 0, 0)", darkCanvas: false };
@@ -281,6 +282,11 @@ describe("options and helpers", () => {
     expect([...resolveCfg({ on: "local", fix: true }, null).fix]).toEqual([]);
     expect([...resolveCfg({ fix: true }, null).fix]).toEqual([]);
     expect(resolveCfg({ checks: { "layout-shift": false } }, null).checks["layout-shift"]).toBe(false);
+  });
+
+  it("generated class names are left out of selectors; BEM names stay", () => {
+    for (const c of ["Button_primary__a1B2c", "styles__btn___3Hn2c", "css-1x2y3z", "sc-AxjAm", "jsx-123456", "svelte-1abc2de"]) expect(hashedClass(c), c).toBe(true);
+    for (const c of ["hero__subtitle", "card_title", "nav-link", "btn-primary", "is-active", "pricing-table"]) expect(hashedClass(c), c).toBe(false);
   });
 
   it("session sampling hashes the session id (never Math.random)", () => {

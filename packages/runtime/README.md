@@ -73,7 +73,7 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 
 [Install](#install) · [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
-[What it looks for](#what-it-looks-for) · [State it can protect](#state-it-can-protect) ·
+[What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-the-next-release) · [State it can protect](#state-it-can-protect) ·
 [Ask it questions](#ask-it-questions) · [Observability](#observability) · [Extend it](#extend-it) ·
 [Model quality](#model-quality) · [Performance](#performance) · [Costs](#costs) ·
 [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting) · [Privacy and telemetry](#privacy-and-telemetry) ·
@@ -416,7 +416,62 @@ cover:
 - read-your-writes.
 
 It catches runtime failures that leave evidence: ordering, staleness, duplicates, broken relations, failure patterns.
-It does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code.
+The model does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code. A
+set of visual and CSS bugs is covered by measured checks instead (next section).
+
+## Visual and CSS checks (new in the next release)
+
+GenClass also measures visual bugs that never throw an error: text you cannot read because it is nearly the colour of
+its background, images, fonts, stylesheets and media that failed to load, pages that scroll sideways on a phone,
+invisible layers that swallow clicks, dialogs hidden behind other elements, and leaks such as "[object Object]" or
+"$NaN". Each report names the element, what was measured and the threshold, and suggests a CSS change for that
+selector:
+
+```
+[GenClass] Check (measured): text contrast 1.04:1 on p.hero__subtitle "Ship faster with fewer bugs", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #fafafa on #ffffff from section.hero. Suggested CSS: p.hero__subtitle { color: #737373; }
+[GenClass] Check (measured): the page scrolls sideways on a 390 px viewport: div.pricing-table ends at 512 px (122 px too wide, a width wider than the viewport). Suggested CSS: div.pricing-table { max-width: 100%; }
+```
+
+These are measured checks with fixed thresholds. The model is not involved, does not look at pixels, and never sees
+them; they never feed a decision. They abstain when they cannot know: text over photos and gradients, filters, blend
+modes, partial opacity, forced colours and page translation are skipped, not guessed.
+
+| kind | what it finds |
+|---|---|
+| `text-invisible` | text below 1.5:1 against a fully known solid background, at rest, on hover, on focus, in light or dark mode |
+| `image-broken`, `image-css-broken`, `media-failed` | an `img`, a CSS background image (Chromium) or a video or audio player that failed to load |
+| `stylesheet-failed`, `font-failed`, `icon-font-failed` | a first-party stylesheet, a web font in use, or an icon font (boxes or ligature words shown) that failed |
+| `csp-blocked` | a style, font, image or media blocked by the page's Content-Security-Policy |
+| `text-template-leak`, `text-placeholder`, `text-encoding` | `[object Object]`, `$NaN`, `{{ x }}`, `Invalid Date`; lorem ipsum and placeholder-image hosts; mojibake and double-escaped entities |
+| `css-var-undefined` | `var(--x)` without a fallback where `--x` is defined nowhere |
+| `image-distorted`, `page-overflow-x`, `viewport-meta-missing`, `layout-shift` | a stretched image; sideways scrolling and its cause; a phone showing the 980 px layout; a layout shift above 0.25 (Chromium) |
+| `page-blank` | the main region shows no text and no media after the page settled |
+| `click-blocked`, `pointer-events-leak`, `scroll-lock-stuck` | an invisible layer that took two clicks; `pointer-events: none` or a scroll lock left on `body` |
+| `control-unreachable`, `focus-obscured`, `dialog-covered` | a control under a fixed bar; a focused element or anchor target under a sticky header; a dialog under other elements |
+
+**Where they run.** On by default on development hosts (`localhost`, `*.local`, `*.test`, private networks) and when
+the devtools overlay mounts, where the developer reads the console; off on public hosts. Turn them on in production
+with `GenClass.init({ visual: true })` (or `data-visual="on"`, `<meta name="genclass" content="visual=on">`) and read
+them with a sink or `rt.on("check", f => ...)`; `?genclass-visual=on` turns on report-only checks for the person who
+opened the link; `visual: false` or `?genclass-visual=off` turns them off.
+
+**Cost.** Under 0.5 KB gzip of first load. The checks are a separate file loaded 1.5 s after the page's `load` event,
+and they run in idle slices of 8 ms, at most 100 ms per pass and 1 s per 10 minutes. Low-end devices run only the
+near-free checks (failed assets, CSP, layout shifts, the interaction checks).
+
+**Runtime fixes (opt-in).** With `GenClass.init({ mode: "guard", visual: { on: true, fix: true } })`, GenClass can
+apply three narrow fixes: a readable text colour (one rule in its own stylesheet), and removing a leaked inline
+`pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did not help,
+can be undone (`rt.checks().find(c => c.id === "c3").fix.undo()` or the devtools Undo button), and is undone when the
+mode drops to observe. Observe mode never changes the page.
+
+**In your own tests.** `import { checkPage } from "@genclass/runtime/visual"` runs one report-only pass in the page and
+resolves with the findings, for a Playwright or Cypress test.
+
+Not covered yet: text over photos, video and gradients; canvas and WebGL content; the colour scheme, viewport or hover
+state the visitor is not using; layout shifts and failed CSS images outside Chromium; low contrast that is readable but
+below WCAG AA. No precision figure is measured yet. Design and thresholds:
+[VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md).
 
 ## State it can protect
 
@@ -801,6 +856,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and for each decision the trigger, the diagnosis and its confidence, the action and gate, the outcome, latency and counts. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **Visual checks send counts only** (when an app turns them on in production): findings per check kind and per id-normalised path, fixes, and check time. Never selectors, element text, colours or URLs.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).

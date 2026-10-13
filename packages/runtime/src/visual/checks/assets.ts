@@ -456,6 +456,16 @@ export function cspReportable(e: { disposition?: string; effectiveDirective?: st
   return !EXT.test(e.blockedURI ?? "") && !EXT.test(e.sourceFile ?? "");
 }
 
+/** The element that requested a blocked URL (the event does not always name it). */
+function requester(ctx: Ctx, uri: string): Element | null {
+  if (!/^https?:/.test(uri)) return null;
+  for (const el of [...ctx.r.doc.querySelectorAll("img[src], source[src], video[src], audio[src], link[href]")].slice(0, 500)) {
+    const u = (el as HTMLImageElement).currentSrc || (el as HTMLImageElement).src || (el as HTMLLinkElement).href;
+    if (u === uri) return el;
+  }
+  return null;
+}
+
 export function cspBlocked(ctx: Ctx, env: AssetEnv, out: Draft[]): void {
   if (!ctx.on("csp-blocked")) return;
   const groups = new Map<string, { n: number; e: SecurityPolicyViolationEvent; el: Element | null; firstParty: boolean }>();
@@ -470,7 +480,7 @@ export function cspBlocked(ctx: Ctx, env: AssetEnv, out: Draft[]): void {
     }
     const k = `${d}|${origin}`;
     const g = groups.get(k);
-    const el = e.target instanceof Element && e.target.isConnected ? e.target : null;
+    const el = e.target instanceof Element && e.target.isConnected && e.target !== ctx.r.doc.documentElement ? e.target : requester(ctx, e.blockedURI);
     if (g) {
       g.n++;
       g.el ??= el;

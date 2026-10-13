@@ -173,6 +173,8 @@ export function unreachableRead(r: Reader, ctl: Element, atMax: boolean): { cove
   if (!p || containsDeep(p, ctl) || inDialog(p) || p.tagName === "GENCLASS-DEVTOOLS") return null;
   if (focusableInside(p).some((f) => f !== p)) return null;
   const pr = r.rect(p);
+  // a bar or banner, not a full-screen layer (an invisible full-screen layer is click-blocked's case)
+  if (pr.height > r.win.innerHeight * 0.4) return null;
   const bottom = pr.bottom >= r.win.innerHeight - 2;
   const top = pr.top <= 2;
   if (!((bottom && atMax) || (top && r.win.scrollY <= 1))) return null;

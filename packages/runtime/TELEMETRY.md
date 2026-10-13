@@ -46,10 +46,16 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
   (up to 60 characters) and store leaf values up to 48 characters, including state the runtime discovered on its
   own (`autoState`: React, Redux or Zustand state the app never registered; those decisions carry
   `autoState: true`). Add a `redact` function for fields with ordinary names and personal values.
+- **Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md); new in the next release, the fields below
+  await the maintainers' final review before it ships) add counts only: how many findings of each check kind, the
+  same per id-normalised route (at most 20 routes), how many runtime fixes were applied and undone, and what the
+  checks cost (passes, check time, the longest slice). They are on by default only on development hosts, where
+  telemetry is off, so these counts come from apps that set `visual: true` in production.
 - **Never, in either setting:** typed values of password, payment (`cc-*`), one-time-code or secret-named inputs
   (the runtime never records them in the first place), cookies, request or response headers, request or response
-  bodies, storage contents, the sentences GenClass prints about what it changed, IP addresses or user agents (the
-  collector does not store them).
+  bodies, storage contents, the sentences GenClass prints about what it changed, the measured visual checks'
+  selectors, element text, colours, URLs and messages, IP addresses or user agents (the collector does not store
+  them).
 
 ### Batch envelope (schema `genclass-telemetry/1`)
 
@@ -70,7 +76,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 
 | `t` | when | fields |
 |---|---|---|
-| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included) |
+| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included), `visual` (the measured visual checks' setting: `local` or `on`; absent when they are off) |
 | `model` | model state changes | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError`, `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
 | `decision` | every model decision | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow` |
@@ -79,7 +85,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `veto` | `onBeforeAction` vetoed an action | `decision`, `action`, `enforced` |
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars) |
-| `summary` | every ≥ 60 s with activity, when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent) |
+| `summary` | every ≥ 60 s with activity, when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `visual` (once the measured visual checks have run: `checks` per kind, `checksByRoute` per normalised route and kind (at most 20 routes), `fixes` applied and undone, `passes`, `elements` read, `ms` of check time, `maxSliceMs`, `partial` passes, `abstained` measurements, `unsupported` kinds, `tier`, `stopped`), `telemetry` (queued, dropped, send failures, events sent) |
 
 Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/telemetry/client.ts`.
 

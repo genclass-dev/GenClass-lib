@@ -62,7 +62,7 @@ describe("visual math: colour parsing (VISUAL.md 2.5)", () => {
 
   it("color() spaces: srgb, srgb-linear, display-p3 (gamut-clipped), xyz", () => {
     expect(round(parseColor("color(srgb 0.5 0.5 0.5)"))).toEqual([128, 128, 128, 1]);
-    expect(round(parseColor("color(srgb-linear 0.214 0.214 0.214)"))).toEqual([128, 128, 128, 1]);
+    expect(round(parseColor("color(srgb-linear 0.214 0.214 0.214)"))).toEqual([127, 127, 127, 1]); // 0.214 linear = 127.4 in sRGB
     expect(round(parseColor("color(display-p3 1 0 0)"))).toEqual([255, 0, 0, 1]);
     expect(round(parseColor("color(xyz-d65 0.9505 1 1.089)"))).toEqual([255, 255, 255, 1]);
   });
