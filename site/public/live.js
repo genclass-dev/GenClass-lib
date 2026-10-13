@@ -11,11 +11,18 @@
   const GC = window.GenClass;
   const qs = new URLSearchParams(location.search);
   const thr = qs.get("lab-thr") ?? "0";
+  const hold = qs.get("lab-hold") ?? "auto";
   let rt = null;
   try {
     rt = GC && GC.init({
       mode: qs.get("lab-mode") || "guard",
-      ...(thr !== "default" ? { policy: { thresholds: { guard: Number(thr), heal: Number(thr) } } } : {}),
+      policy: {
+        ...(thr !== "default" ? { thresholds: { guard: Number(thr), heal: Number(thr) } } : {}),
+        // The hold budget is the runtime's own (automatic) unless ?lab-hold=<ms> sets one, for experiments.
+        // Note for anyone scripting this page: the runtime skips held decisions in a hidden tab by design, so a
+        // background tab or an embedded, occluded browser pane shows "2 identical invoices" on both sides.
+        ...(hold === "auto" ? {} : { holdBudgetMs: Number(hold) }),
+      },
       aggressiveness: "eager",
       telemetry: false,
       report: "console",
