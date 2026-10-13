@@ -413,9 +413,13 @@ kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-widt
 .notice.planned{border-left-color:var(--orange);margin-top:0;margin-bottom:18px}
 
 /* self-healing mesh behind the hero (public/mend.js) */
-/* the stage fills the first screen; the text sits in its upper part so open lattice shows around and below it */
-.hero3 .mend-stage{position:relative;overflow:hidden;margin-top:-64px;padding:clamp(72px,12vh,136px) 0 clamp(150px,24vh,260px);min-height:min(calc(100vh - 61px),940px);min-height:min(calc(100svh - 61px),940px)}
+/* the stage fills most of the first screen, with the text in its upper part so open lattice shows around and below
+   it; it stops a little short of the fold so the next section shows (61px is the header) */
+.hero3 .mend-stage{position:relative;overflow:hidden;margin-top:-64px;padding:clamp(56px,10vh,112px) 0 clamp(64px,10vh,120px);min-height:min(calc(100vh - 133px),880px);min-height:min(calc(100svh - 133px),880px)}
+.hero3+section{padding-top:40px}
 .hero3 .mend-stage>.wrap{position:relative;z-index:1}
 .hero3 .mend{position:absolute;inset:0;z-index:0;pointer-events:none;display:block}
 .hero3 .mend-cap{position:absolute;right:16px;bottom:12px;z-index:1;margin:0;font:11px/1.4 var(--mono);color:var(--ink3);pointer-events:none}
-@media (max-width:640px){.hero3 .mend-stage{padding:48px 0 200px}.hero3 .mend-cap{left:16px;right:auto}}
+.hero3 .mend-cap span+span::before{content:" · "}
+.hero3 .mend-cap span:empty{display:none}
+@media (max-width:640px){.hero3 .mend-stage{padding:40px 0 140px;min-height:calc(100vh - 85px);min-height:calc(100svh - 85px)}.hero3 .mend-cap{left:16px;right:16px;text-align:left}.hero3 .mend-cap span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hero3 .mend-cap span+span::before{content:none}}
