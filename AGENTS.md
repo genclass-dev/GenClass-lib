@@ -20,6 +20,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
 | `training/` | vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's situation renderer), Azure training, ONNX export, `EVAL.md` |
 | `demos/` | six demo apps with a chaos backend and Playwright trials; `bench/heal/` runs them per mode |
+| `packages/playwright/` | `@genclass/playwright`: Playwright fixture (inject the runtime, chaos via `page.route`) and reporter (markdown findings for the PR); `e2e/` runs the demos in `playwright-reporter.yml` |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
 | `site/`, `telemetry-worker/` | genclass.dev and the diagnostics collector (Cloudflare Workers) |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
@@ -37,7 +38,12 @@ npm run build -w @genclass/runtime            # tsup: ESM entries, the script-ta
 cd packages/runtime
 NODE_OPTIONS=--expose-gc npx vitest run --exclude "test/browser/**" --exclude test/review-perf.test.ts
 NODE_OPTIONS=--expose-gc npx vitest run test/review-perf.test.ts --retry=2   # timing budgets; reported, not blocking
+npm run typecheck -w @genclass/playwright && npm run build -w @genclass/playwright
+cd packages/playwright && npx vitest run     # @genclass/playwright (fixture + reporter): summariser, chaos, options, reporter
 ```
+
+`packages/playwright/` (`@genclass/playwright`) is the Playwright fixture + reporter; its browser run against the demos
+is the separate `playwright-reporter.yml` workflow (never required, never blocks `ci.yml`).
 
 One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tests are model-parity tests that need
 `GENCLASS_MODEL_DIR`. Not in CI, ask before running: Playwright (`npm run test:browser`), `test/smoke/smoke.sh`, the

@@ -173,6 +173,7 @@ All numbers are on held-out data, with each recall reported next to its false-in
 | path | what |
 |---|---|
 | [`packages/runtime`](packages/runtime) | `@genclass/runtime`, the library. Observers, causality, stores and adapters, learned baselines/relations/profiles, facts, triage, policy gate, actions, model host (Web Worker, ONNX Runtime Web on WebGPU/WASM), devtools overlay. [README](packages/runtime/README.md) · [CHANGELOG](packages/runtime/CHANGELOG.md) |
+| [`packages/playwright`](packages/playwright) | `@genclass/playwright`, a Playwright fixture and reporter: the runtime on the page under test, network chaos through `page.route`, and a markdown report of what it flagged for the pull request. [README](packages/playwright/README.md) |
 | [`packages/runtime-model`](packages/runtime-model) | `@genclass/runtime-model`, the default model package (data only; `files/` is gitignored and filled at release time) and its [model card](packages/runtime-model/MODEL_CARD.md) |
 | [`sim`](sim) | Training-data simulator: random apps run on the real runtime in a deterministic virtual world, labelled by counterfactual outcomes |
 | [`realapps`](realapps) | 128 real apps (written for the corpus, plus open-source ones) run with the real runtime in headless Chromium, labelled the same way; the never-worse sweep covered the first 66. [README](realapps/README.md) |
@@ -208,6 +209,9 @@ provenance.
 Not covered by CI:
 
 - Playwright browser tests: `npm run test:browser` in `packages/runtime`.
+- The `@genclass/playwright` run against the demos: its own workflow,
+  [.github/workflows/playwright-reporter.yml](.github/workflows/playwright-reporter.yml) (manual dispatch and pull
+  requests that touch it); its unit tests, typecheck and build are part of `ci.yml`.
 - The npm tarball smoke test: `test/smoke/smoke.sh`.
 - The sim, the real-app corpus, the demos' evaluation, and training.
 

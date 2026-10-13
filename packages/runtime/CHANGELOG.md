@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- No runtime change. New workspace package `@genclass/playwright` (`packages/playwright`): a Playwright fixture that
+  puts the runtime on the page under test and a reporter that writes what it flagged as a markdown report for the
+  pull request. The demos expose their runtime as `window.__demo.gc` for it.
+
 ## 0.2.1 (2026-10-10)
 
 - **Telemetry: no page text by default.** `telemetry.include.situation` now defaults to **false**: decision events
