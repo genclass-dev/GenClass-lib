@@ -220,10 +220,6 @@ svg.chart text{font:11px var(--mono);fill:var(--ink3)}
 .tabs button:focus-visible{outline:2px solid #2FD07F}
 pre{font:14px/1.75 var(--mono);padding:22px 24px;overflow-x:auto}
 pre .c{color:#7F8BAA} pre .k{color:#FF8A6B} pre .s{color:#7EE2AE}
-.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:0 40px;margin-top:32px}
-.feats div{padding:18px 0;border-top:1px solid var(--rule)}
-.feats h3{font:600 16px var(--sans);letter-spacing:0}
-.feats p{font-size:14.5px;color:var(--ink2);margin-top:4px}
 
 .stat td:last-child{font-family:var(--mono);white-space:nowrap;text-align:right}
 .stat th:last-child{text-align:right}
