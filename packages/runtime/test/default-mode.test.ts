@@ -33,13 +33,28 @@ describe("default mode is observe (MVP)", () => {
     expect(rt.mode).toBe("observe");
   });
 
-  it("GenClass.init without a mode starts in observe; guard is opt-in (option or ?genclass=guard)", () => {
+  it("GenClass.init without a mode starts in observe; guard is opt-in by option; a link cannot raise a production site", () => {
     const opts = { model: false as const, report: "silent" as const, observe: { fetch: false, timers: false } };
     expect(GenClass.init(opts).mode).toBe("observe");
     GenClass.destroy();
     expect(GenClass.init({ ...opts, mode: "guard" }).mode).toBe("guard");
     GenClass.destroy();
-    g.location = { search: "?genclass=guard", href: "http://x/?genclass=guard", pathname: "/" };
+    // production host: ?genclass=guard / heal no longer raise a default install (THREAT-MODEL T8)
+    g.location = { search: "?genclass=guard", href: "https://shop.example/?genclass=guard", hostname: "shop.example", pathname: "/" };
+    expect(GenClass.init(opts).mode).toBe("observe");
+    GenClass.destroy();
+    g.location = { search: "?genclass=heal", href: "https://shop.example/?genclass=heal", hostname: "shop.example", pathname: "/" };
+    expect(GenClass.init({ ...opts, mode: "guard" }).mode).toBe("guard");
+    GenClass.destroy();
+    // ... but they still demote
+    g.location = { search: "?genclass=observe", href: "https://shop.example/?genclass=observe", hostname: "shop.example", pathname: "/" };
+    expect(GenClass.init({ ...opts, mode: "guard" }).mode).toBe("observe");
+    GenClass.destroy();
+    // debug: true, or a development host, may raise (a developer trying guard)
+    g.location = { search: "?genclass=guard", href: "https://shop.example/?genclass=guard", hostname: "shop.example", pathname: "/" };
+    expect(GenClass.init({ ...opts, debug: true }).mode).toBe("guard");
+    GenClass.destroy();
+    g.location = { search: "?genclass=guard", href: "http://localhost:5173/?genclass=guard", hostname: "localhost", pathname: "/" };
     expect(GenClass.init(opts).mode).toBe("guard");
   });
 

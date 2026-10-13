@@ -521,5 +521,5 @@ genuinely different failures or decisions):
 - Devtools and adapters are owned by UI (`src/devtools/**`, `src/adapters/**`).
 - **Default mode is `observe`** (approved by the owner 2026-10-08, MVP): `GenClass.init()` and `createRuntime()` start
   in `observe` when no `mode` is given, so a fresh install reports findings and never holds, delays or changes
-  anything. `guard` is opt-in (`mode: "guard"` or `?genclass=guard`); `heal` is experimental. Situation text,
+  anything. `guard` is opt-in (`mode: "guard"`; `?genclass=guard` only with `debug: true` or on a development host since 0.2.2); `heal` is experimental. Situation text,
   facts and questions are unchanged (they do not depend on the mode), so `situation-v1` training data stays valid.

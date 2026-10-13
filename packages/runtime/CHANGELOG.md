@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
+  `?genclass=guard|heal` and `localStorage.genclass` now only demote, from the app's mode or from `observe` when it
+  sets none (before, they opted a visitor into guard when the app set no mode, so a crafted link could turn on
+  guard-tier actions on a production site). Raising from the URL still works with `debug: true` or on a development
+  host (`localhost`, `*.local`, `*.test`, private networks). The zero-code entries (`/auto`, the script tag) read
+  `<meta name="genclass">` only inside `<head>` (before: anywhere, so markup injected into the body could set the
+  mode and the model URL), and a meta tag's model and onnxruntime-web URLs must be same-origin: a cross-origin one is
+  ignored with one console warning (use `data-model` / `data-ort`, `window.GENCLASS_CONFIG` or `GenClass.init()` for
+  a CDN of your own). THREAT-MODEL T8 updated.
 - **The first decision of a page load has a realistic hold budget, and a late answer is no longer thrown away.**
   Before any measured decision the budget came from the warm-up pass, a ~430-token situation (49–74 ms on an Apple
   GPU), so it was the 150 ms floor, while the first real decision measured 137 ms there: 13 ms of margin, and none
@@ -17,7 +26,6 @@
   Content-Security-Policy that does not allow the endpoint (the README's own example did not) logged a violation on
   every 10 s flush; now it logs at most 3. Allow `https://genclass.dev` in `connect-src` or pass `telemetry: false`.
   Nothing new is sent.
-
 - **Model downloads retry transient failures.** The model card and model files are retried on HTTP 408, 429 and 5xx
   (after 1 s and 3 s, or a numeric `Retry-After` of at most 8 s) and once after a network error. A cached model card
   is still used at once when the network fails, without waiting. Other statuses (a 404) are never retried. Before,

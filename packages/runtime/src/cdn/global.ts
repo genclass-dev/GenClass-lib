@@ -136,7 +136,7 @@ function install(): void {
     init(options: PageConfig = {}): Runtime {
       // the page's configuration (meta tag, the tag's data attributes, window.GENCLASS_CONFIG) is the default
       // automatic state discovery is on by default for the script tag (installed now, before the framework loads)
-      const { init, devtools } = splitConfig(mergeConfig({ autoState: true }, readMetaConfig(document), fromDataset(ds), readWindowConfig(window), options));
+      const { init, devtools } = splitConfig(mergeConfig({ autoState: true }, readMetaConfig(document, { location, warn: (m) => console.warn(m) }), fromDataset(ds), readWindowConfig(window), options));
       const rt = GenClass.init(withCdnModel(init));
       const dt = devtoolsOptions(devtools, location);
       if (dt && !isKilled(window)) void mount(rt, dt);
