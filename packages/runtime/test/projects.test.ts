@@ -345,3 +345,46 @@ describe("scope: \"functions\"", () => {
     expect(rt.scope).toBe("functions");
   });
 });
+
+describe("GenClass.init on a local host (TELEMETRY.md: off by default on local and private hosts)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+  const quiet = {
+    model: false as const,
+    report: "silent" as const,
+    observe: { fetch: false, xhr: false, user: false, errors: false, nav: false, storage: false, perf: false, websocket: false, timers: false },
+  };
+
+  it("default telemetry stays off on localhost; with a token the console says once why the dashboard stays empty", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(null, { status: 202 }))));
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("document", {});
+    vi.stubGlobal("location", { hostname: "localhost", search: "", href: "http://localhost:5173/", pathname: "/" });
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const m = await import("../src/index.js");
+    m.GenClass.destroy();
+    const lines = (needle: string) => info.mock.calls.filter((c) => String(c[0]).includes(needle)).length;
+    // GenClass.init leaves the option unset (it used to pass `telemetry: true`, which reads as an explicit opt-in)
+    const rt = m.GenClass.init({ ...quiet, token: TOKEN });
+    expect(rt.telemetry).toMatchObject({ enabled: false, reason: "local" });
+    expect(lines("telemetry is off on local hosts")).toBe(1);
+    expect(lines("Sends anonymous diagnostics")).toBe(0);
+    m.GenClass.destroy();
+    // no token: off and silent
+    const rt2 = m.GenClass.init(quiet);
+    expect(rt2.telemetry).toMatchObject({ enabled: false, reason: "local" });
+    expect(lines("telemetry is off on local hosts")).toBe(1);
+    m.GenClass.destroy();
+    // an explicit opt-in still sends from a local host (tests, dogfooding)
+    const rt3 = m.GenClass.init({ ...quiet, telemetry: true });
+    expect(rt3.telemetry?.enabled).toBe(true);
+    m.GenClass.destroy();
+    // a public host: on by default, as before
+    vi.stubGlobal("location", { hostname: "shop.example", search: "", href: "https://shop.example/", pathname: "/" });
+    const rt4 = m.GenClass.init(quiet);
+    expect(rt4.telemetry?.enabled).toBe(true);
+    m.GenClass.destroy();
+  });
+});

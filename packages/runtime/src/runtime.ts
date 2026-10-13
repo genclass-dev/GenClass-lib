@@ -3056,8 +3056,9 @@ export class RuntimeImpl implements Runtime {
 
   /**
    * One call of a protect()ed function (src/protect.ts): runs fn inside a "task" op named `name`, like op(), but
-   * keeps sync results sync and returns fn's own value (the same promise object for async functions). Never throws
-   * on its own: anything that goes wrong in the bookkeeping falls back to calling fn directly.
+   * keeps sync results sync. A sync value or a non-native thenable is returned as it is; a native promise is replaced
+   * by a new one that settles the same way (as op() does). Never throws on its own: anything that goes wrong in the
+   * bookkeeping falls back to calling fn directly.
    */
   runProtected<R>(name: string, fn: (...a: unknown[]) => R, self: unknown, args: unknown[]): R {
     let o: OpRec | null = null;

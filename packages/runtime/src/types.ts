@@ -811,7 +811,8 @@ export interface InitOptions {
   /**
    * Where GenClass raises decisions. "app" (default): the whole app. "functions": only for activity inside functions
    * wrapped with `protect()` (their fetches, state writes, timers and errors); everything else is still observed
-   * and recorded as context, but never decided on or acted on.
+   * and recorded as context, but the runtime raises no decision about it and never acts on it. Explicit questions
+   * (`runtime.ask()`) are still answered everywhere.
    */
   scope?: "app" | "functions";
 }
