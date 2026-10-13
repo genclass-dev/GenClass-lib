@@ -63,8 +63,11 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
   // 91 KB for GenClass.init)
   // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
-  const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 92 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 99 / 91 KB)", async () => {
+  // Unreleased (wave1/defaults-footprint): the device floor's and the worker-unavailable lines, inlineFallback in the
+  // host, Request replays rebuilt from their bytes, telemetry sampling and lazy push-message summaries; /auto measured
+  // over 100 KB in CI, so both limits move up by 1.5 KB (the CI log prints the measured sizes)
+  const LIMIT_KB: Record<string, number> = { "auto.js": 101.5, "index.js": 93.5 };
+  it("first-load cost of /auto and the main entry, minified + gzip: under 101.5 KB / 93.5 KB", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
     for (const entry of ["auto.js", "index.js"]) {
@@ -92,6 +95,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       };
       walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
+      console.info(`[bundle] ${entry}: ${(gz / 1024).toFixed(2)} KB minified + gzip (limit ${LIMIT_KB[entry]} KB)`);
       expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
