@@ -236,20 +236,28 @@ describe("DeciderQueue in observe (nothing can be held): superseded items comput
       }),
   });
 
-  it("a superseded item is computed on a slow provider when no item can be held", async () => {
-    const clock = new FakeClock();
-    const log: string[] = [];
-    const q = new DeciderQueue(clock, () => slowProvider(log, clock));
-    q.holds = () => false;
-    const a = q.submit(req("a"), clock.now() + 5000); // measures the 600 ms
-    await clock.advance(700);
-    expect(await a).not.toBeNull();
-    const b = q.submit(req("b"), clock.now() + 5000, () => true);
-    const c = q.submit(req("c"), clock.now() + 5000);
-    await clock.advance(1300);
-    expect(log).toEqual(["a", "c", "b"]); // fresh first, then the superseded one, computed
-    expect(await b).not.toBeNull();
-    expect(await c).not.toBeNull();
+  it("a superseded item is computed on a slow provider when no item can be held (skipped when one can)", async () => {
+    const run = async (holds: boolean) => {
+      const clock = new FakeClock();
+      const log: string[] = [];
+      const q = new DeciderQueue(clock, () => slowProvider(log, clock));
+      q.holds = () => holds;
+      const a = q.submit(req("a"), clock.now() + 9000); // measures the 600 ms
+      await clock.advance(700);
+      expect(await a).not.toBeNull();
+      void q.submit(req("x"), clock.now() + 9000); // computing
+      const b = q.submit(req("b"), clock.now() + 9000, () => true); // superseded, queued behind x
+      const c = q.submit(req("c"), clock.now() + 9000);
+      await clock.advance(2000);
+      return { log, b: await b, c: await c };
+    };
+    const observe = await run(false);
+    expect(observe.log).toEqual(["a", "x", "c", "b"]); // fresh first, then the superseded one, computed
+    expect(observe.b).not.toBeNull();
+    const guard = await run(true);
+    expect(guard.log).toEqual(["a", "x", "c"]); // skipped: a held item could have waited behind it
+    expect(guard.b).toBeNull();
+    expect(guard.c).not.toBeNull();
   });
 
   it("an error (priority 0) that waited AGING_MS goes before later writes (priority 1); held queues keep strict priority", async () => {

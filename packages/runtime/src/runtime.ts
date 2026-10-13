@@ -163,7 +163,7 @@ interface Deferred {
   opts: TriggerOpts;
   subjectOp: OpRec | null;
   block: "protected" | "cross-origin" | "scope" | null;
-  fn?: string;
+  fn: string | undefined;
   /** A delivery whose chain's writes it covers while it waits (see trigger: deliveryPending). */
   delivery: OpRec | null;
   /** What it waited for, and the counter a drop goes to: failOpen "not-ready", or summary.model.hiddenSkipped. */
@@ -449,8 +449,8 @@ export class RuntimeImpl implements Runtime {
     if (um === "observe" || um === "guard" || um === "heal") if (this.debug || MODE_RANK[um] <= MODE_RANK[this._mode]) this._mode = um;
     if (o.policy?.maxActionsPerMinute !== undefined && o.policy?.actionLimits?.perMinute !== undefined) this.warn("policy.maxActionsPerMinute is deprecated and ignored when actionLimits.perMinute is set.");
     this.triage = o.triage ?? "salient";
+    // anything but "likely" / "possible" means the default
     this.detectOpt = o.detect === "likely" || o.detect === "possible" ? o.detect : undefined;
-    if (o.detect !== undefined && this.detectOpt === undefined) this.warn(`detect must be "likely" or "possible" (got ${String(o.detect)}); the default applies.`);
     this.vocab = o.vocabulary;
     this.hooks = o.hooks ?? {};
     this.settleMs = o.settleMs ?? 60;
@@ -586,7 +586,8 @@ export class RuntimeImpl implements Runtime {
             message: `[GenClass] Model ready (${[s.model, s.device, s.variant].filter(Boolean).join(", ")}${s.loadMs !== undefined ? `, ${secs(s.loadMs)}` : ""}${s.worker === false ? "; inline on the main thread" : ""}). Mode: ${this._mode}.`,
           });
         // deferred observe situations: decided once ready; dropped (counted) when the model will not come
-        if (becameReady) this.deferDrainSoon();
+        // (after the notification: the host may still be finishing its own update)
+        if (becameReady) void Promise.resolve().then(() => this.drainDeferred());
         else if (s.state === "error" || s.state === "skipped" || s.state === "disabled") this.dropDeferred();
         // a blocked download (CSP, most often): one warning naming the origin and the fix, instead of the bare error
         if (s.state === "error" && s.blocked) this.warnOnce("model-blocked", blockedMessage(s.blocked));
@@ -1555,7 +1556,7 @@ export class RuntimeImpl implements Runtime {
     if (notReady || hidden) {
       // observe: the situation as it is now, decided once the model is ready and the tab visible (it can only
       // detect); guard and heal (and explicit asks): fail open
-      if (effMode === "observe" && spec.trigger !== "ask") return this.defer({ spec, built, ctl, passive, opts, subjectOp, block, ...(fn !== undefined ? { fn } : {}), delivery: null, why: notReady ? "not-ready" : "hidden" });
+      if (effMode === "observe" && spec.trigger !== "ask") return this.defer({ spec, built, ctl, passive, opts, subjectOp, block, fn, delivery: null, why: notReady ? "not-ready" : "hidden" });
       this.tapFailOpen("not-ready", spec.trigger);
       return passive();
     }
@@ -1702,12 +1703,6 @@ export class RuntimeImpl implements Runtime {
     for (const e of this.deferred.splice(0)) this.dropOne(e);
   }
 
-  /** The model became ready: drain after the status notification (the host may still be finishing its own update). */
-  private deferDrainSoon(): void {
-    if (!this.deferred.length) return;
-    void Promise.resolve().then(() => this.drainDeferred());
-  }
-
   /**
    * Decide the deferred situations, one at a time and oldest first, once the model is ready and the tab visible.
    * Each is a background decision with DEFERRED_DEADLINE_MS from its submission, decided as observe whatever the mode
@@ -1748,7 +1743,7 @@ export class RuntimeImpl implements Runtime {
             if (this.destroyed) return;
             if (!res) return this.tapFailOpen("no-answer", e.spec.trigger);
             this.sum.decision(res.latencyMs);
-            this.onDecision(built, res.answers, this.clock.now() - t1, e.ctl, e.passive, { waits: false, covers: e.delivery !== null, expired: false, passiveRan: () => true, hold: e.opts.hold, block: e.block, subjectOp: e.subjectOp, detectOnly: true, ...(e.fn !== undefined ? { fn: e.fn } : {}) });
+            this.onDecision(built, res.answers, this.clock.now() - t1, e.ctl, e.passive, { waits: false, covers: e.delivery !== null, expired: false, passiveRan: () => true, hold: e.opts.hold, block: e.block, subjectOp: e.subjectOp, detectOnly: true, fn: e.fn });
           } catch (err) {
             this.log("deferred decision failed", err);
           } finally {
