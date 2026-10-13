@@ -67,9 +67,11 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // about 0.8 KB on /auto (102.94 / 94.79 KB, CI run 38462380432). Sinks by name: only the proxy (src/cdn/sinks.ts) is
   // in /auto's first load; the name table, the fan-out and the adapters are lazy chunks (asserted below). The flow
   // expectations (src/learn/flows.ts, opt-in: learn.expectations) are a lazy chunk too, imported only when the option
-  // is on. Interim limits while release/0.3.0 is integrated; the final ones are the CI-measured sizes plus 1.5 KB
-  // (README, docs/runtime/RESULTS.md). Both sizes are printed before either is asserted.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 108, "index.js": 100 };
+  // is on; their runtime side (learned-state persistence, the report line, the hooks) and the util chunk it shares
+  // with them add about 3.3 KB. 0.3.0-beta.0 measures 106.24 / 98.21 KB (CI run 38465242176); the limits are those
+  // plus 1.5 KB, as the owner approved for 0.3.0 (README "Performance", docs/runtime/RESULTS.md §10). Both sizes are
+  // printed before either is asserted.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 107.74, "index.js": 99.71 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };

@@ -114,12 +114,16 @@ says how many decisions' records were sent (`decisionRecords`), and how many rou
 (`decisionsSampledOut`) and capped (`decisionsCapped`), so a collector can scale what it received.
 `telemetry: { decisionSample: 1, maxDecisions: Infinity }` sends every record (your own collector, debugging).
 
-How much that is, measured in CI ([RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#8-runtime-footprint-and-telemetry-volume-ci))
+How much that is, measured in CI ([RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#10-release-030-beta0-first-load-and-telemetry-volume-ci) §10)
 by `test/telemetry.test.ts` "an hour at the built-in model's maximum rate": one page, 30 decisions a minute for a
 simulated hour (1,800 decisions from a scripted decider, not the model; situation text off), all bytes of all
 request bodies counted:
 
-VOLUME_TABLE_PENDING
+| decisions | defaults (`0.3.0-beta.0`, CI run 38465242176) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
+|---|---|---|
+| all routine | 250.3 KB in 163 requests (which routine decisions are sampled follows the random session id: 249.0 to 250.3 KB in the last three runs) | not measured |
+| every one a detection | 2,067.1 KB in 361 requests: every record (detections are never sampled or capped) | 2,067.1 KB in 361 requests |
+| of which `summary` events | 61 summaries, 39.3 KB (routine) and 40.8 KB (detections) | 61 summaries, 40.8 KB |
 
 A page where every decision is a detection sends every record, as `0.2.2` did: the detections are what the
 diagnostics are for. A page whose decisions are routine costs about 40 KB an hour in summaries after the cap, plus

@@ -83,8 +83,8 @@ sends.
   both settings. Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
   arriving after the cap (about 40 KB an hour). This narrows what is sent; nothing new about the page is sent.
   Measured in CI for one page over a simulated hour at 30 decisions a minute (scripted decisions, not the model;
-  situation text off; run 38464466151): all routine, 249.4 KB in 165 requests (61 summaries, 39.3 KB); every
-  decision a detection, 2,064.7 KB in 361 requests, the same as with every record (TELEMETRY.md, "Volume";
+  situation text off; run 38465242176): all routine, 250.3 KB in 163 requests (61 summaries, 39.3 KB); every
+  decision a detection, 2,067.1 KB in 361 requests, the same as with every record (TELEMETRY.md, "Volume";
   docs/runtime/RESULTS.md §10).
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
 - **A page the device floor skips still reports why.** Its `session` event says `modelState: "skipped"`, and a
@@ -260,7 +260,15 @@ observer does not record the runtime's own writes.
 
 ### First-load size
 
-FIRST_LOAD_PENDING
+Minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38465242176, commit bff4a71): `/auto` (with state
+discovery) **106.24 KB** and the main entry (`GenClass.init()`) **98.21 KB**, against 99.17 KB and 91.70 KB in
+`0.2.2`. The test's limits are now those sizes plus 1.5 KB, **107.74 KB** and **99.71 KB** (owner-approved for
+0.3.0). Each first load is four files now (100.26 + 3.05 + 2.74 + 0.19 KB for `/auto`): the util code the lazy flow
+chunk shares is a chunk of its own. Where it goes (CI, step by step, docs/runtime/RESULTS.md §10): app tokens and
+`protect()` about +1.8 KB; the device floor, telemetry sampling and Request replays about +1.5 KB; the sink names'
+proxy +0.8 KB on `/auto`; the flow expectations' runtime side and learned-state persistence about +3.3 KB (the flow
+layer itself, about 4 KB by difference, is a lazy chunk loaded only with `learn.expectations`). The script-tag file is
+126.12 KB (it carries the flow layer inline).
 
 ## 0.2.2 (2026-10-13)
 
