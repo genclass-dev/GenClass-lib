@@ -171,6 +171,9 @@ function bound<K, V>(m: Map<K, V>, max: number, drop?: (v: V) => void): void {
   }
 }
 
+/** The runtime's default report gate (src/decide/policy.ts DEFAULT_THRESHOLDS.report), kept here so the devtools chunk imports no runtime code. */
+const DEFAULT_REPORT = 0.6;
+
 function safe<T>(fn: () => T, fallback: T): T {
   try {
     const v = fn();
@@ -460,10 +463,13 @@ class Devtools {
     }
     for (const a of safe(() => this.rt.interventions(MAX_CARDS), [] as ActionRecord[]).slice().sort((x, y) => x.at - y.at)) this.addAct(a, false);
     // the runtime's own detection rule with the report gate it decided with (explain().gates; else the trigger's gate
-    // now): exactly the decisions the "detect" event, the console and telemetry reported, never a threshold of its own
-    const report = (d: Decision): number => safe(() => this.rt.explain(d.id)?.gates?.report ?? this.rt.gates(d.trigger).report, Infinity);
+    // now; else the default report gate, for a Runtime without either): the decisions the "detect" event, the console
+    // and telemetry reported, not every one at 0.6 whatever the gate (0.9 at balanced with model 0.2.0)
+    const rt = this.rt as Runtime & { gates?: (t?: TriggerKind) => EffectiveGates };
+    const report = (d: Decision): number =>
+      safe(() => rt.explain(d.id)?.gates?.report, undefined) ?? safe(() => (typeof rt.gates === "function" ? rt.gates(d.trigger).report : undefined), undefined) ?? DEFAULT_REPORT;
     for (const d of decs) {
-      if (d.diagnosis && d.diagnosis !== "expected" && d.diagnosisConfidence >= report(d)) this.addDet(d, false);
+      if (d.diagnosis && d.diagnosis !== "expected" && diagP(d) >= report(d)) this.addDet(d, false);
     }
     for (const e of safe(() => this.rt.history(MAX_ROWS), [] as RtEvent[])) this.addEvent(e);
   }
