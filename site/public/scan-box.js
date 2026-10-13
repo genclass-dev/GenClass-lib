@@ -1,6 +1,9 @@
-// The scan box on genclass.dev (site/visual.py, scanform): checks the address in the browser, then opens
-// genclass.dev/<address>, which the site worker hands to the page check (scan-worker/). Client-side checks only: the
-// page check normalises and checks the address again. Without JavaScript the form is a plain GET to /scan?url=.
+// The scan box on genclass.dev (site/visual.py, scanform; rendered only while visual.json has scan_live: true): checks
+// the address in the browser, then opens /scan?url=<address>, the page check's own route (scan-worker/), which
+// normalises and checks the address again and answers every refusal with a message. It never opens the
+// genclass.dev/<address> path form: the site worker hands a path to the page check only when it passes rules this
+// script does not copy (the IANA TLD list, URL-safe characters after decoding, file-like names), and a path that fails
+// them is a bare 404. Without JavaScript the form is the same plain GET to /scan?url=.
 (() => {
   const RESERVED = /(^|\.)(localhost|local|internal|intranet|lan|home\.arpa|test|invalid|example|onion)$/i;
   const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
@@ -28,7 +31,7 @@
     if (RESERVED.test(host)) return { error: "The scan runs on our servers, so it can only load pages on the public internet." };
     if (host === "genclass.dev" || host.endsWith(".genclass.dev")) return { error: "Enter the address of your own page." };
     const path = u.pathname === "/" ? "" : u.pathname;
-    return { path: "/" + (u.protocol === "http:" ? "http://" : "") + host + path + u.search };
+    return { path: "/scan?url=" + encodeURIComponent((u.protocol === "http:" ? "http://" : "") + host + path + u.search) };
   }
 
   for (const form of document.querySelectorAll("form[data-scan]")) {

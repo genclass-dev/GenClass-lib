@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=c2eb2ad1">
+<link rel="stylesheet" href="/styles.css?v=2d2e0459">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Visual bugs", "item": "https://genclass.dev/visual"}]}, {"@type": "TechArticle", "headline": "Visual bugs that never throw", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "about": ["Visual bugs", "CSS bugs", "AI-generated websites"]}]}</script>
 </head>
 <body>
@@ -51,9 +51,9 @@
   <div class="wrap">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Visual bugs</span></nav>
     <h1>Bugs your users can see, <em>with no error to log.</em></h1>
-    <p class="lede">Unreadable text, broken images, layouts that break on phones, "undefined" on the page, buttons under an invisible layer. They render without an exception, so no error monitor records them. GenClass measures them on the page and names the element, what was measured, and a fix.</p>
-    <div class="ctas"><a class="btn" href="#scan">Scan a page</a><a class="btn ghost" href="#families">What it finds</a></div>
-    <p class="notice vstatus"><b>In testing.</b> The visual checks are not in runtime 0.2.1: they are built and in testing for a later release, and the page check runs its own subset of them. The model is in training and has no published numbers yet.</p>
+    <p class="lede">Unreadable text, broken images, layouts that break on phones, "undefined" on the page, buttons under an invisible layer. They render without an exception, so no error monitor records them. GenClass is testing checks that measure them on the page and name the element, what was measured, and a fix.</p>
+    <div class="ctas"><a class="btn" href="#families">What it finds</a><a class="btn ghost" href="#numbers">Results</a></div>
+    <p class="notice vstatus"><b>In testing.</b> The visual checks are not in runtime 0.2.1: they are built and in testing for a later release. The page check, which scans one public page, is not open yet. The model is planned and has no published numbers yet. Its results are due by <b><time datetime="2026-10-14T22:00Z"><span class="vwhen">October 14, 2026</span>, <span class="vwhen">22:00 UTC</span></time></b>.</p>
   </div>
 </div>
 
@@ -70,20 +70,20 @@
 
 <section id="how">
   <div class="wrap">
-    <div class="sh"><span class="no">How it works</span><h2>Measured checks, a trained model, and fixes you turn on.</h2></div>
+    <div class="sh"><span class="no">How it works</span><h2>Measured checks, a planned model, and opt-in fixes.</h2></div>
     <div class="steps vsteps">
       <div class="step"><span class="n">01</span><h3>Measure in the browser</h3><p>Each check is a measurement against a documented threshold, or a fact the browser reports: text below 1.5:1 contrast against a solid background, an image's error event, a page wider than the phone showing it. A report names the element, the value measured and the threshold, and suggests a CSS change for that selector. Text over photos and gradients is skipped, not guessed.</p></div>
-      <div class="step"><span class="n">02</span><h3>Learn from crawled pages</h3><p>A model is being trained on a crawl of AI-built and regular sites, with faults injected from outside each page so every example has a known label. It reads the styles and layout the browser computed for each element, never screenshots. Its recall and false reports will be published below with the data and the split.</p></div>
-      <div class="step"><span class="n">03</span><h3>Fix only when you ask</h3><p>Observe mode reports and never changes the page. With visual fixes turned on in guard or heal mode, three narrow fixes can run: a readable text colour, a leaked <code>pointer-events: none</code> removed from <code>body</code>, a stuck scroll lock released. Each is measured again after it runs, and each can be undone.</p></div>
+      <div class="step"><span class="n">02</span><h3>Learn from crawled pages</h3><p>A model is planned, to be trained on a crawl of AI-built and regular sites with faults injected from outside each page, so every example has a known label. Its recall and false reports will be published below, with the data and the split.</p></div>
+      <div class="step"><span class="n">03</span><h3>Fix only when you ask</h3><p>In testing: observe mode reports and never changes the page. With visual fixes turned on in guard or heal mode, three narrow fixes can run: a readable text colour, a leaked <code>pointer-events: none</code> removed from <code>body</code>, a stuck scroll lock released. Each is measured again after it runs, and each can be undone.</p></div>
     </div>
-    <p class="note">Design and thresholds: the visual checks design. The checks never feed the network model, and neither the checks nor the visual model read pixels.</p>
+    <p class="note">The checks never feed the network model, and they read no pixels.</p>
   </div>
 </section>
 
 <section id="numbers">
   <div class="wrap">
-    <div class="sh"><span class="no">Results</span><h2>No numbers yet.</h2></div>
-    <p class="intro">The model is in training and nothing about it has been measured, so this section is empty on purpose. When the results are in, it shows:</p>
+    <div class="sh"><span class="no">Results</span><h2>Results due by <time datetime="2026-10-14T22:00Z"><span class="vwhen">October 14, 2026</span>, <span class="vwhen">22:00 UTC</span></time>.</h2></div>
+    <p class="intro">The model is planned and nothing about it has been measured, so this section is empty on purpose. When the results are in, it shows:</p>
     <ul class="vlim">
       <li><b>Recall per bug family</b> at two false-report rates, 0.1% and 1%, with the number of test examples behind each.</li>
       <li><b>Precision on pages with no injected faults</b>, the share of reports on ordinary pages that are real bugs.</li>
@@ -99,33 +99,18 @@
     <ul class="vlim">
       <li><b>The model has no numbers yet.</b> Nothing on this page claims a detection rate until one is measured and published.</li>
       <li><b>No pixels.</b> Text over photos, video and gradients is skipped, and canvas and WebGL content is not checked.</li>
-      <li><b>Only what the visitor's browser shows.</b> In your app, the checks run in the colour scheme, width and hover state each visitor is using. The page check adds a phone view and dark mode.</li>
+      <li><b>Only what the visitor's browser shows.</b> Once they ship in the runtime, the checks run in your app in the colour scheme, width and hover state each visitor is using.</li>
       <li><b>Two checks need Chromium.</b> Layout shifts and failed CSS background images have no browser signal elsewhere.</li>
       <li><b>Not an accessibility audit.</b> Readable text below WCAG AA contrast is not reported, and nothing here makes a site accessible or WCAG compliant.</li>
       <li><b>Design quality is not reported as a bug.</b> Uneven alignment and spacing are in the catalog; no check reports them.</li>
       <li><b>It does not repair CSS in general.</b> The three fixes above are the only changes it can make, and only when you turn them on.</li>
     </ul>
-    <div class="vsrc"><b>Sources</b><ul><li>Visual and CSS bugs in AI-generated web apps: catalog <span>the bug families and their order</span></li><li>GenClass visual checks: design <span>the measured checks, their thresholds and the opt-in fixes</span></li></ul></div>
+    
   </div>
 </section>
 
-<section id="scan">
-  <div class="wrap">
-    <div class="sh"><span class="no">Page check</span><h2>Scan a page.</h2></div>
-    <p class="intro">Paste the address of a public page. A cloud browser loads it, runs the checks, and shows each problem on a screenshot with what was measured and a suggested fix.</p>
-    <form class="scanbox" action="/scan" method="get" data-scan>
-      <label for="scan-visual">Page address</label>
-      <div class="scanbox-row">
-        <input id="scan-visual" name="url" type="text" inputmode="url" autocomplete="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="your-site.com" required aria-describedby="scan-visual-msg scan-visual-help">
-        <button class="btn" type="submit">Scan</button>
-      </div>
-      <p class="scanbox-msg" id="scan-visual-msg" data-scan-msg aria-live="polite"></p>
-      <p class="scanbox-help" id="scan-visual-help">A cloud browser loads that one page as a desktop and as a phone and reports each problem with its element and what was measured. No form or POST request reaches your server. <a href="/scan/about">How the scan works →</a></p>
-    </form>
-  </div>
-</section>
 
-<script src="/scan-box.js?v=451260c6" defer></script>
+
 </main>
 <footer class="end">
   <div class="wrap">
@@ -136,7 +121,7 @@
       <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs (in testing)</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>

@@ -1,10 +1,12 @@
 {
-  "$comment": "Numbers for the visual-bug feature on genclass.dev (/ and /visual). How to fill it: README.md in this folder. The build shows numbers only when status is \"live\" and every field the pages use is filled; until then it shows the scan box and the catalog content with no numbers.",
+  "$comment": "Numbers for the visual-bug feature on genclass.dev (/ and /visual). How to fill it: README.md in this folder. The build shows numbers only when status is \"live\" and every field the pages use is filled; until then it shows the catalog content, the status and the date in ready_by, with no numbers.",
   "status": "draft",
   "updated": null,
-  "ready_by": null,
+  "ready_by": "2026-10-14T22:00:00Z",
+  "scan_live": false,
   "checks_in_runtime": null,
   "model": {
+    "stage": "planned",
     "name": null,
     "version": null,
     "input": null,
@@ -31,6 +33,8 @@
     "sites_ai": null,
     "sites_control": null,
     "measured_by": null,
+    "false_site_share": null,
+    "clean_sites": null,
     "prevalence": []
   },
   "sources": [

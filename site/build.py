@@ -5,6 +5,10 @@ import visual as V  # site/visual.py: the visual-bug section, /visual and the sc
 
 ROOT = pathlib.Path(__file__).parent
 SRC, PUB = ROOT / "src", ROOT / "public"
+if V.SAMPLE:  # made-up numbers never reach public/, which is committed and deployed: the sample preview builds in .preview/
+    import shutil
+    shutil.copytree(PUB, ROOT / ".preview", dirs_exist_ok=True)
+    PUB = ROOT / ".preview"
 SITE = "https://genclass.dev"
 TODAY = datetime.date.today().isoformat()
 GH = "https://github.com/genclass-dev/GenClass-lib"
@@ -47,7 +51,7 @@ FOOTER = f'''<footer class="end">
       <a class="btn ghost" href="{GH}">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">{V.FOOTER_LABEL}</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="{GH}">GitHub</a><a href="{NPM}">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="{GH}/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="{GH}/blob/main/LICENSE">License (Apache-2.0)</a><a href="{GH}/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
@@ -360,8 +364,8 @@ LLMS = f"""# GenClass
 - Model: 8.8M parameters, 10.2 MB q8, about 180 ms per decision on one WASM thread (182 ms for the shipped export), faster on WebGPU.
 - Training data: about 17.6M labelled runtime situations, including 837,623 real-browser rows from 158 apps.
 
-## In testing, not in {RT}
-- Visual bug checks (unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", stylesheets and fonts that fail, covered controls): measured checks with documented thresholds, and a model being trained on crawled pages with injected faults. No published numbers yet. https://genclass.dev/visual
+## {V.llms_head(RT)}
+{V.llms_line()}
 
 ## Planned, no customers yet
 - GenClass Cloud (a dashboard across apps) and GenClass Enterprise: https://genclass.dev/cloud, https://genclass.dev/enterprise, https://genclass.dev/pricing
@@ -379,5 +383,5 @@ LLMS = f"""# GenClass
 - Contact (GitHub issues are not enabled): {CONTACT}
 """
 (PUB / "llms.txt").write_text(LLMS)
-print("built", len(urls), "indexable pages:", ", ".join(p for p, _ in urls))
+print("built", len(urls), "indexable pages:", ", ".join(p for p, _ in urls), "into", PUB)
 print(V.REPORT)

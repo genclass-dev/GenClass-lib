@@ -26,6 +26,8 @@ packages/runtime-model/files/
 !demos/src/server/data/
 # the site's data files (site/src/data/README.md): visual.json is rendered into genclass.dev
 !site/src/data/
+# VISUAL_DATA=site/src/data/visual.sample.json builds here (made-up numbers), never into site/public/
+site/.preview/
 
 # internal working notes (never published)
 internal/

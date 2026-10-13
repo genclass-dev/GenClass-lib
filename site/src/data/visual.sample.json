@@ -3,8 +3,10 @@
   "status": "sample",
   "updated": "2026-10-14",
   "ready_by": "2026-10-14T18:00:00-04:00",
+  "scan_live": true,
   "checks_in_runtime": null,
   "model": {
+    "stage": "training",
     "name": "GenClass visual model",
     "version": "0.0.0-sample",
     "input": "each element's computed styles, layout box and a few hit tests, never pixels",
@@ -38,7 +40,9 @@
     "date": "2026-10-13",
     "sites_ai": 1111,
     "sites_control": 222,
-    "measured_by": "the sample model at 0.1% false reports per clean element",
+    "measured_by": "the sample model at one site-level threshold",
+    "false_site_share": 0.01,
+    "clean_sites": 300,
     "prevalence": [
       { "id": "text", "name": "Unreadable text", "share_of_ai_sites": 0.42, "share_of_control_sites": 0.21 },
       { "id": "media", "name": "Missing or broken media", "share_of_ai_sites": 0.37, "share_of_control_sites": 0.12 },

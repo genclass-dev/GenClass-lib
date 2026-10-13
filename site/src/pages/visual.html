@@ -7,8 +7,8 @@
   <div class="wrap">
     <!--@crumbs-->
     <h1>Bugs your users can see, <em>with no error to log.</em></h1>
-    <p class="lede">Unreadable text, broken images, layouts that break on phones, "undefined" on the page, buttons under an invisible layer. They render without an exception, so no error monitor records them. GenClass measures them on the page and names the element, what was measured, and a fix.</p>
-    <div class="ctas"><a class="btn" href="#scan">Scan a page</a><a class="btn ghost" href="#families">What it finds</a></div>
+    <p class="lede">Unreadable text, broken images, layouts that break on phones, "undefined" on the page, buttons under an invisible layer. They render without an exception, so no error monitor records them. <!--@vt lede--></p>
+    <div class="ctas"><!--@vt ctas--></div>
     <!--@visual-status-->
   </div>
 </div>
@@ -23,13 +23,13 @@
 
 <section id="how">
   <div class="wrap">
-    <div class="sh"><span class="no">How it works</span><h2>Measured checks, a trained model, and fixes you turn on.</h2></div>
+    <div class="sh"><span class="no">How it works</span><h2><!--@vt how-h2--></h2></div>
     <div class="steps vsteps">
       <div class="step"><span class="n">01</span><h3>Measure in the browser</h3><p>Each check is a measurement against a documented threshold, or a fact the browser reports: text below 1.5:1 contrast against a solid background, an image's error event, a page wider than the phone showing it. A report names the element, the value measured and the threshold, and suggests a CSS change for that selector. Text over photos and gradients is skipped, not guessed.</p></div>
       <div class="step"><span class="n">02</span><h3>Learn from crawled pages</h3><!--@visual-model-step--></div>
-      <div class="step"><span class="n">03</span><h3>Fix only when you ask</h3><p>Observe mode reports and never changes the page. With visual fixes turned on in guard or heal mode, three narrow fixes can run: a readable text colour, a leaked <code>pointer-events: none</code> removed from <code>body</code>, a stuck scroll lock released. Each is measured again after it runs, and each can be undone.</p></div>
+      <div class="step"><span class="n">03</span><h3>Fix only when you ask</h3><p><!--@vt fix-step--></p></div>
     </div>
-    <p class="note">Design and thresholds: <!--@vsrc checks the visual checks design-->. The checks never feed the network model, and neither the checks nor the visual model read pixels.</p>
+    <p class="note"><!--@vt how-note--></p>
   </div>
 </section>
 
@@ -45,7 +45,7 @@
     <ul class="vlim">
       <!--@visual-model-limit-->
       <li><b>No pixels.</b> Text over photos, video and gradients is skipped, and canvas and WebGL content is not checked.</li>
-      <li><b>Only what the visitor's browser shows.</b> In your app, the checks run in the colour scheme, width and hover state each visitor is using. The page check adds a phone view and dark mode.</li>
+      <li><b>Only what the visitor's browser shows.</b> <!--@vt limit-browser--></li>
       <li><b>Two checks need Chromium.</b> Layout shifts and failed CSS background images have no browser signal elsewhere.</li>
       <li><b>Not an accessibility audit.</b> Readable text below WCAG AA contrast is not reported, and nothing here makes a site accessible or WCAG compliant.</li>
       <li><b>Design quality is not reported as a bug.</b> Uneven alignment and spacing are in the catalog; no check reports them.</li>
@@ -55,10 +55,4 @@
   </div>
 </section>
 
-<section id="scan">
-  <div class="wrap">
-    <div class="sh"><span class="no">Page check</span><h2>Scan a page.</h2></div>
-    <p class="intro">Paste the address of a public page. A cloud browser loads it, runs the checks, and shows each problem on a screenshot with what was measured and a suggested fix.</p>
-    <!--@scanform visual-->
-  </div>
-</section>
+<!--@visual-scan-->

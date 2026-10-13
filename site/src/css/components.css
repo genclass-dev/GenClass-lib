@@ -448,9 +448,19 @@ kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-widt
 .vspec h3{font:600 15.5px/1.3 var(--sans);letter-spacing:-.005em;min-height:2.6em;margin-bottom:10px;text-wrap:balance}
 .vspec p{font-size:14px;line-height:1.5;color:var(--ink2);margin-top:10px}
 .vspec code{display:block;font:12px var(--mono);color:var(--ink3);margin-top:6px;overflow-wrap:anywhere}
+.vspec .vnone{font:500 12px var(--mono);color:var(--orange);margin-top:4px}
 .vspec-fig figcaption,.vfam-fig figcaption{max-width:90ch;margin-top:22px}
 .vspec-fig figcaption a,.vfam-fig figcaption a{color:var(--ink);white-space:nowrap}
 .vnote{margin-top:22px}
+.vstate{margin-top:30px;max-width:780px;border-top:1px solid var(--ink)}
+.vstate>div{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:4px 20px;align-items:baseline;padding:13px 0;border-bottom:1px solid var(--rule)}
+.vstate dt{font:500 12px var(--mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.06em}
+.vstate dd{font-size:15.5px;line-height:1.45;color:var(--ink)}
+.vstate dd a{color:var(--ink)}
+.vstate .due{padding:16px 0 18px}
+.vstate .due dd{font:700 clamp(26px,2.7vw,36px)/1.1 var(--display);letter-spacing:-.025em;font-variant-numeric:tabular-nums;text-wrap:balance}
+.vstate .due dd .vsample{font-family:var(--mono);letter-spacing:0}
+.vwhen{white-space:nowrap}
 .vlive{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:32px 56px;margin-top:56px;align-items:start}
 .vbars{display:flex;flex-direction:column;gap:14px;margin-top:18px}
 .vrow{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);gap:6px 18px;align-items:center}
@@ -459,7 +469,7 @@ kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-widt
 .vb{display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:10px;align-items:center}
 .vb .t{height:10px;background:#E6EBF2;border-radius:0 2px 2px 0;overflow:hidden}
 .vb .t i{display:block;height:100%;border-radius:0 2px 2px 0;min-width:2px}
-.vb .t i.a{background:var(--ink)} .vb .t i.c{background:#AAB4C8}
+.vb .t i.a{background:var(--ink)} .vb .t i.c{background:#7A879F} /* 3:1 on the track and on white; #AAB4C8 is 1.7:1 on the track */
 .vb b{font:500 13px var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
 details.tview{border-top:0;margin-top:14px}
 details.tview summary{display:inline-flex;justify-content:flex-start;align-items:center;gap:8px;min-height:44px;padding:0;font:500 13px var(--mono);color:var(--ink2)}
@@ -500,10 +510,11 @@ details.tview .tbl-wrap{margin-top:4px}
 .vsrc span::before{content:"· "}
 @media (min-width:1000px){
   .vis>.wrap{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);column-gap:64px;align-items:start}
-  .vis>.wrap>.sh{grid-column:1;grid-row:1/span 2}
+  .vis>.wrap>.sh{grid-column:1;grid-row:1/span 3}
   .vis>.wrap>.intro{grid-column:2;grid-row:1;margin-top:28px}
-  .vis>.wrap>.scanbox{grid-column:2;grid-row:2;margin-top:26px}
-  .vis>.wrap>:not(.sh):not(.intro):not(.scanbox){grid-column:1/-1}
+  .vis>.wrap>.vstate{grid-column:2;grid-row:2;margin-top:28px}
+  .vis>.wrap>.scanbox{grid-column:2;grid-row:3;margin-top:26px}
+  .vis>.wrap>:not(.sh):not(.intro):not(.vstate):not(.scanbox){grid-column:1/-1}
   .vis .sh h2{max-width:none}
 }
 @media (max-width:1100px){.vspec{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -511,6 +522,9 @@ details.tview .tbl-wrap{margin-top:4px}
 @media (max-width:640px){
   #visual .sh h2{font-size:clamp(28px,8.2vw,34px);line-height:1.1}
   .scanbox{margin-top:24px}
+  .vstate{margin-top:24px}
+  .vstate>div{grid-template-columns:1fr;padding:11px 0}
+  .vstate .due{padding:12px 0 14px}
   .scanbox input{font-size:17px;min-height:54px;padding:0 14px}
   .scanbox .btn{min-height:54px;padding:0 20px;font-size:16px}
   .vspec-fig{margin-top:40px}
