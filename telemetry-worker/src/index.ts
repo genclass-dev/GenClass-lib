@@ -1,5 +1,6 @@
 // Worker entry point. Only the default export lives here: the Workers runtime treats every named export of the main
 // module as an entrypoint, so the collector and dashboard code (and their constants) live in collector.ts.
+import { authRetention } from "./auth.js";
 import { handle, reply, type Env } from "./collector.js";
 import { retention } from "./dashboard.js";
 
@@ -17,8 +18,14 @@ export default {
       reply(500, { ok: false, error: "internal error" }),
     );
   },
-  /** Daily cron: delete dashboard rows past retention (R2 has its own 90-day lifecycle rule). */
+  /**
+   * Daily cron: delete dashboard rows past retention (R2 has its own 90-day lifecycle rule), and expired sign-in
+   * challenges, device codes and sessions.
+   */
   async scheduled(_event: unknown, env: Env, ctx: Ctx): Promise<void> {
-    if (env.DB) ctx.waitUntil(retention(env.DB, new Date()));
+    const db = env.DB;
+    if (!db) return;
+    const now = new Date();
+    ctx.waitUntil(Promise.all([retention(db, now), authRetention(db, now).catch(() => undefined)]));
   },
 };

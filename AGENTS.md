@@ -14,7 +14,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 
 | path | what |
 |---|---|
-| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`), `test/` (vitest; `test/install/`, `test/browser/`), `bin/` (CLI: `init`, `remove`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
+| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`), `test/` (vitest; `test/install/`, `test/browser/`), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
 | `packages/runtime-model/` | the data-only model package (`files/` is gitignored, filled at release) and `MODEL_CARD.md` |
 | `sim/` | deterministic training-data simulator driving the real runtime (`SEPARABILITY.md`, `README.md`) |
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
@@ -22,7 +22,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `demos/` | six demo apps with a chaos backend and Playwright trials; `bench/heal/` runs them per mode |
 | `packages/playwright/` | `@genclass/playwright`: Playwright reporter + pure summariser that read the GenClass fixture's `test-results/genclass/*.json` (`genclass-races/1`) and write `genclass-report.md` for the PR; injects nothing, no runtime deps |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
-| `site/`, `telemetry-worker/` | genclass.dev and the diagnostics collector (Cloudflare Workers) |
+| `site/`, `telemetry-worker/` | genclass.dev, and the diagnostics collector with the dashboards and accounts (Cloudflare Workers) |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
 | `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, **`RESULTS.md`** (every measured number) |
 | `scripts/` | Azure VM helpers (`vm.sh`, `azvm.sh`, `launch_run.sh`); `internal/` is gitignored working notes |

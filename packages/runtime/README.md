@@ -34,10 +34,11 @@ stores, and Zustand stores with `devtools` are found automatically, with no stor
 ([Automatic state discovery](#automatic-state-discovery)). It starts in observe mode: it reports, and never changes
 what your app does (see Known limitations). `npx @genclass/runtime init` writes the line for you.
 
-**New in `0.3.0`:** a private per-app dashboard on genclass.dev fed by an app token, and
-`protect(name, fn)` with `scope: "functions"` to point GenClass at a few functions instead of the whole app. See
-[Your dashboard](#your-dashboard) and [Function-specific: protect()](#function-specific-protect); `0.2.x` ignores a
-token and has no `protect` export.
+**New in `0.3.0`:** a per-app dashboard on genclass.dev fed by an app token, in a GenClass account
+(`npx @genclass/runtime login`) or behind a private link, and `protect(name, fn)` with `scope: "functions"` to point
+GenClass at a few functions instead of the whole app. See [Your dashboard](#your-dashboard) and
+[Function-specific: protect()](#function-specific-protect); `0.2.x` ignores a token and has no `login` command or
+`protect` export.
 
 > **Privacy notice: anonymous diagnostics are on by default.** `GenClass.init()` in a browser sends GenClass's
 > decisions and counts, without any text from your page, to the GenClass maintainers to improve the model; it is
@@ -153,7 +154,9 @@ lose it. init asks git whether that file is ignored; if not, it adds it to the p
 repository without one there, such as a monorepo package, it creates one with that line). `remove` leaves the file
 and that line alone. Declining, running without a terminal and without `--yes`, and `--dry-run` send nothing and
 create nothing. Running `init` again reuses the token (no new project); on a setup made
-without one it never creates a project as a side effect: pass `--token`.
+without one it never creates a project as a side effect: pass `--token`, or sign in and run `connect`. Signed in
+(`npx @genclass/runtime login`), `init` first asks whether the new app goes into your GenClass account instead of
+getting a private link ([Your dashboard](#your-dashboard)).
 
 ```bash
 npx @genclass/runtime init --token gc_...   # use a token you already have (no network)
@@ -327,18 +330,68 @@ where GenClass acts.
 
 ## Your dashboard
 
-**New in `0.3.0`** (`0.2.x` ignores a token). Each web app gets a **token** and a private **dashboard
-link**:
+**New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
+web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
+genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
+a GenClass account, or use one private link per app without an account.
+
+**With an account:**
+
+```bash
+npx @genclass/runtime login     # sign in in the browser, then connect the app in this folder
+npx @genclass/runtime connect   # connect an app folder later (or another one)
+npx @genclass/runtime whoami    # your account and its apps
+npx @genclass/runtime logout    # end the CLI session
+```
+
+`login` prints a code and opens `https://genclass.dev/login/device`, where you sign in (Google, GitHub or a
+passkey) and approve that code. It waits until you do (Ctrl-C stops it and saves nothing), then saves the CLI
+session in `~/.config/genclass/credentials.json` (`$XDG_CONFIG_HOME/genclass/`; Windows `%APPDATA%\genclass\`),
+readable only by you. `--no-browser` prints the link without opening a browser (it works from any device).
+Inside an app's folder, `login` then asks whether to connect that app; `connect` does that step alone:
+
+- pick one of your account's apps, or a new one named after `package.json` (`--app <id|name>`, `--name <name>`);
+  a new app is created only once you approve the changes;
+- it writes the key the way `init` does (`genclass.config.*`, `data-token` on the script tag, or the Astro meta
+  line), shows the diff and asks first (`--yes`: no questions; `--dry-run`: it reads your app list, and creates and
+  writes nothing), and sets GenClass up first if `init` has not;
+- an app `init` already created without an account (its private link in `.genclass.local`) can be added to your
+  account instead, keeping its key and its data. The link is only sent to the host it belongs to.
+
+```
+  ✔ Account    you@example.com
+  ✔ App        shop-web (a new app in your account, created once you apply the changes)
+  ...
+  Your dashboard  https://genclass.dev/account/apps/...
+```
+
+An app's dashboard in your account opens for you when you are signed in at genclass.dev. Until the app's first event
+arrives it shows the key and these same two ways to connect it; you can also sign up at genclass.dev, create an app
+there, and pass its key yourself (below). What the CLI sends: `login` asks genclass.dev for a sign-in code, naming
+itself `genclass-runtime <version>` (the approval page shows that name and your account page lists the session
+under it), and polls until you approve it, then reads your account's apps; creating an app sends its name, and
+adding an existing dashboard sends its link from `.genclass.local`. Nothing is sent until you run
+one of these commands (or approve `init`'s changes). The CLI session (`gcs_...`) is a secret: `logout` ends it at
+genclass.dev and deletes the file, and you can revoke it from your account page. A CLI session can read your
+account's apps, create apps, add an app from its private link and end itself; it cannot read stats, end other
+sessions or change how you sign in. What an account stores:
+[PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
+
+**Without an account:**
 
 | | what | who may see it |
 |---|---|---|
 | token | `gc_` + 22 letters and digits, e.g. `gc_4fQ9...` | public: it ships in your page. It only lets your app's diagnostics be grouped together. |
 | dashboard link | `https://genclass.dev/dashboard/<secret>` | **private**: anyone with the link sees your app's stats, and it is the only way to open them |
 
-**Get one:** `npx @genclass/runtime init` (after you approve its diff: creates both, writes the token, prints the
-link and saves it in `.genclass.local`), or click "Get a token" at [genclass.dev/start](https://genclass.dev/start) and pass the token
-yourself: `GenClass.init({ token })`, `data-token="..."`, `<meta name="genclass" content="token=...">` or
-`window.GENCLASS_CONFIG = { token }`. A malformed token logs one console warning and is ignored.
+**Get one:** `npx @genclass/runtime init` (not signed in, after you approve its diff: creates both, writes the
+token, prints the link and saves it in `.genclass.local`), or click "Get a token" at
+[genclass.dev/start](https://genclass.dev/start). A link can be added to an account later (`connect`, or "Add an
+existing dashboard" on your account page).
+
+**Pass a key yourself:** `GenClass.init({ token })`, `data-token="..."` on the script tag,
+`<meta name="genclass" content="token=...">` or `window.GENCLASS_CONFIG = { token }`. A malformed token logs one
+console warning and is ignored.
 
 **What it shows:** decisions, detections by diagnosis, actions taken, top routes and protected functions,
 model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections.
@@ -352,8 +405,9 @@ example `telemetry: { decisionSample: 1 }`) is an explicit opt-in that sends fro
 token, each telemetry batch carries it and decisions about protected functions carry their `fn` name; nothing else
 changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
 
-**Which version:** the token option, `scope` and `protect()` are in `0.3.0` (first as `0.3.0-beta.0`, see the
-[CHANGELOG](CHANGELOG.md)).
+**Which version:** the token option, `scope`, `protect()` and the `login`, `connect`, `whoami` and `logout` commands
+are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)). A key needs `@genclass/runtime`
+`0.3.0-beta.0` or later in your app.
 
 ## Automatic state discovery
 

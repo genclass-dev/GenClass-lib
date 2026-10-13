@@ -169,9 +169,18 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
 - `npx @genclass/runtime init` creates a token (a "project") only on a new setup and only after the developer
   approved its changes (or passed `--yes`): it sends one request, `POST https://genclass.dev/api/projects` with
   `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,
-  that name, the creation time, the time of the last batch, and a SHA-256 hash of the dashboard secret (never the
-  secret itself). Project records have no automatic expiry; the aggregated dashboard data does (90 days). To delete
-  a project and its dashboard data, write to the contact in PRIVACY.md with the token.
+  that name, the creation time, the times of the first and the last batch, a SHA-256 hash of the dashboard secret
+  (never the secret itself) and, when the app belongs to a genclass.dev account, that account. Project records have
+  no automatic expiry; the aggregated dashboard data does (90 days). To delete a project and its dashboard data,
+  write to the contact in PRIVACY.md with the token.
+- An app can also belong to an optional **genclass.dev account** (passkey, Google or GitHub sign-in), which opens its
+  dashboard at `https://genclass.dev/account/apps/<id>` for the signed-in owner; an existing dashboard link can be
+  added to an account and keeps working until the owner turns that link off on the account page. This changes
+  nothing the runtime sends: pages send the same batches with the same token, and nothing in a batch identifies a
+  person or an account. What an account itself stores (an email as typed or as Google returned it and whether it is
+  verified, passkey public keys, the Google `sub` and the GitHub id and login if used, session records, the apps it
+  owns) is listed in PRIVACY.md. Deleting the account on its account page deletes the apps created in it with their
+  dashboard data.
 
 ## Where it goes
 

@@ -143,7 +143,7 @@ td.k{font-family:var(--mono);font-size:14px;white-space:nowrap}
 .note a{color:var(--ink2)}
 
 .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:0 40px;margin-top:40px}
-.step{padding:22px 0;border-top:1px solid var(--rule);display:grid;grid-template-columns:44px 1fr;gap:4px 8px}
+.step{padding:22px 0;border-top:1px solid var(--rule);display:grid;grid-template-columns:44px 1fr;gap:4px 8px;align-content:start}
 .step .n{font:500 13px var(--mono);color:var(--ink3);padding-top:6px}
 .step h3{font-size:22px;letter-spacing:-.02em}
 .step p{grid-column:2;color:var(--ink2);font-size:15px}
@@ -220,10 +220,6 @@ svg.chart text{font:11px var(--mono);fill:var(--ink3)}
 .tabs button:focus-visible{outline:2px solid #2FD07F}
 pre{font:14px/1.75 var(--mono);padding:22px 24px;overflow-x:auto}
 pre .c{color:#7F8BAA} pre .k{color:#FF8A6B} pre .s{color:#7EE2AE}
-.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:0 40px;margin-top:32px}
-.feats div{padding:18px 0;border-top:1px solid var(--rule)}
-.feats h3{font:600 16px var(--sans);letter-spacing:0}
-.feats p{font-size:14.5px;color:var(--ink2);margin-top:4px}
 
 .stat td:last-child{font-family:var(--mono);white-space:nowrap;text-align:right}
 .stat th:last-child{text-align:right}

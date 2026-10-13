@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { gunzipSync } from "node:zlib";
-import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import worker from "../src/index.js";
 import { handle, MAX_PROJECTS_PER_MINUTE, validate, type Env } from "../src/collector.js";
 import { RECENT_CAP, resetTokenCache, retention, sanitizeName, sha256Hex, TOKEN_RE, type D1Like, type D1Stmt } from "../src/dashboard.js";
+import { MIGRATIONS } from "./d1.js";
 
-// D1 stand-in backed by node:sqlite running the real migration, so the SQL itself is under test.
+// D1 stand-in backed by node:sqlite running the real migrations (all of them, in order), so the SQL itself is under test.
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");
-const MIGRATION = ["0001_dashboard.sql", "0002_projects_created.sql"].map((f) => readFileSync(new URL(`../migrations/${f}`, import.meta.url), "utf8")).join("\n");
+const MIGRATION = MIGRATIONS;
 
 function d1() {
   const db = new DatabaseSync(":memory:");

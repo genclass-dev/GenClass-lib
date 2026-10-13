@@ -14,7 +14,23 @@ routes = [
   { pattern = "genclass.dev/dashboard*", zone_name = "genclass.dev" },
   { pattern = "genclass.dev/start*", zone_name = "genclass.dev" },
   { pattern = "genclass.dev/api/*", zone_name = "genclass.dev" },
+  # Accounts (src/auth.ts). Unknown paths under these prefixes are handed to the site like the ones above.
+  { pattern = "genclass.dev/login*", zone_name = "genclass.dev" },
+  { pattern = "genclass.dev/signup*", zone_name = "genclass.dev" },
+  { pattern = "genclass.dev/logout*", zone_name = "genclass.dev" },
+  { pattern = "genclass.dev/account*", zone_name = "genclass.dev" },
+  { pattern = "genclass.dev/auth/*", zone_name = "genclass.dev" },
 ]
+
+# Account settings. Production uses the defaults in src/auth.ts (AUTH_ORIGIN https://genclass.dev, AUTH_RP_ID
+# genclass.dev); local development overrides them in .dev.vars (see .dev.vars.example and the README).
+# Secrets, set with `npx wrangler secret put` and never committed: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+# GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET. Without a pair, that provider's button is not shown.
+
+# The newest @genclass/runtime on npm. Below 0.3.0 the Connect panel on an app's dashboard says first that project keys
+# and `npx @genclass/runtime login` are not published yet. Set it to the new version when release.yml publishes 0.3.0.
+[vars]
+RUNTIME_ON_NPM = "0.2.2"
 
 [observability]
 enabled = false
@@ -36,11 +52,25 @@ name = "CREATE_LIMITER"
 namespace_id = "7301"
 simple = { limit = 10, period = 60 }
 
-# Batches: 60 per 60 s per client IP (the runtime sends at most one every 10 s per page; the IP is never stored).
+# Batches per client IP: 1200 per 60 s, a ceiling for many pages behind one shared address (the runtime sends at most
+# one every 10 s per page; the IP is never stored). The tight budget is per session, below.
 [[ratelimits]]
 name = "LIMIT"
 namespace_id = "4802"
-simple = { limit = 60, period = 60 }
+simple = { limit = 1200, period = 60 }
+
+# Batches per session id (the body's sid): 30 per 60 s; one page sends about 6 a minute.
+[[ratelimits]]
+name = "SESSION_LIMIT"
+namespace_id = "4803"
+simple = { limit = 30, period = 60 }
+
+# Sign-up, sign-in options and the CLI's device flow: 20 per 60 s per client IP and route (the key is a hash of the
+# route and the IP; the IP is never stored).
+[[ratelimits]]
+name = "AUTH_LIMIT"
+namespace_id = "7302"
+simple = { limit = 20, period = 60 }
 
 # Read-only use of the site worker: unknown genclass.dev/start* and /dashboard* paths are handed to it unchanged.
 [[services]]

@@ -13,12 +13,17 @@
 // Per-app tokens and dashboards (src/dashboard.ts, src/pages.ts; also routed on genclass.dev/{api/*,start*,dashboard*}):
 // POST /api/projects, GET /api/projects/<secret>, GET /start, GET /dashboard/<secret>. A batch with a known top-level
 // `token` is also aggregated into D1 for that app's dashboard; without one it is stored in R2 only, exactly as before.
+//
+// Accounts (src/auth.ts, src/account-pages.ts; routed on genclass.dev/{login*,signup*,logout*,account*,auth/*} and
+// /api/{auth,device,me,account}*): passkeys, Google and GitHub sign-in, sessions, the CLI's device flow, owned apps.
 
+import { routeAuth } from "./auth.js";
 import {
   aggregate,
   createProject,
   knownToken,
   projectBySecret,
+  projectsCreatedSince,
   randomBase62,
   RANGES,
   sanitizeName,
@@ -28,6 +33,7 @@ import {
   type D1Like,
   type Range,
 } from "./dashboard.js";
+import { json, readCapped } from "./http.js";
 import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages.js";
 import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
 
@@ -52,10 +58,27 @@ export interface Env {
   CREATE_LIMITER?: RateLimiterLike;
   /** Workers Rate Limiting binding for batches (60 / 60 s per client IP; the IP is only the counter key, never stored). */
   LIMIT?: RateLimiterLike;
+  /** Workers Rate Limiting binding for batches per session id (the `sid` in the body). */
+  SESSION_LIMIT?: RateLimiterLike;
   /** Service binding to the site worker (`genclass-site`), for genclass.dev paths this worker does not serve. */
   SITE?: { fetch(request: Request): Promise<Response> };
   /** Origin used in dashboard links (default https://genclass.dev). */
   DASHBOARD_ORIGIN?: string;
+  /** Workers Rate Limiting binding for sign-up, sign-in options and the device flow (20 / 60 s per client and route). */
+  AUTH_LIMIT?: RateLimiterLike;
+  /** The origin accounts live on: cookies, the CSRF Origin check, WebAuthn and OAuth redirects (default https://genclass.dev). */
+  AUTH_ORIGIN?: string;
+  /** WebAuthn relying party id (default genclass.dev). */
+  AUTH_RP_ID?: string;
+  /** The newest @genclass/runtime on npm (a var in wrangler.toml). Below 0.3.0 the Connect panel says that project
+   * keys and `login` are not published yet; unset counts as not published. */
+  RUNTIME_ON_NPM?: string;
+  /** Google sign-in (Worker secrets). The Google button is shown only when both are set. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /** GitHub sign-in (Worker secrets). The GitHub button is shown only when both are set. */
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
 }
 
 const CORS: Record<string, string> = {
@@ -126,34 +149,12 @@ async function gzip(text: string): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-/** Read the body with a hard byte cap (the Content-Length header may be absent or wrong). */
-async function readCapped(request: Request, cap: number): Promise<Uint8Array | null> {
-  const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > cap) return null;
-  if (!request.body) return new Uint8Array(0);
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > cap) {
-      try { await reader.cancel(); } catch { /* ignore */ }
-      return null;
-    }
-    chunks.push(value);
-  }
-  const out = new Uint8Array(total);
-  let o = 0;
-  for (const c of chunks) { out.set(c, o); o += c.byteLength; }
-  return out;
-}
-
 export interface HandleOptions {
   /** Injected for tests. */
   now?: () => Date;
   uuid?: () => string;
+  /** Outgoing requests to Google and GitHub during sign-in (the global fetch in production; tests mock it). */
+  fetch?: (input: string, init?: RequestInit) => Promise<Response>;
   /** ctx.waitUntil in production (aggregation runs after the response); tests await inline. */
   waitUntil?: (p: Promise<unknown>) => void;
   /** Requests on genclass.dev that this worker does not serve go on to the site (fetch in production). */
@@ -168,6 +169,8 @@ export async function handle(request: Request, env: Env, opts: HandleOptions = {
     return reply(200, { ok: true, schema: SCHEMA });
   }
   if (path === "/v1/events" || path === "/api/v1/events") return ingest(request, env, opts);
+  const account = await routeAuth(request, url, path, env, opts);
+  if (account) return account;
   const site = await routeSite(request, url, path, env, opts);
   if (site) return site;
   // On genclass.dev, anything else under the routed prefixes belongs to the site.
@@ -175,6 +178,16 @@ export async function handle(request: Request, env: Env, opts: HandleOptions = {
     return opts.passthrough(request);
   }
   return reply(404, { ok: false, error: "not found" });
+}
+
+/** One limiter check. A missing or failing limiter lets the request through (the limiters are best effort). */
+async function allowed(limiter: RateLimiterLike | undefined, key: string): Promise<boolean> {
+  if (!limiter) return true;
+  try {
+    return (await limiter.limit({ key })).success;
+  } catch {
+    return true;
+  }
 }
 
 async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<Response> {
@@ -186,15 +199,11 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
     return reply(415, { ok: false, error: "content-type must be application/json or text/plain" });
   }
 
-  // Abuse guard: a sliding per-IP budget of batches (the runtime sends at most one every 10 s per page).
-  if (env.LIMIT) {
-    let ok = true;
-    try {
-      ok = (await env.LIMIT.limit({ key: request.headers.get("cf-connecting-ip") ?? "unknown" })).success;
-    } catch {
-      /* the limiter is best effort */
-    }
-    if (!ok) return reply(429, { ok: false, error: "too many batches; slow down" });
+  // Abuse guard, per IP: a ceiling high enough for an office or campus behind one address (the runtime sends at most
+  // one batch every 10 s per page, and since 0.2.2 a page stops sending after 3 failed requests in a row, so a low
+  // per-IP limit would silence every page behind a shared NAT for good). The per-session budget below is the tight one.
+  if (!(await allowed(env.LIMIT, request.headers.get("cf-connecting-ip") ?? "unknown"))) {
+    return reply(429, { ok: false, error: "too many batches; slow down" });
   }
 
   const raw = await readCapped(request, MAX_BODY_BYTES);
@@ -208,6 +217,8 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
   }
   const batch = validate(parsed);
   if (typeof batch === "string") return reply(400, { ok: false, error: batch });
+  // Per session: one page sends about 6 batches a minute; the budget leaves room for flushes on hide and unload.
+  if (!(await allowed(env.SESSION_LIMIT, `sid:${batch.sid}`))) return reply(429, { ok: false, error: "too many batches; slow down" });
 
   const now = (opts.now ?? (() => new Date()))();
   const receivedAt = now.toISOString();
@@ -250,7 +261,7 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
 
 // ------------------------------------------------------------------------------------------ tokens and dashboards
 
-/** Global ceiling on project creation (all clients together). */
+/** Global ceiling on anonymous project creation (all clients together; apps created in accounts count separately). */
 export const MAX_PROJECTS_PER_MINUTE = 60;
 
 const PROJECT_CORS: Record<string, string> = {
@@ -259,20 +270,6 @@ const PROJECT_CORS: Record<string, string> = {
   "access-control-allow-headers": "content-type",
   "access-control-max-age": "86400",
 };
-
-function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json",
-      "cache-control": "no-store",
-      "referrer-policy": "no-referrer",
-      "x-robots-tag": "noindex, nofollow",
-      "x-content-type-options": "nosniff",
-      ...headers,
-    },
-  });
-}
 
 function html(status: number, body: string, nonce: string): Response {
   return new Response(body, { status, headers: securityHeaders(nonce) });
@@ -293,10 +290,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
       if (!success) return json(429, { ok: false, error: "too many projects created; try again in a minute" }, { ...PROJECT_CORS, "retry-after": "60" });
     }
     // Backstop for the (per-location, eventually consistent) limiter: a global ceiling on new projects per minute.
-    const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM projects WHERE created > ?")
-      .bind(new Date(now.getTime() - 60_000).toISOString())
-      .first<{ n: number }>();
-    if ((recent?.n ?? 0) >= MAX_PROJECTS_PER_MINUTE) {
+    if ((await projectsCreatedSince(env.DB, new Date(now.getTime() - 60_000), "anonymous")) >= MAX_PROJECTS_PER_MINUTE) {
       return json(429, { ok: false, error: "too many projects created; try again in a minute" }, { ...PROJECT_CORS, "retry-after": "60" });
     }
     const raw = await readCapped(request, 4096);

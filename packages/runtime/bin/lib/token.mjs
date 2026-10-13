@@ -5,17 +5,28 @@
 // the app's stats. init creates both with POST https://genclass.dev/api/projects (server: telemetry-worker/), sending
 // only the app's name, and only after the user approved the changes (the diff shows PENDING_TOKEN until then). It
 // writes the token into the snippet it adds and keeps the link in .genclass.local, which it makes sure git ignores
-// (asking git itself, so a monorepo's root .gitignore counts; `remove` keeps the file and that line).
+// (asking git itself, so a monorepo's root .gitignore counts; `remove` keeps the file and that line). An app created
+// in a signed-in account (account.mjs) has no secret link, so nothing is saved for it here.
 
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { DEFAULT_HOST, apiHost, hostUrl } from "./host.mjs";
 
 export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
 const TOKEN_IN_TEXT = /\bgc_[A-Za-z0-9]{22}\b/;
 export const PROJECTS_URL = "https://genclass.dev/api/projects";
 export const START_URL = "https://genclass.dev/start";
-const DASHBOARD_RE = /^https:\/\/genclass\.dev\/dashboard\/[A-Za-z0-9]+$/;
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+
+/**
+ * Whether `url` is a private dashboard link (`<origin>/dashboard/<secret>`) on genclass.dev or on the GENCLASS_HOST
+ * the CLI talks to.
+ */
+export function isDashboardLink(url) {
+  const origins = [...new Set([DEFAULT_HOST, apiHost()])].map(escapeRe).join("|");
+  return new RegExp(`^(?:${origins})/dashboard/[A-Za-z0-9]+$`).test(String(url ?? ""));
+}
 export const LOCAL_FILE = ".genclass.local";
 /**
  * Stands for the token in the diff init shows before the project exists. Not a valid token (TOKEN_RE), so it is never
@@ -44,7 +55,7 @@ export function readLocal(dir) {
   }
   const r = {};
   if (TOKEN_RE.test(kv.GENCLASS_TOKEN ?? "")) r.token = kv.GENCLASS_TOKEN;
-  if (DASHBOARD_RE.test(kv.GENCLASS_DASHBOARD ?? "")) r.dashboardUrl = kv.GENCLASS_DASHBOARD;
+  if (isDashboardLink(kv.GENCLASS_DASHBOARD)) r.dashboardUrl = kv.GENCLASS_DASHBOARD;
   return r.token ? r : null;
 }
 
@@ -105,7 +116,7 @@ export function saveLocal(dir, { token, dashboardUrl, name, created }) {
 }
 
 /**
- * POST /api/projects. Resolves { ok: true, token, dashboardUrl, name, created } or { ok: false, reason } (never
+ * POST /api/projects (on genclass.dev, or GENCLASS_HOST). Resolves { ok: true, token, dashboardUrl, name, created } or { ok: false, reason } (never
  * rejects). `fetchFn` defaults to the global fetch (tests replace it).
  */
 export async function createProject(name, fetchFn = globalThis.fetch) {
@@ -114,7 +125,7 @@ export async function createProject(name, fetchFn = globalThis.fetch) {
   const timer = ctl ? setTimeout(() => ctl.abort(), TIMEOUT_MS) : null;
   try {
     const body = JSON.stringify(name ? { name: String(name).slice(0, 80) } : {});
-    const res = await fetchFn(PROJECTS_URL, { method: "POST", headers: { "content-type": "application/json" }, body, ...(ctl ? { signal: ctl.signal } : {}) });
+    const res = await fetchFn(hostUrl("/api/projects"), { method: "POST", headers: { "content-type": "application/json" }, body, ...(ctl ? { signal: ctl.signal } : {}) });
     if (res.status === 429) return { ok: false, reason: "too many new projects from this network right now (HTTP 429)" };
     if (!res.ok) return { ok: false, reason: `the server answered HTTP ${res.status}` };
     let j;
@@ -123,7 +134,7 @@ export async function createProject(name, fetchFn = globalThis.fetch) {
     } catch {
       return { ok: false, reason: "the server's answer was not JSON" };
     }
-    if (!j || !TOKEN_RE.test(String(j.token ?? "")) || !DASHBOARD_RE.test(String(j.dashboardUrl ?? ""))) return { ok: false, reason: "the server's answer had no valid token and dashboard link" };
+    if (!j || !TOKEN_RE.test(String(j.token ?? "")) || !isDashboardLink(j.dashboardUrl)) return { ok: false, reason: "the server's answer had no valid token and dashboard link" };
     return { ok: true, token: j.token, dashboardUrl: j.dashboardUrl, name: typeof j.name === "string" ? j.name : name, created: typeof j.created === "string" ? j.created : undefined };
   } catch (e) {
     const aborted = e?.name === "AbortError";
