@@ -138,7 +138,7 @@ typical volumes.
 
 ## App tokens and dashboards
 
-Unreleased (not in `0.2.2`, which ignores a token and sends neither `token` nor `fn`). An app can set a **token**
+New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An app can set a **token**
 (`InitOptions.token`, `data-token`, `<meta name="genclass" content="token=...">` or `window.GENCLASS_CONFIG.token`):
 `gc_` followed by 22 letters or digits, created by `npx @genclass/runtime init` or at https://genclass.dev/start.
 

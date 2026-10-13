@@ -19,7 +19,7 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 **One line covers the whole app.** First in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
 ```
 
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`):
@@ -34,9 +34,9 @@ stores, and Zustand stores with `devtools` are found automatically, with no stor
 ([Automatic state discovery](#automatic-state-discovery)). It starts in observe mode: it reports, and never changes
 what your app does (see Known limitations). `npx @genclass/runtime init` writes the line for you.
 
-**Next release (not in `0.2.2`):** a private per-app dashboard on genclass.dev fed by an app token, and
+**New in `0.3.0`:** a private per-app dashboard on genclass.dev fed by an app token, and
 `protect(name, fn)` with `scope: "functions"` to point GenClass at a few functions instead of the whole app. See
-[Your dashboard](#your-dashboard) and [Function-specific: protect()](#function-specific-protect); `0.2.2` ignores a
+[Your dashboard](#your-dashboard) and [Function-specific: protect()](#function-specific-protect); `0.2.x` ignores a
 token and has no `protect` export.
 
 > **Privacy notice: anonymous diagnostics are on by default.** `GenClass.init()` in a browser sends GenClass's
@@ -47,7 +47,8 @@ token and has no `protect` export.
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
 > and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-> **Status: `0.2.2`, with model `@genclass/runtime-model@0.2.0`.**
+> **Status: `0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
+> with model `@genclass/runtime-model@0.2.0`.**
 >
 > - **The model loads by default.** A default `GenClass.init()` loads `@genclass/runtime-model@0.2.0` (10.2 MB q8,
 >   `genclass-runtime-r17` 2.0.0-rc4t, run `r17-v2dT`, with a gain gate and three aggressiveness profiles) from
@@ -112,7 +113,7 @@ user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropp
 newer data (search.results). (stale, 0.97; discard 0.98)
 ```
 
-In production these lines print in your users' browsers. From the next release (not in `0.2.2`) you can send them
+In production these lines print in your users' browsers. From `0.3.0` you can send them
 to Sentry, PostHog, Datadog, your log shipper or your own endpoint as well: `npx @genclass/runtime init --sink sentry`,
 or `data-sink="sentry"` on the script tag ([See it where you already look](#see-it-where-you-already-look)).
 
@@ -136,7 +137,7 @@ npx @genclass/runtime remove             # undo exactly what init added
 Other flags: `--no-install`, `--no-devtools`, `--cwd <dir>`, `--cdn <url>` and `--no-sri` (plain HTML),
 `remove --keep-package`.
 
-**Token and dashboard** (next release; `init` in `0.2.2` creates no token). On a new setup, once you approve the
+**Token and dashboard** (`0.3.0`; `init` in `0.2.x` creates no token). On a new setup, once you approve the
 diff (or pass `--yes`), `init` also creates a project for your app at genclass.dev: it sends `package.json`'s `name`
 to `https://genclass.dev/api/projects`, writes the token it gets back into what it adds (the diff shows
 `gc_new-token-created-when-you-apply` in its place until then), and prints your private dashboard link:
@@ -170,7 +171,7 @@ Options without editing code (also on a project `init` already set up; `remove` 
 npx @genclass/runtime init --no-telemetry                # anonymous diagnostics off (--telemetry: explicitly on)
 npx @genclass/runtime init --model-url /genclass-model/  # a self-hosted model (see Content-Security-Policy below)
 npx @genclass/runtime init --sink sentry                 # findings in Sentry too: also posthog, datadog, console-json,
-                                                         # webhook:<url> (next release; "See it where you already look")
+                                                         # webhook:<url> (0.3.0; "See it where you already look")
 ```
 
 They go into a marked `genclass.config.ts` (or `.js`) next to your entry, which sets `window.GENCLASS_CONFIG` and is
@@ -219,7 +220,7 @@ import rt from "@genclass/runtime/auto";  // the same, and the runtime it starte
 ```
 
 Optional page configuration, read once: `<meta name="genclass" content="mode=guard, devtools=local">` inside
-`<head>` or `window.GENCLASS_CONFIG = { mode: "guard", devtools: true }` (any `InitOptions`; next release: also
+`<head>` or `window.GENCLASS_CONFIG = { mode: "guard", devtools: true }` (any `InitOptions`; since `0.3.0` also
 `token=gc_...` / `token: "gc_..."`), set before the import runs. During SSR or in Node, `/auto` installs nothing and
 returns an inert runtime.
 
@@ -231,9 +232,9 @@ returns an inert runtime.
 
 It exposes `window.GenClass`, discovers the app's state like the import does, and loads the model worker, ONNX
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
-overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Next release: `data-token="gc_..."`
+overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
 (your app's token), `data-scope="functions"` and `window.GenClass.protect`. Pin a version in production
-(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2`); the plain-HTML path of `init` writes a pinned
+(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 
 **4. By hand:**
@@ -259,7 +260,7 @@ The unscoped `genclass-runtime` alias is deprecated; use `@genclass/runtime`.
 
 ## Function-specific: protect()
 
-**Next release** (not in `0.2.2`, which has no `protect` export: importing it fails). Use this when you want GenClass
+**New in `0.3.0`** (`0.2.x` has no `protect` export: importing it fails). Use this when you want GenClass
 on a few functions that matter (a checkout submit, a search, a save) rather than on the whole app.
 
 ```ts
@@ -326,7 +327,7 @@ where GenClass acts.
 
 ## Your dashboard
 
-**Next release** (not in `0.2.2`, which ignores a token). Each web app gets a **token** and a private **dashboard
+**New in `0.3.0`** (`0.2.x` ignores a token). Each web app gets a **token** and a private **dashboard
 link**:
 
 | | what | who may see it |
@@ -350,8 +351,8 @@ console says so once when a token is set). With telemetry off for any other reas
 token, each telemetry batch carries it and decisions about protected functions carry their `fn` name; nothing else
 changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
 
-**Which version:** the token option, `scope` and `protect()` are in the release after `0.2.2` (see the
-[CHANGELOG](CHANGELOG.md), Unreleased).
+**Which version:** the token option, `scope` and `protect()` are in `0.3.0` (first as `0.3.0-beta.0`, see the
+[CHANGELOG](CHANGELOG.md)).
 
 ## Automatic state discovery
 
@@ -558,6 +559,15 @@ cover:
 It catches runtime failures that leave evidence: ordering, staleness, duplicates, broken relations, failure patterns.
 It does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code.
 
+**Steps that did not happen (opt-in, `0.3.0`).** `GenClass.init({ learn: { expectations: true } })` also learns what
+each user action on a route usually does (the requests it sends, what their answers write, where it navigates) and
+reports a usual step that did not happen this time: `[GenClass] Expected a request on /cart: clicking button "Add to
+cart" usually sends POST /api/cart (...); this time nothing was sent in 2.0 s.` Deterministic counts, no model, no
+action in any mode. It is off by default until its false-report rate on correct apps is measured
+([RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md), "Flow expectations");
+off, its code is never loaded (a lazy chunk, no first-load cost). Design and controls:
+[EXPECTATIONS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/EXPECTATIONS.md).
+
 ## State it can protect
 
 Fetch, XHR, WebSocket, EventSource, DOM user events, errors, navigation, storage, long tasks and timers are observed
@@ -655,10 +665,9 @@ if (import.meta.env.DEV) {
 
 ### See it where you already look
 
-> **Next release.** Everything in this section is in the CHANGELOG's Unreleased section, not in `0.2.2`: `0.2.2`
-> ignores `data-sink` and `sink=`, stops at `init --sink` with "unknown option", has no `@genclass/runtime/sinks`
-> exports, and prints "a sink failed" for a sink name in `GENCLASS_CONFIG.sinks`. Use the version that ships it in
-> the script tag below.
+> **New in `0.3.0`.** `0.2.x` ignores `data-sink` and `sink=`, stops at `init --sink` with "unknown option", has no
+> `@genclass/runtime/sinks` exports, and prints "a sink failed" for a sink name in `GENCLASS_CONFIG.sinks`. Pin
+> `0.3.0-beta.0` or later in the script tag below.
 
 In production the `[GenClass]` console lines print in your users' browsers, not yours. Sinks send every detection,
 intervention, undo, breaker trip and runtime error to a tool you already open as well. The console default does not
@@ -672,7 +681,7 @@ npx @genclass/runtime init --sink sentry   # or posthog, datadog, console-json, 
 
 ```html
 <meta name="genclass" content="sink=sentry+posthog">     <!-- + joins names: commas separate the meta keys -->
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2" data-sink="sentry,posthog"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0" data-sink="sentry,posthog"></script>
 <script>window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] };</script>
 ```
 
@@ -772,7 +781,7 @@ measured.
 
 GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that applies once you opt into guard or heal, circuit breaker on). The options below narrow where it acts, cap how much it does, and send findings to your tools. None of them tell the model what a bug looks like. They only scope and limit it.
 
-- **Your app** (next release): `token` (your dashboard, see [Your dashboard](#your-dashboard)), `scope` (`"app"` or `"functions"`, see [protect()](#function-specific-protect)).
+- **Your app** (`0.3.0`): `token` (your dashboard, see [Your dashboard](#your-dashboard)), `scope` (`"app"` or `"functions"`, see [protect()](#function-specific-protect)).
 - **Activation**: `enabled` (a boolean, a predicate, or a subscribable feature flag; while it is false the model is never downloaded), `rt.disable({ undo: true })` (remote kill that also rolls back recent actions), `sample` (the fraction of sessions allowed to act; the rest only observe).
 - **Scope**: `routes` (per-route mode and aggressiveness, which can only be lowered), `requests.ignore` (analytics traffic), `requests.protect` (endpoints that are never held, retried, cached or discarded), `requests.labels` (endpoint names for reports), `requests.correlate` (attach your trace id to records).
 - **Safety**: `breaker` (automatic downgrade after undos, or after errors that follow an action), `shadow` (records what a higher mode would have done), `onBeforeAction` + `vetoMode` (a synchronous veto, or a report-only trial of one), `policy.actionLimits` (per-minute, per-subject and per-session caps), `policy.holdBudgetMs` (a hard ceiling on added latency).
@@ -960,7 +969,7 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   measured with the round-1 model of the same size).
 - **Loading:** the model loads at idle after page load (`model.preload: "idle"`) from
   `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`, except on devices that report 2 GB of
-  memory or less and on Save-Data connections (the default `model.loadIf` after `0.2.2`, see [Costs](#costs)). It is cached in
+  memory or less and on Save-Data connections (the default `model.loadIf` since `0.3.0`, see [Costs](#costs)). It is cached in
   Cache Storage and checked with sha256. To self-host, see
   [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting). `model: false` loads no
   model (nothing is detected or prevented then).
@@ -994,7 +1003,7 @@ without `?genclass=off`:
 
 **On phones** the memory and the download are what matter (the page may also run a call, the camera or a
 recorder). **By default the model is not loaded on devices that report 2 GB of memory or less, nor on Save-Data
-connections** (after `0.2.2`; `0.2.2` and earlier load everywhere and only lazily on Save-Data; `model.loadIf` defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`; `navigator.deviceMemory` is
+connections** (since `0.3.0`; `0.2.x` loads everywhere and only lazily on Save-Data; `model.loadIf` defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`; `navigator.deviceMemory` is
 quantised to powers of two, so 4 is exactly that floor; Safari and Firefox do not report it and load). The runtime
 then keeps observing without a model (nothing is detected or prevented on that device) and prints one line,
 `[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least 4 GB. …`.
@@ -1043,7 +1052,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
   requests, so the policy logs at most 3 violations.
-- Sinks ([See it where you already look](#see-it-where-you-already-look), next release): a webhook on another origin
+- Sinks ([See it where you already look](#see-it-where-you-already-look), `0.3.0`): a webhook on another origin
   needs that origin in `connect-src` (a same-origin path such as `webhook:/genclass` needs nothing). With the script
   tag, `data-sink` (or `sink=` / `GENCLASS_CONFIG.sinks`) loads `dist/sinks/<name>.js` and the chunk the adapters
   share from the tag's own CDN path, so allow `https://cdn.jsdelivr.net` in `script-src`, or self-host this package's
@@ -1057,7 +1066,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
-- **With a token** (next release: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
+- **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
   Without a token neither is sent; without telemetry, a token does nothing.

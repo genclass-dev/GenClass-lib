@@ -13,7 +13,7 @@ prevent, stale responses, races, duplicate requests, inconsistent state and fail
 One line, first in `<head>` or first in your entry file:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
 ```
 
 ```ts
@@ -33,7 +33,8 @@ generic facts about each write, request and response, and asks a small GenClass 
 The model runs in the browser (WebGPU or WASM, in a Web Worker). It answers two questions: what is happening, and
 which available action is best. There is no list of known bugs in the code.
 
-**Status: `@genclass/runtime@0.2.2` with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
+**Status: `@genclass/runtime@0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable
+line is `0.2.x`) with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
 opt-in; `heal` is experimental. Measured false-intervention and recall rates are under
 [Measured behaviour](#measured-behaviour). AI coding agents: start at [AGENTS.md](AGENTS.md).
 
@@ -63,18 +64,18 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 - The first-visit cost: about 13 MB downloaded from jsDelivr on WASM (model 10 MB plus ONNX Runtime's wasm) or
   18 MB on WebGPU, cached afterwards, and 190–280 MB of memory in a Web Worker while the model is loaded. Devices
   that report 2 GB of memory or less, and Save-Data connections, do not load the model by default (they observe
-  without it and say so in one console line; new after `0.2.2`, which loads everywhere and only lazily on
+  without it and say so in one console line; new in `0.3.0`: `0.2.x` loads everywhere and only lazily on
   Save-Data). For phones and strict Content-Security-Policies see
   [self-hosting](packages/runtime/README.md#content-security-policy-and-self-hosting) and
   [`loadIf`](packages/runtime/README.md#costs) in the package README.
 
-### Next release (not in 0.2.2): app dashboards and `protect()`
+### New in 0.3.0: app dashboards and `protect()`
 
-On `main`, not yet on npm or jsDelivr: `0.2.2` and earlier ignore `token` and have no `protect()` export (an import
-of it fails), and their `init` creates no token. Details: [CHANGELOG](packages/runtime/CHANGELOG.md), Unreleased.
+In `0.3.0-beta.0` (`@beta` on npm): `0.2.x` ignores `token` and has no `protect()` export (an import of it fails),
+and its `init` creates no token. Details: [CHANGELOG](packages/runtime/CHANGELOG.md), 0.3.0-beta.0.
 
 ```ts
-import { GenClass, protect } from "@genclass/runtime"; // next release
+import { GenClass, protect } from "@genclass/runtime"; // 0.3.0
 
 GenClass.init({ token: "gc_your_app_token", scope: "functions" }); // scope: decide only inside protect()ed functions
 // what GenClass finds here (a double submit, overlapping calls, a failure) is reported under "checkout submit"
@@ -124,7 +125,8 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 
 ## Measured behaviour
 
-> **`@genclass/runtime@0.2.2` with the model `@genclass/runtime-model@0.2.0`.**
+> **`@genclass/runtime@0.3.0-beta.0` with the model `@genclass/runtime-model@0.2.0`.** The model and the situation
+> text it reads (`situation-v2.3`) are the same as in 0.2.x; the numbers below were measured with them.
 >
 > - **Runtime:** works and is unit-tested (situation format tag `situation-v2.3`). Install with
 >   `npx @genclass/runtime init`, one import (`@genclass/runtime/auto`) or one script tag.
@@ -161,7 +163,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
-- **With a token** (next release: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
+- **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
   Without a token neither is sent; without telemetry, a token does nothing.

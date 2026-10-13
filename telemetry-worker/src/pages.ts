@@ -750,7 +750,7 @@ export function dashboardPage(nonce: string, project: { name: string; token: str
   <p class="summary" id="summary"></p>
 </section>
 <section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
-Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts (localhost, *.test) only send data with an explicit token.</p></section>
+Events arrive in batches every 10 seconds and when a tab is hidden. Local and private hosts (localhost, *.local, *.test, private networks) send nothing by default, token or not; your deployed site does. Runtime 0.3.0 or later sends the token (0.2.x ignores it).</p></section>
 <div id="content" class="hidden">
 <div class="statrow" id="tiles"></div>
 <section class="blk" id="trend">

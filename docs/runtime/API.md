@@ -23,9 +23,9 @@ Contents: [init and modes](#init-and-modes) · [options](#options) · [state](#s
 GenClass.init(options?: InitOptions): Runtime   // idempotent: a second call returns the same runtime
 GenClass.runtime: Runtime | null
 GenClass.destroy(): void                        // uninstall observers, restore globals, terminate the model worker
-GenClass.protect: typeof protect                // the same as the named export below (Unreleased: not in 0.2.2)
+GenClass.protect: typeof protect                // the same as the named export below (0.3.0: not in 0.2.x)
 
-// named exports (Unreleased: not in 0.2.2)
+// named exports (0.3.0: not in 0.2.x)
 protect<F extends (...args: never[]) => unknown>(name: string, fn: F): F   // see "Protected functions"
 TOKEN_PATTERN: RegExp                           // /^gc_[A-Za-z0-9]{22}$/
 isValidToken(v: unknown): v is string
@@ -57,7 +57,7 @@ hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), outside a bro
 `createRuntime()`. An explicit `telemetry: true` also sends from local hosts. Schema and details:
 [packages/runtime/TELEMETRY.md](../../packages/runtime/TELEMETRY.md).
 
-**App token and dashboard** (Unreleased: `0.2.2` ignores `token`). `token: "gc_..."` (from
+**App token and dashboard** (0.3.0: `0.2.x` ignores `token`). `token: "gc_..."` (from
 `npx @genclass/runtime init` or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
 show up on its private dashboard (`https://genclass.dev/dashboard/<secret>`); with a token, decision events also
 carry `fn` (see "Protected functions"). Public; malformed values log one warning and are ignored; it does nothing
@@ -105,8 +105,8 @@ interface InitOptions {
   autoState?: boolean | { react?: boolean; redux?: boolean; zustand?: boolean; pinia?: boolean };
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
-  token?: string;                                       // (Unreleased) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
-  scope?: "app" | "functions";                          // (Unreleased) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
+  token?: string;                                       // (0.3.0) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
+  scope?: "app" | "functions";                          // (0.3.0) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
   enabled?: boolean | (() => boolean | Promise<boolean>) | { get(): boolean | Promise<boolean>; subscribe?(cb: () => void): () => void };
@@ -152,7 +152,7 @@ and the matching `routes[]` rule) and `aggressiveness` the effective level; with
 `scope.mode` was that ceiling ("heal" when no rule matched). `rt.gates()` carries `mode` (the same effective mode).
 `status.blocked` (state "error"): `{ url, origin, csp, directive? }` when the browser blocked a model or ORT download.
 `status.sha256` (state "ready"): the sha256 from `model.json` that the loaded variant was verified against.
-`status.reason` (state "skipped", after 0.2.2): `"device-memory"`, `"save-data"` or `"loadIf"` when `model.loadIf`
+`status.reason` (state "skipped", since 0.3.0): `"device-memory"`, `"save-data"` or `"loadIf"` when `model.loadIf`
 kept the model from loading on this device (the default is the exported `DEFAULT_LOAD_IF`,
 `{ minDeviceMemoryGB: 4, saveData: "skip" }`), and `"worker-unavailable"` when the model worker could not start and
 `model.inlineFallback` is `false` (`status.workerError` says why). The runtime keeps observing without a model and
@@ -361,7 +361,7 @@ operation as their cause; operations started while another is ambient get it as 
 
 ### Protected functions
 
-Unreleased (not in `0.2.2`).
+0.3.0 (not in `0.2.x`).
 
 ```ts
 import { GenClass, protect } from "@genclass/runtime";
@@ -575,8 +575,8 @@ overlay uses it), so debugging tools never become causes in situations.
 
 ### See it where you already look
 
-Unreleased (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
-in `0.2.2`.
+0.3.0 (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
+in `0.2.x`.
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
 `sampled`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `label`, `route` (the page path the subject's operation was
@@ -772,7 +772,7 @@ The local model host is exported for direct use: `createModelHost(options)` (a `
 provider error makes the runtime fail open. The device floor is exported too: `deviceEnv(globalThis)` (what the page
 can tell about the device: `deviceMemoryGB`, `saveData`, `mobile`, `cores`, `webgpu`, `effectiveType`),
 `evalLoadIf(modelOptions, env, warn)` (`"load" | "lazy" | { skip: "device-memory" | "save-data" | "loadIf" }`) and
-`DEFAULT_LOAD_IF` (`{ minDeviceMemoryGB: 4, saveData: "skip" }`, after 0.2.2; `navigator.deviceMemory` is quantised
+`DEFAULT_LOAD_IF` (`{ minDeviceMemoryGB: 4, saveData: "skip" }`, since 0.3.0; `navigator.deviceMemory` is quantised
 to powers of two, so 4 skips exactly the devices reporting 2 GB or less).
 
 ## Adapters and devtools
@@ -781,7 +781,7 @@ Subpath exports: `@genclass/runtime/react` (`useGenClassState(name, initial, opt
 `useGenClass()`), `@genclass/runtime/redux` (`genclassEnhancer(runtime, { name })`), `@genclass/runtime/zustand`
 (`genclass(runtime, name)(stateCreator)`), `@genclass/runtime/devtools` (`mountDevtools(runtime, opts?)`),
 `@genclass/runtime/discover` (automatic state discovery for `GenClass.init({ autoState: true })`; import it first),
-`@genclass/runtime/sinks` (`sentry`, `posthog`, `datadog`, `consoleJson`, `webhook`; Unreleased) and one subpath per
+`@genclass/runtime/sinks` (`sentry`, `posthog`, `datadog`, `consoleJson`, `webhook`; 0.3.0) and one subpath per
 adapter, `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}` (each also its default export; see
 "See it where you already look"). They are documented with their source. To integrate another state library use:
 

@@ -479,7 +479,7 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Changing the release tag after init → no reload.
 
 ### 4.15 `model.loadIf` and `model.inlineFallback`
-**Defaults** `loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }` (unreleased; 0.2.2 and earlier: `{ saveData: "lazy" }`), `inlineFallback: true`.
+**Defaults** `loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }` (0.3.0; 0.2.x: `{ saveData: "lazy" }`), `inlineFallback: true`.
 
 **Semantics.**
 - `loadIf` is evaluated before the ModelHost is constructed. Unknown device values count as allowed, and a throwing predicate counts as allowed, with a warning.
