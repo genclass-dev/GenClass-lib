@@ -1,6 +1,6 @@
 // Shared by the tests: the fixture files (test/fixtures/races: two tests, two seeds each; one signature flagged in
 // both seeds of its test, one in a single seed) and the exact report they produce. README.md shows the same report
-// (readme.test.ts keeps it in sync).
+// (package.test.ts keeps it in sync).
 
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -17,6 +17,9 @@ export function fixtureInputs(): RacesFileInput[] {
     .sort()
     .map((n) => ({ name: `test-results/genclass/${n}`, content: readFileSync(join(racesDir, n), "utf8") }));
 }
+
+/** U+200B, which the report puts after "#" before a digit (and "@" before a name) so GitHub links nothing. */
+export const Z = "\u200B";
 
 /** The exact report for the fixture, with sources ["test-results/genclass"]. */
 export const FIXTURE_REPORT = [
@@ -39,7 +42,7 @@ export const FIXTURE_REPORT = [
   "**Duplicate submits**",
   "",
   "- **Reproducible**: 2 of 2 seeds (1, 2) · `POST /api/orders` · `request:duplicate` · confidence 0.97",
-  "  > 1 identical POST /api/orders request in the last 10s (#15, 0.03s earlier, still in flight); no user action between them.",
+  `  > 1 identical POST /api/orders request in the last 10s (#${Z}15, 0.03s earlier, still in flight); no user action between them.`,
   "",
   "### search.spec.ts > search > shows the results of the last query",
   "",
@@ -48,7 +51,7 @@ export const FIXTURE_REPORT = [
   "**Stale responses**",
   "",
   "- 1 of 2 seeds (2) · `GET /api/search` · `delivery:stale` · confidence 0.91",
-  "  > The response of GET /api/search (#21) arrives after a newer GET /api/search (#23) was answered; it would replace results.query, which #23 wrote 0.31s ago.",
+  `  > The response of GET /api/search (#${Z}21) arrives after a newer GET /api/search (#${Z}23) was answered; it would replace results.query, which #${Z}23 wrote 0.31s ago.`,
   "",
   "---",
   "",

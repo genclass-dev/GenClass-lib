@@ -46,8 +46,10 @@ export interface GenClassRacesFile {
   /** Optional: the mode the page's runtime ran in ("observe", "guard", ...), shown when present. */
   mode?: string;
   /**
-   * Optional: the page's model status when the fixture collected (null: GenClass never started in the page). A run
-   * whose model was not "ready" could not flag anything, and the report says so.
+   * Optional: the page's model status when the fixture collected (null: GenClass never started in the page). When a
+   * file flagged nothing and its model was not "ready" (for example "loading"), the report notes that the run may
+   * not have been checked. A file with detections is reported whatever the state: the runtime can unload an idle
+   * model after it ran ("unloaded").
    */
   model?: { state?: string; name?: string; version?: string; device?: string } | null;
   /** Optional: the chaos the fixture applied (its `chaos` option), shown when present. */

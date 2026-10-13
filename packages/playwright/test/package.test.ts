@@ -1,8 +1,10 @@
 // Package invariants: no runtime dependencies, nothing imported from Playwright or @genclass/runtime, the pure
 // entries use no Node APIs, the exports map names what tsup builds, the README shows the fixture's exact report.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import * as root from "../src/index.js";
 import * as summarizeEntry from "../src/summarize.js";
@@ -26,11 +28,12 @@ describe("package: dependencies and imports", () => {
     for (const f of ["reporter.ts", "files.ts", "cli.ts"]) for (const i of imports(src(f))) expect(i, `${f}: ${i}`).toMatch(/^(\.\/[a-z]+\.js|node:[a-z]+)$/);
   });
 
-  it("the exports map and the bin name what tsup builds", () => {
+  it("the exports map and the bin name what tsup builds; every entry also has a default condition", () => {
+    // "default" because Playwright resolves a reporter id with CommonJS require.resolve, which never matches "import"
     expect(pkg.exports).toEqual({
-      ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
-      "./summarize": { types: "./dist/summarize.d.ts", import: "./dist/summarize.js" },
-      "./reporter": { types: "./dist/reporter.d.ts", import: "./dist/reporter.js" },
+      ".": { types: "./dist/index.d.ts", import: "./dist/index.js", default: "./dist/index.js" },
+      "./summarize": { types: "./dist/summarize.d.ts", import: "./dist/summarize.js", default: "./dist/summarize.js" },
+      "./reporter": { types: "./dist/reporter.d.ts", import: "./dist/reporter.js", default: "./dist/reporter.js" },
       "./package.json": "./package.json",
     });
     expect(pkg.bin).toEqual({ "genclass-playwright-report": "bin/genclass-playwright-report.mjs" });
@@ -52,6 +55,27 @@ describe("package: dependencies and imports", () => {
     expect(entry.dependencies).toBeUndefined();
     expect(entry.devDependencies).toEqual(pkg.devDependencies);
     expect(entry.bin).toEqual(pkg.bin);
+  });
+});
+
+// Playwright loads a reporter named by module id with require.resolve(id, { paths: [configDir] }) (CommonJS
+// conditions: require, node, default) and then import()s the file it found. This needs the build: CI builds before
+// the tests (and fails here if it did not); a local run without dist/ skips it. playwright-reporter.yml also runs
+// a real Playwright run that loads the reporter this way (test/playwright-smoke).
+const built = existsSync(join(pkgDir, "dist", "reporter.js"));
+
+describe("package: how Playwright finds the reporter", () => {
+  it.runIf(built || Boolean(process.env.CI))("require.resolve from the repository root finds dist/reporter.js, whose default export is the reporter", async () => {
+    const require = createRequire(import.meta.url);
+    const repoRoot = join(pkgDir, "..", "..");
+    const resolved = require.resolve("@genclass/playwright/reporter", { paths: [repoRoot] });
+    expect(realpathSync(resolved)).toBe(realpathSync(join(pkgDir, "dist", "reporter.js")));
+    const mod = (await import(pathToFileURL(resolved).href)) as { default: unknown };
+    expect(typeof mod.default).toBe("function");
+    const reporter = new (mod.default as new (o: object) => { printsToStdio(): boolean; onEnd(): void })({ quiet: true, outputFile: false });
+    expect(reporter.printsToStdio()).toBe(false);
+    expect(typeof reporter.onEnd).toBe("function");
+    for (const id of ["@genclass/playwright", "@genclass/playwright/summarize"]) expect(realpathSync(require.resolve(id, { paths: [repoRoot] }))).toMatch(/[\\/]dist[\\/](index|summarize)\.js$/);
   });
 });
 

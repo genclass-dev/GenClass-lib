@@ -36,7 +36,8 @@ describe("reporter: reads test-results/genclass at the end of the run", () => {
     project();
     const o = io();
     const r = new GenClassReporter({}, o.sink);
-    expect(r.printsToStdio()).toBe(true);
+    // false, so that listed alone it does not stop Playwright from adding its own line/dot reporter
+    expect(r.printsToStdio()).toBe(false);
     r.onBegin({ configFile: join(root, "playwright.config.ts"), rootDir: join(root, "tests"), projects: [{ outputDir: join(root, "test-results") }, { outputDir: join(root, "test-results") }] });
     r.onEnd();
     const path = join(root, "genclass-report.md");
@@ -112,7 +113,45 @@ describe("reporter: reads test-results/genclass at the end of the run", () => {
   it("is the default export and a named export", () => {
     expect(NamedReporter).toBe(GenClassReporter);
   });
+
+  it("maxChars: the written report fits the limit (default 60000, what one GitHub comment holds)", () => {
+    bigRaceFile(join(root, "test-results", "genclass"));
+    const small = new GenClassReporter({ quiet: true, maxChars: 5000 }, io().sink);
+    small.onBegin({ configFile: join(root, "playwright.config.ts") });
+    small.onEnd();
+    expect(readFileSync(join(root, "genclass-report.md"), "utf8")).toBe(small.markdown);
+    expect(small.markdown!.length).toBeLessThanOrEqual(5000);
+    expect(small.markdown).toContain("_Shortened to fit 5000 characters: ");
+    expect(small.markdown).toContain("**200 signatures** in 1 test");
+
+    const unlimited = new GenClassReporter({ quiet: true, outputFile: false, maxChars: 0 }, io().sink);
+    unlimited.onBegin({ configFile: join(root, "playwright.config.ts") });
+    unlimited.onEnd();
+    expect(unlimited.markdown!.length).toBeGreaterThan(60000);
+    expect(unlimited.markdown).not.toContain("Shortened");
+
+    const byDefault = new GenClassReporter({ quiet: true, outputFile: false }, io().sink);
+    byDefault.onBegin({ configFile: join(root, "playwright.config.ts") });
+    byDefault.onEnd();
+    expect(byDefault.markdown!.length).toBeLessThanOrEqual(60000);
+    expect(byDefault.markdown).toContain("_Shortened to fit 60000 characters: ");
+  });
 });
+
+/** One race file with 200 signatures and long evidence lines (well over 60000 characters of report). */
+function bigRaceFile(dir: string): void {
+  mkdirSync(dir, { recursive: true });
+  const signatures = Array.from({ length: 200 }, (_, i) => ({
+    sig: `request|duplicate|POST /api/r${i}`,
+    trigger: "request",
+    diagnosis: "duplicate",
+    op: `POST /api/r${i}`,
+    confidence: 0.9,
+    evidence: `request ${i}: ${"word ".repeat(70).trim()}`,
+    seeds: [1],
+  }));
+  writeFileSync(join(dir, "big.json"), JSON.stringify({ schema: "genclass-races/1", test: "big", seed: 1, signatures, shadow: null }));
+}
 
 describe("readRacesDirs", () => {
   it("reads *.json directly inside each directory once, in name order, and lists unreadable files", () => {
@@ -164,8 +203,22 @@ describe("genclass-playwright-report (the command)", () => {
     expect(md).toContain("**0 reproducible**");
   });
 
+  it("--max-chars: 0 means no limit, a number caps the report", () => {
+    bigRaceFile(join(root, "test-results", "genclass"));
+    const all = io();
+    expect(runCli(["--max-chars", "0", "--out", "-"], { cwd: root, ...all.sink })).toBe(0);
+    expect(all.out[0].length).toBeGreaterThan(60000);
+    const capped = io();
+    expect(runCli(["--max-chars", "3000", "--out", "-"], { cwd: root, ...capped.sink })).toBe(0);
+    expect(capped.out[0].length).toBeLessThanOrEqual(3000);
+    expect(capped.out[0]).toContain("_Shortened to fit 3000 characters: ");
+    const byDefault = io();
+    expect(runCli(["--out", "-"], { cwd: root, ...byDefault.sink })).toBe(0);
+    expect(byDefault.out[0].length).toBeLessThanOrEqual(60000);
+  });
+
   it("usage errors exit 2 and print the usage", () => {
-    for (const argv of [["--min-seeds", "0"], ["--min-seeds"], ["--out"], ["--title"], ["--nope"]]) {
+    for (const argv of [["--min-seeds", "0"], ["--min-seeds"], ["--max-chars", "-1"], ["--max-chars", "1.5"], ["--max-chars"], ["--out"], ["--title"], ["--nope"]]) {
       const o = io();
       expect(runCli(argv, { cwd: root, ...o.sink }), argv.join(" ")).toBe(2);
       expect(o.err.join("")).toContain(USAGE);

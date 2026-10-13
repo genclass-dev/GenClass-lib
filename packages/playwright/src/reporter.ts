@@ -6,6 +6,12 @@
 //
 //   // playwright.config.ts
 //   reporter: [["list"], ["@genclass/playwright/reporter", { outputFile: "genclass-report.md" }]],
+//
+// Playwright finds a reporter named by module id with require.resolve from the config's directory, so the package's
+// "./reporter" export carries a "default" condition (CommonJS resolution does not match "import"); Playwright then
+// loads the file with import(), since the package is ESM. printsToStdio() is false, like Playwright's html reporter:
+// the report is printed once at the end, so when this is the only reporter listed Playwright still adds its own
+// line (or, on CI, dot) reporter for progress and failures.
 
 import { dirname, join } from "node:path";
 import { DEFAULT_RACES_DIR, DEFAULT_REPORT_FILE, writeReport } from "./files.js";
@@ -24,6 +30,11 @@ export interface GenClassReporterOptions {
   minSeeds?: number;
   /** The report's heading. Default "GenClass race report". */
   title?: string;
+  /**
+   * Keep the report under this many characters so it fits in one GitHub comment. Default 60000; 0: no limit. What is
+   * left out, and the note that says so: see SummarizeOptions.maxChars.
+   */
+  maxChars?: number;
 }
 
 /** The parts of Playwright's FullConfig this reporter reads. */
@@ -59,8 +70,12 @@ export default class GenClassReporter {
     this.io = io;
   }
 
+  /**
+   * Always false: this reporter prints only the report, once, at the end. Playwright adds its line/dot reporter when
+   * no listed reporter prints to stdio, so listing this one alone still shows progress and failures.
+   */
   printsToStdio(): boolean {
-    return !this.options.quiet;
+    return false;
   }
 
   onBegin(config: ReporterConfigLike): void {
@@ -83,6 +98,7 @@ export default class GenClassReporter {
         outputFile: o.outputFile === false ? null : o.outputFile || DEFAULT_REPORT_FILE,
         minSeeds: o.minSeeds,
         title: o.title,
+        maxChars: o.maxChars,
       });
       this.markdown = r.markdown;
       this.path = r.path;

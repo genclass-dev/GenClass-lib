@@ -33,6 +33,11 @@ export default defineConfig({
 });
 ```
 
+Listed alone (`reporter: [["@genclass/playwright/reporter"]]`) it works too: it prints only the report, once, at the
+end, so Playwright still adds its own line reporter (dot on CI) for progress and failures, as it does next to the
+html reporter. Playwright finds the reporter by its module name; `playwright-reporter.yml` checks that with a real
+Playwright run (no browser).
+
 | option | default | what |
 |---|---|---|
 | `dir` | `test-results/genclass` and `genclass` inside each project's `outputDir` | Where the fixture's files are, relative to the config's directory (a string or a list). |
@@ -40,6 +45,7 @@ export default defineConfig({
 | `quiet` | `false` | Do not print the report at the end of the run. |
 | `minSeeds` | `2` | Seeds a signature must be flagged in, within one test, to be marked **Reproducible** (the fixture's 2-seed rule). |
 | `title` | `"GenClass race report"` | The report's heading. |
+| `maxChars` | `60000` | Keep the report under this many characters, so it fits in one GitHub comment (GitHub rejects comment bodies over 65,536). `0`: no limit. |
 
 The reporter never changes the run's status and never throws into Playwright: a report it cannot write is one line
 on stderr.
@@ -47,12 +53,13 @@ on stderr.
 ### Without the reporter, or with shards
 
 ```bash
-npx genclass-playwright-report [dir ...] [--out <file>|-] [--min-seeds <n>] [--title <text>] [--quiet]
+npx genclass-playwright-report [dir ...] [--out <file>|-] [--min-seeds <n>] [--max-chars <n>] [--title <text>] [--quiet]
 ```
 
 Same report from the same files (default dir `test-results/genclass`, default out `genclass-report.md`, `-` prints
-only). For sharded runs, collect each shard's `test-results/genclass/` and pass the directories. Exit code 0 when the
-report was written, whatever it says; 1 when the file could not be written; 2 on a usage error.
+only, default `--max-chars 60000`, `0` for no limit). For sharded runs, collect each shard's `test-results/genclass/`
+and pass the directories. Exit code 0 when the report was written, whatever it says; 1 when the file could not be
+written; 2 on a usage error.
 
 From code (pure, no I/O):
 
@@ -104,16 +111,32 @@ How the report groups them:
 - **groups by the model's diagnosis label**: `duplicate` (Duplicate submits), `stale` (Stale responses), `failing`
   (Failing endpoints) and everything else (Other detections: `transient`, `inconsistent`, `overload`, ...).
   `expected` is not a detection and is left out. Nothing looks at facts or decides on its own what is a bug;
-- a file whose `model.state` is not `ready` could not flag anything, and the report says so for that test;
+- a file that flagged nothing and whose `model.state` is not `ready` (for example `loading`, or `null` for a page
+  where GenClass never started) may not have been checked, and the report notes it for that test. A file with
+  detections is reported as usual whatever the state: the runtime can unload an idle model after it ran;
 - **nothing about interventions.** The files do not say what an action did to your app, so the report makes no
   claim about interventions, correct or false.
+
+What it does so the comment is safe to post:
+
+- text from the files (test names, evidence lines, modes) is escaped, so it cannot turn into markup;
+- `#` before a digit, `GH-` before a digit and `@` before a name get an invisible zero-width space (U+200B). The
+  runtime's evidence lines name requests by id (`#15`), which GitHub would otherwise link to issue or pull request
+  15 of your repository (adding a "mentioned this" entry there), and a Playwright tag in a test title (`@smoke`)
+  would mention a user or team. The text reads the same; copied, it carries the invisible character. Code spans
+  (operations, file names) are left as they are, since GitHub links nothing inside them;
+- the report is kept under `maxChars` (default 60000 characters). Left out first: entries of the "nothing flagged"
+  and "Files skipped" lists, then the least important signatures of each test (fewer seeds and lower confidence
+  first), then whole tests from the end. The counts always include everything, and a note under the first line says
+  what was left out.
 
 ## What the comment looks like
 
 This is the exact output for the unit-test fixture in [`test/fixtures/races`](test/fixtures/races): two tests, two
 seeds each, one signature flagged in both seeds and one in a single seed. The fixture is synthetic (the evidence
 lines are written for the test, not taken from a real run); `test/package.test.ts` fails if this block and the
-summariser drift apart.
+summariser drift apart. Each `#` of a request id below is followed by the invisible zero-width space described
+above.
 
 ```markdown
 <!-- genclass-report -->
@@ -135,7 +158,7 @@ summariser drift apart.
 **Duplicate submits**
 
 - **Reproducible**: 2 of 2 seeds (1, 2) · `POST /api/orders` · `request:duplicate` · confidence 0.97
-  > 1 identical POST /api/orders request in the last 10s (#15, 0.03s earlier, still in flight); no user action between them.
+  > 1 identical POST /api/orders request in the last 10s (#​15, 0.03s earlier, still in flight); no user action between them.
 
 ### search.spec.ts > search > shows the results of the last query
 
@@ -144,7 +167,7 @@ summariser drift apart.
 **Stale responses**
 
 - 1 of 2 seeds (2) · `GET /api/search` · `delivery:stale` · confidence 0.91
-  > The response of GET /api/search (#21) arrives after a newer GET /api/search (#23) was answered; it would replace results.query, which #23 wrote 0.31s ago.
+  > The response of GET /api/search (#​21) arrives after a newer GET /api/search (#​23) was answered; it would replace results.query, which #​23 wrote 0.31s ago.
 
 ---
 
@@ -157,6 +180,11 @@ The first line is an HTML comment, invisible on GitHub, that lets a CI step find
 
 No new secret: the workflow's own `GITHUB_TOKEN` with `pull-requests: write`. On pull requests from forks that token
 is read-only, so the step is skipped there (the job summary still works).
+
+The reporter's `genclass-report.md` is kept under 60000 characters by default, which fits in one comment (GitHub
+rejects bodies over 65,536). The job summary takes up to 1 MiB per step, so the summary step below renders a longer
+report from the same files with the command (300000 characters stays under 1 MiB even if every character took three
+bytes).
 
 ```yaml
 # .github/workflows/e2e.yml
@@ -178,8 +206,8 @@ jobs:
       - run: npx playwright test   # the reporter writes genclass-report.md
 
       - name: GenClass report in the job summary
-        if: ${{ !cancelled() && hashFiles('genclass-report.md') != '' }}
-        run: cat genclass-report.md >> "$GITHUB_STEP_SUMMARY"
+        if: ${{ !cancelled() }}
+        run: npx genclass-playwright-report --max-chars 300000 --out - >> "$GITHUB_STEP_SUMMARY"
 
       - name: GenClass report on the pull request (one comment, updated in place)
         if: ${{ !cancelled() && hashFiles('genclass-report.md') != '' && github.event.pull_request.head.repo.full_name == github.repository }}
@@ -269,5 +297,10 @@ npm run typecheck -w @genclass/playwright
 npm run build -w @genclass/playwright
 cd packages/playwright && npx vitest run   # schema, summariser (exact output), reporter, command, package invariants
 ```
+
+The workflow then runs Playwright itself on `test/playwright-smoke` (no browser: its one test writes the fixture's
+race files and uses no page), which loads `@genclass/playwright/reporter` by name the way your config does, and
+checks that the reporter's file equals the command's rendering of the same files. The module-resolution test in
+`test/package.test.ts` needs `dist/` (build first); without it, outside CI, it is skipped.
 
 Apache-2.0.

@@ -2,15 +2,15 @@
 // Playwright config or where shards ran on several machines and their `test-results/genclass/` folders were
 // collected into one place:
 //
-//   npx genclass-playwright-report [dir ...] [--out <file>|-] [--min-seeds <n>] [--title <text>] [--quiet]
+//   npx genclass-playwright-report [dir ...] [--out <file>|-] [--min-seeds <n>] [--max-chars <n>] [--title <text>] [--quiet]
 //
-// Default dir `test-results/genclass`, default out `genclass-report.md` (`-`: print only). Exit code 0 whenever the
-// report was written, even with nothing flagged or files skipped (a report never fails a build); 1 when the report
-// file could not be written; 2 on a usage error.
+// Default dir `test-results/genclass`, default out `genclass-report.md` (`-`: print only), default --max-chars 60000
+// (fits in a GitHub comment; 0: no limit). Exit code 0 whenever the report was written, even with nothing flagged or
+// files skipped (a report never fails a build); 1 when the report file could not be written; 2 on a usage error.
 
 import { DEFAULT_RACES_DIR, DEFAULT_REPORT_FILE, writeReport } from "./files.js";
 
-export const USAGE = "usage: genclass-playwright-report [dir ...] [--out <file>|-] [--min-seeds <n>] [--title <text>] [--quiet]\n";
+export const USAGE = "usage: genclass-playwright-report [dir ...] [--out <file>|-] [--min-seeds <n>] [--max-chars <n>] [--title <text>] [--quiet]\n";
 
 export interface CliIo {
   cwd: string;
@@ -23,6 +23,7 @@ export function runCli(argv: readonly string[], io: CliIo): number {
   const dirs: string[] = [];
   let out: string | null = DEFAULT_REPORT_FILE;
   let minSeeds: number | undefined;
+  let maxChars: number | undefined;
   let title: string | undefined;
   let quiet = false;
   for (let i = 0; i < argv.length; i++) {
@@ -40,6 +41,11 @@ export function runCli(argv: readonly string[], io: CliIo): number {
       const n = v === null ? NaN : Number(v);
       if (!Number.isInteger(n) || n < 1) return usage(io, `--min-seeds needs a whole number of at least 1, got ${v === null ? "nothing" : JSON.stringify(v)}`);
       minSeeds = n;
+    } else if (a === "--max-chars") {
+      const v = value();
+      const n = v === null ? NaN : Number(v);
+      if (!Number.isInteger(n) || n < 0) return usage(io, `--max-chars needs a whole number (0: no limit), got ${v === null ? "nothing" : JSON.stringify(v)}`);
+      maxChars = n;
     } else if (a === "--title") {
       const v = value();
       if (v === null) return usage(io, "--title needs a text");
@@ -53,7 +59,7 @@ export function runCli(argv: readonly string[], io: CliIo): number {
     }
   }
   try {
-    const r = writeReport({ dirs: dirs.length ? dirs : [DEFAULT_RACES_DIR], base: io.cwd, outputFile: out, minSeeds, title });
+    const r = writeReport({ dirs: dirs.length ? dirs : [DEFAULT_RACES_DIR], base: io.cwd, outputFile: out, minSeeds, maxChars, title });
     if (!quiet || r.path === null) io.out(r.markdown);
     if (r.path) io.err(`GenClass report written to ${r.path}\n`);
     return 0;

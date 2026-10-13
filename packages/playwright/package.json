@@ -26,15 +26,18 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./summarize": {
       "types": "./dist/summarize.d.ts",
-      "import": "./dist/summarize.js"
+      "import": "./dist/summarize.js",
+      "default": "./dist/summarize.js"
     },
     "./reporter": {
       "types": "./dist/reporter.d.ts",
-      "import": "./dist/reporter.js"
+      "import": "./dist/reporter.js",
+      "default": "./dist/reporter.js"
     },
     "./package.json": "./package.json"
   },
