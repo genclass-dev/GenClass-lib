@@ -3,11 +3,16 @@
 // without guard), screenshots, the report page and its escaping, the path form, and the retention sweep.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { handle, targetFromPath, type AppDeps, type Env } from "../src/app.ts";
-import { acquireSlot, cacheKey, CACHE_MS, reportKey, sweep } from "../src/store.ts";
+import { clientOf, handle, targetFromPath, type AppDeps, type Env } from "../src/app.ts";
+import { REPORT_VERSION } from "../src/report.ts";
+import { acquireSlot, cachedReport, cacheKey, CACHE_MS, reportKey, sweep } from "../src/store.ts";
 import { FakeBrowser, fakeFetch, Limiter, MemBucket, ndjson, type PageScript } from "./helpers.ts";
 
-const DNS = { "shop.example.com": ["93.184.215.14"], "evil.example.com": ["10.0.0.7"], "robots.example.com": ["93.184.215.15"], "a.example.com": ["93.184.215.16"], "b.example.com": ["93.184.215.17"] };
+const DNS = {
+  "shop.example.com": ["93.184.215.14"], "evil.example.com": ["10.0.0.7"], "robots.example.com": ["93.184.215.15"], "a.example.com": ["93.184.215.16"], "b.example.com": ["93.184.215.17"],
+  "www.shop.example.com": ["93.184.215.14"], "optout.example.org": ["93.184.215.20"], "live.example.net": ["93.184.215.21"], "sock.example.net": ["192.168.4.4"],
+  "cdn.example.net": ["93.184.215.30"], "analytics.example.net": ["93.184.215.31"], "rebind.example.net": ["93.184.215.32"], "inside.example.net": ["fd00::7"],
+};
 const ROBOTS = { "robots.example.com": "User-agent: GenClassScan\nDisallow: /\n" };
 
 function setup(script: PageScript = {}, envExtra: Partial<Env> = {}) {
@@ -103,6 +108,39 @@ describe("POST /api/scan refusals, in order", () => {
 });
 
 describe("rate limit and concurrency", () => {
+  it("one scan at a time per client, and an IPv6 client counts by its /64", async () => {
+    const t = setup(SCRIPT);
+    assert.equal(clientOf("2001:db8:1:2:aaaa::1"), clientOf("2001:db8:1:2:ffff:1:2:3"));
+    assert.notEqual(clientOf("2001:db8:1:2::1"), clientOf("2001:db8:1:3::1"));
+    assert.equal(clientOf("203.0.113.9"), "203.0.113.9");
+    // a lease held by this client (another page of the same site) blocks a second scan from it, not from others
+    const client = await ipKeyOf("2001:db8:1:2::");
+    assert.equal(client, await ipKeyOf("2001:db8:1:2::"));
+    assert.equal(await acquireSlot(t.bucket, 3, "x1", await cacheKey("https://a.example.com/"), t.deps.now(), await clientHash("2001:db8:1:2::/64")), "ok");
+    const mine = await t.post("shop.example.com", "2001:db8:1:2:9999::7");
+    assert.equal(mine.status, 429);
+    assert.equal(((await mine.json()) as { code: string }).code, "running");
+    const other = await t.post("shop.example.com", "2001:db8:1:3::7");
+    assert.equal(other.status, 200);
+    await ndjson(other);
+    await Promise.all(t.waits);
+  });
+  it("429 when one site has had too many new scans this minute, whoever asks", async () => {
+    const t = setup(SCRIPT, { SITE_LIMIT: new Limiter(0) });
+    const res = await t.post("shop.example.com");
+    assert.equal(res.status, 429);
+    assert.equal(((await res.json()) as { code: string }).code, "site-rate");
+    assert.equal(t.browsers.length, 0);
+  });
+  it("crawlers and link previews can read a cached report but cannot start a scan", async () => {
+    const t = setup(SCRIPT);
+    for (const ua of ["Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", "Slackbot-LinkExpanding 1.0", "Mozilla/5.0 HeadlessChrome/128.0.0.0 Safari/537.36", "facebookexternalhit/1.1"]) {
+      const res = await t.call("/api/scan", { method: "POST", body: JSON.stringify({ url: "shop.example.com" }), headers: { "content-type": "application/json", "user-agent": ua } });
+      assert.equal(res.status, 403, ua);
+      assert.equal(((await res.json()) as { code: string }).code, "automated");
+    }
+    assert.equal(t.browsers.length, 0);
+  });
   it("429 after five new scans a minute from one address; other addresses are unaffected", async () => {
     const t = setup(SCRIPT);
     t.limiter.calls.push(...Array(5).fill(await ipKeyOf("203.0.113.9")));
@@ -132,6 +170,11 @@ describe("rate limit and concurrency", () => {
     await Promise.all(t.waits);
   });
 });
+
+async function clientHash(client: string): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`genclass-scan|${client}`)));
+  return [...d.slice(0, 12)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 async function ipKeyOf(ip: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`genclass-scan|${ip}`)));
@@ -192,6 +235,11 @@ describe("a full scan with the browser mocked", () => {
     const shot = await t.call(r.views[0].shot);
     assert.equal(shot.status, 200);
     assert.equal(shot.headers.get("content-type"), "image/jpeg");
+    // an opt-out stops the screenshots at once too, not only the report
+    await t.bucket.put("scans/blocklist.json", JSON.stringify({ hosts: ["shop.example.com"] }));
+    assert.equal((await t.call(r.views[0].shot)).status, 404);
+    await t.bucket.delete("scans/blocklist.json");
+    assert.equal((await t.call(r.views[0].shot)).status, 200);
 
     // cache: the next POST and the report endpoint answer without a browser, until 6 hours have passed
     const again = await t.post("https://shop.example.com/");
@@ -204,6 +252,16 @@ describe("a full scan with the browser mocked", () => {
     // the slot was released
     const slots = JSON.parse(await (await t.bucket.get("scans/slots.json"))!.text());
     assert.deepEqual(slots.leases, []);
+  });
+
+  it("does not serve a cached report from another version of the scanner, or a screenshot without its host", async () => {
+    const t = setup(SCRIPT);
+    const key = await cacheKey("https://shop.example.com/");
+    await t.bucket.put(reportKey(key), JSON.stringify({ v: REPORT_VERSION - 1, scannedAt: new Date(t.deps.now()).toISOString(), display: "shop.example.com" }));
+    assert.equal(await cachedReport(t.bucket, key, t.deps.now(), REPORT_VERSION), null);
+    assert.equal((await t.call("/api/scan/report?url=shop.example.com")).status, 404);
+    await t.bucket.put(`scans/shots/${key}/old0000001-desktop.jpg`, new Uint8Array([0xff, 0xd8]));
+    assert.equal((await t.call(`/api/scan/shot/${key}/old0000001-desktop.jpg`)).status, 404);
   });
 
   it("reports a page that does not load as an error line, and releases the slot", async () => {
@@ -223,6 +281,120 @@ describe("a full scan with the browser mocked", () => {
     const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
     assert.equal(r.probe.observe.model.state, "loading");
     assert.ok(r.ms.total <= 45_000 + 2000, `budget respected: ${r.ms.total}`);
+  });
+
+  it("does not load a subresource whose name resolves privately, and keeps a dead host as a failed stylesheet", async () => {
+    const t = setup({
+      load: [
+        { url: "https://inside.example.net/logo.png", type: "image" },
+        { url: "https://evil.example.com/app.js", type: "script" },
+        { url: "https://gone.example.net/theme.css", type: "stylesheet" },
+      ],
+    });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const desk = t.browsers[0].pages[0];
+    for (const u of ["https://inside.example.net/logo.png", "https://evil.example.com/app.js", "https://gone.example.net/theme.css"]) assert.equal(desk.handled.find((h) => h.url === u)?.outcome, "abort", u);
+    const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    const css = r.findings.find((f: { kind: string }) => f.kind === "failed-stylesheet");
+    assert.match(css.measured, /hostname does not resolve for gone\.example\.net\/theme\.css/);
+    // each name was looked up once for the whole scan
+    const lookups = t.net.calls.filter((c) => c.endsWith("name=inside.example.net&type=A"));
+    assert.equal(lookups.length, 1);
+  });
+
+  it("ignores response addresses when the browser reaches the network through a local proxy", async () => {
+    const t = setup({ ...SCRIPT, ip: "::1", load: [{ url: "https://cdn.example.net/hero.png", type: "image", ip: "::1" }] });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    assert.ok(msgs.some((m) => m.type === "done"), "every response 'came from' the proxy, which says nothing about the site");
+  });
+
+  it("throws the scan away when a response is seen to come from a private address, whatever the name resolved to before", async () => {
+    const t = setup({ ...SCRIPT, load: [{ url: "https://rebind.example.net/hero.png", type: "image", ip: "10.1.2.3" }] });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const err = msgs.find((m) => m.type === "error");
+    assert.equal(err?.code, "private");
+    assert.ok(!msgs.some((m) => m.type === "done"), "no report is streamed");
+    assert.deepEqual([...t.bucket.objects.keys()].filter((k) => k.startsWith("scans/shots/") || k.startsWith("scans/reports/")), [], "nothing is saved");
+    assert.ok(t.browsers[0].closed);
+    assert.deepEqual(JSON.parse(await (await t.bucket.get("scans/slots.json"))!.text()).leases, []);
+    // an IPv6 private answer, and an IPv4-mapped one, count the same
+    for (const ip of ["fd00::5", "::ffff:127.0.0.1", "169.254.169.254"]) {
+      const u = setup({ load: [{ url: "https://rebind.example.net/a.css", type: "stylesheet", ip }] });
+      const m = await ndjson(await u.post("shop.example.com"));
+      await Promise.all(u.waits);
+      assert.equal(m.find((x) => x.type === "error")?.code, "private", ip);
+    }
+  });
+
+  it("refuses a frame whose host resolves privately, and keeps the scan", async () => {
+    const t = setup({ load: [{ url: "https://evil.example.com/widget", type: "document", nav: true, main: false }, { url: "https://unknown-frame.example.net/", type: "document", nav: true, main: false }] });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const desk = t.browsers[0].pages[0];
+    assert.equal(desk.handled.find((h) => h.url === "https://evil.example.com/widget")?.outcome, "abort");
+    assert.equal(desk.handled.find((h) => h.url === "https://unknown-frame.example.net/")?.outcome, "abort", "a frame name that does not resolve is not loaded either");
+    assert.ok(msgs.some((m) => m.type === "done"));
+  });
+
+  it("throws the scan away when the page opened a WebSocket to a name that resolves privately", async () => {
+    const t = setup({ ...SCRIPT, wsHosts: ["live.example.net", "sock.example.net"] });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    assert.equal(msgs.find((m) => m.type === "error")?.code, "private");
+    const ok = setup({ ...SCRIPT, wsHosts: ["live.example.net", "dead.example.net"] });
+    const fine = await ndjson(await ok.post("shop.example.com"));
+    await Promise.all(ok.waits);
+    assert.ok(fine.some((m) => m.type === "done"), "public and unresolvable WebSocket hosts do not stop the scan");
+  });
+
+  it("does not follow a redirect to a site that opted out or whose robots.txt says no, and saves nothing", async () => {
+    for (const [to, code] of [["https://optout.example.org/", "opted-out"], ["https://robots.example.com/landing", "robots"], ["https://genclass.dev/", "load"]] as const) {
+      const t = setup({ ...SCRIPT, redirect: to });
+      await t.bucket.put("scans/blocklist.json", JSON.stringify({ hosts: ["optout.example.org"] }));
+      const msgs = await ndjson(await t.post("shop.example.com"));
+      await Promise.all(t.waits);
+      const desk = t.browsers[0].pages[0];
+      assert.equal(desk.handled.find((h) => h.url === to)?.outcome, "abort", to);
+      const err = msgs.find((m) => m.type === "error");
+      assert.equal(err?.code, code, `${to}: ${JSON.stringify(err)}`);
+      assert.ok(![...t.bucket.objects.keys()].some((k) => k.startsWith("scans/reports/") || k.startsWith("scans/shots/")), to);
+    }
+    // an ordinary redirect (to www.) is followed and checked once
+    const ok = setup({ ...SCRIPT, redirect: "https://www.shop.example.com/" });
+    const msgs = await ndjson(await ok.post("shop.example.com"));
+    await Promise.all(ok.waits);
+    assert.ok(msgs.some((m) => m.type === "done"));
+  });
+
+  it("says when the page's own POSTs got stand-in answers while loading, and does not score what may come from them", async () => {
+    const t = setup({
+      load: [{ url: "https://shop.example.com/graphql", method: "POST", type: "fetch", body: '{"query":"{products{price}}"}' }],
+      findings: (view) => (view === "phone-dark" ? [] : [{ kind: "template-leak", selector: "span.price", box: { x: 10, y: 10, w: 80, h: 18 }, measured: '"Price: NaN"', detail: { text: "NaN" } }]),
+    });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    assert.equal(r.views[0].standIns, 1);
+    assert.ok(r.views[0].notes.some((n: string) => /sent 1 request other than GET while loading \(POST shop\.example\.com\/graphql\)/.test(n)), r.views[0].notes.join(" | "));
+    const leak = r.findings.find((f: { kind: string }) => f.kind === "template-leak");
+    assert.match(leak.unscored, /stand-in answer/);
+    assert.equal(r.score.value, 100);
+  });
+
+  it("stops the browser and keeps nothing when the person who asked goes away", async () => {
+    const t = setup({ ...SCRIPT, model: { state: "loading" } });
+    const res = await t.post("shop.example.com");
+    const reader = res.body!.getReader();
+    await reader.read();
+    await reader.cancel();
+    await Promise.all(t.waits);
+    assert.ok(t.browsers[0].closed);
+    assert.ok(!t.browsers[0].pages.some((p) => p.mode === "guard"), "the scan stopped before the guard pass");
+    assert.ok(![...t.bucket.objects.keys()].some((k) => k.startsWith("scans/reports/") || k.startsWith("scans/shots/")));
+    assert.deepEqual(JSON.parse(await (await t.bucket.get("scans/slots.json"))!.text()).leases, []);
   });
 
   it("refuses a redirect to a host that resolves privately", async () => {
@@ -257,7 +429,7 @@ describe("pages", () => {
     const t = setup(SCRIPT);
     const key = await cacheKey("https://shop.example.com/x");
     const evil = "</script><img src=x onerror=alert(1)>";
-    await t.bucket.put(reportKey(key), JSON.stringify({ v: 1, scannedAt: new Date(t.deps.now()).toISOString(), display: evil, url: "https://shop.example.com/x", findings: [{ what: evil, selector: evil }], score: { value: 1, categories: [] } }));
+    await t.bucket.put(reportKey(key), JSON.stringify({ v: REPORT_VERSION, scannedAt: new Date(t.deps.now()).toISOString(), display: evil, url: "https://shop.example.com/x", findings: [{ what: evil, selector: evil }], score: { value: 1, categories: [] } }));
     const body = await (await t.call("/scan?url=shop.example.com/x")).text();
     assert.doesNotMatch(body, /<img src=x/);
     assert.equal(body.split("</script>").length - 1, body.split("<script").length - 1, "no early </script>");
@@ -289,6 +461,14 @@ describe("pages", () => {
     assert.equal(targetFromPath("/https://example.com/pricing"), "https://example.com/pricing");
     assert.equal(targetFromPath("/https:/example.com"), "https://example.com");
     for (const p of ["/styles.css", "/mend.js", "/og.png", "/docs", "/a b.com", "/<x>.com", "/foo.notatld"]) assert.equal(targetFromPath(p), null, p);
+  });
+  it("treats README.md, backup.zip and install.sh as missing files, unless they have a path or a scheme", async () => {
+    for (const p of ["/README.md", "/backup.zip", "/install.sh", "/setup.py", "/clip.mov", "/Main.java", "/docs.v2.zip"]) assert.equal(targetFromPath(p), null, p);
+    assert.equal(targetFromPath("/https://bun.sh"), "https://bun.sh");
+    assert.equal(targetFromPath("/bun.sh/"), "bun.sh/");
+    for (const p of ["/socket.io", "/character.ai", "/notion.so", "/web.app", "/allegro.pl"]) assert.ok(targetFromPath(p), p);
+    const t = setup(SCRIPT);
+    assert.equal((await t.call("/README.md")).status, 404);
   });
 });
 

@@ -40,6 +40,13 @@ describe("scanTargetFromPath", () => {
     assert.equal(scanTargetFromPath("/xn--bcher-kva.de"), "xn--bcher-kva.de");
     assert.equal(scanTargetFromPath("/b%C3%BCcher.de"), null, "non-ASCII after decoding is not URL-safe");
   });
+  it("keeps 404 for missing files whose extension is also a TLD, unless a path or a scheme says it is an address", () => {
+    for (const p of ["/README.md", "/backup.zip", "/install.sh", "/setup.py", "/clip.mov", "/Main.java", "/docs.v2.zip", "/notes.MD"]) assert.equal(scanTargetFromPath(p), null, p);
+    assert.equal(scanTargetFromPath("/https://bun.sh"), "https://bun.sh");
+    assert.equal(scanTargetFromPath("/bun.sh/"), "bun.sh/");
+    assert.equal(scanTargetFromPath("/bun.sh/docs"), "bun.sh/docs");
+    for (const p of ["/socket.io", "/character.ai", "/notion.so", "/web.app", "/allegro.pl"]) assert.equal(scanTargetFromPath(p), p.slice(1), p);
+  });
   it("refuses everything that is not clearly an address", () => {
     for (const p of ["/", "/docs", "/pricing", "/styles.css", "/mend.js", "/og.png", "/app.js.map", "/x.css.map", "/foo.html", "/robots.txt", "/sitemap.xml",
       "/site.webmanifest", "/localhost", "/intranet", "/a b.com", "/<script>.com", "/%3Cscript%3E.com", "/example.notatld", "/-a.com", "/https://", "/https://nohost", "/%E0%A4%A"]) {

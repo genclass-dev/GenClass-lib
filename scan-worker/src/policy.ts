@@ -6,13 +6,17 @@
 //   locally: fetch/XHR get a plausible 200 JSON, a form navigation gets 204 so the page stays where it is.
 // - A request to a blocked host (private, loopback, link-local, CGNAT or metadata IP literals, local names) is aborted,
 //   redirect hops included.
+// - Every request to a hostname is checked in DNS by scan.ts before it continues (cached per scan): a name that points
+//   to a private address is not loaded. A main-frame navigation (the first load and its redirects) is also checked
+//   against the opt-out list and robots.txt, and one to genclass.dev is aborted here.
 // - Once the page has loaded, the main frame never navigates again: the probe does not follow links.
 // - While the probe clicks, fetch/XHR/document GETs to other origins are aborted, so nothing is submitted to a third
 //   party by GET either.
 // - During the probe, same-origin and cross-origin fetch/XHR GETs get extra latency so responses can arrive out of
 //   order.
 
-import { hostAllowedForRequest } from "./target.ts";
+import { classifyIp } from "./ip.ts";
+import { blockedName, hostAllowedForRequest } from "./target.ts";
 
 export type Phase = "load" | "type" | "click" | "settle";
 
@@ -35,8 +39,13 @@ export interface PolicyContext {
   answerDelayMs: number;
 }
 
+/** What scan.ts checks before a request continues: nothing (an IP literal already checked here), the host's DNS
+ * answer (every request to a hostname), or the full navigation check (main-frame navigations: DNS, opt-out list,
+ * robots.txt). */
+export type Check = "none" | "dns" | "navigation";
+
 export type Verdict =
-  | { kind: "continue"; delayMs: number; checkDns: boolean }
+  | { kind: "continue"; delayMs: number; check: Check }
   | { kind: "abort"; reason: string }
   | { kind: "fulfill"; status: number; headers: Record<string, string>; body: string; delayMs: number; reason: string };
 
@@ -84,9 +93,17 @@ export function decideRequest(f: RequestFacts, ctx: PolicyContext, n = 0): Verdi
   } catch {
     return { kind: "abort", reason: "unparseable URL" };
   }
-  if (scheme === "data:" || scheme === "blob:" || scheme === "about:") return { kind: "continue", delayMs: 0, checkDns: false };
+  if (scheme === "data:" || scheme === "blob:" || scheme === "about:") return { kind: "continue", delayMs: 0, check: "none" };
   const allowed = hostAllowedForRequest(f.url);
   if (!allowed.ok) return { kind: "abort", reason: `blocked host (${allowed.reason})` };
+  let host = "";
+  try {
+    host = new URL(f.url).hostname.toLowerCase();
+  } catch {
+    host = "";
+  }
+  // a public IP literal needs no lookup; every name is resolved by scan.ts before the browser resolves it itself
+  const named: Check = host && !classifyIp(host) ? "dns" : "none";
 
   const method = f.method.toUpperCase();
   if (!SAFE_METHODS.has(method)) return localAnswer({ ...f, method }, ctx, n);
@@ -94,15 +111,16 @@ export function decideRequest(f: RequestFacts, ctx: PolicyContext, n = 0): Verdi
   const mainNav = f.isNavigation && f.isMainFrame;
   if (mainNav) {
     if (ctx.phase !== "load") return { kind: "abort", reason: "navigation after load (the probe does not follow links)" };
-    return { kind: "continue", delayMs: 0, checkDns: true };
+    if (blockedName(host) === "self") return { kind: "abort", reason: "navigation to genclass.dev (the scanner does not scan itself)" };
+    return { kind: "continue", delayMs: 0, check: "navigation" };
   }
-  if (ctx.phase === "load") return { kind: "continue", delayMs: 0, checkDns: false };
+  if (ctx.phase === "load") return { kind: "continue", delayMs: 0, check: named };
 
   const thirdParty = ctx.pageOrigin !== "" && originOf(f.url) !== ctx.pageOrigin;
   const dataLike = DATA_TYPES.has(f.resourceType) || f.resourceType === "document";
   if (ctx.phase === "click" && thirdParty && dataLike) return { kind: "abort", reason: "third-party request during the click probe" };
-  if (f.resourceType === "fetch" || f.resourceType === "xhr") return { kind: "continue", delayMs: ctx.latency(), checkDns: false };
-  return { kind: "continue", delayMs: 0, checkDns: false };
+  if (f.resourceType === "fetch" || f.resourceType === "xhr") return { kind: "continue", delayMs: ctx.latency(), check: named };
+  return { kind: "continue", delayMs: 0, check: named };
 }
 
 /**

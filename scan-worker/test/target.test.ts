@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { blockedIPv4, blockedIPv6, classifyIp, parseIPv4, parseIPv6 } from "../src/ip.ts";
-import { blockedAddress, hostAllowedForRequest, normaliseTarget, resolveCheck, robotsCheck, robotsDisallows, robotsRulesFor } from "../src/target.ts";
+import { blockedAddress, hostAllowedForRequest, normaliseTarget, resolveCheck, robotsCheck, robotsDisallows, robotsRulesFor, siteOf } from "../src/target.ts";
 import { fakeFetch } from "./helpers.ts";
 
 const ok = (input: string) => {
@@ -191,5 +191,18 @@ describe("robots.txt: a GenClassScan group opts a site out", () => {
     }, "ua");
     assert.equal(r.ok, true);
     assert.deepEqual(calls, ["https://example.com/robots.txt"]);
+  });
+});
+
+describe("siteOf: the key of the per-site rate limit", () => {
+  it("is the registrable domain, approximately, and the owner's label on shared hosting", () => {
+    assert.equal(siteOf("www.shop.example.com"), "example.com");
+    assert.equal(siteOf("example.com"), "example.com");
+    assert.equal(siteOf("news.bbc.co.uk"), "bbc.co.uk");
+    assert.equal(siteOf("a.b.example.com.au"), "example.com.au");
+    assert.equal(siteOf("genclass-scan-fixture.mehar-144.workers.dev"), "mehar-144.workers.dev");
+    assert.equal(siteOf("me.github.io"), "me.github.io");
+    assert.equal(siteOf("my-app.vercel.app"), "my-app.vercel.app");
+    assert.notEqual(siteOf("one.vercel.app"), siteOf("two.vercel.app"));
   });
 });

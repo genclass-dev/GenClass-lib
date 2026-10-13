@@ -6,10 +6,13 @@
 /**
  * Finds what the probe will touch: the first visible search-like input, and the most prominent submit button of a
  * same-origin form whose submit would POST (method=post, or a form with neither method nor action, which scripts
- * usually handle). Forms with a password or card field are skipped. The chosen form gets the attribute
- * data-genclass-scan-form and, with `prepare`, novalidate, so the browser's own validation does not stop the submit
- * (the request is answered locally either way). Returns viewport coordinates after scrolling each target into view
- * only when asked (`scrollTo`: "search" | "button").
+ * usually handle). Forms with a password or card field are skipped, and so are forms and buttons that would submit
+ * into another window or tab (a target or formtarget other than _self, a <base target>), buttons inside a link, and
+ * buttons whose formaction points at another origin: a new window is a new browser target that the request checks
+ * do not cover. The chosen form gets the attribute data-genclass-scan-form and, with `prepare`, novalidate, so the
+ * browser's own validation does not stop the submit (the request is answered locally either way; the report says
+ * the form was submitted empty). Returns viewport coordinates after scrolling each target into view only when asked
+ * (`scrollTo`: "search" | "button").
  */
 export function probeTargets(options?: any): any {
   const o = options || {};
@@ -49,6 +52,20 @@ export function probeTargets(options?: any): any {
     search = el;
   }
 
+  const selfTarget = (t: any) => {
+    const v = String(t || "").trim().toLowerCase();
+    return v === "" || v === "_self" || v === "_top" || v === "_parent";
+  };
+  const baseEl = doc.querySelector("base[target]");
+  const baseTarget = baseEl ? baseEl.getAttribute("target") : "";
+  const sameOrigin = (u: any) => {
+    try {
+      return new URL(u || g.location.href, g.location.href).origin === g.location.origin;
+    } catch (e) {
+      return false;
+    }
+  };
+
   let button: any = null;
   let buttonForm: any = null;
   let best = 0;
@@ -60,16 +77,16 @@ export function probeTargets(options?: any): any {
     if (method === "post") t = 1;
     else if (!method && !action) t = 2;
     if (t > 2) continue;
-    try {
-      if (new URL(form.action || g.location.href, g.location.href).origin !== g.location.origin) continue; // never a third party
-    } catch (e) {
-      continue;
-    }
+    if (!sameOrigin(form.action)) continue; // never a third party
+    if (!selfTarget(form.getAttribute("target") || baseTarget)) continue; // never into another window
     if (form.querySelector("input[type=password], input[autocomplete^=cc-], input[name*=card i], input[name*=cvc i]")) continue;
     const btns = Array.prototype.slice.call(form.elements || []).filter((b: any) => {
       const tag = String(b.tagName);
       const type = String(b.getAttribute("type") || (tag === "BUTTON" ? "submit" : "")).toLowerCase();
-      return (tag === "BUTTON" || tag === "INPUT") && (type === "submit" || type === "image") && !b.disabled;
+      if (!((tag === "BUTTON" || tag === "INPUT") && (type === "submit" || type === "image") && !b.disabled)) return false;
+      if (b.hasAttribute("formtarget") && !selfTarget(b.getAttribute("formtarget"))) return false;
+      if (b.hasAttribute("formaction") && !sameOrigin(b.formAction)) return false;
+      return !(b.closest && b.closest("a[href]"));
     });
     for (const b of btns) {
       const r = vis(b);
@@ -103,44 +120,52 @@ export function probeTargets(options?: any): any {
   };
 }
 
-/** The GenClass runtime bootstrap, run before any page script (evaluateOnNewDocument), top frame only. */
-export function runtimeBootstrap(config: Record<string, unknown>, runtimeSource: string): string {
+/**
+ * The GenClass runtime bootstrap, run before any page script (evaluateOnNewDocument), top frame only. What the runtime
+ * reports is kept in this closure, not on window, and read back through window[stateName]() (non-writable, defined
+ * before the page's own scripts run) with the JSON.stringify of that moment: the page can neither rewrite what GenClass
+ * saw nor fake a GenClass action.
+ */
+export function runtimeBootstrap(config: Record<string, unknown>, runtimeSource: string, stateName = "__gcScanState"): string {
   const src = runtimeSource.replace(/\/\/# sourceMappingURL=\S+\s*$/gm, "");
   return `(function(){
   try { if (window.top !== window) return; } catch (e) { return; }
-  var S = window.__gcScan = { detections: [], acts: [], error: null, started: Date.now() };
+  var J = JSON.stringify, S = { detections: [], acts: [], error: null, started: Date.now() }, rt = null;
   window.GENCLASS_CONFIG = ${JSON.stringify(config)};
   try {
 ${src}
   } catch (e) { S.error = String((e && e.message) || e); }
+  var cut = function (v, n) { v = String(v == null ? "" : v); return v.length > n ? v.slice(0, n) : v; };
+  var num = function (v) { return typeof v === "number" && isFinite(v) ? v : null; };
   try {
-    var rt = window.GenClass && window.GenClass.runtime;
-    if (!rt) { S.error = S.error || "GenClass did not start"; return; }
-    var cut = function (v, n) { v = String(v == null ? "" : v); return v.length > n ? v.slice(0, n) : v; };
-    rt.on("detect", function (d) {
-      S.detections.push({ id: d.id, trigger: d.trigger, subject: cut(d.subject, 140), diagnosis: d.diagnosis, p: d.diagnosisConfidence, action: d.action, ran: d.ran, executed: !!d.executed, latencyMs: d.latencyMs,
-        reason: d.reason ? cut(d.reason, 160) : null, gateKind: d.gateKind || null, gain: typeof d.gain === "number" ? d.gain : null, margin: typeof d.margin === "number" ? d.margin : null,
-        mass: typeof d.mass === "number" ? d.mass : null, threshold: typeof d.threshold === "number" ? d.threshold : null, candidate: d.candidate || null });
-    });
-    rt.on("act", function (a) {
-      S.acts.push({ id: a.id, decisionId: a.decisionId, action: a.action, trigger: a.trigger, subject: cut(a.subject, 140), ok: !!a.ok, changed: cut(a.changed, 220), late: !!a.late });
-    });
+    rt = window.GenClass && window.GenClass.runtime;
+    if (!rt) { S.error = S.error || "GenClass did not start"; }
+    else {
+      rt.on("detect", function (d) {
+        if (S.detections.length >= 50) return;
+        S.detections.push({ id: cut(d.id, 40), trigger: cut(d.trigger, 40), subject: cut(d.subject, 140), diagnosis: cut(d.diagnosis, 40), p: num(d.diagnosisConfidence), action: cut(d.action, 40), ran: cut(d.ran, 40), executed: !!d.executed, latencyMs: num(d.latencyMs),
+          reason: d.reason ? cut(d.reason, 160) : null, gateKind: d.gateKind ? cut(d.gateKind, 40) : null, gain: num(d.gain), margin: num(d.margin), mass: num(d.mass), threshold: num(d.threshold), candidate: d.candidate ? cut(d.candidate, 40) : null });
+      });
+      rt.on("act", function (a) {
+        if (S.acts.length >= 50) return;
+        S.acts.push({ id: cut(a.id, 40), decisionId: cut(a.decisionId, 40), action: cut(a.action, 40), trigger: cut(a.trigger, 40), subject: cut(a.subject, 140), ok: !!a.ok, changed: cut(a.changed, 220), late: !!a.late });
+      });
+    }
   } catch (e) { S.error = S.error || String((e && e.message) || e); }
+  try {
+    Object.defineProperty(window, ${JSON.stringify(stateName)}, { writable: false, configurable: false, enumerable: false, value: function () {
+      var st = null, hold = null, decisions = 0;
+      try { var s = rt && rt.status; if (s) st = { state: cut(s.state, 40), phase: s.phase ? cut(s.phase, 40) : null, device: s.device ? cut(s.device, 20) : null, variant: s.variant ? cut(s.variant, 20) : null, loadMs: num(s.loadMs), error: s.error ? cut(s.error, 200) : null, version: s.version ? cut(s.version, 40) : null, effectiveMode: s.effectiveMode ? cut(s.effectiveMode, 20) : null }; } catch (e) {}
+      try { hold = rt ? num(rt.holdBudgetMs()) : null; } catch (e) {}
+      try { decisions = rt ? rt.decisions().length : 0; } catch (e) {}
+      return J({ present: !!rt, error: S.error, mode: rt ? cut(rt.mode, 20) : null, status: st, holdBudgetMs: hold, decisions: decisions, detections: S.detections, acts: S.acts, visibility: document.visibilityState });
+    } });
+  } catch (e) {}
 })();`;
 }
 
-/** Page-side: the runtime's model status and what it recorded, as JSON. */
-export const RUNTIME_STATE_SOURCE = `(() => {
-  const S = window.__gcScan || null;
-  const rt = window.GenClass && window.GenClass.runtime;
-  const st = rt && rt.status ? rt.status : null;
-  let hold = null; try { hold = rt ? rt.holdBudgetMs() : null; } catch (e) {}
-  let decisions = 0; try { decisions = rt ? rt.decisions().length : 0; } catch (e) {}
-  return JSON.stringify({
-    present: !!rt, error: S ? S.error : "bootstrap did not run", mode: rt ? rt.mode : null,
-    status: st ? { state: st.state, phase: st.phase || null, device: st.device || null, variant: st.variant || null, loadMs: st.loadMs || null, error: st.error ? String(st.error).slice(0, 200) : null, version: st.version || null, effectiveMode: st.effectiveMode || null } : null,
-    holdBudgetMs: hold, decisions,
-    detections: S ? S.detections : [], acts: S ? S.acts : [],
-    visibility: document.visibilityState,
-  });
-})()`;
+/** Page-side: the runtime's model status and what it recorded, as JSON, from the bootstrap's closure. */
+export function runtimeStateSource(stateName = "__gcScanState"): string {
+  const k = JSON.stringify(stateName);
+  return `(() => typeof window[${k}] === "function" ? window[${k}]() : '{"present":false,"error":"bootstrap did not run","detections":[],"acts":[]}')()`;
+}

@@ -7,14 +7,17 @@
 //   POST /api/scan {url}       runs a scan: JSON for refusals and cache hits, else an NDJSON stream of progress then the report
 //   GET  /api/scan/report?url= the cached report (404 when none)  GET /api/scan/shot/<key>/<id>-<view>.jpg  a screenshot
 //
-// Order of checks on POST: shape -> normalise -> opt-out list -> cache hit -> per-IP rate limit -> DNS -> robots.txt
-// -> global concurrency slot (and one scan per URL at a time) -> scan.
+// Order of checks on POST: shape -> normalise -> opt-out list -> cache hit -> automated client -> per-client rate limit
+// -> per-site rate limit -> DNS -> robots.txt -> concurrency slot (one scan per URL and one per client at a time, a few
+// across everyone) -> scan. Every main-frame navigation the page makes while loading goes through the same opt-out,
+// DNS and robots.txt checks (navigationAllowed).
 
-import { buildReport } from "./report.ts";
-import { runScan, ScanError, UA_TOKEN, type BrowserLike, type ScanResult } from "./scan.ts";
+import { classifyIp, parseIPv6 } from "./ip.ts";
+import { buildReport, REPORT_VERSION } from "./report.ts";
+import { runScan, ScanError, UA_TOKEN, type BrowserLike, type NavVerdict, type ScanResult } from "./scan.ts";
 import { aboutPage, nonce, notFoundPage, scanPage, securityHeaders, type ScanPageData } from "./page.ts";
 import { acquireSlot, cachedReport, cacheKey, optedOut, releaseSlot, saveReport, SHOT_PATH, shotKey, type Bucket } from "./store.ts";
-import { normaliseTarget, publicHostname, resolveCheck, robotsCheck, type Fetcher, type Target } from "./target.ts";
+import { blockedName, normaliseTarget, publicHostname, resolveCheck, robotsDisallows, robotsRules, siteOf, type Fetcher, type Target } from "./target.ts";
 
 export interface RateLimiter {
   limit(o: { key: string }): Promise<{ success: boolean }>;
@@ -23,7 +26,10 @@ export interface RateLimiter {
 export interface Env {
   BROWSER: { fetch: typeof fetch };
   BUCKET: Bucket;
+  /** New scans per client per minute. */
   SCAN_LIMIT?: RateLimiter;
+  /** New scans per site (registrable domain, approximately) per minute, whoever asks. */
+  SITE_LIMIT?: RateLimiter;
   /** Scans at once across everyone (default 3). */
   MAX_CONCURRENT?: string;
   /** "on" shows the with-GenClass score column (off until the runtime ships visual fixes). */
@@ -69,11 +75,30 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}): 
   new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...extra } });
 const html = (body: string, n: string, status = 200): Response => new Response(body, { status, headers: securityHeaders(n) });
 
-async function ipKey(request: Request): Promise<string> {
-  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+/** The client a request counts against: its IPv4 address, or the /64 an IPv6 address belongs to (one subscriber). */
+export function clientOf(ip: string): string {
+  const g = ip.includes(":") ? parseIPv6(ip) : null;
+  return g ? `${g.slice(0, 4).map((x) => x.toString(16)).join(":")}::/64` : ip;
+}
+
+/** A hash of the client (never the address itself): the rate limit key and the lease owner. */
+export async function clientKey(request: Request): Promise<string> {
+  const ip = clientOf(request.headers.get("cf-connecting-ip") || "unknown");
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`genclass-scan|${ip}`)));
   return [...d.slice(0, 12)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/** User agents of crawlers, link previews and headless browsers: they can read a cached report but not start a scan. */
+const AUTOMATED = /bot\b|bot\/|crawl|spider|slurp|headless|facebookexternalhit|embedly|lighthouse|preview/i;
+
+/**
+ * Top-level domains that are mostly seen as file extensions (README.md, backup.zip, install.sh, Main.java): a bare
+ * name ending in one is a missing file, not an address, unless it has a path or an explicit http(s):
+ * (genclass.dev/https://bun.sh, genclass.dev/bun.sh/). TLDs that many real sites use (.io, .ai, .so, .app, .pl) stay
+ * addresses. Kept in step with FILE_TLDS in site/src/scan-path.js (test/tlds.test.ts).
+ */
+export const FILE_TLDS = new Set(["md", "zip", "mov", "py", "sh", "java"]);
+const FILE_PARTS = new Set(["js", "mjs", "css", "html", "htm", "json", "png", "jpg", "jpeg", "gif", "svg", "ico", "txt", "xml", "webp", "avif", "woff", "woff2", "ttf", "wasm", "onnx", "pdf", "gz"]);
 
 /** genclass.dev/<url-like path> on this worker too (the site worker uses the same rule): a hostname with a TLD, or http(s):. */
 export function targetFromPath(pathname: string): string | null {
@@ -85,8 +110,13 @@ export function targetFromPath(pathname: string): string | null {
   }
   if (!p || /[^A-Za-z0-9._~:/?#@!$&'()*+,;=%-]/.test(p)) return null;
   if (/^https?:\/*/i.test(p)) return p.replace(/^(https?):\/*/i, "$1://");
-  const host = p.split(/[/?#]/)[0].toLowerCase().replace(/\.+$/, "");
-  return publicHostname(host) ? p : null;
+  const rawHost = p.split(/[/?#]/)[0];
+  const host = rawHost.toLowerCase().replace(/\.+$/, "");
+  if (!publicHostname(host)) return null;
+  const labels = host.split(".");
+  if (labels.length >= 3 && FILE_PARTS.has(labels[labels.length - 2])) return null;
+  if (FILE_TLDS.has(labels[labels.length - 1]) && p.length === rawHost.length) return null;
+  return p;
 }
 
 export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps): Promise<Response> {
@@ -103,7 +133,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps
       const t = normaliseTarget(url.searchParams.get("url"));
       if (!t.ok) return json(t, 400);
       if (await optedOut(env.BUCKET, t.host, env.BLOCKLIST)) return json({ ok: false, code: "opted-out", message: "The owner of this site asked us not to scan it." }, 403);
-      const r = await cachedReport(env.BUCKET, await cacheKey(t.url), deps.now());
+      const r = await cachedReport(env.BUCKET, await cacheKey(t.url), deps.now(), REPORT_VERSION);
       return r ? json({ ok: true, report: r }) : json({ ok: false, code: "none", message: "No recent scan for that page." }, 404);
     }
     if (path === "/api/scan/health") return json({ ok: true, ua: UA_TOKEN, runtime: RUNTIME_VERSION });
@@ -111,7 +141,9 @@ export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps
       const m = SHOT_PATH.exec(path);
       if (!m || request.method !== "GET") return new Response("Not found", { status: 404 });
       const obj = await env.BUCKET.get(shotKey(m[1], m[2], m[3]));
-      if (!obj || !obj.body) return new Response("Not found", { status: 404, headers: { "cache-control": "no-store" } });
+      // a screenshot carries its host, so an opt-out stops it being served at once, before the 24-hour sweep
+      const shotHost = obj?.customMetadata?.host || "";
+      if (!obj || !obj.body || !shotHost || (await optedOut(env.BUCKET, shotHost, env.BLOCKLIST))) return new Response("Not found", { status: 404, headers: { "cache-control": "no-store" } });
       return new Response(obj.body, {
         headers: {
           "content-type": "image/jpeg",
@@ -146,7 +178,7 @@ async function pageData(input: string | null, env: Env, deps: AppDeps, url: URL)
   if (!t.ok) return { ...base, error: { code: t.code, message: t.message } };
   const data: ScanPageData = { ...base, input: t.display, target: { url: t.url, display: t.display } };
   if (await optedOut(env.BUCKET, t.host, env.BLOCKLIST)) return { ...data, error: { code: "opted-out", message: "The owner of this site asked us not to scan it." } };
-  data.report = await cachedReport(env.BUCKET, await cacheKey(t.url), deps.now());
+  data.report = await cachedReport(env.BUCKET, await cacheKey(t.url), deps.now(), REPORT_VERSION);
   return data;
 }
 
@@ -164,34 +196,49 @@ async function startScan(request: Request, env: Env, ctx: Ctx, deps: AppDeps, ur
   if (!target.ok) return json(target, 400);
   if (await optedOut(env.BUCKET, target.host, env.BLOCKLIST)) return json({ ok: false, code: "opted-out", message: "The owner of this site asked us not to scan it." }, 403);
   const key = await cacheKey(target.url);
-  const hit = await cachedReport(env.BUCKET, key, deps.now());
+  const hit = await cachedReport(env.BUCKET, key, deps.now(), REPORT_VERSION);
   if (hit) return json({ ok: true, cached: true, report: hit });
+  if (AUTOMATED.test(request.headers.get("user-agent") || "")) return json({ ok: false, code: "automated", message: "Scans start from a person's browser, not from crawlers or link previews." }, 403);
+  const client = await clientKey(request);
   if (env.SCAN_LIMIT) {
-    const { success } = await env.SCAN_LIMIT.limit({ key: await ipKey(request) });
-    if (!success) return json({ ok: false, code: "rate", message: "Too many scans from your address in the last minute." }, 429, { "retry-after": "60" });
+    const { success } = await env.SCAN_LIMIT.limit({ key: client });
+    if (!success) return json({ ok: false, code: "rate", message: "You have started five scans in the last minute." }, 429, { "retry-after": "60" });
+  }
+  if (env.SITE_LIMIT) {
+    const { success } = await env.SITE_LIMIT.limit({ key: `site|${siteOf(target.host)}` });
+    if (!success) return json({ ok: false, code: "site-rate", message: "This site has had several new scans started in the last minute." }, 429, { "retry-after": "60" });
   }
   const dns = await resolveCheck(target.host, deps.fetch);
   if (!dns.ok) return json(dns, 400);
-  const robots = await robotsCheck(target, deps.fetch, `Mozilla/5.0 (compatible; ${UA_TOKEN})`);
-  if (!robots.ok) return json(robots, 403);
+  const rules = await robotsRules(target.url, deps.fetch, ROBOTS_UA);
+  const firstPath = new URL(target.url);
+  if (rules && robotsDisallows(rules, `${firstPath.pathname}${firstPath.search}`)) {
+    return json({ ok: false, code: "robots", message: "This site's robots.txt asks GenClassScan not to load this page, so the scanner does not." }, 403);
+  }
   const id = deps.scanId();
   const cap = Math.max(1, Number(env.MAX_CONCURRENT) || 3);
-  const slot = await acquireSlot(env.BUCKET, cap, id, key, deps.now());
+  const slot = await acquireSlot(env.BUCKET, cap, id, key, deps.now(), client);
   if (slot === "same") return json({ ok: false, code: "in-progress", message: "A scan of this page is already running." }, 409, { "retry-after": "20" });
+  if (slot === "mine") return json({ ok: false, code: "running", message: "You already have a scan running. It finishes within a minute." }, 429, { "retry-after": "30" });
   if (slot === "busy") return json({ ok: false, code: "busy", message: "All scanners are busy." }, 503, { "retry-after": "30" });
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
   const enc = new TextEncoder();
+  // the person went away (the request was cancelled, or the stream was): stop the browser at once and keep nothing
+  const gone = new AbortController();
+  writer.closed.catch(() => gone.abort());
+  request.signal?.addEventListener("abort", () => gone.abort(), { once: true });
   let open = true;
   const send = (m: Record<string, unknown>) => {
     if (!open) return;
     writer.write(enc.encode(`${JSON.stringify(m)}\n`)).catch(() => {
       open = false;
+      gone.abort();
     });
   };
   send({ type: "progress", step: "check" });
-  const work = runAndSave(target, key, id, env, deps, send)
+  const work = runAndSave(target, key, id, env, deps, send, gone.signal, rules)
     .catch((e) => {
       const code = e instanceof ScanError ? e.code : "internal";
       const message =
@@ -214,7 +261,63 @@ async function startScan(request: Request, env: Env, ctx: Ctx, deps: AppDeps, ur
   });
 }
 
-async function runAndSave(target: Target, key: string, id: string, env: Env, deps: AppDeps, send: (m: Record<string, unknown>) => void): Promise<void> {
+const ROBOTS_UA = `Mozilla/5.0 (compatible; ${UA_TOKEN})`;
+
+/**
+ * The check for a main-frame navigation the page makes while it loads (a redirect, or a script changing location): the
+ * same rules as the address a person types, so a redirect cannot take the scanner to genclass.dev, a local or private
+ * address, a site that opted out, or a page its robots.txt keeps GenClassScan away from. Cached per host for one scan.
+ */
+export function navigationCheck(target: Target, env: Env, deps: AppDeps, targetRules: { allow: boolean; path: string }[] | null): (url: string) => Promise<NavVerdict> {
+  const hosts = new Map<string, Promise<NavVerdict>>([[target.host, Promise.resolve({ ok: true } as NavVerdict)]]);
+  const robots = new Map<string, Promise<{ allow: boolean; path: string }[] | null>>([[new URL(target.url).origin, Promise.resolve(targetRules)]]);
+  const no = (code: string, message: string): NavVerdict => ({ ok: false, code, message });
+  const hostCheck = async (host: string): Promise<NavVerdict> => {
+    const named = blockedName(host);
+    if (named === "self") return no("self", "The page redirected to genclass.dev, which the scanner does not scan.");
+    if (named === "local" || classifyIp(host) || !publicHostname(host)) return no("redirect", "The page redirected to an address the scanner does not load.");
+    if (await optedOut(env.BUCKET, host, env.BLOCKLIST)) return no("opted-out", "The page redirected to a site whose owner asked us not to scan it.");
+    const d = await resolveCheck(host, deps.fetch);
+    if (!d.ok) return d.code === "private" ? no("private", "The page redirected to a hostname that points to a private or reserved address. The scanner only loads public websites.") : no("redirect", "The page redirected to a hostname the scanner could not look up.");
+    return { ok: true };
+  };
+  return async (url: string): Promise<NavVerdict> => {
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      return no("redirect", "The page redirected to an address the scanner does not load.");
+    }
+    if ((u.protocol !== "https:" && u.protocol !== "http:") || u.port || u.username || u.password) return no("redirect", "The page redirected to an address the scanner does not load.");
+    const host = u.hostname.toLowerCase().replace(/\.+$/, "");
+    let h = hosts.get(host);
+    if (!h) {
+      h = hostCheck(host).catch(() => no("redirect", "The page redirected to an address the scanner could not check."));
+      hosts.set(host, h);
+    }
+    const v = await h;
+    if (!v.ok) return v;
+    let r = robots.get(u.origin);
+    if (!r) {
+      r = robotsRules(u.href, deps.fetch, ROBOTS_UA).catch(() => null);
+      robots.set(u.origin, r);
+    }
+    const rules = await r;
+    if (rules && robotsDisallows(rules, `${u.pathname}${u.search}`)) return no("robots", "The page redirected to a page whose robots.txt asks GenClassScan not to load it, so the scanner does not.");
+    return { ok: true };
+  };
+}
+
+async function runAndSave(
+  target: Target,
+  key: string,
+  id: string,
+  env: Env,
+  deps: AppDeps,
+  send: (m: Record<string, unknown>) => void,
+  signal: AbortSignal,
+  rules: { allow: boolean; path: string }[] | null,
+): Promise<void> {
   const guardHoldMs = Number(env.GUARD_HOLD_MS) || 900;
   const aggr = env.GUARD_AGGRESSIVENESS === "eager" || env.GUARD_AGGRESSIVENESS === "cautious" ? env.GUARD_AGGRESSIVENESS : "balanced";
   const margin = env.GUARD_MARGIN !== undefined && env.GUARD_MARGIN !== "" && Number.isFinite(Number(env.GUARD_MARGIN)) ? Number(env.GUARD_MARGIN) : null;
@@ -222,7 +325,12 @@ async function runAndSave(target: Target, key: string, id: string, env: Env, dep
     launch: () => deps.launch(env),
     now: deps.now,
     sleep: deps.sleep,
-    hostResolvesPublic: async (host) => (await resolveCheck(host, deps.fetch)).ok,
+    resolveHost: async (host) => {
+      const r = await resolveCheck(host, deps.fetch);
+      return r.ok ? "ok" : r.code === "private" ? "private" : r.code === "nxdomain" ? "nxdomain" : "unknown";
+    },
+    navigationAllowed: navigationCheck(target, env, deps, rules),
+    signal,
     runtimeSource: deps.runtimeSource(),
     visualSource: deps.visualSource ?? null,
     modelBaseUrl: env.MODEL_BASE_URL || DEFAULT_MODEL_BASE,
@@ -232,6 +340,7 @@ async function runAndSave(target: Target, key: string, id: string, env: Env, dep
     guardMargin: margin,
     progress: (step, detail) => send({ type: "progress", step, ...(detail || {}) }),
   });
+  if (signal.aborted) throw new ScanError("cancelled", "The scan was stopped because the page that asked for it closed.");
   send({ type: "progress", step: "save" });
   const at = new Date(deps.now());
   const saved = new Set<string>();
@@ -239,7 +348,7 @@ async function runAndSave(target: Target, key: string, id: string, env: Env, dep
     result.views.map(async (v) => {
       if (!v.shot) return;
       try {
-        await env.BUCKET.put(shotKey(key, id, v.id), v.shot, { httpMetadata: { contentType: "image/jpeg" } });
+        await env.BUCKET.put(shotKey(key, id, v.id), v.shot, { httpMetadata: { contentType: "image/jpeg" }, customMetadata: { host: target.host } });
         saved.add(v.id);
       } catch {
         /* the report says there is no screenshot */

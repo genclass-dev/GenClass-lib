@@ -1,16 +1,18 @@
 // Scan storage in the existing R2 bucket genclass-telemetry, under scans/ only:
 //   scans/reports/<key>.json          one report per normalised URL (served for 6 hours)
-//   scans/shots/<key>/<id>-<view>.jpg  screenshots (deleted after 24 hours by the hourly sweep)
-//   scans/slots.json                  the global concurrency leases (compare-and-swap on the etag)
+//   scans/shots/<key>/<id>-<view>.jpg  screenshots (deleted after 24 hours by the hourly sweep), with the host in their
+//                                     custom metadata so an opt-out also stops them being served
+//   scans/slots.json                  the global concurrency leases (compare-and-swap on the etag), one per client at most
 //   scans/blocklist.json              owner opt-outs: { "hosts": ["example.com", ...] } (subdomains included)
 // <key> is the first 32 hex characters of sha256(normalised URL).
 
 export const CACHE_MS = 6 * 60 * 60 * 1000;
 export const RETAIN_MS = 24 * 60 * 60 * 1000;
-export const LEASE_MS = 75_000;
+/** A lease outlives the 45 s scan budget plus the checks before it and the save after it, and no more. */
+export const LEASE_MS = 60_000;
 
 export interface Bucket {
-  get(key: string): Promise<{ etag: string; uploaded: Date; text(): Promise<string>; body?: ReadableStream; httpEtag?: string; size?: number } | null>;
+  get(key: string): Promise<{ etag: string; uploaded: Date; text(): Promise<string>; body?: ReadableStream; httpEtag?: string; size?: number; customMetadata?: Record<string, string> } | null>;
   put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream, options?: Record<string, unknown>): Promise<{ etag: string } | null>;
   delete(keys: string | string[]): Promise<void>;
   list(options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{ objects: { key: string; uploaded: Date }[]; truncated: boolean; cursor?: string }>;
@@ -25,12 +27,16 @@ export const reportKey = (key: string): string => `scans/reports/${key}.json`;
 export const shotKey = (key: string, id: string, view: string): string => `scans/shots/${key}/${id}-${view}.jpg`;
 export const SHOT_PATH = /^\/api\/scan\/shot\/([0-9a-f]{32})\/([0-9a-z]{6,40})-(desktop|phone|phone-dark)\.jpg$/;
 
-/** A cached report younger than 6 hours, or null. */
-export async function cachedReport(bucket: Bucket, key: string, now: number): Promise<Record<string, unknown> | null> {
+/**
+ * A cached report younger than 6 hours made by this version of the scanner, or null. A report from an older build is a
+ * miss: it can show results the current checks would not produce.
+ */
+export async function cachedReport(bucket: Bucket, key: string, now: number, version: number): Promise<Record<string, unknown> | null> {
   const obj = await bucket.get(reportKey(key));
   if (!obj) return null;
   try {
     const r = JSON.parse(await obj.text()) as Record<string, unknown>;
+    if (r.v !== version) return null;
     const at = Date.parse(String(r.scannedAt || "")) || obj.uploaded.getTime();
     return now - at < CACHE_MS ? r : null;
   } catch {
@@ -45,14 +51,16 @@ export async function saveReport(bucket: Bucket, key: string, report: Record<str
 // ------------------------------------------------------------------------------------- concurrency leases
 
 interface Slots {
-  leases: { id: string; key: string; until: number }[];
+  /** `client` is the same hash of the visitor's address the rate limit uses (never the address itself). */
+  leases: { id: string; key: string; until: number; client?: string }[];
 }
 
 /**
- * Takes one of `cap` global scan slots, or reports why not: "busy" (all taken) or "same" (this URL is already being
- * scanned). Compare-and-swap on the object's etag; a lease expires by itself after LEASE_MS.
+ * Takes one of `cap` global scan slots, or reports why not: "same" (this URL is already being scanned), "mine" (this
+ * client already has a scan running: one at a time per client) or "busy" (all taken). Compare-and-swap on the
+ * object's etag; a lease expires by itself after LEASE_MS.
  */
-export async function acquireSlot(bucket: Bucket, cap: number, id: string, key: string, now: number): Promise<"ok" | "busy" | "same"> {
+export async function acquireSlot(bucket: Bucket, cap: number, id: string, key: string, now: number, client = ""): Promise<"ok" | "busy" | "same" | "mine"> {
   for (let attempt = 0; attempt < 6; attempt++) {
     const obj = await bucket.get("scans/slots.json");
     let slots: Slots = { leases: [] };
@@ -65,8 +73,9 @@ export async function acquireSlot(bucket: Bucket, cap: number, id: string, key: 
     }
     const live = (slots.leases || []).filter((l) => l.until > now);
     if (live.some((l) => l.key === key)) return "same";
+    if (client && live.some((l) => l.client === client)) return "mine";
     if (live.length >= cap) return "busy";
-    live.push({ id, key, until: now + LEASE_MS });
+    live.push({ id, key, until: now + LEASE_MS, ...(client ? { client } : {}) });
     const put = await bucket.put("scans/slots.json", JSON.stringify({ leases: live }), {
       onlyIf: obj ? { etagMatches: obj.etag } : new Headers({ "if-none-match": "*" }),
       httpMetadata: { contentType: "application/json" },

@@ -1,8 +1,10 @@
-// The built-in visual checks, injected into the scanned page as window.__genclassScanChecks(options) -> result.
+// The built-in visual checks, injected into the scanned page and called as window[<per-scan name>](options) -> result.
 //
 // This is the minimal subset the scanner ships while the GenClass visual checks (packages/runtime/src/visual, branch
-// wave2/visual) are not built yet; a built chunk from there, when present, defines __genclassScanChecks first and
-// this one is not installed (scan.ts). Interface (also docs in scan-worker/README.md):
+// wave2/visual) are not built yet; a built chunk from there, when present, defines __genclassScanChecks while the
+// installer runs, and then this one is not used (installChecksSource). The scanner never calls a function the page
+// itself defined: it runs the installer in an isolated world when the browser offers one, and installs under a random,
+// non-writable name either way. Interface of a chunk (also docs in scan-worker/README.md):
 //
 //   window.__genclassScanChecks({ view, phone, failedImages, max }) -> { findings: RawFinding[], notes: string[], page }
 //   window.__genclassScanFixes?(findings) -> { applied: { kind, selector, how }[] }   (optional; the visual chunk only)
@@ -417,7 +419,31 @@ export function scanChecks(options?: any): any {
   };
 }
 
-/** The page-side expression that installs window.__genclassScanChecks unless a visual chunk already did. */
-export function installChecksSource(): string {
-  return `(() => { const __name = (t) => t; if (typeof window.__genclassScanChecks !== "function") { window.__genclassScanChecks = ${scanChecks.toString()}; } return typeof window.__genclassScanFixes === "function"; })()`;
+/**
+ * The page-side expression that installs the checks as window[name] (non-writable, non-configurable) and returns
+ * whether visual fixes are installed as window[name + "Fix"]. A page cannot supply its own results or fixes: a
+ * function the page defined before the installer ran is never used, under the chunk's names or any other. A built
+ * visual chunk (`visualSource`) runs inside the installer, and its functions are taken only when it defined them
+ * itself as plain properties; otherwise the built-in subset is installed.
+ */
+export function installChecksSource(name: string, visualSource: string | null = null): string {
+  const chunk = visualSource
+    ? `const free = (k) => { const d = Object.getOwnPropertyDescriptor(window, k); return !d || ("value" in d && d.writable && d.configurable); };
+  let own = free("__genclassScanChecks") && free("__genclassScanFixes");
+  if (own) { try { delete window.__genclassScanChecks; delete window.__genclassScanFixes; } catch (e) { own = false; } }
+  if (own) {
+    try {
+${visualSource}
+    } catch (e) { own = false; }
+  }
+  const took = (k) => { const d = Object.getOwnPropertyDescriptor(window, k); return own && d && "value" in d && typeof d.value === "function" ? d.value : null; };
+  checks = took("__genclassScanChecks");
+  fixes = checks ? took("__genclassScanFixes") : null;
+`
+    : "";
+  return `(() => { const __name = (t) => t; let checks = null, fixes = null;
+  ${chunk}const def = (k, v) => { if (!Object.getOwnPropertyDescriptor(window, k)) Object.defineProperty(window, k, { value: v, writable: false, configurable: false, enumerable: false }); };
+  def(${JSON.stringify(name)}, checks || ${scanChecks.toString()});
+  if (fixes) def(${JSON.stringify(`${name}Fix`)}, fixes);
+  return !!fixes; })()`;
 }

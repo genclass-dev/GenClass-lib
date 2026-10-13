@@ -120,6 +120,32 @@ export function hostAllowedForRequest(rawUrl: string): { ok: true } | { ok: fals
   return { ok: true };
 }
 
+/** Common second-level labels under two-letter country codes (example.co.uk, example.com.au). */
+const SECOND_LEVEL = new Set(["co", "com", "net", "org", "gov", "edu", "ac", "ne", "or", "go", "gob", "nic", "mil"]);
+
+/** Hosting suffixes where each subdomain belongs to a different owner (a short list from the public suffix list). */
+const SHARED_SUFFIXES = [
+  "workers.dev", "pages.dev", "github.io", "gitlab.io", "vercel.app", "netlify.app", "web.app", "firebaseapp.com", "herokuapp.com",
+  "onrender.com", "fly.dev", "glitch.me", "replit.app", "repl.co", "surge.sh", "azurewebsites.net", "azurestaticapps.net",
+  "cloudfront.net", "appspot.com", "blogspot.com", "wordpress.com", "wixsite.com", "myshopify.com", "webflow.io", "framer.app",
+  "framer.website", "lovable.app", "notion.site", "deno.dev", "up.railway.app", "carrd.co", "codeberg.page", "bolt.host",
+];
+
+/**
+ * The site a host belongs to, for the per-site rate limit: the last two labels, the last three under a two-letter
+ * country code with a common second level (example.co.uk), or the owner's label under a shared hosting suffix
+ * (me.github.io, app.vercel.app). An approximation of the registrable domain, without the whole public suffix list.
+ */
+export function siteOf(host: string): string {
+  const h = host.toLowerCase().replace(/\.+$/, "");
+  const labels = h.split(".");
+  const shared = SHARED_SUFFIXES.find((x) => h.endsWith(`.${x}`));
+  if (shared) return labels.slice(-(shared.split(".").length + 1)).join(".");
+  const tld = labels[labels.length - 1] ?? "";
+  const n = labels.length >= 3 && tld.length === 2 && SECOND_LEVEL.has(labels[labels.length - 2]) ? 3 : 2;
+  return labels.slice(-n).join(".");
+}
+
 /** Whether an address from a DNS answer is private, loopback, link-local, CGNAT, metadata or otherwise reserved. */
 export function blockedAddress(addr: string): string | null {
   if (addr.includes(":")) {
@@ -218,33 +244,38 @@ export function robotsDisallows(rules: { allow: boolean; path: string }[], pathW
 }
 
 /**
- * Reads the site's robots.txt (redirects followed by hand, each hop checked, at most 3; 2 s; 64 KB) and refuses
- * when a GenClassScan group disallows the page. A missing or unreadable robots.txt allows the scan.
+ * Reads a site's robots.txt (redirects followed by hand, each hop checked, at most 3; 2 s; 64 KB) and returns the rules
+ * of its GenClassScan group, or null when there is none. A missing or unreadable robots.txt has none.
  */
-export async function robotsCheck(target: Target, fetcher: Fetcher, userAgent: string): Promise<{ ok: true } | Refusal> {
-  let next = new URL("/robots.txt", target.url).href;
+export async function robotsRules(pageUrl: string, fetcher: Fetcher, userAgent: string): Promise<{ allow: boolean; path: string }[] | null> {
+  let next = new URL("/robots.txt", pageUrl).href;
   for (let hop = 0; hop < 4; hop++) {
-    if (!hostAllowedForRequest(next).ok) return { ok: true };
+    if (!hostAllowedForRequest(next).ok) return null;
     let res: Response;
     try {
       res = await fetcher(next, { redirect: "manual", headers: { "user-agent": userAgent }, signal: AbortSignal.timeout(2000) });
     } catch {
-      return { ok: true };
+      return null;
     }
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get("location");
-      if (!loc) return { ok: true };
+      if (!loc) return null;
       next = new URL(loc, next).href;
       continue;
     }
-    if (!res.ok) return { ok: true };
+    if (!res.ok) return null;
     const text = (await res.text()).slice(0, 65536);
-    const rules = robotsRulesFor(text, "GenClassScan");
-    if (!rules) return { ok: true };
-    const u = new URL(target.url);
-    return robotsDisallows(rules, `${u.pathname}${u.search}`)
-      ? refuse("robots", "This site's robots.txt asks GenClassScan not to load this page, so the scanner does not.")
-      : { ok: true };
+    return robotsRulesFor(text, "GenClassScan");
   }
-  return { ok: true };
+  return null;
+}
+
+/** Refuses when the site's robots.txt has a GenClassScan group that disallows the page. */
+export async function robotsCheck(target: Target, fetcher: Fetcher, userAgent: string): Promise<{ ok: true } | Refusal> {
+  const rules = await robotsRules(target.url, fetcher, userAgent);
+  if (!rules) return { ok: true };
+  const u = new URL(target.url);
+  return robotsDisallows(rules, `${u.pathname}${u.search}`)
+    ? refuse("robots", "This site's robots.txt asks GenClassScan not to load this page, so the scanner does not.")
+    : { ok: true };
 }

@@ -219,7 +219,7 @@ function shell(n: string, title: string, current: "scan" | "about", body: string
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>${esc(title)}</title>
-<meta name="description" content="Check one public page for unreadable text, broken images, layout overflow, covered controls and double-submit races. Nothing is submitted to the site.">
+<meta name="description" content="Check one public page for unreadable text, broken images, layout overflow, covered controls and double-submit races. Requests that could change something on the site are never sent.">
 <link rel="icon" href="${ICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -247,8 +247,8 @@ export interface ScanPageData {
 
 const LIMITS = [
   ["One page, one load.", "Problems that need a second page, a signed-in user or a slow network do not show up here."],
-  ["No real users.", "The probe types three letters and double-clicks one button. Real visitors do far more, on worse networks, and GenClass in production sees every one of those interactions."],
-  ["Nothing is sent.", "Form posts and other non-GET requests are answered locally, so anything that depends on the server's real answer stays untested."],
+  ["No real users.", "The probe types three letters and double-clicks one button. Real visitors do far more, on slower networks. GenClass in production watches the requests their actions make."],
+  ["Nothing that changes data is sent.", "POST, PUT, PATCH and DELETE requests get a stand-in reply from the scanner instead. If the page loads content that way, that content is missing or wrong here, and findings that may come from it are listed but not scored."],
   ["Some checks need a known background.", "Text over images, gradients or video is skipped by the contrast check rather than guessed at."],
   ["The first screen for covered controls.", "Controls are hit-tested where they sit when the page loads, before scrolling or opening menus."],
   ["Bot protection.", "Some sites show a challenge page to automated browsers. The report then describes that page, not the site."],
@@ -269,7 +269,8 @@ export function scanPage(n: string, data: ScanPageData): string {
   </form>
   <p class="lead" id="lead"${t ? ' hidden' : ""}>Paste an address. A browser loads the page on a desktop and on a phone, light and dark, and checks
   for text you cannot read, images that failed, sideways scrolling and controls hidden under other elements. Then it types
-  into the search box and double-clicks a submit button to look for races, with GenClass watching. Nothing is submitted to the site.</p>
+  into the search box and double-clicks a submit button to look for races, with GenClass watching. Requests that could change
+  something on the site are answered inside the browser and never sent.</p>
 </section>
 <section id="progress" class="hidden" aria-live="polite">
   <ol class="steps" id="steps"></ol>
@@ -309,6 +310,7 @@ export function scanPage(n: string, data: ScanPageData): string {
     the site; GET responses got up to 1.5 s of extra latency so they could arrive out of order. Then it did the same again in a
     fresh page with GenClass in guard mode.</p>
     <dl class="rows" id="probe"></dl>
+    <figcaption>Table 2. The race probe without GenClass, and again with GenClass in guard mode, measured in the same browser.</figcaption>
   </section>
   <section class="blk" id="limits">
     <div class="blk-h"><h2>What one page load cannot show</h2><span class="aside">Read the score with these in mind</span></div>
@@ -319,8 +321,9 @@ export function scanPage(n: string, data: ScanPageData): string {
   <div>
     <h2 id="ctah">Watch every visit, not one page load.</h2>
     <p>GenClass runs inside your pages for real visitors and reports the races that only real traffic triggers: responses that land
-    over newer data, duplicate submits, endpoints that keep failing. In guard mode it stops the duplicate submits and late responses
-    it is sure about. The visual checks on this page run here, in the page check.</p>
+    over newer data, duplicate submits, endpoints that keep failing. In guard mode it can merge a duplicate submit or drop a late
+    response when the expected gain clears its safety margin. The race probe above shows whether it did on this page. The visual
+    checks on this page run here, in the page check.</p>
     <div class="row"><a class="btn" href="https://genclass.dev/start">Get a token and a dashboard</a><a class="btn ghost" href="https://genclass.dev/docs">Read the docs</a></div>
   </div>
   <div>
@@ -366,7 +369,7 @@ function progress(step){
 function start(){
   show("progress", true); show("problem", false); $("go").disabled = true;
   t0 = Date.now(); progress("check");
-  timer = setInterval(function(){ $("elapsed").textContent = secs(Date.now() - t0) + " elapsed. A scan takes 20 to 45 seconds."; }, 200);
+  timer = setInterval(function(){ $("elapsed").textContent = secs(Date.now() - t0) + " elapsed. A scan usually takes 10 to 25 seconds."; }, 200);
   fetch("/api/scan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: D.target.url }) }).then(function(res){
     var ct = res.headers.get("content-type") || "";
     if (ct.indexOf("ndjson") < 0) return res.json().then(function(j){ refused(res.status, j); }, function(){ problem("The scanner did not answer.", "HTTP " + res.status + ". Try again in a minute."); });
@@ -386,14 +389,21 @@ function start(){
     return pump();
   }).catch(function(){ problem("Could not reach the scanner.", "Check your connection and try again."); });
 }
+var retried = false;
 function refused(status, j){
-  if (j && j.code === "in-progress") { progress("views"); return poll(0); }
+  var code = j && j.code;
+  if (code === "in-progress") { progress("views"); return poll(0); }
   if (j && j.report) return done(j.report);
   var title = (j && j.message) || ("The scanner answered HTTP " + status + ".");
-  var detail = status === 429 ? "Each address can start five scans a minute. Results are cached for 6 hours, so a shared link does not start a new scan." : status === 503 ? "Every scanner is busy right now. Try again in a minute." : "";
+  var detail = code === "rate" ? "Each visitor can start five new scans a minute. Results are cached for 6 hours, so a shared link does not start a new scan."
+    : code === "site-rate" ? "Each site can have a few new scans started a minute, whoever asks. Try again in a minute."
+    : code === "running" ? "Each visitor can run one scan at a time. Try again when it has finished."
+    : status === 503 ? "Every scanner is busy right now. Try again in a minute." : "";
   problem(title, detail);
 }
 function poll(n){
+  // a scan that stopped because its page closed saves nothing: after a while, start one again
+  if (n === 4 && !retried) { retried = true; return start(); }
   if (n > 15) return problem("Someone else started a scan of this page and it has not finished.", "Reload in a minute to see the result.");
   setTimeout(function(){
     fetch("/api/scan/report?url=" + encodeURIComponent(D.target.url)).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){ if (j && j.report) done(j.report); else poll(n + 1); }, function(){ poll(n + 1); });
@@ -417,8 +427,9 @@ function render(r){
 
 function renderScore(r){
   $("sv").textContent = String(r.score.value);
-  var n = r.findings.length, high = r.findings.filter(function(f){ return f.severity === "high"; }).length;
-  $("ss").textContent = n ? nf.format(n) + (n === 1 ? " finding" : " findings") + (high ? ", " + high + " serious" : "") + ". The table shows where the points went." : "No findings from these checks.";
+  var scored = r.findings.filter(function(f){ return !f.unscored; }), n = scored.length, extra = r.findings.length - n, high = scored.filter(function(f){ return f.severity === "high"; }).length;
+  $("ss").textContent = (n ? nf.format(n) + (n === 1 ? " finding" : " findings") + (high ? ", " + high + " serious" : "") + ". The table shows where the points went." : "No scored findings from these checks.")
+    + (extra ? " " + extra + (extra === 1 ? " more is" : " more are") + " listed but not scored." : "");
   var w = r.withGenClass, withOn = !!(w && w.shown);
   show("withbox", withOn); show("wth", withOn);
   $("sk").textContent = withOn ? "Without GenClass" : "Score";
@@ -462,7 +473,30 @@ function renderShots(r){
     host.appendChild(fig);
   });
   $("figs").textContent = "Fig. 1 to " + figs + ". Numbers match the list below";
+  unstackAll();
 }
+// number tags of boxes that start close together are moved down until none overlaps another, so every number reads
+function unstackAll(){
+  Array.prototype.forEach.call(document.querySelectorAll("#shots .frame"), function(frame){
+    var tags = Array.prototype.map.call(frame.querySelectorAll(".mark a"), function(a){ a.style.transform = ""; var r = a.getBoundingClientRect(); return { a: a, x: r.left, y: r.top, w: r.width, h: r.height }; });
+    tags.sort(function(p, q){ return p.y - q.y || p.x - q.x; });
+    var placed = [];
+    tags.forEach(function(t){
+      var dy = 0, moved = true, guard = 0;
+      while (moved && guard++ < 50) {
+        moved = false;
+        for (var i = 0; i < placed.length; i++) {
+          var p = placed[i];
+          if (t.x < p.x + p.w + 2 && p.x < t.x + t.w + 2 && t.y + dy < p.y + p.h + 2 && p.y < t.y + dy + t.h + 2) { dy = p.y + p.h + 2 - t.y; moved = true; }
+        }
+      }
+      if (dy) t.a.style.transform = "translateY(" + Math.round(dy) + "px)";
+      placed.push({ x: t.x, y: t.y + dy, w: t.w, h: t.h });
+    });
+  });
+}
+var resizeTimer = null;
+window.addEventListener("resize", function(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(unstackAll, 150); });
 
 var VIEWNAMES = { desktop: "Desktop", phone: "Phone", "phone-dark": "Phone, dark", probe: "Race probe" };
 function renderFindings(r){
@@ -479,11 +513,13 @@ function renderFindings(r){
     tags.appendChild(el("span", "sev-" + f.severity, f.severity === "high" ? "Serious" : f.severity === "medium" ? "Moderate" : "Minor"));
     tags.appendChild(el("span", null, ({ readability: "Readability", media: "Images and media", layout: "Layout", interaction: "Interaction and races" })[f.category]));
     tags.appendChild(el("span", null, f.views.map(function(v){ return VIEWNAMES[v] || v; }).join(" · ")));
+    if (f.unscored) tags.appendChild(el("span", null, "Not scored"));
     main.appendChild(tags);
     var dl = el("dl");
     function row(k, node){ dl.appendChild(el("dt", null, k)); var dd = el("dd"); if (typeof node === "string") dd.textContent = node; else dd.appendChild(node); dl.appendChild(dd); return dd; }
     if (f.selector) { var c = el("code", null, f.selector); row("Where", c); }
     row("Measured", f.measured);
+    if (f.unscored) row("Not scored", f.unscored);
     row("Why it matters", f.why);
     var pre = el("pre", null, f.fix); row("Suggested fix", pre);
     if (withOn) row("With GenClass", f.fixed ? el("span", "gc-yes", "Fixed. " + f.fixed.how) : el("span", null, f.category === "interaction" ? "Not fixed in this run. The suggested fix above removes it." : "Not fixed: the runtime has no fix for this yet. The suggested CSS above removes it."));
@@ -512,27 +548,32 @@ function renderProbe(r){
   var m = o.model || {};
   var modelLine = m.state === "ready" ? "Loaded in " + secs(m.loadMs || m.waitedMs) + (m.device ? " on " + m.device.toUpperCase() : "") + (m.variant ? ", " + m.variant : "")
     : m.state === "absent" ? "Not loaded" : "Did not load in time";
-  var modelSub = m.state === "ready" ? "GenClass decided on this page with its local model, as it would in a visitor's browser."
+  var nd = o.decisions || 0;
+  var modelSub = m.state === "ready" ? (nd ? "GenClass made " + nd + (nd === 1 ? " decision" : " decisions") + " on this page with its local model, as it would in a visitor's browser." : "The model was ready. GenClass made no decisions on this page.")
     : m.state === "absent" ? "The GenClass runtime could not be fetched for this scan, so nothing below was seen by GenClass."
     : "The model was still " + (m.state || "loading") + " after " + secs(m.waitedMs) + (m.error ? " (" + m.error + ")" : "") + ". Without it GenClass only observes, so it could not diagnose anything on this run.";
   row("GenClass model", modelLine, modelSub);
-  if (o.typed) row("Typing", o.typed.requests + (o.typed.requests === 1 ? " request" : " requests") + " while typing", "Typed a, ab, abc into " + o.typed.target + ", 80 ms apart. " + (o.typed.requests ? (o.typed.outOfOrder ? "Responses came back out of order (" + o.typed.completionOrder.join(", ") + ")." : "Responses came back in order.") : "The page made no requests while typing."));
+  var staleSeen = (o.detections || []).some(function(d){ return d.diagnosis === "stale"; });
+  if (o.typed) row("Typing", o.typed.requests + (o.typed.requests === 1 ? " request" : " requests") + " while typing", "Typed a, ab, abc into " + o.typed.target + ", 80 ms apart. " + (o.typed.requests ? (o.typed.outOfOrder ? "Responses came back out of order (" + o.typed.completionOrder.join(", ") + ")." + (staleSeen ? "" : " Whether the page then showed results for an older query was not checked.") : "Responses came back in order.") : "The page made no requests while typing."));
   else row("Typing", "Not tried", o.typeSkipped || "");
-  if (o.clicked) row("Double click", o.clicked.sent + (o.clicked.sent === 1 ? " request" : " requests") + " from one double click", "Double-clicked " + (o.clicked.label ? "\\u201c" + o.clicked.label + "\\u201d (" + o.clicked.target + ")" : o.clicked.target) + ". " + (o.clicked.identical >= 2 ? o.clicked.identical + " were identical." : o.clicked.sent ? "No two were identical." : "The page sent nothing; its own code may block the second click, or the form needs input first.") + " All were answered inside the browser.");
+  if (o.clicked) row("Double click", o.clicked.sent + (o.clicked.sent === 1 ? " request" : " requests") + " from one double click", "Double-clicked " + (o.clicked.label ? "\\u201c" + o.clicked.label + "\\u201d (" + o.clicked.target + ")" : o.clicked.target) + ". " + (o.clicked.identical >= 2 ? o.clicked.identical + " were identical." : o.clicked.sent ? "No two were identical." : "The page sent nothing; its own code may block the second click, or the form needs input first.") + " All were answered inside the browser. The form was submitted empty, with its browser validation turned off; a visitor who fills it in and double-clicks sends the same submits.");
   else row("Double click", "Not tried", o.clickSkipped || "");
   var seen = o.detections || [], triedAny = !!(o.typed || o.clicked);
   if (seen.length) row("GenClass saw", seen.length + (seen.length === 1 ? " problem" : " problems"), seen.slice(0, 4).map(function(d){ return d.diagnosis + " (" + Math.round(d.p * 100) + "%) on " + d.subject; }).join("; ") + ".");
-  else if (!triedAny) row("GenClass saw", "Nothing to probe on this page", "The page has no search box and no form that posts, so the probe had nothing to type into or click. GenClass watched the page load and flagged nothing. In production it sees every interaction real visitors make.");
-  else row("GenClass saw", "Nothing on this run", m.state === "ready" ? "Nothing in this short probe looked wrong to GenClass. Real visitors find more: GenClass in production sees every interaction, on every network." : "With no model, GenClass could not diagnose anything here.");
+  else if (!triedAny) row("GenClass saw", "Nothing to probe on this page", "The page has no search box and no form that posts, so the probe had nothing to type into or click. GenClass watched the page load and flagged nothing. In production GenClass watches the requests real visitors' actions make.");
+  else row("GenClass saw", "Nothing on this run", m.state === "ready" ? "Nothing in this short probe looked wrong to GenClass. In production GenClass watches the requests real visitors' actions make." : "With no model, GenClass could not diagnose anything here.");
   if (g && g.ran && o.clicked && g.clicked) {
-    var cmp = el("div", "cmp");
-    [["Without GenClass", o.clicked.sent, ""], ["With GenClass guard", g.clicked.sent, g.clicked.sent < o.clicked.sent ? "g" : ""]].forEach(function(x){ var d = el("div"); d.appendChild(el("div", "k", x[0])); d.appendChild(el("div", "n " + x[2], x[1] + (x[1] === 1 ? " request" : " requests"))); cmp.appendChild(d); });
-    var acts = (g.acts || []).map(function(a){ return a.action + ": " + String(a.changed || "").replace(/\.$/, ""); });
+    var cmp = el("div", "cmp"), acted = !!(r.probe.guardClick && r.probe.guardClick.acted);
+    [["Without GenClass", o.clicked.sent, ""], ["With GenClass guard", g.clicked.sent, acted ? "g" : ""]].forEach(function(x){ var d = el("div"); d.appendChild(el("div", "k", x[0])); d.appendChild(el("div", "n " + x[2], x[1] + (x[1] === 1 ? " request" : " requests"))); cmp.appendChild(d); });
+    var acts = (g.acts || []).map(function(a){ return a.action + ": " + String(a.changed || "").replace(/\\.$/, ""); });
     var held = (g.detections || []).filter(function(d){ return !d.executed && d.candidate && typeof d.gain === "number" && typeof d.margin === "number"; })[0];
-    var why = acts.length ? "GenClass did: " + acts.slice(0, 3).join("; ") + "."
-      : held ? "GenClass flagged it (" + held.diagnosis + ", " + Math.round(held.p * 100) + "%) and held back: " + held.candidate + " scored a gain of " + (Math.round(held.gain * 100) / 100) + " and these gates need more than " + held.margin + ". Guard only acts when the expected gain clears the margin."
+    var WORDS = { duplicate: "a duplicate", stale: "a late response", conflict: "a conflict", inconsistent: "an inconsistency", failing: "a failing request" };
+    var MOVES = { coalesce: "merging the two", discard: "dropping it", defer: "holding it back", retry: "retrying it", cancel: "cancelling it" };
+    var why = acted ? r.probe.guardClick.how
+      : acts.length ? "GenClass did: " + acts.slice(0, 3).join("; ") + ". That did not change what the double click sent."
+      : held ? "GenClass was " + Math.round(held.p * 100) + "% sure this was " + (WORDS[held.diagnosis] || held.diagnosis) + " but held back: at these settings, " + (MOVES[held.candidate] || held.candidate) + " did not clear its safety margin (expected gain " + (Math.round(held.gain * 100) / 100) + ", margin " + held.margin + ")."
       : (g.model || {}).state === "ready" ? "GenClass took no action." : "GenClass took no action: its model did not load in time.";
-    row("Guard mode", cmp, "Measured, not projected: the same double click in a fresh page with " + (r.probe.guardSetting || "GenClass guard on") + ". " + why);
+    row("Guard mode", cmp, "Measured, not projected: the same double click in a fresh page with " + (r.probe.guardSetting || "GenClass in guard mode") + ". " + why);
   } else if (g && g.ran && !triedAny) row("Guard mode", "Nothing to compare", "With nothing to type into or click, guard mode had nothing to change on this page.");
   else if (g && g.ran && o.typed && !o.clicked) row("Guard mode", "Typing only", "The guard pass typed the same letters" + ((g.acts || []).length ? " and GenClass did: " + g.acts.slice(0, 3).map(function(a){ return a.action + ": " + a.changed; }).join("; ") + "." : "; GenClass took no action."));
   else if (g && !g.ran) row("Guard mode", "Not measured", g.note || "");
@@ -550,9 +591,15 @@ function renderShare(r){
   host.appendChild(el("span", null, "Cached for 6 hours."));
 }
 
+// the same address again: scan it here, without reloading the page
+document.querySelector("form.urlbox").addEventListener("submit", function(e){
+  if (D.target && !D.report && !D.error && $("u").value.trim() === D.input && !$("go").disabled) { e.preventDefault(); start(); }
+});
+// crawlers and automated browsers that run scripts can read a cached report, but loading the page does not start a scan
+var automated = navigator.webdriver === true || /bot\\b|bot\\/|crawl|spider|slurp|headless|lighthouse|preview/i.test(navigator.userAgent || "");
 if (D.error) problem(D.error.message, D.error.code === "robots" || D.error.code === "opted-out" ? "Site owners can opt out of the page check; this site has." : "");
 else if (D.report) render(D.report);
-else if (D.target) start();
+else if (D.target && !automated) start();
 })();`;
 
 // ------------------------------------------------------------------------------------- /scan/about
@@ -580,23 +627,31 @@ export function aboutPage(n: string): string {
     <li>On the desktop page, with the GenClass runtime loaded in observe mode (telemetry off, model from
     <code>genclass.dev/model/</code>), types <code>a</code>, <code>ab</code>, <code>abc</code> into the first search box, 80 ms apart,
     and double-clicks the most prominent submit button of a same-origin form that would POST. Forms with a password or card
-    field are skipped. GET responses during the probe get 0 to 1,500 ms of extra latency, so they can arrive out of order.</li>
+    field are skipped, and so are forms and buttons that would submit into another window. GET responses during the probe get 0 to 1,500 ms of extra latency, so they can arrive out of order.</li>
     <li>Opens the page once more with GenClass in guard mode and repeats the probe, to measure what guard changes.</li>
-    <li>Scores the findings and keeps the report for 6 hours. The whole scan has a hard budget of 45 seconds.</li>
+    <li>Scores the findings and keeps the report for 6 hours. The whole scan has a hard budget of 45 seconds. When the page sent
+    requests other than GET while loading, findings that may come from the scanner's stand-in replies (template text, broken
+    images, and GenClass diagnoses other than a duplicate) are listed but not scored.</li>
   </ol>
 </section>
 <section class="blk prose" id="never">
   <div class="blk-h"><h2>What it never does</h2></div>
   <ul>
-    <li>It never sends a form, a POST, PUT, PATCH, DELETE or a beacon to the site. Every request other than GET is answered inside
-    the browser with a plain <code>200</code> JSON (or a <code>204</code> for a form navigation, so the page stays put) and never
-    leaves it.</li>
-    <li>It never follows a link off the page: after the first load, any navigation of the page is cancelled.</li>
-    <li>It never submits anything to a third party: while it clicks, requests for data to other origins are cancelled, and
-    WebSocket messages are held.</li>
-    <li>It never signs in, never types into anything but a search box, and registers no service workers.</li>
-    <li>It refuses redirects to private addresses: every request and every redirect hop is checked, and the browser aborts any
-    that point at a blocked address.</li>
+    <li>It never sends a POST, PUT, PATCH, DELETE or a beacon to the site. Every request other than GET, while the page loads and
+    during the probe, is answered inside the browser with a stand-in <code>200</code> JSON reply (or a <code>204</code> for a form
+    navigation, so the page stays put) and never leaves it. Form data that the page's own script sends with GET does reach the
+    site's own origin.</li>
+    <li>It never follows a link off the page: after the first load, any navigation of the page is cancelled. It opens no new
+    windows or tabs: <code>window.open</code> does nothing, and forms and links that would open one stay in the page.</li>
+    <li>While it clicks, requests for data to other origins are cancelled and WebSocket messages are held.</li>
+    <li>It never signs in, never types into anything but a search box, and registers no service workers. The double-click
+    probe submits the form empty, with the browser's own form validation turned off.</li>
+    <li>It does not load private addresses. IP addresses in private, loopback, link-local, carrier-grade NAT and metadata ranges,
+    and local names, are blocked for every request. Every hostname the page asks for is looked up in DNS first, and a name that
+    points to a private address is not loaded; a redirect also has to pass the opt-out list and <code>robots.txt</code>.
+    WebSocket connections to IP addresses or local names are refused, and a WebSocket host that resolves to a private address
+    throws the scan away. The browser then looks each name up again itself, so a DNS server that gives a different answer the
+    second time is the one case these checks cannot rule out.</li>
   </ul>
 </section>
 <section class="blk prose" id="ua">
@@ -608,7 +663,10 @@ export function aboutPage(n: string): string {
 <section class="blk prose" id="limits">
   <div class="blk-h"><h2>Limits</h2></div>
   <ul>
-    <li>Five new scans per minute per visitor (cached results do not count), and a small number of scans at once across everyone.</li>
+    <li>Five new scans per minute per visitor, and one running at a time (cached results do not count). Visitors on IPv6 count
+    by their /64 network.</li>
+    <li>A few new scans per minute per site, whoever asks, and a small number of scans at once across everyone.</li>
+    <li>Crawlers and link previews can open a report but cannot start a scan.</li>
     <li>One scan per address at a time; a second request for the same address waits for the first result.</li>
   </ul>
 </section>
@@ -648,7 +706,8 @@ export function aboutPage(n: string): string {
   <pre>User-agent: GenClassScan\nDisallow: /</pre>
   <ul>
     <li>Or email <a href="mailto:${OPT_OUT_EMAIL}?subject=GenClassScan%20opt-out">${OPT_OUT_EMAIL}</a> with the hostname. It goes on a
-    block list the scanner checks before every scan and every report view, subdomains included, so cached results for it stop showing at once.</li>
+    block list the scanner checks before every scan, every redirect, every report view and every screenshot, subdomains included,
+    so cached results and screenshots for it stop showing at once.</li>
   </ul>
 </section>
 <section class="blk prose" id="retention">

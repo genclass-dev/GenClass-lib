@@ -53,9 +53,24 @@ describe("blocked hosts are aborted, redirect hops included", () => {
       assert.equal(decideRequest(req(u, { resourceType: "document", isNavigation: true, isMainFrame: true }), ctx("load")).kind, "abort", u);
     }
   });
-  it("asks for a DNS check on main-frame navigations during load", () => {
+  it("asks for the full navigation check (DNS, opt-out, robots.txt) on main-frame navigations during load", () => {
     const v = decideRequest(req("https://www.example.com/", { resourceType: "document", isNavigation: true, isMainFrame: true }), ctx("load"));
-    assert.deepEqual(v, { kind: "continue", delayMs: 0, checkDns: true });
+    assert.deepEqual(v, { kind: "continue", delayMs: 0, check: "navigation" });
+  });
+  it("asks for a DNS check on every frame inside the page, in every phase", () => {
+    for (const phase of ["load", "type", "settle"] as const) {
+      const v = decideRequest(req("https://widgets.example.net/embed", { resourceType: "document", isNavigation: true, isMainFrame: false }), ctx(phase));
+      assert.deepEqual(v, { kind: "continue", delayMs: 0, check: "dns" }, phase);
+    }
+    // every request to a hostname is looked up first; a public IP literal needs no lookup
+    assert.deepEqual(decideRequest(req("https://cdn.example.net/a.png", { resourceType: "image" }), ctx("load")), { kind: "continue", delayMs: 0, check: "dns" });
+    assert.deepEqual(decideRequest(req("https://8.8.8.8/a.png", { resourceType: "image" }), ctx("load")), { kind: "continue", delayMs: 0, check: "none" });
+  });
+  it("aborts a main-frame navigation to genclass.dev, but lets the page load the scanner's own model files", () => {
+    for (const u of ["https://genclass.dev/", "https://www.genclass.dev/x", "https://genclass-scan.mehar-144.workers.dev/scan"]) {
+      assert.equal(decideRequest(req(u, { resourceType: "document", isNavigation: true, isMainFrame: true }), ctx("load")).kind, "abort", u);
+    }
+    assert.equal(decideRequest(req("https://genclass.dev/model/@genclass/runtime-model@0.2.0/files/model.onnx"), ctx("load")).kind, "continue");
   });
 });
 
@@ -73,9 +88,9 @@ describe("the probe never navigates and never submits to a third party", () => {
     assert.equal(decideRequest(req("https://cdn.example.net/a.png", { resourceType: "image" }), ctx("click")).kind, "continue");
   });
   it("delays same-origin and cross-origin fetch/XHR GETs during the probe, not during load", () => {
-    assert.deepEqual(decideRequest(req("https://shop.example.com/api/search?q=a"), ctx("type")), { kind: "continue", delayMs: 700, checkDns: false });
-    assert.deepEqual(decideRequest(req("https://search.example.net/q?a", { resourceType: "xhr" }), ctx("type")), { kind: "continue", delayMs: 700, checkDns: false });
-    assert.deepEqual(decideRequest(req("https://shop.example.com/api/search?q=a"), ctx("load")), { kind: "continue", delayMs: 0, checkDns: false });
+    assert.deepEqual(decideRequest(req("https://shop.example.com/api/search?q=a"), ctx("type")), { kind: "continue", delayMs: 700, check: "dns" });
+    assert.deepEqual(decideRequest(req("https://search.example.net/q?a", { resourceType: "xhr" }), ctx("type")), { kind: "continue", delayMs: 700, check: "dns" });
+    assert.deepEqual(decideRequest(req("https://shop.example.com/api/search?q=a"), ctx("load")), { kind: "continue", delayMs: 0, check: "dns" });
   });
 });
 

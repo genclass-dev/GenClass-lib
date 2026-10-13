@@ -16,7 +16,7 @@ describe("TLD list", () => {
   it("the site's genclass.dev/<url> rule and the scanner's path form agree", async () => {
     // @ts-expect-error plain JavaScript module from the site worker, no types
     const { scanTargetFromPath } = (await import("../../site/src/scan-path.js")) as { scanTargetFromPath(p: string, q?: string): string | null };
-    for (const p of ["/example.com", "/example.com/a/b", "/https://example.com/x", "/https:/example.com", "/styles.css", "/mend.js", "/docs", "/localhost", "/a b.com", "/foo.notatld"]) {
+    for (const p of ["/example.com", "/example.com/a/b", "/https://example.com/x", "/https:/example.com", "/styles.css", "/mend.js", "/docs", "/localhost", "/a b.com", "/foo.notatld", "/README.md", "/bun.sh/", "/https://bun.sh", "/x.y.zip", "/app.js.map", "/socket.io"]) {
       assert.equal(scanTargetFromPath(p) !== null, targetFromPath(p) !== null, p);
     }
   });

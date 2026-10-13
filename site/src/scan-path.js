@@ -7,6 +7,10 @@ import { TLDS } from "./tlds.js";
 const URL_SAFE = /^[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$/;
 // "app.js.map", "x.css.map": a file name whose last part happens to be a TLD is not a hostname
 const FILE_PARTS = new Set(["js", "mjs", "css", "html", "htm", "json", "png", "jpg", "jpeg", "gif", "svg", "ico", "txt", "xml", "webp", "avif", "woff", "woff2", "ttf", "wasm", "onnx", "pdf", "gz"]);
+// "README.md", "backup.zip", "install.sh": TLDs mostly seen as file extensions. A bare name ending in one stays a 404
+// (a missing file); with a path or an explicit http(s): it is an address (genclass.dev/https://bun.sh, /bun.sh/).
+// TLDs that many real sites use (.io, .ai, .so, .app, .pl) stay addresses. Same list as scan-worker/src/app.ts.
+export const FILE_TLDS = new Set(["md", "zip", "mov", "py", "sh", "java"]);
 
 function isHostname(raw) {
   const h = raw.toLowerCase().replace(/\.$/, "");
@@ -35,5 +39,9 @@ export function scanTargetFromPath(pathname, search = "") {
     const rest = p.slice(scheme[0].length);
     return isHostname(rest.split(/[/?#]/)[0]) ? `${scheme[1].toLowerCase()}://${rest}${q}` : null;
   }
-  return isHostname(p.split(/[/?#]/)[0]) ? `${p}${q}` : null;
+  const host = p.split(/[/?#]/)[0];
+  if (!isHostname(host)) return null;
+  const tld = host.toLowerCase().replace(/\.$/, "").split(".").pop();
+  if (FILE_TLDS.has(tld) && p.length === host.length && !q) return null;
+  return `${p}${q}`;
 }

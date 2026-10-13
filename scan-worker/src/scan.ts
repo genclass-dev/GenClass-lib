@@ -3,12 +3,17 @@
 // the side-effect-free race probe on the desktop page with the GenClass runtime in observe mode, then the same probe
 // again in a fresh page with the runtime in guard mode. A hard total budget (45 s by default) bounds all of it; a
 // step that does not fit is skipped and says so.
+//
+// Every hostname the page requests is checked in DNS before the browser loads it. A scan is thrown away, with nothing
+// saved or streamed, when a response is seen to come from a private or reserved address (where the browser reports
+// one: in Browser Rendering it connects through a local proxy, so it reports the proxy), when a WebSocket host
+// resolves privately, when the page ended up on a site that opted out, or when the person who asked went away.
 
-import type { RawFinding } from "./catalog.ts";
+import { sanitizeFinding, sanitizeNotes, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { installChecksSource } from "./checks.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
-import { probeTargets, runtimeBootstrap, RUNTIME_STATE_SOURCE } from "./probe.ts";
-import type { Target } from "./target.ts";
+import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
+import { blockedAddress, type Target } from "./target.ts";
 
 // ------------------------------------------------------------------------------- the browser we drive
 
@@ -30,6 +35,8 @@ export interface ResponseLike {
   status(): number;
   url(): string;
   request(): RequestLike;
+  /** The address the browser connected to (absent for answers the scanner gave itself or served from memory). */
+  remoteAddress?(): { ip?: string; port?: number };
 }
 export interface PageLike {
   setViewport(v: { width: number; height: number; deviceScaleFactor?: number; isMobile?: boolean; hasTouch?: boolean }): Promise<void>;
@@ -37,11 +44,14 @@ export interface PageLike {
   emulateMediaFeatures(f: { name: string; value: string }[]): Promise<void>;
   setBypassCSP(on: boolean): Promise<void>;
   setRequestInterception(on: boolean): Promise<void>;
+  /** Requests go to the network (and through the request checks), never to a service worker. */
+  setBypassServiceWorker?(on: boolean): Promise<void>;
   evaluateOnNewDocument(source: string): Promise<unknown>;
   evaluate(source: string): Promise<unknown>;
   on(event: string, handler: (arg: any) => void): unknown;
   goto(url: string, o: { waitUntil: string; timeout: number }): Promise<ResponseLike | null>;
   screenshot(o: Record<string, unknown>): Promise<Uint8Array>;
+  /** Puppeteer's frame; its isolatedRealm() (when present) runs the scanner's DOM code apart from the page's scripts. */
   mainFrame(): unknown;
   url(): string;
   mouse: { click(x: number, y: number, o?: { count?: number; delay?: number }): Promise<void> };
@@ -54,12 +64,30 @@ export interface BrowserLike {
   close(): Promise<void>;
 }
 
+export type HostAnswer = "ok" | "private" | "nxdomain" | "unknown";
+
+/** At most this many distinct hostnames are looked up for one scan; requests to more are not loaded. */
+const MAX_HOSTS = 150;
+
+/** The answer to a navigation check: allowed, or refused with the code and message the person sees. */
+export type NavVerdict = { ok: true } | { ok: false; code: string; message: string };
+
 export interface ScanDeps {
   launch(): Promise<BrowserLike>;
   now(): number;
   sleep(ms: number): Promise<void>;
-  /** DNS check for the main page's host on a redirect: true when it may be loaded. */
-  hostResolvesPublic(host: string): Promise<boolean>;
+  /** DNS over HTTPS for a hostname the page requests: "ok" (public addresses only), "private", "nxdomain" (no address),
+   * or "unknown" (the lookup failed). */
+  resolveHost(host: string): Promise<HostAnswer>;
+  /**
+   * The full check for a main-frame navigation to a URL other than the one asked for (a redirect, or a script that
+   * changes location while the page loads): not genclass.dev, not opted out, public in DNS, allowed by robots.txt.
+   */
+  navigationAllowed(url: string): Promise<NavVerdict>;
+  /** Aborted when the person who asked for the scan goes away: the scan stops at once and nothing is saved. */
+  signal?: AbortSignal;
+  /** A random name for the scanner's page-side functions (tests pass a fixed one). */
+  pageName?: string;
   /** The @genclass/runtime script-tag build, or null when it could not be fetched. */
   runtimeSource: Promise<string | null>;
   /** A built visual-checks chunk (from wave2/visual) to inject before the built-in checks, or null. */
@@ -101,12 +129,60 @@ export function userAgent(chromeMajor: string, mobile: boolean): string {
     : `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeMajor}.0.0.0 Safari/537.36 ${UA_TOKEN}`;
 }
 
-/** Runs before any page script in every view: no service workers (every request goes through the policy) and a
- * switch that holds WebSocket messages while the probe types and clicks. */
-export const SAFETY_BOOTSTRAP = `(function(){
+/**
+ * Runs before any page script in every frame of every view:
+ * - no service workers (every request goes through the request checks);
+ * - no new windows: window.open returns null, and forms and links that would open another window or tab are pointed
+ *   at the page itself (a new window is a browser target the request checks do not cover);
+ * - WebSocket connections to IP addresses and local names are refused, the hosts of the others are kept for a DNS
+ *   check, and messages are held while the probe types and clicks.
+ * The switch and the host list live in this closure, reached through window[name] (non-writable), not on window.
+ */
+export function safetyBootstrap(name = "__gcScanSafety"): string {
+  return `(function(){
+  var held = false, hosts = [], J = JSON.stringify;
+  var LOCAL = /(^|\\.)(localhost|local|internal|test|example|invalid|onion|arpa|home|lan|corp|intranet|private|localdomain)$/;
   try { if (navigator.serviceWorker) navigator.serviceWorker.register = function () { return Promise.reject(new Error("Service workers are off while GenClassScan loads this page")); }; } catch (e) {}
-  try { var send = WebSocket.prototype.send; WebSocket.prototype.send = function () { if (window.__gcScanHold) return; return send.apply(this, arguments); }; } catch (e) {}
+  try { window.open = function () { return null; }; } catch (e) {}
+  var selfTarget = function (t) { t = String(t || "").trim().toLowerCase(); return t === "" || t === "_self" || t === "_top" || t === "_parent"; };
+  var baseTarget = function () { try { var b = document.querySelector("base[target]"); return b ? b.getAttribute("target") : ""; } catch (e) { return ""; } };
+  try {
+    window.addEventListener("submit", function (e) {
+      var f = e.target, s = e.submitter;
+      if (s && s.hasAttribute && s.hasAttribute("formtarget") && !selfTarget(s.getAttribute("formtarget"))) s.setAttribute("formtarget", "_self");
+      if (f && f.getAttribute && !selfTarget(f.getAttribute("target") || baseTarget())) f.setAttribute("target", "_self");
+    }, true);
+    window.addEventListener("click", function (e) {
+      var t = e.composedPath ? e.composedPath()[0] : e.target;
+      var a = t && t.closest ? t.closest("a[href], area[href]") : null;
+      if (a && !selfTarget(a.getAttribute("target") || baseTarget())) a.setAttribute("target", "_self");
+    }, true);
+    var submit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () { if (!selfTarget(this.getAttribute("target") || baseTarget())) this.setAttribute("target", "_self"); return submit.apply(this, arguments); };
+  } catch (e) {}
+  try {
+    var WS = window.WebSocket, send = WS.prototype.send;
+    WS.prototype.send = function () { if (held) return; return send.apply(this, arguments); };
+    var Scanned = function WebSocket(url, protocols) {
+      var h = "";
+      try { h = new URL(String(url), location.href).hostname.toLowerCase().replace(/\\.$/, ""); } catch (e) { h = ""; }
+      if (!h || h.charAt(0) === "[" || /^[0-9.]+$/.test(h) || LOCAL.test(h)) throw new DOMException("GenClassScan does not open WebSocket connections to IP addresses or local names", "SecurityError");
+      if (hosts.indexOf(h) < 0 && hosts.length < 20) hosts.push(h);
+      return arguments.length > 1 ? new WS(url, protocols) : new WS(url);
+    };
+    Scanned.prototype = WS.prototype;
+    ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach(function (k) { try { Scanned[k] = WS[k]; } catch (e) {} });
+    window.WebSocket = Scanned;
+  } catch (e) {}
+  try {
+    Object.defineProperty(window, ${JSON.stringify(name)}, { writable: false, configurable: false, enumerable: false, value: function (cmd, v) {
+      if (cmd === "hold") held = !!v;
+      return J({ held: held, wsHosts: hosts });
+    } });
+  } catch (e) {}
 })();`;
+}
+export const SAFETY_BOOTSTRAP = safetyBootstrap();
 
 // -------------------------------------------------------------------------------------------- results
 
@@ -141,6 +217,8 @@ export interface ViewResult {
   shot: Uint8Array | null;
   shotHeight: number;
   error?: string;
+  /** Requests other than GET the page sent while loading, which the scanner answered itself with a stand-in reply. */
+  standIns: { count: number; requests: string[] };
 }
 
 export interface ProbeResult {
@@ -160,6 +238,10 @@ export interface ProbeResult {
     reason?: string | null; gateKind?: string | null; gain?: number | null; margin?: number | null; mass?: number | null; threshold?: number | null; candidate?: string | null;
   }[];
   acts: { id: string; decisionId: string; action: string; trigger: string; subject: string; ok: boolean; changed: string; late: boolean }[];
+  /** How many decisions the runtime made on this page (detections are the ones that diagnosed something). */
+  decisions: number;
+  /** Stand-in answers the page got for its own requests other than GET while it loaded. */
+  loadStandIns: number;
   aborted: number;
   answeredLocally: number;
   ms: number;
@@ -258,6 +340,15 @@ class NetLog {
 
 // ------------------------------------------------------------------------------------------- the scan
 
+type Stop = "stop" | "taint" | "cancel";
+
+const DATA_FETCH = new Set(["fetch", "xhr"]);
+const cutText = (v: unknown, n: number): string => {
+  const s = typeof v === "string" ? v : v == null ? "" : String(v);
+  return s.length > n ? s.slice(0, n) : s;
+};
+const numOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
 export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResult> {
   const t0 = deps.now();
   const budget = deps.budgetMs ?? 45_000;
@@ -273,16 +364,37 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     chrome: "",
     timedOut: false,
   };
-  const dnsCache = new Map<string, Promise<boolean>>();
-  dnsCache.set(target.host, Promise.resolve(true)); // checked before the browser started
-  const dnsOk = (host: string) => {
-    let p = dnsCache.get(host);
+  // the scanner's page-side functions live under names the page cannot guess
+  const name = deps.pageName ?? `__gcs${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const N = { checks: `${name}c`, safety: `${name}s`, state: `${name}r` };
+  const dnsCache = new Map<string, Promise<HostAnswer>>();
+  dnsCache.set(target.host, Promise.resolve("ok")); // checked before the browser started
+  const dns = (host: string): Promise<HostAnswer> => {
+    const h = host.toLowerCase().replace(/\.+$/, "");
+    let p = dnsCache.get(h);
     if (!p) {
-      p = deps.hostResolvesPublic(host).catch(() => false);
-      dnsCache.set(host, p);
+      if (dnsCache.size >= MAX_HOSTS) return Promise.resolve("unknown");
+      p = deps.resolveHost(h).catch(() => "unknown" as const);
+      dnsCache.set(h, p);
     }
     return p;
   };
+  const navCache = new Map<string, Promise<NavVerdict>>();
+  const navOk = (url: string): Promise<NavVerdict> => {
+    if (url === target.url) return Promise.resolve({ ok: true });
+    let p = navCache.get(url);
+    if (!p) {
+      p = deps.navigationAllowed(url).catch(() => ({ ok: false, code: "redirect", message: "The page redirected to an address the scanner could not check." }));
+      navCache.set(url, p);
+    }
+    return p;
+  };
+  /** Set when a response came from a private address: the scan is thrown away. */
+  let taint: { url: string; ip: string } | null = null;
+  /** Set when the page reached a site it must not load (opted out, robots.txt, genclass.dev) after it had loaded. */
+  let discard: { code: string; message: string } | null = null;
+  /** The first navigation refused during load: the message a failed view shows. */
+  let refusal: { code: string; message: string } | null = null;
 
   deps.progress("browser");
   let browser: BrowserLike;
@@ -295,9 +407,21 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   result.ms.launch = deps.now() - t0;
   const pages: PageLike[] = [];
   let hardStop: ReturnType<typeof setTimeout> | undefined;
-  const stopped = new Promise<"stop">((resolve) => {
+  let stopNow: (why: Stop) => void = () => undefined;
+  const stopped = new Promise<Stop>((resolve) => {
+    stopNow = resolve;
     hardStop = setTimeout(() => resolve("stop"), Math.max(0, left()));
   });
+  const onAbort = () => stopNow("cancel");
+  if (deps.signal) {
+    if (deps.signal.aborted) stopNow("cancel");
+    else deps.signal.addEventListener("abort", onAbort, { once: true });
+  }
+  const markTaint = (url: string, ip: string) => {
+    if (taint) return;
+    taint = { url, ip };
+    stopNow("taint");
+  };
 
   const work = (async () => {
     const version = await browser.version().catch(() => "");
@@ -322,7 +446,12 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     );
     result.views = opened.map((o) => o.view);
     result.ms.views = deps.now() - tViews;
-    if (!result.views.some((v) => v.ok)) throw new ScanError("load", result.views[0].error || "The page did not load.");
+    if (discard) return;
+    if (!result.views.some((v) => v.ok)) {
+      const r = refusal as { code: string; message: string } | null; // set inside the request handlers
+      if (r) throw new ScanError(r.code, r.message);
+      throw new ScanError("load", result.views[0].error || "The page did not load.");
+    }
 
     // ------------------------------------------------------------------ race probe (observe)
     const desk = opened[0];
@@ -337,7 +466,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     }
 
     // ------------------------------------------------------------------ the same probe with GenClass guard
-    if (runtimeSrc && result.probe && result.probe.ran) {
+    if (runtimeSrc && result.probe && result.probe.ran && !discard) {
       if (left() < 11_000) {
         result.notes.push("The guard pass was skipped: not enough of the 45 s budget was left.");
       } else {
@@ -359,19 +488,31 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     }
   })();
 
+  let outcome: "done" | Stop;
   try {
-    const outcome = await Promise.race([work.then(() => "done" as const), stopped]);
-    if (outcome === "stop") {
-      result.timedOut = true;
-      result.notes.push(`The scan hit its ${Math.round(budget / 1000)} s budget; steps that had not finished are left out.`);
-      work.catch(() => undefined);
-    }
+    outcome = await Promise.race([work.then(() => "done" as const), stopped]);
+    if (outcome !== "done") work.catch(() => undefined);
   } finally {
     clearTimeout(hardStop);
+    deps.signal?.removeEventListener("abort", onAbort);
     for (const p of pages) await p.close().catch(() => undefined);
     await browser.close().catch(() => undefined);
     result.ms.total = deps.now() - t0;
   }
+  // nothing from a scan that touched a private address, reached an opted-out site, or lost its requester is kept
+  const t = taint as { url: string; ip: string } | null;
+  if (t) {
+    console.warn(`scan discarded: ${pathOf(t.url)} answered from ${t.ip}`);
+    throw new ScanError("private", "Part of this page was served from a private or reserved network address, so the scanner threw the result away.");
+  }
+  const d = discard as { code: string; message: string } | null;
+  if (d) throw new ScanError(d.code, d.message);
+  if (outcome === "cancel") throw new ScanError("cancelled", "The scan was stopped because the page that asked for it closed.");
+  if (outcome === "stop") {
+    result.timedOut = true;
+    result.notes.push(`The scan hit its ${Math.round(budget / 1000)} s budget; steps that had not finished are left out.`);
+  }
+  for (const v of result.views) if (!v.ok) v.shot = null;
   return result;
 
   // ======================================================================================== helpers
@@ -379,7 +520,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   function failedView(spec: ViewSpec, error: string): ViewResult {
     return {
       id: spec.id, label: spec.label, width: spec.width, height: spec.height, ok: false, status: null, finalUrl: target.url,
-      ms: 0, notes: [], findings: [], checks: null, shot: null, shotHeight: 0, error,
+      ms: 0, notes: [], findings: [], checks: null, shot: null, shotHeight: 0, error, standIns: { count: 0, requests: [] },
     };
   }
 
@@ -387,8 +528,27 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     return {
       mode, ran: false, note: e instanceof Error ? e.message : String(e),
       model: { state: "unknown", device: null, variant: null, loadMs: null, waitedMs: 0, error: null, version: null },
-      runtimeError: null, holdBudgetMs: null, visibility: null, typed: null, clicked: null, detections: [], acts: [], aborted: 0, answeredLocally: 0, ms: 0,
+      runtimeError: null, holdBudgetMs: null, visibility: null, typed: null, clicked: null, detections: [], acts: [], decisions: 0, loadStandIns: 0, aborted: 0, answeredLocally: 0, ms: 0,
     };
+  }
+
+  /** The scanner's DOM code runs in Puppeteer's isolated world when there is one: the page's scripts cannot see it,
+   * replace it or patch the built-ins it uses. Otherwise in the page, under the per-scan names. */
+  function evalDom(page: PageLike, src: string): Promise<unknown> {
+    const frame = page.mainFrame() as { isolatedRealm?: () => { evaluate(s: string): Promise<unknown> } } | null;
+    const realm = frame && typeof frame.isolatedRealm === "function" ? frame.isolatedRealm() : null;
+    return realm ? realm.evaluate(src) : page.evaluate(src);
+  }
+
+  /** WebSocket hosts the page opened: checked in DNS after the fact; a private answer throws the scan away. */
+  async function checkSockets(page: PageLike): Promise<void> {
+    const s = parseJson<{ wsHosts?: unknown }>(await page.evaluate(`(() => typeof window[${JSON.stringify(N.safety)}] === "function" ? window[${JSON.stringify(N.safety)}]("read") : "{}")()`).catch(() => "{}"), {});
+    const hosts = Array.isArray(s.wsHosts) ? s.wsHosts.filter((h): h is string => typeof h === "string").slice(0, 20) : [];
+    for (const h of hosts) if ((await dns(h)) === "private") markTaint(`wss://${h}/`, "a private address (DNS)");
+  }
+
+  async function hold(page: PageLike, on: boolean): Promise<void> {
+    await page.evaluate(`(() => { const f = window[${JSON.stringify(N.safety)}]; if (typeof f === "function") f("hold", ${on}); })()`).catch(() => undefined);
   }
 
   async function openView(
@@ -405,11 +565,17 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     const net = new NetLog();
     const ctx: PolicyContext = { pageOrigin: "", phase: "load", latency: latencySequence(`${target.url}|${spec.id}`), answerDelayMs: 0 };
     let localN = 0;
+    let refused: { code: string; message: string } | null = null;
+    let unchecked = 0;
+    /** Whether the browser reaches the network through a local proxy (its main document "came from" loopback): then
+     * the address of a response is the proxy's and says nothing about the site. Unknown until the document arrives. */
+    let proxied: boolean | null = null;
     await page.setViewport({ width: spec.width, height: spec.height, deviceScaleFactor: 1, isMobile: spec.mobile, hasTouch: spec.mobile });
     const major = (/(\d+)\./.exec(result.chrome) || [])[1] || "131";
     await page.setUserAgent(userAgent(major, spec.mobile));
     await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: spec.scheme }]);
-    await page.evaluateOnNewDocument(SAFETY_BOOTSTRAP);
+    if (page.setBypassServiceWorker) await page.setBypassServiceWorker(true);
+    await page.evaluateOnNewDocument(safetyBootstrap(N.safety));
     if (runtime) {
       await page.setBypassCSP(true);
       await page.evaluateOnNewDocument(
@@ -425,6 +591,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
             ...(runtime.mode === "guard" && deps.guardAggressiveness && deps.guardAggressiveness !== "balanced" ? { aggressiveness: deps.guardAggressiveness } : {}),
           },
           runtime.source,
+          N.state,
         ),
       );
     }
@@ -464,21 +631,41 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
             await req.respond({ status: verdict.status, headers: verdict.headers, body: verdict.body });
             return;
           }
-          if (verdict.checkDns) {
+          if (verdict.check !== "none") {
             let host = "";
             try {
               host = new URL(facts.url).hostname;
             } catch {
               host = "";
             }
-            if (!host || !(await dnsOk(host))) {
+            let why = "";
+            if (verdict.check === "navigation") {
+              const v = host ? await navOk(facts.url) : ({ ok: false, code: "redirect", message: "The page redirected to an address the scanner does not load." } as NavVerdict);
+              if (!v.ok) {
+                why = `navigation refused (${v.code})`;
+                refused = refused ?? { code: v.code, message: v.message };
+              }
+            } else {
+              const d = host ? await dns(host) : "unknown";
+              if (d === "private") why = "a host that resolves to a private address";
+              else if (d === "nxdomain") {
+                why = "a host that does not resolve";
+                // the browser would have failed this one too: it still counts as a failed stylesheet, font or image
+                const type = facts.resourceType;
+                if (type === "stylesheet" || type === "font" || type === "image") net.failures.push({ url: facts.url, type, error: "the hostname does not resolve" });
+              } else if (d === "unknown") {
+                why = "a host the scanner could not look up";
+                unchecked++;
+              }
+            }
+            if (why) {
               net.mark(req);
-              net.aborted.push({ ...entry, reason: "redirect to a host that resolves to a private address" });
+              net.aborted.push({ ...entry, reason: why });
               await req.abort("blockedbyclient");
               return;
             }
           }
-          if (facts.resourceType === "fetch" || facts.resourceType === "xhr") net.track(req, { ...entry, delayMs: verdict.delayMs, startedAt: deps.now() - t0 });
+          if (DATA_FETCH.has(facts.resourceType)) net.track(req, { ...entry, delayMs: verdict.delayMs, startedAt: deps.now() - t0 });
           net.start(req, deps.now());
           if (verdict.delayMs) await deps.sleep(verdict.delayMs);
           await req.continue();
@@ -496,6 +683,14 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     });
     page.on("response", (res: ResponseLike) => {
       try {
+        // the browser resolves names itself: where it reports the address it connected to, that must be public too
+        const ip = String(res.remoteAddress?.()?.ip || "").replace(/^\[|\]$/g, "");
+        const req = res.request();
+        if (proxied === null && req.frame() === page.mainFrame() && req.resourceType() === "document" && ip) proxied = blockedAddress(ip) === "loopback";
+        if (ip && proxied === false) {
+          const blocked = blockedAddress(ip);
+          if (blocked && blocked !== "invalid") markTaint(res.url(), ip);
+        }
         const type = res.request().resourceType();
         if (res.status() >= 400 && (type === "stylesheet" || type === "font" || type === "image")) net.failures.push({ url: res.url(), type, status: res.status() });
       } catch {
@@ -513,13 +708,17 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       const msg = e instanceof Error ? e.message : String(e);
       const where = page.url();
       if (!/timeout/i.test(msg) || !where || where === "about:blank") {
-        view.error = /ERR_NAME_NOT_RESOLVED/.test(msg)
-          ? "The hostname did not resolve."
-          : /ERR_BLOCKED_BY_CLIENT/.test(msg)
-            ? "The page redirected to an address the scanner does not load."
-            : /timeout/i.test(msg)
-              ? `The page did not respond within ${Math.round(navMs / 1000)} s.`
-              : `The page could not be loaded (${msg.slice(0, 120)}).`;
+        const r = refused as { code: string; message: string } | null;
+        if (r) refusal = refusal ?? r;
+        view.error = r
+          ? r.message
+          : /ERR_NAME_NOT_RESOLVED/.test(msg)
+            ? "The hostname did not resolve."
+            : /ERR_BLOCKED_BY_CLIENT/.test(msg)
+              ? "The page redirected to an address the scanner does not load."
+              : /timeout/i.test(msg)
+                ? `The page did not respond within ${Math.round(navMs / 1000)} s.`
+                : `The page could not be loaded (${msg.slice(0, 120)}).`;
         view.ms = deps.now() - tv;
         if (!keepOpen) await page.close().catch(() => undefined);
         return { view, page: keepOpen ? page : null, ctx, net };
@@ -533,6 +732,16 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     } catch {
       ctx.pageOrigin = "";
     }
+    // where the page ended up must pass the same checks as where it started (every hop was checked on the way)
+    try {
+      const finalUrl = new URL(view.finalUrl);
+      if (finalUrl.hostname !== target.host && /^https?:$/.test(finalUrl.protocol)) {
+        const v = await navOk(finalUrl.href);
+        if (!v.ok) discard = discard ?? { code: v.code, message: v.message };
+      }
+    } catch {
+      /* about:blank or unparseable: nothing loaded */
+    }
     if (view.status !== null && view.status >= 400) view.notes.push(`The page answered HTTP ${view.status}.`);
     // network quiet: no page request in flight for 500 ms (the scanner's own runtime and model downloads do not count)
     {
@@ -541,27 +750,37 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       if (net.inflight.size > 0) view.notes.push("The network did not go quiet within 4 s (the page keeps requesting); the checks ran anyway.");
     }
     view.ok = true;
+    if (unchecked) view.notes.push(`${unchecked} ${unchecked === 1 ? "request was" : "requests were"} not loaded because the scanner could not look up ${unchecked === 1 ? "its hostname" : "their hostnames"}; the checks ran without them.`);
+    view.standIns = standInsOf(net);
+    if (view.standIns.count) {
+      const n = view.standIns.count;
+      view.notes.push(
+        `This page sent ${n} ${n === 1 ? "request" : "requests"} other than GET while loading (${view.standIns.requests.join(", ")}). ` +
+          `The scanner answered ${n === 1 ? "it" : "them"} itself with a stand-in reply, so content that depends on ${n === 1 ? "it" : "them"} may be missing or wrong in this view.`,
+      );
+    }
+    await checkSockets(page);
 
-    if (!skipChecks) {
+    if (!skipChecks && !discard) {
       deps.progress("checks", { view: spec.id });
       try {
-        if (deps.visualSource) await page.evaluate(deps.visualSource);
-        const hasFixes = await page.evaluate(installChecksSource());
-        if (spec.id === "desktop") result.visualFixes.available = hasFixes === true;
-        const failedImages = net.failures.filter((f) => f.type === "image").map((f) => f.url);
+        const hasFixes = await evalDom(page, installChecksSource(N.checks, deps.visualSource));
+        if (spec.id === "desktop") result.visualFixes.available = deps.visualSource !== null && hasFixes === true;
+        const failedImages = net.failures.filter((f) => f.type === "image").map((f) => f.url).slice(0, 40);
         const opts = { view: spec.id, phone: spec.mobile, deviceWidth: spec.width, failedImages, captureHeight: spec.captureHeight, max: 12 };
-        const raw = parseJson<{ findings: RawFinding[]; notes: string[]; page: ViewResult["checks"] }>(
-          await withTimeout(page.evaluate(`JSON.stringify(window.__genclassScanChecks(${JSON.stringify(opts)}))`), Math.min(8000, left() - 3000), "the visual checks"),
-          { findings: [], notes: [], page: null },
+        const raw = parseJson<{ findings?: unknown; notes?: unknown; page?: unknown }>(
+          await withTimeout(evalDom(page, `JSON.stringify(window[${JSON.stringify(N.checks)}](${JSON.stringify(opts)}))`), Math.min(8000, left() - 3000), "the visual checks"),
+          {},
         );
-        view.findings = [...raw.findings, ...networkFindings(net)];
-        view.notes.push(...(raw.notes || []));
-        view.checks = raw.page;
+        const found = Array.isArray(raw.findings) ? raw.findings.slice(0, 40).map(sanitizeFinding).filter((f): f is RawFinding => f !== null) : [];
+        view.findings = [...found, ...networkFindings(net)];
+        view.notes.push(...sanitizeNotes(raw.notes));
+        view.checks = sanitizeStats(raw.page) as ViewResult["checks"];
       } catch (e) {
         view.notes.push(`The visual checks did not finish: ${e instanceof Error ? e.message : String(e)}.`);
       }
       // a page without a viewport meta tag lays out wider than the phone (980 px) and is shown zoomed out
-      const layoutW = Math.max(1, Math.round(Number(view.checks?.viewport?.[0]) || spec.width));
+      const layoutW = Math.max(1, Math.min(4000, Math.round(Number(view.checks?.viewport?.[0]) || spec.width)));
       if (spec.mobile && view.checks && view.checks.viewportMeta === false && layoutW > spec.width) {
         view.notes.push(`The page has no viewport meta tag, so a phone shows it zoomed out: laid out ${layoutW} px wide on a ${spec.width} px screen.`);
       }
@@ -588,6 +807,11 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     return { view, page, ctx, net };
   }
 
+  function standInsOf(net: NetLog): ViewResult["standIns"] {
+    const list = net.answered.filter((e) => e.phase === "load" && e.method !== "OPTIONS" && DATA_FETCH.has(e.type));
+    return { count: list.length, requests: [...new Set(list.map((e) => `${e.method} ${pathOf(e.url)}`))].slice(0, 3) };
+  }
+
   function networkFindings(net: NetLog): RawFinding[] {
     const out: RawFinding[] = [];
     const seen = new Set<string>();
@@ -605,24 +829,26 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   }
 
   async function visualFixPass(page: PageLike, view: ViewResult): Promise<void> {
-    if (!result.visualFixes.available) {
+    if (!result.visualFixes.available || !deps.visualSource) {
       result.visualFixes.note = "This build of the scanner has no GenClass visual fixes to turn on, so visual findings are reported, not fixed.";
       return;
     }
     const desktop = result.views.find((v) => v.id === "desktop");
     if (!desktop) return;
     try {
-      await page.evaluate(installChecksSource());
-      const applied = parseJson<{ applied?: { kind: string; selector: string; how: string }[] }>(
-        await page.evaluate(`JSON.stringify(window.__genclassScanFixes(${JSON.stringify(desktop.findings)}))`),
+      const has = await evalDom(page, installChecksSource(N.checks, deps.visualSource));
+      if (has !== true) throw new Error("the visual fixes did not install");
+      const applied = parseJson<{ applied?: unknown }>(await evalDom(page, `JSON.stringify(window[${JSON.stringify(`${N.checks}Fix`)}](${JSON.stringify(desktop.findings)}))`), {});
+      const after = parseJson<{ findings?: unknown }>(
+        await evalDom(page, `JSON.stringify(window[${JSON.stringify(N.checks)}](${JSON.stringify({ view: "desktop", phone: false, failedImages: [], captureHeight: VIEWS[0].captureHeight, max: 12 })}))`),
         {},
       );
-      const after = parseJson<{ findings: RawFinding[] }>(
-        await page.evaluate(`JSON.stringify(window.__genclassScanChecks(${JSON.stringify({ view: "desktop", phone: false, failedImages: [], captureHeight: VIEWS[0].captureHeight, max: 12 })}))`),
-        { findings: [] },
-      );
-      const still = new Set(after.findings.map((f) => `${f.kind}|${f.selector}`));
-      for (const a of applied.applied || []) if (!still.has(`${a.kind}|${a.selector}`)) result.visualFixes.fixed.push(a);
+      const still = new Set((Array.isArray(after.findings) ? after.findings.map(sanitizeFinding).filter((f): f is RawFinding => f !== null) : []).map((f) => `${f.kind}|${f.selector}`));
+      for (const a of Array.isArray(applied.applied) ? applied.applied.slice(0, 40) : []) {
+        const x = a as Record<string, unknown>;
+        const one = { kind: cutText(x.kind, 40), selector: cutText(x.selector, 200), how: cutText(x.how, 200) };
+        if (!still.has(`${one.kind}|${one.selector}`)) result.visualFixes.fixed.push(one);
+      }
       result.visualFixes.rechecked = true;
       view.notes.push("GenClass visual fixes on, desktop re-checked.");
     } catch (e) {
@@ -642,12 +868,12 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     const out = skippedProbe(mode, "");
     delete out.note;
     out.ran = true;
-    const state = async () =>
-      parseJson<{
-        present: boolean; error: string | null; mode: string | null; holdBudgetMs: number | null; visibility: string;
-        status: { state: string; device: string | null; variant: string | null; loadMs: number | null; error: string | null; version: string | null } | null;
-        detections: ProbeResult["detections"]; acts: ProbeResult["acts"];
-      }>(await page.evaluate(RUNTIME_STATE_SOURCE), { present: false, error: "unreadable", mode: null, holdBudgetMs: null, visibility: "", status: null, detections: [], acts: [] });
+    type RawState = {
+      present?: boolean; error?: unknown; holdBudgetMs?: unknown; visibility?: unknown; decisions?: unknown;
+      status?: { state?: unknown; device?: unknown; variant?: unknown; loadMs?: unknown; error?: unknown; version?: unknown } | null;
+      detections?: unknown; acts?: unknown;
+    };
+    const state = async () => parseJson<RawState>(await page.evaluate(runtimeStateSource(N.state)), { present: false, error: "unreadable" });
 
     // wait for the model, leaving room for the actions (and, in observe, for the guard pass after it)
     if (withRuntime) {
@@ -655,27 +881,27 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       const waitStart = deps.now();
       let s = await state();
       const settled = new Set(["ready", "error", "skipped", "disabled", "unloaded"]);
-      while (s.present && s.status && !settled.has(s.status.state) && left() > reserve) {
+      while (s.present && s.status && !settled.has(String(s.status.state)) && left() > reserve) {
         await deps.sleep(400);
         s = await state();
       }
       out.model = {
-        state: s.status?.state || (s.present ? "unknown" : "absent"),
-        device: s.status?.device ?? null,
-        variant: s.status?.variant ?? null,
-        loadMs: s.status?.loadMs ?? null,
+        state: s.status?.state ? cutText(s.status.state, 40) : s.present ? "unknown" : "absent",
+        device: s.status?.device ? cutText(s.status.device, 20) : null,
+        variant: s.status?.variant ? cutText(s.status.variant, 20) : null,
+        loadMs: numOrNull(s.status?.loadMs),
         waitedMs: deps.now() - waitStart,
-        error: s.status?.error ?? null,
-        version: s.status?.version ?? null,
+        error: s.status?.error ? cutText(s.status.error, 200) : null,
+        version: s.status?.version ? cutText(s.status.version, 40) : null,
       };
-      out.runtimeError = s.error;
-      out.visibility = s.visibility;
+      out.runtimeError = s.error ? cutText(s.error, 200) : null;
+      out.visibility = s.visibility ? cutText(s.visibility, 20) : null;
     } else {
       out.model.state = "absent";
     }
 
     type Targets = { search: { selector: string; at: { x: number; y: number } } | null; button: { selector: string; label: string; method: string; at: { x: number; y: number } } | null };
-    const find = async () => parseJson<Targets>(await page.evaluate(`JSON.stringify((${probeTargets.toString()})({ prepare: true }))`), { search: null, button: null });
+    const find = async () => parseJson<Targets>(await evalDom(page, `JSON.stringify((${probeTargets.toString()})({ prepare: true }))`), { search: null, button: null });
     let targets = await find();
     // the guard pass looks for what the observe pass used; a page that hydrates late gets up to 2.5 s to show it
     for (let waited = 0; waited < 2500 && left() > 6000 && ((expect.search && !targets.search) || (expect.button && !targets.button)); waited += 300) {
@@ -686,12 +912,12 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     // 1. type quickly into the first search-like input: "a", "ab", "abc", 80 ms apart
     if (targets.search && left() > 4000) {
       const at = parseJson<{ search: { at: { x: number; y: number } } | null }>(
-        await page.evaluate(`JSON.stringify((${probeTargets.toString()})({ scrollTo: "search" }))`),
+        await evalDom(page, `JSON.stringify((${probeTargets.toString()})({ scrollTo: "search" }))`),
         { search: null },
       ).search?.at;
       if (at) {
         ctx.phase = "type";
-        await page.evaluate("window.__gcScanHold = true");
+        await hold(page, true);
         const from = net.data.length;
         await page.mouse.click(at.x, at.y);
         await page.keyboard.type("abc", { delay: 80 });
@@ -699,7 +925,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         const reqs = net.data.slice(from).filter((e) => e.phase === "type");
         const finished = reqs.map((e, i) => ({ i: i + 1, f: e.finishedAt ?? Number.POSITIVE_INFINITY })).sort((a, b) => a.f - b.f);
         out.typed = {
-          target: targets.search.selector,
+          target: cutText(targets.search.selector, 200),
           values: ["a", "ab", "abc"],
           requests: reqs.length,
           completionOrder: finished.filter((x) => Number.isFinite(x.f)).map((x) => x.i),
@@ -711,13 +937,13 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     // 2. double-click the most prominent submit button of a form that would POST (answered locally)
     if (targets.button && left() > 3500) {
       const at = parseJson<{ button: { at: { x: number; y: number } } | null }>(
-        await page.evaluate(`JSON.stringify((${probeTargets.toString()})({ scrollTo: "button" }))`),
+        await evalDom(page, `JSON.stringify((${probeTargets.toString()})({ scrollTo: "button" }))`),
         { button: null },
       ).button?.at;
       if (at) {
         ctx.phase = "click";
         ctx.answerDelayMs = 400;
-        await page.evaluate("window.__gcScanHold = true");
+        await hold(page, true);
         const from = net.answered.length;
         await page.mouse.click(at.x, at.y, { count: 2, delay: 40 });
         await deps.sleep(Math.min(2500, Math.max(0, left() - 1500)));
@@ -728,9 +954,9 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           groups.set(k, (groups.get(k) || 0) + 1);
         }
         out.clicked = {
-          target: targets.button.selector,
-          label: targets.button.label,
-          formMethod: targets.button.method,
+          target: cutText(targets.button.selector, 200),
+          label: cutText(targets.button.label, 60),
+          formMethod: cutText(targets.button.method, 20),
           sent: sent.length,
           identical: Math.max(0, ...groups.values()),
           requests: sent.slice(0, 6).map((e) => ({ method: e.method, path: pathOf(e.url) })),
@@ -741,15 +967,38 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     ctx.phase = "settle";
     if (withRuntime) {
       const s = await state();
-      out.detections = s.detections || [];
-      out.acts = s.acts || [];
-      out.holdBudgetMs = s.holdBudgetMs;
+      out.detections = (Array.isArray(s.detections) ? s.detections.slice(0, 50) : []).map(cleanDetection);
+      out.acts = (Array.isArray(s.acts) ? s.acts.slice(0, 50) : []).map(cleanAct);
+      out.holdBudgetMs = numOrNull(s.holdBudgetMs);
+      out.decisions = Math.max(0, Math.round(numOrNull(s.decisions) ?? 0));
     }
+    await checkSockets(page);
+    out.loadStandIns = standInsOf(net).count;
     out.aborted = net.aborted.filter((e) => e.phase !== "load").length;
     out.answeredLocally = net.answered.length;
     out.ms = deps.now() - tp;
     return out;
   }
+}
+
+/** A GenClass detection read back from the page, with only the fields the report uses, cut to size. */
+function cleanDetection(v: unknown): ProbeResult["detections"][number] {
+  const d = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const opt = (x: unknown, n: number) => (x == null || x === "" ? null : cutText(x, n));
+  return {
+    id: cutText(d.id, 40), trigger: cutText(d.trigger, 40), subject: cutText(d.subject, 140), diagnosis: cutText(d.diagnosis, 40), p: numOrNull(d.p) ?? 0,
+    action: cutText(d.action, 40), ran: cutText(d.ran, 40), executed: d.executed === true, latencyMs: numOrNull(d.latencyMs) ?? 0,
+    reason: opt(d.reason, 160), gateKind: opt(d.gateKind, 40), gain: numOrNull(d.gain), margin: numOrNull(d.margin), mass: numOrNull(d.mass), threshold: numOrNull(d.threshold), candidate: opt(d.candidate, 40),
+  };
+}
+
+/** A GenClass action read back from the page, cut to size. */
+function cleanAct(v: unknown): ProbeResult["acts"][number] {
+  const a = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  return {
+    id: cutText(a.id, 40), decisionId: cutText(a.decisionId, 40), action: cutText(a.action, 40), trigger: cutText(a.trigger, 40), subject: cutText(a.subject, 140),
+    ok: a.ok === true, changed: cutText(a.changed, 220), late: a.late === true,
+  };
 }
 
 export class ScanError extends Error {

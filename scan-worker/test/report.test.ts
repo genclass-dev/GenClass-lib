@@ -3,8 +3,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { RawFinding } from "../src/catalog.ts";
-import { contrast, suggestFix } from "../src/catalog.ts";
-import { buildReport, probeFindings, raceFix } from "../src/report.ts";
+import { contrast, describe as words, sanitizeFinding, sanitizeNotes, severityOf, suggestFix } from "../src/catalog.ts";
+import { buildReport, guardSetting, probeFindings, raceFix, subjectNames } from "../src/report.ts";
 import type { ProbeResult, ScanResult, ViewResult } from "../src/scan.ts";
 import { score, SEVERITY_POINTS } from "../src/score.ts";
 import { normaliseTarget, type Target } from "../src/target.ts";
@@ -30,13 +30,15 @@ describe("score: 100 minus capped, weighted findings", () => {
 const target = normaliseTarget("shop.example.com/") as Target;
 const view = (id: ViewResult["id"], findings: RawFinding[]): ViewResult => ({
   id, label: id, width: id === "desktop" ? 1366 : 390, height: 800, ok: true, status: 200, finalUrl: target.url, ms: 10, notes: [], findings,
-  checks: null, shot: new Uint8Array([1]), shotHeight: 1600,
+  checks: null, shot: new Uint8Array([1]), shotHeight: 1600, standIns: { count: 0, requests: [] },
 });
 const probe = (mode: "observe" | "guard", sent: number, identical: number, acts: ProbeResult["acts"] = [], detections: ProbeResult["detections"] = []): ProbeResult => ({
   mode, ran: true, model: { state: "ready", device: "wasm", variant: "q8", loadMs: 3000, waitedMs: 3000, error: null, version: "x" }, runtimeError: null, holdBudgetMs: 900, visibility: "visible",
   typed: null, clicked: { target: "button.cta", label: "Buy", formMethod: "post", sent, identical, requests: [{ method: "POST", path: "shop.example.com/api/orders" }] },
-  detections, acts, aborted: 0, answeredLocally: sent, ms: 100,
+  detections, acts, decisions: detections.length, loadStandIns: 0, aborted: 0, answeredLocally: sent, ms: 100,
 });
+const COALESCE = [{ id: "a1", decisionId: "d1", action: "coalesce", trigger: "request", subject: "POST /api/orders (#3)", ok: true, changed: "reused the first response", late: false }];
+const DUP_ORDERS = [{ id: "d1", trigger: "request", subject: "POST /api/orders (#3)", diagnosis: "duplicate", p: 0.99, action: "coalesce", ran: "coalesce", executed: true, latencyMs: 200 }];
 const contrastF = (sel: string): RawFinding => ({ kind: "low-contrast", selector: sel, box: { x: 10, y: 20, w: 100, h: 18 }, measured: "Contrast 1.10:1", detail: { fg: [250, 250, 250], bg: [255, 255, 255] } });
 const scan = (o: Partial<ScanResult> = {}): ScanResult => ({
   views: [
@@ -45,7 +47,7 @@ const scan = (o: Partial<ScanResult> = {}): ScanResult => ({
     view("phone-dark", []),
   ],
   probe: probe("observe", 2, 2),
-  guard: probe("guard", 1, 1, [{ id: "a1", decisionId: "d1", action: "coalesce", trigger: "request", subject: "POST /api/orders", ok: true, changed: "reused the first response", late: false }]),
+  guard: probe("guard", 1, 1, COALESCE, DUP_ORDERS),
   visualFixes: { available: false, fixed: [], rechecked: false },
   notes: [],
   ms: { total: 30000, launch: 1000, views: 9000, probe: 6000, guard: 9000 },
@@ -86,8 +88,35 @@ describe("buildReport", () => {
     for (const f of on.findings) if (f.kind !== "duplicate-submit") assert.equal(f.fixed, null, f.kind);
     const claimed = buildReport(target, ids, scan({ visualFixes: { available: true, fixed: [{ kind: "low-contrast", selector: "p.note", how: "recoloured" }], rechecked: false } }), { withGenClass: true });
     assert.equal(claimed.findings.find((f) => f.kind === "low-contrast")!.fixed, null);
-    const rechecked = buildReport(target, ids, scan({ visualFixes: { available: true, fixed: [{ kind: "low-contrast", selector: "p.note", how: "recoloured" }], rechecked: true } }), { withGenClass: true });
-    assert.equal(rechecked.findings.find((f) => f.kind === "low-contrast")!.fixed!.how, "recoloured");
+    const rechecked = buildReport(target, ids, scan({ visualFixes: { available: true, fixed: [{ kind: "broken-image", selector: "img.hero", how: "replaced" }], rechecked: true } }), { withGenClass: true });
+    assert.equal(rechecked.findings.find((f) => f.kind === "broken-image")!.fixed!.how, "replaced", "desktop only, re-checked on desktop");
+  });
+  it("never counts a finding as fixed in views that were not re-checked", () => {
+    // p.note has low contrast on the desktop and the phone; the fixes are re-checked on the desktop page only
+    const r = buildReport(target, ids, scan({ visualFixes: { available: true, fixed: [{ kind: "low-contrast", selector: "p.note", how: "recoloured" }], rechecked: true } }), { withGenClass: true });
+    const f = r.findings.find((x) => x.kind === "low-contrast")!;
+    assert.deepEqual(f.views, ["desktop", "phone"]);
+    assert.equal(f.fixed, null);
+  });
+  it("lists but does not score findings that may come from the scanner's stand-in answers", () => {
+    const leak: RawFinding = { kind: "template-leak", selector: "span.price", box: { x: 0, y: 0, w: 50, h: 10 }, measured: '"NaN"', detail: { text: "NaN" } };
+    const views = (count: number) => [
+      { ...view("desktop", [leak, contrastF("p.note")]), standIns: { count, requests: count ? ["POST shop.example.com/graphql"] : [] } },
+      { ...view("phone", [leak]), standIns: { count, requests: [] } },
+      view("phone-dark", []),
+    ];
+    const withStandIns = buildReport(target, ids, scan({ views: views(2), probe: null, guard: null }), { withGenClass: false });
+    const f = withStandIns.findings.find((x) => x.kind === "template-leak")!;
+    assert.match(String(f.unscored), /stand-in answer/);
+    assert.equal(withStandIns.score.value, 90, "only the contrast finding is scored");
+    assert.equal(withStandIns.views[0].standIns, 2);
+    const without = buildReport(target, ids, scan({ views: views(0), probe: null, guard: null }), { withGenClass: false });
+    assert.equal(without.findings.find((x) => x.kind === "template-leak")!.unscored, null);
+    assert.equal(without.score.value, 80);
+    // the same leak also seen in a view that got no stand-in answer is scored
+    const mixed = views(1);
+    mixed[1] = { ...mixed[1], standIns: { count: 0, requests: [] } };
+    assert.equal(buildReport(target, ids, scan({ views: mixed, probe: null, guard: null }), { withGenClass: false }).findings.find((x) => x.kind === "template-leak")!.unscored, null);
   });
 });
 
@@ -103,13 +132,70 @@ describe("race findings and fixes", () => {
     assert.equal(f.length, 1);
     assert.equal(f[0].kind, "genclass-detection");
   });
-  it("fixed only when guard sent fewer, none identical, and GenClass acted", () => {
+  it("fixed only when guard sent fewer (but some), none identical, and GenClass acted on the clicked request", () => {
     const dup = probeFindings(probe("observe", 2, 2))[0];
-    const coalesce = [{ id: "a1", decisionId: "d1", action: "coalesce", trigger: "request", subject: "POST /api/orders", ok: true, changed: "x", late: false }];
-    assert.ok(raceFix(dup, probe("observe", 2, 2), probe("guard", 1, 1, coalesce)));
-    assert.equal(raceFix(dup, probe("observe", 2, 2), probe("guard", 1, 1, [])), null, "fewer requests without a GenClass action is not a GenClass fix");
-    assert.equal(raceFix(dup, probe("observe", 2, 2), probe("guard", 2, 2, coalesce)), null, "an action that did not change the count is not a fix");
+    assert.ok(raceFix(dup, probe("observe", 2, 2), probe("guard", 1, 1, COALESCE, DUP_ORDERS)));
+    assert.equal(raceFix(dup, probe("observe", 2, 2), probe("guard", 1, 1, [], DUP_ORDERS)), null, "fewer requests without a GenClass action is not a GenClass fix");
+    assert.equal(raceFix(dup, probe("observe", 2, 2), probe("guard", 2, 2, COALESCE, DUP_ORDERS)), null, "an action that did not change the count is not a fix");
+    assert.equal(raceFix(dup, probe("observe", 2, 2), probe("guard", 0, 0, COALESCE, DUP_ORDERS)), null, "nothing sent at all is not a merge");
+    assert.equal(raceFix(dup, probe("observe", 2, 2), probe("guard", 1, 1, COALESCE, [])), null, "an action with no decision on record is not tied to the click");
+    const elsewhere = [{ ...DUP_ORDERS[0], subject: "GET /api/me (#2)" }];
+    assert.equal(raceFix(dup, probe("observe", 2, 2), probe("guard", 1, 1, COALESCE, elsewhere)), null, "an action on another request is not a fix for this one");
     assert.equal(raceFix(dup, probe("observe", 2, 2), null), null);
+  });
+  it("the guard comparison is marked as GenClass's doing only when that action exists", () => {
+    const acted = buildReport(target, ids, scan(), { withGenClass: false });
+    assert.equal(acted.probe.guardClick.acted, true);
+    assert.match(String(acted.probe.guardClick.how), /1 sent instead of 2/);
+    const fewerByItself = buildReport(target, ids, scan({ guard: probe("guard", 1, 1, [], []) }), { withGenClass: false });
+    assert.deepEqual(fewerByItself.probe.guardClick, { acted: false, how: null });
+  });
+  it("matches a GenClass subject to the clicked request by method and path", () => {
+    assert.equal(subjectNames("POST /api/orders (#3)", "POST", "shop.example.com/api/orders"), true);
+    assert.equal(subjectNames("POST /api/orders?x=1 (#3)", "POST", "shop.example.com/api/orders"), true);
+    assert.equal(subjectNames("POST /api/orders/7 (#3)", "POST", "shop.example.com/api/orders"), false);
+    assert.equal(subjectNames("GET /api/orders (#3)", "POST", "shop.example.com/api/orders"), false);
+  });
+  it("a duplicate GET from GenClass counts as low and says it creates nothing; a duplicate write stays high", () => {
+    const get: RawFinding = { kind: "genclass-detection", selector: "GET /api/me (#2)", measured: "", detail: { diagnosis: "duplicate", subject: "GET /api/me (#2)" } };
+    const post: RawFinding = { kind: "genclass-detection", selector: "POST /api/orders (#3)", measured: "", detail: { diagnosis: "duplicate", subject: "POST /api/orders (#3)" } };
+    assert.equal(severityOf(get), "low");
+    assert.equal(severityOf(post), "high");
+    assert.doesNotMatch(words(get).why, /duplicate records/);
+    assert.match(words(post).why, /duplicate records/);
+    assert.match(suggestFix(get), /in-flight request/);
+  });
+});
+
+describe("data from the page is validated before it is stored or shown", () => {
+  it("accepts only the catalog's own kinds", () => {
+    for (const kind of ["constructor", "__proto__", "toString", "hasOwnProperty", "nope"]) assert.equal(sanitizeFinding({ kind, selector: "x", measured: "y" }), null, kind);
+    assert.equal(sanitizeFinding(null), null);
+    assert.equal(sanitizeFinding("low-contrast"), null);
+  });
+  it("cuts strings and arrays, keeps a numeric box and short primitive details only", () => {
+    const f = sanitizeFinding({
+      kind: "low-contrast", selector: "p".repeat(5000), measured: "m".repeat(5000), box: { x: 1, y: 2, w: 3, h: "4" },
+      detail: { fg: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], bg: [255, 255, 255], sample: "s".repeat(900), nested: { a: 1 }, "bad key": 1, n: Number.NaN, ok: true },
+    })!;
+    assert.equal(f.selector.length, 200);
+    assert.equal(f.measured.length, 240);
+    assert.equal(f.box, null, "a box with a non-number is dropped");
+    assert.equal((f.detail!.fg as number[]).length, 8);
+    assert.equal((f.detail!.sample as string).length, 200);
+    assert.deepEqual(Object.keys(f.detail!).sort(), ["bg", "fg", "ok", "sample"]);
+  });
+  it("keeps only short, plain notes", () => {
+    assert.deepEqual(sanitizeNotes(["3 controls sat under a dialog or consent banner at load; those are not counted.", "<b>GenClass fixed this page</b>", "x".repeat(300), 7, "a", "b", "c", "d"]), [
+      "3 controls sat under a dialog or consent banner at load; those are not counted.", "a", "b", "c",
+    ]);
+  });
+});
+
+describe("the guard setting in words", () => {
+  it("names the default plainly and a demo setting as one", () => {
+    assert.equal(guardSetting("balanced", null, 900), "GenClass in guard mode with its default settings, holding requests for up to 900 ms while it decides");
+    assert.match(guardSetting("eager", 0, 900), /demo setting .* \(not the default\)/);
   });
 });
 

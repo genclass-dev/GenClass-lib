@@ -6,7 +6,7 @@ import type { BrowserLike, PageLike, RequestLike, ResponseLike } from "../src/sc
 import type { Bucket } from "../src/store.ts";
 
 export class MemBucket implements Bucket {
-  objects = new Map<string, { body: string | Uint8Array; etag: string; uploaded: Date; contentType?: string }>();
+  objects = new Map<string, { body: string | Uint8Array; etag: string; uploaded: Date; contentType?: string; customMetadata?: Record<string, string> }>();
   puts = 0;
   private n = 0;
   private clock: () => number;
@@ -20,6 +20,7 @@ export class MemBucket implements Bucket {
     return {
       etag: o.etag,
       uploaded: o.uploaded,
+      customMetadata: o.customMetadata,
       size: typeof body === "string" ? body.length : body.byteLength,
       text: async () => (typeof body === "string" ? body : new TextDecoder().decode(body)),
       body: new Response(typeof body === "string" ? body : new Uint8Array(body)).body as ReadableStream,
@@ -33,7 +34,10 @@ export class MemBucket implements Bucket {
     } else if (only && only.etagMatches !== undefined && (!cur || cur.etag !== only.etagMatches)) return null;
     const body = typeof value === "string" ? value : value instanceof Uint8Array ? value : new Uint8Array(value as ArrayBuffer);
     const etag = `e${++this.n}`;
-    this.objects.set(key, { body, etag, uploaded: new Date(this.clock()), contentType: (options.httpMetadata as { contentType?: string } | undefined)?.contentType });
+    this.objects.set(key, {
+      body, etag, uploaded: new Date(this.clock()), contentType: (options.httpMetadata as { contentType?: string } | undefined)?.contentType,
+      customMetadata: options.customMetadata as Record<string, string> | undefined,
+    });
     this.puts++;
     return { etag };
   }
@@ -130,8 +134,14 @@ class FakeRequest implements RequestLike {
 }
 
 export interface PageScript {
-  /** Requests the page makes while loading (after the main document). */
-  load?: { url: string; method?: string; type?: string; nav?: boolean; main?: boolean; body?: string }[];
+  /** Requests the page makes while loading (after the main document); `ip` is the address the response came from. */
+  load?: { url: string; method?: string; type?: string; nav?: boolean; main?: boolean; body?: string; ip?: string }[];
+  /** The main document redirects here (a main-frame navigation request the scanner must allow). */
+  redirect?: string;
+  /** WebSocket hosts the page opened (what the safety bootstrap would have recorded). */
+  wsHosts?: string[];
+  /** The address every response that is not listed in `load` came from (default 93.184.215.14). */
+  ip?: string;
   /** Findings the page-side checks return, per view. */
   findings?: (view: string) => unknown[];
   docHeight?: number;
@@ -183,11 +193,15 @@ export class FakePage implements PageLike {
   emit(ev: string, a: unknown) {
     for (const h of this.handlers.get(ev) || []) h(a);
   }
-  async request(url: string, method = "GET", type = "fetch", nav = false, main = false, body?: string): Promise<FakeRequest> {
+  async request(url: string, method = "GET", type = "fetch", nav = false, main = false, body?: string, ip?: string): Promise<FakeRequest> {
     const r = new FakeRequest(this, url, method, type, nav, main, body);
     this.emit("request", r);
     for (let i = 0; i < 50 && !r.handled; i++) await this.settle();
-    if (r.handled?.outcome === "continue") this.emit("requestfinished", r);
+    if (r.handled?.outcome === "continue") {
+      const addr = ip ?? this.script.ip ?? "93.184.215.14";
+      this.emit("response", { status: () => 200, url: () => url, request: () => r, remoteAddress: () => ({ ip: addr, port: 443 }) });
+      this.emit("requestfinished", r);
+    }
     return r;
   }
   async goto(url: string): Promise<ResponseLike | null> {
@@ -195,7 +209,12 @@ export class FakePage implements PageLike {
     const doc = await this.request(url, "GET", "document", true, true);
     if (doc.handled?.outcome !== "continue") throw new Error("net::ERR_BLOCKED_BY_CLIENT");
     this.current = url;
-    for (const l of this.script.load || []) await this.request(l.url, l.method || "GET", l.type || "fetch", !!l.nav, l.main ?? false, l.body);
+    if (this.script.redirect) {
+      const hop = await this.request(this.script.redirect, "GET", "document", true, true);
+      if (hop.handled?.outcome !== "continue") throw new Error("net::ERR_BLOCKED_BY_CLIENT");
+      this.current = this.script.redirect;
+    }
+    for (const l of this.script.load || []) await this.request(l.url, l.method || "GET", l.type || "fetch", !!l.nav, l.main ?? false, l.body, l.ip);
     const status = this.script.status ?? 200;
     return { status: () => status, url: () => url, request: () => doc };
   }
@@ -214,21 +233,25 @@ export class FakePage implements PageLike {
   }
   async evaluate(src: string): Promise<unknown> {
     this.evaluated.push(src);
-    if (src.includes("window.__genclassScanChecks = ")) return false;
-    if (src.startsWith("JSON.stringify(window.__genclassScanChecks(")) {
+    if (src.includes("let checks = null, fixes = null")) return false; // the checks installer: no visual fixes
+    if (/^JSON\.stringify\(window\["[\w]+"\]\(\{"view"/.test(src)) {
       const view = (/"view":"([a-z-]+)"/.exec(src) || [])[1] || "desktop";
       return JSON.stringify({ findings: this.script.findings ? this.script.findings(view) : [], notes: [], page: { docHeight: this.script.docHeight ?? 1800, docWidth: this.viewport?.width ?? 0, textChecked: 10, textElements: 12, ms: 5 } });
     }
-    if (src.includes("window.__gcScan || null")) {
+    if (src.includes('("read")')) return JSON.stringify({ held: false, wsHosts: this.script.wsHosts ?? [] });
+    if (src.includes('("hold"')) return undefined;
+    if (src.includes("bootstrap did not run")) {
       const guard = this.mode === "guard";
-      const acts = guard && this.script.postsOnDoubleClick && this.script.postsOnDoubleClick.guard < this.script.postsOnDoubleClick.observe
-        ? [{ id: "a1", decisionId: "d2", action: "coalesce", trigger: "request", subject: "POST /api/subscribe", ok: true, changed: "Did not send a duplicate POST /api/subscribe; reused the in-flight response.", late: false }]
+      const acting = guard && this.script.postsOnDoubleClick && this.script.postsOnDoubleClick.guard < this.script.postsOnDoubleClick.observe;
+      const acts = acting
+        ? [{ id: "a1", decisionId: "d2", action: "coalesce", trigger: "request", subject: "POST /api/subscribe (#5)", ok: true, changed: "Did not send a duplicate POST /api/subscribe; reused the in-flight response.", late: false }]
         : [];
+      const own = acting ? [{ id: "d2", trigger: "request", subject: "POST /api/subscribe (#5)", diagnosis: "duplicate", p: 0.99, action: "coalesce", ran: "coalesce", executed: true, latencyMs: 300 }] : [];
       const m = this.script.model ?? { state: "ready", device: "wasm", loadMs: 3100 };
       return JSON.stringify({
         present: this.mode !== "none", error: null, mode: this.mode, holdBudgetMs: 900, visibility: "visible", decisions: 2,
         status: { state: m.state, device: m.device ?? null, variant: "q8", loadMs: m.loadMs ?? null, error: null, version: "2.0.0-rc4t", effectiveMode: this.mode },
-        detections: this.script.detections ?? [], acts,
+        detections: [...(this.script.detections ?? []), ...own], acts,
       });
     }
     if (src.includes("prepare: true") || src.includes('scrollTo: "search"') || src.includes('scrollTo: "button"')) {

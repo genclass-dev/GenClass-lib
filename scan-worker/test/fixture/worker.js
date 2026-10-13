@@ -1,6 +1,10 @@
 // genclass-scan-fixture: a page with known problems for the scanner's end-to-end runs (scan-worker/README.md).
 // GET / is the page; GET /api/search?q= answers after 150 ms; everything else is 404 (the scanner answers POSTs itself,
-// so /api/subscribe is never reached by it).
+// so /api/subscribe is never reached by it). Two variants for the scanner's own safety checks, off by default:
+//   /?blank=1    adds a bigger POST form with target=_blank first: the probe must skip it and use the subscribe form
+//   /?standin=1  adds a price loaded by POST /api/price while the page loads, rendered from the answer: the scanner
+//                answers that POST itself, so the report must say so and not score what follows from it
+// Every POST that does reach this worker is counted (GET /api/posts), so a run can show that none did.
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Scanner test page</title>
@@ -31,6 +35,7 @@ button{font:inherit;padding:8px 16px}
   <button type="submit">Subscribe</button>
 </form>
 <p id="status"></p>
+<!--VARIANTS-->
 </main>
 <script>
 const q = document.getElementById("q"), out = document.getElementById("results");
@@ -47,11 +52,27 @@ document.getElementById("news").addEventListener("submit", async (e) => {
 });
 </script>
 </body></html>`;
+const BLANK = `<form id="popup" method="post" action="/api/popup" target="_blank" style="margin-top:20px">
+  <button type="submit" style="font-size:28px;padding:20px 60px">Open in a new window</button>
+</form>`;
+const STANDIN = `<p>Price: <span id="price">loading</span></p>
+<script>fetch("/api/price", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })
+  .then((r) => r.json()).then((j) => { document.getElementById("price").textContent = String(j.price * 1); });</script>`;
+let posts = 0;
 const CITIES = ["Amsterdam", "Abu Dhabi", "Abuja", "Accra", "Addis Ababa", "Adelaide", "Abbotsford", "Aberdeen", "Abidjan"];
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === "/") return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" } });
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      posts++;
+      console.log(`POST reached the fixture: ${request.method} ${url.pathname} (${posts} in this isolate)`);
+    }
+    if (url.pathname === "/api/posts") return Response.json({ posts }, { headers: { "cache-control": "no-store" } });
+    if (url.pathname === "/") {
+      const extra = (url.searchParams.get("blank") === "1" ? BLANK : "") + (url.searchParams.get("standin") === "1" ? STANDIN : "");
+      return new Response(PAGE.replace("<!--VARIANTS-->", extra), { headers: { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" } });
+    }
+    if (url.pathname === "/api/price") return Response.json({ price: 12 });
     if (url.pathname === "/api/search") {
       const q = (url.searchParams.get("q") || "").toLowerCase();
       await new Promise((r) => setTimeout(r, 150));
