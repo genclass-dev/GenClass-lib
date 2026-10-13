@@ -1,0 +1,17 @@
+{
+  "schema": "genclass-races/1",
+  "test": "checkout.spec.ts > checkout > places one order",
+  "seed": 1,
+  "signatures": [
+    {
+      "sig": "request|duplicate|POST /api/orders",
+      "trigger": "request",
+      "diagnosis": "duplicate",
+      "op": "POST /api/orders",
+      "confidence": 0.94,
+      "evidence": "1 identical POST /api/orders request in the last 10s (#14, 0.05s earlier, still in flight); no user action between them.",
+      "seeds": [1]
+    }
+  ],
+  "shadow": "guard"
+}
