@@ -492,6 +492,62 @@ describe("ModelHost inlineFallback: false (OPTIONS-SPEC §4.15: a failed worker 
     expect(t.calls).toEqual([]);
   });
 
+  it("the WebGPU-to-WASM retry gets no second worker: skipped, not inline; load() starts over with a fresh WASM retry", async () => {
+    const t = trace();
+    const workers: FakeWorker[] = [];
+    let calls = 0;
+    const { host } = setup({
+      inlineFallback: false,
+      fetch: t.fetch,
+      ortLoader: t.ortLoader,
+      workerFactory: () => {
+        if (++calls === 2) return null; // the fresh worker for the WASM retry cannot be created
+        const w = new FakeWorker();
+        workers.push(w);
+        return w;
+      },
+    });
+    const webgpuFailed = (w: FakeWorker) => {
+      w.emit({ type: "hello" });
+      w.emit({ type: "status", status: { state: "error", error: "WebGPU did not come up", attempts: [{ variant: "fp16", device: "webgpu", error: "webgpu session creation timed out" }] } });
+    };
+    const p = host.ready();
+    webgpuFailed(workers[0]);
+    expect(workers[0].terminated).toBe(true);
+    expect(calls).toBe(2);
+    expect(host.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "could not start a second worker" });
+    await expect(p).rejects.toBeInstanceOf(ModelLoadError);
+    await flush();
+    expect(t.calls, "no ORT, no download on the main thread").toEqual([]);
+    // load() starts over: a new worker and, when WebGPU fails again, the one WASM retry (not used up by the first round)
+    const again = host.load();
+    expect(workers.length).toBe(2);
+    webgpuFailed(workers[1]);
+    expect(workers.length).toBe(3);
+    expect(workers[2].sent[0]).toMatchObject({ type: "load", options: { device: "wasm" } });
+    workers[2].ready();
+    await again;
+    expect(host.status).toMatchObject({ state: "ready", worker: true });
+    expect(host.status.attempts?.map((a) => a.device)).toEqual(["webgpu"]);
+    expect(t.calls).toEqual([]);
+  });
+
+  it("the WASM retry's worker errors before saying hello: skipped, not inline", async () => {
+    const t = trace();
+    const { host, workers, w } = setup({ inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader });
+    w().emit({ type: "hello" });
+    w().emit({ type: "status", status: { state: "loading", phase: "session", device: "webgpu", variant: "fp16" } });
+    w().fail("GPU process crashed");
+    expect(workers.length).toBe(2);
+    expect(w().sent[0]).toMatchObject({ type: "load", options: { device: "wasm" } });
+    w().fail("Failed to fetch worker script");
+    expect(w().terminated).toBe(true);
+    expect(host.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "Failed to fetch worker script" });
+    await expect(host.ready()).rejects.toBeInstanceOf(ModelLoadError);
+    await flush();
+    expect(t.calls).toEqual([]);
+  });
+
   it("worker: false still runs inline (the main thread was asked for), inlineFallback only governs the fallback", async () => {
     const t = trace();
     const { host, workers, clock } = setup({ worker: false, inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader });

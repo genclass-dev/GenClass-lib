@@ -608,8 +608,10 @@ class Host implements ModelHost {
   load(): Promise<void> {
     if (this.disposed) return Promise.reject(new ModelDisposedError());
     if (this.st.state === "skipped") {
-      // the worker was unavailable (inlineFallback: false): try it again from the start
+      // the worker was unavailable (inlineFallback: false): try it again from the start, WASM retry included
       this.started = false;
+      this.wasmRetried = false;
+      this.priorAttempts = [];
       this.st = { state: "off" };
     }
     if (this.st.state === "error") {
