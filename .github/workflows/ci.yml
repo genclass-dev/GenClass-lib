@@ -55,3 +55,18 @@ jobs:
         env:
           NODE_OPTIONS: --expose-gc
         run: npx vitest run test/review-perf.test.ts --retry=2
+
+  telemetry-worker:
+    name: "telemetry-worker: unit tests (collector, dashboard)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install (root lockfile; vitest is hoisted)
+        run: ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
+      - name: Unit tests
+        working-directory: telemetry-worker
+        run: npx vitest run

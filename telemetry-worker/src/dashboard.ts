@@ -239,6 +239,8 @@ export function summarize(batch: AggBatch): { counters: Counters; recent: Recent
         if (d) {
           detected.add(e.decision as string);
           c.add("detect_route", str(d.route) ?? "(unknown)");
+          // type x page, for the dashboard's "where" view (tab-separated: diagnosis, route)
+          c.add("detect_issue", `${str(e.diagnosis) ?? "(unknown)"}\t${str(d.route) ?? "(unknown)"}`);
           const fn = str(d.fn);
           if (fn) c.add("fn_detect", fn);
         } else {
@@ -387,6 +389,10 @@ export interface Stats {
   totals: Record<string, number>;
   breakdowns: Record<string, { key: string; count: number }[]>;
   series: { bucket: string; sessions: number; decisions: number; detections: number; acted: number }[];
+  /** Detections per bucket by diagnosis (the dashboard's stacked timeline). */
+  typeSeries: { bucket: string; counts: Record<string, number> }[];
+  /** The same totals over the period just before this one (deltas). */
+  previous: { sessions: number; detections: number; acted: number };
   recent: Record<string, unknown>[];
 }
 
@@ -401,8 +407,10 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     buckets.push(hourly ? hourKey(d) : dayKey(d));
   }
   const from = buckets[0]!;
+  const prevStart = new Date(Date.parse(hourly ? `${from}:00:00.000Z` : `${from}T00:00:00.000Z`) - span * (hourly ? 3_600_000 : 86_400_000));
+  const prevFrom = hourly ? hourKey(prevStart) : dayKey(prevStart);
 
-  const [agg, series, recent] = await db.batch([
+  const [agg, series, recent, types, prev] = await db.batch([
     db.prepare(`SELECT metric, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? GROUP BY metric, key`).bind(p.token, from),
     db
       .prepare(`SELECT ${col} AS b, metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND key = '' AND metric IN (${SERIES_METRICS.map(() => "?").join(", ")}) GROUP BY ${col}, metric`)
@@ -410,6 +418,10 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     db
       .prepare("SELECT t, route, fn, trigger, diagnosis, action, ran, confidence, mode, executed, acted, kind FROM recent WHERE token = ? AND t >= ? ORDER BY id DESC LIMIT 50")
       .bind(p.token, hourly ? new Date(now.getTime() - 86_400_000).toISOString() : `${from}T00:00:00.000Z`),
+    db.prepare(`SELECT ${col} AS b, key, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND metric = 'detect_diagnosis' GROUP BY ${col}, key`).bind(p.token, from),
+    db
+      .prepare(`SELECT metric, SUM(count) AS c FROM ${table} WHERE token = ? AND ${col} >= ? AND ${col} < ? AND key = '' AND metric IN ('sessions', 'detections', 'acted') GROUP BY metric`)
+      .bind(p.token, prevFrom, from),
   ]);
   const rows = (r: unknown) => ((r as { results?: Record<string, unknown>[] })?.results ?? []) as Record<string, unknown>[];
 
@@ -422,9 +434,9 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     if (key === "") totals[metric] = (totals[metric] ?? 0) + c;
     else (breakdowns[metric] ??= []).push({ key, count: c });
   }
-  for (const list of Object.values(breakdowns)) {
+  for (const [metric, list] of Object.entries(breakdowns)) {
     list.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
-    list.splice(25);
+    list.splice(metric === "detect_issue" ? 200 : 25);
   }
   const sumOf = (m: string) => (breakdowns[m] ?? []).reduce((s, x) => s + x.count, 0);
   totals.latencyAvgMs = totals.latency_ms_n ? Math.round(totals.latency_ms_sum! / totals.latency_ms_n) : 0;
@@ -443,6 +455,17 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     if (s && SERIES_METRICS.includes(String(r.metric))) (s as Record<string, unknown>)[String(r.metric)] = Number(r.c) || 0;
   }
 
+  const byType = new Map(buckets.map((b) => [b, { bucket: b, counts: {} as Record<string, number> }]));
+  for (const r of rows(types)) {
+    const s = byType.get(String(r.b));
+    if (s) s.counts[String(r.key ?? "")] = (s.counts[String(r.key ?? "")] ?? 0) + (Number(r.c) || 0);
+  }
+  const previous = { sessions: 0, detections: 0, acted: 0 };
+  for (const r of rows(prev)) {
+    const m = String(r.metric) as keyof typeof previous;
+    if (m in previous) previous[m] = Number(r.c) || 0;
+  }
+
   return {
     name: p.name,
     token: p.token,
@@ -454,6 +477,8 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
     totals,
     breakdowns,
     series: [...byBucket.values()],
+    typeSeries: [...byType.values()],
+    previous,
     recent: rows(recent).map((r) => ({ ...r, executed: r.executed === null ? null : !!r.executed, acted: r.acted === null ? null : !!r.acted })),
   };
 }
