@@ -2,6 +2,16 @@
 
 ## 0.2.2 (2026-10-13)
 
+- **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so
+  `/auto` and the script tag) passed an explicit `telemetry: true` internally, which skips the local-host rule, so
+  pages on `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. An
+  unset option now stays unset and the default applies as documented; an explicit `telemetry: true` still sends from
+  a local host. This narrows what is sent; nothing new is sent. Test: `test/telemetry-local-hosts.test.ts`.
+- **`init --telemetry` no longer writes `telemetry: true`.** It now takes the `--no-telemetry` opt-out out of what
+  init wrote (back to the default) and, on a new setup, writes nothing. An explicit `true` would now mean "also send
+  from local hosts". An options file written by an earlier `init --telemetry` holds `telemetry: true`: run
+  `npx @genclass/runtime init --telemetry` again to take it out.
+
 - **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
   `?genclass=guard|heal` and `localStorage.genclass` now only demote, from the app's mode or from `observe` when it
   sets none (before, they opted a visitor into guard when the app set no mode, so a crafted link could turn on
