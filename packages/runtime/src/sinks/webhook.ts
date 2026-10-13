@@ -12,26 +12,41 @@
 // keepalive. The body is JSON in both cases, sent as text/plain (a CORS simple request: no preflight); parse it as
 // JSON on the server. Headers force the fetch path (sendBeacon takes none). When the fetch path is used from a page
 // where GenClass observes fetch, list the URL in `requests.ignore` so the sink's own POSTs are never decided about
-// (the zero-code entries do this for `webhook:<url>`).
+// (the zero-code entries do this for `webhook:<url>`, as an exact match on the endpoint's origin and path).
 //
 // Batching: the runtime hands sinks their records in idle-time rounds (SinkDispatcher), and by default the records of
 // one round go in one POST (sent in a microtask after the round); also at `maxBatch` records and on `flush()`
-// (pagehide). With a `clock` the batch waits `flushMs` after its first record instead. A batch is split before it
-// exceeds what sendBeacon / keepalive accept (64 KiB). Never throws; send failures are dropped.
+// (pagehide). With a `clock` the batch waits `flushMs` after its first record instead. A batch is split before its
+// records exceed 32,000 UTF-8 bytes (sendBeacon and keepalive fetch allow 64 KiB in flight per page, shared with the
+// app's own beacons). Repeats of one bug are capped at `maxPerSignature` (10) per page load, as in the tool adapters,
+// so a failure storm is a few POSTs, not one per round. Never throws; send failures are dropped.
 //
 // Imports nothing from the runtime but types (the version is a build-time constant), so loading this adapter adds no
 // shared chunk to an app's first load (test/bundle.test.ts).
 
 import type { Clock, SinkKind, SinkObject, SinkRecord } from "../types.js";
-import { globalOf } from "./common.js";
+import { DEFAULT_MAX_PER_SIGNATURE, globalOf, overCap } from "./common.js";
 
 declare const __GENCLASS_PKG_VERSION__: string;
 /** The @genclass/runtime version, defined at build time (tsup, vitest). */
 const VERSION: string = typeof __GENCLASS_PKG_VERSION__ === "string" ? __GENCLASS_PKG_VERSION__ : "0.0.0";
 
 export const WEBHOOK_SCHEMA = "genclass-sink/1";
-/** keepalive fetch and sendBeacon refuse bodies over 64 KiB. */
-export const WEBHOOK_MAX_BODY_BYTES = 60_000;
+/**
+ * Most UTF-8 bytes of records in one POST body. keepalive fetch and sendBeacon refuse more than 64 KiB in flight per
+ * page, shared with the app's own beacons, so a batch stays at about half of that.
+ */
+export const WEBHOOK_MAX_BODY_BYTES = 32_000;
+
+/** UTF-8 length of a string (JSON.stringify output: lone surrogates are already escaped, so pairs count 2 + 2). */
+export function utf8Length(s: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    n += c < 0x80 ? 1 : c < 0x800 || (c >= 0xd800 && c <= 0xdfff) ? 2 : 3;
+  }
+  return n;
+}
 
 /** One POST body. */
 export interface WebhookBatch {
@@ -52,6 +67,12 @@ export interface WebhookSinkOptions {
   flushMs?: number;
   /** Send once this many records are queued (default 50). */
   maxBatch?: number;
+  /**
+   * At most this many records per signature (kind, trigger, diagnosis, action and the subject's shape) per page load,
+   * so a failure storm does not flood your endpoint (default 10, as the tool adapters; 0 = no cap). The session
+   * `summary` record still counts every detection and intervention.
+   */
+  maxPerSignature?: number;
   /** Request headers (fetch only: sendBeacon cannot set any, so headers switch the transport to fetch). */
   headers?: Record<string, string>;
   /** Your own transport (tests, a queue of yours): gets the URL and the JSON body. */
@@ -99,6 +120,8 @@ export function webhook(o: WebhookSinkOptions): SinkObject {
   const flushMs = num(o?.flushMs, 100, 600_000, 5000);
   const maxBatch = Math.floor(num(o?.maxBatch, 1, 500, 50));
   const transport = typeof o?.send === "function" ? o.send : defaultTransport(g, o?.headers);
+  const seen = new Map<string, number>();
+  const cap = o?.maxPerSignature ?? DEFAULT_MAX_PER_SIGNATURE;
   let queue: SinkRecord[] = [];
   /** A clock timer, or true while a microtask flush is pending. */
   let timer: unknown = null;
@@ -131,7 +154,7 @@ export function webhook(o: WebhookSinkOptions): SinkObject {
     for (const r of all) {
       let n = 0;
       try {
-        n = JSON.stringify(r).length + 1;
+        n = utf8Length(JSON.stringify(r)) + 1;
       } catch {
         continue; // not serialisable: skip the record rather than the batch
       }
@@ -152,7 +175,7 @@ export function webhook(o: WebhookSinkOptions): SinkObject {
     evidence: o?.evidence ?? true,
     send(r: SinkRecord): void {
       try {
-        if (!url) return;
+        if (!url || (r.kind !== "summary" && overCap(seen, r, cap))) return;
         queue.push(r);
         if (queue.length >= maxBatch) drain();
         else if (timer === null) {

@@ -7,7 +7,7 @@ import { consoleJson } from "../src/sinks/console-json.js";
 import { datadog } from "../src/sinks/datadog.js";
 import { posthog } from "../src/sinks/posthog.js";
 import { sentry } from "../src/sinks/sentry.js";
-import { WEBHOOK_MAX_BODY_BYTES, WEBHOOK_SCHEMA, webhook } from "../src/sinks/webhook.js";
+import { WEBHOOK_MAX_BODY_BYTES, WEBHOOK_SCHEMA, utf8Length, webhook } from "../src/sinks/webhook.js";
 import type { Sink, SinkRecord } from "../src/types.js";
 import { RUNTIME_VERSION } from "../src/version.js";
 import { FakeClock, defaultScript, drain, setup } from "./helpers.js";
@@ -86,8 +86,32 @@ describe("sinks/sentry", () => {
     g.Sentry = { captureMessage: spy };
     s.send(rec());
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(() => sentry({ sentry: null as never }).send(rec())).not.toThrow();
+    expect(() => sentry({ sentry: null as never, global: {} }).send(rec())).not.toThrow();
     expect(() => sentry({ sentry: {} }).send(rec())).not.toThrow();
+  });
+
+  it("no SDK when records arrive (an npm SDK sets no global): one console warning that names the fix, per adapter", () => {
+    for (const [make, fix] of [
+      [sentry, "sentry({ sentry: Sentry })"],
+      [posthog, "posthog({ posthog })"],
+      [datadog, "datadog({ rum: datadogRum })"],
+    ] as const) {
+      const warn = vi.fn();
+      const g: Record<string, unknown> = { console: { warn } };
+      const s = make({ global: g });
+      s.send(rec());
+      s.send(rec({ id: "r2", diagnosis: "duplicate" }));
+      expect(warn, make.name).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0]), make.name).toMatch(/^\[GenClass\] The \w+ sink found no /);
+      expect(String(warn.mock.calls[0][0]), make.name).toContain(fix);
+      // a console that throws is contained
+      const t = make({ global: { console: { warn: () => { throw new Error("x"); } } } });
+      expect(() => t.send(rec()), make.name).not.toThrow();
+    }
+    // with an SDK there is no warning
+    const warn = vi.fn();
+    sentry({ global: { console: { warn }, Sentry: { captureMessage: vi.fn() } } }).send(rec());
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("kinds default to everything but the summary; maxPerSignature caps repeats of one bug; as:'breadcrumb' files breadcrumbs only", () => {
@@ -119,6 +143,26 @@ describe("sinks/sentry", () => {
     const old = { addBreadcrumb: vi.fn() };
     sentry({ sentry: old }).send(rec());
     expect(old.addBreadcrumb).toHaveBeenCalledTimes(1);
+  });
+
+  it("the record's route is normalised as telemetry's: id-like and email segments as :id, at most 200 chars", async () => {
+    const fake = { captureMessage: vi.fn() };
+    const s = setup({
+      sinks: [sentry({ sentry: fake })],
+      triage: "always",
+      script: DELAY,
+      extraGlobal: { location: { href: "http://app.test/u/jane@example.com/reset/a8f3b2c9d1e04f5a/orders/12345", pathname: "/u/jane@example.com/reset/a8f3b2c9d1e04f5a/orders/12345", search: "" } },
+    });
+    s.server.on("GET", "/api/x", { body: 1, latency: 5 });
+    const p = s.fetch("/api/x").catch(() => undefined);
+    await s.clock.advance(2000);
+    await p;
+    await s.clock.advance(10);
+    expect(fake.captureMessage).toHaveBeenCalledTimes(1);
+    const ctx = fake.captureMessage.mock.calls[0][1] as { tags: Record<string, unknown>; extra: { genclass: Record<string, unknown> } };
+    expect(ctx.tags["genclass.route"]).toBe("/u/:id/reset/:id/orders/:id");
+    expect(ctx.extra.genclass.route).toBe("/u/:id/reset/:id/orders/:id");
+    expect(JSON.stringify(ctx)).not.toContain("jane");
   });
 
   it("through the runtime: an intervention reaches Sentry as the console line, redacted, with its route", async () => {
@@ -471,6 +515,45 @@ describe("sinks/webhook", () => {
     await clock.advance(100);
     expect(send).toHaveBeenCalledTimes(1);
     expect((JSON.parse(send.mock.calls[0][1] as string) as { records: { id: string }[] }).records.map((r) => r.id)).toEqual(["a", "c"]);
+  });
+
+  it("the split counts UTF-8 bytes, not UTF-16 units: non-ASCII evidence never makes a body the browser refuses", async () => {
+    expect([utf8Length("a"), utf8Length("é"), utf8Length("測"), utf8Length("😀"), utf8Length(JSON.stringify("\ud800"))]).toEqual([1, 2, 3, 4, 8]);
+    const clock = new FakeClock();
+    const send = vi.fn();
+    const w = webhook({ url: "/genclass", send, clock, flushMs: 100, maxBatch: 500, maxPerSignature: 0 });
+    // 12,000 CJK characters: 12,000 UTF-16 units but 36,000 bytes each
+    for (let i = 0; i < 3; i++) w.send(rec({ id: `r${i}`, evidence: { message: "測".repeat(12_000) } }));
+    for (let i = 0; i < 20; i++) w.send(rec({ id: `s${i}`, evidence: { message: "é".repeat(1_000) } }));
+    await clock.advance(100);
+    let total = 0;
+    for (const [, body] of send.mock.calls as [string, string][]) {
+      const recs = (JSON.parse(body) as { records: unknown[] }).records;
+      total += recs.length;
+      expect(utf8Length(body)).toBeLessThan(65_536);
+      // a body over the cap is a lone record that is itself that large; anything batched stays under it
+      if (recs.length > 1) expect(utf8Length(body)).toBeLessThan(WEBHOOK_MAX_BODY_BYTES + 200);
+    }
+    expect(total).toBe(23);
+    expect(WEBHOOK_MAX_BODY_BYTES).toBeLessThanOrEqual(32_768);
+  });
+
+  it("caps repeats of one bug at maxPerSignature (10) per page load, like the tool adapters; the summary always goes; 0 = no cap", async () => {
+    const send = vi.fn();
+    const w = webhook({ url: "/genclass", send, maxBatch: 500 });
+    for (let i = 0; i < 25; i++) w.send(rec({ id: `r${i}` }));
+    w.send(rec({ id: "d", diagnosis: "duplicate" }));
+    w.send(rec({ id: "sum", kind: "summary" }));
+    await w.flush!();
+    const ids = (send.mock.calls as [string, string][]).flatMap(([, b]) => (JSON.parse(b) as { records: SinkRecord[] }).records.map((r) => r.id));
+    expect(ids.filter((id) => id.startsWith("r"))).toHaveLength(10);
+    expect(ids).toContain("d");
+    expect(ids).toContain("sum");
+    const all = vi.fn();
+    const u = webhook({ url: "/genclass", send: all, maxBatch: 500, maxPerSignature: 0 });
+    for (let i = 0; i < 25; i++) u.send(rec({ id: `r${i}` }));
+    await u.flush!();
+    expect((JSON.parse(all.mock.calls[0][1] as string) as { records: unknown[] }).records).toHaveLength(25);
   });
 
   it("through the runtime: the POST holds the record's own fields (route, diagnosis, action, evidence), no situation text and no query value", async () => {

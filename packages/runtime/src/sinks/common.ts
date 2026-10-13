@@ -39,6 +39,23 @@ export interface AdapterOptions {
 
 export const globalOf = (o: { global?: object } | undefined): Record<string, unknown> => (o?.global ?? globalThis) as Record<string, unknown>;
 
+/**
+ * A function that, the first time it is called, prints one console warning (on the adapter's global) that a record
+ * arrived and the adapter found no SDK, so it was dropped, and how to fix it. Later calls do nothing. Never throws.
+ */
+export function warnOnce(o: { global?: object } | undefined, message: string): () => void {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    try {
+      (globalOf(o).console as { warn?: (...a: unknown[]) => void } | undefined)?.warn?.(`[GenClass] ${message}`);
+    } catch {
+      /* never into the app */
+    }
+  };
+}
+
 /** A grouping key with op ids and numbers normalised, so repeats of one bug land in one issue. */
 export function signature(r: SinkRecord): string {
   const subject = (r.evidence?.subject ?? "").replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n");

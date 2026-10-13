@@ -2,10 +2,10 @@
 // per bug) or breadcrumbs. Zero dependencies: it uses the SDK the page already has (`window.Sentry`, which the
 // Sentry loader and CDN bundles set) or the one you pass (`sentry({ sentry: Sentry })` with the npm SDK, which sets
 // no global). Looked up on every record, so an SDK that loads later still gets them. Never throws; without an SDK it
-// sends nothing.
+// sends nothing and says so once on the console.
 
 import type { SinkObject, SinkRecord } from "../types.js";
-import { type AdapterOptions, DEFAULT_KINDS, flatten, globalOf, overCap, signature, titleOf } from "./common.js";
+import { type AdapterOptions, DEFAULT_KINDS, flatten, globalOf, overCap, signature, titleOf, warnOnce } from "./common.js";
 
 export type SentryLevel = "fatal" | "error" | "warning" | "log" | "info" | "debug";
 
@@ -34,6 +34,10 @@ export function sentry(o: SentrySinkOptions = {}): SinkObject {
   const seen = new Map<string, number>();
   const as = o.as ?? "event";
   const level = o.level ?? "warning";
+  const missing = warnOnce(
+    o,
+    `The Sentry sink found no Sentry SDK (window.Sentry) for a record, so it was dropped (and later ones are until there is one). An npm-installed SDK sets no global: pass it, sentry({ sentry: Sentry }) (npx @genclass/runtime init --sink sentry writes that), or set window.Sentry = Sentry.`,
+  );
   return {
     kinds: o.kinds ?? DEFAULT_KINDS,
     sampleRate: o.sampleRate,
@@ -41,7 +45,7 @@ export function sentry(o: SentrySinkOptions = {}): SinkObject {
     send(r: SinkRecord): void {
       try {
         const sdk = o.sentry ?? (globalOf(o).Sentry as SentryLike | undefined);
-        if (!sdk || typeof sdk !== "object") return;
+        if (!sdk || typeof sdk !== "object") return missing();
         if (overCap(seen, r, o.maxPerSignature)) return;
         const message = titleOf(r);
         const data = flatten(r);

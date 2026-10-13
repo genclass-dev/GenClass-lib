@@ -1,11 +1,12 @@
 // @genclass/runtime/sinks/datadog: GenClass's findings in Datadog RUM. Detections and interventions go to Error
 // Tracking (`DD_RUM.addError`, so they alert and group like errors); undos, breaker trips and runtime errors are
 // custom actions (`DD_RUM.addAction("genclass_<kind>")`). Zero dependencies: it uses the SDK the page already has
-// (`window.DD_RUM`, as the CDN snippets set it; the async stub's `onReady` is honoured) or the one you pass
-// (`datadog({ rum: datadogRum })` with @datadog/browser-rum). Never throws; without an SDK it sends nothing.
+// (`window.DD_RUM`, as the CDN snippets and the npm package @datadog/browser-rum both set it; the async stub's
+// `onReady` is honoured) or the one you pass (`datadog({ rum: datadogRum })`). Never throws; without an SDK it sends
+// nothing and says so once on the console.
 
 import type { SinkObject, SinkRecord } from "../types.js";
-import { type AdapterOptions, DEFAULT_KINDS, flatten, globalOf, overCap, signature, titleOf } from "./common.js";
+import { type AdapterOptions, DEFAULT_KINDS, flatten, globalOf, overCap, signature, titleOf, warnOnce } from "./common.js";
 
 /** The part of the Datadog RUM browser SDK the adapter uses. */
 export interface DatadogRumLike {
@@ -30,6 +31,10 @@ export interface DatadogSinkOptions extends AdapterOptions {
 export function datadog(o: DatadogSinkOptions = {}): SinkObject {
   const seen = new Map<string, number>();
   const as = o.as ?? "error";
+  const missing = warnOnce(
+    o,
+    `The Datadog sink found no Datadog RUM SDK (window.DD_RUM) for a record, so it was dropped (and later ones are until there is one). Load @datadog/browser-rum (it sets DD_RUM) or pass it: datadog({ rum: datadogRum }).`,
+  );
   return {
     kinds: o.kinds ?? DEFAULT_KINDS,
     sampleRate: o.sampleRate,
@@ -37,7 +42,7 @@ export function datadog(o: DatadogSinkOptions = {}): SinkObject {
     send(r: SinkRecord): void {
       try {
         const rum = o.rum ?? (globalOf(o).DD_RUM as DatadogRumLike | undefined);
-        if (!rum || typeof rum !== "object") return;
+        if (!rum || typeof rum !== "object") return missing();
         if (overCap(seen, r, o.maxPerSignature)) return;
         const run = () => {
           try {

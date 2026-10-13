@@ -558,7 +558,10 @@ export interface SinkRecord {
   tier?: Tier;
   trigger?: TriggerKind;
   label?: string;
-  /** The page route (`location.pathname`) the subject's operation was created on, else the current one. */
+  /**
+   * The page path (`location.pathname`) the subject's operation was created on, else the current one, normalised as
+   * telemetry sends it: id-like segments (numbers, UUIDs, long hex and tokens) and email segments as ":id", ≤ 200 chars.
+   */
   route?: string;
   changed?: string[];
   undone?: boolean;
@@ -736,8 +739,10 @@ export interface InitOptions {
   /**
    * Structured, redacted records for your own tools (OPTIONS-SPEC §4.11). Ready-made adapters, no dependencies:
    * `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}`. The zero-code entries also take them by
-   * name: `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`, `<meta name="genclass"
-   * content="sink=sentry">`, `data-sink="sentry"` on the script tag, or `npx @genclass/runtime init --sink sentry`.
+   * name (found as a page global; `sentry:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = { sinks:
+   * ["sentry", "webhook:/genclass"] }`, `<meta name="genclass" content="sink=sentry">`, `data-sink="sentry"` on the
+   * script tag, or `npx @genclass/runtime init --sink sentry` (which passes an npm-installed Sentry or posthog-js SDK
+   * to the adapter, since those set no global).
    */
   sinks?: Sink[];
   /** Session id and tags stamped on records (never shown to the model). */
