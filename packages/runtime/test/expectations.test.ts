@@ -337,19 +337,29 @@ describe("flow expectations: false-positive controls (EXPECTATIONS.md §3)", () 
     expect(s.rt.learned().flows[0]).toMatchObject({ n: 11 });
   });
 
-  it("a GET an app cache may answer is never expected to start; a 4xx answer is not a missing write or follow-up", async () => {
+  it("a GET is never expected to start (an app cache may answer it) nor to write (an unchanged answer may be left unwritten); a 4xx answer is not a missing write or follow-up", async () => {
     const reports: Report[] = [];
     const s = app(reports);
     s.server.on("GET", "/api/orders", { body: [], latency: 50 });
-    const tab = async (send: boolean) => {
+    const orders = s.rt.atom("orders", { at: 0 });
+    let k = 0;
+    const tab = async (o: { send?: boolean; write?: boolean } = {}) => {
       s.rt.user({ kind: "click", target: 'tab "Orders"' }, () => {
-        if (send) void s.fetch("/api/orders");
+        if (o.send === false) return;
+        void (async () => {
+          const res = await s.fetch("/api/orders");
+          await res.json();
+          if (o.write !== false) orders.set({ at: ++k });
+        })();
       });
       await s.clock.advance(2000);
     };
-    for (let i = 0; i < 12; i++) await tab(true);
-    expect(s.rt.learned().flows[0].children[0]).toMatchObject({ signature: "GET /api/orders", share: 1, expected: false, expectedOnRepeat: false });
-    await tab(false); // answered from the app's cache
+    for (let i = 0; i < 12; i++) await tab();
+    const t = s.rt.learned().flows[0];
+    expect(t.children[0]).toMatchObject({ signature: "GET /api/orders", share: 1, expected: false, expectedOnRepeat: false });
+    expect(t.writes).toEqual([{ signature: "GET /api/orders", field: "orders.at", n: 12, of: 12, share: 1, expected: false }]);
+    await tab({ send: false }); // answered from the app's cache
+    await tab({ write: false }); // an unchanged answer the app did not write again
     expect(reports).toEqual([]);
 
     let status = 200;
@@ -457,23 +467,55 @@ describe("flow expectations: false-positive controls (EXPECTATIONS.md §3)", () 
     await s.clock.advance(2000);
     expect(exps(reports)).toEqual([]);
 
-    // a response handler that wrote the value the store already had handled its response
-    let items = 0;
-    s.server.on("GET", "/api/cart", () => ({ body: { items: [items] }, latency: 50 }));
-    const refresh = async (change: boolean) => {
-      if (change) items++;
-      s.rt.user({ kind: "click", target: 'button "Refresh"' }, () => {
+    // a response handler that wrote the value the store already had handled its response (saving without changes)
+    let name = 0;
+    s.server.on("PUT", "/api/profile", () => ({ body: { name: `v${name}` }, latency: 50 }));
+    const profile = s.rt.atom("profile", { name: "" });
+    const save = async (change: boolean) => {
+      if (change) name++;
+      s.rt.user({ kind: "click", target: 'button "Save"' }, () => {
         void (async () => {
-          const res = await s.fetch("/api/cart");
-          c.cart.set({ items: ((await res.json()) as { items: number[] }).items });
+          const res = await s.fetch("/api/profile", { method: "PUT", body: "{}" });
+          profile.set((await res.json()) as { name: string });
         })();
       });
       await s.clock.advance(2000);
     };
-    for (let i = 0; i < 9; i++) await refresh(true);
-    expect(s.rt.learned().flows.find((f) => f.action === 'click button "Refresh"')!.writes).toEqual([{ signature: "GET /api/cart", field: "cart.items", n: 9, of: 9, share: 1, expected: true }]);
-    await refresh(false);
+    for (let i = 0; i < 9; i++) await save(true);
+    expect(s.rt.learned().flows.find((f) => f.action === 'click button "Save"')!.writes).toEqual([{ signature: "PUT /api/profile", field: "profile.name", n: 9, of: 9, share: 1, expected: true }]);
+    await save(false);
     expect(exps(reports)).toEqual([]);
+  });
+
+  it("an action repeated while its flow is open (a stepper clicked quickly): an answer the app dropped as superseded is not a gap", async () => {
+    const reports: Report[] = [];
+    const s = app(reports);
+    s.server.on("PUT", "/api/cart/qty", ({ body }) => ({ body: JSON.parse(body ?? "{}") as unknown, latency: 300 }));
+    const cart = s.rt.atom("cart", { qty: 0 });
+    let want = 0;
+    const plus = () =>
+      s.rt.user({ kind: "click", target: 'button "+"' }, () => {
+        const q = ++want;
+        void (async () => {
+          const res = await s.fetch("/api/cart/qty", { method: "PUT", body: JSON.stringify({ qty: q }) });
+          const d = (await res.json()) as { qty: number };
+          if (d.qty === want) cart.set({ qty: d.qty }); // only the latest answer is applied
+        })();
+      });
+    for (let i = 0; i < 10; i++) {
+      plus();
+      await s.clock.advance(2000);
+    }
+    expect(s.rt.learned().flows[0].writes).toEqual([{ signature: "PUT /api/cart/qty", field: "cart.qty", n: 10, of: 10, share: 1, expected: true }]);
+    plus();
+    await s.clock.advance(100);
+    plus(); // the first answer is now superseded: the app drops it
+    await s.clock.advance(4000);
+    expect(exps(reports)).toEqual([]);
+    expect(cart.get().qty).toBe(12);
+    // the superseded instance is learned, its writes are not (the write stays expected)
+    expect(s.rt.learned().flows[0]).toMatchObject({ n: 11 });
+    expect(s.rt.learned().flows[0].writes[0]).toMatchObject({ n: 10, of: 10, expected: true });
   });
 
   it("learn.expectations: false learns and reports nothing", async () => {
