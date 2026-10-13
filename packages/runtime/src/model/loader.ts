@@ -234,6 +234,65 @@ export interface FetchEnv {
   /** Cache Storage, or null when unavailable (insecure context, privacy mode, Node). */
   caches: CacheStorage | null;
   cacheName: string;
+  /**
+   * Timers for retrying transient download failures (`fetchRetrying`). Without them nothing is retried (the
+   * behaviour before 0.2.2).
+   */
+  timers?: TimerEnv;
+}
+
+/** HTTP statuses that are worth retrying: request timeout, rate limiting (jsDelivr answers 429 under load), 5xx. */
+export const RETRY_STATUSES: ReadonlySet<number> = new Set([408, 429, 500, 502, 503, 504]);
+/** Waits before each retry of a transient HTTP failure; a network error (no response) is retried once. */
+export const RETRY_DELAYS_MS: readonly number[] = [1000, 3000];
+/** A numeric `Retry-After` is honoured up to this long. */
+export const RETRY_AFTER_MAX_MS = 8000;
+
+/** Whether a failed card attempt is worth retrying: a network error, or an HTTP status in RETRY_STATUSES. */
+function transientFailure(e: unknown): boolean {
+  if (!(e instanceof ModelLoadError)) return !(e instanceof ModelUnsupportedError);
+  const m = /HTTP (\d{3})/.exec(e.message);
+  return m ? RETRY_STATUSES.has(Number(m[1])) : false;
+}
+
+/** `Retry-After` in seconds (HTTP dates are ignored: the loader never reads the wall clock). */
+function retryAfterMs(res: Response): number | null {
+  const v = res.headers.get("retry-after");
+  if (v === null || v.trim() === "") return null;
+  const s = Number(v.trim());
+  return Number.isFinite(s) && s >= 0 ? Math.min(RETRY_AFTER_MAX_MS, Math.round(s * 1000)) : null;
+}
+
+/**
+ * `env.fetch` with bounded retries for transient failures: HTTP 408/429/5xx are retried after 1 s and 3 s (or the
+ * server's numeric `Retry-After`, at most 8 s), a network error once after 1 s. Returns the last response, ok or not,
+ * or throws the last network error. Without `env.timers` it is a single fetch. Never retries other statuses (a 404
+ * stays a 404) and never alters the request.
+ */
+export async function fetchRetrying(env: FetchEnv, url: string, init: RequestInit, firstAttempt = 0): Promise<Response> {
+  const timers = env.timers;
+  for (let attempt = firstAttempt; ; attempt++) {
+    let res: Response | null = null;
+    let err: unknown = null;
+    try {
+      res = await env.fetch(url, init);
+    } catch (e) {
+      err = e;
+    }
+    const maxRetries = err !== null ? 1 : RETRY_DELAYS_MS.length;
+    const transient = err !== null || (res !== null && RETRY_STATUSES.has(res.status));
+    if (!timers || !transient || attempt >= maxRetries) {
+      if (err !== null) throw err;
+      return res as Response;
+    }
+    const wait = Math.min(RETRY_AFTER_MAX_MS, Math.max(RETRY_DELAYS_MS[attempt] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1], (res && retryAfterMs(res)) ?? 0));
+    try {
+      await res?.body?.cancel();
+    } catch {
+      // the body of a failed response is not needed
+    }
+    await new Promise<void>((resolve) => timers.setTimeout(resolve, wait));
+  }
 }
 
 export interface FetchOutcome {
@@ -295,7 +354,7 @@ export async function fetchFile(
 
   let res: Response;
   try {
-    res = await env.fetch(url, { cache: "no-store" });
+    res = await fetchRetrying(env, url, { cache: "no-store" });
   } catch (e) {
     throw new ModelLoadError(`download failed for ${url}: ${errorMessage(e)}`);
   }
@@ -366,9 +425,8 @@ async function readBody(res: Response, total: number, onProgress?: (loaded: numb
 export async function fetchCard(env: FetchEnv, baseUrl: string): Promise<{ card: ModelCard; fromCache: boolean }> {
   const url = new URL("model.json", baseUrl).href;
   const cache = await openCache(env);
-  let netErr: unknown = null;
-  try {
-    const res = await env.fetch(url, { cache: "no-cache" });
+  const fromNetwork = async (e: FetchEnv, firstAttempt = 0): Promise<{ card: ModelCard; fromCache: boolean }> => {
+    const res = await fetchRetrying(e, url, { cache: "no-cache" }, firstAttempt);
     if (!res.ok) throw new ModelLoadError(`model card download failed: HTTP ${res.status} for ${url}`);
     const text = await res.text();
     const card = parseCard(JSON.parse(text));
@@ -376,6 +434,11 @@ export async function fetchCard(env: FetchEnv, baseUrl: string): Promise<{ card:
       cache.put(url, new Response(text, { headers: { "content-type": "application/json" } })).catch(() => undefined);
     }
     return { card, fromCache: false };
+  };
+  let netErr: unknown = null;
+  // First one attempt: a failed revalidation falls back to the cached card at once, without waiting for retries.
+  try {
+    return await fromNetwork({ ...env, timers: undefined });
   } catch (e) {
     if (e instanceof ModelUnsupportedError) throw e;
     netErr = e;
@@ -386,6 +449,18 @@ export async function fetchCard(env: FetchEnv, baseUrl: string): Promise<{ card:
       if (hit && hit.ok) return { card: parseCard(await hit.json()), fromCache: true };
     } catch {
       // fall through
+    }
+  }
+  // No cached card: retry transient failures (rate limiting, 5xx, a dropped connection) before giving up. The first
+  // attempt above counts: wait the first delay, then continue the schedule from the second attempt.
+  const timers = env.timers;
+  if (timers && transientFailure(netErr)) {
+    await new Promise<void>((resolve) => timers.setTimeout(resolve, RETRY_DELAYS_MS[0]));
+    try {
+      return await fromNetwork(env, 1);
+    } catch (e) {
+      if (e instanceof ModelUnsupportedError) throw e;
+      netErr = e;
     }
   }
   if (netErr instanceof ModelLoadError) throw netErr;

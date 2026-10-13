@@ -19,7 +19,7 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 **One line covers the whole app.** First in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2"></script>
 ```
 
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`):
@@ -42,7 +42,7 @@ what your app does (see Known limitations). `npx @genclass/runtime init` writes 
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
 > and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-> **Status: `0.2.1`, with model `@genclass/runtime-model@0.2.0`.**
+> **Status: `0.2.2`, with model `@genclass/runtime-model@0.2.0`.**
 >
 > - **The model loads by default.** A default `GenClass.init()` loads `@genclass/runtime-model@0.2.0` (10.2 MB q8,
 >   `genclass-runtime-r17` 2.0.0-rc4t, run `r17-v2dT`, with a gain gate and three aggressiveness profiles) from
@@ -188,7 +188,7 @@ SSR or in Node, `/auto` installs nothing and returns an inert runtime.
 It exposes `window.GenClass`, discovers the app's state like the import does, and loads the model worker, ONNX
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
 overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Pin a version in production
-(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1`); the plain-HTML path of `init` writes a pinned
+(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 
 **4. By hand:**
@@ -544,7 +544,7 @@ GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that ap
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.
 
-URL overrides (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample`) can only lower settings, unless `debug: true` is set. One exception: when you set no `mode`, `?genclass=guard` opts that visitor into guard; set `mode` explicitly to make the URL demote-only.
+URL overrides (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, and `localStorage.genclass`) can only lower settings, unless `debug: true` is set or the page is on a development host (`localhost`, `*.local`, `*.test`, private networks). Since 0.2.2 a link such as `?genclass=guard` can no longer raise a production site that set no `mode` (it stays in `observe`).
 
 ```ts
 import { GenClass } from "@genclass/runtime";
@@ -746,7 +746,7 @@ without `?genclass=off`:
 
 | | cost |
 |---|---|
-| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the `/auto` entry, 98 KB when measured; `GenClass.init()` setups do not load it) |
+| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the `/auto` entry, 98 KB when measured on 0.2.0; `GenClass.init()` setups do not load it) |
 | React commit walk, 4× CPU throttling | p50 0.2 ms, p95 1.8 ms, max 2.1 ms per commit including recording the change; total about 5 ms over the `/order` visit |
 | React commit walk, no throttling, 54 bench trials (about 2,000 commits) | p50 below 0.1 ms (the timer's resolution), p95 0.8 to 0.9 ms, max 3.8 ms |
 | Main-thread JS heap (after GC, 4× throttling) | 5.7 MB vs 5.2 MB without discovery |
@@ -791,6 +791,9 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   build there). The WebGPU build's wasm is 27 MB, over the 25 MiB per-file limit of some static hosts (Cloudflare).
 - The policy also needs `'wasm-unsafe-eval'` in `script-src` (WebAssembly) and `worker-src 'self'` (or `blob:`
   for the script tag).
+- Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
+  `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
+  requests, so the policy logs at most 3 violations.
 
 ## Privacy and telemetry
 
@@ -873,10 +876,12 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   - **SRI covers only the script-tag file.** The model worker, ONNX Runtime glue and overlay it loads from the CDN,
     and the model files, are not integrity-checked by the browser. The runtime checks the model files against the
     sha256 values in `model.json`. Pin a version, or self-host.
-  - **Page configuration is read from every `<meta name="genclass">` in the document**, including the body, and it
-    may set the mode and the model and ONNX Runtime URLs. On a page that renders untrusted HTML which can include
-    `<meta>` tags, set those keys in `window.GENCLASS_CONFIG` (it overrides meta tags), or call
-    `GenClass.init(options)` instead of importing `/auto`.
+  - **Page configuration is read from `<meta name="genclass">` tags in `<head>` only** (since 0.2.2), so markup
+    injected into the body cannot configure GenClass. A meta tag may set the mode; the model and ONNX Runtime URLs it
+    names must be on the page's own origin (relative or same origin), otherwise they are ignored with one warning.
+    Point at a CDN of your own with the script tag's `data-model` / `data-ort`, `window.GENCLASS_CONFIG` (it
+    overrides meta tags) or `GenClass.init(options)`. A page that lets untrusted HTML into `<head>` should not use
+    meta configuration at all.
   - **React Router dev server.** On the very first dev start after `init`, Vite discovers the new imports late,
     re-optimizes and reloads the page, logging a few "Outdated Optimize Dep" errors once. Later loads are clean.
   - **Scaffolds not re-run.** The framework scaffold runs predate this version's `init` / `remove` changes, which

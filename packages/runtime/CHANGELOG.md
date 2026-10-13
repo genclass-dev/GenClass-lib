@@ -37,6 +37,38 @@ hashes (transition profiles of user actions are stored under `user#<hash>`), nev
 not record the runtime's own writes. Before this, user-action learning almost never activated in a default install
 (20 completions of the same action within one page load).
 
+## 0.2.2 (2026-10-13)
+
+- **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
+  `?genclass=guard|heal` and `localStorage.genclass` now only demote, from the app's mode or from `observe` when it
+  sets none (before, they opted a visitor into guard when the app set no mode, so a crafted link could turn on
+  guard-tier actions on a production site). Raising from the URL still works with `debug: true` or on a development
+  host (`localhost`, `*.local`, `*.test`, private networks). The zero-code entries (`/auto`, the script tag) read
+  `<meta name="genclass">` only inside `<head>` (before: anywhere, so markup injected into the body could set the
+  mode and the model URL), and a meta tag's model and onnxruntime-web URLs must be same-origin: a cross-origin one is
+  ignored with one console warning (use `data-model` / `data-ort`, `window.GENCLASS_CONFIG` or `GenClass.init()` for
+  a CDN of your own). THREAT-MODEL T8 updated.
+- **The first decision of a page load has a realistic hold budget, and a late answer is no longer thrown away.**
+  Before any measured decision the budget came from the warm-up pass, a ~430-token situation (49–74 ms on an Apple
+  GPU), so it was the 150 ms floor, while the first real decision measured 137 ms there: 13 ms of margin, and none
+  on a slower GPU. The warm-up time is now scaled by its per-token cost to a typical situation (1,200 tokens, plus
+  the worker round trip): 49 ms warm-up → 234 ms budget. An answer that arrives after a held request's or write's
+  deadline (the queue has moved on and released the subject, as before) was ignored entirely; it is now recorded
+  and reported ("the decision arrived after the hold budget expired"), counts as a latency sample and clears the
+  queue's "stuck" state. A held subject's queued decision whose subject already went its way runs behind fresh ones
+  while decisions are fast (median ≤ 300 ms) rather than being dropped. Deadlines, release timing and the queue's
+  occupancy are unchanged. (Not a fix for a hidden tab: held decisions are skipped there by design.)
+- **Telemetry goes to `https://genclass.dev/api/v1/events`** (the same collector worker, on the project domain instead
+  of a personal workers.dev URL), and **a page stops sending after 3 failed requests in a row**. A strict
+  Content-Security-Policy that does not allow the endpoint (the README's own example did not) logged a violation on
+  every 10 s flush; now it logs at most 3. Allow `https://genclass.dev` in `connect-src` or pass `telemetry: false`.
+  Nothing new is sent.
+- **Model downloads retry transient failures.** The model card and model files are retried on HTTP 408, 429 and 5xx
+  (after 1 s and 3 s, or a numeric `Retry-After` of at most 8 s) and once after a network error. A cached model card
+  is still used at once when the network fails, without waiting. Other statuses (a 404) are never retried. Before,
+  one rate-limited answer from jsDelivr left the page without a model: on the one production deployment, 5 of about
+  65 sessions on 2026-10-11/12 failed with "model card download failed: HTTP 429".
+
 ## 0.2.1 (2026-10-10)
 
 - **Telemetry: no page text by default.** `telemetry.include.situation` now defaults to **false**: decision events

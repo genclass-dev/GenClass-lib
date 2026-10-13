@@ -17,14 +17,14 @@
 
       <figure>
         <div class="frame">
-          <div class="ftitle">Detection on real apps it never trained on</div>
-          <div class="fsub">Model 0.1.0, observe mode, report threshold 0.70, 16,600 held-out situations, precision 0.96</div>
+          <div class="ftitle">Detection on real apps it never trained on (previous model)</div>
+          <div class="fsub">Model 0.1.0, not the shipped one: observe mode, report threshold 0.70, 16,600 held-out situations, precision 0.96</div>
           <div class="hbar"><div class="r"><span>Duplicate submits detected</span><b>76%</b></div><div class="t"><i class="b" style="width: 76%"></i></div></div>
           <div class="hbar"><div class="r"><span>Stale overwrites detected</span><b>43%</b></div><div class="t"><i class="b" style="width: 43%"></i></div></div>
           <div class="hbar"><div class="r"><span>Broken state detected</span><b>27%</b></div><div class="t"><i class="b" style="width: 27%"></i></div></div>
           <div class="hbar"><div class="r"><span>False detections on clean traffic</span><b>0.62%</b></div><div class="t"><i class="o" style="width: 0.62%; min-width: 3px"></i></div></div>
         </div>
-        <figcaption><b>Fig. 2</b> Model 0.1.0 at report threshold 0.70. The shipped model 0.2.0 at its default threshold of 0.90 detects 75% of duplicate submits, 21–30% of stale overwrites and 6% of broken state on the same held-out apps, within its 2% false-detection limit on clean real-app traffic.</figcaption>
+        <figcaption><b>Fig. 2</b> The previous model, 0.1.0, at report threshold 0.70. The shipped model 0.2.0 at its default threshold of 0.90 detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state on the same held-out apps (RESULTS.md §1). Its gates were fitted under a 2% false-detection limit on clean real-app traffic; its measured precision and false-detection rate at 0.90 have not been published.</figcaption>
       </figure>
 
       <figure>
@@ -132,4 +132,16 @@
         </div>
       </div>
       <figcaption><b>Table 2</b> Nothing is healed at the shipped gates: the demos' bug rate is the same with GenClass on or off, and differences under about 5 points are noise. The compatibility matrix says the same: of 250 runs that showed a latent bug without GenClass, guard left 249 and heal 240 buggy. Today the value is in what it reports, not in what it fixes.</figcaption>
+    </figure>
+
+    <figure style="margin-top: 32px" id="false-flags">
+      <div class="frame">
+        <div class="ftitle">Observe mode on correct apps: what you see when nothing is wrong</div>
+        <div class="fsub">False flags are the noise that gets a console reporter muted; here is how much to expect.</div>
+        <div class="hbar"><div class="r"><span>Compatibility matrix, 880 observe-mode runs on correct apps: runs with a false finding (49, 45 of them "work is firing far more often than usual" on the page that polls and fans out)</span><b>5.6%</b></div><div class="t"><i class="o" style="width: 5.6%"></i></div></div>
+        <div class="hbar"><div class="r"><span>Model 0.1.0, held-out real apps: clean decisions flagged, report threshold 0.85 (305 of 8,079)</span><b>3.78%</b></div><div class="t"><i class="o" style="width: 3.78%"></i></div></div>
+        <div class="hbar"><div class="r"><span>The same without one app that was flagged on a single field a quarter of the time</span><b>1.05%</b></div><div class="t"><i class="o" style="width: 1.05%; min-width: 3px"></i></div></div>
+        <div class="hbar"><div class="r"><span>Model 0.1.0, held-out simulated apps: clean decisions flagged, report threshold 0.85 (149 of 10,582)</span><b>1.41%</b></div><div class="t"><i class="o" style="width: 1.41%; min-width: 3px"></i></div></div>
+      </div>
+      <figcaption><b>Table 3</b> Sources: compat/RESULTS.md and the package README's model-quality table. The shipped model 0.2.0 has not been re-measured at its 0.90 threshold. Identical lines within a minute are folded into one with a count; <code>requests.ignore</code> drops traffic you do not want observed and <code>policy.thresholds.report</code> trims the rest.</figcaption>
     </figure>
