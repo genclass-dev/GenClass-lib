@@ -179,15 +179,6 @@ export class DeciderQueue {
     return aging && base < AGED_MAX ? Math.min(AGED_MAX, base + Math.floor(Math.max(0, now - it.t0) / AGING_MS)) : base;
   }
 
-  /** holds(), never throwing (true when it does). */
-  private mayHold(): boolean {
-    try {
-      return this.holds() !== false;
-    } catch {
-      return true;
-    }
-  }
-
   /** Median of the measured decision latencies, else the provider's own estimate (0 when it has none). */
   private typicalMs(p: DecisionProvider): number {
     if (this.lat.length) {
@@ -199,7 +190,7 @@ export class DeciderQueue {
 
   private next(): QueueItem | undefined {
     if (!this.q.length) return undefined;
-    const aging = !this.mayHold();
+    const aging = !this.holds();
     const now = this.clock.now();
     let best = 0;
     for (let i = 1; i < this.q.length; i++) {
@@ -229,7 +220,7 @@ export class DeciderQueue {
       // a superseded item can only be reported: compute it when decisions are fast (it then delays a fresh held
       // item by at most SUPERSEDED_MAX_MS, which the hold logic accounts for), skip it on a slow device, but only
       // where an item can be held (guard, heal): in observe nothing waits behind it, so it is always computed
-      if (this.prio(item) < 0 && this.typicalMs(p) > SUPERSEDED_MAX_MS && this.mayHold()) {
+      if (this.prio(item) < 0 && this.typicalMs(p) > SUPERSEDED_MAX_MS && this.holds()) {
         item.resolve(null);
         continue;
       }

@@ -28,8 +28,7 @@ export function nativeTransportAvailable(): boolean {
  * a 429 without a usable value backs off by the client's own schedule).
  */
 export function retryAfterMs(v: string | null | undefined): number | undefined {
-  if (typeof v !== "string" || !/^\s*\d{1,6}\s*$/.test(v)) return undefined;
-  return Number(v.trim()) * 1000;
+  return typeof v === "string" && /^\s*\d{1,6}\s*$/.test(v) ? Number(v) * 1000 : undefined;
 }
 
 /**
@@ -55,13 +54,8 @@ export const nativeTransport: TelemetryTransport = {
         referrerPolicy: "no-referrer",
         cache: "no-store",
       }).then((r) => {
-        if (r.ok) return;
         // the status, and a Retry-After the collector exposes, decide back-off (429) vs failure (client.ts backoffOf)
-        const e = new Error(`HTTP ${r.status}`) as Error & { status?: number; retryAfterMs?: number };
-        e.status = r.status;
-        const ra = retryAfterMs(r.headers?.get?.("retry-after"));
-        if (ra !== undefined) e.retryAfterMs = ra;
-        throw e;
+        if (!r.ok) throw Object.assign(new Error(`HTTP ${r.status}`), { status: r.status, retryAfterMs: retryAfterMs(r.headers?.get?.("retry-after")) });
       });
     } catch (e) {
       return Promise.reject(e);

@@ -690,8 +690,9 @@ export class TelemetryClient implements TelemetryStatus {
   private backOff(retryAfterMs: number | undefined, batch: Ev[]): void {
     if (this.stopped) return;
     this.backoffs++;
-    const ms = retryAfterMs ?? Math.min(MAX_BACKOFF_MS, BACKOFF_MS * 2 ** Math.min(16, this.backoffs - 1));
-    this.backoffUntil = Math.max(this.backoffUntil, this.rt.clock.now() + Math.min(MAX_BACKOFF_MS * 12, Math.max(0, ms)));
+    // a Retry-After of at most an hour (backoffOf: ≥ 0), else the doubling schedule
+    const ms = retryAfterMs ?? Math.min(MAX_BACKOFF_MS, BACKOFF_MS * 2 ** (this.backoffs - 1));
+    this.backoffUntil = Math.max(this.backoffUntil, this.rt.clock.now() + Math.min(3_600_000, ms));
     const room = Math.max(0, MAX_QUEUE - this.queue.length);
     if (batch.length > room) this.dropped += batch.length - room;
     this.queue.unshift(...batch.slice(0, room));
