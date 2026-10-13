@@ -1,0 +1,12 @@
+{
+  "cases": [
+    { "text": "", "allowed": true },
+    { "text": "User-agent: *\nDisallow: /", "allowed": false },
+    { "text": "User-agent: *\nDisallow:", "allowed": true },
+    { "text": "User-agent: *\nDisallow: /admin\n", "allowed": true },
+    { "text": "User-agent: *\nDisallow: /\n\nUser-agent: genclass-vision\nAllow: /", "allowed": true },
+    { "text": "User-agent: GPTBot\nDisallow: /\n\nUser-agent: *\nAllow: /", "allowed": true },
+    { "text": "User-agent: *\nAllow: /$\nDisallow: /", "allowed": true },
+    { "text": "<!doctype html><html><body>app</body></html>", "allowed": true }
+  ]
+}

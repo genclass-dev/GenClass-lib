@@ -1,0 +1,19 @@
+{
+  "name": "@genclass/vision",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Visual-check training data: URL discovery from Common Crawl, a Playwright crawler that runs a per-element feature extractor, and outside-in fault injection from research/visual/injectors.json. Runs on cluster nodes only; never ships in the npm package.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "discover": "node src/discover.mjs",
+    "crawl": "node src/crawl.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0"
+}

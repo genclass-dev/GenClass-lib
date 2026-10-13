@@ -1,0 +1,9 @@
+{
+  "cases": [
+    { "in": null, "present": 0 },
+    { "in": "width=device-width, initial-scale=1", "present": 1, "deviceWidth": 1, "zoomBlocked": 0 },
+    { "in": "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no", "present": 1, "deviceWidth": 1, "zoomBlocked": 1 },
+    { "in": "width=1024", "present": 1, "deviceWidth": 0, "fixedWidth": 1024, "zoomBlocked": 0 },
+    { "in": "width=device-width; maximum-scale=1.0", "present": 1, "deviceWidth": 1, "zoomBlocked": 1 }
+  ]
+}

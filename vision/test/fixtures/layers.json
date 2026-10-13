@@ -1,0 +1,12 @@
+{
+  "note": "Background layers from the element outwards and the effective background resolveLayers must give (status 0 solid, 1 canvas, 2 image, 3 replaced element, 4 filter, 5 unparsed).",
+  "cases": [
+    { "why": "opaque own background", "layers": [{ "color": [255, 255, 255, 1] }], "rgb": [255, 255, 255], "status": 0 },
+    { "why": "translucent black over white card", "layers": [{ "color": [0, 0, 0, 0.5] }, { "color": [255, 255, 255, 1] }], "rgb": [128, 128, 128], "status": 0 },
+    { "why": "nothing opaque: the canvas", "layers": [{ "color": [0, 0, 0, 0] }, { "color": [0, 0, 0, 0] }], "base": [18, 18, 18, 1], "rgb": [18, 18, 18], "status": 1 },
+    { "why": "gradient on the way down", "layers": [{ "color": [0, 0, 0, 0] }, { "color": [0, 0, 0, 0], "image": true }, { "color": [255, 255, 255, 1] }], "rgb": [255, 255, 255], "status": 2 },
+    { "why": "image below the opaque layer does not matter", "layers": [{ "color": [20, 20, 20, 1] }, { "color": [0, 0, 0, 0], "image": true }], "rgb": [20, 20, 20], "status": 0 },
+    { "why": "backdrop filter glass", "layers": [{ "color": [255, 255, 255, 0.08], "filter": true }, { "color": [15, 23, 42, 1] }], "rgb": [34, 42, 59], "status": 4 },
+    { "why": "unparsed colour", "layers": [{ "color": null }, { "color": [255, 255, 255, 1] }], "rgb": [255, 255, 255], "status": 5 }
+  ]
+}

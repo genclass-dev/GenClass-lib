@@ -1,0 +1,12 @@
+{
+  "note": "Declaration values with var(), the custom properties defined on the element, and what substituteVars gives (null: a reference with no value and no fallback, the CSS 'invalid at computed-value time' case).",
+  "cases": [
+    { "value": "hsl(var(--background))", "defined": { "--background": "0 0% 100%" }, "out": "hsl(0 0% 100%)" },
+    { "value": "hsl(var(--card))", "defined": {}, "out": null },
+    { "value": "var(--accent, #3b82f6)", "defined": {}, "out": "#3b82f6" },
+    { "value": "var(--a, var(--b, red))", "defined": {}, "out": "red" },
+    { "value": "var(--a, var(--b))", "defined": {}, "out": null },
+    { "value": "calc(var(--radius) - 2px)", "defined": { "--radius": "0.5rem" }, "out": "calc(0.5rem - 2px)" },
+    { "value": "hsl(var(--primary))", "defined": { "--primary": "hsl(222 47% 11%)" }, "out": "hsl(hsl(222 47% 11%))", "why": "the double-wrapped v0 token: substitution works, the result is not a valid colour" }
+  ]
+}

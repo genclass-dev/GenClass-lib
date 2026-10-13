@@ -1,0 +1,19 @@
+{
+  "note": "Computed colour strings as Chromium returns them, and the sRGB 0..255 plus alpha they mean. Tailwind v3 hex values; the oklch rows are Tailwind v4 colours (gray-400 and blue-500) as getComputedStyle serialises them.",
+  "cases": [
+    { "in": "rgb(156, 163, 175)", "out": [156, 163, 175, 1] },
+    { "in": "rgba(0, 0, 0, 0)", "out": [0, 0, 0, 0] },
+    { "in": "rgba(255, 255, 255, 0.5)", "out": [255, 255, 255, 0.5] },
+    { "in": "transparent", "out": [0, 0, 0, 0] },
+    { "in": "#3b82f6", "out": [59, 130, 246, 1] },
+    { "in": "#fff8", "out": [255, 255, 255, 0.533] },
+    { "in": "hsl(222.2 47.4% 11.2%)", "out": [15, 23, 42, 1] },
+    { "in": "color(srgb 1 0 0 / 0.5)", "out": [255, 0, 0, 0.5] },
+    { "in": "oklch(0.707 0.022 261.325)", "out": [153, 161, 175, 1] },
+    { "in": "oklch(0.623 0.214 259.815)", "out": [43, 127, 255, 1] },
+    { "in": "lab(50 0 0)", "out": [119, 119, 119, 1] },
+    { "in": "currentcolor", "out": null },
+    { "in": "", "out": null },
+    { "in": "rgb(1, 2)", "out": null }
+  ]
+}

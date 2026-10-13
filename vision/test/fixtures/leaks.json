@@ -1,0 +1,17 @@
+{
+  "note": "Own text of an element and the leak-pattern ids extract.js must report (VISUAL.md 3.9 to 3.11 patterns plus weak values and placeholder contact text).",
+  "cases": [
+    { "text": "Total: $NaN", "ids": ["currency-nan"] },
+    { "text": "[object Object]", "ids": ["object-object"] },
+    { "text": "Hello {{ user.name }}", "ids": ["mustache"] },
+    { "text": "Price ${price}", "ids": ["template-literal"] },
+    { "text": "undefined", "ids": ["weak-undefined"] },
+    { "text": "Lorem ipsum dolor sit amet", "ids": ["lorem"] },
+    { "text": "Itâ€™s here", "ids": ["mojibake"] },
+    { "text": "Tom &amp; Jerry", "ids": ["double-escaped"] },
+    { "text": "Call (555) 555-0123", "ids": ["placeholder-contact"] },
+    { "text": "Updated Invalid Date", "ids": ["invalid-date"] },
+    { "text": "Ship faster with fewer bugs", "ids": [] },
+    { "text": "null pointer exceptions explained", "ids": [] }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "note": "WCAG 2.2 ratios truncated to two decimals, as axe-core and VISUAL.md 2.5 report them. The first rows are the Tailwind pairs CATALOG.md entry 1 cites; the catalog quotes them rounded (2.54, 3.68, 5.17), truncation gives 2.53, 3.67 and 5.16.",
+  "cases": [
+    {
+      "fg": [
+        156,
+        163,
+        175,
+        1
+      ],
+      "bg": [
+        255,
+        255,
+        255
+      ],
+      "ratio": 2.53,
+      "why": "gray-400 on white"
+    },
+    {
+      "fg": [
+        255,
+        255,
+        255,
+        1
+      ],
+      "bg": [
+        59,
+        130,
+        246
+      ],
+      "ratio": 3.67,
+      "why": "white on blue-500"
+    },
+    {
+      "fg": [
+        255,
+        255,
+        255,
+        1
+      ],
+      "bg": [
+        37,
+        99,
+        235
+      ],
+      "ratio": 5.16,
+      "why": "white on blue-600"
+    },
+    {
+      "fg": [
+        107,
+        114,
+        128,
+        1
+      ],
+      "bg": [
+        255,
+        255,
+        255
+      ],
+      "ratio": 4.83,
+      "why": "gray-500 on white"
+    },
+    {
+      "fg": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "bg": [
+        255,
+        255,
+        255
+      ],
+      "ratio": 21,
+      "why": "black on white"
+    },
+    {
+      "fg": [
+        255,
+        255,
+        255,
+        1
+      ],
+      "bg": [
+        255,
+        255,
+        255
+      ],
+      "ratio": 1,
+      "why": "white on white (invisible)"
+    },
+    {
+      "fg": [
+        0,
+        0,
+        0,
+        0.5
+      ],
+      "bg": [
+        255,
+        255,
+        255
+      ],
+      "ratio": 3.97,
+      "why": "half-transparent black composites to #808080"
+    }
+  ]
+}
