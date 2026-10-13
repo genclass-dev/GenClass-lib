@@ -307,14 +307,35 @@ describe("connect: the app in this folder and an app of the account", () => {
     expect(snapshot(dir)).toEqual(before);
   });
 
-  it("--dry-run creates and writes nothing", () => {
+  it("--dry-run reads the app list (GET /api/me), and creates and writes nothing; it says so", () => {
     const dir = viteApp();
     const before = snapshot(dir);
     const r = run(["connect", "--dry-run", "--cwd", dir], { config: signedIn() });
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toContain("dry run: no network");
+    expect(r.out).toContain("dry run: nothing is created");
+    expect(r.out).not.toContain("no network");
     expect(routes(r.calls)).toEqual(["GET /api/me"]);
     expect(snapshot(dir)).toEqual(before);
+    // init --dry-run has no account to read, and sends nothing
+    const init = run(["init", "--dry-run", "--cwd", viteApp()], { config: signedIn() });
+    expect(init.code, init.out).toBe(0);
+    expect(init.out).toContain("dry run: no network");
+    expect(init.calls).toEqual([]);
+  });
+
+  it("never sends a private dashboard link to another host: with GENCLASS_HOST set, a genclass.dev link is not claimed there", () => {
+    const dir = viteApp({ ".gitignore": "node_modules\n" });
+    const made = run(["init", "--yes", "--no-install", "--cwd", dir]); // a genclass.dev private link, as without an account
+    expect(made.code, made.out).toBe(0);
+    expect(readFileSync(join(dir, ".genclass.local"), "utf8")).toContain(`GENCLASS_DASHBOARD=${ANON_LINK}`);
+    const host = "http://localhost:8787";
+    const r = run(["connect", "--yes", "--no-install", "--cwd", dir], { config: signedIn(host), env: { GENCLASS_HOST: host } });
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain(`belongs to https://genclass.dev, not ${host}`);
+    expect(routes(r.calls)).toEqual(["GET /api/me", "POST /api/account/projects"]);
+    expect(r.calls.every((c) => c.url.startsWith(`${host}/`))).toBe(true);
+    const secret = ANON_LINK.split("/").pop()!;
+    expect(JSON.stringify(r.calls)).not.toContain(secret);
   });
 
   it("an existing setup without a token gets the new app's token in place", () => {

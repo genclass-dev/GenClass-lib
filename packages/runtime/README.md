@@ -345,10 +345,10 @@ Inside an app's folder, `login` then asks whether to connect that app; `connect`
 - pick one of your account's apps, or a new one named after `package.json` (`--app <id|name>`, `--name <name>`);
   a new app is created only once you approve the changes;
 - it writes the key the way `init` does (`genclass.config.*`, `data-token` on the script tag, or the Astro meta
-  line), shows the diff and asks first (`--yes`: no questions, `--dry-run`: nothing sent or written), and sets
-  GenClass up first if `init` has not;
+  line), shows the diff and asks first (`--yes`: no questions; `--dry-run`: it reads your app list, and creates and
+  writes nothing), and sets GenClass up first if `init` has not;
 - an app `init` already created without an account (its private link in `.genclass.local`) can be added to your
-  account instead, keeping its key and its data.
+  account instead, keeping its key and its data. The link is only sent to the host it belongs to.
 
 ```
   ✔ Account    you@example.com
@@ -364,7 +364,9 @@ itself `genclass-runtime <version>` (the approval page shows that name and your 
 under it), and polls until you approve it, then reads your account's apps; creating an app sends its name, and
 adding an existing dashboard sends its link from `.genclass.local`. Nothing is sent until you run
 one of these commands (or approve `init`'s changes). The CLI session (`gcs_...`) is a secret: `logout` ends it at
-genclass.dev and deletes the file, and you can revoke it from your account page. What an account stores:
+genclass.dev and deletes the file, and you can revoke it from your account page. A CLI session can read your
+account's apps, create apps, add an app from its private link and end itself; it cannot read stats, end other
+sessions or change how you sign in. What an account stores:
 [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 
 **Without an account:**

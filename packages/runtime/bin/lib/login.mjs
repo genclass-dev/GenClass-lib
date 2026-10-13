@@ -9,7 +9,8 @@
 // question; --yes skips it). An app init made without an account (its private link in .genclass.local) can be added
 // to the account instead of replaced. whoami prints the account and its apps; logout revokes the session at
 // genclass.dev and deletes the file. Running one of these commands is the agreement to contact genclass.dev for it;
-// creating an app or writing a file is asked first.
+// creating an app or writing a file is asked first. A private dashboard link is only ever sent to the host it belongs
+// to: with GENCLASS_HOST set to another host, a genclass.dev link in .genclass.local stays on this computer.
 
 import { spawn } from "node:child_process";
 import { relative } from "node:path";
@@ -57,7 +58,7 @@ logout   ends the CLI session at genclass.dev and deletes the saved file.
   --no-connect     login: do not offer to connect the app in this folder
   --app <id|name>  use this app of your account
   --name <name>    create a new app with this name (default: package.json's name)
-  --dry-run        connect: show what would change; create and write nothing
+  --dry-run        connect: show what would change; it reads your app list, and creates and writes nothing
   --no-install     do not run the package manager (when connect sets GenClass up)
   --cwd <dir>      the project directory (default: the current directory)
 
@@ -84,6 +85,15 @@ const when = (iso) => {
   const d = iso ? new Date(iso) : null;
   if (!d || Number.isNaN(d.getTime())) return null;
   return `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+};
+
+/** Whether `url` (a dashboard link) is on `host` (an origin). */
+const onHost = (url, host) => {
+  try {
+    return new URL(url).origin === host;
+  } catch {
+    return false;
+  }
 };
 
 const sessionGone = () => err(`  ${c.red(sym.cross)} The saved CLI session no longer works (signed out, revoked or expired). Sign in again: ${c.cyan(`${CMD} login`)}`);
@@ -195,13 +205,20 @@ async function connectApp(o, creds, st, me) {
     return init({ ...o, token: current.token }, { banner: false, cmd: "connect", creds, app: current });
   }
 
-  // a dashboard init made without an account: add it to the account, keeping its token and history
-  const claimable = st.token && !current && st.local?.token === st.token && st.local.dashboardUrl && !o.app && !o.name;
+  // a dashboard init made without an account: add it to the account, keeping its token and history. Only on the host
+  // the link belongs to: the link is the dashboard's secret, and a session for another host must not receive it.
+  let claimable = st.token && !current && st.local?.token === st.token && st.local.dashboardUrl && !o.app && !o.name;
+  if (claimable && !onHost(st.local.dashboardUrl, creds.host)) {
+    out(`  ${c.yellow(sym.warn)} The private dashboard link in ${LOCAL_FILE} belongs to ${new URL(st.local.dashboardUrl).origin}, not ${creds.host},`);
+    out(`    so it is not sent there and this app is not added to that account from it.`);
+    out();
+    claimable = false;
+  }
   if (claimable) {
     out(`  This app already has a dashboard made without an account (key ${st.token}; its private link is in ${LOCAL_FILE}).`);
     const ok = o.dryRun ? null : o.yes ? true : await confirm("Add that dashboard to your account? It keeps its key and its data.");
     if (o.dryRun) {
-      out(`  ${c.gray("Dry run: it would be added to your account; nothing was sent.")}`);
+      out(`  ${c.gray("Dry run: it would be added to your account. Only your app list was read; nothing was added or written.")}`);
       out();
       return 0;
     }
@@ -272,7 +289,7 @@ async function connectApp(o, creds, st, me) {
     let token = app?.token;
     if (!token) {
       if (o.dryRun) {
-        out(`  ${c.gray("Dry run: the app would be created; nothing was sent.")}`);
+        out(`  ${c.gray("Dry run: the app would be created. Only your app list was read; nothing was created.")}`);
         out();
         return 0;
       }

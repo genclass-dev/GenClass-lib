@@ -585,7 +585,8 @@ function tokenRow(tk) {
   }
   if (tk.wouldCreate) {
     const where = tk.account ? `, in your account (${accountLabel(tk.account.account)})${tk.chosen ? "" : " if you agree"}` : "";
-    row("Token", `${c.gray(`a new one would be created at genclass.dev${where} (dry run: no network)`)}`);
+    // connect --dry-run has read the account's apps (GET /api/me) to get here; init --dry-run sends nothing
+    row("Token", `${c.gray(`a new one would be created at genclass.dev${where} (dry run: ${tk.chosen ? "nothing is created" : "no network"})`)}`);
     return;
   }
   if (tk.failed) {

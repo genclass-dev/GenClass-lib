@@ -57,12 +57,13 @@ sends.
   with `POST /api/account/projects` only after you approve the diff, and writes the token with init's own edits
   (a setup init made gets it in place; a new one is set up as by init; a hand-written one gets the snippet printed,
   nothing edited). An app init created with a private link can be added to the account instead
-  (`POST /api/account/projects/claim` with the link from `.genclass.local`), keeping its token; when genclass.dev
+  (`POST /api/account/projects/claim` with the link from `.genclass.local`, and only when the link belongs to the
+  host the session is for: with `GENCLASS_HOST` set elsewhere, a genclass.dev link is not sent), keeping its token; when genclass.dev
   refuses (the dashboard belongs to another account, or the link is unknown) `connect` says so and how to give the
   folder a new app instead (`--name`), and changes nothing. An app in an account
   has no secret link, so nothing goes into `.genclass.local` for it. `whoami` prints the account and its apps;
-  `logout` calls `DELETE /api/account/sessions/current` and deletes the file. `--yes` skips the questions,
-  `--dry-run` (connect) sends and writes nothing.
+  `logout` calls `DELETE /api/account/sessions/current` and deletes the file. `--yes` skips the questions;
+  `connect --dry-run` reads the account's app list (`GET /api/me`) and creates and writes nothing.
 - **`init` with a saved session** asks, before anything is sent, whether the new app goes into the account
   (`--yes`: it does; no: a private link as before). Without saved credentials `init` is unchanged. A
   `GENCLASS_HOST` environment variable (an origin; plain http only on loopback hosts) points every command at
@@ -75,10 +76,15 @@ sends.
   (WebAuthn, verified with WebCrypto and no dependencies), Google (OpenID Connect) or GitHub, each provider shown
   only once its client is configured. A Google or GitHub identity joins an existing account only through "Link" on
   `/account` while signed in, never because an email matches. `/account` lists the apps (project key, last event,
-  dashboard link), adds an existing private-link dashboard, and lists passkeys and CLI sessions with Revoke.
+  dashboard link, whether a private link still opens it, with Turn off), adds an existing private-link dashboard
+  (at most 200 apps an account, created or added), lists passkeys, browser sessions and CLI sessions with Revoke and
+  "Sign out everywhere else", and deletes the account. Removing a passkey signs out every other session.
   An app's dashboard in the account (`/account/apps/<id>`) shows a Connect panel until its first event arrives: the
   project key with a copy button, `npx @genclass/runtime login`, the `GenClass.init({ token })`, `data-token` and
-  meta snippets, and a status line that checks every 5 seconds. `/login/device` approves or denies a CLI sign-in.
+  meta snippets, and a status line that checks every 5 seconds; until this release is on npm it says first that
+  keys and `login` are not published yet. `/login/device` approves or denies a CLI sign-in; only a signed-in visitor
+  learns whether a code is live, and only the CLI's own name (`genclass-runtime <version>`) is shown as the
+  requester. A CLI session can read the account's apps, create and add apps and end itself, nothing more.
   Private-link dashboards and `/start` keep working without an account.
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
 - **Cost:** about +1.8 KB gzip on `/auto`: 100.68 KB (98.86 KB in 0.2.2), and the main entry 93.19 KB, minified
