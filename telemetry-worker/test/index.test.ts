@@ -46,6 +46,25 @@ describe("collector", () => {
     expect(broken.puts).toHaveLength(1);
   });
 
+  it("rate limit: the per-session budget is keyed by the batch's sid, checked after validation; the per-IP one first", async () => {
+    const calls: string[] = [];
+    const ok = (name: string, success: boolean) => ({ async limit({ key }: { key: string }) { calls.push(`${name}:${key}`); return { success }; } });
+    const env = { ...bucket(), LIMIT: ok("ip", true), SESSION_LIMIT: ok("sid", false) };
+    const req = post(JSON.stringify(batch()));
+    req.headers.set("cf-connecting-ip", "198.51.100.7");
+    expect((await handle(req, env, opts)).status).toBe(429);
+    expect(env.puts).toHaveLength(0);
+    expect(calls).toEqual(["ip:198.51.100.7", "sid:sid:abcdEFGH12345678"]);
+    // an invalid body never reaches the session limiter
+    calls.length = 0;
+    expect((await handle(post("{}"), env, opts)).status).toBe(400);
+    expect(calls).toEqual(["ip:unknown"]);
+    // within both budgets the batch is stored; a failing session limiter lets it through
+    const fine = { ...bucket(), LIMIT: ok("ip", true), SESSION_LIMIT: { async limit() { throw new Error("down"); } } };
+    expect((await handle(post(JSON.stringify(batch())), fine, opts)).status).toBe(202);
+    expect(fine.puts).toHaveLength(1);
+  });
+
   it("health", async () => {
     const res = await handle(new Request("https://c.example/v1/health"), bucket(), opts);
     expect(res.status).toBe(200);

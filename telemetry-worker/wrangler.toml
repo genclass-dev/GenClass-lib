@@ -36,11 +36,18 @@ name = "CREATE_LIMITER"
 namespace_id = "7301"
 simple = { limit = 10, period = 60 }
 
-# Batches: 60 per 60 s per client IP (the runtime sends at most one every 10 s per page; the IP is never stored).
+# Batches per client IP: 1200 per 60 s, a ceiling for many pages behind one shared address (the runtime sends at most
+# one every 10 s per page; the IP is never stored). The tight budget is per session, below.
 [[ratelimits]]
 name = "LIMIT"
 namespace_id = "4802"
-simple = { limit = 60, period = 60 }
+simple = { limit = 1200, period = 60 }
+
+# Batches per session id (the body's sid): 30 per 60 s; one page sends about 6 a minute.
+[[ratelimits]]
+name = "SESSION_LIMIT"
+namespace_id = "4803"
+simple = { limit = 30, period = 60 }
 
 # Read-only use of the site worker: unknown genclass.dev/start* and /dashboard* paths are handed to it unchanged.
 [[services]]
