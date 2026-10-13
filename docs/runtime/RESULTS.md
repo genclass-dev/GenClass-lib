@@ -468,6 +468,22 @@ n is small (one more clean trial with a finding in about 30). The compat matrix'
 - *CPU on the user's device:* unchanged ceiling, 30 model evaluations a minute (`model.maxDecisionsPerMinute`);
   deferred decisions count against it. Raising it was not measured, so it stays.
 
+**What CI measured on this branch** (GitHub Actions `ci.yml`, run 38471973596, commit `8501528` on
+`wave2/detect-observe`; no model involved, so no recall or false-detection rate applies to these):
+
+| | 0.3.0-beta.0 (§10, run 38465242176) | with this change (run 38471973596) | limit (unchanged) |
+|---|---|---|---|
+| first load, `/auto` | 106.24 KB | 107.66 KB (101.69 + 3.05 + 2.74 + 0.19) | 107.74 KB |
+| first load, main entry `GenClass.init({})` | 98.21 KB | 99.69 KB (93.72 + 3.05 + 2.74 + 0.19) | 99.71 KB |
+| script tag `genclass.global.min.js` | 126.12 KB | 127.63 KB (374.5 KB minified) | none |
+| telemetry hour, all routine (defaults) | 250.3 KB, 163 requests | 252.2 KB, 167 requests (the sampled share follows the random session id) | test fails at 300 KB |
+| telemetry hour, every decision a (likely) detection | 2,067.1 KB, 361 requests | 2,068.5 KB, 361 requests | none |
+| of which 61 `summary` events | 39.3 / 40.8 KB | 40.7 / 42.2 KB (the `possibleDetections` count) | none |
+
+The two first loads grew by 1.42 and 1.48 KB, inside the 1.5 KB the release left; the first CI run (38471360511)
+measured 107.77 / 99.80 KB, over the limits, and the code was trimmed (no behaviour change) rather than the limits
+raised. Unit tests: 889 passed, 14 skipped (the model-parity tests); the telemetry-worker job 24 passed.
+
 **Not yet measured end to end** (needs the owner's OK for the VM or a training node): the false-detection rate of the
 possible tier on the 0.3.0 runtime (compat scenarios c to h and the bench clean trials, observe, default `detect`); the
 exact 0.2.0 report curve (`out/gates/r17-v2dT*-report.json`); and a cold-start run (no `await gc.ready`, default

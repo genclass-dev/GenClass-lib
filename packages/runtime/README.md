@@ -425,7 +425,7 @@ These hold for the runtime; whether the model's decisions are good is a separate
   it changed carry an `x-genclass` header.
 - **Off in one step.** `?genclass=off` in the URL installs nothing, and observe (the default) never changes
   execution.
-- **Small on the main thread.** The main entry is about 98 KB gzip in `0.3.0` (minified, without the optional
+- **Small on the main thread.** The main entry is about 100 KB gzip in `0.3.0` (minified, without the optional
   devtools; 92 KB in `0.2.2`; see Performance). The
   default model is 10.2 MB on WASM (13.6 MB fp16 on WebGPU with `shader-f16`), downloaded once at idle and cached.
   It runs in a worker that holds 190 to 280 MB while loaded: see [Costs](#costs).
@@ -963,17 +963,18 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | Redux-style dispatch on 5,000 entities | about 0.7 ms |
   | settled-point check | 0.3 ms |
 
-- **Bundle:** what every page loads is about 106 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 98 KB for the main entry with `GenClass.init()`, which does not carry discovery: 106.24 KB and
-  98.21 KB in `0.3.0-beta.0`, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38465242176), which
-  keeps them under 107.74 KB and 99.71 KB (the measured sizes plus 1.5 KB). `0.2.2` measured 99.17 KB and 91.70 KB;
-  `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink names' proxy and the
-  learned-state persistence (docs/runtime/RESULTS.md §10). The model worker, ONNX Runtime Web's JavaScript (about
+- **Bundle:** what every page loads is about 108 KB gzip for `@genclass/runtime/auto` with automatic state
+  discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 107.66 KB and
+  99.69 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38471973596), which keeps them under
+  107.74 KB and 99.71 KB (the `0.3.0-beta.0` release build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
+  99.17 KB and 91.70 KB; `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink
+  names' proxy and the learned-state persistence (docs/runtime/RESULTS.md §10), then observe's detection tiers and
+  deferred situations (+1.4 / +1.5 KB, §11). The model worker, ONNX Runtime Web's JavaScript (about
   70 KB gzip for WASM, 115 KB with WebGPU, minified), the devtools, the sink adapters and the opt-in flow
   expectations are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  126 KB gzip (126.12 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
+  128 KB gzip (127.63 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
   its model worker, ONNX Runtime glue and sink adapters load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass
@@ -1005,7 +1006,7 @@ without `?genclass=off`:
 
 | | with GenClass |
 |---|---|
-| JavaScript on every page (first load, gzip) | about +106 KB (`/auto` with discovery; 98 KB for the main entry, see Performance) |
+| JavaScript on every page (first load, gzip) | about +108 KB (`/auto` with discovery; 100 KB for the main entry, see Performance) |
 | Main thread: load event, LCP, long tasks | no measurable change; main JS heap +0.4 MB |
 | **Memory: renderer process (holds the model worker)** | **+190 to 280 MB RSS** while the model is loaded (cold 448 vs 169 MB, warm 361 vs 171 MB) |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build |

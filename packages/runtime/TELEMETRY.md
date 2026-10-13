@@ -119,11 +119,14 @@ by `test/telemetry.test.ts` "an hour at the built-in model's maximum rate": one 
 simulated hour (1,800 decisions from a scripted decider, not the model; situation text off), all bytes of all
 request bodies counted:
 
-| decisions | defaults (`0.3.0-beta.0`, CI run 38465242176) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
+| decisions | defaults (`0.3.0-beta.0`, CI run 38471973596) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
 |---|---|---|
-| all routine | 250.3 KB in 163 requests (which routine decisions are sampled follows the random session id: 249.0 to 250.3 KB in the last three runs) | not measured |
-| every one a detection | 2,067.1 KB in 361 requests: every record (detections are never sampled or capped) | 2,067.1 KB in 361 requests |
-| of which `summary` events | 61 summaries, 39.3 KB (routine) and 40.8 KB (detections) | 61 summaries, 40.8 KB |
+| all routine | 252.2 KB in 167 requests (which routine decisions are sampled follows the random session id: 249.0 to 252.2 KB in the last five runs) | not measured |
+| every one a detection | 2,068.5 KB in 361 requests: every record (detections are never sampled or capped) | 2,068.5 KB in 361 requests |
+| of which `summary` events | 61 summaries, 40.7 KB (routine) and 42.2 KB (detections) | 61 summaries, 42.2 KB |
+
+The summaries are 1.4 KB an hour larger than in CI run 38465242176 (39.3 / 40.8 KB): each carries the new
+`possibleDetections` count. The scripted detections in this test are likely ones, which carry no `tier`.
 
 A page where every decision is a detection sends every record, as `0.2.2` did: the detections are what the
 diagnostics are for. A page whose decisions are routine costs about 40 KB an hour in summaries after the cap, plus
