@@ -16,8 +16,9 @@
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model, onnxruntime-web
-// and webhook sink URLs it names must be same-origin (relative, or on the page's own origin): a cross-origin model,
-// ORT or `sink=webhook:<url>` URL is ignored with one warning. Cross-origin URLs (a CDN or a collector of your own) go
+// and webhook sink URLs it names must be same-origin, resolved as the browser resolves them (against the page and
+// document.baseURI, by the WHATWG parser: `/\host` is another host): a cross-origin model, ORT or
+// `sink=webhook:<url>` URL is ignored with one warning. Cross-origin URLs (a CDN or a collector of your own) go
 // in the script tag's data-* attributes, window.GENCLASS_CONFIG or GenClass.init(options). The URL switch
 // (`?genclass=guard`) can no longer raise the mode of a production site (index.ts).
 //
@@ -156,18 +157,25 @@ interface MetaRoot {
 interface DocLike extends MetaRoot {
   /** Only meta tags under <head> are read; a document-like object without `head` is searched whole (tests). */
   head?: MetaRoot | null;
+  /** document.baseURI: a URL a meta tag names must stay same-origin against it too (sameOriginUrl). */
+  baseURI?: string;
 }
 
-/** Whether `url` (as written in a meta tag) resolves to the page's own origin. Relative URLs are same-origin. */
-export function sameOriginUrl(url: string, loc: { href?: string; origin?: string } | null | undefined): boolean {
+/**
+ * Whether `url` (as written in a meta tag) resolves to the page's own origin, resolved as the browser resolves it:
+ * against `baseURI` (document.baseURI, which fetch and sendBeacon use, so an injected `<base href>` counts) and against
+ * the page location, both of which must stay on the page's origin. The WHATWG parser decides, so a backslash
+ * (`/\host/x`) or a tab inside `//host` is another host, not a path. Without a page location only a path counts.
+ */
+export function sameOriginUrl(url: string, loc: { href?: string; origin?: string } | null | undefined, baseURI?: string | null): boolean {
   const v = url.trim();
   if (!v) return true;
-  if (v.startsWith("//")) return false; // protocol-relative: another host
-  if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) return true; // no scheme: a path on this origin
   try {
-    const base = loc?.href;
-    const origin = loc?.origin ?? (base ? new URL(base).origin : undefined);
-    return !!origin && new URL(v, base).origin === origin;
+    const href = loc?.href;
+    const origin = loc?.origin ?? (href ? new URL(href).origin : undefined);
+    if (!origin) return new URL(v, "http://genclass.invalid/").origin === "http://genclass.invalid";
+    for (const b of [baseURI, href ?? `${origin}/`]) if (b && new URL(v, b).origin !== origin) return false;
+    return true;
   } catch {
     return false;
   }
@@ -187,13 +195,14 @@ export function readMetaConfig(
     const metas = root?.querySelectorAll?.('meta[name="genclass"]');
     for (let i = 0; metas && i < metas.length; i++) c = mergeConfig(c, fromPairs(parsePairs(metas[i].getAttribute("content"))));
     const dropped: string[] = [];
+    const same = (u: string) => sameOriginUrl(u, o.location, doc?.baseURI);
     const m = c.model;
     if (m && typeof m === "object") {
-      if (typeof m.baseUrl === "string" && !sameOriginUrl(m.baseUrl, o.location)) {
+      if (typeof m.baseUrl === "string" && !same(m.baseUrl)) {
         dropped.push(`model=${m.baseUrl}`);
         delete m.baseUrl;
       }
-      if (typeof m.ortWasmPaths === "string" && !sameOriginUrl(m.ortWasmPaths, o.location)) {
+      if (typeof m.ortWasmPaths === "string" && !same(m.ortWasmPaths)) {
         dropped.push(`ort=${m.ortWasmPaths}`);
         delete m.ortWasmPaths;
       }
@@ -203,7 +212,7 @@ export function readMetaConfig(
     if (c.sinks)
       c.sinks = c.sinks.filter((s) => {
         const u = typeof s === "string" ? webhookUrl(s) : undefined;
-        if (!u || sameOriginUrl(u, o.location)) return true;
+        if (!u || same(u)) return true;
         dropped.push(`sink=${s}`);
         return false;
       });

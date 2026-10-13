@@ -5,7 +5,7 @@
 // meta tag).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveSinks } from "../src/cdn/auto-start.js";
-import { fromDataset, fromPairs, mergeConfig, parsePairs, readMetaConfig, splitConfig } from "../src/cdn/config.js";
+import { fromDataset, fromPairs, mergeConfig, parsePairs, readMetaConfig, sameOriginUrl, splitConfig } from "../src/cdn/config.js";
 import { SINK_NAMES, fanout, parseSinkSpec, type SinkLoader, type SinkModule } from "../src/cdn/sinks-fanout.js";
 import { loadSink, resolve as resolveLazy } from "../src/cdn/sinks-load.js";
 import { applySinks, namedSinks, parseSinkList, webhookUrl, type SinkResolver } from "../src/cdn/sinks.js";
@@ -40,7 +40,13 @@ describe("sink names (cdn/sinks-fanout.ts, cdn/sinks.ts)", () => {
     expect(parseSinkSpec("")).toBeNull();
     expect(parseSinkSpec(42)).toBeNull();
     expect(parseSinkSpec(null)).toBeNull();
-    expect(parseSinkSpec("sentry:x")).toEqual({ name: "sentry", arg: "x" });
+    // the tool names take one option, evidence / noevidence; anything else is not a sink (one "unknown sink" warning)
+    expect(parseSinkSpec("sentry:noevidence")).toEqual({ name: "sentry", evidence: false });
+    expect(parseSinkSpec("posthog=no-evidence")).toEqual({ name: "posthog", evidence: false });
+    expect(parseSinkSpec("console-json:NoEvidence")).toEqual({ name: "console-json", evidence: false });
+    expect(parseSinkSpec("datadog:evidence")).toEqual({ name: "datadog", evidence: true });
+    expect(parseSinkSpec("sentry:x")).toBeNull();
+    expect(parseSinkSpec("sentry:")).toEqual({ name: "sentry" });
   });
 
   it("parseSinkList splits on commas, plus signs and spaces; webhookUrl reads webhook:<url> / webhook=<url>", () => {
@@ -94,6 +100,25 @@ describe("sink names (cdn/sinks-fanout.ts, cdn/sinks.ts)", () => {
     expect(ok).toEqual([]);
     // off still clears
     expect(readMetaConfig(head("sink=off"), { location: loc })).toEqual({ sinks: [] });
+    // the browser's URL parser decides, not a prefix check: a backslash or a tab inside "//" is another host
+    for (const far of ["/\\evil.example/c", "\\\\evil.example/c", "\\/evil.example/c", "HTTPS://evil.example/c"]) {
+      const w: string[] = [];
+      expect(readMetaConfig(head(`sink=webhook:${far}`), { location: loc, warn: (m) => w.push(m) }), JSON.stringify(far)).toEqual({ sinks: [] });
+      expect(w, JSON.stringify(far)).toHaveLength(1);
+    }
+    for (const far of ["/\\evil.example/c", "\\\\evil.example/c", "\\/evil.example/c", "HTTPS://evil.example/c", "/\t/evil.example/c", " //evil.example/c", "//evil.example/c"]) {
+      expect(sameOriginUrl(far, loc), JSON.stringify(far)).toBe(false);
+      expect(sameOriginUrl(far, null), JSON.stringify(far)).toBe(false);
+    }
+    // an injected <base href> moves where fetch and sendBeacon resolve a path: checked against document.baseURI too
+    const based = (content: string, baseURI: string) => ({ baseURI, head: { querySelectorAll: () => [tag(content)] } });
+    expect(readMetaConfig(based("sink=webhook:c+sentry", "https://evil.example/"), { location: loc })).toEqual({ sinks: ["sentry"] });
+    expect(readMetaConfig(based("model=m/, device=wasm", "https://evil.example/"), { location: loc })).toEqual({ model: { device: "wasm" } });
+    expect(readMetaConfig(based("sink=webhook:c", "https://shop.example/app/"), { location: loc })).toEqual({ sinks: ["webhook:c"] });
+    expect(sameOriginUrl("c", loc, "https://evil.example/")).toBe(false);
+    expect(sameOriginUrl("c", loc, "https://shop.example/app/")).toBe(true);
+    expect(sameOriginUrl("/genclass", { origin: "https://shop.example" })).toBe(true);
+    expect(sameOriginUrl("/genclass", null)).toBe(true);
     // the script tag's data-* and GENCLASS_CONFIG are the author's own: any origin
     expect(fromDataset({ sink: "webhook:https://hooks.example/g" })).toEqual({ sinks: ["webhook:https://hooks.example/g"] });
   });
@@ -105,9 +130,9 @@ describe("namedSinks: the one proxy the names become (first load)", () => {
     const resolve = vi.fn<SinkResolver>(() => new Promise<SinkObject>((r) => (done = r)));
     const send = vi.fn();
     const warn = vi.fn();
-    const s = namedSinks(["sentry", "webhook:/g"], resolve, warn, {});
+    const s = namedSinks(["sentry", "webhook:/g"], resolve, warn);
     expect(s.evidence).toBe(true);
-    expect(resolve).not.toHaveBeenCalled(); // no requestIdleCallback here: loads on the first record
+    expect(resolve).not.toHaveBeenCalled(); // loads on the first record
     s.send(rec());
     s.send(rec({ id: "r2", kind: "summary" }));
     expect(resolve).toHaveBeenCalledTimes(1);
@@ -123,25 +148,27 @@ describe("namedSinks: the one proxy the names become (first load)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("starts loading at idle when requestIdleCallback exists; a throwing requestIdleCallback is contained", () => {
-    const ric = vi.fn();
+  it("loads nothing before the first record, not even at idle: a page with ?genclass=off, or that never reports, fetches no adapter", async () => {
     const resolve = vi.fn<SinkResolver>(() => Promise.resolve({ send: vi.fn() }));
-    namedSinks(["sentry"], resolve, vi.fn(), { requestIdleCallback: ric });
-    expect(ric).toHaveBeenCalledTimes(1);
+    const s = namedSinks(["sentry"], resolve, vi.fn());
+    await drain();
     expect(resolve).not.toHaveBeenCalled();
-    (ric.mock.calls[0][0] as () => void)();
-    expect(resolve).toHaveBeenCalledTimes(1);
-    const boom = () => {
-      throw new Error("x");
-    };
-    const s = namedSinks(["sentry"], resolve, vi.fn(), { requestIdleCallback: boom });
+    await s.flush!();
+    expect(resolve).not.toHaveBeenCalled();
     s.send(rec());
-    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(resolve).toHaveBeenCalledTimes(1);
+    // through applySinks with a page that has requestIdleCallback: still nothing until a record
+    const ric = vi.fn();
+    const lazy = vi.fn<SinkResolver>(() => Promise.resolve({ send: vi.fn() }));
+    applySinks({}, ["sentry"], lazy, vi.fn(), { requestIdleCallback: ric, location: { href: "https://shop.example/" } });
+    await drain();
+    expect(ric).not.toHaveBeenCalled();
+    expect(lazy).not.toHaveBeenCalled();
   });
 
   it("a resolver that rejects or throws: one warning, records dropped, never throws; at most 200 records wait", async () => {
     const warn = vi.fn();
-    const s = namedSinks(["datadog"], () => Promise.reject(new Error("404")), warn, {});
+    const s = namedSinks(["datadog"], () => Promise.reject(new Error("404")), warn);
     s.send(rec());
     await drain();
     expect(warn).toHaveBeenCalledTimes(1);
@@ -155,7 +182,6 @@ describe("namedSinks: the one proxy the names become (first load)", () => {
         throw new Error("sync");
       },
       warn,
-      {},
     );
     expect(() => t.send(rec())).not.toThrow();
     await drain();
@@ -163,7 +189,7 @@ describe("namedSinks: the one proxy the names become (first load)", () => {
     // the queue is capped while the adapters load
     let done!: (s: SinkObject) => void;
     const send = vi.fn();
-    const u = namedSinks(["sentry"], () => new Promise<SinkObject>((r) => (done = r)), warn, {});
+    const u = namedSinks(["sentry"], () => new Promise<SinkObject>((r) => (done = r)), warn);
     for (let i = 0; i < 250; i++) u.send(rec({ id: `q${i}` }));
     done({ send });
     await drain();
@@ -174,7 +200,7 @@ describe("namedSinks: the one proxy the names become (first load)", () => {
     let done!: (s: SinkObject) => void;
     const flush = vi.fn(() => Promise.resolve());
     const send = vi.fn();
-    const s = namedSinks(["webhook:/g"], () => new Promise<SinkObject>((r) => (done = r)), vi.fn(), {});
+    const s = namedSinks(["webhook:/g"], () => new Promise<SinkObject>((r) => (done = r)), vi.fn());
     s.send(rec());
     let flushed = false;
     const p = s.flush!().then(() => (flushed = true));
@@ -185,7 +211,7 @@ describe("namedSinks: the one proxy the names become (first load)", () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(flush).toHaveBeenCalledTimes(1);
     const idle = vi.fn<SinkResolver>();
-    await namedSinks(["sentry"], idle, vi.fn(), {}).flush!();
+    await namedSinks(["sentry"], idle, vi.fn()).flush!();
     expect(idle).not.toHaveBeenCalled();
   });
 });
@@ -216,6 +242,22 @@ describe("fanout: the names' adapters as one sink (lazy)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("<name>:noevidence makes its adapter with evidence: false (the no-code forms can turn the evidence off); the real adapter then gets none", async () => {
+    const opts: unknown[] = [];
+    const load = vi.fn<SinkLoader>(() => Promise.resolve({ default: (o?: unknown) => (opts.push(o), { send: vi.fn() }) }));
+    await fanout(["sentry:noevidence", "posthog:evidence", "sentry", "sentry:noevidence"], load, vi.fn());
+    expect(opts).toEqual([{ evidence: false }, { evidence: true }, {}]);
+    const fake = { captureMessage: vi.fn() };
+    const real: SinkLoader = () => Promise.resolve({ default: (o?: Record<string, unknown>) => sentry({ ...(o ?? {}), sentry: fake }) });
+    const s = await fanout(["sentry:noevidence"], real, vi.fn());
+    s.send(rec());
+    expect(fake.captureMessage).toHaveBeenCalledTimes(1);
+    const [message, ctx] = fake.captureMessage.mock.calls[0] as [string, { extra: { genclass: Record<string, unknown> } }];
+    expect(message).toBe("[GenClass] detection: stale");
+    expect(ctx.extra.genclass.message).toBeUndefined();
+    expect(ctx.extra.genclass.diagnosis).toBe("stale");
+  });
+
   it("an unknown name or an adapter that cannot load is one warning each; the others still get records; a throwing adapter is contained", async () => {
     const good = vi.fn();
     const load: SinkLoader = (name) => {
@@ -234,7 +276,7 @@ describe("fanout: the names' adapters as one sink (lazy)", () => {
     const warn = vi.fn();
     const s = await fanout(["bogus", "datadog", "console-json", "webhook:/g", "posthog"], load, warn);
     expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([
-      expect.stringMatching(/unknown sink "bogus" \(the names are sentry, posthog, datadog, console-json and webhook:<url>\); ignored/),
+      expect.stringMatching(/unknown sink "bogus" \(the names are sentry, posthog, datadog, console-json, each optionally :noevidence, and webhook:<url>\); ignored/),
       expect.stringMatching(/sink "datadog" could not load \(404\)/),
       expect.stringMatching(/sink "console-json" could not load \(not a sink\)/),
     ]);
@@ -292,7 +334,16 @@ describe("applySinks: page config → InitOptions", () => {
     expect(out.sinks![0]).toBe(fn);
     expect(out.sinks![1]).toBe(obj);
     expect(typeof (out.sinks![2] as SinkObject).send).toBe("function");
-    expect(out.requests!.ignore).toEqual(["/x", "/genclass"]);
+    // without a page (no base URL) the webhook's path is matched exactly, whatever the origin and query
+    const ig = out.requests!.ignore!;
+    expect(ig.length).toBe(2);
+    expect(ig[0]).toBe("/x");
+    const m = ig[1] as (r: { url: string; method: string; channel: "fetch" }) => boolean;
+    const at = (url: string) => m({ url, method: "POST", channel: "fetch" });
+    expect(at("http://app.test/genclass")).toBe(true);
+    expect(at("http://app.test/genclass?k=v")).toBe(true);
+    expect(at("http://app.test/genclassx")).toBe(false);
+    expect(at("http://app.test/genclass/x")).toBe(false);
     expect(init.requests.ignore).toEqual(["/x"]); // the input is not mutated
     expect(warn).not.toHaveBeenCalled(); // an unknown name warns once the resolver has loaded (it holds the name table)
     // no webhook: requests untouched; no list: the same object back
@@ -302,6 +353,49 @@ describe("applySinks: page config → InitOptions", () => {
     expect(applySinks(same, [], resolve, warn, {})).toBe(same);
     expect(applySinks(same, "sentry" as never, resolve, warn, {})).toBe(same);
     expect(applySinks(same, [" "], resolve, warn, {}).sinks).toEqual([]);
+  });
+
+  it("a webhook URL is made absolute at init (against document.baseURI, else the location) and only its own endpoint is ignored", () => {
+    const names: string[][] = [];
+    const capture: SinkResolver = (n) => (names.push(n), Promise.resolve({ send: vi.fn() }));
+    const page = { location: { href: "https://shop.example/products/1" } };
+    const out = applySinks({}, ["webhook:/collect", "webhook:hooks/g?k=v", "webhook:https://hooks.example/in", "sentry"], capture, vi.fn(), page);
+    (out.sinks![0] as SinkObject).send(rec());
+    expect(names[0]).toEqual(["webhook:https://shop.example/collect", "webhook:https://shop.example/products/hooks/g?k=v", "webhook:https://hooks.example/in", "sentry"]);
+    const ig = out.requests!.ignore! as ((r: { url: string; method: string; channel: "fetch" }) => boolean)[];
+    expect(ig.length).toBe(3);
+    const ignored = (url: string) => ig.some((f) => f({ url, method: "POST", channel: "fetch" }));
+    expect(ignored("https://shop.example/collect")).toBe(true);
+    expect(ignored("https://shop.example/collect?x=1#y")).toBe(true);
+    expect(ignored("https://shop.example/products/hooks/g")).toBe(true);
+    expect(ignored("https://hooks.example/in")).toBe(true);
+    // never a sibling of the app's: webhook:/collect does not hide /collections, nor another origin's /collect
+    expect(ignored("https://shop.example/collections/1")).toBe(false);
+    expect(ignored("https://shop.example/collect/more")).toBe(false);
+    expect(ignored("https://other.example/collect")).toBe(false);
+    expect(ignored("https://shop.example/in")).toBe(false);
+    // document.baseURI wins over the location (what sendBeacon and fetch use), and a later <base> cannot move it
+    const based: string[][] = [];
+    applySinks({}, ["webhook:c"], (n) => (based.push(n), Promise.resolve({ send: vi.fn() })), vi.fn(), { document: { baseURI: "https://shop.example/app/" }, ...page }).sinks!.forEach((s) =>
+      (s as SinkObject).send(rec()),
+    );
+    expect(based[0]).toEqual(["webhook:https://shop.example/app/c"]);
+  });
+
+  it("through the runtime: webhook:/collect leaves /collections observed and its own POSTs unobserved", async () => {
+    const init = applySinks({}, ["webhook:/collect"], resolve, vi.fn(), { location: { href: "http://app.test/search" } });
+    const s = setup({ ...init, triage: "always" });
+    s.server.on("GET", "/collections/1", { body: [1], latency: 5 });
+    s.server.on("POST", "/collect", { status: 204, latency: 1 });
+    const a = s.fetch("/collections/1").catch(() => undefined);
+    const b = s.fetch("/collect", { method: "POST", body: "{}" }).catch(() => undefined);
+    await s.clock.advance(2000);
+    await Promise.all([a, b]);
+    await s.clock.advance(10);
+    expect(s.server.log.map((e) => `${e.method} ${e.path}`)).toEqual(expect.arrayContaining(["GET /collections/1", "POST /collect"]));
+    const seen = JSON.stringify(s.rt.history());
+    expect(seen).toContain("GET /collections"); // the request's op (its signature: /collections/:id)
+    expect(seen).not.toMatch(/\/collect(?![a-z])/);
   });
 
   it("through the runtime: a named sink delivers an intervention to Sentry once its adapter has loaded", async () => {

@@ -3,7 +3,8 @@
 //
 // Never in the first load of /auto (it is reached through cdn/sinks-load.ts, a lazy chunk); the script tag carries it
 // and loads the adapters themselves from the CDN (dist/sinks/<name>.js). Every adapter is made with its own options
-// (a webhook gets its URL) and gets the records it asks for: its `kinds`, and the evidence only with `evidence`.
+// (a webhook gets its URL; `sentry:noevidence` gets `evidence: false`) and gets the records it asks for: its `kinds`,
+// and the evidence only with `evidence`.
 // Never throws: an unknown name or an adapter that cannot load is one warning each, and the others still work.
 
 import type { SinkObject, SinkRecord } from "../types.js";
@@ -15,6 +16,8 @@ export interface SinkSpec {
   name: SinkName;
   /** webhook: the URL. */
   arg?: string;
+  /** `<name>:noevidence` → false (the structured fields only), `<name>:evidence` → true; else the adapter's default. */
+  evidence?: boolean;
 }
 
 /** A module of @genclass/runtime/sinks/<name>: its default export makes the sink (each takes its own options type). */
@@ -25,16 +28,21 @@ export interface SinkModule {
 /** Loads the adapter module of a name: a lazy chunk for /auto (cdn/sinks-load.ts), dist/sinks/<name>.js from the CDN for the script tag. */
 export type SinkLoader = (name: SinkName) => Promise<SinkModule>;
 
-/** "sentry" | "console-json" | "webhook:/genclass" | "webhook=https://…" → spec; null for anything else. */
+/**
+ * "sentry" | "console-json" | "posthog:noevidence" | "webhook:/genclass" | "webhook=https://…" → spec; null for
+ * anything else (an unknown name, a webhook without a URL, an option other than evidence / noevidence).
+ */
 export function parseSinkSpec(s: unknown): SinkSpec | null {
   if (typeof s !== "string") return null;
   const m = /^\s*([A-Za-z][\w-]*)\s*(?:[:=]\s*(.*?))?\s*$/.exec(s);
   if (!m) return null;
-  const name = m[1].toLowerCase().replace(/[_\s]/g, "-").replace(/^consolejson$/, "console-json");
+  const name = m[1].toLowerCase().replace(/[_\s]/g, "-").replace(/^consolejson$/, "console-json") as SinkName;
   if (!(SINK_NAMES as readonly string[]).includes(name)) return null;
   const arg = m[2]?.trim();
-  if (name === "webhook" && !arg) return null;
-  return arg ? { name: name as SinkName, arg } : { name: name as SinkName };
+  if (name === "webhook") return arg ? { name, arg } : null;
+  if (!arg) return { name };
+  const opt = arg.toLowerCase().replace(/[-_\s]/g, "");
+  return opt === "noevidence" ? { name, evidence: false } : opt === "evidence" ? { name, evidence: true } : null;
 }
 
 function stripEvidence(r: SinkRecord): SinkRecord {
@@ -54,17 +62,17 @@ export async function fanout(names: string[], load: SinkLoader, warn: (message: 
   for (const s of names) {
     const spec = parseSinkSpec(s);
     if (!spec) {
-      warn(`unknown sink "${s}" (the names are sentry, posthog, datadog, console-json and webhook:<url>); ignored.`);
+      warn(`unknown sink "${s}" (the names are sentry, posthog, datadog, console-json, each optionally :noevidence, and webhook:<url>); ignored.`);
       continue;
     }
-    const key = `${spec.name}:${spec.arg ?? ""}`;
+    const key = `${spec.name}:${spec.arg ?? ""}:${spec.evidence ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     jobs.push(
       (async () => {
         try {
           const m = await load(spec.name);
-          const t = m.default(spec.name === "webhook" ? { url: spec.arg } : {});
+          const t = m.default(spec.name === "webhook" ? { url: spec.arg } : spec.evidence === undefined ? {} : { evidence: spec.evidence });
           if (!t || typeof t.send !== "function") throw new Error("not a sink");
           return t;
         } catch (e) {
