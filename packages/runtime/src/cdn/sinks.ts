@@ -83,42 +83,57 @@ export function namedSinks(names: string[], resolve: SinkResolver, warn: (messag
  * (GenClass.init checks them), blanks are skipped. A webhook URL is made absolute against `g`'s document.baseURI (else
  * its location) and its endpoint joins `requests.ignore` as an exact match (origin and path). Returns `init` unchanged
  * when the list is empty or not a list. An unknown name warns once the resolver has loaded.
+ *
+ * Total: in /auto this runs while the app's entry module is being evaluated, before GenClass.init's own guard, so it
+ * never throws. A `requests.ignore` that is not a list (one RegExp by mistake) stays as the page wrote it, for
+ * GenClass.init to report as it would without sinks; any other failure is one warning and `init` back.
  */
 export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolver, warn: (message: string) => void, g: Record<string, unknown> = globalThis as never): InitOptions {
-  if (!Array.isArray(list) || !list.length) return init;
-  const sinks: Sink[] = [];
-  const names: string[] = [];
-  const ignore: NonNullable<NonNullable<InitOptions["requests"]>["ignore"]> = [];
-  let base: string | undefined;
   try {
-    base = (g.document as { baseURI?: string } | undefined)?.baseURI ?? (g.location as { href?: string } | undefined)?.href;
-  } catch {
-    /* no page: paths only */
-  }
-  // origin + path of a URL against the page (the path only without one); "" when it does not parse
-  const endpoint = (u: string): string => {
+    if (!Array.isArray(list) || !list.length) return init;
+    const sinks: Sink[] = [];
+    const names: string[] = [];
+    const ignore: NonNullable<NonNullable<InitOptions["requests"]>["ignore"]> = [];
+    let base: string | undefined;
     try {
-      const x = new URL(u, base ?? "http://genclass.invalid/");
-      return (base ? x.origin : "") + x.pathname;
+      base = (g.document as { baseURI?: string } | undefined)?.baseURI ?? (g.location as { href?: string } | undefined)?.href;
     } catch {
-      return "";
+      /* no page: paths only */
     }
-  };
-  for (const s of list) {
-    if (typeof s === "string") {
-      let v = s.trim();
-      if (!v) continue;
-      const u = webhookUrl(v);
-      const key = u ? endpoint(u) : "";
-      if (key) {
-        if (base) v = `webhook:${new URL(u!, base).href}`;
-        ignore.push((r: { url: string }) => endpoint(r.url) === key);
+    // origin + path of a URL against the page (the path only without one); "" when it does not parse
+    const endpoint = (u: string): string => {
+      try {
+        const x = new URL(u, base ?? "http://genclass.invalid/");
+        return (base ? x.origin : "") + x.pathname;
+      } catch {
+        return "";
       }
-      names.push(v);
-    } else if (s) sinks.push(s as Sink);
+    };
+    for (const s of list) {
+      if (typeof s === "string") {
+        let v = s.trim();
+        if (!v) continue;
+        const u = webhookUrl(v);
+        const key = u ? endpoint(u) : "";
+        if (key) {
+          if (base) v = `webhook:${new URL(u!, base).href}`;
+          ignore.push((r: { url: string }) => endpoint(r.url) === key);
+        }
+        names.push(v);
+      } else if (s) sinks.push(s as Sink);
+    }
+    if (names.length) sinks.push(namedSinks(names, resolve, warn));
+    const out: InitOptions = { ...init, sinks };
+    // an ignore that is not a list (one RegExp by mistake) stays as written: GenClass.init reports it, sinks or not
+    const prev = init.requests?.ignore;
+    if (ignore.length && Array.isArray(prev ?? [])) out.requests = { ...init.requests, ignore: [...(prev ?? []), ...ignore] };
+    return out;
+  } catch (e) {
+    try {
+      warn(`sinks could not load (${(e as Error)?.message ?? e}); their records are dropped.`);
+    } catch {
+      /* never into the app */
+    }
+    return init;
   }
-  if (names.length) sinks.push(namedSinks(names, resolve, warn));
-  const out: InitOptions = { ...init, sinks };
-  if (ignore.length) out.requests = { ...init.requests, ignore: [...(init.requests?.ignore ?? []), ...ignore] };
-  return out;
 }

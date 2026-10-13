@@ -9,8 +9,9 @@ import { fromDataset, fromPairs, mergeConfig, parsePairs, readMetaConfig, sameOr
 import { SINK_NAMES, fanout, parseSinkSpec, type SinkLoader, type SinkModule } from "../src/cdn/sinks-fanout.js";
 import { loadSink, resolve as resolveLazy } from "../src/cdn/sinks-load.js";
 import { applySinks, namedSinks, parseSinkList, webhookUrl, type SinkResolver } from "../src/cdn/sinks.js";
+import { GenClass } from "../src/index.js";
 import { sentry } from "../src/sinks/sentry.js";
-import type { SinkObject, SinkRecord } from "../src/types.js";
+import type { InitOptions, SinkObject, SinkRecord } from "../src/types.js";
 import { defaultScript, drain, setup } from "./helpers.js";
 
 const DELAY = defaultScript({ request: { diagnosis: "overload", action: "delay" } });
@@ -353,6 +354,51 @@ describe("applySinks: page config → InitOptions", () => {
     expect(applySinks(same, [], resolve, warn, {})).toBe(same);
     expect(applySinks(same, "sentry" as never, resolve, warn, {})).toBe(same);
     expect(applySinks(same, [" "], resolve, warn, {}).sinks).toEqual([]);
+  });
+
+  it("never throws, though /auto runs it before GenClass.init's guard: an ignore that is not a list stays as written; anything else is one warning", () => {
+    const warn = vi.fn();
+    for (const ignore of [/\/beacon/, () => true, "/beacon"]) {
+      const init = { requests: { ignore: ignore as never } };
+      let out: InitOptions | undefined;
+      expect(() => (out = applySinks(init, ["webhook:/genclass", "sentry"], resolve, warn, {}))).not.toThrow();
+      // left as the page wrote it: GenClass.init reports it, with sinks or without, and the app runs on without GenClass
+      expect(out!.requests!.ignore).toBe(ignore);
+      expect(out!.sinks!.length).toBe(1);
+    }
+    expect(warn).not.toHaveBeenCalled();
+    GenClass.destroy();
+    const gwarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const rt = GenClass.init(applySinks({ telemetry: false, model: false, report: "silent", requests: { ignore: /\/beacon/ as never } }, ["webhook:/genclass"], resolve, warn, {}));
+      expect(rt).toBeTruthy();
+      expect(gwarn.mock.calls.some((c) => /^\[GenClass\] Could not start \(.*\); running without it\.$/.test(String(c[0])))).toBe(true);
+    } finally {
+      GenClass.destroy();
+    }
+    // a page config that throws when read: one warning, and `init` without the page-config sinks
+    const hostile = {
+      mode: "observe" as const,
+      get requests(): never {
+        throw new Error("boom");
+      },
+    } as InitOptions;
+    expect(applySinks(hostile, ["webhook:/genclass"], resolve, warn, {})).toBe(hostile);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toBe("sinks could not load (boom); their records are dropped.");
+    // a list that throws while it is read, and a warn that throws too: still nothing escapes
+    const bad = new Proxy(["sentry"], {
+      get(t, k) {
+        if (k === Symbol.iterator) throw new Error("no");
+        return Reflect.get(t, k);
+      },
+    });
+    const thrower = () => {
+      throw new Error("x");
+    };
+    expect(applySinks(hostile, bad, resolve, thrower, {})).toBe(hostile);
+    expect(applySinks({}, bad, resolve, warn, {})).toEqual({});
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 
   it("a webhook URL is made absolute at init (against document.baseURI, else the location) and only its own endpoint is ignored", () => {
