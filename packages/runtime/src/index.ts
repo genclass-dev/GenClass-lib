@@ -339,7 +339,7 @@ function warnIgnored(rt: Runtime, options: InitOptions): void {
   if (token || scope) {
     const what = [token ? "token" : null, scope ? `scope "${options.scope}"` : null].filter(Boolean).join(" and ");
     parts.push(
-      `The ${what} must be set where GenClass starts: window.GENCLASS_CONFIG = { ${token ? 'token: "gc_..."' : ""}${token && scope ? ", " : ""}${scope ? `scope: "${options.scope}"` : ""} } before the auto import (\`npx @genclass/runtime init\` writes it to genclass.config.ts/js), <meta name="genclass" content="${[token ? "token=gc_..." : null, scope ? `scope=${options.scope}` : null].filter(Boolean).join(", ")}"> in <head>, or ${[token ? "data-token" : null, scope ? "data-scope" : null].filter(Boolean).join(" / ")} on the script tag.`,
+      `The ${what} must be set where GenClass starts: GENCLASS_CONFIG = { ${token ? 'token: "gc_..."' : ""}${token && scope ? ", " : ""}${scope ? `scope: "${options.scope}"` : ""} } on window before the auto import (\`npx @genclass/runtime init\` writes it to genclass.config.ts/js), <meta name="genclass" content="${[token ? "token=gc_..." : null, scope ? `scope=${options.scope}` : null].filter(Boolean).join(", ")}"> in <head>, or ${[token ? "data-token" : null, scope ? "data-scope" : null].filter(Boolean).join(" / ")} on the script tag.`,
     );
   }
   (g.console as Console | undefined)?.warn?.(parts.join(" "));
