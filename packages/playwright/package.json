@@ -1,0 +1,70 @@
+{
+  "name": "@genclass/playwright",
+  "version": "0.1.0",
+  "description": "Playwright fixture and reporter for GenClass Runtime: put the runtime on the page under test, add network chaos, and report what it flagged (duplicate submits, stale responses, failing endpoints) as a markdown file your CI can post on the pull request.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/genclass-dev/GenClass-lib.git",
+    "directory": "packages/playwright"
+  },
+  "homepage": "https://genclass.dev",
+  "bugs": { "url": "https://github.com/genclass-dev/GenClass-lib/issues" },
+  "keywords": [
+    "playwright",
+    "playwright-fixture",
+    "playwright-reporter",
+    "flaky-tests",
+    "race-condition",
+    "stale-response",
+    "duplicate-request",
+    "chaos",
+    "genclass",
+    "e2e"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./reporter": {
+      "types": "./dist/reporter.d.ts",
+      "import": "./dist/reporter.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts"
+  },
+  "dependencies": {
+    "@genclass/runtime": "^0.2.1"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
