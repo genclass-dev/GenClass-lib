@@ -46,7 +46,7 @@ const CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
 a{color:inherit}
-:focus-visible{outline:2px solid var(--accent-f);outline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px}
 header.top{border-bottom:1px solid var(--rule)}
 header.top .wrap{display:flex;align-items:center;gap:12px;height:56px}
@@ -508,7 +508,7 @@ const DASH_JS = `
       var x = PL + i * step + (step - bw) / 2, y = PT + plotH, drawn = order.filter(function(s){ return r.parts[s]; });
       drawn.forEach(function(s, j){
         var h = plotH * r.parts[s] / max; y -= h;
-        g.appendChild(svg("rect", { x: x, y: y, width: bw, height: Math.max(1, h), rx: j === drawn.length - 1 ? 3 : 0, fill: colorOf(s), stroke: "var(--panel)", "stroke-width": drawn.length > 1 ? 1 : 0 }));
+        g.appendChild(svg("rect", { x: x, y: y, width: bw, height: Math.max(1, h), rx: j === drawn.length - 1 ? 3 : 0, fill: colorOf(s), stroke: "var(--paper)", "stroke-width": drawn.length > 1 ? 2 : 0 }));
       });
       if (i === 0 || i === n - 1 || i === Math.floor(n / 2)) {
         var lt = svg("text", { x: PL + i * step + step / 2, y: H - 6, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }); lt.textContent = label(r.bucket, hourly); g.appendChild(lt);
