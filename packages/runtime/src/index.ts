@@ -194,6 +194,15 @@ export class IdleUnloadProvider implements DecisionProvider {
  * telemetry unless `telemetry` is set (GenClass.init turns it on by default in a browser).
  */
 export function createRuntime(options: CreateOptions = {}): Runtime {
+  return buildRuntime(options, false);
+}
+
+/**
+ * createRuntime, with `telemetryDefaultOn` for GenClass.init in a browser: an unset `telemetry` option then means
+ * "on, except where the default stays off" (local and private hosts, see resolveTelemetry). Passing `telemetry: true`
+ * instead would read as an explicit opt-in and send from localhost too.
+ */
+function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runtime {
   let decider: DecisionProvider | null | undefined = options.decider;
   let owns = false;
   if (decider === undefined && options.model && typeof options.model === "object") {
@@ -205,7 +214,7 @@ export function createRuntime(options: CreateOptions = {}): Runtime {
   const rt = new RuntimeImpl({ ...options, decider: decider ?? null, ownsDecider: owns });
   if (options.enabled === false) rt.telemetry = telemetryOff("disabled");
   else
-    rt.telemetry = startTelemetry(rt, options.telemetry, false, {
+    rt.telemetry = startTelemetry(rt, options.telemetry, telemetryDefaultOn, {
       model: owns ? "local" : decider ? "custom" : "off",
       ...(options.triage ? { triage: options.triage } : {}),
       ...(options.shadow ? { shadow: options.shadow } : {}),
@@ -306,14 +315,15 @@ function initUnsafe(options: InitOptions): Runtime {
     }
     const o: CreateOptions = { ...options };
     if (mode) o.mode = mode;
-    // anonymous diagnostics: on by default in a browser (TELEMETRY.md); opt-outs are checked in resolveTelemetry
-    o.telemetry = options.telemetry ?? true;
+    // anonymous diagnostics: on by default in a browser (TELEMETRY.md), off by default on local and private hosts;
+    // opt-outs are checked in resolveTelemetry. An unset option stays unset (an explicit `true` would send from
+    // localhost too).
     if (options.decider === undefined && options.model !== false && options.enabled !== false) {
       o.model = options.model ?? {};
       // a dynamic enabled source: never download before it says on
       if (typeof options.enabled === "function" || (typeof options.enabled === "object" && options.enabled)) o.model = { ...o.model, preload: "lazy" };
     }
-    current = createRuntime(o);
+    current = buildRuntime(o, true);
     return current;
   }
 }

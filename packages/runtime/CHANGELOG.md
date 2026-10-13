@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Fix (privacy): default telemetry is off on local hosts, as 0.2.1 and 0.2.2 document.** `GenClass.init()` (and so
+  `/auto` and the script tag) passed an explicit `telemetry: true` internally, which skips the local-host rule, so
+  pages on `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. An
+  unset option now stays unset and the default applies as documented; an explicit `telemetry: true` still sends from
+  a local host. This narrows what is sent; nothing new is sent. Test: `test/telemetry-local-hosts.test.ts`.
+
 ## 0.2.2 (2026-10-13)
 
 - **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
