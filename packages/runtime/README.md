@@ -67,6 +67,8 @@ what your app does (see Known limitations). `npx @genclass/runtime init` writes 
 >
 > Measured results: [RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md).
 
+Questions, bug reports and false detections: [GitHub Issues](https://github.com/genclass-dev/GenClass-lib/issues) or the [GenClass Discord](https://discord.gg/kN9kRnFtZm).
+
 ## Contents
 
 [Install](#install) · [Automatic state discovery](#automatic-state-discovery) ·
