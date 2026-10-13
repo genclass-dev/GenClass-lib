@@ -106,9 +106,9 @@ user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropp
 newer data (search.results). (stale, 0.97; discard 0.98)
 ```
 
-In production these lines print in your users' browsers. To see them yourself, send them to Sentry, PostHog,
-Datadog, your log shipper or your own endpoint as well: `npx @genclass/runtime init --sink sentry`, or
-`data-sink="sentry"` on the script tag ([See it where you already look](#see-it-where-you-already-look)).
+In production these lines print in your users' browsers. From the next release (not in `0.2.2`) you can send them
+to Sentry, PostHog, Datadog, your log shipper or your own endpoint as well: `npx @genclass/runtime init --sink sentry`,
+or `data-sink="sentry"` on the script tag ([See it where you already look](#see-it-where-you-already-look)).
 
 ## Install
 
@@ -136,7 +136,7 @@ Options without editing code (also on a project `init` already set up; `remove` 
 npx @genclass/runtime init --no-telemetry                # anonymous diagnostics off (--telemetry: explicitly on)
 npx @genclass/runtime init --model-url /genclass-model/  # a self-hosted model (see Content-Security-Policy below)
 npx @genclass/runtime init --sink sentry                 # findings in Sentry too: also posthog, datadog, console-json,
-                                                         # webhook:<url> ("See it where you already look" below)
+                                                         # webhook:<url> (next release; "See it where you already look")
 ```
 
 They go into a marked `genclass.config.ts` (or `.js`) next to your entry, which sets `window.GENCLASS_CONFIG` and is
@@ -522,6 +522,11 @@ if (import.meta.env.DEV) {
 
 ### See it where you already look
 
+> **Next release.** Everything in this section is in the CHANGELOG's Unreleased section, not in `0.2.2`: `0.2.2`
+> ignores `data-sink` and `sink=`, stops at `init --sink` with "unknown option", has no `@genclass/runtime/sinks`
+> exports, and prints "a sink failed" for a sink name in `GENCLASS_CONFIG.sinks`. Use the version that ships it in
+> the script tag below.
+
 In production the `[GenClass]` console lines print in your users' browsers, not yours. Sinks send every detection,
 intervention, undo, breaker trip and runtime error to a tool you already open as well. The console default does not
 change.
@@ -602,10 +607,12 @@ adapter sends the structured fields only. A sink never gets the full situation t
 response bodies, headers or cookies. The webhook POSTs exactly those records as
 `{ schema: "genclass-sink/1", version, records }`, by `navigator.sendBeacon` (which GenClass never wraps, and which
 survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so parse it
-as JSON. One POST carries the records GenClass hands over in one idle-time round (at most 50 records and 32,000
-bytes per POST, since the browser allows 64 KiB of beacons in flight per page, shared with yours), and what is left
-goes on page hide; pass a `clock` and `flushMs` to batch over a time window instead. `headers` switches it to
-`fetch`; then list the URL in `requests.ignore` (the zero-code forms do that for you).
+as JSON. One POST carries the records GenClass hands over in one idle-time round, at most 50 records and 32,000
+bytes of them, and each round sends at most one: the browser allows 64 KiB of beacons in flight per page, shared with
+yours (your analytics on page exit, say), so GenClass never takes more than about half. What does not fit waits for the
+next round, and on page hide one last batch goes (the session summary first) and the rest is dropped. Pass a `clock`
+and `flushMs` to batch over a time window instead. `headers` switches it to `fetch`; then list the URL in
+`requests.ignore` (the zero-code forms do that for you).
 
 ## Extend it
 
@@ -891,6 +898,12 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
   requests, so the policy logs at most 3 violations.
+- Sinks ([See it where you already look](#see-it-where-you-already-look), next release): a webhook on another origin
+  needs that origin in `connect-src` (a same-origin path such as `webhook:/genclass` needs nothing). With the script
+  tag, `data-sink` (or `sink=` / `GENCLASS_CONFIG.sinks`) loads `dist/sinks/<name>.js` and the chunk the adapters
+  share from the tag's own CDN path, so allow `https://cdn.jsdelivr.net` in `script-src`, or self-host this package's
+  `dist/` and point `data-base` at it. With `/auto` the adapters are chunks of your own bundle. The Sentry, PostHog
+  and Datadog SDKs need the CSP entries their own docs list.
 
 ## Privacy and telemetry
 

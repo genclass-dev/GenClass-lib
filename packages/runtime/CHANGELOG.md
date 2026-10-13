@@ -10,14 +10,18 @@
   `posthog.capture("genclass_<kind>", { ... })`; `DD_RUM.addError` (`GenClassDetection`, `GenClassIntervention`) and
   `DD_RUM.addAction("genclass_<kind>")`; one JSON line per record on the console; batched POSTs of
   `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch` keepalive
-  (one POST per idle-time delivery round, or per `flushMs` window with a `clock`).
+  (at most one POST per idle-time delivery round, or per `flushMs` window with a `clock`).
   No new dependency: each finds the SDK on the page at send time (or takes the client you pass) and never throws. They
   send only the record the runtime built: kind, diagnosis, probability, action, route, session tags and the redacted
   evidence (the console line, subject and timeline, URL query values as `…`; timeline lines can hold short fragments
   of app data, as the console does). `evidence: false` on any adapter sends the structured fields only. Never the
   situation text, bodies, headers or cookies. Separate entries, never in the first-load bundle. A tool adapter that
   finds no SDK when a record arrives says so once in the console, naming the fix. The tool adapters and the webhook
-  cap repeats of one bug at 10 per page load (`maxPerSignature`); the webhook splits batches at 32,000 UTF-8 bytes.
+  cap repeats of one bug at 10 per page load (`maxPerSignature`); a bug's signature treats op ids, numbers and id-like
+  path segments (UUIDs, hex, tokens, slug ids, emails) as one, so one bug on many orders is one Sentry issue and one
+  cap. The webhook sends at most 50 records and 32,000 UTF-8 bytes per POST and at most one POST per round (the
+  browser's 64 KiB keepalive budget is shared with the app's own beacons); the rest waits for the next round, at most
+  500 records wait, and on page hide one batch goes (the session summary first) and the rest is dropped.
 - **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`,
   `<meta name="genclass" content="sink=sentry+posthog">`, `data-sink="sentry,posthog"` on the script tag, and
   `npx @genclass/runtime init --sink sentry` (repeatable; written to the option file, the tag or the Astro meta line;
@@ -29,7 +33,10 @@
   (`webhook:/collect` never hides `/collections`); from a `<meta>` tag it must be same-origin, like the model URL (a
   cross-origin one is ignored with one warning; THREAT-MODEL T8), and `init` says so for an absolute webhook URL on
   Astro. A string passed to `GenClass.init({ sinks })` directly is now ignored with one warning that names the fix
-  (before, every record failed with "a sink failed: … is not a function", reported at most once a minute).
+  (before, every record failed with "a sink failed: … is not a function", reported at most once a minute). Turning
+  page-config sinks into options never throws into the app (it runs before `GenClass.init`'s own guard, while `/auto`
+  is imported): a `requests.ignore` that is not a list stays as written, for `GenClass.init` to report as it would
+  without sinks, and any other failure is one warning.
 - **`init` reaches npm-installed SDKs.** It suggests `--sink` when `package.json` depends on a Sentry browser SDK
   (`@sentry/react`, `@sentry/vue`, `@sentry/nextjs`, ...; no longer its build plugins or server SDKs), `posthog-js` or
   `@datadog/browser-rum`. The npm Sentry and PostHog SDKs set no page global, so in its option file `init` writes such a
@@ -42,6 +49,9 @@
   check let them through for model and ORT URLs too).
 - `SinkRecord.route`: the page path the subject's operation was created on, normalised as telemetry sends it (id-like
   and email segments as `:id`, at most 200 chars).
+- Every adapter sends the evidence (the console line, subject and timeline) by default, while a sink you write
+  yourself still gets it only with `evidence: true` (`SinkObject.evidence`, default false). `:noevidence` /
+  `evidence: false` turns it off per adapter.
 - The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
 
 ## 0.2.2 (2026-10-13)
