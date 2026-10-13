@@ -63,10 +63,12 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
   // 91 KB for GenClass.init)
   // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
-  // Sinks by name (Unreleased): only the proxy (src/cdn/sinks.ts) is in /auto's first load; the name table, the
-  // fan-out and the adapters are lazy chunks (asserted below). Both sizes are printed before either is asserted.
+  // Sinks by name (Unreleased): only the proxy (src/cdn/sinks.ts, 975 B minified) is in /auto's first load; the name
+  // table, the fan-out and the adapters are lazy chunks (asserted below), and the adapters import nothing the first
+  // load needs, so they split no chunk out of it. CI, 2026-10-13: 99.79 KB / 91.79 KB, three files each. Both sizes are
+  // printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 92 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 99 / 91 KB)", async () => {
+  it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 100 / 92 KB)", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
     const sizes: Record<string, number> = {};
@@ -119,42 +121,5 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       else expect(code, entry).not.toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
     }
     for (const entry of Object.keys(sizes)) expect(sizes[entry], entry).toBeLessThan(LIMIT_KB[entry]);
-  });
-
-  // Reported, never failing: the minified bytes the sink code and its neighbours add to /auto's first load, built from
-  // src/ (the per-module view the dist build above cannot give).
-  it("reports what the zero-code sink code adds to /auto's first load (minified bytes per module)", async () => {
-    const { build } = await import("esbuild");
-    try {
-      const r = await build({
-        entryPoints: [join(PKG, "src", "auto.ts")],
-        bundle: true,
-        splitting: true,
-        format: "esm",
-        minify: true,
-        write: false,
-        outdir: "/out",
-        metafile: true,
-        platform: "browser",
-        external: ["react", "redux", "zustand", "onnxruntime-web", "onnxruntime-web/*"],
-        logLevel: "silent",
-      });
-      const outs = r.metafile!.outputs;
-      const entry = Object.keys(outs).find((k) => /src[\\/]auto\.ts$/.test(outs[k].entryPoint ?? ""))!;
-      const first = new Set<string>();
-      const walk = (k: string) => {
-        if (first.has(k)) return;
-        first.add(k);
-        for (const i of outs[k].imports) if (i.kind === "import-statement" && outs[i.path]) walk(i.path);
-      };
-      walk(entry);
-      const per: Record<string, number> = {};
-      for (const k of first) for (const [inp, v] of Object.entries(outs[k].inputs)) per[inp] = (per[inp] ?? 0) + v.bytesInOutput;
-      const pick = Object.entries(per).filter(([k]) => /cdn[\\/](sinks|config|auto-start)|decide[\\/]summary|clock|version|src[\\/]sinks[\\/]/.test(k));
-      const total = Object.values(per).reduce((n, b) => n + b, 0);
-      console.log(`src first load of /auto: ${first.size} file(s), ${total} B minified; ${pick.map(([k, b]) => `${k.replace(/^.*src[\\/]/, "")} ${b} B`).join(", ")}`);
-    } catch (e) {
-      console.log(`src first-load report failed: ${(e as Error).message}`);
-    }
   });
 });
