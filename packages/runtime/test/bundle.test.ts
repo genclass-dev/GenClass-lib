@@ -63,10 +63,13 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
   // 91 KB for GenClass.init)
   // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
+  // Sinks by name (Unreleased): only the proxy (src/cdn/sinks.ts) is in /auto's first load; the name table, the
+  // fan-out and the adapters are lazy chunks (asserted below). Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 92 };
   it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 99 / 91 KB)", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
+    const sizes: Record<string, number> = {};
     for (const entry of ["auto.js", "index.js"]) {
       const spec = JSON.stringify(join(DIST, entry));
       const r = await build({
@@ -95,19 +98,23 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       expect(stdin, `${entry}: the stdin entry in the metafile`).toBeDefined();
       walk(stdin!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
-      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(1)} KB minified + gzip (limit ${LIMIT_KB[entry]} KB)`);
-      expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
+      sizes[entry] = gz / 1024;
+      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(2)} KB minified + gzip (limit ${LIMIT_KB[entry]} KB)`);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
       expect(code, entry).not.toContain("BPE dropout is not supported at inference"); // src/model/tokenizer.ts
       expect(code, entry).toContain("new Worker("); // the host itself is there
-      // the sink adapters (@genclass/runtime/sinks/*) are lazy chunks of /auto and absent from the main entry
+      // the sink adapters (@genclass/runtime/sinks/*) and the name table and fan-out (src/cdn/sinks-fanout.ts) are lazy
+      // chunks of /auto and absent from the main entry
       expect(code, entry).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
       expect(code, entry).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
+      expect(code, entry).not.toContain("console-json"); // src/cdn/sinks-fanout.ts SINK_NAMES, src/cdn/sinks-load.ts
+      expect(code, entry).not.toContain("unknown sink"); // src/cdn/sinks-fanout.ts
       // state discovery survives an app's bundler in /auto (a dropped side-effect import once lost it) and stays out
       // of the main entry
       if (entry === "auto.js") expect(code, entry).toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
       else expect(code, entry).not.toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
     }
+    for (const entry of Object.keys(sizes)) expect(sizes[entry], entry).toBeLessThan(LIMIT_KB[entry]);
   });
 });

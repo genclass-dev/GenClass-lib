@@ -225,12 +225,14 @@ sampling unless the app sets `debug: true`; `?genclass=off` turns GenClass off f
 `observe` when it sets none: a crafted link can no longer raise a production site to guard or heal. Raising from the
 URL needs `debug: true` or a development host (`localhost`, `*.local`, `*.test`, private networks). With the zero-code
 entries (`/auto`, the script tag), only `<meta name="genclass">` tags inside `<head>` are read, so markup injected into
-the body cannot configure GenClass, and the model and onnxruntime-web URLs a meta tag names must be same-origin
-(cross-origin ones are ignored with a warning; [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)).
+the body cannot configure GenClass, and the model, onnxruntime-web and webhook sink URLs a meta tag names must be
+same-origin (cross-origin ones are ignored with a warning; [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)), so
+an injected `sink=webhook:<url>` cannot send the sink records to another origin. The other sink names
+(`sentry`, `posthog`, `datadog`, `console-json`) only reach an SDK or console the page already has.
 
-**Residual.** Markup injected into `<head>` can still set the mode (not a cross-origin model): pages that let
-untrusted HTML into `<head>` should configure through `window.GENCLASS_CONFIG` (it wins) or `GenClass.init(options)`.
-An app that sets `debug: true` in production lets the URL raise its mode.
+**Residual.** Markup injected into `<head>` can still set the mode and same-origin sinks (not a cross-origin model or
+webhook): pages that let untrusted HTML into `<head>` should configure through `window.GENCLASS_CONFIG` (it wins) or
+`GenClass.init(options)`. An app that sets `debug: true` in production lets the URL raise its mode.
 
 ## T9. Cached and shared responses
 

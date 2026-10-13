@@ -13,7 +13,8 @@ import { configLiteral, isEmptyConfig, metaContent, tagWithConfig, updateConfigT
 // @ts-expect-error plain ESM module without types
 import { USAGE, configOf, monitoringSdks } from "../../bin/lib/init.mjs";
 import { fromDataset, readMetaConfig } from "../../src/cdn/config.js";
-import { applySinks, parseSinkSpec } from "../../src/cdn/sinks.js";
+import { parseSinkSpec } from "../../src/cdn/sinks-fanout.js";
+import { applySinks } from "../../src/cdn/sinks.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(HERE, "..", "..", "bin", "genclass-runtime.mjs");
@@ -118,7 +119,7 @@ describe("init --sink: findings in the tools the developer already opens", () =>
     expect(configOf({})).toEqual({});
   });
 
-  it("the written statement is what /auto reads: applySinks turns the names into lazy adapters and ignores the webhook URL", () => {
+  it("the written statement is what /auto reads: applySinks turns the names into one lazy proxy and ignores the webhook URL", () => {
     const dir = viteVue();
     cli(dir, "init", "--yes", "--no-install", "--sink", "sentry,webhook:/genclass");
     const stmt = readFileSync(join(dir, "src/genclass.config.js"), "utf8").split("\n").find((l) => l.startsWith("globalThis."))!;
@@ -126,12 +127,12 @@ describe("init --sink: findings in the tools the developer already opens", () =>
     new Function("globalThis", stmt)(win);
     expect(win.GENCLASS_CONFIG).toEqual({ sinks: ["sentry", "webhook:/genclass"] });
     for (const s of win.GENCLASS_CONFIG!.sinks) expect(parseSinkSpec(s), s).not.toBeNull();
-    const load = vi.fn(() => Promise.resolve({ default: () => ({ send: vi.fn() }) }));
+    const resolve = vi.fn(() => Promise.resolve({ send: vi.fn() }));
     const warn = vi.fn();
-    const init = applySinks({}, win.GENCLASS_CONFIG!.sinks, load, warn, {});
-    expect(init.sinks!.length).toBe(2);
+    const init = applySinks({}, win.GENCLASS_CONFIG!.sinks, resolve, warn, {});
+    expect(init.sinks!.length).toBe(1);
     expect(init.requests!.ignore).toEqual(["/genclass"]);
-    expect(load).not.toHaveBeenCalled();
+    expect(resolve).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -171,6 +172,12 @@ describe("init --sink: findings in the tools the developer already opens", () =>
     expect(readMetaConfig({ querySelectorAll: () => [{ getAttribute: () => content }] })).toEqual({ sinks: ["sentry", "posthog"] });
     const withTelemetry = roundTrip(astro(), "--no-telemetry", "--sink", "sentry")["src/layouts/Layout.astro"];
     expect(withTelemetry).toContain(`content="telemetry=off, sink=sentry"`);
+    // a meta tag only takes a same-origin webhook URL: init says so for an absolute one (a path is fine)
+    const far = cli(astro(), "init", "--dry-run", "--no-install", "--sink", "webhook:https://hooks.example/g");
+    expect(far.code, far.out).toBe(0);
+    expect(far.out).toContain("only takes a same-origin webhook URL");
+    expect(far.out).toContain(`window.GENCLASS_CONFIG = { sinks: ["webhook:https://hooks.example/g"] }`);
+    expect(cli(astro(), "init", "--dry-run", "--no-install", "--sink", "webhook:/genclass").out).not.toContain("same-origin webhook URL");
   });
 
   it("suggests --sink when the project depends on @sentry/*, posthog-js or @datadog/browser-rum, and stays quiet once a sink is set", () => {

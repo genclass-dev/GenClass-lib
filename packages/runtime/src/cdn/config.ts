@@ -15,23 +15,23 @@
 // data-sink="sentry,posthog" on the tag; src/cdn/sinks.ts).
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
-// (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model and
-// onnxruntime-web URLs it names must be same-origin (relative, or on the page's own origin): a cross-origin model or
-// ORT URL is ignored with one warning. Cross-origin URLs (a CDN of your own) go in the script tag's data-* attributes,
-// window.GENCLASS_CONFIG or GenClass.init(options). The URL switch (`?genclass=guard`) can no longer raise the mode
-// of a production site (index.ts).
+// (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model, onnxruntime-web
+// and webhook sink URLs it names must be same-origin (relative, or on the page's own origin): a cross-origin model,
+// ORT or `sink=webhook:<url>` URL is ignored with one warning. Cross-origin URLs (a CDN or a collector of your own) go
+// in the script tag's data-* attributes, window.GENCLASS_CONFIG or GenClass.init(options). The URL switch
+// (`?genclass=guard`) can no longer raise the mode of a production site (index.ts).
 //
 // Remote code: an `integrity` attribute on the script tag covers that one file only. What it loads later at runtime
-// (dist/cdn/worker.js, dist/cdn/ort-*.js, dist/devtools/index.js, onnxruntime-web's wasm and the model files) is
-// fetched by URL without SRI (dynamic import() and module workers take no integrity option). On
-// jsDelivr/unpkg those URLs are pinned to the tag's own version (immutable there), so pin the tag's version
-// (`@genclass/runtime@x.y.z`, as `init` writes it), never @latest, in production. For full control, self-host:
-// `data-base` (this package's dist/), `data-ort` (onnxruntime-web's dist/) and `data-model` (a model directory), plus
-// a CSP `script-src` / `worker-src` / `connect-src` limited to those origins.
+// (dist/cdn/worker.js, dist/cdn/ort-*.js, dist/devtools/index.js, dist/sinks/<name>.js for a named sink,
+// onnxruntime-web's wasm and the model files) is fetched by URL without SRI (dynamic import() and module workers take
+// no integrity option). On jsDelivr/unpkg those URLs are pinned to the tag's own version (immutable there), so pin the
+// tag's version (`@genclass/runtime@x.y.z`, as `init` writes it), never @latest, in production. For full control,
+// self-host: `data-base` (this package's dist/), `data-ort` (onnxruntime-web's dist/) and `data-model` (a model
+// directory), plus a CSP `script-src` / `worker-src` / `connect-src` limited to those origins.
 
 import type { DevtoolsOptions, DevtoolsPosition } from "../devtools/index.js";
 import type { InitOptions, Mode, ModelOptions, Sink } from "../types.js";
-import { parseSinkList } from "./sinks.js";
+import { parseSinkList, webhookUrl } from "./sinks.js";
 
 /** true, "local" (localhost, 127.0.0.1, [::1], *.localhost, *.local, *.test, file:), false, or overlay options. */
 export type DevtoolsSetting = boolean | "local" | DevtoolsOptions;
@@ -125,7 +125,7 @@ export function fromPairs(pairs: Record<string, string>): PageConfig {
         break;
       case "sink":
       case "sinks":
-        // sinks by name, resolved by the entry (src/cdn/sinks.ts → applySinks); "off" clears what an earlier source set
+        // sinks by name, resolved by the entry (cdn/sinks.ts → applySinks); "off" clears what an earlier source set
         if (isOff(lv)) c.sinks = [];
         else if (v) c.sinks = parseSinkList(v);
         break;
@@ -174,8 +174,8 @@ export function sameOriginUrl(url: string, loc: { href?: string; origin?: string
 }
 
 /**
- * `<meta name="genclass" content="...">` tags under <head>, in document order. Model and onnxruntime-web URLs that are
- * not same-origin are dropped (`warn` is told once).
+ * `<meta name="genclass" content="...">` tags under <head>, in document order. Model, onnxruntime-web and webhook sink
+ * URLs that are not same-origin are dropped (`warn` is told once).
  */
 export function readMetaConfig(
   doc: DocLike | null | undefined,
@@ -186,9 +186,9 @@ export function readMetaConfig(
     const root: MetaRoot | null | undefined = doc && "head" in doc ? doc.head : doc;
     const metas = root?.querySelectorAll?.('meta[name="genclass"]');
     for (let i = 0; metas && i < metas.length; i++) c = mergeConfig(c, fromPairs(parsePairs(metas[i].getAttribute("content"))));
+    const dropped: string[] = [];
     const m = c.model;
     if (m && typeof m === "object") {
-      const dropped: string[] = [];
       if (typeof m.baseUrl === "string" && !sameOriginUrl(m.baseUrl, o.location)) {
         dropped.push(`model=${m.baseUrl}`);
         delete m.baseUrl;
@@ -197,12 +197,23 @@ export function readMetaConfig(
         dropped.push(`ort=${m.ortWasmPaths}`);
         delete m.ortWasmPaths;
       }
-      if (dropped.length) {
-        o.warn?.(
-          `[GenClass] Ignored cross-origin ${dropped.join(", ")} in <meta name="genclass">; use data-model/data-ort, GENCLASS_CONFIG or GenClass.init().`,
-        );
-        if (!Object.keys(m).length) delete c.model;
-      }
+      if (dropped.length && !Object.keys(m).length) delete c.model;
+    }
+    // a webhook sink would send the records to its URL: same-origin only from a meta tag, like the model
+    if (c.sinks) {
+      const kept = c.sinks.filter((s) => {
+        const u = typeof s === "string" ? webhookUrl(s) : undefined;
+        if (!u || sameOriginUrl(u, o.location)) return true;
+        dropped.push(`sink=${s}`);
+        return false;
+      });
+      if (kept.length < c.sinks.length && !kept.length) delete c.sinks;
+      else c.sinks = kept;
+    }
+    if (dropped.length) {
+      o.warn?.(
+        `[GenClass] Ignored cross-origin ${dropped.join(", ")} in <meta name="genclass">; use data-model/data-ort/data-sink, GENCLASS_CONFIG or GenClass.init().`,
+      );
     }
   } catch {
     /* never break the page over configuration */
