@@ -438,7 +438,7 @@ describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sam
     expect(routine.sum.counts.decisions).toBe(1800);
     expect(noisy.sum.telemetry.decisionRecords).toBe(200);
     expect(bytes(noisy.transport)).toBeLessThan(bytes(full.transport) / 3);
-    // TELEMETRY.md quotes the CI measurement (2026-10-13: 205 KB, 229 KB, 2,065 KB) and this ceiling
+    // TELEMETRY.md quotes the CI measurement (2026-10-13: 203 to 205 KB, 229 KB, 2,065 KB) and this ceiling
     expect(bytes(routine.transport) / 1024).toBeLessThan(300);
     expect(bytes(noisy.transport) / 1024).toBeLessThan(300);
   }, 120_000);

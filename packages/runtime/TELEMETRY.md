@@ -107,7 +107,7 @@ situation text off), all bytes of all requests counted:
 
 | decisions | defaults | `decisionSample: 1, maxDecisions: Infinity` (every record, as before this version) |
 |---|---|---|
-| all routine | 205 KB | not measured |
+| all routine | 203 to 205 KB (two runs: which routine decisions are sampled depends on the random session id) | not measured |
 | every one a detection | 229 KB | 2,065 KB |
 
 The test fails if either default case reaches 300 KB. A real page takes far fewer decisions than this (only salient
