@@ -25,10 +25,10 @@ export const TEXT_PATTERNS: TextPattern[] = [
   {
     id: "mojibake",
     kind: "text-encoding",
-    re: /â€[™œ“”˜¦–—]|Ã[©¨¢¤¶¼½¡]|Â[©®°]/,
+    re: /\u00e2\u20ac[\u2122\u0153\u201c\u201d\u02dc\u00a6\u2013\u2014]|\u00c3[\u00a9\u00a8\u00a2\u00a4\u00b6\u00bc\u00bd\u00a1]|\u00c2[\u00a9\u00ae\u00b0]/,
     label: "UTF-8 text decoded as Windows-1252 (mojibake)",
   },
-  { id: "replacement-char", kind: "text-encoding", re: /�/, label: "the replacement character U+FFFD" },
+  { id: "replacement-char", kind: "text-encoding", re: /\ufffd/, label: "the replacement character U+FFFD" },
   { id: "double-escaped", kind: "text-encoding", re: /&(?:amp|lt|gt|quot|#39|#x27|nbsp);/, label: "an HTML entity shown literally (escaped twice)" },
 ];
 
