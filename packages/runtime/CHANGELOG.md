@@ -357,9 +357,11 @@ chunk shares is a chunk of its own. Where it goes (CI, step by step, docs/runtim
 `protect()` about +1.8 KB; the device floor, telemetry sampling and Request replays about +1.5 KB; the sink names'
 proxy +0.8 KB on `/auto`; the flow expectations' runtime side and learned-state persistence about +3.3 KB (the flow
 layer itself, about 4 KB by difference, is a lazy chunk loaded only with `learn.expectations`). The script-tag file is
-126.45 KB (it carries the flow layer inline). Observe's detection tiers and deferred situations then add 1.06 KB to
-`/auto` and 1.11 KB to the main entry (the 429 back-off they brought is counted above): **107.65 KB** and
-**99.68 KB** (CI run 38477575339; script tag 127.62 KB), still under the same limits (docs/runtime/RESULTS.md §11).
+126.45 KB (it carries the flow layer inline). Observe's detection tiers and deferred situations, with their review
+fixes, then add 0.97 KB to `/auto` and 1.02 KB to the main entry (the 429 back-off they brought is counted above;
+the expectation report's console text moved into the lazy flow chunk to pay for the fixes): **107.56 KB** and
+**99.59 KB** (CI run 38482297879; script tag 127.89 KB), still under the same limits, 0.18 / 0.12 KB below them
+(docs/runtime/RESULTS.md §11).
 
 ## 0.2.2 (2026-10-13)
 

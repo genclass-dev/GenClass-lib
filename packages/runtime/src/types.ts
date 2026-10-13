@@ -764,7 +764,10 @@ export interface InitOptions {
   model?: ModelOptions | false;
   /** Bring your own decision provider instead of the local model. */
   decider?: DecisionProvider | null;
-  /** Default "console". "interventions": the console prints only actions, undos, breaker trips and errors. */
+  /**
+   * Default "console". "interventions": the console prints only actions, undos, breaker trips and errors. A function
+   * receives every report; a possible detection (InitOptions.detect) only with `detect: "possible"` set explicitly.
+   */
   report?: "console" | "interventions" | "silent" | ((r: Report) => void);
   /** Default true. A predicate / Promise / subscribable flag; while false nothing is decided or downloaded. */
   enabled?: boolean | (() => boolean | Promise<boolean>) | EnabledSource;

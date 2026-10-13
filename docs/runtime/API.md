@@ -83,7 +83,8 @@ interface InitOptions {
                                                         // untrustedEvents (default false): record synthetic DOM events (isTrusted false) as user actions (test harnesses)
   triage?: "salient" | "always";                        // default "salient"
   detect?: "likely" | "possible";                       // (0.3.0) which detections are reported; default "possible" in observe
-                                                        // without policy.thresholds.report, else "likely" (see "Reports, explain and undo")
+                                                        // without policy.thresholds.report, else "likely" (see "Reports, explain and undo");
+                                                        // set explicitly, "possible" also sends them to rt.on("detect"/"report") and report: fn
   policy?: PolicyOptions;                               // see Policy
   redact?: (path: string, value: unknown) => unknown;   // default: values whose leaf field names a secret (password, token, card number, cvv, ssn, iban, ...); never a whole store by its name
   plugins?: Plugin[];
@@ -179,8 +180,9 @@ invoices, charges, refunds, subscriptions, orders, purchases, transactions, tran
 PayPal, Braintree, Adyen, Klarna, Square; `auth`: login/logout, sign-in/up/out, register, oauth, tokens, sessions, SSO,
 SAML, OIDC, MFA, 2FA, OTP, passwords, verify). Recommended for payment, checkout and sign-in flows in every mode
 (packages/runtime/INTERCEPTION.md, "Money and identity flows"). Hidden tabs release held items unevaluated; in
-guard and heal they skip background evaluation, and in observe (0.3.0) each salient situation is built at once and
-decided when the tab is visible again (at most 32 wait; OPTIONS-SPEC §5.1, §5.3).
+guard and heal they skip background evaluation, and in observe (0.3.0, where the possible tier is in force) each
+salient situation is built at once and decided when the tab is visible again, reported at the possible tier at most
+(at most 32 wait; a hidden tab never loads or reloads the model; OPTIONS-SPEC §5.1, §5.3).
 
 Performance: GenClass computes cheap facts for every write and request, and asks the model only about salient ones.
 The situation the model reads is sized to the device (`situation.budget: "auto"`): 2,400 characters (about 1,000
@@ -420,8 +422,9 @@ type Question =
 ## Events
 
 ```ts
-rt.on("detect", (d: Detection) => void)      // the model diagnosed a problem: d.detection "likely" (diagnosis != expected, p >= the report gate)
-                                             // or, in observe (0.3.0), "possible" (p >= gates().possible, below the report gate)
+rt.on("detect", (d: Detection) => void)      // the model diagnosed a problem: d.detection "likely" (diagnosis != expected, p >= the report gate);
+                                             // "possible" ones (0.3.0: p >= gates().possible, below the report gate) only with detect: "possible"
+                                             // set explicitly (every decision, with detection set, is on "decide")
 rt.on("decide", (d: Decision) => void)       // every model decision
 rt.on("act", (a: ActionRecord) => void)      // every non-passive action that ran
 rt.on("event", (e: RtEvent) => void)         // every traced event
@@ -551,10 +554,12 @@ action only if all of these hold, otherwise the passive action runs and the deci
 summed probability of the permitted actions reaches that action's tier threshold; the model's top diagnosis is not
 `expected` (unless `requireDiagnosis: false`); fewer than `maxActionsPerMinute` actions ran in the last minute; the
 decision arrived within the hold budget (a late `discard` may still revert the write, see State). While the model is
-loading, everything proceeds unchanged: in guard and heal each salient situation fails open (failOpen `not-ready`); in
-observe (0.3.0) it is built at its trigger and decided once the model is ready, for detection only (at most 32 wait,
-oldest dropped and counted as `not-ready`; a lazy model starts loading at the first one, and an idle-unloaded one,
-`model.unloadAfterIdleMs`, reloads). Such a deferred decision never acts, whatever the mode is by then.
+loading, everything proceeds unchanged: guard and heal build no situation then, as before 0.3.0; in observe (0.3.0,
+where the possible tier is in force) a salient situation is built at its trigger and decided once the model is ready,
+for detection only and at the possible tier at most (at most 32 wait, oldest dropped and counted as `not-ready`; a
+lazy model starts loading at the first one, and an idle-unloaded one, `model.unloadAfterIdleMs`, reloads, from a
+visible tab only). Such a deferred decision never acts, whatever the mode is by then. The first salient situation
+after an idle unload fails open as `not-ready` in guard and heal and starts the reload.
 
 ## Reports, explain and undo
 
@@ -571,9 +576,12 @@ above. **Possible** (by default only where the effective mode is observe and `po
 `detect: "possible"` turns it on elsewhere, `detect: "likely"` off): at least the eager profile's report value from
 the same meta (`rt.gates().possible`, 0.70 with model 0.2.0) and below the report gate. A possible detection is the same
 line ending in `(possible)`, printed with `console.debug` only (shown at Chrome's "Verbose" level), and its evidence is
-in `rt.explain(id)`; it reaches `rt.on("detect")` and `rt.on("report")` with `decision.detection: "possible"`, the
-devtools as a dimmed card left out of the counts, `rt.summary().possibleDetections`, telemetry's `detect` event with
-`tier: "possible"`, and sinks that set `possible: true`. `explain()`, the console and the devtools all read the tier
+in `rt.explain(id)`; it reaches the devtools as a dimmed card left out of the counts (no pulse),
+`rt.summary().possibleDetections`, telemetry's `detect` event with `tier: "possible"`, and `rt.on("decide")` with
+`decision.detection: "possible"`. It reaches `rt.on("detect")`, `rt.on("report")` and a `report` function only when
+`detect: "possible"` is set explicitly (so an app wired to them gets what it got in 0.2.x), and sinks only with
+`possible: true`. A situation decided late (deferred while the model loaded or the tab was hidden, OPTIONS-SPEC §5.3)
+is reported at the possible tier at most. `explain()`, the console, the devtools and telemetry all read the tier
 recorded with the decision. The tiers are reporting only: no action gate reads them.
 
 ```
