@@ -276,8 +276,9 @@ export class TelemetryClient implements TelemetryStatus {
         : undefined,
       effectiveMode: d.effectiveMode,
       shadow: d.shadow ? compact({ action: d.shadow.action, tier: d.shadow.tier, wouldPass: d.shadow.wouldPass, reason: cut(d.shadow.reason, 120) }) : undefined,
-      // the protect()ed function the subject ran inside (a name the app chose)
-      fn: cut(d.fn, 80),
+      // the protect()ed function the subject ran inside (a name the app chose), only on batches that carry the app's
+      // token: it feeds that app's dashboard and is not sent otherwise
+      fn: this.cfg.token ? cut(d.fn, 80) : undefined,
     });
     if (d.reason === "vetoed" || d.reason === "would-veto") {
       c.vetoes++;

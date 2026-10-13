@@ -178,9 +178,9 @@ describe("protect(): same function, tracked", () => {
     expect(protect("after", (a: number) => a + 1)(1)).toBe(2);
   });
 
-  it("decisions about what a protected call caused carry fn (also in telemetry); others do not", async () => {
+  it("decisions about what a protected call caused carry fn (also in telemetry, with a token); others do not", async () => {
     const transport = recorder();
-    const s = setup({ triage: "always", telemetry: { transport }, extraGlobal: { crypto: globalThis.crypto }, script: defaultScript({ failure: { diagnosis: "transient" } }) });
+    const s = setup({ token: TOKEN, triage: "always", telemetry: { transport }, extraGlobal: { crypto: globalThis.crypto }, script: defaultScript({ failure: { diagnosis: "transient" } }) });
     setProtectResolver(() => s.rt);
     s.server.on("POST", "/api/orders", { status: 500, body: {}, latency: 20 });
     s.server.on("GET", "/api/feed", { status: 500, body: {}, latency: 20 });
@@ -201,6 +201,26 @@ describe("protect(): same function, tracked", () => {
     await s.rt.telemetry!.flush();
     const evs = transport.sent.flatMap((b) => b.body.events).filter((e) => e.t === "decision" && e.trigger === "failure");
     expect(evs.map((e) => e.fn).sort()).toEqual(["checkout submit", undefined]);
+    s.rt.destroy();
+  });
+});
+
+describe("protect(): fn in telemetry only with a token", () => {
+  it("without a token, Decision.fn is still set but decision events carry no fn", async () => {
+    const transport = recorder();
+    const s = setup({ triage: "always", telemetry: { transport }, extraGlobal: { crypto: globalThis.crypto }, script: defaultScript({ failure: { diagnosis: "transient" } }) });
+    setProtectResolver(() => s.rt);
+    s.server.on("POST", "/api/orders", { status: 500, body: {}, latency: 20 });
+    const submit = protect("checkout submit", () => s.fetch("/api/orders", { method: "POST", body: "{}" }).catch(() => undefined));
+    void submit();
+    await s.clock.advance(2000);
+    const d = s.rt.decisions().find((x) => x.trigger === "failure");
+    expect(d?.fn).toBe("checkout submit");
+    await s.rt.telemetry!.flush();
+    const evs = transport.sent.flatMap((b) => b.body.events).filter((e) => e.t === "decision");
+    expect(evs.length).toBeGreaterThan(0);
+    for (const e of evs) expect("fn" in e).toBe(false);
+    expect(JSON.stringify(transport.sent)).not.toContain("checkout submit");
     s.rt.destroy();
   });
 });
