@@ -35,8 +35,8 @@ which subjects are decided, never what the model reads about one). Without a tok
   and points to https://genclass.dev/start. Running `init` again reuses the token; on a setup made without one it
   never creates a project as a side effect (pass `--token`).
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
-- **Cost:** about +1 KB gzip on each entry (0.2.2: about 99 KB for `/auto`, 91 KB for the main entry;
-  `test/bundle.test.ts` prints the measured sizes).
+- **Cost:** about +1.3 KB gzip on `/auto`: 100.17 KB (98.86 KB in 0.2.2), and the main entry 92.69 KB, minified
+  and gzipped by `test/bundle.test.ts` in CI (run 38358367338). Its ceilings are 101 KB and 94 KB.
 - **Fix: default telemetry is off on local hosts, as 0.2.1 and 0.2.2 document.** `GenClass.init()` (and so `/auto`
   and the script tag) passed an explicit `telemetry: true` internally, which skips the local-host rule, so pages on
   `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. The default

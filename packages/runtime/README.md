@@ -821,8 +821,8 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
 
 - **Bundle:** what every page loads is about 99 KB gzip for `@genclass/runtime/auto` with automatic state
   discovery and 91 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild in `0.2.2`; app tokens and `protect()` (next release) add about 1 KB to each (`test/bundle.test.ts` prints
-  the measured sizes). The model worker, ONNX Runtime Web's JavaScript
+  esbuild in `0.2.2`. The next release (app tokens, `protect()`) measures 100.17 KB and 92.69 KB (CI run
+  38358367338; `test/bundle.test.ts` keeps them under 101 KB and 94 KB and prints the sizes). The model worker, ONNX Runtime Web's JavaScript
   (about 70 KB gzip for WASM, 115 KB with WebGPU, minified) and the devtools are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about

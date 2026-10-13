@@ -62,7 +62,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // /auto carries automatic state discovery (autoState, beta.4: about 6.5 KB); the main entry does not. The audit trail,
   // protect presets and the hold-budget fixes (0.2.0) added about 1.6 KB to both; 0.2.2 +0.35 KB (URL/meta hardening,
   // model download retries, the telemetry failure streak; main: 98.86 KB); app tokens and protect() (Unreleased) about
-  // 1 KB more. The measured sizes are printed below.
+  // 1.3 KB more: /auto 100.17 KB, the main entry 92.69 KB (CI run 38358367338). The measured sizes are printed below.
   const LIMIT_KB: Record<string, number> = { "auto.js": 101, "index.js": 94 };
   it("first-load cost of /auto and the main entry, minified + gzip: under 101 KB / 94 KB", async () => {
     const { build } = await import("esbuild");
