@@ -1,0 +1,3415 @@
+{
+  "version": 1,
+  "date": "2026-10-13",
+  "catalog": "research/visual/CATALOG.md",
+  "conventions": {
+    "purpose": "Fault-injection recipes a harness applies from outside to a correct page, to produce labelled examples for visual-check recall, false-report measurement and training data. Nothing here is added to demos, compat apps or templates (AGENTS.md rule 4); the harness injects with page.addInitScript, page.evaluate or page.route.",
+    "kind": "fault: a detector should report it. control: a lookalike that is correct; a detector must stay quiet. Count reports on control targets as false reports.",
+    "phase": "before-load: rewrite the HTML response before parse. network: route a request. init: script before page scripts. after-load: after the VISUAL.md section 2.3 settle gates, on a visible tab. on-interaction: applied while the harness opens, closes or navigates.",
+    "env": "Emulation the fault needs to be visible: viewport [w, h], colorScheme, reducedMotion, hasTouch, classicScrollbars (Chromium: inject ::-webkit-scrollbar { width: 16px } or run on Linux or Windows), browser (chromium, firefox, webkit). Empty means the default 1280x800 desktop profile.",
+    "operation": "Plain JS run in the page, using the helpers below. Operations assume a clean page; apply one fault per page load unless an experiment says otherwise.",
+    "label": "expect: finding or no-finding. kind: the catalog id. v1_kind: the VISUAL.md v1 kind that should report it, or null when no v1 kind covers it. attribute: target (the marked element is the finding's element), culprit (the marked element is the cause of a page-level symptom, such as the element that widens the page), page (the finding is page-level). visible: when a visitor would see it: always, phone, touch, keyboard, dark, interaction, classic-scrollbars.",
+    "verdicts": "Record each finding against the labels as true positive, false positive, or NOI (real but not observable, as in VERVE: the DOM shows a fault that pixels do not). Confirm layout labels with a pixel check where the operation could be invisible, for example overlap inside an overflow hidden ancestor.",
+    "dedupe": "Drop near-duplicate captures before training (OwlEyes used ORB similarity over 0.8).",
+    "network": "Injectors that set third-party URLs (image-invented-unsplash, image-dead-placeholder-host) need network and depend on the host's state that day; image-route-404 is the offline equivalent."
+  },
+  "helpers": {
+    "sel": "the injector's select string",
+    "pick(selector, root?)": "one visible candidate (VISUAL.md 2.1 visible()) chosen by the seeded RNG; the injector is skipped and recorded as not applicable when there is none",
+    "pickMany(selector, min, max, root?)": "between min and max visible candidates; skip when fewer than min",
+    "tallest(selector)": "the visible candidate with the largest height",
+    "mark(el)": "el.setAttribute('data-bench-fault', id); the label's target",
+    "markAll(selector)": "mark every visible match",
+    "markPage()": "document.documentElement.setAttribute('data-bench-fault', id); a page-level label",
+    "css(text)": "append <style data-bench-fault=id> with text to head",
+    "deleteRules(predicate)": "delete every readable CSSOM rule (recursing into grouping rules) for which predicate(rule) is true",
+    "setText(el, text)": "replace the first non-empty text node of el",
+    "textNodes(el)": "the non-empty text nodes under el",
+    "resolvedBackground(el)": "the VISUAL.md 2.4 effective background colour of el; skip the injector when it abstains",
+    "route(urlOrRegExp, response)": "harness network interception (Playwright page.route): { status } fails the request, { delayMs } delays it, { status, body, contentType } replaces it, an image response replaces it with that image",
+    "resizedImage(url, width)": "an image response holding the original scaled to width",
+    "firstJsonListRequest": "the first same-origin GET with a JSON array response seen on a clean load",
+    "rewriteHtml(fn)": "route the document request and replace its body with fn(html) before parse",
+    "stripImgDimensions(html, n)": "remove width, height and aspect classes from the first n img tags",
+    "swapFirstTwoStylesheetLinks(html)": "swap the first two link rel=stylesheet tags in head",
+    "removeInlineThemeScript()": "with rewriteHtml, drop inline head scripts that set a theme class or data-theme",
+    "rewriteDarkRulesToMedia()": "move every CSSOM rule whose selector contains .dark into an @media (prefers-color-scheme: dark) block with the .dark part removed",
+    "enableAppDarkMode()": "set OS dark emulation and the app's own dark state (html.dark, data-theme=dark, or a stored preference) before measuring",
+    "onReady(fn)": "run fn at DOMContentLoaded (for init-phase injectors)",
+    "onNavigate(fn)": "run fn after the next pushState or popstate",
+    "openFirstDialog(), closeFirstDialog(), openFirstMenu(), openFirstSelect(), openMobileMenu()": "harness interactions with real input events (CDP), waiting for transitions to end",
+    "photoUrl, lightPhotoUrl, seed": "a bundled same-origin photo, a bundled light photo, the run's RNG seed"
+  },
+  "counts": {
+    "injectors": 163,
+    "faults": 151,
+    "controls": 12,
+    "catalog_entries_covered": 103
+  },
+  "injectors": [
+    {
+      "id": "contrast-muted-light",
+      "catalog_id": "text-low-contrast",
+      "family": "text",
+      "kind": "fault",
+      "description": "Body text set to Tailwind gray-400 on white (2.54:1).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p, main li",
+      "targets": "3 to 10 visible paragraphs or list items on a white or near-white effective background",
+      "operation": "for (const el of pickMany(sel, 3, 10)) { el.style.setProperty('color', '#9ca3af', 'important'); mark(el); }",
+      "label": {
+        "expect": "finding",
+        "kind": "text-low-contrast",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "contrast-muted-dark",
+      "catalog_id": "text-low-contrast",
+      "family": "text",
+      "kind": "fault",
+      "description": "Dark section with zinc-600 body text (about 2.6:1).",
+      "phase": "after-load",
+      "env": {},
+      "select": "section",
+      "targets": "one visible section with at least 3 paragraphs",
+      "operation": "const s = pick(sel); s.style.background = '#09090b'; for (const p of s.querySelectorAll('p, li')) { p.style.setProperty('color', '#52525b', 'important'); mark(p); }",
+      "label": {
+        "expect": "finding",
+        "kind": "text-low-contrast",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "contrast-button-500",
+      "catalog_id": "text-low-contrast",
+      "family": "text",
+      "kind": "fault",
+      "description": "White label on green-500 (2.28:1).",
+      "phase": "after-load",
+      "env": {},
+      "select": "button, a[role=button], .btn",
+      "targets": "one visible primary button with 14 to 16px regular-weight text",
+      "operation": "const b = pick(sel); b.style.setProperty('background', '#22c55e', 'important'); b.style.setProperty('color', '#fff', 'important'); b.style.setProperty('font-weight', '400', 'important'); mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "text-low-contrast",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "text-color-equals-bg",
+      "catalog_id": "text-invisible",
+      "family": "text",
+      "kind": "fault",
+      "description": "Text colour equal to its resolved background (VISUAL.md bench fault).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p, main h2, main h3, button",
+      "targets": "one visible text element over a fully known solid background (VISUAL.md 2.4 resolves it)",
+      "operation": "const el = pick(sel); el.style.setProperty('color', resolvedBackground(el), 'important'); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "text-invisible",
+        "v1_kind": "text-invisible",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "text-white-on-white-card",
+      "catalog_id": "text-invisible",
+      "family": "text",
+      "kind": "fault",
+      "description": "White card whose text is white.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main div:has(> h3), article, .card",
+      "targets": "one card-like container with a heading and text",
+      "operation": "const c = pick(sel); c.style.setProperty('background', '#fff', 'important'); for (const t of c.querySelectorAll('*')) t.style.setProperty('color', '#fff', 'important'); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "text-invisible",
+        "v1_kind": "text-invisible",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-sr-only-text",
+      "catalog_id": "text-invisible",
+      "family": "text",
+      "kind": "control",
+      "description": "Visually hidden text with equal colours; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const s = document.createElement('span'); s.textContent = 'Screen reader label'; s.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;color:#fff;background:#fff'; pick(sel).append(s); mark(s);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "text-invisible",
+        "v1_kind": "text-invisible",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "hero-scrim-removed",
+      "catalog_id": "text-over-image",
+      "family": "text",
+      "kind": "fault",
+      "description": "White hero text over a light photo with the scrim removed (needs pixel sampling).",
+      "phase": "after-load",
+      "env": {},
+      "select": "header, section:first-of-type",
+      "targets": "the hero with a background image and an overlay element",
+      "operation": "const h = pick(sel); for (const o of h.querySelectorAll('[class*=overlay], [class*=bg-black], [class*=bg-gradient]')) o.remove(); h.style.backgroundImage = 'url(' + lightPhotoUrl + ')'; for (const t of h.querySelectorAll('h1, p')) { t.style.color = '#fff'; mark(t); }",
+      "label": {
+        "expect": "finding",
+        "kind": "text-over-image",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "glass-over-light",
+      "catalog_id": "text-over-image",
+      "family": "text",
+      "kind": "fault",
+      "description": "Light text on translucent glass over a light gradient.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main div:has(> p)",
+      "targets": "3 card-like blocks inside a section",
+      "operation": "const s = pick('section'); s.style.background = 'linear-gradient(135deg,#fde68a,#f9a8d4)'; for (const c of pickMany(sel, 3, 3, s)) { c.style.cssText += ';background:rgba(255,255,255,.08);backdrop-filter:blur(8px);color:#e5e7eb'; mark(c); }",
+      "label": {
+        "expect": "finding",
+        "kind": "text-over-image",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "gradient-text-no-bg",
+      "catalog_id": "gradient-text-invisible",
+      "family": "text",
+      "kind": "fault",
+      "description": "Gradient-text heading whose gradient is missing: fully invisible.",
+      "phase": "after-load",
+      "env": {},
+      "select": "h1, h2",
+      "targets": "one visible heading",
+      "operation": "const h = pick(sel); h.style.cssText += ';color:transparent;-webkit-text-fill-color:transparent;background-clip:text;-webkit-background-clip:text;background-image:none'; mark(h);",
+      "label": {
+        "expect": "finding",
+        "kind": "gradient-text-invisible",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "gradient-text-descender",
+      "catalog_id": "gradient-text-invisible",
+      "family": "text",
+      "kind": "fault",
+      "description": "Gradient heading with tight leading that clips descenders.",
+      "phase": "after-load",
+      "env": {},
+      "select": "h1, h2",
+      "targets": "one heading whose text contains g, j, p, q or y",
+      "operation": "const h = pick(sel); h.style.cssText += ';display:inline-block;line-height:0.9;background-image:linear-gradient(90deg,#7c3aed,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent'; mark(h);",
+      "label": {
+        "expect": "finding",
+        "kind": "gradient-text-invisible",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "text-tiny-mobile",
+      "catalog_id": "text-too-small",
+      "family": "text",
+      "kind": "fault",
+      "description": "Body text at 11px on phones.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "body",
+      "targets": "the page",
+      "operation": "css('@media (max-width: 767px) { body, p, li { font-size: 11px !important; } }'); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "text-too-small",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "image-route-404",
+      "catalog_id": "image-broken",
+      "family": "media",
+      "kind": "fault",
+      "description": "A content image routed to 404.",
+      "phase": "network",
+      "env": {},
+      "select": "main img",
+      "targets": "one visible content image larger than 64x64 that is not lazy-loaded",
+      "operation": "const img = pick(sel); const u = img.currentSrc + (img.currentSrc.includes('?') ? '&' : '?') + 'bench=404'; route(u, { status: 404 }); img.removeAttribute('srcset'); img.src = u; mark(img);",
+      "label": {
+        "expect": "finding",
+        "kind": "image-broken",
+        "v1_kind": "image-broken",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "image-invented-unsplash",
+      "catalog_id": "image-broken",
+      "family": "media",
+      "kind": "fault",
+      "description": "An invented Unsplash photo id (404 on 2026-10-13). Needs network; use image-route-404 offline.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main img",
+      "targets": "one visible content image",
+      "operation": "const img = pick(sel); img.removeAttribute('srcset'); img.src = 'https://images.unsplash.com/photo-1500000000000-000000000000?w=800'; mark(img);",
+      "label": {
+        "expect": "finding",
+        "kind": "image-broken",
+        "v1_kind": "image-broken",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "image-dead-placeholder-host",
+      "catalog_id": "image-broken",
+      "family": "media",
+      "kind": "fault",
+      "description": "A retired placeholder service (503 on 2026-10-13). Needs network; liveness changes over time.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main img",
+      "targets": "one visible content image",
+      "operation": "const img = pick(sel); img.removeAttribute('srcset'); img.src = 'https://source.unsplash.com/random/800x600'; mark(img);",
+      "label": {
+        "expect": "finding",
+        "kind": "image-broken",
+        "v1_kind": "image-broken",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "image-css-background-404",
+      "catalog_id": "image-broken",
+      "family": "media",
+      "kind": "fault",
+      "description": "A CSS background image that 404s (VISUAL.md `image-css-broken`, Chromium only).",
+      "phase": "after-load",
+      "env": {},
+      "select": "section",
+      "targets": "one visible section without a background image",
+      "operation": "const s = pick(sel); s.style.backgroundImage = 'url(/assets/bench-missing-' + seed + '.jpg)'; mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "image-broken",
+        "v1_kind": "image-css-broken",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-image-lazy-offscreen",
+      "catalog_id": "image-broken",
+      "family": "media",
+      "kind": "control",
+      "description": "A lazy image below the fold that has not been requested; must not be reported before it is.",
+      "phase": "after-load",
+      "env": {},
+      "select": "footer, main > :last-child",
+      "targets": "a container far below the fold",
+      "operation": "const img = document.createElement('img'); img.loading = 'lazy'; img.width = 300; img.height = 200; img.src = '/assets/bench-lazy.jpg'; pick(sel).append(img); mark(img);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "image-broken",
+        "v1_kind": "image-broken",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "image-stretch",
+      "catalog_id": "image-distorted",
+      "family": "media",
+      "kind": "fault",
+      "description": "Image forced into a box of another aspect ratio with object-fit fill.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main img",
+      "targets": "one loaded raster image whose natural aspect differs from 4:1 by at least 20%",
+      "operation": "const img = pick(sel); img.style.cssText += ';width:100%;height:200px;object-fit:fill'; mark(img);",
+      "label": {
+        "expect": "finding",
+        "kind": "image-distorted",
+        "v1_kind": "image-distorted",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-object-cover",
+      "catalog_id": "image-distorted",
+      "family": "media",
+      "kind": "control",
+      "description": "Same box with object-fit cover; a crop, not a distortion.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main img",
+      "targets": "one loaded raster image",
+      "operation": "const img = pick(sel); img.style.cssText += ';width:100%;height:200px;object-fit:cover'; mark(img);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "image-distorted",
+        "v1_kind": "image-distorted",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "image-low-res",
+      "catalog_id": "image-blurry",
+      "family": "media",
+      "kind": "fault",
+      "description": "Source replaced by a quarter-resolution copy at the same rendered size.",
+      "phase": "network",
+      "env": {},
+      "select": "main img",
+      "targets": "one visible image at least 300px wide",
+      "operation": "const img = pick(sel); const w = img.getBoundingClientRect().width; route(img.currentSrc, resizedImage(img.currentSrc, Math.round(w / 4))); img.removeAttribute('srcset'); img.style.width = w + 'px'; mark(img);",
+      "label": {
+        "expect": "finding",
+        "kind": "image-blurry",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "svg-viewbox-removed",
+      "catalog_id": "svg-icon-sizing",
+      "family": "media",
+      "kind": "fault",
+      "description": "Icon without viewBox draws at attribute size inside a larger box.",
+      "phase": "after-load",
+      "env": {},
+      "select": "svg[viewBox]",
+      "targets": "one inline icon svg whose CSS size differs from its width and height attributes",
+      "operation": "const s = pick(sel); s.removeAttribute('viewBox'); mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "svg-icon-sizing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "svg-unsized",
+      "catalog_id": "svg-icon-sizing",
+      "family": "media",
+      "kind": "fault",
+      "description": "Icon with no size grows to its container width.",
+      "phase": "after-load",
+      "env": {},
+      "select": "button svg, li svg, a svg",
+      "targets": "one small icon svg inside a control or list item",
+      "operation": "const s = pick(sel); s.removeAttribute('width'); s.removeAttribute('height'); s.removeAttribute('class'); s.style.cssText = ''; mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "svg-icon-sizing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "icon-shrink",
+      "catalog_id": "svg-icon-sizing",
+      "family": "media",
+      "kind": "fault",
+      "description": "Icon squeezed below its declared width by long sibling text.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          360,
+          740
+        ]
+      },
+      "select": "li:has(> svg), a:has(> svg), button:has(> svg)",
+      "targets": "one flex row with an icon followed by text",
+      "operation": "const row = pick(sel); row.style.display = 'flex'; row.style.width = '180px'; const icon = row.querySelector('svg'); icon.style.flexShrink = '1'; icon.style.width = '24px'; row.append(' ' + 'a very long label that does not fit '.repeat(3)); mark(icon);",
+      "label": {
+        "expect": "finding",
+        "kind": "svg-icon-sizing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "icon-ligature-typo",
+      "catalog_id": "icon-missing",
+      "family": "media",
+      "kind": "fault",
+      "description": "Misspelled Material ligature renders as the raw word.",
+      "phase": "after-load",
+      "env": {},
+      "select": ".material-icons, .material-symbols-outlined, .material-symbols-rounded",
+      "targets": "one Material icon element (skip if none)",
+      "operation": "const el = pick(sel); el.textContent = 'shoping_cart'; mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "icon-missing",
+        "v1_kind": "icon-font-failed",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "icon-font-link-removed",
+      "catalog_id": "icon-missing",
+      "family": "media",
+      "kind": "fault",
+      "description": "Icon font stylesheet routed to 404 (VISUAL.md `icon-font-failed`).",
+      "phase": "network",
+      "env": {},
+      "select": "link[rel=stylesheet][href*=icon], link[rel=stylesheet][href*=awesome], link[rel=stylesheet][href*='Material+']",
+      "targets": "the icon font stylesheet (skip if none)",
+      "operation": "route(pick(sel).href, { status: 404 }); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "icon-missing",
+        "v1_kind": "icon-font-failed",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "chart-parent-zero",
+      "catalog_id": "chart-zero-size",
+      "family": "media",
+      "kind": "fault",
+      "description": "Chart parent with no height.",
+      "phase": "after-load",
+      "env": {},
+      "select": ".recharts-responsive-container, .leaflet-container, canvas",
+      "targets": "one chart or map container (skip if none)",
+      "operation": "const c = pick(sel); c.parentElement.style.height = '0px'; c.parentElement.style.overflow = 'hidden'; mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "chart-zero-size",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "token-undefined",
+      "catalog_id": "css-token-invalid",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Background reads an undefined custom property: transparent (VISUAL.md `css-var-undefined`).",
+      "phase": "after-load",
+      "env": {},
+      "select": "button, [class*=bg-primary]",
+      "targets": "one primary button",
+      "operation": "const b = pick(sel); b.style.setProperty('background-color', 'hsl(var(--gc-undefined))'); mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "css-token-invalid",
+        "v1_kind": "css-var-undefined",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "token-double-wrap",
+      "catalog_id": "css-token-invalid",
+      "family": "styles",
+      "kind": "fault",
+      "description": "A full oklch value inside an hsl() wrapper: invalid at computed time.",
+      "phase": "after-load",
+      "env": {},
+      "select": ":root",
+      "targets": "a page whose buttons use hsl(var(--primary))",
+      "operation": "css(':root { --primary: oklch(0.6 0.2 250) !important; }'); markAll('[class*=bg-primary]');",
+      "label": {
+        "expect": "finding",
+        "kind": "css-token-invalid",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "token-popover-transparent",
+      "catalog_id": "css-token-invalid",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Popover token made guaranteed-invalid: the open menu is transparent over page text.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[data-radix-popper-content-wrapper] > *, [role=menu], [role=listbox]",
+      "targets": "a menu or popover the harness opens",
+      "operation": "css(':root { --popover: initial !important; }'); openFirstMenu(); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "css-token-invalid",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-ghost-transparent",
+      "catalog_id": "css-token-invalid",
+      "family": "styles",
+      "kind": "control",
+      "description": "A ghost button that is transparent on purpose; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "button",
+      "targets": "one secondary button",
+      "operation": "const b = pick(sel); b.style.setProperty('background-color', 'transparent'); b.style.setProperty('border', '1px solid currentColor'); mark(b);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "css-token-invalid",
+        "v1_kind": "css-var-undefined",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "font-link-removed",
+      "catalog_id": "font-not-loaded",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Font link removed while font-family still names it.",
+      "phase": "before-load",
+      "env": {},
+      "select": "link[href*='fonts.googleapis.com'], style",
+      "targets": "the web font link or @font-face (skip if none)",
+      "operation": "rewriteHtml(html => html.replace(/<link[^>]+fonts\\.googleapis\\.com[^>]*>/g, '')); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "font-not-loaded",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "font-gfonts-400",
+      "catalog_id": "font-not-loaded",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Unknown family appended: the whole css2 request returns 400.",
+      "phase": "before-load",
+      "env": {},
+      "select": "link[href*='fonts.googleapis.com/css2']",
+      "targets": "a Google Fonts css2 link (skip if none)",
+      "operation": "rewriteHtml(html => html.replace(/(fonts\\.googleapis\\.com\\/css2\\?[^\"']+)/, '$1&family=Sohne:wght@400')); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "font-not-loaded",
+        "v1_kind": "font-failed",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "font-file-404",
+      "catalog_id": "font-not-loaded",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Font files routed to 404 (VISUAL.md `font-failed`).",
+      "phase": "network",
+      "env": {},
+      "select": "",
+      "targets": "every woff2 request",
+      "operation": "route(/\\.woff2(\\?|$)/, { status: 404 }); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "font-not-loaded",
+        "v1_kind": "font-failed",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "class-unbacked-token",
+      "catalog_id": "tailwind-class-missing",
+      "family": "styles",
+      "kind": "fault",
+      "description": "A colour class renamed to a shade no build contains.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=bg-]",
+      "targets": "one visible element with a Tailwind background colour class",
+      "operation": "const el = pick(sel); const t = [...el.classList].find(c => /^bg-[a-z]+-\\d{2,3}$/.test(c)); el.classList.replace(t, t.replace(/\\d+$/, '550')); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-class-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "class-subtree-unbacked",
+      "catalog_id": "tailwind-class-missing",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Every class in a subtree prefixed so no rule matches (files outside scan paths).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "one component subtree",
+      "operation": "const s = pick(sel); for (const el of [s, ...s.querySelectorAll('[class]')]) el.className = [...el.classList].map(c => 'x-' + c).join(' '); mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-class-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "tw-v4-name-in-v3",
+      "catalog_id": "tailwind-version-mix",
+      "family": "styles",
+      "kind": "fault",
+      "description": "v3 class rewritten to its v4-only name, which v3 does not generate.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=bg-gradient-to-], [class*='z-[']",
+      "targets": "one element in a Tailwind v3 build with a gradient or arbitrary z-index class",
+      "operation": "const el = pick(sel); el.className = el.className.replace(/bg-gradient-to-(\\w+)/, 'bg-linear-to-$1').replace(/z-\\[(\\d+)\\]/, 'z-$1'); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-version-mix",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "tw-opacity-backdrop-opaque",
+      "catalog_id": "tailwind-version-mix",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Backdrop as rendered when bg-opacity-50 is ignored in v4: opaque black.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[data-state=open][class*='bg-black/'], [class*=fixed][class*=inset-0][class*='bg-black/']",
+      "targets": "an open dialog backdrop in a v4 build",
+      "operation": "openFirstDialog(); const b = pick(sel); b.style.setProperty('background-color', 'rgb(0 0 0)', 'important'); mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-version-mix",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "tw-config-tokens-missing",
+      "catalog_id": "tailwind-version-mix",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Custom theme token classes that generate nothing (v3 config ignored by v4).",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=bg-primary], [class*=text-primary]",
+      "targets": "every element using the primary token",
+      "operation": "for (const el of document.querySelectorAll(sel)) { el.className = el.className.replace(/\\b(bg|text|border)-primary\\b/g, '$1-primarx'); mark(el); }",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-version-mix",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "prose-rules-removed",
+      "catalog_id": "tailwind-plugin-missing",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Typography plugin rules removed: headings at body size, no list markers.",
+      "phase": "after-load",
+      "env": {},
+      "select": ".prose",
+      "targets": "a prose container (skip if none)",
+      "operation": "deleteRules(r => /\\.prose\\b/.test(r.selectorText || '')); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-plugin-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "keyframes-removed",
+      "catalog_id": "tailwind-plugin-missing",
+      "family": "styles",
+      "kind": "fault",
+      "description": "All @keyframes removed: animate-* classes have no animation.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=animate-]",
+      "targets": "elements with animate-* classes",
+      "operation": "deleteRules(r => r.type === CSSRule.KEYFRAMES_RULE); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-plugin-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "stylesheets-disabled",
+      "catalog_id": "stylesheet-not-applied",
+      "family": "styles",
+      "kind": "fault",
+      "description": "All stylesheets disabled: browser defaults.",
+      "phase": "after-load",
+      "env": {},
+      "select": "",
+      "targets": "the page",
+      "operation": "for (const s of document.styleSheets) s.disabled = true; markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "stylesheet-not-applied",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "stylesheet-404",
+      "catalog_id": "stylesheet-not-applied",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Main stylesheet routed to 404 (VISUAL.md `stylesheet-failed`).",
+      "phase": "network",
+      "env": {},
+      "select": "link[rel=stylesheet]",
+      "targets": "the main first-party stylesheet",
+      "operation": "route(pick(sel).href, { status: 404 }); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "stylesheet-not-applied",
+        "v1_kind": "stylesheet-failed",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "stylesheet-order-swap",
+      "catalog_id": "css-order-dev-prod",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Two stylesheets loaded in swapped order; equal-specificity conflicts flip.",
+      "phase": "before-load",
+      "env": {},
+      "select": "link[rel=stylesheet]",
+      "targets": "two stylesheet links in head (skip if fewer)",
+      "operation": "rewriteHtml(swapFirstTwoStylesheetLinks); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "css-order-dev-prod",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "tw4-cursor-default",
+      "catalog_id": "tailwind-v4-defaults",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Buttons show the arrow cursor (v4 Preflight).",
+      "phase": "after-load",
+      "env": {},
+      "select": "button",
+      "targets": "every enabled button",
+      "operation": "css('button:not(:disabled), [role=button] { cursor: default !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-v4-defaults",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "tw4-border-currentcolor",
+      "catalog_id": "tailwind-v4-defaults",
+      "family": "styles",
+      "kind": "fault",
+      "description": "Bare border renders currentColor (v4 default).",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class~=border]",
+      "targets": "bordered light cards and inputs",
+      "operation": "css('[class~=border] { border-color: currentColor !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-v4-defaults",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "tw4-container-uncentered",
+      "catalog_id": "tailwind-v4-defaults",
+      "family": "styles",
+      "kind": "fault",
+      "description": "container neither centred nor padded (v4 default).",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          1440,
+          900
+        ]
+      },
+      "select": ".container",
+      "targets": "a .container element (skip if none)",
+      "operation": "css('.container { margin-inline: 0 !important; padding-inline: 0 !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "tailwind-v4-defaults",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "overflow-fixed-width",
+      "catalog_id": "page-overflow-x",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A block wider than the viewport (VISUAL.md bench fault).",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main > section > div, main > div",
+      "targets": "one visible block in the main column whose ancestors have overflow visible",
+      "operation": "const el = pick(sel); el.style.setProperty('min-width', '130vw'); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "page-overflow-x",
+        "v1_kind": "page-overflow-x",
+        "attribute": "culprit",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "overflow-decorative-blob",
+      "catalog_id": "page-overflow-x",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A blurred decorative circle past the right edge.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "section",
+      "targets": "one section whose ancestors have overflow visible",
+      "operation": "const s = pick(sel); s.style.position = 'relative'; const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); d.style.cssText = 'position:absolute;top:10%;right:-240px;width:600px;height:600px;border-radius:50%;filter:blur(60px);background:radial-gradient(#a78bfa,transparent);pointer-events:none'; s.append(d); mark(d);",
+      "label": {
+        "expect": "finding",
+        "kind": "page-overflow-x",
+        "v1_kind": "page-overflow-x",
+        "attribute": "culprit",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "overflow-nowrap-row",
+      "catalog_id": "page-overflow-x",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A non-wrapping flex row of four 240px cards.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const r = document.createElement('div'); r.style.cssText = 'display:flex;flex-wrap:nowrap;gap:16px'; for (let i = 0; i < 4; i++) { const c = document.createElement('div'); c.style.cssText = 'flex:0 0 240px;height:80px;background:#eee'; c.textContent = 'Card ' + (i + 1); r.append(c); } pick(sel).prepend(r); mark(r);",
+      "label": {
+        "expect": "finding",
+        "kind": "page-overflow-x",
+        "v1_kind": "page-overflow-x",
+        "attribute": "culprit",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "overflow-wide-pre",
+      "catalog_id": "page-overflow-x",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A pre with a 200-character line and no scroll wrapper.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const p = document.createElement('pre'); p.textContent = 'x'.repeat(200); p.style.overflow = 'visible'; pick(sel).append(p); mark(p);",
+      "label": {
+        "expect": "finding",
+        "kind": "page-overflow-x",
+        "v1_kind": "page-overflow-x",
+        "attribute": "culprit",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "overflow-iframe-fixed",
+      "catalog_id": "page-overflow-x",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A 560px embed in a 375px viewport.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const f = document.createElement('iframe'); f.width = '560'; f.height = '315'; f.srcdoc = '<p>embed</p>'; pick(sel).append(f); mark(f);",
+      "label": {
+        "expect": "finding",
+        "kind": "page-overflow-x",
+        "v1_kind": "page-overflow-x",
+        "attribute": "culprit",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "control-overflow-in-scroller",
+      "catalog_id": "page-overflow-x",
+      "family": "overflow",
+      "kind": "control",
+      "description": "A wide row inside an overflow-x auto carousel; the page does not scroll and must not be reported.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const w = document.createElement('div'); w.style.overflowX = 'auto'; const r = document.createElement('div'); r.style.cssText = 'display:flex;width:1200px;gap:16px;height:60px'; w.append(r); pick(sel).append(w); mark(w);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "page-overflow-x",
+        "v1_kind": "page-overflow-x",
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "overflow-100vw-classic",
+      "catalog_id": "overflow-100vw",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A 100vw section with a classic scrollbar present.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          1280,
+          800
+        ],
+        "classicScrollbars": true
+      },
+      "select": "main section",
+      "targets": "one section on a page taller than the viewport",
+      "operation": "css('::-webkit-scrollbar { width: 17px; }'); const s = pick(sel); s.style.width = '100vw'; s.style.marginLeft = 'calc(50% - 50vw)'; mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "overflow-100vw",
+        "v1_kind": "page-overflow-x",
+        "attribute": "culprit",
+        "visible": "classic-scrollbars"
+      }
+    },
+    {
+      "id": "blowout-long-string",
+      "catalog_id": "content-blowout",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "An unbreakable 60-character string in a flex item with min-width auto.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main h3, main [class*=card] h3, li",
+      "targets": "one title inside a flex row with a sibling button or price",
+      "operation": "const t = pick(sel); t.textContent = 'averyveryveryverylongusername@example-company-domain.com'; t.parentElement.style.display = 'flex'; t.style.minWidth = 'auto'; t.style.whiteSpace = 'nowrap'; mark(t);",
+      "label": {
+        "expect": "finding",
+        "kind": "content-blowout",
+        "v1_kind": "page-overflow-x",
+        "attribute": "culprit",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "blowout-grid-1fr",
+      "catalog_id": "content-blowout",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A 1fr track forced wide by a long pre.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          768,
+          1024
+        ]
+      },
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const g = document.createElement('div'); g.style.cssText = 'display:grid;grid-template-columns:1fr 300px'; const a = document.createElement('pre'); a.textContent = 'y'.repeat(200); const b = document.createElement('aside'); b.textContent = 'Sidebar'; g.append(a, b); pick(sel).append(g); mark(a);",
+      "label": {
+        "expect": "finding",
+        "kind": "content-blowout",
+        "v1_kind": null,
+        "attribute": "culprit",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "clip-fixed-height",
+      "catalog_id": "text-clipped",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "Text container cut to 60% of its height with overflow hidden ([Nighthawk] style).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p, [class*=card] p",
+      "targets": "one multi-line text block",
+      "operation": "const el = pick(sel); const h = el.getBoundingClientRect().height; el.style.height = Math.round(h * 0.6) + 'px'; el.style.overflow = 'hidden'; mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "text-clipped",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "clip-over-truncate",
+      "catalog_id": "text-clipped",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "Key text ellipsized to a few characters with no full copy.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "td, [class*=price], h3",
+      "targets": "one price cell or card title",
+      "operation": "const el = pick(sel); el.style.cssText += ';max-width:48px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis'; el.removeAttribute('title'); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "text-clipped",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "control-line-clamp-with-title",
+      "catalog_id": "text-clipped",
+      "family": "overflow",
+      "kind": "control",
+      "description": "Deliberate two-line clamp with the full text in title; must not be reported as clipped.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p",
+      "targets": "one long paragraph",
+      "operation": "const el = pick(sel); el.style.cssText += ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden'; el.title = el.textContent; mark(el);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "text-clipped",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "button-long-label",
+      "catalog_id": "button-label-nowrap",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A long translated label in a nowrap button.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "button",
+      "targets": "one visible text button",
+      "operation": "const b = pick(sel); b.textContent = 'Continuer vers le paiement sécurisé'; b.style.maxWidth = '160px'; b.style.whiteSpace = 'nowrap'; mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "button-label-nowrap",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "sticky-broken-wrapper",
+      "catalog_id": "overflow-hidden-sticky",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "Page wrapped in overflow-x hidden: sticky header scrolls away, wide content clipped.",
+      "phase": "after-load",
+      "env": {},
+      "select": "body",
+      "targets": "a page with a sticky header",
+      "operation": "const w = document.createElement('div'); w.style.overflowX = 'hidden'; w.append(...document.body.children); document.body.append(w); const wide = document.createElement('div'); wide.style.width = '900px'; wide.style.height = '1px'; w.append(wide); markAll('[style*=sticky], .sticky, header');",
+      "label": {
+        "expect": "finding",
+        "kind": "overflow-hidden-sticky",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "pane-min-height-removed",
+      "catalog_id": "inner-pane-no-scroll",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "Flex wrapper without min-height 0: the pane grows instead of scrolling.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=overflow-y-auto], [class*=overflow-auto]",
+      "targets": "a scroll pane inside a full-height flex shell (skip if none)",
+      "operation": "const p = pick(sel); p.parentElement.style.minHeight = 'auto'; for (let i = 0; i < 100; i++) { const m = document.createElement('div'); m.textContent = 'Message ' + i; p.append(m); } mark(p);",
+      "label": {
+        "expect": "finding",
+        "kind": "inner-pane-no-scroll",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "scrollbar-double",
+      "catalog_id": "extra-scrollbars",
+      "family": "overflow",
+      "kind": "fault",
+      "description": "A 100vh content-box shell with padding inside a scrolling body: two scrollbars.",
+      "phase": "after-load",
+      "env": {
+        "classicScrollbars": true
+      },
+      "select": "body",
+      "targets": "the page",
+      "operation": "const a = document.createElement('div'); a.style.cssText = 'height:100vh;padding:12px;box-sizing:content-box;overflow:auto'; a.append(...document.body.children); document.body.append(a); mark(a);",
+      "label": {
+        "expect": "finding",
+        "kind": "extra-scrollbars",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "classic-scrollbars"
+      }
+    },
+    {
+      "id": "header-fixed-no-offset",
+      "catalog_id": "fixed-header-covers",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Fixed header with no offset: first lines, anchor targets and focus land under it (VISUAL.md bench fault).",
+      "phase": "after-load",
+      "env": {},
+      "select": "header",
+      "targets": "the site header",
+      "operation": "const h = pick(sel); h.style.cssText += ';position:fixed;top:0;left:0;right:0;z-index:50'; document.body.style.paddingTop = '0'; css('html { scroll-padding-top: 0 !important; } [id] { scroll-margin-top: 0 !important; }'); mark(h);",
+      "label": {
+        "expect": "finding",
+        "kind": "fixed-header-covers",
+        "v1_kind": "focus-obscured",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "overlap-negative-margin",
+      "catalog_id": "overlap-elements",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Negative margin pulls a heading over the previous section's text.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section h2",
+      "targets": "one section heading after another section",
+      "operation": "const h = pick(sel); h.style.marginTop = '-64px'; mark(h);",
+      "label": {
+        "expect": "finding",
+        "kind": "overlap-elements",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "overlap-fixed-height",
+      "catalog_id": "overlap-elements",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Fixed-height card whose text spills over the next block.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=card], article",
+      "targets": "one text card followed by another block",
+      "operation": "const c = pick(sel); c.style.height = '80px'; c.style.overflow = 'visible'; c.append(' More text.'.repeat(30)); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "overlap-elements",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "overlap-clone-offset",
+      "catalog_id": "overlap-elements",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "A copy of a text element drawn offset over the original ([Nighthawk] text overlap).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p, main h3",
+      "targets": "one text element",
+      "operation": "const el = pick(sel); const r = el.getBoundingClientRect(); const c = el.cloneNode(true); c.style.cssText = 'position:absolute;margin:0;left:' + (r.left + scrollX + r.width * 0.3) + 'px;top:' + (r.top + scrollY) + 'px;width:' + r.width + 'px'; document.body.append(c); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "overlap-elements",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "stack-trap-dropdown",
+      "catalog_id": "overlay-behind",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Menu trapped in a lower stacking context under the next section.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[aria-haspopup], [aria-expanded]",
+      "targets": "a dropdown trigger whose menu is not portaled, followed by a section",
+      "operation": "const t = pick(sel); const host = t.parentElement; host.style.cssText += ';position:relative;z-index:0;transform:translateZ(0)'; const next = host.closest('section, header').nextElementSibling; next.style.position = 'relative'; next.style.zIndex = '1'; t.click(); mark(t);",
+      "label": {
+        "expect": "finding",
+        "kind": "overlay-behind",
+        "v1_kind": "dialog-covered",
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "stack-modal-under-header",
+      "catalog_id": "overlay-behind",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Dialog under a z-index 9999 sticky header (VISUAL.md bench fault).",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "header",
+      "targets": "the sticky header and a dialog the harness opens",
+      "operation": "const h = pick(sel); h.style.position = 'sticky'; h.style.zIndex = '9999'; openFirstDialog(); markAll('[role=dialog]');",
+      "label": {
+        "expect": "finding",
+        "kind": "overlay-behind",
+        "v1_kind": "dialog-covered",
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-tooltip-over",
+      "catalog_id": "overlay-behind",
+      "family": "occlusion",
+      "kind": "control",
+      "description": "A small tooltip above an open dialog's corner, clear of its buttons; must not be reported as covering it.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[role=dialog]",
+      "targets": "an open dialog",
+      "operation": "openFirstDialog(); const tip = document.createElement('div'); tip.setAttribute('role', 'tooltip'); tip.textContent = 'Tip'; tip.style.cssText = 'position:fixed;top:8px;left:8px;z-index:2147483647;background:#111;color:#fff;padding:4px'; document.body.append(tip); mark(tip);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "overlay-behind",
+        "v1_kind": "dialog-covered",
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "fixed-trapped-blur",
+      "catalog_id": "fixed-trapped-by-transform",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "A fixed inset-0 menu inside a backdrop-filter header: sized to the header.",
+      "phase": "on-interaction",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "header",
+      "targets": "a header that contains the mobile menu",
+      "operation": "const h = pick(sel); h.style.backdropFilter = 'blur(8px)'; const m = document.createElement('nav'); m.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:60'; m.textContent = 'Menu'; h.append(m); mark(m);",
+      "label": {
+        "expect": "finding",
+        "kind": "fixed-trapped-by-transform",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "fixed-footer-over-cta",
+      "catalog_id": "fixed-bar-covers-controls",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Fixed footer covers the last controls even at maximum scroll (VISUAL.md bench fault).",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "footer",
+      "targets": "the footer of a page with a control near the end",
+      "operation": "const f = pick(sel); f.style.cssText += ';position:fixed;bottom:0;left:0;right:0;height:120px;z-index:50;background:#fff'; document.body.style.paddingBottom = '0'; mark(f);",
+      "label": {
+        "expect": "finding",
+        "kind": "fixed-bar-covers-controls",
+        "v1_kind": "control-unreachable",
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "popover-in-overflow-hidden",
+      "catalog_id": "popover-clipped",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Menu clipped by an overflow-hidden parent.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[aria-haspopup]",
+      "targets": "a dropdown trigger whose menu is absolutely positioned",
+      "operation": "const t = pick(sel); const box = t.parentElement; box.style.overflow = 'hidden'; box.style.height = box.getBoundingClientRect().height + 'px'; t.click(); mark(t);",
+      "label": {
+        "expect": "finding",
+        "kind": "popover-clipped",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "fill-image-parent-static",
+      "catalog_id": "next-image-fill-escapes",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Fill image's parent loses position relative: it covers an outer box.",
+      "phase": "after-load",
+      "env": {},
+      "select": "img[data-nimg=fill], img[style*='position: absolute']",
+      "targets": "an absolutely positioned fill image (skip if none)",
+      "operation": "const img = pick(sel); img.parentElement.style.position = 'static'; mark(img);",
+      "label": {
+        "expect": "finding",
+        "kind": "next-image-fill-escapes",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "decoration-over-text",
+      "catalog_id": "text-occluded-by-decoration",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "A decorative image layer painted over a section's text.",
+      "phase": "after-load",
+      "env": {},
+      "select": "section:has(p)",
+      "targets": "one text section",
+      "operation": "const s = pick(sel); s.style.position = 'relative'; const d = document.createElement('div'); d.style.cssText = 'position:absolute;inset:0;z-index:1;background:url(' + photoUrl + ') center/cover'; s.append(d); mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "text-occluded-by-decoration",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "menu-offscreen",
+      "catalog_id": "floating-offscreen",
+      "family": "occlusion",
+      "kind": "fault",
+      "description": "Open menu pushed past the viewport edge.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[aria-haspopup]",
+      "targets": "a dropdown trigger near the right edge",
+      "operation": "const t = pick(sel); t.click(); const m = document.querySelector('[role=menu], [role=listbox]'); m.style.left = 'calc(100% + 20px)'; mark(m);",
+      "label": {
+        "expect": "finding",
+        "kind": "floating-offscreen",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "hover-only-actions",
+      "catalog_id": "hover-only-controls",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Buttons revealed only by hover, gated on a hover-capable pointer.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "[class*=card]:has(button), li:has(button), tr:has(button)",
+      "targets": "cards or rows that hold buttons",
+      "operation": "css('@media (hover: hover) { .bench-ho:hover .bench-ho-a { opacity: 1 !important; } } .bench-ho-a { opacity: 0 !important; }'); for (const c of pickMany(sel, 2, 6)) { c.classList.add('bench-ho'); for (const b of c.querySelectorAll('button')) { b.classList.add('bench-ho-a'); mark(b); } }",
+      "label": {
+        "expect": "finding",
+        "kind": "hover-only-controls",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "touch"
+      }
+    },
+    {
+      "id": "tap-target-shrink",
+      "catalog_id": "tap-targets-small",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Targets under 24x24 CSS px.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "button[aria-label], nav a, footer a",
+      "targets": "icon buttons and nav or footer links",
+      "operation": "css('.bench-tt { padding: 0 !important; font-size: 11px !important; line-height: 1 !important; min-height: 0 !important; min-width: 0 !important; } .bench-tt svg { width: 14px !important; height: 14px !important; }'); for (const el of pickMany(sel, 3, 10)) { el.classList.add('bench-tt'); mark(el); }",
+      "label": {
+        "expect": "finding",
+        "kind": "tap-targets-small",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "focus-ring-removed",
+      "catalog_id": "focus-indicator-missing",
+      "family": "controls",
+      "kind": "fault",
+      "description": "No visible focus indicator anywhere.",
+      "phase": "after-load",
+      "env": {},
+      "select": "a, button, input, select, textarea",
+      "targets": "all focusable elements",
+      "operation": "css('*:focus, *:focus-visible { outline: none !important; box-shadow: none !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "focus-indicator-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "keyboard"
+      }
+    },
+    {
+      "id": "fake-clickable-card",
+      "catalog_id": "fake-affordances",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Cards styled as clickable with no handler.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=card]:not(a):not(:has(a, button))",
+      "targets": "feature cards with no link or button",
+      "operation": "css('.bench-fc { cursor: pointer; transition: transform .2s; } .bench-fc:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(124,58,237,.35); }'); for (const c of pickMany(sel, 1, 6)) { c.classList.add('bench-fc'); mark(c); }",
+      "label": {
+        "expect": "finding",
+        "kind": "fake-affordances",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "leftover-backdrop",
+      "catalog_id": "overlay-left-behind",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Backdrop left mounted after close.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[role=dialog]",
+      "targets": "a dialog the harness opens and closes",
+      "operation": "openFirstDialog(); closeFirstDialog(); const b = document.createElement('div'); b.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40'; document.body.append(b); mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "overlay-left-behind",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "leftover-scroll-lock",
+      "catalog_id": "overlay-left-behind",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Body scroll lock left after the dialog closed (VISUAL.md `scroll-lock-stuck` bench fault).",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "body",
+      "targets": "a page taller than the viewport with a dialog",
+      "operation": "openFirstDialog(); closeFirstDialog(); document.body.style.overflow = 'hidden'; markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "overlay-left-behind",
+        "v1_kind": "scroll-lock-stuck",
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "sheet-open-after-nav",
+      "catalog_id": "overlay-left-behind",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Route changes while the mobile sheet stays open.",
+      "phase": "on-interaction",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "nav a[href^='/']",
+      "targets": "a mobile menu link in an SPA",
+      "operation": "openMobileMenu(); const a = pick(sel); a.addEventListener('click', e => { e.preventDefault(); e.stopImmediatePropagation(); history.pushState({}, '', a.href); }, { capture: true, once: true }); a.click(); markAll('[role=dialog][data-state=open]');",
+      "label": {
+        "expect": "finding",
+        "kind": "overlay-left-behind",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "control-modal-open-lock",
+      "catalog_id": "overlay-left-behind",
+      "family": "controls",
+      "kind": "control",
+      "description": "Scroll lock and pointer-events none while a dialog is really open; must not be reported.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[role=dialog]",
+      "targets": "a dialog the harness opens and leaves open",
+      "operation": "openFirstDialog(); markPage();",
+      "label": {
+        "expect": "no-finding",
+        "kind": "overlay-left-behind",
+        "v1_kind": "scroll-lock-stuck",
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "body-pointer-events-none",
+      "catalog_id": "pointer-events-stuck",
+      "family": "controls",
+      "kind": "fault",
+      "description": "body pointer-events none left after the dialog closed (VISUAL.md bench fault).",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "body",
+      "targets": "a page with a dialog",
+      "operation": "openFirstDialog(); closeFirstDialog(); setTimeout(() => { document.body.style.pointerEvents = 'none'; }, 50); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "pointer-events-stuck",
+        "v1_kind": "pointer-events-leak",
+        "attribute": "page",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "dialog-overflow-tall",
+      "catalog_id": "dialog-unreachable",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Dialog taller than the viewport with no scroll; its last buttons are off screen.",
+      "phase": "on-interaction",
+      "env": {
+        "viewport": [
+          390,
+          640
+        ],
+        "hasTouch": true
+      },
+      "select": "[role=dialog]",
+      "targets": "a dialog the harness opens",
+      "operation": "openFirstDialog(); const d = pick(sel); for (let i = 0; i < 25; i++) { const f = document.createElement('input'); f.placeholder = 'Field ' + i; f.style.display = 'block'; d.append(f); } d.style.maxHeight = 'none'; d.style.overflow = 'visible'; mark(d);",
+      "label": {
+        "expect": "finding",
+        "kind": "dialog-unreachable",
+        "v1_kind": "dialog-covered",
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "transparent-overlay-cta",
+      "catalog_id": "click-blocked",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Transparent layer over the hero CTA (VISUAL.md bench fault).",
+      "phase": "after-load",
+      "env": {},
+      "select": "header a, section:first-of-type a, section:first-of-type button",
+      "targets": "the hero CTA",
+      "operation": "const cta = pick(sel); const s = cta.closest('section, header'); s.style.position = 'relative'; const o = document.createElement('div'); o.style.cssText = 'position:absolute;inset:0;z-index:10'; s.append(o); mark(cta);",
+      "label": {
+        "expect": "finding",
+        "kind": "click-blocked",
+        "v1_kind": "click-blocked",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-pointer-none-decoration",
+      "catalog_id": "click-blocked",
+      "family": "controls",
+      "kind": "control",
+      "description": "Decorative overlay with pointer-events none; clicks pass through and nothing must be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "section:first-of-type",
+      "targets": "the hero",
+      "operation": "const s = pick(sel); s.style.position = 'relative'; const o = document.createElement('div'); o.style.cssText = 'position:absolute;inset:0;z-index:10;pointer-events:none;background:radial-gradient(rgba(124,58,237,.2),transparent)'; s.append(o); mark(o);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "click-blocked",
+        "v1_kind": "click-blocked",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "icon-button-emptied",
+      "catalog_id": "empty-controls",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Icon-only button with no icon and no label.",
+      "phase": "after-load",
+      "env": {},
+      "select": "button:has(svg):not(:has(span))",
+      "targets": "one icon-only button",
+      "operation": "const b = pick(sel); b.querySelector('svg').remove(); b.removeAttribute('aria-label'); mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "empty-controls",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "mobile-nav-no-toggle",
+      "catalog_id": "mobile-nav-missing",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Phone layout with nav links hidden and no toggle.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "header",
+      "targets": "the site header",
+      "operation": "css('@media (max-width: 767px) { header nav ul, header nav a { display: none !important; } header button[aria-expanded], header [aria-controls] { display: none !important; } }'); markAll('header nav');",
+      "label": {
+        "expect": "finding",
+        "kind": "mobile-nav-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "mobile-nav-dead-toggle",
+      "catalog_id": "mobile-nav-missing",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Toggle replaced by a clone with no listeners.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "header button[aria-expanded], header [aria-controls]",
+      "targets": "the mobile menu toggle (skip if none)",
+      "operation": "const t = pick(sel); const c = t.cloneNode(true); t.replaceWith(c); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "mobile-nav-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "important-blocks-hover",
+      "catalog_id": "interaction-states-missing",
+      "family": "controls",
+      "kind": "fault",
+      "description": "An !important background pins the button so hover never changes it.",
+      "phase": "after-load",
+      "env": {},
+      "select": "button",
+      "targets": "primary buttons",
+      "operation": "const b = pick(sel); const bg = getComputedStyle(b).backgroundColor; b.style.setProperty('background-color', bg, 'important'); mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "interaction-states-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "disabled-looks-enabled",
+      "catalog_id": "interaction-states-missing",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Disabled button styled exactly like an enabled one.",
+      "phase": "after-load",
+      "env": {},
+      "select": "button",
+      "targets": "one enabled button with an enabled sibling",
+      "operation": "const b = pick(sel); const s = getComputedStyle(b); b.disabled = true; b.style.cssText += ';opacity:1;cursor:pointer;background:' + s.backgroundColor + ';color:' + s.color; mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "interaction-states-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "listbox-remove-on-pointerdown",
+      "catalog_id": "touch-click-through",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Listbox removed on pointerdown so the click lands on the element beneath.",
+      "phase": "on-interaction",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "[role=listbox]",
+      "targets": "an open select listbox whose options overlap a link or button",
+      "operation": "openFirstSelect(); const lb = pick(sel); lb.addEventListener('pointerdown', () => lb.remove(), { capture: true, once: true }); mark(lb);",
+      "label": {
+        "expect": "finding",
+        "kind": "touch-click-through",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "touch"
+      }
+    },
+    {
+      "id": "popover-wheel-blocked",
+      "catalog_id": "popover-in-dialog-no-scroll",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Wheel events inside the list cancelled, as a dialog scroll lock does.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[role=listbox], [cmdk-list]",
+      "targets": "a long list opened inside a dialog",
+      "operation": "openFirstDialog(); openFirstMenu(); const l = pick(sel); document.addEventListener('wheel', e => { if (l.contains(e.target)) e.preventDefault(); }, { capture: true, passive: false }); mark(l);",
+      "label": {
+        "expect": "finding",
+        "kind": "popover-in-dialog-no-scroll",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "nav-items-hidden",
+      "catalog_id": "unexpected-hidden",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Nav items visibility hidden by a wrong state class ([Boxy]).",
+      "phase": "after-load",
+      "env": {},
+      "select": "nav a",
+      "targets": "header nav links",
+      "operation": "for (const a of pickMany(sel, 2, 6)) { a.style.visibility = 'hidden'; mark(a); }",
+      "label": {
+        "expect": "finding",
+        "kind": "unexpected-hidden",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "sidebar-zero-width",
+      "catalog_id": "unexpected-hidden",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Sidebar collapsed to 0 instead of icon width ([Boxy]).",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          1280,
+          800
+        ]
+      },
+      "select": "aside",
+      "targets": "a sidebar (skip if none)",
+      "operation": "const s = pick(sel); s.style.width = '0'; s.style.overflow = 'hidden'; mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "unexpected-hidden",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "popup-no-focus",
+      "catalog_id": "focus-behind-overlay",
+      "family": "controls",
+      "kind": "fault",
+      "description": "Popup without dialog semantics; focus stays behind it.",
+      "phase": "after-load",
+      "env": {},
+      "select": "body",
+      "targets": "the page",
+      "operation": "const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:50'; o.innerHTML = '<div style=\"background:#fff;padding:24px\"><p>Join our newsletter</p><button>Close</button></div>'; document.body.append(o); mark(o);",
+      "label": {
+        "expect": "finding",
+        "kind": "focus-behind-overlay",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "keyboard"
+      }
+    },
+    {
+      "id": "labels-to-placeholders",
+      "catalog_id": "placeholder-only-labels",
+      "family": "other",
+      "kind": "fault",
+      "description": "Visible labels moved into placeholders.",
+      "phase": "after-load",
+      "env": {},
+      "select": "form label",
+      "targets": "labels of one form",
+      "operation": "for (const l of document.querySelectorAll(sel)) { const i = l.control; if (i) { i.placeholder = l.textContent.trim(); mark(i); } l.remove(); }",
+      "label": {
+        "expect": "finding",
+        "kind": "placeholder-only-labels",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "error-colour-only",
+      "catalog_id": "color-only-state",
+      "family": "other",
+      "kind": "fault",
+      "description": "Invalid state shown by a red border only.",
+      "phase": "after-load",
+      "env": {},
+      "select": "input",
+      "targets": "one form field",
+      "operation": "const i = pick(sel); i.setAttribute('aria-invalid', 'true'); i.style.borderColor = '#ef4444'; mark(i);",
+      "label": {
+        "expect": "finding",
+        "kind": "color-only-state",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "inline-links-plain",
+      "catalog_id": "links-indistinguishable",
+      "family": "other",
+      "kind": "fault",
+      "description": "Inline links styled like body text.",
+      "phase": "after-load",
+      "env": {},
+      "select": "p a, article a",
+      "targets": "inline links inside paragraphs",
+      "operation": "css('p a, article a { color: inherit !important; text-decoration: none !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "links-indistinguishable",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "placeholder-text",
+      "catalog_id": "placeholder-content",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "Placeholder name and 555 phone number.",
+      "phase": "after-load",
+      "env": {},
+      "select": "blockquote cite, footer, [class*=testimonial]",
+      "targets": "a testimonial author and a footer contact line",
+      "operation": "const t = pick(sel); setText(t, 'John Doe'); const f = document.querySelector('footer'); if (f) { const p = document.createElement('p'); p.textContent = 'Call us: +1 (555) 123-4567'; f.append(p); mark(p); } mark(t);",
+      "label": {
+        "expect": "finding",
+        "kind": "placeholder-content",
+        "v1_kind": "text-placeholder",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "template-leak-text",
+      "catalog_id": "template-text-leak",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "$NaN in a price and raw template syntax in a heading (VISUAL.md bench fault).",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=price], h1, h2, td",
+      "targets": "a price and a heading",
+      "operation": "const els = pickMany(sel, 2, 2); setText(els[0], '$NaN'); setText(els[1], '{{headline}}'); els.forEach(mark);",
+      "label": {
+        "expect": "finding",
+        "kind": "template-text-leak",
+        "v1_kind": "text-template-leak",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-code-block-null",
+      "catalog_id": "template-text-leak",
+      "family": "leaks",
+      "kind": "control",
+      "description": "null and undefined inside a code block; must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const pre = document.createElement('pre'); pre.textContent = 'const user = null; // undefined until login'; pick(sel).append(pre); mark(pre);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "template-text-leak",
+        "v1_kind": "text-template-leak",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "mojibake-text",
+      "catalog_id": "mojibake",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "UTF-8 punctuation shown as Windows-1252 mojibake.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main p",
+      "targets": "one paragraph with quotes or dashes",
+      "operation": "const p = pick(sel); p.textContent = p.textContent.replace(/\\u2019/g, '\\u00e2\\u20ac\\u2122').replace(/\\u2014/g, '\\u00e2\\u20ac\\u201d') + ' It\\u00e2\\u20ac\\u2122s here.'; mark(p);",
+      "label": {
+        "expect": "finding",
+        "kind": "mojibake",
+        "v1_kind": "text-encoding",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "og-image-removed",
+      "catalog_id": "share-preview-default",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "Share preview tags removed from the served HTML.",
+      "phase": "before-load",
+      "env": {},
+      "select": "meta[property='og:image'], meta[name='twitter:card']",
+      "targets": "the head",
+      "operation": "rewriteHtml(html => html.replace(/<meta[^>]+(og:image|twitter:card|twitter:image)[^>]*>/g, '')); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "share-preview-default",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "builder-badge-and-title",
+      "catalog_id": "builder-branding",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "Builder badge, template title and template favicon.",
+      "phase": "after-load",
+      "env": {},
+      "select": "body",
+      "targets": "the page",
+      "operation": "const a = document.createElement('a'); a.href = 'https://lovable.dev'; a.textContent = 'Edit with Lovable'; a.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:50'; document.body.append(a); document.title = 'Vite + React + TS'; let l = document.querySelector('link[rel=icon]'); if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.append(l); } l.href = '/vite.svg'; mark(a);",
+      "label": {
+        "expect": "finding",
+        "kind": "builder-branding",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "vite-template-centering",
+      "catalog_id": "starter-template-css",
+      "family": "leaks",
+      "kind": "fault",
+      "description": "Vite scaffold index.css centring left in place.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          1440,
+          900
+        ]
+      },
+      "select": "body",
+      "targets": "the page",
+      "operation": "css('body { display: flex !important; place-items: center !important; min-height: 100vh; } #root { max-width: 1280px; margin: 0 auto; padding: 2rem; text-align: center; }'); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "starter-template-css",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "blank-root-hidden",
+      "catalog_id": "page-blank",
+      "family": "blank",
+      "kind": "fault",
+      "description": "App root hidden; only the body background shows.",
+      "phase": "after-load",
+      "env": {},
+      "select": "#root, #__next, #app, body > div",
+      "targets": "the app root",
+      "operation": "const r = pick(sel); r.style.setProperty('display', 'none', 'important'); mark(r);",
+      "label": {
+        "expect": "finding",
+        "kind": "page-blank",
+        "v1_kind": "page-blank",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "blank-root-emptied",
+      "catalog_id": "page-blank",
+      "family": "blank",
+      "kind": "fault",
+      "description": "App root emptied as an uncaught render error would leave it.",
+      "phase": "after-load",
+      "env": {},
+      "select": "#root, #__next, #app, body > div",
+      "targets": "the app root",
+      "operation": "const r = pick(sel); r.replaceChildren(); console.error(new Error('bench: render error')); mark(r);",
+      "label": {
+        "expect": "finding",
+        "kind": "page-blank",
+        "v1_kind": "page-blank",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "block-deleted",
+      "catalog_id": "content-omitted",
+      "family": "blank",
+      "kind": "fault",
+      "description": "A section's content removed, leaving an empty bordered region ([MAEWU] TreeDelete).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section, main > div",
+      "targets": "one content section between others",
+      "operation": "const s = pick(sel); const ph = document.createElement('div'); ph.style.cssText = 'min-height:' + Math.round(s.getBoundingClientRect().height) + 'px;border:1px solid #e5e7eb'; s.replaceWith(ph); mark(ph);",
+      "label": {
+        "expect": "finding",
+        "kind": "content-omitted",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "api-empty-list",
+      "catalog_id": "missing-ui-states",
+      "family": "blank",
+      "kind": "fault",
+      "description": "API returns an empty list and the page renders nothing in its place.",
+      "phase": "network",
+      "env": {},
+      "select": "",
+      "targets": "the first JSON GET that renders a list",
+      "operation": "route(firstJsonListRequest, { status: 200, body: '[]', contentType: 'application/json' }); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "missing-ui-states",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "shift-unsized-image-delayed",
+      "catalog_id": "layout-shift",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Images without width, height or aspect-ratio that arrive 1.5s after text paints.",
+      "phase": "before-load",
+      "env": {},
+      "select": "main img",
+      "targets": "the first 1 to 3 above-the-fold images",
+      "operation": "rewriteHtml(html => stripImgDimensions(html, 3)); route(/\\.(png|jpe?g|webp|avif)(\\?|$)/, { delayMs: 1500 }); onReady(() => markAll(sel));",
+      "label": {
+        "expect": "finding",
+        "kind": "layout-shift",
+        "v1_kind": "layout-shift",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "shift-late-banner",
+      "catalog_id": "layout-shift",
+      "family": "motion",
+      "kind": "fault",
+      "description": "A 200px banner inserted above content after 1s.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "setTimeout(() => { const b = document.createElement('div'); b.style.cssText = 'height:200px;background:#fef3c7'; b.textContent = 'Announcement'; pick(sel).prepend(b); mark(b); }, 1000);",
+      "label": {
+        "expect": "finding",
+        "kind": "layout-shift",
+        "v1_kind": "layout-shift",
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "shift-font-swap",
+      "catalog_id": "layout-shift",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Web fonts delayed 2s with swap: text reflows when they arrive.",
+      "phase": "network",
+      "env": {},
+      "select": "",
+      "targets": "the web font files",
+      "operation": "route(/\\.woff2(\\?|$)/, { delayMs: 2000 }); css('@font-face { font-display: swap; }'); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "layout-shift",
+        "v1_kind": "layout-shift",
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "motion-infinite-decoration",
+      "catalog_id": "reduced-motion-ignored",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Infinite decorative motion running under reduced motion.",
+      "phase": "after-load",
+      "env": {
+        "reducedMotion": "reduce"
+      },
+      "select": "section:first-of-type",
+      "targets": "the hero",
+      "operation": "css('@keyframes bench-float { 50% { transform: translateY(-40px) scale(1.1); } } @keyframes bench-pulse { 50% { opacity: .3; } }'); const s = pick(sel); s.style.position = 'relative'; const d = document.createElement('div'); d.style.cssText = 'position:absolute;top:20px;right:20px;width:120px;height:120px;border-radius:50%;background:#7c3aed;animation:bench-float 3s ease-in-out infinite'; s.append(d); mark(d);",
+      "label": {
+        "expect": "finding",
+        "kind": "reduced-motion-ignored",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "reveal-never-fires",
+      "catalog_id": "content-stuck-invisible",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Section left at opacity 0 with no reveal.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "one content section below the hero",
+      "operation": "const s = pick(sel); s.style.opacity = '0'; s.style.transform = 'translateY(40px)'; mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "content-stuck-invisible",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "reveal-threshold-unreachable",
+      "catalog_id": "content-stuck-invisible",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Reveal waits for 100% visibility of a section taller than the viewport, so it never fires.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          667
+        ]
+      },
+      "select": "main section",
+      "targets": "the tallest content section (taller than the viewport)",
+      "operation": "const s = tallest(sel); s.style.opacity = '0'; new IntersectionObserver(([e]) => { if (e.intersectionRatio >= 1) s.style.opacity = '1'; }, { threshold: 1 }).observe(s); mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "content-stuck-invisible",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "control-reveal-completes",
+      "catalog_id": "content-stuck-invisible",
+      "family": "motion",
+      "kind": "control",
+      "description": "A reveal that fires at 10%; once scrolled into view it is visible and must not be reported.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "one content section",
+      "operation": "const s = pick(sel); s.style.opacity = '0'; s.style.transition = 'opacity .3s'; new IntersectionObserver(([e]) => { if (e.isIntersecting) s.style.opacity = '1'; }, { threshold: 0.1 }).observe(s); mark(s);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "content-stuck-invisible",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "scroll-lock-no-gutter",
+      "catalog_id": "scrollbar-shift",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Scroll lock removes the scrollbar with no compensation: content jumps 16px.",
+      "phase": "on-interaction",
+      "env": {
+        "classicScrollbars": true
+      },
+      "select": "body",
+      "targets": "a page taller than the viewport with a dialog or menu",
+      "operation": "css('::-webkit-scrollbar { width: 16px; }'); document.documentElement.style.scrollbarGutter = 'auto'; openFirstDialog(); document.body.style.overflow = 'hidden'; document.body.style.paddingRight = '0'; markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "scrollbar-shift",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "classic-scrollbars"
+      }
+    },
+    {
+      "id": "css-late-reinsert",
+      "catalog_id": "fouc-late-css",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Stylesheet detached at load and re-inserted 500ms later.",
+      "phase": "init",
+      "env": {},
+      "select": "link[rel=stylesheet]",
+      "targets": "the main stylesheet",
+      "operation": "onReady(() => { const l = pick(sel); const parent = l.parentNode, next = l.nextSibling; l.remove(); setTimeout(() => parent.insertBefore(l, next), 500); markPage(); });",
+      "label": {
+        "expect": "finding",
+        "kind": "fouc-late-css",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "jank-blur-stack",
+      "catalog_id": "scroll-jank",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Animated full-viewport blur layer plus many glass cards.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=card], article",
+      "targets": "up to 10 card-like blocks",
+      "operation": "css('@keyframes bench-spin { to { transform: rotate(360deg); filter: blur(100px); } }'); const l = document.createElement('div'); l.style.cssText = 'position:fixed;inset:0;z-index:-1;background:radial-gradient(#a78bfa,#2563eb);filter:blur(80px);animation:bench-spin 6s linear infinite'; document.body.append(l); for (const c of pickMany(sel, 3, 10)) { c.style.backdropFilter = 'blur(24px)'; c.style.background = 'rgba(255,255,255,.06)'; } mark(l);",
+      "label": {
+        "expect": "finding",
+        "kind": "scroll-jank",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "jank-layout-animation",
+      "catalog_id": "scroll-jank",
+      "family": "motion",
+      "kind": "fault",
+      "description": "An animation on margin-top that relayouts every frame and shifts what follows.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "one section",
+      "operation": "css('@keyframes bench-in { from { margin-top: 40px; } to { margin-top: 0; } }'); const s = pick(sel); s.style.animation = 'bench-in 1s ease-in-out infinite alternate'; mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "scroll-jank",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "scroll-snap-trap",
+      "catalog_id": "scroll-hijack",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Mandatory snap on viewport-height sections that clip their content.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main section",
+      "targets": "a page whose sections are taller than the viewport",
+      "operation": "css('html { scroll-snap-type: y mandatory; } main section { scroll-snap-align: start; height: 100vh; overflow: hidden; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "scroll-hijack",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "wheel-hijack",
+      "catalog_id": "scroll-hijack",
+      "family": "motion",
+      "kind": "fault",
+      "description": "A non-passive wheel listener that moves the page at 30% speed.",
+      "phase": "after-load",
+      "env": {},
+      "select": "body",
+      "targets": "the page",
+      "operation": "let y = 0; addEventListener('wheel', e => { e.preventDefault(); y += e.deltaY * 0.3; document.body.style.transform = 'translateY(' + (-y) + 'px)'; }, { passive: false }); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "scroll-hijack",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "late-mobile-swap",
+      "catalog_id": "js-breakpoint-flash",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Desktop sidebar painted first on a phone, removed 200ms later.",
+      "phase": "init",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "aside, nav",
+      "targets": "a desktop sidebar or nav",
+      "operation": "onReady(() => { const s = pick(sel); s.style.display = 'block'; s.style.width = '256px'; setTimeout(() => { s.style.display = 'none'; }, 200); mark(s); });",
+      "label": {
+        "expect": "finding",
+        "kind": "js-breakpoint-flash",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "stat-zero",
+      "catalog_id": "stat-counter-zero",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Stat counters left at 0+.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=stat], dl dd, [class*=text-4xl], [class*=text-5xl]",
+      "targets": "three or more large numeric stat elements (skip if none)",
+      "operation": "for (const el of pickMany(sel, 3, 6).filter(e => /\\d/.test(e.textContent))) { setText(el, '0+'); mark(el); }",
+      "label": {
+        "expect": "finding",
+        "kind": "stat-counter-zero",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "route-double-render",
+      "catalog_id": "exit-animation-skipped",
+      "family": "motion",
+      "kind": "fault",
+      "description": "Old page container kept in flow beside the new one for 400ms.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "main",
+      "targets": "the main landmark during an in-app navigation",
+      "operation": "const old = pick(sel).cloneNode(true); onNavigate(() => { const m = document.querySelector(sel); m.before(old); setTimeout(() => old.remove(), 400); mark(old); });",
+      "label": {
+        "expect": "finding",
+        "kind": "exit-animation-skipped",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "regression-token-swap",
+      "catalog_id": "visual-regression-after-edit",
+      "family": "other",
+      "kind": "fault",
+      "description": "Primary colour, heading font and section order changed against the baseline capture.",
+      "phase": "after-load",
+      "env": {},
+      "select": ":root",
+      "targets": "the page, compared with its own earlier baseline",
+      "operation": "css(':root { --primary: #e11d48 !important; } h1, h2, h3 { font-family: Georgia, serif !important; }'); const s = document.querySelectorAll('main > section'); if (s.length > 2) s[1].before(s[2]); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "visual-regression-after-edit",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "dark-card-hardcoded-white",
+      "catalog_id": "dark-mode-partial",
+      "family": "dark",
+      "kind": "fault",
+      "description": "One card keeps a hard-coded white surface while its text follows the dark theme.",
+      "phase": "after-load",
+      "env": {
+        "colorScheme": "dark"
+      },
+      "select": "[class*=card], article",
+      "targets": "one card on a page rendered in its dark theme (OS dark plus the app's toggle)",
+      "operation": "enableAppDarkMode(); const c = pick(sel); c.style.setProperty('background', '#fff', 'important'); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "dark-mode-partial",
+        "v1_kind": "text-invisible",
+        "attribute": "target",
+        "visible": "dark"
+      }
+    },
+    {
+      "id": "dark-input-low",
+      "catalog_id": "dark-mode-partial",
+      "family": "dark",
+      "kind": "fault",
+      "description": "Dark grey typed text on a dark grey field.",
+      "phase": "after-load",
+      "env": {
+        "colorScheme": "dark"
+      },
+      "select": "input, textarea",
+      "targets": "form fields in the dark theme",
+      "operation": "enableAppDarkMode(); css('input, textarea { background: #27272a !important; color: #3f3f46 !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "dark-mode-partial",
+        "v1_kind": "text-invisible",
+        "attribute": "target",
+        "visible": "dark"
+      }
+    },
+    {
+      "id": "control-dark-brand-section",
+      "catalog_id": "dark-mode-partial",
+      "family": "dark",
+      "kind": "control",
+      "description": "A light brand section with dark text that stays readable in dark mode; must not be reported.",
+      "phase": "after-load",
+      "env": {
+        "colorScheme": "dark"
+      },
+      "select": "section",
+      "targets": "one section in the dark theme",
+      "operation": "enableAppDarkMode(); const s = pick(sel); s.style.background = '#fef3c7'; for (const t of s.querySelectorAll('*')) t.style.color = '#1f2937'; mark(s);",
+      "label": {
+        "expect": "no-finding",
+        "kind": "dark-mode-partial",
+        "v1_kind": "text-invisible",
+        "attribute": "target",
+        "visible": "dark"
+      }
+    },
+    {
+      "id": "color-scheme-light-on-dark",
+      "catalog_id": "color-scheme-missing",
+      "family": "dark",
+      "kind": "fault",
+      "description": "Dark UI with color-scheme light: native controls and scrollbars render light.",
+      "phase": "after-load",
+      "env": {
+        "colorScheme": "dark",
+        "classicScrollbars": true
+      },
+      "select": "main",
+      "targets": "a dark page with a native select and a long scroll container",
+      "operation": "enableAppDarkMode(); css('html { color-scheme: light !important; } select { background: transparent !important; }'); const sel2 = document.createElement('select'); sel2.innerHTML = '<option>One</option><option>Two</option>'; pick(sel).append(sel2); mark(sel2);",
+      "label": {
+        "expect": "finding",
+        "kind": "color-scheme-missing",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "dark"
+      }
+    },
+    {
+      "id": "theme-late-class",
+      "catalog_id": "theme-flash",
+      "family": "dark",
+      "kind": "fault",
+      "description": "Theme class applied 400ms after first paint: a white flash for dark-mode visitors.",
+      "phase": "init",
+      "env": {
+        "colorScheme": "dark"
+      },
+      "select": "html",
+      "targets": "the root element on a site with a dark theme",
+      "operation": "removeInlineThemeScript(); onReady(() => { document.documentElement.classList.remove('dark'); setTimeout(() => document.documentElement.classList.add('dark'), 400); }); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "theme-flash",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "dark"
+      }
+    },
+    {
+      "id": "dark-variant-media-only",
+      "catalog_id": "dark-variant-wrong-signal",
+      "family": "dark",
+      "kind": "fault",
+      "description": "dark: rules bound to the OS scheme while the app's class says dark.",
+      "phase": "after-load",
+      "env": {
+        "colorScheme": "light"
+      },
+      "select": "html",
+      "targets": "a v4 page that toggles html.dark",
+      "operation": "rewriteDarkRulesToMedia(); document.documentElement.classList.add('dark'); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "dark-variant-wrong-signal",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "prose-dark-uninverted",
+      "catalog_id": "prose-unthemed",
+      "family": "dark",
+      "kind": "fault",
+      "description": "Light-theme prose colours on a near-black section.",
+      "phase": "after-load",
+      "env": {},
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const s = document.createElement('section'); s.style.background = '#0a0a0a'; s.innerHTML = '<div class=\"prose\"><h2>Notes</h2><p>Body text in a prose block.</p><ul><li>Item</li></ul></div>'; pick(sel).append(s); css('.prose { color: #364153; } .prose h2 { color: #101828; }'); mark(s.firstChild);",
+      "label": {
+        "expect": "finding",
+        "kind": "prose-unthemed",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "viewport-meta-remove",
+      "catalog_id": "viewport-meta-missing",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Viewport meta removed before parse: 980px layout scaled down.",
+      "phase": "before-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "meta[name=viewport]",
+      "targets": "the viewport meta",
+      "operation": "rewriteHtml(html => html.replace(/<meta[^>]+name=[\"']viewport[\"'][^>]*>/i, '')); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "viewport-meta-missing",
+        "v1_kind": "viewport-meta-missing",
+        "attribute": "page",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "viewport-meta-fixed-width",
+      "catalog_id": "viewport-meta-missing",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Viewport fixed at width 1024.",
+      "phase": "before-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "meta[name=viewport]",
+      "targets": "the viewport meta",
+      "operation": "rewriteHtml(html => html.replace(/(<meta[^>]+name=[\"']viewport[\"'][^>]+content=[\"'])[^\"']*/i, '$1width=1024')); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "viewport-meta-missing",
+        "v1_kind": "viewport-meta-missing",
+        "attribute": "page",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "viewport-zoom-blocked",
+      "catalog_id": "zoom-disabled",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Pinch zoom blocked.",
+      "phase": "before-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "meta[name=viewport]",
+      "targets": "the viewport meta",
+      "operation": "rewriteHtml(html => html.replace(/(<meta[^>]+name=[\"']viewport[\"'][^>]+content=[\"'])[^\"']*/i, '$1width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "zoom-disabled",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "layout-grid-fixed-columns",
+      "catalog_id": "layout-not-adapted",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "A three-column grid kept at 375px.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "[class*=grid-cols-]",
+      "targets": "one content grid that collapses on phones",
+      "operation": "const g = pick(sel); g.style.setProperty('display', 'grid', 'important'); g.style.setProperty('grid-template-columns', 'repeat(3, 1fr)', 'important'); mark(g);",
+      "label": {
+        "expect": "finding",
+        "kind": "layout-not-adapted",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "layout-fixed-sidebar",
+      "catalog_id": "layout-not-adapted",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Main content squeezed beside a fixed 256px sidebar.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main",
+      "targets": "the main landmark",
+      "operation": "const m = pick(sel); const row = document.createElement('div'); row.style.display = 'flex'; const side = document.createElement('aside'); side.style.cssText = 'width:256px;flex-shrink:0'; side.textContent = 'Sidebar'; m.before(row); row.append(side, m); mark(row);",
+      "label": {
+        "expect": "finding",
+        "kind": "layout-not-adapted",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "vh-hero-cta-bottom",
+      "catalog_id": "viewport-100vh",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "100vh hero with its CTA pinned to the bottom (hidden under a mobile toolbar on a device).",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          390,
+          664
+        ],
+        "hasTouch": true
+      },
+      "select": "section:first-of-type",
+      "targets": "the hero with a CTA",
+      "operation": "const h = pick(sel); h.style.cssText += ';height:100vh;overflow:hidden;position:relative'; const cta = h.querySelector('a, button'); cta.style.cssText += ';position:absolute;bottom:16px'; mark(cta);",
+      "label": {
+        "expect": "finding",
+        "kind": "viewport-100vh",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "whitespace-band",
+      "catalog_id": "whitespace-anomaly",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "A blank band longer than a viewport above the footer.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "footer",
+      "targets": "the footer",
+      "operation": "const f = pick(sel); f.style.marginTop = '120vh'; mark(f);",
+      "label": {
+        "expect": "finding",
+        "kind": "whitespace-anomaly",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "mobile-section-hidden",
+      "catalog_id": "content-hidden-mobile",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "A content section hidden on phones with no replacement.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "main section",
+      "targets": "the third content section",
+      "operation": "const s = document.querySelectorAll(sel)[2] || pick(sel); s.classList.add('bench-hm'); css('@media (max-width: 767px) { .bench-hm { display: none !important; } }'); mark(s);",
+      "label": {
+        "expect": "finding",
+        "kind": "content-hidden-mobile",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "breakpoint-small-range",
+      "catalog_id": "breakpoint-gaps",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "A [VERVE]-style failure that exists only between 992 and 995px.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          993,
+          800
+        ]
+      },
+      "select": "main section > *",
+      "targets": "one block in a responsive layout",
+      "operation": "const el = pick(sel); el.classList.add('bench-bp'); css('@media (min-width: 992px) and (max-width: 995px) { .bench-bp { margin-left: 40px !important; } }'); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "breakpoint-gaps",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "rtl-flip",
+      "catalog_id": "rtl-and-translation",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Page switched to RTL without logical properties.",
+      "phase": "after-load",
+      "env": {},
+      "select": "html",
+      "targets": "a page that uses physical margins for icon spacing",
+      "operation": "document.documentElement.dir = 'rtl'; markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "rtl-and-translation",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "pseudo-localize",
+      "catalog_id": "rtl-and-translation",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Strings lengthened about 40 to 60% and accented.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "button, nav a, h1, h2, h3, label",
+      "targets": "visible short strings",
+      "operation": "for (const el of document.querySelectorAll(sel)) { for (const n of textNodes(el)) n.data = '[' + n.data.replace(/[aeiou]/g, c => ({a:'\\u00e1',e:'\\u00e9',i:'\\u00ee',o:'\\u00f6',u:'\\u00fc'})[c]) + ' \\u00f1\\u00f1\\u00f1\\u00f1]'; } markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "rtl-and-translation",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "text-scale-200",
+      "catalog_id": "text-scaling-breaks",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Root text doubled with WCAG 1.4.12 text spacing; findings are those absent at default size.",
+      "phase": "after-load",
+      "env": {},
+      "select": "html",
+      "targets": "the page",
+      "operation": "css('html { font-size: 200% !important; } * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }'); markPage();",
+      "label": {
+        "expect": "finding",
+        "kind": "text-scaling-breaks",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "input-font-14",
+      "catalog_id": "ios-input-zoom",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "Form text under 16px on phones.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "input, select, textarea",
+      "targets": "visible form fields",
+      "operation": "css('@media (max-width: 767px) { input, select, textarea { font-size: 14px !important; } }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "ios-input-zoom",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "safe-area-ignored",
+      "catalog_id": "safe-area-keyboard",
+      "family": "responsive",
+      "kind": "fault",
+      "description": "viewport-fit cover with fixed bars that ignore the safe-area insets.",
+      "phase": "before-load",
+      "env": {
+        "viewport": [
+          375,
+          812
+        ],
+        "hasTouch": true
+      },
+      "select": "meta[name=viewport]",
+      "targets": "the viewport meta and fixed bars",
+      "operation": "rewriteHtml(html => html.replace(/(<meta[^>]+name=[\"']viewport[\"'][^>]+content=[\"'])([^\"']*)/i, '$1$2, viewport-fit=cover')); onReady(() => { for (const el of document.querySelectorAll('header, nav, footer')) if (/fixed|sticky/.test(getComputedStyle(el).position)) { el.style.paddingTop = '0'; el.style.paddingBottom = '0'; mark(el); } });",
+      "label": {
+        "expect": "finding",
+        "kind": "safe-area-keyboard",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "phone"
+      }
+    },
+    {
+      "id": "align-nudge",
+      "catalog_id": "misalignment",
+      "family": "design",
+      "kind": "fault",
+      "description": "One repeated item 3px off its siblings' edge ([Halle]).",
+      "phase": "after-load",
+      "env": {},
+      "select": "main li, [class*=card] h3",
+      "targets": "one item among repeated siblings",
+      "operation": "const el = pick(sel); el.style.marginLeft = '3px'; mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "misalignment",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "align-icon-baseline",
+      "catalog_id": "misalignment",
+      "family": "design",
+      "kind": "fault",
+      "description": "Icons pushed 5px below the text centre.",
+      "phase": "after-load",
+      "env": {},
+      "select": "button:has(svg), a:has(svg), li:has(svg)",
+      "targets": "rows with an icon followed by text",
+      "operation": "for (const r of pickMany(sel, 1, 4)) { r.style.alignItems = 'flex-start'; const s = r.querySelector('svg'); s.style.marginTop = '5px'; mark(s); }",
+      "label": {
+        "expect": "finding",
+        "kind": "misalignment",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "align-card-cta",
+      "catalog_id": "misalignment",
+      "family": "design",
+      "kind": "fault",
+      "description": "Card actions no longer pinned to the bottom: CTAs at different heights.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=card]:has(a, button)",
+      "targets": "a row of cards with actions and different text lengths",
+      "operation": "css('.bench-cc { display: block !important; } .bench-cc > :last-child { margin-top: 0 !important; }'); for (const c of pickMany(sel, 3, 6)) { c.classList.add('bench-cc'); mark(c); }",
+      "label": {
+        "expect": "finding",
+        "kind": "misalignment",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "crowd-zero-gap",
+      "catalog_id": "crowding",
+      "family": "design",
+      "kind": "fault",
+      "description": "Gap and padding removed from a list.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=gap-], ul",
+      "targets": "one list or card grid",
+      "operation": "const el = pick(sel); el.style.setProperty('gap', '0', 'important'); for (const c of el.children) c.style.setProperty('padding', '0', 'important'); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "crowding",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "drift-padding-colour",
+      "catalog_id": "design-drift",
+      "family": "design",
+      "kind": "fault",
+      "description": "Near-duplicate padding and colour values among repeated components.",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=card], button",
+      "targets": "three sibling cards and one button among same-styled buttons",
+      "operation": "const cs = pickMany('[class*=card]', 3, 3); ['13px', '16px', '18px'].forEach((p, i) => { if (cs[i]) { cs[i].style.padding = p; mark(cs[i]); } }); const b = pick('button'); b.style.background = '#2463ea'; mark(b);",
+      "label": {
+        "expect": "finding",
+        "kind": "design-drift",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "emoji-nav-icons",
+      "catalog_id": "emoji-as-icons",
+      "family": "other",
+      "kind": "fault",
+      "description": "Emoji prefixed to nav links and feature headings.",
+      "phase": "after-load",
+      "env": {},
+      "select": "nav a, h3",
+      "targets": "nav links and feature headings",
+      "operation": "const icons = ['\\u{1F680}', '\\u{1F4CA}', '\\u{1F512}', '\\u2728']; pickMany(sel, 3, 8).forEach((el, i) => { el.prepend(icons[i % 4] + ' '); mark(el); });",
+      "label": {
+        "expect": "finding",
+        "kind": "emoji-as-icons",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "engine-gated-shift",
+      "catalog_id": "cross-browser",
+      "family": "other",
+      "kind": "fault",
+      "description": "A shift that exists only in Gecko; compare engines.",
+      "phase": "after-load",
+      "env": {
+        "browser": "firefox"
+      },
+      "select": "main section > *",
+      "targets": "one block",
+      "operation": "const el = pick(sel); el.classList.add('bench-ff'); css('@supports (-moz-appearance: none) { .bench-ff { margin-top: 30px !important; } }'); mark(el);",
+      "label": {
+        "expect": "finding",
+        "kind": "cross-browser",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "dialog-odd-height",
+      "catalog_id": "translate-blur",
+      "family": "other",
+      "kind": "fault",
+      "description": "Odd dialog height puts translate(-50%) on a half pixel.",
+      "phase": "on-interaction",
+      "env": {},
+      "select": "[role=dialog]",
+      "targets": "a centred dialog",
+      "operation": "openFirstDialog(); const d = pick(sel); d.style.height = '401px'; mark(d);",
+      "label": {
+        "expect": "finding",
+        "kind": "translate-blur",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "interaction"
+      }
+    },
+    {
+      "id": "radius-transform-safari",
+      "catalog_id": "safari-radius-flash",
+      "family": "other",
+      "kind": "fault",
+      "description": "Hover zoom inside a rounded overflow-hidden card.",
+      "phase": "after-load",
+      "env": {
+        "browser": "webkit"
+      },
+      "select": "[class*=rounded][class*=overflow-hidden]:has(img)",
+      "targets": "a rounded card with an image",
+      "operation": "css('.bench-rt img { transition: transform .3s; } .bench-rt:hover img { transform: scale(1.05); }'); const c = pick(sel); c.classList.add('bench-rt'); mark(c);",
+      "label": {
+        "expect": "finding",
+        "kind": "safari-radius-flash",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "img-inline",
+      "catalog_id": "inline-image-gap",
+      "family": "other",
+      "kind": "fault",
+      "description": "Images back to inline: baseline gap under each.",
+      "phase": "after-load",
+      "env": {},
+      "select": "img",
+      "targets": "images inside bordered boxes",
+      "operation": "css('img { display: inline !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "inline-image-gap",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "bg-repeat",
+      "catalog_id": "background-tiling",
+      "family": "other",
+      "kind": "fault",
+      "description": "Background image tiles on a wide screen.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          1920,
+          1080
+        ]
+      },
+      "select": "[style*=background-image], section:first-of-type",
+      "targets": "a hero with a background image",
+      "operation": "const h = pick(sel); h.style.backgroundRepeat = 'repeat'; h.style.backgroundSize = 'auto'; mark(h);",
+      "label": {
+        "expect": "finding",
+        "kind": "background-tiling",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "vendor-grouped",
+      "catalog_id": "vendor-selector-group",
+      "family": "other",
+      "kind": "fault",
+      "description": "Grouped vendor selectors: the rule is dropped in every engine.",
+      "phase": "after-load",
+      "env": {},
+      "select": "input[placeholder]",
+      "targets": "inputs with placeholders",
+      "operation": "css('input::-webkit-input-placeholder, input::-moz-placeholder { color: #111; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "vendor-selector-group",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "image-outline-removed",
+      "catalog_id": "light-image-edge",
+      "family": "other",
+      "kind": "fault",
+      "description": "Light images with no edge on light cards (needs pixels).",
+      "phase": "after-load",
+      "env": {},
+      "select": "[class*=card] img",
+      "targets": "product images with white backgrounds on white cards",
+      "operation": "css('[class*=card] img { outline: none !important; box-shadow: none !important; border: 0 !important; }'); markAll(sel);",
+      "label": {
+        "expect": "finding",
+        "kind": "light-image-edge",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "always"
+      }
+    },
+    {
+      "id": "bg-fixed-hero",
+      "catalog_id": "bg-attachment-fixed-ios",
+      "family": "other",
+      "kind": "fault",
+      "description": "Parallax hero on iOS.",
+      "phase": "after-load",
+      "env": {
+        "browser": "webkit",
+        "hasTouch": true,
+        "viewport": [
+          390,
+          844
+        ]
+      },
+      "select": "section:first-of-type",
+      "targets": "the hero",
+      "operation": "const h = pick(sel); h.style.backgroundAttachment = 'fixed'; h.style.backgroundSize = 'cover'; mark(h);",
+      "label": {
+        "expect": "finding",
+        "kind": "bg-attachment-fixed-ios",
+        "v1_kind": null,
+        "attribute": "target",
+        "visible": "touch"
+      }
+    },
+    {
+      "id": "sticky-stack",
+      "catalog_id": "sticky-chrome-short-viewport",
+      "family": "other",
+      "kind": "fault",
+      "description": "Header, secondary nav and cookie bar take over 60% of a short viewport.",
+      "phase": "after-load",
+      "env": {
+        "viewport": [
+          568,
+          320
+        ]
+      },
+      "select": "header",
+      "targets": "the header",
+      "operation": "const h = pick(sel); h.style.cssText += ';position:sticky;top:0;height:72px;z-index:50'; const n = document.createElement('nav'); n.style.cssText = 'position:sticky;top:72px;height:48px;background:#fff;z-index:49'; h.after(n); const c = document.createElement('div'); c.style.cssText = 'position:fixed;bottom:0;left:0;right:0;height:80px;background:#111;color:#fff;z-index:60'; c.textContent = 'Cookies'; document.body.append(c); mark(h);",
+      "label": {
+        "expect": "finding",
+        "kind": "sticky-chrome-short-viewport",
+        "v1_kind": null,
+        "attribute": "page",
+        "visible": "always"
+      }
+    }
+  ]
+}
