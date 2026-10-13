@@ -24,13 +24,12 @@ NAV = [("Docs", "/docs", "docs"), ("How it works", "/how-it-works", "how"), ("Be
 
 def nav(active):
     links = "".join(f'<a href="{h}"{" class=\"on\" aria-current=\"page\"" if k == active else ""}>{t}</a>' for t, h, k in NAV)
-    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{GH}">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a>'
+    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{GH}">GitHub</a><a href="/docs">Get started</a>'
     return f'''<header class="nav">
   <div class="wrap">
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
     <nav aria-label="Main">{links}</nav>
     <a class="gh" href="{GH}">GitHub</a>
-    <a class="gh signin" href="/login">Sign in</a>
     <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel">{mlinks}</div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
