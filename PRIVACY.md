@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-09._
+_Last updated: 2026-10-13._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -12,7 +12,7 @@ GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: karan@daybot.ca
 ## What we collect
 
 When a website runs GenClass with telemetry on (the default on public websites; never on localhost or private
-networks), the browser sends us:
+networks, except that versions 0.2.1 and 0.2.2 sent from those too by mistake), the browser sends us:
 
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
   write), the model's diagnosis and suggested action, its confidence, and whether anything was changed or undone.
