@@ -274,15 +274,15 @@ observer does not record the runtime's own writes.
 
 ### First-load size
 
-Minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38465242176, commit bff4a71): `/auto` (with state
-discovery) **106.24 KB** and the main entry (`GenClass.init()`) **98.21 KB**, against 99.17 KB and 91.70 KB in
-`0.2.2`. The test's limits are now those sizes plus 1.5 KB, **107.74 KB** and **99.71 KB** (owner-approved for
-0.3.0). Each first load is four files now (100.26 + 3.05 + 2.74 + 0.19 KB for `/auto`): the util code the lazy flow
+Minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38477010836, commit 7c7c6d6): `/auto` (with state
+discovery) **106.59 KB** and the main entry (`GenClass.init()`) **98.57 KB**, against 99.17 KB and 91.70 KB in
+`0.2.2`. The test's limits are the sizes at bff4a71 (106.24 / 98.21 KB, CI run 38465242176) plus 1.5 KB,
+**107.74 KB** and **99.71 KB** (owner-approved for 0.3.0); the telemetry 429 back-off added about 0.35 KB since. Each first load is four files now (100.26 + 3.05 + 2.74 + 0.19 KB for `/auto`): the util code the lazy flow
 chunk shares is a chunk of its own. Where it goes (CI, step by step, docs/runtime/RESULTS.md §10): app tokens and
 `protect()` about +1.8 KB; the device floor, telemetry sampling and Request replays about +1.5 KB; the sink names'
 proxy +0.8 KB on `/auto`; the flow expectations' runtime side and learned-state persistence about +3.3 KB (the flow
 layer itself, about 4 KB by difference, is a lazy chunk loaded only with `learn.expectations`). The script-tag file is
-126.12 KB (it carries the flow layer inline).
+126.45 KB (it carries the flow layer inline).
 
 ## 0.2.2 (2026-10-13)
 

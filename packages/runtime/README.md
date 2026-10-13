@@ -945,16 +945,16 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | settled-point check | 0.3 ms |
 
 - **Bundle:** what every page loads is about 106 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 98 KB for the main entry with `GenClass.init()`, which does not carry discovery: 106.24 KB and
-  98.21 KB in `0.3.0-beta.0`, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38465242176), which
-  keeps them under 107.74 KB and 99.71 KB (the measured sizes plus 1.5 KB). `0.2.2` measured 99.17 KB and 91.70 KB;
+  discovery and 99 KB for the main entry with `GenClass.init()`, which does not carry discovery: 106.59 KB and
+  98.57 KB in `0.3.0-beta.0`, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38477010836), which
+  keeps them under 107.74 KB and 99.71 KB (the sizes measured at bff4a71, 106.24 / 98.21 KB, plus 1.5 KB). `0.2.2` measured 99.17 KB and 91.70 KB;
   `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink names' proxy and the
   learned-state persistence (docs/runtime/RESULTS.md §10). The model worker, ONNX Runtime Web's JavaScript (about
   70 KB gzip for WASM, 115 KB with WebGPU, minified), the devtools, the sink adapters and the opt-in flow
   expectations are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  126 KB gzip (126.12 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
+  126 KB gzip (126.45 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
   its model worker, ONNX Runtime glue and sink adapters load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass
