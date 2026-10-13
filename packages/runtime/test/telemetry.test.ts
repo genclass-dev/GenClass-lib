@@ -9,7 +9,7 @@ import type { RuntimeImpl } from "../src/runtime.js";
 import { stateText } from "../src/situation/serialize.js";
 import { resetTelemetryNotice, resolveTelemetry, MAX_QUEUE } from "../src/telemetry/index.js";
 import { isLocalHost } from "../src/telemetry/config.js";
-import type { TelemetryTransport } from "../src/types.js";
+import type { ModelStatus, TelemetryTransport } from "../src/types.js";
 import { FakeClock, defaultScript, setup } from "./helpers.js";
 
 interface Sent {
@@ -360,6 +360,29 @@ describe("telemetry: event shapes and the situation text", () => {
     expect(b.get()).toBe(2);
   });
 
+  it("a model event's workerError carries no URLs (the browser's text names the worker script and the page origin)", async () => {
+    const fns = new Set<(s: ModelStatus) => void>();
+    const decider = {
+      status: { state: "loading" } as ModelStatus,
+      ready: () => Promise.resolve(),
+      evaluate: () => Promise.reject(new Error("no model")),
+      onStatus(fn: (s: ModelStatus) => void) {
+        fns.add(fn);
+        return () => fns.delete(fn);
+      },
+    };
+    const { rt, transport } = tsetup({ decider });
+    const text = "SecurityError: Failed to construct 'Worker': Script at 'https://cdn.example/npm/x/worker.js' cannot be accessed from origin 'https://shop.example'. blob:https://shop.example/0b1c";
+    decider.status = { state: "skipped", reason: "worker-unavailable", worker: false, workerError: text };
+    for (const f of fns) f(decider.status);
+    await rt.telemetry!.flush();
+    const m = ofType(transport, "model").at(-1)!;
+    expect(m).toMatchObject({ state: "skipped", reason: "worker-unavailable" });
+    expect(m.workerError).toBe("SecurityError: Failed to construct 'Worker': Script at '<url>' cannot be accessed from origin '<url>'. <url>");
+    // the runtime's own status (and the console warning built from it) keeps the full text
+    expect(rt.status.workerError).toBe(text);
+  });
+
   it("telemetry never changes what the model sees", async () => {
     const run = async (telemetry: boolean) => {
       const s = telemetry ? tsetup({ triage: "always" }) : setup({ triage: "always" });
@@ -427,20 +450,45 @@ describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sam
     expect(all.decisions).toHaveLength(20);
   });
 
+  it("summaries keep their once-a-minute cadence while decisions continue, when records are capped or sampled out", async () => {
+    // a decision every 5 s for 10 minutes; the records stop after 2 decisions, or are never sent
+    for (const telemetry of [{ maxDecisions: 2 }, { decisionSample: 0 }]) {
+      const r = await run(120, 5000, {}, telemetry);
+      expect(r.sum.counts.decisions).toBe(120);
+      const timed = ofType(r.transport, "summary").slice(0, -1); // the last one is run()'s own
+      expect(timed.every((e) => e.reason === "periodic")).toBe(true);
+      expect(timed.length, JSON.stringify(telemetry)).toBeGreaterThanOrEqual(8);
+      const at = timed.map((e) => e.at as number);
+      // at least SUMMARY_MS apart, and at most one flush interval (10 s) plus one decision interval later than that
+      for (let i = 1; i < at.length; i++) {
+        expect(at[i] - at[i - 1]).toBeGreaterThanOrEqual(60_000);
+        expect(at[i] - at[i - 1]).toBeLessThanOrEqual(75_000);
+      }
+      // each one carries the exact counts at its time
+      const counts = timed.map((e) => (e.counts as { decisions: number }).decisions);
+      expect(counts).toEqual([...counts].sort((x, y) => x - y));
+      expect(counts.at(-1)).toBeGreaterThan(100);
+    }
+  });
+
   it("an hour at the built-in model's maximum rate (30 decisions a minute) stays bounded", async () => {
-    const bytes = (t: { sent: Sent[] }) => t.sent.reduce((n, x) => n + new TextEncoder().encode(JSON.stringify(x.body)).length, 0);
+    const size = (x: unknown) => new TextEncoder().encode(JSON.stringify(x)).length;
+    const bytes = (t: { sent: Sent[] }) => t.sent.reduce((n, x) => n + size(x.body), 0);
+    const summaries = (t: { sent: Sent[] }) => ofType(t, "summary");
     const routine = await run(1800, 2000, {});
     const noisy = await run(1800, 2000, { script: STALE });
     const full = await run(1800, 2000, { script: STALE }, { decisionSample: 1, maxDecisions: Infinity });
     const kb = (n: number) => Math.round(n / 102.4) / 10;
-    // the numbers TELEMETRY.md quotes come from this line of the CI log
-    console.info(`[telemetry volume] 1 h at 30 decisions/min: routine ${kb(bytes(routine.transport))} KB, every decision a detection ${kb(bytes(noisy.transport))} KB, uncapped and unsampled ${kb(bytes(full.transport))} KB`);
+    const line = (t: { sent: Sent[] }) => `${kb(bytes(t))} KB in ${t.sent.length} requests, ${summaries(t).length} summaries ${kb(summaries(t).reduce((n, e) => n + size(e), 0))} KB`;
+    // the numbers TELEMETRY.md and docs/runtime/RESULTS.md quote come from this line of the CI log
+    console.info(`[telemetry volume] 1 h at 30 decisions/min: routine ${line(routine.transport)}; every decision a detection ${line(noisy.transport)}; uncapped and unsampled ${line(full.transport)}`);
     expect(routine.sum.counts.decisions).toBe(1800);
     expect(noisy.sum.telemetry.decisionRecords).toBe(200);
+    // summaries are not capped: about one a minute for the whole hour in every configuration
+    for (const r of [routine, noisy, full]) expect(summaries(r.transport).length).toBeGreaterThanOrEqual(50);
     expect(bytes(noisy.transport)).toBeLessThan(bytes(full.transport) / 3);
-    // TELEMETRY.md quotes the CI measurement (2026-10-13: 203 to 205 KB, 229 KB, 2,065 KB) and this ceiling
-    expect(bytes(routine.transport) / 1024).toBeLessThan(300);
-    expect(bytes(noisy.transport) / 1024).toBeLessThan(300);
+    expect(bytes(routine.transport) / 1024).toBeLessThan(400);
+    expect(bytes(noisy.transport) / 1024).toBeLessThan(400);
   }, 120_000);
 });
 

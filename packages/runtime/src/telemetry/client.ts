@@ -10,7 +10,8 @@
 //   stamps receivedAt). The session id is random per page load and never stored.
 // - Volume (TELEMETRY.md "Volume"): every decision is counted in `summary`; its own records are sent for every
 //   detection, action or veto and for a `decisionSample` share of routine decisions (a hash of the session and
-//   decision ids, no randomness), and for at most `maxDecisions` decisions per page load.
+//   decision ids, no randomness), and for at most `maxDecisions` decisions per page load. A decision whose records
+//   are withheld still arms the flush timer, so `summary` keeps its once-a-minute cadence while decisions continue.
 
 import type { RuntimeImpl } from "../runtime.js";
 import type { ActionRecord, Answer, Decision, ModelStatus, TelemetryStatus } from "../types.js";
@@ -42,6 +43,8 @@ export interface TelemetrySessionInfo {
 
 const r4 = (n: unknown): number | undefined => (typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : undefined);
 const cut = (s: unknown, n: number): string | undefined => (typeof s === "string" ? (s.length > n ? s.slice(0, n) : s) : undefined);
+/** URLs in browser error text are not sent (a Worker constructor's SecurityError names the script and the page origin). */
+const noUrls = (s: unknown): unknown => (typeof s === "string" ? s.replace(/\b(?:[a-z][a-z0-9+.-]*:\/\/|(?:blob|data):[a-z])[^\s'"`<>]*/gi, "<url>") : s);
 const inc = (c: Counts, k: string, by = 1) => {
   c[k] = (c[k] ?? 0) + by;
 };
@@ -238,7 +241,7 @@ export class TelemetryClient implements TelemetryStatus {
         device: s.device,
         threads: s.threads,
         worker: s.worker,
-        workerError: cut(s.workerError, 200),
+        workerError: cut(noUrls(s.workerError), 200),
         gpu: cut(s.gpu, 120),
         ort: cut(s.ort, 40),
         loadMs: typeof s.loadMs === "number" ? Math.round(s.loadMs) : undefined,
@@ -274,7 +277,11 @@ export class TelemetryClient implements TelemetryStatus {
     // the runtime reports a detection when the diagnosis is not "expected" and clears the report gate (its "detect"
     // event follows this one); only which records are sampled depends on this, never what is counted
     const detects = d.diagnosis !== "expected" && typeof gates?.report === "number" && d.diagnosisConfidence >= gates.report;
-    if (!this.sends(d.id, acted || vetoed || detects || !!d.shadow?.wouldPass)) return;
+    if (!this.sends(d.id, acted || vetoed || detects || !!d.shadow?.wouldPass)) {
+      // counted, not sent: the periodic summary is due from the flush timer, which queued events arm otherwise
+      this.arm();
+      return;
+    }
     this.push({
       t: "decision",
       id: d.id,
@@ -319,7 +326,10 @@ export class TelemetryClient implements TelemetryStatus {
     this.dirty = true;
     this.c.detections++;
     inc(this.c.detectionsByDiagnosis, d.diagnosis);
-    if (!this.sends(d.id, true)) return;
+    if (!this.sends(d.id, true)) {
+      this.arm();
+      return;
+    }
     this.push({ t: "detect", decision: d.id, trigger: d.trigger, diagnosis: d.diagnosis, p: r4(d.diagnosisConfidence) });
   }
 
