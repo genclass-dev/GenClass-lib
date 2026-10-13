@@ -1,0 +1,7 @@
+{
+  "schema": "genclass-races/1",
+  "test": "search.spec.ts > search > shows the results of the last query",
+  "seed": 1,
+  "signatures": [],
+  "shadow": "guard"
+}
