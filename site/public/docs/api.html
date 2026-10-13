@@ -103,7 +103,7 @@ no model. Use <a href="#headless-use-tests-ssr-simulation"><code>createRuntime</
 <code>telemetry: { include: { situation: true } }</code>) to <code>DEFAULT_TELEMETRY_ENDPOINT</code> and prints one console notice per
 page. Off with <code>telemetry: false</code>, <code>?genclass=no-telemetry</code> (or <code>?genclass=off</code>),
 <code>localStorage["genclass.telemetry"] = "off"</code>, or Global Privacy Control; off by default on localhost and private
-hosts (<code>0.2.1</code> and <code>0.2.2</code> send from them too, by mistake; fixed in the next release), outside a browser and in
+hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2</code>), outside a browser and in
 <code>createRuntime()</code>. An explicit <code>telemetry: true</code> also sends from local hosts. Schema and details:
 <a href="/docs/telemetry">packages/runtime/TELEMETRY.md</a>.</p>
 <h2 id="options">Options</h2>
