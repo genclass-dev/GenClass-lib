@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>How GenClass Works: On-Device AI for Runtime Bugs</title>
-<meta name="description" content="How GenClass observes requests and state writes, asks a 10 MB on-device model what is wrong, acts at the network boundary and explains it.">
+<title>How GenClass Works: An On-Device Model for the Bugs That Never Throw</title>
+<meta name="description" content="How GenClass observes requests and state writes, asks a 10 MB on-device model what is wrong, reports it with the evidence, and in opt-in guard mode acts at the network boundary.">
 <link rel="canonical" href="https://genclass.dev/how-it-works">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="theme-color" content="#FFFFFF">
@@ -12,17 +12,17 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="GenClass">
 <meta property="og:url" content="https://genclass.dev/how-it-works">
-<meta property="og:title" content="How GenClass Works: On-Device AI for Runtime Bugs">
-<meta property="og:description" content="How GenClass observes requests and state writes, asks a 10 MB on-device model what is wrong, acts at the network boundary and explains it.">
-<meta property="og:image" content="https://genclass.dev/og.png?v=4">
+<meta property="og:title" content="How GenClass Works: An On-Device Model for the Bugs That Never Throw">
+<meta property="og:description" content="How GenClass observes requests and state writes, asks a 10 MB on-device model what is wrong, reports it with the evidence, and in opt-in guard mode acts at the network boundary.">
+<meta property="og:image" content="https://genclass.dev/og.png?v=5">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="GenClass: catch race conditions and stale data in production">
+<meta property="og:image:alt" content="GenClass: The bugs that never throw, found in production.">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How GenClass Works: On-Device AI for Runtime Bugs">
-<meta name="twitter:description" content="How GenClass observes requests and state writes, asks a 10 MB on-device model what is wrong, acts at the network boundary and explains it.">
-<meta name="twitter:image" content="https://genclass.dev/og.png?v=4">
+<meta name="twitter:title" content="How GenClass Works: An On-Device Model for the Bugs That Never Throw">
+<meta name="twitter:description" content="How GenClass observes requests and state writes, asks a 10 MB on-device model what is wrong, reports it with the evidence, and in opt-in guard mode acts at the network boundary.">
+<meta name="twitter:image" content="https://genclass.dev/og.png?v=5">
 <link rel="icon" href="/brand/mark-32.png?v=2" sizes="32x32" type="image/png">
 <link rel="icon" href="/brand/mark-64.png?v=2" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=0ca3ba97">
+<link rel="stylesheet" href="/styles.css?v=b25b9c74">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "How it works", "item": "https://genclass.dev/how-it-works"}]}, {"@type": "TechArticle", "headline": "How GenClass works", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-10", "about": ["Race conditions", "Web application reliability", "On-device machine learning"]}]}</script>
 </head>
 <body>
@@ -39,9 +39,9 @@
 <header class="nav">
   <div class="wrap">
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
-    <nav aria-label="Main"><a href="/cloud">Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
+    <nav aria-label="Main"><a href="/docs">Docs</a><a href="/how-it-works" class="on" aria-current="page">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
     <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/cloud">Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
 </header>
@@ -51,8 +51,8 @@
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>How it works</span></nav>
     <h1>It decides at the <em>network boundary.</em></h1>
     <p class="lede">Responses and push messages are judged before your app sees them. Cheap facts are computed for everything; only salient situations reach the model, so normal traffic costs nothing.</p>
-    <div class="trace" role="img" aria-label="Request trace: five search requests fire as the user types paris. The request for pa takes 1,240 ms and lands after the results for paris are on screen; GenClass discards it.">
-      <div class="trace-head"><b>trace</b><span>/search · typeahead</span><span>user typed "paris"</span><span class="live"><i></i>guard mode</span></div>
+    <div class="trace" role="img" aria-label="Illustration of a request trace: five search requests fire as the user types paris. The request for pa takes 1,240 ms and lands after the results for paris are on screen; in guard mode GenClass discards its write.">
+      <div class="trace-head"><b>trace</b><span>/search · typeahead</span><span>user typed "paris"</span><span class="live"><i></i>guard mode · illustration</span></div>
       <div class="trace-body"><div class="tgrid">
         <div class="trow"><span class="q">#1 GET ?q=<b>p</b></span><div class="lane"><div class="bar d1" style="left: 0%; width: 12%"></div></div><span class="out ok">180 ms · delivered</span></div>
         <div class="trow"><span class="q">#2 GET ?q=<b>pa</b></span><div class="lane"><div class="bar late d2" style="left: 10%; width: 82.7%"></div></div><span class="out no fade f1">1,240 ms · discarded</span></div>
@@ -61,21 +61,21 @@
         <div class="trow"><span class="q">#5 GET ?q=<b>paris</b></span><div class="lane"><div class="bar d5" style="left: 40%; width: 12.7%"></div></div><span class="out ok">190 ms · delivered</span></div>
         <div class="axis"><span></span><div class="ticks"><div class="mark" style="left: 52.7%"><span class="mark-l">"paris" on screen at 790 ms</span></div><span style="left: 0%">0</span><span style="left: 20%">300</span><span style="left: 40%">600</span><span style="left: 60%">900</span><span style="left: 80%">1,200</span><span style="left: 100%">1,500 ms</span></div><span></span></div>
       </div></div>
-      <div class="trace-foot fade f1">[GenClass] Prevented a stale write: the response for "pa" landed after "paris" was shown <span>(stale; discard) · undo available</span></div>
+      <div class="trace-foot fade f1">[GenClass] Prevented a stale response: the response for "pa" would overwrite the results shown for "paris" <span>(stale, discard) · undo available</span></div>
     </div>
-    <p class="cap">Illustration of the failure GenClass targets. Without it, the app renders "pa" results under a search box that says "paris".</p>
+    <p class="cap">Illustration of the failure GenClass targets, drawn for this page with the report line shortened; the real line format is on the <a href="/docs#first">docs</a>. Without GenClass the app renders "pa" results under a search box that says "paris". In observe mode, the default, GenClass reports this and delivers the response unchanged; in guard mode, opt-in, it can discard the write when its gate clears.</p>
 
   </div>
 </div>
 <section style="padding-top: 72px">
   <div class="wrap">
-    <div class="sh"><span class="no">The pipeline</span><h2>From fetch to fix in six steps.</h2></div>
+    <div class="sh"><span class="no">The pipeline</span><h2>From fetch to report in six steps.</h2></div>
     <div class="steps">
       <div class="step"><span class="n">01</span><h3>Observe</h3><p>Instruments fetch, XHR, WebSocket, EventSource, DOM events, errors, storage and timers, and links async work into causal chains.</p></div>
       <div class="step"><span class="n">02</span><h3>Learn</h3><p>Builds per-operation baselines for latency, failure and request rate, and relations that keep holding, like <code>total == sum(price × qty)</code>.</p></div>
       <div class="step"><span class="n">03</span><h3>Triage</h3><p>Computes facts for every write and request. Only a response over newer data, a repeat, a failure streak or a broken relation goes to the model.</p></div>
       <div class="step"><span class="n">04</span><h3>Decide</h3><p>An 8.8M-parameter model (8.1M encoder, 0.7M heads) in a Web Worker reads the situation and returns a calibrated diagnosis and action.</p></div>
-      <div class="step"><span class="n">05</span><h3>Act</h3><p>Only when acting beats doing nothing by the margin of the setting you chose: cautious, balanced or eager.</p></div>
+      <div class="step"><span class="n">05</span><h3>Act, if you opt in</h3><p>Only in guard or heal mode, and only when acting beats doing nothing by the margin of the profile you chose: cautious, balanced or eager. At the shipped setting that is rare: under 8% of the cases where acting would help.</p></div>
       <div class="step"><span class="n">06</span><h3>Explain</h3><p>Every call is logged in plain English. <code>rt.explain(id)</code> returns the exact text the model read, and reversible actions can be undone.</p></div>
     </div>
     <div class="tbl-wrap">
@@ -88,13 +88,13 @@
         </tbody>
       </table>
     </div>
-    <div class="console" role="img" aria-label="Example GenClass console output">
-      <div class="d">// example console output</div>
-      <div class="b">[GenClass] Prevented a stale write: GET /search?q=pa landed after q=paris was shown (stale; discard)</div>
-      <div class="b">[GenClass] Coalesced POST /api/orders with #212, so one order is placed</div>
-      <div class="o">[GenClass] Failing request: GET /api/inventory failed 5 times in 8 s (failing)</div>
-      <div>[GenClass] Held the write to cart.total until the related in-flight operations finish, to decide again.</div>
-      <div class="d">&gt; rt.explain(214)   // situation text, facts, timeline, every answer</div>
+    <div class="console first" role="img" aria-label="Real GenClass console output: the model-ready line, a flagged stale response in observe mode, and the same situation prevented in guard mode">
+      <div class="d">// real output, copied from the package README: a typeahead in Node, q8 model on WASM, observe mode</div>
+      <div>[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.43s). Mode: observe.</div>
+      <div class="b">[GenClass] Flagged a stale response: search.results was written twice by other operations since its operation (#6) started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which started 0.09s after #6, from a later user action (#7). (stale, 0.96)</div>
+      <div class="d">// the same run in guard mode: the discard (0.98) passed model 0.1.0's delivery gate (0.80), so the results for "reac" stayed</div>
+      <div class="b">[GenClass] Prevented a stale response: search.results was written twice by other operations since its operation (#6) started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which started 0.09s after #6, from a later user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropped the state changes it makes over newer data (search.results). (stale, 0.97; discard 0.98)</div>
+      <div class="d">&gt; rt.explain(6)   // the situation text the model read, the facts, every answer</div>
     </div>
 
   </div>
@@ -154,16 +154,16 @@
 <footer class="end">
   <div class="wrap">
     <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Free to run. Built to scale.</h2>
+    <h2>Add one line and read what it reports.</h2>
     <div class="row">
       <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn green" href="/cloud#early-access">Join Cloud early access</a>
+      <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/cloud">GenClass Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a></div>
-      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="mailto:mehar@daybot.ca?subject=GenClass%20false%20detection">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
