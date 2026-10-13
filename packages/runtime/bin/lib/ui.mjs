@@ -1,4 +1,4 @@
-// Terminal helpers for `genclass-runtime init|remove`: colours, symbols, a line diff and a yes/no prompt.
+// Terminal helpers for the genclass-runtime commands: colours, symbols, a line diff, and questions (yes/no, pick one).
 // No dependencies (Node >= 20).
 
 import { createInterface } from "node:readline";
@@ -135,17 +135,86 @@ export function printChange(change) {
 
 // ------------------------------------------------------------------------------------------------ prompt
 
+/** Whether questions can be asked (stdin is a terminal). */
+export const interactive = () => !!process.stdin.isTTY;
+
+// Lines that arrived after the answer to a question (typed ahead, or several answers piped at once): the next
+// questions take them first.
+const typedAhead = [];
+let inputEnded = false;
+
+/**
+ * Asks one question and resolves the line typed (trimmed), "" when input ends, or null when stdin is not a
+ * terminal. Ctrl-C at a question ends the command (exit code 130); every command asks before it writes.
+ */
+export async function ask(question) {
+  if (!interactive()) return null;
+  if (typedAhead.length) {
+    const a = typedAhead.shift();
+    process.stdout.write(`${question}${a}\n`);
+    return a.trim();
+  }
+  if (inputEnded) {
+    process.stdout.write(`${question}\n`);
+    return "";
+  }
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    let answered = false;
+    let closing = false;
+    // lines after the answer in the same chunk of input
+    rl.on("line", (line) => typedAhead.push(line));
+    rl.question(question, (line) => {
+      // piped output (a log): keep the answer on the question's line
+      if (!process.stdout.isTTY) process.stdout.write(`${line}\n`);
+      answered = true;
+      resolve(line.trim());
+      setImmediate(() => {
+        closing = true;
+        rl.close();
+      });
+    });
+    rl.on("SIGINT", () => {
+      process.stdout.write("\n");
+      err(`  Cancelled.`);
+      process.exit(130);
+    });
+    rl.on("close", () => {
+      if (!closing) inputEnded = true;
+      if (!answered) {
+        answered = true;
+        if (!process.stdout.isTTY) process.stdout.write("\n");
+        resolve("");
+      }
+    });
+  });
+}
+
 /** Asks a yes/no question. Returns null when stdin is not interactive. */
 export async function confirm(question, def = true) {
-  if (!process.stdin.isTTY) return null;
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
   const hint = def ? "Y/n" : "y/N";
-  const answer = await new Promise((resolve) => {
-    rl.question(`  ${c.bold(question)} ${c.gray(`(${hint})`)} `, resolve);
-    rl.on("close", () => resolve(""));
-  });
-  rl.close();
-  const a = String(answer).trim().toLowerCase();
+  const answer = await ask(`  ${c.bold(question)} ${c.gray(`(${hint})`)} `);
+  if (answer === null) return null;
+  const a = answer.toLowerCase();
   if (!a) return def;
   return a === "y" || a === "yes";
+}
+
+/**
+ * Asks to pick one of `labels` (numbered from 1). Returns the index picked, `def` on an empty answer, or null when
+ * stdin is not interactive. Asks again (up to 3 times) when the answer is not one of the numbers.
+ */
+export async function choose(question, labels, def = 0) {
+  if (!interactive()) return null;
+  out(`  ${c.bold(question)}`);
+  labels.forEach((l, i) => out(`    ${c.cyan(String(i + 1).padStart(2))}  ${l}`));
+  for (let tries = 0; tries < 3; tries++) {
+    const a = await ask(`  ${c.bold("Number")} ${c.gray(`(1-${labels.length}, Enter for ${def + 1})`)} `);
+    if (a === null) return null;
+    if (a === "") return def;
+    const n = Number(a);
+    if (Number.isInteger(n) && n >= 1 && n <= labels.length) return n - 1;
+    out(`  ${c.yellow(sym.warn)} Type a number from 1 to ${labels.length}.`);
+  }
+  return null;
 }

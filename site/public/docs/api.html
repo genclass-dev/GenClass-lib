@@ -41,7 +41,8 @@
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
     <nav aria-label="Main"><a href="/docs" class="on" aria-current="page">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
     <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    <a class="gh" href="/login">Sign in</a>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
 </header>
@@ -65,6 +66,12 @@ const cart = rt.atom(&quot;cart&quot;, { items: [], total: 0 }); // state GenCla
 <pre><code class="language-ts">GenClass.init(options?: InitOptions): Runtime   // idempotent: a second call returns the same runtime
 GenClass.runtime: Runtime | null
 GenClass.destroy(): void                        // uninstall observers, restore globals, terminate the model worker
+GenClass.protect: typeof protect                // the same as the named export below (Unreleased: not in 0.2.2)
+
+// named exports (Unreleased: not in 0.2.2)
+protect&lt;F extends (...args: never[]) =&gt; unknown&gt;(name: string, fn: F): F   // see &quot;Protected functions&quot;
+TOKEN_PATTERN: RegExp                           // /^gc_[A-Za-z0-9]{22}$/
+isValidToken(v: unknown): v is string
 </code></pre>
 <table>
 <thead>
@@ -106,6 +113,14 @@ page. Off with <code>telemetry: false</code>, <code>?genclass=no-telemetry</code
 hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2</code>), outside a browser and in
 <code>createRuntime()</code>. An explicit <code>telemetry: true</code> also sends from local hosts. Schema and details:
 <a href="/docs/telemetry">packages/runtime/TELEMETRY.md</a>.</p>
+<p><strong>App token and dashboard</strong> (Unreleased: <code>0.2.2</code> ignores <code>token</code>). <code>token: "gc_..."</code> (from
+<code>npx @genclass/runtime init</code> or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
+show up on its private dashboard (<code>https://genclass.dev/dashboard/&lt;secret&gt;</code>); with a token, decision events also
+carry <code>fn</code> (see "Protected functions"). Public; malformed values log one warning and are ignored; it does nothing
+while telemetry is off (on a local host the console says so once). <code>rt.telemetry.token</code> reports it while telemetry
+is on. <code>token</code> and <code>scope</code> are fixed when GenClass starts: on a runtime already started by <code>/auto</code> or the script tag,
+<code>GenClass.init({ token, scope })</code> is ignored with one console warning (set them in <code>window.GENCLASS_CONFIG</code>, the meta
+tag or <code>data-token</code> / <code>data-scope</code>).</p>
 <h2 id="options">Options</h2>
 <pre><code class="language-ts">interface InitOptions {
   mode?: &quot;observe&quot; | &quot;guard&quot; | &quot;heal&quot;;                 // default &quot;observe&quot;; &quot;guard&quot; is opt-in, &quot;heal&quot; experimental
@@ -135,12 +150,14 @@ hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2<
     sample?: number;                                    // [1] fraction of page loads that send
     flushMs?: number;                                   // [10000] batch interval; also sent on pagehide / hidden tab (sendBeacon)
     maxBatch?: number;                                  // [100] events per request (requests also ≤ 60 KB)
-    include?: { situation?: boolean };                  // [true] include the redacted situation text
+    include?: { situation?: boolean };                  // [false]; true: include the redacted situation text
     transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise&lt;unknown&gt; }; // tests / custom pipelines
   };
   autoState?: boolean | { react?: boolean; redux?: boolean; zustand?: boolean; pinia?: boolean };
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
                                                         // off in GenClass.init / createRuntime (there it needs import &quot;@genclass/runtime/discover&quot; first)
+  token?: string;                                       // (Unreleased) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
+  scope?: &quot;app&quot; | &quot;functions&quot;;                          // (Unreleased) [&quot;app&quot;]; &quot;functions&quot;: decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
   enabled?: boolean | (() =&gt; boolean | Promise&lt;boolean&gt;) | { get(): boolean | Promise&lt;boolean&gt;; subscribe?(cb: () =&gt; void): () =&gt; void };
@@ -302,6 +319,24 @@ placeholder, title, name, or the custom element host's <code>label</code>/<code>
 user handler or <code>rt.op</code> body runs, after a fetch/XHR settles and when its body (<code>json()</code>, <code>text()</code>, ...) is read,
 and inside timers scheduled during an operation; it is cleared at the end of the task. Writes record the ambient
 operation as their cause; operations started while another is ambient get it as their parent.</p>
+<h3 id="protected-functions">Protected functions</h3>
+<p>Unreleased (not in <code>0.2.2</code>).</p>
+<pre><code class="language-ts">import { GenClass, protect } from &quot;@genclass/runtime&quot;;
+GenClass.init({ token: &quot;gc_...&quot;, scope: &quot;functions&quot; });
+
+const submitOrder = protect(&quot;checkout submit&quot;, async (cart: Cart) =&gt; { /* fetch, writes, ... */ });
+</code></pre>
+<p><code>protect(name, fn)</code> returns a function with <code>fn</code>'s signature. Each call runs as a <code>"task"</code> operation named <code>name</code>
+(like <code>rt.op</code>), so what it starts is linked to it, and decisions about that carry <code>Decision.fn = name</code> (the
+outermost protected function when they nest; also <code>fn</code> on telemetry <code>decision</code> events when a token is set, as
+<code>"[redacted]"</code> when the label looks like data: an e-mail address, a URL, 4+ digits in a row, 12+ hex digits). <code>this</code>, arguments, return
+value and thrown errors pass through; a sync function stays sync; an async function's promise is replaced by one
+that settles the same way; other thenables are returned untouched. It looks up <code>GenClass.runtime</code> on every call and
+calls <code>fn</code> directly when there is none. It never throws on its own. With <code>scope: "functions"</code> everything is still
+recorded, but decisions are raised only for subjects inside a protected call, and standing questions
+(<code>rt.question()</code>, plugin <code>questions</code>) are asked only about them (explicit <code>rt.ask()</code> / <code>rt.decide()</code> are answered as
+before). For an async <code>fn</code> the operation and the situation are the same as with <code>rt.op(name, fn)</code>; a sync <code>fn</code>'s
+operation ends when it returns. There is no per-function <code>mode</code> option yet.</p>
 <h2 id="asking-the-model">Asking the model</h2>
 <pre><code class="language-ts">rt.ask&lt;Q extends Question&gt;(q: Q, opts?: { about?: &quot;now&quot; | number /* op id */ | string /* store */; timeoutMs?: number }): Promise&lt;AnswerOf&lt;Q&gt;&gt;
 rt.decide&lt;L extends string&gt;(question: string, options: Record&lt;L, string&gt;, opts?): Promise&lt;L&gt;

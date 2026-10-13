@@ -41,7 +41,8 @@
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
     <nav aria-label="Main"><a href="/docs" class="on" aria-current="page">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
     <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    <a class="gh" href="/login">Sign in</a>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
 </header>
@@ -819,7 +820,8 @@ changes on a browser global, and whether <code>destroy()</code> restores it or l
 listeners it adds to <code>window</code> and <code>document</code> (all removed by <code>destroy()</code>). <code>sites</code> lines count the patch sites per file
 in <code>src/</code> (<code>addEventListener(</code> calls, <code>Object.defineProperty(</code>, <code>Reflect.set</code>/<code>defineProperty</code>, assignments to
 global, prototype and hook objects): a change in a count fails the test until the rows above and this block are
-updated.</p>
+updated. <code>src/protect.ts</code> counts two <code>Object.defineProperty(</code> calls that are not interceptions: <code>protect()</code> sets
+<code>name</code> and <code>length</code> on the wrapper function it returns (its own object, never a page global; nothing to restore).</p>
 <!-- inventory:start -->
 
 <pre><code class="language-text">patch window.fetch restored
@@ -876,6 +878,7 @@ sites src/observe/storage.ts 6
 sites src/observe/timers.ts 4
 sites src/observe/websocket.ts 4
 sites src/observe/xhr.ts 15
+sites src/protect.ts 2
 sites src/runtime.ts 1
 sites src/telemetry/client.ts 2
 </code></pre>

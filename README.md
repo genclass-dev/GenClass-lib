@@ -66,6 +66,27 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
   [self-hosting](packages/runtime/README.md#content-security-policy-and-self-hosting) and
   [`loadIf`](packages/runtime/README.md#costs) in the package README.
 
+### Next release (not in 0.2.2): app dashboards and `protect()`
+
+On `main`, not yet on npm or jsDelivr: `0.2.2` and earlier ignore `token` and have no `protect()` export (an import
+of it fails), and their `init` creates no token. Details: [CHANGELOG](packages/runtime/CHANGELOG.md), Unreleased.
+
+```ts
+import { GenClass, protect } from "@genclass/runtime"; // next release
+
+GenClass.init({ token: "gc_your_app_token", scope: "functions" }); // scope: decide only inside protect()ed functions
+// what GenClass finds here (a double submit, overlapping calls, a failure) is reported under "checkout submit"
+export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orders", { method: "POST", body: JSON.stringify(cart) }));
+```
+
+- **Token and dashboard.** A token (`gc_` plus 22 letters and digits, public) groups your app's diagnostics under a
+  private dashboard link (`https://genclass.dev/dashboard/...`; whoever holds the link sees the stats). Get one at
+  [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. The
+  dashboard fills only from deployed pages with telemetry on, never from `localhost`. Data is kept for 90 days.
+- **`protect(name, fn)`** returns a function with the same signature (same `this`, arguments, return value and
+  errors); decisions about what it causes carry `fn: name`. Without a runtime it just calls `fn`.
+  [Package README](packages/runtime/README.md#function-specific-protect).
+
 ## How it works
 
 1. **Observe.** Fetch, XHR, WebSocket, EventSource, DOM events, errors, navigation, storage, long tasks and timers
@@ -138,6 +159,10 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and for each decision the trigger, the diagnosis and its confidence, the action and gate, the outcome, latency and counts. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
+- **With a token** (next release: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
+  your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
+  can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
+  Without a token neither is sent; without telemetry, a token does nothing.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](packages/runtime/TELEMETRY.md).
 
 ## Security

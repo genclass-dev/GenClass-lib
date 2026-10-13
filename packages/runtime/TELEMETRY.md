@@ -18,13 +18,17 @@ Details under [Opting out](#opting-out).
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
 
+In `0.2.1` the local-host row did not apply to `GenClass.init()` (and so to `/auto` and the script tag): it passed
+an explicit `telemetry: true` internally, so local and private hosts sent too. Fixed in `0.2.2`
+([CHANGELOG](CHANGELOG.md)).
+
 When it is on, the console shows one notice per page:
 
 ```
 [GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry.
 ```
 
-`runtime.telemetry` reports `{ enabled, reason?, endpoint?, sessionId?, flush() }`; `reason` says why it is off
+`runtime.telemetry` reports `{ enabled, reason?, endpoint?, sessionId?, token?, flush() }`; `reason` says why it is off
 (`option`, `headless`, `local`, `url`, `localStorage`, `gpc`, `sampled-out`, `no-crypto`, `no-transport`,
 `kill-switch`, `disabled`).
 
@@ -58,6 +62,7 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
 ```jsonc
 {
   "schema": "genclass-telemetry/1",
+  "token": "gc_…",           // only when the app configured a valid token (InitOptions.token); see "App tokens"
   "sid": "3f9c…",            // 24 hex chars from crypto.getRandomValues, new on every page load, never stored
   "sent": 12034,             // ms since this page's GenClass started (no wall-clock time is sent)
   "runtime": "0.2.1", // @genclass/runtime version
@@ -73,7 +78,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included) |
 | `model` | model state changes | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError`, `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
-| `decision` | every model decision | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow` |
+| `decision` | every model decision | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
 | `detect` | a decision reported as a detection | `decision`, `trigger`, `diagnosis`, `p` |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
 | `veto` | `onBeforeAction` vetoed an action | `decision`, `action`, `enforced` |
@@ -92,6 +97,43 @@ Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/
 - At most 1,000 queued events; beyond that new events are dropped and counted. A failed request is dropped, never
   retried; after 3 failures in a row the page stops sending (`MAX_FAIL_STREAK`). Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
 
+## App tokens and dashboards
+
+Unreleased (not in `0.2.2`, which ignores a token and sends neither `token` nor `fn`). An app can set a **token**
+(`InitOptions.token`, `data-token`, `<meta name="genclass" content="token=...">` or `window.GENCLASS_CONFIG.token`):
+`gc_` followed by 22 letters or digits, created by `npx @genclass/runtime init` or at https://genclass.dev/start.
+
+- The token is public (it is in the page). It is sent as the batch envelope's top-level `token` and nowhere else; it
+  lets the collector group the batches of one app. A malformed token logs one console warning and is not sent.
+- Whoever holds the app's private dashboard link (`https://genclass.dev/dashboard/<secret>`, given once when the
+  token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, actions, the
+  app's hostnames, top routes and protected functions, model load, backend and latency, versions) and its recent
+  detections. Dashboard data is also deleted after 90 days.
+- A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
+  Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
+  console says so once when a token is set; otherwise only with `debug: true`.
+- Only batches that carry a token have `fn` on `decision` events: the name the app chose for the `protect()`ed
+  function the decision was about (at most 80 characters). A name that looks like it carries data rather than
+  naming a function (an e-mail address, a URL, 4 or more digits in a row, 12 or more hex digits) is sent as
+  `[redacted]`, so use fixed names. Without a token `fn` is never sent.
+- With a token, the console notice ends with one more sentence: `With this app's token they also feed its private
+  GenClass dashboard.`
+- `npx @genclass/runtime init` creates a token (a "project") only on a new setup and only after the developer
+  approved its changes (or passed `--yes`): it sends one request, `POST https://genclass.dev/api/projects` with
+  `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,
+  that name, the creation time, the times of the first and the last batch, a SHA-256 hash of the dashboard secret
+  (never the secret itself) and, when the app belongs to a genclass.dev account, that account. Project records have
+  no automatic expiry; the aggregated dashboard data does (90 days). To delete a project and its dashboard data,
+  write to the contact in PRIVACY.md with the token.
+- An app can also belong to an optional **genclass.dev account** (passkey, Google or GitHub sign-in), which opens its
+  dashboard at `https://genclass.dev/account/apps/<id>` for the signed-in owner; an existing dashboard link can be
+  added to an account and keeps working until the owner turns that link off on the account page. This changes
+  nothing the runtime sends: pages send the same batches with the same token, and nothing in a batch identifies a
+  person or an account. What an account itself stores (an email as typed or as Google returned it and whether it is
+  verified, passkey public keys, the Google `sub` and the GitHub id and login if used, session records, the apps it
+  owns) is listed in PRIVACY.md. Deleting the account on its account page deletes the apps created in it with their
+  dashboard data.
+
 ## Where it goes
 
 - **Endpoint:** `https://genclass.dev/api/v1/events` (`DEFAULT_TELEMETRY_ENDPOINT`; before 0.2.2 the same worker's
@@ -102,7 +144,8 @@ Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/
   partitioned by UTC date, runtime version and model version. The collector adds only the time it received the
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.
-- **Use:** model evaluation and training by the GenClass maintainers. Not sold, not used for advertising.
+- **Use:** model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
+  app's dashboard. Not sold, not used for advertising.
 - **Retention:** 90 days. An R2 lifecycle rule (`expire-90d`, prefix `events/`) deletes every stored batch 90 days after it
   was written. The maintainers may change this later; changes are recorded in the CHANGELOG.
 - **Your own endpoint:** `telemetry: { endpoint: "https://…" }` sends the same batches to a collector you run
