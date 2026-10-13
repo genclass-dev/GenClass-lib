@@ -55,8 +55,8 @@ sends (less on local hosts, see Fixes).
   and points to https://genclass.dev/start. Running `init` again reuses the token; on a setup made without one it
   never creates a project as a side effect (pass `--token`).
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
-- **Cost:** about +1.3 KB gzip on `/auto`: 100.17 KB (98.86 KB in 0.2.2), and the main entry 92.69 KB, minified
-  and gzipped by `test/bundle.test.ts` in CI (run 38358367338). Its ceilings are 101 KB and 94 KB.
+- **Cost:** about +1.8 KB gzip on `/auto`: 100.68 KB (98.86 KB in 0.2.2), and the main entry 93.19 KB, minified
+  and gzipped by `test/bundle.test.ts` in CI (run 38436014497). Its ceilings are 101 KB and 94 KB.
 - **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
   the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
   see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
