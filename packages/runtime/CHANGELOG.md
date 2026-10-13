@@ -7,6 +7,10 @@
   pages on `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. An
   unset option now stays unset and the default applies as documented; an explicit `telemetry: true` still sends from
   a local host. This narrows what is sent; nothing new is sent. Test: `test/telemetry-local-hosts.test.ts`.
+- **`init --telemetry` no longer writes `telemetry: true`.** It now takes the `--no-telemetry` opt-out out of what
+  init wrote (back to the default) and, on a new setup, writes nothing. An explicit `true` would now mean "also send
+  from local hosts". An options file written by an earlier `init --telemetry` holds `telemetry: true`: run
+  `npx @genclass/runtime init --telemetry` again to take it out.
 
 ## 0.2.2 (2026-10-13)
 
