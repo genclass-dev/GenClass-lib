@@ -72,7 +72,8 @@ what your app does (see Known limitations). `npx @genclass/runtime init` writes 
 [Install](#install) · [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [State it can protect](#state-it-can-protect) ·
-[Ask it questions](#ask-it-questions) · [Observability](#observability) · [Extend it](#extend-it) ·
+[Ask it questions](#ask-it-questions) · [Observability](#observability) ·
+[See it where you already look](#see-it-where-you-already-look) · [Extend it](#extend-it) ·
 [Model quality](#model-quality) · [Performance](#performance) · [Costs](#costs) ·
 [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting) · [Privacy and telemetry](#privacy-and-telemetry) ·
 [Known limitations](#known-limitations) · [API reference](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md) ·
@@ -102,6 +103,10 @@ started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which 
 user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropped the state changes it makes over
 newer data (search.results). (stale, 0.97; discard 0.98)
 ```
+
+In production these lines print in your users' browsers. To see them yourself, send them to Sentry, PostHog,
+Datadog, your log shipper or your own endpoint as well: `npx @genclass/runtime init --sink sentry`, or
+`data-sink="sentry"` on the script tag ([See it where you already look](#see-it-where-you-already-look)).
 
 ## Install
 
@@ -515,48 +520,11 @@ if (import.meta.env.DEV) {
 
 ### See it where you already look
 
-In production the console line prints in your users' browsers, not yours. Five sink adapters forward every detection,
-intervention, undo, breaker trip and runtime error to a tool you already open. They add no dependency: each uses the
-SDK already on the page (or the client you pass), never throws, and sends only the record the runtime built: the
-console line, the subject and timeline (query values already `…`), the diagnosis and its probability, the action, the
-route, your session tags. Never the situation text or any page text. They are entries of their own, so the first-load
-bundle does not change.
+In production the `[GenClass]` console lines print in your users' browsers, not yours. Sinks send every detection,
+intervention, undo, breaker trip and runtime error to a tool you already open as well. The console default does not
+change.
 
-```ts
-import { GenClass } from "@genclass/runtime";
-import { consoleJson, datadog, posthog, sentry, webhook } from "@genclass/runtime/sinks";
-import * as Sentry from "@sentry/browser";
-import posthogClient from "posthog-js";
-import { datadogRum } from "@datadog/browser-rum";
-
-GenClass.init({
-  sinks: [
-    sentry({ sentry: Sentry }),          // Sentry.captureMessage, level "warning", tags genclass (the diagnosis) / genclass.mode /
-                                         // genclass.action, one issue per bug (fingerprint), the record under extra.genclass;
-                                         // as: "breadcrumb" files breadcrumbs only
-    posthog({ posthog: posthogClient }), // posthog.capture("genclass_detection" | "genclass_intervention" | ..., { diagnosis, action, message, ... })
-    datadog({ rum: datadogRum }),        // DD_RUM.addError (GenClassDetection / GenClassIntervention) for detections and interventions,
-                                         // DD_RUM.addAction("genclass_undo" | "genclass_breaker" | "genclass_error") for the rest
-    consoleJson(),                       // one JSON line per record, every kind: {"source":"genclass","schema":1,"kind":"detection",...}
-    webhook({ url: "/genclass" }),       // batched POSTs of { schema: "genclass-sink/1", version, records } to your own endpoint
-  ],
-});
-```
-
-Each is also its own entry (`@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`, `/console-json`, `/webhook`).
-Without the client option they use the page's global (`window.Sentry` as the Sentry loader sets it, `window.posthog`,
-`window.DD_RUM`), looked up on every record, so a snippet that loads later still gets them. The tool adapters skip the
-per-session `summary` record, cap repeats of one bug at 10 per page load (`maxPerSignature`) and take `kinds` and
-`sampleRate`.
-
-The webhook sends the records and nothing else: `{ schema: "genclass-sink/1", version, records }`, each record with
-`kind`, `route`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `mode`, `label`, `reason`, `changed` (paths), `sessionId`,
-`tags` and the redacted `evidence` (`message`, `subject`, `timeline`). It goes by `navigator.sendBeacon` (never wrapped
-by GenClass, survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so
-parse it as JSON. Batches go 5 s after the first record, at 50 records and on page hide; `headers` switches it to
-`fetch`. List the URL in `requests.ignore` when `fetch` can be used (the zero-code forms below do).
-
-With no code, in the zero-code entries (`/auto`, the script tag) and from `init`:
+With `/auto` or the script tag, no code: each name loads its adapter on demand and uses the SDK already on the page.
 
 ```bash
 npx @genclass/runtime init --sink sentry   # or posthog, datadog, console-json, webhook:/genclass; repeat it or comma-separate
@@ -564,15 +532,57 @@ npx @genclass/runtime init --sink sentry   # or posthog, datadog, console-json, 
 
 ```html
 <meta name="genclass" content="sink=sentry+posthog">     <!-- + joins names: commas separate the meta keys -->
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1" data-sink="sentry,posthog"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2" data-sink="sentry,posthog"></script>
 <script>window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] };</script>
 ```
 
-A name becomes a small proxy at init; the adapter loads on demand (a lazy chunk of `/auto`, `dist/sinks/<name>.js` on
-the CDN for the script tag) and the records queued meanwhile are handed over. These forms use the page's global SDK:
-with an npm-installed Sentry either expose it (`window.Sentry = Sentry`) or pass the client to `GenClass.init`. `init`
-suggests the flag when your `package.json` depends on `@sentry/*`, `posthog-js` or `@datadog/browser-rum`. The
-console default is unchanged.
+`init` writes the flag as `sinks: [...]` in its option file, `data-sink` on a script tag or `sink=` in the Astro meta
+line, and suggests it when your `package.json` depends on `@sentry/*`, `posthog-js` or `@datadog/browser-rum`. A
+`<meta>` tag only takes a same-origin webhook URL (a cross-origin one is ignored with a console warning); put a
+collector on another origin in `data-sink` or `window.GENCLASS_CONFIG`. These forms find the SDK as a page global
+(`window.Sentry` as the Sentry loader sets it, `window.posthog`, `window.DD_RUM`). With an npm-installed SDK, expose
+it (`window.Sentry = Sentry`) or pass the client to `GenClass.init`:
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { sentry } from "@genclass/runtime/sinks/sentry";
+import { posthog } from "@genclass/runtime/sinks/posthog";
+import { datadog } from "@genclass/runtime/sinks/datadog";
+import { consoleJson } from "@genclass/runtime/sinks/console-json";
+import { webhook } from "@genclass/runtime/sinks/webhook";
+import * as Sentry from "@sentry/browser";
+import posthogClient from "posthog-js";
+import { datadogRum } from "@datadog/browser-rum";
+
+GenClass.init({
+  sinks: [
+    sentry({ sentry: Sentry }),          // Sentry.captureMessage(line, { level: "warning", tags: { genclass: <diagnosis>,
+                                         //   "genclass.mode", "genclass.action", ... }, extra: { genclass: <record> } }),
+                                         //   one issue per bug; as: "breadcrumb" adds breadcrumbs instead
+    posthog({ posthog: posthogClient }), // posthog.capture("genclass_detection", { diagnosis, p, action, route, message, ... })
+    datadog({ rum: datadogRum }),        // DD_RUM.addError(GenClassDetection | GenClassIntervention), addAction("genclass_undo" | ...)
+    consoleJson(),                       // console.log('{"source":"genclass","schema":1,"kind":"detection",...}') for log shippers
+    webhook({ url: "/genclass" }),       // batched POSTs of { schema: "genclass-sink/1", version, records } to your endpoint
+  ],
+});
+```
+
+`@genclass/runtime/sinks` exports all five. No adapter adds a dependency or ever throws into your app. Without the
+client option an adapter looks the global up on every record, so an SDK that loads later still gets them; without any
+SDK it sends nothing. The Sentry, PostHog and Datadog adapters skip the per-session `summary` record and cap repeats
+of one bug at 10 per page load (`maxPerSignature`); every adapter takes `kinds`, `sampleRate` and `evidence`.
+
+**What a sink receives** is the record the runtime built and nothing else: `kind`, `route`, `diagnosis` and its
+probability `p`, `action`, `tier`, `trigger`, `mode`, `label`, `reason`, `changed` (state paths), `sessionId` and your
+session `tags`, plus the evidence: the console line, the subject and the timeline, with URL query and fragment values
+replaced by `…`. Timeline lines can hold short fragments of app data, as the console does (a store value summary, an
+error message, text typed into an ordinary input; secret-named fields are `[redacted]`). `evidence: false` on an
+adapter sends the structured fields only. A sink never gets the full situation text the model read, request or
+response bodies, headers or cookies. The webhook POSTs exactly those records as
+`{ schema: "genclass-sink/1", version, records }`, by `navigator.sendBeacon` (which GenClass never wraps, and which
+survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so parse it
+as JSON. Batches go 5 s after the first record, at 50 records and on page hide. `headers` switches it to `fetch`;
+then list the URL in `requests.ignore` (the zero-code forms do that for you).
 
 ## Extend it
 

@@ -2,23 +2,30 @@
 
 ## Unreleased
 
-- **Findings reach the developer: sink adapters for the tools you already open.** `@genclass/runtime/sinks/sentry`,
-  `/posthog`, `/datadog`, `/console-json` and `/webhook` (also `@genclass/runtime/sinks`) forward every detection,
-  intervention, undo, breaker trip and runtime error: `Sentry.captureMessage` at level `warning` with tags `genclass`
-  (the diagnosis), `genclass.mode`, `genclass.action` and a per-bug fingerprint (or breadcrumbs with
-  `as: "breadcrumb"`); `posthog.capture("genclass_<kind>", { ... })`; `DD_RUM.addError` (`GenClassDetection`,
-  `GenClassIntervention`) and `DD_RUM.addAction("genclass_<kind>")`; one JSON line per record on the console; batched
-  POSTs of `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch`
-  keepalive. No new dependency: each finds the SDK on the page at send time (or takes the client you pass), never
-  throws, and sends only the record's own fields (the redacted console line, subject and timeline, diagnosis,
-  probability, action, route, session tags; never page text). Separate entries, so the first-load bundle is unchanged.
+- **Findings reach the developer: sink adapters for the tools you already open.** In production the `[GenClass]`
+  console lines print in your users' browsers; `@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`,
+  `/console-json` and `/webhook` (all five in `@genclass/runtime/sinks`) forward every detection, intervention, undo,
+  breaker trip and runtime error as well: `Sentry.captureMessage` at level `warning` with tags `genclass` (the
+  diagnosis), `genclass.mode`, `genclass.action` and a per-bug fingerprint (or breadcrumbs with `as: "breadcrumb"`);
+  `posthog.capture("genclass_<kind>", { ... })`; `DD_RUM.addError` (`GenClassDetection`, `GenClassIntervention`) and
+  `DD_RUM.addAction("genclass_<kind>")`; one JSON line per record on the console; batched POSTs of
+  `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch` keepalive.
+  No new dependency: each finds the SDK on the page at send time (or takes the client you pass) and never throws. They
+  send only the record the runtime built: kind, diagnosis, probability, action, route, session tags and the redacted
+  evidence (the console line, subject and timeline, URL query values as `…`; timeline lines can hold short fragments
+  of app data, as the console does). `evidence: false` on any adapter sends the structured fields only. Never the
+  situation text, bodies, headers or cookies. Separate entries, never in the first-load bundle.
 - **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`,
   `<meta name="genclass" content="sink=sentry+posthog">`, `data-sink="sentry,posthog"` on the script tag, and
   `npx @genclass/runtime init --sink sentry` (repeatable; written to the option file, the tag or the Astro meta line;
-  `remove` takes it out). The zero-code entries load the adapter on demand and hand over the records queued meanwhile;
-  a `webhook:<url>` joins `requests.ignore`. `init` suggests the flag when `package.json` depends on `@sentry/*`,
-  `posthog-js` or `@datadog/browser-rum`. A string passed to `GenClass.init({ sinks })` directly is ignored with one
-  warning instead of failing silently.
+  `remove` takes it out). The names become one proxy sink that queues records (at most 200) until the adapters have
+  loaded, at idle or on the first record; the name table and the adapters are lazy chunks of `/auto` and come from the
+  CDN for the script tag, so only the proxy is in the first load. A `webhook:<url>` joins `requests.ignore`; from a
+  `<meta>` tag it must be same-origin, like the model URL (a cross-origin one is ignored with one warning; THREAT-MODEL
+  T8), and `init` says so for an absolute webhook URL on Astro. `init` suggests the flag when `package.json` depends on
+  `@sentry/*`, `posthog-js` or `@datadog/browser-rum`. A string passed to `GenClass.init({ sinks })` directly is now
+  ignored with one warning that names the fix (before, every record failed with "a sink failed: … is not a
+  function", reported at most once a minute).
 - `SinkRecord.route`: the page route (`location.pathname`) the subject's operation was created on.
 - The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
 
