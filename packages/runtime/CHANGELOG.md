@@ -17,10 +17,10 @@
   ignored it and ran the model on the main thread whenever the worker could not be created, errored before it
   came up or never came up (a `worker-src` policy, `file:`). Now `false` means the model is not loaded in those
   cases: `status.state` is `skipped` with reason `worker-unavailable` and `workerError` naming the failure, pending
-  evaluations fail open, `rt.ready` rejects, `load()` tries the worker again, and one console warning names the
-  error and the `worker-src` fix. `worker: false` still runs inline (that asks for the main thread). The default
-  stays `true` as documented; the `Model ready` line now says `inline on the main thread` when it is, and
-  `status.workerError` records why the worker was not used. `npx @genclass/runtime init` mentions `worker-src` in
+  evaluations fail open, `rt.ready` rejects, `load()` tries the worker again (with its one WebGPU-to-WASM retry), and
+  one console warning names the error and the `worker-src` fix. `worker: false` still runs inline (that asks for the
+  main thread). The default stays `true` as documented; the `Model ready` line now says `inline on the main thread`
+  when it is, and `status.workerError` records why the worker was not used. `npx @genclass/runtime init` mentions `worker-src` in
   its CSP advice.
 - **`fetch(new Request(...))` with a body no longer keeps a second copy of the upload.** The fetch observer cloned
   such a Request twice: once to read up to 64 KB for the request's identity, and once as a pristine template for a
@@ -38,10 +38,17 @@
   ids); and no `decision` / `detect` / `veto` records at all after 200 decisions in a page load
   (`telemetry.maxDecisions`). `summary` events still count every decision, detection, action and veto, and their
   `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped`; the `session` event names
-  both settings. This narrows what is sent; nothing new about the page is sent. Measured in CI for one page over a
-  simulated hour at 30 decisions a minute (scripted decisions, situation text off): 203 to 205 KB uploaded when all are
-  routine and 229 KB when all are detections, against 2,065 KB with every record (TELEMETRY.md, "Volume").
+  both settings. Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
+  arriving after the cap (about 40 KB an hour). This narrows what is sent; nothing new about the page is sent.
+  Measured in CI for one page over a simulated hour at 30 decisions a minute (scripted decisions, not the model;
+  situation text off; commit `ebbe912`): 242 KB uploaded when all are routine and 271 KB when all are detections,
+  against 2,065 KB with every record (TELEMETRY.md, "Volume"; docs/runtime/RESULTS.md §8).
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
+- **Telemetry: `workerError` in the `model` event carries no URLs.** This version also records the Worker
+  constructor's exception in `status.workerError` (above; before, nothing was recorded for it), and a browser's text
+  for it can name the worker script's URL and the page's origin (a Content-Security-Policy or cross-origin
+  `SecurityError`). Telemetry replaces every URL in `workerError` with `<url>`, for that and for the errors a worker
+  reports before it comes up; `status.workerError` and the console warning keep the full text.
 - **WebSocket and EventSource messages are no longer JSON-parsed inside the dispatch.** Every incoming text message
   (≤ 16 KB) was parsed and summarised before the app's listeners ran, and parsed a second time when its delivery was
   analysed; every text `send` was summarised too. Now the summary and the parsed body are computed only when

@@ -299,3 +299,33 @@ trained v2 model once it exists.
 | next | 150M teacher on v2 gold, teacher labels on unlabeled rows, distil R17/R32, DAgger rounds (SIM `--on-policy`), EVAL. |
 
 Compute: Azure CPU nodes (F80 and D64 sizes); the day-by-day record is kept internally.
+
+## 8. Runtime footprint and telemetry volume (CI)
+
+Measured by unit tests in GitHub CI (Node on `ubuntu-latest`), not in a browser and without the model. Branch
+`wave1/defaults-footprint`, 2026-10-13; each value is the line the test prints in the "Unit tests" log of that run.
+
+**First-load JavaScript** (`packages/runtime/test/bundle.test.ts`: esbuild bundles the built `dist/` the way an app
+would, minified, gzip level 9, first-load chunks only; the model worker, ONNX Runtime Web and the devtools are
+separate chunks loaded on demand):
+
+| entry | `a7b60d7` (run 38442191071) | `e26c0dc` (run 38442394416) | `ebbe912` (run 38445206305) | limit |
+|---|---|---|---|---|
+| `@genclass/runtime/auto` (with state discovery) | 100.61 KB | 100.61 KB | 100.70 KB | 101.5 KB |
+| main entry, `GenClass.init({})` | 93.13 KB | 93.13 KB | 93.22 KB | 93.5 KB |
+
+**Telemetry volume** (`packages/runtime/test/telemetry.test.ts`, "an hour at the built-in model's maximum rate"): one
+page, 1,800 mutation decisions, one every 2 s (30 a minute, the `model.maxDecisionsPerMinute` default) for a simulated
+hour on a fake clock. No model: a scripted decider answers `expected` (routine) or `stale` at p = 0.97 (every decision
+a detection, above the default report gate). Observe mode, situation text off, every request body counted. Defaults
+are `decisionSample: 0.25`, `maxDecisions: 200` (`packages/runtime/TELEMETRY.md`, "Volume").
+
+| commit (run) | routine, defaults | every one a detection, defaults | every one a detection, every record (`decisionSample: 1, maxDecisions: Infinity`) |
+|---|---|---|---|
+| `a7b60d7` (38442191071), `e26c0dc` (38442394416): summaries stopped after the cap (a bug) | 203.4 KB, 204.1 KB | 228.7 KB, 228.7 KB | 2,064.7 KB, 2,064.7 KB |
+| `ebbe912` (38445206305): a summary about once a minute for the whole hour | 241.6 KB, 100 requests | 271.4 KB, 95 requests | 2,064.7 KB, 361 requests |
+| of which `summary` events, `ebbe912` | 61, 39.4 KB | 61, 40.8 KB | 61, 40.8 KB |
+
+The routine column depends on which decisions the session-id hash samples, so it moves between runs. The test fails
+if either default case reaches 300 KB. A real page sends far fewer decisions to the model (only salient situations),
+so these are upper bounds for one tab, not typical volumes.

@@ -701,7 +701,7 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
 
 - **Bundle:** what every page loads is about 101 KB gzip for `@genclass/runtime/auto` with automatic state
   discovery and 93 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild in CI (100.6 KB and 93.1 KB on 2026-10-13; `test/bundle.test.ts` keeps them under 101.5 KB and 93.5 KB). The model worker, ONNX Runtime Web's JavaScript
+  esbuild in CI (100.7 KB and 93.2 KB on 2026-10-13, [RESULTS.md §8](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md#8-runtime-footprint-and-telemetry-volume-ci); `test/bundle.test.ts` keeps them under 101.5 KB and 93.5 KB). The model worker, ONNX Runtime Web's JavaScript
   (about 70 KB gzip for WASM, 115 KB with WebGPU, minified) and the devtools are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
@@ -723,7 +723,7 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   measured with the round-1 model of the same size).
 - **Loading:** the model loads at idle after page load (`model.preload: "idle"`) from
   `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`, except on devices that report 2 GB of
-  memory or less and on Save-Data connections (the default `model.loadIf`, see [Costs](#costs)). It is cached in
+  memory or less and on Save-Data connections (the default `model.loadIf` after `0.2.2`, see [Costs](#costs)). It is cached in
   Cache Storage and checked with sha256. To self-host, see
   [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting). `model: false` loads no
   model (nothing is detected or prevented then).
@@ -757,7 +757,7 @@ without `?genclass=off`:
 
 **On phones** the memory and the download are what matter (the page may also run a call, the camera or a
 recorder). **By default the model is not loaded on devices that report 2 GB of memory or less, nor on Save-Data
-connections** (`model.loadIf` defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`; `navigator.deviceMemory` is
+connections** (after `0.2.2`; `0.2.2` and earlier load everywhere and only lazily on Save-Data; `model.loadIf` defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`; `navigator.deviceMemory` is
 quantised to powers of two, so 4 is exactly that floor; Safari and Firefox do not report it and load). The runtime
 then keeps observing without a model (nothing is detected or prevented on that device) and prints one line,
 `[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least 4 GB. …`.
@@ -811,7 +811,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
-- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection, action and veto, one in four routine decisions, at most 200 decisions per page load; counts are exact) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection, action and veto, one in four routine decisions, at most 200 decisions per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).

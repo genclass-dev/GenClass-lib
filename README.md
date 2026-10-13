@@ -63,7 +63,8 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 - The first-visit cost: about 13 MB downloaded from jsDelivr on WASM (model 10 MB plus ONNX Runtime's wasm) or
   18 MB on WebGPU, cached afterwards, and 190–280 MB of memory in a Web Worker while the model is loaded. Devices
   that report 2 GB of memory or less, and Save-Data connections, do not load the model by default (they observe
-  without it and say so in one console line). For phones and strict Content-Security-Policies see
+  without it and say so in one console line; new after `0.2.2`, which loads everywhere and only lazily on
+  Save-Data). For phones and strict Content-Security-Policies see
   [self-hosting](packages/runtime/README.md#content-security-policy-and-self-hosting) and
   [`loadIf`](packages/runtime/README.md#costs) in the package README.
 
@@ -136,7 +137,7 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
-- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection, action and veto, one in four routine decisions, at most 200 decisions per page load; counts are exact) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection, action and veto, one in four routine decisions, at most 200 decisions per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](packages/runtime/TELEMETRY.md).

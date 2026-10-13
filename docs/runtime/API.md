@@ -133,6 +133,11 @@ and the matching `routes[]` rule) and `aggressiveness` the effective level; with
 `scope.mode` was that ceiling ("heal" when no rule matched). `rt.gates()` carries `mode` (the same effective mode).
 `status.blocked` (state "error"): `{ url, origin, csp, directive? }` when the browser blocked a model or ORT download.
 `status.sha256` (state "ready"): the sha256 from `model.json` that the loaded variant was verified against.
+`status.reason` (state "skipped", after 0.2.2): `"device-memory"`, `"save-data"` or `"loadIf"` when `model.loadIf`
+kept the model from loading on this device (the default is the exported `DEFAULT_LOAD_IF`,
+`{ minDeviceMemoryGB: 4, saveData: "skip" }`), and `"worker-unavailable"` when the model worker could not start and
+`model.inlineFallback` is `false` (`status.workerError` says why). The runtime keeps observing without a model and
+prints one console line either way.
 
 Gate order (each request/decision): protected → cross-origin → op scope (created under off/observe) →
 mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → `policy.actionLimits`
@@ -588,7 +593,11 @@ situation size.
 The local model host is exported for direct use: `createModelHost(options)` (a `DecisionProvider` with `measure()`,
 `evaluateDetailed()`, `stats`), `DEFAULT_MODEL_BASE_URL`, and the model errors (`ModelNotReadyError`,
 `MaxTokensExceededError`, `ModelTimeoutError`, `ModelBusyError`, `ModelLoadError`, ...; each has a `code`). Any
-provider error makes the runtime fail open.
+provider error makes the runtime fail open. The device floor is exported too: `deviceEnv(globalThis)` (what the page
+can tell about the device: `deviceMemoryGB`, `saveData`, `mobile`, `cores`, `webgpu`, `effectiveType`),
+`evalLoadIf(modelOptions, env, warn)` (`"load" | "lazy" | { skip: "device-memory" | "save-data" | "loadIf" }`) and
+`DEFAULT_LOAD_IF` (`{ minDeviceMemoryGB: 4, saveData: "skip" }`, after 0.2.2; `navigator.deviceMemory` is quantised
+to powers of two, so 4 skips exactly the devices reporting 2 GB or less).
 
 ## Adapters and devtools
 

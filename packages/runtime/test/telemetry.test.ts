@@ -487,8 +487,10 @@ describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sam
     // summaries are not capped: about one a minute for the whole hour in every configuration
     for (const r of [routine, noisy, full]) expect(summaries(r.transport).length).toBeGreaterThanOrEqual(50);
     expect(bytes(noisy.transport)).toBeLessThan(bytes(full.transport) / 3);
-    expect(bytes(routine.transport) / 1024).toBeLessThan(400);
-    expect(bytes(noisy.transport) / 1024).toBeLessThan(400);
+    // TELEMETRY.md and RESULTS.md §8 quote the CI measurement (2026-10-13, ebbe912: routine 241.6 KB, every decision a
+    // detection 271.4 KB, every record 2,064.7 KB; 61 summaries, 39 to 41 KB, in each) and this ceiling
+    expect(bytes(routine.transport) / 1024).toBeLessThan(300);
+    expect(bytes(noisy.transport) / 1024).toBeLessThan(300);
   }, 120_000);
 });
 
