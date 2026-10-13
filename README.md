@@ -36,7 +36,8 @@ Pin the version in the script tag, as above: the unversioned URL may serve an ol
 
 That covers the whole app: network, user actions, errors, timing, and the app's state (React component state,
 Redux / Redux Toolkit and Zustand `devtools` stores are discovered automatically; discovered React and Zustand state
-is observed only). Observe mode by default: it reports only.
+is observed only). Observe mode by default: it reports only. `GenClass.init()` is the explicit setup
+([package README](packages/runtime/README.md#automatic-state-discovery)).
 
 ### Function-specific: only the functions you choose
 
@@ -76,6 +77,8 @@ prints the link and saves it in `.genclass.local` (added to `.gitignore`). Or cl
   backend and latency, runtime and model versions, and recent detections.
 - It gets data only while telemetry is on. Visitors who opt out or send Global Privacy Control are not counted.
   Data is kept for 90 days.
+- Needs the release after `0.2.1`: the published `0.2.1` ignores `token` and has no `protect()`
+  ([CHANGELOG](packages/runtime/CHANGELOG.md), Unreleased).
 
 GenClass Runtime records what the app does: user actions, async operations and their causal chains, network
 traffic (fetch, XHR, WebSocket, EventSource), store writes with per-field versions, errors and timing. It computes

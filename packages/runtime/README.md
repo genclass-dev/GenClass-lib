@@ -341,6 +341,9 @@ nothing (with `debug: true` the console says so once). Visitors who opt out (`?g
 token is sent with each telemetry batch; nothing else changes about what is sent ([Privacy and
 telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
 
+**Which version:** the token option, `scope` and `protect()` are in the release after `0.2.1` (see the
+[CHANGELOG](CHANGELOG.md), Unreleased); the published `0.2.1` ignores a token.
+
 ## Automatic state discovery
 
 With the one line (`@genclass/runtime/auto*` or the script tag) GenClass finds the app's state on its own. It
