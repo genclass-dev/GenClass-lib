@@ -252,13 +252,14 @@ export function notFoundPage(nonce: string): string {
 // ---------------------------------------------------------------------------------------------- /dashboard
 // The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
 // problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
-// Chart colours: the validated categorical order (dataviz reference palette, light and dark steps, checked against
-// --panel); five problem types get a slot, the rest share "Other". Every dynamic string goes through textContent.
+// Chart colours: blue, orange, violet, yellow, magenta (dataviz reference hues, light and dark steps, validated in this
+// order against the light and dark page); no green, which the brand keeps for "GenClass fixed it". Five problem types
+// get a slot, the rest share "Other". Every dynamic string goes through textContent.
 
 const DASH_CSS = `
-:root{--t1:#2a78d6;--t2:#eb6834;--t3:#1baf7a;--t4:#eda100;--t5:#e87ba4;--t0:#8a93a8;--grid:#E6EAF1;
+:root{--t1:#2a78d6;--t2:#eb6834;--t3:#4a3aa7;--t4:#eda100;--t5:#e87ba4;--t0:#8a93a8;--grid:#E6EAF1;
   --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
-@media (prefers-color-scheme:dark){:root{--t1:#3987e5;--t2:#d95926;--t3:#199e70;--t4:#c98500;--t5:#d55181;--t0:#6f7b98;--grid:#1E2D55}}
+@media (prefers-color-scheme:dark){:root{--t1:#3987e5;--t2:#d95926;--t3:#9085e9;--t4:#c98500;--t5:#d55181;--t0:#6f7b98;--grid:#1E2D55}}
 body{font-family:var(--sans)}
 h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
 .dh{margin-top:40px}
