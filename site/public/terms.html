@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terms | GenClass</title>
+<meta name="description" content="Terms for the GenClass diagnostics collector and the genclass.dev services: what they are, what you may send, retention, and no warranty.">
+<link rel="canonical" href="https://genclass.dev/terms">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="author" content="GenClass">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GenClass">
+<meta property="og:url" content="https://genclass.dev/terms">
+<meta property="og:title" content="Terms | GenClass">
+<meta property="og:description" content="Terms for the GenClass diagnostics collector and the genclass.dev services: what they are, what you may send, retention, and no warranty.">
+<meta property="og:image" content="https://genclass.dev/og.png?v=5">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="GenClass: Catch the bugs that never throw. Then stop them.">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Terms | GenClass">
+<meta name="twitter:description" content="Terms for the GenClass diagnostics collector and the genclass.dev services: what they are, what you may send, retention, and no warranty.">
+<meta name="twitter:image" content="https://genclass.dev/og.png?v=5">
+<link rel="icon" href="/brand/mark-32.png?v=2" sizes="32x32" type="image/png">
+<link rel="icon" href="/brand/mark-64.png?v=2" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css?v=b25b9c74">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Terms", "item": "https://genclass.dev/terms"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
+    <nav aria-label="Main"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
+    <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    <a class="btn" href="/docs">Get started</a>
+  </div>
+</header>
+<main id="main">
+<div class="page-hero">
+  <div class="wrap">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Terms</span></nav>
+    <h1>Terms</h1>
+    <p class="lede">The runtime is Apache-2.0 open source. These terms cover the small services we run around it on genclass.dev.</p>
+  </div>
+</div>
+<section style="padding-top: 48px">
+  <div class="wrap">
+    <div class="prose">
+      <h2>What these terms cover</h2>
+      <p>The diagnostics collector at <code>genclass.dev/api/v1/events</code> (and its older address on workers.dev), the model files served from <code>genclass.dev/model/</code>, the per-app dashboards at <code>genclass.dev/dashboard/</code>, and the early-access form. The <code>@genclass/runtime</code> package itself is licensed under Apache-2.0 and these terms do not change that license.</p>
+      <h2>The diagnostics collector</h2>
+      <p>The runtime sends anonymous diagnostics by default from public hosts, as described on the <a href="/privacy">privacy page</a> and in <a href="/docs/telemetry">TELEMETRY.md</a>. If you ship GenClass in your app, you decide whether to keep diagnostics on, and you are responsible for telling your own users if your privacy policy or local law requires it. Turning them off takes one option: <code>telemetry: false</code>.</p>
+      <p>Send only what the runtime sends. Do not use the collector to store anything else, do not send personal data on purpose (for example by opting in to situation text on pages that show names, emails or payment details), and do not send traffic designed to overload it. The collector may rate-limit traffic, and it drops fields it does not know.</p>
+      <h2>Model files and dashboards</h2>
+      <p>The model files are the published <code>@genclass/runtime-model</code> package, mirrored for faster and more reliable loading; you may also self-host them. A dashboard link is private to whoever holds it: anyone with the link can read that app's aggregate counts. Keep it like a password, and ask us to delete a project if a link leaks.</p>
+      <h2>Retention and deletion</h2>
+      <p>Stored diagnostics are deleted 90 days after they arrive. Dashboard aggregates are kept for 90 days. To delete the data for a hostname or a dashboard project sooner, email <a href="mailto:mehar@daybot.ca?subject=GenClass%20deletion%20request">mehar@daybot.ca</a>.</p>
+      <h2>No warranty</h2>
+      <p>These services are provided as they are, free of charge, without any warranty, and may change, slow down or stop. GenClass is built so that a missing model, a failed download or an unreachable collector never breaks the app it runs in: the runtime then observes without deciding, or stops sending. To the extent the law allows, the GenClass maintainers are not liable for any loss arising from the use of these services.</p>
+      <h2>Changes</h2>
+      <p>We will record changes to these terms in the repository's CHANGELOG and update the date below. Questions: <a href="mailto:mehar@daybot.ca">mehar@daybot.ca</a>.</p>
+      <p><small>Last updated 2026-10-13.</small></p>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="end">
+  <div class="wrap">
+    <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
+    <h2>Add one line and read what it reports.</h2>
+    <div class="row">
+      <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
+      <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
+    </div>
+    <div class="foot-cols">
+      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
+      <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="mailto:mehar@daybot.ca?subject=GenClass%20false%20detection">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+    </div>
+    <div class="foot">
+      <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
+    </div>
+  </div>
+</footer>
+<script src="/app.js?v=7a4fd5f9" defer></script>
+</body>
+</html>
