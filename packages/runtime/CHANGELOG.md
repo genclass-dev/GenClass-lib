@@ -185,6 +185,12 @@ sends.
   learns whether a code is live, and only the CLI's own name (`genclass-runtime <version>`) is shown as the
   requester. A CLI session can read the account's apps, create and add apps and end itself, nothing more.
   Private-link dashboards and `/start` keep working without an account.
+- **Dashboard counts** (the server side, `telemetry-worker/`, deployed separately): page loads, decisions,
+  detections, actions and the loss counters come from each page load's cumulative summary, so a repeated or split
+  batch and sampled or capped decision records are counted once and exactly. A `detect` event with
+  `tier: "possible"` counts as a possible issue (Fig. 2, its own cards and a Possible column), exact from
+  `summary.counts.possibleDetections`, never as a detection; a `detect` without a tier is a detection, as from
+  earlier runtimes. docs/runtime/RESULTS.md §12.
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
 - **Cost:** about +1.8 KB gzip on each first load (CI run 38436014497); the release's total is under "First-load
   size" below.
@@ -410,7 +416,9 @@ layer itself, about 4 KB by difference, is a lazy chunk loaded only with `learn.
 fixes, then add 0.97 KB to `/auto` and 1.02 KB to the main entry (the 429 back-off they brought is counted above;
 the expectation report's console text moved into the lazy flow chunk to pay for the fixes): **107.56 KB** and
 **99.59 KB** (CI run 38482297879; script tag 127.89 KB), still under the same limits, 0.18 / 0.12 KB below them
-(docs/runtime/RESULTS.md §11).
+(docs/runtime/RESULTS.md §11). The release candidate (with main's accounts and CLI commands, which add no browser
+code, and the dashboard's counting, which is the worker's) measures the same: 107.56 / 99.59 KB, script tag
+127.89 KB (CI run 38485063587, RESULTS.md §10); the limits are not re-set.
 
 ## 0.2.2 (2026-10-13)
 

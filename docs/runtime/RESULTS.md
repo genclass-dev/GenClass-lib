@@ -369,7 +369,9 @@ needs a smaller first load or a new limit. The 0.3.0-beta.0 sizes and limits are
 ## 10. Release 0.3.0-beta.0: first load and telemetry volume (CI)
 
 Branch `release/0.3.0` (wave2/accounts-base = main 88df703 + wave1/projects, then wave1/defaults-footprint,
-wave1/dev-visible-reports, wave1/expectations made opt-in and lazy, and wave1/playwright), 2026-10-13. GitHub
+wave1/dev-visible-reports, wave1/expectations made opt-in and lazy, and wave1/playwright; for the release candidate
+then main f8c66f2 (collector limits, accounts, the CLI's login/connect/whoami/logout, the landing page),
+wave2/detect-observe dd20233 (§11) and wave2/dash-detect ac2fc6f (§12)), 2026-10-13. GitHub
 Actions `ci.yml`, Node 22; each value is the line the test prints in the "Unit tests" log of that run. No model is
 involved (esbuild bundles and a scripted decider), so no recall, false-intervention or false-detection rate applies
 to these numbers.
@@ -389,7 +391,9 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | + even sampling draw (`c2f0b54`, run 38464240236) | 106.23 KB | 98.20 KB | 126.11 KB |
 | **0.3.0-beta.0** (`bff4a71`, run 38465242176) | **106.24 KB** (100.26 + 3.05 + 2.74 + 0.19) | **98.21 KB** (92.24 + 3.05 + 2.74 + 0.19) | **126.12 KB** (369.4 KB minified) |
 | + telemetry 429 back-off, no sampling settings in `session` (`7c7c6d6`, run 38477010836) | **106.59 KB** (100.62 + 3.05 + 2.74 + 0.19) | **98.57 KB** (92.59 + 3.05 + 2.74 + 0.19) | **126.45 KB** (370.5 KB minified) |
-| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0) | 107.74 KB | 99.71 KB | none |
+| + detection tiers, deferred decisions, review fixes (wave2/detect-observe `dd20233`, run 38482297879; §11) | 107.56 KB | 99.59 KB | 127.89 KB |
+| **release candidate**: + main (accounts and the CLI commands: no browser code) and wave2/dash-detect (the worker only) (`18e89f0`, run 38485063587) | **107.56 KB** (101.59 + 3.05 + 2.74 + 0.19) | **99.59 KB** (93.62 + 3.05 + 2.74 + 0.19) | **127.89 KB** (374.9 KB minified) |
+| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; the release candidate is 0.18 / 0.12 KB under it, so it is not re-set) | 107.74 KB | 99.71 KB | none |
 
 The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's
 99.17 KB on wave1/expectations, run 38455195053). Imported lazily, and only with `learn.expectations: true`, they
@@ -410,8 +414,10 @@ routine records per page load):
 | `c2f0b54` (38464240236), the even draw below | 249.0 KB, 162 requests | 2,064.7 KB, 361 requests | 2,064.7 KB, 361 requests |
 | `bff4a71` (38465242176), 0.3.0-beta.0 (a longer version string in every envelope) | 250.3 KB, 163 requests | 2,067.1 KB, 361 requests | 2,067.1 KB, 361 requests |
 | **`7c7c6d6` (38477010836)**: 429 back-off; `session` without `decisionSample` / `maxDecisions` (about 40 bytes once per page load, below the 0.1 KB rounding) | **250.3 KB, 163 requests** | **2,067.1 KB, 361 requests** | 2,067.1 KB, 361 requests |
+| **release candidate `18e89f0` (38485063587)**: with wave2/detect-observe (§11) | **251.9 KB, 165 requests** | **2,068.5 KB, 361 requests** | 2,068.5 KB, 361 requests |
 
-Summaries: 61 per hour in every case, 39.3 KB (routine) and 40.8 KB (detections).
+Summaries: 61 per hour in every case, 39.3 KB (routine) and 40.8 KB (detections); 40.7 KB and 42.2 KB in the
+release candidate, whose summaries also carry `possibleDetections`.
 
 **The routine-record draw** (`decisionDraw` in `src/telemetry/client.ts`). The 0.25 share was drawn from fnv1a of
 "<session id>:<decision id>", whose high bits hardly depend on the last characters, and decision ids (`d1`, `d2`,
