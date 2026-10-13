@@ -2,7 +2,7 @@
 // its own shape gets broken (an old frame lands over newer data, the same change arrives twice, an endpoint tears a
 // seam), the shape it should have is predicted from its neighbours (green dots), and a repair front knits it back.
 // Move the cursor through it to break it yourself. Canvas 2D, no dependencies; one static frame under
-// prefers-reduced-motion; stops drawing when off screen or hidden.
+// prefers-reduced-motion; stops drawing when off screen or hidden. The site is light-only, so the ink stays navy.
 (() => {
   const stage = document.querySelector(".mend-stage");
   if (!stage || !window.CanvasRenderingContext2D) return;
@@ -15,9 +15,16 @@
   if (!ctx) return;
   const INK = "14,31,77", RED = "240,69,28", GREEN = "20,184,106";
   const MONO = '11px "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+  // Lattice strength: AMAX in the open, AMIN under the text (still visible, but the headline stays easy to read).
+  const AMAX = 0.56, AMIN = 0.1, FADE = 72;
+  const at = (f) => AMIN + (AMAX - AMIN) * f;
+  const SOFT = at(0.12); // under or right next to the text: no dots, no pointer damage
+  const OPEN = at(0.6); // where the scripted breaks may start
+  const Z1 = at(0.2), Z2 = at(0.55); // red and green come in three strengths so nothing loud crosses the headline
+  const HEAL = 1300; // how long a mended point stays green, the visible repair front
 
   let TEXT = [];
-  let W = 0, H = 0, S = 22, N = 0, cols = 0, rows = 0, RH = 0, E = 0;
+  let W = 0, H = 0, S = 22, bump = 0, LW = 1.35, N = 0, cols = 0, rows = 0, RH = 0, E = 0;
   let hx, hy, x, y, vx, vy, st, ts, ta, al, ea, eb, a0, adj, fresh;
   const ghosts = [], labels = [];
   let now = 0, last = 0, nextEvent = 1400, raf = 0, visible = true, onScreen = true;
@@ -34,7 +41,8 @@
     cv.style.width = W + "px";
     cv.style.height = H + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (W < 700 && S < 26) S = 26;
+    S = (W < 700 ? 26 : 22) + bump; // a slow device gets a coarser lattice (bump), never a finer one
+    LW = W < 700 ? 1.25 : 1.35;
     RH = S * 0.8660254;
     cols = Math.ceil(W / S) + 2;
     rows = Math.ceil(H / RH) + 2;
@@ -84,10 +92,10 @@
       vx[k] = vy[k] = 0;
       st[k] = 1; fresh[k] = 1; ts[k] = now; ta[k] = now + 250 + d * 1.35;
     }
-    nextEvent = now + 3600;
+    nextEvent = now + 2800;
   }
 
-  // Lines fade out under the text so the headline stays readable, and at the top and bottom edges.
+  // Lines soften under the text so the headline stays readable, and fade at the top and bottom edges.
   function mask() {
     const sr = stage.getBoundingClientRect();
     const rects = [...stage.querySelectorAll(".announce,h1,.lede,.ctas,.install-line,.fw")]
@@ -101,9 +109,9 @@
         const dx = Math.max(l - hx[k], 0, hx[k] - r), dy = Math.max(t - hy[k], 0, hy[k] - b);
         d = Math.min(d, Math.hypot(dx, dy));
       }
-      const near = d >= 90 ? 1 : d <= 0 ? 0 : (d / 90) * (d / 90) * (3 - 2 * (d / 90));
-      const edge = Math.min(1, Math.max(0, hy[k] / 70), Math.max(0, (H - hy[k]) / 90));
-      al[k] = (0.05 + 0.29 * near) * edge;
+      const f = d >= FADE ? 1 : d <= 0 ? 0 : (d / FADE) * (d / FADE) * (3 - 2 * (d / FADE));
+      const edge = Math.min(1, Math.max(0, hy[k] / 48), Math.max(0, (H - hy[k]) / 120));
+      al[k] = at(f) * edge;
     }
   }
 
@@ -122,22 +130,23 @@
     st[k] = 1; ts[k] = now; ta[k] = now + delay;
   }
   function spot() {
-    for (let n = 0; n < 60; n++) {
+    for (let n = 0; n < 80; n++) {
       const k = (Math.random() * N) | 0;
-      if (al[k] > 0.2 && hx[k] > 40 && hx[k] < W - 40 && hy[k] > 60 && hy[k] < H - 70) return [hx[k], hy[k]];
+      if (al[k] > OPEN && hx[k] > 40 && hx[k] < W - 40 && hy[k] > 60 && hy[k] < H - 90) return [hx[k], hy[k]];
     }
     return null;
   }
-  // A note goes where it overlaps no text and stays inside the canvas; if there is no such place, no note.
+  // A note goes where it overlaps no text and no other note and stays inside the canvas; if there is no such place, no note.
   function label(cx, cy, bad, good, heal) {
-    if (W < 640) return;
     ctx.font = MONO;
     const w = Math.max(ctx.measureText(bad).width, ctx.measureText(good).width) + 10, h = 18;
-    const xs = [cx - w / 2, cx + 18, cx - 18 - w], ys = [cy + 52, cy - 52, cy + 78, cy - 78];
+    if (w > W - 24) return;
+    const xs = [Math.min(Math.max(12, cx - w / 2), W - 12 - w), cx + 18, cx - 18 - w], ys = [cy + 52, cy - 52, cy + 78, cy - 78];
     for (const ly of ys) for (const lx of xs) {
       const l = lx - 4, t = ly - h / 2 - 4, r = lx + w + 4, b = ly + h / 2 + 4;
       if (l < 8 || r > W - 8 || t < 50 || b > H - 34) continue;
       if (TEXT.some(([tl, tt, tr, tb]) => l < tr && r > tl && t < tb && b > tt)) continue;
+      if (labels.some((o) => l < o.lx + o.w && r > o.lx - 9 && t < o.ly + 13 && b > o.ly - 13)) continue; // nor another note
       labels.push({ lx: lx + 5, ly, w, bad, good, t0: now, tg: now + heal });
       return;
     }
@@ -177,7 +186,7 @@
     if (now >= nextEvent) {
       const p = spot();
       if (p) KINDS[kind++ % KINDS.length](p[0], p[1]);
-      nextEvent = now + 2500 + Math.random() * 1700;
+      nextEvent = now + 1500 + Math.random() * 1200;
     }
     for (let k = 0; k < N; k++) {
       const s = st[k];
@@ -189,7 +198,7 @@
           if (st[n] === 0 || (st[n] === 2 && now - ts[n] > 60)) ok = true;
         }
         if (ok && Math.random() < dt * 16) { st[k] = 2; ts[k] = now; }
-      } else if (s === 2 && now - ts[k] > 1000) { st[k] = 0; if (fresh[k]) fresh[k] = 0; else nHealed++; }
+      } else if (s === 2 && now - ts[k] > HEAL) { st[k] = 0; if (fresh[k]) fresh[k] = 0; else nHealed++; }
       const sp = s === 1 ? 0 : s === 2 ? 95 : 28, dm = s === 1 ? 2.4 : s === 2 ? 15 : 9;
       const tx = hx[k] + (s === 0 ? Math.sin(now * 0.0007 + hy[k] * 0.031) * 0.8 : 0);
       const ty = hy[k] + (s === 0 ? Math.cos(now * 0.0006 + hx[k] * 0.027) * 0.8 : 0);
@@ -200,13 +209,15 @@
   }
 
   // ---------- drawing ----------
-  const INKB = 6;
+  const INKB = 8;
+  const RED_A = [0.16, 0.5, 0.9], RED_W = [1, 1.25, 1.5], GRN_A = [0.35, 0.65, 0.95], GRN_W = [1, 1.3, 1.6];
+  function dot(p, px, py, r) { p.moveTo(px + r, py); p.arc(px, py, r, 0, 6.2832); }
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    // red and green also come in three strengths by the text mask, so nothing loud ever crosses the headline
     const ink = [], red = [new Path2D(), new Path2D(), new Path2D()], grn = [new Path2D(), new Path2D(), new Path2D()];
+    const dust = new Path2D(); // the first paint's scattered lattice: quiet ink, not a bug
     for (let b = 0; b < INKB; b++) ink.push(new Path2D());
-    const zone = (v) => (v < 0.07 ? 0 : v < 0.15 ? 1 : 2);
+    const zone = (v) => (v < Z1 ? 0 : v < Z2 ? 1 : 2);
     const tornSq = (3 * S) * (3 * S);
     for (let e = 0; e < E; e++) {
       const a = ea[e], b = eb[e], sa = st[a], sb = st[b];
@@ -214,41 +225,43 @@
       if (dx * dx + dy * dy > tornSq) continue; // torn open
       let p;
       const v = (al[a] + al[b]) * 0.5;
-      if (sa === 1 || sb === 1) p = red[zone(v)];
+      if (sa === 1 || sb === 1) p = (sa !== 1 || fresh[a]) && (sb !== 1 || fresh[b]) ? dust : red[zone(v)];
       else if (sa === 2 || sb === 2) {
         const t = Math.max(sa === 2 ? ts[a] : 0, sb === 2 ? ts[b] : 0);
-        const fresh = Math.min(2, Math.max(0, ((1 - (now - t) / 1000) * 3) | 0));
-        p = grn[Math.min(fresh, zone(v))];
+        const f = Math.min(2, Math.max(0, ((1 - (now - t) / HEAL) * 3) | 0));
+        p = grn[Math.min(f, zone(v))];
       } else {
         if (v < 0.012) continue;
-        p = ink[Math.min(INKB - 1, ((v / 0.34) * INKB) | 0)];
+        p = ink[Math.min(INKB - 1, ((v / AMAX) * INKB) | 0)];
       }
       p.moveTo(x[a], y[a]); p.lineTo(x[b], y[b]);
     }
-    ctx.lineWidth = 1;
-    for (let b = 0; b < INKB; b++) { ctx.strokeStyle = `rgba(${INK},${((b + 0.5) / INKB) * 0.34})`; ctx.stroke(ink[b]); }
-    for (let g = 0; g < 3; g++) { ctx.strokeStyle = `rgba(${RED},${[0.1, 0.38, 0.78][g]})`; ctx.stroke(red[g]); }
-    for (let g = 0; g < 3; g++) { ctx.strokeStyle = `rgba(${GREEN},${0.3 + g * 0.3})`; ctx.stroke(grn[g]); }
+    ctx.lineWidth = LW;
+    for (let b = 0; b < INKB; b++) { ctx.strokeStyle = `rgba(${INK},${((b + 0.5) / INKB) * AMAX})`; ctx.stroke(ink[b]); }
+    ctx.strokeStyle = `rgba(${INK},0.16)`; ctx.stroke(dust);
+    for (let g = 0; g < 3; g++) { ctx.lineWidth = LW * RED_W[g]; ctx.strokeStyle = `rgba(${RED},${RED_A[g]})`; ctx.stroke(red[g]); }
+    for (let g = 0; g < 3; g++) { ctx.lineWidth = LW * GRN_W[g]; ctx.strokeStyle = `rgba(${GREEN},${GRN_A[g]})`; ctx.stroke(grn[g]); }
 
     // predicted shape (green dots where the points should be) and the broken points themselves
-    const pred = new Path2D(), bad = new Path2D();
+    const pred = new Path2D(), bad = new Path2D(), mote = new Path2D();
     for (let k = 0; k < N; k++) {
-      if (al[k] < 0.07) continue;
+      if (al[k] < SOFT) continue;
       if (st[k] === 1) {
-        bad.moveTo(x[k] + 1.5, y[k]); bad.arc(x[k], y[k], 1.5, 0, 6.2832);
-        if (now > ta[k] - 380) { pred.moveTo(hx[k] + 1.3, hy[k]); pred.arc(hx[k], hy[k], 1.3, 0, 6.2832); }
-      } else if (st[k] === 2 && now - ts[k] < 320) { pred.moveTo(hx[k] + 1.3, hy[k]); pred.arc(hx[k], hy[k], 1.3, 0, 6.2832); }
+        if (fresh[k]) dot(mote, x[k], y[k], 1.4); else dot(bad, x[k], y[k], 2);
+        if (now > ta[k] - 380) dot(pred, hx[k], hy[k], 1.8);
+      } else if (st[k] === 2 && now - ts[k] < 360) dot(pred, hx[k], hy[k], 1.8);
     }
-    ctx.fillStyle = `rgba(${RED},0.85)`; ctx.fill(bad);
-    ctx.fillStyle = `rgba(${GREEN},0.75)`; ctx.fill(pred);
+    ctx.fillStyle = `rgba(${INK},0.4)`; ctx.fill(mote);
+    ctx.fillStyle = `rgba(${RED},0.9)`; ctx.fill(bad);
+    ctx.fillStyle = `rgba(${GREEN},0.85)`; ctx.fill(pred);
 
     // duplicates: a ghost copy that slides into the real patch once it is merged
     for (let g = ghosts.length - 1; g >= 0; g--) {
       const G = ghosts[g], f = now < G.tm ? 1 : Math.max(0, 1 - (now - G.tm) / 520);
       if (f <= 0) { ghosts.splice(g, 1); continue; }
       const path = new Path2D();
-      for (const k of G.list) { const gx = x[k] + G.ox * f, gy = y[k] + G.oy * f; path.moveTo(gx + 1.4, gy); path.arc(gx, gy, 1.4, 0, 6.2832); }
-      ctx.fillStyle = now < G.tm ? `rgba(${RED},0.6)` : `rgba(${GREEN},${0.7 * f})`;
+      for (const k of G.list) dot(path, x[k] + G.ox * f, y[k] + G.oy * f, 1.8);
+      ctx.fillStyle = now < G.tm ? `rgba(${RED},0.75)` : `rgba(${GREEN},${0.8 * f})`;
       ctx.fill(path);
     }
 
@@ -260,7 +273,7 @@
       if (age > 3600) { labels.splice(i, 1); continue; }
       const healed = now >= L.tg, text = healed ? L.good : L.bad;
       const a = Math.min(1, age / 160, (3600 - age) / 450);
-      ctx.fillStyle = `rgba(255,255,255,${0.88 * a})`;
+      ctx.fillStyle = `rgba(255,255,255,${0.9 * a})`;
       ctx.fillRect(L.lx - 5, L.ly - 9, L.w, 18);
       ctx.fillStyle = `rgba(${healed ? GREEN : RED},${a})`;
       ctx.fillText(text, L.lx, L.ly);
@@ -279,7 +292,7 @@
     // a slow device gets a coarser lattice instead of a janky page
     if (performance.now() - t0 > 12) slow++;
     if (++frames % 90 === 0) {
-      if (slow > 45 && S < 34) { S += 4; build(); }
+      if (slow > 45 && bump < 12) { bump += 4; build(); }
       slow = 0;
     }
     raf = requestAnimationFrame(frame);
@@ -295,7 +308,7 @@
         if (sp > 80) {
           const R = Math.min(64, 24 + sp * 0.018);
           near(mx, my, R, (k, dd) => {
-            if (al[k] < 0.08) return; // never under the text
+            if (al[k] < SOFT) return; // never under the text
             const f = 1 - dd / R;
             vx[k] += Math.max(-900, Math.min(900, sx)) * 0.32 * f;
             vy[k] += Math.max(-900, Math.min(900, sy)) * 0.32 * f;
@@ -310,7 +323,7 @@
       if (e.target.closest("a,button,input,textarea,select,code,pre")) return;
       const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
       near(mx, my, 120, (k, dd) => {
-        if (al[k] < 0.08) return;
+        if (al[k] < SOFT) return;
         const f = 1 - dd / 120, ux = (hx[k] - mx) / (dd || 1), uy = (hy[k] - my) / (dd || 1);
         vx[k] += ux * 520 * f; vy[k] += uy * 520 * f;
         hurt(k, 380 + dd * 3);
