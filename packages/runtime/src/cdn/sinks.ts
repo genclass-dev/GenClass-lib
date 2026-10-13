@@ -83,21 +83,28 @@ export function lazySink(spec: SinkSpec, load: SinkLoader, warn: (message: strin
 
   const ensure = (): Promise<void> => {
     if (!loading) {
-      loading = Promise.resolve()
-        .then(() => load(spec.name))
-        .then(
-          (m) => {
-            target = m.default(options);
-            const q = queue;
-            queue = [];
-            for (const r of q) forward(r);
-          },
-          (e: unknown) => {
-            failed = true;
-            queue = [];
-            warn(`sink "${spec.name}" could not load (${(e as Error)?.message ?? e}); its records are dropped.`);
-          },
-        );
+      // the loader is called now, not in a microtask: a bundler's lazy chunk starts fetching at once (and a throwing
+      // loader is a failed load, never an exception in the caller)
+      let p: Promise<SinkModule>;
+      try {
+        p = Promise.resolve(load(spec.name));
+      } catch (e) {
+        p = Promise.reject(e);
+      }
+      loading = p
+        .then((m) => {
+          target = m.default(options);
+          const q = queue;
+          queue = [];
+          for (const r of q) forward(r);
+        })
+        .catch((e: unknown) => {
+          // the module did not load, or its factory threw: one warning, nothing queued any longer
+          failed = true;
+          target = null;
+          queue = [];
+          warn(`sink "${spec.name}" could not load (${(e as Error)?.message ?? e}); its records are dropped.`);
+        });
     }
     return loading;
   };

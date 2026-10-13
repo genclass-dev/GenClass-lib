@@ -90,13 +90,20 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
         first.add(k);
         for (const i of outs[k].imports) if (i.kind === "import-statement" && outs[i.path]) walk(i.path);
       };
-      walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
+      // the app's own entry: the metafile marks a lazily imported chunk (a sink adapter of /auto) as an entry point too
+      const stdin = Object.keys(outs).find((k) => outs[k].entryPoint === "<stdin>");
+      expect(stdin, `${entry}: the stdin entry in the metafile`).toBeDefined();
+      walk(stdin!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
+      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(1)} KB minified + gzip (limit ${LIMIT_KB[entry]} KB)`);
       expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
       expect(code, entry).not.toContain("BPE dropout is not supported at inference"); // src/model/tokenizer.ts
       expect(code, entry).toContain("new Worker("); // the host itself is there
+      // the sink adapters (@genclass/runtime/sinks/*) are lazy chunks of /auto and absent from the main entry
+      expect(code, entry).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
+      expect(code, entry).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
       // state discovery survives an app's bundler in /auto (a dropped side-effect import once lost it) and stays out
       // of the main entry
       if (entry === "auto.js") expect(code, entry).toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
