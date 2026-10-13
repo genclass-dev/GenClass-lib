@@ -474,7 +474,11 @@ export interface ModelOptions {
   timeoutMs?: number;
   /** Model evaluations per sliding minute (default 30; Infinity disables). Over it, decisions fail open. */
   maxDecisionsPerMinute?: number;
-  /** Tear the model down after this long without an evaluation (default false); it reloads from cache on demand. */
+  /**
+   * Tear the model down after this long without an evaluation (default false); the next salient situation reloads it
+   * from cache (OPTIONS-SPEC §4.18; in observe that situation is decided once the model is back, elsewhere it fails
+   * open). Before 0.3.0 nothing reloaded it.
+   */
   unloadAfterIdleMs?: number | false;
 }
 

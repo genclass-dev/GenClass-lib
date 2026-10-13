@@ -121,6 +121,7 @@ interface InitOptions {
   report?: "console" | "silent" | ((r: Report) => void);   // default "console" (section 8)
   observe?: Partial<Record<"fetch"|"xhr"|"user"|"errors"|"nav"|"storage"|"perf"|"websocket", boolean>>;  // default all true
   triage?: "salient" | "always";            // default "salient" (section 6)
+  detect?: "likely" | "possible";            // 0.3.0: detection tiers (section 8); default "possible" in observe
   policy?: PolicyOptions;                    // section 8
   redact?: (path: string, value: unknown) => unknown;   // default redacts keys matching /pass|token|secret|card|cvv|ssn|auth/i
   plugins?: Plugin[];
