@@ -5,8 +5,9 @@ Cloudflare Worker that receives the default-on diagnostics batches from `@gencla
 a token and a private dashboard on genclass.dev.
 
 - **Deployed:** worker `genclass-telemetry`, account `144bd5f5270b51dbe7faf46227a154f0`.
-  - `https://genclass-telemetry.mehar-144.workers.dev` (workers.dev). The runtime's `DEFAULT_TELEMETRY_ENDPOINT` is this
-    URL + `/v1/events`.
+  - `https://genclass-telemetry.mehar-144.workers.dev` (workers.dev). Runtime `0.2.1` and earlier send to this URL +
+    `/v1/events`; from `0.2.2` the runtime's `DEFAULT_TELEMETRY_ENDPOINT` is `https://genclass.dev/api/v1/events` (the
+    `genclass.dev/api/*` route below, same worker).
   - Zone routes on genclass.dev: `genclass.dev/start*`, `genclass.dev/dashboard*`, `genclass.dev/api/*`. They run in
     front of the site (worker `genclass-site`, custom domain, owned by Mehar; this worker never changes it). Paths
     under `/start*` and `/dashboard*` that this worker does not serve are handed to the site unchanged through the
@@ -141,3 +142,23 @@ npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
 
 The dashboard link then returns 404 and later batches with that token are stored in R2 only (the in-memory token cache
 may keep aggregating for up to 5 minutes). Raw R2 objects are not indexed by token; they expire after 90 days.
+
+### Test data and live checks
+
+Every batch sent to the deployed worker lands in the same R2 bucket and D1 database as real data, and real data is
+what the model is evaluated and trained on. A check against production therefore:
+
+- sends session events whose `host` ends in `.invalid` (reserved, RFC 6761), such as `livecheck.invalid`. The admin
+  dashboard (`site/src/admin.js`, `TEST_HOST`) already counts `*.invalid`, `localhost`, `*.local`, `*.test` and private
+  addresses as test traffic and leaves them out of its numbers unless `?test=1`;
+- sets the envelope's `runtime` to `0.0.0-check`, never a released version, so its R2 objects land under
+  `events/dt=<day>/rt=0.0.0-check/...`, apart from real data (any training or evaluation pull skips `rt=0.0.0-*`
+  and the `TEST_HOST` hosts);
+- names a project it creates `... (throwaway, delete me)`, deletes it right after (above), and is listed below until
+  it is gone.
+
+Synthetic data still in production:
+
+| when (UTC) | what | where | to delete |
+|---|---|---|---|
+| 2026-10-13, 05:55 to 05:56 | the `wave1/projects` collector check: project "wave1-projects live check (throwaway, delete me)", token `gc_E6MwmUvD7vB5lbPCjPubXP`, and two synthetic batches labelled runtime `0.2.1` / model `0.2.0`, host `wave1-check.invalid`, each with one made-up detection (its dashboard read back 2 sessions, 2 decisions, 2 detections) | D1 `genclass-dashboard`: the `projects`, `daily`, `hourly`, `recent` and `sessions` rows of that token; R2: 2 objects under `events/dt=2026-10-13/rt=0.2.1/model=0.2.0/`, mixed with real `0.2.1` data | D1: "Delete a project" above with `T=gc_E6MwmUvD7vB5lbPCjPubXP`. R2: list that prefix with the Cloudflare API, fetch the objects created 05:55 to 05:57, and delete the two whose lines carry that token (`npx --yes wrangler@4 r2 object delete "genclass-telemetry/<key>" --remote`). The admin dashboard already treats `wave1-check.invalid` as test traffic, but lists the project until its D1 row is gone. |
