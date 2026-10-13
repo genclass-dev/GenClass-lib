@@ -168,7 +168,7 @@ export class ModelBackend {
     const { clock } = this.env;
     const t0 = clock.now();
     const baseUrl = normalizeBaseUrl(opts.baseUrl, globalLocation());
-    const fenv: FetchEnv = { fetch: this.env.fetch, caches: this.env.caches, cacheName: opts.cacheName || DEFAULT_CACHE_NAME };
+    const fenv: FetchEnv = { fetch: this.env.fetch, caches: this.env.caches, cacheName: opts.cacheName || DEFAULT_CACHE_NAME, timers: this.env.clock };
     const base: ModelHostStatus = { state: "loading", worker: this.env.inWorker };
     this.set({ ...base, phase: "card" });
     const attempts: LoadAttempt[] = [];

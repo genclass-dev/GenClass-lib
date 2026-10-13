@@ -1,10 +1,46 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 (2026-10-13)
 
-- No runtime change. New workspace package `@genclass/playwright` (`packages/playwright`): a Playwright fixture that
-  puts the runtime on the page under test and a reporter that writes what it flagged as a markdown report for the
-  pull request. The demos expose their runtime as `window.__demo.gc` for it.
+- **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so
+  `/auto` and the script tag) passed an explicit `telemetry: true` internally, which skips the local-host rule, so
+  pages on `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. An
+  unset option now stays unset and the default applies as documented; an explicit `telemetry: true` still sends from
+  a local host. This narrows what is sent; nothing new is sent. Test: `test/telemetry-local-hosts.test.ts`.
+- **`init --telemetry` no longer writes `telemetry: true`.** It now takes the `--no-telemetry` opt-out out of what
+  init wrote (back to the default) and, on a new setup, writes nothing. An explicit `true` would now mean "also send
+  from local hosts". An options file written by an earlier `init --telemetry` holds `telemetry: true`: run
+  `npx @genclass/runtime init --telemetry` again to take it out.
+
+- **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
+  `?genclass=guard|heal` and `localStorage.genclass` now only demote, from the app's mode or from `observe` when it
+  sets none (before, they opted a visitor into guard when the app set no mode, so a crafted link could turn on
+  guard-tier actions on a production site). Raising from the URL still works with `debug: true` or on a development
+  host (`localhost`, `*.local`, `*.test`, private networks). The zero-code entries (`/auto`, the script tag) read
+  `<meta name="genclass">` only inside `<head>` (before: anywhere, so markup injected into the body could set the
+  mode and the model URL), and a meta tag's model and onnxruntime-web URLs must be same-origin: a cross-origin one is
+  ignored with one console warning (use `data-model` / `data-ort`, `window.GENCLASS_CONFIG` or `GenClass.init()` for
+  a CDN of your own). THREAT-MODEL T8 updated.
+- **The first decision of a page load has a realistic hold budget, and a late answer is no longer thrown away.**
+  Before any measured decision the budget came from the warm-up pass, a ~430-token situation (49–74 ms on an Apple
+  GPU), so it was the 150 ms floor, while the first real decision measured 137 ms there: 13 ms of margin, and none
+  on a slower GPU. The warm-up time is now scaled by its per-token cost to a typical situation (1,200 tokens, plus
+  the worker round trip): 49 ms warm-up → 234 ms budget. An answer that arrives after a held request's or write's
+  deadline (the queue has moved on and released the subject, as before) was ignored entirely; it is now recorded
+  and reported ("the decision arrived after the hold budget expired"), counts as a latency sample and clears the
+  queue's "stuck" state. A held subject's queued decision whose subject already went its way runs behind fresh ones
+  while decisions are fast (median ≤ 300 ms) rather than being dropped. Deadlines, release timing and the queue's
+  occupancy are unchanged. (Not a fix for a hidden tab: held decisions are skipped there by design.)
+- **Telemetry goes to `https://genclass.dev/api/v1/events`** (the same collector worker, on the project domain instead
+  of a personal workers.dev URL), and **a page stops sending after 3 failed requests in a row**. A strict
+  Content-Security-Policy that does not allow the endpoint (the README's own example did not) logged a violation on
+  every 10 s flush; now it logs at most 3. Allow `https://genclass.dev` in `connect-src` or pass `telemetry: false`.
+  Nothing new is sent.
+- **Model downloads retry transient failures.** The model card and model files are retried on HTTP 408, 429 and 5xx
+  (after 1 s and 3 s, or a numeric `Retry-After` of at most 8 s) and once after a network error. A cached model card
+  is still used at once when the network fails, without waiting. Other statuses (a 404) are never retried. Before,
+  one rate-limited answer from jsDelivr left the page without a model: on the one production deployment, 5 of about
+  65 sessions on 2026-10-11/12 failed with "model card download failed: HTTP 429".
 
 ## 0.2.1 (2026-10-10)
 

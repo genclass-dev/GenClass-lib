@@ -16,7 +16,7 @@ import { libraryEvidence } from "../../bin/lib/detect.mjs";
 import { assetBase } from "../../src/cdn/global.js";
 import { GenClass } from "../../src/index.js";
 import { DEFAULT_MODEL_BASE_URL } from "../../src/model/host.js";
-import { devtoolsOptions, fromDataset, fromPairs, isKilled, isLocalHost, mergeConfig, parsePairs, readMetaConfig } from "../../src/cdn/config.js";
+import { sameOriginUrl, devtoolsOptions, fromDataset, fromPairs, isKilled, isLocalHost, mergeConfig, parsePairs, readMetaConfig } from "../../src/cdn/config.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(HERE, "..", "..", "bin", "genclass-runtime.mjs");
@@ -280,6 +280,34 @@ describe("page config", () => {
     expect(mergeConfig({ model: { baseUrl: "/a/" } }, { model: false })).toEqual({ model: false });
     const doc = { querySelectorAll: () => [{ getAttribute: () => "mode=observe" }, { getAttribute: () => "devtools" }] };
     expect(readMetaConfig(doc)).toEqual({ mode: "observe", devtools: true });
+  });
+  it("meta tags: only under <head>; model and ORT URLs from a meta tag must be same-origin (THREAT-MODEL T8)", () => {
+    const tag = (content: string) => ({ getAttribute: () => content });
+    const loc = { href: "https://shop.example/p", origin: "https://shop.example" };
+    const warns: string[] = [];
+    const doc = {
+      head: { querySelectorAll: () => [tag("mode=guard, model=https://evil.example/m/, ort=//evil.example/ort/")] },
+      querySelectorAll: () => [tag("mode=heal"), tag("mode=guard, model=https://evil.example/m/")],
+    };
+    expect(readMetaConfig(doc, { location: loc, warn: (m) => warns.push(m) })).toEqual({ mode: "guard" });
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain("evil.example");
+    // a meta tag outside <head> (injected into the body) is not read
+    expect(readMetaConfig({ head: { querySelectorAll: () => [] }, querySelectorAll: () => [tag("mode=heal")] }, { location: loc })).toEqual({});
+    // same-origin model and ORT URLs stay, with no warning
+    const ok: string[] = [];
+    expect(readMetaConfig({ head: { querySelectorAll: () => [tag("model=/genclass-model/, ort=https://shop.example/ort/, device=wasm")] } }, { location: loc, warn: (m) => ok.push(m) })).toEqual({
+      model: { baseUrl: "/genclass-model/", ortWasmPaths: "https://shop.example/ort/", device: "wasm" },
+    });
+    expect(ok).toEqual([]);
+    // a cross-origin model next to other model keys keeps the other keys
+    expect(readMetaConfig({ head: { querySelectorAll: () => [tag("model=https://evil.example/m/, device=wasm")] } }, { location: loc })).toEqual({ model: { device: "wasm" } });
+    expect(sameOriginUrl("/m/", null)).toBe(true);
+    expect(sameOriginUrl("models/", { href: "https://shop.example/" })).toBe(true);
+    expect(sameOriginUrl("https://shop.example/m/", { href: "https://shop.example/a" })).toBe(true);
+    expect(sameOriginUrl("https://cdn.jsdelivr.net/npm/x/", { href: "https://shop.example/" })).toBe(false);
+    expect(sameOriginUrl("//cdn.example/x", { href: "https://shop.example/" })).toBe(false);
+    expect(sameOriginUrl("https://cdn.example/x", null)).toBe(false);
   });
   it("devtools=local only on development hosts; kill switch", () => {
     expect(isLocalHost({ hostname: "localhost" })).toBe(true);
@@ -685,8 +713,10 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
     expect(r.code, r.out).toBe(0);
     expect(r.out).toContain("telemetry off");
     expect(readFileSync(join(dir, "src/main.js"), "utf8").split("\n").slice(0, 2)).toEqual([`import "./genclass.config"; // genclass:init`, `import genclass from "@genclass/runtime/auto"; // genclass:init`]);
+    // --telemetry takes the opt-out out (back to the default) and never writes `telemetry: true`, which would be an
+    // explicit opt-in that also sends from local hosts
     expect(cli(dir, "init", "--yes", "--no-install", "--telemetry").code).toBe(0);
-    expect(readFileSync(join(dir, "src/genclass.config.js"), "utf8")).toContain("GENCLASS_CONFIG = { telemetry: true };");
+    expect(readFileSync(join(dir, "src/genclass.config.js"), "utf8")).toContain("GENCLASS_CONFIG = {};");
     expect(cli(dir, "init", "--yes", "--no-install", "--telemetry").out).toContain("Nothing to do");
     expect(cli(dir, "remove", "--yes").code).toBe(0);
     expect(snapshot(dir)).toEqual(before);
@@ -699,7 +729,8 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
     const f = join(dir, "genclass.config.ts");
     writeFileSync(f, readFileSync(f, "utf8").replace("{ telemetry: false }", "{ telemetry: false, debug: true }"));
     cli(dir, "init", "--yes", "--no-install", "--telemetry");
-    expect(readFileSync(f, "utf8")).toContain("{ telemetry: true, debug: true }");
+    expect(readFileSync(f, "utf8")).toContain("GENCLASS_CONFIG = { debug: true };");
+    expect(readFileSync(f, "utf8")).not.toMatch(/telemetry\s*:/);
     const r = cli(dir, "remove", "--yes");
     expect(r.code, r.out).toBe(0);
     expect(snapshot(dir)).toEqual(before);
@@ -736,6 +767,17 @@ describe("init options: --no-telemetry / --telemetry / --model-url (Troy trial, 
     const b = roundTrip(nuxt, "--no-telemetry");
     expect(b["genclass.config.js"]).toContain("telemetry: false");
     expect(b["plugins/genclass.client.js"]).toContain(`import "../genclass.config";`);
+  });
+
+  it("a new setup with --telemetry writes no options file: it is the default, and `telemetry: true` would send from local hosts", () => {
+    const after = roundTrip(viteVue(), "--telemetry");
+    expect(Object.keys(after).some((f) => /genclass\.config/.test(f))).toBe(false);
+    expect(after["src/main.js"]).not.toContain("genclass.config");
+    const html = roundTrip(project({ "index.html": PAGE }), "--telemetry", "--no-sri");
+    expect(html["index.html"]).not.toContain("data-telemetry");
+    // with another option the file is written, without a telemetry key
+    const both = roundTrip(viteVue(), "--telemetry", "--model-url", "/m/");
+    expect(both["src/genclass.config.js"]).toContain(`globalThis.GENCLASS_CONFIG = { model: { baseUrl: "/m/", ortWasmPaths: "/m/ort/" } };`);
   });
 
   it("--telemetry with --no-telemetry is a usage error", () => {

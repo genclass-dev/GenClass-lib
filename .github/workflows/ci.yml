@@ -46,18 +46,6 @@ jobs:
           NODE_OPTIONS: --expose-gc
         run: npx vitest run --exclude "test/browser/**" --exclude test/review-perf.test.ts
 
-      # @genclass/playwright (the fixture + reporter): tsc, tsup, vitest. Its browser run against the demos is the
-      # separate playwright-reporter.yml workflow, which never blocks this job.
-      - name: "@genclass/playwright: typecheck"
-        run: npm run typecheck -w @genclass/playwright
-
-      - name: "@genclass/playwright: build"
-        run: npm run build -w @genclass/playwright
-
-      - name: "@genclass/playwright: unit tests"
-        working-directory: packages/playwright
-        run: npx vitest run
-
       # Reported, not blocking: shared GitHub runners are ~10% slower than the machines these budgets were set on
       # (redux-style dispatch measured 1.08-1.10 ms vs its 1 ms bound on 2026-10-09). Run them on a quiet machine
       # before a release.
@@ -68,44 +56,17 @@ jobs:
           NODE_OPTIONS: --expose-gc
         run: npx vitest run test/review-perf.test.ts --retry=2
 
-  # TEMPORARY (dispatch only, reverted before merge): playwright-reporter.yml cannot be dispatched until it exists on
-  # the default branch, so this job produces the first real report for packages/playwright/README.md.
-  reporter-preview:
-    name: "TEMP @genclass/playwright: demos under chaos, report"
-    if: github.event_name == 'workflow_dispatch'
+  telemetry-worker:
+    name: "telemetry-worker: unit tests (collector, dashboard)"
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      ONNXRUNTIME_NODE_INSTALL: skip
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - name: Install
-        run: npm ci --no-audit --no-fund
-      - name: Build @genclass/runtime
-        run: npm run build -w @genclass/runtime
-      - name: Build @genclass/playwright
-        run: npm run build -w @genclass/playwright
-      - name: Build the demos
-        run: npm run build -w @genclass/demos
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Run the fixture against the demos
-        working-directory: packages/playwright
-        continue-on-error: true
-        run: npx playwright test --config e2e/playwright.config.ts
-      - name: Report to the job summary
-        if: always()
-        run: cat packages/playwright/e2e/genclass-report.md >> "$GITHUB_STEP_SUMMARY" || echo "no report" >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: genclass-report
-          path: |
-            packages/playwright/e2e/genclass-report.md
-            packages/playwright/e2e/genclass-report.json
-            packages/playwright/e2e/test-results/**/*
-          if-no-files-found: warn
+      - name: Install (root lockfile; vitest is hoisted)
+        run: ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
+      - name: Unit tests
+        working-directory: telemetry-worker
+        run: npx vitest run

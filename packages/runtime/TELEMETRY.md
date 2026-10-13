@@ -14,7 +14,7 @@ Details under [Opting out](#opting-out).
 | how GenClass starts | default |
 |---|---|
 | `GenClass.init()`, `import "@genclass/runtime/auto"` (and `/auto/*`), the CDN script tag, `npx @genclass/runtime init` setups | **on** in a browser on a public host |
-| the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` |
+| the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` (`0.2.1`: on, by mistake; fixed in `0.2.2`, see the CHANGELOG) |
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
 
@@ -90,12 +90,14 @@ Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/
 - The `fetch` and `sendBeacon` captured when `@genclass/runtime` loaded, so GenClass never observes, holds or decides
   about its own requests.
 - At most 1,000 queued events; beyond that new events are dropped and counted. A failed request is dropped, never
-  retried. Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
+  retried; after 3 failures in a row the page stops sending (`MAX_FAIL_STREAK`). Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
 
 ## Where it goes
 
-- **Endpoint:** `https://genclass-telemetry.mehar-144.workers.dev/v1/events` (`DEFAULT_TELEMETRY_ENDPOINT`), a
-  Cloudflare Worker operated by the GenClass maintainers (source: `telemetry-worker/` in the repository).
+- **Endpoint:** `https://genclass.dev/api/v1/events` (`DEFAULT_TELEMETRY_ENDPOINT`; before 0.2.2 the same worker's
+  `https://genclass-telemetry.mehar-144.workers.dev/v1/events`, which still works), a Cloudflare Worker operated by the
+  GenClass maintainers (source: `telemetry-worker/` in the repository). With a Content-Security-Policy, allow
+  `https://genclass.dev` in `connect-src` or turn telemetry off; after 3 failed requests in a row a page stops sending.
 - **Storage:** a private Cloudflare R2 bucket (`genclass-telemetry`), gzip JSON Lines, one object per batch,
   partitioned by UTC date, runtime version and model version. The collector adds only the time it received the
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user

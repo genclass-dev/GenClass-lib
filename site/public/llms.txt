@@ -1,32 +1,27 @@
 # GenClass
 
-> GenClass is a runtime for web apps that flags, and optionally prevents, stale responses, races, duplicate requests, inconsistent state and failure storms. The open-source runtime (`@genclass/runtime`, Apache-2.0, free forever) runs a 10 MB model in the user's browser (WebGPU or WASM, in a Web Worker); observe mode, the default, only reports. GenClass Cloud (paid, not available yet, being built with design partners) is a planned control plane for teams: dashboards, release comparisons, alerts, rollouts and team policies. GenClass Enterprise (planned) would add SSO, audit logs, private hosting and SLAs.
+> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. GenClass Cloud and GenClass Enterprise are planned paid products with no customers yet.
 
-## Products and pricing
-- Community runtime: $0, unlimited use including commercial, no account or API key. https://genclass.dev/docs
-- GenClass Cloud (Teams): from $99/month, not available yet (early-access list). https://genclass.dev/cloud
-- GenClass Enterprise: from $15k/year, not available yet (design-partner program). https://genclass.dev/enterprise
-- Plan comparison: https://genclass.dev/pricing
+## Shipped
+- `@genclass/runtime` 0.2.1 with `@genclass/runtime-model` 0.2.0 (training run r17-v2dT). Default mode observe, default aggressiveness "balanced", report threshold 0.90.
+- Install: `npm install @genclass/runtime`, then `import "@genclass/runtime/auto"` as the first line of the entry file. CLI: `npx @genclass/runtime init`. Script tag, first in <head>: `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1"></script>` (pin the version: the unversioned URL may serve an older release from the CDN cache).
+- Modes: observe (default; changes nothing), guard (opt-in: discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync).
+- Cost: +98 KB of JavaScript on first load; about 13 MB downloaded once at idle on WASM (18 MB on WebGPU), then cached; 190 to 280 MB of memory in a Web Worker while the model is loaded; no device floor by default (`model.loadIf` sets one; `model: false` installs no model and then detects nothing).
+- Telemetry: anonymous diagnostics are on by default on public hosts and off on localhost and private hosts; they contain no page text. Opt out: `GenClass.init({ telemetry: false })`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
+- Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging, Sentry or PostHog.
 
-## Install
-- `npm install @genclass/runtime`, then `import { GenClass } from "@genclass/runtime"; GenClass.init();`
-- CLI: `npx @genclass/runtime init`; script tag: `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime" data-mode="observe"></script>`
-- Modes: observe (default, changes nothing), guard (discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync)
-- Shipped: @genclass/runtime 0.2.0 with @genclass/runtime-model 0.2.0 (training run r17-v2dT); default report threshold 0.90, default aggressiveness "balanced"
+## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
+- Model 0.2.0 at the shipped setting (balanced), held-out real apps: detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state; guard acts on 7.5% of the cases where acting would help.
+- False interventions, model 0.2.0, held-out simulated apps: guard 0.005% / 0.13% / 0.54% and heal 0.26% / 0.59% / 1.84% for cautious / balanced / eager (targets 0.1% guard, 0.5% heal: cautious meets both, balanced is slightly over). 0.00% on held-out real apps at every profile.
+- Compatibility matrix (runtime 0.1.0-beta.4, the code shipped as 0.2.1; model 0.2.0, balanced; run 2026-10-10): 7 frameworks, 15 data layers, 8 scenarios, 10 seeds, every mode. 350 of 351 cells pass; 0 bugs introduced in 3,510 runs; 0 non-passive actions on correct apps in 1,760 guard and heal runs; guard left 249 of 250 latent-bug runs buggy; observe mode produced 49 false findings in 880 runs on correct apps. https://genclass.dev/docs/compatibility
+- Never-worse check: 0 of 396 clean real-app runs changed (66 apps × 6 seeds, always-passive model, v2 runtime as of 0.1.0-alpha.1; not re-run on 0.2.1).
+- Six demo apps under network chaos, model 0.2.0, balanced: bug rate 72% with GenClass off, 70% observe, 72% guard, 73% heal. Nothing is healed at the shipped gates.
+- Previous model 0.1.0 (r17-v2b), observe mode at report threshold 0.70: 96% detection precision on 16,600 held-out real-app situations, 0.62% false detections on clean traffic. Not re-measured for 0.2.0.
+- Model: 8.8M parameters, 10.2 MB q8, about 180 ms per decision on one WASM thread (182 ms for the shipped export), faster on WebGPU.
+- Training data: about 17.6M labelled runtime situations, including 837,623 real-browser rows from 158 apps.
 
-## Results on held-out data (https://genclass.dev/benchmarks)
-- 96% detection precision on real apps never used in training (16,600 situations): model 0.1.0 (r17-v2b) at report threshold 0.70
-- Model 0.2.0 at its default setting detects 75% of duplicate submits, 21–30% of stale overwrites and 6% of broken state on unseen real apps; guard acts on about 8% of the cases where acting would help
-- 0 false interventions on held-out real apps at any aggressiveness setting; 0 non-passive actions on correct apps in 1,760 guard and heal runs across 7 frameworks and 15 data layers, 0 bugs introduced in 3,510 runs (https://genclass.dev/docs/compatibility)
-- Where it still misses: on six demo apps under chaos the bug rate is 72% off, 70% observe, 72% guard, 73% heal at the default setting; nothing is healed at the shipped gates
-- Model: 8.8M parameters, 10 MB (10.2 MB q8), about 180 ms per decision on one WASM thread, faster on WebGPU
-- Trained on about 17M labeled runtime situations, including 837,623 real-browser rows from 158 apps on 40+ stacks; a further 51M simulated rows were generated but are unlabeled and not used for training yet
-
-## Telemetry (https://genclass.dev/docs/telemetry)
-- From runtime 0.2.1: anonymous diagnostics on by default on public hosts, off on local and private hosts (localhost, *.localhost, *.local, *.test, 127.0.0.1, ::1, private IP ranges)
-- By default no text from the page: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision the trigger, diagnosis and confidence, action, gate, outcome, latency and counts
-- The situation text the model read is sent only with `telemetry: { include: { situation: true } }`
-- Opt out: `telemetry: false`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, Global Privacy Control
+## Planned, no customers yet
+- GenClass Cloud (a dashboard across apps) and GenClass Enterprise: https://genclass.dev/cloud, https://genclass.dev/enterprise, https://genclass.dev/pricing
 
 ## Guides
 - How to fix race conditions in React data fetching: https://genclass.dev/guides/race-conditions-react
@@ -34,6 +29,8 @@
 - How to prevent duplicate form submissions: https://genclass.dev/guides/prevent-duplicate-submissions
 
 ## Links
+- Docs: https://genclass.dev/docs
 - How it works: https://genclass.dev/how-it-works
 - GitHub: https://github.com/genclass-dev/GenClass-lib
 - npm: https://www.npmjs.com/package/@genclass/runtime
+- Contact (GitHub issues are not enabled): mehar@daybot.ca

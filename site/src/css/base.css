@@ -1,7 +1,7 @@
 :root{
   --paper:#FFFFFF; --panel:#F5F8FB; --ink:#0E1F4D; --ink2:#3D4B6B; --ink3:#5A6684; --rule:#DFE4EC; --rule2:#C6CEDB;
   --orange:#C42A12; --orange-f:#F0451C; --orange-t:#FDE6E0;
-  --blue:#08794A; --blue-f:#14B86A; --blue-t:#DCF5E8;
+  --blue:#08794A; --blue-f:#14B86A; --blue-t:#DCF5E8; --blue-x:#0E9A58;
   --night:#0B1736; --night2:#13224A; --nline:#26355E; --ntext:#E8EDF8; --ndim:#97A3C2;
   --display:"Outfit", "Helvetica Neue", Arial, sans-serif;
   --sans:"Figtree", "Helvetica Neue", Arial, sans-serif;
@@ -40,7 +40,7 @@ p{text-wrap:pretty}
 .eyebrow{font-family:var(--mono);font-size:13px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
 .eyebrow .tag{border:1px solid var(--rule2);border-radius:4px;padding:2px 8px;color:var(--ink)}
 .hero h1{font-size:clamp(44px,7.2vw,104px);line-height:.94;letter-spacing:-.04em;margin:26px 0 0;max-width:13ch}
-.hero h1 em{font-style:normal;color:var(--blue-f)}
+.hero h1 em{font-style:normal;color:var(--blue-x)}
 .hero-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:32px 56px;align-items:end;margin-top:32px}
 .lede{font-size:clamp(17px,1.5vw,20px);line-height:1.55;color:var(--ink2);max-width:46ch}
 .lede strong{color:var(--ink);font-weight:500}

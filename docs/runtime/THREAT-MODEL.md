@@ -221,14 +221,16 @@ flows.
 **Mitigations.** `?genclass-mode`, `?genclass-aggr` and `?genclass-sample=0` can only lower the mode, aggressiveness or
 sampling unless the app sets `debug: true`; `?genclass=off` turns GenClass off for that visitor only
 ([runtime.ts](../../packages/runtime/src/runtime.ts) constructor, [index.ts](../../packages/runtime/src/index.ts)
-`initUnsafe`). `?genclass=heal` needs `debug: true`.
+`initUnsafe`). Since 0.2.2 `?genclass=` and `localStorage.genclass` also only demote, from the app's mode or from
+`observe` when it sets none: a crafted link can no longer raise a production site to guard or heal. Raising from the
+URL needs `debug: true` or a development host (`localhost`, `*.local`, `*.test`, private networks). With the zero-code
+entries (`/auto`, the script tag), only `<meta name="genclass">` tags inside `<head>` are read, so markup injected into
+the body cannot configure GenClass, and the model and onnxruntime-web URLs a meta tag names must be same-origin
+(cross-origin ones are ignored with a warning; [cdn/config.ts](../../packages/runtime/src/cdn/config.ts)).
 
-**Residual.** When the app does not set `mode`, `?genclass=guard` (or `localStorage.genclass = "guard"`) turns guard on
-for that visitor: a crafted link can opt a user into guard-tier actions (`discard`, `defer`, `coalesce`, `delay`).
-Setting `mode: "observe"` (or any mode) explicitly makes the URL demote-only. With the zero-code entries (`/auto`, the
-script tag), every `<meta name="genclass">` in the document can set the mode and the model and onnxruntime-web URLs
-([cdn/config.ts](../../packages/runtime/src/cdn/config.ts)): on pages that render untrusted HTML that could contain
-meta tags, configure through `window.GENCLASS_CONFIG` (it wins) or `GenClass.init(options)`.
+**Residual.** Markup injected into `<head>` can still set the mode (not a cross-origin model): pages that let
+untrusted HTML into `<head>` should configure through `window.GENCLASS_CONFIG` (it wins) or `GenClass.init(options)`.
+An app that sets `debug: true` in production lets the URL raise its mode.
 
 ## T9. Cached and shared responses
 
@@ -255,7 +257,7 @@ account and sign-in endpoints (`protectPreset("auth")`), `policy.deny: ["serve_c
 6. Discovered state is read and appears in situation text; DevTools-composed Redux stores are actionable.
 7. In guard/heal, identical POSTs within 2 s may be coalesced; heal may block requests or roll back whole stores; a
    late revert may make a loop resend (bounded).
-8. `?genclass=guard` can opt a visitor into guard when the app sets no mode; meta tags configure the zero-code entries.
+8. Meta tags in `<head>` configure the zero-code entries (mode, same-origin model URLs); `debug: true` lets the URL raise the mode.
 9. `serve_cached` ignores cookies (cross-user responses in a long-lived SPA session, heal only).
 
 ## Recommended production setup

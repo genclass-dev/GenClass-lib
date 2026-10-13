@@ -218,6 +218,12 @@ describe("token on telemetry batches", () => {
     expect(bd("latency_bucket")).toEqual({ "<50 ms": 1, "100-250 ms": 1 });
     expect(s.series).toHaveLength(7);
     expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1 });
+    // the dashboard's type x page view and per-type timeline, and the period before for deltas
+    expect(bd("detect_issue")).toEqual({ "stale\t/cart/:id": 1 });
+    expect(s.typeSeries).toHaveLength(7);
+    expect(s.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08", counts: { stale: 1 } });
+    expect(s.typeSeries[0]).toEqual({ bucket: "2026-10-02", counts: {} });
+    expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0 });
     expect(s.recent).toEqual([
       { t: NOW.toISOString(), route: "/cart/:id", fn: "saveCart", trigger: "mutation", diagnosis: "stale", action: "discard", ran: "discard", confidence: 0.95, mode: "heal", executed: true, acted: true, kind: "detect" },
     ]);
@@ -228,6 +234,12 @@ describe("token on telemetry batches", () => {
     expect(h.series).toHaveLength(24);
     expect(h.series.at(-1)).toMatchObject({ bucket: "2026-10-08T12", sessions: 1 });
     expect(h.totals.decisions).toBe(2);
+    expect(h.typeSeries).toHaveLength(24);
+    expect(h.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08T12", counts: { stale: 1 } });
+    // a later 7 d window sees this week as the previous period
+    const later = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, { ...opts, now: () => new Date(NOW.getTime() + 7 * 86_400_000) })).json()) as any;
+    expect(later.previous).toEqual({ sessions: 1, detections: 1, acted: 1 });
+    expect(later.totals.detections ?? 0).toBe(0);
     const m = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=30d`), env, opts)).json()) as any;
     expect(m.series).toHaveLength(30);
   });
@@ -372,5 +384,29 @@ describe("retention", () => {
     await worker.scheduled({}, env, { waitUntil: (p) => waits.push(p) });
     await Promise.all(waits);
     expect(sql.rows("SELECT COUNT(*) AS n FROM daily")[0]!.n).toBe(0);
+  });
+});
+
+describe("sample dashboard", () => {
+  it("serves a labelled, simulated sample at /dashboard/sample without touching D1", async () => {
+    const { env } = setup();
+    const page = await handle(new Request("https://genclass.dev/dashboard/sample"), env, opts);
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toContain("simulated data");
+    expect(html).not.toMatch(/ style="/);
+    for (const range of ["24h", "7d", "30d"]) {
+      const res = await handle(new Request(`https://genclass.dev/api/projects/sample?range=${range}`), env, opts);
+      expect(res.status).toBe(200);
+      const s = (await res.json()) as any;
+      expect(s.name).toContain("simulated");
+      expect(s.typeSeries).toHaveLength(range === "24h" ? 24 : range === "7d" ? 7 : 30);
+      expect(s.totals.sessions).toBeGreaterThan(0);
+      const issues = (s.breakdowns.detect_issue as { count: number }[]).reduce((a, x) => a + x.count, 0);
+      expect(issues).toBe(s.totals.detections);
+    }
+    const again = (await (await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).json()) as any;
+    const first = (await (await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).json()) as any;
+    expect(again.typeSeries).toEqual(first.typeSeries); // deterministic for the same time
   });
 });
