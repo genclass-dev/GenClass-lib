@@ -136,7 +136,7 @@ bounded (32) and stale items are dropped; each evaluation times out (10 s, `mode
 answering, nothing is held (`expectedLatency` is infinite). A hold never exceeds the hold budget (at most 800 ms with
 "auto"; `test/invariants/*` "the hold budget caps"), and only guard and heal hold at all. Hidden tabs skip
 background evaluations. Inference runs off the main thread. React discovery stops after 1 ms per commit. The model
-downloads lazily on Save-Data connections and can be skipped (`model.loadIf`) or unloaded when idle
+is not loaded on devices reporting 2 GB or less nor on Save-Data connections (`model.loadIf` default), can be skipped or unloaded when idle
 (`model.unloadAfterIdleMs`).
 
 **Residual.** Up to 30 evaluations a minute of worker CPU, and in guard/heal up to one hold budget of added latency per

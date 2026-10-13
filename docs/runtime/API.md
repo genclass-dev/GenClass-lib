@@ -98,6 +98,8 @@ interface InitOptions {
     flushMs?: number;                                   // [10000] batch interval; also sent on pagehide / hidden tab (sendBeacon)
     maxBatch?: number;                                  // [100] events per request (requests also ≤ 60 KB)
     include?: { situation?: boolean };                  // [false]; true: include the redacted situation text
+    decisionSample?: number;                            // [0.25] share of routine decisions (top diagnosis "expected", nothing acted) whose record is sent; every other decision always; counts exact
+    maxDecisions?: number;                              // [200] most routine decisions' records per page load (Infinity: no cap); detections are never capped; summaries continue
     transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown> }; // tests / custom pipelines
   };
   autoState?: boolean | { react?: boolean; redux?: boolean; zustand?: boolean; pinia?: boolean };
@@ -132,7 +134,8 @@ interface InitOptions {
   redact?: (path: string, value: unknown, kind?: "state" | "url" | "header" | "input") => unknown; // runs after built-in redaction; a throw → "[redacted]"
   report?: "console" | "interventions" | "silent" | ((r: Report) => void);    // "interventions": console prints interventions, undos, breaker only
   learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string }; // version defaults to session.tags.release; mismatch discards
-  // model: also loadIf [{ saveData: "lazy" }], inlineFallback [true], threads ["auto"], timeoutMs [10000],
+  // model: also loadIf [{ minDeviceMemoryGB: 4, saveData: "skip" }: no model on devices reporting ≤ 2 GB or on Save-Data; () => true forces],
+  //        inlineFallback [true; false: a failed worker means no model, never the main thread], threads ["auto"], timeoutMs [10000],
   //        maxDecisionsPerMinute [30], unloadAfterIdleMs [false]
 }
 ```
@@ -147,6 +150,11 @@ and the matching `routes[]` rule) and `aggressiveness` the effective level; with
 `scope.mode` was that ceiling ("heal" when no rule matched). `rt.gates()` carries `mode` (the same effective mode).
 `status.blocked` (state "error"): `{ url, origin, csp, directive? }` when the browser blocked a model or ORT download.
 `status.sha256` (state "ready"): the sha256 from `model.json` that the loaded variant was verified against.
+`status.reason` (state "skipped", after 0.2.2): `"device-memory"`, `"save-data"` or `"loadIf"` when `model.loadIf`
+kept the model from loading on this device (the default is the exported `DEFAULT_LOAD_IF`,
+`{ minDeviceMemoryGB: 4, saveData: "skip" }`), and `"worker-unavailable"` when the model worker could not start and
+`model.inlineFallback` is `false` (`status.workerError` says why). The runtime keeps observing without a model and
+prints one console line either way.
 
 Gate order (each request/decision): protected → cross-origin → op scope (created under off/observe) →
 mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → `policy.actionLimits`
@@ -625,7 +633,11 @@ situation size.
 The local model host is exported for direct use: `createModelHost(options)` (a `DecisionProvider` with `measure()`,
 `evaluateDetailed()`, `stats`), `DEFAULT_MODEL_BASE_URL`, and the model errors (`ModelNotReadyError`,
 `MaxTokensExceededError`, `ModelTimeoutError`, `ModelBusyError`, `ModelLoadError`, ...; each has a `code`). Any
-provider error makes the runtime fail open.
+provider error makes the runtime fail open. The device floor is exported too: `deviceEnv(globalThis)` (what the page
+can tell about the device: `deviceMemoryGB`, `saveData`, `mobile`, `cores`, `webgpu`, `effectiveType`),
+`evalLoadIf(modelOptions, env, warn)` (`"load" | "lazy" | { skip: "device-memory" | "save-data" | "loadIf" }`) and
+`DEFAULT_LOAD_IF` (`{ minDeviceMemoryGB: 4, saveData: "skip" }`, after 0.2.2; `navigator.deviceMemory` is quantised
+to powers of two, so 4 skips exactly the devices reporting 2 GB or less).
 
 ## Adapters and devtools
 

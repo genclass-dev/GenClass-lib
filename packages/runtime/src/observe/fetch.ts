@@ -1,7 +1,9 @@
 // fetch observer (CONTRACT §3, §6, §7). Wraps global.fetch:
 //   - creates the request op synchronously inside the call (cause = ambient op);
 //   - request identity = method + URL + semantic headers + body content (bodies that cannot be read cheaply get a
-//     unique identity: they are never "identical" to anything);
+//     unique identity: they are never "identical" to anything); a Request object's body is cloned once and read up
+//     to IDENTITY_BODY_MAX, and those bytes are what a retry or hedge re-sends (larger bodies: no clone, not
+//     replayable), so an upload is never buffered twice;
 //   - request gate: triage, and when salient the request waits for the model (send/coalesce/delay/block/
 //     serve_cached), fail-open after the hold budget; keepalive requests are never held;
 //   - failure gate: network errors, timeouts, 5xx/429/408 wait for the model before the app sees them
@@ -81,8 +83,8 @@ function bytesKey(u8: Uint8Array): string {
   return "b:" + (h >>> 0).toString(16).padStart(8, "0") + ":" + u8.length;
 }
 
-/** Read up to IDENTITY_BODY_MAX bytes of a stream: the bytes' key, or null when larger (cancelled). */
-async function readKey(stream: ReadableStream<Uint8Array>): Promise<string | null> {
+/** Read up to IDENTITY_BODY_MAX bytes of a stream: the bytes, or null when larger (cancelled, nothing kept). */
+async function readSmall(stream: ReadableStream<Uint8Array>): Promise<Uint8Array | null> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -104,7 +106,39 @@ async function readKey(stream: ReadableStream<Uint8Array>): Promise<string | nul
     out.set(c, off);
     off += c.byteLength;
   }
-  return bytesKey(out);
+  return out;
+}
+
+/**
+ * How a `Request` object's body is replayed (retry, hedge): the bytes read for its identity (≤ IDENTITY_BODY_MAX),
+ * once they are in hand. The native fetch consumes the app's own Request; GenClass keeps no second clone of it, so
+ * a large upload is never buffered twice (bodies over the limit are simply not replayable).
+ */
+interface ReplaySource {
+  bytes: Uint8Array | null;
+  meta: ReqMeta | null;
+}
+
+/** The Request fields a replay copies (the body comes from the identity bytes; `mode: "navigate"` cannot be set). */
+const REPLAY_FIELDS = ["method", "headers", "mode", "credentials", "cache", "redirect", "referrer", "referrerPolicy", "integrity", "keepalive", "signal"] as const;
+
+/**
+ * A new Request with the original's URL and fields and `bytes` as its body. Built from the fields, never from the
+ * app's Request itself: that one has been consumed by the first send (a used Request cannot seed another in some
+ * engines), and constructing from it could disturb it if this ran first. Null when the engine refuses.
+ */
+export function rebuildRequest(Req: typeof Request, input: Request, bytes: Uint8Array): Request | null {
+  try {
+    const init: Record<string, unknown> = { body: bytes };
+    for (const k of REPLAY_FIELDS) {
+      const v = (input as unknown as Record<string, unknown>)[k];
+      if (v === undefined || v === null || (k === "mode" && v === "navigate")) continue;
+      init[k] = v;
+    }
+    return new Req(input.url, init as RequestInit);
+  } catch {
+    return null;
+  }
 }
 
 function summarizeText(s: string, redact: NetHost["redact"]): string {
@@ -378,36 +412,41 @@ export function installFetch(host: NetHost): (() => void) | null {
       scope = sc;
     }
     let parsed: ParsedRequest;
-    let template: Request | null = null;
+    const replay: ReplaySource = { bytes: null, meta: null };
     try {
       let b: BodyInfo;
       if (bodyKnown) b = bodyInfo(body, host);
       else {
-        // a Request with a body: keep a pristine copy for replays, and read another copy for the identity
+        // A Request with a body: one clone, read for the identity (≤ IDENTITY_BODY_MAX); those bytes also serve
+        // replays. No clone at all when the body is known to be larger: the native fetch then streams the app's
+        // Request alone, and the request is not replayable.
         const req = input as Request;
-        try {
-          template = req.clone();
-        } catch {
-          template = null;
-        }
         const len = Number(req.headers.get("content-length") ?? "NaN");
-        b = { bytes: Number.isFinite(len) ? len : 0, replayable: template !== null, summary: Number.isFinite(len) ? `${len} bytes` : "body" };
-        if ((Number.isFinite(len) && len > IDENTITY_BODY_MAX) || !template) b.key = host.uniqueId();
-        else {
-          let copy: Request | null = null;
+        b = { bytes: Number.isFinite(len) ? len : 0, replayable: false, summary: Number.isFinite(len) ? `${len} bytes` : "body" };
+        let stream: ReadableStream<Uint8Array> | null | undefined = null;
+        if (!(Number.isFinite(len) && len > IDENTITY_BODY_MAX)) {
           try {
-            copy = req.clone();
+            stream = req.clone().body as ReadableStream<Uint8Array> | null | undefined;
           } catch {
-            copy = null;
+            stream = null;
           }
-          const stream = copy?.body as ReadableStream<Uint8Array> | null | undefined;
-          if (stream && typeof stream.getReader === "function") {
-            const uid = host.uniqueId();
-            b.pending = readKey(stream).then((k) => k ?? uid, () => uid);
-          } else b.key = host.uniqueId();
         }
+        if (stream && typeof stream.getReader === "function") {
+          const uid = host.uniqueId();
+          b.pending = readSmall(stream).then(
+            (bytes) => {
+              if (!bytes) return uid;
+              replay.bytes = bytes;
+              if (replay.meta) replay.meta.replayable = true; // retry / hedge become possible from here on
+              return bytesKey(bytes);
+            },
+            () => uid,
+          );
+        } else b.key = host.uniqueId();
       }
       parsed = parseRequest(host, method, rawUrl, b, headersKey(input, init));
+      replay.meta = parsed.meta;
+      if (replay.bytes) parsed.meta.replayable = true;
       const names = headerNames(input, init);
       if (names.length) parsed.meta.headers = names;
     } catch {
@@ -415,14 +454,20 @@ export function installFetch(host: NetHost): (() => void) | null {
     }
     const req = parsed.meta;
     const op = host.startOp("fetch", req.signature, { detail: parsed.detail, method: req.method, url: req.url, ...(req.identity ? { identity: req.identity } : {}), ...(scope ? { scope } : {}) });
-    return runRequest(op, parsed, input, init, template, !keepalive);
+    return runRequest(op, parsed, input, init, replay, !keepalive);
   }
 
-  function replayInput(input: unknown, template: Request | null): unknown {
-    return template ? template.clone() : input;
+  /**
+   * What a second send (retry, hedge) passes to the native fetch, built only when that send happens: the app's own
+   * input when its body is reusable (init.body, no body), else a Request rebuilt with the bytes read for its identity.
+   */
+  function replayInput(input: unknown, replay: ReplaySource): unknown {
+    if (!replay.bytes || !isRequestLike(input)) return input;
+    const Req = (g.Request ?? (globalThis as Record<string, unknown>).Request) as typeof Request | undefined;
+    return (Req && rebuildRequest(Req, input, replay.bytes)) || input;
   }
 
-  function runRequest(op: OpRec, parsed: ParsedRequest, input: unknown, init: Record<string, unknown> | undefined, template: Request | null, gateRequest: boolean): Promise<Response> {
+  function runRequest(op: OpRec, parsed: ParsedRequest, input: unknown, init: Record<string, unknown> | undefined, replay: ReplaySource, gateRequest: boolean): Promise<Response> {
     const req = parsed.meta;
     return new Promise<Response>((resolve, reject) => {
       const signal = (init?.signal ?? (isRequestLike(input) ? input.signal : undefined)) as AbortSignal | undefined;
@@ -452,7 +497,7 @@ export function installFetch(host: NetHost): (() => void) | null {
       }
       signal?.addEventListener?.("abort", onAbort, { once: true } as AddEventListenerOptions);
 
-      let firstInput = input;
+      let sentOnce = false; // the first send uses the app's own input; later ones (retry) a replay of it
       const sentOps = new WeakSet<OpRec>();
       const send = (sendOp: OpRec, primary: boolean): void => {
         if (sentOps.has(sendOp)) return; // never send the same attempt twice
@@ -463,8 +508,9 @@ export function installFetch(host: NetHost): (() => void) | null {
         }
         let p: Promise<Response>;
         try {
-          p = nativeFetch(firstInput, init);
-          firstInput = replayInput(input, template);
+          const first = !sentOnce;
+          sentOnce = true;
+          p = nativeFetch(first ? input : replayInput(input, replay), init);
         } catch (e) {
           p = Promise.reject(e);
         }
@@ -585,7 +631,7 @@ export function installFetch(host: NetHost): (() => void) | null {
             const hedgeOp = host.startOp("fetch", req.signature, { detail: `${op.detail ?? ""} (hedge)`.trim(), ...(req.identity ? { identity: req.identity } : {}), method: req.method, url: req.url, attempt: op.attempt, cause: op });
             let hp: Promise<Response>;
             try {
-              hp = nativeFetch(replayInput(input, template), init);
+              hp = nativeFetch(replayInput(input, replay), init);
             } catch (e) {
               hp = Promise.reject(e);
             }

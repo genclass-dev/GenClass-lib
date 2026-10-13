@@ -95,6 +95,7 @@ import { installNav } from "./observe/nav.js";
 import { installStorage } from "./observe/storage.js";
 import { installPerf } from "./observe/perf.js";
 import { installWebSocket } from "./observe/websocket.js";
+import { deviceEnv, memoryFloor, skippedMessage } from "./model/device.js";
 import { installTimers } from "./observe/timers.js";
 import { defaultRedact, normalizeFieldPath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
 import { blockedMessage } from "./model/blocked.js";
@@ -481,12 +482,24 @@ export class RuntimeImpl implements Runtime {
         this.fire("status", s);
         const becameReady = s.state === "ready" && !wasReady;
         wasReady = s.state === "ready";
-        if (becameReady) this.emitReport({ kind: "status", message: `[GenClass] Model ready (${[s.model, s.device, s.variant].filter(Boolean).join(", ")}${s.loadMs !== undefined ? `, ${secs(s.loadMs)}` : ""}). Mode: ${this._mode}.` });
+        if (becameReady)
+          this.emitReport({
+            kind: "status",
+            message: `[GenClass] Model ready (${[s.model, s.device, s.variant].filter(Boolean).join(", ")}${s.loadMs !== undefined ? `, ${secs(s.loadMs)}` : ""}${s.worker === false ? "; inline on the main thread" : ""}). Mode: ${this._mode}.`,
+          });
         // a blocked download (CSP, most often): one warning naming the origin and the fix, instead of the bare error
         if (s.state === "error" && s.blocked) this.warnOnce("model-blocked", blockedMessage(s.blocked));
         else if (s.state === "error") this.emitReport({ kind: "status", message: `[GenClass] Model unavailable (${s.error ?? "error"}); observing only.` });
+        else if (s.state === "skipped" && s.reason === "worker-unavailable") this.warnWorkerUnavailable(s);
       });
       this.uninstall.push(off);
+    }
+    // not loaded before the runtime could subscribe: the device floor (model.loadIf, src/model/device.ts) or, with
+    // preload "eager", a worker that could not be created under inlineFallback: false. Say so once.
+    const st0 = this.decider?.status;
+    if (this.ownsDecider && st0?.state === "skipped") {
+      if (st0.reason === "worker-unavailable") this.warnWorkerUnavailable(st0);
+      else this.emitReport({ kind: "status", message: skippedMessage(st0.reason, deviceEnv(this.global), memoryFloor(mo)) });
     }
     if (this.persist) this.loadProfiles();
     // enabled (OPTIONS-SPEC §4.1): false installs nothing; a predicate, Promise or flag runs pass-through until true
@@ -2846,6 +2859,15 @@ export class RuntimeImpl implements Runtime {
   }
 
   private warned = new Set<string>();
+  /** The worker could not start and the app said never to run the model on the main thread (model.inlineFallback: false). */
+  private warnWorkerUnavailable(s: ModelStatus): void {
+    this.warnOnce(
+      "worker-unavailable",
+      `The model worker could not start (${s.workerError ?? "unknown"}) and model.inlineFallback is false, so the model is not loaded; GenClass keeps observing without it. ` +
+        `If a Content-Security-Policy blocks the worker, allow worker-src 'self' (blob: for the script tag) or self-host (npx @genclass/runtime fetch-model).`,
+    );
+  }
+
   private warnOnce(key: string, msg: string): void {
     if (this.warned.has(key)) return;
     this.warned.add(key);

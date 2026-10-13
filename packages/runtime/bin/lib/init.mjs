@@ -366,6 +366,9 @@ function cspAdvice(project, files, cfg) {
     out(`    The model loads from ${cfg.model.baseUrl} (same origin): connect-src 'self' is enough.`);
   }
   if (!csp.wasmEval) out(`    The model runs WebAssembly: script-src needs 'wasm-unsafe-eval'.`);
+  out(`    The model runs in a Web Worker: worker-src (else script-src, default-src) must allow 'self' (blob: for the`);
+  out(`    script tag). If the worker is blocked, GenClass runs the model on the main thread; set`);
+  out(`    model: { inlineFallback: false } to skip the model instead.`);
 }
 
 /**

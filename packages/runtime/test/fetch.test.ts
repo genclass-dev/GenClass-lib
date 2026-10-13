@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { createRuntime } from "../src/index.js";
 import { MAX_BODY, MAX_ENTRIES } from "../src/observe/cache.js";
-import { ManualDecider, defaultScript, setup } from "./helpers.js";
+import { rebuildRequest } from "../src/observe/fetch.js";
+import { FakeClock, ManualDecider, ScriptedDecider, defaultScript, setup } from "./helpers.js";
 
 describe("fetch observer", () => {
   it("plain traffic makes no model call (triage neutrality)", async () => {
@@ -244,5 +246,125 @@ describe("fetch observer", () => {
     expect(g.fetch).not.toBe(server.fetch);
     rt.destroy();
     expect(g.fetch).toBe(server.fetch);
+  });
+});
+
+describe("fetch observer: Request objects with bodies (one clone; replays come from the identity bytes)", () => {
+  const ONLY_FETCH = { fetch: true, xhr: false, user: false, errors: false, nav: false, storage: false, perf: false, websocket: false, timers: false };
+
+  it("a small body is cloned exactly once; retry re-sends the same bytes and headers (no second clone kept alive)", async () => {
+    const seen: { body: string; ct: string | null; key: string | null; method: string }[] = [];
+    const clock = new FakeClock();
+    // the network reads the app's own Request (like a browser); the first attempt fails
+    const g: Record<string, unknown> = {
+      fetch: async (input: unknown) => {
+        const r = input as Request;
+        seen.push({ body: await r.text(), ct: r.headers.get("content-type"), key: r.headers.get("idempotency-key"), method: r.method });
+        return new Response("{}", { status: seen.length === 1 ? 500 : 201, headers: { "content-type": "application/json" } });
+      },
+      Response,
+      location: { href: "http://app.test/", pathname: "/", search: "" },
+    };
+    const decider = new ScriptedDecider(defaultScript({ failure: { diagnosis: "transient", action: "retry" } }));
+    const rt = createRuntime({ clock, global: g, decider, mode: "heal", triage: "always", report: "silent", observe: ONLY_FETCH });
+    const spy = vi.spyOn(Request.prototype, "clone");
+    try {
+      const req = new Request("http://app.test/api/orders", { method: "POST", body: '{"sku":"A1","qty":2}', headers: { "content-type": "application/json", "Idempotency-Key": "k-1" } });
+      const p = (g.fetch as typeof fetch)(req);
+      await clock.advance(2000);
+      const r = await p;
+      expect(r.status).toBe(201);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(seen).toEqual([
+        { body: '{"sku":"A1","qty":2}', ct: "application/json", key: "k-1", method: "POST" },
+        { body: '{"sku":"A1","qty":2}', ct: "application/json", key: "k-1", method: "POST" },
+      ]);
+      expect(rt.interventions().map((a) => a.action)).toEqual(["retry"]);
+    } finally {
+      spy.mockRestore();
+      rt.destroy();
+    }
+  });
+
+  it("two Request objects with the same small body are identical (coalesce still works from the single clone)", async () => {
+    const { rt, clock, server, fetch } = setup({ script: defaultScript({ request: { diagnosis: "duplicate", action: "coalesce" } }) });
+    server.on("POST", "/api/orders", ({ n }) => ({ status: 201, body: { order: n }, latency: 200 }));
+    const out: { mark: string | null; body: unknown }[] = [];
+    const submit = () =>
+      rt.user({ kind: "click", target: 'button "Place order"' }, () => {
+        const req = new Request("http://app.test/api/orders", { method: "POST", body: JSON.stringify({ sku: "A1", qty: 1 }), headers: { "content-type": "application/json" } });
+        void fetch(req as unknown as string).then(async (r) => out.push({ mark: r.headers.get("x-genclass"), body: await r.json() }));
+      });
+    submit();
+    await clock.advance(90);
+    submit();
+    await clock.advance(1000);
+    expect(server.hits.get("POST /api/orders")).toBe(1);
+    expect(out).toEqual([
+      { mark: null, body: { order: 1 } },
+      { mark: "coalesced", body: { order: 1 } },
+    ]);
+  });
+
+  it("a body the content-length says is over 64 KB is never cloned and not replayable: no second copy, no retry", async () => {
+    const { clock, server, fetch, decider } = setup({ mode: "heal", triage: "always", script: defaultScript({ failure: { diagnosis: "transient", action: "retry" } }) });
+    server.on("PUT", "/api/upload", { status: 500, body: {}, latency: 10 });
+    let clones = 0;
+    // a Request-like upload (what axios's fetch adapter or ky hand to fetch), its length known up front
+    const big = {
+      url: "http://app.test/api/upload",
+      method: "PUT",
+      headers: new Headers({ "content-length": "70000", "content-type": "application/octet-stream" }),
+      body: {},
+      clone() {
+        clones++;
+        return this;
+      },
+    };
+    const p = fetch(big as unknown as string);
+    await clock.advance(2000);
+    expect((await p).status).toBe(500);
+    expect(clones).toBe(0);
+    expect(server.hits.get("PUT /api/upload")).toBe(1);
+    const f = decider.calls.find((c) => c.trigger === "failure")!;
+    const q = f.questions.action as { criteria: Record<string, string> } | undefined;
+    expect(q ? Object.keys(q.criteria) : []).not.toContain("retry");
+  });
+
+  it("a body of unknown length that turns out larger than 64 KB: the single clone is cancelled, not replayable, never identical", async () => {
+    const { clock, server, fetch, decider, rt } = setup({ mode: "heal", triage: "always", script: defaultScript({ failure: { diagnosis: "transient", action: "retry" } }) });
+    server.on("PUT", "/api/upload", { status: 500, body: {}, latency: 10 });
+    const spy = vi.spyOn(Request.prototype, "clone");
+    try {
+      const mk = () => new Request("http://app.test/api/upload", { method: "PUT", body: "x".repeat(70_000) });
+      const p1 = fetch(mk() as unknown as string);
+      const p2 = fetch(mk() as unknown as string);
+      await clock.advance(2000);
+      expect((await p1).status).toBe(500);
+      expect((await p2).status).toBe(500);
+      expect(spy).toHaveBeenCalledTimes(2); // one clone per request, none kept for replays
+      expect(server.hits.get("PUT /api/upload")).toBe(2); // no retry
+      const f = decider.calls.find((c) => c.trigger === "failure")!;
+      const q = f.questions.action as { criteria: Record<string, string> } | undefined;
+      expect(q ? Object.keys(q.criteria) : []).not.toContain("retry");
+      const ids = [...rt.ops.byId.values()].filter((o) => o.kind === "fetch").map((o) => o.identity);
+      expect(ids).toHaveLength(2);
+      expect(ids[0]).not.toBe(ids[1]); // the bytes were not read in full: a unique identity each
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("rebuildRequest copies the URL, method, headers and fields with the given bytes; it never reads the original", async () => {
+    const orig = new Request("http://app.test/api/items/7", { method: "PUT", body: "abc", headers: { "content-type": "text/plain", "idempotency-key": "k" }, credentials: "omit", cache: "no-store", redirect: "manual", keepalive: false });
+    const r = rebuildRequest(Request, orig, new TextEncoder().encode("abc"))!;
+    expect(orig.bodyUsed).toBe(false);
+    expect([r.url, r.method, r.headers.get("content-type"), r.headers.get("idempotency-key"), r.credentials, r.cache, r.redirect]).toEqual(["http://app.test/api/items/7", "PUT", "text/plain", "k", "omit", "no-store", "manual"]);
+    expect(await r.text()).toBe("abc");
+    // also from a Request whose body the first send already consumed
+    await orig.text();
+    expect(orig.bodyUsed).toBe(true);
+    const r2 = rebuildRequest(Request, orig, new TextEncoder().encode("abc"))!;
+    expect(await r2.text()).toBe("abc");
   });
 });

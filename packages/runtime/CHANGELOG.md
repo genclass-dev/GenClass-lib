@@ -49,6 +49,67 @@ sends.
   the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
   see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
 
+### Defaults and footprint
+
+- **A device floor by default.** `model.loadIf` now defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`: the
+  model (about 13 MB downloaded on a first visit and 190 to 280 MB more renderer memory while it is loaded, README
+  "Costs") is not loaded on devices whose `navigator.deviceMemory` is under 4 GB, which, as the value is quantised
+  to powers of two, means exactly the devices reporting 2 GB or less, nor on Save-Data connections (before:
+  Save-Data only made the load lazy). The runtime then keeps observing without a model (`status.state`
+  "skipped", reason `device-memory` / `save-data`; nothing is detected or prevented on that device) and prints
+  one line: `[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least
+  4 GB. …`. Browsers that do not report `deviceMemory` (Safari, Firefox) load as before. An object `loadIf`
+  without `saveData` now skips on Save-Data too (`saveData: "lazy"` keeps the old behaviour).
+  `model: { loadIf: () => true }` forces the load. `DEFAULT_LOAD_IF` is exported next to `deviceEnv` and
+  `evalLoadIf` (now in `src/model/device.ts`).
+- **Fix: `model.inlineFallback: false` is honoured.** The option was documented since 0.2.0 but the model host
+  ignored it and ran the model on the main thread whenever the worker could not be created, errored before it
+  came up or never came up (a `worker-src` policy, `file:`). Now `false` means the model is not loaded in those
+  cases: `status.state` is `skipped` with reason `worker-unavailable` and `workerError` naming the failure, pending
+  evaluations fail open, `rt.ready` rejects, `load()` tries the worker again (with its one WebGPU-to-WASM retry), and
+  one console warning names the error and the `worker-src` fix. `worker: false` still runs inline (that asks for the
+  main thread). The default stays `true` as documented; the `Model ready` line now says `inline on the main thread`
+  when it is, and `status.workerError` records why the worker was not used. `npx @genclass/runtime init` mentions `worker-src` in
+  its CSP advice.
+- **`fetch(new Request(...))` with a body no longer keeps a second copy of the upload.** The fetch observer cloned
+  such a Request twice: once to read up to 64 KB for the request's identity, and once as a pristine template for a
+  later retry or hedge. Nothing read the template until a replay, so its stream tee queued the whole body in memory
+  for the request's lifetime (uploads through axios's fetch adapter or ky, which pass a `Request`). Now there is one
+  clone, read up to 64 KB (then cancelled, which stops its tee from buffering), and a retry rebuilds the Request from
+  the original's URL and fields with those bytes, only when it happens. A Request whose `content-length` is over
+  64 KB is not cloned at all; it, and a body that turns out larger while being read, is not replayable (`retry` is
+  not offered for it; before, the template made it replayable at any size). String, form, Blob and BufferSource
+  bodies passed in `init` are unchanged.
+- **Telemetry volume is bounded per page load; detections are never dropped; counts stay exact.** Every model
+  decision used to be sent as a `decision` record (up to 30 a minute with the built-in model, for as long as a tab
+  stayed open). Now every detection is sent, with its `decision` record, never sampled or capped, and so is every
+  decision whose top diagnosis is not `expected` (near-misses below the report gate too), that ran an action, was
+  vetoed or would have acted in shadow mode. Only routine decisions (top diagnosis `expected`, passive action) are
+  thinned: one in four is sent (`telemetry.decisionSample`, default `0.25`, a hash of the session and decision ids),
+  and no routine records after 200 in a page load (`telemetry.maxDecisions`). `summary` events still count every
+  decision, detection, action and veto, and their `telemetry` block adds `decisionRecords`, `decisionsSampledOut`
+  and `decisionsCapped`; the `session` event names both settings. Summaries are not capped: one about every minute
+  while decisions continue, so the exact counts keep arriving after the cap (about 40 KB an hour). This narrows what
+  is sent; nothing new about the page is sent. Measured in CI for one page over a simulated hour at 30 decisions a
+  minute (scripted decisions, not the model; situation text off): VOLUME_CHANGELOG_PENDING (TELEMETRY.md, "Volume";
+  docs/runtime/RESULTS.md).
+  (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
+- **A page the device floor skips still reports why.** Its `session` event says `modelState: "skipped"`, and a
+  `model` event with the reason (`device-memory`, `save-data`, `loadIf`) follows it; before, the reason was only in
+  the console line, because the model never changed state after telemetry started.
+- **Telemetry: `workerError` in the `model` event carries no URLs.** This version also records the Worker
+  constructor's exception in `status.workerError` (above; before, nothing was recorded for it), and a browser's text
+  for it can name the worker script's URL and the page's origin (a Content-Security-Policy or cross-origin
+  `SecurityError`). Telemetry replaces every URL in `workerError` with `<url>`, for that and for the errors a worker
+  reports before it comes up; `status.workerError` and the console warning keep the full text.
+- **WebSocket and EventSource messages are no longer JSON-parsed inside the dispatch.** Every incoming text message
+  (≤ 16 KB) was parsed and summarised before the app's listeners ran, and parsed a second time when its delivery was
+  analysed; every text `send` was summarised too. Now the summary and the parsed body are computed only when
+  something reads them (the delivery decision of a salient message, a situation that lists the op, devtools), once
+  each and from one shared parse. In observe mode a message that nothing finds salient is never parsed. The op, its
+  event and the delivery gate are unchanged, and the summary text is the same when it is read (the model sees the
+  same situation). Binary messages are still sized at once.
+
 ## 0.2.2 (2026-10-13)
 
 - **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so

@@ -8,6 +8,7 @@ import type { Clock, CreateOptions, DecisionProvider, DeviceEnv, EvaluateRequest
 import { browserClock } from "./clock.js";
 import { RuntimeImpl } from "./runtime.js";
 import { createModelHost } from "./model/host.js";
+import { deviceEnv, evalLoadIf } from "./model/device.js";
 import { startTelemetry } from "./telemetry/index.js";
 import { telemetryOff } from "./telemetry/client.js";
 import { resolveToken } from "./token.js";
@@ -64,42 +65,7 @@ function skippedProvider(reason: string): DecisionProvider {
   return { status: { state: "skipped", reason }, ready: () => Promise.reject(err), evaluate: () => Promise.reject(err) };
 }
 
-/** What the page can tell about the device (OPTIONS-SPEC §4.15). Unknown values stay undefined (= allowed). */
-export function deviceEnv(g: Record<string, unknown>): DeviceEnv {
-  const nav = (g.navigator ?? {}) as {
-    deviceMemory?: number;
-    hardwareConcurrency?: number;
-    gpu?: unknown;
-    connection?: { saveData?: boolean; effectiveType?: string };
-    userAgentData?: { mobile?: boolean };
-  };
-  const env: DeviceEnv = { webgpu: !!nav.gpu };
-  if (typeof nav.userAgentData?.mobile === "boolean") env.mobile = nav.userAgentData.mobile;
-  if (typeof nav.deviceMemory === "number") env.deviceMemoryGB = nav.deviceMemory;
-  if (typeof nav.hardwareConcurrency === "number") env.cores = nav.hardwareConcurrency;
-  if (typeof nav.connection?.saveData === "boolean") env.saveData = nav.connection.saveData;
-  if (typeof nav.connection?.effectiveType === "string") env.effectiveType = nav.connection.effectiveType;
-  return env;
-}
-
-/** loadIf → "load" | "lazy" | skip reason. A throwing predicate counts as allowed. */
-export function evalLoadIf(m: ModelOptions, env: DeviceEnv, warn: (s: string) => void): "load" | "lazy" | { skip: string } {
-  const li = m.loadIf ?? { saveData: "lazy" as const };
-  if (typeof li === "function") {
-    try {
-      const v = li(env);
-      return v === "lazy" ? "lazy" : v === false ? { skip: "loadIf" } : "load";
-    } catch (e) {
-      warn(`model.loadIf threw (${(e as Error)?.message ?? e}); loading anyway.`);
-      return "load";
-    }
-  }
-  if (typeof li.minDeviceMemoryGB === "number" && typeof env.deviceMemoryGB === "number" && env.deviceMemoryGB < li.minDeviceMemoryGB) return { skip: "device-memory" };
-  const sd = li.saveData ?? "lazy";
-  if (env.saveData === true && sd === "skip") return { skip: "save-data" };
-  if (env.saveData === true && sd === "lazy") return "lazy";
-  return "load";
-}
+export { deviceEnv, evalLoadIf, DEFAULT_LOAD_IF } from "./model/device.js";
 
 function hostOptions(m: ModelOptions, env: DeviceEnv): Record<string, unknown> {
   const { loadIf: _l, inlineFallback: _i, threads, timeoutMs, maxDecisionsPerMinute: _d, unloadAfterIdleMs: _u, ...rest } = m;
@@ -107,7 +73,7 @@ function hostOptions(m: ModelOptions, env: DeviceEnv): Record<string, unknown> {
   if (typeof threads === "number" && threads >= 1) out.maxThreads = Math.floor(threads);
   else if (threads === "auto" && typeof env.cores === "number") out.maxThreads = Math.min(4, Math.max(1, env.cores - 1));
   if (typeof timeoutMs === "number" && timeoutMs > 0) out.timeoutMs = timeoutMs;
-  // inlineFallback:false needs a host option (src/model/**, not CORE): flagged, passed through for the host to honour.
+  // inlineFallback:false: the host then never runs the model on the main thread (status "skipped", worker-unavailable)
   if (m.inlineFallback === false) out.inlineFallback = false;
   return out;
 }

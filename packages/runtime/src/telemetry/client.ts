@@ -8,10 +8,19 @@
 //   page from sending. Bounded queue (MAX_QUEUE events).
 // - Timers come from the runtime's Clock; times are ms since this session started (no wall clock: the collector
 //   stamps receivedAt). The session id is random per page load and never stored.
+// - Volume (TELEMETRY.md "Volume"): every decision is counted in `summary`. Detections are never sampled or capped:
+//   every `detect` event and the `decision` record it points to are sent, as are the records of every decision whose
+//   top diagnosis is not "expected" (near-misses below the report gate included) and of every action or veto. Only
+//   routine decisions (top diagnosis "expected", nothing acted, vetoed or shadow-passed) are sampled, a
+//   `decisionSample` share (a hash of the session and decision ids, no randomness), and capped at `maxDecisions` per
+//   page load. A decision whose record is withheld still arms the flush timer, so `summary` keeps its once-a-minute
+//   cadence while decisions continue.
+// - A page whose model is skipped before telemetry starts (the device floor, model.loadIf) still sends its `session`
+//   event (modelState "skipped") followed by a `model` event with the reason.
 
 import type { RuntimeImpl } from "../runtime.js";
 import type { ActionRecord, Answer, Decision, ModelStatus, TelemetryStatus } from "../types.js";
-import { REDACTED, normalizePath } from "../util.js";
+import { REDACTED, fnv1a, normalizePath } from "../util.js";
 import { RUNTIME_VERSION } from "../version.js";
 import { TELEMETRY_SCHEMA, type TelemetryConfig } from "./config.js";
 
@@ -37,6 +46,8 @@ export interface TelemetrySessionInfo {
 
 const r4 = (n: unknown): number | undefined => (typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : undefined);
 const cut = (s: unknown, n: number): string | undefined => (typeof s === "string" ? (s.length > n ? s.slice(0, n) : s) : undefined);
+/** URLs in browser error text are not sent (a Worker constructor's SecurityError names the script and the page origin). */
+const noUrls = (s: unknown): unknown => (typeof s === "string" ? s.replace(/\b(?:[a-z][a-z0-9+.-]*:\/\/|(?:blob|data):[a-z])[^\s'"`<>]*/gi, "<url>") : s);
 
 /** An e-mail address, a URL, a run of 4+ digits (ids, phone or card numbers) or 12+ hex digits (a UUID, a hash). */
 const DATA_LIKE = /[^\s@]+@[^\s@]+\.[^\s@]+|\b(?:https?:\/\/|www\.)|\d{4,}|\b[0-9a-f]{12,}\b/i;
@@ -95,6 +106,12 @@ export class TelemetryClient implements TelemetryStatus {
   /** Consecutive failed requests; at MAX_FAIL_STREAK the page stops sending (a CSP block or a dead endpoint). */
   private failStreak = 0;
   private sentEvents = 0;
+  /** Decisions whose records were sent, routine ones sampled out (decisionSample), and routine ones over maxDecisions. */
+  private decisionRecords = 0;
+  private decisionsSampledOut = 0;
+  private decisionsCapped = 0;
+  /** Routine decisions whose records were sent: the count maxDecisions caps. */
+  private routineRecords = 0;
   private pending = new Set<Promise<void>>();
   private offs: (() => void)[] = [];
   private readonly c = {
@@ -125,6 +142,9 @@ export class TelemetryClient implements TelemetryStatus {
     this.t0 = rt.clock.now();
     this.lastSummaryAt = this.t0;
     this.session(info);
+    // skipped before the runtime could report a change (the device floor): say why right after the session
+    const st = rt.status;
+    if (st.state === "skipped" || st.state === "error") this.modelEvent(st);
     this.listen();
   }
 
@@ -202,7 +222,31 @@ export class TelemetryClient implements TelemetryStatus {
       }),
       sample: this.cfg.sample,
       situation: this.cfg.situation,
+      decisionSample: this.cfg.decisionSample,
+      maxDecisions: this.cfg.maxDecisions,
     });
+  }
+
+  /**
+   * Whether this decision's records are sent. Not routine (a diagnosis other than "expected", an action, a veto, a
+   * shadow pass): always, never sampled or capped. Routine: while fewer than `maxDecisions` routine records were sent
+   * in this page load, a `decisionSample` share drawn from a hash of the session and decision ids. Counts are kept
+   * either way.
+   */
+  private sends(id: string, routine: boolean): boolean {
+    if (routine) {
+      if (this.routineRecords >= this.cfg.maxDecisions) {
+        this.decisionsCapped++;
+        return false;
+      }
+      if (this.cfg.decisionSample < 1 && parseInt(fnv1a(`${this.cfg.sessionId}:${id}`), 16) / 0x100000000 >= this.cfg.decisionSample) {
+        this.decisionsSampledOut++;
+        return false;
+      }
+      this.routineRecords++;
+    }
+    this.decisionRecords++;
+    return true;
   }
 
   private statusKeyOf(s: ModelStatus): string {
@@ -214,33 +258,37 @@ export class TelemetryClient implements TelemetryStatus {
     const mk = `${s.state}|${s.version ?? ""}`;
     if (mk !== this.modelKey) {
       this.modelKey = mk;
-      this.push({
-        t: "model",
-        state: s.state,
-        version: s.version,
-        model: cut(s.model, 80),
-        variant: cut(s.variant, 80),
-        device: s.device,
-        threads: s.threads,
-        worker: s.worker,
-        workerError: cut(s.workerError, 200),
-        gpu: cut(s.gpu, 120),
-        ort: cut(s.ort, 40),
-        loadMs: typeof s.loadMs === "number" ? Math.round(s.loadMs) : undefined,
-        warmupMs: typeof s.warmupMs === "number" ? Math.round(s.warmupMs) : undefined,
-        fromCache: s.fromCache,
-        bytes: s.bytes,
-        phase: s.phase,
-        reason: cut(s.reason, 120),
-        error: cut(s.error, 200),
-        attempts: Array.isArray(s.attempts) ? s.attempts.slice(0, 6).map((a) => ({ variant: cut(a.variant, 80), device: cut(a.device, 16), error: cut(a.error, 160) })) : undefined,
-      });
+      this.modelEvent(s);
     }
     const sk = this.statusKeyOf(s);
     if (sk !== this.statusKey) {
       this.statusKey = sk;
       this.push({ t: "status", mode: this.rt.mode, effectiveMode: s.effectiveMode, aggressiveness: r4(this.rt.aggressiveness), breaker: !!s.breaker?.tripped });
     }
+  }
+
+  private modelEvent(s: ModelStatus): void {
+    this.push({
+      t: "model",
+      state: s.state,
+      version: s.version,
+      model: cut(s.model, 80),
+      variant: cut(s.variant, 80),
+      device: s.device,
+      threads: s.threads,
+      worker: s.worker,
+      workerError: cut(noUrls(s.workerError), 200),
+      gpu: cut(s.gpu, 120),
+      ort: cut(s.ort, 40),
+      loadMs: typeof s.loadMs === "number" ? Math.round(s.loadMs) : undefined,
+      warmupMs: typeof s.warmupMs === "number" ? Math.round(s.warmupMs) : undefined,
+      fromCache: s.fromCache,
+      bytes: s.bytes,
+      phase: s.phase,
+      reason: cut(s.reason, 120),
+      error: cut(s.error, 200),
+      attempts: Array.isArray(s.attempts) ? s.attempts.slice(0, 6).map((a) => ({ variant: cut(a.variant, 80), device: cut(a.device, 16), error: cut(a.error, 160) })) : undefined,
+    });
   }
 
   private onDecide(d: Decision): void {
@@ -252,8 +300,19 @@ export class TelemetryClient implements TelemetryStatus {
     inc(c.byAction, d.ran);
     const acted = d.executed && d.tier !== "passive";
     if (acted) c.acted++;
+    const vetoed = d.reason === "vetoed" || d.reason === "would-veto";
+    if (vetoed) c.vetoes++;
     const info = this.rt.decisionInfo(d.id);
     const gates = info?.gates;
+    // routine: the top diagnosis is "expected" and nothing acted, was vetoed or would have acted in shadow mode. Every
+    // detection (its "detect" event follows this one) has a diagnosis other than "expected", so its record is never
+    // sampled out or capped; only which records are sent depends on this, never what is counted
+    const routine = d.diagnosis === "expected" && !acted && !vetoed && !d.shadow?.wouldPass;
+    if (!this.sends(d.id, routine)) {
+      // counted, not sent: the periodic summary is due from the flush timer, which queued events arm otherwise
+      this.arm();
+      return;
+    }
     this.push({
       t: "decision",
       id: d.id,
@@ -294,16 +353,14 @@ export class TelemetryClient implements TelemetryStatus {
       // token: it feeds that app's dashboard and is not sent otherwise; a label that looks like data is redacted
       fn: this.cfg.token ? fnLabel(d.fn) : undefined,
     });
-    if (d.reason === "vetoed" || d.reason === "would-veto") {
-      c.vetoes++;
-      this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
-    }
+    if (vetoed) this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
   }
 
   private onDetect(d: Decision): void {
     this.dirty = true;
     this.c.detections++;
     inc(this.c.detectionsByDiagnosis, d.diagnosis);
+    // never sampled or capped (its decision record went too: a detection's diagnosis is never "expected")
     this.push({ t: "detect", decision: d.id, trigger: d.trigger, diagnosis: d.diagnosis, p: r4(d.diagnosisConfidence) });
   }
 
@@ -479,7 +536,15 @@ export class TelemetryClient implements TelemetryStatus {
             errors: rs.errors,
           }
         : undefined,
-      telemetry: { queued: this.queue.length, dropped: this.dropped, sendFailures: this.sendFailures, sentEvents: this.sentEvents },
+      telemetry: {
+        queued: this.queue.length,
+        dropped: this.dropped,
+        sendFailures: this.sendFailures,
+        sentEvents: this.sentEvents,
+        decisionRecords: this.decisionRecords,
+        decisionsSampledOut: this.decisionsSampledOut,
+        decisionsCapped: this.decisionsCapped,
+      },
     });
   }
 

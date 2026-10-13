@@ -417,8 +417,8 @@ These hold for the runtime; whether the model's decisions are good is a separate
   it changed carry an `x-genclass` header.
 - **Off in one step.** `?genclass=off` in the URL installs nothing, and observe (the default) never changes
   execution.
-- **Small on the main thread.** The main entry is about 91 KB gzip in `0.2.2` (minified, without the optional
-  devtools; see Performance for the next release). The
+- **Small on the main thread.** The main entry is about 92 KB gzip in `0.2.2` (minified, without the optional
+  devtools; see Performance for `0.3.0`). The
   default model is 10.2 MB on WASM (13.6 MB fp16 on WebGPU with `shader-f16`), downloaded once at idle and cached.
   It runs in a worker that holds 190 to 280 MB while loaded: see [Costs](#costs).
 
@@ -719,7 +719,7 @@ const rt = GenClass.init({
   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init
   model: {
     preload: "idle",
-    loadIf: { minDeviceMemoryGB: 2, saveData: "lazy" },
+    loadIf: { minDeviceMemoryGB: 8, saveData: "skip" },   // default { minDeviceMemoryGB: 4, saveData: "skip" }
     threads: 2,
     timeoutMs: 10_000,
     maxDecisionsPerMinute: 30,
@@ -834,9 +834,8 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | settled-point check | 0.3 ms |
 
 - **Bundle:** what every page loads is about 99 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 91 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild in `0.2.2`. The next release (app tokens, `protect()`) measures 100.68 KB and 93.19 KB (CI run
-  38436014497; `test/bundle.test.ts` keeps them under 101 KB and 94 KB and prints the sizes). The model worker, ONNX Runtime Web's JavaScript
+  discovery and 92 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
+  esbuild in `0.2.2`. `0.3.0` measures BUNDLE_SIZES_PENDING. The model worker, ONNX Runtime Web's JavaScript
   (about 70 KB gzip for WASM, 115 KB with WebGPU, minified) and the devtools are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
@@ -857,9 +856,11 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   `Cross-Origin-Embedder-Policy: require-corp` enables WASM threads (about 3× faster with 4 threads in Chromium,
   measured with the round-1 model of the same size).
 - **Loading:** the model loads at idle after page load (`model.preload: "idle"`) from
-  `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`. It is cached in Cache Storage and checked
-  with sha256. To self-host, see [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting).
-  `model: false` loads no model (nothing is detected or prevented then).
+  `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`, except on devices that report 2 GB of
+  memory or less and on Save-Data connections (the default `model.loadIf` after `0.2.2`, see [Costs](#costs)). It is cached in
+  Cache Storage and checked with sha256. To self-host, see
+  [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting). `model: false` loads no
+  model (nothing is detected or prevented then).
 
 ## Costs
 
@@ -869,7 +870,7 @@ without `?genclass=off`:
 
 | | with GenClass |
 |---|---|
-| JavaScript on every page (first load, gzip) | about +99 KB (`/auto` with discovery; 91 KB for the main entry, see Performance) |
+| JavaScript on every page (first load, gzip) | about +101 KB (`/auto` with discovery; 93 KB for the main entry, see Performance) |
 | Main thread: load event, LCP, long tasks | no measurable change; main JS heap +0.4 MB |
 | **Memory: renderer process (holds the model worker)** | **+190 to 280 MB RSS** while the model is loaded (cold 448 vs 169 MB, warm 361 vs 171 MB) |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build |
@@ -882,21 +883,26 @@ without `?genclass=off`:
 
 | | cost |
 |---|---|
-| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the 99 KB `/auto` entry; `GenClass.init()` setups do not load it) |
+| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the `/auto` entry; `GenClass.init()` setups do not load it) |
 | React commit walk, 4× CPU throttling | p50 0.2 ms, p95 1.8 ms, max 2.1 ms per commit including recording the change; total about 5 ms over the `/order` visit |
 | React commit walk, no throttling, 54 bench trials (about 2,000 commits) | p50 below 0.1 ms (the timer's resolution), p95 0.8 to 0.9 ms, max 3.8 ms |
 | Main-thread JS heap (after GC, 4× throttling) | 5.7 MB vs 5.2 MB without discovery |
 | Long tasks (> 50 ms) | unchanged (1 per run, 65 to 70 ms, with and without) |
 
 **On phones** the memory and the download are what matter (the page may also run a call, the camera or a
-recorder). Options that exist today:
+recorder). **By default the model is not loaded on devices that report 2 GB of memory or less, nor on Save-Data
+connections** (after `0.2.2`; `0.2.2` and earlier load everywhere and only lazily on Save-Data; `model.loadIf` defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`; `navigator.deviceMemory` is
+quantised to powers of two, so 4 is exactly that floor; Safari and Firefox do not report it and load). The runtime
+then keeps observing without a model (nothing is detected or prevented on that device) and prints one line,
+`[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least 4 GB. …`.
+Options on top of that:
 
 ```ts
 GenClass.init({
   model: {
-    // no model on phones (Chromium reports userAgentData.mobile; Safari does not), or on small devices
-    loadIf: (env) => !env.mobile && (env.deviceMemoryGB ?? 8) >= 4,
-    // or: loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }   (skip on Save-Data connections too)
+    // no model on phones at all (Chromium reports userAgentData.mobile; Safari does not), or a higher floor
+    loadIf: (env) => !env.mobile && (env.deviceMemoryGB ?? 8) >= 8,
+    // or everywhere, floor and Save-Data ignored: loadIf: () => true
     preload: "lazy",            // download on the first salient situation, not at idle on every page
     unloadAfterIdleMs: 60_000,  // free the worker's memory after a minute without a decision
   },
@@ -904,7 +910,6 @@ GenClass.init({
 ```
 
 `model: false` keeps the runtime observing (console reports, `rt.status`, devtools) with no download and no worker.
-The default `loadIf` already loads lazily on Save-Data connections.
 
 ## Content-Security-Policy and self-hosting
 
@@ -926,7 +931,12 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   is about 24 MB; then also set `model.device: "wasm"` (`init --model-url` does it when it finds only the WASM
   build there). The WebGPU build's wasm is 27 MB, over the 25 MiB per-file limit of some static hosts (Cloudflare).
 - The policy also needs `'wasm-unsafe-eval'` in `script-src` (WebAssembly) and `worker-src 'self'` (or `blob:`
-  for the script tag).
+  for the script tag). When the worker cannot start (a policy without it, `file:`), the default
+  `model.inlineFallback: true` runs the model on the main thread instead (the `Model ready` line then says
+  `inline on the main thread`; each decision then blocks the page for about 180 ms on single-thread WASM, see
+  Model above). `model: { inlineFallback: false }`
+  skips the model in that case (`status.state` `skipped`, reason `worker-unavailable`, one warning naming the
+  worker error) and the runtime observes without it.
 - Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
   requests, so the policy logs at most 3 violations.
@@ -935,7 +945,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
-- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and for each decision the trigger, the diagnosis and its confidence, the action and gate, the outcome, latency and counts. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - **With a token** (next release: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
@@ -943,7 +953,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
   Without a token neither is sent; without telemetry, a token does nothing.
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
-- Other telemetry options: `npx @genclass/runtime init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, flushMs, maxBatch, include }` sends to your own collector, samples page loads, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
+- Other telemetry options: `npx @genclass/runtime init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, decisionSample, maxDecisions, flushMs, maxBatch, include }` sends to your own collector, samples page loads or decision records, caps them per page load, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - **Inputs:** typed values of password fields, `cc-*` / `one-time-code` / password autocomplete fields, and fields
   whose name or label names a secret are never recorded.
 - **Redaction:** the default redactor (`redact` option) works by the leaf field's meaning, not by substring.

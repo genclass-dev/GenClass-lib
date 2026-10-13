@@ -9,8 +9,8 @@ import type { RuntimeImpl } from "../src/runtime.js";
 import { stateText } from "../src/situation/serialize.js";
 import { resetTelemetryNotice, resolveTelemetry, MAX_QUEUE } from "../src/telemetry/index.js";
 import { isLocalHost } from "../src/telemetry/config.js";
-import type { TelemetryTransport } from "../src/types.js";
-import { FakeClock, defaultScript, setup } from "./helpers.js";
+import type { ModelStatus, TelemetryTransport } from "../src/types.js";
+import { FakeClock, FakeServer, defaultScript, makeGlobal, setup } from "./helpers.js";
 
 interface Sent {
   url: string;
@@ -157,7 +157,7 @@ describe("telemetry: defaults and opt-outs (TELEMETRY.md)", () => {
 
 describe("telemetry: batching, flush and page exit", () => {
   it("batches on the flush interval, splits by maxBatch, and keeps a bounded queue", async () => {
-    const { rt, clock, transport } = tsetup({ triage: "always" }, { flushMs: 5000, maxBatch: 3 });
+    const { rt, clock, transport } = tsetup({ triage: "always" }, { flushMs: 5000, maxBatch: 3, decisionSample: 1 });
     expect(rt.telemetry?.enabled).toBe(true);
     expect(transport.sent).toHaveLength(0);
     const a = rt.atom("a", 1);
@@ -227,7 +227,7 @@ describe("telemetry: batching, flush and page exit", () => {
   });
 
   it("after MAX_FAIL_STREAK failed requests in a row a page stops sending (a CSP block logs at most 3 violations)", async () => {
-    const { rt, clock, transport } = tsetup({ triage: "always" }, {}, "reject");
+    const { rt, clock, transport } = tsetup({ triage: "always" }, { decisionSample: 1 }, "reject");
     const a = rt.atom("a", 1);
     for (let i = 0; i < 6; i++) {
       void rt.op(`w${i}`, () => a.set(i + 2));
@@ -255,7 +255,7 @@ describe("telemetry: batching, flush and page exit", () => {
         return ok ? Promise.resolve() : Promise.reject(new Error("HTTP 503"));
       },
     };
-    const s = setup({ triage: "always", telemetry: { transport }, extraGlobal: { crypto: globalThis.crypto } });
+    const s = setup({ triage: "always", telemetry: { transport, decisionSample: 1 }, extraGlobal: { crypto: globalThis.crypto } });
     const a = s.rt.atom("a", 1);
     for (let i = 0; i < 8; i++) {
       void s.rt.op(`w${i}`, () => a.set(i + 2));
@@ -360,6 +360,29 @@ describe("telemetry: event shapes and the situation text", () => {
     expect(b.get()).toBe(2);
   });
 
+  it("a model event's workerError carries no URLs (the browser's text names the worker script and the page origin)", async () => {
+    const fns = new Set<(s: ModelStatus) => void>();
+    const decider = {
+      status: { state: "loading" } as ModelStatus,
+      ready: () => Promise.resolve(),
+      evaluate: () => Promise.reject(new Error("no model")),
+      onStatus(fn: (s: ModelStatus) => void) {
+        fns.add(fn);
+        return () => fns.delete(fn);
+      },
+    };
+    const { rt, transport } = tsetup({ decider });
+    const text = "SecurityError: Failed to construct 'Worker': Script at 'https://cdn.example/npm/x/worker.js' cannot be accessed from origin 'https://shop.example'. blob:https://shop.example/0b1c";
+    decider.status = { state: "skipped", reason: "worker-unavailable", worker: false, workerError: text };
+    for (const f of fns) f(decider.status);
+    await rt.telemetry!.flush();
+    const m = ofType(transport, "model").at(-1)!;
+    expect(m).toMatchObject({ state: "skipped", reason: "worker-unavailable" });
+    expect(m.workerError).toBe("SecurityError: Failed to construct 'Worker': Script at '<url>' cannot be accessed from origin '<url>'. <url>");
+    // the runtime's own status (and the console warning built from it) keeps the full text
+    expect(rt.status.workerError).toBe(text);
+  });
+
   it("telemetry never changes what the model sees", async () => {
     const run = async (telemetry: boolean) => {
       const s = telemetry ? tsetup({ triage: "always" }) : setup({ triage: "always" });
@@ -370,6 +393,174 @@ describe("telemetry: event shapes and the situation text", () => {
     };
     expect(await run(true)).toEqual(await run(false));
   });
+});
+
+describe("telemetry: volume (TELEMETRY.md, Volume): routine decision records sampled and capped, detections never, counts exact", () => {
+  const STALE = defaultScript({ mutation: { diagnosis: "stale", action: "discard" } });
+  /** n mutation decisions, one every `everyMs`, then a final summary; returns what was sent. */
+  async function run(n: number, everyMs: number, opts: Parameters<typeof setup>[0], telemetry: Record<string, unknown> = {}) {
+    const s = tsetup({ triage: "always", mode: undefined, ...opts }, telemetry);
+    const a = s.rt.atom("a", 0);
+    for (let i = 0; i < n; i++) {
+      void s.rt.op("w", () => a.set(i + 1));
+      await s.clock.advance(everyMs);
+    }
+    (s.rt.telemetry as unknown as { summary(r: string): void }).summary("periodic");
+    await s.rt.telemetry!.flush();
+    const sum = ofType(s.transport, "summary").at(-1) as Record<string, any>;
+    return { ...s, sum, decisions: ofType(s.transport, "decision"), detects: ofType(s.transport, "detect") };
+  }
+
+  it("routine decisions: about 1 in 4 records by default, the same verdict for the same session and decision ids; counts exact", async () => {
+    const r = await run(80, 500, {});
+    expect(r.sum.counts.decisions).toBe(80);
+    const t = r.sum.telemetry;
+    expect(t.decisionRecords + t.decisionsSampledOut).toBe(80);
+    expect(t.decisionsCapped).toBe(0);
+    expect(r.decisions).toHaveLength(t.decisionRecords);
+    expect(t.decisionRecords).toBeGreaterThan(5); // a hash draw at 0.25 of 80: about 20
+    expect(t.decisionRecords).toBeLessThan(40);
+    expect(ofType(r.transport, "session")[0]).toMatchObject({ decisionSample: 0.25, maxDecisions: 200 });
+    // decisionSample: 1 sends every record, 0 none of the routine ones
+    expect((await run(10, 500, {}, { decisionSample: 1 })).decisions).toHaveLength(10);
+    const none = await run(10, 500, {}, { decisionSample: 0 });
+    expect(none.decisions).toHaveLength(0);
+    expect(none.sum.counts.decisions).toBe(10);
+    expect(none.sum.telemetry.decisionsSampledOut).toBe(10);
+  });
+
+  it("detections, actions and vetoes are never sampled out: their decision, detect and veto records all go", async () => {
+    const det = await run(12, 500, { script: STALE }, { decisionSample: 0 });
+    expect(det.sum.counts.detections).toBe(12);
+    expect(det.decisions).toHaveLength(12);
+    expect(det.detects.map((e) => e.decision)).toEqual(det.decisions.map((e) => e.id));
+    // a near-miss (top diagnosis not "expected", below the report gate) is not routine either: its record goes, with
+    // no detect event
+    const near = await run(8, 500, { script: defaultScript({ mutation: { diagnosis: "stale", action: "discard", p: 0.45 } }) }, { decisionSample: 0, maxDecisions: 0 });
+    expect(near.sum.counts.decisions).toBe(8);
+    expect(near.decisions).toHaveLength(8);
+    expect(near.decisions.every((e) => e.diagnosis === "stale")).toBe(true);
+    expect(near.detects).toHaveLength(0);
+    expect(near.sum.telemetry).toMatchObject({ decisionRecords: 8, decisionsSampledOut: 0, decisionsCapped: 0 });
+    const vetoed = await run(5, 500, { mode: "guard", onBeforeAction: () => false, script: STALE }, { decisionSample: 0 });
+    expect(ofType(vetoed.transport, "veto")).toHaveLength(5);
+    expect(vetoed.sum.counts.vetoes).toBe(5);
+  });
+
+  it("maxDecisions caps routine records for the page load; detections are never capped; summaries keep the exact counts", async () => {
+    const r = await run(20, 500, {}, { maxDecisions: 6, decisionSample: 1 });
+    expect(r.decisions).toHaveLength(6);
+    expect(r.sum.counts.decisions).toBe(20);
+    expect(r.sum.telemetry).toMatchObject({ decisionRecords: 6, decisionsCapped: 14 });
+    // every decision a detection: all 20 decision and detect records go, whatever the cap
+    const det = await run(20, 500, { script: STALE }, { maxDecisions: 6 });
+    expect(det.decisions).toHaveLength(20);
+    expect(det.detects).toHaveLength(20);
+    expect(det.detects.map((e) => e.decision)).toEqual(det.decisions.map((e) => e.id));
+    expect(det.sum.counts.detections).toBe(20);
+    expect(det.sum.telemetry).toMatchObject({ decisionRecords: 20, decisionsCapped: 0, decisionsSampledOut: 0 });
+    const all = await run(20, 500, {}, { maxDecisions: Infinity, decisionSample: 1 });
+    expect(all.decisions).toHaveLength(20);
+  });
+
+  it("detections after the routine cap is reached still go, with their decision records", async () => {
+    // 10 routine decisions fill a cap of 3, then 5 detections, then routine again
+    let stale = false;
+    const routine = defaultScript();
+    const det = defaultScript({ mutation: { diagnosis: "stale", action: "discard" } });
+    const s = tsetup({ triage: "always", mode: undefined, script: (req) => (stale ? det(req) : routine(req)) }, { maxDecisions: 3, decisionSample: 1 });
+    const a = s.rt.atom("a", 0);
+    let k = 0;
+    const step = async (n: number) => {
+      for (let i = 0; i < n; i++) {
+        void s.rt.op("w", () => a.set(++k));
+        await s.clock.advance(500);
+      }
+    };
+    await step(10);
+    stale = true;
+    await step(5);
+    stale = false;
+    await step(4);
+    (s.rt.telemetry as unknown as { summary(r: string): void }).summary("periodic");
+    await s.rt.telemetry!.flush();
+    const decisions = ofType(s.transport, "decision");
+    const detects = ofType(s.transport, "detect");
+    expect(detects).toHaveLength(5);
+    expect(decisions.filter((e) => e.diagnosis === "stale")).toHaveLength(5);
+    expect(decisions.filter((e) => e.diagnosis === "expected")).toHaveLength(3);
+    for (const d of detects) expect(decisions.some((e) => e.id === d.decision)).toBe(true);
+    const sum = ofType(s.transport, "summary").at(-1) as Record<string, any>;
+    expect(sum.counts).toMatchObject({ decisions: 19, detections: 5 });
+    expect(sum.telemetry).toMatchObject({ decisionRecords: 8, decisionsCapped: 11 });
+  });
+
+  it("a page the device floor skips still sends its session event (modelState skipped) and a model event saying why", async () => {
+    const clock = new FakeClock();
+    const transport = recorder();
+    const rt = createRuntime({
+      clock,
+      global: makeGlobal(new FakeServer(clock), { navigator: { deviceMemory: 2 }, crypto: globalThis.crypto }),
+      model: {},
+      report: "silent",
+      observe: { fetch: false, timers: false },
+      telemetry: { transport },
+    });
+    expect(rt.status).toMatchObject({ state: "skipped", reason: "device-memory" });
+    await rt.telemetry!.flush();
+    const session = ofType(transport, "session");
+    expect(session).toHaveLength(1);
+    expect(session[0]).toMatchObject({ model: "local", modelState: "skipped", device: { memoryGB: 2 } });
+    const model = ofType(transport, "model");
+    expect(model).toHaveLength(1);
+    expect(model[0]).toMatchObject({ state: "skipped", reason: "device-memory" });
+    expect((model[0].seq as number) > (session[0].seq as number)).toBe(true);
+    rt.destroy();
+  });
+
+  it("summaries keep their once-a-minute cadence while decisions continue, when records are capped or sampled out", async () => {
+    // a decision every 5 s for 10 minutes; the records stop after 2 decisions, or are never sent
+    for (const telemetry of [{ maxDecisions: 2 }, { decisionSample: 0 }]) {
+      const r = await run(120, 5000, {}, telemetry);
+      expect(r.sum.counts.decisions).toBe(120);
+      const timed = ofType(r.transport, "summary").slice(0, -1); // the last one is run()'s own
+      expect(timed.every((e) => e.reason === "periodic")).toBe(true);
+      expect(timed.length, JSON.stringify(telemetry)).toBeGreaterThanOrEqual(8);
+      const at = timed.map((e) => e.at as number);
+      // at least SUMMARY_MS apart, and at most one flush interval (10 s) plus one decision interval later than that
+      for (let i = 1; i < at.length; i++) {
+        expect(at[i] - at[i - 1]).toBeGreaterThanOrEqual(60_000);
+        expect(at[i] - at[i - 1]).toBeLessThanOrEqual(75_000);
+      }
+      // each one carries the exact counts at its time
+      const counts = timed.map((e) => (e.counts as { decisions: number }).decisions);
+      expect(counts).toEqual([...counts].sort((x, y) => x - y));
+      expect(counts.at(-1)).toBeGreaterThan(100);
+    }
+  });
+
+  it("an hour at the built-in model's maximum rate (30 decisions a minute) stays bounded", async () => {
+    const size = (x: unknown) => new TextEncoder().encode(JSON.stringify(x)).length;
+    const bytes = (t: { sent: Sent[] }) => t.sent.reduce((n, x) => n + size(x.body), 0);
+    const summaries = (t: { sent: Sent[] }) => ofType(t, "summary");
+    const routine = await run(1800, 2000, {});
+    const noisy = await run(1800, 2000, { script: STALE });
+    const full = await run(1800, 2000, { script: STALE }, { decisionSample: 1, maxDecisions: Infinity });
+    const kb = (n: number) => Math.round(n / 102.4) / 10;
+    const line = (t: { sent: Sent[] }) => `${kb(bytes(t))} KB in ${t.sent.length} requests, ${summaries(t).length} summaries ${kb(summaries(t).reduce((n, e) => n + size(e), 0))} KB`;
+    // the numbers TELEMETRY.md and docs/runtime/RESULTS.md quote come from this line of the CI log
+    console.info(`[telemetry volume] 1 h at 30 decisions/min: routine ${line(routine.transport)}; every decision a detection ${line(noisy.transport)}; uncapped and unsampled ${line(full.transport)}`);
+    expect(routine.sum.counts.decisions).toBe(1800);
+    // detections are never sampled or capped: every decision a detection sends every record
+    expect(noisy.sum.telemetry.decisionRecords).toBe(1800);
+    expect(ofType(noisy.transport, "detect")).toHaveLength(1800);
+    // summaries are not capped: about one a minute for the whole hour in every configuration
+    for (const r of [routine, noisy, full]) expect(summaries(r.transport).length).toBeGreaterThanOrEqual(50);
+    expect(Math.abs(bytes(noisy.transport) - bytes(full.transport)) / bytes(full.transport)).toBeLessThan(0.01);
+    // TELEMETRY.md and RESULTS.md quote the CI measurement (the [telemetry volume] line) and this ceiling for routine
+    // decisions; a page where every decision is a detection sends every record (about 2 MB for this hour)
+    expect(bytes(routine.transport) / 1024).toBeLessThan(300);
+  }, 120_000);
 });
 
 describe("telemetry: GenClass never observes its own requests", () => {

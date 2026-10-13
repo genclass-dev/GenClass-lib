@@ -2,6 +2,9 @@
 // created synchronously inside the message dispatch (before any app listener runs). If the delivery decision holds
 // it, the event is stopped before the app's listeners and re-dispatched later; messages (and close/error events)
 // that arrive while one is held queue behind it, so a channel's order is always kept. Holding is only latency.
+// Off the dispatch path: a text message's summary (JSON.parse + describe) and its parsed body are computed only when
+// something reads them (the delivery decision of a salient message, a situation listing the op, devtools), and at
+// most once each, sharing one parse. A message that nothing finds salient is never parsed (observe mode's common case).
 
 import type { OpRec, StartOpts } from "../trace/ops.js";
 import type { Context } from "../trace/context.js";
@@ -34,13 +37,18 @@ export interface MsgHost {
 
 const PARSE_MAX = 16 * 1024;
 
-export function messageSummary(data: unknown, redact: Redactor): string {
+/**
+ * The message's one-line summary (op detail, situation text). `parsed`: the message already parsed as JSON
+ * (parseJsonBody of the same text), reused instead of parsing it again; the text is the same either way.
+ */
+export function messageSummary(data: unknown, redact: Redactor, parsed?: () => unknown): string {
   if (typeof data === "string") {
     const t = data.length > PARSE_MAX ? "" : data.trim();
     if (!t) return `${data.length} chars`;
     if (t.startsWith("{") || t.startsWith("[")) {
       try {
-        return describe(JSON.parse(t), "message", redact, 60);
+        const v = parsed ? parsed() : JSON.parse(t);
+        if (v !== undefined) return describe(v, "message", redact, 60);
       } catch {
         /* not JSON */
       }
@@ -52,10 +60,27 @@ export function messageSummary(data: unknown, redact: Redactor): string {
   return "binary";
 }
 
+/** A message's summary and parsed body, each computed on first use and kept. */
+export interface LazyMessage {
+  summary(): string;
+  body(): unknown;
+}
+
+/**
+ * Text data (immutable) is summarised and parsed on first use; binary data is summarised now (its size, cheap, and a
+ * transferred ArrayBuffer would read as empty later).
+ */
+export function lazyMessage(data: unknown, redact: Redactor): LazyMessage {
+  let parsed: { v: unknown } | undefined;
+  const body = () => (parsed ??= { v: typeof data === "string" ? parseJsonBody(data) : undefined }).v;
+  let summary: string | undefined = typeof data === "string" ? undefined : messageSummary(data, redact);
+  return { body, summary: () => (summary ??= messageSummary(data, redact, body)) };
+}
+
 interface Item {
   ev: Event;
   op: OpRec | null;
-  summary: string;
+  msg: LazyMessage | null;
   /** Ready to be dispatched to the app (decision taken, or a close/error event). */
   ready: boolean;
   deciding: boolean;
@@ -105,7 +130,7 @@ export class MessageGate {
     if (this.mine.has(e)) return;
     if (!this.queue.length) return;
     e.stopImmediatePropagation();
-    this.queue.push({ ev: e, op: null, summary: "", ready: true, deciding: false });
+    this.queue.push({ ev: e, op: null, msg: null, ready: true, deciding: false });
   };
 
   private intercept = (e: Event): void => {
@@ -117,10 +142,20 @@ export class MessageGate {
     }
     let item: Item;
     try {
-      const summary = messageSummary((e as MessageEvent).data, this.host.redact());
-      const op = this.host.startOp(this.opName(e.type), { cause: null, instant: true, detail: summary, ...(this.scope ? { scope: this.scope } : {}) });
-      this.host.event(`${this.channel === "websocket" ? "ws" : "sse"}.message`, { path: this.path, summary, type: e.type }, op);
-      item = { ev: e, op, summary, ready: false, deciding: false };
+      const msg = lazyMessage((e as MessageEvent).data, this.host.redact());
+      const op = this.host.startOp(this.opName(e.type), { cause: null, instant: true, detail: msg.summary, ...(this.scope ? { scope: this.scope } : {}) });
+      this.host.event(
+        `${this.channel === "websocket" ? "ws" : "sse"}.message`,
+        {
+          path: this.path,
+          get summary() {
+            return msg.summary();
+          },
+          type: e.type,
+        },
+        op,
+      );
+      item = { ev: e, op, msg, ready: false, deciding: false };
     } catch {
       return; // tracing never breaks a channel
     }
@@ -143,14 +178,20 @@ export class MessageGate {
     item.deciding = true;
     let sync = true;
     let releasedSync = false;
+    const msg = item.msg!;
     this.host.deliverMessage(
       {
         op: item.op!,
         channel: this.channel,
-        message: { path: this.path, summary: item.summary },
+        message: {
+          path: this.path,
+          get summary() {
+            return msg.summary();
+          },
+        },
         queuedAhead: first ? 0 : this.queue.indexOf(item),
-        body: () => Promise.resolve(parseJsonBody((item.ev as MessageEvent).data as string)),
-        bodyNow: () => parseJsonBody((item.ev as MessageEvent).data as string),
+        body: () => Promise.resolve(msg.body()),
+        bodyNow: () => msg.body(),
       },
       () => {
         if (sync) {

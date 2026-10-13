@@ -443,11 +443,20 @@ export interface ModelOptions {
   ortWasmPaths?: string;
   cacheName?: string;
   /**
-   * Whether to load the model on this device. Default `{ saveData: "lazy" }` (Save-Data connections load lazily).
-   * false / "skip" → no download (status.state "skipped"); "lazy" → preload "lazy". Unknown values count as allowed.
+   * Whether to load the model on this device. Default `{ minDeviceMemoryGB: 4, saveData: "skip" }`: no model on
+   * devices whose `navigator.deviceMemory` is under 4 GB (the value is quantised to powers of two, so that is
+   * exactly "2 GB or less"; browsers that do not report it load) nor on Save-Data connections. The runtime then
+   * observes without a model (status.state "skipped" with `reason` "device-memory" / "save-data" / "loadIf") and
+   * prints one console line. `() => true` forces the load everywhere. false / "skip" → no download; "lazy" →
+   * preload "lazy"; `saveData: "ignore"` loads on Save-Data connections. Unknown values count as allowed.
    */
   loadIf?: { minDeviceMemoryGB?: number; saveData?: "skip" | "lazy" | "ignore" } | ((env: DeviceEnv) => boolean | "lazy");
-  /** Run inference on the main thread when the worker cannot start (default true). */
+  /**
+   * Run inference on the main thread when the model worker cannot start or crashes before it is up (default true).
+   * `false`: the model is then not loaded at all (status.state "skipped", reason "worker-unavailable", one console
+   * line naming the worker error) and the runtime observes without it; `worker: false` still runs inline, since
+   * that asks for the main thread explicitly.
+   */
   inlineFallback?: boolean;
   /** WASM threads (default "auto" = min(4, max(1, cores - 1))). */
   threads?: number | "auto";
@@ -859,6 +868,19 @@ export interface TelemetryOptions {
   maxBatch?: number;
   /** situation (default false): include the redacted situation text the model read in decision events. */
   include?: { situation?: boolean };
+  /**
+   * Share of routine decisions (top diagnosis "expected", no action, no veto, no shadow pass) whose `decision` record
+   * is sent (0..1, default 0.25), drawn per decision from a hash of the session and decision ids. Every other
+   * decision, every detection among them, is always sent and never capped. `summary` counts every decision whatever
+   * the share.
+   */
+  decisionSample?: number;
+  /**
+   * Most routine decisions per page load whose `decision` records are sent (default 200; `Infinity` for no cap).
+   * Detections and the other decisions are never capped; `summary` events (counts) continue, so an open tab's upload
+   * stays bounded for routine traffic.
+   */
+  maxDecisions?: number;
   /** Advanced (tests, custom pipelines): replaces the network transport. Errors are swallowed. */
   transport?: TelemetryTransport;
 }

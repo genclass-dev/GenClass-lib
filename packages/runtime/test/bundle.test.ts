@@ -61,11 +61,12 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
 
   // /auto carries automatic state discovery (autoState, beta.4: about 6.5 KB); the main entry does not. The audit trail,
   // protect presets and the hold-budget fixes (0.2.0) added about 1.6 KB to both; 0.2.2 +0.35 KB (URL/meta hardening,
-  // model download retries, the telemetry failure streak; main: 98.86 KB); app tokens and protect() (Unreleased) about
-  // 1.8 KB more: /auto 100.68 KB, the main entry 93.19 KB (CI run 38436014497; 0.33 KB under the /auto ceiling). The
-  // measured sizes are printed below.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 101, "index.js": 94 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 101 KB / 94 KB", async () => {
+  // model download retries, the telemetry failure streak; main: 98.86 KB); app tokens and protect() (0.3.0) about
+  // 1.8 KB more (/auto 100.68 KB, the main entry 93.19 KB, CI run 38436014497); the device floor, telemetry sampling and
+  // Request replays (wave1/defaults-footprint) about 1.5 KB more. Interim limits while release/0.3.0 is integrated; the
+  // final ones are the CI-measured sizes plus 1.5 KB (README, docs/runtime/RESULTS.md). The log prints the sizes.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 104, "index.js": 97 };
+  it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
     for (const entry of ["auto.js", "index.js"]) {
@@ -93,7 +94,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       };
       walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
-      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(2)} KB gzip (limit ${LIMIT_KB[entry]} KB)`);
+      console.info(`[bundle] ${entry}: ${(gz / 1024).toFixed(2)} KB minified + gzip (limit ${LIMIT_KB[entry]} KB)`);
       expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
