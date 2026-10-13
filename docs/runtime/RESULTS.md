@@ -544,3 +544,42 @@ preload, plus hidden-tab trials with background pollers) that would show how man
 how many false ones come with them, which is what lifting the possible-tier cap on deferred decisions needs; the
 likely reports the three fixes add on correct apps (compat, observe, slow WASM and slow-body scenarios); and guard/heal
 FIR with `model.unloadAfterIdleMs`.
+## 12. Dashboard counts and the possible-issues tier (telemetry-worker, 2026-10-13)
+
+Branch `wave2/dash-detect` (merged with `release/0.3.0`). The worker takes each page load's totals (page loads,
+decisions, detections by diagnosis, possible detections, acted, triggers, diagnoses, action outcomes, vetoes, breaker
+trips, fail-opens, model errors, action limits, hidden-tab skips, rate-limit drops, browser drops, sampled-out and
+capped records) from its cumulative `summary`, through a per-page-load high-water mark, and from its events until the
+first summary arrives (`telemetry-worker/README.md`, "Exact totals"). Routes, functions and recent rows still come
+from the events.
+
+| what | value | how |
+|---|---|---|
+| Counted totals vs the page load's own summary, unit fixtures | equal in every case, 0 double counts | `telemetry-worker/test/dashboard.test.ts` (CI run 38465992209, commit 8b0e949: 40 worker tests passed): a repeated batch, bigger / late older / partial summaries, a split flush in three orders including both parts processed at once, a client that sent 4 decision records for 500 decisions and 260 detections, state from the previous worker format, state swept after 2 days, a corrupt state row. Fixtures, not production traffic |
+| The possible tier, unit fixtures | "Problems found" 0 and possible 1 for one possible detection sent before a summary that counts likely detections only; counted once with its decision record in the other batch, in both orders; a repeated batch adds nothing | same file, describe "possible issues: runtime 0.3.0's lower tier" (CI run 38479161101, commit 4ebc651: 45 worker tests passed). Fixtures, not production traffic |
+| Local replay: 20 page loads, 1,557 events (839 decision records: every non-routine one, 1 in 4 routine), split into 276 batches of 1-12 events, 30% of them moved out of order, 30 sent twice | dashboard 1,520 decisions / 288 detections / 340 possible, equal to the page loads' own summaries; by diagnosis 288 / 340; 243 detections and 280 possible ones with a page (the rest arrived in another batch than their decision record); largest page-load state row 476 bytes | scratch replay through `aggregate()` and `stats()` on `node:sqlite` with the real migrations, seeded generator. The same replay through the worker before this fix (`9cd0799`, which counted every detect event as a detection and derived its own band from decision records): 504 detections and 60 possible |
+| Dashboard page HTML (`/dashboard/<secret>`) | 50,798 bytes on `release/0.3.0` → 60,940 (gzip 15,555 → 17,526); 60,226 at `9cd0799` | `dashboardPage()` output for one fixed project (name "Acme checkout", 22-char nonce); a worker page, not part of the runtime's first-load budget |
+| `/start` HTML; sample stats JSON (7 d, 2026-10-13T20:00Z) | 12,700 → 12,934 bytes; 8,580 → 9,698 bytes | same |
+| Fig. 2 (possible issues) bar outline contrast | 5.72:1 light (`--ink3` #5A6684 on #FFFFFF), 7.00:1 dark (#97A3C2 on #0B1736) | dataviz `validate_palette.js` `contrast()`; one series, no new hue (ring keys reuse the validated type hues), so no CVD pair to check |
+
+**Possible issues.** The tier is the runtime's own (§11, `wave2/detect-observe`): in observe, by default, a decision
+whose top diagnosis is not `expected` with confidence under the report gate but at or over the eager profile's report
+value is sent as a `detect` event with `tier: "possible"` and counted in `summary.counts.possibleDetections`. The
+worker counts exactly that, in its own metrics, never in the problem counts, and derives nothing from decision records
+(an earlier version of this branch counted a band [0.70, report gate) of decision records itself, in every mode; that
+listed decisions the console never showed, and counted runtime-possible ones as detections). Reporting only: no action
+reads it, so FIR 0 by construction. Its false-report rate is the runtime tier's: at `balanced`, likely + possible are
+the detections at `eager`'s report gate, which on held-out real apps detect 77% / 45% / 13% of duplicate / stale /
+broken cases against 75% / 30% / 6% for likely alone, with report false-detection limits of ≤ 5% REAL / ≤ 6% SIM
+against ≤ 2% / ≤ 3% (limits met on held-out test; the exact rates are unpublished; `training/EVAL.md`, §11). On the
+bench demos, clean trials with a detection were 3 / 29 at `eager` against 2 / 30 at `balanced` (§11). Under
+`release/0.3.0`'s defaults the client never samples or caps detect events or the records of non-`expected` decisions,
+so the tier's count is exact, not a sample.
+
+**Sampled metrics.** Average decision time, decision mode, executed, routes and functions come from the decision
+records that arrived. Routine records are sampled (1 in 4, at most 200 per page load), so these lean towards
+non-routine decisions; the session event no longer carries the sampling settings (§10), so the worker cannot
+reweight, and the page now labels them as records ("average of N decision records received").
+
+Not measured: anything on production data. No released runtime sends a token yet (`0.3.0` will), so no real page
+load reaches a dashboard, and no released runtime sends `tier`.
