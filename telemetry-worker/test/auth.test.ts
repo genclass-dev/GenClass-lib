@@ -1186,7 +1186,7 @@ describe("accounts: the device approval page is no code oracle, and shows only t
   it("signed out, /login/device reads no device code: a live code and a made-up one get the same page", async () => {
     const { env } = setup();
     const live = (await (await call(env, "POST", "/api/device/code", { body: { client_name: "genclass-runtime 0.3.0" }, origin: null })).json()) as any;
-    const fake = live.user_code === "BCDF-GHJK" ? "BCDF-GHJL" : "BCDF-GHJK";
+    const fake = live.user_code === "ZXCV-BNMP" ? "ZXCV-BNMQ" : "ZXCV-BNMP"; // not the BCDF-GHJK placeholder the page shows
     const seen: string[] = [];
     spyDb(env, seen);
     const norm = (h: string, code: string) => h.replace(/[A-Za-z0-9]{22}(?=["';])/g, "NONCE").replaceAll(code, "CODE");
