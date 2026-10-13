@@ -15,19 +15,33 @@
   send only the record the runtime built: kind, diagnosis, probability, action, route, session tags and the redacted
   evidence (the console line, subject and timeline, URL query values as `…`; timeline lines can hold short fragments
   of app data, as the console does). `evidence: false` on any adapter sends the structured fields only. Never the
-  situation text, bodies, headers or cookies. Separate entries, never in the first-load bundle.
+  situation text, bodies, headers or cookies. Separate entries, never in the first-load bundle. A tool adapter that
+  finds no SDK when a record arrives says so once in the console, naming the fix. The tool adapters and the webhook
+  cap repeats of one bug at 10 per page load (`maxPerSignature`); the webhook splits batches at 32,000 UTF-8 bytes.
 - **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`,
   `<meta name="genclass" content="sink=sentry+posthog">`, `data-sink="sentry,posthog"` on the script tag, and
   `npx @genclass/runtime init --sink sentry` (repeatable; written to the option file, the tag or the Astro meta line;
-  `remove` takes it out). The names become one proxy sink that queues records (at most 200) until the adapters have
-  loaded, at idle or on the first record; the name table and the adapters are lazy chunks of `/auto` and come from the
-  CDN for the script tag, so only the proxy is in the first load. A `webhook:<url>` joins `requests.ignore`; from a
-  `<meta>` tag it must be same-origin, like the model URL (a cross-origin one is ignored with one warning; THREAT-MODEL
-  T8), and `init` says so for an absolute webhook URL on Astro. `init` suggests the flag when `package.json` depends on
-  `@sentry/*`, `posthog-js` or `@datadog/browser-rum`. A string passed to `GenClass.init({ sinks })` directly is now
-  ignored with one warning that names the fix (before, every record failed with "a sink failed: … is not a
-  function", reported at most once a minute).
-- `SinkRecord.route`: the page route (`location.pathname`) the subject's operation was created on.
+  `remove` takes it out). `<name>:noevidence` (`sentry:noevidence`, `--sink posthog:noevidence`) sends the structured
+  fields only. The names become one proxy sink that queues records (at most 200) and loads the adapters on the first
+  record, never before (a page with `?genclass=off`, or one that reports nothing, fetches none); the name table and the
+  adapters are lazy chunks of `/auto` and come from the CDN for the script tag, so only the proxy is in the first
+  load. A `webhook:<url>` is made absolute at init and only its own endpoint (origin and path) joins `requests.ignore`
+  (`webhook:/collect` never hides `/collections`); from a `<meta>` tag it must be same-origin, like the model URL (a
+  cross-origin one is ignored with one warning; THREAT-MODEL T8), and `init` says so for an absolute webhook URL on
+  Astro. A string passed to `GenClass.init({ sinks })` directly is now ignored with one warning that names the fix
+  (before, every record failed with "a sink failed: … is not a function", reported at most once a minute).
+- **`init` reaches npm-installed SDKs.** It suggests `--sink` when `package.json` depends on a Sentry browser SDK
+  (`@sentry/react`, `@sentry/vue`, `@sentry/nextjs`, ...; no longer its build plugins or server SDKs), `posthog-js` or
+  `@datadog/browser-rum`. The npm Sentry and PostHog SDKs set no page global, so in its option file `init` writes such a
+  sink as the adapter with your SDK passed in (`import * as Sentry from "@sentry/vue"; ... sinks:
+  [sentrySink({ sentry: Sentry })]`); another `--sink` rewrites those imports, and `remove` takes them out. On plain
+  HTML and Astro, where only names fit, it says to add `window.Sentry = Sentry`.
+- **Security: the same-origin check on meta-tag URLs resolves them as the browser does.** A model, ORT or webhook URL
+  in `<meta name="genclass">` is now resolved with the WHATWG URL parser against the page and `document.baseURI`, so
+  `/\evil.example/`, a tab inside `//` or an injected `<base href>` no longer pass as a same-origin path (the 0.2.2
+  check let them through for model and ORT URLs too).
+- `SinkRecord.route`: the page path the subject's operation was created on, normalised as telemetry sends it (id-like
+  and email segments as `:id`, at most 200 chars).
 - The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
 
 ## 0.2.2 (2026-10-13)

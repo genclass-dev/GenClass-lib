@@ -464,8 +464,9 @@ overlay uses it), so debugging tools never become causes in situations.
 ### See it where you already look
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
-`sampled`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `label`, `route` (the page route the subject's operation was
-created on), `changed` (paths), `reason`, `shadow`, `correlationId`, and with `evidence: true` the redacted `message`,
+`sampled`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `label`, `route` (the page path the subject's operation was
+created on, normalised as telemetry sends it: id-like and email segments as `:id`, at most 200 chars), `changed`
+(paths), `reason`, `shadow`, `correlationId`, and with `evidence: true` the redacted `message`,
 `subject` and `timeline` (URL query and fragment values as `…`; timeline lines can hold short fragments of app data,
 as the console does: a store value summary, an error message, text typed into an ordinary input). Five adapters, no
 dependencies, each a function returning that sink shape, each finding the SDK on the page at send time (or taking the
@@ -493,28 +494,37 @@ datadog({ rum: datadogRum, as: "error" });
 consoleJson({ method: "log", kinds });
 // console.log('{"source":"genclass","schema":1,"kind":"detection",...}'), one line per record, every kind (summary too).
 
-webhook({ url: "/genclass", maxBatch: 50, headers, kinds, sampleRate, clock, flushMs: 5000 });
+webhook({ url: "/genclass", maxBatch: 50, maxPerSignature: 10, headers, kinds, sampleRate, clock, flushMs: 5000 });
 // POST { schema: "genclass-sink/1", version, records: SinkRecord[] } by navigator.sendBeacon, else fetch keepalive, as JSON
 // in a text/plain body; one POST per idle-time delivery round (a microtask after it; with a clock: flushMs after the first
-// record instead), at maxBatch, and on page hide. The records and nothing else
+// record instead), at maxBatch or 32,000 UTF-8 bytes of records, and on page hide. The records and nothing else
 // (route, diagnosis, action, ..., the evidence text above): never the situation text, bodies, headers or cookies.
 // With headers (fetch only) or no sendBeacon, list the URL in requests.ignore.
 ```
 
 The tool adapters (sentry, posthog, datadog) default to `kinds: ["detection", "intervention", "undo", "breaker",
-"error"]` and cap repeats of one bug (same kind, trigger, diagnosis, action and subject shape) at `maxPerSignature`
-10 per page load; `consoleJson` and `webhook` forward every kind.
+"error"]`; they and `webhook` cap repeats of one bug (same kind, trigger, diagnosis, action and subject shape) at
+`maxPerSignature` 10 per page load (the webhook never caps its `summary` record); `consoleJson` and `webhook` forward
+every kind. A tool adapter that finds no SDK when a record arrives prints one console warning naming the fix.
 
 Sinks by name, with no code, in the zero-code entries (`/auto`, the script tag): `window.GENCLASS_CONFIG = { sinks:
 ["sentry", "webhook:/genclass"] }`, `<meta name="genclass" content="sink=sentry+posthog">` (`+` joins names, since
 commas separate the meta keys), `data-sink="sentry,posthog"` on the script tag, or `npx @genclass/runtime init --sink
-sentry`, which also suggests the flag when `package.json` depends on `@sentry/*`, `posthog-js` or
-`@datadog/browser-rum`. The names become one proxy sink at init that queues records (at most 200) until the adapters
-have loaded, at idle or on the first record: a lazy chunk of `/auto`, `dist/sinks/<name>.js` from the CDN for the
-script tag. Only the proxy is in the first-load bundle. A webhook URL joins `requests.ignore`; from a `<meta>` tag it
-must be same-origin (a cross-origin one is ignored with one warning, as for the model URL). An unknown name, or an
-adapter that cannot load, is one console warning. A name handed to `GenClass.init({ sinks })` directly is ignored with
-one warning: import the adapter there. The console default is unchanged.
+sentry`. A name finds its SDK as a page global (`window.Sentry`, `window.posthog`, `window.DD_RUM`); `<name>:noevidence`
+(`sentry:noevidence`) makes its adapter with `evidence: false`. `init` suggests the flag when `package.json` depends on
+a Sentry browser SDK (`@sentry/react`, `@sentry/vue`, `@sentry/nextjs`, ...; not its build plugins or server SDKs),
+`posthog-js` or `@datadog/browser-rum`, and in an option file it writes a `sentry` or `posthog` sink whose SDK comes
+from npm (which sets no global) as the adapter with that SDK passed in: `import * as Sentry from "@sentry/vue"; import
+{ sentry as sentrySink } from "@genclass/runtime/sinks/sentry"; globalThis.GENCLASS_CONFIG = { sinks: [sentrySink({
+sentry: Sentry })] };` (GENCLASS_CONFIG passes sink objects through). The names become one proxy sink at init that
+queues records (at most 200) and loads the adapters on the first record (never before: a page that reports nothing,
+or runs with `?genclass=off`, fetches none): a lazy chunk of `/auto`, `dist/sinks/<name>.js` from the CDN for the
+script tag. Only the proxy is in the first-load bundle. A webhook URL is made absolute at init (against
+`document.baseURI`) and its endpoint (origin and path) joins `requests.ignore` as an exact match; from a `<meta>` tag it
+must be same-origin as the browser resolves it, against the page and `document.baseURI` (a cross-origin one is ignored
+with one warning, as for the model and ORT URLs). An unknown name, or an adapter that cannot load, is one console
+warning. A name handed to `GenClass.init({ sinks })` directly is ignored with one warning: import the adapter there.
+The console default is unchanged.
 
 ### Audit trail
 

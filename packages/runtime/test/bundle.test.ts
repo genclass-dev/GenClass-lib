@@ -122,4 +122,20 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
     }
     for (const entry of Object.keys(sizes)) expect(sizes[entry], entry).toBeLessThan(LIMIT_KB[entry]);
   });
+
+  // the script tag's one file (README "Install", option 3): printed so the README can quote a measured number; it
+  // carries the sink names' proxy and fan-out, and loads the adapters themselves from dist/sinks/ on demand
+  it("the script tag's file, dist/genclass.global.min.js, minified + gzip: printed; no sink adapter inside it", async () => {
+    const { readFileSync } = await import("node:fs");
+    const f = join(DIST, "genclass.global.min.js");
+    if (!existsSync(f)) return;
+    const buf = readFileSync(f);
+    const gz = gzipSync(buf, { level: 9 }).length / 1024;
+    console.log(`script tag genclass.global.min.js: ${gz.toFixed(2)} KB minified + gzip (${(buf.length / 1024).toFixed(1)} KB minified)`);
+    const code = buf.toString("utf8");
+    expect(code).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
+    expect(code).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
+    expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
+    expect(gz).toBeGreaterThan(0);
+  });
 });

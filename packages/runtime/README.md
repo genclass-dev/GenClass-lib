@@ -524,7 +524,7 @@ In production the `[GenClass]` console lines print in your users' browsers, not 
 intervention, undo, breaker trip and runtime error to a tool you already open as well. The console default does not
 change.
 
-With `/auto` or the script tag, no code: each name loads its adapter on demand and uses the SDK already on the page.
+With `/auto` or the script tag you write no adapter code yourself:
 
 ```bash
 npx @genclass/runtime init --sink sentry   # or posthog, datadog, console-json, webhook:/genclass; repeat it or comma-separate
@@ -536,12 +536,29 @@ npx @genclass/runtime init --sink sentry   # or posthog, datadog, console-json, 
 <script>window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] };</script>
 ```
 
-`init` writes the flag as `sinks: [...]` in its option file, `data-sink` on a script tag or `sink=` in the Astro meta
-line, and suggests it when your `package.json` depends on `@sentry/*`, `posthog-js` or `@datadog/browser-rum`. A
-`<meta>` tag only takes a same-origin webhook URL (a cross-origin one is ignored with a console warning); put a
-collector on another origin in `data-sink` or `window.GENCLASS_CONFIG`. These forms find the SDK as a page global
-(`window.Sentry` as the Sentry loader sets it, `window.posthog`, `window.DD_RUM`). With an npm-installed SDK, expose
-it (`window.Sentry = Sentry`) or pass the client to `GenClass.init`:
+`init` suggests the flag when your `package.json` depends on a Sentry browser SDK (`@sentry/react`, `@sentry/vue`,
+`@sentry/nextjs`, ...), `posthog-js` or `@datadog/browser-rum`. In a project with an entry file it writes its option
+file: a sink whose SDK you install from npm is written as the adapter with your SDK passed in, since the npm Sentry
+and PostHog SDKs set no page global and a name alone would reach nothing:
+
+```js
+// src/genclass.config.js, as `init --sink sentry,datadog` writes it next to @sentry/vue
+import * as Sentry from "@sentry/vue";
+import { sentry as sentrySink } from "@genclass/runtime/sinks/sentry";
+globalThis.GENCLASS_CONFIG = { sinks: [sentrySink({ sentry: Sentry }), "datadog"] };
+```
+
+Every other sink stays a name: it loads its adapter on the first record and finds the SDK as a page global
+(`window.Sentry` from the Sentry Loader Script or a CDN bundle, `window.posthog` from the PostHog snippet,
+`window.DD_RUM`, which the Datadog snippets and `@datadog/browser-rum` both set). On a plain HTML page (`data-sink`)
+or an Astro layout (`sink=` in the meta line) only names fit, so with an npm SDK there add `window.Sentry = Sentry;`
+where your app imports it; `init` says so. An adapter that finds no SDK when a record arrives says so once in the
+console. A `<meta>` tag only takes a same-origin webhook URL, checked as the browser resolves it (against the page and
+`document.baseURI`); a cross-origin one is ignored with a console warning, so put a collector on another origin in
+`data-sink` or `window.GENCLASS_CONFIG`. A webhook URL is made absolute once, at init, and only that endpoint (origin
+and path) is excluded from what GenClass observes. Add `:noevidence` to a name (`sentry:noevidence`,
+`--sink posthog:noevidence`) to send the structured fields without the evidence text. In code, pass the client to
+`GenClass.init`:
 
 ```ts
 import { GenClass } from "@genclass/runtime";
@@ -569,10 +586,12 @@ GenClass.init({
 
 `@genclass/runtime/sinks` exports all five. No adapter adds a dependency or ever throws into your app. Without the
 client option an adapter looks the global up on every record, so an SDK that loads later still gets them; without any
-SDK it sends nothing. The Sentry, PostHog and Datadog adapters skip the per-session `summary` record and cap repeats
-of one bug at 10 per page load (`maxPerSignature`); every adapter takes `kinds`, `sampleRate` and `evidence`.
+SDK it sends nothing and warns once. The Sentry, PostHog and Datadog adapters skip the per-session `summary` record;
+they and the webhook cap repeats of one bug at 10 per page load (`maxPerSignature`). Every adapter takes `kinds`,
+`sampleRate` and `evidence`.
 
-**What a sink receives** is the record the runtime built and nothing else: `kind`, `route`, `diagnosis` and its
+**What a sink receives** is the record the runtime built and nothing else: `kind`, `route` (the page path with
+id-like and email segments as `:id`, as telemetry sends it), `diagnosis` and its
 probability `p`, `action`, `tier`, `trigger`, `mode`, `label`, `reason`, `changed` (state paths), `sessionId` and your
 session `tags`, plus the evidence: the console line, the subject and the timeline, with URL query and fragment values
 replaced by `…`. Timeline lines can hold short fragments of app data, as the console does (a store value summary, an
@@ -581,8 +600,9 @@ adapter sends the structured fields only. A sink never gets the full situation t
 response bodies, headers or cookies. The webhook POSTs exactly those records as
 `{ schema: "genclass-sink/1", version, records }`, by `navigator.sendBeacon` (which GenClass never wraps, and which
 survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so parse it
-as JSON. One POST carries the records GenClass hands over in one idle-time round (at most 50 per POST), and what is
-left goes on page hide; pass a `clock` and `flushMs` to batch over a time window instead. `headers` switches it to
+as JSON. One POST carries the records GenClass hands over in one idle-time round (at most 50 records and 32,000
+bytes per POST, since the browser allows 64 KiB of beacons in flight per page, shared with yours), and what is left
+goes on page hide; pass a `clock` and `flushMs` to batch over a time window instead. `headers` switches it to
 `fetch`; then list the URL in `requests.ignore` (the zero-code forms do that for you).
 
 ## Extend it
