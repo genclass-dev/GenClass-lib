@@ -77,7 +77,8 @@ import { Cadence } from "./learn/cadence.js";
 import { analyzeBody, createdIds, vhash } from "./situation/content.js";
 import { commitAmbiguity, failureOf, hostOfSig } from "./situation/evidence.js";
 import { Profiles, shapeOf } from "./learn/profiles.js";
-import { DEFAULT_MIN_SESSIONS, DEFAULT_MIN_SHARE, DEFAULT_MIN_SUPPORT, FlowProfiles, flowRoute, fmtSec, quantile } from "./learn/flows.js";
+import { DEFAULT_MIN_SESSIONS, DEFAULT_MIN_SHARE, DEFAULT_MIN_STORED_SUPPORT, DEFAULT_MIN_SUPPORT, FlowProfiles, flowRoute, fmtSec, quantile } from "./learn/flows.js";
+import { RUNTIME_VERSION } from "./version.js";
 import { buildSituation, deliveryDroppable, relatedInFlight, type BuildOptions, type BuiltSituation } from "./situation/build.js";
 import { computeFacts, NO_BASELINE_STALL_MS } from "./situation/facts.js";
 import type { ChainWriteInfo, CreateRec, DeliverySpec, ErrorInfo, OutcomeRec, ReqMeta, SitEnv, SubjectSpec, Violation } from "./situation/env.js";
@@ -131,7 +132,8 @@ const STALL_MIN_MS = 500;
 const LONG_RUNNING_MS = 10_000;
 const PROFILED: ReadonlySet<OpKind> = new Set<OpKind>(["fetch", "xhr", "user", "task", "ws"]);
 const TYPING_BURST_MS = 1000;
-const PROFILE_KEY = "genclass.profiles.v1";
+/** Format of the stored learned state; a value of another format (or runtime version) is discarded, never migrated. */
+const LEARN_FORMAT = 2;
 /** learn.maxBytes default: the stored learned state (profiles and flows) is trimmed to this many characters. */
 const LEARN_MAX_BYTES = 200_000;
 /** A request with a learned latency is expected to answer within max(2 × p99, this). */
@@ -247,7 +249,12 @@ export class RuntimeImpl implements Runtime {
   private rateWarnedAt = -Infinity;
   private readonly appFn: (() => { title?: string; route?: string }) | undefined;
   private readonly debug: boolean;
-  private readonly persist: boolean;
+  /** Transition profiles are stored too (an explicit learn.persist; they feed the model, CONTRACT §4). */
+  private readonly persistProfiles: boolean;
+  /** Sessions the stored learned state counted when it was loaded. */
+  private storedSessions = 0;
+  /** Signatures with a `response` expectation reported and no answer since (one line per run of hangs). */
+  private readonly respMissed = new Set<string>();
   private _mode: Mode;
   private paused = false;
   private destroyed = false;
@@ -396,11 +403,15 @@ export class RuntimeImpl implements Runtime {
     }
     this.budgetOpt = o.situation?.budget ?? "auto";
     this.appFn = o.app;
-    // learned state persists by default (localStorage, per origin, no page text); learn.persist: false keeps it in memory
+    // learned state (EXPECTATIONS.md §4): by default only the flows (reporting only) are stored, in localStorage;
+    // transition profiles, which feed the model, only with an explicit learn.persist (CONTRACT §4); false stores
+    // nothing. A DOM test environment (by default) or storage that does not work keeps everything in memory.
     const lp = o.learn?.persist;
-    this.persist = lp !== false;
-    this.learnStore = lp === "session" ? "session" : this.persist ? "local" : null;
     if (o.learn?.key) this.learnKey = o.learn.key;
+    const want = lp === false || o.enabled === false || (lp === undefined && (o.learn?.expectations === false || testDom(this.global))) ? null : lp === "session" ? "session" : "local";
+    this.learnStore = want && this.storageWorks(want) ? want : null;
+    if (want && !this.learnStore) this.log("learned state is kept in memory: storage is unavailable");
+    this.persistProfiles = this.learnStore !== null && lp !== undefined;
     if (typeof o.learn?.maxBytes === "number" && o.learn.maxBytes > 0) this.learnMaxBytes = Math.floor(o.learn.maxBytes);
     const rel = o.session?.tags?.release;
     this.learnVersion = o.learn?.version ?? (rel !== undefined ? String(rel) : undefined);
@@ -416,14 +427,15 @@ export class RuntimeImpl implements Runtime {
         startedSince: (sig, t) => this.startedSince(sig, t),
         report: (e) => this.emitExpectation(e),
         changed: () => {
-          if (this.persist) this.saveProfilesSoon();
+          if (this.learnStore) this.saveProfilesSoon();
         },
       },
       {
         minSupport: Math.floor(num(o.learn?.minSupport, DEFAULT_MIN_SUPPORT, 1)),
+        minStoredSupport: Math.floor(num(o.learn?.minSupport, DEFAULT_MIN_STORED_SUPPORT, 1)),
         minShare: Math.min(1, num(o.learn?.minShare, DEFAULT_MIN_SHARE, 0)),
-        // without persistence no flow can ever be seen in a second session
-        minSessions: Math.floor(num(o.learn?.minSessions, this.persist ? DEFAULT_MIN_SESSIONS : 1, 1)),
+        // only localStorage outlives a tab: otherwise no flow can ever be seen in another session
+        minSessions: Math.floor(num(o.learn?.minSessions, this.learnStore === "local" ? DEFAULT_MIN_SESSIONS : 1, 1)),
       },
     );
     this.flows.enabled = o.learn?.expectations !== false;
@@ -529,7 +541,7 @@ export class RuntimeImpl implements Runtime {
       });
       this.uninstall.push(off);
     }
-    if (this.persist) this.loadProfiles();
+    if (this.learnStore) this.loadLearn();
     // enabled (OPTIONS-SPEC §4.1): false installs nothing; a predicate, Promise or flag runs pass-through until true
     const en = o.enabled;
     if (en === false) {
@@ -975,6 +987,11 @@ export class RuntimeImpl implements Runtime {
       clear: () => {
         this.profiles.bySig.clear();
         this.flows.clear();
+        this.respMissed.clear();
+        this.storedSessions = 0;
+        if (this.persistTimer !== null) this.clock.clearTimeout(this.persistTimer);
+        this.persistTimer = null;
+        this.selfStorage = true;
         for (const k of ["local", "session"] as const) {
           try {
             this.storage(k)?.removeItem(this.learnKey);
@@ -982,6 +999,7 @@ export class RuntimeImpl implements Runtime {
             /* ignore */
           }
         }
+        this.selfStorage = false;
       },
     };
   }
@@ -1323,7 +1341,10 @@ export class RuntimeImpl implements Runtime {
       }
     }
     if (PROFILED.has(op.kind) && !op.genclass && status !== "aborted" && !o.synthetic) this.queueProfile(op);
-    if ((op.kind === "fetch" || op.kind === "xhr") && !op.genclass) this.flow((f) => f.onChildEnd(op));
+    if ((op.kind === "fetch" || op.kind === "xhr") && !op.genclass) {
+      if (status === "ok") this.respMissed.delete(op.name);
+      this.flow((f) => f.onChildEnd(op));
+    }
     this.scheduleSettle();
   }
 
@@ -2641,7 +2662,7 @@ export class RuntimeImpl implements Runtime {
       (f.op.triggered ??= new Set()).add("transition");
       this.raiseTransition(f.op, f.unusual, f.shape);
     }
-    if (this.persist && list.length) this.saveProfilesSoon();
+    if (this.persistProfiles && list.length) this.saveProfilesSoon();
   }
 
   /** A chain's write set without busy scalar counters that are not explicitly derived (sum/len relations keep theirs). */
@@ -2811,11 +2832,15 @@ export class RuntimeImpl implements Runtime {
     return Math.max(2 * quantile(s.lat, 0.99), RESPONSE_MIN_MS);
   }
 
-  /** The request is still in flight past its learned bound: one `expectation` report (kind "response"). */
+  /**
+   * The request is still in flight past its learned bound: one `expectation` report (kind "response"), and none
+   * for this signature again until one of its requests answers.
+   */
   private expectResponse(op: OpRec, bound: number): void {
-    if (op.end !== undefined || this.destroyed || this.paused || op.genclass || op.scope?.protected || this.hidden() || this.online() === false) return;
+    if (op.end !== undefined || this.destroyed || this.paused || op.genclass || op.scope?.protected || this.hidden() || this.online() === false || this.respMissed.has(op.name)) return;
     const s = this.base.stats(op.name);
     if (!s) return;
+    this.respMissed.add(op.name);
     const fc = this.base.failureCounts(op.name);
     const now = this.clock.now();
     const waited = now - op.start;
@@ -3446,6 +3471,7 @@ export class RuntimeImpl implements Runtime {
 
   destroy(): void {
     if (this.destroyed) return;
+    this.flushLearn(); // a pending save is written, not lost (an SPA that re-inits)
     for (const t of this.teardowns.splice(0)) {
       try {
         t();
@@ -3495,35 +3521,77 @@ export class RuntimeImpl implements Runtime {
     con?.debug?.(`[GenClass] ${msg}`, e ?? "");
   }
 
-  private loadProfiles(): void {
+  /** Storage of this kind can be written (a probe key, set and removed; privacy modes and quotas throw). */
+  private storageWorks(kind: "local" | "session"): boolean {
+    const st = this.storage(kind);
+    const k = `${this.learnKey}:probe`;
     try {
-      const st = this.storage(this.learnStore ?? "local");
-      const raw = st?.getItem(this.learnKey) ?? (this.learnStore === "local" && this.learnKey === "genclass:learn" ? st?.getItem(PROFILE_KEY) : null);
-      if (!raw) return;
-      const v = JSON.parse(raw) as { version?: string; profiles?: unknown } | unknown;
-      if (v && typeof v === "object" && "profiles" in (v as object)) {
-        const w = v as { version?: string; profiles: unknown; flows?: unknown; sessions?: unknown };
-        // a release/version change discards what was learned under the old one
-        if (w.version !== this.learnVersion) {
-          this.selfStorage = true;
-          try {
-            st?.removeItem(this.learnKey);
-          } finally {
-            this.selfStorage = false;
-          }
-          return;
-        }
-        this.profiles.load(w.profiles as never);
-        this.flows.load(w.flows);
-        if (typeof w.sessions === "number" && Number.isFinite(w.sessions) && w.sessions >= 0) this.flows.session = Math.floor(w.sessions) + 1;
-      } else if (this.learnVersion === undefined) this.profiles.load(v as never);
+      if (!st) return false;
+      st.setItem(k, "1");
+      st.removeItem(k);
+      return true;
     } catch {
-      /* ignore */
+      return false;
     }
   }
 
+  /**
+   * The stored learned state, when it has this format, this runtime version and this learn.version (anything else
+   * is discarded, never migrated): flows always, transition profiles only when they are persisted (explicit
+   * learn.persist). Then this page load's session ordinal.
+   */
+  private loadLearn(): void {
+    const st = this.storage(this.learnStore ?? "local");
+    let stored = 0;
+    let raw: string | null | undefined;
+    let w: { format?: unknown; lib?: unknown; version?: unknown; sessions?: unknown; profiles?: unknown; flows?: unknown } | null = null;
+    try {
+      raw = st?.getItem(this.learnKey);
+      w = raw ? JSON.parse(raw) : null;
+    } catch {
+      /* unreadable: discarded below */
+    }
+    try {
+      if (w && typeof w === "object" && w.format === LEARN_FORMAT && w.lib === RUNTIME_VERSION && w.version === this.learnVersion) {
+        if (this.persistProfiles) this.profiles.load(w.profiles);
+        this.flows.load(w.flows);
+        if (typeof w.sessions === "number" && Number.isFinite(w.sessions) && w.sessions >= 0) stored = Math.floor(w.sessions);
+      } else if (raw) {
+        this.selfStorage = true;
+        st?.removeItem(this.learnKey);
+      }
+    } catch {
+      /* start over */
+    } finally {
+      this.selfStorage = false;
+    }
+    this.startSession(stored);
+  }
+
+  /**
+   * This page load's session ordinal: a reload in the same tab continues the tab's session (its ordinal is kept in
+   * sessionStorage), anything else is a new one (1 + the sessions stored). Without sessionStorage every page load is
+   * a session.
+   */
+  private startSession(stored: number): void {
+    this.storedSessions = stored;
+    let s = stored + 1;
+    const ss = this.learnStore === "local" ? this.storage("session") : undefined;
+    const k = `${this.learnKey}:session`;
+    try {
+      const m = Number(ss?.getItem(k));
+      if (Number.isInteger(m) && m >= 1 && m <= stored) s = m;
+      else ss?.setItem(k, String(s));
+    } catch {
+      /* page loads count as sessions */
+    }
+    this.flows.session = s;
+    // a new session is counted even when nothing is learned in it (the `response` kind needs the origin's sessions)
+    if (s > stored) this.saveProfilesSoon();
+  }
+
   private saveProfilesSoon(): void {
-    if (this.persistTimer !== null || this.destroyed || !this.storage(this.learnStore ?? "local")) return;
+    if (this.persistTimer !== null || this.destroyed || !this.learnStore) return;
     this.persistTimer = this.clock.setTimeout(() => {
       this.persistTimer = null;
       this.writeLearn();
@@ -3539,12 +3607,14 @@ export class RuntimeImpl implements Runtime {
   }
 
   private writeLearn(): void {
-    const st = this.storage(this.learnStore ?? "local");
-    const json = st ? this.serializeLearn() : null;
-    if (!st || json === null) return;
+    if (!this.learnStore) return;
+    const st = this.storage(this.learnStore);
     this.selfStorage = true;
     try {
-      st.setItem(this.learnKey, json);
+      const json = this.serializeLearn();
+      // a cap below the header stores nothing (and leaves no stale value behind)
+      if (json === null) st?.removeItem(this.learnKey);
+      else st?.setItem(this.learnKey, json);
     } catch {
       /* quota or privacy mode */
     } finally {
@@ -3553,17 +3623,19 @@ export class RuntimeImpl implements Runtime {
   }
 
   /**
-   * The learned state as stored (version, sessions, profiles with hashed user-action signatures, flows without
-   * labels), within learn.maxBytes: the most-used flows and the profiles with the most completions are kept, taken
-   * in turn. Only the stored copy is trimmed; what is in memory stays as it is.
+   * The learned state as stored (format, runtime version, learn.version, sessions, then profiles with hashed
+   * user-action signatures when they are persisted, and flows without labels), within learn.maxBytes: the most-used
+   * flows and the profiles with the most completions are kept, taken in turn. Only the stored copy is trimmed; what
+   * is in memory stays as it is.
    */
   private serializeLearn(): string | null {
-    const head = `{${this.learnVersion !== undefined ? `"version":${JSON.stringify(this.learnVersion)},` : ""}"sessions":${this.flows.session},`;
+    const ver = this.learnVersion !== undefined ? `"version":${JSON.stringify(this.learnVersion)},` : "";
+    const head = `{"format":${LEARN_FORMAT},"lib":${JSON.stringify(RUNTIME_VERSION)},${ver}"sessions":${Math.max(this.storedSessions, this.flows.session)},`;
     let left = this.learnMaxBytes - head.length - '"profiles":[],"flows":[]}'.length;
     if (left < 0) return null;
     const lists = [
       this.flows.toJSON().sort((a, b) => b.used - a.used).map((f) => JSON.stringify(f)),
-      this.profiles.toJSON().sort((a, b) => b.n - a.n).map((p) => JSON.stringify(p)),
+      this.persistProfiles ? this.profiles.toJSON().sort((a, b) => b.n - a.n).map((p) => JSON.stringify(p)) : [],
     ];
     const keep: string[][] = [[], []];
     const at = [0, 0];
@@ -3580,6 +3652,16 @@ export class RuntimeImpl implements Runtime {
       left -= cost;
     }
     return `${head}"profiles":[${keep[1].join(",")}],"flows":[${keep[0].join(",")}]}`;
+  }
+}
+
+/** jsdom or happy-dom (an app's unit tests): learned state is not stored by default, so tests never share it. */
+function testDom(glob: Record<string, unknown>): boolean {
+  try {
+    const ua = (glob.navigator as { userAgent?: unknown } | undefined)?.userAgent;
+    return typeof ua === "string" && /\b(jsdom|happydom)\//i.test(ua);
+  } catch {
+    return false;
   }
 }
 

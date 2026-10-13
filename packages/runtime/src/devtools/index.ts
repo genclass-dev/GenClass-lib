@@ -1113,12 +1113,12 @@ class Devtools {
   /** One learned flow as display lines: the action, then each step with its support and whether it is expected. */
   private flowLines(f: LearnedFlow): string[] {
     const q = (x: { p50: number; p95: number } | undefined) => (x ? `, within ${dur(x.p95)}` : "");
-    const tag = (expected: boolean) => (expected ? " · expected" : "");
+    const tag = (x: { expected: boolean; missed?: boolean }) => (x.missed ? " · missed: not expected until seen again" : x.expected ? " · expected" : "");
     const out = [`${f.action} on ${f.route}: ${f.n} observation${f.n === 1 ? "" : "s"} (${f.repeats} repeated in a visit), ${f.sessions} session${f.sessions === 1 ? "" : "s"}${f.settleMs ? `, settles in ${dur(f.settleMs.p95)}` : ""}`];
-    for (const c of f.children) out.push(`  → ${c.signature} (${c.n}/${f.n}${q(c.delayMs)})${c.protected ? " · protected" : c.expected && !c.expectedOnRepeat ? " · expected the first time in a visit" : tag(c.expected)}`);
-    for (const w of f.writes) out.push(`  ✎ ${w.signature} writes ${w.field} (${w.n}/${w.of})${tag(w.expected)}`);
-    for (const u of f.followUps) out.push(`  ↳ ${u.then} after ${u.after} (${u.n}/${u.of}${q(u.delayMs)})${tag(u.expected)}`);
-    for (const n of f.nav) out.push(`  ⇒ ${n.to} (${n.n}/${f.n})${tag(n.expected)}`);
+    for (const c of f.children) out.push(`  → ${c.signature} (${c.n}/${f.n}${q(c.delayMs)})${c.protected ? " · protected" : c.expected && !c.expectedOnRepeat ? " · expected the first time in a visit" : tag(c)}`);
+    for (const w of f.writes) out.push(`  ✎ ${w.signature} writes ${w.field} (${w.n}/${w.of})${tag(w)}`);
+    for (const u of f.followUps) out.push(`  ↳ ${u.then} after ${u.after} (${u.n}/${u.of}${q(u.delayMs)})${tag(u)}`);
+    for (const n of f.nav) out.push(`  ⇒ ${n.to} (${n.n}/${f.n})${tag(n)}`);
     return out;
   }
 

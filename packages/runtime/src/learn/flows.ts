@@ -1,13 +1,16 @@
 // Flow expectations (docs/runtime/EXPECTATIONS.md): for every (route, user action) the runtime learns which
 // requests the action starts and how soon, which request follows which, what each response's handler writes, where
 // the page navigates, and how long the whole flow takes to settle. A step that usually happens (seen in at least
-// `minShare` of `minSupport` or more observations spread over `minSessions` or more sessions) and this time did not
-// is reported to the developer as an `expectation` report: a click that started no request within its learned
-// deadline, a follow-up request that never came, a response whose handler wrote nothing, a navigation that did not
-// happen. Reporting only: nothing here is read by the model (no fact, no trigger, no situation text) and nothing
-// acts, in any mode. Deterministic: every time and timer comes from the injected clock. Bounded: flows per route
-// and in total (least-used dropped), 16 child signatures per flow, 32-sample delay windows, 8 branches per step, 64
-// open instances, one timer per open instance. Persisted without page text: the action label is kept only as a hash.
+// `minShare` of `minSupport` or more observations, `minStoredSupport` once stored ones count, spread over
+// `minSessions` or more sessions) and this time did not is reported to the developer as an `expectation` report: a
+// click that started no request within its learned deadline, a follow-up request that never came, a response whose
+// handler wrote nothing, a navigation that did not happen. A reported step is not expected again until it is seen
+// again (a changed app gets one line, not one per visit), and a flow's counts are halved when it reaches 64
+// observations (what the app does now outweighs what it did long ago). Reporting only: nothing here is read by the
+// model (no fact, no trigger, no situation text) and nothing acts, in any mode. Deterministic: every time and timer
+// comes from the injected clock. Bounded: flows per route and in total (least-used dropped), 16 child signatures per
+// flow, 32-sample delay windows, 8 branches per step, 64 open instances, one timer per open instance; stored records
+// are held to the same bounds when loaded. Persisted without page text: the action label is kept only as a hash.
 //
 // False-positive controls (EXPECTATIONS.md §3) are learned, never hardcoded patterns: a step is expected only on the
 // branch of the handler it was learned on (the same set of fields written), a repeat of an action within a page load
@@ -20,8 +23,10 @@ import type { Expectation, LearnedFlow, UserAction } from "../types.js";
 import { defaultRedact, fnv1a, normalizePath, plural } from "../util.js";
 
 export interface FlowConfig {
-  /** Observations of a flow (or completions of a request) before anything is expected of it. */
+  /** Observations of a flow (or completions of a request) before anything is expected of it, all from this page load. */
   minSupport: number;
+  /** The same once observations from earlier page loads (storage) are counted. */
+  minStoredSupport: number;
   /** Share of observations in which a step occurred for it to be expected. */
   minShare: number;
   /** Distinct sessions a flow was observed in before anything is expected of it. */
@@ -29,8 +34,10 @@ export interface FlowConfig {
 }
 
 export const DEFAULT_MIN_SUPPORT = 8;
+export const DEFAULT_MIN_STORED_SUPPORT = 20;
 export const DEFAULT_MIN_SHARE = 0.95;
-export const DEFAULT_MIN_SESSIONS = 2;
+/** With persistence in localStorage; 1 otherwise (no other session can then be seen). */
+export const DEFAULT_MIN_SESSIONS = 3;
 
 /** What the flow learner needs from the runtime (all through the injected clock). */
 export interface FlowEnv {
@@ -58,6 +65,8 @@ const MAX_FIELDS = 16;
 const MAX_BRANCHES = 8;
 const MAX_SEEN = 2000;
 const WINDOW = 32;
+/** A flow's counts are halved when it reaches this many observations. */
+const HALVE_AT = 64;
 const MIN_DEADLINE_MS = 1000;
 const MAX_DEADLINE_MS = 10_000;
 const MIN_CLOSE_MS = 1500;
@@ -80,16 +89,20 @@ interface Step {
   own: Record<string, number>;
   /** Seen under `requests.protect`: never expected. */
   protected?: boolean;
+  /** Reported missing: not expected again until it is seen again. */
+  miss?: true;
 }
 interface Follow {
   n: number;
   delay: number[];
   /** Branches it followed in: hash of the fields the predecessor's response handler wrote -> count. */
   when: Record<string, number>;
+  miss?: true;
 }
 interface Writes {
   n: number;
   fields: Record<string, number>;
+  miss?: true;
 }
 
 /** One learned flow. Everything but `label` is persisted. */
@@ -114,8 +127,12 @@ export interface FlowRecord {
   nav: Record<string, number>;
   /** Branches the flow navigated in: hash of every field the flow wrote -> count. */
   navKeys: Record<string, number>;
+  /** A missing navigation was reported: none is expected until the flow navigates again. */
+  navMiss?: true;
   /** Least-recently-used ordinal (eviction and the storage size cap). */
   used: number;
+  /** Loaded from storage, so its counts include earlier page loads (never persisted). */
+  stored?: boolean;
 }
 
 interface Check {
@@ -164,6 +181,11 @@ function push(w: number[], v: number): void {
 
 function bump(m: Record<string, number>, k: string): void {
   if (k in m || Object.keys(m).length < MAX_BRANCHES) m[k] = (m[k] ?? 0) + 1;
+}
+
+/** Halve every count of a map, dropping those that reach 0. */
+function halveCounts(m: Record<string, number>): void {
+  for (const k of Object.keys(m)) if (!(m[k] = Math.floor(m[k] / 2))) delete m[k];
 }
 
 /** A set of written fields as a branch key ("" for none). */
@@ -218,18 +240,21 @@ export function actionPhrase(rec: FlowRecord): string {
 }
 
 const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
-const num = (x: unknown): number => (isNum(x) ? x : 0);
+/** A stored count: finite and positive, else 0. */
+const num = (x: unknown): number => (isNum(x) && x > 0 ? x : 0);
 const nums = (x: unknown): number[] => (Array.isArray(x) ? x.filter(isNum).slice(-WINDOW) : []);
-function counts(x: unknown): Record<string, number> {
+const missFlag = (v: Record<string, unknown>): { miss?: true } => (v.miss === true ? { miss: true } : {});
+/** A stored `key -> count` map, at most `cap` keys (the bound it was learned under). */
+function counts(x: unknown, cap = MAX_BRANCHES): Record<string, number> {
   const out: Record<string, number> = {};
-  if (x && typeof x === "object") for (const [k, v] of Object.entries(x as Record<string, unknown>)) if (isNum(v)) out[k] = v;
+  if (x && typeof x === "object") for (const [k, v] of Object.entries(x as Record<string, unknown>)) if (num(v) && Object.keys(out).length < cap) out[k] = v as number;
   return out;
 }
-function entries<T>(x: unknown, fix: (v: Record<string, unknown>) => T | null): Record<string, T> {
+function entries<T>(x: unknown, cap: number, fix: (v: Record<string, unknown>) => T | null): Record<string, T> {
   const out: Record<string, T> = {};
   if (!x || typeof x !== "object") return out;
   for (const [k, v] of Object.entries(x as Record<string, unknown>)) {
-    if (!v || typeof v !== "object") continue;
+    if (!v || typeof v !== "object" || Object.keys(out).length >= cap) continue;
     const f = fix(v as Record<string, unknown>);
     if (f) out[k] = f;
   }
@@ -288,8 +313,13 @@ export class FlowProfiles {
     return n;
   }
 
+  /** The support a flow's counts need: higher once they include stored observations from earlier page loads. */
+  private need(rec: FlowRecord): number {
+    return rec.stored ? this.cfg.minStoredSupport : this.cfg.minSupport;
+  }
+
   private qualifies(rec: FlowRecord): boolean {
-    return rec.n >= this.cfg.minSupport && rec.sessions >= this.cfg.minSessions;
+    return rec.n >= this.need(rec) && rec.sessions >= this.cfg.minSessions;
   }
 
   /**
@@ -298,8 +328,8 @@ export class FlowProfiles {
    */
   private expectedStep(rec: FlowRecord, sig: string, repeat: boolean): Step | null {
     const st = rec.children[sig];
-    if (!st || st.protected || !mutating(sig) || !this.qualifies(rec) || st.n / rec.n < this.cfg.minShare) return null;
-    if (repeat && (rec.rep < this.cfg.minSupport || st.r / rec.rep < this.cfg.minShare)) return null;
+    if (!st || st.protected || st.miss || !mutating(sig) || !this.qualifies(rec) || st.n / rec.n < this.cfg.minShare) return null;
+    if (repeat && (rec.rep < this.need(rec) || st.r / rec.rep < this.cfg.minShare)) return null;
     return st;
   }
 
@@ -307,14 +337,15 @@ export class FlowProfiles {
   private followLearned(rec: FlowRecord, a: string, b: string): Follow | null {
     const f = rec.follows[`${a}${PAIR}${b}`];
     const stA = rec.children[a];
-    if (!f || !stA || stA.done < this.cfg.minSupport || f.n / stA.done < this.cfg.minShare) return null;
+    if (!f || !stA || stA.done < this.need(rec) || f.n / stA.done < this.cfg.minShare) return null;
     return f;
   }
 
-  /** ...and its absence is reportable: the flow qualifies, B is not protected, and A or B changes data. */
+  /** ...and its absence is reportable: the flow qualifies, B is not protected, A or B changes data, not just missed. */
   private expectedFollow(rec: FlowRecord, a: string, b: string): Follow | null {
     if (!this.qualifies(rec) || rec.children[b]?.protected || (!mutating(a) && !mutating(b))) return null;
-    return this.followLearned(rec, a, b);
+    const f = this.followLearned(rec, a, b);
+    return f && !f.miss ? f : null;
   }
 
   /** The signature usually follows another request of the flow: only the follow-up check may report it missing. */
@@ -498,6 +529,7 @@ export class FlowProfiles {
       if (!st || !st.own[branch(inst.own)] || this.env.startedSince(c.sig, inst.user.start)) return;
       const usual = quantile(st.delay, 0.95);
       const waited = now - inst.user.start;
+      st.miss = true;
       this.report(inst, {
         kind: "request",
         route: rec.route,
@@ -523,6 +555,7 @@ export class FlowProfiles {
     for (const o of inst.children) if (o.id === c.afterOp && o.end !== undefined) endA = o.end;
     const usual = quantile(f.delay, 0.95);
     const waited = now - endA;
+    f.miss = true;
     this.report(inst, {
       kind: "follow-up",
       route: rec.route,
@@ -542,6 +575,7 @@ export class FlowProfiles {
 
   private report(inst: Inst, e: Expectation): void {
     inst.reported = true;
+    this.env.changed(); // the miss mark is stored too
     this.note(e);
   }
 
@@ -584,12 +618,13 @@ export class FlowProfiles {
       if (!okEnd(o) || o.genclass || o.scope?.protected || !mutating(o.name) || seenSig.has(o.name)) continue;
       seenSig.add(o.name);
       const W = rec.writes[o.name];
-      if (!W || W.n < this.cfg.minSupport || inst.wrote.has(o.id)) continue;
+      if (!W || W.miss || W.n < this.need(rec) || inst.wrote.has(o.id)) continue;
       const fields = Object.keys(W.fields)
         .filter((f) => W.fields[f] / W.n >= this.cfg.minShare)
         .sort();
       if (!fields.length) continue;
       const seen = Math.min(...fields.map((f) => W.fields[f]));
+      W.miss = true;
       return this.report(inst, {
         kind: "write",
         route: rec.route,
@@ -607,11 +642,12 @@ export class FlowProfiles {
     }
     // a navigation: not while a request of the flow is still in flight (a slow answer, not a missing step), and only
     // on the branch the flow navigated in before (the same set of fields written)
-    if (inst.nav !== null || inst.children.some((c) => c.end === undefined) || !rec.navKeys[branch(this.allWrites(inst))]) return;
+    if (inst.nav !== null || rec.navMiss || inst.children.some((c) => c.end === undefined) || !rec.navKeys[branch(this.allWrites(inst))]) return;
     for (const [to, c] of Object.entries(rec.nav)) {
       if (c / rec.n < this.cfg.minShare) continue;
       const usual = quantile(rec.navDelay, 0.95);
       const waited = now - inst.user.start;
+      rec.navMiss = true;
       return this.report(inst, {
         kind: "navigation",
         route: rec.route,
@@ -657,6 +693,7 @@ export class FlowProfiles {
         st = rec.children[sig] = { n: 0, r: 0, done: 0, delay: [], own: {} };
       }
       st.n++;
+      delete st.miss; // seen again: expected again
       if (inst.repeat) st.r++;
       bump(st.own, ownKey);
       push(st.delay, Math.min(...ops.map((o) => o.start)) - u);
@@ -671,6 +708,7 @@ export class FlowProfiles {
           W = rec.writes[sig] = { n: 0, fields: {} };
         }
         W.n++;
+        if (inst.wrote.has(o.id)) delete W.miss;
         for (const f of inst.wrote.get(o.id) ?? []) {
           // fields whose names mean a secret are never learned (nor stored)
           if (defaultRedact(f, "x") !== "x") continue;
@@ -703,6 +741,7 @@ export class FlowProfiles {
           f = rec.follows[k] = { n: 0, delay: [], when: {} };
         }
         f.n++;
+        delete f.miss;
         push(f.delay, best);
         bump(f.when, branch(inst.wrote.get(by.id) ?? []));
       }
@@ -711,8 +750,36 @@ export class FlowProfiles {
       rec.nav[inst.nav] = (rec.nav[inst.nav] ?? 0) + 1;
       push(rec.navDelay, inst.navAt - u);
       bump(rec.navKeys, branch(this.allWrites(inst)));
+      delete rec.navMiss;
     }
+    if (rec.n >= HALVE_AT) this.halve(rec);
     this.env.changed();
+  }
+
+  /** Halve every count of a flow: shares stay, older behaviour weighs less; steps, pairs and keys at 0 are dropped. */
+  private halve(rec: FlowRecord): void {
+    const h = (x: number) => Math.floor(x / 2);
+    rec.n = h(rec.n);
+    rec.rep = h(rec.rep);
+    for (const [k, st] of Object.entries(rec.children)) {
+      st.n = h(st.n);
+      st.r = h(st.r);
+      st.done = h(st.done);
+      halveCounts(st.own);
+      if (!st.n) delete rec.children[k];
+    }
+    for (const [k, f] of Object.entries(rec.follows)) {
+      f.n = h(f.n);
+      halveCounts(f.when);
+      if (!f.n) delete rec.follows[k];
+    }
+    for (const [k, W] of Object.entries(rec.writes)) {
+      W.n = h(W.n);
+      halveCounts(W.fields);
+      if (!W.n) delete rec.writes[k];
+    }
+    halveCounts(rec.nav);
+    halveCounts(rec.navKeys);
   }
 
   // --------------------------------------------------------------------------------------- introspection
@@ -733,20 +800,24 @@ export class FlowProfiles {
         children: Object.entries(rec.children).map(([signature, st]) => {
           const c: LearnedFlow["children"][number] = { signature, n: st.n, share: rec.n ? st.n / rec.n : 0, onRepeat: st.r, expected: !!this.expectedStep(rec, signature, false), expectedOnRepeat: !!this.expectedStep(rec, signature, true) };
           if (st.protected) c.protected = true;
+          if (st.miss) c.missed = true;
           if (st.delay.length) c.delayMs = stat(st.delay);
           return c;
         }),
-        writes: Object.entries(rec.writes).flatMap(([signature, W]) => Object.entries(W.fields).map(([field, n]) => ({ signature, field, n, of: W.n, share: W.n ? n / W.n : 0, expected: q && mutating(signature) && W.n >= this.cfg.minSupport && n / W.n >= this.cfg.minShare }))),
+        writes: Object.entries(rec.writes).flatMap(([signature, W]) =>
+          Object.entries(W.fields).map(([field, n]) => ({ signature, field, n, of: W.n, share: W.n ? n / W.n : 0, expected: q && !W.miss && mutating(signature) && W.n >= this.need(rec) && n / W.n >= this.cfg.minShare, ...(W.miss ? { missed: true as const } : {}) })),
+        ),
         followUps: Object.entries(rec.follows).map(([pair, f]) => {
           const i = pair.indexOf(PAIR);
           const after = pair.slice(0, i);
           const then = pair.slice(i + 1);
           const of = rec.children[after]?.done ?? 0;
           const u: LearnedFlow["followUps"][number] = { after, then, n: f.n, of, share: of ? f.n / of : 0, expected: !!this.expectedFollow(rec, after, then) };
+          if (f.miss) u.missed = true;
           if (f.delay.length) u.delayMs = stat(f.delay);
           return u;
         }),
-        nav: Object.entries(rec.nav).map(([to, n]) => ({ to, n, share: rec.n ? n / rec.n : 0, expected: q && n / rec.n >= this.cfg.minShare })),
+        nav: Object.entries(rec.nav).map(([to, n]) => ({ to, n, share: rec.n ? n / rec.n : 0, expected: q && !rec.navMiss && n / rec.n >= this.cfg.minShare, ...(rec.navMiss ? { missed: true as const } : {}) })),
       };
       if (rec.settle.length) flow.settleMs = stat(rec.settle);
       out.push(flow);
@@ -758,45 +829,53 @@ export class FlowProfiles {
   // ----------------------------------------------------------------------------------------- persistence
 
   /** Records without their labels (hashes, signatures, field names and counts only). */
-  toJSON(): Omit<FlowRecord, "label">[] {
-    return [...this.byKey.values()].map(({ label: _l, ...rest }) => rest);
+  toJSON(): Omit<FlowRecord, "label" | "stored">[] {
+    return [...this.byKey.values()].map(({ label: _l, stored: _s, ...rest }) => rest);
   }
 
-  /** Records from storage; anything malformed is dropped or zeroed (stored state is never trusted). */
+  /**
+   * Records from storage; anything malformed is dropped or zeroed (stored state is never trusted), and the bounds of
+   * learning hold (flows per route and in total, steps, pairs, routes, branches and fields per flow).
+   */
   load(list: unknown): void {
     if (!Array.isArray(list)) return;
     for (const r of list as Record<string, unknown>[]) {
       if (!r || typeof r !== "object") continue;
       const h = r.h;
-      const n = r.n;
       const route = r.route;
-      if (typeof h !== "string" || !isNum(n) || typeof route !== "string") continue;
-      const sessions = r.sessions;
+      if (typeof h !== "string" || !isNum(r.n) || typeof route !== "string") continue;
       const rec: FlowRecord = {
         h,
         route,
         kind: typeof r.kind === "string" ? r.kind : "click",
         role: typeof r.role === "string" ? r.role : "page",
-        n,
+        n: num(r.n),
         rep: num(r.rep),
-        sessions: isNum(sessions) ? sessions : 1,
+        sessions: num(r.sessions) || 1,
         last: num(r.last),
         settle: nums(r.settle),
         navDelay: nums(r.navDelay),
-        children: entries<Step>(r.children, (v) => (isNum(v.n) ? { n: num(v.n), r: num(v.r), done: num(v.done), delay: nums(v.delay), own: counts(v.own), ...(v.protected === true ? { protected: true } : {}) } : null)),
-        follows: entries<Follow>(r.follows, (v) => (isNum(v.n) ? { n: num(v.n), delay: nums(v.delay), when: counts(v.when) } : null)),
-        writes: entries<Writes>(r.writes, (v) => (isNum(v.n) ? { n: num(v.n), fields: counts(v.fields) } : null)),
-        nav: counts(r.nav),
+        children: entries<Step>(r.children, MAX_CHILDREN, (v) => (isNum(v.n) ? { n: num(v.n), r: num(v.r), done: num(v.done), delay: nums(v.delay), own: counts(v.own), ...(v.protected === true ? { protected: true } : {}), ...missFlag(v) } : null)),
+        follows: entries<Follow>(r.follows, MAX_FOLLOWS, (v) => (isNum(v.n) ? { n: num(v.n), delay: nums(v.delay), when: counts(v.when), ...missFlag(v) } : null)),
+        writes: entries<Writes>(r.writes, MAX_CHILDREN, (v) => (isNum(v.n) ? { n: num(v.n), fields: counts(v.fields, MAX_FIELDS), ...missFlag(v) } : null)),
+        nav: counts(r.nav, MAX_NAV),
         navKeys: counts(r.navKeys),
+        ...(r.navMiss === true ? { navMiss: true as const } : {}),
         used: num(r.used),
+        stored: true,
       };
       this.byKey.set(rec.h, rec);
       if (rec.used > this.tick) this.tick = rec.used;
-      if (this.byKey.size > MAX_FLOWS) this.dropLeastUsed(this.byKey.size - MAX_FLOWS);
     }
+    const perRoute = new Map<string, number>();
+    for (const rec of this.byKey.values()) perRoute.set(rec.route, (perRoute.get(rec.route) ?? 0) + 1);
+    for (const [route, k] of perRoute) if (k > MAX_PER_ROUTE) this.dropLeastUsed(k - MAX_PER_ROUTE, route);
+    if (this.byKey.size > MAX_FLOWS) this.dropLeastUsed(this.byKey.size - MAX_FLOWS);
   }
 
+  /** Forget everything learned, and the open instances (rt.learn.clear()). */
   clear(): void {
+    this.dispose();
     this.byKey.clear();
     this.seen.clear();
     this.deviations.length = 0;

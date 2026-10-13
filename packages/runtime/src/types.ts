@@ -808,15 +808,19 @@ export interface InitOptions {
  */
 export interface LearnOptions {
   /**
-   * Keep learned state per origin between page loads: true / "local" (localStorage, the default) or "session"
-   * (sessionStorage); false keeps it in memory only. What is stored: request signatures, normalised routes and
-   * field names, hashes of user-action labels, counts and delay samples; never page text or values. Capped at
-   * `maxBytes`; a `version` change discards it.
+   * Keep learned state per origin between page loads. Unset (the default): the flows behind `expectation` reports
+   * (reporting only) are kept in localStorage; transition profiles, which feed the model, stay in memory (CONTRACT
+   * §4). true / "local": flows and transition profiles in localStorage; "session": both in sessionStorage; false:
+   * nothing is stored. Without working storage, or by default in a DOM test environment (jsdom, happy-dom), nothing
+   * is stored either. What is stored: request signatures, routes and field names (id-like segments and keys
+   * normalised; other path segments and map keys as they are), hashes of user-action labels, counts and delay
+   * samples; never element text or values. Capped at `maxBytes`; discarded when `version` or the runtime version
+   * changes.
    */
   persist?: boolean | "local" | "session";
   /** Storage key. Default "genclass:learn". */
   key?: string;
-  /** Discards stored state learned under another version. Default: session.tags.release at init. */
+  /** Discards stored state learned under another version (as does a new runtime version). Default: session.tags.release at init. */
   version?: string;
   /**
    * Size cap of the stored state in characters: the most-used flows and the profiles with the most completions are
@@ -825,13 +829,17 @@ export interface LearnOptions {
   maxBytes?: number;
   /** Flow expectations (`expectation` reports, rt.learned().flows). Default true; false learns and reports nothing. */
   expectations?: boolean;
-  /** Observations of a flow (or completions of a request) before a step is expected of it. Default 8. */
+  /**
+   * Observations of a flow (or completions of a request) before a step is expected of it. Default 8 while all of
+   * them are from this page load, 20 once stored observations from earlier page loads count; a number sets both.
+   */
   minSupport?: number;
   /** Share of observations in which a step must have occurred to be expected. Default 0.95. */
   minShare?: number;
   /**
    * Distinct sessions a flow must have been seen in before anything is expected of it (for `response`: sessions on
-   * this origin, this one included). Default 2 (1 when persist is false).
+   * this origin, this one included). A session is a browsing session of a tab: a reload continues it. Default 3
+   * when learned state is kept in localStorage, else 1.
    */
   minSessions?: number;
 }
@@ -887,25 +895,29 @@ export interface LearnedFlow {
   /**
    * Requests the action starts (`onRepeat`: of them, in repeats). `expected`: its absence is reported the first time
    * the action happens in a page load (support, share and session thresholds met, a method that changes data, not
-   * protected); `expectedOnRepeat`: also on a repeat (the share holds among `repeats` too).
+   * protected, not `missed`); `expectedOnRepeat`: also on a repeat (the share holds among `repeats` too). `missed`:
+   * its absence was reported, and it is not expected again until it is seen again (on every step kind below too).
    */
-  children: { signature: string; n: number; share: number; onRepeat: number; expected: boolean; expectedOnRepeat: boolean; protected?: boolean; delayMs?: { p50: number; p95: number } }[];
+  children: { signature: string; n: number; share: number; onRepeat: number; expected: boolean; expectedOnRepeat: boolean; protected?: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
   /**
    * Fields each request's response handler writes (a refetch's writes are the refetch's). `expected`: a missing write
    * is reported (thresholds met and the request changes data: not GET, HEAD or OPTIONS).
    */
-  writes: { signature: string; field: string; n: number; of: number; share: number; expected: boolean }[];
+  writes: { signature: string; field: string; n: number; of: number; share: number; expected: boolean; missed?: boolean }[];
   /** Requests that start after another one of the flow answers ok; `expected` needs one of the pair to change data. */
-  followUps: { after: string; then: string; n: number; of: number; share: number; expected: boolean; delayMs?: { p50: number; p95: number } }[];
+  followUps: { after: string; then: string; n: number; of: number; share: number; expected: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
   /** Routes the action leads to. */
-  nav: { to: string; n: number; share: number; expected: boolean }[];
+  nav: { to: string; n: number; share: number; expected: boolean; missed?: boolean }[];
 }
 
 /** rt.learned(): what GenClass learned about the page (reporting only). */
 export interface Learned {
   /** The current route (normalised). */
   route: string;
-  /** This session's ordinal on this origin (1 + the sessions that persisted learned state before it). */
+  /**
+   * This session's ordinal on this origin: 1 + the sessions that stored learned state before it, or, after a reload
+   * in the same tab, the ordinal the tab already had (kept in sessionStorage). Always 1 when nothing is stored.
+   */
   session: number;
   /** Learned flows, the current route's first. */
   flows: LearnedFlow[];
