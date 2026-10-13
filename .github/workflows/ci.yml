@@ -70,3 +70,27 @@ jobs:
       - name: Unit tests
         working-directory: telemetry-worker
         run: npx vitest run
+
+  scan-worker:
+    name: "scan-worker: typecheck, unit tests (URL rules, SSRF, request policy, score, report, HTTP) and the site's genclass.dev/<url> rule"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scan-worker/package-lock.json
+      # scan-worker has its own lockfile (it is not a root workspace): @cloudflare/puppeteer stays out of the runtime.
+      - name: Install
+        working-directory: scan-worker
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        working-directory: scan-worker
+        run: npm run typecheck
+      - name: Unit tests (node:test, browser binding mocked)
+        working-directory: scan-worker
+        run: npm test
+      - name: Site worker path rule
+        run: node --test site/check/scan-path.test.mjs

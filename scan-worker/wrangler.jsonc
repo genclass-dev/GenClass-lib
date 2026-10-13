@@ -1,0 +1,32 @@
+// genclass.dev/scan: one public page in a Cloudflare browser, the GenClass visual checks, a side-effect-free race
+// probe, and a score. Deploy (workers.dev only): npx --yes wrangler@4 deploy   (from this directory)
+//
+// Routes it will own on genclass.dev, added by the owner after review (NOT live from this file):
+//   genclass.dev/api/scan*   and   genclass.dev/scan*
+// Until then it answers on https://genclass-scan.mehar-144.workers.dev only.
+{
+  "name": "genclass-scan",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "144bd5f5270b51dbe7faf46227a154f0",
+  "workers_dev": true,
+  // The page-side checks are serialised with Function.prototype.toString(): esbuild's keep-names helper (__name)
+  // would end up inside them and is not defined in the scanned page.
+  "keep_names": false,
+  "browser": { "binding": "BROWSER" },
+  // Existing bucket, scans/ prefix only: reports (6 h cache), screenshots (deleted after 24 h), slots, blocklist.
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
+  // New scans per client per minute (keyed by a hash of the IP, never stored).
+  "ratelimits": [{ "name": "SCAN_LIMIT", "namespace_id": "4810", "simple": { "limit": 5, "period": 60 } }],
+  "vars": {
+    "MAX_CONCURRENT": "3",
+    // The with-GenClass score column stays off until the runtime ships visual fixes (branch wave2/visual).
+    "WITH_GENCLASS": "off",
+    "GUARD_HOLD_MS": "900"
+  },
+  // Hourly retention sweep: scan reports and screenshots older than 24 hours.
+  "triggers": { "crons": ["23 * * * *"] },
+  "limits": { "cpu_ms": 60000 },
+  "observability": { "enabled": false }
+}

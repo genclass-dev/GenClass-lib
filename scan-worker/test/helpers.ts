@@ -1,0 +1,268 @@
+// Test doubles: an in-memory R2 bucket (with etag preconditions), a rate limiter, a DNS-over-HTTPS fetch and a fake
+// browser whose pages emit request events, answer the page-side scripts with canned results and record what the
+// interception policy did to each request.
+
+import type { BrowserLike, PageLike, RequestLike, ResponseLike } from "../src/scan.ts";
+import type { Bucket } from "../src/store.ts";
+
+export class MemBucket implements Bucket {
+  objects = new Map<string, { body: string | Uint8Array; etag: string; uploaded: Date; contentType?: string }>();
+  puts = 0;
+  private n = 0;
+  private clock: () => number;
+  constructor(clock: () => number = () => Date.now()) {
+    this.clock = clock;
+  }
+  async get(key: string) {
+    const o = this.objects.get(key);
+    if (!o) return null;
+    const body = o.body;
+    return {
+      etag: o.etag,
+      uploaded: o.uploaded,
+      size: typeof body === "string" ? body.length : body.byteLength,
+      text: async () => (typeof body === "string" ? body : new TextDecoder().decode(body)),
+      body: new Response(typeof body === "string" ? body : new Uint8Array(body)).body as ReadableStream,
+    };
+  }
+  async put(key: string, value: unknown, options: Record<string, unknown> = {}) {
+    const cur = this.objects.get(key);
+    const only = options.onlyIf as { etagMatches?: string } | Headers | undefined;
+    if (only instanceof Headers) {
+      if (only.get("if-none-match") === "*" && cur) return null;
+    } else if (only && only.etagMatches !== undefined && (!cur || cur.etag !== only.etagMatches)) return null;
+    const body = typeof value === "string" ? value : value instanceof Uint8Array ? value : new Uint8Array(value as ArrayBuffer);
+    const etag = `e${++this.n}`;
+    this.objects.set(key, { body, etag, uploaded: new Date(this.clock()), contentType: (options.httpMetadata as { contentType?: string } | undefined)?.contentType });
+    this.puts++;
+    return { etag };
+  }
+  async delete(keys: string | string[]) {
+    for (const k of Array.isArray(keys) ? keys : [keys]) this.objects.delete(k);
+  }
+  async list(o: { prefix?: string; cursor?: string; limit?: number } = {}) {
+    const all = [...this.objects.entries()].filter(([k]) => !o.prefix || k.startsWith(o.prefix)).sort(([a], [b]) => a.localeCompare(b));
+    const start = o.cursor ? Number(o.cursor) : 0;
+    const limit = o.limit ?? 1000;
+    const slice = all.slice(start, start + limit);
+    const truncated = start + limit < all.length;
+    return { objects: slice.map(([key, v]) => ({ key, uploaded: v.uploaded })), truncated, ...(truncated ? { cursor: String(start + limit) } : {}) };
+  }
+}
+
+export class Limiter {
+  calls: string[] = [];
+  private allow: number;
+  constructor(allow: number) {
+    this.allow = allow;
+  }
+  async limit({ key }: { key: string }) {
+    this.calls.push(key);
+    return { success: this.calls.filter((k) => k === key).length <= this.allow };
+  }
+}
+
+/** A fetch that answers DNS-over-HTTPS from a table and robots.txt from another; everything else 404. */
+export function fakeFetch(dns: Record<string, string[] | "nx">, robots: Record<string, string> = {}) {
+  const calls: string[] = [];
+  const f = async (input: string): Promise<Response> => {
+    calls.push(input);
+    const u = new URL(input);
+    if (u.hostname === "cloudflare-dns.com") {
+      const name = u.searchParams.get("name") || "";
+      const type = u.searchParams.get("type");
+      const entry = dns[name];
+      if (entry === undefined || entry === "nx") return Response.json({ Status: 3 });
+      const want = type === "A" ? 1 : 28;
+      const answers = entry.filter((a) => (a.includes(":") ? 28 : 1) === want).map((data) => ({ type: want, data }));
+      return Response.json({ Status: 0, Answer: answers });
+    }
+    if (u.pathname === "/robots.txt" && robots[u.hostname] !== undefined) return new Response(robots[u.hostname]);
+    return new Response("not found", { status: 404 });
+  };
+  return { fetch: f, calls };
+}
+
+// ------------------------------------------------------------------------------------------ fake browser
+
+export interface Handled {
+  url: string;
+  method: string;
+  type: string;
+  outcome: "continue" | "abort" | "respond";
+  status?: number;
+  body?: string;
+}
+
+class FakeRequest implements RequestLike {
+  handled: Handled | null = null;
+  private page: FakePage;
+  private _url: string;
+  private _method: string;
+  private _type: string;
+  private _nav: boolean;
+  private _main: boolean;
+  private _body?: string;
+  constructor(page: FakePage, url: string, method: string, type: string, nav: boolean, main: boolean, body?: string) {
+    this.page = page;
+    this._url = url;
+    this._method = method;
+    this._type = type;
+    this._nav = nav;
+    this._main = main;
+    this._body = body;
+  }
+  url() { return this._url; }
+  method() { return this._method; }
+  resourceType() { return this._type; }
+  isNavigationRequest() { return this._nav; }
+  frame() { return this._main ? this.page.main : { sub: true }; }
+  postData() { return this._body; }
+  failure() { return null; }
+  isInterceptResolutionHandled() { return this.handled !== null; }
+  private done(h: Omit<Handled, "url" | "method" | "type">) {
+    this.handled = { url: this._url, method: this._method, type: this._type, ...h };
+    this.page.handled.push(this.handled);
+  }
+  async continue() { this.done({ outcome: "continue" }); }
+  async abort() { this.done({ outcome: "abort" }); }
+  async respond(r: { status: number; body?: string }) { this.done({ outcome: "respond", status: r.status, body: r.body }); }
+}
+
+export interface PageScript {
+  /** Requests the page makes while loading (after the main document). */
+  load?: { url: string; method?: string; type?: string; nav?: boolean; main?: boolean; body?: string }[];
+  /** Findings the page-side checks return, per view. */
+  findings?: (view: string) => unknown[];
+  docHeight?: number;
+  status?: number;
+  gotoError?: string;
+  model?: { state: string; device?: string; loadMs?: number };
+  search?: boolean;
+  button?: boolean;
+  /** What a double click makes the page send, by mode: the number of identical POSTs. */
+  postsOnDoubleClick?: { observe: number; guard: number };
+  detections?: unknown[];
+}
+
+export class FakePage implements PageLike {
+  main = { main: true };
+  handled: Handled[] = [];
+  onNew: string[] = [];
+  evaluated: string[] = [];
+  private handlers = new Map<string, ((a: unknown) => void)[]>();
+  private current = "about:blank";
+  closed = false;
+  viewport: { width: number; height: number } | null = null;
+  scheme = "light";
+  ua = "";
+  mode: "none" | "observe" | "guard" = "none";
+  mouse = { click: async (_x: number, _y: number, o?: { count?: number }) => this.click(o?.count ?? 1) };
+  keyboard = { type: async (text: string) => this.typeText(text) };
+  private script: PageScript;
+  private settle: () => Promise<void>;
+  constructor(script: PageScript, settle: () => Promise<void>) {
+    this.script = script;
+    this.settle = settle;
+  }
+  async setViewport(v: { width: number; height: number }) { this.viewport = v; }
+  async setUserAgent(ua: string) { this.ua = ua; }
+  async emulateMediaFeatures(f: { name: string; value: string }[]) { this.scheme = f.find((x) => x.name === "prefers-color-scheme")?.value || "light"; }
+  async setBypassCSP() {}
+  async setRequestInterception() {}
+  async evaluateOnNewDocument(src: string) {
+    this.onNew.push(src);
+    const m = /"mode":"(observe|guard)"/.exec(src);
+    if (m) this.mode = m[1] as "observe" | "guard";
+  }
+  on(ev: string, h: (a: unknown) => void) {
+    const list = this.handlers.get(ev) || [];
+    list.push(h);
+    this.handlers.set(ev, list);
+  }
+  emit(ev: string, a: unknown) {
+    for (const h of this.handlers.get(ev) || []) h(a);
+  }
+  async request(url: string, method = "GET", type = "fetch", nav = false, main = false, body?: string): Promise<FakeRequest> {
+    const r = new FakeRequest(this, url, method, type, nav, main, body);
+    this.emit("request", r);
+    for (let i = 0; i < 50 && !r.handled; i++) await this.settle();
+    if (r.handled?.outcome === "continue") this.emit("requestfinished", r);
+    return r;
+  }
+  async goto(url: string): Promise<ResponseLike | null> {
+    if (this.script.gotoError) throw new Error(this.script.gotoError);
+    const doc = await this.request(url, "GET", "document", true, true);
+    if (doc.handled?.outcome !== "continue") throw new Error("net::ERR_BLOCKED_BY_CLIENT");
+    this.current = url;
+    for (const l of this.script.load || []) await this.request(l.url, l.method || "GET", l.type || "fetch", !!l.nav, l.main ?? false, l.body);
+    const status = this.script.status ?? 200;
+    return { status: () => status, url: () => url, request: () => doc };
+  }
+  posts: number[] = [];
+  private async click(count: number) {
+    if (count < 2 || !this.script.postsOnDoubleClick) return;
+    const n = this.mode === "guard" ? this.script.postsOnDoubleClick.guard : this.script.postsOnDoubleClick.observe;
+    for (let i = 0; i < n; i++) await this.request(`${new URL(this.current).origin}/api/subscribe`, "POST", "fetch", false, false, '{"email":""}');
+  }
+  typed = "";
+  private async typeText(text: string) {
+    for (const ch of text) {
+      this.typed += ch;
+      await this.request(`${new URL(this.current).origin}/api/search?q=${this.typed}`, "GET", "fetch");
+    }
+  }
+  async evaluate(src: string): Promise<unknown> {
+    this.evaluated.push(src);
+    if (src.includes("window.__genclassScanChecks = ")) return false;
+    if (src.startsWith("JSON.stringify(window.__genclassScanChecks(")) {
+      const view = (/"view":"([a-z-]+)"/.exec(src) || [])[1] || "desktop";
+      return JSON.stringify({ findings: this.script.findings ? this.script.findings(view) : [], notes: [], page: { docHeight: this.script.docHeight ?? 1800, docWidth: this.viewport?.width ?? 0, textChecked: 10, textElements: 12, ms: 5 } });
+    }
+    if (src.includes("window.__gcScan || null")) {
+      const guard = this.mode === "guard";
+      const acts = guard && this.script.postsOnDoubleClick && this.script.postsOnDoubleClick.guard < this.script.postsOnDoubleClick.observe
+        ? [{ id: "a1", decisionId: "d2", action: "coalesce", trigger: "request", subject: "POST /api/subscribe", ok: true, changed: "Did not send a duplicate POST /api/subscribe; reused the in-flight response.", late: false }]
+        : [];
+      const m = this.script.model ?? { state: "ready", device: "wasm", loadMs: 3100 };
+      return JSON.stringify({
+        present: this.mode !== "none", error: null, mode: this.mode, holdBudgetMs: 900, visibility: "visible", decisions: 2,
+        status: { state: m.state, device: m.device ?? null, variant: "q8", loadMs: m.loadMs ?? null, error: null, version: "2.0.0-rc4t", effectiveMode: this.mode },
+        detections: this.script.detections ?? [], acts,
+      });
+    }
+    if (src.includes("prepare: true") || src.includes('scrollTo: "search"') || src.includes('scrollTo: "button"')) {
+      return JSON.stringify({
+        search: this.script.search ? { selector: "input#q", at: { x: 400, y: 40, w: 300, h: 36 } } : null,
+        button: this.script.button ? { selector: "button[type=submit].cta", label: "Subscribe", method: "post", form: "form#news", at: { x: 600, y: 500, w: 160, h: 44 } } : null,
+      });
+    }
+    return undefined;
+  }
+  async screenshot() { return new Uint8Array([0xff, 0xd8, 0xff, 0xd9]); }
+  mainFrame() { return this.main; }
+  url() { return this.current; }
+  async close() { this.closed = true; }
+}
+
+export class FakeBrowser implements BrowserLike {
+  pages: FakePage[] = [];
+  closed = false;
+  private script: PageScript;
+  constructor(script: PageScript) {
+    this.script = script;
+  }
+  async newPage() {
+    const p = new FakePage(this.script, () => new Promise((r) => setTimeout(r, 0)));
+    this.pages.push(p);
+    return p;
+  }
+  async version() { return "HeadlessChrome/131.0.6778.33"; }
+  async close() { this.closed = true; }
+}
+
+/** Reads an NDJSON response into its messages. */
+export async function ndjson(res: Response): Promise<Record<string, unknown>[]> {
+  const text = await res.text();
+  return text.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l) as Record<string, unknown>);
+}

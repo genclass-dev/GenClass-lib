@@ -1,5 +1,6 @@
 // genclass.dev edge worker: canonical host, early-access API, then static assets with security and cache headers.
 import { handleAdmin, ingest } from "./admin.js";
+import { scanTargetFromPath } from "./scan-path.js";
 
 const CANONICAL = "genclass.dev";
 
@@ -145,6 +146,12 @@ export default {
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) return handleAdmin(request, env, url, ctx);
 
     const res = await env.ASSETS.fetch(request);
+    // genclass.dev/<url>: only when no page or asset answered, for a GET/HEAD path that looks like an address, and only
+    // with the scan worker bound (service binding SCAN -> genclass-scan). Everything else behaves exactly as before.
+    if (res.status === 404 && env.SCAN && (request.method === "GET" || request.method === "HEAD")) {
+      const target = scanTargetFromPath(url.pathname, url.search);
+      if (target) return env.SCAN.fetch(new Request(`https://${CANONICAL}/scan?url=${encodeURIComponent(target)}`, { method: request.method, headers: request.headers }));
+    }
     const out = new Response(res.body, res);
     for (const [k, v] of Object.entries(SECURITY)) out.headers.set(k, v);
     const path = url.pathname;
