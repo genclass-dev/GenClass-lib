@@ -1,20 +1,20 @@
 <!--meta {"path":"/","nav":"","priority":"1.0",
-"title":"GenClass: Catch Race Conditions and Stale Data in Production",
-"og_title":"GenClass: catch race conditions and stale data in production",
-"description":"Free, open-source AI runtime that catches race conditions, stale responses and duplicate submits in production, in the browser. Try the live demo.",
+"title":"GenClass: The Bugs That Never Throw, Found in Production",
+"og_title":"GenClass: the bugs that never throw, found in production",
+"description":"Add one line and GenClass tells you, with evidence, when users double-submit or an endpoint starts failing in production. A 10 MB model decides on the device, with no server, and the default mode never changes what your app does.",
 "head_extra":"<script>window.__gcRawFetch = window.fetch.bind(window);</script>\n<script src=\"https://cdn.jsdelivr.net/npm/@genclass/runtime@{{rt}}\" data-manual></script>\n",
-"body_extra":"<script src=\"/live.js?v=8\" defer></script>\n",
-"jsonld":[{"@type":"SoftwareApplication","name":"GenClass Runtime","alternateName":"@genclass/runtime","applicationCategory":"DeveloperApplication","applicationSubCategory":"Application reliability","operatingSystem":"Web browser","softwareVersion":"{{rt}}","license":"https://www.apache.org/licenses/LICENSE-2.0","url":"https://genclass.dev/","downloadUrl":"https://www.npmjs.com/package/@genclass/runtime","installUrl":"https://genclass.dev/docs","codeRepository":"https://github.com/genclass-dev/GenClass-lib","programmingLanguage":["TypeScript","JavaScript"],"featureList":["On-device AI inference with WebGPU or WASM","Stale response and race condition prevention","Duplicate request detection","Failure storm detection","Automatic React and Redux state discovery, Zustand with its devtools middleware","Plain-English explanations, audit trail and undo"],"description":"An open-source runtime for web apps that uses a 10 MB on-device model to detect and prevent stale responses, race conditions, duplicate requests, inconsistent state and failure storms.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD","description":"Community edition, free forever"},"publisher":{"@id":"https://genclass.dev/#org"}},
+"body_extra":"<script src=\"/live.js?v=9\" defer></script>\n",
+"jsonld":[{"@type":"SoftwareApplication","name":"GenClass Runtime","alternateName":"@genclass/runtime","applicationCategory":"DeveloperApplication","applicationSubCategory":"Application reliability","operatingSystem":"Web browser","softwareVersion":"{{rt}}","license":"https://www.apache.org/licenses/LICENSE-2.0","url":"https://genclass.dev/","downloadUrl":"https://www.npmjs.com/package/@genclass/runtime","installUrl":"https://genclass.dev/docs","codeRepository":"https://github.com/genclass-dev/GenClass-lib","programmingLanguage":["TypeScript","JavaScript"],"featureList":["On-device model inference with WebGPU or WASM, no server","Duplicate submit detection","Stale response and write race detection","Failure storm detection","Automatic React and Redux state discovery, Zustand with its devtools middleware","Plain-English reports with evidence, audit trail, explain and undo","Opt-in guard mode that acts at the network boundary"],"description":"An open-source runtime for web apps that uses a 10 MB on-device model to report stale responses, race conditions, duplicate requests, inconsistent state and failure storms with evidence, and in opt-in guard mode can act on them.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD","description":"Open-source runtime, free"},"publisher":{"@id":"https://genclass.dev/#org"}},
 {"@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"Is GenClass free?","acceptedAnswer":{"@type":"Answer","text":"Yes. The GenClass runtime is open source under Apache-2.0 and free forever, including in commercial apps, with no usage limits. GenClass Cloud and Enterprise are optional paid products for teams that want central dashboards, alerts, rollout controls, SSO and audit logs."}},
-{"@type":"Question","name":"Does GenClass need an account or an API key?","acceptedAnswer":{"@type":"Answer","text":"No. One script tag or import \"@genclass/runtime/auto\" is all it takes. An account is only needed for GenClass Cloud."}},
-{"@type":"Question","name":"Where does the AI model run?","acceptedAnswer":{"@type":"Answer","text":"In your users' browsers, inside a Web Worker on WebGPU or WASM. Decisions never depend on a server, so there are no per-inference fees and protection keeps working offline."}},
-{"@type":"Question","name":"Will GenClass break my app?","acceptedAnswer":{"@type":"Answer","text":"The default mode only observes and changes nothing. Across 7 frameworks and 15 data layers, GenClass introduced no bugs in 3,510 test runs and took no non-passive action on correct apps in 1,760 guard and heal runs."}}]}]} -->
+{"@type":"Question","name":"Is GenClass free?","acceptedAnswer":{"@type":"Answer","text":"Yes. The GenClass runtime is open source under Apache-2.0 and free, including in commercial apps, with no usage limits. GenClass Cloud and Enterprise are planned paid products for teams; they have no customers yet."}},
+{"@type":"Question","name":"Does GenClass need an account or an API key?","acceptedAnswer":{"@type":"Answer","text":"No. One script tag or import \"@genclass/runtime/auto\" is all it takes. The model runs on the device."}},
+{"@type":"Question","name":"Will GenClass break my app?","acceptedAnswer":{"@type":"Answer","text":"The default mode only observes and changes nothing. Across 7 frameworks and 15 data layers, GenClass introduced no bugs in 3,510 test runs and took no non-passive action on correct apps in 1,760 guard and heal runs (runtime 0.1.0-beta.4, the code shipped as 0.2.1; model 0.2.0)."}},
+{"@type":"Question","name":"Where do GenClass reports go in production?","acceptedAnswer":{"@type":"Answer","text":"By default to the end user's browser console. The sinks option forwards each report to your own logging, Sentry or PostHog. Anonymous diagnostics go to the GenClass maintainers to improve the model, and can be turned off with telemetry: false."}}]}]} -->
 <div class="hero3">
   <div class="wrap">
     <a class="announce" href="https://www.npmjs.com/package/@genclass/runtime"><b>{{rt}}</b>Out now, signed with npm provenance →</a>
-    <h1>Catch race conditions and stale data <em>in production.</em></h1>
-    <p class="lede">GenClass is an open-source runtime with a 10 MB AI model that runs in your users' browsers. It watches every request, response and state change, flags the bugs that never throw, and can stop them before anyone sees them.</p>
+    <h1>The bugs that never throw, <em>found in production.</em></h1>
+    <p class="lede">Add one line and GenClass tells you, with evidence, when a user double-submits or an endpoint starts failing in production. A 10 MB model decides on the device, with no server and no API key, and the default mode never changes what your app does. Guard mode, which can act on what it sees, is opt-in and measured.</p>
     <div class="ctas">
       <a class="btn green" href="#lab">Try the live demo</a>
       <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
@@ -29,26 +29,91 @@
     <div class="trust">
       <span><b>Apache-2.0</b> open source</span>
       <a href="https://www.npmjs.com/package/@genclass/runtime"><b>v{{rt}}</b> with npm provenance</a>
-      <a href="/docs/compatibility"><b>7 frameworks</b>, 15 data layers tested</a>
-      <a href="/benchmarks"><b>96%</b> precision at threshold 0.70 on unseen apps<sup>*</sup></a>
-      <a href="/security"><b>Audited</b> interception surface</a>
+      <a href="/docs/compatibility"><b>0 bugs introduced</b> in 3,510 runs, 7 frameworks, 15 data layers</a>
+      <a href="/benchmarks"><b>0</b> false interventions on held-out real apps<sup>*</sup></a>
+      <a href="/docs/interception"><b>Every API it touches</b>, listed and checked by a test</a>
     </div>
-    <p class="trust-note">* Detection precision of model 0.1.0 at report threshold 0.70 on 16,600 situations from real apps kept out of training. The shipped default threshold is 0.90. <a href="/benchmarks">All numbers, with their labels</a>.</p>
+    <p class="trust-note">* Model 0.2.0 at every aggressiveness profile, on real apps kept out of training. On held-out simulated apps the shipped balanced profile intervenes wrongly in 0.13% of guard cases and 0.59% of heal cases. Compatibility runs: runtime 0.1.0-beta.4 (the code shipped as 0.2.1), model 0.2.0, balanced. <a href="/benchmarks">All numbers, with their labels</a>.</p>
   </div>
 </div>
 
 <section id="catches">
   <div class="wrap">
     <div class="sh"><span class="no">The problem</span><h2>The worst bugs never throw an error.</h2></div>
-    <p class="intro">A slow response lands after a fast one. A customer taps "Pay" twice. An endpoint starts failing at 2 a.m. and the app keeps hammering it. Error monitors see nothing, because nothing crashed. GenClass watches the timing and the data, not just the exceptions.</p>
+    <p class="intro">A customer taps "Pay" twice on a slow checkout. A slow response lands after a fast one. An endpoint starts failing at 2 a.m. and the app keeps polling it. Nothing crashed, so your error monitor sees nothing. GenClass watches the timing and the data as well as the exceptions, and reports what it finds with the evidence.</p>
     <div class="fgrid">
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg></div><h3>Stale responses</h3><p>Search results for "pa" under a box that says "paris". GenClass sees the old response land over newer data and can drop its write.</p></div>
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="12" height="12" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v10"/></svg></div><h3>Duplicate submits</h3><p>A double-tap on a slow checkout. GenClass recognises the repeat and can merge it into the request already in flight.</p></div>
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg></div><h3>Failure storms</h3><p>An API that starts failing while the app keeps polling it. GenClass flags it with the failure streak and the baseline it broke.</p></div>
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M10 3l4 4-4 4M20 17H10M14 13l-4 4 4 4"/></svg></div><h3>Write races</h3><p>A server echo overwriting what the user just typed. GenClass keeps the newer value.</p></div>
-      <div class="fcard"><div class="ic n"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M4 15l4-4 4 3 7-8"/></svg></div><h3>Broken state</h3><p>It learns rules your data keeps, like a cart total matching its lines, and reports the moment one breaks.</p></div>
-      <div class="fcard"><div class="ic n"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Slow and flaky calls</h3><p>Latency far off the learned baseline, or a blip a careful idempotent retry would survive.</p></div>
+      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="12" height="12" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v10"/></svg></div><h3>Duplicate submits</h3><p>A double-tap on a slow checkout. GenClass flags the repeat and names the evidence: the request already in flight and how far apart the clicks were. Model 0.2.0 sees 3 in 4 on real apps it never trained on.</p></div>
+      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg></div><h3>Failure storms</h3><p>An API that starts failing while the app keeps polling it. GenClass reports the failure streak and the baseline it broke, whether or not the app shows an error.</p></div>
+      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg></div><h3>Stale responses</h3><p>Results for "pa" under a box that says "paris". GenClass flags the old response landing over newer data. Model 0.2.0 sees 30% of these on held-out real apps; guard mode, opt-in, can drop that write.</p></div>
+      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M10 3l4 4-4 4M20 17H10M14 13l-4 4 4 4"/></svg></div><h3>Write races</h3><p>A server echo that would overwrite what the user just typed. GenClass flags it and shows what would be replaced.</p></div>
+      <div class="fcard"><div class="ic n"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M4 15l4-4 4 3 7-8"/></svg></div><h3>Broken state</h3><p>It learns relations your data keeps, like a cart total matching its lines, and reports when one breaks. This is its weakest class today: 6% of broken state on held-out real apps (model 0.2.0, balanced).</p></div>
+      <div class="fcard"><div class="ic n"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Slow and flaky calls</h3><p>Latency far off the learned baseline, and one-off failures a retry would survive. GenClass reports both. The retry itself is a heal-mode action, experimental and its least precise.</p></div>
     </div>
+  </div>
+</section>
+
+<section id="first">
+  <div class="wrap">
+    <div class="sh"><span class="no">The first five minutes</span><h2>What you will see, and what you will not.</h2></div>
+    <p class="intro">Install it, open the console, use the app. The lines below are real: the notice and the model-ready line as the runtime prints them, and a stale-response report captured from a typeahead and copied from the <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#what-it-looks-like">package README</a> (q8 model on WASM, in Node, observe mode; the line format has not changed since 0.1.0-beta.0).</p>
+    <div class="console first" role="img" aria-label="Real GenClass console output: the telemetry notice, the model-ready line, then a flagged stale response with its evidence">
+      <div class="d">// public hosts only; not printed on localhost</div>
+      <div class="o">[GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry.</div>
+      <div>[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.43s). Mode: observe.</div>
+      <div class="b">[GenClass] Flagged a stale response: search.results was written twice by other operations since its operation (#6)</div>
+      <div class="b">started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which started 0.09s after #6, from a later</div>
+      <div class="b">user action (#7). (stale, 0.96)</div>
+      <div class="d">&gt; rt.explain(6)   // the situation text the model read, the facts, every answer</div>
+    </div>
+    <div class="feats">
+      <div><h3>Nothing for a while is normal</h3><p>Observe mode reports only salient situations: a response landing over newer data, a repeat, a failure streak, a broken relation, an error. The first response of each kind after a page load is never a delivery decision, because the runtime first has to see what that request writes.</p></div>
+      <div><h3>Some flags will be wrong</h3><p>Expect 1 to 4 false flags per 100 decisions where nothing was wrong, more in some apps (model 0.1.0; not re-measured for 0.2.0). Identical lines within a minute are folded into one with a count. <code>requests.ignore</code> drops traffic you do not want observed.</p></div>
+      <div><h3>Reports stay in the browser</h3><p>A report is a console line in the user's browser, and in production that is not your console. Add a <code>sinks</code> entry to send each report to your logging or Sentry (below). The anonymous diagnostics go to the GenClass maintainers, not to you.</p></div>
+      <div><h3>The overlay on localhost</h3><p><kbd>Alt+Shift+G</kbd> opens the devtools overlay; <code>init</code> loads it in development only. <code>rt.explain(id)</code> returns the exact text the model read, and <code>rt.audit()</code> exports every decision.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="monitoring">
+  <div class="wrap">
+    <div class="sh"><span class="no">Already have Sentry or PostHog?</span><h2>Keep them; GenClass is the detector they do not have.</h2></div>
+    <p class="intro">Error monitors see exceptions, failed requests and slow spans. Session replay shows what the user saw. Neither knows that a response was stale or that a POST was a duplicate, because nothing threw. GenClass decides that on the device and hands each report to the tools you already open.</p>
+    <div class="tbl-wrap">
+      <table class="cmp2">
+        <thead><tr><th>Sees</th><th>Error monitor</th><th>Session replay</th><th>GenClass</th></tr></thead>
+        <tbody>
+          <tr><td>Uncaught exception, failed request</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>A request far slower than its usual self</td><td class="yes">✓</td><td class="no2">–</td><td class="yes">✓ learned baseline</td></tr>
+          <tr><td>A response written over newer data</td><td class="no2">–</td><td class="no2">–</td><td class="yes">✓</td></tr>
+          <tr><td>A duplicate submit</td><td class="no2">–</td><td class="no2">–</td><td class="yes">✓</td></tr>
+          <tr><td>A write race, a relation between fields that broke</td><td class="no2">–</td><td class="no2">–</td><td class="yes">✓</td></tr>
+          <tr><td>What the user saw on screen</td><td class="no2">–</td><td class="yes">✓</td><td class="no2">–</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="code" style="margin-top: 24px">
+<pre><span class="c">// every detection, intervention, undo, breaker trip or summary, as a structured, redacted record</span>
+GenClass.init({
+  sinks: [
+    { send: (r) =&gt; Sentry.addBreadcrumb({ category: <span class="s">"genclass"</span>, data: r }) },
+    { send: (r) =&gt; posthog.capture(<span class="s">"genclass"</span>, r), kinds: [<span class="s">"detection"</span>, <span class="s">"intervention"</span>] },
+  ],
+});</pre>
+    </div>
+    <p class="note">The sink receives no page text beyond what the redactor allows. First-party Sentry and PostHog sinks are planned for the next release; the generic sink above ships in {{rt}}. <a href="/docs/options">Sink options</a>.</p>
+  </div>
+</section>
+
+<section id="not-for">
+  <div class="wrap">
+    <div class="sh"><span class="no">When not to use it</span><h2>Skip GenClass if</h2></div>
+    <ul class="skip-list">
+      <li><b>Your site is mostly static.</b> With no requests that write state there is nothing to decide, and the model download would be the only effect.</li>
+      <li><b>Every request is already idempotent and deduplicated.</b> Idempotency keys on the server and request deduplication in the client (TanStack Query and SWR do this for reads) remove most of what GenClass would report.</li>
+      <li><b>Your users are on 2 GB phones and you cannot set a floor.</b> The worker holds 190 to 280 MB while the model is loaded, and the default <code>loadIf</code> has no device floor. <code>model: { loadIf: { minDeviceMemoryGB: 4 } }</code> skips it there; without that, do not install it on those pages.</li>
+      <li><b>You run a strict Content-Security-Policy and cannot self-host.</b> The model and ONNX Runtime come from cdn.jsdelivr.net; if the policy blocks them, GenClass observes without a model and detects nothing. Self-hosting is one command and about 24 MB of files on your origin.</li>
+      <li><b>You need bugs fixed today, not reported.</b> At the shipped setting guard acts on under 8% of the cases where acting would help, and six demo apps under chaos show the same bug rate with GenClass on or off.</li>
+    </ul>
   </div>
 </section>
 
@@ -57,9 +122,9 @@
     <div class="sh"><span class="no">How it works</span><h2>A model in the browser, deciding at the network boundary.</h2></div>
     <div class="steps">
       <div class="step"><span class="n">01</span><h3>Observe</h3><p>One line patches fetch, XHR, WebSocket and EventSource, and finds React and Redux state automatically, and Zustand with its devtools middleware.</p></div>
-      <div class="step"><span class="n">02</span><h3>Triage</h3><p>Cheap facts are computed for everything. Only salient situations, like a response landing over newer data, reach the model.</p></div>
+      <div class="step"><span class="n">02</span><h3>Triage</h3><p>Cheap facts are computed for everything. Only salient situations, like a response landing over newer data, reach the model. There is no list of known bugs in the code.</p></div>
       <div class="step"><span class="n">03</span><h3>Decide on-device</h3><p>A 10 MB model in a Web Worker returns a calibrated diagnosis and action. No server, no API key.</p></div>
-      <div class="step"><span class="n">04</span><h3>Report or act</h3><p>Observe reports in plain English. Guard can drop a stale write or merge a duplicate, with undo and an audit trail.</p></div>
+      <div class="step"><span class="n">04</span><h3>Report, or act if you opt in</h3><p>Observe reports in plain English with the evidence. Guard can drop a stale write or merge a duplicate when its gate clears, with undo and an audit trail. At the shipped setting that is rare: under 8% of the cases where acting would help.</p></div>
     </div>
     <p class="note"><a href="/how-it-works">How it works in detail</a> · <a href="/docs/interception">Everything it touches</a></p>
   </div>
@@ -81,41 +146,72 @@
 <span class="c">// import "@genclass/runtime/auto/guard";   // let it act</span></pre>
 <pre role="tabpanel" id="i2" aria-labelledby="ib2" hidden><span class="c">// instrumentation-client.ts (project root)</span>
 <span class="k">import</span> <span class="s">"@genclass/runtime/auto"</span>;</pre>
-<pre role="tabpanel" id="i3" aria-labelledby="ib3" hidden><span class="c">&lt;!-- first in &lt;head&gt;, no build step --&gt;</span>
+<pre role="tabpanel" id="i3" aria-labelledby="ib3" hidden><span class="c">&lt;!-- first in &lt;head&gt;, no build step; keep the version pinned --&gt;</span>
 &lt;<span class="k">script</span> src=<span class="s">"https://cdn.jsdelivr.net/npm/@genclass/runtime@{{rt}}"</span>&gt;&lt;/<span class="k">script</span>&gt;</pre>
 <pre role="tabpanel" id="i4" aria-labelledby="ib4" hidden><span class="c"># detects your framework, shows the diff, asks, then writes</span>
 npx @genclass/runtime init
 npx @genclass/runtime init --mode guard
 npx @genclass/runtime remove   <span class="c"># undo exactly what init added</span></pre>
     </div>
+    <div class="costs">
+      <div><h3>What it costs</h3><p>+98 KB of JavaScript on first load. About 13 MB downloaded once, at idle, on WASM (the 10 MB model plus ONNX Runtime), 18 MB on WebGPU, then cached. 190 to 280 MB of memory in a Web Worker while the model is loaded. No measurable change to the load event, LCP or long tasks on a production Next.js site (0.1.0-beta.3). There is no device floor by default: <code>model: { loadIf: { minDeviceMemoryGB: 4, saveData: "skip" } }</code> skips the model on small devices, and <code>model.unloadAfterIdleMs</code> frees the worker. <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#costs">The measurements</a>.</p></div>
+      <div><h3>Diagnostics are on by default</h3><p>On public hosts the runtime sends anonymous diagnostics to the GenClass maintainers: decision counts, versions, your hostname and id-normalised paths, never page text. It is off on localhost and private hosts. One line turns it off: <code>GenClass.init({ telemetry: false })</code>, or <code>npx @genclass/runtime init --no-telemetry</code>. <a href="/docs/telemetry">What is sent</a>.</p></div>
+    </div>
     <div class="cards3">
       <a class="gcard" href="https://github.com/genclass-dev/GenClass-lib/tree/main/templates"><span class="k2">Templates</span><h3>Start from a template</h3><p>React + Vite, Next.js, Vue and SvelteKit starters with the one line and a racing mock API.</p><span class="more">Browse templates →</span></a>
-      <a class="gcard" href="/docs"><span class="k2">Docs</span><h3>Modes, options, privacy</h3><p>Observe, guard and heal, protected endpoints, self-hosting the model, telemetry off.</p><span class="more">Read the docs →</span></a>
-      <a class="gcard" href="/docs/compatibility"><span class="k2">Compatibility</span><h3>Tested where you build</h3><p>350 of 351 cells pass across 7 frameworks and 15 data layers, with no bugs introduced.</p><span class="more">See the matrix →</span></a>
+      <a class="gcard" href="/docs"><span class="k2">Docs</span><h3>Modes, options, privacy</h3><p>Observe, guard and heal, protected endpoints, sinks, self-hosting the model, telemetry off.</p><span class="more">Read the docs →</span></a>
+      <a class="gcard" href="/docs/compatibility"><span class="k2">Compatibility</span><h3>Where it has been run</h3><p>350 of 351 cells pass across 7 frameworks and 15 data layers, with no bugs introduced.</p><span class="more">See the matrix →</span></a>
     </div>
+  </div>
+</section>
+
+<section id="where">
+  <div class="wrap">
+    <div class="sh"><span class="no">Where it has been run</span><h2>Seven frameworks, fifteen data layers, one production pilot.</h2></div>
+    <p class="intro">Adding GenClass must not change a correct app. The <a href="/docs/compatibility">compatibility matrix</a> installs the one line into seven small idiomatic apps, drives each through eight scenarios in headless Chromium, ten seeds each, in every mode, and compares the final page and server state with a run without GenClass. Run 2026-10-10 with runtime 0.1.0-beta.4 (the code shipped as 0.2.1) and model 0.2.0 at the balanced profile.</p>
+    <div class="stats">
+      <div class="stat"><div class="big g">350 / 351</div><p>cells pass: in that mode GenClass left the app as correct as it was without it, on every seed</p><small>7 frameworks × 15 data layers × 8 scenarios × 3 modes</small></div>
+      <div class="stat"><div class="big g">0</div><p>bugs introduced in 3,510 runs, and 0 non-passive actions on correct apps in 1,760 guard and heal runs</p><small>same run</small></div>
+      <div class="stat"><div class="big">249 / 250</div><p>runs with a latent bug that guard left buggy at the shipped gates. It reports far more than it fixes.</p><small>same run · typeahead and double-submit scenarios</small></div>
+      <div class="stat"><div class="big">49</div><p>false findings in 880 observe-mode runs on correct apps, 45 of them "work is firing far more often than usual" on a page that polls and fans out</p><small>same run · observe mode</small></div>
+    </div>
+    <div class="fw left"><span>Frameworks</span><b>React 19 + Vite 8</b><b>Next.js 16 App Router</b><b>Vue 3</b><b>SvelteKit 3</b><b>Angular 22</b><b>Solid 1.9</b><b>plain HTML</b></div>
+    <div class="fw left"><span>Data layers</span><b>fetch + useState</b><b>TanStack Query 5</b><b>SWR 2</b><b>Zustand 5</b><b>Redux Toolkit 2 + RTK Query</b><b>Apollo Client 4</b><b>Pinia</b><b>Svelte stores</b><b>Angular HttpClient + signals</b><b>Solid createResource</b><b>WebSocket + EventSource</b></div>
+    <p class="note">One production pilot so far: a Next.js ordering site, nine scenarios (six with injected faults), three repetitions in each of four modes (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md">RESULTS.md §5</a>). GenClass flagged each injected server failure, took 0 actions, intervened wrongly 0 times and added no measurable latency. The one real bug, a duplicate order after a lost-commit 502 and a re-tap, happened in every mode: detected as a transient failure, not prevented. Earlier, with an always-passive model, 0 of 396 clean runs on 66 real apps changed (v2 runtime as of 0.1.0-alpha.1; not re-run on 0.2.1).</p>
   </div>
 </section>
 
 <section id="proof">
   <div class="wrap">
     <div class="sh"><span class="no">Results</span><h2>Measured on apps it never saw.</h2></div>
-    <p class="intro">Trained on about 17 million labeled runtime situations, then tested on held-out apps in real browsers. Every number links to its method.</p>
+    <p class="intro">Trained on about 17.6 million labelled runtime situations, then tested on held-out apps in real browsers. Every number carries the model and the setting it measures. The shipped runtime is {{rt}} with model 0.2.0 at the balanced profile.</p>
     <div class="stats">
-      <div class="stat"><div class="big g">96%</div><p>detection precision on real apps it had never seen</p><small>model 0.1.0, report threshold 0.70 · 16,600 held-out situations</small></div>
-      <div class="stat"><div class="big">3 in 4</div><p>duplicate submits detected in observe mode</p><small>model 0.2.0, default setting · held-out real apps</small></div>
-      <div class="stat"><div class="big g">0 bugs</div><p>introduced in 3,510 runs across 7 frameworks</p><small>compatibility matrix</small></div>
-      <div class="stat"><div class="big">10 MB</div><p>model (10.2 MB q8), about 180 ms per decision on one CPU thread</p><small>faster on WebGPU</small></div>
+      <div class="stat"><div class="big">3 in 4</div><p>duplicate submits detected in observe mode on real apps it never trained on</p><small>model 0.2.0, balanced (shipped) · 75%; stale overwrites 30%, broken state 6%</small></div>
+      <div class="stat"><div class="big g">0</div><p>false interventions on held-out real apps, at every aggressiveness profile</p><small>model 0.2.0 · guard and heal</small></div>
+      <div class="stat"><div class="big g">0 bugs</div><p>introduced in 3,510 compatibility runs across 7 frameworks and 15 data layers</p><small>runtime 0.1.0-beta.4 (shipped as 0.2.1), model 0.2.0, balanced</small></div>
+      <div class="stat"><div class="big">10 MB</div><p>model (10.2 MB q8), about 180 ms per decision on one WASM thread</p><small>182 ms for the shipped 0.2.0 export · faster on WebGPU</small></div>
     </div>
-    <p class="note"><a href="/benchmarks">All benchmarks</a>, including where it still misses.</p>
+    <div class="tbl-wrap">
+      <table class="prof">
+        <thead><tr><th>Model 0.2.0, held-out test</th><th>cautious</th><th class="hl">balanced (shipped)</th><th>eager</th></tr></thead>
+        <tbody>
+          <tr><td>Guard: false interventions, simulated apps</td><td>0.005%</td><td class="hl">0.13%</td><td>0.54%</td></tr>
+          <tr><td>Guard: recall on real apps</td><td>1.4%</td><td class="hl">7.5%</td><td>21.0%</td></tr>
+          <tr><td>Heal: false interventions, simulated apps</td><td>0.26%</td><td class="hl">0.59%</td><td>1.84%</td></tr>
+          <tr><td>Heal: recall on real apps</td><td>3.8%</td><td class="hl">10.4%</td><td>24.2%</td></tr>
+          <tr><td>False interventions, real apps</td><td>0.00%</td><td class="hl">0.00%</td><td>0.00%</td></tr>
+          <tr><td>Report threshold</td><td>0.95</td><td class="hl">0.90</td><td>0.70</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">The targets are 0.1% for guard and 0.5% for heal: cautious meets both; balanced, the default, is slightly over both. Detection precision for model 0.2.0 at its 0.90 threshold has not been published; the previous model, 0.1.0 at threshold 0.70, measured 0.96 on the same 16,600 held-out situations. <a href="/benchmarks">All benchmarks</a>, including where it still misses.</p>
   </div>
 </section>
 
-<section id="cloud">
+<section id="teams">
   <div class="wrap">
-    <div class="sh"><span class="no">For teams · early access</span><h2>See what GenClass reported and prevented, across every app.</h2></div>
-    <p class="intro">GenClass Cloud is not available yet; we are building it with design partners. The runtime is free forever. Cloud will add one dashboard for detections, interventions and undo rates, release comparisons, alerts and safe rollouts. Inference never leaves the browser.</p>
-<!--@dashboard-->
-    <div class="ctas" style="margin-top: 24px"><a class="btn green" href="/cloud#early-access">Request Cloud early access</a><a class="btn ghost" href="/pricing">See pricing</a></div>
+    <div class="sh"><span class="no">For teams</span><h2>Team features are planned; the runtime stays free.</h2></div>
+    <p class="intro">GenClass Cloud and Enterprise are planned: one dashboard across apps, alerts, rollouts. There are no customers yet and we are looking for design partners. The runtime needs no account and stays Apache-2.0. <a href="/cloud">What is planned</a> · <a href="/cloud#early-access">Join the waitlist</a></p>
   </div>
 </section>
 
@@ -124,18 +220,20 @@ npx @genclass/runtime remove   <span class="c"># undo exactly what init added</s
     <div class="sh"><span class="no">FAQ</span><h2>Questions</h2></div>
     <div class="faq">
       <div>
-        <details><summary>Is GenClass free?</summary><p>Yes. The runtime is open source under Apache-2.0 and free forever, including in commercial apps, with no usage limits. Cloud and Enterprise are optional paid products for dashboards, alerts, rollout controls, SSO and audit logs.</p></details>
-        <details><summary>Does it need an account or an API key?</summary><p>No. One script tag or <code>import "@genclass/runtime/auto"</code> is all it takes.</p></details>
-        <details><summary>Is the demo above real?</summary><p>Yes. This page loads <code>@genclass/runtime@{{rt}}</code> from npm and runs the model on your device. The demo calls a real API with real delays. Telemetry is off on this site.</p></details>
+        <details><summary>Is GenClass free?</summary><p>Yes. The runtime is open source under Apache-2.0 and free, including in commercial apps, with no usage limits. Cloud and Enterprise are planned paid products for teams; they have no customers yet.</p></details>
+        <details><summary>Does it need an account or an API key?</summary><p>No. One script tag or <code>import "@genclass/runtime/auto"</code> is all it takes. The model runs on the device.</p></details>
+        <details><summary>Is the demo above real?</summary><p>Yes. This page loads <code>@genclass/runtime@{{rt}}</code> from npm and runs the model on your device. The demo calls a real endpoint on this site; the page asks for the delays so the race is reproducible. It runs guard mode with its gain margins at 0 and the eager profile so you can see it act. The shipped defaults, observe mode and the balanced profile, report and do not act; the demo can run with them too. Telemetry is off on this site.</p></details>
+        <details><summary>Where do the reports go in production?</summary><p>To the end user's browser console, which you do not see. Add a <code>sinks</code> entry to forward each report to your logging, Sentry or PostHog (three lines, above). The anonymous diagnostics go to the GenClass maintainers' collector to improve the model, not to you.</p></details>
       </div>
       <div>
-        <details><summary>Where does the AI model run?</summary><p>In your users' browsers, inside a Web Worker on WebGPU or WASM. No server, no inference fees, and it keeps working offline.</p></details>
-        <details><summary>Will it break my app?</summary><p>The default mode only observes. Across 7 frameworks and 15 data layers it introduced no bugs in 3,510 runs. <code>?genclass=off</code> turns it off instantly.</p></details>
-        <details><summary>How often does it act today?</summary><p>Rarely, by design. It is tuned to almost never be wrong when it acts, so at the default setting it acts on about 8% of the cases where acting would help. The <a href="/benchmarks">benchmarks</a> show the exact trade-off.</p></details>
+        <details><summary>Where does the model run?</summary><p>In your users' browsers, inside a Web Worker on WebGPU or WASM. No server, no inference fees, and it keeps working offline once cached.</p></details>
+        <details><summary>Will it break my app?</summary><p>The default mode only observes. Across 7 frameworks and 15 data layers it introduced no bugs in 3,510 runs and took no non-passive action on correct apps in 1,760 guard and heal runs. <code>?genclass=off</code> turns it off instantly.</p></details>
+        <details><summary>How often does it act today?</summary><p>Rarely, by design. It is tuned to almost never be wrong when it acts, so at the shipped setting guard acts on 7.5% of the real cases where acting would help (model 0.2.0, balanced). The <a href="/benchmarks">benchmarks</a> show the exact trade-off.</p></details>
+        <details><summary>Will it spam my console?</summary><p>In observe mode expect 1 to 4 false flags per 100 decisions where nothing was wrong (model 0.1.0; not re-measured for 0.2.0), and more on some patterns: one held-out app had a quarter of its clean decisions flagged on a single field. On the compatibility matrix's correct apps, 49 of 319 findings in 880 runs were false, 45 of them "work is firing far more often than usual" on a page that polls and fans out. Identical lines within a minute are folded into one. <code>requests.ignore</code> drops traffic you do not want observed, and raising <code>policy.thresholds.report</code> trims the rest.</p></details>
       </div>
     </div>
     <div class="final">
-      <h2>Add one line. Find out what your app is hiding.</h2>
+      <h2>Add one line and read what it reports.</h2>
       <p>Start in observe mode. It reports what it sees and changes nothing.</p>
       <div class="ctas"><button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button><a class="btn green" href="/docs">Read the docs</a></div>
     </div>
