@@ -61,7 +61,9 @@ Where a report goes: `rt.on("expectation", fn)`, the `report` listener and the `
 "expectation"`, `expectation: Expectation`), the console (a collapsed group: what was learned, what happened this
 time, that no model and no action were involved, `GenClass.runtime.learned()`, how to turn it off), and sinks
 (`SinkRecord.kind "expectation"`, `SinkRecord.expectation` with the counts and signatures; the action label only in
-`evidence.message` when the sink asked for evidence). `report: "interventions"` prints none of them. Each miss is
+`evidence.message` when the sink asked for evidence). `report: "interventions"` prints none of them. Telemetry
+never sends them: the telemetry client forwards decisions, detections, actions, undos, breaker and limit events
+only (`src/telemetry/client.ts`), so TELEMETRY.md's event table is unchanged. Each miss is
 also learned into the flow (the app's behaviour defines "usual"), so a permanent change in the app's behaviour
 silences itself after one line, and after a single miss at `n = 8` the step needs about 11 clean observations
 before it is expected again; an intermittent bug is reported each time the share recovers.
@@ -169,5 +171,8 @@ stuck-"Placing…" and lost-commit cases. That is the owner's call (AGENTS.md ru
 Done in this change: §1–§5 (learner, five absence kinds, FIR controls, persistence on by default with hashing and a
 size cap, `rt.learned()`, the devtools tab, console/listener/sink output), with unit tests on the fake clock.
 Not done: the clean-trial acceptance run on the demos (needs Playwright, not in CI); fleet aggregation across
-visitors (needs a server and an opt-in); the model phase (§7). No number in this document is a measurement; the
-counts in the example lines are illustrations of the format.
+visitors (needs a server and an opt-in); the model phase (§7). The counts in the example lines are illustrations of
+the format, not measurements. The one measured number: first-load JavaScript grew by about 6 KB gzip in each entry
+(`/auto` 103.8 KB, `GenClass.init()` 96.6 KB, from about 98 / 91 KB; `test/bundle.test.ts` in CI, 2026-10-13).
+Recall and false-report rate on the demos are unmeasured until the acceptance run above; the site must not quote
+this layer until then.

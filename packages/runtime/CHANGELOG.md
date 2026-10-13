@@ -23,6 +23,9 @@ text changed (no new fact, trigger or situation text).
 - Skipped while the page is hidden or offline, for requests under `requests.protect`, on routes with `mode: "off"`,
   for the second click of a double click and for disabled controls (the DOM observer now records
   `UserAction.data.disabled`; not model-visible).
+- First-load size: `/auto` about 104 KB gzip, the main entry about 97 KB (+6 KB each; `test/bundle.test.ts` measured
+  103.8 / 96.6 KB in CI on 2026-10-13 and now keeps them under 105 / 98 KB). Telemetry does not send expectation
+  reports (TELEMETRY.md's event table is unchanged).
 
 ### Learned state persists by default
 
