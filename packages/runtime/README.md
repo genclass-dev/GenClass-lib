@@ -480,7 +480,7 @@ These hold for the runtime; whether the model's decisions are good is a separate
   it changed carry an `x-genclass` header.
 - **Off in one step.** `?genclass=off` in the URL installs nothing, and observe (the default) never changes
   execution.
-- **Small on the main thread.** The main entry is about 98 KB gzip in `0.3.0` (minified, without the optional
+- **Small on the main thread.** The main entry is about 100 KB gzip in `0.3.0` (minified, without the optional
   devtools; 92 KB in `0.2.2`; see Performance). The
   default model is 10.2 MB on WASM (13.6 MB fp16 on WebGPU with `shader-f16`), downloaded once at idle and cached.
   It runs in a worker that holds 190 to 280 MB while loaded: see [Costs](#costs).
@@ -492,6 +492,26 @@ These hold for the runtime; whether the model's decisions are good is a separate
 | `observe` (**default**) | Finds and reports what it sees and what it would have done. Never holds a request or a response, never runs an action. | none |
 | `guard` (opt-in) | Also prevents failures with minimal, reversible guard-tier actions: `discard`, `defer`, `coalesce`, `delay` (drop a stale response, reuse a duplicate's result, back off). Only when the model's gate says acting beats doing nothing (with model 0.2.0 at `balanced`: about 90% sure). | guard tier |
 | `heal` (**experimental**) | Also recovers: `retry`, `serve_cached`, `block`, `hedge`, `rollback`, `resync`, plus your own actions. | guard + heal tier |
+
+**Detections in observe (`0.3.0`).** A detection is *likely* when the model's top diagnosis is not `expected` and
+its probability reaches the report gate (0.90 at `balanced` with model 0.2.0), and is printed as one console line
+with its evidence, as before. In observe GenClass also reports *possible* detections: at least the `eager`
+profile's report value (0.70) but below the report gate. They print with `console.debug` only, ending in
+`(possible)` (Chrome hides them unless the console level includes "Verbose"), show as dimmed cards in the devtools,
+and are counted on their own (`summary().possibleDetections`, telemetry). Your own wiring gets them only if you ask:
+`rt.on("detect")`, `rt.on("report")` and `report: (r) => …` receive the likely ones unless you set
+`detect: "possible"` (every decision, with `detection` set, is on `rt.on("decide")`), and sinks need
+`possible: true`. `detect: "likely"` turns them off; `detect: "possible"` turns them on in guard and heal too (reporting
+only: what guard and heal do is unchanged). Setting `policy.thresholds.report` turns them off unless `detect` asks.
+Measured effect and false-detection bounds:
+[RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md).
+
+Observe no longer goes blind while the model loads or the tab is hidden (`0.3.0`): situations raised then are built
+at once and decided when the model is ready and the tab visible (at most 32 wait; a hidden tab never loads the
+model, the tab becoming visible does). Until their false-report rate is measured, what they find is reported at the
+possible tier at most. `detect: "likely"` turns this off too. In guard and heal, nothing waits: they skip, as before.
+Three `0.3.0` fixes can add likely reports in observe that `detect: "likely"` does not turn off, at a rate not
+measured yet (overwritten writes decided on slow devices, the body-wait and idle-unload fixes; CHANGELOG).
 
 ## How eager should it be?
 
@@ -506,7 +526,8 @@ GenClass.runtime.setAggressiveness("eager");   // change it later (the devtools 
 somewhat higher risk of acting when it did not need to. A number in between interpolates (0 = cautious,
 0.5 = balanced, 1 = eager). Try a level without redeploying with `?genclass-aggr=eager` in the URL. The model ships
 tuned thresholds for each level; explicit `policy.thresholds` still override them. `runtime.gates()` shows what is
-in force.
+in force. In observe, aggressiveness only moves the report gate (what counts as a likely detection); the possible
+tier below it stays at the `eager` value (see [Modes](#modes)).
 
 ## Connect your state (optional)
 
@@ -690,7 +711,9 @@ Standing questions ride along with built-in decisions: `rt.question({ id, on: ["
 ## Observability
 
 - **Console:** one line per detection and per intervention, with the evidence collapsed below it. Identical repeats
-  within a minute are summarised. `report: "silent"` or `report: (r) => …` to route them yourself.
+  within a minute are summarised. `report: "silent"` or `report: (r) => …` to route them yourself. Possible
+  detections (observe, `0.3.0`) are one `console.debug` line each, ending in `(possible)`; a report function gets
+  them only with `detect: "possible"`.
 - **Events:** `rt.on("detect" | "decide" | "act" | "event" | "status" | "report", fn)` returns an unsubscribe function.
 - **`rt.explain(id)`:** the exact situation text the model read, its facts and timeline, every answer with
   probabilities, and what changed.
@@ -953,7 +976,12 @@ have not been re-measured for 0.2.0:
 What this means in practice:
 
 - **Observe (default).** Expect roughly 1 to 4 false flags per 100 decisions where nothing was wrong (model 0.1.0;
-  `cautious` raises the report threshold to 0.95, `eager` lowers it to 0.70).
+  `cautious` raises the report threshold to 0.95, `eager` lowers it to 0.70). `0.3.0` adds *possible* detections at
+  the `eager` value (0.70) in observe, on `console.debug` only. The 0.2.0 fit held eager-profile detections (likely
+  and possible together) to at most 5% (real apps) / 6% (simulated) false per clean decision on held-out test,
+  against 2% / 3% at `balanced`; the share of possible detections that are false is not measured and is expected to
+  be well above the likely tier's
+  ([RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)).
   - In one held-out real app, `oss-rtk-conduit`, the model flagged 25% of clean decisions as `stale`, all on its
     `article.inProgress` field. A single recurring pattern in your app can do the same.
   - Each flag names its evidence, and identical lines within a minute are summarised.
@@ -998,17 +1026,18 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | Redux-style dispatch on 5,000 entities | about 0.7 ms |
   | settled-point check | 0.3 ms |
 
-- **Bundle:** what every page loads is about 106 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 99 KB for the main entry with `GenClass.init()`, which does not carry discovery: 106.59 KB and
-  98.57 KB in `0.3.0-beta.0`, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38477010836), which
-  keeps them under 107.74 KB and 99.71 KB (the sizes measured at bff4a71, 106.24 / 98.21 KB, plus 1.5 KB). `0.2.2` measured 99.17 KB and 91.70 KB;
-  `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink names' proxy and the
-  learned-state persistence (docs/runtime/RESULTS.md §10). The model worker, ONNX Runtime Web's JavaScript (about
+- **Bundle:** what every page loads is about 108 KB gzip for `@genclass/runtime/auto` with automatic state
+  discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 107.56 KB and
+  99.59 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38482297879), which keeps them under
+  107.74 KB and 99.71 KB (the `0.3.0-beta.0` release build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
+  99.17 KB and 91.70 KB; `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink
+  names' proxy and the learned-state persistence (docs/runtime/RESULTS.md §10), then observe's detection tiers and
+  deferred situations (+1.3 / +1.4 KB, §11). The model worker, ONNX Runtime Web's JavaScript (about
   70 KB gzip for WASM, 115 KB with WebGPU, minified), the devtools, the sink adapters and the opt-in flow
   expectations are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  126 KB gzip (126.45 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
+  128 KB gzip (127.89 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
   its model worker, ONNX Runtime glue and sink adapters load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass
@@ -1040,7 +1069,7 @@ without `?genclass=off`:
 
 | | with GenClass |
 |---|---|
-| JavaScript on every page (first load, gzip) | about +106 KB (`/auto` with discovery; 98 KB for the main entry, see Performance) |
+| JavaScript on every page (first load, gzip) | about +108 KB (`/auto` with discovery; 100 KB for the main entry, see Performance) |
 | Main thread: load event, LCP, long tasks | no measurable change; main JS heap +0.4 MB |
 | **Memory: renderer process (holds the model worker)** | **+190 to 280 MB RSS** while the model is loaded (cold 448 vs 169 MB, warm 361 vs 171 MB) |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build |

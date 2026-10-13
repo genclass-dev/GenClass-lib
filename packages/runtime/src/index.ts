@@ -96,7 +96,9 @@ function makeHost(m: ModelOptions, fetchFn: typeof fetch | undefined, clock: Clo
 
 /**
  * model.unloadAfterIdleMs (OPTIONS-SPEC §4.18): tears the host down after `idleMs` without an evaluation (state
- * "unloaded"); the next evaluation starts a reload from the cache and is itself rejected (fail open: released unchanged).
+ * "unloaded"); `ready()` or the next evaluation starts a reload from the cache (an evaluation that finds it unloaded is
+ * itself rejected: fail open, released unchanged). The runtime asks for `ready()` at the next salient situation
+ * (runtime.ts consultable / trigger), which in observe is then decided once the model is back.
  */
 export class IdleUnloadProvider implements DecisionProvider {
   private host: DecisionProvider | null;
@@ -134,7 +136,11 @@ export class IdleUnloadProvider implements DecisionProvider {
     return this.host ? this.host.status : { state: "unloaded" };
   }
   ready(): Promise<void> {
-    if (!this.host) this.host = this.attach(this.create());
+    // a reload asked for (the runtime's next salient situation, rt.ready): idle from now on until it is used
+    if (!this.host) {
+      this.host = this.attach(this.create());
+      this.arm();
+    }
     return this.host.ready();
   }
   evaluate(req: EvaluateRequest): ReturnType<DecisionProvider["evaluate"]> {

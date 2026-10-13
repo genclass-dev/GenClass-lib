@@ -210,7 +210,7 @@ function render(d) {
   data = d;
   const labels = dayList(d.days);
   const seriesOf = (m) => labels.map((day) => d.series.filter((r) => r.day === day && r.metric === m).reduce((a, r) => a + r.n, 0));
-  const S = { sessions: seriesOf("sessions"), decisions: seriesOf("decisions"), detections: seriesOf("detections"), acted: seriesOf("acted"), undos: seriesOf("undos") };
+  const S = { sessions: seriesOf("sessions"), decisions: seriesOf("decisions"), detections: seriesOf("detections"), possible: seriesOf("possible_detections"), acted: seriesOf("acted"), undos: seriesOf("undos") };
   const tot = (k) => S[k].reduce((a, b) => a + b, 0);
   const rtNpm = (d.npm && d.npm["@genclass/runtime"]) || { daily: [] };
   const npmDaily = rtNpm.daily.slice(-d.days);
@@ -227,7 +227,7 @@ function render(d) {
     kpi("npm downloads", fmt(npmTotal), "@genclass/runtime · " + range + (rtNpm.latest ? " · latest " + rtNpm.latest : ""), "", npmDaily.map((r) => r.downloads), "#0E1F4D"),
     kpi("Live sites", fmt(liveSites), test ? "incl. " + d.hosts.filter((h) => h.test).length + " test hosts" : "production hosts with sessions", "", null),
     kpi("Sessions", fmt(tot("sessions")), fmt(tot("decisions")) + " decisions by the model", "", S.sessions, "#0E1F4D"),
-    kpi("Errors found", fmt(tot("detections")), "detections above the report gate", tot("detections") ? "bad" : "", S.detections, "#F5A524"),
+    kpi("Errors found", fmt(tot("detections")), "detections above the report gate" + (tot("possible") ? " · " + fmt(tot("possible")) + " possible (below it)" : ""), tot("detections") ? "bad" : "", S.detections, "#F5A524"),
     kpi("Errors resolved", fmt(resolved), fmt(tot("acted")) + " fixes applied · " + fmt(tot("undos")) + " undone", resolved ? "good" : "", S.acted, "#14B86A"),
     kpi("Waitlist", fmt(wlTotal), d.waitlist.map((r) => (r.plan || "?") + " " + r.n).join(" · ") || "no sign-ups yet", "", null));
 
@@ -241,7 +241,7 @@ function render(d) {
   const feed = $("feed"); feed.replaceChildren();
   if (!d.recent.length) feed.append(E("li", { cls: "empty", text: "Nothing yet. Detections and fixes from every site appear here within a minute." }));
   for (const r of d.recent.slice(0, 40)) {
-    const what = r.kind === "detect" ? (DIAG[r.diagnosis] || r.diagnosis || "detection") + (r.confidence ? " · " + Math.round(r.confidence * 100) + "%" : "") : "Fix: " + (r.action || "?") + " · " + (r.outcome || "");
+    const what = r.kind === "detect" || r.kind === "possible" ? (DIAG[r.diagnosis] || r.diagnosis || "detection") + (r.confidence ? " · " + Math.round(r.confidence * 100) + "%" : "") + (r.kind === "possible" ? " · possible" : "") : "Fix: " + (r.action || "?") + " · " + (r.outcome || "");
     feed.append(E("li", { cls: r.kind }, [E("time", { text: ago(r.at), title: r.at }), E("div", {}, [E("b", { text: what }), E("span", { cls: "h", text: (r.host || "(no host)") + (r.trigger ? " · " + r.trigger : "") + (r.runtime ? " · v" + r.runtime : "") })])]));
   }
 

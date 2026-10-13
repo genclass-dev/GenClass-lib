@@ -1,7 +1,7 @@
 // Anonymous diagnostics (InitOptions.telemetry, TELEMETRY.md): defaults, opt-outs, batching, page exit, event
 // shapes, the redacted situation text, transport failures, and that GenClass never observes its own requests.
 
-import { BACKOFF_MS, MAX_FAIL_STREAK, backoffOf, decisionDraw } from "../src/telemetry/client.js";
+import { BACKOFF_MS, MAX_BACKOFFS, MAX_BACKOFF_MS, MAX_FAIL_STREAK, backoffOf, decisionDraw } from "../src/telemetry/client.js";
 import { retryAfterMs } from "../src/telemetry/transport.js";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -619,11 +619,15 @@ describe("telemetry: GenClass never observes its own requests", () => {
   });
 });
 
-describe("telemetry: a 429 or a Retry-After is a back-off, not a failure (TELEMETRY.md, Transport)", () => {
-  it("429 and Retry-After back off; network errors and 5xx without a Retry-After are failures", () => {
+describe("telemetry: a 429 or a 503 with a Retry-After is a back-off, not a failure (TELEMETRY.md, Transport)", () => {
+  it("429 and 503 with a Retry-After back off; network errors, other statuses and 503 without one are failures", () => {
     expect(backoffOf(Object.assign(new Error("HTTP 429"), { status: 429 }))).toBeUndefined();
     expect(backoffOf({ status: 429, retryAfterMs: 5000 })).toBe(5000);
     expect(backoffOf({ status: 503, retryAfterMs: 2000 })).toBe(2000);
+    expect(backoffOf({ status: 503 })).toBeNull();
+    expect(backoffOf({ status: 500, retryAfterMs: 2000 })).toBeNull(); // a Retry-After on another status is ignored
+    expect(backoffOf({ retryAfterMs: 2000 })).toBeNull();
+    expect(backoffOf("HTTP 429")).toBeNull();
     expect(backoffOf(Object.assign(new Error("HTTP 500"), { status: 500 }))).toBeNull();
     expect(backoffOf(new Error("HTTP 500"))).toBeNull();
     expect(backoffOf(new TypeError("Failed to fetch"))).toBeNull();
@@ -652,7 +656,7 @@ describe("telemetry: a 429 or a Retry-After is a back-off, not a failure (TELEME
     vi.resetModules();
   });
 
-  it("429s in a row never stop the page: nothing is sent during the back-off, and the refused batch goes once accepted", async () => {
+  it("429s in a row do not stop the page (up to MAX_BACKOFFS): nothing is sent during the back-off, and the refused batch goes once accepted", async () => {
     let refuse = true;
     const sent: { events: Record<string, unknown>[] }[] = [];
     const accepted: { events: Record<string, unknown>[] }[] = [];
@@ -691,16 +695,39 @@ describe("telemetry: a 429 or a Retry-After is a back-off, not a failure (TELEME
     s.rt.destroy();
   });
 
-  it("a Retry-After is honoured (also on a 5xx) and is not a strike; 5xx without one still stop the page after three", async () => {
-    let mode: "retry" | "fail" | "ok" = "retry";
+  it("the back-off is BACKOFF_MS doubling, or a longer Retry-After, never more than MAX_BACKOFF_MS (a 0 s Retry-After does not make the page retry faster)", async () => {
+    const replies: unknown[] = [{ status: 429, retryAfterMs: 0 }, { status: 503, retryAfterMs: 3_600_000 }, { status: 503, retryAfterMs: 200_000 }];
     const sent: number[] = [];
     const clockRef: { now?: () => number } = {};
     const transport: TelemetryTransport = {
       send() {
         sent.push(clockRef.now!());
-        if (mode === "retry") return Promise.reject({ status: 503, retryAfterMs: 5000 });
-        if (mode === "fail") return Promise.reject(Object.assign(new Error("HTTP 503"), { status: 503 }));
-        return Promise.resolve();
+        const r = replies.shift();
+        return r ? Promise.reject(r) : Promise.resolve();
+      },
+    };
+    const s = setup({ triage: "always", telemetry: { transport, flushMs: 1000, decisionSample: 1 }, extraGlobal: { crypto: globalThis.crypto } });
+    clockRef.now = () => s.clock.now();
+    const a = s.rt.atom("a", 1);
+    void s.rt.op("w", () => a.set(2));
+    await s.clock.flush();
+    await s.rt.telemetry!.flush();
+    await s.clock.advance(BACKOFF_MS + MAX_BACKOFF_MS + 200_000 + 5000);
+    expect(sent).toHaveLength(4);
+    // 0 s asked: the first back-off; an hour asked: the cap; 200 s asked (over the 120 s schedule): honoured
+    expect(sent.slice(1).map((t, i) => t - sent[i])).toEqual([BACKOFF_MS, MAX_BACKOFF_MS, 200_000]);
+    s.rt.destroy();
+  });
+
+  it(`back-offs are bounded: after ${MAX_BACKOFFS} in a row a refusal is a failure, and ${MAX_FAIL_STREAK} of those stop the page`, async () => {
+    let mode: "retry" | "ok" = "retry";
+    const sent: number[] = [];
+    const clockRef: { now?: () => number } = {};
+    const transport: TelemetryTransport = {
+      send() {
+        sent.push(clockRef.now!());
+        // a dead collector behind a proxy that answers 503 with a Retry-After of 0
+        return mode === "retry" ? Promise.reject({ status: 503, retryAfterMs: 0 }) : Promise.resolve();
       },
     };
     const s = setup({ triage: "always", telemetry: { transport, flushMs: 1000, decisionSample: 1 }, extraGlobal: { crypto: globalThis.crypto } });
@@ -712,27 +739,71 @@ describe("telemetry: a 429 or a Retry-After is a back-off, not a failure (TELEME
     };
     await step(0);
     await s.rt.telemetry!.flush();
-    expect(sent).toHaveLength(1);
-    await s.clock.advance(4000);
-    expect(sent).toHaveLength(1); // not before the Retry-After
-    await s.clock.advance(1500);
-    expect(sent).toHaveLength(2);
-    expect(sent[1] - sent[0]).toBe(5000);
-    mode = "fail";
-    await s.clock.advance(5500);
-    expect(sent).toHaveLength(3); // failure 1: the back-offs before it did not count
+    // 30 s, 60 s, 120 s, 240 s, then 5 min four times: the ninth refusal is the first failure
+    await s.clock.advance(BACKOFF_MS * (1 + 2 + 4 + 8) + 4 * MAX_BACKOFF_MS + 1000);
+    expect(sent).toHaveLength(MAX_BACKOFFS + 1);
+    expect(sent.slice(1).map((t, i) => t - sent[i])).toEqual([1, 2, 4, 8].map((k) => k * BACKOFF_MS).concat([1, 2, 3, 4].map(() => MAX_BACKOFF_MS)));
     for (const i of [1, 2]) {
       await step(i);
       await s.rt.telemetry!.flush();
     }
-    expect(sent).toHaveLength(5); // failures 2 and 3: the page stops
+    expect(sent).toHaveLength(MAX_BACKOFFS + 3); // failures 2 and 3: the page stops
     mode = "ok";
     await step(3);
     await s.clock.advance(60_000);
     await s.rt.telemetry!.flush();
-    expect(sent).toHaveLength(5);
+    expect(sent).toHaveLength(MAX_BACKOFFS + 3);
     s.rt.destroy();
   });
+
+  it("a 5xx without a Retry-After is a failure: three in a row stop the page", async () => {
+    const sent: number[] = [];
+    const transport: TelemetryTransport = {
+      send() {
+        sent.push(0);
+        return Promise.reject(Object.assign(new Error("HTTP 503"), { status: 503 }));
+      },
+    };
+    const s = setup({ triage: "always", telemetry: { transport, flushMs: 1000, decisionSample: 1 }, extraGlobal: { crypto: globalThis.crypto } });
+    const a = s.rt.atom("a", 1);
+    for (const i of [0, 1, 2, 3]) {
+      void s.rt.op(`w${i}`, () => a.set(i + 2));
+      await s.clock.flush();
+      await s.rt.telemetry!.flush();
+    }
+    expect(sent).toHaveLength(MAX_FAIL_STREAK);
+    s.rt.destroy();
+  });
+});
+
+describe("telemetry: a full queue drops routine decision records first (TELEMETRY.md, Volume)", () => {
+  it("with the queue full of routine records, a detection and its decision record still go", async () => {
+    const t = recorder();
+    const s = setup({ triage: "always", mode: undefined, telemetry: { transport: t, decisionSample: 1, maxDecisions: Infinity }, extraGlobal: { crypto: globalThis.crypto } });
+    const a = s.rt.atom("a", 0);
+    // the clock never advances: nothing is flushed while the queue fills (as during a long back-off)
+    for (let i = 0; i < MAX_QUEUE + 20; i++) {
+      void s.rt.op("w", () => a.set(i + 1));
+      if (i % 16 === 15) await s.clock.flush();
+    }
+    await s.clock.flush();
+    s.decider.script = defaultScript({ mutation: { diagnosis: "stale", action: "discard" } });
+    void s.rt.op("w", () => a.set(-1));
+    await s.clock.flush();
+    await s.rt.telemetry!.flush();
+    const evs = events(t);
+    const det = evs.find((e) => e.t === "detect");
+    expect(det).toBeDefined();
+    expect(evs.some((e) => e.t === "decision" && e.id === det!.decision && e.diagnosis === "stale")).toBe(true);
+    expect(evs[0]).toMatchObject({ t: "session", seq: 0 }); // never evicted
+    expect(evs.filter((e) => e.t === "decision").length).toBeLessThan(MAX_QUEUE);
+    (s.rt.telemetry as unknown as { summary(r: string): void }).summary("periodic");
+    await s.rt.telemetry!.flush();
+    const sum = ofType(t, "summary").at(-1) as { telemetry: { dropped: number }; counts: { decisions: number } };
+    expect(sum.counts.decisions).toBe(MAX_QUEUE + 21);
+    expect(sum.telemetry.dropped).toBeGreaterThanOrEqual(22);
+    s.rt.destroy();
+  }, 60_000);
 });
 
 void createRuntime;

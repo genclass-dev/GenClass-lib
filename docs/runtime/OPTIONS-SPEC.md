@@ -4,7 +4,7 @@ Status: ready for implementation. Branch `runtime`, package `packages/runtime`. 
 
 ## 0. Design rules
 
-1. **Every new option narrows behaviour or exports data. None of them widens it.** A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, `holdBudgetMs` is a hard ceiling, model loading is skipped on small devices and Save-Data connections, hidden tabs skip background evaluation, and query values are redacted in what the model sees.
+1. **Every new option narrows behaviour or exports data. None of them widens it.** A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, `holdBudgetMs` is a hard ceiling, model loading is skipped on small devices and Save-Data connections, hidden tabs skip background evaluation in guard and heal (observe decides those situations when the tab is visible again, §5.1), and query values are redacted in what the model sees. One default widens what is *reported*, never what is done: observe reports "possible" detections too (`detect`, §4.19), and decides situations raised while the model loads or the tab is hidden later, reporting them at the possible tier at most (§5.3); `detect: "likely"` turns both off. Three 0.3.0 fixes also widen what observe reports, with no option (the idle-unload reload §4.18, overwritten writes decided on slow devices, the 100 ms body wait): they can add likely reports, false ones included, at a rate not measured yet.
 2. **There is no bug knowledge in config.** Options control where the runtime watches or acts, how much it may do, and where findings go. The model alone decides what is wrong. Labels go to reports only by default (§4.4). Tags and correlation ids never reach the model or the gate.
 3. **One effective-mode function, and every term can only demote:**
 ```
@@ -51,8 +51,10 @@ order: off < observe < guard < heal
 | 17 | `model.maxDecisionsPerMinute` | load | `30` | new |
 | 18 | `model.unloadAfterIdleMs` | load | `false` | new |
 | 19 | `rt.on()` typed events: `shadow`, `breaker`, `limit`, `modelBudget` | API | — | extended |
+| 20 | `detect` (0.3.0) | reporting | `"possible"` where the effective mode is observe and `policy.thresholds.report` is unset, else `"likely"` | new |
 
-Built in, with no option: hidden-tab background skipping (§5.1).
+Built in, with no option: hidden tabs (§5.1): guard and heal skip background situations; observe defers them until
+the tab is visible. Observe also defers situations raised while the model loads (§5.3).
 
 ## 2. Types (add to `types.ts`)
 
@@ -111,6 +113,7 @@ export interface SinkRecord {
   route?: string;              // the path the subject's op was created on (else the current one), id-like and email segments as :id, <= 200 chars
   sampled: boolean;
   diagnosis?: string; p?: number;
+  detection?: "likely" | "possible"; // kind "detection" (0.3.0, §4.19)
   action?: string; tier?: Tier;
   changed?: string[];          // paths only
   undone?: boolean;
@@ -126,13 +129,15 @@ export interface SinkObject {
   kinds?: SinkKind[];
   sampleRate?: number;   // session-deterministic; never drops intervention/undo/breaker
   evidence?: boolean;    // default false
+  possible?: boolean;    // 0.3.0, default false: also "possible" detections (§4.19)
   flush?(): Promise<void>;
 }
 export type Sink = SinkFn | SinkObject;
 
 export interface SessionSummary {
   startedAt: number; durationMs: number;
-  detections: Record<string, number>;
+  detections: Record<string, number>;      // likely detections, by diagnosis
+  possibleDetections: Record<string, number>; // 0.3.0: possible detections (§4.19), by diagnosis
   interventions: Record<string, number>;
   undos: number; lateReverts: number;
   denied: Record<string, number>;          // by reason
@@ -418,6 +423,7 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Sinks are independent of `report`.
 - Each `Report` maps to a `SinkRecord` (schema 1). By default the record is minimal: no situation text, no request URLs, no values, and only paths in `changed`; `route` is the page path normalised as telemetry sends it (id-like and email segments as `:id`, at most 200 chars). `evidence:true` adds redacted `message`, `trigger`, subject label and the `explain()` timeline.
 - `kinds` filters records. `sampleRate` is deterministic per session (`hash(sessionId+index)`) and never drops `intervention`, `undo` or `breaker`.
+- `possible: true` (0.3.0) also delivers "possible" detections (`SinkRecord.detection: "possible"`, §4.19); without it a sink, and every plain function sink, gets the likely ones only. The adapters take `possible` too; sinks by name never get possible ones.
 - Dispatch is queued (a microtask batch, then `requestIdleCallback`) and never runs on the decision or hold path.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On `pagehide`, or once on `visibilitychange→hidden` as a fallback, one `summary` record is emitted and each sink's `flush()` is called.
@@ -531,21 +537,36 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 **Semantics.**
 - The idle timer resets on every evaluation, and time with the tab hidden counts as idle.
 - When the timer fires, the worker and session are torn down and the state becomes `"unloaded"`.
-- The next situation reloads the model from `cacheName`. During the reload, held items are released unchanged.
+- The next situation reloads the model from `cacheName`: "unloaded" counts as consultable (like "off" for a lazy model), so the next salient situation in a visible tab asks for `ready()` again (until 0.3.0 it did not, and detection stopped for the rest of the page load after the first unload; guard and heal now act again after the reload). A hidden tab never asks: hidden-tab situations are deferred (§5.3) and the tab becoming visible asks for the model. During the reload, held items are released unchanged (failOpen `not-ready`); in observe the situation is deferred (§5.3) and decided once the model is back.
 
 **Tests.**
 - Idle → worker terminated, and the reload comes from the cache with no network.
 - A held item during the reload is released unchanged.
+- Runtime level (`test/deferred.test.ts`): after an unload the next salient situation reloads the model; in observe it is decided once the model is back, in guard it fails open and the next one is decided; a second unload reloads again; a hidden tab polling through an unload never reloads it, and the tab becoming visible reloads it and decides the queue.
+
+### 4.19 `detect` (0.3.0)
+**Type** `"likely" | "possible"`. **Default** `"possible"` where the subject's effective mode is `observe` and the app set no `policy.thresholds.report`; `"likely"` otherwise.
+
+**Semantics.** Reporting only; no action gate reads it.
+- A decision whose top diagnosis is not `expected` is a **likely** detection when its probability is at least the report gate (`gates().report`: the aggressiveness profile's `report` from the model meta, 0.90 at balanced with model 0.2.0; `policy.thresholds.report` when set), as before 0.3.0.
+- With `"possible"`, it is a **possible** detection when its probability is at least the eager profile's `report` from the same meta (0.70 with model 0.2.0; `gates().possible`) and below the report gate. No possible tier when the meta has no lower eager value.
+- `Decision.detection` records the tier when the decision is made; `explain()`, the console, the devtools (live, from `decide`, and backfill) and telemetry read it. A deferred situation's decision (§5.3) is possible at most.
+- Likely: the console line and group, the `detect` event, `report` listeners and a `report` function exactly as before. Possible: the same line ending in `(possible)`, with `console.debug` only (hidden at Chrome's default level; repeats fold per tier), a dimmed devtools card left out of the badge counts and without the pill's pulse, `summary().possibleDetections`, the telemetry `detect` event with `tier: "possible"` (`summary.counts.possibleDetections`), and `rt.on("decide")` with `detection: "possible"`. The `detect` event, `report` listeners and a `report` function get possible ones only when `detect: "possible"` is set explicitly; sinks only with `possible: true` (§4.11), whatever `detect` says.
+- The meta tag and `data-*` attributes take `detect=likely` / `detect=possible`.
+
+**Tests.** `test/detect-tiers.test.ts`, `test/detect-tiers-devtools.test.ts`.
 
 ## 5. Built-in behaviours (no option)
 
 1. **Hidden tabs.** While the tab is hidden:
-   - background situations are neither built nor evaluated, and `summary.model.hiddenSkipped` counts them;
+   - guard and heal: background situations are neither built nor evaluated, and `summary.model.hiddenSkipped` counts them;
    - **held items are released unchanged at once, without evaluation**, so nothing waits behind a throttled worker;
+   - observe (0.3.0; nothing is held there), where the possible tier is in force (§4.19): each salient situation is built at once, from the state at its trigger, and kept (§5.3) until the tab is visible again (`visibilitychange`), then decided in order, at the possible tier at most. Only the ones dropped from the full queue count in `summary.model.hiddenSkipped`. A hidden tab never starts loading or reloading the model; the tab becoming visible does. Before 0.3.0 observe skipped them like guard does, and with `detect: "likely"` it still does;
    - observers keep recording.
 
-   Test: hidden polling → zero model calls, holds released in about 0 ms, timeline still recorded.
+   Test: hidden polling in guard → zero model calls, holds released in about 0 ms, timeline still recorded; in observe → decided, in order, after `visibilitychange` (`test/deferred.test.ts`).
 2. Internal buffers stay bounded by `historySize`.
+3. **Deferred situations (observe only, 0.3.0).** Where the subject's effective mode is observe and the possible tier is in force (§4.19; not with `detect: "likely"` or an explicit `policy.thresholds.report`), a salient situation that cannot be decided yet, because the model is loading (or reloading, §4.18; a lazy model starts loading then, from a visible tab only) or the tab is hidden, is built at its trigger and kept in a queue of at most 32 (`DEFERRED_MAX`). It is built at the situation budget in force then: an automatic budget is the smallest one (1,000 characters) while the model's device is not known yet. When the model is ready and the tab visible (the `ready` resolution, `visibilitychange`, `resume()`, or the next fresh decision, which is submitted first) they are decided one at a time, oldest first, as background decisions with a detection-only deadline (30 s from submission, `DEFERRED_DEADLINE_MS`; the provider timeout still applies), gated as observe whatever the mode is by then: a deferred situation never acts, and one whose subject's effective mode is no longer observe is dropped. Its detection is reported at the possible tier at most (a likely one is recorded as possible) until a cold-start and hidden-tab clean run measures the false-report rate of these late decisions (RESULTS.md §11). Its telemetry decision record carries the page path at its trigger. A delivery covers its chain's writes while it waits, like any background delivery decision. The oldest is dropped when the queue is full, counted as failOpen `not-ready` (or `hiddenSkipped`, for one that waited for the tab); all are dropped, counted, when the model fails (`error`, `skipped`). Guard and heal never defer and, as before 0.3.0, build no situation while the model loads (a background decision there can still late-revert); an `unloaded` model is consultable like a lazy `off` one, so the first salient situation after an idle unload fails open as `not-ready` and starts the reload.
 
 ## 6. Precedence cheat-sheet
 
@@ -564,6 +585,8 @@ onBeforeAction          → final sync veto (vetoMode "report" = record only); o
 holdBudgetMs            → hard ceiling incl. defers + hook; release at min(remaining, timeoutMs)
 shadow                  → gate steps 1–6 at higher mode, dry-run; ignores sample/route/breaker caps
 model.loadIf / maxDecisionsPerMinute / timeoutMs / unload / hidden tab → availability only; held items release unchanged
+                          (observe: situations raised while loading or hidden are deferred and decided later, §5.3)
+detect                  → which detections are reported (likely / possible); reporting only
 status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = effective
 ```
 
@@ -645,7 +668,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
   2. New `perSubject:10` (per rolling minute) and `perSession:200` limits. Opt out with `Infinity`. This may suppress frequent retries on polling endpoints.
   3. `holdBudgetMs` is now a hard ceiling that includes defers and `onBeforeAction` time.
   4. `model.loadIf` defaults to a device floor: no model on devices reporting 2 GB or less or on Save-Data connections (`{ minDeviceMemoryGB: 4, saveData: "skip" }`; the earlier draft said `saveData:"lazy"`).
-  5. Hidden tabs skip background evaluation and release held items immediately (counted in `summary.model.hiddenSkipped`).
+  5. Hidden tabs skip background evaluation and release held items immediately (counted in `summary.model.hiddenSkipped`). 0.3.0: in observe they are deferred and decided when the tab is visible again (§5.1, §5.3).
   6. Query and fragment values in recorded URLs are now `…` in situation text. **Model input changes, so add this to the eval plan and re-measure accuracy before release.** Sent URLs are unchanged.
   7. URL overrides can no longer raise mode or aggressiveness without `debug:true`.
   8. Ops created under `off`/`observe` route scope can no longer be action targets.

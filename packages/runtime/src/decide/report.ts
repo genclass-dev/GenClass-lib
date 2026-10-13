@@ -1,6 +1,10 @@
 // Console reporting (CONTRACT §0.5, §8): one plain-English line per detection and per intervention, built from
 // the decision's facts with generic templates (reporting only, never decisions), followed by a collapsed group
-// with the evidence. Identical repeats within a minute are summarised as "×N in the last minute".
+// with the evidence. Identical repeats within a minute are summarised as "×N in the last minute". A "possible"
+// detection (observe's lower tier, InitOptions.detect) is the same line ending in "(possible)", printed with
+// console.debug only (hidden at Chrome's default console level); its evidence is in explain(id). Unless the app asked
+// for possible detections (`detect: "possible"`), the runtime emits them `quiet`: the console only, no listener and
+// no report function.
 
 import type { ActionRecord, Clock, Decision, Expectation, Explanation, Report, TriggerKind } from "../types.js";
 
@@ -61,8 +65,11 @@ export function detectionLine(d: Decision): string {
     const would = d.candidate && d.candidate !== d.action && d.mass !== undefined ? `${d.candidate} ${p2(d.mass)} for permitted actions` : `${d.action} ${p2(d.confidence)}`;
     why = ` Not acted on (would have done ${would}): ${d.reason}.`;
   }
-  return `[GenClass] Flagged ${noun(d)}: ${topFact(d)}${why} (${d.diagnosis}, ${p2(d.diagnosisConfidence)})`;
+  return `[GenClass] Flagged ${noun(d)}: ${topFact(d)}${why} (${d.diagnosis}, ${p2(d.diagnosisConfidence)})${d.detection === "possible" ? " (possible)" : ""}`;
 }
+
+/** A possible detection's report (printed with console.debug). */
+const possible = (r: Report): boolean => r.kind === "detect" && r.decision?.detection === "possible";
 
 /** A decision that was neither a detection nor an intervention (for explain()). */
 export function decisionLine(d: Decision): string {
@@ -92,22 +99,15 @@ export class Reporter {
   private key(kind: string, d: Decision | undefined, a: ActionRecord | undefined, e?: Expectation): string {
     if (e) return `${kind}|${e.kind}|${e.route}|${e.action.replace(/\d+(\.\d+)?/g, "n")}|${e.signature ?? ""}|${e.field ?? ""}|${e.after ?? ""}|${e.to ?? ""}`;
     const subj = (d?.subject ?? "").replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n");
-    return `${kind}|${a?.action ?? d?.action ?? ""}|${d?.diagnosis ?? ""}|${d?.trigger ?? ""}|${subj}`;
+    return `${kind}|${a?.action ?? d?.action ?? ""}|${d?.diagnosis ?? ""}|${d?.trigger ?? ""}|${subj}|${d?.detection}`;
   }
 
-  /** The collapsed evidence of an expectation report: what was learned, what happened, how to see the flows. */
-  private printExpectation(con: Console, r: Report, e: Expectation): void {
-    if (typeof con.groupCollapsed !== "function") return void (con.info ?? con.log).call(con, r.message);
-    con.groupCollapsed(r.message);
-    const usual = e.usualMs !== undefined ? ` within ${p2(e.usualMs / 1000)} s` : "";
-    const what = e.kind === "request" ? `${e.action} sends ${e.signature}` : e.kind === "follow-up" ? `${e.signature} follows ${e.after}` : e.kind === "write" ? `the response to ${e.signature} writes ${e.field}` : e.kind === "navigation" ? `${e.action} leads to ${e.to}` : `${e.action} answers`;
-    con.log(`Learned on ${e.route}: ${what}${usual} (${e.seen} of ${e.of}, ${e.sessions} session${e.sessions === 1 ? "" : "s"}).`);
-    con.log(`This time: nothing after ${p2(e.waitedMs / 1000)} s (op #${e.op}).`);
-    con.log("Deterministic report from learned counts; no model, no action taken in any mode.");
-    con.log("Flows learned for this page: GenClass.runtime.learned()");
-    con.log("Turn this off: GenClass.init({ learn: { expectations: false } })");
-    con.groupEnd();
-  }
+  /**
+   * Prints an expectation report's collapsed evidence (what was learned, what happened, how to see the flows): set by
+   * the runtime from the flow expectations chunk (learn/flows.ts printExpectation), the only source of those reports,
+   * so its text is not part of the first load.
+   */
+  expect?: (con: Console, message: string, e: Expectation) => void;
 
   /** True when the report should be printed now (first of its window); repeats are counted for the summary. */
   private dedupe(k: string, r: Report): boolean {
@@ -128,7 +128,7 @@ export class Reporter {
     if (!s || s.n === 0 || typeof this.sink !== "string" || this.sink !== "console") return;
     const con = (globalThis as { console?: Console }).console;
     const line = `${s.first.message} (×${s.n} more in the last minute)`;
-    (s.first.kind === "intervene" ? con?.warn ?? con?.log : con?.info ?? con?.log)?.call(con, line);
+    (s.first.kind === "intervene" ? con?.warn ?? con?.log : possible(s.first) ? con?.debug ?? con?.log : con?.info ?? con?.log)?.call(con, line);
   }
 
   dispose(): void {
@@ -136,22 +136,16 @@ export class Reporter {
     this.seen.clear();
   }
 
-  emit(r: Report): void {
-    try {
-      this.listener?.(r);
-    } catch {
-      /* listeners never break reporting */
-    }
+  /** `quiet`: the console only (a possible detection nobody asked for: no listener, no report function). */
+  emit(r: Report, quiet = false): void {
     const sink = this.sink;
-    if (sink === "silent") return;
-    if (typeof sink === "function") {
-      try {
-        sink(r);
-      } catch {
-        /* reporting never breaks the app */
-      }
-      return;
+    try {
+      if (!quiet) this.listener?.(r);
+      if (typeof sink === "function") return void (quiet || sink(r));
+    } catch {
+      /* listeners and report functions never break reporting or the app */
     }
+    if (sink === "silent" || typeof sink === "function") return;
     if (r.kind !== "status" && !this.dedupe(this.key(r.kind, r.decision, r.action, r.expectation), r)) return;
     const con = (globalThis as { console?: Console }).console;
     if (!con) return;
@@ -160,7 +154,8 @@ export class Reporter {
       con.info?.(line);
       return;
     }
-    if (r.kind === "expectation" && r.expectation) return this.printExpectation(con, r, r.expectation);
+    if (r.kind === "expectation" && r.expectation) return this.expect ? this.expect(con, line, r.expectation) : void con.info?.(line);
+    if (possible(r)) return void (con.debug ?? con.log)?.call(con, line);
     const ev = r.action ? this.explain(r.action.id) : r.decision ? this.explain(r.decision.id) : null;
     if (ev && typeof con.groupCollapsed === "function") {
       con.groupCollapsed(line);

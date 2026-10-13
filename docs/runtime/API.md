@@ -82,6 +82,9 @@ interface InitOptions {
   observe?: Partial<Record<"fetch"|"xhr"|"user"|"errors"|"nav"|"storage"|"perf"|"websocket"|"eventsource"|"timers"|"untrustedEvents", boolean>>;
                                                         // untrustedEvents (default false): record synthetic DOM events (isTrusted false) as user actions (test harnesses)
   triage?: "salient" | "always";                        // default "salient"
+  detect?: "likely" | "possible";                       // (0.3.0) which detections are reported; default "possible" in observe
+                                                        // without policy.thresholds.report, else "likely" (see "Reports, explain and undo");
+                                                        // set explicitly, "possible" also sends them to rt.on("detect"/"report") and report: fn
   policy?: PolicyOptions;                               // see Policy
   redact?: (path: string, value: unknown) => unknown;   // default: values whose leaf field names a secret (password, token, card number, cvv, ssn, iban, ...); never a whole store by its name
   plugins?: Plugin[];
@@ -128,7 +131,8 @@ interface InitOptions {
   shadow?: "guard" | "heal" | false;                    // [false] dry-run gate at a higher mode; Decision.shadow, "shadow" event
   onBeforeAction?: (a: ActionRequest) => boolean | void;// final sync veto (false or throw); counts against the hold budget
   vetoMode?: "enforce" | "report";                      // ["enforce"]; "report" records would-veto and runs the action
-  sinks?: (SinkFn | { send: SinkFn; kinds?: SinkKind[]; sampleRate?: number; evidence?: boolean; flush?(): Promise<void> })[];
+  sinks?: (SinkFn | { send: SinkFn; kinds?: SinkKind[]; sampleRate?: number; evidence?: boolean; possible?: boolean; flush?(): Promise<void> })[];
+                                                        // possible (0.3.0) [false]: also "possible" detections
                                                         // adapters: @genclass/runtime/sinks ("See it where you already look" below)
   session?: { id?: string; tags?: Record<string, string | number | boolean> }; // never shown to the model
   audit?: { size?: number; sink?: (e: AuditEntry) => void }; // [1000 kept in memory] the audit trail (rt.audit()); sink: your own logging
@@ -143,7 +147,7 @@ interface InitOptions {
 ```
 
 Runtime additions: `rt.audit(n?)` (the audit trail, below), `rt.disable({ undo? })` (permanent; `undo: true` rolls back the last minute's actions),
-`rt.summary(): SessionSummary`, `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
+`rt.summary(): SessionSummary` (0.3.0: `possibleDetections` per diagnosis next to `detections`, the likely ones), `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
 `rt.learned()` (below), events `shadow`, `breaker`, `limit`, `modelBudget`, `expectation`. `status` adds `effectiveMode`, `sampled`, `breaker`, `scope`,
 `modelBudget`, and states `"disabled" | "skipped" | "unloaded"`. `status.scope` is what is in force on the current
 route: `mode` is the effective mode there (equal to `effectiveMode`: the requested mode demoted by sampling, the breaker
@@ -175,8 +179,10 @@ acted on. Presets for money and identity flows: `import { protectPreset, PROTECT
 invoices, charges, refunds, subscriptions, orders, purchases, transactions, transfers, payouts, wallets, Stripe,
 PayPal, Braintree, Adyen, Klarna, Square; `auth`: login/logout, sign-in/up/out, register, oauth, tokens, sessions, SSO,
 SAML, OIDC, MFA, 2FA, OTP, passwords, verify). Recommended for payment, checkout and sign-in flows in every mode
-(packages/runtime/INTERCEPTION.md, "Money and identity flows"). Hidden tabs skip background
-evaluation and release held items unevaluated.
+(packages/runtime/INTERCEPTION.md, "Money and identity flows"). Hidden tabs release held items unevaluated; in
+guard and heal they skip background evaluation, and in observe (0.3.0, where the possible tier is in force) each
+salient situation is built at once and decided when the tab is visible again, reported at the possible tier at most
+(at most 32 wait; a hidden tab never loads or reloads the model; OPTIONS-SPEC §5.1, §5.3).
 
 Performance: GenClass computes cheap facts for every write and request, and asks the model only about salient ones.
 The situation the model reads is sized to the device (`situation.budget: "auto"`): 2,400 characters (about 1,000
@@ -416,7 +422,9 @@ type Question =
 ## Events
 
 ```ts
-rt.on("detect", (d: Detection) => void)      // the model diagnosed a problem (diagnosis != expected, p >= thresholds.report)
+rt.on("detect", (d: Detection) => void)      // the model diagnosed a problem: d.detection "likely" (diagnosis != expected, p >= the report gate);
+                                             // "possible" ones (0.3.0: p >= gates().possible, below the report gate) only with detect: "possible"
+                                             // set explicitly (every decision, with detection set, is on "decide")
 rt.on("decide", (d: Decision) => void)       // every model decision
 rt.on("act", (a: ActionRecord) => void)      // every non-passive action that ran
 rt.on("event", (e: RtEvent) => void)         // every traced event
@@ -436,7 +444,7 @@ rt.situation(trigger?): Situation  // what the model would see: { trigger, subje
 rt.explain(id): Explanation | null // a decision ("d3") or action ("a1") id -> { message, decision, situationText, facts, timeline, answers, action?, changed? }
 rt.holdBudgetMs(): number          // the current hold budget
 rt.situationBudget(): number       // the current situation size in characters
-rt.gates(trigger?): EffectiveGates // the gate thresholds in force (see Policy)
+rt.gates(trigger?): EffectiveGates // the gate thresholds in force (see Policy); `possible` when observe's possible tier is in force
 rt.history(n?): RtEvent[]          // recent events, oldest first
 rt.decisions(n?): Decision[]       // last 200 decisions
 rt.interventions(n?): ActionRecord[]
@@ -490,7 +498,10 @@ replayed, a consistent snapshot exists, a `resync` handler exists, the failing o
 are always cloned before the app reads them. GenClass's own requests and writes are never gated; `keepalive`
 requests and synchronous XHRs are never held; nothing is held when the mode and policy permit no action for it or
 when the model is not expected to answer within the hold budget. A queued decision whose subject was superseded (the
-response was released, the write overwritten, the request aborted) is dropped before the model computes it. XHR:
+response was released, the write overwritten, the request aborted) runs behind fresh ones; in guard and heal it is
+skipped when decisions take over 300 ms (it could delay a held one), in observe (0.3.0) it is always computed. In
+observe a queued decision also gains one priority level per second it waits, up to the background level, so error and
+transition decisions are not starved by a burst of writes. XHR:
 the app's completion listeners (`readystatechange`, `progress`, `load`, `loadend`, and the matching `on*`
 handlers) are wrapped so a held response reaches them, in order, once delivered; `on*` getters return that wrapper.
 
@@ -543,7 +554,12 @@ action only if all of these hold, otherwise the passive action runs and the deci
 summed probability of the permitted actions reaches that action's tier threshold; the model's top diagnosis is not
 `expected` (unless `requireDiagnosis: false`); fewer than `maxActionsPerMinute` actions ran in the last minute; the
 decision arrived within the hold budget (a late `discard` may still revert the write, see State). While the model is
-loading, everything proceeds unchanged.
+loading, everything proceeds unchanged: guard and heal build no situation then, as before 0.3.0; in observe (0.3.0,
+where the possible tier is in force) a salient situation is built at its trigger and decided once the model is ready,
+for detection only and at the possible tier at most (at most 32 wait, oldest dropped and counted as `not-ready`; a
+lazy model starts loading at the first one, and an idle-unloaded one, `model.unloadAfterIdleMs`, reloads, from a
+visible tab only). Such a deferred decision never acts, whatever the mode is by then. The first salient situation
+after an idle unload fails open as `not-ready` in guard and heal and starts the reload.
 
 ## Reports, explain and undo
 
@@ -552,6 +568,21 @@ evidence: the facts, the timeline, the exact situation text sent to the model, t
 changed, how to undo it and how to deny that action. Identical repeats within a minute are folded into one line
 printed when the minute ends ("×N more in the last minute"). A detection that did not act says what GenClass would
 have done and why not.
+
+Detections have a tier (0.3.0, `InitOptions.detect`, `Decision.detection`). **Likely**: the top diagnosis is not
+`expected` and its probability is at least the report gate (`rt.gates().report`: the aggressiveness profile's
+report value from the model's meta, 0.90 at balanced with model 0.2.0, or `policy.thresholds.report`); printed as
+above. **Possible** (by default only where the effective mode is observe and `policy.thresholds.report` is unset;
+`detect: "possible"` turns it on elsewhere, `detect: "likely"` off): at least the eager profile's report value from
+the same meta (`rt.gates().possible`, 0.70 with model 0.2.0) and below the report gate. A possible detection is the same
+line ending in `(possible)`, printed with `console.debug` only (shown at Chrome's "Verbose" level), and its evidence is
+in `rt.explain(id)`; it reaches the devtools as a dimmed card left out of the counts (no pulse),
+`rt.summary().possibleDetections`, telemetry's `detect` event with `tier: "possible"`, and `rt.on("decide")` with
+`decision.detection: "possible"`. It reaches `rt.on("detect")`, `rt.on("report")` and a `report` function only when
+`detect: "possible"` is set explicitly (so an app wired to them gets what it got in 0.2.x), and sinks only with
+`possible: true`. A situation decided late (deferred while the model loaded or the tab was hidden, OPTIONS-SPEC §5.3)
+is reported at the possible tier at most. `explain()`, the console, the devtools and telemetry all read the tier
+recorded with the decision. The tiers are reporting only: no action gate reads them.
 
 ```
 [GenClass] Prevented a stale response: search.results was written twice by other operations since its operation (#6) started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which started 0.09s after #6, from a later user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropped the state changes it makes over newer data (search.results). (stale, 0.97; discard 0.97)
@@ -579,14 +610,16 @@ overlay uses it), so debugging tools never become causes in situations.
 in `0.2.x`.
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
-`sampled`, `diagnosis`, `p`, `action`, `tier`, `trigger`, `label`, `route` (the page path the subject's operation was
+`sampled`, `diagnosis`, `p`, `detection` (kind `detection`: `"likely"`, or `"possible"` for a sink with
+`possible: true`), `action`, `tier`, `trigger`, `label`, `route` (the page path the subject's operation was
 created on, normalised as telemetry sends it: id-like and email segments as `:id`, at most 200 chars), `changed`
 (paths), `reason`, `shadow`, `correlationId`, and with `evidence: true` the redacted `message`,
 `subject` and `timeline` (URL query and fragment values as `…`; timeline lines can hold short fragments of app data,
 as the console does: a store value summary, an error message, text typed into an ordinary input). Five adapters, no
 dependencies, each a function returning that sink shape, each finding the SDK on the page at send time (or taking the
-client you pass), never throwing, and sending nothing beyond the record. Each takes `kinds`, `sampleRate` and
-`evidence` (default true; false sends the structured fields only):
+client you pass), never throwing, and sending nothing beyond the record. Each takes `kinds`, `sampleRate`,
+`evidence` (default true; false sends the structured fields only) and `possible` (0.3.0, default false: likely
+detections only; sinks by name never get possible ones):
 
 ```ts
 import { consoleJson, datadog, posthog, sentry, webhook } from "@genclass/runtime/sinks"; // or @genclass/runtime/sinks/<name>
@@ -804,6 +837,7 @@ interface Decision {
   candidate?: string /* most probable permitted action */; mass?: number /* summed probability of the permitted actions */;
   gateKind?: "mass" | "gain"; threshold?: number /* mass gate: what mass was compared with */;
   gain?: number; margin?: number /* gain gate: ĝ of the candidate and its tier margin */; thresholdSource?: "policy" | "model" | "default";
+  detection?: "likely" | "possible" /* 0.3.0: set on detections (see "Reports, explain and undo") */;
 }
 type Detection = Decision;
 interface ActionRecord { id: string; decisionId: string; action: string; tier; trigger; subject: string; at: number; ok: boolean; error?: string; changed: string; undo?: () => void; late?: boolean; dropped?: string[] /* delivery discard: fields dropped */ }
@@ -812,7 +846,7 @@ interface Explanation { message: string; decision: Decision; situationText: stri
 interface Expectation { kind: "request" | "response" | "write" | "follow-up" | "navigation"; route: string; action: string; op: number; signature?: string; field?: string; after?: string; to?: string; seen: number; of: number; sessions: number; waitedMs: number; usualMs?: number; at: number; message: string }
 interface LearnedFlow { route: string; action: string; n: number; repeats: number; sessions: number; settleMs?: { p50; p95 }; children: { signature; n; share; onRepeat; expected; expectedOnRepeat; protected?; missed?; delayMs? }[]; writes: { signature; field; n; of; share; expected; missed? }[]; followUps: { after; then; n; of; share; expected; missed?; delayMs? }[]; nav: { to; n; share; expected; missed? }[] } // missed: reported missing, not expected until seen again
 interface Learned { route: string; session: number; flows: LearnedFlow[]; deviations: Expectation[]; relations: { text: string; held: number }[] }
-interface EffectiveGates { kind: "mass" | "gain"; tauGain?: number; trigger?: TriggerKind; report: number; guard: number; heal: number; source: { report: "policy" | "model" | "default"; guard: …; heal: … } }
+interface EffectiveGates { kind: "mass" | "gain"; tauGain?: number; trigger?: TriggerKind; report: number; possible?: number /* 0.3.0: observe's possible tier */; guard: number; heal: number; source: { report: "policy" | "model" | "default"; guard: …; heal: … } }
 interface RtEvent { seq: number; t: number; kind: "user"|"op.start"|"op.end"|"state"|"error"|"nav"|"perf"|"storage"|"custom"|"decision"|"action"; name: string; op?: number; cause?: number; data?: Record<string, unknown> }
 interface Op { id: number; kind: "user"|"fetch"|"xhr"|"ws"|"task"|"timer"|"genclass"; name: string /* e.g. "GET /api/x", "WS message /live", "SSE update /stream" */; detail?: string; start: number; end?: number; status?: "ok"|"error"|"aborted"|"blocked"; code?: number | string; cause?: number; root?: number; attempt: number; reads: Map<string, number>; identity?: string }
 ```

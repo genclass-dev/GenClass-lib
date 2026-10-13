@@ -273,6 +273,13 @@ export function summarize(batch: AggBatch): { counters: Counters; recent: Recent
         break;
       }
       case "detect": {
+        // runtime 0.3.0: observe's lower "possible" tier (below the report gate) is counted on its own, so
+        // "detections" keeps meaning the report gate's detections, as for earlier runtimes (which send no tier)
+        if (e.tier === "possible") {
+          c.add("possible_detections");
+          c.add("possible_diagnosis", str(e.diagnosis) ?? "(unknown)");
+          break;
+        }
         c.add("detections");
         c.add("detect_diagnosis", str(e.diagnosis) ?? "(unknown)");
         c.add("detect_trigger", str(e.trigger) ?? "(unknown)");

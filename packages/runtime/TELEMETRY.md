@@ -78,13 +78,13 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included). Not the page's `decisionSample` or `maxDecisions` setting: `summary.telemetry` says how many records were sent and withheld ([Volume](#volume)) |
 | `model` | model state changes, and once right after `session` when the model was skipped or failed before telemetry started (the device floor: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`) | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError` (why the model worker was not used, URLs replaced by `<url>`), `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
-| `decision` | a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted or was vetoed, always; a `decisionSample` share (default 1 in 4) of the routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
-| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record | `decision`, `trigger`, `diagnosis`, `p` |
+| `decision` | a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted or was vetoed, always; a `decisionSample` share (default 1 in 4) of the routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route` (the page path, normalised; for a decision deferred until the model loaded or the tab was visible again, 0.3.0, the path at its trigger), `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
+| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record; since 0.3.0 also observe's "possible" ones (`InitOptions.detect`: below the report gate, at or above the eager profile's report value) | `decision`, `trigger`, `diagnosis`, `p`, `tier` (0.3.0: `"possible"` on a possible detection; absent on a likely one, as from earlier runtimes. It follows from `p` and the decision record's `gates.report`, which are already sent, except for a decision deferred until the model loaded or the tab was visible again, which is `"possible"` whatever its `p` until the false-report rate of those late decisions is measured) |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
 | `veto` | `onBeforeAction` vetoed an action (every one) | `decision`, `action`, `enforced` |
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars) |
-| `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
+| `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart), actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
 
 Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
 else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
@@ -119,11 +119,14 @@ by `test/telemetry.test.ts` "an hour at the built-in model's maximum rate": one 
 simulated hour (1,800 decisions from a scripted decider, not the model; situation text off), all bytes of all
 request bodies counted:
 
-| decisions | defaults (`0.3.0-beta.0`, CI run 38465242176) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
+| decisions | defaults (`0.3.0-beta.0`, CI run 38471973596) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
 |---|---|---|
-| all routine | 250.3 KB in 163 requests (which routine decisions are sampled follows the random session id: 249.0 to 250.3 KB in the last three runs) | not measured |
-| every one a detection | 2,067.1 KB in 361 requests: every record (detections are never sampled or capped) | 2,067.1 KB in 361 requests |
-| of which `summary` events | 61 summaries, 39.3 KB (routine) and 40.8 KB (detections) | 61 summaries, 40.8 KB |
+| all routine | 252.2 KB in 167 requests (which routine decisions are sampled follows the random session id: 249.0 to 252.2 KB in the last five runs) | not measured |
+| every one a detection | 2,068.5 KB in 361 requests: every record (detections are never sampled or capped) | 2,068.5 KB in 361 requests |
+| of which `summary` events | 61 summaries, 40.7 KB (routine) and 42.2 KB (detections) | 61 summaries, 42.2 KB |
+
+The summaries are 1.4 KB an hour larger than in CI run 38465242176 (39.3 / 40.8 KB): each carries the new
+`possibleDetections` count. The scripted detections in this test are likely ones, which carry no `tier`.
 
 A page where every decision is a detection sends every record, as `0.2.2` did: the detections are what the
 diagnostics are for. A page whose decisions are routine costs about 40 KB an hour in summaries after the cap, plus
@@ -137,13 +140,17 @@ typical volumes.
   `navigator.sendBeacon` (falling back to `fetch` with `keepalive`).
 - The `fetch` and `sendBeacon` captured when `@genclass/runtime` loaded, so GenClass never observes, holds or decides
   about its own requests.
-- At most 1,000 queued events; beyond that new events are dropped and counted. A failed request (a network error, a
-  5xx) is dropped, never retried; after 3 failures in a row the page stops sending (`MAX_FAIL_STREAK`). Since 0.3.0
-  an HTTP 429, or any response with a `Retry-After` the page can read, is a back-off, not a failure: the refused batch
-  goes back to the front of the queue and nothing is sent until the `Retry-After` (in seconds), else 30 s doubling per
-  429 in a row up to 5 minutes, has passed (page exit still sends, by `sendBeacon`). Until then a busy network address
-  (an office or campus behind one IP, against the collector's per-address limit) could stop its pages for good after
-  three 429s. Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
+- At most 1,000 queued events; beyond that the oldest routine decision record (top diagnosis `expected`, nothing
+  acted) makes room for a new event (since 0.3.0), else the new event is dropped; both are counted
+  (`summary.telemetry.dropped`). A detection and its decision record are never dropped while a routine record is
+  queued. A failed request (a network error, a 5xx) is dropped, never retried; after 3 failures in a row the page
+  stops sending (`MAX_FAIL_STREAK`). Since 0.3.0 an HTTP 429, or a 503 with a `Retry-After` the page can read, is a
+  back-off, not a failure: the refused batch goes back to the front of the queue and nothing is sent for 30 s,
+  doubling per back-off in a row, or the `Retry-After` (in seconds) when it is longer, never more than 5 minutes
+  (page exit still sends, by `sendBeacon`). After 8 back-offs in a row (about 27 minutes) a refusal counts as a
+  failure. A `Retry-After` on any other status is ignored. Before 0.3.0 a busy network address (an office or campus
+  behind one IP, against the collector's per-address limit) could stop its pages for good after three 429s.
+  Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
 
 ## App tokens and dashboards
 

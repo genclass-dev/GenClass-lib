@@ -176,7 +176,7 @@ export function topFact(facts: string[] | undefined): string {
 
 /** Group key for repeated detections (same trigger, diagnosis, action and subject shape). */
 export const repeatKey = (d: Decision): string =>
-  `${d.trigger}|${d.diagnosis}|${d.action}|${d.subject.replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n")}`;
+  `${d.trigger}|${d.diagnosis}|${d.action}|${d.subject.replace(/#\d+/g, "#").replace(/\d+(\.\d+)?/g, "n")}${d.detection === "possible" ? "|possible" : ""}`;
 
 /** Colour family of a diagnosis chip. */
 export function diagTone(d: string | undefined): string {

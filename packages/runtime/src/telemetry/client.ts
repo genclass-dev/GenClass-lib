@@ -5,9 +5,11 @@
 //   decision or changes model input (situation-v2 freeze). The situation text it sends is the exact text built
 //   from the state the model received, after the redactor.
 // - Never throws into the app or the runtime; failures drop the batch, and MAX_FAIL_STREAK failures in a row stop the
-//   page from sending. A 429 (or any response with a Retry-After) is a back-off, not a failure: the batch goes back to
-//   the front of the queue and nothing is sent until the Retry-After (else BACKOFF_MS, doubling to MAX_BACKOFF_MS)
-//   has passed; only page exit (sendBeacon) sends during it. Bounded queue (MAX_QUEUE events).
+//   page from sending. A 429 (or a 503 with a Retry-After) is a back-off, not a failure: the batch goes back to the
+//   front of the queue and nothing is sent for BACKOFF_MS, doubling per back-off in a row, or the Retry-After if it is
+//   longer, never more than MAX_BACKOFF_MS; only page exit (sendBeacon) sends during it. After MAX_BACKOFFS in a row
+//   (about 27 minutes) a refusal counts as a failure. Bounded queue (MAX_QUEUE events): when it is full, the oldest
+//   routine decision record makes room, so a detection and its record are never the events dropped while one is.
 // - Timers come from the runtime's Clock; times are ms since this session started (no wall clock: the collector
 //   stamps receivedAt). The session id is random per page load and never stored.
 // - Volume (TELEMETRY.md "Volume"): every decision is counted in `summary`. Detections are never sampled or capped:
@@ -31,9 +33,14 @@ export const MAX_QUEUE = 1000;
 export const MAX_REQUEST_BYTES = 60_000;
 /** Consecutive failed requests after which a page stops sending telemetry (a CSP block, a dead endpoint). */
 export const MAX_FAIL_STREAK = 3;
-/** First back-off after a 429 without a readable Retry-After; doubled for each 429 in a row, up to MAX_BACKOFF_MS. */
+/**
+ * First back-off after a 429; doubled for each back-off in a row, up to MAX_BACKOFF_MS. A longer Retry-After is
+ * honoured up to MAX_BACKOFF_MS too (a 0 or 1 s one never makes the page retry faster than this).
+ */
 export const BACKOFF_MS = 30_000;
 export const MAX_BACKOFF_MS = 300_000;
+/** Back-offs in a row after which a refusal counts as a failure (MAX_FAIL_STREAK): 30 s + 1 + 2 + 4 + 4 × 5 min. */
+export const MAX_BACKOFFS = 8;
 export const SUMMARY_MS = 60_000;
 const MAX_ERROR_EVENTS = 20;
 
@@ -138,6 +145,7 @@ export class TelemetryClient implements TelemetryStatus {
     decisions: 0,
     acted: 0,
     detections: 0,
+    possibleDetections: 0,
     actionsOk: 0,
     actionsFailed: 0,
     lateReverts: 0,
@@ -188,7 +196,11 @@ export class TelemetryClient implements TelemetryStatus {
     if (this.stopped) return;
     if (this.queue.length >= MAX_QUEUE) {
       this.dropped++;
-      return;
+      // full (a long back-off): the oldest routine decision record (top diagnosis "expected", nothing acted) makes
+      // room, never a detection or its record
+      const i = this.queue.findIndex((x) => x.t === "decision" && x.diagnosis === "expected" && !x.acted);
+      if (i < 0) return;
+      this.queue.splice(i, 1);
     }
     e.seq = this.seq++;
     e.at = this.at();
@@ -196,9 +208,10 @@ export class TelemetryClient implements TelemetryStatus {
     this.arm();
   }
 
-  private route(): string | undefined {
+  /** `at`, else the page's path now, normalised; a deferred decision's is the path at its trigger (decisionInfo). */
+  private route(at?: string): string | undefined {
     try {
-      const p = (this.g.location as { pathname?: unknown } | undefined)?.pathname;
+      const p = at ?? (this.g.location as { pathname?: unknown } | undefined)?.pathname;
       return typeof p === "string" ? cut(normalizePath(p), 200) : undefined;
     } catch {
       return undefined;
@@ -337,7 +350,7 @@ export class TelemetryClient implements TelemetryStatus {
       t: "decision",
       id: d.id,
       trigger: d.trigger,
-      route: this.route(),
+      route: this.route(info?.route),
       model: cut(d.model, 80),
       latencyMs: Math.round(d.latencyMs),
       held: info?.held,
@@ -374,14 +387,25 @@ export class TelemetryClient implements TelemetryStatus {
       fn: this.cfg.token ? fnLabel(d.fn) : undefined,
     });
     if (vetoed) this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
+    // every detection, likely or possible, from its decision (the "detect" event carries possible ones only when the
+    // app asked for them)
+    if (d.detection) this.onDetect(d);
   }
 
   private onDetect(d: Decision): void {
     this.dirty = true;
-    this.c.detections++;
-    inc(this.c.detectionsByDiagnosis, d.diagnosis);
+    // the tier: likely at the report gate, possible below it in observe or for a deferred decision (OPTIONS-SPEC §5.3,
+    // decided after the model loaded or the tab became visible, whatever its p); only a possible one says so
+    // (`tier: "possible"`: no field means likely, as from earlier runtimes). `detections` and `detectionsByDiagnosis`
+    // keep counting the likely ones, as before 0.3.0
+    const possible = d.detection === "possible";
+    if (possible) this.c.possibleDetections++;
+    else {
+      this.c.detections++;
+      inc(this.c.detectionsByDiagnosis, d.diagnosis);
+    }
     // never sampled or capped (its decision record went too: a detection's diagnosis is never "expected")
-    this.push({ t: "detect", decision: d.id, trigger: d.trigger, diagnosis: d.diagnosis, p: r4(d.diagnosisConfidence) });
+    this.push({ t: "detect", decision: d.id, trigger: d.trigger, diagnosis: d.diagnosis, p: r4(d.diagnosisConfidence), tier: possible ? "possible" : undefined });
   }
 
   private onAct(a: ActionRecord): void {
@@ -416,7 +440,6 @@ export class TelemetryClient implements TelemetryStatus {
         }
       };
     this.offs.push(rt.on("decide", safe((d) => this.onDecide(d))));
-    this.offs.push(rt.on("detect", safe((d) => this.onDetect(d))));
     this.offs.push(rt.on("act", safe((a) => this.onAct(a))));
     this.offs.push(rt.on("status", safe(() => this.onStatus())));
     this.offs.push(
@@ -533,6 +556,7 @@ export class TelemetryClient implements TelemetryStatus {
         decisions: c.decisions,
         acted: c.acted,
         detections: c.detections,
+        possibleDetections: c.possibleDetections,
         actionsOk: c.actionsOk,
         actionsFailed: c.actionsFailed,
         lateReverts: c.lateReverts,
@@ -666,24 +690,23 @@ export class TelemetryClient implements TelemetryStatus {
     return p;
   }
 
-  /** A rejected send: a back-off (429, Retry-After) or a failure. */
+  /** A rejected send: a back-off (429, a 503 with a Retry-After; at most MAX_BACKOFFS in a row) or a failure. */
   private refused(e: unknown, batch: Ev[]): void {
     const b = backoffOf(e);
-    if (b === null) this.failed();
+    if (b === null || this.backoffs >= MAX_BACKOFFS) this.failed();
     else this.backOff(b, batch);
   }
 
   /**
-   * The collector asked this page to slow down (429, or a Retry-After): not a failure. The batch goes back to the
-   * front of the queue (within MAX_QUEUE; what does not fit counts as dropped) and nothing is sent until the
-   * Retry-After, else BACKOFF_MS doubling per 429 in a row up to MAX_BACKOFF_MS, has passed.
+   * The collector asked this page to slow down (429, or a 503 with a Retry-After): not a failure. The batch goes back
+   * to the front of the queue (within MAX_QUEUE; what does not fit counts as dropped) and nothing is sent for
+   * BACKOFF_MS doubling per back-off in a row, or the Retry-After when it is longer, at most MAX_BACKOFF_MS.
    */
   private backOff(retryAfterMs: number | undefined, batch: Ev[]): void {
     if (this.stopped) return;
     this.backoffs++;
-    // a Retry-After of at most an hour (backoffOf: ≥ 0), else the doubling schedule
-    const ms = retryAfterMs ?? Math.min(MAX_BACKOFF_MS, BACKOFF_MS * 2 ** (this.backoffs - 1));
-    this.backoffUntil = Math.max(this.backoffUntil, this.rt.clock.now() + Math.min(3_600_000, ms));
+    const ms = Math.min(MAX_BACKOFF_MS, Math.max(retryAfterMs ?? 0, BACKOFF_MS * 2 ** (this.backoffs - 1)));
+    this.backoffUntil = Math.max(this.backoffUntil, this.rt.clock.now() + ms);
     const room = Math.max(0, MAX_QUEUE - this.queue.length);
     if (batch.length > room) this.dropped += batch.length - room;
     this.queue.unshift(...batch.slice(0, room));
@@ -756,15 +779,14 @@ export class TelemetryClient implements TelemetryStatus {
 }
 
 /**
- * A rejected send that asks for a back-off: the error's `status` is 429, or it carries `retryAfterMs` (the transport
- * read a Retry-After header). Returns the wait in ms (undefined: none given), or null for an ordinary failure.
+ * A rejected send that asks for a back-off: the error's `status` is 429, or 503 with `retryAfterMs` (the transport
+ * read a Retry-After header). Returns the Retry-After in ms (undefined: none given), or null for an ordinary failure
+ * (any other status, a network error; a Retry-After on them is ignored).
  */
 export function backoffOf(e: unknown): number | undefined | null {
-  if (!e || typeof e !== "object") return null;
-  const x = e as { status?: unknown; retryAfterMs?: unknown };
-  const ra = typeof x.retryAfterMs === "number" && Number.isFinite(x.retryAfterMs) && x.retryAfterMs >= 0 ? x.retryAfterMs : undefined;
-  if (ra !== undefined) return ra;
-  return x.status === 429 ? undefined : null;
+  const x = (e ?? {}) as { status?: unknown; retryAfterMs?: unknown };
+  const ra = typeof x.retryAfterMs === "number" && x.retryAfterMs >= 0 ? x.retryAfterMs : undefined;
+  return x.status === 429 || (x.status === 503 && ra !== undefined) ? ra : null;
 }
 
 /** runtime.telemetry when nothing is sent. */

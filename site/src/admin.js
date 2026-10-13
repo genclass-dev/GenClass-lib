@@ -182,9 +182,12 @@ export async function ingest(env, maxObjects = 150) {
       } else if (e.t === "veto") {
         bump(day, host, "vetoes");
       } else if (e.t === "detect") {
-        bump(day, host, "detections", e.diagnosis || "?");
+        // runtime 0.3.0: observe's lower "possible" tier (tier "possible") is counted on its own, never as a detection,
+        // so the detection totals and rates stay those of the report gate (the telemetry-worker dashboard does the same)
+        const possible = e.tier === "possible";
+        bump(day, host, possible ? "possible_detections" : "detections", e.diagnosis || "?");
         stmts.push(db.prepare(`INSERT INTO recent (at, sid, host, route, kind, trigger, diagnosis, confidence, runtime) VALUES (?,?,?,?,?,?,?,?,?)`)
-          .bind(at, r.sid, host, null, "detect", e.trigger || null, e.diagnosis || null, e.p ?? null, r.runtime || null));
+          .bind(at, r.sid, host, null, possible ? "possible" : "detect", e.trigger || null, e.diagnosis || null, e.p ?? null, r.runtime || null));
       } else if (e.t === "action") {
         const outcome = e.outcome || (e.ok === false ? "failed" : "applied");
         bump(day, host, "actions", `${e.action || "?"}:${outcome}`);
@@ -292,7 +295,7 @@ export async function stats(env, url) {
   const hostFilter = includeTest ? "" : "AND host NOT IN (SELECT DISTINCT host FROM sessions WHERE test = 1)";
   const q = (sql, ...b) => db.prepare(sql).bind(...b).all().then((r) => r.results);
   const [series, breakdown, hosts, recent, ingestState, testHosts] = await Promise.all([
-    q(`SELECT day, metric, SUM(n) n FROM daily WHERE day >= ? AND metric IN ('sessions','decisions','detections','acted','undos') ${hostFilter} GROUP BY day, metric ORDER BY day`, since),
+    q(`SELECT day, metric, SUM(n) n FROM daily WHERE day >= ? AND metric IN ('sessions','decisions','detections','possible_detections','acted','undos') ${hostFilter} GROUP BY day, metric ORDER BY day`, since),
     q(`SELECT metric, key, SUM(n) n FROM daily WHERE day >= ? AND metric IN ('detections','acted','actions','runtime','mode','country','model_ready','model_error','decisions_by_trigger','breaker','diagnoses','latency_bucket','held','passive_reason','model_worker','model_cache','model_variant','route','aggressiveness','situation_text','webgpu','model_kind','vetoes') ${hostFilter} GROUP BY metric, key ORDER BY n DESC`, since),
     q(`SELECT s.host, MIN(s.first_at) first_at, MAX(s.last_at) last_at, COUNT(*) sessions, MAX(s.test) test, MAX(s.runtime) runtime,
         (SELECT SUM(n) FROM daily d WHERE d.host = s.host AND d.metric = 'detections' AND d.day >= ?1) detections,

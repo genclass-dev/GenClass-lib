@@ -171,9 +171,6 @@ function bound<K, V>(m: Map<K, V>, max: number, drop?: (v: V) => void): void {
   }
 }
 
-/** The runtime's default report gate (src/decide/policy.ts DEFAULT_THRESHOLDS.report), kept here so the devtools chunk imports no runtime code. */
-const DEFAULT_REPORT = 0.6;
-
 function safe<T>(fn: () => T, fallback: T): T {
   try {
     const v = fn();
@@ -435,8 +432,11 @@ class Devtools {
         /* runtime without this event */
       }
     };
-    on("decide", (d) => this.addDecision(d));
-    on("detect", (d) => this.addDet(d, true));
+    // detections from their decisions: the "detect" event carries possible ones only when the app asked for them
+    on("decide", (d) => {
+      this.addDecision(d);
+      if (d.detection) this.addDet(d, true);
+    });
     on("act", (a) => this.addAct(a, true));
     on("report", (r) => this.addReport(r));
     on("event", (e) => this.addEvent(e));
@@ -462,14 +462,9 @@ class Devtools {
       this.seen(d.at);
     }
     for (const a of safe(() => this.rt.interventions(MAX_CARDS), [] as ActionRecord[]).slice().sort((x, y) => x.at - y.at)) this.addAct(a, false);
-    // the runtime's own detection rule with the report gate it decided with (explain().gates; else the trigger's gate
-    // now; else the default report gate, for a Runtime without either): the decisions the "detect" event, the console
-    // and telemetry reported, not every one at 0.6 whatever the gate (0.9 at balanced with model 0.2.0)
-    const rt = this.rt as Runtime & { gates?: (t?: TriggerKind) => EffectiveGates };
-    const report = (d: Decision): number =>
-      safe(() => rt.explain(d.id)?.gates?.report, undefined) ?? safe(() => (typeof rt.gates === "function" ? rt.gates(d.trigger).report : undefined), undefined) ?? DEFAULT_REPORT;
+    // the tier the runtime recorded with the gates it decided with: the same detections the console and telemetry reported
     for (const d of decs) {
-      if (d.diagnosis && d.diagnosis !== "expected" && diagP(d) >= report(d)) this.addDet(d, false);
+      if (d.detection) this.addDet(d, false);
     }
     for (const e of safe(() => this.rt.history(MAX_ROWS), [] as RtEvent[])) this.addEvent(e);
   }
@@ -550,7 +545,8 @@ class Devtools {
     }
     bound(this.dets, MAX_CARDS, (e) => e.el?.remove());
     bound(this.detOf, 1000);
-    if (live) this.notify("d");
+    // a possible detection is a secondary card: no pulse, not counted as unseen
+    if (live && d.detection !== "possible") this.notify("d");
     this.mark(LISTS);
   }
 
@@ -632,8 +628,13 @@ class Devtools {
 
   private renderCounts(): void {
     const na = this.acts.size;
+    // possible detections (observe's lower tier) are listed as secondary cards, not counted in the badges
     let nd = 0;
-    for (const e of this.dets.values()) nd += e.count;
+    let np = 0;
+    for (const e of this.dets.values()) {
+      if (e.decision?.detection === "possible") np += e.count;
+      else nd += e.count;
+    }
     (this.pcA.lastElementChild as HTMLElement).textContent = String(na);
     (this.pcD.lastElementChild as HTMLElement).textContent = String(nd);
     this.pcA.classList.toggle("on", na > 0);
@@ -642,6 +643,7 @@ class Devtools {
     this.nD.textContent = String(nd);
     this.nA.classList.toggle("on", na > 0);
     this.nD.classList.toggle("on", nd > 0);
+    this.nD.title = np ? `${nd} likely, ${np} possible` : "";
     const s = safe(() => this.rt.status.state, "off");
     this.pill.setAttribute("aria-label", `Open GenClass devtools: ${na} interventions, ${nd} detections, model ${s}`);
     this.pz.hidden = !this.paused;
@@ -751,9 +753,10 @@ class Devtools {
     if (!body) body = topFact(d?.facts) || a?.subject || d?.subject || "";
     const evId = `gc-ev-${e.kind}-${e.id}`;
     const dp = d ? diagP(d) : NaN;
+    const possible = !isAct && d?.detection === "possible";
     const el = h(
       "article",
-      { class: `card ${e.kind}${e.undone ? " undone" : ""}${e.fresh ? " new" : ""}${e.open ? " open" : ""}`, "data-id": e.id, "aria-label": title },
+      { class: `card ${e.kind}${possible ? " possible" : ""}${e.undone ? " undone" : ""}${e.fresh ? " new" : ""}${e.open ? " open" : ""}`, "data-id": e.id, "aria-label": possible ? `Possible: ${title}` : title },
       h("div", { class: "ci" }, icon(isAct ? "shield" : "eye")),
       h(
         "div",
@@ -772,6 +775,7 @@ class Devtools {
           d?.diagnosis
             ? h("span", { class: `chip t-${diagTone(d.diagnosis)}`, title: `Diagnosis, calibrated probability ${dp.toFixed(2)}` }, h("span", { class: "cd" }), h("b", { text: d.diagnosis }), h("span", { class: "p", text: pct(dp) }))
             : null,
+          possible ? h("span", { class: "chip poss", title: "Possible: below the report gate, at or above observe's possible gate (rt.gates().possible)" }, "possible") : null,
           a ? h("span", { class: "chip", title: `Action, ${a.tier} tier` }, h("code", { text: a.action }), h("span", { class: "tier", text: a.tier })) : null,
         ),
         isAct ? this.changedNote(e) : this.wouldNote(d),

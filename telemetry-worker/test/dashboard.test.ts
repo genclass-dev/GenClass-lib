@@ -244,6 +244,25 @@ describe("token on telemetry batches", () => {
     expect(m.series).toHaveLength(30);
   });
 
+  it("counts runtime 0.3.0's possible detections (detect tier \"possible\") apart from detections", async () => {
+    const { env } = setup();
+    const { json } = await create(env);
+    const extra = [
+      { t: "decision", seq: 9, at: 4100, id: "d3", trigger: "delivery", route: "/cart/:id", model: "genclass-2", latencyMs: 90, diagnosis: "stale", diagnosisConfidence: 0.8, action: "deliver", confidence: 0.9, tier: "passive", ran: "deliver", executed: true, acted: false, effectiveMode: "observe" },
+      { t: "detect", seq: 10, at: 4101, decision: "d3", trigger: "delivery", diagnosis: "stale", p: 0.8, tier: "possible" },
+      { t: "detect", seq: 11, at: 4102, decision: "d9", trigger: "mutation", diagnosis: "conflict", p: 0.95, tier: "likely" },
+    ];
+    expect((await handle(post(pageBatch(json.token, undefined, extra)), env, opts)).status).toBe(202);
+    const s = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts)).json()) as Record<string, any>;
+    // "detections" stays the report gate's count (d1, and the likely d9); the possible one is counted on its own
+    expect(s.totals).toMatchObject({ decisions: 3, detections: 2, possible_detections: 1 });
+    const bd = (m: string) => Object.fromEntries((s.breakdowns[m] ?? []).map((x: any) => [x.key, x.count]));
+    expect(bd("detect_diagnosis")).toEqual({ stale: 1, conflict: 1 });
+    expect(bd("possible_diagnosis")).toEqual({ stale: 1 });
+    expect(s.series.at(-1)).toMatchObject({ detections: 2 });
+    expect(s.recent.filter((r: any) => r.kind === "detect")).toHaveLength(2); // d1 (its decision) and d9 (event only)
+  });
+
   it("counts cumulative summaries once per page load (deltas) and aggregates in one D1 batch", async () => {
     const { env, sql } = setup();
     const { json } = await create(env);

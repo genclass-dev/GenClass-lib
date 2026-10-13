@@ -17,6 +17,7 @@ import type {
   LearnOptions,
   Decision,
   DecisionProvider,
+  EvaluateRequest,
   Explanation,
   Guarded,
   Mode,
@@ -91,7 +92,7 @@ import { opLabel } from "./situation/describe.js";
 import { BUILTIN_ACTIONS, diagnosisVocabulary, PASSIVE, TRIGGER_ACTIONS } from "./situation/questions.js";
 import { STATE_CHAR_BUDGET, stateText } from "./situation/serialize.js";
 import { DeciderQueue, typicalLatency, type DecideResult } from "./decide/decider.js";
-import { aggressivenessLevel, effectiveGates, gate, holdBudget, parseGate, permittedActions, policyConfig, RateLimiter, restriction, type PolicyConfig } from "./decide/policy.js";
+import { aggressivenessLevel, detectionTier, effectiveGates, gate, holdBudget, parseGate, permittedActions, policyConfig, possibleGate, RateLimiter, restriction, type PolicyConfig } from "./decide/policy.js";
 import { decisionLine, detectionLine, interventionLine, Reporter } from "./decide/report.js";
 import type { ActionEffect, Controller, EndOpts, NetHost, TriggerOpts } from "./decide/exec.js";
 import { ResponseCache } from "./observe/cache.js";
@@ -130,6 +131,16 @@ export const BACKGROUND_DEADLINE_MS = 5000;
 const DISCARD_MARK_MS = 10_000;
 /** A salient delivery waits at most this long for its body (a buffered clone) before deciding without it. */
 const BODY_WAIT_MS = 100;
+/**
+ * Observe: situations built while the model loads (or reloads after model.unloadAfterIdleMs) or while the tab is
+ * hidden, kept to be decided once the model is ready and the tab visible (oldest dropped beyond this many).
+ */
+export const DEFERRED_MAX = 32;
+/**
+ * A deferred situation's deadline once it is submitted (one at a time, after the model is ready). Its decision can
+ * only detect and report (observe never acts), so it may wait behind fresh ones.
+ */
+export const DEFERRED_DEADLINE_MS = 30_000;
 /** Stores the user wrote this recently are not checked for relations at a settled point (typing bursts). */
 const TYPING_BURST_SETTLE_MS = 1000;
 const STALL_MIN_MS = 500;
@@ -146,6 +157,25 @@ const LEARN_MAX_BYTES = 200_000;
  */
 const FLOWS_LOAD_MS = 0;
 
+/** An observe-mode situation built while it could not be decided yet (DEFERRED_MAX): decided later, never acting. */
+interface Deferred {
+  spec: SubjectSpec;
+  built: BuiltSituation;
+  ctl: Controller;
+  /** Already ran (observe never holds). */
+  passive: () => void;
+  opts: TriggerOpts;
+  subjectOp: OpRec | null;
+  block: "protected" | "cross-origin" | "scope" | null;
+  fn: string | undefined;
+  /** A delivery whose chain's writes it covers while it waits (see trigger: deliveryPending). */
+  delivery: OpRec | null;
+  /** What it waited for, and the counter a drop goes to: failOpen "not-ready", or summary.model.hiddenSkipped. */
+  why: "not-ready" | "hidden";
+  /** The page path at the trigger: its decision record's route (telemetry), not the page it is decided on. */
+  route?: string;
+}
+
 interface ExplainRec {
   decision: Decision;
   situationText: string;
@@ -160,6 +190,8 @@ interface ExplainRec {
   compact: boolean;
   /** Automatically discovered state had been recorded when this situation was built (telemetry leaves its text out). */
   autoState: boolean;
+  /** A deferred situation's page path at its trigger (Deferred.route). */
+  route?: string;
 }
 
 /** Internal observation points for telemetry (src/telemetry): counts only, never input to a decision. */
@@ -181,6 +213,12 @@ const UNDO_WINDOW_MS = 60_000;
 /** Query and fragment values of URLs in free text → "…" (sink evidence, OPTIONS-SPEC §4.10). */
 export function redactUrlText(t: string): string {
   return String(t).replace(/([?&#][^=&#\s"]+)=([^&#\s"]*)/g, (_m, k: string) => `${k}=…`);
+}
+
+/** The queue request for a built situation (fresh in trigger, or deferred in drainDeferred). */
+function evalRequest(built: BuiltSituation, priority: number): EvaluateRequest {
+  const sit = built.situation;
+  return { trigger: built.spec.trigger, state: sit.state, questions: sit.questions, priority, subject: built.subjectRef, ...(sit.notOffered ? { notOffered: { ...sit.notOffered } } : {}) };
 }
 
 /** The op a decision's subject is about (its trigger op, a write's cause, an error's ambient op). */
@@ -380,6 +418,14 @@ export class RuntimeImpl implements Runtime {
   private deliveryPending = new WeakSet<OpRec>();
   /** Deliveries released without a hold whose content analysis waits for the body: cut short at their chain's first write. */
   private deliveryAnalysis = new Map<OpRec, () => void>();
+  /** InitOptions.detect (undefined: "possible" in observe without policy.thresholds.report, else "likely"). */
+  private readonly detectOpt: "likely" | "possible" | undefined;
+  /** Observe: situations waiting for the model (loading, reloading) or a visible tab, oldest first (DEFERRED_MAX). */
+  private deferred: Deferred[] = [];
+  /** A deferred situation is being decided (they are submitted one at a time). */
+  private deferring = false;
+  /** A `ready` subscription that drains the deferred situations is pending. */
+  private deferWait = false;
 
   constructor(o: CreateOptions & { decider?: DecisionProvider | null; ownsDecider?: boolean } = {}) {
     this.clock = o.clock ?? browserClock;
@@ -417,6 +463,8 @@ export class RuntimeImpl implements Runtime {
     if (um === "observe" || um === "guard" || um === "heal") if (this.debug || MODE_RANK[um] <= MODE_RANK[this._mode]) this._mode = um;
     if (o.policy?.maxActionsPerMinute !== undefined && o.policy?.actionLimits?.perMinute !== undefined) this.warn("policy.maxActionsPerMinute is deprecated and ignored when actionLimits.perMinute is set.");
     this.triage = o.triage ?? "salient";
+    // anything but "likely" / "possible" means the default
+    this.detectOpt = o.detect === "likely" || o.detect === "possible" ? o.detect : undefined;
     this.vocab = o.vocabulary;
     this.hooks = o.hooks ?? {};
     this.settleMs = o.settleMs ?? 60;
@@ -462,6 +510,11 @@ export class RuntimeImpl implements Runtime {
     const mo = o.model && typeof o.model === "object" ? o.model : undefined;
     const mdpm = mo?.maxDecisionsPerMinute ?? (mo && o.ownsDecider ? 30 : undefined);
     if (typeof mdpm === "number" && mdpm > 0) this.queue.perMinute = mdpm;
+    // items may be held only in guard and heal: in observe the queue computes superseded items and ages priorities
+    this.queue.holds = () => {
+      const m = this.sessionMode();
+      return m === "guard" || m === "heal";
+    };
     this.queue.onBudget = (b) => {
       this.sum.s.model.dropped = b.dropped;
       this.fire("modelBudget", b);
@@ -504,7 +557,7 @@ export class RuntimeImpl implements Runtime {
     this.env = this.makeEnv();
     this.hub.hooks = {
       gate: (m) => this.gateMutation(m),
-      mayHold: () => this.hub.holdWrites && this.consultable() && this._mode !== "observe",
+      mayHold: () => this.hub.holdWrites && this._mode !== "observe" && this.consultable(null, this._mode),
       observeWrite: (m) => this.observeWrite(m),
       filter: (m) => this.dropFilter(m),
       dropped: (m, dropped, applied) => this.onDropped(m, dropped, applied),
@@ -546,6 +599,10 @@ export class RuntimeImpl implements Runtime {
             kind: "status",
             message: `[GenClass] Model ready (${[s.model, s.device, s.variant].filter(Boolean).join(", ")}${s.loadMs !== undefined ? `, ${secs(s.loadMs)}` : ""}${s.worker === false ? "; inline on the main thread" : ""}). Mode: ${this._mode}.`,
           });
+        // deferred observe situations: decided once ready; dropped (counted) when the model will not come
+        // (after the notification: the host may still be finishing its own update)
+        if (becameReady) void Promise.resolve().then(() => this.drainDeferred());
+        else if (s.state === "error" || s.state === "skipped" || s.state === "disabled") this.dropDeferred();
         // a blocked download (CSP, most often): one warning naming the origin and the fix, instead of the bare error
         if (s.state === "error" && s.blocked) this.warnOnce("model-blocked", blockedMessage(s.blocked));
         else if (s.state === "error") this.emitReport({ kind: "status", message: `[GenClass] Model unavailable (${s.error ?? "error"}); observing only.` });
@@ -587,7 +644,8 @@ export class RuntimeImpl implements Runtime {
         this.emitSummary();
       };
       const vis = () => {
-        if (!this.hidden()) return;
+        // visible again: observe situations deferred while hidden are decided now (a model unloaded meanwhile reloads)
+        if (!this.hidden()) return this.wake();
         this.flow((f) => f.onHidden());
         end();
       };
@@ -904,9 +962,13 @@ export class RuntimeImpl implements Runtime {
     const out: Report = { ...r, mode: r.decision?.effectiveMode ?? this.effectiveMode(sub), session: { id: this.sessionId, tags: { ...this.sessionTags } } };
     if (sub?.scope?.correlationId) out.correlationId = sub.scope.correlationId;
     if (sub?.scope?.label) out.label = sub.scope.label;
-    if (this.reportMode === "interventions" && !(r.kind === "intervene" || r.kind === "undo" || r.kind === "breaker" || r.kind === "error")) this.fire("report", out);
-    else this.reporter.emit(out);
-    if (r.kind === "detect" && r.decision) this.sum.inc(this.sum.s.detections, r.decision.diagnosis);
+    // a possible detection reaches "report" listeners and a report function only with detect: "possible" asked for
+    // (the console prints it with console.debug either way; sinks need possible: true)
+    const quiet = r.kind === "detect" && !this.loud(r.decision);
+    if (this.reportMode === "interventions" && !(r.kind === "intervene" || r.kind === "undo" || r.kind === "breaker" || r.kind === "error")) {
+      if (!quiet) this.fire("report", out);
+    } else this.reporter.emit(out, quiet);
+    if (r.kind === "detect" && r.decision) this.sum.inc(r.decision.detection === "possible" ? this.sum.s.possibleDetections : this.sum.s.detections, r.decision.diagnosis);
     if (r.kind === "intervene" && r.action) {
       this.sum.inc(this.sum.s.interventions, r.action.action);
       if (r.action.late) this.sum.s.lateReverts++;
@@ -935,6 +997,7 @@ export class RuntimeImpl implements Runtime {
     if (d) {
       rec.diagnosis = d.diagnosis;
       rec.p = d.confidence;
+      if (kind === "detection" && d.detection) rec.detection = d.detection;
       rec.trigger = d.trigger;
       if (d.reason) rec.reason = d.reason;
       if (d.shadow) rec.shadow = { ...d.shadow };
@@ -1420,7 +1483,8 @@ export class RuntimeImpl implements Runtime {
 
   /**
    * Situation size in characters: the configured number, or "auto" by the model's device: webgpu 2,400 (≈ 1,000
-   * tokens); wasm 1,000 at 1 thread to 2,000 at 4 threads (linear); unknown device (custom providers) 2,400.
+   * tokens); wasm 1,000 at 1 thread to 2,000 at 4 threads (linear); unknown device (custom providers) 2,400; a model
+   * not ready yet whose device is unknown (situations deferred while it loads) 1,000, the smallest automatic size.
    */
   situationBudget(): number {
     if (typeof this.budgetOpt === "number") return this.budgetOpt;
@@ -1429,7 +1493,7 @@ export class RuntimeImpl implements Runtime {
     if (st?.device === "wasm") {
       const threads = Math.min(4, Math.max(1, st.threads ?? 1));
       b = 1000 + Math.round(((threads - 1) * 1000) / 3);
-    }
+    } else if (st && !st.device && st.state !== "ready") b = 1000; // not loaded yet (a deferred situation): the smallest
     return Math.round(b * this.budgetScale);
   }
 
@@ -1443,11 +1507,31 @@ export class RuntimeImpl implements Runtime {
     return buildSituation(this.env, spec, this.buildOpts());
   }
 
-  /** Whether triggers should even be built: a provider exists and could answer now or lazily. */
-  private consultable(): boolean {
+  /**
+   * Whether triggers should even be built: a provider exists and could answer now or once it has loaded. "off" (lazy
+   * preload) and "unloaded" (model.unloadAfterIdleMs, OPTIONS-SPEC §4.18) start loading at the first salient
+   * situation, which fails open unless it is deferred. While "loading", only where situations are deferred (the
+   * subject's mode, else `mode`: `defers`); guard and heal skip them then, as before 0.3.0. Never "error", "skipped" or
+   * "disabled".
+   */
+  private consultable(op?: OpRec | null, mode?: ModeOrOff): boolean {
     if (this.paused || this.destroyed || !this.decider || this.enabledState !== "on") return false;
     const st = this.decider.status.state;
-    return st === "ready" || st === "off";
+    return st === "ready" || st === "off" || st === "unloaded" || (st === "loading" && this.defers(mode ?? this.effectiveMode(op)));
+  }
+
+  /**
+   * Observe situations that cannot be decided yet (the model loading or reloading, a hidden tab) are deferred
+   * (OPTIONS-SPEC §5.3) only where observe's possible tier is in force: their decisions are reported at that tier at
+   * most (onDecision), so `detect: "likely"` (or policy.thresholds.report) keeps 0.2.x's skipping.
+   */
+  private defers(mode: ModeOrOff): boolean {
+    return mode === "observe" && this.possibleOn(mode);
+  }
+
+  /** A detection that goes to the "detect" event, "report" listeners and a report function: likely, or possible ones when asked for. */
+  private loud(d: Decision | undefined): boolean {
+    return d?.detection === "likely" || (!!d?.detection && this.detectOpt === "possible");
   }
 
   trigger(spec: SubjectSpec, ctl: Controller, opts: TriggerOpts): void {
@@ -1461,16 +1545,20 @@ export class RuntimeImpl implements Runtime {
         this.log("passive action failed", e);
       }
     };
-    if (!this.consultable()) return passive();
     const subjectOp = subjectOpOf(spec);
+    if (!this.consultable(subjectOp)) return passive();
     // the protect()ed function the subject ran inside; scope "functions": nothing else is decided (explicit asks are)
     const fn = this.protectedFnOf(subjectOp ?? this.ambientNoMaterialize());
     if (this.scope === "functions" && fn === undefined && spec.trigger !== "ask") return passive();
     const effMode = this.effectiveMode(subjectOp);
     // a route scope "off": ops there are recorded, never decided
     if (effMode === "off") return passive();
-    // hidden tab: held subjects are released at once, background situations are not evaluated (OPTIONS-SPEC §5.1)
-    if (this.hidden() && spec.trigger !== "ask") {
+    // hidden tab (OPTIONS-SPEC §5.1): in guard and heal, held subjects are released at once and background
+    // situations are not evaluated; in observe (nothing is held) the situation is built now and decided once the tab
+    // is visible again (below; `defers`)
+    const hidden = this.hidden() && spec.trigger !== "ask";
+    const defers = spec.trigger !== "ask" && this.defers(effMode);
+    if (hidden && !defers) {
       if (!opts.hold) this.sum.s.model.hiddenSkipped++;
       return passive();
     }
@@ -1487,19 +1575,23 @@ export class RuntimeImpl implements Runtime {
     }
     this.lastBuilt[spec.trigger] = built;
     if (!built.salient && !built.forced) return passive();
-    const provider = this.decider!;
-    if (provider.status.state !== "ready") {
-      // lazy preload: the first salient situation starts loading; this one fails open
-      void this.ready;
-      this.tapFailOpen("not-ready", spec.trigger);
-      return passive();
-    }
+    const notReady = this.decider!.status.state !== "ready";
+    // lazy preload, or a reload after an idle unload: the first salient situation starts loading, but not in a hidden
+    // tab (hidden time is idle, OPTIONS-SPEC §4.18): the tab becoming visible asks for the model then (wake)
+    if (notReady && !hidden) void this.ready;
     // gate steps 1–3: protected, cross-origin or off/observe-scoped subjects are never acted on (nor held)
     const block = this.blockOf(subjectOp);
     if (block) {
       const no: Record<string, string> = { ...(built.situation.notOffered ?? {}) };
       for (const a of built.actions) if (a.tier !== "passive") no[a.name] = block;
       built.situation.notOffered = no;
+    }
+    if (notReady || hidden) {
+      // observe: the situation as it is now, decided once the model is ready and the tab visible (it can only
+      // detect); guard and heal (and explicit asks): fail open
+      if (defers) return this.defer({ spec, built, ctl, passive, opts, subjectOp, block, fn, delivery: null, why: hidden ? "hidden" : "not-ready" });
+      this.tapFailOpen("not-ready", spec.trigger);
+      return passive();
     }
     // Never hold when no non-passive action is permitted for this trigger in this mode (and policy): the subject
     // proceeds at once and the decision is still made in the background, for detection.
@@ -1561,19 +1653,7 @@ export class RuntimeImpl implements Runtime {
         }
       : undefined;
     this.queue
-      .submit(
-        {
-          trigger: spec.trigger,
-          state: built.situation.state,
-          questions: built.situation.questions,
-          priority: waits ? opts.priority : Math.min(opts.priority, 1),
-          subject: built.subjectRef,
-          ...(built.situation.notOffered ? { notOffered: { ...built.situation.notOffered } } : {}),
-        },
-        deadline,
-        stale,
-        late,
-      )
+      .submit(evalRequest(built, waits ? opts.priority : Math.min(opts.priority, 1)), deadline, stale, late)
       .then((res) => {
         if (budgetTimer !== null) this.clock.clearTimeout(budgetTimer);
         this.heldPassives.delete(passive);
@@ -1599,6 +1679,97 @@ export class RuntimeImpl implements Runtime {
       });
   }
 
+  // ------------------------------------------------------------------------- deferred observe situations
+
+  /**
+   * Observe only: keep a situation that could not be decided yet (the model is loading or reloading, or the tab is
+   * hidden) to decide it once the model is ready and the tab visible, in order. The situation was built now, from the
+   * state at the trigger (injected clock; same inputs, same text), and its subject already proceeded: the decision can
+   * only detect and report. A delivery covers its chain's writes while it waits, as a background delivery decision
+   * does. Beyond DEFERRED_MAX the oldest is dropped, counted as failOpen "not-ready" (or summary.model.hiddenSkipped
+   * for one that waited for the tab).
+   */
+  private defer(e: Deferred): void {
+    if (e.spec.trigger === "delivery") {
+      e.delivery = (e.spec as DeliverySpec).op;
+      // registered before the passive action, which may run the app's listeners (and their writes) synchronously
+      this.deliveryPending.add(e.delivery);
+    }
+    e.passive();
+    e.route = this.currentRoute();
+    this.deferred.push(e);
+    if (this.deferred.length > DEFERRED_MAX) this.dropOne(this.deferred.shift()!);
+    this.wake();
+  }
+
+  /**
+   * Decide the deferred situations once the model is ready and the tab visible: now, or when `ready` resolves, asking
+   * for the model (a lazy or idle-unloaded one loads; never from a hidden tab). From defer, the tab becoming visible
+   * and resume(); the model's "ready" status drains them too. Never from trigger(): a fresh situation is not queued
+   * behind them (a held one waits at most for the one deferred decision being computed, as for any background one).
+   */
+  private wake(): void {
+    if (!this.deferred.length || this.hidden() || !this.consultable(null, "observe")) return;
+    if (this.decider!.status.state === "ready") return this.drainDeferred();
+    if (this.deferWait) return;
+    this.deferWait = true;
+    this.ready.then(
+      () => {
+        this.deferWait = false;
+        this.drainDeferred();
+      },
+      () => {
+        this.deferWait = false;
+        this.dropDeferred();
+      },
+    );
+  }
+
+  private dropOne(e: Deferred): void {
+    if (e.delivery) this.deliveryPending.delete(e.delivery);
+    if (e.why === "hidden") this.sum.s.model.hiddenSkipped++;
+    else this.tapFailOpen("not-ready", e.spec.trigger);
+  }
+
+  /** The model will not come (error, skipped, disabled) or the runtime is going away: every deferred one is dropped. */
+  private dropDeferred(): void {
+    for (const e of this.deferred.splice(0)) this.dropOne(e);
+  }
+
+  /**
+   * Decide the deferred situations, one at a time and oldest first, once the model is ready and the tab visible.
+   * Each is a background decision with DEFERRED_DEADLINE_MS from its submission, decided as observe whatever the mode
+   * is by then (`detectOnly`); a subject whose effective mode is no longer observe is dropped instead.
+   */
+  private drainDeferred(): void {
+    if (this.deferring || !this.deferred.length || !this.consultable() || this.hidden() || this.decider?.status.state !== "ready") return;
+    const e = this.deferred.shift()!;
+    if (this.effectiveMode(e.subjectOp) !== "observe") {
+      this.dropOne(e);
+      return this.drainDeferred();
+    }
+    this.deferring = true;
+    const trig = e.spec.trigger;
+    const t1 = this.clock.now();
+    this.queue
+      .submit(evalRequest(e.built, Math.min(e.opts.priority, 1)), t1 + DEFERRED_DEADLINE_MS, e.ctl.stale && trig !== "delivery" ? () => !!e.ctl.stale!() : undefined)
+      .then((res) => {
+        if (this.destroyed) return;
+        if (!res) return this.tapFailOpen("no-answer", trig);
+        this.sum.decision(res.latencyMs);
+        this.onDecision(e.built, res.answers, this.clock.now() - t1, e.ctl, e.passive, { waits: false, covers: e.delivery !== null, expired: false, passiveRan: () => true, hold: e.opts.hold, block: e.block, subjectOp: e.subjectOp, detectOnly: true, fn: e.fn, route: e.route });
+      })
+      .catch((err) => {
+        this.log("deferred decision failed", err);
+        this.tapFailOpen("error", trig);
+      })
+      .finally(() => {
+        if (e.delivery) this.deliveryPending.delete(e.delivery);
+        this.deferring = false;
+        this.drainDeferred();
+      });
+  }
+
   private onDecision(
     built: BuiltSituation,
     answers: Record<string, Answer>,
@@ -1615,6 +1786,13 @@ export class RuntimeImpl implements Runtime {
       block?: "protected" | "cross-origin" | "scope" | null;
       subjectOp?: OpRec | null;
       fn?: string;
+      /**
+       * A deferred observe situation (drainDeferred): gated as observe whatever the mode is now, so it never acts, and
+       * reported at the possible tier at most (OPTIONS-SPEC §5.3: its false-report rate is not measured yet).
+       */
+      detectOnly?: boolean;
+      /** Its page path at the trigger (Deferred.route). */
+      route?: string;
     },
   ): void {
     const trigger = built.spec.trigger;
@@ -1631,13 +1809,13 @@ export class RuntimeImpl implements Runtime {
     const diagnosisConfidence = diagnosisProbabilities[diagnosis] ?? dg?.confidence ?? 0;
     const now = this.clock.now();
     const offered = built.actions.map((a) => ({ name: a.name, tier: a.tier }));
-    const gates = this.gatesAt(trigger, this.effectiveAggr(subjectOp));
+    const gates = this.withPossible(this.gatesAt(trigger, this.effectiveAggr(subjectOp)), st.detectOnly ? "observe" : effMode);
     const gin = {
       actions: offered,
       probabilities,
       top,
       diagnosis,
-      mode: (effMode === "off" ? "observe" : effMode) as Mode,
+      mode: (effMode === "off" || st.detectOnly ? "observe" : effMode) as Mode,
       paused: this.paused,
       now,
       thresholds: { guard: gates.guard, heal: gates.heal },
@@ -1760,6 +1938,11 @@ export class RuntimeImpl implements Runtime {
     }
     if (reason) decision.reason = reason;
     if (st.fn !== undefined) decision.fn = st.fn;
+    // likely (≥ the report gate) or possible (observe's lower tier; a deferred one at most): reporting only, nothing
+    // above reads it
+    const dt = detectionTier(diagnosis, diagnosisConfidence, gates);
+    const detection = dt && st.detectOnly ? "possible" : dt;
+    if (detection) decision.detection = detection;
     this.decisionsBuf.push(decision);
     if (this.decisionsBuf.length > DECISIONS_KEPT) this.decisionsBuf.shift();
     const auditAggr = gates.aggressiveness;
@@ -1805,6 +1988,7 @@ export class RuntimeImpl implements Runtime {
       compact: built.situation.compact,
       autoState: this.discoveredWrites(),
     };
+    if (st.route !== undefined) rec.route = st.route;
     this.explainMap.set(decision.id, rec);
     if (this.explainMap.size > DECISIONS_KEPT * 2) {
       const first = this.explainMap.keys().next().value;
@@ -1817,8 +2001,8 @@ export class RuntimeImpl implements Runtime {
       this.fire("shadow", { decisionId: decision.id, ...shadow });
       if (this.debug) this.log(`shadow ${this.shadowMode}: ${shadow.wouldPass ? `would run ${shadow.action}` : `would not act (${shadow.reason ?? "gate"})`}`);
     }
-    const detected = diagnosis !== "expected" && diagnosisConfidence >= gates.report;
-    if (detected) this.fire("detect", decision);
+    // a possible one only with detect: "possible" asked for (the devtools and telemetry read Decision.detection on "decide")
+    if (this.loud(decision)) this.fire("detect", decision);
     // standing questions
     for (const q of built.standing) {
       const a = answers[q.id];
@@ -1832,7 +2016,7 @@ export class RuntimeImpl implements Runtime {
     }
     if (!run) {
       passive();
-      if (detected) this.emitReport({ kind: "detect", message: detectionLine(decision), decision });
+      if (detection) this.emitReport({ kind: "detect", message: detectionLine(decision), decision });
       return;
     }
     // execute the non-passive action
@@ -2032,7 +2216,7 @@ export class RuntimeImpl implements Runtime {
 
   /** policy.holdWrites (opt-in): a salient write waits for the model (never reordering the store's writes). */
   private gateMutation(m: MutationRec): { held?: Promise<Verdict> } {
-    if (!this.consultable() || this.covered(m)) return {};
+    if (!this.consultable(m.cause) || this.covered(m)) return {};
     let resolveV!: (v: Verdict) => void;
     const held = new Promise<Verdict>((r) => (resolveV = r));
     let sync = true;
@@ -2052,7 +2236,7 @@ export class RuntimeImpl implements Runtime {
 
   /** Default (no store holds): a write about to apply is triaged now and decided in the background. */
   private observeWrite(m: MutationRec): void {
-    if (!this.consultable() || m.genclass || this.covered(m)) return;
+    if (!this.consultable(m.cause) || m.genclass || this.covered(m)) return;
     this.trigger({ trigger: "mutation", m }, this.mutationController(m, null), { hold: false, priority: 1 });
   }
 
@@ -2144,7 +2328,7 @@ export class RuntimeImpl implements Runtime {
     };
     const op = o.op;
     // protected / ignored-scope / off-scope subjects pass at once: no body read, no hold, zero added latency
-    if (!this.consultable() || this.paused || this.destroyed || op.genclass || op.scope?.protected || op.scope?.mode === "off") return rel();
+    if (!this.consultable(op) || op.genclass || op.scope?.protected || op.scope?.mode === "off") return rel();
     // scope "functions": deliveries outside protect()ed functions are only observed
     if (this.scope === "functions" && this.protectedFnOf(op) === undefined) return rel();
     const since = heldSince ?? this.clock.now();
@@ -2300,7 +2484,22 @@ export class RuntimeImpl implements Runtime {
       return;
     }
     // read the body first (a clone, bounded in time)
-    timer = this.clock.setTimeout(() => finish(undefined), BODY_WAIT_MS);
+    timer = this.clock.setTimeout(() => {
+      timer = null;
+      // Only a pending local change or typed text (no newer data): only the body can tell whether the delivery
+      // overwrites them, and it is late. When the chain's writes cannot act (observe), the delivery stays salient and
+      // undecided, as at a write before its body (below), so those writes are decided on their own (mutation triggers)
+      // instead of being covered by a delivery that was never decided. Guard and heal keep deciding without the body.
+      const mode = this.effectiveMode(op);
+      if (background && !newer.length && !always && (mode === "off" || !this.writesCanAct(mode))) {
+        if (done) return;
+        done = true;
+        this.deliveryAnalysis.delete(op);
+        if (op.delivery) op.delivery.salient = true;
+        return;
+      }
+      finish(undefined);
+    }, BODY_WAIT_MS);
     // the delivery's chain is about to write: decide now, without the body (see finalizeDeliveries). Without newer
     // data, only the body could tell whether it puts back what a pending local change replaced or replaces typed
     // text (F1/F2): the delivery is not decided then, and its chain's writes are decided on their own (mutation
@@ -2915,6 +3114,7 @@ export class RuntimeImpl implements Runtime {
         f.load(this.storedFlows);
         this.storedFlows = undefined;
         this.flows = f;
+        this.reporter.expect = m.printExpectation;
       })
       .catch((e) => this.log("flow expectations could not be loaded", e))
       .finally(() => this.flowsReadyResolve());
@@ -3005,7 +3205,8 @@ export class RuntimeImpl implements Runtime {
 
   get ready(): Promise<void> {
     if (!this.decider) return Promise.resolve();
-    if (!this._ready) {
+    // a model torn down after idle (model.unloadAfterIdleMs) reloads when it is asked for again (OPTIONS-SPEC §4.18)
+    if (!this._ready || this.decider.status.state === "unloaded") {
       let p: Promise<void>;
       try {
         p = Promise.resolve(this.decider.ready());
@@ -3046,11 +3247,27 @@ export class RuntimeImpl implements Runtime {
 
   /** The gate thresholds in force for a trigger kind: policy overrides, else the model's meta gate, else defaults. */
   gates(trigger?: TriggerKind): EffectiveGates {
-    return { ...this.gatesAt(trigger, this.effectiveAggr()), mode: this.effectiveMode() };
+    const mode = this.effectiveMode();
+    return { ...this.withPossible(this.gatesAt(trigger, this.effectiveAggr()), mode), mode };
   }
 
   private gatesAt(trigger: TriggerKind | undefined, level: number): EffectiveGates {
     return effectiveGates(this.policy, parseGate(this.decider?.status.gate), trigger, level);
+  }
+
+  /**
+   * The gates with observe's "possible" detection tier where it is in force (InitOptions.detect): by default where
+   * the subject's effective mode is observe and the app set no policy.thresholds.report; its value is the eager
+   * profile's report gate from the same meta. Reporting only: the action gate never reads `possible`.
+   */
+  private withPossible(g: EffectiveGates, mode: ModeOrOff): EffectiveGates {
+    const p = this.possibleOn(mode) ? possibleGate(parseGate(this.decider?.status.gate), g.report) : undefined;
+    return p === undefined ? g : { ...g, possible: p };
+  }
+
+  /** InitOptions.detect in force for a subject in this mode: "possible" by default in observe without policy.thresholds.report. */
+  private possibleOn(mode: ModeOrOff): boolean {
+    return (this.detectOpt ?? (mode === "observe" && this.policy.overrides.report === undefined ? "possible" : "likely")) === "possible";
   }
 
   /** Gate steps 1–3 for a subject op: protected, cross-origin, or created under an off/observe route scope. */
@@ -3524,9 +3741,9 @@ export class RuntimeImpl implements Runtime {
    * Telemetry (src/telemetry): what explain() has plus whether the subject waited, and whether automatically
    * discovered state had been recorded (its text then stays out of telemetry: it was not registered by the app). Internal.
    */
-  decisionInfo(id: string): { situationText: string; held: boolean; budget: number; compact: boolean; gates: EffectiveGates; autoState: boolean } | null {
+  decisionInfo(id: string): { situationText: string; held: boolean; budget: number; compact: boolean; gates: EffectiveGates; autoState: boolean; route?: string } | null {
     const r = this.explainMap.get(id);
-    return r ? { situationText: r.situationText, held: r.held, budget: r.budget, compact: r.compact, gates: r.gates, autoState: r.autoState } : null;
+    return r ? { situationText: r.situationText, held: r.held, budget: r.budget, compact: r.compact, gates: r.gates, autoState: r.autoState, route: r.route } : null;
   }
 
   /** Some automatically discovered store has recorded a write. */
@@ -3553,8 +3770,8 @@ export class RuntimeImpl implements Runtime {
     const r = this.explainMap.get(id);
     if (!r) return null;
     const d = r.decision;
-    const detected = d.diagnosis !== "expected" && d.diagnosisConfidence >= r.gates.report;
-    const message = r.action ? interventionLine(d, r.action) : detected ? detectionLine(d) : decisionLine(d);
+    // the tier recorded at decision time (the gates it was decided with): the same as the "detect" event and the console
+    const message = r.action ? interventionLine(d, r.action) : d.detection ? detectionLine(d) : decisionLine(d);
     const e: Explanation = { message, decision: d, situationText: r.situationText, facts: r.facts, timeline: r.timeline, answers: r.answers, gates: r.gates };
     if (r.action) {
       e.action = r.action;
@@ -3604,6 +3821,7 @@ export class RuntimeImpl implements Runtime {
     if (this.paused) this.auditControl("resume");
     this.paused = false;
     this.hub.gating = true;
+    this.wake();
   }
 
   get isPaused(): boolean {
@@ -3624,6 +3842,7 @@ export class RuntimeImpl implements Runtime {
     this.hub.gating = false;
     this.queue.dispose();
     this.deliveryAnalysis.clear();
+    this.deferred = [];
     this.reporter.dispose();
     this.flows?.dispose();
     if (this.flowsTimer !== null) this.clock.clearTimeout(this.flowsTimer);

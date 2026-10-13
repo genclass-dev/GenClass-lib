@@ -8,7 +8,8 @@
 //   window.GENCLASS_CONFIG = { mode: "observe", devtools: true, policy: { deny: ["delay"] } }  (any InitOptions)
 //
 // Keys of the meta tag and data attributes: mode, model (a model directory URL, or "off"), device, preload, ort
-// (onnxruntime-web wasm directory), worker, report, debug, triage, devtools (bare / true, "local" = only on
+// (onnxruntime-web wasm directory), worker, report, debug, triage, detect (likely: no possible detections and no
+// deferred situations in observe; possible), devtools (bare / true, "local" = only on
 // localhost, false, or a corner such as "bottom-left"), telemetry (off/false/no: no anonymous diagnostics), autostate
 // (off/false/no: no automatic state discovery; on by default in these entries), token (the app's dashboard token,
 // gc_...), scope (app or functions), sink (sinks by name: sentry, posthog, datadog, console-json, webhook:<url>;
@@ -112,6 +113,9 @@ export function fromPairs(pairs: Record<string, string>): PageConfig {
         break;
       case "triage":
         if (lv === "salient" || lv === "always") c.triage = lv;
+        break;
+      case "detect":
+        if (lv === "likely" || lv === "possible") c.detect = lv;
         break;
       case "devtools":
         c.devtools = parseDevtools(lv);

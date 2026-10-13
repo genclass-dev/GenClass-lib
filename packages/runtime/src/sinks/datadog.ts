@@ -39,6 +39,7 @@ export function datadog(o: DatadogSinkOptions = {}): SinkObject {
     kinds: o.kinds ?? DEFAULT_KINDS,
     sampleRate: o.sampleRate,
     evidence: o.evidence ?? true,
+    possible: o.possible === true,
     send(r: SinkRecord): void {
       try {
         const rum = o.rum ?? (globalOf(o).DD_RUM as DatadogRumLike | undefined);
