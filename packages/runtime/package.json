@@ -1,6 +1,6 @@
 {
   "name": "@genclass/runtime",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A runtime for web apps: a small local model watches user actions, async work, network, state and errors, and flags, and optionally prevents, stale responses, races, duplicate requests, inconsistent state and failure storms.",
   "type": "module",
   "license": "Apache-2.0",

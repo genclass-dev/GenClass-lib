@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 (2026-10-13)
 
 - **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
   `?genclass=guard|heal` and `localStorage.genclass` now only demote, from the app's mode or from `observe` when it
