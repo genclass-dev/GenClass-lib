@@ -7,7 +7,7 @@
 //   POST /api/scan {url}       runs a scan: JSON for refusals and cache hits, else an NDJSON stream of progress then the report
 //   GET  /api/scan/report?url= the cached report (404 when none)  GET /api/scan/shot/<key>/<id>-<view>.jpg  a screenshot
 //
-// Order of checks on POST: shape -> normalise -> cache hit -> opt-out list -> per-IP rate limit -> DNS -> robots.txt
+// Order of checks on POST: shape -> normalise -> opt-out list -> cache hit -> per-IP rate limit -> DNS -> robots.txt
 // -> global concurrency slot (and one scan per URL at a time) -> scan.
 
 import { buildReport } from "./report.ts";
@@ -102,6 +102,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps
       if (request.method !== "GET") return json({ ok: false, code: "method", message: "Use GET." }, 405, { allow: "GET" });
       const t = normaliseTarget(url.searchParams.get("url"));
       if (!t.ok) return json(t, 400);
+      if (await optedOut(env.BUCKET, t.host, env.BLOCKLIST)) return json({ ok: false, code: "opted-out", message: "The owner of this site asked us not to scan it." }, 403);
       const r = await cachedReport(env.BUCKET, await cacheKey(t.url), deps.now());
       return r ? json({ ok: true, report: r }) : json({ ok: false, code: "none", message: "No recent scan for that page." }, 404);
     }
@@ -161,10 +162,10 @@ async function startScan(request: Request, env: Env, ctx: Ctx, deps: AppDeps, ur
   }
   const target = normaliseTarget(body && body.url);
   if (!target.ok) return json(target, 400);
+  if (await optedOut(env.BUCKET, target.host, env.BLOCKLIST)) return json({ ok: false, code: "opted-out", message: "The owner of this site asked us not to scan it." }, 403);
   const key = await cacheKey(target.url);
   const hit = await cachedReport(env.BUCKET, key, deps.now());
   if (hit) return json({ ok: true, cached: true, report: hit });
-  if (await optedOut(env.BUCKET, target.host, env.BLOCKLIST)) return json({ ok: false, code: "opted-out", message: "The owner of this site asked us not to scan it." }, 403);
   if (env.SCAN_LIMIT) {
     const { success } = await env.SCAN_LIMIT.limit({ key: await ipKey(request) });
     if (!success) return json({ ok: false, code: "rate", message: "Too many scans from your address in the last minute." }, 429, { "retry-after": "60" });

@@ -128,6 +128,7 @@ table.dt .r{text-align:right;font-variant-numeric:tabular-nums;font-family:var(-
 table.dt td.cat{font-weight:600}
 table.dt td.cat small{display:block;font-weight:400;color:var(--ink3);font-size:13px;margin-top:2px}
 .bar{height:6px;border-radius:2px;background:var(--track);margin-top:8px;max-width:180px}
+@media (max-width:560px){table.dt th{white-space:normal;letter-spacing:.03em;font-size:11px;padding-right:8px}table.dt td{padding-right:8px}table.dt .r{font-size:12.5px}}
 .bar i{display:block;height:6px;border-radius:2px;background:var(--bug-f)}
 .measures{font-size:14.5px;color:var(--ink2);margin-top:18px;max-width:72ch}
 .measures b{color:var(--ink);font-weight:600}
@@ -139,16 +140,15 @@ table.dt td.cat small{display:block;font-weight:400;color:var(--ink3);font-size:
 .phonef .frame{max-width:340px}
 .frame img{display:block;width:100%;height:auto}
 .frame .mark{position:absolute;border:2px solid var(--bug-f);border-radius:2px;pointer-events:none}
-.frame .mark a{pointer-events:auto;position:absolute;right:100%;top:-2px;margin-right:2px;min-width:20px;height:18px;padding:0 4px;background:var(--bug-f);color:#fff;font:600 11px/18px var(--mono);text-align:center;text-decoration:none;border-radius:2px}
+.frame .mark a{pointer-events:auto;position:absolute;right:100%;top:-2px;margin-right:2px;min-width:20px;height:18px;padding:0 4px;background:var(--bug-f);color:#0B1736;font:600 11px/18px var(--mono);text-align:center;text-decoration:none;border-radius:2px}
 .frame .mark.in a{right:auto;left:0;top:0;margin:0}
 .frame .mark.flash{outline:3px solid var(--bug-f);outline-offset:3px}
 .noshot{padding:40px 16px;color:var(--ink3);font-size:14px;text-align:center}
 /* findings */
 ol.finds{list-style:none;margin-top:8px}
 .find{display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 16px;padding:24px 0;border-bottom:1px solid var(--rule)}
-.find .no{font:600 13px/26px var(--mono);color:#fff;background:var(--bug-f);border-radius:2px;width:30px;height:26px;text-align:center;margin-top:2px}
-.find.fixed .no{background:var(--green-f);color:var(--ink)}
-@media (prefers-color-scheme:dark){.find.fixed .no{color:#0B1736}}
+.find .no{font:600 13px/26px var(--mono);color:#0B1736;background:var(--bug-f);border-radius:2px;width:30px;height:26px;text-align:center;margin-top:2px}
+.find.fixed .no{background:var(--green-f)}
 .find h3{font:600 18px/1.35 var(--sans);letter-spacing:-.01em}
 .find .tags{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font:12px var(--mono);color:var(--ink3)}
 .find .tags .sev-high{color:var(--bug)}
@@ -418,10 +418,11 @@ function render(r){
 function renderScore(r){
   $("sv").textContent = String(r.score.value);
   var n = r.findings.length, high = r.findings.filter(function(f){ return f.severity === "high"; }).length;
-  $("ss").textContent = n ? nf.format(n) + (n === 1 ? " finding" : " findings") + (high ? ", " + high + " serious" : "") + ". Breakdown beside it." : "No findings from these checks.";
+  $("ss").textContent = n ? nf.format(n) + (n === 1 ? " finding" : " findings") + (high ? ", " + high + " serious" : "") + ". The table shows where the points went." : "No findings from these checks.";
   var w = r.withGenClass, withOn = !!(w && w.shown);
   show("withbox", withOn); show("wth", withOn);
-  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = w.fixed + " of " + n + " fixed and re-checked in the same session. The rest GenClass reports; the developer fixes them with the suggested CSS."; }
+  $("sk").textContent = withOn ? "Without GenClass" : "Score";
+  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = w.fixed + " of " + n + " fixed and re-checked in the same session, with " + (r.probe.guardSetting || "guard mode") + ". The rest need the suggested fixes."; }
   var tb = $("breakdown"); tb.textContent = "";
   r.score.categories.forEach(function(c, i){
     var tr = el("tr"), td = el("td", "cat", c.label); td.appendChild(el("small", null, "Up to " + c.cap + " points"));
@@ -485,7 +486,7 @@ function renderFindings(r){
     row("Measured", f.measured);
     row("Why it matters", f.why);
     var pre = el("pre", null, f.fix); row("Suggested fix", pre);
-    if (withOn) row("With GenClass", f.fixed ? el("span", "gc-yes", "Fixed. " + f.fixed.how) : el("span", null, f.category === "interaction" ? "Not fixed in this run. GenClass reports it; the fix above removes it." : "Not fixed: GenClass reports it, and the developer fixes it with the suggested CSS."));
+    if (withOn) row("With GenClass", f.fixed ? el("span", "gc-yes", "Fixed. " + f.fixed.how) : el("span", null, f.category === "interaction" ? "Not fixed in this run. The suggested fix above removes it." : "Not fixed: the runtime has no fix for this yet. The suggested CSS above removes it."));
     var shown = Object.keys(f.boxes || {});
     if (shown.length) {
       var bar = el("div", "show");
@@ -526,7 +527,7 @@ function renderProbe(r){
   if (g && g.ran && o.clicked && g.clicked) {
     var cmp = el("div", "cmp");
     [["Without GenClass", o.clicked.sent, ""], ["With GenClass guard", g.clicked.sent, g.clicked.sent < o.clicked.sent ? "g" : ""]].forEach(function(x){ var d = el("div"); d.appendChild(el("div", "k", x[0])); d.appendChild(el("div", "n " + x[2], x[1] + (x[1] === 1 ? " request" : " requests"))); cmp.appendChild(d); });
-    var acts = (g.acts || []).map(function(a){ return a.action + ": " + a.changed; });
+    var acts = (g.acts || []).map(function(a){ return a.action + ": " + String(a.changed || "").replace(/\.$/, ""); });
     var held = (g.detections || []).filter(function(d){ return !d.executed && d.candidate && typeof d.gain === "number" && typeof d.margin === "number"; })[0];
     var why = acts.length ? "GenClass did: " + acts.slice(0, 3).join("; ") + "."
       : held ? "GenClass flagged it (" + held.diagnosis + ", " + Math.round(held.p * 100) + "%) and held back: " + held.candidate + " scored a gain of " + (Math.round(held.gain * 100) / 100) + " and these gates need more than " + held.margin + ". Guard only acts when the expected gain clears the margin."
@@ -647,7 +648,7 @@ export function aboutPage(n: string): string {
   <pre>User-agent: GenClassScan\nDisallow: /</pre>
   <ul>
     <li>Or email <a href="mailto:${OPT_OUT_EMAIL}?subject=GenClassScan%20opt-out">${OPT_OUT_EMAIL}</a> with the hostname. It goes on a
-    block list the scanner checks before every scan, subdomains included, and any cached result for it is deleted.</li>
+    block list the scanner checks before every scan and every report view, subdomains included, so cached results for it stop showing at once.</li>
   </ul>
 </section>
 <section class="blk prose" id="retention">

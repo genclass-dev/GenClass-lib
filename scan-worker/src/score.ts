@@ -8,10 +8,10 @@ export type Severity = "high" | "medium" | "low";
 export const SCORE_VERSION = "scan-score/1";
 
 export const CATEGORIES: { id: Category; label: string; cap: number; covers: string }[] = [
-  { id: "readability", label: "Readability", cap: 25, covers: "text that cannot be read, template text that leaked onto the page, fonts that failed to load" },
-  { id: "media", label: "Images and media", cap: 25, covers: "images that failed to load" },
-  { id: "layout", label: "Layout", cap: 25, covers: "sideways scrolling on a phone, stylesheets that failed to load" },
-  { id: "interaction", label: "Interaction and races", cap: 25, covers: "controls covered by another element, a double click that sends a request twice, a response GenClass flagged as landing over newer data" },
+  { id: "readability", label: "Readability", cap: 25, covers: "Text that cannot be read, template text that leaked onto the page, fonts that failed to load" },
+  { id: "media", label: "Images and media", cap: 25, covers: "Images that failed to load" },
+  { id: "layout", label: "Layout", cap: 25, covers: "Sideways scrolling on a phone, stylesheets that failed to load" },
+  { id: "interaction", label: "Interaction and races", cap: 25, covers: "Controls covered by another element, a double click that sends a request twice, a response GenClass flagged as landing over newer data" },
 ];
 
 export const SEVERITY_POINTS: Record<Severity, number> = { high: 10, medium: 5, low: 2 };

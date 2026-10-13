@@ -84,11 +84,14 @@ describe("POST /api/scan refusals, in order", () => {
     assert.equal(res.status, 403);
     assert.equal(((await res.json()) as { code: string }).code, "robots");
   });
-  it("403 for a host on the opt-out list, subdomains included", async () => {
+  it("403 for a host on the opt-out list, subdomains included, even with a cached report", async () => {
     const t = setup(SCRIPT, { BLOCKLIST: "other.example.org" });
+    await t.bucket.put(reportKey(await cacheKey("https://shop.example.com/")), JSON.stringify({ v: 1, scannedAt: new Date(t.deps.now()).toISOString(), display: "shop.example.com" }));
     await t.bucket.put("scans/blocklist.json", JSON.stringify({ hosts: ["example.com"] }));
     assert.equal((await t.post("shop.example.com")).status, 403);
     assert.equal((await t.post("www.other.example.org")).status, 403);
+    assert.equal((await t.call("/api/scan/report?url=shop.example.com")).status, 403);
+    assert.doesNotMatch(await (await t.call("/scan?url=shop.example.com")).text(), /"report":\{/);
     assert.equal(t.browsers.length, 0);
   });
   it("403 for a cross-site Origin, 405 for GET, 400 for bad JSON", async () => {
