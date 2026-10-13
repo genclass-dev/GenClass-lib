@@ -1,0 +1,36 @@
+name: Live demo check
+
+# Loads genclass.dev in headless Chromium (a visible tab, which the runtime requires for held decisions) and asserts
+# that the double-click demo coalesces the duplicate. Run after every site deploy and daily.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Page to check"
+        default: "https://genclass.dev/"
+        required: false
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    name: "genclass.dev: double-click demo"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright (Chromium only)
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i --no-audit --no-fund playwright
+          cd /tmp/pw && npx playwright install --with-deps chromium
+      - name: Check the live demo
+        env:
+          DEMO_URL: ${{ github.event.inputs.url || 'https://genclass.dev/' }}
+          NODE_PATH: /tmp/pw/node_modules
+        run: node site/check/live-demo.mjs
