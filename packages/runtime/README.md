@@ -701,7 +701,7 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
 
 - **Bundle:** what every page loads is about 106 KB gzip for `@genclass/runtime/auto` with automatic state
   discovery and 98 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild (105.7 and 98.2 KB in CI on 2026-10-13; `test/bundle.test.ts` keeps them under 107 KB and 100 KB; about
+  esbuild (105.8 and 98.3 KB in CI on 2026-10-13; `test/bundle.test.ts` keeps them under 107 KB and 100 KB; about
   7 KB of each is the learned-flow expectations layer and its persistence,
   [EXPECTATIONS.md](../../docs/runtime/EXPECTATIONS.md)). The model worker, ONNX Runtime Web's JavaScript
   (about 70 KB gzip for WASM, 115 KB with WebGPU, minified) and the devtools are separate chunks loaded on demand.

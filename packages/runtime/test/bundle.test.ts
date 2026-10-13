@@ -63,7 +63,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // protect presets and the hold-budget fixes added about 1.6 KB to both (0.2.0: about 98 KB for /auto, 91 KB for
   // GenClass.init). 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure
   // streak (main: 98.86 KB). The flow expectations and persistence-by-default (Unreleased, src/learn/flows.ts) added
-  // about 7 KB to both: CI measured /auto 105.7 KB and GenClass.init 98.2 KB on 2026-10-13 with 0.2.2 merged in
+  // about 7 KB to both: CI measured /auto 105.8 KB and GenClass.init 98.3 KB on 2026-10-13 with 0.2.2 merged in
   // (README: about 106 / 98 KB).
   const LIMIT_KB: Record<string, number> = { "auto.js": 107, "index.js": 100 };
   it("first-load cost of /auto and the main entry, minified + gzip: under 107 KB / 100 KB (README: about 106 / 98 KB)", async () => {

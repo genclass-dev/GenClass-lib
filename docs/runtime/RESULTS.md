@@ -261,8 +261,8 @@ The learned-flow expectations layer (`docs/runtime/EXPECTATIONS.md`; reporting o
 tests on the fake clock but no demo or real-app measurement yet. Its acceptance gate before any public claim: zero
 `expectation` reports across the six demos' clean trials (15 per mode per demo, `bench/heal/`), reported next to
 how many of the demos' silent-flow bugs (stuck "Placing…", lost commit) it names. Measured so far: first-load
-JavaScript, minified + gzip, `/auto` 105.7 KB and `GenClass.init()` 98.2 KB (`test/bundle.test.ts`, CI run
-38448369710 on branch `wave1/expectations`, 2026-10-13), against about 99 KB and 91 KB before it (the README's
+JavaScript, minified + gzip, `/auto` 105.8 KB and `GenClass.init()` 98.3 KB (`test/bundle.test.ts`, CI run
+38448983470 on branch `wave1/expectations`, 2026-10-13), against about 99 KB and 91 KB before it (the README's
 figures at 0.2.2, where `test/bundle.test.ts` kept them under 100 / 92 KB): about +7 KB per entry.
 
 ### v0.1 model, untrained for this (2026-10-08, baseline only)
