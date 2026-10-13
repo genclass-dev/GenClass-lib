@@ -29,6 +29,7 @@ import {
   type Range,
 } from "./dashboard.js";
 import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages.js";
+import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
 
 export const SCHEMA = "genclass-telemetry/1";
 export const MAX_BODY_BYTES = 256 * 1024;
@@ -319,6 +320,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
   const api = /^\/api\/projects\/([^/]+)$/.exec(path);
   if (api) {
     if (m !== "GET" && m !== "HEAD") return json(405, { ok: false, error: "method not allowed" });
+    if (api[1] === SAMPLE_SECRET) return json(200, sampleStats(url.searchParams.get("range"), now));
     const p = env.DB ? await projectBySecret(env.DB, api[1]!) : null;
     if (!p || !env.DB) return json(404, { ok: false, error: "not found" });
     const r = url.searchParams.get("range") as Range | null;
@@ -341,6 +343,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
   if (dash) {
     if (m !== "GET" && m !== "HEAD") return null;
     const nonce = randomBase62(22);
+    if (dash[1] === SAMPLE_SECRET) return html(200, dashboardPage(nonce, { ...SAMPLE_PROJECT, lastEvent: new Date(now.getTime() - 180_000).toISOString() }), nonce);
     const p = env.DB ? await projectBySecret(env.DB, dash[1]!) : null;
     if (!p) return html(404, notFoundPage(nonce), nonce);
     return html(200, dashboardPage(nonce, { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event }), nonce);

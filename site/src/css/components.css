@@ -14,10 +14,10 @@
 .crumbs a:hover{color:var(--ink)}
 .page-hero{padding:64px 0 8px}
 .page-hero h1{font-size:clamp(40px,5.6vw,76px);line-height:.98;letter-spacing:-.04em;max-width:18ch}
-.page-hero h1 em{font-style:normal;color:var(--blue-f)}
+.page-hero h1 em{font-style:normal;color:var(--blue-x)}
 .page-hero .lede{margin-top:22px;max-width:58ch}
 .page-hero .ctas{margin-top:28px}
-.btn.green{background:var(--blue-f);border-color:var(--blue-f);color:#fff}
+.btn.green{background:var(--blue-f);border-color:var(--blue-f);color:var(--ink)}
 .btn.green:hover{background:#0FA35D}
 .badge{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--mono);padding:4px 9px;border-radius:999px;background:var(--blue-t);color:var(--blue)}
 .badge.n{background:#E4E9F5;color:var(--ink)}
@@ -27,7 +27,7 @@
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:12px;margin-top:56px}
 .stat{border:1px solid var(--rule);border-radius:14px;padding:22px 22px 20px;background:#fff}
 .stat .big{color:var(--ink)}
-.stat .big.g{color:var(--blue-f)}
+.stat .big.g{color:var(--blue-x)}
 .stat p{font-size:14.5px;color:var(--ink2);margin-top:10px}
 .stat small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:10px}
 
@@ -141,7 +141,7 @@
 .wl label{font:500 13px var(--sans);color:var(--ink2);display:flex;flex-direction:column;gap:6px}
 .wl input,.wl select,.wl textarea{font:400 16px var(--sans);min-height:46px;padding:10px 12px;border:1px solid var(--rule2);border-radius:8px;background:#fff;color:var(--ink)}
 .wl textarea{min-height:90px;resize:vertical}
-.wl input:focus,.wl select:focus,.wl textarea:focus{outline:2px solid var(--blue-f);outline-offset:0;border-color:var(--blue-f)}
+.wl input:focus,.wl select:focus,.wl textarea:focus{outline:2px solid var(--blue);outline-offset:0;border-color:var(--blue)}
 .wl .row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:12px}
 .wl .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .wl .msg{font-size:14px;min-height:20px}
@@ -249,7 +249,7 @@ summary{font-size:16px}
 .hero3 .announce b{font:600 11.5px var(--mono);background:var(--blue-t);color:var(--blue);border-radius:999px;padding:2px 8px}
 .hero3 .announce:hover{border-color:var(--ink3)}
 .hero3 h1{font-size:clamp(34px,4.6vw,58px);line-height:1.06;letter-spacing:-.025em;max-width:19ch;margin:22px auto 0}
-.hero3 h1 em{font-style:normal;color:var(--blue-f)}
+.hero3 h1 em{font-style:normal;color:var(--blue-x)}
 .hero3 .lede{margin:18px auto 0;max-width:60ch}
 .hero3 .ctas{justify-content:center;margin-top:26px}
 .hero3 .install-line{margin-top:18px;display:flex;justify-content:center}
@@ -268,7 +268,7 @@ summary{font-size:16px}
 .lab-hint{font-size:14.5px;color:var(--ink2);margin-bottom:14px;max-width:70ch}
 .lab-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px}
 .lab-ctl input{flex:1 1 240px;font:400 16px var(--sans);min-height:44px;padding:0 14px;border:1px solid var(--rule2);border-radius:8px;color:var(--ink)}
-.lab-ctl input:focus{outline:2px solid var(--blue-f);border-color:var(--blue-f)}
+.lab-ctl input:focus{outline:2px solid var(--blue);border-color:var(--blue)}
 .lab-note{font:13px var(--mono);color:var(--ink3)}
 .lab-lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:12px;margin-bottom:14px}
 .lane2{border:1px solid var(--rule);border-radius:12px;padding:14px;min-height:210px;display:flex;flex-direction:column;gap:8px;background:#fff}
@@ -364,7 +364,7 @@ summary{font-size:16px}
 .radar-app{padding:24px;min-width:0}
 .radar-ctl{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 12px}
 .radar-ctl input{flex:1 1 220px;font:400 16px var(--sans);min-height:44px;padding:0 14px;border:1px solid var(--rule2);border-radius:8px;color:var(--ink)}
-.radar-ctl input:focus{outline:2px solid var(--blue-f);border-color:var(--blue-f)}
+.radar-ctl input:focus{outline:2px solid var(--blue);border-color:var(--blue)}
 .radar-mini{display:flex;flex-direction:column;gap:8px}
 .radar-mini>div{display:flex;flex-wrap:wrap;align-items:center;gap:10px;border:1px solid var(--rule);border-radius:10px;padding:10px 12px;font-size:14px}
 .mini-k{font:12px var(--mono);color:var(--ink3);min-width:92px}
@@ -421,3 +421,10 @@ kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-widt
 .fw.left span{flex:0 0 100%;color:var(--ink3)}
 .stats+.tbl-wrap{margin-top:28px}
 .notice.planned{border-left-color:var(--orange);margin-top:0;margin-bottom:18px}
+
+/* self-healing mesh behind the hero (public/mend.js) */
+.hero3 .mend-stage{position:relative;overflow:hidden;margin-top:-64px;padding:64px 0 76px}
+.hero3 .mend-stage>.wrap{position:relative;z-index:1}
+.hero3 .mend{position:absolute;inset:0;z-index:0;pointer-events:none;display:block}
+.hero3 .mend-cap{position:absolute;right:16px;bottom:12px;z-index:1;margin:0;font:11px/1.4 var(--mono);color:var(--ink3);pointer-events:none}
+@media (max-width:640px){.hero3 .mend-stage{padding-bottom:56px}.hero3 .mend-cap{left:16px;right:auto}}
