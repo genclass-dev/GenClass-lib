@@ -1,6 +1,6 @@
 // The sink adapters (@genclass/runtime/sinks/*; OPTIONS-SPEC §4.11, README "See it where you already look"): each
 // forwards the runtime's SinkRecords to the SDK already on the page, never throws into the app, and sends nothing but
-// the record's own fields (redacted evidence included, no situation text, no query values).
+// the record's own fields (redacted evidence included unless `evidence: false`, no situation text, no query values).
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_KINDS, signature, titleOf } from "../src/sinks/common.js";
 import { consoleJson } from "../src/sinks/console-json.js";
@@ -136,6 +136,24 @@ describe("sinks/sentry", () => {
     expect(text).toContain("/api/x");
     expect(text).not.toContain("secret");
     expect(text).not.toContain("situationText");
+  });
+
+  it("evidence: false sends the structured fields only (every adapter takes it; default true)", async () => {
+    for (const make of [sentry, posthog, datadog, consoleJson]) {
+      expect(make().evidence, make.name).toBe(true);
+      expect(make({ evidence: false }).evidence, make.name).toBe(false);
+    }
+    expect(webhook({ url: "/g" }).evidence).toBe(true);
+    expect(webhook({ url: "/g", evidence: false }).evidence).toBe(false);
+    const fake = { captureMessage: vi.fn() };
+    await intervene([sentry({ sentry: fake, evidence: false })]);
+    expect(fake.captureMessage).toHaveBeenCalledTimes(1);
+    const [message, ctx] = fake.captureMessage.mock.calls[0] as [string, { tags: Record<string, unknown>; extra: { genclass: Record<string, unknown> } }];
+    expect(message).toBe("[GenClass] intervention: overload request (delay)");
+    expect(ctx.tags.genclass).toBe("overload");
+    expect(ctx.extra.genclass.route).toBe("/search");
+    for (const k of ["message", "subject", "timeline", "evidence"]) expect(ctx.extra.genclass[k], k).toBeUndefined();
+    expect(JSON.stringify([message, ctx])).not.toContain("/api/x");
   });
 });
 
@@ -429,7 +447,7 @@ describe("sinks/webhook", () => {
     expect((JSON.parse(send.mock.calls[0][1] as string) as { records: { id: string }[] }).records.map((r) => r.id)).toEqual(["a", "c"]);
   });
 
-  it("through the runtime: the POST holds the record's own fields (route, diagnosis, action, evidence) and no page text or query value", async () => {
+  it("through the runtime: the POST holds the record's own fields (route, diagnosis, action, evidence), no situation text and no query value", async () => {
     const send = vi.fn();
     const s = await intervene([webhook({ url: "/genclass", send, maxBatch: 1 })]);
     expect(send).toHaveBeenCalledTimes(1);
@@ -448,6 +466,14 @@ describe("sinks/webhook", () => {
     const allowed = new Set(["schema", "kind", "id", "ts", "sessionId", "tags", "correlationId", "mode", "sampled", "diagnosis", "p", "action", "tier", "trigger", "label", "route", "changed", "undone", "shadow", "reason", "summary", "evidence"]);
     for (const k of Object.keys(r)) expect(allowed.has(k), k).toBe(true);
     void s;
+    // evidence: false: the same record without the evidence text
+    const bare = vi.fn();
+    await intervene([webhook({ url: "/genclass", send: bare, maxBatch: 1, evidence: false })]);
+    const r2 = (JSON.parse(bare.mock.calls[0][1] as string) as { records: SinkRecord[] }).records[0];
+    expect(r2.kind).toBe("intervention");
+    expect(r2.route).toBe("/search");
+    expect(r2.evidence).toBeUndefined();
+    expect(bare.mock.calls[0][1] as string).not.toContain("/api/x");
   });
 
   it("the fetch fallback to a URL in requests.ignore passes through GenClass unobserved", async () => {

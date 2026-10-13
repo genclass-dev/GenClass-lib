@@ -1,8 +1,12 @@
 // @genclass/runtime/sinks/webhook: batched POSTs of GenClass's records to a URL the app owns. What is sent is the
 // records and nothing else: each is the SinkRecord the runtime built (kind, diagnosis, probability, action, tier,
 // trigger, mode, route, label, reason, changed paths, session id and tags, and the redacted evidence: the console
-// line, the subject and the timeline), wrapped as { schema: "genclass-sink/1", version, records }. No page text, no
-// URL query values (they are "…" in the evidence), no cookies beyond what the browser sends to your own origin.
+// line, the subject and the timeline), wrapped as { schema: "genclass-sink/1", version, records }. The adapter reads
+// nothing from the page itself. The evidence is the text GenClass prints, with URL query and fragment values as "…":
+// its timeline lines can hold short fragments of app data (a store value summary, an error message, text typed into
+// an ordinary input; secret-named fields are "[redacted]"), and `evidence: false` leaves it out. Never the full
+// situation text the model read, never request or response bodies, headers or cookies (beyond what the browser itself
+// sends to your own origin).
 //
 // Transport: navigator.sendBeacon (which GenClass never wraps, and which survives page exit), else fetch with
 // keepalive. The body is JSON in both cases, sent as text/plain (a CORS simple request: no preflight); parse it as
@@ -48,6 +52,12 @@ export interface WebhookSinkOptions {
   send?: (url: string, body: string) => unknown;
   /** The clock for the batch timer (default: the runtime's browserClock). */
   clock?: Clock;
+  /**
+   * Send the redacted evidence: the console line, the subject and the timeline (default true). Timeline lines can hold
+   * short fragments of app data (a store value summary, an error message, text typed into an ordinary input); false
+   * sends the structured fields only (kind, diagnosis, p, action, route, ...).
+   */
+  evidence?: boolean;
   /** Where navigator / fetch are looked up (default `globalThis`). */
   global?: object;
 }
@@ -132,7 +142,7 @@ export function webhook(o: WebhookSinkOptions): SinkObject {
   return {
     kinds: o?.kinds,
     sampleRate: o?.sampleRate,
-    evidence: true,
+    evidence: o?.evidence ?? true,
     send(r: SinkRecord): void {
       try {
         if (!url) return;

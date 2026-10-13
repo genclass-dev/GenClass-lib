@@ -338,7 +338,7 @@ const SINK_WHAT = {
   posthog: "posthog.capture(\"genclass_<kind>\")",
   datadog: "DD_RUM.addError (detections, interventions) / addAction",
   "console-json": "one JSON line per record on the console",
-  webhook: "batched POSTs of the records to your endpoint (route, diagnosis, action, evidence text; no page text)",
+  webhook: "batched POSTs of the records to your endpoint (route, diagnosis, action and the evidence text GenClass prints; nothing else)",
 };
 const sinkName = (s) => String(s).split(/[:=]/)[0];
 

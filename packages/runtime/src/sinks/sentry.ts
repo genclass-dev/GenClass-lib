@@ -37,7 +37,7 @@ export function sentry(o: SentrySinkOptions = {}): SinkObject {
   return {
     kinds: o.kinds ?? DEFAULT_KINDS,
     sampleRate: o.sampleRate,
-    evidence: true,
+    evidence: o.evidence ?? true,
     send(r: SinkRecord): void {
       try {
         const sdk = o.sentry ?? (globalOf(o).Sentry as SentryLike | undefined);

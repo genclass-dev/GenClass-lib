@@ -27,6 +27,12 @@ export interface AdapterOptions {
    * load, so a failure storm does not burn an event quota (default 10; 0 = no cap).
    */
   maxPerSignature?: number;
+  /**
+   * Send the redacted evidence: the console line, the subject and the timeline (default true). Timeline lines can hold
+   * short fragments of app data (a store value summary, an error message, text typed into an ordinary input); false
+   * sends the structured fields only (kind, diagnosis, p, action, route, ...).
+   */
+  evidence?: boolean;
   /** Where the SDK global is looked up (default `globalThis`). */
   global?: object;
 }

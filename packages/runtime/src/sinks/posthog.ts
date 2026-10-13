@@ -29,7 +29,7 @@ export function posthog(o: PostHogSinkOptions = {}): SinkObject {
   return {
     kinds: o.kinds ?? DEFAULT_KINDS,
     sampleRate: o.sampleRate,
-    evidence: true,
+    evidence: o.evidence ?? true,
     send(r: SinkRecord): void {
       try {
         const client = o.posthog ?? (globalOf(o).posthog as PostHogLike | undefined);

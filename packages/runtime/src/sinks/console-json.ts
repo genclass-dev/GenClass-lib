@@ -22,6 +22,12 @@ export interface ConsoleJsonSinkOptions {
   console?: ConsoleLike;
   /** Console method (default "log"). */
   method?: "log" | "info" | "warn" | "error";
+  /**
+   * Send the redacted evidence: the console line, the subject and the timeline (default true). Timeline lines can hold
+   * short fragments of app data (a store value summary, an error message, text typed into an ordinary input); false
+   * sends the structured fields only (kind, diagnosis, p, action, route, ...).
+   */
+  evidence?: boolean;
   /** Where `console` is looked up (default `globalThis`). */
   global?: object;
 }
@@ -35,7 +41,7 @@ export function consoleJson(o: ConsoleJsonSinkOptions = {}): SinkObject {
   return {
     kinds: o.kinds,
     sampleRate: o.sampleRate,
-    evidence: true,
+    evidence: o.evidence ?? true,
     send(r: SinkRecord): void {
       try {
         const con = o.console ?? (globalOf(o).console as ConsoleLike | undefined);
