@@ -217,7 +217,22 @@ export function poorWindows(entries: { t: number; value: number }[]): { start: n
   return shiftWindows(entries).filter((w) => w.score > 0.25);
 }
 
-export function layoutShifts(ctx: Ctx, entries: ShiftEntry[], fontSwaps: number[], out: Draft[]): void {
+/**
+ * Whether a poor window is reported (bench/visual, VISUAL.md 19): it needs an element that moved (a window with no
+ * attributable source names nothing to fix), and a window that starts within 1 s after the visitor scrolled is the
+ * page answering the scroll (infinite scroll pushing a footer, sticky elements settling), unless its cause is an image
+ * without reserved space, which is a bug whenever it happens.
+ */
+export function shiftVerdict(o: { moved: number; afterScroll: boolean; imageCause: boolean }): "report" | "no-source" | "after-scroll" {
+  if (o.moved <= 0) return "no-source";
+  if (o.afterScroll && !o.imageCause) return "after-scroll";
+  return "report";
+}
+
+/** A scroll within this many ms before a window's start makes it a response to the scroll. */
+export const SHIFT_AFTER_SCROLL_MS = 1000;
+
+export function layoutShifts(ctx: Ctx, entries: ShiftEntry[], fontSwaps: number[], out: Draft[], scrolls: number[] = []): void {
   if (!ctx.on("layout-shift") || !entries.length) return;
   const all = shiftWindows(entries);
   for (const w of all) {
@@ -245,6 +260,11 @@ export function layoutShifts(ctx: Ctx, entries: ShiftEntry[], fontSwaps: number[
       sel = ctx.sel(img);
       css = img.naturalWidth && img.naturalHeight ? `aspect-ratio: ${img.naturalWidth} / ${img.naturalHeight};` : "aspect-ratio: 16 / 9;";
     } else if (fontSwaps.some((t) => t <= w.start && w.start - t <= 100)) cause = "a web font swap";
+    const v = shiftVerdict({ moved: moved.filter((m) => m.dist > 0).length, afterScroll: scrolls.some((t) => t <= w.start && w.start - t <= SHIFT_AFTER_SCROLL_MS), imageCause: cause === "an image without width and height" });
+    if (v !== "report") {
+      ctx.abstain(`layout-shift:${v}`);
+      continue;
+    }
     out.push({
       kind: "layout-shift",
       el,

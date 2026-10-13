@@ -152,6 +152,8 @@ export class Visual implements VisualController {
   private readonly failedCss: PerformanceResourceTiming[] = [];
   private readonly shifts: L.ShiftEntry[] = [];
   private readonly fontSwaps: number[] = [];
+  /** Scroll event times (the performance timeline, as layout-shift entries), the last 200. */
+  private readonly scrolls: number[] = [];
   private readonly rest = new WeakMap<Element, number>();
   private offs: (() => void)[] = [];
   private timers = new Set<unknown>();
@@ -356,7 +358,11 @@ export class Visual implements VisualController {
     this.on(doc, "keydown", (e) => this.onKey(e as KeyboardEvent), cap);
     this.on(win, "wheel", (e) => this.onAttempt(e), cap);
     this.on(win, "touchmove", (e) => this.onAttempt(e), cap);
-    this.on(win, "scroll", () => this.onScroll(), pas);
+    this.on(win, "scroll", (e) => {
+      if (this.scrolls.length >= 200) this.scrolls.shift();
+      this.scrolls.push(e.timeStamp);
+      this.onScroll();
+    }, pas);
     this.on(win, "hashchange", () => this.onAnchor(), pas);
     this.on(win, "popstate", () => this.checkRoute(), pas);
     this.on(win, "resize", () => this.onResize(), pas);
@@ -703,7 +709,7 @@ export class Visual implements VisualController {
         yield;
         L.viewportMeta(ctx, drafts);
         yield;
-        L.layoutShifts(ctx, self.shifts, self.fontSwaps, drafts);
+        L.layoutShifts(ctx, self.shifts, self.fontSwaps, drafts, self.scrolls);
         yield* A.brokenCssImages(ctx, env, drafts);
         yield* L.pageOverflow(ctx, drafts);
         yield* self.cssVars(ctx, drafts);

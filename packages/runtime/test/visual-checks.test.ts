@@ -3,10 +3,10 @@
 // images, shadows, translucent groups, dark canvases), the text patterns, the asset and layout verdicts, and the
 // finding format (labelled as measured, never a probability).
 import { describe, expect, it } from "vitest";
-import { judgeContrast, undefinedVarRefs, type ContrastInput } from "../src/visual/checks/text.js";
+import { cssVarJudgeable, judgeContrast, undefinedVarRefs, type ContrastInput } from "../src/visual/checks/text.js";
 import { brokenImageVerdict, cspReportable, familyStatus, firstFamily, iconBroken, mediaVerdict } from "../src/visual/checks/assets.js";
-import { overflowReportable, poorWindows, viewportMetaMissing } from "../src/visual/checks/layout.js";
-import { dialogReportable } from "../src/visual/checks/interact.js";
+import { overflowReportable, poorWindows, shiftVerdict, viewportMetaMissing } from "../src/visual/checks/layout.js";
+import { dialogReportable, paintsAt } from "../src/visual/checks/interact.js";
 import { excerpt, placeholderHost, scanText } from "../src/visual/patterns.js";
 import { fold, toFinding } from "../src/visual/report.js";
 import { hash32, KINDS, LIGHT, resolveCfg, transitionMs } from "../src/visual/engine.js";
@@ -298,5 +298,45 @@ describe("options and helpers", () => {
     expect(transitionMs({ transitionProperty: "color, opacity", transitionDuration: "0.2s, 1s", transitionDelay: "50ms, 0s" } as CSSStyleDeclaration)).toBe(250);
     expect(transitionMs({ transitionProperty: "all", transitionDuration: "300ms", transitionDelay: "0s" } as CSSStyleDeclaration)).toBe(300);
     expect(transitionMs({ transitionProperty: "opacity", transitionDuration: "1s", transitionDelay: "0s" } as CSSStyleDeclaration)).toBe(0);
+  });
+});
+
+// Exclusions added after the bench (bench/visual, docs/runtime/VISUAL.md section 19): each was a false report on a
+// public site or a local page; test/browser/visual/fixtures/regress-*.html reproduce them in Chromium.
+describe("bench regressions: exclusions measured on real pages (VISUAL.md 15, 19)", () => {
+  it("css-var-undefined judges colour properties of rules that apply at rest, never custom-property aliases", () => {
+    expect(cssVarJudgeable({ prop: "color", selector: "footer" })).toBe("ok");
+    expect(cssVarJudgeable({ prop: "background-color", selector: ".cta" })).toBe("ok");
+    expect(cssVarJudgeable({ prop: "background", selector: ".buy" })).toBe("ok");
+    // a token alias (--a: var(--b)) only matters where --a is used
+    expect(cssVarJudgeable({ prop: "--typography-heading-font", selector: ".heading" })).toBe("custom-property");
+    // layout tokens a script sets only when needed (a banner height), optional per-token theme variables
+    expect(cssVarJudgeable({ prop: "padding-top", selector: ".app" })).toBe("property");
+    expect(cssVarJudgeable({ prop: "font-style", selector: '[data-theme="dark"] span' })).toBe("property");
+    // the declaration does not apply at rest
+    expect(cssVarJudgeable({ prop: "color", selector: ".flyout:hover" })).toBe("state-rule");
+    expect(cssVarJudgeable({ prop: "color", selector: ".field:focus-visible" })).toBe("state-rule");
+    expect(cssVarJudgeable({ prop: "background", selector: ".card::before" })).toBe("state-rule");
+  });
+
+  it("focus-obscured: a cover hides the target only where it paints", () => {
+    const layer = (bg: string, bgImage = "none", tag = "DIV") => ({ bg, bgImage, tag });
+    expect(paintsAt([layer("rgb(255, 255, 255)")], 1)).toBe(true);
+    expect(paintsAt([layer("rgba(0, 0, 0, 0)"), layer("rgb(17, 24, 39)")], 1)).toBe(true); // text inside a dark bar
+    expect(paintsAt([layer("rgba(0, 0, 0, 0)", 'url("hero.png")')], 1)).toBe(true);
+    expect(paintsAt([layer("rgba(0, 0, 0, 0)", "none", "IMG")], 1)).toBe(true);
+    // a transparent full-screen pop-up layer: the focused links show through it
+    expect(paintsAt([layer("rgba(0, 0, 0, 0)")], 1)).toBe(false);
+    expect(paintsAt([layer("rgba(255, 255, 255, 0.3)")], 1)).toBe(false);
+    expect(paintsAt([layer("rgb(255, 255, 255)")], 0.2)).toBe(false);
+  });
+
+  it("layout-shift: a window needs an element that moved, and is not the page answering a scroll", () => {
+    expect(shiftVerdict({ moved: 2, afterScroll: false, imageCause: false })).toBe("report");
+    expect(shiftVerdict({ moved: 0, afterScroll: false, imageCause: false })).toBe("no-source");
+    // infinite scroll pushing the footer down while the visitor scrolls
+    expect(shiftVerdict({ moved: 3, afterScroll: true, imageCause: false })).toBe("after-scroll");
+    // an image without reserved space is a bug whenever it loads
+    expect(shiftVerdict({ moved: 3, afterScroll: true, imageCause: true })).toBe("report");
   });
 });

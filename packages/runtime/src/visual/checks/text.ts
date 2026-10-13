@@ -1,10 +1,10 @@
 // Text checks (docs/runtime/VISUAL.md 3.8 to 3.12): text-invisible (contrast against a fully known solid
 // background), text-template-leak, text-placeholder, text-encoding (one shared walk over text nodes) and
-// css-var-undefined. judgeContrast and undefinedVarRefs are pure and unit-tested with fixtures.
+// css-var-undefined. judgeContrast, undefinedVarRefs and cssVarJudgeable are pure and unit-tested with fixtures.
 
 import type { Ctx, Draft } from "../draft.js";
 import { fixed2, named } from "../draft.js";
-import { composite, contrast, DARK_CANVASES, INVISIBLE_RATIO, isLargeText, over, parseColor, suggestColor, targetRatio, toHex, toRgb, WHITE, type RGBA } from "../math.js";
+import { AA_LARGE_RATIO, composite, contrast, DARK_CANVASES, INVISIBLE_RATIO, isLargeText, over, parseColor, suggestColor, targetRatio, toHex, toRgb, WHITE, type RGBA } from "../math.js";
 import { containsDeep, inShadow, layersAt, rootInfo, safeMatches, textPoints, type Layer, type Reader, type RootInfo } from "../measure.js";
 import { excerpt, placeholderHost, scanText, WEAK_VALUES, type TextPattern } from "../patterns.js";
 
@@ -407,6 +407,74 @@ export function readSheets(doc: Document, limit = 5000): { decls: { selector: st
   return { decls, defined };
 }
 
+/**
+ * Properties whose undefined var() can leave text unreadable: the text colour falls back to the inherited one, or the
+ * background to transparent. The bench (bench/visual, VISUAL.md 19) found no visible effect for the other properties
+ * on public sites: layout tokens a script sets only when needed (a banner height), optional per-token theme variables
+ * (font-style, text-decoration), custom-property aliases.
+ */
+export const CSS_VAR_PROPS = new Set(["color", "background-color", "background"]);
+const STATE_OR_PSEUDO = /::|:(?:hover|focus|focus-visible|focus-within|active|visited|target|checked|before|after|first-line|first-letter|marker|selection|placeholder|backdrop)\b/;
+
+/**
+ * Whether an undefined reference can be judged on the page at rest: not a custom-property declaration (an alias only
+ * matters where it is used), a colour property, and a rule without a state pseudo-class or a pseudo-element (it does
+ * not apply at rest, so its fallback cannot be measured).
+ */
+export function cssVarJudgeable(ref: { prop: string; selector: string }): "ok" | "custom-property" | "property" | "state-rule" {
+  if (ref.prop.startsWith("--")) return "custom-property";
+  if (!CSS_VAR_PROPS.has(ref.prop)) return "property";
+  if (STATE_OR_PSEUDO.test(ref.selector)) return "state-rule";
+  return "ok";
+}
+
+/** The text css-var-undefined judges: the element's own text, else its first visible descendant with text. */
+function textOf(r: Reader, el: Element, sameColor: string | null): Element | null {
+  if ([...el.childNodes].some((c) => c.nodeType === 3 && (c as Text).data.trim())) return el;
+  let n = 0;
+  for (const d of el.querySelectorAll("*")) {
+    if (++n > 200) break;
+    if (![...d.childNodes].some((c) => c.nodeType === 3 && (c as Text).data.trim())) continue;
+    if (sameColor !== null && r.cs(d).color !== sameColor) continue;
+    if (r.visible(d) && r.inViewport(d)) return d;
+  }
+  return null;
+}
+
+/**
+ * One reference, measured: the declaration is in effect (the property shows its fallback, so no other rule won the
+ * cascade) and the text it affects reads below 3:1. Null when it is not reportable; the reason is counted.
+ */
+function cssVarRead(ctx: Ctx, el: Element, prop: string): { textEl: Element; ratio: number } | null {
+  const r = ctx.r;
+  const s = r.cs(el);
+  if (prop === "color") {
+    const p = el.parentElement;
+    if (!p || s.color !== r.cs(p).color) {
+      ctx.abstain("css-var-undefined:overridden");
+      return null;
+    }
+  } else {
+    const bg = parseColor(s.backgroundColor);
+    if (!bg || bg[3] > 0 || (s.backgroundImage && s.backgroundImage !== "none")) {
+      ctx.abstain("css-var-undefined:overridden");
+      return null;
+    }
+  }
+  const textEl = textOf(r, el, prop === "color" ? s.color : null);
+  if (!textEl) {
+    ctx.abstain("css-var-undefined:no-text");
+    return null;
+  }
+  const read = readContrast(ctx, r, textEl, rootInfo(r));
+  if (!read || read.v.verdict === "unknown") return null;
+  if (read.v.ratio >= AA_LARGE_RATIO) {
+    ctx.abstain("css-var-undefined:readable");
+    return null;
+  }
+  return { textEl, ratio: read.v.ratio };
+}
+
 export function cssVarDrafts(ctx: Ctx, out: Draft[]): void {
   if (!ctx.on("css-var-undefined")) return;
   const doc = ctx.r.doc;
@@ -416,44 +484,52 @@ export function cssVarDrafts(ctx: Ctx, out: Draft[]): void {
     return;
   }
   const refs = undefinedVarRefs(sheets.decls, sheets.defined);
-  const byName = new Map<string, { selector: string; prop: string; href: string; el: Element }[]>();
+  const byName = new Map<string, { selector: string; prop: string; href: string; el: Element; textEl: Element; ratio: number }[]>();
   const rootCs = ctx.r.cs(doc.documentElement);
   for (const ref of refs.slice(0, 200)) {
+    const why = cssVarJudgeable(ref);
+    if (why !== "ok") {
+      ctx.abstain(`css-var-undefined:${why}`);
+      continue;
+    }
     if (rootCs.getPropertyValue(ref.name).trim()) continue;
-    const base = ref.selector.replace(/::?(before|after|placeholder|marker|selection|first-line|first-letter|backdrop)\b/g, "").replace(/:(hover|focus|focus-visible|focus-within|active|visited)\b/g, "");
     let el: Element | null = null;
     try {
-      el = base.trim() ? doc.querySelector(base) : null;
+      el = ref.selector.trim() ? doc.querySelector(ref.selector) : null;
     } catch {
       el = null;
     }
-    if (!el || inShadow(el) || !ctx.r.visible(el)) continue;
+    // html and body: theme-scope rules whose root colours the other root element or the descendants paint over
+    if (!el || el === doc.documentElement || el === doc.body || inShadow(el) || !ctx.r.visible(el)) continue;
     if (ctx.r.cs(el).getPropertyValue(ref.name).trim()) continue;
+    const m = cssVarRead(ctx, el, ref.prop);
+    if (!m) continue;
     const href = sheets.decls.find((d) => d.selector === ref.selector && d.prop === ref.prop)?.href ?? "";
     const list = byName.get(ref.name) ?? [];
-    list.push({ ...ref, href, el });
+    list.push({ ...ref, href, el, ...m });
     byName.set(ref.name, list);
   }
   for (const [name, list] of byName) {
     const first = list[0];
-    const colour = list.some((x) => /^(color|background|background-color)$/.test(x.prop));
+    const fallback = first.prop === "color" ? "the inherited colour" : "transparent";
     const d: Draft = {
       kind: "css-var-undefined",
       el: first.el,
       els: list.map((x) => x.el),
       count: list.length,
       key: `css-var-undefined|${name}`,
-      severity: colour ? "medium" : "low",
-      measured: { variable: name, property: first.prop, rule: first.selector.slice(0, 120), sheet: first.href.slice(0, 120), rules: list.length },
-      threshold: { value: "undefined", unit: "custom property", source: "defined in no readable stylesheet, @property or inline style, and empty at computed-value time" },
-      text: `${first.prop}: var(${name}) in "${first.selector.slice(0, 80)}" uses a custom property defined nowhere (computed value empty on ${named(ctx, first.el)}), so ${first.prop} falls back to its inherited or initial value.`,
+      severity: "medium",
+      measured: { variable: name, property: first.prop, rule: first.selector.slice(0, 120), sheet: first.href.slice(0, 120), rules: list.length, ratio: Math.floor(first.ratio * 100) / 100 },
+      threshold: { value: AA_LARGE_RATIO, unit: ":1 contrast of the text it affects", source: "a var() defined in no readable stylesheet, @property or inline style and empty at computed-value time, whose fallback leaves text below 3:1 (WCAG 2.2 large-text minimum)" },
+      text: `${first.prop}: var(${name}) in "${first.selector.slice(0, 80)}" uses a custom property defined nowhere, so ${first.prop} falls back to ${fallback} and the text on ${named(ctx, first.textEl)} reads at ${fixed2(first.ratio)}:1 (below 3:1).`,
       suggestion: { selector: ":root", css: `${name}: <value>;`, note: `Define the token, check the theme CSS is imported, or add a fallback: var(${name}, <value>). After a Tailwind v4 or shadcn/ui upgrade, v3-style hsl(var(--x)) can point at tokens that no longer exist.` },
       persistMs: 1000,
     };
     d.recheck = (r) => {
       if (!first.el.isConnected || !r.visible(first.el)) return null;
       if (r.cs(doc.documentElement).getPropertyValue(name).trim() || r.cs(first.el).getPropertyValue(name).trim()) return null;
-      return d;
+      const again = cssVarRead({ ...ctx, r }, first.el, first.prop);
+      return again ? d : null;
     };
     out.push(d);
   }

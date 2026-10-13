@@ -302,14 +302,22 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
         return { kind: base, id, ok: true, info: { tag: el.tagName.toLowerCase() } };
       }
       case "css-var-undefined": {
-        const el = pick(textCands(), r);
-        if (!el) return fail("no visible element in the viewport");
+        // a renamed theme token: the element gets its own background, and its text colour token is missing, so the
+        // text falls back to the inherited colour, which reads at 2.2:1 on that background
+        const el = pick(
+          textCands().filter((e) => e.parentElement && !translucentOrFiltered(e)),
+          r,
+        );
+        if (!el) return fail("no visible text element in the viewport");
+        const fg = parseColor(getComputedStyle(el.parentElement!).color);
+        if (!fg) return fail("the inherited colour does not parse");
+        const bg = greyAt([fg[0], fg[1], fg[2], 1], 2.2);
         const cls = `bench-var-${seed}`;
-        addStyle(`.${cls} { outline: 2px solid var(--bench-missing-token-${seed}); }`);
+        addStyle(`.${cls} { background-color: ${toHex(bg)} !important; color: var(--bench-missing-token-${seed}) !important; transition: none !important; }`);
         el.classList.add(cls);
         mark(el, "css-var-undefined", id);
-        planted.set(id, { el });
-        return { kind: base, id, ok: true };
+        planted.set(id, { el, extra: { fg: [fg[0], fg[1], fg[2], 1], bg } });
+        return { kind: base, id, ok: true, info: { ratio: Math.round(contrast([fg[0], fg[1], fg[2], 1], bg) * 100) / 100 } };
       }
       case "text-template-leak:object":
       case "text-template-leak:nan":
@@ -568,7 +576,13 @@ export function truth(id: string, B: BenchState): { ok: boolean; why: string; va
       if (!el.isConnected || !visible(el) || !intersects(el)) return no("the element left the viewport");
       return { ok: true, why: "" };
     }
-    case "css-var-undefined":
+    case "css-var-undefined": {
+      if (!el.isConnected || !visible(el) || !intersects(el)) return no("the element left the viewport or the page");
+      const s = getComputedStyle(el);
+      if (s.color !== getComputedStyle(el.parentElement ?? el).color) return no("the text colour did not fall back to the inherited one");
+      const ratio = contrast(p.extra?.fg as RGBA, p.extra?.bg as RGBA);
+      return ratio < 3 ? { ok: true, why: "", value: Math.round(ratio * 100) / 100 } : no(`ratio ${ratio.toFixed(2)}`);
+    }
     case "text-template-leak":
     case "text-encoding":
     case "text-placeholder":

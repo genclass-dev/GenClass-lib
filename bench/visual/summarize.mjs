@@ -122,7 +122,8 @@ for (const group of ["demos", "templates", "compat"]) {
       verdictsByKind: {},
     };
     const nm = {};
-    for (const l of ls) if (!l.measured) inc(nm, String(l.notMeasured).replace(/\(.*\)/, "").replace(/HTTP \d+/, "HTTP error").trim());
+    // reasons only, never a site: titles in parentheses and URLs are dropped
+    for (const l of ls) if (!l.measured) inc(nm, String(l.notMeasured).replace(/\(.*\)/, "").replace(/HTTP \d+/, "HTTP error").replace(/\s*at https?:\/\/\S+/g, "").replace(/https?:\/\/\S+/g, "<url>").trim());
     s.notMeasured = nm;
     const withF = new Set();
     for (const l of counted) {

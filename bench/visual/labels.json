@@ -1,4 +1,12 @@
 {
   "about": "Verdicts for findings on the bench's local pages (demos, templates, compat apps), by page, kind and selector (viewport and scheme when the verdict depends on them). real: the page has that bug (it is left alone, AGENTS.md rule 4); false: a check error. An unlabelled finding counts as a false report. Public sites are never labelled here (VISUAL.md 15).",
-  "labels": []
+  "labels": [
+    {
+      "page": "demos/index",
+      "kind": "layout-shift",
+      "selector": "p.lede",
+      "verdict": "real",
+      "note": "0.34 at 0.2 s after navigation start on desktop (light and dark): the lede, the code block and the buttons under the hero headline move 59 px while the page loads; the demo site is left alone (AGENTS.md rule 4)"
+    }
+  ]
 }

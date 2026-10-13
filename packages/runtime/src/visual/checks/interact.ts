@@ -5,7 +5,7 @@
 import type { Ctx, Draft } from "../draft.js";
 import { named, px } from "../draft.js";
 import { coverage, parseColor } from "../math.js";
-import { containsDeep, DIALOG_SEL, fivePoints, focusableInside, inDialog, INTERACTIVE_SEL, isInteractive, OPEN_SEL, parentOf, safeMatches, type Reader } from "../measure.js";
+import { containsDeep, DIALOG_SEL, fivePoints, focusableInside, inDialog, INTERACTIVE_SEL, isInteractive, OPEN_SEL, parentOf, REPLACED, safeMatches, type Reader } from "../measure.js";
 
 // ---------------------------------------------------------------------------------------------- click-blocked
 
@@ -202,7 +202,34 @@ export function unreachableDraft(ctx: Ctx, ctl: Element, u: { cover: Element; pi
 
 // -------------------------------------------------------------------------------------------- focus-obscured
 
-/** VISUAL.md 3.22: every testable point of the target is under a fixed or sticky element that is not a dialog. */
+/** The tallest cover focus-obscured judges, as a share of the viewport: a header, footer or banner, not a full-screen layer. */
+export const FOCUS_COVER_MAX = 0.5;
+
+/**
+ * The cover paints over the point: its opacity is at least 0.5 and some layer from the element hit up to the fixed or
+ * sticky element has a background with alpha 0.5 or more, a background image, or is an image, video or canvas. A
+ * transparent layer hides nothing (bench/visual: a transparent full-screen pop-up layer was reported as hiding the
+ * focused links that showed through it).
+ */
+export function paintsAt(layers: { bg: string; bgImage: string; tag: string }[], opacity: number): boolean {
+  if (!(opacity >= 0.5)) return false;
+  return layers.some((l) => {
+    const c = parseColor(l.bg);
+    return (!!c && c[3] >= 0.5) || (!!l.bgImage && l.bgImage !== "none") || REPLACED.has(l.tag.toUpperCase());
+  });
+}
+
+function coverPaints(r: Reader, hit: Element, pin: Element): boolean {
+  const layers: { bg: string; bgImage: string; tag: string }[] = [];
+  for (let x: Element | null = hit; x; x = parentOf(x)) {
+    const s = r.cs(x);
+    layers.push({ bg: s.backgroundColor, bgImage: s.backgroundImage, tag: x.tagName });
+    if (x === pin) break;
+  }
+  return paintsAt(layers, parseFloat(r.cs(pin).opacity));
+}
+
+/** VISUAL.md 3.22: every testable point of the target is under a painted fixed or sticky bar that is not a dialog. */
 export function obscuredRead(r: Reader, target: Element, pts: { x: number; y: number }[], minPoints: number): { cover: Element; overlap: number } | null {
   let cover: Element | null = null;
   let n = 0;
@@ -213,9 +240,11 @@ export function obscuredRead(r: Reader, target: Element, pts: { x: number; y: nu
     if (h === target || containsDeep(target, h)) return null;
     const pin = r.pinned(h);
     if (!pin || containsDeep(pin, target) || inDialog(pin) || pin.tagName === "GENCLASS-DEVTOOLS") return null;
+    if (!coverPaints(r, h, pin)) return null;
     cover ??= pin;
   }
   if (!cover || n < minPoints) return null;
+  if (r.rect(cover).height > r.win.innerHeight * FOCUS_COVER_MAX) return null;
   const a = r.rect(target);
   const b = r.rect(cover);
   if (parseFloat(r.cs(target).scrollMarginTop) >= b.height) return null;

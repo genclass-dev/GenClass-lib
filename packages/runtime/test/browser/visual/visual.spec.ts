@@ -310,3 +310,25 @@ test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () 
     expect(v.filter((x) => x.directive.startsWith("style-src"))).toEqual([]);
   });
 });
+
+// False reports the bench found on real pages (bench/visual, docs/runtime/VISUAL.md section 19), reproduced with the
+// same visitor actions the bench uses (keyboard focus, then scrolling to the end): nothing but the planted fault.
+test.describe("bench regressions (VISUAL.md 19): patterns that were false reports on public sites", () => {
+  for (const name of ["regress-css-var.html", "regress-focus-overlay.html", "regress-shift-scroll.html"]) {
+    test(`${name}: only the planted faults, after keyboard focus and scrolling`, async ({ page }) => {
+      await open(page, `/f/${name}`);
+      for (let i = 0; i < 8; i++) {
+        await page.keyboard.press("Tab");
+        await page.waitForTimeout(300);
+      }
+      await page.waitForTimeout(800);
+      await page.mouse.move(640, 300);
+      for (let i = 0; i < 10; i++) {
+        await page.mouse.wheel(0, 600);
+        await page.waitForTimeout(300);
+      }
+      await page.waitForTimeout(1500);
+      exact(await settle(page), await planted(page));
+    });
+  }
+});
