@@ -199,6 +199,13 @@ export interface SubjectRef {
   error?: unknown;
   /** inconsistency: the violated relation, as text. */
   invariant?: string;
+  /**
+   * delivery: cells the response would change that hold newer data (written by another chain since the operation
+   * started) or the user's pending change, over its conflicted fields; lists are compared item by item on an id key.
+   * Structured data for decision providers and the audit only: it is never part of the situation text the model reads.
+   * `approx`: a field's history did not reach back to the operation's start, so its changed cells were all counted.
+   */
+  cellConflicts?: { cells: number; fields: number; approx: boolean };
 }
 
 export interface EvaluateRequest {

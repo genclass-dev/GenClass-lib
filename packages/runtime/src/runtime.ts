@@ -82,6 +82,7 @@ import { installEventSource } from "./observe/eventsource.js";
 import { opLabel } from "./situation/describe.js";
 import { BUILTIN_ACTIONS, diagnosisVocabulary, PASSIVE, TRIGGER_ACTIONS } from "./situation/questions.js";
 import { STATE_CHAR_BUDGET, stateText } from "./situation/serialize.js";
+import { cellConflicts } from "./decide/cells.js";
 import { DeciderQueue, typicalLatency, type DecideResult } from "./decide/decider.js";
 import { aggressivenessLevel, effectiveGates, gate, holdBudget, parseGate, permittedActions, policyConfig, RateLimiter, restriction, type PolicyConfig } from "./decide/policy.js";
 import { decisionLine, detectionLine, interventionLine, Reporter } from "./decide/report.js";
@@ -1348,6 +1349,12 @@ export class RuntimeImpl implements Runtime {
       const forced = this.standing.some((q) => q.always && q.on.includes(spec.trigger));
       if (this.triage === "salient" && !forced && facts.every((f) => f.neutral)) return passive();
       built = buildSituation(this.env, spec, this.buildOpts(), facts);
+      // cell-level conflicts (structured only, never in the situation text): for decision providers and the audit
+      if (spec.trigger === "delivery" && spec.conflicts.length) {
+        const content = spec.content ?? (spec.body !== undefined ? analyzeBody(this.env, spec.op, spec.body, spec.matched) : undefined);
+        const cc = content ? cellConflicts(spec.conflicts, content.cmps) : undefined;
+        if (cc) built.subjectRef.cellConflicts = cc;
+      }
     } catch (e) {
       this.log("situation build failed", e);
       return passive();

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **`SubjectRef.cellConflicts` on delivery decisions** (structured data only; the situation text the model reads is
+  unchanged, tag `situation-v2.3`): how many cells the response would change that hold newer data or the user's
+  pending change, over its conflicted fields, with lists compared item by item on an id key, and `approx` when a
+  field's history did not reach back to the operation's start. Decision providers see it on `req.subject`, and
+  `rt.decisions()` on `subjectRef`. It is the runtime side of a candidate model fact (a separability probe on 120k
+  simulated rows put delivery recall at 1% FIR at 5.8% without it and 19.9% with it); it goes into the model's input
+  only after the runtime's values are checked against the simulator's and with a new situation tag.
+
 ## 0.2.2 (2026-10-13)
 
 - **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**

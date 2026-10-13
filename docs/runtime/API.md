@@ -616,7 +616,7 @@ interface Decision {
 }
 type Detection = Decision;
 interface ActionRecord { id: string; decisionId: string; action: string; tier; trigger; subject: string; at: number; ok: boolean; error?: string; changed: string; undo?: () => void; late?: boolean; dropped?: string[] /* delivery discard: fields dropped */ }
-type SubjectRef = { kind: "delivery"; op: number; paths?: string[]; store?: string } | { kind: "mutation"; ... } | ...
+type SubjectRef = { kind: "delivery"; op: number; paths?: string[]; store?: string; cellConflicts?: { cells: number; fields: number; approx: boolean } /* structured only, never in the situation text */ } | { kind: "mutation"; ... } | ...
 interface Explanation { message: string; decision: Decision; situationText: string; facts: string[]; timeline: string[]; answers: Record<string, Answer>; action?: ActionRecord; changed?: string; gates?: EffectiveGates }
 interface EffectiveGates { kind: "mass" | "gain"; tauGain?: number; trigger?: TriggerKind; report: number; guard: number; heal: number; source: { report: "policy" | "model" | "default"; guard: …; heal: … } }
 interface RtEvent { seq: number; t: number; kind: "user"|"op.start"|"op.end"|"state"|"error"|"nav"|"perf"|"storage"|"custom"|"decision"|"action"; name: string; op?: number; cause?: number; data?: Record<string, unknown> }
