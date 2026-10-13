@@ -400,10 +400,12 @@ summary{font-size:16px}
 .bug details summary::after,.bug details summary::before{content:none}
 
 /* ---------- home v5: short landing page ---------- */
-.fcard .fnum{font:12px/1.5 var(--mono);color:var(--ink3);margin-top:12px}
+#catches .fcard{display:flex;flex-direction:column}
+.fcard .fnum{font:12px/1.5 var(--mono);color:var(--ink3);margin-top:auto;padding-top:12px;text-wrap:balance}
 .fcard .fnum b{color:var(--ink);font-weight:600}
 .disclose{font-size:14.5px;color:var(--ink2);margin-top:16px;max-width:76ch}
-.disclose a{color:var(--ink)}
+.disclose a{color:var(--ink);white-space:nowrap}
+#faq summary>span{text-wrap:pretty}
 #how .steps{grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
 .console.first{margin-top:28px}
 .console.first div{white-space:pre-wrap;overflow-wrap:anywhere}
