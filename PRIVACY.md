@@ -12,7 +12,7 @@ GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: karan@daybot.ca
 ## What we collect
 
 When a website runs GenClass with telemetry on (the default on public websites; never on localhost or private
-networks, except that versions 0.2.1 and 0.2.2 sent from those too by mistake), the browser sends us:
+networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2.2), the browser sends us:
 
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
   write), the model's diagnosis and suggested action, its confidence, and whether anything was changed or undone.

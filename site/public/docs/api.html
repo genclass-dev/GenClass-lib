@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=ef9e798c">
+<link rel="stylesheet" href="/styles.css?v=a1056390">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
 </head>
 <body>
@@ -103,7 +103,7 @@ no model. Use <a href="#headless-use-tests-ssr-simulation"><code>createRuntime</
 <code>telemetry: { include: { situation: true } }</code>) to <code>DEFAULT_TELEMETRY_ENDPOINT</code> and prints one console notice per
 page. Off with <code>telemetry: false</code>, <code>?genclass=no-telemetry</code> (or <code>?genclass=off</code>),
 <code>localStorage["genclass.telemetry"] = "off"</code>, or Global Privacy Control; off by default on localhost and private
-hosts (<code>0.2.1</code> and <code>0.2.2</code> send from them too, by mistake; fixed in the next release), outside a browser and in
+hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2</code>), outside a browser and in
 <code>createRuntime()</code>. An explicit <code>telemetry: true</code> also sends from local hosts. Schema and details:
 <a href="/docs/telemetry">packages/runtime/TELEMETRY.md</a>.</p>
 <h2 id="options">Options</h2>

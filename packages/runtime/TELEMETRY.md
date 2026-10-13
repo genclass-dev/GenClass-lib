@@ -14,13 +14,13 @@ Details under [Opting out](#opting-out).
 | how GenClass starts | default |
 |---|---|
 | `GenClass.init()`, `import "@genclass/runtime/auto"` (and `/auto/*`), the CDN script tag, `npx @genclass/runtime init` setups | **on** in a browser on a public host |
-| the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` (`0.2.1` and `0.2.2`: on, by mistake; fixed in the next release, see the CHANGELOG) |
+| the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` (`0.2.1`: on, by mistake; fixed in `0.2.2`, see the CHANGELOG) |
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
 
-In `0.2.1` and `0.2.2` the local-host row did not apply to `GenClass.init()` (and so to `/auto` and the script tag):
-it passed an explicit `telemetry: true` internally, so local and private hosts sent too. Fixed in the next release
-([CHANGELOG](CHANGELOG.md), Unreleased).
+In `0.2.1` the local-host row did not apply to `GenClass.init()` (and so to `/auto` and the script tag): it passed
+an explicit `telemetry: true` internally, so local and private hosts sent too. Fixed in `0.2.2`
+([CHANGELOG](CHANGELOG.md)).
 
 When it is on, the console shows one notice per page:
 

@@ -2,24 +2,12 @@
 
 ## Unreleased
 
-### Fixes
-
-- **Fix (privacy): default telemetry is off on local hosts, as 0.2.1 and 0.2.2 document.** `GenClass.init()` (and so
-  `/auto` and the script tag) passed an explicit `telemetry: true` internally, which skips the local-host rule, so
-  pages on `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. An
-  unset option now stays unset and the default applies as documented; an explicit `telemetry: true` still sends from
-  a local host. This narrows what is sent; nothing new is sent. Test: `test/telemetry-local-hosts.test.ts`.
-- **`init --telemetry` no longer writes `telemetry: true`.** It now takes the `--no-telemetry` opt-out out of what
-  init wrote (back to the default) and, on a new setup, writes nothing. An explicit `true` would now mean "also send
-  from local hosts". An options file written by an earlier `init --telemetry` holds `telemetry: true`: run
-  `npx @genclass/runtime init --telemetry` again to take it out.
-
 ### App tokens and dashboards; function-specific protection with `protect()`
 
 Each web app can have a token that groups its diagnostics under a private dashboard on genclass.dev, and GenClass can
 be pointed at a few functions instead of the whole app. No model-visible text changes (`scope: "functions"` changes
 which subjects are decided, never what the model reads about one). Without a token, telemetry sends what 0.2.2
-sends (less on local hosts, see Fixes).
+sends.
 
 - **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">` in `<head>`,
   `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as
@@ -62,6 +50,16 @@ sends (less on local hosts, see Fixes).
   see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
 
 ## 0.2.2 (2026-10-13)
+
+- **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so
+  `/auto` and the script tag) passed an explicit `telemetry: true` internally, which skips the local-host rule, so
+  pages on `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. An
+  unset option now stays unset and the default applies as documented; an explicit `telemetry: true` still sends from
+  a local host. This narrows what is sent; nothing new is sent. Test: `test/telemetry-local-hosts.test.ts`.
+- **`init --telemetry` no longer writes `telemetry: true`.** It now takes the `--no-telemetry` opt-out out of what
+  init wrote (back to the default) and, on a new setup, writes nothing. An explicit `true` would now mean "also send
+  from local hosts". An options file written by an earlier `init --telemetry` holds `telemetry: true`: run
+  `npx @genclass/runtime init --telemetry` again to take it out.
 
 - **Security: a link or an injected `<meta>` tag can no longer raise GenClass's mode or swap its model.**
   `?genclass=guard|heal` and `localStorage.genclass` now only demote, from the app's mode or from `observe` when it
