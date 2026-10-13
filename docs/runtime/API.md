@@ -87,7 +87,7 @@ interface InitOptions {
   plugins?: Plugin[];
   historySize?: number;                                 // events kept, default 500
   debug?: boolean;                                      // console.debug every decision
-  learn?: { persist?: boolean };                        // keep transition profiles in localStorage
+  learn?: LearnOptions;                                 // learned state and flow expectations; see "Learned flows and expectations"
   aggressiveness?: "cautious" | "balanced" | "eager" | number; // how eagerly to act (default "balanced"; see Policy)
   vocabulary?: { diagnoses?: Record<string, string>; actions?: Record<string, string> };
   settleMs?: number;                                    // quiet time that makes a settled point, default 60
@@ -134,7 +134,8 @@ interface InitOptions {
   audit?: { size?: number; sink?: (e: AuditEntry) => void }; // [1000 kept in memory] the audit trail (rt.audit()); sink: your own logging
   redact?: (path: string, value: unknown, kind?: "state" | "url" | "header" | "input") => unknown; // runs after built-in redaction; a throw → "[redacted]"
   report?: "console" | "interventions" | "silent" | ((r: Report) => void);    // "interventions": console prints interventions, undos, breaker only
-  learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string }; // version defaults to session.tags.release; mismatch discards
+  learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string; maxBytes?: number; // persist [unset: profiles in memory; flows in localStorage when expectations are on; true/"local"/"session": both; false: nothing]; key ["genclass:learn"]; version [session.tags.release]: mismatch discards; maxBytes [200000]
+            expectations?: boolean; minSupport?: number; minShare?: number; minSessions?: number }; // [false: opt-in until its false-report rate is measured], [8 in one page load, 20 with stored counts], [0.95], [3 with localStorage, else 1] (docs/runtime/EXPECTATIONS.md)
   // model: also loadIf [{ minDeviceMemoryGB: 4, saveData: "skip" }: no model on devices reporting ≤ 2 GB or on Save-Data; () => true forces],
   //        inlineFallback [true; false: a failed worker means no model, never the main thread], threads ["auto"], timeoutMs [10000],
   //        maxDecisionsPerMinute [30], unloadAfterIdleMs [false]
@@ -143,7 +144,7 @@ interface InitOptions {
 
 Runtime additions: `rt.audit(n?)` (the audit trail, below), `rt.disable({ undo? })` (permanent; `undo: true` rolls back the last minute's actions),
 `rt.summary(): SessionSummary`, `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
-events `shadow`, `breaker`, `limit`, `modelBudget`. `status` adds `effectiveMode`, `sampled`, `breaker`, `scope`,
+`rt.learned()` (below), events `shadow`, `breaker`, `limit`, `modelBudget`, `expectation`. `status` adds `effectiveMode`, `sampled`, `breaker`, `scope`,
 `modelBudget`, and states `"disabled" | "skipped" | "unloaded"`. `status.scope` is what is in force on the current
 route: `mode` is the effective mode there (equal to `effectiveMode`: the requested mode demoted by sampling, the breaker
 and the matching `routes[]` rule) and `aggressiveness` the effective level; with a matching rule it also has `rule`
@@ -266,11 +267,69 @@ it changed. Reads that bypass GenClass (a Redux middleware's `store.getState()`)
 GenClass also learns, at *settled* points (no requests in flight, `settleMs` of quiet), generic relations between
 your fields (`a == b` for fields with related names, `a == len(B)`, `a == sum(B[*].f)`, `a == sum(B[*].f * B[*].g)`,
 `a == count(B[*].k == v)`, `a >= 0`, `a ∈ B[*].k`, `B[*].id unique`, stable types, non-null) and each operation's usual
-effects on state. When a learned relation breaks, or an operation changes state unlike it normally does, the model is
+effects on state (after about 20 completions of the same operation; kept between visits only with `learn.persist`, see below). When a learned
+relation breaks, or an operation changes state unlike it normally does, the model is
 consulted. To avoid false alarms on correct apps: a selection holding 0, -1, "" or null means nothing is selected;
 uniqueness is only learned for id columns; pagination metadata (page, offset, limit, cursor, and a total next to them)
 never enters a relation; stores you are typing into are checked once typing pauses for a second; counters that change
 on nearly every write are left out unless they are a learned sum or count of a list.
+
+### Learned flows and expectations
+
+**Opt-in in 0.3.0** (`learn: { expectations: true }`): off by default until its false-report rate on correct apps is
+measured (docs/runtime/RESULTS.md, "Flow expectations"). Off, nothing below is learned, stored or reported, and its
+code (`src/learn/flows.ts`) is never loaded; on, the runtime imports it after the first idle (a lazy chunk, so it adds
+nothing to the first load) and learns from then on.
+
+For every user action on a route (a click, a submit, a change, Enter; never typing) GenClass learns which requests it
+starts and how soon, which request follows which, what each response writes, where the page navigates and how long
+the flow takes to settle. Once a step was seen in at least 95% of 20 or more observations spread over 3 or more
+visits (with the default persistence; 8 or more observations in one page load when nothing is stored:
+`learn.minShare`, `learn.minSupport`, `learn.minSessions`), a flow in which it did not happen is reported:
+
+```
+[GenClass] Expected a request on /cart: clicking button "Add to cart" usually sends POST /api/cart (41 of 41 times across 6 sessions, within 0.4 s); this time nothing was sent in 2.0 s.
+[GenClass] Expected a follow-up on /checkout: after POST /api/orders completes, clicking button "Place order" usually sends GET /api/orders (40 of 41 times, within 0.1 s); this time nothing followed in 1.0 s.
+[GenClass] Expected a state change on /cart: the response to POST /api/cart after clicking button "Add to cart" usually writes cart.items (41 of 41 times); this time it wrote nothing.
+[GenClass] Expected a navigation on /checkout: clicking button "Place order" usually leads to /confirmation (41 of 41 times, within 1.2 s); this time the page stayed on /checkout for 3.0 s.
+[GenClass] Expected a response: GET /api/items usually answers within 0.4 s (p99 of the last 64; 20 of 20 recent requests answered); this one has been waiting 2.1 s (bound 1.0 s).
+```
+
+These are deterministic reports from learned counts: the model is not consulted and nothing is held, retried or
+changed in any mode. Only a request that changes data (not GET, HEAD or OPTIONS) is expected to start or to write
+after its answer; a step is checked only on the branch of the handler it was learned on (the same fields written, so
+a submit that showed a validation error and sent nothing is not a gap); a repeat of the action within a page load is
+held to what earlier repeats did. They are skipped while the page is hidden or offline or the runtime is paused, for
+requests under `requests.protect`, for answers with status 400 or above, for the second click of a double click, for
+disabled controls, and for an action repeated while its flow is still open. Deadlines come from the learned delays
+(twice the p95, at least 1 s; a response needs twice the p99, at least 1 s, and the third visit with persistence). A
+step reported missing is not expected again until it is seen again, so an app whose behaviour changed gets one line,
+not one per visit, and a flow's counts are halved at 64 observations, so what the app does now outweighs what it did
+long ago. The counts are illustrations of the format, not measurements. Design, false-positive controls and what v2
+may do with them: [EXPECTATIONS.md](EXPECTATIONS.md).
+
+```ts
+rt.learned(): Learned                 // { route, expectations, session, flows: LearnedFlow[], deviations: Expectation[], relations }
+rt.on("expectation", (e: Expectation) => void)   // also a Report of kind "expectation" (report option, "report" event, sinks)
+GenClass.init({ learn: { expectations: true } })  // opt in (default false: learn and report nothing of this)
+```
+
+**Sinks.** An `expectation` record reaches a sink that forwards every kind (a function, `{ send }` without `kinds`,
+the webhook and console-json adapters) only while the layer is on; the Sentry, PostHog and Datadog adapters leave it
+out of their default kinds (add `"expectation"` to `kinds` to forward it).
+
+**Persistence.** With `learn.expectations` on, the learned flows (they only produce reports) are kept per origin in `localStorage` by default;
+transition profiles, which the model reads, stay in memory unless `learn.persist` is set (`true` or `"local"`:
+both in `localStorage`; `"session"`: both in sessionStorage; `false`: nothing is stored). Nothing is stored by
+default in a DOM test environment (jsdom, happy-dom) or when storage does not work. The value lives under
+`learn.key` (`genclass:learn`), is discarded when its format, the runtime version or `learn.version` (default
+`session.tags.release`) changes, is capped at `learn.maxBytes` (200,000 characters; the most-used flows and largest
+profiles are kept, and only the stored copy is trimmed), is written 5 s after a change, when the page is hidden or
+unloads and on `rt.destroy()`, and is cleared by `rt.learn.clear()`. A tab's sessionStorage keeps its session
+ordinal (`genclass:learn:session`), so a reload is not a new visit. It holds request signatures, routes and field
+names (id-like path segments and keys normalised, other segments and map keys as they are, secret-named fields
+never), counts and delay samples; user action labels are stored only as hashes, and values never. The devtools
+overlay shows what was learned under its **Expectations** tab.
 
 ## Operations and user actions
 
@@ -363,6 +422,7 @@ rt.on("act", (a: ActionRecord) => void)      // every non-passive action that ra
 rt.on("event", (e: RtEvent) => void)         // every traced event
 rt.on("status", (s: ModelStatus) => void)    // model loading progress and state
 rt.on("report", (r: Report) => void)         // every report line (even with report: "silent")
+rt.on("expectation", (e: Expectation) => void) // a learned step did not happen (see "Learned flows and expectations")
 // each returns an unsubscribe function
 ```
 
@@ -383,6 +443,7 @@ rt.interventions(n?): ActionRecord[]
 rt.audit(n?): AuditEntry[]         // the audit trail, oldest first (see Reports, explain and undo)
 rt.inflight(): Op[]
 rt.stores(): StoreInfo[]           // registered and discovered stores: { name, kind: "atom"|"guard"|"adapter"|"observed", source?, writable, fields, version }
+rt.learned(): Learned              // learned flows per user action and route, recent deviations, learned relations
 rt.setMode(mode); rt.pause(); rt.resume(); rt.destroy()
 rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise<void> } // reason when off: option, headless, url, localStorage, gpc, sampled-out, kill-switch, disabled, ...
 ```
@@ -504,8 +565,10 @@ a.undo?.();         // discard: applies the dropped values now; late revert: re-
 rt.explain(a.id);   // { decision, situationText, facts, timeline, answers, action, changed }
 ```
 
-A custom `report` function receives `{ kind: "detect" | "intervene" | "status", message, decision?, action? }`.
-`explain(id).message` is the same line for any decision or action, also when it was not printed.
+A custom `report` function receives `{ kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error" | "expectation", message, decision?, action?, expectation? }`.
+`explain(id).message` is the same line for any decision or action, also when it was not printed. An `expectation`
+report (a learned step that did not happen) carries no decision: its evidence is the learned counts in
+`report.expectation` and the console group prints them.
 
 Your own debug UI: GenClass ignores user events from inside any element marked `data-genclass-ignore` (the devtools
 overlay uses it), so debugging tools never become causes in situations.
@@ -746,6 +809,9 @@ type Detection = Decision;
 interface ActionRecord { id: string; decisionId: string; action: string; tier; trigger; subject: string; at: number; ok: boolean; error?: string; changed: string; undo?: () => void; late?: boolean; dropped?: string[] /* delivery discard: fields dropped */ }
 type SubjectRef = { kind: "delivery"; op: number; paths?: string[]; store?: string } | { kind: "mutation"; ... } | ...
 interface Explanation { message: string; decision: Decision; situationText: string; facts: string[]; timeline: string[]; answers: Record<string, Answer>; action?: ActionRecord; changed?: string; gates?: EffectiveGates }
+interface Expectation { kind: "request" | "response" | "write" | "follow-up" | "navigation"; route: string; action: string; op: number; signature?: string; field?: string; after?: string; to?: string; seen: number; of: number; sessions: number; waitedMs: number; usualMs?: number; at: number; message: string }
+interface LearnedFlow { route: string; action: string; n: number; repeats: number; sessions: number; settleMs?: { p50; p95 }; children: { signature; n; share; onRepeat; expected; expectedOnRepeat; protected?; missed?; delayMs? }[]; writes: { signature; field; n; of; share; expected; missed? }[]; followUps: { after; then; n; of; share; expected; missed?; delayMs? }[]; nav: { to; n; share; expected; missed? }[] } // missed: reported missing, not expected until seen again
+interface Learned { route: string; session: number; flows: LearnedFlow[]; deviations: Expectation[]; relations: { text: string; held: number }[] }
 interface EffectiveGates { kind: "mass" | "gain"; tauGain?: number; trigger?: TriggerKind; report: number; guard: number; heal: number; source: { report: "policy" | "model" | "default"; guard: …; heal: … } }
 interface RtEvent { seq: number; t: number; kind: "user"|"op.start"|"op.end"|"state"|"error"|"nav"|"perf"|"storage"|"custom"|"decision"|"action"; name: string; op?: number; cause?: number; data?: Record<string, unknown> }
 interface Op { id: number; kind: "user"|"fetch"|"xhr"|"ws"|"task"|"timer"|"genclass"; name: string /* e.g. "GET /api/x", "WS message /live", "SSE update /stream" */; detail?: string; start: number; end?: number; status?: "ok"|"error"|"aborted"|"blocked"; code?: number | string; cause?: number; root?: number; attempt: number; reads: Map<string, number>; identity?: string }

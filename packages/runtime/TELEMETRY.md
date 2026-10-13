@@ -86,6 +86,9 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars) |
 | `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections, actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
 
+Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
+else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
+
 Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/telemetry/client.ts`.
 
 ### Volume

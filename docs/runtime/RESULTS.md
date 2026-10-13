@@ -255,6 +255,18 @@ removes the other while the next ticket poll is answered 3 s late): **3 / 3 deli
 with `autoState: false`**, all `expected` (correct: the app drops stale polls; no bug in any mode). Overhead: see the
 package README "Costs" (+7 KB first-load JS, walk p95 under 2 ms at 4× throttling, +0.5 MB heap, no new long tasks).
 
+### Flow expectations (Unreleased, branch `wave1/expectations`): not yet measured
+
+The learned-flow expectations layer (`docs/runtime/EXPECTATIONS.md`; reporting only, no model, no action) has unit
+tests on the fake clock but no demo or real-app measurement yet. Its acceptance gate before any public claim: zero
+`expectation` reports across the six demos' clean trials (15 per mode per demo, `bench/heal/`), reported next to
+how many of the demos' silent-flow bugs (stuck "Placing…", lost commit) it names, plus a two-session run on the
+stored path (the trials start in a fresh browser context, so they never load stored flows). Measured so far:
+first-load JavaScript, minified + gzip, `/auto` 106.5 KB and `GenClass.init()` 99.1 KB (`test/bundle.test.ts`, CI
+run 38455195053 on branch `wave1/expectations`, 2026-10-13, after the review fixes; 105.8 / 98.3 KB in run
+38448983470 before them), against about 99 KB and 91 KB before the layer (the README's figures at 0.2.2, where
+`test/bundle.test.ts` kept them under 100 / 92 KB): about +7.5 KB per entry.
+
 ### v0.1 model, untrained for this (2026-10-08, baseline only)
 
 | Demo | Bug rate Off | Guard | Heal | False interventions on clean runs |

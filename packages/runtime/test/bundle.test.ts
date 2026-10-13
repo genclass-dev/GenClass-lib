@@ -63,16 +63,17 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // protect presets and the hold-budget fixes (0.2.0) added about 1.6 KB to both; 0.2.2 +0.35 KB (URL/meta hardening,
   // model download retries, the telemetry failure streak; this test measures 0.2.2 at 99.17 KB / 91.70 KB, CI run
   // 38441488459); app tokens and protect() (0.3.0) about 1.8 KB more (/auto 100.68 KB, the main entry 93.19 KB, CI run
-  // 38436014497); the device floor, telemetry sampling and Request replays about 1.5 KB more (102.16 / 94.66 KB, CI run
-  // 38461782967). Sinks by name: only the proxy (src/cdn/sinks.ts) is in /auto's first load; the name table, the
-  // fan-out and the adapters are lazy chunks (asserted below), and the adapters import nothing the first load needs, so
-  // they split no chunk out of it. Interim limits while release/0.3.0 is integrated; the final ones are the CI-measured
-  // sizes plus 1.5 KB (README, docs/runtime/RESULTS.md). Both sizes are printed before either is asserted.
+  // 38436014497); the device floor, telemetry sampling and Request replays about 1.5 KB more; the sink names' proxy
+  // about 0.8 KB on /auto (102.94 / 94.79 KB, CI run 38462380432). Sinks by name: only the proxy (src/cdn/sinks.ts) is
+  // in /auto's first load; the name table, the fan-out and the adapters are lazy chunks (asserted below). The flow
+  // expectations (src/learn/flows.ts, opt-in: learn.expectations) are a lazy chunk too, imported only when the option
+  // is on. Interim limits while release/0.3.0 is integrated; the final ones are the CI-measured sizes plus 1.5 KB
+  // (README, docs/runtime/RESULTS.md). Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 104, "index.js": 97 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
-    const sizes: Record<string, number> = {};
+    const measured: { entry: string; kb: number; code: string }[] = [];
     for (const entry of ["auto.js", "index.js"]) {
       const spec = JSON.stringify(join(DIST, entry));
       const r = await build({
@@ -102,12 +103,15 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       walk(stdin!);
       const per = [...first].map((k) => gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length);
       const gz = per.reduce((n, b) => n + b, 0);
-      sizes[entry] = gz / 1024;
       // each file is gzipped on its own, so a chunk split out of the first load costs its own overhead too
       const files = per.map((b) => (b / 1024).toFixed(2)).join(" + ");
       console.info(`[bundle] ${entry}: ${(gz / 1024).toFixed(2)} KB minified + gzip in ${per.length} file(s): ${files} (limit ${LIMIT_KB[entry]} KB)`);
-      // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
+      measured.push({ entry, kb: gz / 1024, code });
+    }
+    for (const { entry, kb, code } of measured) {
+      expect(kb, entry).toBeLessThan(LIMIT_KB[entry]);
+      // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       expect(code, entry).not.toContain("BPE dropout is not supported at inference"); // src/model/tokenizer.ts
       expect(code, entry).toContain("new Worker("); // the host itself is there
       // the sink adapters (@genclass/runtime/sinks/*) and the name table and fan-out (src/cdn/sinks-fanout.ts) are lazy
@@ -116,12 +120,14 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       expect(code, entry).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
       expect(code, entry).not.toContain("console-json"); // src/cdn/sinks-fanout.ts SINK_NAMES, src/cdn/sinks-load.ts
       expect(code, entry).not.toContain("unknown sink"); // src/cdn/sinks-fanout.ts
+      // the flow expectations (src/learn/flows.ts) are a lazy chunk, loaded only with learn.expectations
+      expect(code, entry).not.toContain("Expected a follow-up on"); // src/learn/flows.ts
+      expect(code, entry).not.toContain("Expected a response:"); // src/learn/flows.ts
       // state discovery survives an app's bundler in /auto (a dropped side-effect import once lost it) and stays out
       // of the main entry
       if (entry === "auto.js") expect(code, entry).toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
       else expect(code, entry).not.toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
     }
-    for (const entry of Object.keys(sizes)) expect(sizes[entry], entry).toBeLessThan(LIMIT_KB[entry]);
   });
 
   // the script tag's one file (README "Install", option 3): printed so the README can quote a measured number; it

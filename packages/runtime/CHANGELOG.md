@@ -164,6 +164,72 @@ sends.
   `evidence: false` turns it off per adapter.
 - The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
 
+### Flow expectations (opt-in): learn what each action usually does, report the step that did not happen
+
+**Off by default** (`learn: { expectations: true }` turns it on) until its false-report rate on correct apps is
+measured (docs/runtime/RESULTS.md, "Flow expectations": the demos' clean-trial gate has not been run). Off, nothing
+is learned, stored or reported, and its code is never loaded: `src/learn/flows.ts` is a lazy chunk the runtime
+imports, after the first idle (on the injected clock), only when the option is on, so it adds nothing to the first
+load (the script-tag file carries it inline). Activity before it loads is not learned.
+
+A deterministic, reporting-only layer (`docs/runtime/EXPECTATIONS.md`). For every user action on a route (click,
+submit, change, Enter; never typing) the runtime learns which requests it starts and how soon, which request follows
+which, what each response's handler writes, where the page navigates and how long the flow settles. Once a step
+was seen in at least 95% of 20 or more observations over 3 or more visits (8 or more in one page load when nothing
+is stored), a flow in which it did not happen is
+reported: a click that sent nothing within its learned deadline, a follow-up request that never came after its
+predecessor answered, a response whose handler wrote nothing, a navigation that did not happen, and a request still
+waiting past twice its p99 latency. The model is never consulted for these and nothing acts on them in any mode. No model-visible
+text changed (no new fact, trigger or situation text).
+
+- `Report.kind "expectation"` with `Report.expectation` (the learned counts); `rt.on("expectation", fn)`; sink
+  records of kind `expectation` (counts and signatures, no page text), which reach a sink that forwards every kind
+  (a function, `{ send }` without `kinds`, the webhook and console-json adapters) only while the layer is on, and
+  never the Sentry, PostHog or Datadog adapters unless `kinds` lists `"expectation"`; one console line per deviation
+  in the usual style, with a collapsed group; folded repeats as for every report. `report: "interventions"` prints
+  none.
+- `rt.learned()`: whether the layer is on (`expectations`), the learned flows (current route first) with their
+  steps, counts, shares and delays, the recent deviations and the learned relations. Devtools: an **Expectations**
+  tab shows the same, and says how to turn the layer on when it is off.
+- `learn.expectations` (default false), `learn.minSupport` (8 while every observation is from this page load, 20
+  once stored ones count; a number sets both), `learn.minShare` (0.95), `learn.minSessions` (3 when learned state is
+  kept in localStorage, else 1; a reload in the same tab is not a new session) and `learn.maxBytes` (200,000).
+- A step reported missing is not expected again until it is seen again (`missed` in `rt.learned()`), so an app whose
+  behaviour changed gets one line, not one per visit; a flow's counts are halved when it reaches 64 observations; a
+  run of hanging requests of one signature is one `response` line until one of them answers.
+- False-positive controls (EXPECTATIONS.md §3), all learned counts or properties of the request: a step is
+  checked only on the branch of the handler it was learned on (the same set of fields written: a submit that showed
+  a validation error and sent nothing is not a gap); a repeat of the action within a page load is held to what
+  earlier repeats did; only a request that changes data (not GET, HEAD or OPTIONS) is expected to start or to write
+  after its answer; an answer with status 400 or above is no missing write and no predecessor of a follow-up; a
+  request with the signature started from anywhere since the action counts as sent; a write that left the value as
+  it was counts as handling the answer; an action repeated while its flow is open (a stepper) opens nothing and its
+  open flow's writes are not checked; a flow whose page was left for another action is neither learned nor
+  reported; deadlines have a 1 s floor.
+- Skipped while the page is hidden or offline or the runtime is paused, for requests under `requests.protect`, on
+  routes with `mode: "off"`, for the second click of a double click and for disabled controls (the DOM observer now
+  records `UserAction.data.disabled`; not model-visible). The layer runs inside `try/catch` and never throws into
+  the app.
+- First-load size: see the package README "Costs" (measured by `test/bundle.test.ts` in CI). Telemetry does not
+  send expectation reports (TELEMETRY.md's event table is unchanged).
+
+### Learned flows are stored (with the layer on); transition profiles only when asked
+
+With `learn.expectations` on and `learn.persist` unset, the learned flows (reporting only) are kept per origin in `localStorage` under
+`genclass:learn`; transition profiles, which the model reads, stay in memory as before (CONTRACT §4), so what
+reaches the model in a default install is unchanged. `true` / `"local"` stores both in localStorage, `"session"`
+both in sessionStorage, `false` nothing. Nothing is stored by default in jsdom or happy-dom (an app's unit tests) or
+when storage throws (then learning stays in memory with this page load's thresholds). The stored value carries a
+format number and the runtime version and is discarded, never migrated, when either or `learn.version` (default
+`session.tags.release`) changes; the 0.2.2 value is discarded too. It is capped at `learn.maxBytes` (the stored copy
+only; a cap below its header removes it), saved 5 s after a change, when the page is hidden or unloads and on
+`rt.destroy()`, checked field by field and against the learner's bounds when loaded, and cleared (with a pending
+save) by `rt.learn.clear()`. What is stored: request signatures, routes and field names (id-like path segments and
+keys normalised; other path segments and map keys as they are), counts, delay samples and branch hashes; user-action
+labels only as hashes (transition profiles of user actions, when stored, under `user#<hash>`), never values. A tab's
+sessionStorage keeps its session ordinal (`genclass:learn:session`) so a reload is not a new session. The storage
+observer does not record the runtime's own writes.
+
 ## 0.2.2 (2026-10-13)
 
 - **Fix (privacy): default telemetry is off on local hosts, as documented since 0.2.1.** `GenClass.init()` (and so

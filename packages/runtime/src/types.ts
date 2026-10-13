@@ -549,7 +549,7 @@ export interface ActionRequest {
   label?: string;
 }
 
-export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error";
+export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error" | "expectation";
 
 export interface SinkRecord {
   schema: 1;
@@ -577,6 +577,8 @@ export interface SinkRecord {
   shadow?: { action: string; tier: Tier; wouldPass: boolean; reason?: string };
   reason?: string;
   summary?: SessionSummary;
+  /** expectation: the learned step that did not happen (no page text: the action label is in `evidence.message` only). */
+  expectation?: { kind: ExpectationKind; route: string; signature?: string; field?: string; after?: string; to?: string; seen: number; of: number; sessions: number; waitedMs: number };
   evidence?: { message?: string; trigger?: TriggerKind; subject?: string; timeline?: string[] };
 }
 
@@ -780,11 +782,8 @@ export interface InitOptions {
   historySize?: number;
   /** Console logging of every decision. */
   debug?: boolean;
-  /**
-   * Learned state (transition profiles): persist: true / "local" (localStorage) or "session" (sessionStorage); default
-   * false. `key` default "genclass:learn"; `version` (default session.tags.release at init) discards stale state.
-   */
-  learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string };
+  /** Learned state (transition profiles, flow expectations) and its persistence; see LearnOptions. */
+  learn?: LearnOptions;
   /** Override the diagnosis vocabulary and action descriptions the model sees. */
   vocabulary?: Vocabulary;
   /** Quiet time after the last mutation before a settled point (default 60 ms). */
@@ -840,6 +839,137 @@ export interface InitOptions {
    * (also `data-scope`, `scope=functions` in the meta tag, `window.GENCLASS_CONFIG.scope`).
    */
   scope?: "app" | "functions";
+}
+
+/**
+ * InitOptions.learn: what GenClass learns about the page (transition profiles per operation, flow expectations per
+ * user action; docs/runtime/EXPECTATIONS.md) and where it keeps it between visits.
+ */
+export interface LearnOptions {
+  /**
+   * Keep learned state per origin between page loads. Unset (the default): the flows behind `expectation` reports
+   * (reporting only) are kept in localStorage; transition profiles, which feed the model, stay in memory (CONTRACT
+   * §4). true / "local": flows and transition profiles in localStorage; "session": both in sessionStorage; false:
+   * nothing is stored. Without working storage, or by default in a DOM test environment (jsdom, happy-dom), nothing
+   * is stored either. What is stored: request signatures, routes and field names (id-like segments and keys
+   * normalised; other path segments and map keys as they are), hashes of user-action labels, counts and delay
+   * samples; never element text or values. Capped at `maxBytes`; discarded when `version` or the runtime version
+   * changes.
+   */
+  persist?: boolean | "local" | "session";
+  /** Storage key. Default "genclass:learn". */
+  key?: string;
+  /** Discards stored state learned under another version (as does a new runtime version). Default: session.tags.release at init. */
+  version?: string;
+  /**
+   * Size cap of the stored state in characters: the most-used flows and the profiles with the most completions are
+   * kept; only the stored copy is trimmed, never what is in memory. Default 200,000.
+   */
+  maxBytes?: number;
+  /**
+   * Flow expectations (`expectation` reports, rt.learned().flows). Default false (opt-in until their false-report rate
+   * is measured, docs/runtime/RESULTS.md): nothing is learned, stored or reported, and src/learn/flows.ts is never
+   * loaded. true: the layer is imported after the first idle (a lazy chunk, no first-load cost) and learns from then on.
+   */
+  expectations?: boolean;
+  /**
+   * Observations of a flow (or completions of a request) before a step is expected of it. Default 8 while all of
+   * them are from this page load, 20 once stored observations from earlier page loads count; a number sets both.
+   */
+  minSupport?: number;
+  /** Share of observations in which a step must have occurred to be expected. Default 0.95. */
+  minShare?: number;
+  /**
+   * Distinct sessions a flow must have been seen in before anything is expected of it (for `response`: sessions on
+   * this origin, this one included). A session is a browsing session of a tab: a reload continues it. Default 3
+   * when learned state is kept in localStorage, else 1.
+   */
+  minSessions?: number;
+}
+
+/** A learned step that did not happen this time (reporting only; never an action). */
+export type ExpectationKind = "request" | "response" | "write" | "follow-up" | "navigation";
+
+/**
+ * An `expectation` report (rt.on("expectation"), Report.expectation, docs/runtime/EXPECTATIONS.md): a step that the
+ * same user action on the same route usually produces (`seen` of `of` observations across `sessions` sessions) and
+ * this time did not within the learned bound. Counts are learned, never decided by the model.
+ */
+export interface Expectation {
+  kind: ExpectationKind;
+  /** Normalised route the flow was learned on. */
+  route: string;
+  /** The user action, e.g. 'clicking button "Add to cart"' (`response`: the request signature). */
+  action: string;
+  /** The user op (`response`: the request op). */
+  op: number;
+  /** request / follow-up / write / response: the request signature. */
+  signature?: string;
+  /** write: the field(s) usually written. */
+  field?: string;
+  /** follow-up: the request after whose completion `signature` usually follows. */
+  after?: string;
+  /** navigation: the route the action usually leads to. */
+  to?: string;
+  /** Times the step was seen, out of the observations it is measured against, and the sessions behind them. */
+  seen: number;
+  of: number;
+  sessions: number;
+  /** How long GenClass waited before reporting (ms). */
+  waitedMs: number;
+  /** The learned bound the wait was compared with (p95 of the step's delay; p99 of the latency for `response`). */
+  usualMs?: number;
+  at: number;
+  /** The console line. */
+  message: string;
+}
+
+/** One learned flow (rt.learned().flows): what a user action on a route usually does. */
+export interface LearnedFlow {
+  route: string;
+  /** e.g. 'click button "Place order"' (a label not seen this session shows as `button #<hash>`). */
+  action: string;
+  /** Observations, those that repeated the action within a page load, and distinct sessions. */
+  n: number;
+  repeats: number;
+  sessions: number;
+  /** Time from the action to its last request's end. */
+  settleMs?: { p50: number; p95: number };
+  /**
+   * Requests the action starts (`onRepeat`: of them, in repeats). `expected`: its absence is reported the first time
+   * the action happens in a page load (support, share and session thresholds met, a method that changes data, not
+   * protected, not `missed`); `expectedOnRepeat`: also on a repeat (the share holds among `repeats` too). `missed`:
+   * its absence was reported, and it is not expected again until it is seen again (on every step kind below too).
+   */
+  children: { signature: string; n: number; share: number; onRepeat: number; expected: boolean; expectedOnRepeat: boolean; protected?: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
+  /**
+   * Fields each request's response handler writes (a refetch's writes are the refetch's). `expected`: a missing write
+   * is reported (thresholds met and the request changes data: not GET, HEAD or OPTIONS).
+   */
+  writes: { signature: string; field: string; n: number; of: number; share: number; expected: boolean; missed?: boolean }[];
+  /** Requests that start after another one of the flow answers ok; `expected` needs one of the pair to change data. */
+  followUps: { after: string; then: string; n: number; of: number; share: number; expected: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
+  /** Routes the action leads to. */
+  nav: { to: string; n: number; share: number; expected: boolean; missed?: boolean }[];
+}
+
+/** rt.learned(): what GenClass learned about the page (reporting only). */
+export interface Learned {
+  /** The current route (normalised). */
+  route: string;
+  /** Flow expectations are on (learn.expectations: true); false: `flows` and `deviations` stay empty. */
+  expectations: boolean;
+  /**
+   * This session's ordinal on this origin: 1 + the sessions that stored learned state before it, or, after a reload
+   * in the same tab, the ordinal the tab already had (kept in sessionStorage). Always 1 when nothing is stored.
+   */
+  session: number;
+  /** Learned flows, the current route's first. */
+  flows: LearnedFlow[];
+  /** Recent expectation reports (last 50), oldest first. */
+  deviations: Expectation[];
+  /** Learned relations between fields (invariants), as text, with the settled points they held at. */
+  relations: { text: string; held: number }[];
 }
 
 /** InitOptions.autoState as an object: each source defaults to on. */
@@ -1094,10 +1224,12 @@ export interface ActionRecord {
 }
 
 export interface Report {
-  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error";
+  /** `expectation`: a learned step did not happen (Report.expectation; reporting only). */
+  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error" | "expectation";
   message: string;
   decision?: Decision;
   action?: ActionRecord;
+  expectation?: Expectation;
   /** Effective mode at the decision. */
   mode?: ModeOrOff;
   correlationId?: string;
@@ -1197,6 +1329,8 @@ export interface RuntimeEvents {
   breaker: { tripped: boolean; reason: "undos" | "errors" | "reset"; decisionIds: string[]; counts: { undos: number; errors: number } };
   limit: { kind: "perMinute" | "perSubject" | "perSession"; subject: string };
   modelBudget: { decisionsLastMinute: number; dropped: number };
+  /** A learned step did not happen (also a Report of kind "expectation"). */
+  expectation: Expectation;
 }
 
 export interface Runtime {
@@ -1259,7 +1393,10 @@ export interface Runtime {
   /** Replace the session id and merge tags (later records only). */
   setSession(p: { id?: string; tags?: Record<string, string | number | boolean> }): void;
   readonly breaker: { reset(): void; readonly tripped: boolean };
+  /** `clear()` forgets everything learned (profiles, flows) in memory and in storage. */
   readonly learn: { clear(): void };
+  /** What GenClass learned about the page: flows per user action and route, recent deviations, relations. */
+  learned(): Learned;
   pause(): void;
   resume(): void;
   destroy(): void;

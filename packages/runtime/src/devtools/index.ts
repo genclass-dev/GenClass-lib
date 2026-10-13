@@ -15,6 +15,8 @@ import type {
   Decision,
   EffectiveGates,
   Explanation,
+  Learned,
+  LearnedFlow,
   Mode,
   ModelStatus,
   Op,
@@ -59,7 +61,7 @@ import {
 } from "./ui.js";
 
 export type DevtoolsPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
-export type DevtoolsTab = "interventions" | "detections" | "activity" | "now";
+export type DevtoolsTab = "interventions" | "detections" | "activity" | "now" | "expectations";
 
 export interface DevtoolsOptions {
   /** Corner of the viewport. Default "bottom-right". */
@@ -107,6 +109,7 @@ const TABS: [DevtoolsTab, string][] = [
   ["interventions", "Interventions"],
   ["detections", "Detections"],
   ["activity", "Activity"],
+  ["expectations", "Expectations"],
   ["now", "Now"],
 ];
 const MODES: [Mode, string, string][] = [
@@ -211,6 +214,7 @@ class Devtools {
   private readonly emptyE: HTMLElement;
   private readonly evs: HTMLElement;
   private readonly nowEl: HTMLElement;
+  private readonly expEl: HTMLElement;
 
   private isOpen = false;
   private tab: DevtoolsTab;
@@ -339,11 +343,13 @@ class Devtools {
     this.emptyE = empty("pulse", "Waiting for activity", "User actions, requests, state writes and errors appear here as they happen.");
     this.evs = h("div", { class: "evs", role: "log", "aria-label": "Runtime activity" });
     this.nowEl = h("div", { class: "now" });
+    this.expEl = h("div", { class: "now", "data-part": "expectations" });
     this.panes = {
       interventions: pane("interventions", this.listA, this.emptyA),
       detections: pane("detections", this.listD, this.emptyD),
       activity: pane("activity", this.filterBar(), this.evs, this.emptyE),
       now: pane("now", this.nowEl),
+      expectations: pane("expectations", this.expEl),
     };
 
     this.panel = h(
@@ -540,6 +546,10 @@ class Devtools {
   }
 
   private addReport(r: Report): void {
+    if (r.kind === "expectation") {
+      if (this.isOpen && this.tab === "expectations" && !this.paused) this.renderExpectations();
+      return;
+    }
     if (r.kind === "status" || !r.message) return;
     const id = r.kind === "intervene" ? r.action?.id ?? (r.decision ? this.actOf.get(r.decision.id) ?? r.decision.id : undefined) : r.decision?.id;
     if (!id) return;
@@ -1098,6 +1108,63 @@ class Devtools {
     );
   }
 
+  // ---------------------------------------------------------------------------------------- expectations
+
+  /** One learned flow as display lines: the action, then each step with its support and whether it is expected. */
+  private flowLines(f: LearnedFlow): string[] {
+    const q = (x: { p50: number; p95: number } | undefined) => (x ? `, within ${dur(x.p95)}` : "");
+    const tag = (x: { expected: boolean; missed?: boolean }) => (x.missed ? " · missed: not expected until seen again" : x.expected ? " · expected" : "");
+    const out = [`${f.action} on ${f.route}: ${f.n} observation${f.n === 1 ? "" : "s"} (${f.repeats} repeated in a visit), ${f.sessions} session${f.sessions === 1 ? "" : "s"}${f.settleMs ? `, settles in ${dur(f.settleMs.p95)}` : ""}`];
+    for (const c of f.children) out.push(`  → ${c.signature} (${c.n}/${f.n}${q(c.delayMs)})${c.protected ? " · protected" : c.expected && !c.expectedOnRepeat ? " · expected the first time in a visit" : tag(c)}`);
+    for (const w of f.writes) out.push(`  ✎ ${w.signature} writes ${w.field} (${w.n}/${w.of})${tag(w)}`);
+    for (const u of f.followUps) out.push(`  ↳ ${u.then} after ${u.after} (${u.n}/${u.of}${q(u.delayMs)})${tag(u)}`);
+    for (const n of f.nav) out.push(`  ⇒ ${n.to} (${n.n}/${f.n})${tag(n)}`);
+    return out;
+  }
+
+  /** The Expectations view: what GenClass learned about this page's flows, and the steps that did not happen. */
+  private renderExpectations(): void {
+    if (!this.isOpen || this.tab !== "expectations" || this.dead) return;
+    const fn = (this.rt as { learned?: () => Learned }).learned;
+    const learned: Learned | null = typeof fn === "function" ? safe(() => fn.call(this.rt), null as Learned | null) : null;
+    const now = this.now();
+    this.expEl.classList.toggle("paused", this.paused);
+    if (!learned) {
+      this.expEl.replaceChildren(empty("scan", "Not available", "This runtime does not expose what it learned (rt.learned())."));
+      return;
+    }
+    const devs = [...learned.deviations].reverse().slice(0, 50);
+    const flows = learned.flows.slice(0, 40);
+    const block = (lines: string[]): Kid => (lines.length ? h("pre", { class: "code", text: lines.join("\n") }) : h("div", { class: "none", text: "none" }));
+    this.expEl.replaceChildren(
+      ...([
+        h("div", { class: "nh" }, h("span", { class: "live", text: this.paused ? "Paused" : "Live" }), h("span", { text: `What GenClass learned about ${learned.route}` }), h("span", { class: "sp" }), h("span", { class: "none", text: `session ${learned.session}` })),
+        h("p", { class: "none", text: "Learned from repetition, reported when a usual step does not happen. Reporting only: no model, no action in any mode." }),
+        sec(
+          `Deviations${devs.length ? ` · ${devs.length}` : ""}`,
+          null,
+          devs.length
+            ? h(
+                "ul",
+                { class: "facts", "data-part": "deviations" },
+                devs.map((e) => h("li", {}, h("time", { class: "ago", "data-at": String(e.at), text: ago(now - e.at), title: `runtime clock ${clockT(e.at)}` }), " ", e.message.replace(/^\s*\[GenClass\]\s*/, ""))),
+              )
+            : h("div", { class: "none", text: "No usual step has been missed." }),
+        ),
+        sec(
+          `Learned flows${flows.length ? ` · ${flows.length}` : ""}`,
+          null,
+          flows.length
+            ? h("pre", { class: "code", "data-part": "flows", text: flows.flatMap((f) => this.flowLines(f)).join("\n") })
+            : learned.expectations === false
+              ? h("div", { class: "none", "data-part": "flows-off", text: "Flow expectations are off (opt-in): GenClass.init({ learn: { expectations: true } }) learns what each action usually does." })
+              : h("div", { class: "none", text: "Nothing learned yet: a flow is a user action and the requests it starts, seen several times across visits." }),
+        ),
+        sec(`Learned relations${learned.relations.length ? ` · ${learned.relations.length}` : ""}`, null, block(learned.relations.map((r) => `${r.text} (held at ${r.held} settled points)`))),
+      ].filter(Boolean) as Node[]),
+    );
+  }
+
   /**
    * Registered and automatically discovered stores: discovered React and Zustand state is observed only (GenClass
    * sees its writes, never holds, drops or reverts them); discovered Redux stores are full adapters.
@@ -1188,6 +1255,7 @@ class Devtools {
     }
     for (const [id, p] of Object.entries(this.panes)) p.hidden = id !== t;
     if (t === "now") this.renderNow();
+    if (t === "expectations") this.renderExpectations();
     if (t === "activity") {
       const p = this.panes.activity;
       if (!this.scrolledActivity) {
@@ -1220,6 +1288,7 @@ class Devtools {
     this.bits |= LISTS | EVENTS;
     this.flush();
     if (this.tab === "now") this.renderNow();
+    if (this.tab === "expectations") this.renderExpectations();
   }
 
   private clear(): void {
@@ -1292,6 +1361,7 @@ class Devtools {
       }
       this.ticks++;
       if (this.tab === "now" && !this.paused) this.renderNow();
+      if (this.tab === "expectations" && !this.paused && this.ticks % 5 === 0) this.renderExpectations();
       if (this.ticks % 5 === 0) {
         const now = this.now();
         for (const t of this.sr.querySelectorAll<HTMLElement>("time.ago")) t.textContent = ago(now - Number(t.dataset.at));
