@@ -401,21 +401,20 @@ ${providers}
   if (!yes) return;
   var cfg = JSON.parse(document.getElementById("cfg").textContent), err = document.getElementById("err"), done = document.getElementById("done");
   var h = document.getElementById("dh"), acts = document.getElementById("acts"), timer = null;
-  function finish(title, bold, rest){
+  function finish(title, text){
     if (timer) clearTimeout(timer);
     h.textContent = title; acts.classList.add("hidden"); err.textContent = "";
     ["caution", "scope"].forEach(function(id){ document.getElementById(id).classList.add("hidden"); });
-    done.classList.remove("hidden"); done.textContent = "";
-    var b = document.createElement("b"); b.textContent = bold; done.appendChild(b); done.appendChild(document.createTextNode(rest));
+    done.classList.remove("hidden"); done.textContent = text;
   }
-  function gone(){ finish("This code is no longer valid", "Expired or already used. ", "Run npx @genclass/runtime login again for a new code."); }
+  function gone(){ finish("This code is no longer valid", "It expired or was already used. Run npx @genclass/runtime login again for a new code."); }
   var left = Date.parse(cfg.expires) - Date.now();
   if (left > 0 && left < 3600000) timer = setTimeout(gone, left);
   function answer(ok){
     err.textContent = ""; yes.disabled = true; no.disabled = true;
     gcPost("/api/device/approve", { user_code: cfg.code, approve: ok }).then(function(){
-      if (ok) finish("Approved", "Approved. ", "Go back to your terminal; it finishes on its own. You can close this tab.");
-      else finish("Denied", "Denied. ", "The terminal stops waiting and signs nothing in.");
+      if (ok) finish("Approved", "Go back to your terminal; it finishes on its own. You can close this tab.");
+      else finish("Denied", "The terminal stops waiting and signs nothing in.");
     }, function(e){
       if (e.status === 404) { gone(); return; }
       err.textContent = gcWhy(e); yes.disabled = false; no.disabled = false;

@@ -1,4 +1,5 @@
-# Local development values for `npx --yes wrangler@4 dev --local` (copy to .dev.vars, which git ignores).
+# Local development values for `npx --yes wrangler@4 dev --local --local-upstream localhost:8787` (copy to .dev.vars,
+# which git ignores; README "Local" says why the upstream flag matters).
 # Accounts: cookies, the CSRF Origin check, WebAuthn and OAuth redirects use this origin and RP ID.
 AUTH_ORIGIN=http://localhost:8787
 AUTH_RP_ID=localhost

@@ -313,6 +313,7 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
 .dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;line-height:1.05}
 .meta{font:12.5px var(--mono);color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px}
+.meta .btn.sm{min-height:28px;padding:0 10px;font:500 12.5px var(--sans)}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
 .live.on i{background:var(--accent-f)}
@@ -766,6 +767,8 @@ const DASH_JS = `
     var io = new IntersectionObserver(function(es){
       es.forEach(function(e){ vis[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0; });
       var best = null, br = 0; Object.keys(vis).forEach(function(k){ if (vis[k] > br) { br = vis[k]; best = k; } });
+      // while an app waits for its first event the section links are hidden: the heading counts as Connect
+      var per = document.getElementById("period"); if (best === "top" && per && per.classList.contains("hidden")) best = "connect";
       if (best) links.forEach(function(a){ a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + best)); });
     }, { rootMargin: "-10% 0px -55% 0px", threshold: [0, 0.2, 0.5, 1] });
     ["connect", "top", "trend", "found", "where", "did", "health-s", "recent-s", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
@@ -976,12 +979,11 @@ export function dashboardPage(
   <div class="proj"><span id="sname"></span><small>Dashboard</small></div>
   <div class="live" id="status"><i></i><span id="statust">Loading</span></div>
   ${side}
-  <button class="btn ghost sm" id="refresh" type="button">Refresh</button>
 </aside>
 <div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
   <h1 id="pname"></h1>
-  <div class="meta"><span id="updated"></span></div>
+  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button></div>
   <p class="summary" id="summary"></p>
 </section>
 ${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
