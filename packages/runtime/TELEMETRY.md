@@ -18,6 +18,10 @@ Details under [Opting out](#opting-out).
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
 
+In `0.2.1` and `0.2.2` the local-host row did not apply to `GenClass.init()` (and so to `/auto` and the script tag):
+it passed an explicit `telemetry: true` internally, so local and private hosts sent too. Fixed in the next release
+([CHANGELOG](CHANGELOG.md), Unreleased).
+
 When it is on, the console shows one notice per page:
 
 ```
@@ -74,7 +78,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included) |
 | `model` | model state changes | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError`, `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
-| `decision` | every model decision | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
+| `decision` | every model decision | `id`, `trigger`, `route`, `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
 | `detect` | a decision reported as a detection | `decision`, `trigger`, `diagnosis`, `p` |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
 | `veto` | `onBeforeAction` vetoed an action | `decision`, `action`, `enforced` |
@@ -95,21 +99,27 @@ Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/
 
 ## App tokens and dashboards
 
-An app can set a **token** (`InitOptions.token`, `data-token`, `<meta name="genclass" content="token=...">` or
-`window.GENCLASS_CONFIG.token`): `gc_` followed by 22 letters or digits, created by `npx @genclass/runtime init` or at
-https://genclass.dev/start.
+Unreleased (not in `0.2.2`, which ignores a token and sends neither `token` nor `fn`). An app can set a **token**
+(`InitOptions.token`, `data-token`, `<meta name="genclass" content="token=...">` or `window.GENCLASS_CONFIG.token`):
+`gc_` followed by 22 letters or digits, created by `npx @genclass/runtime init` or at https://genclass.dev/start.
 
 - The token is public (it is in the page). It is sent as the batch envelope's top-level `token` and nowhere else; it
   lets the collector group the batches of one app. A malformed token logs one console warning and is not sent.
 - Whoever holds the app's private dashboard link (`https://genclass.dev/dashboard/<secret>`, given once when the
-  token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, actions, top
-  routes and protected functions, model load, backend and latency, versions) and its recent detections. Dashboard
-  data is also deleted after 90 days.
-- A token changes nothing about what is collected or when: with telemetry off (any opt-out, or Global Privacy
-  Control) nothing is sent and the dashboard gets nothing from that page. With `debug: true` the console says once
-  that a token is set while telemetry is off.
-- `decision` events carry `fn` when the decision was about something a `protect()`ed function caused (the name the
-  app chose, at most 80 characters).
+  token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, actions, the
+  app's hostnames, top routes and protected functions, model load, backend and latency, versions) and its recent
+  detections. Dashboard data is also deleted after 90 days.
+- A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
+  Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
+  console says so once when a token is set; otherwise only with `debug: true`.
+- Only batches that carry a token have `fn` on `decision` events: the name the app chose for the `protect()`ed
+  function the decision was about (at most 80 characters). Without a token `fn` is never sent.
+- `npx @genclass/runtime init` creates a token (a "project") only on a new setup and only after the developer
+  approved its changes (or passed `--yes`): it sends one request, `POST https://genclass.dev/api/projects` with
+  `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,
+  that name, the creation time, the time of the last batch, and a SHA-256 hash of the dashboard secret (never the
+  secret itself). Project records have no automatic expiry; the aggregated dashboard data does (90 days). To delete
+  a project and its dashboard data, write to the contact in PRIVACY.md with the token.
 
 ## Where it goes
 

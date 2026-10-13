@@ -37,6 +37,10 @@ which subjects are decided, never what the model reads about one). Without a tok
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
 - **Cost:** about +1 KB gzip on each entry (0.2.2: about 99 KB for `/auto`, 91 KB for the main entry;
   `test/bundle.test.ts` prints the measured sizes).
+- **Fix: default telemetry is off on local hosts, as 0.2.1 and 0.2.2 document.** `GenClass.init()` (and so `/auto`
+  and the script tag) passed an explicit `telemetry: true` internally, which skips the local-host rule, so pages on
+  `localhost`, `*.local`, `*.test` and private networks sent diagnostics and showed the console notice. The default
+  now applies as documented; an explicit `telemetry: true` still sends from a local host.
 - **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
   the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
   see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.

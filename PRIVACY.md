@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-10._
+_Last updated: 2026-10-13._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -12,7 +12,7 @@ GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: karan@daybot.ca
 ## What we collect
 
 When a website runs GenClass with telemetry on (the default on public websites; never on localhost or private
-networks), the browser sends us:
+networks, except that versions 0.2.1 and 0.2.2 sent from those too by mistake), the browser sends us:
 
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
   write), the model's diagnosis and suggested action, its confidence, and whether anything was changed or undone.
@@ -41,9 +41,15 @@ works on their own site. We do not sell the data, use it for advertising, or try
 ## Dashboards for website owners
 
 A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated
-diagnostics for that site (counts of decisions, detections and actions, routes, model speed, versions) and a list
-of recent detections (time, route or function name, diagnosis, action). Dashboards do not show the situation text.
-Data from browsers that opted out or send Global Privacy Control never reaches a dashboard.
+diagnostics for that site (counts of decisions, detections and actions, the site's hostnames, routes, the names the
+developer gave to protected functions, model speed, versions) and a list of recent detections (time, route or
+function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
+send Global Privacy Control never reaches a dashboard.
+
+When a developer creates a token with `npx @genclass/runtime init`, after approving its changes, the tool sends us
+the name in their project's `package.json`. We keep one record per token: the token, that name, when it was created,
+when data last arrived, and a one-way hash of the dashboard link's secret. These records are kept until the owner
+asks us to delete them (contact below, with the token); the dashboard data itself is deleted after 90 days.
 
 ## Where it goes and how long we keep it
 
