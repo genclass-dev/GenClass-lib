@@ -327,7 +327,8 @@ describe("fetch observer: Request objects with bodies (one clone; replays come f
     expect(clones).toBe(0);
     expect(server.hits.get("PUT /api/upload")).toBe(1);
     const f = decider.calls.find((c) => c.trigger === "failure")!;
-    expect(Object.keys((f.questions.action as { criteria: Record<string, string> }).criteria)).not.toContain("retry");
+    const q = f.questions.action as { criteria: Record<string, string> } | undefined;
+    expect(q ? Object.keys(q.criteria) : []).not.toContain("retry");
   });
 
   it("a body of unknown length that turns out larger than 64 KB: the single clone is cancelled, not replayable, never identical", async () => {
@@ -344,7 +345,8 @@ describe("fetch observer: Request objects with bodies (one clone; replays come f
       expect(spy).toHaveBeenCalledTimes(2); // one clone per request, none kept for replays
       expect(server.hits.get("PUT /api/upload")).toBe(2); // no retry
       const f = decider.calls.find((c) => c.trigger === "failure")!;
-      expect(Object.keys((f.questions.action as { criteria: Record<string, string> }).criteria)).not.toContain("retry");
+      const q = f.questions.action as { criteria: Record<string, string> } | undefined;
+      expect(q ? Object.keys(q.criteria) : []).not.toContain("retry");
       const ids = [...rt.ops.byId.values()].filter((o) => o.kind === "fetch").map((o) => o.identity);
       expect(ids).toHaveLength(2);
       expect(ids[0]).not.toBe(ids[1]); // the bytes were not read in full: a unique identity each

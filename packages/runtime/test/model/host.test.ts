@@ -428,6 +428,13 @@ describe("ModelHost inlineFallback: false (OPTIONS-SPEC §4.15: a failed worker 
     };
     return { calls, fetch, ortLoader };
   };
+  /** Until the inline load got going (a real dynamic import first; the failed card download retries on the fake clock). */
+  async function untilCalled(calls: string[], clock: FakeClock): Promise<void> {
+    for (let i = 0; i < 500 && !calls.length; i++) {
+      await new Promise((r) => setTimeout(r, 5));
+      await clock.advance(50);
+    }
+  }
 
   it("the worker cannot be created: nothing is loaded, status is skipped / worker-unavailable, ready() and evaluate() fail open", async () => {
     const t = trace();
@@ -487,18 +494,20 @@ describe("ModelHost inlineFallback: false (OPTIONS-SPEC §4.15: a failed worker 
 
   it("worker: false still runs inline (the main thread was asked for), inlineFallback only governs the fallback", async () => {
     const t = trace();
-    const { host, workers } = setup({ worker: false, inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader });
+    const { host, workers, clock } = setup({ worker: false, inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader });
     expect(workers.length).toBe(0);
     expect(host.status).toMatchObject({ state: "loading", worker: false });
-    await host.ready().catch(() => undefined);
+    await untilCalled(t.calls, clock);
     expect(t.calls.length).toBeGreaterThan(0);
+    expect(host.status.state).not.toBe("skipped");
   });
 
   it("with the default (inlineFallback unset) a failed worker still falls back inline", async () => {
     const t = trace();
-    const { host } = setup({ workerFactory: () => { throw new Error("CSP"); }, fetch: t.fetch, ortLoader: t.ortLoader });
+    const { host, clock } = setup({ workerFactory: () => { throw new Error("CSP"); }, fetch: t.fetch, ortLoader: t.ortLoader });
     expect(host.status).toMatchObject({ state: "loading", worker: false, workerError: "CSP" });
-    await host.ready().catch(() => undefined);
+    await untilCalled(t.calls, clock);
     expect(t.calls.length).toBeGreaterThan(0);
+    expect(host.status.state).not.toBe("skipped");
   });
 });
