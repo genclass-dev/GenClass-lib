@@ -12,7 +12,7 @@ const nf = new Intl.NumberFormat();
 /** Render the dashboard for `stats`: the page body, then its inline script with fetch answering `stats`. */
 async function render(stats: Stats) {
   const html = dashboardPage("NONCE", { name: stats.name, token: stats.token, created: stats.created, lastEvent: stats.lastEvent });
-  const main = /<main class="wrap">([\s\S]*)<\/main>/.exec(html)![1]!;
+  const main = /<main class="wrap"[^>]*>([\s\S]*)<\/main>/.exec(html)![1]!; // the shell's <main> also has id="main"
   const script = /<script nonce="NONCE">([\s\S]*?)<\/script>/.exec(html)![1]!;
   const win = new Window({ url: "https://genclass.dev/dashboard/sample" });
   const doc = win.document;

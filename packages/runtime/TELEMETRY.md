@@ -161,9 +161,9 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
 - The token is public (it is in the page). It is sent as the batch envelope's top-level `token` and nowhere else; it
   lets the collector group the batches of one app. A malformed token logs one console warning and is not sent.
 - Whoever holds the app's private dashboard link (`https://genclass.dev/dashboard/<secret>`, given once when the
-  token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, actions, the
-  app's hostnames, top routes and protected functions, model load, backend and latency, versions) and its recent
-  detections. Dashboard data is also deleted after 90 days.
+  token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, possible
+  detections (the `detect` events with `tier: "possible"`, shown apart), actions, the app's hostnames, top routes and
+  protected functions, model load, backend and latency, versions) and its recent detections. Dashboard data is also deleted after 90 days.
 - A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
   Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
   console says so once when a token is set; otherwise only with `debug: true`.
@@ -188,6 +188,15 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   verified, passkey public keys, the Google `sub` and the GitHub id and login if used, session records, the apps it
   owns) is listed in PRIVACY.md. Deleting the account on its account page deletes the apps created in it with their
   dashboard data.
+- The CLI's account commands send nothing until they are run. `login` sends `POST https://genclass.dev/api/device/code`
+  with `{ "client_name": "genclass-runtime <version>" }` (the approval page shows that name and the account page lists
+  the CLI session under it), then polls `POST /api/device/token` with the code until the sign-in is approved, denied
+  or expires. `whoami` and `connect` read the account's apps (`GET /api/me`); `connect` creates an app with
+  `POST /api/account/projects` and its name (after the developer approved the changes), or adds an existing
+  dashboard with `POST /api/account/projects/claim` and its link from `.genclass.local`; `logout` sends
+  `DELETE /api/account/sessions/current`. Signed in, `init` asks whether a new app goes into the account and then
+  creates it with `POST /api/account/projects` instead of `/api/projects`. These account requests carry
+  `user-agent: genclass-runtime-cli/<version>`.
 
 ## Where it goes
 

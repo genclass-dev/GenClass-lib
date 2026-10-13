@@ -1157,6 +1157,15 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
   Without a token neither is sent; without telemetry, a token does nothing.
+- **Possible detections** (`0.3.0`, observe): their `detect` events carry `tier: "possible"` (a likely detection
+  has no `tier`, as before), and the page-load summary counts them apart from detections (`possibleDetections`). They
+  say which tier a detection was in; nothing new about the page is sent.
+- **The CLI** contacts genclass.dev only for the command you run: `init` creates a dashboard only after you approve its
+  diff (it sends the `name` from `package.json`); `login` asks for a sign-in code with
+  `client_name: "genclass-runtime <version>"` (shown on the approval page and in your account's session list) and
+  polls until you approve it; `whoami` and `connect` read your account's apps; `connect` sends a new app's name, or an
+  existing dashboard's link from `.genclass.local` to add it to your account; `logout` ends the CLI session. The
+  account requests carry `user-agent: genclass-runtime-cli/<version>`. What an account stores: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 - Other telemetry options: `npx @genclass/runtime init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, decisionSample, maxDecisions, flushMs, maxBatch, include }` sends to your own collector, samples page loads or decision records, caps them per page load, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - **Inputs:** typed values of password fields, `cc-*` / `one-time-code` / password autocomplete fields, and fields

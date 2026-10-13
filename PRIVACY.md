@@ -16,8 +16,9 @@ private networks unless the website's developer opts in explicitly with `telemet
 object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2.2), the browser sends us:
 
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
-  write), the model's diagnosis and suggested action, its confidence, and whether anything was changed or undone.
-  No text from the page is included by default.
+  write), the model's diagnosis and suggested action, its confidence, whether anything was changed or undone, and
+  (from runtime 0.3.0) whether a detection was a lower-confidence "possible" one, with a count of those per page
+  load. No text from the page is included by default.
 - **The situation text the model read, only if the website's developer opted in** (`include: { situation: true }`).
   This describes recent app activity: request paths, store field names and short summaries of their values
   (including app state GenClass finds on its own, such as React component state), timing, route changes, short
@@ -47,9 +48,9 @@ works on their own site. We do not sell the data, use it for advertising, or try
 ## Dashboards for website owners
 
 A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated
-diagnostics for that site (counts of decisions, detections and actions, the site's hostnames, routes, the names the
-developer gave to protected functions, model speed, versions) and a list of recent detections (time, route or
-function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
+diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
+routes, the names the developer gave to protected functions, model speed, versions) and a list of recent detections
+(time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
 When a developer creates a token with `npx @genclass/runtime init`, after approving its changes, the tool sends us

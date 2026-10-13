@@ -84,7 +84,9 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 
 - **Token and dashboard.** A token (`gc_` plus 22 letters and digits, public) groups your app's diagnostics under a
   private dashboard link (`https://genclass.dev/dashboard/...`; whoever holds the link sees the stats). Get one at
-  [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. The
+  [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. Or keep the
+  dashboards in an optional genclass.dev account: `npx @genclass/runtime login` signs in from the terminal (device
+  flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
   dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`,
   private networks) do not send by default; `telemetry: true` or any telemetry options object (`telemetry: { ... }`)
   is an explicit opt-in that sends from them too, with the token. Data is kept for 90 days.
@@ -176,6 +178,15 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
   Without a token neither is sent; without telemetry, a token does nothing.
+- **Possible detections** (`0.3.0`, observe): their `detect` events carry `tier: "possible"` (a likely detection
+  has no `tier`, as before), and the page-load summary counts them apart from detections (`possibleDetections`). They
+  say which tier a detection was in; nothing new about the page is sent.
+- **The CLI** contacts genclass.dev only for the command you run: `init` creates a dashboard only after you approve its
+  diff (it sends the `name` from `package.json`); `login` asks for a sign-in code with
+  `client_name: "genclass-runtime <version>"` (shown on the approval page and in your account's session list) and
+  polls until you approve it; `whoami` and `connect` read your account's apps; `connect` sends a new app's name, or an
+  existing dashboard's link from `.genclass.local` to add it to your account; `logout` ends the CLI session. The
+  account requests carry `user-agent: genclass-runtime-cli/<version>`. What an account stores: [PRIVACY.md](PRIVACY.md).
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](packages/runtime/TELEMETRY.md).
 
 ## Security
