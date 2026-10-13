@@ -9,12 +9,16 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it, vi } from "vitest";
 // @ts-expect-error plain ESM module without types
-import { configLiteral, isEmptyConfig, metaContent, tagWithConfig, updateConfigText } from "../../bin/lib/edit.mjs";
+import { configLiteral, isEmptyConfig, metaContent, sinkImports, tagWithConfig, updateConfigText } from "../../bin/lib/edit.mjs";
 // @ts-expect-error plain ESM module without types
-import { USAGE, configOf, monitoringSdks } from "../../bin/lib/init.mjs";
+import { USAGE, configOf, monitoringSdks, withSinkSdks } from "../../bin/lib/init.mjs";
 import { fromDataset, readMetaConfig } from "../../src/cdn/config.js";
 import { parseSinkSpec } from "../../src/cdn/sinks-fanout.js";
 import { applySinks } from "../../src/cdn/sinks.js";
+import { posthog } from "../../src/sinks/posthog.js";
+import { sentry } from "../../src/sinks/sentry.js";
+import type { Sink, SinkObject } from "../../src/types.js";
+import { defaultScript, drain, setup } from "../helpers.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(HERE, "..", "..", "bin", "genclass-runtime.mjs");
@@ -82,11 +86,32 @@ const VITE_HTML = `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charse
 const VITE_MAIN = `import { createApp } from "vue";\nimport App from "./App.vue";\n\ncreateApp(App).mount("#app");\n`;
 const viteVue = (deps: Record<string, string> = {}) => project({ "package.json": pkg({ vue: "^3", vite: "^7", ...deps }), "index.html": VITE_HTML, "src/main.js": VITE_MAIN });
 const PAGE = `<!doctype html>\n<html>\n<head>\n  <title>x</title>\n</head>\n<body></body>\n</html>\n`;
-const astro = () =>
+const astro = (deps: Record<string, string> = {}) =>
   project({
-    "package.json": pkg({ astro: "^5" }),
+    "package.json": pkg({ astro: "^5", ...deps }),
     "src/layouts/Layout.astro": `---\n---\n<html>\n\t<head>\n\t\t<title>x</title>\n\t</head>\n\t<body><slot /></body>\n</html>\n`,
   });
+
+/**
+ * Runs an option file init wrote, its imports taken from `mods` (a shim for exactly the import forms init writes), and
+ * returns the global it set GENCLASS_CONFIG on.
+ */
+function runOptionFile(src: string, mods: Record<string, Record<string, unknown>>): { GENCLASS_CONFIG?: { sinks: (string | Sink)[] } } {
+  const body = src
+    .replace(/^import \* as (\w+) from "([^"]+)";$/gm, (_m, name: string, spec: string) => `const ${name} = __m(${JSON.stringify(spec)});`)
+    .replace(/^import (\w+) from "([^"]+)";$/gm, (_m, name: string, spec: string) => `const ${name} = __m(${JSON.stringify(spec)}).default;`)
+    .replace(/^import \{ (\w+)(?: as (\w+))? \} from "([^"]+)";$/gm, (_m, name: string, alias: string | undefined, spec: string) => `const ${alias ?? name} = __m(${JSON.stringify(spec)}).${name};`);
+  expect(body).not.toMatch(/^\s*import\b/m);
+  const win: { GENCLASS_CONFIG?: { sinks: (string | Sink)[] } } = {};
+  const need = (spec: string) => {
+    if (!mods[spec]) throw new Error(`the option file imports ${spec}`);
+    return mods[spec];
+  };
+  new Function("__m", "globalThis", body)(need, win);
+  return win;
+}
+
+const DELAY = defaultScript({ request: { diagnosis: "overload", action: "delay" } });
 
 describe("init --sink: findings in the tools the developer already opens", () => {
   it("Vite: --sink sentry writes sinks: [\"sentry\"] to genclass.config.js, imported right before /auto; remove restores everything", () => {
@@ -131,7 +156,11 @@ describe("init --sink: findings in the tools the developer already opens", () =>
     const warn = vi.fn();
     const init = applySinks({}, win.GENCLASS_CONFIG!.sinks, resolve, warn, {});
     expect(init.sinks!.length).toBe(1);
-    expect(init.requests!.ignore).toEqual(["/genclass"]);
+    // the webhook's own endpoint, exactly (a function matcher: /genclass, not /genclassic)
+    const ignore = init.requests!.ignore as ((r: { url: string; method: string; channel: "fetch" }) => boolean)[];
+    expect(ignore.length).toBe(1);
+    expect(ignore[0]({ url: "http://app.test/genclass", method: "POST", channel: "fetch" })).toBe(true);
+    expect(ignore[0]({ url: "http://app.test/genclassic", method: "GET", channel: "fetch" })).toBe(false);
     expect(resolve).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
   });
@@ -207,6 +236,103 @@ describe("init --sink: findings in the tools the developer already opens", () =>
     expect(cli(dir, "init", "--dry-run", "--no-install").out).not.toContain("init --sink");
     const dd = cli(viteVue({ "@datadog/browser-rum": "^6" }), "init", "--dry-run", "--no-install");
     expect(dd.out).toContain("init --sink datadog");
+  });
+
+  it("with @sentry/* or posthog-js from npm (no page global), init writes the adapter with the app's SDK passed in, and it reaches that SDK", async () => {
+    const dir = viteVue({ "@sentry/vue": "^9", "@sentry/vite-plugin": "^3", "posthog-js": "^1", "@datadog/browser-rum": "^6" });
+    const dry = cli(dir, "init", "--dry-run", "--no-install", "--sink", "sentry,posthog:noevidence,datadog,webhook:/genclass");
+    expect(dry.code, dry.out).toBe(0);
+    expect(dry.out).toContain("sentry: Sentry.captureMessage per record, grouped per bug, through @sentry/vue (imported there, passed to the adapter)");
+    expect(dry.out).toContain("posthog:noevidence: posthog.capture");
+    expect(dry.out).toContain("through window.DD_RUM");
+    expect(dry.out).toContain("posthog:noevidence: the structured fields only");
+    expect(dry.out).toContain("--sink sentry:noevidence");
+    const after = roundTrip(dir, "--sink", "sentry,posthog:noevidence,datadog,webhook:/genclass");
+    const file = after["src/genclass.config.js"];
+    expect(file.split("\n").filter((l) => l.startsWith("import "))).toEqual([
+      `import * as Sentry from "@sentry/vue";`,
+      `import { sentry as sentrySink } from "@genclass/runtime/sinks/sentry";`,
+      `import posthog from "posthog-js";`,
+      `import { posthog as posthogSink } from "@genclass/runtime/sinks/posthog";`,
+    ]);
+    expect(file).toContain(`globalThis.GENCLASS_CONFIG = { sinks: [sentrySink({ sentry: Sentry }), posthogSink({ posthog, evidence: false }), "datadog", "webhook:/genclass"] };`);
+    expect(file).not.toContain("vite-plugin");
+    // run the file as the app's bundler would, with fake SDKs: the records reach them
+    const fakeSentry = { captureMessage: vi.fn() };
+    const fakePosthog = { capture: vi.fn() };
+    const win = runOptionFile(file, {
+      "@sentry/vue": fakeSentry,
+      "posthog-js": { default: fakePosthog },
+      "@genclass/runtime/sinks/sentry": { sentry },
+      "@genclass/runtime/sinks/posthog": { posthog },
+    });
+    const listed = win.GENCLASS_CONFIG!.sinks;
+    expect(listed.slice(2)).toEqual(["datadog", "webhook:/genclass"]);
+    const init = applySinks({}, listed, () => Promise.resolve({ send: vi.fn() }), vi.fn(), {});
+    expect(init.sinks!.length).toBe(3); // the two adapters as they are, the names as one proxy
+    expect((init.sinks![1] as SinkObject).evidence).toBe(false);
+    const s = setup({ sinks: init.sinks, triage: "always", script: DELAY });
+    s.server.on("GET", "/api/x", { body: 1, latency: 5 });
+    const p = s.fetch("/api/x").catch(() => undefined);
+    await s.clock.advance(2000);
+    await p;
+    await s.clock.advance(10);
+    await drain(8);
+    expect(s.rt.interventions().length).toBe(1);
+    expect(fakeSentry.captureMessage).toHaveBeenCalledTimes(1);
+    expect(fakeSentry.captureMessage.mock.calls[0][0]).toMatch(/^\[GenClass\] Slowed down an overload request/);
+    expect(fakePosthog.capture).toHaveBeenCalledTimes(1);
+    const [event, props] = fakePosthog.capture.mock.calls[0] as [string, Record<string, unknown>];
+    expect(event).toBe("genclass_intervention");
+    expect(props.diagnosis).toBe("overload");
+    expect(props.message).toBeUndefined(); // posthog:noevidence
+  });
+
+  it("an import-based option file switches in place: another --sink rewrites the imports with the sinks; remove takes it all out", () => {
+    const dir = viteVue({ "@sentry/react": "^9", "posthog-js": "^1" });
+    const before = snapshot(dir);
+    expect(cli(dir, "init", "--yes", "--no-install", "--sink", "sentry").code).toBe(0);
+    const cfg = join(dir, "src/genclass.config.js");
+    expect(readFileSync(cfg, "utf8")).toContain(`import * as Sentry from "@sentry/react";`);
+    const r = cli(dir, "init", "--yes", "--no-install", "--sink", "posthog,console-json");
+    expect(r.code, r.out).toBe(0);
+    const text = readFileSync(cfg, "utf8");
+    expect(text).not.toContain("Sentry");
+    expect(text).toContain(`import posthog from "posthog-js";\nimport { posthog as posthogSink } from "@genclass/runtime/sinks/posthog";\nglobalThis.GENCLASS_CONFIG = { sinks: [posthogSink({ posthog }), "console-json"] };`);
+    expect(cli(dir, "init", "--yes", "--no-install", "--sink", "posthog,console-json").out).toContain("Nothing to do");
+    expect(cli(dir, "init", "--yes", "--no-install", "--no-telemetry").code).toBe(0);
+    expect(readFileSync(cfg, "utf8")).toContain(`GENCLASS_CONFIG = { telemetry: false, sinks: [posthogSink({ posthog }), "console-json"] };`);
+    expect(readFileSync(cfg, "utf8")).toContain(`import posthog from "posthog-js";`);
+    expect(cli(dir, "remove", "--yes").code).toBe(0);
+    expect(snapshot(dir)).toEqual(before);
+    // the edit helpers alone
+    expect(updateConfigText(`// x\nglobalThis.GENCLASS_CONFIG = { sinks: ["sentry"] };\n`, { sinks: ["sentry"], sdks: { sentry: "@sentry/browser" } })).toBe(
+      `// x\nimport * as Sentry from "@sentry/browser";\nimport { sentry as sentrySink } from "@genclass/runtime/sinks/sentry";\nglobalThis.GENCLASS_CONFIG = { sinks: [sentrySink({ sentry: Sentry })] };\n`,
+    );
+    expect(sinkImports({ sinks: ["sentry", "sentry:noevidence"], sdks: { sentry: "@sentry/browser" } })).toEqual([`import * as Sentry from "@sentry/browser";`, `import { sentry as sentrySink } from "@genclass/runtime/sinks/sentry";`]);
+    expect(configLiteral({ sinks: ["sentry:noevidence", "datadog:noevidence"], sdks: { sentry: "@sentry/browser" } })).toBe(`{ sinks: [sentrySink({ sentry: Sentry, evidence: false }), "datadog:noevidence"] }`);
+  });
+
+  it("only Sentry's browser SDKs count (framework ones first), never its build plugins or server SDKs; Astro and plain HTML say what a name needs", () => {
+    expect(monitoringSdks({ deps: { "@sentry/vite-plugin": "^3", "@sentry/node": "^8", "@sentry/cli": "^2" } })).toEqual([]);
+    expect(monitoringSdks({ deps: { "@sentry/browser": "^9", "@sentry/nextjs": "^9" } })).toEqual([{ sink: "sentry", dep: "@sentry/nextjs" }]);
+    expect(withSinkSdks({ sinks: ["sentry", "datadog"] }, { framework: "vite", deps: { "@sentry/vue": "^9", "@datadog/browser-rum": "^6" } })).toEqual({ sinks: ["sentry", "datadog"], sdks: { sentry: "@sentry/vue" } });
+    expect(withSinkSdks({ sinks: ["sentry"] }, { framework: "astro", deps: { "@sentry/astro": "^9" } })).toEqual({ sinks: ["sentry"] });
+    expect(withSinkSdks({ sinks: ["sentry"] }, { framework: "vite", deps: {} })).toEqual({ sinks: ["sentry"] });
+    const a = cli(astro({ "@sentry/astro": "^9" }), "init", "--dry-run", "--no-install", "--sink", "sentry");
+    expect(a.code, a.out).toBe(0);
+    expect(a.out).toContain("@sentry/astro from npm sets no window.Sentry");
+    expect(a.out).toContain("window.Sentry = Sentry;");
+    const adv = cli(astro({ "@sentry/astro": "^9" }), "init", "--dry-run", "--no-install");
+    expect(adv.out).toContain("init --sink sentry");
+    expect(adv.out).toContain("window.Sentry = Sentry;");
+    const vite = cli(viteVue({ "@sentry/vue": "^9" }), "init", "--dry-run", "--no-install");
+    expect(vite.out).toContain("init writes the adapter with your @sentry/vue into its option file");
+    // --sink takes the evidence option; anything else after the name is a usage error
+    expect(cli(viteVue(), "init", "--dry-run", "--no-install", "--sink", "sentry:noevidence").code).toBe(0);
+    const bad = cli(viteVue(), "init", "--dry-run", "--no-install", "--sink", "sentry:bogus");
+    expect(bad.code).toBe(2);
+    expect(bad.out).toContain(":noevidence");
   });
 
   it("USAGE documents --sink; package.json exports every adapter with types, mapped in typesVersions", () => {
