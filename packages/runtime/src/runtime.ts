@@ -97,7 +97,7 @@ import { installPerf } from "./observe/perf.js";
 import { installWebSocket } from "./observe/websocket.js";
 import { deviceEnv, memoryFloor, skippedMessage } from "./model/device.js";
 import { installTimers } from "./observe/timers.js";
-import { defaultRedact, normalizeFieldPath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
+import { defaultRedact, normalizeFieldPath, normalizePath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
 import { blockedMessage } from "./model/blocked.js";
 import type { ReactDiscovery } from "./discover/react.js";
 import type { ReduxDiscovery } from "./discover/redux.js";
@@ -860,6 +860,10 @@ export class RuntimeImpl implements Runtime {
     const rec: SinkRecord = { schema: 1, kind, id: this.sinks.nextId(), ts: this.clock.now(), sessionId: this.sessionId, tags: { ...this.sessionTags }, mode: r.mode ?? this.sessionMode(), sampled: this.sampled };
     if (r.correlationId) rec.correlationId = r.correlationId;
     if (r.label) rec.label = r.label;
+    // the route normalised as telemetry sends it (id-like segments as ":id"), segments holding an "@" (an email) as
+    // ":id" too, at most 200 chars: no tokens or addresses in a sink's tags
+    const route = op?.scope?.route ?? this.routeScope.route;
+    if (route) rec.route = normalizePath(route).replace(/[^/]*(?:@|%40)[^/]*/gi, ":id").slice(0, 200);
     if (d) {
       rec.diagnosis = d.diagnosis;
       rec.p = d.confidence;
@@ -882,7 +886,6 @@ export class RuntimeImpl implements Runtime {
         ...(ex ? { timeline: ex.timeline.map(redactUrlText) } : {}),
       };
     }
-    void op;
     return rec;
   }
 

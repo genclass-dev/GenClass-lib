@@ -80,7 +80,8 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [State it can protect](#state-it-can-protect) ·
-[Ask it questions](#ask-it-questions) · [Observability](#observability) · [Extend it](#extend-it) ·
+[Ask it questions](#ask-it-questions) · [Observability](#observability) ·
+[See it where you already look](#see-it-where-you-already-look) · [Extend it](#extend-it) ·
 [Model quality](#model-quality) · [Performance](#performance) · [Costs](#costs) ·
 [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting) · [Privacy and telemetry](#privacy-and-telemetry) ·
 [Known limitations](#known-limitations) · [API reference](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md) ·
@@ -110,6 +111,10 @@ started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which 
 user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropped the state changes it makes over
 newer data (search.results). (stale, 0.97; discard 0.98)
 ```
+
+In production these lines print in your users' browsers. From the next release (not in `0.2.2`) you can send them
+to Sentry, PostHog, Datadog, your log shipper or your own endpoint as well: `npx @genclass/runtime init --sink sentry`,
+or `data-sink="sentry"` on the script tag ([See it where you already look](#see-it-where-you-already-look)).
 
 ## Install
 
@@ -164,12 +169,14 @@ Options without editing code (also on a project `init` already set up; `remove` 
 ```bash
 npx @genclass/runtime init --no-telemetry                # anonymous diagnostics off (--telemetry: explicitly on)
 npx @genclass/runtime init --model-url /genclass-model/  # a self-hosted model (see Content-Security-Policy below)
+npx @genclass/runtime init --sink sentry                 # findings in Sentry too: also posthog, datadog, console-json,
+                                                         # webhook:<url> (next release; "See it where you already look")
 ```
 
 They go into a marked `genclass.config.ts` (or `.js`) next to your entry, which sets `window.GENCLASS_CONFIG` and is
 imported right before the `/auto` import (an ES module's imports run before its own code, so options cannot be set
 above the import in the same file). Any `GenClass.init()` option works in that file. Plain HTML gets
-`data-telemetry="off"` (and `data-model`, `data-ort`) on the script tag, Astro a `<meta name="genclass">` line.
+`data-telemetry="off"` (and `data-model`, `data-ort`, `data-sink`) on the script tag, Astro a `<meta name="genclass">` line.
 
 `init` also says that telemetry is on by default and how to turn it off, and when your app sets a
 Content-Security-Policy (`next.config` headers, a proxy or middleware, a `<meta http-equiv>`, helmet, `vercel.json`,
@@ -646,6 +653,100 @@ if (import.meta.env.DEV) {
 }
 ```
 
+### See it where you already look
+
+> **Next release.** Everything in this section is in the CHANGELOG's Unreleased section, not in `0.2.2`: `0.2.2`
+> ignores `data-sink` and `sink=`, stops at `init --sink` with "unknown option", has no `@genclass/runtime/sinks`
+> exports, and prints "a sink failed" for a sink name in `GENCLASS_CONFIG.sinks`. Use the version that ships it in
+> the script tag below.
+
+In production the `[GenClass]` console lines print in your users' browsers, not yours. Sinks send every detection,
+intervention, undo, breaker trip and runtime error to a tool you already open as well. The console default does not
+change.
+
+With `/auto` or the script tag you write no adapter code yourself:
+
+```bash
+npx @genclass/runtime init --sink sentry   # or posthog, datadog, console-json, webhook:/genclass; repeat it or comma-separate
+```
+
+```html
+<meta name="genclass" content="sink=sentry+posthog">     <!-- + joins names: commas separate the meta keys -->
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2" data-sink="sentry,posthog"></script>
+<script>window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] };</script>
+```
+
+`init` suggests the flag when your `package.json` depends on a Sentry browser SDK (`@sentry/react`, `@sentry/vue`,
+`@sentry/nextjs`, ...), `posthog-js` or `@datadog/browser-rum`. In a project with an entry file it writes its option
+file: a sink whose SDK you install from npm is written as the adapter with your SDK passed in, since the npm Sentry
+and PostHog SDKs set no page global and a name alone would reach nothing:
+
+```js
+// src/genclass.config.js, as `init --sink sentry,datadog` writes it next to @sentry/vue
+import * as Sentry from "@sentry/vue";
+import { sentry as sentrySink } from "@genclass/runtime/sinks/sentry";
+globalThis.GENCLASS_CONFIG = { sinks: [sentrySink({ sentry: Sentry }), "datadog"] };
+```
+
+Every other sink stays a name: it loads its adapter on the first record and finds the SDK as a page global
+(`window.Sentry` from the Sentry Loader Script or a CDN bundle, `window.posthog` from the PostHog snippet,
+`window.DD_RUM`, which the Datadog snippets and `@datadog/browser-rum` both set). On a plain HTML page (`data-sink`)
+or an Astro layout (`sink=` in the meta line) only names fit, so with an npm SDK there add `window.Sentry = Sentry;`
+where your app imports it; `init` says so. An adapter that finds no SDK when a record arrives says so once in the
+console. A `<meta>` tag only takes a same-origin webhook URL, checked as the browser resolves it (against the page and
+`document.baseURI`); a cross-origin one is ignored with a console warning, so put a collector on another origin in
+`data-sink` or `window.GENCLASS_CONFIG`. A webhook URL is made absolute once, at init, and only that endpoint (origin
+and path) is excluded from what GenClass observes. Add `:noevidence` to a name (`sentry:noevidence`,
+`--sink posthog:noevidence`) to send the structured fields without the evidence text. In code, pass the client to
+`GenClass.init`:
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { sentry } from "@genclass/runtime/sinks/sentry";
+import { posthog } from "@genclass/runtime/sinks/posthog";
+import { datadog } from "@genclass/runtime/sinks/datadog";
+import { consoleJson } from "@genclass/runtime/sinks/console-json";
+import { webhook } from "@genclass/runtime/sinks/webhook";
+import * as Sentry from "@sentry/browser";
+import posthogClient from "posthog-js";
+import { datadogRum } from "@datadog/browser-rum";
+
+GenClass.init({
+  sinks: [
+    sentry({ sentry: Sentry }),          // Sentry.captureMessage(line, { level: "warning", tags: { genclass: <diagnosis>,
+                                         //   "genclass.mode", "genclass.action", ... }, extra: { genclass: <record> } }),
+                                         //   one issue per bug; as: "breadcrumb" adds breadcrumbs instead
+    posthog({ posthog: posthogClient }), // posthog.capture("genclass_detection", { diagnosis, p, action, route, message, ... })
+    datadog({ rum: datadogRum }),        // DD_RUM.addError(GenClassDetection | GenClassIntervention), addAction("genclass_undo" | ...)
+    consoleJson(),                       // console.log('{"source":"genclass","schema":1,"kind":"detection",...}') for log shippers
+    webhook({ url: "/genclass" }),       // batched POSTs of { schema: "genclass-sink/1", version, records } to your endpoint
+  ],
+});
+```
+
+`@genclass/runtime/sinks` exports all five. No adapter adds a dependency or ever throws into your app. Without the
+client option an adapter looks the global up on every record, so an SDK that loads later still gets them; without any
+SDK it sends nothing and warns once. The Sentry, PostHog and Datadog adapters skip the per-session `summary` record;
+they and the webhook cap repeats of one bug at 10 per page load (`maxPerSignature`). Every adapter takes `kinds`,
+`sampleRate` and `evidence`.
+
+**What a sink receives** is the record the runtime built and nothing else: `kind`, `route` (the page path with
+id-like and email segments as `:id`, as telemetry sends it), `diagnosis` and its
+probability `p`, `action`, `tier`, `trigger`, `mode`, `label`, `reason`, `changed` (state paths), `sessionId` and your
+session `tags`, plus the evidence: the console line, the subject and the timeline, with URL query and fragment values
+replaced by `…`. Timeline lines can hold short fragments of app data, as the console does (a store value summary, an
+error message, text typed into an ordinary input; secret-named fields are `[redacted]`). `evidence: false` on an
+adapter sends the structured fields only. A sink never gets the full situation text the model read, request or
+response bodies, headers or cookies. The webhook POSTs exactly those records as
+`{ schema: "genclass-sink/1", version, records }`, by `navigator.sendBeacon` (which GenClass never wraps, and which
+survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so parse it
+as JSON. One POST carries the records GenClass hands over in one idle-time round, at most 50 records and 32,000
+bytes of them, and each round sends at most one: the browser allows 64 KiB of beacons in flight per page, shared with
+yours (your analytics on page exit, say), so GenClass never takes more than about half. What does not fit waits for the
+next round, and on page hide one last batch goes (the session summary first) and the rest is dropped. Pass a `clock`
+and `flushMs` to batch over a time window instead. `headers` switches it to `fetch`; then list the URL in
+`requests.ignore` (the zero-code forms do that for you).
+
 ## Extend it
 
 Plugins can add their own observers, facts, actions and questions:
@@ -675,7 +776,7 @@ GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that ap
 - **Activation**: `enabled` (a boolean, a predicate, or a subscribable feature flag; while it is false the model is never downloaded), `rt.disable({ undo: true })` (remote kill that also rolls back recent actions), `sample` (the fraction of sessions allowed to act; the rest only observe).
 - **Scope**: `routes` (per-route mode and aggressiveness, which can only be lowered), `requests.ignore` (analytics traffic), `requests.protect` (endpoints that are never held, retried, cached or discarded), `requests.labels` (endpoint names for reports), `requests.correlate` (attach your trace id to records).
 - **Safety**: `breaker` (automatic downgrade after undos, or after errors that follow an action), `shadow` (records what a higher mode would have done), `onBeforeAction` + `vetoMode` (a synchronous veto, or a report-only trial of one), `policy.actionLimits` (per-minute, per-subject and per-session caps), `policy.holdBudgetMs` (a hard ceiling on added latency).
-- **Your own telemetry**: `sinks` (structured, redacted records), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
+- **Your own telemetry**: `sinks` (structured, redacted records; ready-made adapters in `@genclass/runtime/sinks` for Sentry, PostHog, Datadog, JSON console lines and a webhook, see "See it where you already look"), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
 - **Loading and cost**: `model.loadIf`, `model.threads`, `model.timeoutMs`, `model.maxDecisionsPerMinute`, `model.unloadAfterIdleMs`.
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.
@@ -835,11 +936,13 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
 
 - **Bundle:** what every page loads is about 99 KB gzip for `@genclass/runtime/auto` with automatic state
   discovery and 92 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild in `0.2.2`. `0.3.0` measures BUNDLE_SIZES_PENDING. The model worker, ONNX Runtime Web's JavaScript
-  (about 70 KB gzip for WASM, 115 KB with WebGPU, minified) and the devtools are separate chunks loaded on demand.
+  esbuild in `0.2.2` (99.17 KB and 91.70 KB). `0.3.0` measures BUNDLE_SIZES_PENDING. The model worker, ONNX Runtime
+  Web's JavaScript (about 70 KB gzip for WASM, 115 KB with WebGPU, minified), the devtools and the sink adapters are
+  separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  110 KB gzip (with discovery); its model worker and ONNX Runtime glue load on demand.
+  115 KB gzip (114.86 KB in the same CI run, with discovery and the sink names' proxy); its model worker, ONNX Runtime
+  glue and sink adapters load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass
   took about 182 / 330 / 599 ms at 500 / 780 / 1,170 tokens: about 180 ms per decision at the single-thread budget
@@ -870,7 +973,7 @@ without `?genclass=off`:
 
 | | with GenClass |
 |---|---|
-| JavaScript on every page (first load, gzip) | about +101 KB (`/auto` with discovery; 93 KB for the main entry, see Performance) |
+| JavaScript on every page (first load, gzip) | BUNDLE_COSTS_PENDING |
 | Main thread: load event, LCP, long tasks | no measurable change; main JS heap +0.4 MB |
 | **Memory: renderer process (holds the model worker)** | **+190 to 280 MB RSS** while the model is loaded (cold 448 vs 169 MB, warm 361 vs 171 MB) |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build |
@@ -940,6 +1043,12 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
   requests, so the policy logs at most 3 violations.
+- Sinks ([See it where you already look](#see-it-where-you-already-look), next release): a webhook on another origin
+  needs that origin in `connect-src` (a same-origin path such as `webhook:/genclass` needs nothing). With the script
+  tag, `data-sink` (or `sink=` / `GENCLASS_CONFIG.sinks`) loads `dist/sinks/<name>.js` and the chunk the adapters
+  share from the tag's own CDN path, so allow `https://cdn.jsdelivr.net` in `script-src`, or self-host this package's
+  `dist/` and point `data-base` at it. With `/auto` the adapters are chunks of your own bundle. The Sentry, PostHog
+  and Datadog SDKs need the CSP entries their own docs list.
 
 ## Privacy and telemetry
 

@@ -73,7 +73,13 @@ export class SinkDispatcher {
     private readonly global: Record<string, unknown>,
     private readonly onError: (msg: string) => void,
   ) {
-    this.sinks = (sinks ?? []).filter(Boolean).map((s) => ({ o: typeof s === "function" ? { send: s } : s, n: 0, lastErr: -Infinity }));
+    this.sinks = [];
+    for (const s of sinks ?? []) {
+      if (typeof s === "function") this.sinks.push({ o: { send: s }, n: 0, lastErr: -Infinity });
+      else if (s && typeof s === "object" && typeof (s as SinkObject).send === "function") this.sinks.push({ o: s, n: 0, lastErr: -Infinity });
+      // a name ("sentry") works only in /auto's and the script tag's page config; here it takes the adapter itself
+      else if (s) onError(`sink ${typeof s === "string" ? `"${s}"` : typeof s} is neither a function nor { send }; ignored (import its adapter from @genclass/runtime/sinks).`);
+    }
   }
 
   get size(): number {

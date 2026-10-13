@@ -77,6 +77,17 @@ const ortExternal = {
   },
 };
 
+// The sink adapters (@genclass/runtime/sinks/*): entries of their own (importable, and what /auto's lazy chunks and
+// the script tag's `data-sink` load from dist/sinks/), never part of the first-load bundle.
+const SINK_ENTRIES = {
+  "sinks/index": "src/sinks/index.ts",
+  "sinks/sentry": "src/sinks/sentry.ts",
+  "sinks/posthog": "src/sinks/posthog.ts",
+  "sinks/datadog": "src/sinks/datadog.ts",
+  "sinks/console-json": "src/sinks/console-json.ts",
+  "sinks/webhook": "src/sinks/webhook.ts",
+};
+
 // Script-tag build (INSTALL): window.GenClass, auto-init from data attributes. onnxruntime-web stays out of it; the
 // worker and the inline fallback load dist/cdn/* on demand.
 const globalBuild = (minify: boolean): Options => ({
@@ -109,9 +120,10 @@ export default defineConfig([
       "devtools/index": "src/devtools/index.ts",
       discover: "src/discover/entry.ts",
       worker: "src/model/worker.ts",
+      ...SINK_ENTRIES,
     },
     format: ["esm"],
-    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts" } },
+    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts", ...SINK_ENTRIES } },
     target: "es2022",
     platform: "browser",
     splitting: true,
@@ -123,6 +135,9 @@ export default defineConfig([
     // onnxruntime-web is a dependency, which tsup would leave external as is: ortFromCdnDir rewrites it instead
     noExternal: [/^onnxruntime-web/],
     esbuildPlugins: [ortFromCdnDir as never],
+    // the version as a constant for modules that must not import src/version.ts (src/sinks/webhook.ts: an adapter
+    // that shared a chunk with the runtime would split that chunk out of every app's first load)
+    define: { __GENCLASS_PKG_VERSION__: JSON.stringify(pkg.version) },
   },
   globalBuild(false),
   globalBuild(true),

@@ -108,6 +108,7 @@ export interface SinkRecord {
   tags: Record<string, string | number | boolean>;
   correlationId?: string;      // from requests.correlate; never model-visible
   mode: ModeOrOff;             // effective mode at decision
+  route?: string;              // the path the subject's op was created on (else the current one), id-like and email segments as :id, <= 200 chars
   sampled: boolean;
   diagnosis?: string; p?: number;
   action?: string; tier?: Tier;
@@ -415,19 +416,19 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 
 **Semantics.**
 - Sinks are independent of `report`.
-- Each `Report` maps to a `SinkRecord` (schema 1). By default the record is minimal: no situation text, no URLs, no values, and only paths in `changed`. `evidence:true` adds redacted `message`, `trigger`, subject label and the `explain()` timeline.
+- Each `Report` maps to a `SinkRecord` (schema 1). By default the record is minimal: no situation text, no request URLs, no values, and only paths in `changed`; `route` is the page path normalised as telemetry sends it (id-like and email segments as `:id`, at most 200 chars). `evidence:true` adds redacted `message`, `trigger`, subject label and the `explain()` timeline.
 - `kinds` filters records. `sampleRate` is deterministic per session (`hash(sessionId+index)`) and never drops `intervention`, `undo` or `breaker`.
 - Dispatch is queued (a microtask batch, then `requestIdleCallback`) and never runs on the decision or hold path.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On `pagehide`, or once on `visibilitychange→hidden` as a fallback, one `summary` record is emitted and each sink's `flush()` is called.
-- `rt.summary()` is always available. Vendor adapters are left to separate packages.
+- `rt.summary()` is always available. Vendor adapters ship as entries of the package, outside the first-load bundle: `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}` (`src/sinks/`, each a function returning a `SinkObject` that finds the SDK on the page at send time, never throws and sends only the record). The zero-code entries take them by name (`src/cdn/sinks.ts`: `window.GENCLASS_CONFIG.sinks: ["sentry"]`, `<meta name="genclass" content="sink=sentry">`, `data-sink`, `init --sink`), as one proxy sink that queues records and loads the adapters on the first record, never before (`src/cdn/sinks-fanout.ts`, a lazy chunk of `/auto`; `dist/sinks/<name>.js` from the CDN for the script tag), so only the proxy is in the first load; a `webhook:<url>` is made absolute at init (against `document.baseURI`) and its endpoint (origin and path) joins `requests.ignore` as an exact match, and from a `<meta>` tag it must be same-origin as the browser resolves it (against the page and `document.baseURI`). `init --sink sentry` / `posthog` with that SDK from npm (which sets no page global) writes the adapter with the SDK passed in. Each adapter takes `evidence` (default true; false sends the structured fields only; `<name>:noevidence` in the no-code forms); a tool adapter that finds no SDK when a record arrives warns once; the tool adapters and the webhook cap repeats of one bug at `maxPerSignature` (10) per page load. A string in `GenClass.init({ sinks })` is ignored with one warning.
 
 **Hooks.** `report.ts` (`toSinkRecord`, `SinkDispatcher`), the new `decide/summary.ts`, and a pagehide listener in `runtime.ts`.
 
 **Tests.**
 - Three sinks and the console all receive records.
 - A throwing sink, or one whose Promise takes 2 s, does not delay a hold release.
-- Snapshot of the default record: no URL and no situation text.
+- Snapshot of the default record: no request URL (the page path only, normalised) and no situation text.
 - `evidence:true` adds fields that are still redacted.
 - `sampleRate:0` still delivers interventions.
 - pagehide → exactly one summary and `flush` called.

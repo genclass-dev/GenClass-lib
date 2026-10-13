@@ -124,6 +124,12 @@ const IMPORT_AUTO = String.raw`import(?:genclassfrom)?${AUTO_SPEC};?`;
 // the options file init writes with --no-telemetry / --telemetry / --model-url, imported right before /auto
 const IMPORT_CONFIG = String.raw`import"(?:\.{1,2}/)+(?:[\w.-]+/)*genclass\.config(?:\.[cm]?[jt]s)?";?`;
 const CONFIG_STATEMENT = String.raw`(?:\(globalThisas\{GENCLASS_CONFIG\?:\w+\}\)|globalThis)\.GENCLASS_CONFIG=\{[^;]*\};?`;
+// the imports of an option file whose sinks pass the app's own SDK (init --sink sentry / posthog with it from npm)
+const SINK_IMPORTS = [
+  String.raw`import\*asSentryfrom"@sentry/[\w.-]+";?`,
+  String.raw`importposthogfrom"posthog-js";?`,
+  String.raw`import\{(?:sentryassentrySink|posthogasposthogSink)\}from"@genclass/runtime/sinks/(?:sentry|posthog)";?`,
+];
 const META_CONFIG = String.raw`<metaname="genclass"content="[^"]*"/?>`;
 const DEV_LINE = String.raw`if\(${COND}\)${DEVTOOLS_CALL};?`;
 // the same with braces (ESLint's `curly` fix)
@@ -152,6 +158,7 @@ const BLOCK_RE = new RegExp(
       String.raw`"useclient";?`,
       IMPORT_AUTO,
       IMPORT_CONFIG,
+      ...SINK_IMPORTS,
       CONFIG_STATEMENT,
       DEV_LINE,
       DEV_BLOCK,
@@ -441,7 +448,7 @@ export function bodyTagEnd(text) {
 
 export const CONFIG_COMMENT = "// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).";
 
-const isEmptyConfig = (cfg) => !cfg || (cfg.telemetry === undefined && !cfg.model && !cfg.token);
+const isEmptyConfig = (cfg) => !cfg || (cfg.telemetry === undefined && !cfg.model && !cfg.token && !(cfg.sinks && cfg.sinks.length));
 export { isEmptyConfig };
 
 /**
@@ -452,8 +459,49 @@ export const writtenConfig = (cfg) => (cfg && cfg.telemetry === true ? { ...cfg,
 
 const modelLiteral = (m) => `model: { baseUrl: ${JSON.stringify(m.baseUrl)}, ortWasmPaths: ${JSON.stringify(m.ortWasmPaths)}${m.device ? `, device: ${JSON.stringify(m.device)}` : ""} }`;
 
+// Sinks whose SDK the app imports from npm (cfg.sdks, e.g. { sentry: "@sentry/vue", posthog: "posthog-js" }) are
+// written as their adapter with that SDK passed in: an npm-installed Sentry or posthog-js sets no page global, so the
+// name alone would reach nothing. Every other sink stays a name the zero-code entries resolve (src/cdn/sinks.ts).
+const SDK_SINKS = {
+  sentry: {
+    sdk: (pkg) => `import * as Sentry from ${JSON.stringify(pkg)};`,
+    adapter: `import { sentry as sentrySink } from "@genclass/runtime/sinks/sentry";`,
+    call: (more) => `sentrySink({ sentry: Sentry${more} })`,
+  },
+  posthog: {
+    sdk: (pkg) => `import posthog from ${JSON.stringify(pkg)};`,
+    adapter: `import { posthog as posthogSink } from "@genclass/runtime/sinks/posthog";`,
+    call: (more) => `posthogSink({ posthog${more} })`,
+  },
+};
+/** "sentry:noevidence" → "sentry". */
+export const sinkBase = (s) => String(s).split(/[:=]/)[0].trim().toLowerCase();
+/** `<name>:noevidence`: the structured fields only (src/cdn/sinks-fanout.ts parseSinkSpec reads the same). */
+export const sinkNoEvidence = (s) => /^[^:=]+[:=]\s*no[-_\s]?evidence\s*$/i.test(String(s));
+/** The npm package a sink is written against (the adapter, imported), or null for a sink written as its name. */
+export const sinkSdk = (cfg, s) => (SDK_SINKS[sinkBase(s)] && cfg?.sdks?.[sinkBase(s)]) || null;
+const sinkLiteral = (cfg, s) => (sinkSdk(cfg, s) ? SDK_SINKS[sinkBase(s)].call(sinkNoEvidence(s) ? ", evidence: false" : "") : JSON.stringify(s));
+/** `sinks: ["sentry", "webhook:/genclass"]`, or `sinks: [sentrySink({ sentry: Sentry }), "webhook:/genclass"]`. */
+const sinksLiteral = (cfg) => `sinks: [${cfg.sinks.map((s) => sinkLiteral(cfg, s)).join(", ")}]`;
+const SINKS_RE = /\bsinks\s*:\s*\[[^\]]*\]/;
+
+/** The import lines the option file needs for cfg's SDK-bound sinks: the app's SDK, then the adapter, in sink order. */
+export function sinkImports(cfg) {
+  const lines = [];
+  for (const s of cfg?.sinks ?? []) {
+    const pkg = sinkSdk(cfg, s);
+    if (!pkg) continue;
+    const k = SDK_SINKS[sinkBase(s)];
+    if (!lines.includes(k.adapter)) lines.push(k.sdk(pkg), k.adapter);
+  }
+  return lines;
+}
+/** An import line sinkImports writes (updateConfigText rewrites them with the sinks). */
+const SINK_IMPORT_LINE =
+  /^\s*import\s+(?:\*\s*as\s+Sentry\s+from\s*["']@sentry\/[\w.-]+["']|posthog\s+from\s*["']posthog-js["']|\{\s*(?:sentry\s+as\s+sentrySink|posthog\s+as\s+posthogSink)\s*\}\s*from\s*["']@genclass\/runtime\/sinks\/(?:sentry|posthog)["'])\s*;?\s*$/;
+
 /**
- * The object init writes: `{ token: "gc_...", telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." } }`.
+ * The object init writes: `{ token: "gc_...", telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." }, sinks: ["sentry"] }`.
  * Only the telemetry opt-out is ever written: `telemetry: true` would also send from local hosts.
  */
 export function configLiteral(cfg) {
@@ -461,6 +509,7 @@ export function configLiteral(cfg) {
   if (cfg.token) parts.push(`token: ${JSON.stringify(cfg.token)}`);
   if (cfg.telemetry === false) parts.push("telemetry: false");
   if (cfg.model) parts.push(modelLiteral(cfg.model));
+  if (cfg.sinks?.length) parts.push(sinksLiteral(cfg));
   return parts.length ? `{ ${parts.join(", ")} }` : "{}";
 }
 
@@ -468,12 +517,13 @@ export function configLiteral(cfg) {
 export const configStatement = (cfg, ts) => `${ts ? "(globalThis as { GENCLASS_CONFIG?: object })" : "globalThis"}.GENCLASS_CONFIG = ${configLiteral(cfg)};`;
 
 /**
- * Sets token / telemetry / model in an existing GENCLASS_CONFIG statement (other keys a user added stay).
+ * Sets token / telemetry / model / sinks in an existing GENCLASS_CONFIG statement (other keys a user added stay).
  * `telemetry: false` writes the opt-out; `telemetry: true` (--telemetry) takes the telemetry key out, back to the
- * default (an explicit `true` would also send from local hosts).
+ * default (an explicit `true` would also send from local hosts). With sinks, the import lines of SDK-bound sinks are
+ * rewritten too: the old ones go, cfg's go right above the statement.
  */
 export function updateConfigText(text, cfg) {
-  return text.replace(/(GENCLASS_CONFIG\s*=\s*\{)([^;]*)(\}\s*;?)/, (_m, open, body, close) => {
+  const t = text.replace(/(GENCLASS_CONFIG\s*=\s*\{)([^;]*)(\}\s*;?)/, (_m, open, body, close) => {
     let b = body;
     if (cfg.token) {
       const v = `token: ${JSON.stringify(cfg.token)}`;
@@ -486,24 +536,33 @@ export function updateConfigText(text, cfg) {
       b = b.replace(/\btelemetry\s*:\s*(?:true|false)\s*,?/, "").replace(/,\s*,/, ",");
     }
     if (cfg.model) b = /\bmodel\s*:\s*\{[^}]*\}/.test(b) ? b.replace(/\bmodel\s*:\s*\{[^}]*\}/, modelLiteral(cfg.model)) : `${b.trim().replace(/,\s*$/, "")}, ${modelLiteral(cfg.model)}`;
+    if (cfg.sinks?.length) b = SINKS_RE.test(b) ? b.replace(SINKS_RE, sinksLiteral(cfg)) : `${b.trim().replace(/,\s*$/, "")}, ${sinksLiteral(cfg)}`;
     b = b.trim().replace(/^,\s*/, "").replace(/,\s*$/, "");
     return b ? `${open} ${b} ${close.trimStart()}` : `${open}${close.trimStart()}`;
   });
+  if (!cfg.sinks?.length) return t;
+  const lines = t.split("\n").filter((l) => !SINK_IMPORT_LINE.test(l.replace(/\r$/, "")));
+  const at = lines.findIndex((l) => /GENCLASS_CONFIG\s*=/.test(l));
+  if (at < 0) return lines.join("\n");
+  const cr = lines[at].endsWith("\r") ? "\r" : "";
+  lines.splice(at, 0, ...sinkImports(cfg).map((l) => l + cr));
+  return lines.join("\n");
 }
 
-/** `telemetry=off, model=/genclass-model/, ort=/genclass-model/ort/` (meta content), "" when nothing to say. */
+/** `telemetry=off, model=/genclass-model/, ort=/genclass-model/ort/, sink=sentry+posthog` (meta content; `+` joins sink names since commas separate keys), "" when nothing to say. */
 export function metaContent(cfg) {
   const parts = [];
   if (cfg.token) parts.push(`token=${cfg.token}`);
   if (cfg.telemetry === false) parts.push("telemetry=off");
   if (cfg.model) parts.push(`model=${cfg.model.baseUrl}`, `ort=${cfg.model.ortWasmPaths}`, ...(cfg.model.device ? [`device=${cfg.model.device}`] : []));
+  if (cfg.sinks?.length) parts.push(`sink=${cfg.sinks.join("+")}`);
   return parts.join(", ");
 }
 
-const TAG_ATTRS = { token: "data-token", telemetry: "data-telemetry", model: "data-model", ort: "data-ort", device: "data-device" };
+const TAG_ATTRS = { token: "data-token", telemetry: "data-telemetry", model: "data-model", ort: "data-ort", device: "data-device", sink: "data-sink" };
 const attrRe = (name) => new RegExp(String.raw`\s+${name}\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)`, "i");
 
-/** A script tag with data-token / data-telemetry / data-model / data-ort set for cfg (telemetry true removes the opt-out). */
+/** A script tag with data-token / data-telemetry / data-model / data-ort / data-sink set for cfg (telemetry true removes the opt-out). */
 export function tagWithConfig(tag, cfg) {
   const set = (t, name, value) => {
     const re = attrRe(name);
@@ -521,6 +580,7 @@ export function tagWithConfig(tag, cfg) {
     t = set(t, TAG_ATTRS.ort, cfg.model.ortWasmPaths);
     if (cfg.model.device) t = set(t, TAG_ATTRS.device, cfg.model.device);
   }
+  if (cfg.sinks?.length) t = set(t, TAG_ATTRS.sink, cfg.sinks.join(","));
   return t;
 }
 
@@ -553,6 +613,7 @@ export function switchMetaConfig(text, cfg) {
     if (cfg.telemetry === false) pairs.telemetry = "off";
     if (cfg.telemetry === true) delete pairs.telemetry;
     if (cfg.model) Object.assign(pairs, { model: cfg.model.baseUrl, ort: cfg.model.ortWasmPaths, ...(cfg.model.device ? { device: cfg.model.device } : {}) });
+    if (cfg.sinks?.length) pairs.sink = cfg.sinks.join("+");
     const content = Object.entries(pairs).map(([k, v]) => `${k}=${v}`).join(", ");
     if (!content) {
       lines[metaAt] = "";
