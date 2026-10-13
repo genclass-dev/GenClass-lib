@@ -797,7 +797,12 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   is about 24 MB; then also set `model.device: "wasm"` (`init --model-url` does it when it finds only the WASM
   build there). The WebGPU build's wasm is 27 MB, over the 25 MiB per-file limit of some static hosts (Cloudflare).
 - The policy also needs `'wasm-unsafe-eval'` in `script-src` (WebAssembly) and `worker-src 'self'` (or `blob:`
-  for the script tag).
+  for the script tag). When the worker cannot start (a policy without it, `file:`), the default
+  `model.inlineFallback: true` runs the model on the main thread instead (the `Model ready` line then says
+  `inline on the main thread`; each decision then blocks the page for about 180 ms on single-thread WASM, see
+  Model above). `model: { inlineFallback: false }`
+  skips the model in that case (`status.state` `skipped`, reason `worker-unavailable`, one warning naming the
+  worker error) and the runtime observes without it.
 - Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
   requests, so the policy logs at most 3 violations.

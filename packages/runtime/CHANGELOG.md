@@ -13,6 +13,15 @@
   without `saveData` now skips on Save-Data too (`saveData: "lazy"` keeps the old behaviour).
   `model: { loadIf: () => true }` forces the load. `DEFAULT_LOAD_IF` is exported next to `deviceEnv` and
   `evalLoadIf` (now in `src/model/device.ts`).
+- **Fix: `model.inlineFallback: false` is honoured.** The option was documented since 0.2.0 but the model host
+  ignored it and ran the model on the main thread whenever the worker could not be created, errored before it
+  came up or never came up (a `worker-src` policy, `file:`). Now `false` means the model is not loaded in those
+  cases: `status.state` is `skipped` with reason `worker-unavailable` and `workerError` naming the failure, pending
+  evaluations fail open, `rt.ready` rejects, `load()` tries the worker again, and one console warning names the
+  error and the `worker-src` fix. `worker: false` still runs inline (that asks for the main thread). The default
+  stays `true` as documented; the `Model ready` line now says `inline on the main thread` when it is, and
+  `status.workerError` records why the worker was not used. `npx @genclass/runtime init` mentions `worker-src` in
+  its CSP advice.
 
 ## 0.2.2 (2026-10-13)
 

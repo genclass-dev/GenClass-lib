@@ -69,7 +69,7 @@ function hostOptions(m: ModelOptions, env: DeviceEnv): Record<string, unknown> {
   if (typeof threads === "number" && threads >= 1) out.maxThreads = Math.floor(threads);
   else if (threads === "auto" && typeof env.cores === "number") out.maxThreads = Math.min(4, Math.max(1, env.cores - 1));
   if (typeof timeoutMs === "number" && timeoutMs > 0) out.timeoutMs = timeoutMs;
-  // inlineFallback:false needs a host option (src/model/**, not CORE): flagged, passed through for the host to honour.
+  // inlineFallback:false: the host then never runs the model on the main thread (status "skipped", worker-unavailable)
   if (m.inlineFallback === false) out.inlineFallback = false;
   return out;
 }

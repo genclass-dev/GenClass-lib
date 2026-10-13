@@ -136,7 +136,7 @@ from ever being held.
 | `sessionStorage` | `genclass:bucket` (`sample`), the breaker's trip state | `sample` < 1; breaker trips | [src/runtime.ts](src/runtime.ts) `sampleBucket`, [src/decide/breaker.ts](src/decide/breaker.ts) |
 | `localStorage` / `sessionStorage` | `genclass:learn` (learned operation shapes) | only with `learn.persist` | [src/runtime.ts](src/runtime.ts) `saveProfilesSoon` |
 | `localStorage` (read only) | `genclass` (kill switch), `genclass.telemetry` (opt-out) | init | [src/index.ts](src/index.ts) `killSwitch`, [src/telemetry/config.ts](src/telemetry/config.ts) |
-| A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`) | | model load | [src/model/host.ts](src/model/host.ts) |
+| A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`, default true; `false`: no model then, status `skipped` / `worker-unavailable`) | | model load | [src/model/host.ts](src/model/host.ts) |
 | Memory | ≤ 64 response bodies of ≤ 256 KB (last good GET per identity), ≤ 4 MB of recent responses for coalescing, a 500-event history, 200 decisions, 1,000 audit entries | always | [src/observe/cache.ts](src/observe/cache.ts) |
 | Console | one line per detection or intervention (`report`), the telemetry notice, warnings | `report: "console"` (default) | [src/decide/report.ts](src/decide/report.ts) |
 
