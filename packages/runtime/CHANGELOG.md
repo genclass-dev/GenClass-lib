@@ -22,6 +22,15 @@
   stays `true` as documented; the `Model ready` line now says `inline on the main thread` when it is, and
   `status.workerError` records why the worker was not used. `npx @genclass/runtime init` mentions `worker-src` in
   its CSP advice.
+- **`fetch(new Request(...))` with a body no longer keeps a second copy of the upload.** The fetch observer cloned
+  such a Request twice: once to read up to 64 KB for the request's identity, and once as a pristine template for a
+  later retry or hedge. Nothing read the template until a replay, so its stream tee queued the whole body in memory
+  for the request's lifetime (uploads through axios's fetch adapter or ky, which pass a `Request`). Now there is one
+  clone, read up to 64 KB (then cancelled, which stops its tee from buffering), and a retry rebuilds the Request from
+  the original's URL and fields with those bytes, only when it happens. A Request whose `content-length` is over
+  64 KB is not cloned at all; it, and a body that turns out larger while being read, is not replayable (`retry` is
+  not offered for it; before, the template made it replayable at any size). String, form, Blob and BufferSource
+  bodies passed in `init` are unchanged.
 
 ## 0.2.2 (2026-10-13)
 
