@@ -18,6 +18,7 @@ import { GenClass, createRuntime, GenClassUnavailableError } from "../index.js";
 import type { DevtoolsHandle, DevtoolsOptions } from "../devtools/index.js";
 import type { InitOptions, ModelOptions, Runtime } from "../types.js";
 import { devtoolsOptions, fromDataset, isKilled, mergeConfig, readMetaConfig, readWindowConfig, splitConfig, whenBody, type PageConfig } from "./config.js";
+import { applySinks, type SinkLoader, type SinkModule } from "./sinks.js";
 
 declare const __GENCLASS_VERSION__: string;
 const VERSION: string = typeof __GENCLASS_VERSION__ === "string" ? __GENCLASS_VERSION__ : "0.0.0";
@@ -103,6 +104,8 @@ function install(): void {
     return assetBase(script?.src);
   })();
   const load = (path: string): Promise<unknown> => import(/* @vite-ignore */ /* webpackIgnore: true */ base + path);
+  // sinks by name (data-sink, the meta tag, window.GENCLASS_CONFIG): the adapter comes from dist/sinks/ on the CDN
+  const loadSink: SinkLoader = (name) => load(`sinks/${name}.js`) as Promise<SinkModule>;
 
   const withCdnModel = (opts: InitOptions): InitOptions => {
     if (opts.decider !== undefined || opts.model === false) return opts;
@@ -136,8 +139,8 @@ function install(): void {
     init(options: PageConfig = {}): Runtime {
       // the page's configuration (meta tag, the tag's data attributes, window.GENCLASS_CONFIG) is the default
       // automatic state discovery is on by default for the script tag (installed now, before the framework loads)
-      const { init, devtools } = splitConfig(mergeConfig({ autoState: true }, readMetaConfig(document, { location, warn: (m) => console.warn(m) }), fromDataset(ds), readWindowConfig(window), options));
-      const rt = GenClass.init(withCdnModel(init));
+      const { init, devtools, sinks } = splitConfig(mergeConfig({ autoState: true }, readMetaConfig(document, { location, warn: (m) => console.warn(m) }), fromDataset(ds), readWindowConfig(window), options));
+      const rt = GenClass.init(withCdnModel(applySinks(init, sinks, loadSink, (m) => console.warn(`[GenClass] ${m}`), window as unknown as Record<string, unknown>)));
       const dt = devtoolsOptions(devtools, location);
       if (dt && !isKilled(window)) void mount(rt, dt);
       return rt;

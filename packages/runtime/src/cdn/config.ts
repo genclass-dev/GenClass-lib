@@ -10,7 +10,9 @@
 // Keys of the meta tag and data attributes: mode, model (a model directory URL, or "off"), device, preload, ort
 // (onnxruntime-web wasm directory), worker, report, debug, triage, devtools (bare / true, "local" = only on
 // localhost, false, or a corner such as "bottom-left"), telemetry (off/false/no: no anonymous diagnostics), autostate
-// (off/false/no: no automatic state discovery; on by default in these entries).
+// (off/false/no: no automatic state discovery; on by default in these entries), sink (sinks by name: sentry, posthog,
+// datadog, console-json, webhook:<url>; "sentry+posthog" in the meta tag since commas separate its keys,
+// data-sink="sentry,posthog" on the tag; src/cdn/sinks.ts).
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model and
@@ -28,14 +30,17 @@
 // a CSP `script-src` / `worker-src` / `connect-src` limited to those origins.
 
 import type { DevtoolsOptions, DevtoolsPosition } from "../devtools/index.js";
-import type { InitOptions, Mode, ModelOptions } from "../types.js";
+import type { InitOptions, Mode, ModelOptions, Sink } from "../types.js";
+import { parseSinkList } from "./sinks.js";
 
 /** true, "local" (localhost, 127.0.0.1, [::1], *.localhost, *.local, *.test, file:), false, or overlay options. */
 export type DevtoolsSetting = boolean | "local" | DevtoolsOptions;
 
-export interface PageConfig extends InitOptions {
+export interface PageConfig extends Omit<InitOptions, "sinks"> {
   /** Mount the devtools overlay (loaded on demand). Default: not mounted. */
   devtools?: DevtoolsSetting;
+  /** Sinks, or their names: "sentry", "posthog", "datadog", "console-json", "webhook:<url>" (src/cdn/sinks.ts). */
+  sinks?: (Sink | string)[];
 }
 
 const MODES: readonly string[] = ["observe", "guard", "heal"];
@@ -117,6 +122,12 @@ export function fromPairs(pairs: Record<string, string>): PageConfig {
       case "telemetry":
         // anonymous diagnostics (TELEMETRY.md): only an opt-out here; on is the GenClass.init default
         if (isOff(lv)) c.telemetry = false;
+        break;
+      case "sink":
+      case "sinks":
+        // sinks by name, resolved by the entry (src/cdn/sinks.ts → applySinks); "off" clears what an earlier source set
+        if (isOff(lv)) c.sinks = [];
+        else if (v) c.sinks = parseSinkList(v);
         break;
     }
   }
@@ -269,10 +280,10 @@ export function devtoolsOptions(s: DevtoolsSetting | undefined, loc: LocLike | n
   return typeof s === "object" ? s : null;
 }
 
-/** InitOptions without `devtools`, and the devtools setting. */
-export function splitConfig(c: PageConfig): { init: InitOptions; devtools: DevtoolsSetting | undefined } {
-  const { devtools, ...init } = c;
-  return { init, devtools };
+/** InitOptions without `devtools` and `sinks`, plus those two (sinks still by name: `applySinks` in cdn/sinks.ts resolves them). */
+export function splitConfig(c: PageConfig): { init: InitOptions; devtools: DevtoolsSetting | undefined; sinks: (Sink | string)[] | undefined } {
+  const { devtools, sinks, ...init } = c;
+  return { init, devtools, sinks };
 }
 
 /** Runs fn once document.body exists. */
