@@ -44,6 +44,7 @@ response contents), the app's availability and latency, and the integrity of the
 | the model files (`model.baseUrl`) and onnxruntime-web (`model.ortWasmPaths`) | integrity-checked, not trusted blindly | default: jsDelivr, from the npm packages (T2) |
 | the telemetry collector | receives redacted diagnostics only | default on for `GenClass.init` in a browser (T5) |
 | the developer's configuration | trusted | but parts of it can come from the URL, `localStorage` or meta tags (T8) |
+| learned state in storage (`genclass:learn`, persisted by default since the flow expectations, EXPECTATIONS.md §4) | data, checked field by field on load | holds signatures, normalised routes and field names, counts and hashes, no page text or values; a script that rewrites it can make reports wrong or silent, which any same-origin script could already do (T1) |
 
 ## T1. Other scripts on the page
 
