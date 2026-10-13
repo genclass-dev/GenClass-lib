@@ -11,7 +11,7 @@ NPM = "https://www.npmjs.com/package/@genclass/runtime"
 RT = "0.2.1"  # the pinned @genclass/runtime version shown on the site; "{{rt}}" in src/ renders as this
 MODEL = "0.2.0"  # the model package the pinned runtime loads
 CONTACT = "mehar@daybot.ca"  # the contact in SECURITY.md; GitHub issues and discussions are not enabled on the repo
-HEADLINE = "The bugs that never throw, found in production."  # the one line: H1, og.png, og:image:alt
+HEADLINE = "Catch the bugs that never throw. Then stop them."  # the one line: H1, og.png, og:image:alt
 
 css = (SRC / "css/base.css").read_text() + "\n" + (SRC / "css/components.css").read_text()
 (PUB / "styles.css").write_text(css)
