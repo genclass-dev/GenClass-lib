@@ -14,7 +14,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 
 | path | what |
 |---|---|
-| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`), `test/` (vitest; `test/install/`, `test/browser/`), `bin/` (CLI: `init`, `remove`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
+| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
 | `packages/runtime-model/` | the data-only model package (`files/` is gitignored, filled at release) and `MODEL_CARD.md` |
 | `sim/` | deterministic training-data simulator driving the real runtime (`SEPARABILITY.md`, `README.md`) |
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
@@ -40,7 +40,9 @@ NODE_OPTIONS=--expose-gc npx vitest run test/review-perf.test.ts --retry=2   # t
 ```
 
 One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tests are model-parity tests that need
-`GENCLASS_MODEL_DIR`. Not in CI, ask before running: Playwright (`npm run test:browser`), `test/smoke/smoke.sh`, the
+`GENCLASS_MODEL_DIR`. CI also runs the `visual-browser` job: the first-load size against main (`test/first-load-size.mjs`, fails at 0.5 KB
+growth) and `npx playwright test --config test/browser/visual/playwright.config.ts` in Chromium. Not in CI, ask before
+running: the model Playwright suite (`npm run test:browser`), `test/smoke/smoke.sh`, the
 install suite (`test/install/run-all.sh`), the sim and realapps generators, the demos' eval, training, anything on
 Azure, `git push`, `npm publish`.
 

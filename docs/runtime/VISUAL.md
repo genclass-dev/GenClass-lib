@@ -1,9 +1,9 @@
 # GenClass visual checks: design (v1, with v2 and v3 outlined)
 
-Status: design only, written 2026-10-13. Nothing here is implemented yet. The open owner decisions are in
-[section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) stays binding; when this design is
-built, it gets a CONTRACT section and the matching [API.md](API.md), [OPTIONS-SPEC.md](OPTIONS-SPEC.md) and CHANGELOG
-entries.
+Status: design written 2026-10-13; **v1 implemented** the same day on branch `wave2/visual`
+(`packages/runtime/src/visual/`), with the differences listed in [section 19](#19-v1-implementation-notes). The open
+owner decisions are in [section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) section 14,
+[API.md](API.md), [OPTIONS-SPEC.md](OPTIONS-SPEC.md) section 4.19 and the CHANGELOG have the matching entries.
 
 The owner asked on 2026-10-13 for GenClass to find visual and CSS bugs that never throw an error (white text on a
 white background, broken images, "so much more") and to fix them. Many generated ("vibecoded") sites and company
@@ -37,6 +37,7 @@ Contents
 16. [Product wording](#16-product-wording)
 17. [Owner decisions and open questions](#17-owner-decisions-and-open-questions)
 18. [Sources](#18-sources)
+19. [v1 implementation notes](#19-v1-implementation-notes)
 
 ## 1. What a visual check is, and the rule 2 exception
 
@@ -1221,3 +1222,37 @@ downstream fix commit) as the cause of the `pointer-events` leak.
 - Repo: `src/model/host.ts` (idle scheduling), `src/observe/perf.ts` (long tasks as `perf` events),
   `src/learn/profiles.ts` (`MIN_COMPLETIONS`, `RARE`), `src/cdn/config.ts` (`fromPairs`, `isLocalHost`),
   `test/bundle.test.ts` (`LIMIT_KB`), `tsup.config.ts` (`ortExternal`)
+
+## 19. v1 implementation notes
+
+What the code does where it differs from the design above (2026-10-13, branch `wave2/visual`):
+
+- **Fixes need `on: true`.** `visual: { on: true, fix: true }` plus guard or heal. `"local"` (the default) and
+  `?genclass-visual=on` never fix, on any host.
+- **The host is built in the chunk.** To keep first load under 0.5 KB, `src/visual/bridge.ts` (in the lazy chunk)
+  builds the `VisualHost` from the runtime object the stub hands over, and reads some members that are private in
+  TypeScript only (`reporter`, `sinks`, `fire`, `pushAudit`, `auditBase`, `sessionId`, `sessionTags`, `sampled`,
+  `reportMode`, `_aggr`). `test/visual-bridge.test.ts` fails if one is renamed; the engine and the checks see only the
+  host. `rt.summary()` gains its `visual` key from the bridge too.
+- **Load timing.** The stub imports the chunk 1.5 s after `load` (6.5 s at most when `load` is late), without an idle
+  callback of its own (every pass already runs in idle slices). While `enabled` is false or pending it re-checks every
+  5 s. The devtools overlay and `rt.checkNow()` load it on demand.
+- **`pause()`** undoes fixes at the next 2 s periodic read rather than at once (no first-load code for it);
+  `setMode("observe")`, the breaker, `disable()` and `destroy()` undo them at once.
+- **One summary key.** `SessionSummary.visual` holds `checks`, `checksByRoute`, `fixes` and the cost fields, instead
+  of separate `checks`, `fixes` and `visual` keys. Telemetry sends that object as `visual` in the summary event and
+  the setting (`local` or `on`) as `visual` in the session event; there is no separate `fix` field.
+- **Folding** is by finding key: elements of the same kind with the same selector fold into one finding.
+- **`csp-blocked`** names the element that requested a blocked URL when the event does not.
+- **`control-unreachable`** only counts covers up to 40% of the viewport tall (a full-screen invisible layer is
+  `click-blocked`'s case).
+- **Known gap.** `elementsFromPoint` skips `pointer-events: none` layers, so a background painted by such an overlay
+  is not seen by the `text-invisible` resolver.
+- **Sizes and costs measured in CI** (GitHub runner, Chromium): first-load growth against main 486 B gzip for `/auto`
+  and 431 B for the main entry (`test/first-load-size.mjs`, limit 512 B); the chunk `dist/visual/index.js` is about
+  35 KB gzip (the estimate was 6 to 12 KB); a 10,000-element page took 2 passes, 72.9 to 127.8 ms of check time in all
+  (two runs), a longest slice of 8.5 ms and no partial pass. On the fixture pages every planted fault was found and
+  nothing else was reported (35 faults, 23 kinds; written by the checks' author, so this is not a precision figure).
+- **Not built yet:** the bench (`bench/visual/`, `visual-bench.yml`, section 15), the explain step (likely source
+  rule, 2.6), the "inserted content" cause tag of `layout-shift`, `genclass-runtime init --no-visual`, Firefox and
+  WebKit in the browser job (it runs Chromium only), v2 and v3. No precision or recall figure is measured.

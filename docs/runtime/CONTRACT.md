@@ -20,7 +20,10 @@ This file binds every workstream. If something here is wrong, tell the lead; do 
    baselines, learned invariants, value deltas) and it may decide *whether a situation is worth asking the
    model about* (triage). It must never map a fact pattern to a diagnosis or an action with an if/then.
    Diagnoses and actions come from the model. If the model is unavailable, the runtime observes only and
-   always takes the passive action.
+   always takes the passive action. Exception (owner, 2026-10-13; wording to be confirmed by the owner before
+   merge): the measured visual checks in `src/visual/` (section 14) are deterministic measurements with documented
+   thresholds, reported as kind `"check"`, never as a model finding; they never decide network actions and never
+   feed situations, facts, the event log, the gate or the model.
 2. **Train/runtime parity.** The training data generator (`sim/`) drives the real runtime code (same trace,
    same facts, same serializer, same questions) in a deterministic virtual world. There is exactly one
    implementation of situation building and serialization: `packages/runtime/src/situation/*`.
@@ -523,3 +526,31 @@ genuinely different failures or decisions):
   in `observe` when no `mode` is given, so a fresh install reports findings and never holds, delays or changes
   anything. `guard` is opt-in (`mode: "guard"`; `?genclass=guard` only with `debug: true` or on a development host since 0.2.2); `heal` is experimental. Situation text,
   facts and questions are unchanged (they do not depend on the mode), so `situation-v1` training data stays valid.
+
+## 14. Measured visual checks (added 2026-10-13; owner to confirm before merge)
+
+Design, every check, threshold and exclusion: [VISUAL.md](VISUAL.md). Code: `packages/runtime/src/visual/`.
+
+- **What they are.** 23 deterministic measurements of visual and CSS bugs (unreadable text, failed assets, CSP
+  blocks, text leaks, undefined custom properties, stretched images, sideways scrolling, a missing viewport meta tag,
+  layout shifts, a blank main region, swallowed clicks, leaked `pointer-events` and scroll locks, covered controls,
+  focus and dialogs). Each has a documented threshold and abstains where it cannot know. They are reported as kind
+  `"check"` (`rt.on("check")`, `rt.checks()`, `Report.kind "check"`, `[GenClass] Check (measured): ...`) and never fire
+  `detect`.
+- **Separation (section 0 rule 1 exception).** `src/visual/` imports only types from `situation/`, `decide/`,
+  `model/`, `state/`, `trace/` and `runtime.ts`; none of those import `src/visual/`. Only `src/visual/bridge.ts`
+  touches the runtime object, to report findings, write `"fix"` audit entries and follow status and teardown. The
+  checks never push RtEvents, facts or situations and never feed the gate, the breaker or the model
+  (`test/visual-purity.test.ts`: a session is identical with them on and off).
+- **Rule 1 of 0.5 (never make a correct app worse).** In observe mode they write nothing to the page. Their three
+  runtime fixes (a readable text colour through an owned stylesheet rule; removing a leaked inline
+  `pointer-events: none` or `overflow: hidden` on `html` or `body`) need `visual: { on: true, fix: true }` and guard or
+  heal, are re-measured and undone if they do not help, are undone on `setMode("observe")`, the breaker, `pause()`,
+  `disable()` and `destroy()`, and are dropped when the app changes the element.
+- **Defaults.** `"local"` with `GenClass.init()` in a browser (development hosts and the devtools overlay), off on
+  public hosts and in `createRuntime()`. First load grows by less than 0.5 KB gzip (measured in CI against main);
+  the checks load lazily from `dist/visual/index.js`.
+- **Determinism (section 0 rule 3).** All timing uses the injected `Clock`; idle callbacks come from the runtime's
+  global; session sampling hashes the session id.
+- **Telemetry.** Counts only (per check kind, per normalised route, fixes, check time), under the owner's review
+  before release. Never selectors, element text, colours or URLs.

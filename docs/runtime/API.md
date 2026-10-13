@@ -14,7 +14,7 @@ const cart = rt.atom("cart", { items: [], total: 0 }); // state GenClass can pro
 Contents: [init and modes](#init-and-modes) · [options](#options) · [state](#state) ·
 [operations and user actions](#operations-and-user-actions) · [questions](#asking-the-model) ·
 [events](#events) · [introspection](#introspection-and-control) · [triggers and actions](#triggers-and-actions) ·
-[policy](#policy) · [reports](#reports-explain-and-undo) · [plugins](#plugins) · [headless use](#headless-use-tests-ssr-simulation) ·
+[policy](#policy) · [reports](#reports-explain-and-undo) · [measured visual checks](#measured-visual-checks) · [plugins](#plugins) · [headless use](#headless-use-tests-ssr-simulation) ·
 [adapters and devtools](#adapters-and-devtools) · [types](#types)
 
 ## Init and modes
@@ -85,6 +85,8 @@ interface InitOptions {
     include?: { situation?: boolean };                  // [true] include the redacted situation text
     transport?: { send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown> }; // tests / custom pipelines
   };
+  visual?: boolean | "local" | VisualOptions;           // measured visual checks (see Measured visual checks); default "local" in GenClass.init
+                                                        // in a browser (on for development hosts and with the devtools overlay), off in createRuntime
   autoState?: boolean | { react?: boolean; redux?: boolean; zustand?: boolean; pinia?: boolean };
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
@@ -314,6 +316,7 @@ rt.on("act", (a: ActionRecord) => void)      // every non-passive action that ra
 rt.on("event", (e: RtEvent) => void)         // every traced event
 rt.on("status", (s: ModelStatus) => void)    // model loading progress and state
 rt.on("report", (r: Report) => void)         // every report line (even with report: "silent")
+rt.on("check", (f: CheckFinding) => void)    // a measured visual check was confirmed (never fires "detect")
 // each returns an unsubscribe function
 ```
 
@@ -334,6 +337,8 @@ rt.interventions(n?): ActionRecord[]
 rt.audit(n?): AuditEntry[]         // the audit trail, oldest first (see Reports, explain and undo)
 rt.inflight(): Op[]
 rt.stores(): StoreInfo[]           // registered and discovered stores: { name, kind: "atom"|"guard"|"adapter"|"observed", source?, writable, fields, version }
+rt.checks(n?): CheckFinding[]      // the last measured visual check findings (at most 200; empty while the checks are off or not loaded)
+rt.checkNow(): Promise<CheckFinding[]> // run a measured visual check pass now (loads the checks if needed) and resolve with what it confirmed
 rt.setMode(mode); rt.pause(); rt.resume(); rt.destroy()
 rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise<void> } // reason when off: option, headless, url, localStorage, gpc, sampled-out, kill-switch, disabled, ...
 ```
@@ -455,11 +460,94 @@ a.undo?.();         // discard: applies the dropped values now; late revert: re-
 rt.explain(a.id);   // { decision, situationText, facts, timeline, answers, action, changed }
 ```
 
-A custom `report` function receives `{ kind: "detect" | "intervene" | "status", message, decision?, action? }`.
+A custom `report` function receives `{ kind: "detect" | "intervene" | "status" | "check", message, decision?, action?, check? }`.
 `explain(id).message` is the same line for any decision or action, also when it was not printed.
 
 Your own debug UI: GenClass ignores user events from inside any element marked `data-genclass-ignore` (the devtools
 overlay uses it), so debugging tools never become causes in situations.
+
+## Measured visual checks
+
+Deterministic measurements of visual and CSS bugs that never throw an error, with fixed thresholds
+([VISUAL.md](VISUAL.md) has every check, threshold and exclusion). They are reported as kind `"check"` and never as a
+model finding: the model is not involved, the checks never feed a situation, a fact, the event log, the gate or a
+decision, and they never fire `detect`.
+
+```ts
+GenClass.init({ visual: true });                                       // on everywhere, report-only
+GenClass.init({ mode: "guard", visual: { on: true, fix: true } });     // with the three runtime fixes
+rt.on("check", (f) => console.log(f.kind, f.selector, f.measured, f.suggestion));
+await rt.checkNow();                                                   // a pass now, with its persistence re-checks
+
+interface VisualOptions {
+  on?: boolean | "local";            // ["local" in GenClass.init in a browser; false in createRuntime] "local": development hosts and the devtools overlay only
+  checks?: Partial<Record<CheckKind, boolean>>;   // [every kind on]
+  fix?: boolean | ("text-invisible" | "pointer-events-leak" | "scroll-lock-stuck")[]; // [false] needs on: true and guard or heal
+  ignore?: string[];                 // selectors never checked (and image hosts for text-placeholder)
+  budgetMs?: number;                 // [8] per idle slice, clamped to 2..16
+  passBudgetMs?: number;             // [100] check time per pass; the pass then ends as partial
+  maxElements?: number;              // [2000] candidate elements per pass
+  lowEnd?: "light" | "full" | "off"; // ["light"] low-end devices run only the near-free checks
+  sample?: number;                   // [1] fraction of sessions that run the measured layout and text checks (hash of the session id)
+  maxConsoleLines?: number;          // [10] console lines per pass, then one line
+}
+
+type CheckKind = "image-broken" | "image-css-broken" | "media-failed" | "stylesheet-failed" | "font-failed"
+  | "icon-font-failed" | "csp-blocked" | "text-invisible" | "text-template-leak" | "text-placeholder" | "text-encoding"
+  | "css-var-undefined" | "image-distorted" | "page-overflow-x" | "viewport-meta-missing" | "layout-shift"
+  | "page-blank" | "click-blocked" | "pointer-events-leak" | "scroll-lock-stuck" | "control-unreachable"
+  | "focus-obscured" | "dialog-covered";
+
+interface CheckFinding {
+  id: string;                        // "c1", "c2", ...
+  source: "check";                   // always: a measurement, never a model finding
+  basis?: "measurement" | "baseline";
+  kind: CheckKind; severity: "high" | "medium" | "low"; at: number; route?: string;
+  target: string;                    // 'paragraph "Ship faster"'
+  selector: string;                  // "p.hero__subtitle" (built locally; never sent anywhere unless your sink asks for evidence)
+  element(): Element | null;         // the element while it is still connected
+  measured: Record<string, number | string | boolean>;    // { ratio: 1.04, fg: "#fafafa", bg: "#ffffff", ... }
+  threshold: { value: number | string; unit: string; source: string };
+  context: { scheme: "light" | "dark"; state?: "rest" | "hover" | "focus" | "touch"; viewport: { w: number; h: number }; coarse: boolean; tier: "full" | "light" };
+  message: string;                   // the console line
+  details: string[];                 // the collapsed console group
+  suggestion?: { selector: string; css: string; note?: string };
+  fix?: { id: string; applied: boolean; css?: string; reason?: string; undo(): boolean };
+  count?: number;                    // elements folded into this finding
+}
+```
+
+- **Defaults.** `GenClass.init()`, `/auto` and the script tag use `"local"`: on for development hosts (`localhost`,
+  `*.local`, `*.test`, private networks, `file:`) and when the devtools overlay mounts, off on public hosts.
+  `visual: true` turns report-only checks on everywhere. `?genclass-visual=off` turns them off; `?genclass-visual=on`
+  turns on report-only checks on any host for that page load (an app's explicit `visual: false` wins). A URL never
+  turns fixes on. Zero-code: `<meta name="genclass" content="visual=on">` (`off`, `local`, `fix`), `data-visual` on
+  the script tag, `window.GENCLASS_CONFIG = { visual: { ... } }`.
+- **When they run.** Nothing loads until 1.5 s after `load` (6.5 s at most) or while `enabled` is false or pending,
+  and nothing is measured in a hidden tab. Then fonts, network quiet and DOM quiet (500 ms each, 10 s at most), one pass in
+  idle slices, persistence re-checks 1 to 2 s later, and incremental re-checks of the subtrees that changed (a full
+  pass at most every 30 s). Interaction checks run on clicks, hover, focus, anchor jumps, scrolling and a 2 s
+  computed-style read of `html` and `body`. A route whose mode is `"off"` gets no checks.
+- **Reports.** The console line starts `[GenClass] Check (measured):` and ends with the suggested CSS (or what to
+  change when CSS is not the fix). `report: "silent"` prints nothing, `"interventions"` prints only applied and undone
+  fixes, a `report` function receives every `Report` of kind `"check"` (`r.check` is the finding).
+- **Sinks** get `kind: "check"` records (`check: { kind, severity, fixed }`, `route`) only when their `kinds` list
+  `"check"`; `evidence: true` adds `message`, `target` and `selector`.
+- **Audit.** Every fix applied, undone or dropped is an entry of kind `"fix"`: `fix: { what, checkId, kind, css, reason? }`.
+- **Summary.** `rt.summary().visual`, once the checks have run: `checks` (per kind), `checksByRoute` (at most 20
+  routes), `fixes` (`applied`, `undone`), `passes`, `elements`, `ms`, `maxSliceMs`, `partial`, `abstained`,
+  `unsupported` (kinds this browser cannot measure), `tier`, `stopped`.
+- **Fixes** (`visual: { on: true, fix: true }`, guard or heal only): a readable text colour through one rule in an
+  adopted stylesheet GenClass owns, and removing one leaked inline `pointer-events: none` or `overflow: hidden` on
+  `html` or `body`. Re-measured 50 ms later and undone if the threshold is not cleared; `finding.fix.undo()` (or the
+  devtools Undo) undoes it and turns that kind off for the session (three undos turn all fixes off); undone
+  automatically on `setMode("observe")`, the breaker, `pause()` (within 2 s), `disable()` and `destroy()`; dropped,
+  never fought, when the app changes the element. At most 50 fixes per page. Observe never changes the page.
+- **In your tests.** `import { checkPage } from "@genclass/runtime/visual"`; `await checkPage(options?)` runs one
+  report-only pass in the current page without a runtime and resolves with the findings (interaction checks need a
+  running runtime).
+- **Devtools.** A Checks tab lists every finding with its measured value and threshold, the suggested CSS (Copy), a
+  Show button that scrolls to the element and outlines it inside the overlay, and Undo for an applied fix.
 
 ### Audit trail
 
@@ -592,7 +680,8 @@ provider error makes the runtime fail open.
 Subpath exports: `@genclass/runtime/react` (`useGenClassState(name, initial, opts?)`, `useAtom(atom)`,
 `useGenClass()`), `@genclass/runtime/redux` (`genclassEnhancer(runtime, { name })`), `@genclass/runtime/zustand`
 (`genclass(runtime, name)(stateCreator)`), `@genclass/runtime/devtools` (`mountDevtools(runtime, opts?)`),
-`@genclass/runtime/discover` (automatic state discovery for `GenClass.init({ autoState: true })`; import it first). They are
+`@genclass/runtime/discover` (automatic state discovery for `GenClass.init({ autoState: true })`; import it first),
+`@genclass/runtime/visual` (`checkPage(options?)`, the measured visual checks without a runtime). They are
 documented with their source. To integrate another state library use:
 
 ```ts

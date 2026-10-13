@@ -51,6 +51,7 @@ order: off < observe < guard < heal
 | 17 | `model.maxDecisionsPerMinute` | load | `30` | new |
 | 18 | `model.unloadAfterIdleMs` | load | `false` | new |
 | 19 | `rt.on()` typed events: `shadow`, `breaker`, `limit`, `modelBudget` | API | — | extended |
+| 20 | `visual` (+ `rt.checks()`, `rt.checkNow()`, the `check` event) | measured visual checks | `"local"` in `GenClass.init()` in a browser, `false` in `createRuntime()` | new (§4.19) |
 
 Built in, with no option: hidden-tab background skipping (§5.1).
 
@@ -532,6 +533,29 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Idle → worker terminated, and the reload comes from the cache with no network.
 - A held item during the reload is released unchanged.
 
+### 4.19 `visual` (measured visual checks)
+**Default** `"local"` with `GenClass.init()`, `/auto` and the script tag in a browser; `false` with `createRuntime()`.
+Design, every check and threshold: [VISUAL.md](VISUAL.md). Types: `VisualOptions`, `CheckKind`, `CheckFinding`,
+`VisualSummary` in `types.ts`.
+
+**Semantics.**
+- `false` (or `?genclass-visual=off`): nothing is installed, no listener, no timer, no download.
+- `"local"`: on for development hosts (the telemetry `isLocalHost` list) and when the devtools overlay mounts or
+  `rt.checkNow()` is called; off otherwise. `?genclass-visual=on` turns it on for that page load, report-only.
+- `true` / `{ on: true }`: on everywhere, report-only unless `fix` is set.
+- `fix: true` (or a list of `"text-invisible"`, `"pointer-events-leak"`, `"scroll-lock-stuck"`) needs `on: true` and an
+  effective mode of guard or heal; a sampled-out session never fixes. A URL can never turn fixes on.
+- The checks are measurements reported as kind `"check"`: they never change `effectiveMode`, never feed a decision,
+  the gate, the breaker, a situation, a fact or the event log. In observe mode the page is never written to.
+- `enabled` false or pending: no chunk download. A route whose mode is `"off"`: no checks there. `pause()`,
+  `disable()`, `destroy()` and `setMode("observe")` undo every fix.
+
+**Precedence.** `?genclass-visual=off` > an explicit `visual: false` > `?genclass-visual=on` > the `"local"` default.
+
+**Tests.** `test/visual-options.test.ts` (resolution, load timing, enabled pending), `test/visual-fix.test.ts` (the
+fix gate, undo), `test/visual-purity.test.ts` (no effect on situations, history or decisions),
+`test/browser/visual/visual.spec.ts` (Chromium, the CI `visual-browser` job).
+
 ## 5. Built-in behaviours (no option)
 
 1. **Hidden tabs.** While the tab is hidden:
@@ -558,6 +582,8 @@ policy.actionLimits     → limit:perMinute / perSubject / perSession
 onBeforeAction          → final sync veto (vetoMode "report" = record only); over hold budget → limit:hold
 holdBudgetMs            → hard ceiling incl. defers + hook; release at min(remaining, timeoutMs)
 shadow                  → gate steps 1–6 at higher mode, dry-run; ignores sample/route/breaker caps
+visual                  → measurements only; ?genclass-visual=off > visual:false > ?genclass-visual=on > "local";
+                          fixes need visual.on true + fix + effective mode guard/heal; never feeds the gate
 model.loadIf / maxDecisionsPerMinute / timeoutMs / unload / hidden tab → availability only; held items release unchanged
 status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = effective
 ```

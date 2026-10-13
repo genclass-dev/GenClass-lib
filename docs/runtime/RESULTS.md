@@ -299,3 +299,20 @@ trained v2 model once it exists.
 | next | 150M teacher on v2 gold, teacher labels on unlabeled rows, distil R17/R32, DAgger rounds (SIM `--on-policy`), EVAL. |
 
 Compute: Azure CPU nodes (F80 and D64 sizes); the day-by-day record is kept internally.
+
+## 8. Measured visual checks (v1; CI on GitHub runners, Chromium, 2026-10-13, branch `wave2/visual`)
+
+These are deterministic measurements, not model results ([VISUAL.md](VISUAL.md)). The only false-report and recall
+numbers so far come from fixture pages written by the same author as the checks (`packages/runtime/test/browser/
+visual/`), so they show the checks work as designed, not how they do on real sites. The bench with demos, templates,
+compat apps and public sites (VISUAL.md section 15) is not built yet.
+
+| what | measured | source |
+|---|---|---|
+| planted faults found on the fixture pages | 35 of 35 (every planted fault, on its element, 23 kinds) | `visual.spec.ts`, 24 tests passed |
+| findings on clean fixture pages (false reports) | 0 on the clean page at 1280 x 800 and at 390 x 844 (phone), 0 on the light variant of the dark-mode page, 0 on a 10,000-element page, 0 besides the planted fault on every other page | same |
+| runtime fixes on fixture pages | text colour, `pointer-events` and scroll lock applied, verified, undone; 0 CSP violations from the owned rule under `style-src 'self'` | same |
+| first-load growth against main (minified + gzip) | `/auto` +486 B (99.649 KB), main entry +431 B (92.118 KB); limit 512 B | `test/first-load-size.mjs` in the `visual-browser` job |
+| lazy chunk `dist/visual/index.js` | about 35 KB gzip (97 KB minified) | esbuild, minified |
+| a 10,000-element page | 2 passes, 72.9 to 127.8 ms of check time in all (two runs), longest slice 8.5 ms (budget 8 ms per slice), no partial pass | `big.html` |
+
