@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout shift</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; } .hero img { display: block; width: 100%; }</style>
+</head>
+<body>
+<div class="hero"><img src="/img/1200x600.png?delay=1200" alt="Hero"></div>
+<div class="content" data-k="c1" data-expect="layout-shift">
+<h1>Headline that moves</h1>
+<p>Text that moves down when the image above it loads without reserved space.</p>
+<p>More text.</p><p>More text.</p><p>More text.</p><p>More text.</p><p>More text.</p>
+</div>
+</body>
+</html>

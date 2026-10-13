@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dark mode without a dark design</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  :root { color-scheme: light dark; --foreground: #171717; }
+  @media (prefers-color-scheme: dark) { :root { --foreground: #ededed; } }
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: var(--foreground); background: #fff; }
+  h1 { color: #171717; }
+</style>
+</head>
+<body>
+<h1>Welcome back</h1>
+<p class="intro" data-k="p1" data-dark-expect="text-invisible">Your projects are below.</p>
+</body>
+</html>

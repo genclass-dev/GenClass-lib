@@ -63,8 +63,12 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
   // 91 KB for GenClass.init)
   // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
-  const LIMIT_KB: Record<string, number> = { "auto.js": 100, "index.js": 92 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 100 KB / 92 KB (README: about 99 / 91 KB)", async () => {
+  // 2026-10-13: +about 0.45 KB for the measured visual checks' first-load stub (src/visual/start.ts, the "check"
+  // listener set, rt.checks()/checkNow(), the "check" sink filter, telemetry's visual field); the checks themselves
+  // load lazily (dist/visual/index.js). The CI visual-browser job measures the growth against main exactly and fails
+  // at 0.5 KB (test/first-load-size.mjs).
+  const LIMIT_KB: Record<string, number> = { "auto.js": 100.5, "index.js": 92.5 };
+  it("first-load cost of /auto and the main entry, minified + gzip: under 100.5 KB / 92.5 KB (README: about 99 / 92 KB)", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
     for (const entry of ["auto.js", "index.js"]) {
@@ -92,6 +96,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       };
       walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
+      console.log(`[first-load] ${entry}: ${(gz / 1024).toFixed(3)} KB gzip`);
       expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");
@@ -101,6 +106,29 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       // of the main entry
       if (entry === "auto.js") expect(code, entry).toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
       else expect(code, entry).not.toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
+      // the measured visual checks stay out of first load: only the stub is there (VISUAL.md section 13)
+      for (const marker of VISUAL_MARKERS) expect(code, `${entry}: ${marker}`).not.toContain(marker);
+      expect(code, entry).toContain("genclass-visual");
     }
+  });
+
+  // strings only the visual chunk has (src/visual/report.ts, src/visual/checks/text.ts)
+  const VISUAL_MARKERS = ["Check (measured): ", "unreadable-text threshold"];
+
+  it("the measured visual checks are one lazy file (dist/visual/index.js) the script tag loads by URL", async () => {
+    const { readFileSync } = await import("node:fs");
+    const chunk = readFileSync(join(DIST, "visual", "index.js"), "utf8");
+    for (const marker of VISUAL_MARKERS) expect(chunk).toContain(marker);
+    // no static import of a shared chunk: the script-tag build loads this file alone from its base URL
+    expect(chunk).not.toMatch(/^\s*import\s[^;]*?from\s*["']\.{1,2}\//m);
+    expect(chunk).not.toMatch(/^\s*import\s*["']\.{1,2}\//m);
+    for (const f of ["genclass.global.js", "genclass.global.min.js"]) {
+      const g = readFileSync(join(DIST, f), "utf8");
+      for (const marker of VISUAL_MARKERS) expect(g, `${f}: ${marker}`).not.toContain(marker);
+      expect(g, f).toContain("visual/index.js");
+    }
+    // the public entry loads it on demand too
+    const entry = readFileSync(join(DIST, "visual.js"), "utf8");
+    for (const marker of VISUAL_MARKERS) expect(entry).not.toContain(marker);
   });
 });

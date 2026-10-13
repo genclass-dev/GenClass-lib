@@ -8,13 +8,14 @@ export const PREFIX = "[GenClass] Check (measured): ";
 const FIXABLE = new Set(["text-invisible", "pointer-events-leak", "scroll-lock-stuck"]);
 
 /**
- * Merge drafts that describe the same thing: the same kind and suggested selector (or the same key). The merged
- * draft lists every element; `folded` is how many elements were folded into it.
+ * Merge drafts that describe the same thing (the same key: element-level kinds key on the element's selector, so
+ * elements with the same kind and selector fold into one finding). The merged draft lists every element; `folded` is
+ * how many elements were folded into it.
  */
 export function fold(drafts: Draft[]): (Draft & { folded?: number })[] {
   const byKey = new Map<string, Draft & { folded?: number }>();
   for (const d of drafts) {
-    const k = d.suggestion ? `${d.kind}|${d.suggestion.selector}|${d.state ?? ""}` : d.key;
+    const k = d.key;
     const prev = byKey.get(k);
     if (!prev) {
       byKey.set(k, { ...d, els: [...(d.els ?? (d.el ? [d.el] : []))] });

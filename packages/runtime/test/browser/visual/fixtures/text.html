@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unreadable text</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  section { padding: 16px 24px; }
+  .hero { background: #ffffff; }
+  .hero__subtitle { color: #ffffff; }
+  .toast { background: #ffffff; color: #fafafa; padding: 8px; }
+  .panel-dark { background: #111827; padding: 16px; }
+  .panel-dark .ghost { color: #1f2937; }
+  .alpha { color: rgba(255, 255, 255, 0.4); }
+  .ok-grey { color: #6b7280; }
+  .ok-dark { background: #0f172a; color: #e2e8f0; padding: 8px; }
+  .over-image { background: url("/img/400x120.png?c=111111"); color: #fff; padding: 12px; }
+  .with-shadow { color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
+</style>
+</head>
+<body>
+<section class="hero"><h1>Release notes</h1><p class="hero__subtitle" data-k="t1" data-expect="text-invisible">Ship faster with fewer bugs</p></section>
+<section><div class="toast" data-k="t2" data-expect="text-invisible">Saved to your library</div></section>
+<section class="panel-dark"><p class="ghost" data-k="t3" data-expect="text-invisible">Dark grey on near-black</p></section>
+<section><p class="alpha" data-k="t4" data-expect="text-invisible">Translucent white text on white</p></section>
+<section><p class="ok-grey">Readable grey</p><div class="ok-dark">Readable light on dark</div></section>
+<section><div class="over-image"><p>Text over an image (not measured)</p></div><p class="with-shadow">Text with a shadow (not measured)</p></section>
+<section><button type="button" disabled style="color: #f5f5f5; background: #fff">Disabled control</button></section>
+</body>
+</html>

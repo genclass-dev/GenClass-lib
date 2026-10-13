@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Template leaks</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }</style>
+</head>
+<body>
+<p>Customer: <span data-k="l1" data-expect="text-template-leak">[object Object]</span></p>
+<p>Total: <span class="price" data-k="l2" data-expect="text-template-leak">$NaN</span></p>
+<h3 data-k="l3" data-expect="text-template-leak">Hello {{ user.name }}</h3>
+<p>Last seen <time data-k="l4" data-expect="text-template-leak">Invalid Date</time></p>
+<p data-k="l5" data-expect="text-encoding">Itâ€™s ready when you are</p>
+<p data-k="l6" data-expect="text-encoding">Fish &amp;amp; chips</p>
+<p data-k="l7" data-expect="text-placeholder">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+<p>Shipping: <span>null</span></p>
+<p>Café, crème brûlée and São Paulo are spelled correctly.</p>
+<pre><code>render("{{ name }}", { name: "Ada" }) // code samples are not checked</code></pre>
+</body>
+</html>

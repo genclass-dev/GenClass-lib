@@ -826,7 +826,8 @@ export interface InitOptions {
    * they never feed a decision. **Default: "local" with `GenClass.init()` in a browser** (on for development hosts and
    * when the devtools overlay is mounted, off on public hosts); off in `createRuntime()`. `true` turns report-only
    * checks on everywhere. `?genclass-visual=off` turns them off; `?genclass-visual=on` turns on report-only checks on
-   * any host (never fixes). Runtime fixes need `{ fix: true }` and a guard or heal mode; observe never changes the page.
+   * any host (never fixes). Runtime fixes need `{ on: true, fix: true }` and guard or heal mode; observe never changes
+   * the page. `rt.summary().visual` has the counts; `@genclass/runtime/visual` exports `checkPage()` for your tests.
    */
   visual?: boolean | "local" | VisualOptions;
 }
@@ -872,9 +873,10 @@ export interface VisualOptions {
   /** Turn single kinds on or off. Default: every v1 kind on. */
   checks?: Partial<Record<CheckKind, boolean>>;
   /**
-   * Runtime fixes (VISUAL.md section 11). Default false. true allows the three fix kinds; or a list of them. A fix
-   * runs only in guard or heal mode (heal alone never turns fixes on), in a sampled-in session, and is undone on
-   * setMode("observe"), the breaker, disable(), pause() and destroy().
+   * Runtime fixes (VISUAL.md section 11). Default false. true allows the three fix kinds; or a list of them. Needs
+   * `on: true` (the "local" default and ?genclass-visual=on never fix) and guard or heal mode (heal alone never turns
+   * fixes on); a sampled-out session never fixes. Every fix is undone on setMode("observe"), the breaker, disable(),
+   * pause() (within 2 s) and destroy(), and by `finding.fix.undo()`.
    */
   fix?: boolean | VisualFixKind[];
   /** Selectors (and image hosts, for text-placeholder) never checked, for example third-party widgets. */

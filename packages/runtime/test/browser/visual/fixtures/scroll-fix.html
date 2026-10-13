@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scroll lock left on body</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off" data-mode="guard" data-visual="fix"></script>
+<style>body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; } .tall { height: 3000px; background: linear-gradient(#fff, #e5e7eb); }</style>
+</head>
+<body style="overflow: hidden" data-k="body" data-expect="scroll-lock-stuck">
+<h1>Article</h1>
+<div class="tall"><p>Long content below the fold.</p></div>
+</body>
+</html>
