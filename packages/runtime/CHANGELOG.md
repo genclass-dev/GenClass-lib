@@ -41,7 +41,9 @@ sends (less on local hosts, see Fixes).
 - **`init` can create a project**: after you approve the diff (or with `--yes`), `npx @genclass/runtime init` calls
   `POST https://genclass.dev/api/projects` with the `name` from `package.json`, writes the token into what it adds
   (`genclass.config.*`, `data-token`, or the Astro meta line), prints the private dashboard link and saves both in
-  `.genclass.local` (added to `.gitignore` when there is one; `remove` keeps it). Nothing is sent when you decline,
+  `.genclass.local` before writing anything else (git is asked whether it is ignored; if not, it goes into the
+  project's `.gitignore`, created inside a git repository when missing; `remove` keeps the file and that line). A
+  file init cannot write still leaves the link saved and printed, with how to retry. Nothing is sent when you decline,
   when there is no terminal and no `--yes`, with `--dry-run`, `--token <gc_...>`, `--no-token` or `--no-telemetry`,
   or when the project already has a token. A network failure or HTTP error warns, sets GenClass up without a token
   and points to https://genclass.dev/start. Running `init` again reuses the token; on a setup made without one it

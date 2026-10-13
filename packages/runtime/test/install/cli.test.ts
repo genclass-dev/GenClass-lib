@@ -2,7 +2,7 @@
 // text-edit helpers and the page-config parser. The real-framework builds are in test/install/frameworks.sh (VM).
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -909,10 +909,64 @@ describe("init: app token and private dashboard link (fetch mocked; never the re
     const r3 = cli(dir, "remove", "--yes");
     expect(r3.code, r3.out).toBe(0);
     expect(r3.out).toContain(".genclass.local stays");
+    expect(r3.out).toContain("so does its .gitignore line");
     const left = snapshot(dir);
     expect(left["src/main.ts"]).toBe("console.log(1);\n");
     expect(left["src/genclass.config.ts"]).toBeUndefined();
     expect(left[".genclass.local"]).toBe(files[".genclass.local"]);
+    // the line stays with the file, so the link never becomes committable
+    expect(left[".gitignore"]).toBe("node_modules\n.genclass.local\n");
+  });
+
+  const git = (cwd: string, ...args: string[]) => {
+    try {
+      execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+      return 0;
+    } catch (e) {
+      return (e as { status: number }).status;
+    }
+  };
+  const hasGit = git(tmpdir(), "--version") === 0;
+
+  it.skipIf(!hasGit)("a monorepo package without a .gitignore: git is asked, and .genclass.local ends up ignored", () => {
+    // root .gitignore that does not list it: a new apps/web/.gitignore with the one line
+    const root = project({ ".gitignore": "node_modules\n", "apps/web/package.json": pkg({ vite: "^7" }, { name: "web" }), "apps/web/index.html": VITE_HTML.replace("main.tsx", "main.ts"), "apps/web/src/main.ts": "console.log(1);\n" });
+    expect(git(root, "init", "-q")).toBe(0);
+    const web = join(root, "apps/web");
+    const r = cliEnv({ GENCLASS_TEST_FETCH: "ok" }, web, "init", "--yes", "--no-install");
+    expect(r.code, r.out).toBe(0);
+    expect(readFileSync(join(web, ".genclass.local"), "utf8")).toContain(`GENCLASS_TOKEN=${TOKEN}`);
+    expect(readFileSync(join(web, ".gitignore"), "utf8")).toBe(".genclass.local\n");
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe("node_modules\n");
+    expect(git(web, "check-ignore", "-q", ".genclass.local")).toBe(0);
+    expect(r.out).toContain("added to a new .gitignore here");
+    // a root .gitignore that already covers it: nothing is added anywhere
+    const root2 = project({ ".gitignore": "*.local\n", "apps/web/package.json": pkg({ vite: "^7" }, { name: "web" }), "apps/web/index.html": VITE_HTML.replace("main.tsx", "main.ts"), "apps/web/src/main.ts": "console.log(1);\n" });
+    expect(git(root2, "init", "-q")).toBe(0);
+    const web2 = join(root2, "apps/web");
+    const r2 = cliEnv({ GENCLASS_TEST_FETCH: "ok" }, web2, "init", "--yes", "--no-install");
+    expect(r2.code, r2.out).toBe(0);
+    expect(existsSync(join(web2, ".genclass.local"))).toBe(true);
+    expect(existsSync(join(web2, ".gitignore"))).toBe(false);
+    expect(readFileSync(join(root2, ".gitignore"), "utf8")).toBe("*.local\n");
+    expect(r2.out).toContain("git already ignores it");
+  });
+
+  const isRoot = typeof process.getuid === "function" && process.getuid() === 0;
+  it.skipIf(isRoot || process.platform === "win32")("a project created, then a file cannot be written: the link is saved and printed anyway", () => {
+    const dir = viteApp({ ".gitignore": "node_modules\n" });
+    chmodSync(join(dir, "src/main.ts"), 0o444);
+    try {
+      const r = cliEnv({ GENCLASS_TEST_FETCH: "ok" }, dir, "init", "--yes", "--no-install");
+      expect(r.code, r.out).toBe(1);
+      expect(r.out).toContain("Could not write src/main.ts");
+      expect(r.out).toContain(`--token ${TOKEN}`);
+      expect(r.out).toContain(LINK);
+      expect(readFileSync(join(dir, ".genclass.local"), "utf8")).toContain(`GENCLASS_DASHBOARD=${LINK}`);
+      expect(readFileSync(join(dir, "src/main.ts"), "utf8")).toBe("console.log(1);\n");
+    } finally {
+      chmodSync(join(dir, "src/main.ts"), 0o644);
+    }
   });
 
   it("nothing is sent before the changes are approved: no terminal and no --yes means no project and no link", () => {

@@ -143,9 +143,11 @@ to `https://genclass.dev/api/projects`, writes the token it gets back into what 
   Saved in .genclass.local (added to .gitignore).
 ```
 
-The link is saved in `.genclass.local` (with the token), and `.genclass.local` is added to `.gitignore` when the
-project has one; `remove` leaves that file alone. Declining, running without a terminal and without `--yes`, and
-`--dry-run` send nothing and create nothing. Running `init` again reuses the token (no new project); on a setup made
+The link is saved in `.genclass.local` (with the token) before init writes anything else, so a failed write cannot
+lose it. init asks git whether that file is ignored; if not, it adds it to the project's `.gitignore` (inside a git
+repository without one there, such as a monorepo package, it creates one with that line). `remove` leaves the file
+and that line alone. Declining, running without a terminal and without `--yes`, and `--dry-run` send nothing and
+create nothing. Running `init` again reuses the token (no new project); on a setup made
 without one it never creates a project as a side effect: pass `--token`.
 
 ```bash

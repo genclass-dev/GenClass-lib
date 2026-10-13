@@ -4,9 +4,10 @@
 // grouped under that app. The dashboard link (https://genclass.dev/dashboard/<secret>) is private: whoever has it sees
 // the app's stats. init creates both with POST https://genclass.dev/api/projects (server: telemetry-worker/), sending
 // only the app's name, and only after the user approved the changes (the diff shows PENDING_TOKEN until then). It
-// writes the token into the snippet it adds and keeps the link in .genclass.local (git-ignored when a .gitignore
-// exists).
+// writes the token into the snippet it adds and keeps the link in .genclass.local, which it makes sure git ignores
+// (asking git itself, so a monorepo's root .gitignore counts; `remove` keeps the file and that line).
 
+import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -57,8 +58,25 @@ export function tokenInFiles(files) {
 }
 
 /**
- * Writes .genclass.local and, when <dir>/.gitignore exists and does not list it yet, adds it there. Returns
- * { file, gitignore: "added" | "listed" | "none" }.
+ * Whether git ignores <dir>/<name>: true or false, or null when <dir> is not inside a git work tree or git is not
+ * installed (`git check-ignore` exits 0 when ignored, 1 when not, 128 outside a repository).
+ */
+export function gitIgnores(dir, name) {
+  try {
+    const r = spawnSync("git", ["check-ignore", "-q", "--", name], { cwd: dir, stdio: "ignore", timeout: 5000, shell: false });
+    if (r.status === 0) return true;
+    if (r.status === 1) return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes .genclass.local and makes sure git ignores it. Returns { file, gitignore }: "listed" (git, or <dir>/.gitignore,
+ * already ignores it), "added" (appended to <dir>/.gitignore), "created" (inside a git work tree with no .gitignore
+ * in <dir>, such as a monorepo package: a new <dir>/.gitignore with that one line) or "none" (not a git work tree and
+ * no .gitignore: nothing to add it to).
  */
 export function saveLocal(dir, { token, dashboardUrl, name, created }) {
   const lines = [
@@ -71,9 +89,15 @@ export function saveLocal(dir, { token, dashboardUrl, name, created }) {
   ];
   const file = join(dir, LOCAL_FILE);
   writeFileSync(file, `${lines.join("\n")}\n`);
+  const ignored = gitIgnores(dir, LOCAL_FILE);
+  if (ignored === true) return { file, gitignore: "listed" };
   const gi = join(dir, ".gitignore");
   const g = read(gi);
-  if (g === null) return { file, gitignore: "none" };
+  if (g === null) {
+    if (ignored === null) return { file, gitignore: "none" };
+    writeFileSync(gi, `${LOCAL_FILE}\n`);
+    return { file, gitignore: "created" };
+  }
   if (g.split(/\r?\n/).some((l) => /^\/?\.genclass\.local\s*$/.test(l.trim()))) return { file, gitignore: "listed" };
   const eol = g.includes("\r\n") ? "\r\n" : "\n";
   writeFileSync(gi, `${g}${g === "" || g.endsWith("\n") ? "" : eol}${LOCAL_FILE}${eol}`);

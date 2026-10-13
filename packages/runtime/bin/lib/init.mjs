@@ -563,26 +563,36 @@ function tokenRow(tk) {
   row("Token", c.gray(`none (${tk.why})`));
 }
 
+/** A project created in this run: save its token and private link to .genclass.local. saveLocal's result, or { error }. */
+function persistCreated(tk, cwd) {
+  try {
+    return saveLocal(cwd, { token: tk.token, dashboardUrl: tk.created.dashboardUrl, name: tk.created.name, created: tk.created.created });
+  } catch (e) {
+    return { error: e?.message ?? String(e) };
+  }
+}
+
+const SAVED_WHERE = {
+  added: " (added to .gitignore)",
+  created: " (git did not ignore it: added to a new .gitignore here)",
+  listed: " (git already ignores it)",
+  none: " (no git repository and no .gitignore here: keep it out of version control)",
+};
+
 /**
- * After init wrote its changes (`applied`): the dashboard link, saved to .genclass.local for a project created in
- * this run. `remind`: a run with nothing to do may repeat the link from .genclass.local. A run that wrote nothing
- * never created a project and prints no link.
+ * After init wrote its changes (`applied`): the dashboard link. `saved`: what persistCreated did for a project created
+ * in this run (it runs before any file is written, so a failed write cannot lose the link). `remind`: a run with
+ * nothing to do may repeat the link from .genclass.local. A run that wrote nothing never created a project and prints
+ * no link.
  */
-function dashboardNotice(tk, cwd, applied, remind = false) {
+function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
   const link = tk.created?.dashboardUrl ?? tk.local?.dashboardUrl;
   if (!tk.token || !link) return;
   if (!applied && !(remind && tk.local && !tk.created)) return;
-  let saved = null;
-  if (tk.created) {
-    try {
-      saved = saveLocal(cwd, { token: tk.token, dashboardUrl: link, name: tk.created.name, created: tk.created.created });
-    } catch (e) {
-      err(`  ${c.yellow(sym.warn)} Could not write ${LOCAL_FILE} (${e?.message ?? e}): copy the link below now.`);
-    }
-  }
+  if (tk.created && saved?.error) err(`  ${c.yellow(sym.warn)} Could not write ${LOCAL_FILE} (${saved.error}): copy the link below now.`);
   out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
   out(`  ${c.yellow("Keep this link private; it is the only way to open your dashboard.")}`);
-  if (saved) out(`  ${c.gray(`Saved in ${LOCAL_FILE}${saved.gitignore === "added" ? " (added to .gitignore)" : saved.gitignore === "listed" ? " (already in .gitignore)" : " (no .gitignore here: keep it out of version control)"}.`)}`);
+  if (tk.created && saved && !saved.error) out(`  ${c.gray(`Saved in ${LOCAL_FILE}${SAVED_WHERE[saved.gitignore] ?? ""}.`)}`);
   else if (tk.local) out(`  ${c.gray(`(from ${LOCAL_FILE})`)}`);
   out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
   out(`  ${c.gray("networks) never send, and visitors who opt out or send Global Privacy Control are not counted.")}`);
@@ -743,12 +753,23 @@ async function init(o) {
     return 1;
   }
   if (changes !== plan.changes) cfgAt = cfgAtOf(changes, tk.token ? cfg : withoutToken(cfg));
-  for (const ch of changes) writeChange(ch);
+  // a project created just now: keep its private link before writing anything else (it is shown only once)
+  const saved = tk.created ? persistCreated(tk, cwd) : null;
+  for (const ch of changes) {
+    try {
+      writeChange(ch);
+    } catch (e) {
+      err(`  ${c.red(sym.cross)} Could not write ${ch.rel} (${e?.message ?? e}). GenClass may be half set up: run ${c.cyan(`${CMD} remove`)}, then init again${tk.token ? ` with ${c.cyan(`--token ${tk.token}`)} to keep this app's token` : ""}.`);
+      out();
+      dashboardNotice(tk, cwd, true, false, saved);
+      return 1;
+    }
+  }
 
   out();
   out(`  ${c.green(sym.ok)} ${c.bold("GenClass Runtime is set up.")} ${c.gray(`(${changes.map((ch) => ch.rel).join(", ")})`)}`);
   out();
-  dashboardNotice(tk, cwd, true);
+  dashboardNotice(tk, cwd, true, false, saved);
   out(`  ${c.bold("Next")}`);
   const script = project.pkg?.scripts?.dev ? "dev" : project.pkg?.scripts?.start ? "start" : null;
   if (project.framework === "html") out(`    ${sym.dot} Open your page. GenClass starts before your other scripts.`);
@@ -849,7 +870,8 @@ async function remove(o) {
   }
   out();
   out(`  ${c.green(sym.ok)} ${c.bold("GenClass Runtime is removed.")}${changes.length ? ` ${c.gray(`(${changes.map((ch) => ch.rel).join(", ")})`)}` : ""}`);
-  if (isFile(join(cwd, LOCAL_FILE))) out(`  ${c.gray(`${LOCAL_FILE} stays (your token and private dashboard link); delete it when you no longer need the dashboard.`)}`);
+  if (isFile(join(cwd, LOCAL_FILE)))
+    out(`  ${c.gray(`${LOCAL_FILE} stays (your token and private dashboard link), and so does its .gitignore line, so the link never ends up in git; delete both when you no longer need the dashboard.`)}`);
   out();
   return 0;
 }
