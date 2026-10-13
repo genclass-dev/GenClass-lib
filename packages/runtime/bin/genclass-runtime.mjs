@@ -55,8 +55,8 @@ const USAGE = `Usage:
   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
   genclass-runtime info <dir>
 
-init sets GenClass up in the current project (shows the diff and asks first) and creates this app's token and
-private dashboard link at genclass.dev (--no-token: no network); remove undoes it
+init sets GenClass up in the current project (shows the diff and asks first) and, once you approve, creates this
+app's token and private dashboard link at genclass.dev (--no-token: no network); remove undoes it
 (\`genclass-runtime init --help\` for details).
 fetch-model downloads a GenClass model directory for self-hosting (default --variant all). The default --from is
 @genclass/runtime-model@0.2.0 on npm via jsDelivr, the runtime's own default model:

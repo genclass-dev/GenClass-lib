@@ -7,9 +7,10 @@ npx genclass-runtime init
 ```
 
 It does the same as `npx @genclass/runtime init`: it finds your framework, installs `@genclass/runtime`, adds one
-line to your entry file and shows you the diff first. It also creates your app's token and private dashboard link at
-genclass.dev, writes the token into what it adds, and saves the link in `.genclass.local` (keep that link private;
-it is the only way to open your dashboard).
+line to your entry file and shows you the diff first. From the release after `0.2.2`, once you approve the diff, it
+also creates your app's token and private dashboard link at genclass.dev (sending your `package.json` name), writes
+the token into what it adds, and saves the link in `.genclass.local` (keep that link private; it is the only way to
+open your dashboard).
 
 ```bash
 npx genclass-runtime init --token gc_...   # use a token you already have (no network)

@@ -901,6 +901,39 @@ describe("init: app token and private dashboard link (fetch mocked; never the re
     expect(left[".genclass.local"]).toBe(files[".genclass.local"]);
   });
 
+  it("nothing is sent before the changes are approved: no terminal and no --yes means no project and no link", () => {
+    const dir = viteApp({ ".gitignore": "node_modules\n" });
+    const before = snapshot(dir);
+    const log = logFile();
+    roots.push(dirname(log));
+    const r = cliEnv({ GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log }, dir, "init", "--no-install");
+    expect(r.code, r.out).toBe(1);
+    expect(r.out).toContain("Not a terminal, so nothing was written");
+    // the diff shows where the token will go and says what creating it sends
+    expect(r.out).toContain("once you apply these changes");
+    expect(r.out).toContain("https://genclass.dev/api/projects");
+    expect(r.out).toContain("gc_new-token-created-when-you-apply");
+    expect(calls(log)).toHaveLength(0);
+    expect(r.out).not.toContain("https://genclass.dev/dashboard/");
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("an existing setup without a token never gets a project as a side effect (a mode switch, a re-run)", () => {
+    const dir = viteApp();
+    expect(cli(dir, "init", "--yes", "--no-install").code).toBe(0); // offline: set up without a token
+    const log = logFile();
+    roots.push(dirname(log));
+    const env = { GENCLASS_TEST_FETCH: "ok", GENCLASS_TEST_FETCH_LOG: log };
+    const again = cliEnv(env, dir, "init", "--yes", "--no-install");
+    expect(again.out).toContain("Nothing to do");
+    expect(again.out).toContain("https://genclass.dev/start");
+    const g = cliEnv(env, dir, "init", "--yes", "--no-install", "--mode", "guard");
+    expect(g.code, g.out).toBe(0);
+    expect(readFileSync(join(dir, "src/main.ts"), "utf8").split("\n")[0]).toBe(`import genclass from "@genclass/runtime/auto/guard"; // genclass:init`);
+    expect(calls(log)).toHaveLength(0);
+    expect(snapshot(dir)["src/genclass.config.ts"]).toBeUndefined();
+  });
+
   it("--token uses that token without any network; --no-token and --no-telemetry write none", () => {
     const log = logFile();
     roots.push(dirname(log));

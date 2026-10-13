@@ -2,8 +2,10 @@
 //
 // A token (`gc_` + 22 base62) identifies one web app. It is public (it ships in the page) and only lets telemetry be
 // grouped under that app. The dashboard link (https://genclass.dev/dashboard/<secret>) is private: whoever has it sees
-// the app's stats. init creates both with POST https://genclass.dev/api/projects (server: telemetry-worker/), writes the
-// token into the snippet it adds, and keeps the link in .genclass.local (git-ignored when a .gitignore exists).
+// the app's stats. init creates both with POST https://genclass.dev/api/projects (server: telemetry-worker/), sending
+// only the app's name, and only after the user approved the changes (the diff shows PENDING_TOKEN until then). It
+// writes the token into the snippet it adds and keeps the link in .genclass.local (git-ignored when a .gitignore
+// exists).
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -14,6 +16,12 @@ export const PROJECTS_URL = "https://genclass.dev/api/projects";
 export const START_URL = "https://genclass.dev/start";
 const DASHBOARD_RE = /^https:\/\/genclass\.dev\/dashboard\/[A-Za-z0-9]+$/;
 export const LOCAL_FILE = ".genclass.local";
+/**
+ * Stands for the token in the diff init shows before the project exists. Not a valid token (TOKEN_RE), so it is never
+ * taken for one; before anything is written it is replaced by the real token, or the changes are planned again
+ * without one.
+ */
+export const PENDING_TOKEN = "gc_new-token-created-when-you-apply";
 const TIMEOUT_MS = 10_000;
 
 const read = (f) => {
