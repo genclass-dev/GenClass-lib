@@ -451,6 +451,12 @@ export const CONFIG_COMMENT = "// Read by @genclass/runtime/auto, imported right
 const isEmptyConfig = (cfg) => !cfg || (cfg.telemetry === undefined && !cfg.model && !(cfg.sinks && cfg.sinks.length));
 export { isEmptyConfig };
 
+/**
+ * What init writes for cfg on a new setup: `telemetry: true` (--telemetry) is the default, so it is left out. Written
+ * explicitly it would be an opt-in that also sends from local hosts (TELEMETRY.md), which --telemetry does not mean.
+ */
+export const writtenConfig = (cfg) => (cfg && cfg.telemetry === true ? { ...cfg, telemetry: undefined } : cfg);
+
 const modelLiteral = (m) => `model: { baseUrl: ${JSON.stringify(m.baseUrl)}, ortWasmPaths: ${JSON.stringify(m.ortWasmPaths)}${m.device ? `, device: ${JSON.stringify(m.device)}` : ""} }`;
 
 // Sinks whose SDK the app imports from npm (cfg.sdks, e.g. { sentry: "@sentry/vue", posthog: "posthog-js" }) are
@@ -494,10 +500,13 @@ export function sinkImports(cfg) {
 const SINK_IMPORT_LINE =
   /^\s*import\s+(?:\*\s*as\s+Sentry\s+from\s*["']@sentry\/[\w.-]+["']|posthog\s+from\s*["']posthog-js["']|\{\s*(?:sentry\s+as\s+sentrySink|posthog\s+as\s+posthogSink)\s*\}\s*from\s*["']@genclass\/runtime\/sinks\/(?:sentry|posthog)["'])\s*;?\s*$/;
 
-/** The object init writes: `{ telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." }, sinks: ["sentry"] }`. */
+/**
+ * The object init writes: `{ telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." }, sinks: ["sentry"] }`.
+ * Only the opt-out is ever written: `telemetry: true` would also send from local hosts.
+ */
 export function configLiteral(cfg) {
   const parts = [];
-  if (cfg.telemetry !== undefined) parts.push(`telemetry: ${cfg.telemetry ? "true" : "false"}`);
+  if (cfg.telemetry === false) parts.push("telemetry: false");
   if (cfg.model) parts.push(modelLiteral(cfg.model));
   if (cfg.sinks?.length) parts.push(sinksLiteral(cfg));
   return parts.length ? `{ ${parts.join(", ")} }` : "{}";
@@ -507,15 +516,19 @@ export function configLiteral(cfg) {
 export const configStatement = (cfg, ts) => `${ts ? "(globalThis as { GENCLASS_CONFIG?: object })" : "globalThis"}.GENCLASS_CONFIG = ${configLiteral(cfg)};`;
 
 /**
- * Sets telemetry / model / sinks in an existing GENCLASS_CONFIG statement (other keys a user added stay). With sinks,
- * the import lines of SDK-bound sinks are rewritten too: the old ones go, cfg's go right above the statement.
+ * Sets telemetry / model / sinks in an existing GENCLASS_CONFIG statement (other keys a user added stay).
+ * `telemetry: false` writes the opt-out; `telemetry: true` (--telemetry) takes the telemetry key out, back to the
+ * default (an explicit `true` would also send from local hosts). With sinks, the import lines of SDK-bound sinks are
+ * rewritten too: the old ones go, cfg's go right above the statement.
  */
 export function updateConfigText(text, cfg) {
   const t = text.replace(/(GENCLASS_CONFIG\s*=\s*\{)([^;]*)(\}\s*;?)/, (_m, open, body, close) => {
     let b = body;
-    if (cfg.telemetry !== undefined) {
-      const v = `telemetry: ${cfg.telemetry ? "true" : "false"}`;
+    if (cfg.telemetry === false) {
+      const v = "telemetry: false";
       b = /\btelemetry\s*:\s*(?:true|false)/.test(b) ? b.replace(/\btelemetry\s*:\s*(?:true|false)/, v) : `${v}, ${b.trim()}`;
+    } else if (cfg.telemetry === true) {
+      b = b.replace(/\btelemetry\s*:\s*(?:true|false)\s*,?/, "").replace(/,\s*,/, ",");
     }
     if (cfg.model) b = /\bmodel\s*:\s*\{[^}]*\}/.test(b) ? b.replace(/\bmodel\s*:\s*\{[^}]*\}/, modelLiteral(cfg.model)) : `${b.trim().replace(/,\s*$/, "")}, ${modelLiteral(cfg.model)}`;
     if (cfg.sinks?.length) b = SINKS_RE.test(b) ? b.replace(SINKS_RE, sinksLiteral(cfg)) : `${b.trim().replace(/,\s*$/, "")}, ${sinksLiteral(cfg)}`;

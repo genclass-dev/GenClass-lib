@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![website](https://img.shields.io/badge/web-genclass.dev-14B86A)](https://genclass.dev)
 
-**Website and docs: [genclass.dev](https://genclass.dev)** · [Docs](https://genclass.dev/docs) · [Benchmarks](https://genclass.dev/benchmarks) · [Cloud](https://genclass.dev/cloud) · [Pricing](https://genclass.dev/pricing)
+**Website and docs: [genclass.dev](https://genclass.dev)** · [Discord](https://discord.gg/kN9kRnFtZm) · [Docs](https://genclass.dev/docs) · [Benchmarks](https://genclass.dev/benchmarks) · [Cloud](https://genclass.dev/cloud) · [Pricing](https://genclass.dev/pricing)
 
 **A runtime for web apps. It watches the app from the inside and uses a small local model to flag, and optionally
 prevent, stale responses, races, duplicate requests, inconsistent state and failure storms.**
@@ -53,7 +53,8 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 ### What you will see in the first two minutes
 
 - One console line saying anonymous diagnostics are on (`[GenClass] Sends anonymous diagnostics (decisions and
-  counts, no page text) to improve the model. Opt out: …`); it does not appear on `localhost` or other local hosts.
+  counts, no page text) to improve the model. Opt out: …`); since `0.2.2` it does not appear on `localhost`
+  or other local hosts (`0.2.1` sends and shows it there too, by mistake).
 - `[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.4s). Mode: observe.` once the model has loaded at idle.
 - Then possibly nothing for a while. Observe mode reports only salient situations (a response landing over newer
   data, a repeat, a failure streak, a broken relation, an error), and the first response of each kind after a page
@@ -125,14 +126,15 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 >   clean typing made 0 model calls. See the [model card](packages/runtime-model/MODEL_CARD.md).
 > - **Options** (activation, route scopes, protected endpoints, breaker, shadow, veto, action limits, sinks):
 >   [OPTIONS-SPEC.md](docs/runtime/OPTIONS-SPEC.md).
-> - **Privacy notice:** anonymous diagnostics are on by default, without page text, and off on localhost; opt out
+> - **Privacy notice:** anonymous diagnostics are on by default, without page text, and off on localhost (since
+>   `0.2.2`; `0.2.1` sends from localhost too, by mistake); opt out
 >   with `GenClass.init({ telemetry: false })` or `?genclass=no-telemetry`. See
 >   [Privacy and telemetry](#privacy-and-telemetry).
 
 ## Privacy and telemetry
 
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
-- **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
+- **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and for each decision the trigger, the diagnosis and its confidence, the action and gate, the outcome, latency and counts. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.

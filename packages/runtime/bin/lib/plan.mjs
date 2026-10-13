@@ -24,6 +24,7 @@ import {
   sinkImports,
   switchMetaConfig,
   tagWithConfig,
+  writtenConfig,
 } from "./edit.mjs";
 
 export { AUTO };
@@ -293,7 +294,8 @@ export function scriptTag(o, pkgDir, version) {
   // no data-mode: observe, the runtime's default
   if (o.mode) attrs.push(`data-mode="${o.mode}"`);
   if (o.devtools) attrs.push('data-devtools="local"');
-  const open = isEmptyConfig(o.config) ? `<script ${attrs.join(" ")}>` : tagWithConfig(`<script ${attrs.join(" ")}>`, o.config);
+  const cfg = writtenConfig(o.config);
+  const open = isEmptyConfig(cfg) ? `<script ${attrs.join(" ")}>` : tagWithConfig(`<script ${attrs.join(" ")}>`, cfg);
   return `${open}</script>`;
 }
 
@@ -364,7 +366,8 @@ export const configFileChange = (file, cfg) => createFile(file, [CONFIG_COMMENT,
 export function planInit(project, opts, ctx) {
   const planner = PLANNERS[project.framework];
   if (!planner) return { changes: [], manual: "the project type was not recognised" };
-  const cfg = opts.config;
+  // --telemetry alone writes nothing (it is the default)
+  const cfg = writtenConfig(opts.config);
   let r = planner(project, opts, ctx);
   if (!isEmptyConfig(cfg) && !r.manual && r.entry && project.framework !== "html") {
     if (project.framework === "astro") {

@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=b25b9c74">
+<link rel="stylesheet" href="/styles.css?v=ef9e798c">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "SoftwareApplication", "name": "GenClass Runtime", "alternateName": "@genclass/runtime", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "Application reliability", "operatingSystem": "Web browser", "softwareVersion": "0.2.1", "license": "https://www.apache.org/licenses/LICENSE-2.0", "url": "https://genclass.dev/", "downloadUrl": "https://www.npmjs.com/package/@genclass/runtime", "installUrl": "https://genclass.dev/docs", "codeRepository": "https://github.com/genclass-dev/GenClass-lib", "programmingLanguage": ["TypeScript", "JavaScript"], "featureList": ["On-device model inference with WebGPU or WASM, no server", "Duplicate submit detection", "Stale response and write race detection", "Failure storm detection", "Automatic React and Redux state discovery, Zustand with its devtools middleware", "Plain-English reports with evidence, audit trail, explain and undo", "Opt-in guard mode that acts at the network boundary"], "description": "An open-source runtime for web apps that uses a 10 MB on-device model to report stale responses, race conditions, duplicate requests, inconsistent state and failure storms with evidence, and in opt-in guard mode can act on them.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Open-source runtime, free"}, "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is GenClass free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The GenClass runtime is open source under Apache-2.0 and free, including in commercial apps, with no usage limits. GenClass Cloud and Enterprise are planned paid products for teams; they have no customers yet."}}, {"@type": "Question", "name": "Does GenClass need an account or an API key?", "acceptedAnswer": {"@type": "Answer", "text": "No. One script tag or import \"@genclass/runtime/auto\" is all it takes. The model runs on the device."}}, {"@type": "Question", "name": "Will GenClass break my app?", "acceptedAnswer": {"@type": "Answer", "text": "The default mode only observes and changes nothing. Across 7 frameworks and 15 data layers, GenClass introduced no bugs in 3,510 test runs and took no non-passive action on correct apps in 1,760 guard and heal runs (runtime 0.1.0-beta.4, the code shipped as 0.2.1; model 0.2.0)."}}, {"@type": "Question", "name": "Where do GenClass reports go in production?", "acceptedAnswer": {"@type": "Answer", "text": "By default to the end user's browser console. The sinks option forwards each report to your own logging, Sentry or PostHog. Anonymous diagnostics go to the GenClass maintainers to improve the model, and can be turned off with telemetry: false."}}]}]}</script>
 <script>window.__gcRawFetch = window.fetch.bind(window);</script>
 <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1" data-manual></script>
@@ -49,6 +49,7 @@
 </header>
 <main id="main">
 <div class="hero3">
+  <div class="mend-stage">
   <div class="wrap">
     <a class="announce" href="https://www.npmjs.com/package/@genclass/runtime"><b>0.2.1</b>Out now, signed with npm provenance →</a>
     <h1>Catch the bugs that never throw. <em>Then stop them.</em></h1>
@@ -59,6 +60,7 @@
     </div>
     <div class="install-line"><button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button></div>
     <div class="fw"><span>Works with</span><b>React</b><b>Next.js</b><b>Vue</b><b>Svelte</b><b>Angular</b><b>Solid</b><b>plain HTML</b></div>
+  </div>
   </div>
   <div class="wrap">
 <div class="lab" id="lab" data-rt="0.2.1">
@@ -342,9 +344,9 @@ npx @genclass/runtime remove   <span class="c"># undo exactly what init added</s
     </div>
     <div class="foot-cols">
       <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
-      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
+      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="mailto:mehar@daybot.ca?subject=GenClass%20false%20detection">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
@@ -353,5 +355,6 @@ npx @genclass/runtime remove   <span class="c"># undo exactly what init added</s
 </footer>
 <script src="/app.js?v=7a4fd5f9" defer></script>
 <script src="/live.js?v=9" defer></script>
+<script src="/mend.js?v=2" defer></script>
 </body>
 </html>

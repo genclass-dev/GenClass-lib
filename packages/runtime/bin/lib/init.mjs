@@ -48,7 +48,8 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --no-telemetry   turn off GenClass's anonymous diagnostics (on by default; see TELEMETRY.md and
                    PRIVACY.md). Written as an option file (genclass.config.ts/js, imported right before
                    the auto import), or data-telemetry="off" on a plain HTML script tag
-  --telemetry      keep them on, written explicitly (on an existing setup: undoes --no-telemetry)
+  --telemetry      undo --no-telemetry: back to the default (on, but never from local hosts); init
+                   takes the opt-out out and writes no telemetry option of its own
   --model-url <u>  use a self-hosted model directory (made with \`fetch-model\`), e.g. /genclass-model/,
                    with ONNX Runtime from <u>ort/ (for a Content-Security-Policy without cdn.jsdelivr.net)
   --sink <name>    send every detection and intervention to a tool you already open, with no new
