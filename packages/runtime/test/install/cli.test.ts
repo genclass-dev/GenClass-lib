@@ -57,6 +57,10 @@ function snapshot(dir: string): Record<string, string> {
 
 // Every CLI run gets a fake fetch (no test reaches the network; by default it fails like being offline).
 const MOCK_FETCH = resolve(HERE, "mock-fetch.mjs");
+// ...and an empty config directory, so a session saved by `login` on this machine never changes what init does
+// (account.test.ts covers init with a saved session)
+const NO_ACCOUNT = mkdtempSync(join(tmpdir(), "gc-noacct-"));
+roots.push(NO_ACCOUNT);
 
 function cli(dir: string, ...args: string[]): { code: number; out: string } {
   return cliEnv({}, dir, ...args);
@@ -66,7 +70,7 @@ function cliEnv(env: Record<string, string>, dir: string, ...args: string[]): { 
   try {
     const out = execFileSync(process.execPath, ["--import", pathToFileURL(MOCK_FETCH).href, BIN, ...args, "--cwd", dir], {
       encoding: "utf8",
-      env: { ...process.env, GENCLASS_TEST_FETCH: "fail", ...env, NO_COLOR: "1", FORCE_COLOR: "0" },
+      env: { ...process.env, GENCLASS_HOST: "", XDG_CONFIG_HOME: NO_ACCOUNT, APPDATA: NO_ACCOUNT, GENCLASS_TEST_FETCH: "fail", ...env, NO_COLOR: "1", FORCE_COLOR: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     return { code: 0, out };
