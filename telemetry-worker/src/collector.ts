@@ -70,6 +70,9 @@ export interface Env {
   AUTH_ORIGIN?: string;
   /** WebAuthn relying party id (default genclass.dev). */
   AUTH_RP_ID?: string;
+  /** The newest @genclass/runtime on npm (a var in wrangler.toml). Below 0.3.0 the Connect panel says that project
+   * keys and `login` are not published yet; unset counts as not published. */
+  RUNTIME_ON_NPM?: string;
   /** Google sign-in (Worker secrets). The Google button is shown only when both are set. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
@@ -258,7 +261,7 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
 
 // ------------------------------------------------------------------------------------------ tokens and dashboards
 
-/** Global ceiling on project creation (all clients together). */
+/** Global ceiling on anonymous project creation (all clients together; apps created in accounts count separately). */
 export const MAX_PROJECTS_PER_MINUTE = 60;
 
 const PROJECT_CORS: Record<string, string> = {
@@ -287,7 +290,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
       if (!success) return json(429, { ok: false, error: "too many projects created; try again in a minute" }, { ...PROJECT_CORS, "retry-after": "60" });
     }
     // Backstop for the (per-location, eventually consistent) limiter: a global ceiling on new projects per minute.
-    if ((await projectsCreatedSince(env.DB, new Date(now.getTime() - 60_000))) >= MAX_PROJECTS_PER_MINUTE) {
+    if ((await projectsCreatedSince(env.DB, new Date(now.getTime() - 60_000), "anonymous")) >= MAX_PROJECTS_PER_MINUTE) {
       return json(429, { ok: false, error: "too many projects created; try again in a minute" }, { ...PROJECT_CORS, "retry-after": "60" });
     }
     const raw = await readCapped(request, 4096);

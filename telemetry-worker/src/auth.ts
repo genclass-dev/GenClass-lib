@@ -11,6 +11,13 @@
 // - Every state-changing request authenticated by a cookie must carry an Origin equal to the expected origin (else
 //   403). The JSON endpoints the pages call also require Content-Type application/json. Bearer requests (the CLI)
 //   carry no ambient credentials and need no Origin.
+// - A CLI bearer session can do what the CLI needs and the approval page says: read the account and its apps, create
+//   apps, add an app from its private link, and end itself. Stats, other sessions, passkeys, private links and the
+//   account itself need the browser session.
+// - OAuth state (state, nonce, PKCE verifier, where to go next, which account and session a Link started from) is
+//   kept server-side in `challenges`; the cookie holds only that row's random id, so a planted cookie cannot name an
+//   account to link to. Session cookies use the __Host- prefix (no Domain, Path=/, Secure), except on plain-HTTP
+//   localhost in development.
 // - Nothing is logged; the client IP is only a rate-limit key (hashed), never stored.
 // Routes: see telemetry-worker/README.md ("Accounts").
 
@@ -24,9 +31,11 @@ import {
   pendingPage,
   signupPage,
   type AccountView,
+  type DeviceView,
 } from "./account-pages.js";
 import {
   createProject,
+  forgetToken,
   newProjectId,
   PROJECT_COLUMNS,
   PROJECT_ID_RE,
@@ -67,13 +76,22 @@ export const OAUTH_MS = 10 * MINUTE;
 export const DEVICE_CODE_MS = 10 * MINUTE;
 export const DEVICE_INTERVAL_S = 5;
 export const MAX_APPS_PER_ACCOUNT = 200;
-/** Global ceiling on new projects per minute, shared with anonymous creation (collector.ts). */
-const MAX_PROJECTS_PER_MINUTE = 60;
+/** Global ceiling on apps created in accounts per minute (anonymous creation has its own, collector.ts). */
+const MAX_ACCOUNT_PROJECTS_PER_MINUTE = 60;
 
-export const SESSION_COOKIE = "gc_session";
-export const PENDING_COOKIE = "gc_pending";
+/** The web session cookie: __Host- on HTTPS; the plain name only for plain-HTTP localhost in development. */
+export const SESSION_COOKIE = "__Host-gc_session";
+export const DEV_SESSION_COOKIE = "gc_session";
+/** The email-collision choice a first Google or GitHub sign-in waits on (a challenges row id). */
+export const PENDING_COOKIE = "__Host-gc_pending";
+export const DEV_PENDING_COOKIE = "gc_pending";
 export const GOOGLE_COOKIE = "gc_oauth_google";
 export const GITHUB_COOKIE = "gc_oauth_github";
+/**
+ * The only client names the approval page shows and the session list keeps: the CLI's own `genclass-runtime <version>`.
+ * Anything else (free text a caller of POST /api/device/code chose) is shown as "Unknown client".
+ */
+export const CLIENT_NAME_RE = /^genclass-runtime \d{1,4}\.\d{1,4}\.\d{1,4}(?:-[A-Za-z0-9.]{1,20})?$/;
 
 /** CLI bearer token: `gcs_` + 32 random bytes as base64url. */
 export const CLI_TOKEN_RE = /^gcs_[A-Za-z0-9_-]{43}$/;
@@ -102,19 +120,36 @@ export interface AuthConfig {
   rpId: string;
   /** Secure cookies everywhere except plain-HTTP localhost in development. */
   secure: boolean;
+  /** Cookie names (SESSION_COOKIE and PENDING_COOKIE, or their development names when not secure). */
+  session: string;
+  pending: string;
   google: boolean;
   github: boolean;
 }
 
 export function authConfig(env: Env): AuthConfig {
   const origin = (env.AUTH_ORIGIN || "https://genclass.dev").replace(/\/+$/, "");
+  const secure = !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
   return {
     origin,
     rpId: env.AUTH_RP_ID || "genclass.dev",
-    secure: !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin),
+    secure,
+    session: secure ? SESSION_COOKIE : DEV_SESSION_COOKIE,
+    pending: secure ? PENDING_COOKIE : DEV_PENDING_COOKIE,
     google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
   };
+}
+
+/**
+ * Whether the @genclass/runtime on npm (the RUNTIME_ON_NPM var) reads project keys and has `login`: 0.3.0 or later.
+ * Unset or unreadable counts as no, so the Connect panel keeps saying the release is still to come.
+ */
+export function runtimeHasTokens(env: Env): boolean {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(env.RUNTIME_ON_NPM ?? "").trim());
+  if (!m) return false;
+  const [maj, min] = [Number(m[1]), Number(m[2])];
+  return maj > 0 || min >= 3;
 }
 
 interface C {
@@ -233,6 +268,11 @@ async function overLimit(c: C, bucket: string): Promise<boolean> {
 }
 
 const tooMany = (): Response => fail(429, "too many attempts from your network; try again in a minute", { "retry-after": "60" });
+const tooManyPage = (): Response => {
+  const r = page(429, (n) => messagePage(n, { title: "Too many requests", text: "Too many requests came from your network in the last minute. Wait a minute, then reload this page.", links: [] }));
+  r.headers.set("retry-after", "60");
+  return r;
+};
 
 // --------------------------------------------------------------------------------------------- accounts, sessions
 
@@ -267,7 +307,7 @@ async function authenticate(c: C): Promise<Auth | null> {
     secret = m[1]!;
     kind = "cli";
   } else {
-    const v = getCookie(c.req, SESSION_COOKIE);
+    const v = getCookie(c.req, c.cfg.session);
     if (!v || !SECRET43_RE.test(v)) return null;
     secret = v;
     kind = "web";
@@ -309,7 +349,7 @@ async function createSession(c: C, accountId: string, kind: "web" | "cli", label
   return { id, secret, expires };
 }
 
-const sessionCookie = (c: C, secret: string): string => setCookie(c, SESSION_COOKIE, secret, WEB_SESSION_MS / 1000);
+const sessionCookie = (c: C, secret: string): string => setCookie(c, c.cfg.session, secret, WEB_SESSION_MS / 1000);
 
 async function accountById(c: C, id: string): Promise<Account | null> {
   return c.db.prepare(`SELECT ${ACCOUNT_COLUMNS} FROM accounts a WHERE a.id = ?`).bind(id).first<Account>();
@@ -559,55 +599,70 @@ interface Identity {
   login: string | null;
 }
 
+/** One OAuth flow in progress, as stored server-side (challenges, kind `oauth:<provider>`). */
 interface OAuthState {
+  /** the `state` sent to the provider (the challenge column) */
   s: string;
+  /** Google: the nonce and the PKCE verifier */
   n?: string;
   v?: string;
   next: string | null;
   /** account id when this flow links the provider to a signed-in account */
   link: string | null;
+  /** the session that started a Link: the callback must come back on the same one */
+  sid: string | null;
 }
 
-function readOAuthCookie(c: C, name: string): OAuthState | null {
-  const v = getCookie(c.req, name);
-  if (!v || v.length > 2048) return null;
-  try {
-    const o = JSON.parse(new TextDecoder().decode(fromB64url(v))) as Record<string, unknown>;
-    if (typeof o.s !== "string" || !SECRET43_RE.test(o.s)) return null;
-    return {
-      s: o.s,
-      n: typeof o.n === "string" ? o.n : undefined,
-      v: typeof o.v === "string" ? o.v : undefined,
-      next: typeof o.next === "string" ? safeNext(o.next) : null,
-      link: typeof o.link === "string" && ID22_RE.test(o.link) ? o.link : null,
-    };
-  } catch {
-    return null;
-  }
+type Provider = "google" | "github";
+const oauthCookie = (p: Provider): string => (p === "google" ? GOOGLE_COOKIE : GITHUB_COOKIE);
+
+/**
+ * Store a new flow and return the `state` for the provider plus the cookie that names the stored row. The cookie
+ * holds only the row's random id: what it means (which account to link, where to go next) stays on the server.
+ */
+async function saveOAuth(c: C, p: Provider, st: { next: string | null; link: string | null; sid: string | null }, extra: { n?: string; v?: string } = {}): Promise<{ state: string; cookie: string }> {
+  const ch = await putChallenge(c, `oauth:${p}`, st.link, { next: st.next, link: st.link, sid: st.sid, ...extra }, OAUTH_MS);
+  return { state: ch.challenge, cookie: setCookie(c, oauthCookie(p), ch.id, OAUTH_MS / 1000, `/auth/${p}`) };
+}
+
+/** Take (single use) the flow the cookie names, or null when there is none or it expired. */
+async function takeOAuth(c: C, p: Provider): Promise<OAuthState | null> {
+  const ch = await takeChallenge(c, getCookie(c.req, oauthCookie(p)), `oauth:${p}`);
+  if (!ch) return null;
+  const d = ch.data;
+  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+  return {
+    s: ch.challenge,
+    n: str(d.n),
+    v: str(d.v),
+    next: safeNext(str(d.next)),
+    link: typeof d.link === "string" && ID22_RE.test(d.link) ? d.link : null,
+    sid: typeof d.sid === "string" && SESSION_ID_RE.test(d.sid) ? d.sid : null,
+  };
 }
 
 /** Shared start of both flows: who is linking, where to go afterwards. A Response when the flow should not start. */
-async function oauthStart(c: C): Promise<{ next: string | null; link: string | null } | Response> {
+async function oauthStart(c: C): Promise<{ next: string | null; link: string | null; sid: string | null } | Response> {
   const next = safeNext(c.url.searchParams.get("next"));
   const session = await webSession(c);
   if (c.url.searchParams.get("link") === "1") {
     if (!session) return redirect(`/login?next=${encodeURIComponent("/account")}`);
-    return { next: "/account", link: session.account.id };
+    return { next: "/account", link: session.account.id, sid: session.sessionId };
   }
   if (session) return redirect(next ?? "/account");
-  return { next, link: null };
+  // every start stores a row, so starts are rate limited like the passkey options
+  if (await overLimit(c, "oauth")) return tooManyPage();
+  return { next, link: null, sid: null };
 }
-
-const encodeState = (o: OAuthState): string => b64url(new TextEncoder().encode(JSON.stringify(o)));
 
 async function googleStart(c: C): Promise<Response> {
   if (!c.cfg.google) return page(404, (n) => messagePage(n, { title: "Google sign-in is not set up", text: "This GenClass server has no Google client configured. Sign in with a passkey instead.", links: [["Sign in", "/login"]] }));
   const st = await oauthStart(c);
   if (st instanceof Response) return st;
-  const state = randomSecret(32);
   const nonce = randomSecret(32);
   const verifier = randomSecret(32);
   const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+  const { state, cookie } = await saveOAuth(c, "google", st, { n: nonce, v: verifier });
   const q = new URLSearchParams({
     client_id: c.env.GOOGLE_CLIENT_ID!,
     redirect_uri: `${c.cfg.origin}/auth/google/callback`,
@@ -619,7 +674,6 @@ async function googleStart(c: C): Promise<Response> {
     code_challenge_method: "S256",
     prompt: "select_account",
   });
-  const cookie = setCookie(c, GOOGLE_COOKIE, encodeState({ s: state, n: nonce, v: verifier, ...st }), OAUTH_MS / 1000, "/auth/google");
   return redirect(`${GOOGLE_AUTH_URL}?${q}`, [cookie]);
 }
 
@@ -655,11 +709,11 @@ export function checkGoogleClaims(claims: Record<string, unknown> | null, client
 async function googleCallback(c: C): Promise<Response> {
   const clear = clearCookie(c, GOOGLE_COOKIE, "/auth/google");
   const done = (r: Response): Response => withCookies(r, [clear]);
-  const bad = (status: number, text: string): Response =>
-    done(page(status, (n) => messagePage(n, { title: "Google sign-in did not finish", text, links: [["Try again", "/login"]] })));
+  const bad = (status: number, text: string, detail?: string): Response =>
+    done(page(status, (n) => messagePage(n, { title: "Google sign-in did not finish", text, detail, links: [["Try again", "/login"]] })));
   if (!c.cfg.google) return bad(404, "This GenClass server has no Google client configured.");
+  const st = await takeOAuth(c, "google");
   if (c.url.searchParams.get("error")) return done(redirect("/login?error=google"));
-  const st = readOAuthCookie(c, GOOGLE_COOKIE);
   const state = c.url.searchParams.get("state");
   if (!st || !st.n || !st.v || !state || !equalStrings(state, st.s)) {
     return bad(400, "This sign-in link expired or was opened in another browser. Start again from the sign-in page.");
@@ -688,7 +742,9 @@ async function googleCallback(c: C): Promise<Response> {
   }
   const claims = jwtPayload(tok.id_token);
   const err = checkGoogleClaims(claims, c.env.GOOGLE_CLIENT_ID!, st.n, c.now);
-  if (err || !claims) return bad(400, `Google's answer did not pass our checks (${err ?? "no id_token"}). Start again.`);
+  if (err || !claims) {
+    return bad(400, "Google's answer could not be checked. This happens when the sign-in took too long or was finished in another tab. Start again.", `Check that failed: ${err ?? "no id_token"}`);
+  }
   const email = cleanEmail(claims.email);
   const ident: Identity = {
     provider: "google",
@@ -704,9 +760,8 @@ async function githubStart(c: C): Promise<Response> {
   if (!c.cfg.github) return page(404, (n) => messagePage(n, { title: "GitHub sign-in is not set up", text: "This GenClass server has no GitHub app configured. Sign in with a passkey instead.", links: [["Sign in", "/login"]] }));
   const st = await oauthStart(c);
   if (st instanceof Response) return st;
-  const state = randomSecret(32);
+  const { state, cookie } = await saveOAuth(c, "github", st);
   const q = new URLSearchParams({ client_id: c.env.GITHUB_CLIENT_ID!, redirect_uri: `${c.cfg.origin}/auth/github/callback`, state, allow_signup: "true" });
-  const cookie = setCookie(c, GITHUB_COOKIE, encodeState({ s: state, ...st }), OAUTH_MS / 1000, "/auth/github");
   return redirect(`${GITHUB_AUTH_URL}?${q}`, [cookie]);
 }
 
@@ -716,8 +771,8 @@ async function githubCallback(c: C): Promise<Response> {
   const bad = (status: number, text: string): Response =>
     done(page(status, (n) => messagePage(n, { title: "GitHub sign-in did not finish", text, links: [["Try again", "/login"]] })));
   if (!c.cfg.github) return bad(404, "This GenClass server has no GitHub app configured.");
+  const st = await takeOAuth(c, "github");
   if (c.url.searchParams.get("error")) return done(redirect("/login?error=github"));
-  const st = readOAuthCookie(c, GITHUB_COOKIE);
   const state = c.url.searchParams.get("state");
   if (!st || !state || !equalStrings(state, st.s)) {
     return bad(400, "This sign-in link expired or was opened in another browser. Start again from the sign-in page.");
@@ -754,7 +809,7 @@ async function finishProvider(c: C, ident: Identity, st: OAuthState): Promise<Re
   const owner = await c.db.prepare(`SELECT id FROM accounts WHERE ${col} = ?`).bind(ident.sub).first<{ id: string }>();
   if (st.link) {
     const session = await webSession(c);
-    if (!session || session.account.id !== st.link) {
+    if (!session || session.account.id !== st.link || session.sessionId !== st.sid) {
       return page(403, (n) => messagePage(n, { title: "Sign in again to link", text: "Your session changed while you were away. Sign in, then choose Link on your account page again.", links: [["Sign in", "/login?next=%2Faccount"]] }));
     }
     if (owner && owner.id !== session.account.id) return redirect(`/account?error=${ident.provider}_taken`);
@@ -775,7 +830,7 @@ async function finishProvider(c: C, ident: Identity, st: OAuthState): Promise<Re
     const same = await c.db.prepare("SELECT 1 AS x FROM accounts WHERE lower(email) = lower(?) LIMIT 1").bind(ident.email).first();
     if (same) {
       const p = await putChallenge(c, "pending", null, { ...ident, next: st.next }, OAUTH_MS);
-      return page(200, (n) => pendingPage(n, { email: ident.email!, provider: ident.provider }), [setCookie(c, PENDING_COOKIE, p.id, OAUTH_MS / 1000)]);
+      return page(200, (n) => pendingPage(n, { email: ident.email!, provider: ident.provider }), [setCookie(c, c.cfg.pending, p.id, OAUTH_MS / 1000)]);
     }
   }
   const id = await createProviderAccount(c, ident);
@@ -805,8 +860,8 @@ async function confirmPending(c: C): Promise<Response> {
   if (!originOk(c)) return csrfFail();
   const body = await readJson(c);
   if (body instanceof Response) return body;
-  const clear = clearCookie(c, PENDING_COOKIE);
-  const ch = await takeChallenge(c, getCookie(c.req, PENDING_COOKIE), "pending");
+  const clear = clearCookie(c, c.cfg.pending);
+  const ch = await takeChallenge(c, getCookie(c.req, c.cfg.pending), "pending");
   if (!ch) return withCookies(fail(400, "this sign-in expired; start again"), [clear]);
   const d = ch.data;
   if ((d.provider !== "google" && d.provider !== "github") || typeof d.sub !== "string") return withCookies(fail(400, "this sign-in expired; start again"), [clear]);
@@ -846,7 +901,9 @@ async function deviceCode(c: C): Promise<Response> {
   const body = await readLoose(c);
   if (body instanceof Response) return body;
   if (await overLimit(c, "device")) return tooMany();
-  const client = typeof body.client_name === "string" && body.client_name.trim() ? sanitizeName(body.client_name).slice(0, 60) : null;
+  // Only the CLI's own name is kept: free text here would be shown on the genuine approval page (remote phishing).
+  const named = typeof body.client_name === "string" ? body.client_name.trim() : "";
+  const client = CLIENT_NAME_RE.test(named) ? named : null;
   const device = randomSecret(32);
   const hash = await sha256Hex(device);
   const iso = c.now.toISOString();
@@ -892,6 +949,12 @@ async function deviceToken(c: C): Promise<Response> {
   if (body instanceof Response) return body;
   const dc = body.device_code;
   if (typeof dc !== "string" || !SECRET43_RE.test(dc)) return deviceError("invalid_request", "device_code is missing or malformed");
+  // Over the per-network budget: slow_down before any database read, so polling (with live or made-up codes) cannot
+  // cost more than the limit allows. A CLI that honours it waits 10 s and is under the budget again.
+  if (await overLimit(c, "poll")) {
+    const next = DEVICE_INTERVAL_S + 5;
+    return deviceError("slow_down", `poll at most every ${next} seconds`, { interval: next });
+  }
   const hash = await sha256Hex(dc);
   const row = await c.db.prepare("SELECT * FROM device_codes WHERE hash = ?").bind(hash).first<DeviceRow>();
   const nowMs = c.now.getTime();
@@ -901,10 +964,10 @@ async function deviceToken(c: C): Promise<Response> {
     return deviceError("expired_token", "this code has expired; run the command again");
   }
   const interval = Number(row.poll_interval) || DEVICE_INTERVAL_S;
-  // Polling faster than the interval (1 s of slack for network jitter), or over the per-network budget: slow_down,
-  // and the interval grows by 5 s for every later request (RFC 8628 section 3.5).
+  // Polling faster than the interval (1 s of slack for network jitter): slow_down, and the interval grows by 5 s for
+  // every later request (RFC 8628 section 3.5).
   const early = row.last_poll !== null && nowMs - Date.parse(row.last_poll) < interval * 1000 - 1000;
-  if (early || (await overLimit(c, "poll"))) {
+  if (early) {
     const next = Math.min(interval + 5, 60);
     await c.db.prepare("UPDATE device_codes SET poll_interval = ?, last_poll = ? WHERE hash = ?").bind(next, c.now.toISOString(), hash).run();
     return deviceError("slow_down", `poll at most every ${next} seconds`, { interval: next });
@@ -968,18 +1031,32 @@ export function secretFromLink(v: unknown): string | null {
   return m ? m[1]! : null;
 }
 
+const noContent = (): Response => new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
+
+/** A write only the browser may make (passkeys, other sessions, private links, the account): 403 for a CLI session. */
+async function browserWriter(c: C, what: string): Promise<Auth | Response> {
+  const a = await writer(c);
+  if (a instanceof Response) return a;
+  if (a.via !== "cookie") return fail(403, `${what} only in the browser, on your account page`);
+  return a;
+}
+
+const appCount = async (c: C, accountId: string): Promise<number> =>
+  Number((await c.db.prepare("SELECT COUNT(*) AS n FROM projects WHERE account_id = ?").bind(accountId).first<{ n: number }>())?.n ?? 0);
+const tooManyApps = (): Response => fail(409, `an account can hold at most ${MAX_APPS_PER_ACCOUNT} apps`);
+
 async function createAccountProject(c: C): Promise<Response> {
   const a = await writer(c);
   if (a instanceof Response) return a;
   const body = await readJson(c, 4096);
   if (body instanceof Response) return body;
-  const n = await c.db.prepare("SELECT COUNT(*) AS n FROM projects WHERE account_id = ?").bind(a.account.id).first<{ n: number }>();
-  if (Number(n?.n ?? 0) >= MAX_APPS_PER_ACCOUNT) return fail(409, `an account can hold at most ${MAX_APPS_PER_ACCOUNT} apps`);
+  if ((await appCount(c, a.account.id)) >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
   if (c.env.CREATE_LIMITER) {
     const { success } = await c.env.CREATE_LIMITER.limit({ key: (await sha256Hex(`create:account:${a.account.id}`)).slice(0, 32) });
     if (!success) return fail(429, "too many apps created; try again in a minute", { "retry-after": "60" });
   }
-  if ((await projectsCreatedSince(c.db, new Date(c.now.getTime() - MINUTE))) >= MAX_PROJECTS_PER_MINUTE) {
+  // a ceiling of its own: anonymous creation (/api/projects) cannot use it up
+  if ((await projectsCreatedSince(c.db, new Date(c.now.getTime() - MINUTE), "account")) >= MAX_ACCOUNT_PROJECTS_PER_MINUTE) {
     return fail(429, "too many apps created; try again in a minute", { "retry-after": "60" });
   }
   const p = await createProject(c.db, sanitizeName(body.name), c.now, a.account.id);
@@ -998,6 +1075,7 @@ async function claimProject(c: C): Promise<Response> {
   if (!p) return fail(404, "no dashboard matches this link");
   if (p.account_id && p.account_id !== a.account.id) return fail(409, "this app already belongs to another account");
   if (!p.account_id || !p.id) {
+    if (!p.account_id && (await appCount(c, a.account.id)) >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
     await c.db
       .prepare("UPDATE projects SET account_id = ?, id = COALESCE(id, ?) WHERE token = ? AND (account_id IS NULL OR account_id = ?)")
       .bind(a.account.id, newProjectId(), p.token, a.account.id)
@@ -1008,14 +1086,40 @@ async function claimProject(c: C): Promise<Response> {
   return json(200, { project: projectJson(c, owned) });
 }
 
+/**
+ * DELETE /api/account/projects/<id>/link: turn off an owned app's private dashboard link. The stored hash is replaced
+ * by the hash of a secret nobody is given, so the old link stops working (and can no longer be claimed); the app,
+ * its key and its data stay in the account.
+ */
+async function turnOffLink(c: C, id: string): Promise<Response> {
+  const a = await browserWriter(c, "a private link can be turned off");
+  if (a instanceof Response) return a;
+  const p = await ownedProject(c, a.account.id, id);
+  if (!p) return fail(404, "not found");
+  await c.db
+    .prepare("UPDATE projects SET secret_hash = ?, private_link = 0 WHERE id = ? AND account_id = ?")
+    .bind(await sha256Hex(`off:${randomSecret(32)}`), id, a.account.id)
+    .run();
+  return noContent();
+}
+
+/**
+ * DELETE /api/account/sessions/<id>. A CLI session may end only itself ("current", the CLI's logout); the browser
+ * may end any of the account's sessions, or every session but itself ("others").
+ */
 async function revokeSession(c: C, id: string): Promise<Response> {
   const a = await writer(c);
   if (a instanceof Response) return a;
   const iso = c.now.toISOString();
   if (id === "current") {
     await c.db.prepare("UPDATE auth_sessions SET revoked = ? WHERE id = ? AND revoked IS NULL").bind(iso, a.sessionId).run();
-    const res = new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
-    return a.via === "cookie" ? withCookies(res, [clearCookie(c, SESSION_COOKIE)]) : res;
+    const res = noContent();
+    return a.via === "cookie" ? withCookies(res, [clearCookie(c, c.cfg.session)]) : res;
+  }
+  if (a.via !== "cookie") return fail(403, "a command line session can only end itself; manage other sessions on your account page");
+  if (id === "others") {
+    await revokeOthers(c, a);
+    return noContent();
   }
   if (!SESSION_ID_RE.test(id)) return fail(404, "no such session");
   const r = await c.db
@@ -1023,13 +1127,22 @@ async function revokeSession(c: C, id: string): Promise<Response> {
     .bind(iso, id, a.account.id)
     .first();
   if (!r) return fail(404, "no such session");
-  return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
+  const res = noContent();
+  return id === a.sessionId ? withCookies(res, [clearCookie(c, c.cfg.session)]) : res;
 }
 
+/** End every session of the account except the one making this request (browsers and terminals). */
+async function revokeOthers(c: C, a: Auth): Promise<void> {
+  await c.db
+    .prepare("UPDATE auth_sessions SET revoked = ? WHERE account_id = ? AND id != ? AND revoked IS NULL")
+    .bind(c.now.toISOString(), a.account.id, a.sessionId)
+    .run();
+}
+
+/** Remove a passkey; every other session ends too, since one of them may be where that passkey was used. */
 async function removeCredential(c: C, id: string): Promise<Response> {
-  const a = await writer(c);
+  const a = await browserWriter(c, "passkeys can be removed");
   if (a instanceof Response) return a;
-  if (a.via !== "cookie") return fail(403, "passkeys can only be removed in the browser");
   if (!CREDENTIAL_ID_RE.test(id)) return fail(404, "no such passkey");
   const n = await c.db.prepare("SELECT COUNT(*) AS n FROM credentials WHERE account_id = ?").bind(a.account.id).first<{ n: number }>();
   const methods = Number(n?.n ?? 0) + (a.account.google_sub ? 1 : 0) + (a.account.github_id ? 1 : 0);
@@ -1037,18 +1150,55 @@ async function removeCredential(c: C, id: string): Promise<Response> {
   if (!mine) return fail(404, "no such passkey");
   if (methods <= 1) return fail(409, "this is your only way to sign in; add another passkey or link Google or GitHub first");
   await c.db.prepare("DELETE FROM credentials WHERE id = ? AND account_id = ?").bind(id, a.account.id).run();
-  return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
+  await revokeOthers(c, a);
+  return noContent();
+}
+
+/**
+ * DELETE /api/account { confirm: "delete" }: delete the signed-in account. Its passkeys, sessions, pending sign-in
+ * codes and the account row go. Apps created in the account (no private link) are deleted with their stats; apps
+ * that still have a private link leave the account and keep working through that link, as before they were added.
+ */
+async function deleteAccount(c: C): Promise<Response> {
+  const a = await browserWriter(c, "an account can be deleted");
+  if (a instanceof Response) return a;
+  const body = await readJson(c, 1024);
+  if (body instanceof Response) return body;
+  if (body.confirm !== "delete") return fail(400, 'send { "confirm": "delete" } to delete this account');
+  const id = a.account.id;
+  const gone = await c.db.prepare("SELECT token FROM projects WHERE account_id = ? AND private_link = 0").bind(id).all<{ token: string }>();
+  const own = "SELECT token FROM projects WHERE account_id = ? AND private_link = 0";
+  await c.db.batch([
+    ...["daily", "hourly", "recent", "sessions"].map((t) => c.db.prepare(`DELETE FROM ${t} WHERE token IN (${own})`).bind(id)),
+    c.db.prepare("DELETE FROM projects WHERE account_id = ? AND private_link = 0").bind(id),
+    c.db.prepare("UPDATE projects SET account_id = NULL WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM credentials WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM auth_sessions WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM device_codes WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM challenges WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM accounts WHERE id = ?").bind(id),
+  ]);
+  for (const p of gone.results ?? []) forgetToken(p.token);
+  return withCookies(noContent(), [clearCookie(c, c.cfg.session)]);
 }
 
 async function accountView(c: C, a: Auth): Promise<AccountView> {
   const iso = c.now.toISOString();
-  const [creds, cli] = await c.db.batch([
+  const [creds, sessions] = await c.db.batch([
     c.db.prepare("SELECT id, created, last_used, transports FROM credentials WHERE account_id = ? ORDER BY created").bind(a.account.id),
     c.db
-      .prepare("SELECT id, label, created, expires, last_used FROM auth_sessions WHERE account_id = ? AND kind = 'cli' AND revoked IS NULL AND expires > ? ORDER BY created DESC")
+      .prepare("SELECT id, kind, label, created, expires, last_used FROM auth_sessions WHERE account_id = ? AND revoked IS NULL AND expires > ? ORDER BY created DESC")
       .bind(a.account.id, iso),
   ]);
   const rows = (r: unknown) => ((r as { results?: Record<string, unknown>[] })?.results ?? []) as Record<string, unknown>[];
+  const session = (r: Record<string, unknown>) => ({
+    id: String(r.id),
+    label: String(r.label ?? "Command line"),
+    created: String(r.created),
+    expires: String(r.expires),
+    lastUsed: (r.last_used as string | null) ?? null,
+    current: r.id === a.sessionId,
+  });
   return {
     account: {
       id: a.account.id,
@@ -1058,7 +1208,7 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
       githubLogin: a.account.github_id ? a.account.github_login : null,
       created: a.account.created,
     },
-    projects: (await accountProjects(c, a.account.id)).map((p) => projectJson(c, p)),
+    projects: (await accountProjects(c, a.account.id)).map((p) => ({ ...projectJson(c, p), privateLink: !!p.private_link })),
     passkeys: rows(creds).map((r) => {
       let transports: string[] = [];
       try {
@@ -1068,7 +1218,8 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
       }
       return { id: String(r.id), created: String(r.created), lastUsed: (r.last_used as string | null) ?? null, transports };
     }),
-    cli: rows(cli).map((r) => ({ id: String(r.id), label: String(r.label ?? "Command line"), created: String(r.created), expires: String(r.expires), lastUsed: (r.last_used as string | null) ?? null })),
+    web: rows(sessions).filter((r) => r.kind === "web").map(session),
+    cli: rows(sessions).filter((r) => r.kind === "cli").map(session),
     providers: { google: c.cfg.google, github: c.cfg.github },
   };
 }
@@ -1085,7 +1236,8 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     if (path.startsWith("/api/")) return fail(503, "accounts unavailable");
     return page(503, (n) => messagePage(n, { title: "Accounts are unavailable", text: "This GenClass server has no database configured.", links: [] }));
   }
-  const c: C = { req: request, url, env, db: env.DB, opts, now: (opts.now ?? (() => new Date()))(), cfg: authConfig(env) };  const m = request.method;
+  const c: C = { req: request, url, env, db: env.DB, opts, now: (opts.now ?? (() => new Date()))(), cfg: authConfig(env) };
+  const m = request.method;
   const get = m === "GET" || m === "HEAD";
   const post = m === "POST";
   const method = (): Response => fail(405, "method not allowed");
@@ -1106,7 +1258,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       if (!originOk(c)) return csrfFail();
       const a = await webSession(c);
       if (a) await c.db.prepare("UPDATE auth_sessions SET revoked = ? WHERE id = ? AND revoked IS NULL").bind(c.now.toISOString(), a.sessionId).run();
-      return redirect("/login?signed_out=1", [clearCookie(c, SESSION_COOKIE)], 303);
+      return redirect("/login?signed_out=1", [clearCookie(c, c.cfg.session)], 303);
     }
     case "/account": {
       if (!get) return method();
@@ -1120,14 +1272,17 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       if (!get) return method();
       const raw = url.searchParams.get("code");
       const code = raw === null ? null : normalizeUserCode(raw);
+      // A code lookup is rate limited, and only a signed-in visitor learns whether a code is live: signed out, the
+      // page shows the typed code and the ways to sign in, whatever the code is (no oracle for guessing codes).
+      if (raw !== null && (await overLimit(c, "lookup"))) return tooManyPage();
       const a = await webSession(c);
-      let request: { userCode: string; client: string | null; created: string; expires: string } | null = null;
-      if (code) {
+      let request: DeviceView["request"] = null;
+      if (code && a) {
         const r = await c.db
           .prepare("SELECT user_code, client, created, expires FROM device_codes WHERE user_code = ? AND status = 'pending' AND expires > ?")
           .bind(code, c.now.toISOString())
           .first<{ user_code: string; client: string | null; created: string; expires: string }>();
-        if (r) request = { userCode: r.user_code, client: r.client, created: r.created, expires: r.expires };
+        if (r) request = { userCode: r.user_code, client: r.client && CLIENT_NAME_RE.test(r.client) ? r.client : null, created: r.created, expires: r.expires };
       }
       const next = `/login/device${code ? `?code=${code}` : ""}`;
       return page(200, (n) =>
@@ -1171,6 +1326,8 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       if (!a) return signedOut();
       return json(200, { account: accountJson(a.account), projects: (await accountProjects(c, a.account.id)).map((p) => projectJson(c, p)) });
     }
+    case "/api/account":
+      return m === "DELETE" ? deleteAccount(c) : method();
     case "/api/account/projects": {
       if (get) {
         const a = await authenticate(c);
@@ -1188,11 +1345,15 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     if (!get) return method();
     const a = await authenticate(c);
     if (!a) return signedOut();
+    // the dashboard reads stats with the browser session; a CLI session was not approved for them
+    if (a.via !== "cookie") return fail(403, "a command line session cannot read stats; open the dashboard in the browser");
     const p = await ownedProject(c, a.account.id, stat[1]!);
     if (!p) return fail(404, "not found");
     const r = url.searchParams.get("range") as Range | null;
     return json(200, await stats(c.db, p, r && RANGES.includes(r) ? r : "7d", c.now));
   }
+  const link = /^\/api\/account\/projects\/([^/]+)\/link$/.exec(path);
+  if (link) return m === "DELETE" ? turnOffLink(c, link[1]!) : method();
   const ses = /^\/api\/account\/sessions\/([^/]+)$/.exec(path);
   if (ses) return m === "DELETE" ? revokeSession(c, ses[1]!) : method();
   const cred = /^\/api\/account\/credentials\/([^/]+)$/.exec(path);
@@ -1210,7 +1371,13 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       dashboardPage(
         n,
         { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event },
-        { account: { apps, current: p.id!, email: a.account.email ?? a.account.github_login }, id: p.id!, firstEvent: p.first_event },
+        {
+          account: { apps, current: p.id!, email: a.account.email ?? a.account.github_login },
+          id: p.id!,
+          firstEvent: p.first_event,
+          privateLink: !!p.private_link,
+          runtimeReady: runtimeHasTokens(env),
+        },
       ),
     );
   }
@@ -1221,6 +1388,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
 
 function loginNotice(url: URL): string | null {
   if (url.searchParams.get("signed_out") === "1") return "You are signed out.";
+  if (url.searchParams.get("deleted") === "1") return "Your account is deleted.";
   const e = url.searchParams.get("error");
   if (e === "google") return "Google sign-in was cancelled or refused. You can try again, or use a passkey.";
   if (e === "github") return "GitHub sign-in was cancelled or refused. You can try again, or use a passkey.";
@@ -1229,7 +1397,7 @@ function loginNotice(url: URL): string | null {
 
 function accountNotice(url: URL): AccountView["notice"] {
   const q = url.searchParams;
-  if (q.get("welcome") === "1") return { kind: "ok", text: "Your account is ready. Create an app, or add a dashboard you already have." };
+  if (q.get("welcome") === "1") return { kind: "ok", text: "Your account is ready." };
   if (q.get("linked") === "google") return { kind: "ok", text: "Google is linked. You can now sign in with it." };
   if (q.get("linked") === "github") return { kind: "ok", text: "GitHub is linked. You can now sign in with it." };
   if (q.get("error") === "google_taken") return { kind: "bad", text: "That Google account is already linked to another GenClass account, so it was not linked here." };

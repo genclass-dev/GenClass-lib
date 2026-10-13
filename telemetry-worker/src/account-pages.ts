@@ -2,6 +2,7 @@
 // first Google sign-in can land on, and short message pages. Same shell, fonts, rules and tokens as the dashboard
 // (src/pages.ts); no boxed cards, no gradients. Server-rendered text goes through esc(); scripts insert text with
 // textContent. Every page is served under a per-response CSP nonce with form-action 'self' (for the sign-out form).
+// Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
 import { DASH_CSS, embed, esc, LOGO, shell, SIGNED_IN_NAV } from "./pages.js";
 
@@ -22,6 +23,7 @@ code{font-family:var(--mono);font-size:.9em}
 .btn.prov svg{width:18px;height:18px;flex:none}
 .btn.paper{background:var(--paper);color:var(--ink);border-color:var(--ink)}
 .btn.paper:hover{background:var(--panel)}
+.btn.danger{background:transparent;color:var(--warn);border-color:var(--warn)}
 .or{display:flex;align-items:center;gap:12px;font:500 12px var(--mono);color:var(--ink3);margin:8px 0}
 .or::before,.or::after{content:"";flex:1;border-top:1px solid var(--rule)}
 .auth label,.acct-form label{display:block;font:500 12.5px var(--mono);color:var(--ink3);margin-bottom:7px}
@@ -34,11 +36,14 @@ code{font-family:var(--mono);font-size:.9em}
 .swap{margin-top:30px;padding-top:18px;border-top:1px solid var(--rule);font-size:14.5px;color:var(--ink2)}
 .swap a,.opt a,.auth p a{color:var(--ink)}
 .opt{margin-top:10px;font-size:13px;line-height:1.5;color:var(--ink3)}
+.detail{margin-top:14px;font:12.5px var(--mono);color:var(--ink3);overflow-wrap:anywhere}
 .notice{margin-top:22px;padding:12px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--rule);font-size:14.5px;color:var(--ink2)}
 .notice b{font-weight:600;color:var(--ink)}
 .auth .notice{border:0;padding:0;margin-top:16px;color:var(--ink)}
 .notice.n-ok b{color:var(--accent)}
 .notice.n-bad b{color:var(--warn)}
+.caution{margin-top:22px;padding:12px 0 12px 14px;border-left:3px solid var(--warn);font-size:14.5px;line-height:1.5;color:var(--ink2)}
+.caution b{color:var(--warn);font-weight:600}
 .ucode{font:500 clamp(36px,10vw,50px)/1 var(--mono);letter-spacing:.06em;margin-top:26px;font-variant-numeric:tabular-nums;white-space:nowrap}
 dl.req{display:grid;grid-template-columns:minmax(110px,auto) minmax(0,1fr);border-top:1px solid var(--ink);margin-top:24px}
 dl.req dt,dl.req dd{padding:11px 0;border-bottom:1px solid var(--rule);font-size:14.5px;min-width:0;overflow-wrap:anywhere}
@@ -52,18 +57,20 @@ dl.req dt{font:500 12.5px var(--mono);color:var(--ink3);padding-top:13px;padding
 .acct-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:20px;max-width:680px}
 .acct-form .f{flex:1 1 260px;min-width:0}
 .blk p.intro{font-size:14.5px;color:var(--ink2);margin-top:14px;max-width:70ch}
+table.dt td.name{white-space:normal;max-width:28ch;overflow-wrap:anywhere}
 table.dt td.pkey{font:13px var(--mono)}
 table.dt td.pkey .btn{margin-left:8px}
 table.dt td .btn.sm{min-height:30px}
 table.dt td.act{text-align:right}
 table.dt td a{color:var(--ink)}
+table.dt td .tag{font:500 12px var(--mono);color:var(--accent);margin-left:8px}
 .mainc .dh .eb{margin-bottom:10px}
 .who{font:12.5px var(--mono);color:var(--ink3);margin-top:12px;overflow-wrap:anywhere}
 @media (max-width:920px){.side.acct{display:none}}
 @media (max-width:600px){
   table.dt.rows thead{display:none}
   table.dt.rows tr{display:block;padding:12px 0;border-bottom:1px solid var(--rule)}
-  table.dt.rows td{display:block;border:0;padding:3px 0;white-space:normal;overflow-wrap:anywhere}
+  table.dt.rows td{display:block;border:0;padding:3px 0;white-space:normal;overflow-wrap:anywhere;max-width:none}
   table.dt.rows td:first-child{font-weight:600}
   table.dt.rows td:empty{display:none}
   table.dt.rows td[data-l]::before{content:attr(data-l) " ";font:500 12px var(--mono);color:var(--ink3)}
@@ -137,6 +144,22 @@ function gcTimes(){
     t.title = d.toLocaleString();
   });
 }
+/** A notice from the query string (?signed_out=1, ?linked=...) is shown once: reloading does not bring it back. */
+function gcDropQuery(keep){
+  try {
+    var q = new URLSearchParams(location.search), out = new URLSearchParams();
+    (keep || []).forEach(function(k){ if (q.has(k)) out.set(k, q.get(k)); });
+    var s = out.toString();
+    if (s !== q.toString()) history.replaceState(null, "", location.pathname + (s ? "?" + s : "") + location.hash);
+  } catch (e) {}
+}
+/** Two clicks for a destructive button: the first asks, the second (within 6 s) does it. */
+function gcArm(b, label){
+  if (b.getAttribute("data-armed") === "1") return true;
+  var was = b.textContent; b.setAttribute("data-armed", "1"); b.textContent = label;
+  setTimeout(function(){ if (!b.disabled) { b.setAttribute("data-armed", "0"); b.textContent = was; } }, 6000);
+  return false;
+}
 gcTimes();
 `;
 
@@ -174,12 +197,22 @@ export interface AuthPageOptions {
 const OPTIONAL =
   '<p class="opt">An account is optional. GenClass runs without one, and <a href="/start">genclass.dev/start</a> still gives an app a key and a private dashboard link.</p>';
 
+/** The passkey sign-in button's script: sign in, then go to `next` (or reload, on the device page). */
+const PASSKEY_LOGIN_JS = `
+function gcPasskeyButton(b, err, then){
+  if (!b) return;
+  if (!gcPasskeys()) { b.disabled = true; err.textContent = "This browser does not support passkeys." + (document.querySelector(".prov[href]") ? " Use Google or GitHub instead." : ""); return; }
+  b.addEventListener("click", function(){
+    err.textContent = ""; gcBusy(b, true, "Waiting for your passkey...");
+    gcLogin().then(then, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
+  });
+}`;
+
 // --------------------------------------------------------------------------------------------- /login, /signup
 
 export function loginPage(nonce: string, o: AuthPageOptions): string {
   const providers = providerButtons(o, o.next);
   const inner = `
-<div class="eb">Sign in</div>
 <h1>Sign in to GenClass</h1>
 <p class="lead">Your account keeps your apps' dashboards in one place: what GenClass detected, on which pages, and what it did.</p>
 ${o.notice ? `<p class="notice" role="status">${esc(o.notice)}</p>` : ""}
@@ -190,17 +223,14 @@ ${providers ? '<div class="or">or</div>' : ""}
 <p class="hint">Touch ID, Windows Hello, your phone or a security key. No email or password.</p>
 <p class="err" id="err" role="alert"></p>
 </div>
-<p class="swap">No account yet? <a href="/signup${q(o.next)}">Create one</a></p>
+<p class="swap"><a href="/signup${q(o.next)}">Create an account instead</a></p>
 ${OPTIONAL}
 <script type="application/json" id="cfg">${embed({ next: o.next })}</script>`;
-  const script = `
+  const script = `${PASSKEY_LOGIN_JS}
 (function(){
-  var cfg = JSON.parse(document.getElementById("cfg").textContent), b = document.getElementById("pk"), err = document.getElementById("err");
-  if (!gcPasskeys()) { b.disabled = true; err.textContent = "This browser does not support passkeys." + (document.querySelector(".prov[href]") ? " Use Google or GitHub instead." : ""); return; }
-  b.addEventListener("click", function(){
-    err.textContent = ""; gcBusy(b, true, "Waiting for your passkey...");
-    gcLogin().then(function(){ location.href = cfg.next || "/account"; }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
-  });
+  var cfg = JSON.parse(document.getElementById("cfg").textContent);
+  gcDropQuery(["next"]);
+  gcPasskeyButton(document.getElementById("pk"), document.getElementById("err"), function(){ location.href = cfg.next || "/account"; });
 })();`;
   return authPage(nonce, "Sign in | GenClass", inner, script);
 }
@@ -208,7 +238,6 @@ ${OPTIONAL}
 export function signupPage(nonce: string, o: AuthPageOptions): string {
   const providers = providerButtons(o, o.next);
   const inner = `
-<div class="eb">Create an account</div>
 <h1>Create your GenClass account</h1>
 <p class="lead">Your account keeps your apps' dashboards in one place, and lets <code>npx @genclass/runtime login</code> connect an app for you.</p>
 <div class="ways">
@@ -222,7 +251,7 @@ ${providers ? '<div class="or">or with a passkey</div>' : ""}
 </form>
 <p class="err" id="err" role="alert"></p>
 </div>
-<p class="swap">Already have an account? <a href="/login${q(o.next)}">Sign in</a></p>
+<p class="swap"><a href="/login${q(o.next)}">Sign in instead</a></p>
 ${OPTIONAL}
 <script type="application/json" id="cfg">${embed({ next: o.next })}</script>`;
   const script = `
@@ -245,7 +274,6 @@ ${OPTIONAL}
 export function pendingPage(nonce: string, o: { email: string; provider: "google" | "github" }): string {
   const name = o.provider === "google" ? "Google" : "GitHub";
   const inner = `
-<div class="eb">New account</div>
 <h1>This email already has a GenClass account</h1>
 <p class="lead">${name} signed you in as <b>${esc(o.email)}</b>. A GenClass account with that address already exists. We never join accounts because their emails match: an email typed at passkey sign-up is not verified, so anyone could have typed it.</p>
 <div class="step">
@@ -272,9 +300,11 @@ export function pendingPage(nonce: string, o: { email: string; provider: "google
 
 // --------------------------------------------------------------------------------------------- messages
 
-export function messagePage(nonce: string, o: { title: string; text: string; links: [string, string][] }): string {
+/** A short page: a title, one plain sentence, links. `detail` is a small mono line for whoever needs the exact reason. */
+export function messagePage(nonce: string, o: { title: string; text: string; links: [string, string][]; detail?: string }): string {
   const links = o.links.map(([label, href], i) => `<a class="btn ${i ? "ghost" : ""}" href="${esc(href)}">${esc(label)}</a>`).join(" ");
-  return authPage(nonce, `${o.title} | GenClass`, `<h1>${esc(o.title)}</h1><p class="lead">${esc(o.text)}</p>${links ? `<div class="acts">${links}</div>` : ""}`, "");
+  const detail = o.detail ? `<p class="detail">${esc(o.detail)}</p>` : "";
+  return authPage(nonce, `${o.title} | GenClass`, `<h1>${esc(o.title)}</h1><p class="lead">${esc(o.text)}</p>${links ? `<div class="acts">${links}</div>` : ""}${detail}`, "");
 }
 
 export function appNotFoundPage(nonce: string): string {
@@ -289,12 +319,17 @@ export interface DeviceView {
   code: string | null;
   /** Whether ?code= was present at all (to tell "no code yet" from "bad code"). */
   typed: boolean;
-  /** The pending request for that code, or null when unknown, expired or already used. */
+  /**
+   * The pending request for that code (looked up only for a signed-in visitor), or null when unknown, expired, used,
+   * or when nobody is signed in. `client` is the CLI's own name, or null when the request did not give one we show.
+   */
   request: { userCode: string; client: string | null; created: string; expires: string } | null;
   /** This page with its code, for sign-in links. */
   next: string;
   providers: { google: boolean; github: boolean };
 }
+
+const RUN = "<code>npx @genclass/runtime login</code>";
 
 export function devicePage(nonce: string, v: DeviceView): string {
   const entry = `
@@ -305,53 +340,53 @@ export function devicePage(nonce: string, v: DeviceView): string {
 </form>
 <p class="err" id="err" role="alert"></p>`;
   let inner: string;
-  if (!v.request) {
+  if (!v.signedIn && v.code) {
+    // Signed out: the same page for every well-formed code, live or not. Whether it is live shows after sign-in.
+    const providers = providerButtons(v.providers, v.next);
     inner = `
 <div class="eb">Command line sign-in</div>
-<h1>${v.typed ? "This code is not valid" : "Connect your terminal"}</h1>
+<h1>Sign in to continue</h1>
+<div class="ucode" aria-label="Code">${esc(v.code)}</div>
+<p class="lead">Check that your terminal shows this code, then sign in. This page then shows the request and asks you to approve or deny it.</p>
+<div class="ways">
+${providers}
+<button class="btn prov ${providers ? "ghost" : ""}" id="pk" type="button">${KEY_ICON}<span>Sign in with a passkey</span></button>
+<p class="err" id="err" role="alert"></p>
+</div>
+<p class="swap"><a href="/signup${q(v.next)}">Create an account instead</a>, then come back here.</p>`;
+  } else if (!v.request) {
+    const bad = v.typed && (!v.code || !!v.signedIn);
+    inner = `
+<div class="eb">Command line sign-in</div>
+<h1>${bad ? (v.code ? "This code is not valid" : "This is not a sign-in code") : "Connect your terminal"}</h1>
 <p class="lead">${
-      v.typed
-        ? "It has expired, was already used, or was mistyped. Codes last 10 minutes. Run <code>npx @genclass/runtime login</code> again for a new one, or type the code below."
-        : "Run <code>npx @genclass/runtime login</code> in your project folder. It opens this page with its code; you can also type the code here."
+      bad
+        ? `${v.code ? "It has expired, was already used, or was mistyped." : "Codes have 8 letters, like BCDF-GHJK."} Codes last 10 minutes. Run ${RUN} again for a new one, or type the code below.`
+        : `Run ${RUN} in your project folder. It opens this page with its code; you can also type the code here.`
     }</p>
 <div class="ways">${entry}</div>`;
   } else {
     const r = v.request;
-    const who = v.signedIn ? esc(v.signedIn.email ?? (v.signedIn.githubLogin ? `@${v.signedIn.githubLogin} on GitHub` : "your account")) : "";
-    const details = `
+    const s = v.signedIn!;
+    const who = esc(s.email ?? (s.githubLogin ? `@${s.githubLogin} on GitHub` : "your account"));
+    inner = `
+<div class="eb">Command line sign-in</div>
+<h1 id="dh">Approve this sign-in</h1>
+<div class="ucode" aria-label="Code">${esc(r.userCode)}</div>
 <dl class="req">
-  <dt>Requested by</dt><dd>${r.client ? `${esc(r.client)} <span class="muted">(as the command line reported itself)</span>` : "The GenClass command line"}</dd>
+  <dt>Requested by</dt><dd>${r.client ? `${esc(r.client)} <span class="muted">(as the command line reported itself)</span>` : 'Unknown client <span class="muted">(it did not name itself as the GenClass command line)</span>'}</dd>
   <dt>Requested</dt><dd>${time(r.created, "time")} · ${time(r.created, "ago")}</dd>
-  <dt>Code expires</dt><dd>${time(r.expires, "time")}</dd>
-  ${v.signedIn ? `<dt>Account</dt><dd>${who}</dd>` : ""}
-</dl>`;
-    if (!v.signedIn) {
-      const providers = providerButtons(v.providers, v.next);
-      inner = `
-<div class="eb">Command line sign-in</div>
-<h1>Sign in to approve this code</h1>
-<div class="ucode" aria-label="Code">${esc(r.userCode)}</div>
-${details}
-<p class="lead">Check that your terminal shows the same code, then sign in. You come back here to approve it.</p>
-<div class="ways">
-${providers}
-<a class="btn prov ${providers ? "ghost" : ""}" href="/login${q(v.next)}">${KEY_ICON}<span>Sign in with a passkey</span></a>
-</div>
-<p class="swap">No account yet? <a href="/signup${q(v.next)}">Create one</a>, then approve.</p>`;
-    } else {
-      inner = `
-<div class="eb">Command line sign-in</div>
-<h1>Approve this sign-in</h1>
-<div class="ucode" aria-label="Code">${esc(r.userCode)}</div>
-${details}
-<p class="lead">Approve only if you ran <code>npx @genclass/runtime login</code> yourself just now and your terminal shows this code. That terminal can then list and create apps in this account and write a key into your project, for 90 days or until you revoke it on your account page.</p>
+  <dt>Code expires</dt><dd id="exp">${time(r.expires, "time")}</dd>
+  <dt>Account</dt><dd>${who}</dd>
+</dl>
+<p class="lead" id="scope">If you approve, the terminal that shows this code can list the apps in this account, create apps, add an app from its private dashboard link, and write a project key into your project, for 90 days or until you revoke it on your account page. It cannot read your apps' stats or change how you sign in.</p>
+<p class="caution" id="caution"><b>Approve only a sign-in you started.</b> If you did not run ${RUN} yourself just now, or someone sent you this link or code, choose Deny.</p>
 <div class="acts" id="acts"><button class="btn" id="yes" type="button"><span>Approve</span></button><button class="btn ghost" id="no" type="button"><span>Deny</span></button></div>
 <p class="err" id="err" role="alert"></p>
 <p class="done hidden" id="done" role="status"></p>
-<script type="application/json" id="cfg">${embed({ code: r.userCode })}</script>`;
-    }
+<script type="application/json" id="cfg">${embed({ code: r.userCode, expires: r.expires })}</script>`;
   }
-  const script = `
+  const script = `${PASSKEY_LOGIN_JS}
 (function(){
   var cf = document.getElementById("cf");
   if (cf) cf.addEventListener("submit", function(ev){
@@ -360,16 +395,31 @@ ${details}
     if (s.length !== 8) { document.getElementById("err").textContent = "The code has 8 letters, like BCDF-GHJK."; return; }
     location.href = "/login/device?code=" + s.slice(0, 4) + "-" + s.slice(4);
   });
+  // signed out: sign in here and come back to this page, which then shows the request
+  gcPasskeyButton(document.getElementById("pk"), document.getElementById("err"), function(){ location.reload(); });
   var yes = document.getElementById("yes"), no = document.getElementById("no");
   if (!yes) return;
-  var code = JSON.parse(document.getElementById("cfg").textContent).code, err = document.getElementById("err"), done = document.getElementById("done");
+  var cfg = JSON.parse(document.getElementById("cfg").textContent), err = document.getElementById("err"), done = document.getElementById("done");
+  var h = document.getElementById("dh"), acts = document.getElementById("acts"), timer = null;
+  function finish(title, bold, rest){
+    if (timer) clearTimeout(timer);
+    h.textContent = title; acts.classList.add("hidden"); err.textContent = "";
+    ["caution", "scope"].forEach(function(id){ document.getElementById(id).classList.add("hidden"); });
+    done.classList.remove("hidden"); done.textContent = "";
+    var b = document.createElement("b"); b.textContent = bold; done.appendChild(b); done.appendChild(document.createTextNode(rest));
+  }
+  function gone(){ finish("This code is no longer valid", "Expired or already used. ", "Run npx @genclass/runtime login again for a new code."); }
+  var left = Date.parse(cfg.expires) - Date.now();
+  if (left > 0 && left < 3600000) timer = setTimeout(gone, left);
   function answer(ok){
     err.textContent = ""; yes.disabled = true; no.disabled = true;
-    gcPost("/api/device/approve", { user_code: code, approve: ok }).then(function(){
-      document.getElementById("acts").classList.add("hidden"); done.classList.remove("hidden"); done.textContent = "";
-      var b = document.createElement("b"); b.textContent = ok ? "Approved. " : "Denied. ";
-      done.appendChild(b); done.appendChild(document.createTextNode(ok ? "Go back to your terminal; it finishes on its own. You can close this tab." : "The terminal stops waiting and signs nothing in."));
-    }, function(e){ err.textContent = gcWhy(e); yes.disabled = false; no.disabled = false; });
+    gcPost("/api/device/approve", { user_code: cfg.code, approve: ok }).then(function(){
+      if (ok) finish("Approved", "Approved. ", "Go back to your terminal; it finishes on its own. You can close this tab.");
+      else finish("Denied", "Denied. ", "The terminal stops waiting and signs nothing in.");
+    }, function(e){
+      if (e.status === 404) { gone(); return; }
+      err.textContent = gcWhy(e); yes.disabled = false; no.disabled = false;
+    });
   }
   yes.addEventListener("click", function(){ answer(true); });
   no.addEventListener("click", function(){ answer(false); });
@@ -382,11 +432,23 @@ ${details}
 
 // --------------------------------------------------------------------------------------------- /account
 
+export interface SessionRow {
+  id: string;
+  label: string;
+  created: string;
+  expires: string;
+  lastUsed: string | null;
+  /** the session this page was requested with */
+  current: boolean;
+}
+
 export interface AccountView {
   account: { id: string; email: string | null; emailVerified: boolean; google: boolean; githubLogin: string | null; created: string };
-  projects: { id: string; name: string; token: string; dashboard_url: string; created: string; last_event: string | null; first_event: string | null }[];
+  projects: { id: string; name: string; token: string; dashboard_url: string; created: string; last_event: string | null; first_event: string | null; privateLink: boolean }[];
   passkeys: { id: string; created: string; lastUsed: string | null; transports: string[] }[];
-  cli: { id: string; label: string; created: string; expires: string; lastUsed: string | null }[];
+  /** Browser sessions, then terminal (CLI) sessions, newest first. */
+  web: SessionRow[];
+  cli: SessionRow[];
   providers: { google: boolean; github: boolean };
   notice?: { kind: "ok" | "bad"; text: string };
 }
@@ -405,11 +467,15 @@ export function accountPage(nonce: string, v: AccountView): string {
   const who = a.email ? `${esc(a.email)}${a.emailVerified ? " (verified by Google)" : ""}` : a.githubLogin ? `@${esc(a.githubLogin)} on GitHub` : "No email";
   const appsNav = v.projects.map((p) => `<a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a>`).join("");
   const apps = v.projects.length
-    ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Name</th><th>Project API key</th><th>Last event</th><th></th></tr></thead><tbody>
+    ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Name</th><th>Project API key</th><th>Last event</th><th>Private link</th><th></th></tr></thead><tbody>
 ${v.projects
   .map(
     (p) =>
-      `<tr><td><a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a></td><td class="pkey">${esc(p.token)}<button class="btn sm ghost" type="button" data-copy="${esc(p.token)}">Copy</button></td><td data-l="Last event">${time(p.last_event, "ago", "waiting for the first event")}</td><td class="act"><a href="/account/apps/${esc(p.id)}">Open dashboard →</a></td></tr>`,
+      `<tr><td class="name"><a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a></td>` +
+      `<td class="pkey"><code>${esc(p.token)}</code><button class="btn sm ghost" type="button" data-copy="${esc(p.token)}" aria-label="Copy the project API key of ${esc(p.name)}">Copy</button></td>` +
+      `<td data-l="Last event">${time(p.last_event, "ago", "waiting for the first event")}</td>` +
+      `<td data-l="Private link">${p.privateLink ? `opens it <button class="btn sm ghost" type="button" data-linkoff="${esc(p.id)}" aria-label="Turn off the private dashboard link of ${esc(p.name)}">Turn off</button>` : '<span class="muted">none</span>'}</td>` +
+      `<td class="act"><a href="/account/apps/${esc(p.id)}">Open dashboard →</a></td></tr>`,
   )
   .join("\n")}
 </tbody></table></div>`
@@ -418,7 +484,7 @@ ${v.projects
   const keyRows = v.passkeys
     .map((k, i) => {
       const where = k.transports.map((t) => TRANSPORT_WORDS[t]).filter(Boolean);
-      return `<tr><td>Passkey ${i + 1}</td><td>${where.length ? `on ${esc(where.join(", "))}` : '<span class="muted">-</span>'}</td><td data-l="Added">${time(k.created)}</td><td data-l="Last used">${time(k.lastUsed, "ago")}</td><td class="act"><button class="btn sm ghost" type="button" data-rmkey="${esc(k.id)}">Remove</button></td></tr>`;
+      return `<tr><td>Passkey ${i + 1}</td><td>${where.length ? `on ${esc(where.join(", "))}` : '<span class="muted">-</span>'}</td><td data-l="Added">${time(k.created)}</td><td data-l="Last used">${time(k.lastUsed, "ago")}</td><td class="act"><button class="btn sm ghost" type="button" data-rmkey="${esc(k.id)}" aria-label="Remove passkey ${i + 1}">Remove</button></td></tr>`;
     })
     .join("\n");
   const google = v.providers.google || a.google
@@ -427,16 +493,22 @@ ${v.projects
   const github = v.providers.github || a.githubLogin
     ? `<tr><td>GitHub</td><td>${a.githubLogin ? `Linked as @${esc(a.githubLogin)}` : '<span class="muted">Not linked</span>'}</td><td></td><td></td><td class="act">${a.githubLogin ? "" : '<a class="btn sm ghost" href="/auth/github?link=1">Link GitHub</a>'}</td></tr>`
     : "";
+
+  const sessionRow = (s: SessionRow, kind: "web" | "cli", i: number): string => {
+    const name = kind === "web" ? (s.current ? "This browser" : `Browser ${i + 1}`) : s.label;
+    const act = s.current
+      ? '<form method="post" action="/logout"><button class="btn sm ghost" type="submit">Sign out</button></form>'
+      : `<button class="btn sm ghost" type="button" data-revoke="${esc(s.id)}" aria-label="Revoke ${esc(name)}, signed in ${esc(s.created.slice(0, 10))}">Revoke</button>`;
+    return `<tr><td>${esc(name)}${s.current ? '<span class="tag">current</span>' : ""}</td><td data-l="Signed in">${time(s.created)}</td><td data-l="Last used">${time(s.lastUsed, "ago")}</td><td data-l="Expires">${time(s.expires)}</td><td class="act">${act}</td></tr>`;
+  };
+  const sessions = (rows: SessionRow[], kind: "web" | "cli") =>
+    `<div class="tablewrap"><table class="dt rows"><thead><tr><th>${kind === "web" ? "Browser" : "Terminal"}</th><th>Signed in</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>
+${rows.map((s, i) => sessionRow(s, kind, i)).join("\n")}
+</tbody></table></div>`;
   const cli = v.cli.length
-    ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Name</th><th>Signed in</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>
-${v.cli
-  .map(
-    (s) =>
-      `<tr><td>${esc(s.label)}</td><td data-l="Signed in">${time(s.created)}</td><td data-l="Last used">${time(s.lastUsed, "ago")}</td><td data-l="Expires">${time(s.expires)}</td><td class="act"><button class="btn sm ghost" type="button" data-revoke="${esc(s.id)}">Revoke</button></td></tr>`,
-  )
-  .join("\n")}
-</tbody></table></div>`
+    ? sessions(v.cli, "cli")
     : '<p class="quiet">No terminal is signed in. Run <code>npx @genclass/runtime login</code> in a project folder to sign one in.</p>';
+  const others = v.web.filter((s) => !s.current).length + v.cli.length;
 
   const body = `
 <style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>
@@ -446,9 +518,9 @@ ${v.cli
   <div class="grp">Your apps</div>
   <nav class="apps" aria-label="Your apps">${appsNav}<a class="new" href="#new-app">New app</a></nav>
   <div class="grp">Account</div>
-  <div class="out"><a href="#signin">Sign-in methods</a><a href="#cli">Command line sessions</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
+  <div class="out"><a href="#signin">Sign-in methods</a><a href="#sessions">Sessions</a><a href="#delete">Delete account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
 </aside>
-<div class="mainc">
+<div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
   <div class="eb">Account</div>
   <h1>Your apps</h1>
@@ -463,10 +535,11 @@ ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.k
     <button class="btn" type="submit" id="newgo"><span>Create app</span></button>
   </form>
   <p class="err" id="newerr" role="alert"></p>
+  <p class="err" id="linkerr" role="alert"></p>
 </section>
 <section class="blk" id="claim">
   <div class="blk-h"><h2>Add an existing dashboard</h2><span class="aside">From genclass.dev/start or <code>npx @genclass/runtime init</code></span></div>
-  <p class="intro">Paste the app's private dashboard link. The app joins this account and keeps its key, so nothing changes in its code. The link keeps working for anyone who already has it.</p>
+  <p class="intro">Paste the app's private dashboard link. The app joins this account and keeps its key, so nothing changes in its code. The link keeps working for anyone who already has it until you turn it off in the table above.</p>
   <form class="acct-form" id="claimf" novalidate>
     <div class="f"><label for="link">Dashboard link</label><input id="link" type="text" autocomplete="off" spellcheck="false" placeholder="https://genclass.dev/dashboard/..."></div>
     <button class="btn ghost" type="submit" id="claimgo"><span>Add to account</span></button>
@@ -480,13 +553,23 @@ ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.k
   ${google}
   ${github}
   </tbody></table></div>
+  <p class="intro">Removing a passkey also signs out every other browser and terminal, in case one of them is where it was used.</p>
   <div class="acct-form"><button class="btn ghost" type="button" id="addpk"><span>Add a passkey</span></button></div>
   <p class="err" id="pkerr" role="alert"></p>
 </section>
-<section class="blk" id="cli">
-  <div class="blk-h"><h2>Command line sessions</h2><span class="aside">Table 3. Terminals signed in with <code>npx @genclass/runtime login</code></span></div>
+<section class="blk" id="sessions">
+  <div class="blk-h"><h2>Sessions</h2><span class="aside">Table 3. Browsers signed in to this account</span></div>
+  ${sessions(v.web, "web")}
+  <div class="blk-h mt-l" id="cli"><h2>Terminals</h2><span class="aside">Table 4. Signed in with <code>npx @genclass/runtime login</code></span></div>
   ${cli}
+  ${others ? '<div class="acct-form"><button class="btn ghost" type="button" id="others"><span>Sign out everywhere else</span></button></div>' : ""}
   <p class="err" id="clierr" role="alert"></p>
+</section>
+<section class="blk" id="delete">
+  <div class="blk-h"><h2>Delete account</h2><span class="aside">Cannot be undone</span></div>
+  <p class="intro">Deletes this account, its passkeys and its sessions. Apps created in the account are deleted with their stats. Apps that still have a private dashboard link leave the account and keep working through that link.</p>
+  <div class="acct-form"><button class="btn danger" type="button" id="del"><span>Delete account</span></button></div>
+  <p class="err" id="delerr" role="alert"></p>
 </section>
 <footer class="dfoot">Your account stores your email (as you typed it, or as Google returned it) and whether it is verified, your passkeys'
 public keys, your Google account id and your GitHub id and login if you link them, your sign-in sessions, and the apps you own. Nothing
@@ -496,6 +579,7 @@ else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://gen
 
   const script = `
 (function(){
+  gcDropQuery([]);
   function form(id, btnId, errId, url, field, key){
     var f = document.getElementById(id), b = document.getElementById(btnId), err = document.getElementById(errId);
     f.addEventListener("submit", function(ev){
@@ -508,23 +592,31 @@ else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://gen
   form("new-app", "newgo", "newerr", "/api/account/projects", "appname", "name");
   form("claimf", "claimgo", "claimerr", "/api/account/projects/claim", "link", "dashboard_url");
   document.querySelectorAll("[data-copy]").forEach(function(b){
-    b.addEventListener("click", function(){
-      var t = b.getAttribute("data-copy");
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function(){ b.textContent = "Copied"; setTimeout(function(){ b.textContent = "Copy"; }, 1600); }, function(){ b.textContent = "Select and copy"; });
-    });
+    b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), b.previousElementSibling); });
   });
-  document.querySelectorAll("[data-revoke]").forEach(function(b){
-    b.addEventListener("click", function(){
-      b.disabled = true;
-      gcPost("/api/account/sessions/" + encodeURIComponent(b.getAttribute("data-revoke")), undefined, "DELETE").then(function(){ location.reload(); }, function(e){ document.getElementById("clierr").textContent = gcWhy(e); b.disabled = false; });
+  function del(sel, attr, url, errId, confirmLabel, after){
+    document.querySelectorAll(sel).forEach(function(b){
+      b.addEventListener("click", function(){
+        if (confirmLabel && !gcArm(b, confirmLabel)) return;
+        b.disabled = true;
+        gcPost(url(b.getAttribute(attr)), undefined, "DELETE").then(after || function(){ location.reload(); }, function(e){ document.getElementById(errId).textContent = gcWhy(e); b.disabled = false; });
+      });
     });
+  }
+  del("[data-revoke]", "data-revoke", function(id){ return "/api/account/sessions/" + encodeURIComponent(id); }, "clierr", null);
+  del("[data-rmkey]", "data-rmkey", function(id){ return "/api/account/credentials/" + encodeURIComponent(id); }, "pkerr", "Confirm: remove and sign out elsewhere");
+  del("[data-linkoff]", "data-linkoff", function(id){ return "/api/account/projects/" + encodeURIComponent(id) + "/link"; }, "linkerr", "Confirm: the link stops working");
+  var others = document.getElementById("others");
+  if (others) others.addEventListener("click", function(){
+    if (!gcArm(others, "Confirm: sign out the others")) return;
+    others.disabled = true;
+    gcPost("/api/account/sessions/others", undefined, "DELETE").then(function(){ location.reload(); }, function(e){ document.getElementById("clierr").textContent = gcWhy(e); others.disabled = false; });
   });
-  document.querySelectorAll("[data-rmkey]").forEach(function(b){
-    b.addEventListener("click", function(){
-      if (b.getAttribute("data-armed") !== "1") { b.setAttribute("data-armed", "1"); b.textContent = "Confirm remove"; return; }
-      b.disabled = true;
-      gcPost("/api/account/credentials/" + encodeURIComponent(b.getAttribute("data-rmkey")), undefined, "DELETE").then(function(){ location.reload(); }, function(e){ document.getElementById("pkerr").textContent = gcWhy(e); b.disabled = false; });
-    });
+  var delb = document.getElementById("del");
+  delb.addEventListener("click", function(){
+    if (!gcArm(delb, "Confirm: delete this account for good")) return;
+    delb.disabled = true;
+    gcPost("/api/account", { confirm: "delete" }, "DELETE").then(function(){ location.href = "/login?deleted=1"; }, function(e){ document.getElementById("delerr").textContent = gcWhy(e); delb.disabled = false; });
   });
   var add = document.getElementById("addpk"), pkerr = document.getElementById("pkerr");
   add.addEventListener("click", function(){
@@ -534,5 +626,5 @@ else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://gen
     gcRegister().then(function(){ location.reload(); }, function(e){ pkerr.textContent = gcWhy(e); gcBusy(add, false); });
   });
 })();`;
-  return shell(nonce, "Account | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true });
+  return shell(nonce, "Account | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
 }

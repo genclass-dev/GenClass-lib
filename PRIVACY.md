@@ -7,7 +7,7 @@ cover the website or app that uses GenClass; that site has its own privacy polic
 
 ## Who we are
 
-GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: karan@daybot.ca.
+GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: mehar@daybot.ca.
 
 ## What we collect
 
@@ -68,13 +68,17 @@ in one place. An account stores:
 - **Your sign-in sessions:** for the browser and for each terminal you signed in with the CLI, a one-way hash of the
   session secret, when it was created, last used and expires, and the name the CLI gave itself (such as
   "genclass-runtime 0.3.0").
-- **The apps you own:** which of the records above (token, name, times) belong to your account.
+- **The apps you own:** which of the records above (token, name, times) belong to your account, and whether an
+  app's private dashboard link still opens it.
 
 Nothing else: no password, no IP address, no browser fingerprint, no tracking cookies. The only cookies are the
 session cookie, set when you sign in, and short-lived cookies (10 minutes at most) that keep a Google or GitHub
 sign-in tied to your browser. Sessions end after 30 days in the browser and 90 days for the CLI, or when you sign out
-or revoke them on your account page. To delete an account, email the contact below from its address, or tell us its
-id from the account page.
+or revoke them on your account page. To delete your account, choose Delete account on your account page while
+signed in: the account, its passkeys and its sessions are deleted at once, apps created in the account are deleted
+with their stats, and apps that still have a private dashboard link leave the account and keep working through that
+link. If you cannot sign in any more, write to the contact below from an address Google has verified for that
+account; an account id or an unverified email alone is not enough, because both can be known to others.
 
 ## Where it goes and how long we keep it
 
@@ -94,7 +98,7 @@ the owner of a website's dashboard link can see that website's dashboard. Cloudf
 Because we do not keep IP addresses, and the diagnostics are not tied to any account, we usually cannot tell which
 diagnostics came from you. For a genclass.dev account, we can show or delete everything listed under "Accounts on
 genclass.dev". If you have a
-question or request (access, deletion or objection), contact karan@daybot.ca and we will do what we can. You
+question or request (access, deletion or objection), contact mehar@daybot.ca and we will do what we can. You
 can also contact your local data protection authority.
 
 ## For developers using GenClass

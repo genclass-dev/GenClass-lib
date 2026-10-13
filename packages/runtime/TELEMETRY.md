@@ -127,10 +127,12 @@ Unreleased (not in `0.2.2`, which ignores a token and sends neither `token` nor 
   write to the contact in PRIVACY.md with the token.
 - An app can also belong to an optional **genclass.dev account** (passkey, Google or GitHub sign-in), which opens its
   dashboard at `https://genclass.dev/account/apps/<id>` for the signed-in owner; an existing dashboard link can be
-  added to an account and keeps working. This changes nothing the runtime sends: pages send the same batches with
-  the same token, and nothing in a batch identifies a person or an account. What an account itself stores (an
-  email as typed or as Google returned it and whether it is verified, passkey public keys, the Google `sub` and the
-  GitHub id and login if used, session records, the apps it owns) is listed in PRIVACY.md.
+  added to an account and keeps working until the owner turns that link off on the account page. This changes
+  nothing the runtime sends: pages send the same batches with the same token, and nothing in a batch identifies a
+  person or an account. What an account itself stores (an email as typed or as Google returned it and whether it is
+  verified, passkey public keys, the Google `sub` and the GitHub id and login if used, session records, the apps it
+  owns) is listed in PRIVACY.md. Deleting the account on its account page deletes the apps created in it with their
+  dashboard data.
 
 ## Where it goes
 

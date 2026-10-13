@@ -10,3 +10,5 @@ DASHBOARD_ORIGIN=http://localhost:8787
 # GOOGLE_CLIENT_SECRET=
 # GITHUB_CLIENT_ID=
 # GITHUB_CLIENT_SECRET=
+# Optional: the Connect panel without the "Not on npm yet" line (wrangler.toml sets the published version).
+# RUNTIME_ON_NPM=0.3.0

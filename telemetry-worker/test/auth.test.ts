@@ -6,17 +6,19 @@ import { handle, type Env, type HandleOptions } from "../src/collector.js";
 import {
   authRetention,
   checkGoogleClaims,
+  CLIENT_NAME_RE,
   CLI_TOKEN_RE,
   GITHUB_TOKEN_URL,
   GITHUB_USER_URL,
   GOOGLE_TOKEN_URL,
   normalizeUserCode,
+  runtimeHasTokens,
   safeNext,
   secretFromLink,
   USER_CODE_RE,
 } from "../src/auth.js";
 import { decodeCbor, decodeFirst } from "../src/cbor.js";
-import { resetTokenCache, sha256Hex } from "../src/dashboard.js";
+import { PROJECT_ID_RE, resetTokenCache, sha256Hex } from "../src/dashboard.js";
 import { derToRaw } from "../src/webauthn.js";
 import { b64url, cbor, FLAGS, makeAuthenticator, rawToDer } from "./authenticator.mjs";
 import { d1 } from "./d1.js";
@@ -71,9 +73,9 @@ const cookieValue = (r: Response, name: string): string | null => {
   return c ? c.slice(name.length + 1).split(";")[0]! : null;
 };
 const sessionOf = (r: Response): string => {
-  const v = cookieValue(r, "gc_session");
+  const v = cookieValue(r, "__Host-gc_session");
   if (!v) throw new Error("no session cookie");
-  return `gc_session=${v}`;
+  return `__Host-gc_session=${v}`;
 };
 
 async function signUp(env: Env, auth: Auth, email = "ada@example.com", over: Record<string, unknown> = {}) {
@@ -131,8 +133,8 @@ describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", (
       });
       expect(up.opts.publicKey.user.name).toBe("Ada@Example.com");
       expect(up.json).toMatchObject({ ok: true, account: { email: "Ada@Example.com", github_login: null } });
-      const set = cookies(up.res).find((c) => c.startsWith("gc_session="))!;
-      expect(set).toMatch(/^gc_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$/);
+      const set = cookies(up.res).find((c) => c.startsWith("__Host-gc_session="))!;
+      expect(set).toMatch(/^__Host-gc_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$/);
 
       const [acct] = sql.rows("SELECT * FROM accounts");
       expect(acct).toMatchObject({ email: "Ada@Example.com", email_verified: 0, google_sub: null, github_id: null });
@@ -177,7 +179,7 @@ describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", (
       const up = await signUp(env, auth, "ada@example.com", over as Record<string, unknown>);
       expect(up.res.status, JSON.stringify(over)).toBe(400);
       expect(up.json.error).toMatch(msg);
-      expect(cookieValue(up.res, "gc_session")).toBeNull();
+      expect(cookieValue(up.res, "__Host-gc_session")).toBeNull();
     }
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
   });
@@ -271,7 +273,7 @@ describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", (
     const credential = await second.register(o.publicKey);
     const v = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential }, cookie });
     expect(v.status).toBe(200);
-    expect(cookieValue(v, "gc_session")).toBeNull();
+    expect(cookieValue(v, "__Host-gc_session")).toBeNull();
     expect(sql.rows("SELECT account_id FROM credentials").map((r) => r.account_id)).toEqual([account.id, account.id]);
     expect((await signIn(env, second)).json.account.id).toBe(account.id);
     expect((await call(env, "DELETE", `/api/account/credentials/${first}`, { cookie, origin: null })).status).toBe(403);
@@ -293,7 +295,7 @@ describe("accounts: sessions, logout and CSRF", () => {
     const out = await call(env, "POST", "/logout", { cookie, body: "", contentType: "application/x-www-form-urlencoded" });
     expect(out.status).toBe(303);
     expect(out.headers.get("location")).toBe("/login?signed_out=1");
-    expect(cookies(out).some((c) => c.startsWith("gc_session=;") && c.includes("Max-Age=0"))).toBe(true);
+    expect(cookies(out).some((c) => c.startsWith("__Host-gc_session=;") && c.includes("Max-Age=0"))).toBe(true);
     expect((await me(env, { cookie })).status).toBe(401);
 
     const later = await signedIn(env, "bob@example.com");
@@ -332,7 +334,7 @@ describe("accounts: sessions, logout and CSRF", () => {
     const { cookie } = await signedIn(env);
     expect((await me(env, { bearer: cookie.split("=")[1]!, origin: null })).status).toBe(401);
     const tok = await cliToken(env, cookie);
-    expect((await me(env, { cookie: `gc_session=${tok}` })).status).toBe(401);
+    expect((await me(env, { cookie: `__Host-gc_session=${tok}` })).status).toBe(401);
     expect((await me(env, { bearer: tok, origin: null })).status).toBe(200);
   });
 
@@ -376,7 +378,7 @@ describe("accounts: device flow for the CLI (RFC 8628)", () => {
   it("code, pending, slow_down, approval in the browser, token, /api/me, CLI logout", async () => {
     const { env, sql } = setup();
     const { cookie, account } = await signedIn(env);
-    const c = await call(env, "POST", "/api/device/code", { body: { client_name: "genclass-runtime 0.3.0 (darwin)" }, origin: null });
+    const c = await call(env, "POST", "/api/device/code", { body: { client_name: "genclass-runtime 0.3.0" }, origin: null });
     expect(c.status).toBe(200);
     const code = (await c.json()) as any;
     expect(code).toEqual({
@@ -403,12 +405,16 @@ describe("accounts: device flow for the CLI (RFC 8628)", () => {
 
     // the approval page shows the code and the request; signed out it asks to sign in first
     const out = await (await call(env, "GET", `/login/device?code=${code.user_code.toLowerCase()}`, {})).text();
-    expect(out).toContain("Sign in to approve this code");
+    expect(out).toContain("Sign in to continue");
     expect(out).toContain(code.user_code);
     expect(out).toContain(encodeURIComponent(`/login/device?code=${code.user_code}`));
+    expect(out).not.toContain("genclass-runtime 0.3.0"); // signed out, nothing about the request is shown
     const page = await (await call(env, "GET", `/login/device?code=${code.user_code}`, { cookie })).text();
     expect(page).toContain("Approve this sign-in");
-    expect(page).toContain("genclass-runtime 0.3.0 (darwin)");
+    expect(page).toContain("genclass-runtime 0.3.0");
+    // the warning comes before the buttons, and the scope says what a CLI session can and cannot do
+    expect(page.indexOf("Approve only a sign-in you started")).toBeLessThan(page.indexOf('id="yes"'));
+    expect(page).toContain("It cannot read your apps' stats");
 
     const ap = await call(env, "POST", "/api/device/approve", { body: { user_code: code.user_code.replace("-", " ").toLowerCase(), approve: true }, cookie });
     expect(ap.status).toBe(200);
@@ -423,10 +429,10 @@ describe("accounts: device flow for the CLI (RFC 8628)", () => {
 
     const bearer = tok.json.access_token;
     expect(JSON.stringify(sql.rows("SELECT * FROM auth_sessions"))).not.toContain(bearer);
-    expect(sql.rows("SELECT kind, label, expires FROM auth_sessions WHERE kind = 'cli'")[0]).toEqual({ kind: "cli", label: "genclass-runtime 0.3.0 (darwin)", expires: new Date(clock.getTime() - 15_000 + 90 * 86_400_000).toISOString() });
+    expect(sql.rows("SELECT kind, label, expires FROM auth_sessions WHERE kind = 'cli'")[0]).toEqual({ kind: "cli", label: "genclass-runtime 0.3.0", expires: new Date(clock.getTime() - 15_000 + 90 * 86_400_000).toISOString() });
     expect(await me(env, { bearer, origin: null })).toEqual({ status: 200, json: { account: { id: account.id, email: "ada@example.com", github_login: null }, projects: [] } });
     const acct = await (await call(env, "GET", "/account", { cookie })).text();
-    expect(acct).toContain("genclass-runtime 0.3.0 (darwin)");
+    expect(acct).toContain("genclass-runtime 0.3.0");
 
     expect((await call(env, "DELETE", "/api/account/sessions/current", { bearer, origin: null })).status).toBe(204);
     expect((await me(env, { bearer, origin: null })).status).toBe(401);
@@ -659,6 +665,61 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     const set = cookies(r).find((c) => c.startsWith("gc_oauth_google="))!;
     expect(set).toMatch(/; Path=\/auth\/google; Max-Age=600; HttpOnly; SameSite=Lax; Secure$/);
     expect(set).not.toContain("shh");
+    // the cookie names a server-side row; state, nonce and verifier never leave the server except to Google
+    const id = cookieValue(r, "gc_oauth_google")!;
+    expect(id).toMatch(/^[A-Za-z0-9]{22}$/);
+    expect(set).not.toContain(loc.searchParams.get("nonce")!);
+  });
+
+  it("a forged state cookie that names an account to link is refused (the cookie is only a row id now)", async () => {
+    const { env, sql } = setup(GOOGLE);
+    const victim = await signedIn(env, "ada@example.com");
+    const start = await call(env, "GET", "/auth/google", { origin: null });
+    const loc = new URL(start.headers.get("location")!);
+    const state = loc.searchParams.get("state")!;
+    // the format the cookie had before: unsigned JSON with the account to link
+    const forged = b64url(new TextEncoder().encode(JSON.stringify({ s: state, n: loc.searchParams.get("nonce"), v: "x".repeat(43), next: null, link: victim.account.id })));
+    let called = 0;
+    const res = await call(env, "GET", `/auth/google/callback?state=${state}&code=4%2Fabc`, {
+      cookie: `gc_oauth_google=${forged}; ${victim.cookie}`,
+      origin: null,
+      fetch: async () => {
+        called++;
+        return new Response("{}", { status: 500 });
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(called).toBe(0);
+    expect(sql.rows("SELECT google_sub FROM accounts WHERE id = ?", victim.account.id)[0]!.google_sub).toBeNull();
+  });
+
+  it("a Link started by another session is refused: a planted flow cannot attach a Google account to the victim", async () => {
+    const { env, sql } = setup(GOOGLE);
+    const victim = await signedIn(env, "ada@example.com");
+    const attacker = await signedIn(env, "mallory@example.com");
+    // the attacker starts Link Google in their own browser and completes Google's consent with their Google account
+    const start = await call(env, "GET", "/auth/google?link=1", { cookie: attacker.cookie, origin: null });
+    const loc = new URL(start.headers.get("location")!);
+    const nonce = loc.searchParams.get("nonce")!;
+    const fetchMock = async () =>
+      new Response(JSON.stringify({ id_token: jwt({ iss: "https://accounts.google.com", aud: GOOGLE.GOOGLE_CLIENT_ID, exp: Math.floor(clock.getTime() / 1000) + 600, nonce, sub: "g-mallory", email: "m@gmail.com", email_verified: true }) }), { status: 200 });
+    // ...then plants that flow's cookie in the victim's browser and sends the victim to the callback
+    const res = await call(env, "GET", `/auth/google/callback?state=${loc.searchParams.get("state")}&code=4%2Fabc`, {
+      cookie: `gc_oauth_google=${cookieValue(start, "gc_oauth_google")}; ${victim.cookie}`,
+      origin: null,
+      fetch: fetchMock,
+    });
+    expect(res.status).toBe(403);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts WHERE google_sub IS NOT NULL")[0]!.n).toBe(0);
+  });
+
+  it("the failure page says what to do in one sentence; the failed check is a small detail line", async () => {
+    const { env } = setup(GOOGLE);
+    const { res } = await google(env, { claims: (n) => ({ iss: "https://accounts.google.com", aud: GOOGLE.GOOGLE_CLIENT_ID, exp: Math.floor(clock.getTime() / 1000) + 600, nonce: `${n}x`, sub: "g-1" }) });
+    expect(res.status).toBe(400);
+    const html = await res.text();
+    expect(html).toContain("Google&#39;s answer could not be checked. This happens when the sign-in took too long or was finished in another tab. Start again.");
+    expect(html).toContain('<p class="detail">Check that failed: nonce does not match</p>');
   });
 
   it("happy path: a first Google sign-in creates an account (verified email, sub) and a session, and clears the cookie", async () => {
@@ -692,7 +753,7 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
       const { env, sql } = setup(GOOGLE);
       const { res } = await google(env, { claims });
       expect(res.status).toBe(400);
-      expect(cookieValue(res, "gc_session")).toBeNull();
+      expect(cookieValue(res, "__Host-gc_session")).toBeNull();
       expect(cookies(res).some((c) => c.startsWith("gc_oauth_google=;"))).toBe(true);
       expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
     });
@@ -724,17 +785,17 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     const g = (n: string) => ({ iss: "https://accounts.google.com", aud: GOOGLE.GOOGLE_CLIENT_ID, exp: now() + 600, nonce: n, sub: "g-ada", email: "ADA@gmail.com", email_verified: true });
     const { res } = await google(env, { claims: g });
     expect(res.status).toBe(200);
-    expect(cookieValue(res, "gc_session")).toBeNull();
+    expect(cookieValue(res, "__Host-gc_session")).toBeNull();
     const html = await res.text();
     expect(html).toContain("This email already has a GenClass account");
     expect(html).toContain("Link Google");
     expect(sql.rows("SELECT google_sub FROM accounts WHERE id = ?", victim.account.id)[0]!.google_sub).toBeNull();
-    const pending = cookieValue(res, "gc_pending")!;
+    const pending = cookieValue(res, "__Host-gc_pending")!;
     expect(pending).toMatch(/^[A-Za-z0-9]{22}$/);
 
     // "Create a separate account"
-    expect((await call(env, "POST", "/api/auth/pending", { body: {}, cookie: `gc_pending=${pending}`, origin: null })).status).toBe(403);
-    const ok = await call(env, "POST", "/api/auth/pending", { body: {}, cookie: `gc_pending=${pending}` });
+    expect((await call(env, "POST", "/api/auth/pending", { body: {}, cookie: `__Host-gc_pending=${pending}`, origin: null })).status).toBe(403);
+    const ok = await call(env, "POST", "/api/auth/pending", { body: {}, cookie: `__Host-gc_pending=${pending}` });
     expect(ok.status).toBe(200);
     expect(await ok.clone().json()).toEqual({ ok: true, next: "/account?welcome=1" });
     const mine = await me(env, { cookie: sessionOf(ok) });
@@ -743,7 +804,7 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(2);
     expect(sql.rows("SELECT google_sub FROM accounts WHERE id = ?", victim.account.id)[0]!.google_sub).toBeNull();
     // the pending choice is single-use
-    expect((await call(env, "POST", "/api/auth/pending", { body: {}, cookie: `gc_pending=${pending}` })).status).toBe(400);
+    expect((await call(env, "POST", "/api/auth/pending", { body: {}, cookie: `__Host-gc_pending=${pending}` })).status).toBe(400);
   });
 
   it("Link Google while signed in attaches it to that account; later Google sign-ins open it; a taken Google account is refused", async () => {
@@ -795,8 +856,8 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
 const GITHUB = { GITHUB_CLIENT_ID: "Iv1.abc", GITHUB_CLIENT_SECRET: "gh-shh" };
 
 describe("accounts: GitHub sign-in (OAuth web flow)", () => {
-  async function github(env: Env, o: { state?: (s: string) => string } = {}) {
-    const start = await call(env, "GET", "/auth/github", { origin: null });
+  async function github(env: Env, o: { state?: (s: string) => string; cookie?: string; link?: boolean; id?: number; query?: string } = {}) {
+    const start = await call(env, "GET", `/auth/github${o.link ? "?link=1" : ""}`, { cookie: o.cookie, origin: null });
     expect(start.status).toBe(302);
     const loc = new URL(start.headers.get("location")!);
     expect(`${loc.origin}${loc.pathname}`).toBe("https://github.com/login/oauth/authorize");
@@ -811,18 +872,49 @@ describe("accounts: GitHub sign-in (OAuth web flow)", () => {
       }
       expect(url).toBe(GITHUB_USER_URL);
       expect((init?.headers as Record<string, string>).authorization).toBe("Bearer gho_x");
-      return new Response(JSON.stringify({ id: 4242, login: "octo-ada", email: "public@example.com" }), { status: 200 });
+      return new Response(JSON.stringify({ id: o.id ?? 4242, login: "octo-ada", email: "public@example.com" }), { status: 200 });
     };
-    const res = await call(env, "GET", `/auth/github/callback?code=c0de&state=${o.state ? o.state(state) : state}`, { cookie: `gc_oauth_github=${cookieValue(start, "gc_oauth_github")}`, origin: null, fetch: fetchMock });
+    const jar = [`gc_oauth_github=${cookieValue(start, "gc_oauth_github")}`, o.cookie ?? ""].filter(Boolean).join("; ");
+    const q = o.query ?? `code=c0de&state=${o.state ? o.state(state) : state}`;
+    const res = await call(env, "GET", `/auth/github/callback?${q}`, { cookie: jar, origin: null, fetch: fetchMock });
     return { res, calls };
   }
+
+  it("an error parameter (consent refused) sends you back to sign-in without calling GitHub, and clears the cookie", async () => {
+    const { env, sql } = setup(GITHUB);
+    const { res, calls } = await github(env, { query: "error=access_denied&state=x" });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/login?error=github");
+    expect(calls).toHaveLength(0);
+    expect(cookies(res).some((c) => c.startsWith("gc_oauth_github=;") && c.includes("Max-Age=0"))).toBe(true);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
+    // the flow it started is used up: the same cookie cannot finish a sign-in later
+    expect(sql.rows("SELECT COUNT(*) AS n FROM challenges WHERE kind = 'oauth:github'")[0]!.n).toBe(0);
+  });
+
+  it("Link GitHub while signed in sets the GitHub id and login on that account; a GitHub account linked elsewhere is refused", async () => {
+    const { env, sql } = setup(GITHUB);
+    const ada = await signedIn(env, "ada@example.com");
+    const linked = await github(env, { link: true, cookie: ada.cookie });
+    expect(linked.res.status).toBe(302);
+    expect(linked.res.headers.get("location")).toBe("/account?linked=github");
+    expect(sql.rows("SELECT github_id, github_login, email FROM accounts WHERE id = ?", ada.account.id)[0]).toEqual({ github_id: "4242", github_login: "octo-ada", email: "ada@example.com" });
+    // signing in with GitHub now opens Ada's account
+    const via = await github(env);
+    expect((await me(env, { cookie: sessionOf(via.res) })).json.account.id).toBe(ada.account.id);
+    const bob = await signedIn(env, "bob@example.com");
+    const taken = await github(env, { link: true, cookie: bob.cookie });
+    expect(taken.res.headers.get("location")).toBe("/account?error=github_taken");
+    expect(sql.rows("SELECT github_id FROM accounts WHERE id = ?", bob.account.id)[0]!.github_id).toBeNull();
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(2);
+  });
 
   it("refuses a state mismatch without calling GitHub", async () => {
     const { env, sql } = setup(GITHUB);
     const { res, calls } = await github(env, { state: (s) => `${s.slice(0, -2)}xx` });
     expect(res.status).toBe(400);
     expect(calls).toHaveLength(0);
-    expect(cookieValue(res, "gc_session")).toBeNull();
+    expect(cookieValue(res, "__Host-gc_session")).toBeNull();
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
   });
 
@@ -1072,5 +1164,342 @@ describe("accounts: the CLI's own requests (packages/runtime/bin/lib/account.mjs
     expect(told).toEqual([10]);
     expect(polls[1]!.at - polls[0]!.at).toBeGreaterThanOrEqual(10_000);
     expect(polls[2]!.at - polls[1]!.at).toBeGreaterThanOrEqual(10_000);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------- review fixes
+
+/** A batch for `token` through the real collector (what a page running the runtime sends). */
+async function sendBatch(env: Env, token: string, sid = "cccccccccccc") {
+  const body = { schema: "genclass-telemetry/1", sid, sent: 1, runtime: "0.3.0", model: null, token, events: [{ t: "session", host: "shop.example", route: "/" }] };
+  const r = await handle(new Request(`${ORIGIN}/api/v1/events`, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "text/plain" } }), env, { now: () => clock });
+  expect(r.status).toBe(202);
+}
+
+/** The env's DB with every SQL text recorded, to check what a request did (or did not) read. */
+function spyDb(env: Env, seen: string[]) {
+  const db = env.DB!;
+  env.DB = { prepare: (q: string) => (seen.push(q), db.prepare(q)), batch: (s) => db.batch(s) };
+}
+
+describe("accounts: the device approval page is no code oracle, and shows only the CLI's own name", () => {
+  it("signed out, /login/device reads no device code: a live code and a made-up one get the same page", async () => {
+    const { env } = setup();
+    const live = (await (await call(env, "POST", "/api/device/code", { body: { client_name: "genclass-runtime 0.3.0" }, origin: null })).json()) as any;
+    const fake = live.user_code === "BCDF-GHJK" ? "BCDF-GHJL" : "BCDF-GHJK";
+    const seen: string[] = [];
+    spyDb(env, seen);
+    const norm = (h: string, code: string) => h.replace(/[A-Za-z0-9]{22}(?=["';])/g, "NONCE").replaceAll(code, "CODE");
+    const a = norm(await (await call(env, "GET", `/login/device?code=${live.user_code}`, { origin: null })).text(), live.user_code);
+    const b = norm(await (await call(env, "GET", `/login/device?code=${fake}`, { origin: null })).text(), fake);
+    expect(a).toBe(b);
+    expect(a).toContain("Sign in to continue");
+    expect(seen.filter((q) => q.includes("device_codes"))).toEqual([]);
+  });
+
+  it("code lookups and polls are rate limited before any database read; unknown device codes count too", async () => {
+    const counts = new Map<string, number>();
+    const { env } = setup({
+      AUTH_LIMIT: {
+        async limit({ key }) {
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+          return { success: counts.get(key)! <= 2 };
+        },
+      },
+    });
+    const { cookie } = await signedIn(env);
+    for (let i = 0; i < 2; i++) expect((await call(env, "GET", "/login/device?code=BCDF-GHJK", { cookie, origin: null })).status).toBe(200);
+    const limited = await call(env, "GET", "/login/device?code=BCDF-GHJK", { cookie, origin: null });
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBe("60");
+    expect((await call(env, "GET", "/login/device", { cookie, origin: null })).status).toBe(200); // no code: no lookup
+    const seen: string[] = [];
+    spyDb(env, seen);
+    const poll = async () => (await (await call(env, "POST", "/api/device/token", { body: { device_code: "y".repeat(43) }, origin: null })).json()) as any;
+    expect((await poll()).error).toBe("expired_token");
+    expect((await poll()).error).toBe("expired_token");
+    const before = seen.length;
+    expect(await poll()).toMatchObject({ error: "slow_down", interval: 10 });
+    expect(seen.slice(before).filter((q) => q.includes("device_codes"))).toEqual([]);
+  });
+
+  it("client_name: only `genclass-runtime <version>` is shown and kept; other text shows as Unknown client", async () => {
+    const { env, sql } = setup();
+    const { cookie } = await signedIn(env);
+    const code = (await (await call(env, "POST", "/api/device/code", { body: { client_name: "Acme team invite: approve to join the workspace" }, origin: null })).json()) as any;
+    const page = await (await call(env, "GET", `/login/device?code=${code.user_code}`, { cookie })).text();
+    expect(page).toContain("Unknown client");
+    expect(page).not.toContain("Acme team");
+    expect(sql.rows("SELECT client FROM device_codes")[0]!.client).toBeNull();
+    expect((await call(env, "POST", "/api/device/approve", { body: { user_code: code.user_code, approve: true }, cookie })).status).toBe(200);
+    expect((await call(env, "POST", "/api/device/token", { body: { device_code: code.device_code }, origin: null })).status).toBe(200);
+    expect(sql.rows("SELECT label FROM auth_sessions WHERE kind = 'cli'")[0]!.label).toBe("Command line");
+    for (const ok of ["genclass-runtime 0.3.0", "genclass-runtime 0.3.0-beta.1", "genclass-runtime 12.0.4"]) expect(CLIENT_NAME_RE.test(ok)).toBe(true);
+    for (const bad of ["genclass-runtime 0.3.0 (darwin)", "genclass-runtime", "Approve to join", "genclass-runtime 0.3.0\nApprove", "x genclass-runtime 0.3.0"]) expect(CLIENT_NAME_RE.test(bad)).toBe(false);
+  });
+
+  it("the approval page script handles an expired code and the answer (no buttons left to press)", async () => {
+    const { env } = setup();
+    const { cookie } = await signedIn(env);
+    const code = (await (await call(env, "POST", "/api/device/code", { body: { client_name: "genclass-runtime 0.3.0" }, origin: null })).json()) as any;
+    const page = await (await call(env, "GET", `/login/device?code=${code.user_code}`, { cookie })).text();
+    // the expiry time is in the page config, and the 404 answer switches to the "no longer valid" state
+    expect(page).toContain(`"expires":"${new Date(clock.getTime() + 600_000).toISOString()}"`);
+    expect(page).toContain('finish("Approved"');
+    expect(page).toContain("e.status === 404");
+  });
+});
+
+describe("accounts: what a CLI session may do", () => {
+  it("lists and creates apps and claims, but cannot read stats, end other sessions, remove passkeys, turn off links or delete the account", async () => {
+    const { env, sql } = setup();
+    const { cookie } = await signedIn(env);
+    const bearer = await cliToken(env, cookie);
+    const created = await call(env, "POST", "/api/account/projects", { body: { name: "x" }, bearer, origin: null });
+    expect(created.status).toBe(201);
+    const { project } = (await created.json()) as any;
+    expect((await call(env, "GET", "/api/account/projects", { bearer, origin: null })).status).toBe(200);
+    const stats = await call(env, "GET", `/api/account/projects/${project.id}/stats`, { bearer, origin: null });
+    expect(stats.status).toBe(403);
+    expect(((await stats.json()) as any).error).toMatch(/browser/);
+    expect((await call(env, "GET", `/api/account/projects/${project.id}/stats`, { cookie })).status).toBe(200);
+    const web = sql.rows("SELECT id FROM auth_sessions WHERE kind = 'web'")[0]!.id as string;
+    expect((await call(env, "DELETE", `/api/account/sessions/${web}`, { bearer, origin: null })).status).toBe(403);
+    expect((await call(env, "DELETE", "/api/account/sessions/others", { bearer, origin: null })).status).toBe(403);
+    expect((await call(env, "DELETE", `/api/account/projects/${project.id}/link`, { bearer, origin: null })).status).toBe(403);
+    expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, bearer, origin: null })).status).toBe(403);
+    const cred = sql.rows("SELECT id FROM credentials")[0]!.id as string;
+    expect((await call(env, "DELETE", `/api/account/credentials/${cred}`, { bearer, origin: null })).status).toBe(403);
+    expect((await me(env, { cookie })).status).toBe(200);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM credentials")[0]!.n).toBe(1);
+    // its own logout still works
+    expect((await call(env, "DELETE", "/api/account/sessions/current", { bearer, origin: null })).status).toBe(204);
+  });
+});
+
+describe("accounts: sessions on /account", () => {
+  it("lists browser sessions, revokes one, signs out everywhere else, and removing a passkey ends the other sessions", async () => {
+    const { env, sql } = setup();
+    const { auth, cookie } = await signedIn(env);
+    advance(1000);
+    const other = sessionOf((await signIn(env, auth)).res);
+    const page = await (await call(env, "GET", "/account", { cookie })).text();
+    expect(page).toContain("This browser");
+    expect(page).toContain("Browser 1");
+    expect(page).toContain("Sign out everywhere else");
+    const otherId = sql.rows("SELECT id FROM auth_sessions WHERE kind = 'web' ORDER BY created DESC")[0]!.id as string;
+    expect((await call(env, "DELETE", `/api/account/sessions/${otherId}`, { cookie })).status).toBe(204);
+    expect((await me(env, { cookie: other })).status).toBe(401);
+    expect((await me(env, { cookie })).status).toBe(200);
+
+    const third = sessionOf((await signIn(env, auth)).res);
+    const bearer = await cliToken(env, cookie);
+    expect((await call(env, "DELETE", "/api/account/sessions/others", { cookie, origin: "https://evil.example" })).status).toBe(403);
+    expect((await call(env, "DELETE", "/api/account/sessions/others", { cookie })).status).toBe(204);
+    expect((await me(env, { cookie: third })).status).toBe(401);
+    expect((await me(env, { bearer, origin: null })).status).toBe(401);
+    expect((await me(env, { cookie })).status).toBe(200);
+
+    // a second passkey, used in another browser; removing the first passkey ends that browser's session too
+    const second = await makeAuthenticator(-7);
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie })).json()) as any;
+    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await second.register(o.publicKey) }, cookie })).status).toBe(200);
+    const fourth = sessionOf((await signIn(env, second)).res);
+    const first = sql.rows("SELECT id FROM credentials ORDER BY created, rowid")[0]!.id as string;
+    expect((await call(env, "DELETE", `/api/account/credentials/${first}`, { cookie })).status).toBe(204);
+    expect((await me(env, { cookie: fourth })).status).toBe(401);
+    expect((await me(env, { cookie })).status).toBe(200);
+  });
+});
+
+describe("accounts: deleting an account", () => {
+  it("removes its passkeys, sessions and row; apps made in it go with their stats; apps with a private link go back to that link", async () => {
+    const { env, sql } = setup();
+    const { cookie, account } = await signedIn(env);
+    const bearer = await cliToken(env, cookie);
+    const made = ((await (await call(env, "POST", "/api/account/projects", { body: { name: "Made here" }, cookie })).json()) as any).project;
+    const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old app" }, origin: null })).json()) as any;
+    expect((await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie })).status).toBe(200);
+    await sendBatch(env, made.token);
+    await sendBatch(env, anon.token, "dddddddddddd");
+    const count = (t: string, token: string) => Number(sql.rows(`SELECT COUNT(*) AS n FROM ${t} WHERE token = ?`, token)[0]!.n);
+    expect(count("daily", made.token)).toBeGreaterThan(0);
+
+    expect((await call(env, "DELETE", "/api/account", { body: {}, cookie })).status).toBe(400);
+    expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie, origin: "https://evil.example" })).status).toBe(403);
+    expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" } })).status).toBe(401);
+    const del = await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie });
+    expect(del.status).toBe(204);
+    expect(cookies(del).some((c) => c.startsWith("__Host-gc_session=;") && c.includes("Max-Age=0"))).toBe(true);
+
+    for (const t of ["credentials", "auth_sessions", "device_codes", "challenges"]) expect(sql.rows(`SELECT COUNT(*) AS n FROM ${t} WHERE account_id = ?`, account.id)[0]!.n).toBe(0);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
+    for (const t of ["projects", "daily", "hourly", "recent", "sessions"]) expect(count(t, made.token)).toBe(0);
+    expect(sql.rows("SELECT account_id FROM projects WHERE token = ?", anon.token)).toEqual([{ account_id: null }]);
+    expect(count("daily", anon.token)).toBeGreaterThan(0);
+    expect((await handle(new Request(anon.dashboardUrl), env, { now: () => clock })).status).toBe(200);
+    expect((await me(env, { cookie })).status).toBe(401);
+    expect((await me(env, { bearer, origin: null })).status).toBe(401);
+    expect(await (await call(env, "GET", "/login?deleted=1", {})).text()).toContain("Your account is deleted.");
+    // the old link can be added to a new account again
+    const again = await signedIn(env, "ada2@example.com");
+    expect((await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie: again.cookie })).status).toBe(200);
+  });
+});
+
+describe("accounts: private links of owned apps", () => {
+  it("a claimed app's link keeps working until the owner turns it off; then it opens and claims nothing; the dashboard says which", async () => {
+    const { env, sql } = setup();
+    const ada = await signedIn(env, "ada@example.com");
+    const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old app" }, origin: null })).json()) as any;
+    const { project } = (await (await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie: ada.cookie })).json()) as any;
+    const appPage = async () => (await call(env, "GET", `/account/apps/${project.id}`, { cookie: ada.cookie })).text();
+    expect(await appPage()).toContain("private dashboard link it had before it joined your account");
+    expect(await (await call(env, "GET", "/account", { cookie: ada.cookie })).text()).toContain(`data-linkoff="${project.id}"`);
+
+    expect((await call(env, "DELETE", `/api/account/projects/${project.id}/link`, { cookie: ada.cookie, origin: null })).status).toBe(403);
+    const bob = await signedIn(env, "bob@example.com");
+    expect((await call(env, "DELETE", `/api/account/projects/${project.id}/link`, { cookie: bob.cookie })).status).toBe(404);
+    const hash = sql.rows("SELECT secret_hash FROM projects WHERE id = ?", project.id)[0]!.secret_hash;
+    expect((await call(env, "DELETE", `/api/account/projects/${project.id}/link`, { cookie: ada.cookie })).status).toBe(204);
+    expect(sql.rows("SELECT secret_hash, private_link FROM projects WHERE id = ?", project.id)[0]).toEqual({ secret_hash: expect.not.stringMatching(String(hash)), private_link: 0 });
+    expect((await handle(new Request(anon.dashboardUrl), env, { now: () => clock })).status).toBe(404);
+    expect((await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie: bob.cookie })).status).toBe(404);
+    expect(await appPage()).toContain("Only you can open this page, while signed in.");
+    // an app created in the account never had a link
+    const made = ((await (await call(env, "POST", "/api/account/projects", { body: { name: "New" }, cookie: ada.cookie })).json()) as any).project;
+    expect(sql.rows("SELECT private_link FROM projects WHERE id = ?", made.id)[0]!.private_link).toBe(0);
+    expect(await (await call(env, "GET", `/account/apps/${made.id}`, { cookie: ada.cookie })).text()).toContain("Only you can open this page, while signed in.");
+  });
+});
+
+describe("accounts: app limits", () => {
+  /** n projects written straight into the table (tag keeps ids, tokens and hashes distinct between calls). */
+  const fill = (sql: ReturnType<typeof d1>, tag: string, n: number, accountId: string | null, created: string) => {
+    const ins = sql.db.prepare("INSERT INTO projects (id, token, secret_hash, name, created, account_id, private_link) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    for (let i = 0; i < n; i++) {
+      const k = `${tag}${i}`;
+      ins.run(Buffer.from(k).toString("hex").padStart(16, "0"), `gc_${k.padStart(22, "0")}`, `h-${k}`, `n${i}`, created, accountId, accountId ? 0 : 1);
+    }
+  };
+
+  it("an account holds at most 200 apps, created or claimed", async () => {
+    const { env, sql } = setup();
+    const { cookie, account } = await signedIn(env);
+    fill(sql, "a", 200, account.id, "2026-01-01T00:00:00.000Z");
+    const made = await call(env, "POST", "/api/account/projects", { body: { name: "one more" }, cookie });
+    expect(made.status).toBe(409);
+    expect(((await made.json()) as any).error).toMatch(/at most 200 apps/);
+    const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old app" }, origin: null })).json()) as any;
+    const claim = await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie });
+    expect(claim.status).toBe(409);
+    expect(((await claim.json()) as any).error).toMatch(/at most 200 apps/);
+    expect(sql.rows("SELECT account_id FROM projects WHERE token = ?", anon.token)).toEqual([{ account_id: null }]);
+  });
+
+  it("anonymous and account creation have separate per-minute ceilings: an anonymous flood does not block signed-in owners", async () => {
+    const { env, sql } = setup();
+    const { cookie } = await signedIn(env);
+    fill(sql, "x", 60, null, clock.toISOString());
+    expect((await call(env, "POST", "/api/projects", { body: {}, origin: null })).status).toBe(429);
+    expect((await call(env, "POST", "/api/account/projects", { body: { name: "mine" }, cookie })).status).toBe(201);
+    fill(sql, "y", 60, "Someone0123456789abcde", clock.toISOString());
+    expect((await call(env, "POST", "/api/account/projects", { body: { name: "mine too" }, cookie })).status).toBe(429);
+  });
+});
+
+describe("accounts: migration 0003 on a database that already has projects", () => {
+  it("gives old rows an id, a first event and a private link; their links keep working and they can be claimed, a NULL id too", async () => {
+    const s1 = "S".repeat(31) + "1";
+    const s2 = "S".repeat(31) + "2";
+    const [h1, h2] = [await sha256Hex(s1), await sha256Hex(s2)];
+    const tok1 = `gc_${"O".repeat(21)}1`;
+    const tok2 = `gc_${"O".repeat(21)}2`;
+    const sql = d1({
+      before: "0003",
+      seed: (db) => {
+        // as the code before accounts wrote them
+        db.prepare("INSERT INTO projects (token, secret_hash, name, created, last_event) VALUES (?, ?, ?, ?, ?)").run(tok1, h1, "Old one", "2026-10-10T00:00:00.000Z", "2026-10-12T10:00:00.000Z");
+        db.prepare("INSERT INTO recent (token, t, kind) VALUES (?, ?, 'detect')").run(tok1, "2026-10-10T05:00:00.000Z");
+        db.prepare("INSERT INTO projects (token, secret_hash, name, created) VALUES (?, ?, ?, ?)").run(`gc_${"Q".repeat(22)}`, "h-q", "Quiet", "2026-10-11T00:00:00.000Z");
+      },
+    });
+    const env: Env = { BUCKET: { async put() {} }, DB: sql.api };
+    const rows = sql.rows("SELECT token, id, first_event, private_link, account_id FROM projects ORDER BY created");
+    expect(rows).toEqual([
+      { token: tok1, id: expect.stringMatching(PROJECT_ID_RE), first_event: "2026-10-10T05:00:00.000Z", private_link: 1, account_id: null },
+      { token: `gc_${"Q".repeat(22)}`, id: expect.stringMatching(PROJECT_ID_RE), first_event: null, private_link: 1, account_id: null },
+    ]);
+    expect(rows[0]!.id).not.toBe(rows[1]!.id);
+    expect((await handle(new Request(`${ORIGIN}/dashboard/${s1}`), env, { now: () => clock })).status).toBe(200);
+    const { cookie } = await signedIn(env);
+    const claimed = (await (await call(env, "POST", "/api/account/projects/claim", { body: { secret: s1 }, cookie })).json()) as any;
+    expect(claimed.project).toMatchObject({ id: rows[0]!.id, token: tok1, first_event: "2026-10-10T05:00:00.000Z" });
+
+    // a row the old code inserted between the migration and the deploy has no id; claiming gives it one
+    sql.db.prepare("INSERT INTO projects (token, secret_hash, name, created) VALUES (?, ?, ?, ?)").run(tok2, h2, "Late", clock.toISOString());
+    expect(sql.rows("SELECT id, private_link FROM projects WHERE token = ?", tok2)).toEqual([{ id: null, private_link: 1 }]);
+    expect((await handle(new Request(`${ORIGIN}/dashboard/${s2}`), env, { now: () => clock })).status).toBe(200);
+    const late = await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: `https://genclass.dev/dashboard/${s2}` }, cookie });
+    expect(late.status).toBe(200);
+    const lp = ((await late.json()) as any).project;
+    expect(lp.id).toMatch(PROJECT_ID_RE);
+    expect(sql.rows("SELECT id FROM projects WHERE token = ?", tok2)[0]!.id).toBe(lp.id);
+    expect((await me(env, { cookie })).json.projects.map((p: any) => p.token).sort()).toEqual([tok1, tok2].sort());
+  });
+});
+
+describe("accounts: the Connect panel and the account-mode sidebar", () => {
+  it("says first that keys are not on npm until RUNTIME_ON_NPM reaches 0.3.0; the status line sits under the key", async () => {
+    for (const [v, notYet] of [[undefined, true], ["0.2.2", true], ["0.3.0", false]] as const) {
+      const { env } = setup(v === undefined ? {} : { RUNTIME_ON_NPM: v });
+      const { cookie } = await signedIn(env);
+      const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name: "App" }, cookie })).json()) as any;
+      const html = await (await call(env, "GET", `/account/apps/${project.id}`, { cookie })).text();
+      expect(html.includes("Not on npm yet"), String(v)).toBe(notYet);
+      if (notYet) expect(html.indexOf("Not on npm yet")).toBeLessThan(html.indexOf("Project API key"));
+      expect(html.indexOf('id="cstatus"')).toBeLessThan(html.indexOf("1 · Run in your project"));
+      expect(html).toContain('aria-label="Copy the project API key"');
+      expect(html).toContain('aria-label="Copy the script tag"');
+      expect(html).toContain('<a class="skip" href="#mc">Skip to content</a>');
+    }
+    expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.10.1" })).toBe(true);
+    expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "1.0.0" })).toBe(true);
+    expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.3.0-beta.1" })).toBe(false);
+  });
+
+  it("while an app waits for its first event the sidebar shows Connect only; more than 4 apps collapse to the current one", async () => {
+    const { env } = setup();
+    const { cookie } = await signedIn(env);
+    const ids: string[] = [];
+    let token = "";
+    for (const name of ["a", "b", "c", "d", "e"]) {
+      const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name }, cookie })).json()) as any;
+      ids.push(project.id);
+      token ||= project.token;
+    }
+    const waiting = await (await call(env, "GET", `/account/apps/${ids[0]}`, { cookie })).text();
+    expect(waiting).toContain('<div id="period" class="hidden">');
+    expect(waiting).toContain('<a href="#connect" aria-current="true">Connect</a>');
+    expect(waiting).toContain("All apps <span>5</span>");
+    expect(waiting).not.toContain(`href="/account/apps/${ids[1]}"`);
+    expect(waiting).not.toContain(">Elsewhere<");
+    await sendBatch(env, token);
+    const live = await (await call(env, "GET", `/account/apps/${ids[0]}`, { cookie })).text();
+    expect(live).toContain('<div id="period">');
+  });
+});
+
+describe("accounts: cookies in development", () => {
+  it("on plain-HTTP localhost the session cookie has no __Host- prefix and no Secure; elsewhere it has both", async () => {
+    const DEV = "http://localhost:8787";
+    const { env } = setup({ AUTH_ORIGIN: DEV, AUTH_RP_ID: "localhost" });
+    const auth = await makeAuthenticator(-7);
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "dev@example.com" }, origin: DEV })).json()) as any;
+    const res = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await auth.register(o.publicKey, { origin: DEV }) }, origin: DEV });
+    expect(res.status).toBe(200);
+    const set = cookies(res).find((c) => c.startsWith("gc_session="))!;
+    expect(set).toMatch(/^gc_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax$/);
+    expect((await me(env, { cookie: set.split(";")[0] })).status).toBe(200);
   });
 });

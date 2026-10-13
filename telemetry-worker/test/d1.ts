@@ -1,20 +1,29 @@
 // D1 stand-in backed by node:sqlite running every migration in migrations/ (in order), so the SQL itself is under
-// test. batch() runs in a transaction like D1's.
+// test. batch() runs in a transaction like D1's. `before` + `seed` run the migrations older than `before`, then seed
+// (rows written the way older code wrote them), then the rest: the migrations are tested on a populated database too.
 import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import type { D1Like, D1Stmt } from "../src/dashboard.js";
 
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");
 const DIR = new URL("../migrations/", import.meta.url);
-export const MIGRATIONS = readdirSync(DIR)
+export const MIGRATION_FILES = readdirSync(DIR)
   .filter((f) => f.endsWith(".sql"))
   .sort()
-  .map((f) => readFileSync(new URL(f, DIR), "utf8"))
-  .join("\n");
+  .map((f) => ({ name: f, sql: readFileSync(new URL(f, DIR), "utf8") }));
+export const MIGRATIONS = MIGRATION_FILES.map((m) => m.sql).join("\n");
 
-export function d1() {
+type Db = InstanceType<typeof DatabaseSync>;
+
+export function d1(o: { before?: string; seed?: (db: Db) => void } = {}) {
   const db = new DatabaseSync(":memory:");
-  db.exec(MIGRATIONS);
+  if (o.before) {
+    for (const m of MIGRATION_FILES) if (m.name < o.before) db.exec(m.sql);
+    o.seed?.(db);
+    for (const m of MIGRATION_FILES) if (m.name >= o.before) db.exec(m.sql);
+  } else {
+    db.exec(MIGRATIONS);
+  }
   let batches = 0;
   const stmt = (sql: string, params: unknown[] = []): D1Stmt => ({
     bind: (...v: unknown[]) => stmt(sql, v),

@@ -73,10 +73,18 @@ CREATE UNIQUE INDEX device_codes_user_code ON device_codes (user_code);
 CREATE INDEX device_codes_expires ON device_codes (expires);
 
 -- Apps: an owner (nullable: secret-link projects have none until claimed), a stable id for account URLs (the token
--- stays the public key), and the time of the first batch (the Connect panel's "First event at").
+-- stays the public key), the time of the first batch (the Connect panel's "First event at"), and whether a private
+-- dashboard link opens the app. Every project made before accounts has one (1, the default; /start and init without
+-- an account keep making them); an app created in an account has none (0), and an owner can turn a link off (0).
 ALTER TABLE projects ADD COLUMN account_id TEXT;
 ALTER TABLE projects ADD COLUMN id TEXT;
 ALTER TABLE projects ADD COLUMN first_event TEXT;
+ALTER TABLE projects ADD COLUMN private_link INTEGER NOT NULL DEFAULT 1;
 UPDATE projects SET id = lower(hex(randomblob(8))) WHERE id IS NULL;
+-- Projects that already had traffic: the earliest detection still kept, else the last event. It can be later than
+-- the real first batch (traffic without detections leaves no row in `recent`), but the first batch after the deploy
+-- no longer becomes the "first event" of an app that has sent data for days.
+UPDATE projects SET first_event = COALESCE(min((SELECT MIN(r.t) FROM recent r WHERE r.token = projects.token), last_event), last_event)
+WHERE first_event IS NULL AND last_event IS NOT NULL;
 CREATE UNIQUE INDEX projects_id ON projects (id);
 CREATE INDEX projects_account ON projects (account_id);

@@ -80,14 +80,17 @@ export interface Project {
   first_event: string | null;
   /** The owning account, or null for a project known only by its private dashboard link. */
   account_id: string | null;
+  /** 1 when a private dashboard link (/dashboard/<secret>) opens this project; 0 for an app created in an account
+   * (nobody was given a link) or one whose owner turned its link off. */
+  private_link: number;
 }
 
-export const PROJECT_COLUMNS = "id, token, name, created, last_event, first_event, account_id";
+export const PROJECT_COLUMNS = "id, token, name, created, last_event, first_event, account_id, private_link";
 
 /**
  * Create a project. Without an account it is reachable through its private dashboard link (the secret, returned once).
  * With an account the secret is generated and hashed the same way (the column is required) but the caller does not
- * show it: the app is opened from the account.
+ * show it and `private_link` is 0: the app is opened from the account only.
  */
 export async function createProject(
   db: D1Like,
@@ -102,8 +105,8 @@ export async function createProject(
     const created = now.toISOString();
     try {
       await db
-        .prepare("INSERT INTO projects (id, token, secret_hash, name, created, account_id) VALUES (?, ?, ?, ?, ?, ?)")
-        .bind(id, token, await sha256Hex(secret), name, created, accountId)
+        .prepare("INSERT INTO projects (id, token, secret_hash, name, created, account_id, private_link) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(id, token, await sha256Hex(secret), name, created, accountId, accountId ? 0 : 1)
         .run();
       tokenCache.set(token, { ok: true, exp: now.getTime() + CACHE_OK_MS });
       return { id, token, secret, name, created };
@@ -113,9 +116,14 @@ export async function createProject(
   }
 }
 
-/** Projects created after `since` (all clients together), for the global creation ceiling. */
-export async function projectsCreatedSince(db: D1Like, since: Date): Promise<number> {
-  const row = await db.prepare("SELECT COUNT(*) AS n FROM projects WHERE created > ?").bind(since.toISOString()).first<{ n: number }>();
+/**
+ * Projects created after `since` (all clients together), for the global creation ceilings. Anonymous creation
+ * (/api/projects) and creation in an account have separate ceilings, so a flood of anonymous requests cannot stop
+ * signed-in owners from creating apps, nor the reverse.
+ */
+export async function projectsCreatedSince(db: D1Like, since: Date, by: "anonymous" | "account"): Promise<number> {
+  const owner = by === "account" ? "account_id IS NOT NULL" : "account_id IS NULL";
+  const row = await db.prepare(`SELECT COUNT(*) AS n FROM projects WHERE created > ? AND ${owner}`).bind(since.toISOString()).first<{ n: number }>();
   return Number(row?.n ?? 0);
 }
 
@@ -126,6 +134,11 @@ export async function projectBySecret(db: D1Like, secret: string): Promise<Proje
     .prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE secret_hash = ?`)
     .bind(await sha256Hex(secret))
     .first<Project>();
+}
+
+/** Drop a deleted project's token from this isolate's cache, so its batches stop being counted here at once. */
+export function forgetToken(token: string): void {
+  tokenCache.delete(token);
 }
 
 const CACHE_OK_MS = 5 * 60_000;
