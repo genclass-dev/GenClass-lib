@@ -71,7 +71,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // with them add about 3.3 KB. 0.3.0-beta.0 measures 106.24 / 98.21 KB (CI run 38465242176); the limits are those
   // plus 1.5 KB, as the owner approved for 0.3.0 (README "Performance", docs/runtime/RESULTS.md §10). Observe's
   // detection tiers and deferred situations (wave2/detect-observe) took 1.42 / 1.48 KB of that: 107.66 / 99.69 KB (CI
-  // run 38471973596, RESULTS.md §11). Both sizes are printed before either is asserted.
+  // run 38471973596, RESULTS.md §11); merged with release/0.3.0 (its 429 back-off is this branch's), 107.65 / 99.68 KB
+  // (CI run 38477575339). Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 107.74, "index.js": 99.71 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");

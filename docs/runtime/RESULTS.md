@@ -489,6 +489,13 @@ n is small (one more clean trial with a finding in about 30). The compat matrix'
 | telemetry hour, every decision a (likely) detection | 2,067.1 KB, 361 requests | 2,068.5 KB, 361 requests | none |
 | of which 61 `summary` events | 39.3 / 40.8 KB | 40.7 / 42.2 KB (the `possibleDetections` count) | none |
 
+After release/0.3.0 took this branch's 429 back-off and dropped `decisionSample` / `maxDecisions` from the `session`
+event (§10, `e637c37`), it was merged back here (`fab159c`, CI run 38477575339): first load 107.65 KB on `/auto`
+(101.68 + 3.05 + 2.74 + 0.19) and 99.68 KB on the main entry (93.71 + 3.05 + 2.74 + 0.19), script tag 127.62 KB
+(374.4 KB minified); telemetry hour 251.6 KB in 163 requests all routine (summaries 40.7 KB), 2,068.5 KB in 361
+requests every decision a detection (summaries 42.2 KB). Against release/0.3.0's 106.59 / 98.57 KB this branch adds
+1.06 / 1.11 KB (the back-off is in both). Unit tests 890 passed, 14 skipped.
+
 The two first loads grew by 1.42 and 1.48 KB, inside the 1.5 KB the release left; the first CI run (38471360511)
 measured 107.77 / 99.80 KB, over the limits, and the code was trimmed (no behaviour change) rather than the limits
 raised. Unit tests: 889 passed, 14 skipped (the model-parity tests); the telemetry-worker job 24 passed.
