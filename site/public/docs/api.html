@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=b25b9c74">
+<link rel="stylesheet" href="/styles.css?v=ef9e798c">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
 </head>
 <body>
@@ -185,9 +185,10 @@ and the matching <code>routes[]</code> rule) and <code>aggressiveness</code> the
 mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → <code>policy.actionLimits</code>
 (<code>limit:perMinute|perSubject|perSession</code>; defaults 60/min global, 10/min per subject, 200 per session) → <code>onBeforeAction</code> (<code>vetoed</code>, <code>would-veto</code>, or
 <code>limit:hold</code> past the budget) → execute. effectiveMode = min(mode, sample cap, breaker cap, route rule); URL overrides
-(<code>?genclass</code>, <code>?genclass-mode</code>, <code>?genclass-aggr</code>, <code>?genclass-sample</code>) only demote unless <code>debug: true</code>, with one
-exception: when the app sets no <code>mode</code>, <code>?genclass=guard</code> (or <code>localStorage.genclass = "guard"</code>) opts that visitor into
-guard; an explicit <code>mode</code> makes it demote-only. <code>policy.holdBudgetMs</code> is a hard ceiling that includes defers, the
+(<code>?genclass</code>, <code>?genclass-mode</code>, <code>?genclass-aggr</code>, <code>?genclass-sample</code>, <code>localStorage.genclass</code>) only demote, from the
+app's mode or from <code>observe</code> when it sets none; they may raise only with <code>debug: true</code> or on a development host
+(<code>localhost</code>, <code>*.local</code>, <code>*.test</code>, private networks). Before 0.2.2, <code>?genclass=guard</code> opted a visitor into guard when
+the app set no mode. <code>policy.holdBudgetMs</code> is a hard ceiling that includes defers, the
 wait for a response or request body, a held write's deferred re-decisions and the veto hook.</p>
 <p>Protected requests (<code>requests.protect</code>) are never held, never wait for their body to be read, and neither they nor
 anything their response callbacks cause (writes, timers, follow-up requests: the ops inherit the protection) are
@@ -703,9 +704,9 @@ which includes the redacted situation text.</p></article></div></section>
     </div>
     <div class="foot-cols">
       <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
-      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
+      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="mailto:mehar@daybot.ca?subject=GenClass%20false%20detection">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>

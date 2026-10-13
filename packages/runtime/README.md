@@ -73,6 +73,8 @@ token and has no `protect` export.
 >
 > Measured results: [RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md).
 
+Questions, bug reports and false detections: [GitHub Issues](https://github.com/genclass-dev/GenClass-lib/issues) or the [GenClass Discord](https://discord.gg/kN9kRnFtZm).
+
 ## Contents
 
 [Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·

@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=b25b9c74">
+<link rel="stylesheet" href="/styles.css?v=ef9e798c">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Threat model", "item": "https://genclass.dev/docs/threat-model"}]}, {"@type": "TechArticle", "headline": "Threat model", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/THREAT-MODEL.md"}]}</script>
 </head>
 <body>
@@ -308,13 +308,15 @@ flows.</p>
 <p><strong>Mitigations.</strong> <code>?genclass-mode</code>, <code>?genclass-aggr</code> and <code>?genclass-sample=0</code> can only lower the mode, aggressiveness or
 sampling unless the app sets <code>debug: true</code>; <code>?genclass=off</code> turns GenClass off for that visitor only
 (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/runtime.ts">runtime.ts</a> constructor, <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/index.ts">index.ts</a>
-<code>initUnsafe</code>). <code>?genclass=heal</code> needs <code>debug: true</code>.</p>
-<p><strong>Residual.</strong> When the app does not set <code>mode</code>, <code>?genclass=guard</code> (or <code>localStorage.genclass = "guard"</code>) turns guard on
-for that visitor: a crafted link can opt a user into guard-tier actions (<code>discard</code>, <code>defer</code>, <code>coalesce</code>, <code>delay</code>).
-Setting <code>mode: "observe"</code> (or any mode) explicitly makes the URL demote-only. With the zero-code entries (<code>/auto</code>, the
-script tag), every <code>&lt;meta name="genclass"&gt;</code> in the document can set the mode and the model and onnxruntime-web URLs
-(<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/config.ts">cdn/config.ts</a>): on pages that render untrusted HTML that could contain
-meta tags, configure through <code>window.GENCLASS_CONFIG</code> (it wins) or <code>GenClass.init(options)</code>.</p>
+<code>initUnsafe</code>). Since 0.2.2 <code>?genclass=</code> and <code>localStorage.genclass</code> also only demote, from the app's mode or from
+<code>observe</code> when it sets none: a crafted link can no longer raise a production site to guard or heal. Raising from the
+URL needs <code>debug: true</code> or a development host (<code>localhost</code>, <code>*.local</code>, <code>*.test</code>, private networks). With the zero-code
+entries (<code>/auto</code>, the script tag), only <code>&lt;meta name="genclass"&gt;</code> tags inside <code>&lt;head&gt;</code> are read, so markup injected into
+the body cannot configure GenClass, and the model and onnxruntime-web URLs a meta tag names must be same-origin
+(cross-origin ones are ignored with a warning; <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/config.ts">cdn/config.ts</a>).</p>
+<p><strong>Residual.</strong> Markup injected into <code>&lt;head&gt;</code> can still set the mode (not a cross-origin model): pages that let
+untrusted HTML into <code>&lt;head&gt;</code> should configure through <code>window.GENCLASS_CONFIG</code> (it wins) or <code>GenClass.init(options)</code>.
+An app that sets <code>debug: true</code> in production lets the URL raise its mode.</p>
 <h2 id="t9-cached-and-shared-responses">T9. Cached and shared responses</h2>
 <p><strong>Threat.</strong> A response cached or shared by GenClass reaches a request it was not meant for.</p>
 <p><strong>Mitigations.</strong> <code>serve_cached</code> (heal) answers only an identical GET (same method, URL, headers and body), from memory
@@ -336,7 +338,7 @@ account and sign-in endpoints (<code>protectPreset("auth")</code>), <code>policy
 <li>Discovered state is read and appears in situation text; DevTools-composed Redux stores are actionable.</li>
 <li>In guard/heal, identical POSTs within 2 s may be coalesced; heal may block requests or roll back whole stores; a
    late revert may make a loop resend (bounded).</li>
-<li><code>?genclass=guard</code> can opt a visitor into guard when the app sets no mode; meta tags configure the zero-code entries.</li>
+<li>Meta tags in <code>&lt;head&gt;</code> configure the zero-code entries (mode, same-origin model URLs); <code>debug: true</code> lets the URL raise the mode.</li>
 <li><code>serve_cached</code> ignores cookies (cross-user responses in a long-lived SPA session, heal only).</li>
 </ol>
 <h2 id="recommended-production-setup">Recommended production setup</h2>
@@ -364,9 +366,9 @@ records that without acting): <code>mode: "guard"</code> with <code>routes: [{ m
     </div>
     <div class="foot-cols">
       <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
-      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
+      <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="mailto:mehar@daybot.ca?subject=GenClass%20false%20detection">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
