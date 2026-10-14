@@ -137,7 +137,7 @@ export interface Report {
     kept: number; fine: number; unanswered: number; found: number;
     note: string;
     /** Every element it was asked about, with its answer (no crop): what it was shown, and what it said. */
-    asked: { view: string; cls: string; kind: string; selector: string; score: number | null; verdict: string; family: string; error: string | null; ms: number }[];
+    asked: { view: string; cls: string; kind: string; selector: string; score: number | null; verdict: string; family: string; error: string | null; ms: number; crop: string | null; state?: string }[];
   };
   notes: string[];
 }
@@ -538,7 +538,7 @@ export function buildReport(
     cropUrl?: (id: string) => string | null;
   },
   r: ScanResult,
-  flags: { withGenClass: boolean },
+  flags: { withGenClass: boolean; judgeDetail?: boolean },
 ): Report {
   type Entry = { raw: RawFinding; views: string[]; boxes: Finding["boxes"]; counts: Record<string, number>; examples: string[]; severity: Severity; best: number };
   const merged = new Map<string, Entry>();
@@ -769,7 +769,7 @@ export function buildReport(
         kept: n("kept"), fine: n("fine"), unanswered: n("unanswered"), found: n("found"),
         note: judgeNote(run, list),
         asked: r.views.flatMap((v) =>
-          (v.judged ?? []).map((j) => ({ view: j.view, cls: j.cls, kind: j.kind, selector: j.selector, score: j.answer?.score ?? null, verdict: j.answer?.verdict ?? "", family: j.answer?.family ?? "", error: j.answer ? null : j.error ?? "timeout", ms: j.ms })),
+          (v.judged ?? []).map((j) => ({ view: j.view, cls: j.cls, kind: j.kind, selector: j.selector, score: j.answer?.score ?? null, verdict: j.answer?.verdict ?? "", family: j.answer?.family ?? "", error: j.answer ? null : j.error ?? "timeout", ms: j.ms, crop: cropUrl(j.id), ...(flags.judgeDetail && j.state ? { state: j.state } : {}) })),
         ),
       };
     })(),

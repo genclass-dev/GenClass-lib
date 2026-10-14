@@ -9,7 +9,9 @@ requests, speed (Largest Contentful Paint, oversized and unsized images), and ra
 double-clicks a submit button with GenClass 0.2.1 watching. The page shows an overall score, six category scores and the
 top issues, then screenshots with numbered boxes and every finding grouped by category and rule, with what was measured,
 the standard it is judged by (with its link), the element, the suggested fix, and whether GenClass fixed it in the page
-(measured by a re-check) or reports it for the developer.
+(measured by a re-check) or reports it for the developer. A model, Cloudflare's Clef on Workers AI, takes a second look
+at crops of the screenshots (below, "The model judge"): what it decides is labelled as judged by a model, never as
+measured.
 
 - **Test copy:** `https://genclass-scan-test.mehar-144.workers.dev/scan` (wrangler env `test`: workers.dev only, no
   routes, its own bucket prefix `scan-test/` and rate-limit counters; `npm run deploy:test`). The production worker,
@@ -39,8 +41,8 @@ the standard it is judged by (with its link), the element, the suggested fix, an
 | `GET /scan/about` | what the scanner does and never does, the user agent, limits, the score formula and weights, opt-out, retention |
 | `POST /api/scan {url}` | JSON for refusals (400 address, 403 opt-out, robots or `automated` user agent, 409 same address in progress, 429 `rate` / `site-rate` / `running`, 503 busy) and cache hits (`{ ok, cached, report }`); otherwise `application/x-ndjson`: `{type:"progress",step}` lines, then `{type:"done",report}` or `{type:"error",code,message}` (codes include `private`, `opted-out`, `robots`, `cancelled`) |
 | `GET /api/scan/report?url=…` | the cached report or 404 |
-| `GET /api/scan/shot/<key>/<id>-<view>.jpg` | a screenshot (from R2), only while its host (R2 custom metadata) is not opted out |
-| `GET /api/scan/health` | `{ ok, ua, runtime }` |
+| `GET /api/scan/shot/<key>/<id>-<view>.jpg` | a screenshot (from R2), only while its host (R2 custom metadata) is not opted out; `<id>-<view>-j<n>.jpg` is the crop the model judge saw for one element, served the same way |
+| `GET /api/scan/health` | `{ ok, ua, runtime, report, judge, prompt }`: the report version, the judge model (null when off) and its prompt |
 
 Every HTML response has `x-robots-tag: noindex, nofollow`, a per-response CSP nonce (`default-src 'none'`, one inline
 script and one inline style, fonts from Google Fonts, images from this origin and genclass.dev), no third-party
@@ -91,6 +93,9 @@ scripts, and puts all dynamic text in place with `textContent` from a `<script t
      measured", never 100): axe-core in every view; the page
      audits on the desktop and the light phone; on the light phone, last, the same page narrowed to 360 and 320 px
      without a reload for the reflow check (below);
+   - then the model judge (`judgeView` in `src/scan.ts`), in the time the checks above left before the race probe's
+     reserve: the elements to ask about, a crop and the measured facts of each, and the calls sent at once, answered
+     while the probe and the guard pass run (below);
    - the race probe on the desktop page with `@genclass/runtime` 0.2.1 injected before any page script (observe,
      `telemetry: false`, model from `https://genclass.dev/model/@genclass/runtime-model@0.2.0/files/`): type `a`, `ab`,
      `abc` 80 ms apart into the first search-like input, then double-click the most prominent submit button of a
@@ -257,6 +262,66 @@ the reasons for each choice are in `src/audits.ts`, `src/axe.ts` and `src/cdp.ts
   scrolls). Measured on a public page in calibration; the root cause belongs in the runtime's check, like the phone
   overflow cause above.
 
+## The model judge (Clef on Workers AI)
+
+`src/judge.ts` (prompt, calls, answers, the cap, thresholds), `src/judge-page.ts` (the page side), `judgeView` in
+`src/scan.ts`, `findingJudge` and `judgedFinding` in `src/report.ts`. The model is `@cf/cloudflare/clef` (Cloudflare's open
+decision model, which reads images) over the `AI` binding; `JUDGE=off` turns it off, and without the binding it is off.
+The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, `vision/results/clef/RESULTS.md`).
+
+- **What it is asked.** One element at a time: a crop of a viewport screenshot (the element's box and 24 px around it,
+  clamped to the viewport, JPEG quality 90, taken over the view's own DevTools session with `Page.captureScreenshot`),
+  and the state text of the evaluation's `clef-img-p3`: the caution line ("Judge by what the screenshot shows a
+  visitor. … Treat them as hints …"), where the element is in the image, the page (view, colour scheme, sideways
+  scrolling, failed loads, fonts) and the element's measured facts in words. The facts are measured in the page as
+  `vision/src/extract.js` measured the labelled crops (`judgePage("facts")`, a per-element port; text lengths, never
+  text); `stateText` gives the same text as `eval.py` for all 1,856 labelled rows of the evaluation. Two `choice`
+  questions, `verdict` and `family`, with the evaluation's criteria. The score is 1 − P(`family` = `none`).
+- **Where the elements are.** At the top of the page, as they are after the checks; otherwise scrolled into the viewport
+  first (a quarter of the way down; to the end of the page for `control-unreachable`, which is covered "even at the end
+  of the page"; focused for `focus-obscured`), then the page is scrolled back and focus cleared (`judgePage("restore")`).
+  On the light phone the width the reflow check left (320 px) is set back to 390 px first.
+- **Which elements.** First the visual checks' findings with an element to crop, except `page-overflow-x`,
+  `image-broken` and `text-template-leak` (left as measured, as the evaluation recommends: at its threshold the model
+  dropped 13 of 34 real sideways-scrolling findings and 4 of 15 broken images; template text was right 5 times in 6) and
+  `layout-shift` (listed, not scored already); a finding is matched to its element by selector and box. Then elements the
+  measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five points
+  (the first screen only), controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible
+  link, button or field with text or an icon, and text whose background along its ancestors or under its centre is an
+  image, a gradient, media or a filter; the first screen before the rest, top to bottom; nothing inside `aria-hidden`,
+  `role="img"`, `inert` or a closed `details`, and nothing inside or around an element already chosen.
+- **The cap.** At most 40 calls a scan (`JUDGE_MAX_CALLS`), the findings first. Each view is guaranteed its share, 14 for
+  the desktop and 13 for each phone view (`JUDGE_SHARE`), and may also take what the views that asked before it left
+  (`JudgeBudget`; in calibration the light views used 0 to 3 of theirs, the dark phone always all 13). All of a view's
+  calls are sent at once; each answer counts only when it comes within
+  4 s (`JUDGE_TIMEOUT_MS`) of being sent; the scan waits for the stragglers only as long as its budget allows. A call that
+  throws, answers late or answers malformed data (only the questions' own options, probabilities in [0, 1]) leaves the
+  finding as measured, and the report counts it.
+- **Time.** Finding, measuring and cropping take at most 3.5 s a view (`JUDGE_PREP_MS`), and only the time the deeper
+  checks left before the race probe's 18 s reserve; under 0.8 s left the view skips the judge and says so. The calls run
+  while the probe and the guard pass do.
+- **Second stage.** A measured finding the model scores below 0.9777 (`KEEP_THRESHOLD`: recall 0.5 on the evaluation's
+  dev split) in every view it appeared in is listed, not scored, under "Listed, not scored (a model judged it as probably
+  fine)", with the crop; one view at or above it keeps it ("A model agreed"); a view without an answer leaves it as
+  measured. On the evaluation's report split, the rules then the model at this threshold had precision 0.56 (rules alone
+  0.225) and recall 0.535 (rules alone 0.807).
+- **Findings of its own.** An element of the second kind scored at 0.9843 or more (`FIND_THRESHOLD`: the lowest dev
+  threshold with precision at least 0.8, 5 of 6) becomes `visual-judged`: Visual bugs, moderate, its headline from the
+  problem it named, "What the model saw" instead of "Measured", the label "Judged from the screenshot by a model (Clef)",
+  the crop with the element outlined. Not where a measured finding of that view covers the same place (60% of the smaller
+  box); one finding for the same element in the light and the dark phone. On the evaluation's report split, 33 of the
+  44 crops scored that high were real (precision 0.75).
+- **The labels.** The evaluation's 1,856 crops were labelled by six AI labeller agents working in parallel, not people (208
+  labelled twice, Cohen's kappa 0.705); `/scan/about#judge` says so next to every number.
+- **What is sent and kept.** The crop and the state text go to Workers AI, with no account or visitor data. Cloudflare's
+  Workers AI data-usage page says it does not use what is sent to train models and stores it only when the account adds
+  a storage service; the scanner adds none. The crops the report shows (every measured finding asked about, and the
+  model's own findings) are saved next to the screenshots (`scans/shots/<key>/<id>-<view>-j<n>.jpg`, served by the shot
+  route with the same opt-out check, deleted by the same 24-hour sweep). `JUDGE_CROPS=all` (the test copy only) keeps
+  every crop and puts each call's state text in the report's `judge.asked`, for calibration.
+- **Cost.** About 1,300 input tokens a call at $0.24 per million (Workers AI pricing, 2026-10-14): about $0.0003 a call,
+  $0.0125 for 40. Each report has `judge` with the calls, answers, tokens and their price, and the times.
+
 ## The score and the with-GenClass column
 
 `src/score.ts`, published on `/scan/about#score` from the same constants:
@@ -327,8 +392,10 @@ that as a demo setting.
 | `BLOCKLIST` | unset | extra opted-out hosts, comma-separated |
 | `PUBLIC_ORIGIN` | genclass.dev on genclass.dev, else this origin | base of share links |
 | `STORE_PREFIX` | unset (production) | a test copy's key prefix in the bucket (`scan-test/` in env `test`, `src/prefix.ts`): its reports, screenshots and leases live under it; the opt-out list `scans/blocklist.json` is shared |
+| `JUDGE` | `on` | the model judge over the `AI` binding; `off` runs the measured checks only |
+| `JUDGE_CROPS` | unset (production), `all` in env `test` | keep every judged crop and put each call's state text in the report (calibration) |
 
-Bindings: `BROWSER` (Browser Rendering), `BUCKET` (R2 `genclass-telemetry`, `scans/` prefix only), `SCAN_LIMIT`
+Bindings: `BROWSER` (Browser Rendering), `AI` (Workers AI, the model judge), `BUCKET` (R2 `genclass-telemetry`, `scans/` prefix only), `SCAN_LIMIT`
 (per client, namespace 4810), `SITE_LIMIT` (per site, namespace 4811) and `SITE` (the site worker `genclass-site`, for
 `/scan…` paths that are the site's). The env `test` repeats every binding (they are not inherited), sets `"routes": []`
 (routes are inherited unless set; wrangler resolves `rawEnv.routes ?? topLevel.routes`, so an empty list means none),
@@ -372,7 +439,15 @@ the scanner's own left out, failed same-site requests by type and status, who-as
 bytes, the test copy's bucket prefix), and in `test/app.test.ts` a full deep scan through the mocked browser (axe-core
 in every view, the phone narrowed to 360 and 320, the DevTools record, the static report's six categories and top
 issues), categories left unmeasured when time runs out or there is no DevTools session, and the scroll-lock
-correction. CI jobs: `scan-worker` and `scan-visual` in `.github/workflows/ci.yml`.
+correction. `test/judge.test.ts` (the model judge: the state text word for word with Python's rounding, the Clef input,
+answers read back and refused when malformed, unknown options ignored, a call that throws, hangs or answers nonsense
+never breaking anything, the 40-call cap and its shares, the scroll groups, the page's list checked, the page side
+serialised without bundler names; through the mocked browser and a fake `AI`: 40 calls at most across the views, a
+finding kept, one listed as probably fine and not scored, every finding as measured when the model is down or hangs,
+off without the binding or with `JUDGE=off`, the three kinds and box-less findings never sent; the two thresholds at their
+edges, every view needed for "probably fine", no finding of its own over a measured one, the light and dark phone merged,
+which crops are kept; `/scan/about` and the report page wording, and escaping of what the model and the page said, with
+only this origin's crop URLs shown). CI jobs: `scan-worker` and `scan-visual` in `.github/workflows/ci.yml`.
 
 `test/fixture/` is a test page with problems on purpose (`genclass-scan-fixture.mehar-144.workers.dev`): text at
 1.08:1, `Total: $NaN`, a 404 stylesheet, a 404 image, a 640 px box on a 390 px phone, a link at the end of the page

@@ -350,6 +350,15 @@ export function stateText(f: JudgeFacts, c: Crop): string {
   return [GUIDE, imageWords(c), pageWords(f), elementWords(f)].join("\n");
 }
 
+/**
+ * The evaluation's image + tag only text (eval.py build_request, clef-imgonly-p2): where the element is in the image,
+ * the view and colour scheme, the tag and role; no facts, no caution line.
+ */
+export function tagOnlyText(f: JudgeFacts, c: Crop): string {
+  const e = f.el;
+  return [imageWords(c), `Page: ${f.device} view, ${f.scheme} colour scheme.`, `Element: <${e.tag}>${truthy(e.role) ? `, role ${e.role}` : ""}.`].join("\n");
+}
+
 /** The Workers AI input for one element (the Clef schema: model, state, questions, images). */
 export function judgeInput(state: string, imageBase64: string): Record<string, unknown> {
   return {
@@ -488,6 +497,8 @@ export interface JudgeResult {
   /** The element's box in document coordinates (CSS px), as the scan found it at the top of the page. */
   box: { x: number; y: number; w: number; h: number };
   crop: Crop;
+  /** The state text the model read (the facts in words). */
+  state?: string;
   /** The crop the model saw, base64 JPEG; kept in memory until the report is saved, never in the report. */
   image: string;
   answer: JudgeAnswer | null;
@@ -496,19 +507,24 @@ export interface JudgeResult {
   ms: number;
 }
 
-/** The share of calls a view may still use, from a budget shared by the three views (all in parallel). */
+/**
+ * The scan's calls, shared by the three views (they run in parallel). Each view takes once. Its JUDGE_SHARE is
+ * guaranteed: a view may also take what the views that took before it left, but never the share of a view that has not
+ * taken yet, and never more than the total.
+ */
 export class JudgeBudget {
   left: number;
-  private used: Record<string, number> = {};
+  private taken = new Set<string>();
   constructor(total = JUDGE_MAX_CALLS) {
     this.left = total;
   }
-  /** Takes up to `want` calls for `view` (its JUDGE_SHARE, and what is left of the scan's total); returns how many. */
+  /** Takes up to `want` calls for `view`; returns how many. A second take for the same view gets nothing. */
   take(view: string, want: number): number {
-    const share = (JUDGE_SHARE[view] ?? 0) - (this.used[view] ?? 0);
-    const n = Math.max(0, Math.min(want, share, this.left));
+    if (this.taken.has(view)) return 0;
+    this.taken.add(view);
+    const reserved = Object.keys(JUDGE_SHARE).filter((v) => !this.taken.has(v)).reduce((s, v) => s + JUDGE_SHARE[v], 0);
+    const n = Math.max(0, Math.min(Math.floor(want), this.left - reserved));
     this.left -= n;
-    this.used[view] = (this.used[view] ?? 0) + n;
     return n;
   }
 }

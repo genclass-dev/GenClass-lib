@@ -18,7 +18,7 @@ import { clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, jud
 import { axeFindings, installAxeSource, parseAxe, runAxeSource, withoutVisualDuplicates } from "./axe.ts";
 import { KINDS, sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { jsNote, judgeReliability, PageLog, type CdpLike } from "./cdp.ts";
-import { askJudge, cropOf, JUDGE_SHARE, JUDGE_TIMEOUT_MS, JudgeBudget, judgeInput, NOT_JUDGED, sanitizePage, sanitizeRow, stateText, toBase64, type CandidateClass, type Crop, type JudgeClient, type JudgeFacts, type JudgeResult } from "./judge.ts";
+import { askJudge, cropOf, JUDGE_MAX_CALLS, JUDGE_TIMEOUT_MS, JudgeBudget, judgeInput, NOT_JUDGED, sanitizePage, sanitizeRow, stateText, toBase64, type CandidateClass, type Crop, type JudgeClient, type JudgeFacts, type JudgeResult } from "./judge.ts";
 import { judgePageSource } from "./judge-page.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
@@ -1147,6 +1147,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     const t0 = deps.now();
     const prep = Math.min(JUDGE_PREP_MS, left() - RESERVE_AFTER_VIEWS - 300);
     if (prep < JUDGE_MIN_MS) {
+      judgeBudget.take(spec.id, 0); // its share goes to the views after it
       view.notes.push("The model judge (Clef) was skipped in this view: not enough of the scan's time was left.");
       return;
     }
@@ -1166,10 +1167,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         .filter((f) => !NOT_JUDGED.has(f.kind) && f.box && f.box.w >= 4 && f.box.h >= 4)
         .slice(0, 20)
         .map((f) => ({ key: visualKey(f), kind: f.kind, selector: f.selector, box: f.box }));
-      const share = JUDGE_SHARE[spec.id] ?? 0;
+
       const found = parseJson<{ ok?: unknown; vh?: unknown; items?: unknown } | null>(
         await withTimeout(
-          evalDom(page, judgePageSource("find", { name: N.judge, targets, find: true, dark: spec.scheme === "dark", max: share + 4, shotW: view.width, shotH: view.shotHeight })),
+          evalDom(page, judgePageSource("find", { name: N.judge, targets, find: true, dark: spec.scheme === "dark", max: JUDGE_MAX_CALLS - 10, shotW: view.width, shotH: view.shotHeight })),
           Math.min(3000, timeLeft()),
           "finding the elements to judge",
         ),
@@ -1208,12 +1209,13 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         jobs.forEach((j, k) => {
           const image = shots[k];
           if (!image) return;
-          const res: JudgeResult = { id: `${spec.id}-j${judged.length + 1}`, view: spec.id, cls: j.it.cls, key: j.it.key, kind: j.it.kind, selector: j.it.sel, box: j.it.box, crop: j.crop, image, answer: null, error: null, ms: 0 };
+          const state = stateText(j.facts, j.crop);
+          const res: JudgeResult = { id: `${spec.id}-j${judged.length + 1}`, view: spec.id, cls: j.it.cls, key: j.it.key, kind: j.it.kind, selector: j.it.sel, box: j.it.box, crop: j.crop, state, image, answer: null, error: null, ms: 0 };
           judged.push(res);
           sent++;
           if (!judgeFirst) judgeFirst = deps.now();
           judgeCalls.push(
-            askJudge(client, judgeInput(stateText(j.facts, j.crop), image), deps.judgeTimeoutMs ?? JUDGE_TIMEOUT_MS, deps.now).then((r) => {
+            askJudge(client, judgeInput(state, image), deps.judgeTimeoutMs ?? JUDGE_TIMEOUT_MS, deps.now).then((r) => {
               res.answer = r.answer;
               res.error = r.error;
               res.ms = r.ms;
@@ -1226,6 +1228,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     } catch (e) {
       view.notes.push(`The model judge (Clef) did not run in this view (${cutText(e instanceof Error ? e.message : String(e), 100)}), so the findings here stand as measured.`);
     } finally {
+      judgeBudget.take(spec.id, 0); // when it stopped before taking any, its share goes to the views after it
       await withTimeout(evalDom(page, judgePageSource("restore", { name: N.judge })), 1500, "restoring the page").catch(() => undefined);
       view.judgeMs = deps.now() - t0;
     }

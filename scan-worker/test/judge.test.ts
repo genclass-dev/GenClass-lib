@@ -158,17 +158,20 @@ describe("answers", () => {
 });
 
 describe("the 40-call cap", () => {
-  it("shares 40 calls between the three views and never gives more", () => {
+  it("shares 40 calls between the three views: each share guaranteed, what a view leaves goes to the views after it", () => {
     assert.equal(JUDGE_MAX_CALLS, 40);
     assert.equal(Object.values(JUDGE_SHARE).reduce((a, b) => a + b, 0), 40);
     const b = new JudgeBudget();
-    assert.equal(b.take("desktop", 100), JUDGE_SHARE.desktop);
-    assert.equal(b.take("desktop", 5), 0, "a view's share is spent once");
+    assert.equal(b.take("desktop", 100), JUDGE_SHARE.desktop, "the first view cannot take the others' shares");
+    assert.equal(b.take("desktop", 5), 0, "a view takes once");
     assert.equal(b.take("phone", 3), 3);
-    assert.equal(b.take("phone", 100), JUDGE_SHARE.phone - 3);
-    assert.equal(b.take("phone-dark", 100), JUDGE_SHARE["phone-dark"]);
+    assert.equal(b.take("phone-dark", 100), 40 - JUDGE_SHARE.desktop - 3, "the last view gets what the others left");
     assert.equal(b.left, 0);
-    assert.equal(new JudgeBudget(5).take("desktop", 100), 5, "and never more than the total");
+    const c = new JudgeBudget();
+    assert.equal(c.take("phone-dark", 100), JUDGE_SHARE["phone-dark"]);
+    assert.equal(c.take("desktop", 0), 0, "a view that skipped the judge leaves its share");
+    assert.equal(c.take("phone", 100), 40 - JUDGE_SHARE["phone-dark"]);
+    assert.equal(c.take("phone", 100) + c.left, 0, "never more than 40");
   });
   it("orders the scrolling: the top of the page, the end for a covered control, focus, then down the page", () => {
     const item = (i: number, y: number, kind = "", cls = "text-bg") => ({ i, cls: cls as "text-bg", key: kind ? `k${i}` : "", kind, sel: `p${i}`, box: { x: 0, y, w: 100, h: 20 } });

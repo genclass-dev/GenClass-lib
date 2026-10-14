@@ -77,6 +77,8 @@
         "WITH_GENCLASS": "on",
         "GUARD_HOLD_MS": "900",
         "JUDGE": "on",
+        // calibration: keep the crop of every element the judge was asked about (deleted after 24 hours like the rest)
+        "JUDGE_CROPS": "all",
         "STORE_PREFIX": "scan-test/"
       },
       // the same hourly sweep, over the test prefix: the test copy keeps reports and screenshots 24 hours at most too

@@ -58,6 +58,11 @@ export interface Env {
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
   /** "off" turns the model judge off even with the AI binding (default on). */
   JUDGE?: string;
+  /**
+   * "all" keeps the crop of every element the judge was asked about, not only those the report shows, and lists each
+   * in the report's judge.asked (the test copy, for calibration). Unset in production.
+   */
+  JUDGE_CROPS?: string;
 }
 
 export interface Ctx {
@@ -394,8 +399,9 @@ async function runAndSave(
   );
   // the crops the report shows: what the model judge saw for each measured finding it was asked about and for each of
   // its own findings (kept like the screenshots: the host in the metadata, deleted by the same 24-hour sweep)
+  const crops = env.JUDGE_CROPS === "all" ? result.views.flatMap((v) => v.judged ?? []) : judgeCropsToKeep(result);
   await Promise.all(
-    judgeCropsToKeep(result).map(async (j) => {
+    crops.map(async (j) => {
       try {
         await env.BUCKET.put(shotKey(key, id, j.id), Uint8Array.from(atob(j.image), (c) => c.charCodeAt(0)), { httpMetadata: { contentType: "image/jpeg" }, customMetadata: { host: target.host } });
         saved.add(j.id);
@@ -409,7 +415,7 @@ async function runAndSave(
     target,
     { id, key, at, runtime: RUNTIME_VERSION, axe: deps.axe?.version ?? "", guardHoldMs, guardAggressiveness: aggr, guardMargin: margin, shotUrl, cropUrl: shotUrl },
     result,
-    { withGenClass: env.WITH_GENCLASS === "on" },
+    { withGenClass: env.WITH_GENCLASS === "on", judgeDetail: env.JUDGE_CROPS === "all" },
   );
   await saveReport(env.BUCKET, key, report as unknown as Record<string, unknown>);
   const j = report.judge;

@@ -1272,8 +1272,9 @@ export function judgeSection(): string {
     Cohen's kappa ${e.kappa}). Split by site: ${e.dev.crops} crops (${e.dev.real} real) to choose the prompt and thresholds,
     ${e.report.crops.toLocaleString("en-US")} (${e.report.real} real) to measure them once. The labels come from models too, so these
     numbers say how often ${esc(JUDGE_NAME)} agreed with the labelling agents, on crops cut the way the page check cuts them.</li>
-    <li><b>Bounds.</b> At most ${JUDGE_MAX_CALLS} elements per scan (${share.join(", ")} in the desktop, light phone and dark phone
-    views), all asked at once while the rest of the scan runs; an answer counts only if it comes within
+    <li><b>Bounds.</b> At most ${JUDGE_MAX_CALLS} elements per scan (at least ${share.join(", ")} for the desktop, light phone and
+    dark phone views, and a view may use what the views before it left), all asked at once while the rest of the scan runs; an
+    answer counts only if it comes within
     ${JUDGE_TIMEOUT_MS / 1000} seconds. When ${esc(JUDGE_PLATFORM)} does not answer, or answers late, the findings stay as measured.
     About ${tokens.toLocaleString("en-US")} input tokens per element at $${e.usdPerMillionInput} per million (Workers AI pricing,
     ${esc(e.pricingDate)}): about $${((tokens * JUDGE_MAX_CALLS * e.usdPerMillionInput) / 1e6).toFixed(4)} for ${JUDGE_MAX_CALLS} elements.</li>
