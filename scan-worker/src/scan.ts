@@ -4,16 +4,21 @@
 // again in a fresh page with the runtime in guard mode. A hard total budget (45 s by default) bounds all of it; a
 // step that does not fit is skipped and says so.
 //
+// The visual checks are the GenClass runtime's own visual chunk (src/visual.ts), run in each view; with
+// WITH_GENCLASS on, the same chunk runs in guard mode with its opt-in fixes, and a second, report-only set of the
+// checks re-measures the page with the fixes in place: a finding counts as fixed only when that re-check no longer
+// finds it. The fixes are undone before the screenshot and before the race probe.
+//
 // Every hostname the page requests is checked in DNS before the browser loads it. A scan is thrown away, with nothing
 // saved or streamed, when a response is seen to come from a private or reserved address (where the browser reports
 // one: in Browser Rendering it connects through a local proxy, so it reports the proxy), when a WebSocket host
 // resolves privately, when the page ended up on a site that opted out, or when the person who asked went away.
 
-import { sanitizeFinding, sanitizeNotes, sanitizeStats, type RawFinding } from "./catalog.ts";
-import { installChecksSource } from "./checks.ts";
+import { sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
 import { blockedAddress, type Target } from "./target.ts";
+import { callSource, FIX_KINDS, installSource, PERIODIC_KINDS, visualKey } from "./visual.ts";
 
 // ------------------------------------------------------------------------------- the browser we drive
 
@@ -54,12 +59,22 @@ export interface PageLike {
   /** Puppeteer's frame; its isolatedRealm() (when present) runs the scanner's DOM code apart from the page's scripts. */
   mainFrame(): unknown;
   url(): string;
-  mouse: { click(x: number, y: number, o?: { count?: number; delay?: number }): Promise<void> };
-  keyboard: { type(text: string, o?: { delay?: number }): Promise<void> };
+  mouse: {
+    click(x: number, y: number, o?: { count?: number; delay?: number }): Promise<void>;
+    move(x: number, y: number): Promise<void>;
+    wheel(o: { deltaX?: number; deltaY?: number }): Promise<void>;
+  };
+  keyboard: { type(text: string, o?: { delay?: number }): Promise<void>; press(key: string): Promise<void> };
   close(): Promise<void>;
 }
 export interface BrowserLike {
   newPage(): Promise<PageLike>;
+  /**
+   * A page in a window of its own. In one window only the front tab is visible, and a hidden tab defers the visual
+   * checks (they run while the page is visible, as for a visitor) and changes how the runtime holds decisions, so
+   * every view gets its own window when the browser offers this.
+   */
+  newWindowPage?(): Promise<PageLike>;
   version(): Promise<string>;
   close(): Promise<void>;
 }
@@ -68,6 +83,26 @@ export type HostAnswer = "ok" | "private" | "nxdomain" | "unknown";
 
 /** At most this many distinct hostnames are looked up for one scan; requests to more are not loaded. */
 const MAX_HOSTS = 150;
+/** Why a request was not loaded when its name has no address (a visitor's browser fails it too). */
+const NXDOMAIN = "a host that does not resolve";
+/**
+ * How long the visual checks run in each view, from the start of the checks: the first pass, two periodic reads 2 s
+ * apart (pointer-events and scroll locks are judged over 1 s), and page-blank's window of 3 s plus 2 s.
+ */
+const VISUAL_MS = 6000;
+/** Time the views leave for the race probe and the guard pass after them (the views run in parallel, so all wait). */
+const RESERVE_AFTER_VIEWS = 18_000;
+
+/** What the visual checks' collect command returns (visual/scan-entry.js). */
+interface Collected {
+  ok?: boolean;
+  findings?: unknown;
+  skipped?: number;
+  stats?: { passes?: number; [k: string]: unknown };
+}
+
+/** Findings from the page, validated (sanitizeFinding), at most 40. */
+const cleanFindings = (v: unknown): RawFinding[] => (Array.isArray(v) ? v.slice(0, 40).map(sanitizeFinding).filter((f): f is RawFinding => f !== null) : []);
 
 /** The answer to a navigation check: allowed, or refused with the code and message the person sees. */
 export type NavVerdict = { ok: true } | { ok: false; code: string; message: string };
@@ -90,8 +125,10 @@ export interface ScanDeps {
   pageName?: string;
   /** The @genclass/runtime script-tag build, or null when it could not be fetched. */
   runtimeSource: Promise<string | null>;
-  /** A built visual-checks chunk (from wave2/visual) to inject before the built-in checks, or null. */
+  /** The GenClass visual checks (src/visual-source.ts, built from wave2/visual on CI), or null when not built in. */
   visualSource: string | null;
+  /** Run the visual checks in guard mode with the chunk's opt-in fixes, then re-check (WITH_GENCLASS on). */
+  visualFixes?: boolean;
   modelBaseUrl: string;
   runtimeVersion: string;
   progress(step: string, detail?: Record<string, unknown>): void;
@@ -135,13 +172,20 @@ export function userAgent(chromeMajor: string, mobile: boolean): string {
  * - no new windows: window.open returns null, and forms and links that would open another window or tab are pointed
  *   at the page itself (a new window is a browser target the request checks do not cover);
  * - WebSocket connections to IP addresses and local names are refused, the hosts of the others are kept for a DNS
- *   check, and messages are held while the probe types and clicks.
+ *   check, and messages are held while the probe types and clicks;
+ * - Content-Security-Policy violations are recorded as plain data for the visual checks' csp-blocked kind (the checks
+ *   start after load, when the browser no longer reports earlier violations).
  * The switch and the host list live in this closure, reached through window[name] (non-writable), not on window.
  */
 export function safetyBootstrap(name = "__gcScanSafety"): string {
   return `(function(){
-  var held = false, hosts = [], J = JSON.stringify;
+  var held = false, hosts = [], csp = [], J = JSON.stringify;
   var LOCAL = /(^|\\.)(localhost|local|internal|test|example|invalid|onion|arpa|home|lan|corp|intranet|private|localdomain)$/;
+  try {
+    document.addEventListener("securitypolicyviolation", function (e) {
+      if (csp.length < 50) csp.push({ disposition: String(e.disposition || ""), effectiveDirective: String(e.effectiveDirective || ""), violatedDirective: String(e.violatedDirective || ""), blockedURI: String(e.blockedURI || "").slice(0, 300), sourceFile: String(e.sourceFile || "").slice(0, 300) });
+    }, true);
+  } catch (e) {}
   try { if (navigator.serviceWorker) navigator.serviceWorker.register = function () { return Promise.reject(new Error("Service workers are off while GenClassScan loads this page")); }; } catch (e) {}
   try { window.open = function () { return null; }; } catch (e) {}
   var selfTarget = function (t) { t = String(t || "").trim().toLowerCase(); return t === "" || t === "_self" || t === "_top" || t === "_parent"; };
@@ -177,7 +221,7 @@ export function safetyBootstrap(name = "__gcScanSafety"): string {
   try {
     Object.defineProperty(window, ${JSON.stringify(name)}, { writable: false, configurable: false, enumerable: false, value: function (cmd, v) {
       if (cmd === "hold") held = !!v;
-      return J({ held: held, wsHosts: hosts });
+      return J({ held: held, wsHosts: hosts, csp: csp });
     } });
   } catch (e) {}
 })();`;
@@ -211,14 +255,28 @@ export interface ViewResult {
   notes: string[];
   findings: RawFinding[];
   checks: {
-    viewport?: number[]; textChecked?: number; textElements?: number; textOutsideCapture?: number; contrastSkipped?: Record<string, number>;
-    viewportMeta?: boolean; docHeight?: number; docWidth?: number; ms?: number;
+    viewport?: number[]; viewportMeta?: boolean; docHeight?: number; docWidth?: number; ms?: number;
+    passes?: number; elements?: number; partial?: number; abstained?: number; skipped?: number;
   } | null;
+  /** What GenClass's visual fixes did in this view (null: they were off, or nothing they fix was found). */
+  fixes: VisualFixes | null;
   shot: Uint8Array | null;
   shotHeight: number;
   error?: string;
   /** Requests other than GET the page sent while loading, which the scanner answered itself with a stand-in reply. */
   standIns: { count: number; requests: string[] };
+}
+
+/** The with-GenClass pass of one view: what the chunk's fixes did, measured by a report-only re-check. */
+export interface VisualFixes {
+  /** Fixes the chunk applied in this view (guard mode, visual: { fix: true }). */
+  applied: number;
+  /** A second, report-only set of the checks ran with the fixes in place. */
+  rechecked: boolean;
+  /** Findings the re-check no longer found: fixed in the page by GenClass. */
+  fixed: { kind: string; selector: string; key: string; how: string }[];
+  /** Findings of a kind GenClass can fix that it did not fix in this view, and why. */
+  notFixed: { kind: string; selector: string; key: string; why: string }[];
 }
 
 export interface ProbeResult {
@@ -251,7 +309,6 @@ export interface ScanResult {
   views: ViewResult[];
   probe: ProbeResult | null;
   guard: ProbeResult | null;
-  visualFixes: { available: boolean; fixed: { kind: string; selector: string; how: string }[]; rechecked: boolean; note?: string };
   notes: string[];
   ms: { total: number; launch: number; views: number; probe: number; guard: number };
   chrome: string;
@@ -307,18 +364,10 @@ class NetLog {
   /** Page requests in flight (not counting the scanner's own downloads). */
   inflight = new Set<object>();
   lastActivity = 0;
-  failures: { url: string; type: string; status?: number; error?: string }[] = [];
   answered: NetEntry[] = [];
   aborted: NetEntry[] = [];
   data: NetEntry[] = [];
-  private ours = new WeakSet<object>();
   private open = new WeakMap<object, NetEntry>();
-  mark(req: RequestLike): void {
-    this.ours.add(req as object);
-  }
-  isOurs(req: RequestLike): boolean {
-    return this.ours.has(req as object);
-  }
   track(req: RequestLike, e: NetEntry): void {
     this.data.push(e);
     this.open.set(req as object, e);
@@ -358,7 +407,6 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     views: [],
     probe: null,
     guard: null,
-    visualFixes: { available: false, fixed: [], rechecked: false },
     notes: [],
     ms: { total: 0, launch: 0, views: 0, probe: 0, guard: 0 },
     chrome: "",
@@ -475,7 +523,6 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         try {
           const g = await openView(VIEWS[0], { mode: "guard", source: runtimeSrc }, true, true);
           if (g.page && g.ctx && g.net && g.view.ok) {
-            await visualFixPass(g.page, g.view);
             const expect = { search: !!result.probe.typed, button: !!result.probe.clicked };
             result.guard = await probe(g.page, g.ctx, g.net, "guard", true, expect).catch((e) => skippedProbe("guard", e));
             await g.page.close().catch(() => undefined);
@@ -520,7 +567,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   function failedView(spec: ViewSpec, error: string): ViewResult {
     return {
       id: spec.id, label: spec.label, width: spec.width, height: spec.height, ok: false, status: null, finalUrl: target.url,
-      ms: 0, notes: [], findings: [], checks: null, shot: null, shotHeight: 0, error, standIns: { count: 0, requests: [] },
+      ms: 0, notes: [], findings: [], checks: null, fixes: null, shot: null, shotHeight: 0, error, standIns: { count: 0, requests: [] },
     };
   }
 
@@ -560,7 +607,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     const tv = deps.now();
     const view = failedView(spec, "");
     delete view.error;
-    const page = await withTimeout(browser.newPage(), Math.min(8000, left()), "opening a tab");
+    const page = await withTimeout(browser.newWindowPage ? browser.newWindowPage() : browser.newPage(), Math.min(8000, left()), "opening a tab");
     pages.push(page);
     const net = new NetLog();
     const ctx: PolicyContext = { pageOrigin: "", phase: "load", latency: latencySequence(`${target.url}|${spec.id}`), answerDelayMs: 0 };
@@ -612,14 +659,12 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           const verdict = decideRequest(facts, ctx, localN + 1);
           const entry: NetEntry = { method: facts.method.toUpperCase(), url: facts.url, type: facts.resourceType, phase: ctx.phase, at: deps.now() - t0 };
           if (verdict.kind === "abort") {
-            net.mark(req);
             net.aborted.push({ ...entry, reason: verdict.reason });
             await req.abort("blockedbyclient");
             return;
           }
           if (verdict.kind === "fulfill") {
             localN++;
-            net.mark(req);
             let body: string | undefined;
             try {
               body = req.postData?.()?.slice(0, 2048);
@@ -648,19 +693,15 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
             } else {
               const d = host ? await dns(host) : "unknown";
               if (d === "private") why = "a host that resolves to a private address";
-              else if (d === "nxdomain") {
-                why = "a host that does not resolve";
-                // the browser would have failed this one too: it still counts as a failed stylesheet, font or image
-                const type = facts.resourceType;
-                if (type === "stylesheet" || type === "font" || type === "image") net.failures.push({ url: facts.url, type, error: "the hostname does not resolve" });
-              } else if (d === "unknown") {
+              // the browser would have failed this one too: the visual checks see it fail as a visitor's browser would
+              else if (d === "nxdomain") why = NXDOMAIN;
+              else if (d === "unknown") {
                 why = "a host the scanner could not look up";
                 unchecked++;
               }
             }
             if (why) {
-              net.mark(req);
-              net.aborted.push({ ...entry, reason: why });
+                net.aborted.push({ ...entry, reason: why });
               await req.abort("blockedbyclient");
               return;
             }
@@ -675,12 +716,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       })();
     });
     page.on("requestfinished", (req: RequestLike) => net.finish(req, deps.now() - t0));
-    page.on("requestfailed", (req: RequestLike) => {
-      net.settle(req, deps.now());
-      if (net.isOurs(req)) return;
-      const type = req.resourceType();
-      if (type === "stylesheet" || type === "font" || type === "image") net.failures.push({ url: req.url(), type, error: req.failure?.()?.errorText || "failed" });
-    });
+    page.on("requestfailed", (req: RequestLike) => net.settle(req, deps.now()));
     page.on("response", (res: ResponseLike) => {
       try {
         // the browser resolves names itself: where it reports the address it connected to, that must be public too
@@ -691,8 +727,6 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           const blocked = blockedAddress(ip);
           if (blocked && blocked !== "invalid") markTaint(res.url(), ip);
         }
-        const type = res.request().resourceType();
-        if (res.status() >= 400 && (type === "stylesheet" || type === "font" || type === "image")) net.failures.push({ url: res.url(), type, status: res.status() });
       } catch {
         /* ignore */
       }
@@ -764,24 +798,13 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     if (!skipChecks && !discard) {
       deps.progress("checks", { view: spec.id });
       try {
-        const hasFixes = await evalDom(page, installChecksSource(N.checks, deps.visualSource));
-        if (spec.id === "desktop") result.visualFixes.available = deps.visualSource !== null && hasFixes === true;
-        const failedImages = net.failures.filter((f) => f.type === "image").map((f) => f.url).slice(0, 40);
-        const opts = { view: spec.id, phone: spec.mobile, deviceWidth: spec.width, failedImages, captureHeight: spec.captureHeight, max: 12 };
-        const raw = parseJson<{ findings?: unknown; notes?: unknown; page?: unknown }>(
-          await withTimeout(evalDom(page, `JSON.stringify(window[${JSON.stringify(N.checks)}](${JSON.stringify(opts)}))`), Math.min(8000, left() - 3000), "the visual checks"),
-          {},
-        );
-        const found = Array.isArray(raw.findings) ? raw.findings.slice(0, 40).map(sanitizeFinding).filter((f): f is RawFinding => f !== null) : [];
-        view.findings = [...found, ...networkFindings(net)];
-        view.notes.push(...sanitizeNotes(raw.notes));
-        view.checks = sanitizeStats(raw.page) as ViewResult["checks"];
+        await visualChecks(page, view, net, spec.id === "desktop");
       } catch (e) {
         view.notes.push(`The visual checks did not finish: ${e instanceof Error ? e.message : String(e)}.`);
       }
       // a page without a viewport meta tag lays out wider than the phone (980 px) and is shown zoomed out
       const layoutW = Math.max(1, Math.min(4000, Math.round(Number(view.checks?.viewport?.[0]) || spec.width)));
-      if (spec.mobile && view.checks && view.checks.viewportMeta === false && layoutW > spec.width) {
+      if (spec.mobile && view.checks && view.checks.viewportMeta === false && layoutW > spec.width && !view.findings.some((f) => f.kind === "viewport-meta-missing")) {
         view.notes.push(`The page has no viewport meta tag, so a phone shows it zoomed out: laid out ${layoutW} px wide on a ${spec.width} px screen.`);
       }
       view.width = layoutW;
@@ -812,48 +835,151 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     return { count: list.length, requests: [...new Set(list.map((e) => `${e.method} ${pathOf(e.url)}`))].slice(0, 3) };
   }
 
-  function networkFindings(net: NetLog): RawFinding[] {
-    const out: RawFinding[] = [];
-    const seen = new Set<string>();
-    for (const f of net.failures) {
-      if (seen.has(f.url) || f.type === "image") continue;
-      seen.add(f.url);
-      const what = f.status ? `HTTP ${f.status} for ${pathOf(f.url)}` : `${f.error || "failed"} for ${pathOf(f.url)}`;
-      if (f.type === "stylesheet") {
-        if (out.filter((x) => x.kind === "failed-stylesheet").length < 6) out.push({ kind: "failed-stylesheet", selector: "", box: null, measured: what, detail: { url: pathOf(f.url) } });
-      } else if (f.type === "font") {
-        if (out.filter((x) => x.kind === "failed-font").length < 6) out.push({ kind: "failed-font", selector: "", box: null, measured: what, detail: { url: pathOf(f.url) } });
+  /** Hosts whose files the scanner itself did not load while the page loaded (a lookup that failed, a private answer,
+   * a blocked address): a visual finding about such a file says more about the scanner than about the site. A name
+   * with no address at all is not among them: it fails in a visitor's browser too. */
+  function scannerSkipped(net: NetLog): string[] {
+    const hosts = new Set<string>();
+    for (const e of net.aborted) {
+      if (e.phase !== "load" || e.reason === NXDOMAIN) continue;
+      try {
+        hosts.add(new URL(e.url).hostname.toLowerCase());
+      } catch {
+        /* ignore */
       }
     }
-    return out;
+    return [...hosts].slice(0, 100);
   }
 
-  async function visualFixPass(page: PageLike, view: ViewResult): Promise<void> {
-    if (!result.visualFixes.available || !deps.visualSource) {
-      result.visualFixes.note = "This build of the scanner has no GenClass visual fixes to turn on, so visual findings are reported, not fixed.";
+  /**
+   * The GenClass visual checks in one view (src/visual.ts). Engine "a" runs from network quiet: report-only, or with
+   * WITH_GENCLASS on, in guard mode with the chunk's opt-in fixes. The scanner waits for its first pass, presses Tab
+   * a few times on the desktop (focus checks), scrolls with the mouse wheel to the end of the page and once more
+   * after the first periodic read (scroll locks, controls under fixed bars), and collects at VISUAL_MS with one more
+   * pass at the top. When fixes were applied, engine "c" (report-only) re-measures the page with them in place.
+   * Stopping "a" undoes every fix, before the screenshot and the race probe.
+   */
+  async function visualChecks(page: PageLike, view: ViewResult, net: NetLog, desktop: boolean): Promise<void> {
+    if (!deps.visualSource) {
+      view.notes.push("The visual checks are not built into this copy of the scanner.");
       return;
     }
-    const desktop = result.views.find((v) => v.id === "desktop");
-    if (!desktop) return;
+    const call = async <T>(cmd: string, arg: Record<string, unknown> = {}, ms = 5000): Promise<T> =>
+      parseJson<T>(await withTimeout(evalDom(page, callSource(N.checks, cmd, arg)), Math.min(ms, Math.max(500, left() - 1000)), `the visual checks (${cmd})`), {} as T);
+    if ((await evalDom(page, installSource(N.checks, deps.visualSource))) !== true) throw new Error("the GenClass visual checks did not install");
+    const safety = parseJson<{ csp?: unknown }>(
+      await page.evaluate(`(() => typeof window[${JSON.stringify(N.safety)}] === "function" ? window[${JSON.stringify(N.safety)}]("read") : "{}")()`).catch(() => "{}"),
+      {},
+    );
+    const csp = Array.isArray(safety.csp) ? safety.csp.slice(0, 50) : [];
+    const skipHosts = scannerSkipped(net);
+    const fix = deps.visualFixes === true;
+    // what must stay for after the views: the race probe and the guard pass (the views run in parallel, so all wait)
+    const reserve = RESERVE_AFTER_VIEWS;
+    const started = await call<{ ok?: boolean; error?: string }>("start", { id: "a", mode: fix ? "guard" : "observe", fix, csp });
+    if (!started.ok) throw new Error(cutText(started.error || "they did not start", 120));
     try {
-      const has = await evalDom(page, installChecksSource(N.checks, deps.visualSource));
-      if (has !== true) throw new Error("the visual fixes did not install");
-      const applied = parseJson<{ applied?: unknown }>(await evalDom(page, `JSON.stringify(window[${JSON.stringify(`${N.checks}Fix`)}](${JSON.stringify(desktop.findings)}))`), {});
-      const after = parseJson<{ findings?: unknown }>(
-        await evalDom(page, `JSON.stringify(window[${JSON.stringify(N.checks)}](${JSON.stringify({ view: "desktop", phone: false, failedImages: [], captureHeight: VIEWS[0].captureHeight, max: 12 })}))`),
-        {},
-      );
-      const still = new Set((Array.isArray(after.findings) ? after.findings.map(sanitizeFinding).filter((f): f is RawFinding => f !== null) : []).map((f) => `${f.kind}|${f.selector}`));
-      for (const a of Array.isArray(applied.applied) ? applied.applied.slice(0, 40) : []) {
-        const x = a as Record<string, unknown>;
-        const one = { kind: cutText(x.kind, 40), selector: cutText(x.selector, 200), how: cutText(x.how, 200) };
-        if (!still.has(`${one.kind}|${one.selector}`)) result.visualFixes.fixed.push(one);
-      }
-      result.visualFixes.rechecked = true;
-      view.notes.push("GenClass visual fixes on, desktop re-checked.");
-    } catch (e) {
-      result.visualFixes.note = `The visual fixes did not run: ${e instanceof Error ? e.message : String(e)}.`;
+      const t0 = deps.now();
+      const end = Math.min(t0 + VISUAL_MS, deps.now() + Math.max(0, left() - reserve));
+      await interact(page, call, "a", t0, end, desktop);
+      while (deps.now() < end) await deps.sleep(Math.min(250, end - deps.now()));
+      const top = await call<Record<string, unknown>>("top");
+      const a = await call<Collected>("collect", { id: "a", pass: true, passMs: 2500, skipHosts }, 4000);
+      view.findings = cleanFindings(a.findings);
+      view.checks = sanitizeStats({ ...top, ...(a.stats ?? {}), skipped: a.skipped }) as ViewResult["checks"];
+      const st = a.stats ?? {};
+      if (Number(st.passes) > 0 && Number(st.partial) >= Number(st.passes)) view.notes.push("The visual checks ran out of their time budget on every pass in this view, so parts of the page were not checked.");
+      if (a.skipped) view.notes.push(`${a.skipped} visual ${a.skipped === 1 ? "finding is" : "findings are"} left out: ${a.skipped === 1 ? "it is" : "they are"} about files the scanner did not load (their hosts could not be looked up or were refused).`);
+      if (fix) view.fixes = await recheck(page, call, view.findings, skipHosts, reserve);
+    } finally {
+      await call("stop", { id: "a" }).catch(() => undefined); // undoes every fix this engine applied
     }
+  }
+
+  /** Waits for engine `id`'s first pass, then the focus and scroll steps of visualChecks (wheel only for `keys` false). */
+  async function interact(page: PageLike, call: <T>(cmd: string, arg?: Record<string, unknown>, ms?: number) => Promise<T>, id: string, t0: number, end: number, keys: boolean): Promise<void> {
+    for (;;) {
+      const s = await call<{ stats?: { passes?: number } }>("status", { id });
+      if ((s.stats?.passes ?? 0) >= 1 || deps.now() >= Math.min(end, t0 + 4000)) break;
+      await deps.sleep(250);
+    }
+    if (keys) {
+      for (let i = 0; i < 4 && deps.now() < end - 500; i++) {
+        await page.keyboard.press("Tab").catch(() => undefined);
+        await deps.sleep(250);
+      }
+    }
+    const pt = await call<{ x?: unknown; y?: unknown }>("point");
+    if (typeof pt.x !== "number" || typeof pt.y !== "number") return;
+    await page.mouse.move(pt.x, pt.y).catch(() => undefined);
+    for (let i = 0; i < 4 && deps.now() < end - 500; i++) {
+      if ((await call<{ atEnd?: boolean }>("page")).atEnd) break;
+      await page.mouse.wheel({ deltaY: 700 }).catch(() => undefined);
+      await deps.sleep(300);
+    }
+    // after the first periodic read (2 s after the first pass): a scroll attempt while a lock is held is the evidence
+    // scroll-lock-stuck needs; up when the page is at its end, down otherwise
+    while (deps.now() < Math.min(end - 1500, t0 + 3200)) await deps.sleep(100);
+    if (deps.now() < end - 1500) {
+      const dy = (await call<{ atEnd?: boolean }>("page")).atEnd ? -400 : 400;
+      for (let i = 0; i < 2; i++) {
+        await page.mouse.wheel({ deltaY: dy }).catch(() => undefined);
+        await deps.sleep(450);
+      }
+    }
+  }
+
+  /**
+   * The with-GenClass re-check of one view: a second, report-only engine ("c") measures the page while engine "a"'s
+   * fixes are in place. A finding counts as fixed only when "a" applied a fix for it, the fix still holds, and "c"
+   * no longer finds it; "c" gets the same periodic reads when a fix was one of the periodic kinds.
+   */
+  async function recheck(page: PageLike, call: <T>(cmd: string, arg?: Record<string, unknown>, ms?: number) => Promise<T>, found: RawFinding[], skipHosts: string[], reserve: number): Promise<VisualFixes | null> {
+    const fixable = found.filter((f) => FIX_KINDS.has(f.kind));
+    if (!fixable.length) return null;
+    const out: VisualFixes = { applied: fixable.filter((f) => f.detail?.fixApplied === true).length, rechecked: false, fixed: [], notFixed: [] };
+    let after = fixable;
+    let still: Set<string> | null = null;
+    if (out.applied && left() - reserve > 2500) {
+      const started = await call<{ ok?: boolean }>("start", { id: "c", mode: "observe", fix: false });
+      if (started.ok) {
+        try {
+          const t0 = deps.now();
+          const periodic = fixable.some((f) => f.detail?.fixApplied === true && PERIODIC_KINDS.has(f.kind));
+          const end = Math.min(t0 + (periodic ? VISUAL_MS : 1500), deps.now() + Math.max(0, left() - reserve));
+          if (periodic) await interact(page, call, "c", t0, end, false);
+          while (deps.now() < end) await deps.sleep(Math.min(250, end - deps.now()));
+          await call("top");
+          const c = await call<Collected>("collect", { id: "c", pass: true, passMs: 2500, skipHosts }, 4000);
+          const a = await call<Collected>("collect", { id: "a", skipHosts });
+          if (c.ok && (c.stats?.passes ?? 0) >= 1) {
+            still = new Set(cleanFindings(c.findings).map(visualKey));
+            out.rechecked = true;
+          }
+          if (a.ok) after = cleanFindings(a.findings).filter((f) => FIX_KINDS.has(f.kind));
+        } finally {
+          await call("stop", { id: "c" }).catch(() => undefined);
+        }
+      }
+    }
+    for (const f of after) {
+      const key = visualKey(f);
+      const applied = f.detail?.fixApplied === true;
+      const css = cutText(f.detail?.fixCss, 160);
+      if (applied && still && !still.has(key)) out.fixed.push({ kind: f.kind, selector: f.selector, key, how: `GenClass changed the page: ${css || "its fix for this kind"}. The re-check no longer found it.` });
+      else
+        out.notFixed.push({
+          kind: f.kind,
+          selector: f.selector,
+          key,
+          why: applied
+            ? still
+              ? "GenClass applied a fix, but the re-check still found the problem."
+              : "GenClass applied a fix, but there was no time left to re-check it, so it is not counted."
+            : cutText(f.detail?.fixReason, 200) || "GenClass did not apply a fix here.",
+        });
+    }
+    return out;
   }
 
   async function probe(

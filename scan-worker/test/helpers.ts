@@ -142,8 +142,10 @@ export interface PageScript {
   wsHosts?: string[];
   /** The address every response that is not listed in `load` came from (default 93.184.215.14). */
   ip?: string;
-  /** Findings the page-side checks return, per view. */
+  /** Findings the visual checks (engine "a") return, per view. */
   findings?: (view: string) => unknown[];
+  /** What the report-only re-check (engine "c") finds with the fixes in place, per view (default: the same findings). */
+  recheck?: (view: string) => unknown[];
   docHeight?: number;
   status?: number;
   gotoError?: string;
@@ -167,8 +169,16 @@ export class FakePage implements PageLike {
   scheme = "light";
   ua = "";
   mode: "none" | "observe" | "guard" = "none";
-  mouse = { click: async (_x: number, _y: number, o?: { count?: number }) => this.click(o?.count ?? 1) };
-  keyboard = { type: async (text: string) => this.typeText(text) };
+  mouse = {
+    click: async (_x: number, _y: number, o?: { count?: number }) => this.click(o?.count ?? 1),
+    move: async () => undefined,
+    wheel: async () => void this.wheels++,
+  };
+  keyboard = { type: async (text: string) => this.typeText(text), press: async (key: string) => void this.keys.push(key) };
+  wheels = 0;
+  keys: string[] = [];
+  /** Commands the scanner sent to the visual checks, in order. */
+  visual: { cmd: string; arg: Record<string, any> }[] = [];
   private script: PageScript;
   private settle: () => Promise<void>;
   constructor(script: PageScript, settle: () => Promise<void>) {
@@ -233,11 +243,9 @@ export class FakePage implements PageLike {
   }
   async evaluate(src: string): Promise<unknown> {
     this.evaluated.push(src);
-    if (src.includes("let checks = null, fixes = null")) return false; // the checks installer: no visual fixes
-    if (/^JSON\.stringify\(window\["[\w]+"\]\(\{"view"/.test(src)) {
-      const view = (/"view":"([a-z-]+)"/.exec(src) || [])[1] || "desktop";
-      return JSON.stringify({ findings: this.script.findings ? this.script.findings(view) : [], notes: [], page: { docHeight: this.script.docHeight ?? 1800, docWidth: this.viewport?.width ?? 0, textChecked: 10, textElements: 12, ms: 5 } });
-    }
+    if (src.includes('Object.getOwnPropertyDescriptor(window, "__genclassScanVisual")')) return true; // the visual checks' installer
+    const vc = /await f\("(\w+)", (\{.*\})\)\); \}\)\(\)$/.exec(src);
+    if (vc) return JSON.stringify(this.visualCommand(vc[1], JSON.parse(vc[2])));
     if (src.includes('("read")')) return JSON.stringify({ held: false, wsHosts: this.script.wsHosts ?? [] });
     if (src.includes('("hold"')) return undefined;
     if (src.includes("bootstrap did not run")) {
@@ -261,6 +269,23 @@ export class FakePage implements PageLike {
       });
     }
     return undefined;
+  }
+  /** The view this page is: desktop by width, the dark phone by its colour scheme. */
+  get view(): string {
+    return (this.viewport?.width ?? 0) > 800 ? "desktop" : this.scheme === "dark" ? "phone-dark" : "phone";
+  }
+  private visualCommand(cmd: string, arg: Record<string, any>): unknown {
+    this.visual.push({ cmd, arg });
+    const page = { viewport: [this.viewport?.width ?? 0, this.viewport?.height ?? 0], viewportMeta: true, docHeight: this.script.docHeight ?? 1800, docWidth: this.viewport?.width ?? 0, atEnd: true, visibility: "visible" };
+    if (cmd === "start" || cmd === "stop") return { ok: true };
+    if (cmd === "status") return { ok: true, stats: { passes: 1 } };
+    if (cmd === "point") return { x: 400, y: 300 };
+    if (cmd === "page" || cmd === "top") return page;
+    if (cmd === "collect") {
+      const list = arg.id === "c" && this.script.recheck ? this.script.recheck(this.view) : this.script.findings ? this.script.findings(this.view) : [];
+      return { ok: true, findings: list, skipped: 0, stats: { passes: 2, partial: 0, elements: 100, abstained: 0, ms: 12 } };
+    }
+    return { ok: false };
   }
   async screenshot() { return new Uint8Array([0xff, 0xd8, 0xff, 0xd9]); }
   mainFrame() { return this.main; }

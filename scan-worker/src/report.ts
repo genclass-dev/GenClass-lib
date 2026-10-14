@@ -1,19 +1,21 @@
 // Turns a scan result into the report the page shows and the cache keeps: findings merged across views, numbered
 // in a fixed order, with their words and fixes; the score and its breakdown; and the measured "with GenClass" pass.
 // A finding counts as fixed only when the re-check in the same browser session shows it gone and a GenClass
-// action is on record for it. Nothing here estimates or projects a fix. A finding that may come from the scanner's own
+// action is on record for it (a visual fix the chunk applied, or guard's own action on the clicked request). Nothing
+// here estimates or projects a fix. Every other finding is reported for the developer with its suggested fix. A finding that may come from the scanner's own
 // stand-in answer to the page's POST requests is listed but not scored.
 
-import { describe, KINDS, severityOf, suggestFix, type Kind, type RawFinding } from "./catalog.ts";
-import type { ProbeResult, ScanResult } from "./scan.ts";
+import { describe, isVisual, KINDS, severityOf, suggestFix, type Kind, type RawFinding } from "./catalog.ts";
+import type { ProbeResult, ScanResult, VisualFixes } from "./scan.ts";
 import { CATEGORIES, score, type Category, type ScoreBreakdown, type Severity } from "./score.ts";
 import type { Target } from "./target.ts";
+import { FIX_KINDS, visualKey } from "./visual.ts";
 
 /**
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 2;
+export const REPORT_VERSION = 3;
 
 export interface Finding {
   n: number;
@@ -29,6 +31,11 @@ export interface Finding {
   fix: string;
   /** How GenClass fixed it, measured in the with-GenClass pass; null when it did not. */
   fixed: { how: string } | null;
+  /**
+   * What GenClass does about it: "fixed" (measured above), "not-fixed" (a kind GenClass can fix in the page, not
+   * fixed in this run, with why), or "reported" (GenClass reports it for the developer and never changes it).
+   */
+  genclass: { status: "fixed" | "not-fixed" | "reported"; text: string };
   /** Why the finding is listed but not scored (it may come from the scanner's stand-in answers); null when scored. */
   unscored: string | null;
 }
@@ -66,11 +73,39 @@ const VIEW_ORDER: Record<string, number> = { desktop: 0, phone: 1, "phone-dark":
 /** The identity of a finding across views: the same element with the same problem is one finding. */
 function identity(f: RawFinding): string {
   const d = f.detail ?? {};
-  if (f.kind === "low-contrast") return `${f.kind}|${f.selector}|${JSON.stringify(d.fg)}|${JSON.stringify(d.bg)}`;
-  if (f.kind === "failed-stylesheet" || f.kind === "failed-font") return `${f.kind}|${String(d.url ?? d.family ?? f.measured)}`;
-  if (f.kind === "broken-image") return `${f.kind}|${String(d.src ?? f.selector)}`;
   if (f.kind === "genclass-detection") return `${f.kind}|${String(d.diagnosis)}|${String(d.subject)}`;
+  if (isVisual(f.kind)) return visualKey(f);
   return `${f.kind}|${f.selector}`;
+}
+
+const MOVES: Record<string, string> = { coalesce: "merging the two", discard: "dropping it", defer: "holding it back", retry: "retrying it", cancel: "cancelling it" };
+
+/**
+ * When guard diagnosed the race finding's request but did not act, why: its expected gain did not clear the safety
+ * margin. Null when guard did not diagnose it, or acted.
+ */
+export function heldBack(f: RawFinding, observe: ProbeResult | null, guard: ProbeResult | null, isDefault: boolean): string | null {
+  if (!guard || !guard.ran) return null;
+  let match: (d: ProbeResult["detections"][number]) => boolean;
+  if (f.kind === "duplicate-submit") {
+    const req = observe?.clicked?.requests[0];
+    if (!req) return null;
+    match = (d) => d.trigger === "request" && subjectNames(d.subject, req.method, req.path);
+  } else {
+    const subject = String(f.detail?.subject ?? "");
+    match = (d) => d.subject === subject;
+  }
+  const d = guard.detections.find((x) => match(x) && !x.executed && !!x.candidate && typeof x.gain === "number" && typeof x.margin === "number");
+  if (!d || d.gain === null || d.gain === undefined || d.margin === null || d.margin === undefined) return null;
+  const move = MOVES[String(d.candidate)] ?? String(d.candidate);
+  return `Flagged, held back at ${isDefault ? "the default safety margin" : "this setting's safety margin"}: in the guard pass GenClass was ${Math.round(d.p * 100)}% sure this was a ${d.diagnosis}, but ${move} had an expected gain of ${Math.round(d.gain * 100) / 100} against a margin of ${d.margin}, so it did not act${f.kind === "duplicate-submit" ? " and both requests went out" : ""}. The suggested fix above removes it.`;
+}
+
+/** The kind's words for what GenClass does with a finding it did not fix. */
+function notFixedText(kind: Kind, why: string | null): string {
+  if (kind === "duplicate-submit" || kind === "genclass-detection") return why ?? "Not fixed in this run. The suggested fix above removes it.";
+  if (FIX_KINDS.has(kind)) return `GenClass can fix this kind in the page, but not here: ${why ?? "the with-GenClass pass did not run on this view."} The suggested fix above removes it for every visitor.`;
+  return "Reported for the developer. GenClass does not change this in the page; the suggested fix above removes it.";
 }
 
 /** Findings from the race probe: a double click that sent identical requests, and what GenClass diagnosed. */
@@ -164,7 +199,7 @@ export function guardSetting(aggr: string, margin: number | null, holdMs: number
 }
 
 /** Kinds whose evidence can come from the scanner's stand-in answer to a POST made while the page loaded. */
-const STAND_IN_KINDS = new Set<Kind>(["template-leak", "broken-image"]);
+const STAND_IN_KINDS = new Set<Kind>(["text-template-leak", "text-placeholder", "image-broken", "page-blank"]);
 export const STAND_IN_NOTE =
   "The page sent requests other than GET while loading and the scanner answered them itself, so this may come from that stand-in answer rather than from the site.";
 
@@ -191,15 +226,30 @@ export function buildReport(
   // views whose page got stand-in answers while loading (the probe ran on the desktop page)
   const standIn = new Set(r.views.filter((v) => (v.standIns?.count ?? 0) > 0).map((v) => v.id as string));
   if (standIn.has("desktop") || (r.probe?.loadStandIns ?? 0) > 0) standIn.add("probe");
-  // visual fixes are re-checked on the desktop page only
-  const rechecked = new Set(r.visualFixes.rechecked ? ["desktop"] : []);
-  const visualFixed = new Map(r.visualFixes.fixed.map((x) => [`${x.kind}|${x.selector}`, x.how]));
+  // each view's with-GenClass pass: a visual finding is fixed only when it was fixed and re-checked in every view it
+  // appeared in
+  const viewFixes = new Map<string, VisualFixes | null>(r.views.map((v) => [v.id as string, v.fixes ?? null]));
+  const visualFix = (key: string, views: string[]): { fixed: { how: string } | null; why: string | null } => {
+    const per = views.map((v) => viewFixes.get(v) ?? null);
+    const hows = per.map((x) => x?.fixed.find((y) => y.key === key)?.how ?? null);
+    if (hows.length && hows.every((h) => h !== null)) return { fixed: { how: String(hows[0]) }, why: null };
+    for (let i = 0; i < per.length; i++) {
+      const nf = per[i]?.notFixed.find((y) => y.key === key);
+      if (nf) return { fixed: null, why: nf.why };
+      if (hows[i] === null && per[i] === null) return { fixed: null, why: "the with-GenClass pass did not run on this view." };
+    }
+    return { fixed: null, why: "it was fixed in one view but not re-checked in every view it appeared in, so it is not counted." };
+  };
   const list = [...merged.values()].map(({ raw, views, boxes }) => {
     const meta = KINDS[raw.kind];
     const words = describe(raw);
     let fixed: { how: string } | null = null;
-    if (raw.kind === "duplicate-submit" || raw.kind === "genclass-detection") fixed = raceFix(raw, r.probe, r.guard);
-    else if (views.every((v) => rechecked.has(v)) && visualFixed.has(`${raw.kind}|${raw.selector}`)) fixed = { how: String(visualFixed.get(`${raw.kind}|${raw.selector}`)) };
+    let why: string | null = null;
+    if (raw.kind === "duplicate-submit" || raw.kind === "genclass-detection") {
+      fixed = raceFix(raw, r.probe, r.guard);
+      why = heldBack(raw, r.probe, r.guard, (ids.guardMargin ?? null) === null && (ids.guardAggressiveness ?? "balanced") === "balanced");
+    }
+    else if (FIX_KINDS.has(raw.kind) && flags.withGenClass) ({ fixed, why } = visualFix(identity(raw), views));
     const fromStandIn = (STAND_IN_KINDS.has(raw.kind) || (raw.kind === "genclass-detection" && String(raw.detail?.diagnosis) !== "duplicate")) && views.every((v) => standIn.has(v));
     return {
       n: 0,
@@ -214,6 +264,7 @@ export function buildReport(
       why: words.why,
       fix: suggestFix(raw),
       fixed,
+      genclass: fixed ? { status: "fixed", text: `Fixed. ${fixed.how}` } : { status: FIX_KINDS.has(raw.kind) || raw.kind === "duplicate-submit" || raw.kind === "genclass-detection" ? "not-fixed" : "reported", text: notFixedText(raw.kind, why) },
       unscored: fromStandIn ? STAND_IN_NOTE : null,
     } satisfies Finding;
   });
@@ -233,11 +284,13 @@ export function buildReport(
   const fixedCount = scored.filter((f) => f.fixed).length;
   const withBreakdown = score(scored.filter((f) => !f.fixed));
   const guardRan = !!r.guard?.ran;
+  const visualRan = r.views.some((v) => v.ok && v.checks !== null);
+  const measuredWith = guardRan || visualRan;
   const note = !flags.withGenClass
-    ? "The with-GenClass score is switched off in this build: GenClass ships no visual fixes yet, only the guard mode measured in the race probe."
-    : guardRan
-      ? `Measured in the same browser session with GenClass ${r.visualFixes.rechecked ? "visual fixes and " : ""}guard mode on. A finding counts as fixed only when the re-check showed it gone.`
-      : "GenClass guard could not be measured on this page, so nothing is counted as fixed.";
+    ? "The with-GenClass score is switched off in this copy of the scanner."
+    : measuredWith
+      ? "Measured in the same browser session: GenClass's visual checks ran in guard mode with their fixes on, a second set of the same checks re-measured the page, and the race probe ran again with GenClass guard. A finding counts as fixed only when the re-check no longer found it. GenClass fixes three kinds in the page (invisible text colour, a leaked pointer-events: none, a leaked scroll lock); it reports the rest for the developer."
+      : "GenClass could not be measured on this page, so nothing is counted as fixed.";
 
   return {
     v: REPORT_VERSION,
@@ -258,9 +311,9 @@ export function buildReport(
     findings: list,
     score: without,
     withGenClass: {
-      shown: flags.withGenClass && guardRan,
-      value: flags.withGenClass && guardRan ? withBreakdown.value : null,
-      breakdown: flags.withGenClass && guardRan ? withBreakdown : null,
+      shown: flags.withGenClass && measuredWith,
+      value: flags.withGenClass && measuredWith ? withBreakdown.value : null,
+      breakdown: flags.withGenClass && measuredWith ? withBreakdown : null,
       fixed: fixedCount,
       note,
     },
@@ -276,6 +329,6 @@ export function buildReport(
         return { acted: g !== null, how: g ? g.how : null };
       })(),
     },
-    notes: [...r.notes, ...(r.visualFixes.note ? [r.visualFixes.note] : [])],
+    notes: [...r.notes],
   };
 }

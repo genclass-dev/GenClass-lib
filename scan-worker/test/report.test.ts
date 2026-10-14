@@ -1,11 +1,12 @@
 // The score formula (caps per category, deterministic) and the report: findings merged across views, numbered in a
-// fixed order, race findings from the probe, and "fixed" only when the guard re-run measured it gone.
+// fixed order, race findings from the probe, and "fixed" only when the guard re-run or the visual re-check in every
+// view measured it gone.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { RawFinding } from "../src/catalog.ts";
-import { contrast, describe as words, sanitizeFinding, sanitizeNotes, severityOf, suggestFix } from "../src/catalog.ts";
-import { buildReport, guardSetting, probeFindings, raceFix, subjectNames } from "../src/report.ts";
-import type { ProbeResult, ScanResult, ViewResult } from "../src/scan.ts";
+import { describe as words, KINDS, sanitizeFinding, sanitizeStats, severityOf, suggestFix, VISUAL_KINDS } from "../src/catalog.ts";
+import { buildReport, guardSetting, heldBack, probeFindings, raceFix, subjectNames } from "../src/report.ts";
+import type { ProbeResult, ScanResult, ViewResult, VisualFixes } from "../src/scan.ts";
 import { score, SEVERITY_POINTS } from "../src/score.ts";
 import { normaliseTarget, type Target } from "../src/target.ts";
 
@@ -30,7 +31,7 @@ describe("score: 100 minus capped, weighted findings", () => {
 const target = normaliseTarget("shop.example.com/") as Target;
 const view = (id: ViewResult["id"], findings: RawFinding[]): ViewResult => ({
   id, label: id, width: id === "desktop" ? 1366 : 390, height: 800, ok: true, status: 200, finalUrl: target.url, ms: 10, notes: [], findings,
-  checks: null, shot: new Uint8Array([1]), shotHeight: 1600, standIns: { count: 0, requests: [] },
+  checks: {}, fixes: null, shot: new Uint8Array([1]), shotHeight: 1600, standIns: { count: 0, requests: [] },
 });
 const probe = (mode: "observe" | "guard", sent: number, identical: number, acts: ProbeResult["acts"] = [], detections: ProbeResult["detections"] = []): ProbeResult => ({
   mode, ran: true, model: { state: "ready", device: "wasm", variant: "q8", loadMs: 3000, waitedMs: 3000, error: null, version: "x" }, runtimeError: null, holdBudgetMs: 900, visibility: "visible",
@@ -39,16 +40,18 @@ const probe = (mode: "observe" | "guard", sent: number, identical: number, acts:
 });
 const COALESCE = [{ id: "a1", decisionId: "d1", action: "coalesce", trigger: "request", subject: "POST /api/orders (#3)", ok: true, changed: "reused the first response", late: false }];
 const DUP_ORDERS = [{ id: "d1", trigger: "request", subject: "POST /api/orders (#3)", diagnosis: "duplicate", p: 0.99, action: "coalesce", ran: "coalesce", executed: true, latencyMs: 200 }];
-const contrastF = (sel: string): RawFinding => ({ kind: "low-contrast", selector: sel, box: { x: 10, y: 20, w: 100, h: 18 }, measured: "Contrast 1.10:1", detail: { fg: [250, 250, 250], bg: [255, 255, 255] } });
+const contrastF = (sel: string, fixApplied = false): RawFinding => ({
+  kind: "text-invisible", selector: sel, box: { x: 10, y: 20, w: 100, h: 18 }, measured: "text contrast 1.10:1 on p.note", detail: { severity: "high", css: `${sel} { color: #767676; }`, fixApplied, state: "" },
+});
+const fixedIn = (key: string): VisualFixes => ({ applied: 1, rechecked: true, fixed: [{ kind: "text-invisible", selector: "p.note", key, how: "GenClass changed the page: p.note { color: rgb(118, 118, 118); }. The re-check no longer found it." }], notFixed: [] });
 const scan = (o: Partial<ScanResult> = {}): ScanResult => ({
   views: [
-    view("desktop", [contrastF("p.note"), { kind: "broken-image", selector: "img.hero", box: { x: 0, y: 0, w: 10, h: 10 }, measured: "Failed", detail: { src: "/a.png" } }]),
-    view("phone", [contrastF("p.note"), { kind: "horizontal-overflow", selector: "div.wide", box: { x: 0, y: 0, w: 500, h: 10 }, measured: "Page is 500 px", detail: { tag: "div" } }]),
+    view("desktop", [contrastF("p.note"), { kind: "image-broken", selector: "img.hero", box: { x: 0, y: 0, w: 10, h: 10 }, measured: "an image failed to load", detail: { severity: "medium" } }]),
+    view("phone", [contrastF("p.note"), { kind: "page-overflow-x", selector: "div.wide", box: { x: 0, y: 0, w: 500, h: 10 }, measured: "the page scrolls sideways", detail: { severity: "high", css: "div.wide { max-width: 100%; }" } }]),
     view("phone-dark", []),
   ],
   probe: probe("observe", 2, 2),
   guard: probe("guard", 1, 1, COALESCE, DUP_ORDERS),
-  visualFixes: { available: false, fixed: [], rechecked: false },
   notes: [],
   ms: { total: 30000, launch: 1000, views: 9000, probe: 6000, guard: 9000 },
   chrome: "HeadlessChrome/131",
@@ -61,7 +64,7 @@ describe("buildReport", () => {
   it("merges the same element across views, numbers findings most serious first", () => {
     const r = buildReport(target, ids, scan(), { withGenClass: false });
     const kinds = r.findings.map((f) => f.kind);
-    assert.deepEqual(kinds, ["low-contrast", "horizontal-overflow", "duplicate-submit", "broken-image"]);
+    assert.deepEqual(kinds, ["text-invisible", "page-overflow-x", "duplicate-submit", "image-broken"]);
     assert.deepEqual(r.findings.map((f) => f.n), [1, 2, 3, 4]);
     assert.deepEqual(r.findings[0].views, ["desktop", "phone"]);
     assert.deepEqual(Object.keys(r.findings[0].boxes), ["desktop", "phone"]);
@@ -83,40 +86,65 @@ describe("buildReport", () => {
     assert.equal(on.withGenClass.value, on.score.value + 10);
     assert.equal(on.withGenClass.fixed, 1);
   });
-  it("never counts a visual finding as fixed without a re-check", () => {
+  it("counts a visual finding as fixed only when every view it appeared in fixed and re-checked it", () => {
+    const key = "text-invisible|p.note|";
     const on = buildReport(target, ids, scan(), { withGenClass: true });
     for (const f of on.findings) if (f.kind !== "duplicate-submit") assert.equal(f.fixed, null, f.kind);
-    const claimed = buildReport(target, ids, scan({ visualFixes: { available: true, fixed: [{ kind: "low-contrast", selector: "p.note", how: "recoloured" }], rechecked: false } }), { withGenClass: true });
-    assert.equal(claimed.findings.find((f) => f.kind === "low-contrast")!.fixed, null);
-    const rechecked = buildReport(target, ids, scan({ visualFixes: { available: true, fixed: [{ kind: "broken-image", selector: "img.hero", how: "replaced" }], rechecked: true } }), { withGenClass: true });
-    assert.equal(rechecked.findings.find((f) => f.kind === "broken-image")!.fixed!.how, "replaced", "desktop only, re-checked on desktop");
+    // p.note is on the desktop and the phone: fixed on the desktop alone is not enough
+    const one = scan();
+    one.views[0] = { ...one.views[0], findings: [contrastF("p.note", true), ...one.views[0].findings.slice(1)], fixes: fixedIn(key) };
+    const r1 = buildReport(target, ids, one, { withGenClass: true });
+    const f1 = r1.findings.find((x) => x.kind === "text-invisible")!;
+    assert.equal(f1.fixed, null);
+    assert.equal(f1.genclass.status, "not-fixed");
+    assert.match(f1.genclass.text, /did not run on this view/);
+    // fixed and re-checked in both views: fixed, and the with-GenClass score drops its points
+    const both = scan();
+    both.views[0] = { ...both.views[0], fixes: fixedIn(key) };
+    both.views[1] = { ...both.views[1], fixes: fixedIn(key) };
+    const r2 = buildReport(target, ids, both, { withGenClass: true });
+    const f2 = r2.findings.find((x) => x.kind === "text-invisible")!;
+    assert.match(f2.fixed!.how, /re-check no longer found it/);
+    assert.equal(f2.genclass.status, "fixed");
+    assert.equal(r2.withGenClass.fixed, 2);
+    assert.equal(r2.withGenClass.value, r2.score.value + 10 + 10);
+    // a fix the re-check did not confirm says so
+    const unconfirmed = scan();
+    const nf: VisualFixes = { applied: 1, rechecked: true, fixed: [], notFixed: [{ kind: "text-invisible", selector: "p.note", key, why: "GenClass applied a fix, but the re-check still found the problem." }] };
+    unconfirmed.views[0] = { ...unconfirmed.views[0], fixes: nf };
+    unconfirmed.views[1] = { ...unconfirmed.views[1], fixes: fixedIn(key) };
+    const f3 = buildReport(target, ids, unconfirmed, { withGenClass: true }).findings.find((x) => x.kind === "text-invisible")!;
+    assert.equal(f3.fixed, null);
+    assert.match(f3.genclass.text, /re-check still found the problem/);
   });
-  it("never counts a finding as fixed in views that were not re-checked", () => {
-    // p.note has low contrast on the desktop and the phone; the fixes are re-checked on the desktop page only
-    const r = buildReport(target, ids, scan({ visualFixes: { available: true, fixed: [{ kind: "low-contrast", selector: "p.note", how: "recoloured" }], rechecked: true } }), { withGenClass: true });
-    const f = r.findings.find((x) => x.kind === "low-contrast")!;
-    assert.deepEqual(f.views, ["desktop", "phone"]);
-    assert.equal(f.fixed, null);
+  it("says GenClass reports, and never fixes, the kinds it has no fix for", () => {
+    const r = buildReport(target, ids, scan(), { withGenClass: true });
+    for (const kind of ["page-overflow-x", "image-broken"]) {
+      const f = r.findings.find((x) => x.kind === kind)!;
+      assert.equal(f.genclass.status, "reported", kind);
+      assert.match(f.genclass.text, /Reported for the developer/);
+    }
+    assert.equal(r.findings.find((x) => x.kind === "page-overflow-x")!.fix, "div.wide { max-width: 100%; }", "the check's own CSS is the suggested fix");
   });
   it("lists but does not score findings that may come from the scanner's stand-in answers", () => {
-    const leak: RawFinding = { kind: "template-leak", selector: "span.price", box: { x: 0, y: 0, w: 50, h: 10 }, measured: '"NaN"', detail: { text: "NaN" } };
+    const leak: RawFinding = { kind: "text-template-leak", selector: "span.price", box: { x: 0, y: 0, w: 50, h: 10 }, measured: '"$NaN"', detail: { severity: "high" } };
     const views = (count: number) => [
       { ...view("desktop", [leak, contrastF("p.note")]), standIns: { count, requests: count ? ["POST shop.example.com/graphql"] : [] } },
       { ...view("phone", [leak]), standIns: { count, requests: [] } },
       view("phone-dark", []),
     ];
     const withStandIns = buildReport(target, ids, scan({ views: views(2), probe: null, guard: null }), { withGenClass: false });
-    const f = withStandIns.findings.find((x) => x.kind === "template-leak")!;
+    const f = withStandIns.findings.find((x) => x.kind === "text-template-leak")!;
     assert.match(String(f.unscored), /stand-in answer/);
     assert.equal(withStandIns.score.value, 90, "only the contrast finding is scored");
     assert.equal(withStandIns.views[0].standIns, 2);
     const without = buildReport(target, ids, scan({ views: views(0), probe: null, guard: null }), { withGenClass: false });
-    assert.equal(without.findings.find((x) => x.kind === "template-leak")!.unscored, null);
+    assert.equal(without.findings.find((x) => x.kind === "text-template-leak")!.unscored, null);
     assert.equal(without.score.value, 80);
     // the same leak also seen in a view that got no stand-in answer is scored
     const mixed = views(1);
     mixed[1] = { ...mixed[1], standIns: { count: 0, requests: [] } };
-    assert.equal(buildReport(target, ids, scan({ views: mixed, probe: null, guard: null }), { withGenClass: false }).findings.find((x) => x.kind === "template-leak")!.unscored, null);
+    assert.equal(buildReport(target, ids, scan({ views: mixed, probe: null, guard: null }), { withGenClass: false }).findings.find((x) => x.kind === "text-template-leak")!.unscored, null);
   });
 });
 
@@ -171,11 +199,12 @@ describe("data from the page is validated before it is stored or shown", () => {
   it("accepts only the catalog's own kinds", () => {
     for (const kind of ["constructor", "__proto__", "toString", "hasOwnProperty", "nope"]) assert.equal(sanitizeFinding({ kind, selector: "x", measured: "y" }), null, kind);
     assert.equal(sanitizeFinding(null), null);
-    assert.equal(sanitizeFinding("low-contrast"), null);
+    assert.equal(sanitizeFinding("text-invisible"), null);
+    for (const kind of VISUAL_KINDS) assert.ok(sanitizeFinding({ kind, selector: "x", measured: "y" }), kind);
   });
   it("cuts strings and arrays, keeps a numeric box and short primitive details only", () => {
     const f = sanitizeFinding({
-      kind: "low-contrast", selector: "p".repeat(5000), measured: "m".repeat(5000), box: { x: 1, y: 2, w: 3, h: "4" },
+      kind: "text-invisible", selector: "p".repeat(5000), measured: "m".repeat(5000), box: { x: 1, y: 2, w: 3, h: "4" },
       detail: { fg: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], bg: [255, 255, 255], sample: "s".repeat(900), nested: { a: 1 }, "bad key": 1, n: Number.NaN, ok: true },
     })!;
     assert.equal(f.selector.length, 200);
@@ -185,10 +214,10 @@ describe("data from the page is validated before it is stored or shown", () => {
     assert.equal((f.detail!.sample as string).length, 200);
     assert.deepEqual(Object.keys(f.detail!).sort(), ["bg", "fg", "ok", "sample"]);
   });
-  it("keeps only short, plain notes", () => {
-    assert.deepEqual(sanitizeNotes(["3 controls sat under a dialog or consent banner at load; those are not counted.", "<b>GenClass fixed this page</b>", "x".repeat(300), 7, "a", "b", "c", "d"]), [
-      "3 controls sat under a dialog or consent banner at load; those are not counted.", "a", "b", "c",
-    ]);
+  it("keeps only numeric page statistics", () => {
+    assert.deepEqual(sanitizeStats({ passes: 2, partial: 0, viewport: [390, 844], viewportMeta: true, docHeight: 1800, visibility: "visible", evil: "<b>x</b>", ms: Number.NaN }), {
+      passes: 2, partial: 0, docHeight: 1800, viewport: [390, 844], viewportMeta: true,
+    });
   });
 });
 
@@ -199,17 +228,37 @@ describe("the guard setting in words", () => {
   });
 });
 
-describe("suggested fixes", () => {
-  it("the contrast fix itself passes 4.5:1 on the measured background", () => {
-    for (const bg of [[255, 255, 255], [18, 18, 18], [14, 31, 77], [240, 69, 28]]) {
-      const fix = suggestFix({ kind: "low-contrast", selector: "p", measured: "", detail: { bg } });
-      const ink = /color: #([0-9a-f]{6})/.exec(fix)![1];
-      const rgb = [0, 2, 4].map((i) => parseInt(ink.slice(i, i + 2), 16));
-      assert.ok(contrast(rgb, bg) >= 4.5, `${fix} on ${bg}`);
+describe("the catalog", () => {
+  it("maps every visual kind to a category and a severity", () => {
+    for (const k of VISUAL_KINDS) {
+      assert.ok(KINDS[k], k);
+      assert.ok(["readability", "media", "layout", "interaction"].includes(KINDS[k].category), k);
     }
   });
-  it("overflow fixes match the element", () => {
-    assert.match(suggestFix({ kind: "horizontal-overflow", selector: "img.x", measured: "", detail: { tag: "img" } }), /max-width: 100%; height: auto/);
-    assert.match(suggestFix({ kind: "horizontal-overflow", selector: "pre", measured: "", detail: { tag: "pre" } }), /overflow-x: auto/);
+  it("uses the severity the check measured, else the kind's", () => {
+    assert.equal(severityOf({ kind: "image-broken", selector: "img", measured: "", detail: { severity: "high" } }), "high");
+    assert.equal(severityOf({ kind: "image-broken", selector: "img", measured: "", detail: { severity: "fatal" } }), "medium");
+  });
+});
+
+describe("suggested fixes", () => {
+  it("are the check's own CSS, its note and its fix text, else a fix for the kind", () => {
+    assert.equal(suggestFix({ kind: "text-invisible", selector: "p", measured: "", detail: { css: "p { color: #767676; }", cssNote: "reaches 4.5:1" } }), "p { color: #767676; }\nReaches 4.5:1.");
+    assert.equal(suggestFix({ kind: "stylesheet-failed", selector: "link", measured: "", detail: { fixText: "correct the URL" } }), "Correct the URL.");
+    assert.match(suggestFix({ kind: "viewport-meta-missing", selector: "html", measured: "" }), /name="viewport"/);
+  });
+});
+
+describe("guard held back", () => {
+  it("says the duplicate was flagged and held back at the default safety margin, with the measured gain", () => {
+    const held = [{ id: "d1", trigger: "request", subject: "POST /api/orders (#3)", diagnosis: "duplicate", p: 0.99, action: "none", ran: "none", executed: false, latencyMs: 200, candidate: "coalesce", gain: 2.84, margin: 4 }];
+    const dup: RawFinding = { kind: "duplicate-submit", selector: "button.cta", measured: "", detail: {} };
+    const text = heldBack(dup, probe("observe", 2, 2), probe("guard", 2, 2, [], held), true)!;
+    assert.match(text, /^Flagged, held back at the default safety margin/);
+    assert.match(text, /99% sure/);
+    assert.match(text, /expected gain of 2\.84 against a margin of 4/);
+    assert.equal(heldBack(dup, probe("observe", 2, 2), probe("guard", 1, 1, COALESCE, DUP_ORDERS), true), null, "not when guard acted");
+    const r = buildReport(target, ids, scan({ guard: probe("guard", 2, 2, [], held) }), { withGenClass: true });
+    assert.match(r.findings.find((f) => f.kind === "duplicate-submit")!.genclass.text, /held back at the default safety margin/);
   });
 });

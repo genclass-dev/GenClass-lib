@@ -333,6 +333,7 @@ async function runAndSave(
     signal,
     runtimeSource: deps.runtimeSource(),
     visualSource: deps.visualSource ?? null,
+    visualFixes: env.WITH_GENCLASS === "on",
     modelBaseUrl: env.MODEL_BASE_URL || DEFAULT_MODEL_BASE,
     runtimeVersion: RUNTIME_VERSION,
     guardHoldMs,

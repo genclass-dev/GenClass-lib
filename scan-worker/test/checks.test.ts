@@ -1,48 +1,23 @@
-// The page-side checks: their pure helpers (colour parsing, contrast, template-leak matching) and the injected
-// sources (valid JavaScript, self-contained, with the __name shim for esbuild's keep-names helper).
+// The page-side code: the injected sources (valid JavaScript, self-contained), the installer of the GenClass visual
+// checks (taken only from the built chunk, never from the page), the runtime state reader, the probe's target finder
+// and the safety bootstrap.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import vm from "node:vm";
-import { installChecksSource, scanChecks } from "../src/checks.ts";
+import { VISUAL_KINDS } from "../src/catalog.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "../src/probe.ts";
 import { SAFETY_BOOTSTRAP, safetyBootstrap } from "../src/scan.ts";
+import { callSource, installSource } from "../src/visual.ts";
+import { VISUAL_BUILD, VISUAL_SOURCE } from "../src/visual-source.ts";
 
-const H = scanChecks({ helpersOnly: true });
-
-describe("colour helpers", () => {
-  it("parses computed colours", () => {
-    assert.deepEqual(H.parseColor("rgb(255, 0, 10)"), [255, 0, 10, 1]);
-    assert.deepEqual(H.parseColor("rgba(0, 0, 0, 0.5)"), [0, 0, 0, 0.5]);
-    assert.deepEqual(H.parseColor("rgb(0 0 0 / 25%)"), [0, 0, 0, 0.25]);
-    assert.deepEqual(H.parseColor("color(srgb 1 0.5 0)"), [255, 127.5, 0, 1]);
-    assert.deepEqual(H.parseColor("transparent"), [0, 0, 0, 0]);
-    assert.equal(H.parseColor("oklch(0.7 0.1 200)"), null, "without a canvas (no DOM) other spaces are skipped, not guessed");
-  });
-  it("computes WCAG contrast", () => {
-    assert.equal(Math.round(H.ratio([0, 0, 0], [255, 255, 255]) * 10) / 10, 21);
-    assert.equal(Math.round(H.ratio([119, 119, 119], [255, 255, 255]) * 100) / 100, 4.48);
-    assert.ok(H.ratio([250, 250, 250], [255, 255, 255]) < 1.5);
-    assert.deepEqual(H.blend([0, 0, 0, 0.5], [255, 255, 255, 1]), [127.5, 127.5, 127.5, 1]);
-  });
-});
-
-describe("template leaks", () => {
-  it("finds undefined, NaN, [object Object] and {{...}} in short visible text", () => {
-    for (const t of ["Total: NaN", "$NaN", "[object Object]", "Hello {{ user.name }}", "{{price | currency}}", "Hi undefined", "undefined items in your cart"]) assert.ok(H.leakIn(t), t);
-  });
-  it("leaves prose and look-alike words alone", () => {
-    for (const t of ["Banana", "NaNa", "The behaviour of this function is undefined when the input array is empty, as the spec says.", "undefinedness", "{ not a template }", "a {single} brace"]) assert.equal(H.leakIn(t), null, t);
-  });
-});
+const CHUNK = "window.__genclassScanVisual = function chunkVisual(cmd) { return { ok: true, cmd: cmd }; };";
 
 describe("injected sources", () => {
   it("are valid JavaScript expressions that do not depend on outer variables", () => {
-    for (const src of [installChecksSource("__gcsTest"), installChecksSource("__gcsTest", "window.__genclassScanChecks = function () {};"), runtimeStateSource("__gcsR"), SAFETY_BOOTSTRAP, `(${probeTargets.toString()})({ prepare: true })`, runtimeBootstrap({ mode: "observe", telemetry: false }, "window.GenClass = null;\n//# sourceMappingURL=x.map")]) {
+    for (const src of [installSource("__gcsTest", CHUNK), callSource("__gcsTest", "collect", { id: "a", pass: true }), runtimeStateSource("__gcsR"), SAFETY_BOOTSTRAP, `(${probeTargets.toString()})({ prepare: true })`, runtimeBootstrap({ mode: "observe", telemetry: false }, "window.GenClass = null;\n//# sourceMappingURL=x.map")]) {
       assert.doesNotThrow(() => new Function(`return ${src}`), src.slice(0, 80));
     }
-  });
-  it("the checks installer defines a __name shim", () => {
-    assert.match(installChecksSource("__gcsTest"), /const __name = \(t\) => t;/);
   });
   it("the runtime bootstrap runs in the top frame only, sets the config and drops the source map line", () => {
     const src = runtimeBootstrap({ mode: "guard", telemetry: false, model: { baseUrl: "https://genclass.dev/model/x/" } }, "/*rt*/\n//# sourceMappingURL=genclass.global.min.js.map");
@@ -58,6 +33,27 @@ describe("injected sources", () => {
   });
 });
 
+describe("the embedded visual checks", () => {
+  it("are the chunk CI builds from the pinned wave2/visual commit, with the scanner's entry", () => {
+    assert.ok(VISUAL_SOURCE && VISUAL_SOURCE.length > 50_000, "src/visual-source.ts holds a built chunk");
+    assert.match(VISUAL_SOURCE!, /__genclassScanVisual/);
+    const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
+    assert.match(ci, new RegExp(`VISUAL_REF: ${VISUAL_BUILD.commit}`), "ci.yml's VISUAL_REF is the commit the embedded copy was built from");
+  });
+  it("name every kind the scanner's catalog knows, and no other", () => {
+    for (const k of VISUAL_KINDS) assert.ok(VISUAL_SOURCE!.includes(`"${k}"`), k);
+    assert.equal(VISUAL_KINDS.length, 23);
+  });
+  it("install from the built bundle, and answer under the per-scan name only", () => {
+    const ctx = sandbox();
+    assert.equal(vm.runInContext(installSource("__gcsV", VISUAL_SOURCE!), ctx), true);
+    assert.equal(vm.runInContext("typeof window.__genclassScanVisual", ctx), "undefined", "the well-known name is removed");
+    assert.equal(vm.runInContext("typeof window.__gcsV", ctx), "function");
+    assert.deepEqual(vm.runInContext(`JSON.stringify(window.__gcsV("status", { id: "a" }))`, ctx), JSON.stringify({ ok: false }));
+    assert.deepEqual(JSON.parse(String(vm.runInContext(`JSON.stringify(window.__gcsV("start", { id: "BAD id" }))`, ctx))).ok, false);
+  });
+});
+
 // ------------------------------------------------------------------------------- page code against a fake page
 
 /** A sandbox that stands in for a page's window: `window` is the global, as in a browser. */
@@ -68,30 +64,24 @@ function sandbox(setup = ""): vm.Context {
 }
 
 describe("the scanner's checks cannot be replaced by the page", () => {
-  const BUILT_IN = /contrastSkipped/; // only the built-in checks' source has it
-  it("ignores checks and fixes the page defined, under the chunk's names or any other", () => {
-    const ctx = sandbox(`window.__genclassScanChecks = function fake() { return { findings: [] }; }; window.__genclassScanFixes = function fake() { return { applied: [{ kind: "low-contrast", selector: "p", how: "x" }] }; };`);
-    assert.equal(vm.runInContext(installChecksSource("__gcsA"), ctx), false, "no fixes without a chunk");
-    assert.match(String(vm.runInContext("String(window.__gcsA)", ctx)), BUILT_IN);
-    assert.equal(vm.runInContext("typeof window.__gcsAFix", ctx), "undefined");
-    // the installed name cannot be overwritten afterwards
-    vm.runInContext("try { window.__gcsA = function fake() {}; } catch (e) {}", ctx);
-    assert.match(String(vm.runInContext("String(window.__gcsA)", ctx)), BUILT_IN);
-  });
-  it("takes a visual chunk's functions only when the chunk itself defined them", () => {
-    const chunk = "window.__genclassScanChecks = function chunkChecks() { return { findings: [] }; }; window.__genclassScanFixes = function chunkFixes() { return { applied: [] }; };";
+  it("takes the visual checks only when the chunk itself defined them, and pins them under the per-scan name", async () => {
     const fresh = sandbox();
-    assert.equal(vm.runInContext(installChecksSource("__gcsB", chunk), fresh), true);
-    assert.equal(vm.runInContext("window.__gcsB.name", fresh), "chunkChecks");
-    assert.equal(vm.runInContext("window.__gcsBFix.name", fresh), "chunkFixes");
-    // a page that pinned the chunk's names (a global var cannot be deleted) gets the built-in checks and no fixes
-    const pinned = sandbox(`for (const k of ["__genclassScanChecks", "__genclassScanFixes"]) Object.defineProperty(window, k, { value: function fake() {}, writable: true, configurable: false });`);
-    assert.equal(vm.runInContext(installChecksSource("__gcsC", chunk), pinned), false);
-    assert.match(String(vm.runInContext("String(window.__gcsC)", pinned)), BUILT_IN);
-    // and a page that put a getter there does not get its function called either
-    const getter = sandbox(`Object.defineProperty(window, "__genclassScanChecks", { configurable: true, get() { return function fake() {}; }, set() {} });`);
-    assert.equal(vm.runInContext(installChecksSource("__gcsD", chunk), getter), false);
-    assert.match(String(vm.runInContext("String(window.__gcsD)", getter)), BUILT_IN);
+    assert.equal(vm.runInContext(installSource("__gcsB", CHUNK), fresh), true);
+    assert.equal(vm.runInContext("window.__gcsB.name", fresh), "chunkVisual");
+    vm.runInContext("try { window.__gcsB = function fake() {}; } catch (e) {}", fresh);
+    assert.equal(vm.runInContext("window.__gcsB.name", fresh), "chunkVisual", "the installed name cannot be overwritten");
+    assert.equal(JSON.parse(String(await vm.runInContext(callSource("__gcsB", "collect", { id: "a" }), fresh))).cmd, "collect");
+    // a page that defined the chunk's name itself gets nothing installed: its function is never called
+    const planted = sandbox(`window.__genclassScanVisual = function fake() { return { ok: true, findings: [] }; };`);
+    assert.equal(vm.runInContext(installSource("__gcsA", ""), planted), false);
+    assert.equal(vm.runInContext("typeof window.__gcsA", planted), "undefined");
+    assert.equal(await vm.runInContext(callSource("__gcsA", "collect"), planted), "{}");
+    // a page that pinned the name (a global var cannot be deleted) gets nothing either
+    const pinned = sandbox(`Object.defineProperty(window, "__genclassScanVisual", { value: function fake() {}, writable: true, configurable: false });`);
+    assert.equal(vm.runInContext(installSource("__gcsC", CHUNK), pinned), false);
+    // and a page that put a getter there does not get its function called
+    const getter = sandbox(`Object.defineProperty(window, "__genclassScanVisual", { configurable: true, get() { return function fake() {}; }, set() {} });`);
+    assert.equal(vm.runInContext(installSource("__gcsD", CHUNK), getter), false);
   });
   it("keeps what GenClass reported in the bootstrap's closure, not where the page can rewrite it", () => {
     const rt = `window.GenClass = { runtime: { mode: "observe", status: { state: "ready" }, holdBudgetMs: function () { return 900; }, decisions: function () { return [1, 2]; },
@@ -177,7 +167,7 @@ describe("the safety bootstrap", () => {
       WebSocket: FakeWS, location: { href: "https://shop.example.com/" }, navigator: {},
       HTMLFormElement: class { submit() {} },
       addEventListener: (ev: string, fn: (e: unknown) => void) => void (listeners[ev] = [...(listeners[ev] || []), fn]),
-      document: { querySelector: () => null },
+      document: { querySelector: () => null, addEventListener: (ev: string, fn: (e: unknown) => void) => void (listeners[`doc:${ev}`] = [...(listeners[`doc:${ev}`] || []), fn]) },
       open: () => ({ fake: "window" }),
     });
     vm.runInContext(safetyBootstrap("__gcsS"), ctx);
@@ -207,5 +197,10 @@ describe("the safety bootstrap", () => {
     assert.deepEqual(JSON.parse(String(vm.runInContext(`window.__gcsS("read")`, ctx))).wsHosts, ["live.example.net"]);
     vm.runInContext(`window.__gcsS("hold", true)`, ctx);
     assert.equal(JSON.parse(String(vm.runInContext(`window.__gcsS("read")`, ctx))).held, true);
+  });
+  it("records Content-Security-Policy violations as plain data for the visual checks", () => {
+    const { ctx, listeners } = run();
+    for (const fn of listeners["doc:securitypolicyviolation"]) fn({ disposition: "enforce", effectiveDirective: "img-src", violatedDirective: "img-src", blockedURI: "https://cdn.example.net/a.png", sourceFile: "" });
+    assert.deepEqual(JSON.parse(String(vm.runInContext(`window.__gcsS("read")`, ctx))).csp, [{ disposition: "enforce", effectiveDirective: "img-src", violatedDirective: "img-src", blockedURI: "https://cdn.example.net/a.png", sourceFile: "" }]);
   });
 });

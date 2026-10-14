@@ -250,7 +250,8 @@ const LIMITS = [
   ["No real users.", "The probe types three letters and double-clicks one button. Real visitors do far more, on slower networks. GenClass in production watches the requests their actions make."],
   ["Nothing that changes data is sent.", "POST, PUT, PATCH and DELETE requests get a stand-in reply from the scanner instead. If the page loads content that way, that content is missing or wrong here, and findings that may come from it are listed but not scored."],
   ["Some checks need a known background.", "Text over images, gradients or video is skipped by the contrast check rather than guessed at."],
-  ["The first screen for covered controls.", "Controls are hit-tested where they sit when the page loads, before scrolling or opening menus."],
+  ["No clicks on the page.", "The scanner presses Tab and scrolls, but clicks only the probe's submit button, so checks that need a visitor's clicks (an invisible layer that swallows them) do not run here."],
+  ["Six seconds per view.", "Problems that appear later, after a timer or a second interaction, are not seen."],
   ["Bot protection.", "Some sites show a challenge page to automated browsers. The report then describes that page, not the site."],
 ];
 
@@ -268,7 +269,8 @@ export function scanPage(n: string, data: ScanPageData): string {
     <button class="btn" id="go" type="submit">Check page</button>
   </form>
   <p class="lead" id="lead"${t ? ' hidden' : ""}>Paste an address. A browser loads the page on a desktop and on a phone, light and dark, and checks
-  for text you cannot read, images that failed, sideways scrolling and controls hidden under other elements. Then it types
+  for text you cannot read, images and stylesheets that failed, sideways scrolling, a page that ignores clicks or cannot scroll,
+  and controls hidden under fixed bars, with the same measured checks the GenClass runtime ships. Then it types
   into the search box and double-clicks a submit button to look for races, with GenClass watching. Requests that could change
   something on the site are answered inside the browser and never sent.</p>
 </section>
@@ -283,7 +285,7 @@ export function scanPage(n: string, data: ScanPageData): string {
       <h2 class="sr" id="sh">Score</h2>
       <div class="nums">
         <div class="num"><div class="k" id="sk">Score</div><div class="v"><span id="sv"></span><small>/ 100</small></div><div class="s" id="ss"></div></div>
-        <div class="num with hidden" id="withbox"><div class="k">With GenClass fixes on</div><div class="v"><span id="wv"></span><small>/ 100</small></div><div class="s" id="ws"></div></div>
+        <div class="num with hidden" id="withbox"><div class="k">With GenClass on</div><div class="v"><span id="wv"></span><small>/ 100</small></div><div class="s" id="ws"></div></div>
       </div>
     </div>
     <div>
@@ -323,7 +325,9 @@ export function scanPage(n: string, data: ScanPageData): string {
     <p>GenClass runs inside your pages for real visitors and reports the races that only real traffic triggers: responses that land
     over newer data, duplicate submits, endpoints that keep failing. In guard mode it can merge a duplicate submit or drop a late
     response when the expected gain clears its safety margin. The race probe above shows whether it did on this page. The visual
-    checks on this page run here, in the page check.</p>
+    checks above are the ones the runtime runs with <code>visual: { on: true }</code>; with <code>fix: true</code> in guard mode it
+    also fixes invisible text, a leaked <code>pointer-events: none</code> and a leaked scroll lock for your visitors, and reports
+    the rest to you.</p>
     <div class="row"><a class="btn" href="https://genclass.dev/start">Get a token and a dashboard</a><a class="btn ghost" href="https://genclass.dev/docs">Read the docs</a></div>
   </div>
   <div>
@@ -347,7 +351,7 @@ function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.cla
 function show(id, on){ $(id).classList.toggle("hidden", !on); }
 var nf = new Intl.NumberFormat("en-US");
 function secs(ms){ return (Math.round(ms / 100) / 10).toFixed(1) + " s"; }
-var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks","Running the visual checks and taking screenshots"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
+var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks","Running the GenClass visual checks, with and without its fixes, and taking screenshots"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
 var t0 = 0, timer = null;
 
 function problem(title, detail){
@@ -433,7 +437,7 @@ function renderScore(r){
   var w = r.withGenClass, withOn = !!(w && w.shown);
   show("withbox", withOn); show("wth", withOn);
   $("sk").textContent = withOn ? "Without GenClass" : "Score";
-  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = w.fixed + " of " + n + " fixed and re-checked in the same session, with " + (r.probe.guardSetting || "guard mode") + ". The rest need the suggested fixes."; }
+  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (w.fixed === 1 ? " finding" : " findings") + " fixed in the page by GenClass and gone on a re-check in the same browser. GenClass reports the rest for the developer, with the suggested fix." : "Nothing to fix on this load."); }
   var tb = $("breakdown"); tb.textContent = "";
   r.score.categories.forEach(function(c, i){
     var tr = el("tr"), td = el("td", "cat", c.label); td.appendChild(el("small", null, "Up to " + c.cap + " points"));
@@ -502,8 +506,9 @@ var VIEWNAMES = { desktop: "Desktop", phone: "Phone", "phone-dark": "Phone, dark
 function renderFindings(r){
   var host = $("finds"); host.textContent = "";
   show("none", !r.findings.length);
-  $("listn").textContent = r.findings.length ? "Table 1. " + r.findings.length + (r.findings.length === 1 ? " finding" : " findings") + ", most serious first" : "Table 1. No findings";
   var withOn = !!(r.withGenClass && r.withGenClass.shown);
+  var nfix = r.findings.filter(function(f){ return f.fixed; }).length;
+  $("listn").textContent = r.findings.length ? "Table 1. " + r.findings.length + (r.findings.length === 1 ? " finding" : " findings") + ", most serious first" + (withOn ? ". " + nfix + " fixed by GenClass, " + (r.findings.length - nfix) + " reported for the developer" : "") : "Table 1. No findings";
   r.findings.forEach(function(f){
     var li = el("li", "find" + (withOn && f.fixed ? " fixed" : "")); li.id = "f-" + f.n;
     li.appendChild(el("div", "no", String(f.n)));
@@ -522,7 +527,7 @@ function renderFindings(r){
     if (f.unscored) row("Not scored", f.unscored);
     row("Why it matters", f.why);
     var pre = el("pre", null, f.fix); row("Suggested fix", pre);
-    if (withOn) row("With GenClass", f.fixed ? el("span", "gc-yes", "Fixed. " + f.fixed.how) : el("span", null, f.category === "interaction" ? "Not fixed in this run. The suggested fix above removes it." : "Not fixed: the runtime has no fix for this yet. The suggested CSS above removes it."));
+    if (withOn) row("With GenClass", f.fixed ? el("span", "gc-yes", "Fixed. " + f.fixed.how) : el("span", null, f.genclass ? f.genclass.text : "Not fixed in this run. The suggested fix above removes it."));
     var shown = Object.keys(f.boxes || {});
     if (shown.length) {
       var bar = el("div", "show");
@@ -567,11 +572,12 @@ function renderProbe(r){
     [["Without GenClass", o.clicked.sent, ""], ["With GenClass guard", g.clicked.sent, acted ? "g" : ""]].forEach(function(x){ var d = el("div"); d.appendChild(el("div", "k", x[0])); d.appendChild(el("div", "n " + x[2], x[1] + (x[1] === 1 ? " request" : " requests"))); cmp.appendChild(d); });
     var acts = (g.acts || []).map(function(a){ return a.action + ": " + String(a.changed || "").replace(/\\.$/, ""); });
     var held = (g.detections || []).filter(function(d){ return !d.executed && d.candidate && typeof d.gain === "number" && typeof d.margin === "number"; })[0];
+    var dflt = r.probe.guardMargin === null && r.probe.guardAggressiveness === "balanced";
     var WORDS = { duplicate: "a duplicate", stale: "a late response", conflict: "a conflict", inconsistent: "an inconsistency", failing: "a failing request" };
     var MOVES = { coalesce: "merging the two", discard: "dropping it", defer: "holding it back", retry: "retrying it", cancel: "cancelling it" };
     var why = acted ? r.probe.guardClick.how
       : acts.length ? "GenClass did: " + acts.slice(0, 3).join("; ") + ". That did not change what the double click sent."
-      : held ? "GenClass was " + Math.round(held.p * 100) + "% sure this was " + (WORDS[held.diagnosis] || held.diagnosis) + " but held back: at these settings, " + (MOVES[held.candidate] || held.candidate) + " did not clear its safety margin (expected gain " + (Math.round(held.gain * 100) / 100) + ", margin " + held.margin + ")."
+      : held ? "Flagged, held back at " + (dflt ? "the default safety margin" : "this setting's safety margin") + ": GenClass was " + Math.round(held.p * 100) + "% sure this was " + (WORDS[held.diagnosis] || held.diagnosis) + ", but " + (MOVES[held.candidate] || held.candidate) + " had an expected gain of " + (Math.round(held.gain * 100) / 100) + " against a margin of " + held.margin + ", so it did not act and both requests went out."
       : (g.model || {}).state === "ready" ? "GenClass took no action." : "GenClass took no action: its model did not load in time.";
     row("Guard mode", cmp, "Measured, not projected: the same double click in a fresh page with " + (r.probe.guardSetting || "GenClass in guard mode") + ". " + why);
   } else if (g && g.ran && !triedAny) row("Guard mode", "Nothing to compare", "With nothing to type into or click, guard mode had nothing to change on this page.");
@@ -623,7 +629,12 @@ export function aboutPage(n: string): string {
     cloud metadata addresses. It reads the site's <code>robots.txt</code> for a <code>GenClassScan</code> group.</li>
     <li>Starts a fresh browser (Cloudflare Browser Rendering) with no cookies or storage, and loads the page three times in
     parallel: ${VIEWS.map((v) => esc(v.label.toLowerCase())).join("; ")}. Each load has 20 seconds, then up to 4 more for the network to go quiet.</li>
-    <li>Runs the visual checks in each view, takes a screenshot of the top of the page and records the box of every finding.</li>
+    <li>Runs the GenClass visual checks in each view for about 6 seconds: the runtime's own measured checks
+    (<code>@genclass/runtime</code> visual chunk), in an isolated part of the browser the page's scripts cannot reach. It presses
+    Tab a few times on the desktop and scrolls with the mouse wheel, which some checks need (focus under a sticky header, a
+    scroll lock, a control under a fixed bar). With GenClass on, the checks run in guard mode with their fixes turned on, and a
+    second, report-only set of the same checks then measures the page again; the fixes are undone before the screenshot.</li>
+    <li>Takes a screenshot of the top of the page in each view and records the box of every finding.</li>
     <li>On the desktop page, with the GenClass runtime loaded in observe mode (telemetry off, model from
     <code>genclass.dev/model/</code>), types <code>a</code>, <code>ab</code>, <code>abc</code> into the first search box, 80 ms apart,
     and double-clicks the most prominent submit button of a same-origin form that would POST. Forms with a password or card
@@ -683,18 +694,28 @@ export function aboutPage(n: string): string {
     <figcaption>Table 2. Every kind of finding, its category and weight. The same element with the same problem in two views counts once.</figcaption></div>
   </div>
   <div class="prose">
-  <p>What the checks look for, exactly: text whose contrast with a solid background is under 1.5:1 (text over images or gradients is
-  skipped); <code>undefined</code>, <code>NaN</code>, <code>[object Object]</code> or <code>{{...}}</code> in visible text outside code
-  blocks; images that finished loading with no image data; stylesheets and fonts that failed or answered 400 or above; a page
-  that scrolls sideways on the phone views; controls on the first screen whose centre point is covered by another element
-  (dialogs and consent banners are not counted); a double click that sent two identical requests; and problems GenClass's model
-  diagnosed during the probe.</p>
+  <p>The checks are the GenClass runtime's measured visual checks, 23 kinds with fixed thresholds (Table 2): text under 1.5:1
+  contrast on a background it can measure (text over images, gradients or video is skipped), <code>[object Object]</code>,
+  <code>$NaN</code> or raw <code>{{ }}</code> placeholders in visible text, lorem ipsum, garbled characters, images, background
+  images, video, stylesheets, fonts and icon fonts that failed, files the Content-Security-Policy blocked, CSS variables defined
+  nowhere, stretched images, sideways scrolling, a missing viewport meta tag on phones, layout shifts above 0.25, an empty main
+  region, a page that ignores clicks or cannot scroll, controls under fixed bars, focus hidden under sticky bars, and dialogs that
+  are covered. Each finding says what was measured and against which threshold.</p>
+  <p>How often they are right, as measured for the runtime (GitHub runners, Chromium, 2026-10-13): on its fixture pages, 35 of
+  35 planted faults found across the 23 kinds; on its bench, no false reports in 128 page views of clean local apps, and every
+  planted fault in real app layouts found for 19 of the 23 kinds; on 40 public home pages, 8 findings in 96 loads, 5 of them
+  confirmed real and none shown wrong (the other 3 unconfirmed). The checks in this scanner are that build. Details are in the
+  runtime's RESULTS.md, sections 8 and 9.</p>
   <h3 class="h3">The with-GenClass score</h3>
-  <p>It is measured, never projected. In the same browser session the scanner turns on what the GenClass runtime ships (guard mode
-  for requests and responses; visual fixes once the runtime has them) and runs the checks and the probe again. A finding counts as fixed only when
-  the re-check shows it gone and GenClass recorded the action that removed it. Everything else is marked as reported, with the fix
-  for the developer. This build shows the with-GenClass score only when the runtime's visual fixes are available; the race probe
-  always shows the measured guard result.</p>
+  <p>It is measured, never projected. In the same browser, the visual checks run in guard mode with their fixes on, as
+  <code>GenClass.init({ mode: "guard", visual: { on: true, fix: true } })</code> runs them, and a second set of the same checks,
+  report-only, measures the page again with the fixes in place. GenClass fixes three kinds in the page: text colour for
+  invisible text, a leaked inline <code>pointer-events: none</code> and a leaked inline scroll lock on html or body. A finding
+  counts as fixed only when GenClass applied its fix and the re-check no longer found it, in every view where it appeared.
+  Every other kind is reported for the developer with the suggested CSS or code, and the report says so on each finding. The
+  race probe runs again in a fresh page with GenClass guard at its default settings; a double submit counts as fixed only when
+  guard's own action sent fewer requests. When guard flags a problem but its expected gain does not clear the safety margin, the
+  report says it held back.</p>
   </div>
 </section>
 <section class="blk prose" id="opt-out">

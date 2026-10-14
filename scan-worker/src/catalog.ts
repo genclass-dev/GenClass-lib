@@ -3,20 +3,38 @@
 
 import type { Category, Severity } from "./score.ts";
 
-export type Kind =
-  | "low-contrast"
-  | "template-leak"
-  | "failed-font"
-  | "broken-image"
-  | "failed-stylesheet"
-  | "horizontal-overflow"
-  | "covered-control"
-  | "duplicate-submit"
-  | "genclass-detection";
+/** The GenClass visual checks' kinds (packages/runtime/src/visual, docs/runtime/VISUAL.md section 3). */
+export const VISUAL_KINDS = [
+  "image-broken",
+  "image-css-broken",
+  "media-failed",
+  "stylesheet-failed",
+  "font-failed",
+  "icon-font-failed",
+  "csp-blocked",
+  "text-invisible",
+  "text-template-leak",
+  "text-placeholder",
+  "text-encoding",
+  "css-var-undefined",
+  "image-distorted",
+  "page-overflow-x",
+  "viewport-meta-missing",
+  "layout-shift",
+  "page-blank",
+  "click-blocked",
+  "pointer-events-leak",
+  "scroll-lock-stuck",
+  "control-unreachable",
+  "focus-obscured",
+  "dialog-covered",
+] as const;
+export type VisualKind = (typeof VISUAL_KINDS)[number];
+export type Kind = VisualKind | "duplicate-submit" | "genclass-detection";
 
 export interface RawFinding {
   kind: Kind;
-  /** Short CSS selector of the element, or "" when there is no element (a stylesheet in <head>). */
+  /** Short CSS selector of the element, or "" when there is no element. */
   selector: string;
   /** Element box in document coordinates (CSS px), when there is one. */
   box?: { x: number; y: number; w: number; h: number } | null;
@@ -25,48 +43,149 @@ export interface RawFinding {
   detail?: Record<string, unknown>;
 }
 
+/**
+ * Every kind: its score category, its default severity (a visual finding carries the severity the check measured,
+ * which can differ: a broken image is high or medium), what it is and why it matters. The visual kinds' severities
+ * are the check's own (VISUAL.md section 3).
+ */
 export const KINDS: Record<Kind, { category: Category; severity: Severity; what: string; why: string }> = {
-  "low-contrast": {
+  "text-invisible": {
     category: "readability",
     severity: "high",
     what: "Text that is almost invisible on its background",
     why: "Below 1.5:1 most people cannot read the text at all. Body text needs 4.5:1 to pass WCAG 2.2 (1.4.3).",
   },
-  "template-leak": {
+  "text-template-leak": {
     category: "readability",
     severity: "high",
     what: "Template or debug text shows on the page",
-    why: "A value was missing when the page rendered, so readers see placeholder text instead of the content.",
+    why: "A value was missing when the page rendered, so readers see [object Object], NaN or a raw placeholder instead of the content.",
   },
-  "failed-font": {
+  "text-placeholder": {
+    category: "readability",
+    severity: "medium",
+    what: "Placeholder content shows on the page",
+    why: "Lorem ipsum or a placeholder image service usually means a section shipped before its real content.",
+  },
+  "text-encoding": {
+    category: "readability",
+    severity: "medium",
+    what: "Characters are garbled",
+    why: "Text decoded with the wrong character set, or escaped twice, shows symbols such as \u00c3\u00a9 or &amp; instead of the words.",
+  },
+  "font-failed": {
     category: "readability",
     severity: "low",
     what: "A web font failed to load",
     why: "The browser falls back to another font. Line lengths change and text can push the layout around.",
   },
-  "broken-image": {
+  "icon-font-failed": {
+    category: "readability",
+    severity: "medium",
+    what: "An icon font failed to load",
+    why: "Icons show as empty boxes or as their names in words, so buttons that are only an icon lose their meaning.",
+  },
+  "image-broken": {
     category: "media",
     severity: "medium",
     what: "An image failed to load",
     why: "Visitors see an empty box or the alt text. If the image carries content, such as a product photo, that content is gone.",
   },
-  "failed-stylesheet": {
+  "image-css-broken": {
+    category: "media",
+    severity: "medium",
+    what: "A CSS background image failed to load",
+    why: "The element shows only its background colour, so a section that relies on the picture looks empty.",
+  },
+  "media-failed": {
+    category: "media",
+    severity: "medium",
+    what: "A video or audio element has nothing it can play",
+    why: "Visitors see an empty or broken player where the page expects media.",
+  },
+  "image-distorted": {
+    category: "media",
+    severity: "medium",
+    what: "An image is stretched or squashed",
+    why: "It is drawn at a different shape than the file, so photos and logos look wrong.",
+  },
+  "stylesheet-failed": {
     category: "layout",
     severity: "high",
     what: "A stylesheet failed to load",
     why: "Everything that sheet styles falls back to browser defaults. Layout, spacing and navigation usually break.",
   },
-  "horizontal-overflow": {
+  "csp-blocked": {
+    category: "layout",
+    severity: "medium",
+    what: "The Content-Security-Policy blocked a file the page uses",
+    why: "The browser refused a style, font, image or media file the page asks for, so that part shows unstyled or empty.",
+  },
+  "css-var-undefined": {
+    category: "layout",
+    severity: "low",
+    what: "A CSS variable is used but defined nowhere",
+    why: "The property falls back to its default, often a transparent colour or no spacing, so the element does not look as designed.",
+  },
+  "page-overflow-x": {
     category: "layout",
     severity: "high",
-    what: "The page scrolls sideways on a phone",
+    what: "The page scrolls sideways",
     why: "Content past the right edge is easy to miss, and the page slides sideways while people scroll down.",
   },
-  "covered-control": {
+  "viewport-meta-missing": {
+    category: "layout",
+    severity: "high",
+    what: "Phones show the desktop layout, zoomed out",
+    why: "Without a viewport meta tag a phone lays the page out 980 px wide and shrinks it, so text is tiny until people zoom in.",
+  },
+  "layout-shift": {
+    category: "layout",
+    severity: "medium",
+    what: "Content jumps while the page loads",
+    why: "A layout shift above 0.25 moves what people are about to read or tap.",
+  },
+  "page-blank": {
+    category: "layout",
+    severity: "high",
+    what: "The main part of the page shows nothing",
+    why: "No text or media rendered in the main region, so visitors see an empty page.",
+  },
+  "click-blocked": {
+    category: "interaction",
+    severity: "high",
+    what: "An invisible layer swallows clicks",
+    why: "Clicks meant for the control underneath land on a transparent layer and do nothing.",
+  },
+  "pointer-events-leak": {
+    category: "interaction",
+    severity: "high",
+    what: "The whole page ignores clicks",
+    why: "pointer-events: none was left on html or body, usually by a menu or dialog that closed without releasing it.",
+  },
+  "scroll-lock-stuck": {
+    category: "interaction",
+    severity: "high",
+    what: "The page cannot scroll",
+    why: "A scroll lock from a dialog or menu stayed on html or body after it closed, so visitors cannot reach the rest of the page.",
+  },
+  "control-unreachable": {
+    category: "interaction",
+    severity: "high",
+    what: "A control is stuck under a fixed bar",
+    why: "A fixed or sticky element covers it even at the end of the page, so it cannot be clicked or tapped.",
+  },
+  "focus-obscured": {
     category: "interaction",
     severity: "medium",
-    what: "A control is covered by another element",
-    why: "A tap or click at the control's centre lands on the element on top, so the control does nothing.",
+    what: "A focused element is hidden under a sticky bar",
+    why: "Keyboard users cannot see where focus is (WCAG 2.2, 2.4.11).",
+  },
+  "dialog-covered": {
+    category: "interaction",
+    severity: "high",
+    what: "An open dialog is covered, or its buttons are off-screen",
+    why: "Visitors cannot reach the dialog's own controls, so they cannot finish it or close it.",
   },
   "duplicate-submit": {
     category: "interaction",
@@ -92,8 +211,13 @@ const safeSubject = (f: RawFinding): boolean => SAFE_SUBJECT.test(String(f.detai
  */
 export function severityOf(f: RawFinding): Severity {
   if (f.kind === "genclass-detection" && String(f.detail?.diagnosis) === "duplicate" && safeSubject(f)) return "low";
+  const measured = f.detail?.severity;
+  if (isVisual(f.kind) && (measured === "high" || measured === "medium" || measured === "low")) return measured;
   return KINDS[f.kind].severity;
 }
+
+const VISUAL_SET = new Set<string>(VISUAL_KINDS);
+export const isVisual = (k: string): k is VisualKind => VISUAL_SET.has(k);
 
 const DIAGNOSIS_WORDS: Record<string, { what: string; why: string; fix: string }> = {
   stale: {
@@ -128,59 +252,49 @@ const DIAGNOSIS_WORDS: Record<string, { what: string; why: string; fix: string }
   },
 };
 
-// --------------------------------------------------------------------------------------------- colour helpers
+/** What to do when a visual check gave no CSS and no fix of its own. */
+const GENERIC_FIX: Record<VisualKind, string> = {
+  "image-broken": "Fix the image URL, or remove the image.",
+  "image-css-broken": "Fix the background-image URL.",
+  "media-failed": "Serve a source the browser can play (an MP4 with H.264 is the safe choice) and check its URL.",
+  "stylesheet-failed": "Serve the stylesheet with status 200 and content-type text/css (check the build's hashed file name).",
+  "font-failed": "Fix the font URL, and use font-display: swap with a fallback stack of similar metrics.",
+  "icon-font-failed": "Fix the icon font's URL, or use inline SVG icons.",
+  "csp-blocked": "Allow the file's origin in the matching Content-Security-Policy directive, or stop loading it.",
+  "text-invisible": "Give the text a colour with at least 4.5:1 contrast on its background.",
+  "text-template-leak": "Render a fallback when the value is missing, or keep the element hidden until its data has loaded.",
+  "text-placeholder": "Replace the placeholder text or image with the real content.",
+  "text-encoding": "Serve the page as UTF-8 (Content-Type: text/html; charset=utf-8) and escape text once.",
+  "css-var-undefined": "Define the variable, or give var() a fallback value.",
+  "image-distorted": "Set object-fit: cover (or contain), or give the image a height that matches its aspect ratio.",
+  "page-overflow-x": "Find the element wider than the screen and give it max-width: 100%.",
+  "viewport-meta-missing": 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to the head.',
+  "layout-shift": "Reserve space for content that arrives late (width and height on images, min-height on slots for embeds and ads).",
+  "page-blank": "Check the main region's render path: a failed data request, a script error or content left hidden.",
+  "click-blocked": "Give the covering layer pointer-events: none, or remove it when it is not shown.",
+  "pointer-events-leak": "Release pointer-events on every close path of the menu or dialog that set it.",
+  "scroll-lock-stuck": "Remove the scroll lock on every close path of the dialog or menu that set it.",
+  "control-unreachable": "Reserve space for the fixed element (padding at the end of the page), or move it on small screens.",
+  "focus-obscured": "Set scroll-padding-top (or bottom) on html to the sticky element's height.",
+  "dialog-covered": "Raise the dialog above the covering element, or let its content scroll inside the viewport.",
+};
 
-export function hex(rgb: readonly number[]): string {
-  return `#${rgb.slice(0, 3).map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
-}
+const sentence = (t: string): string => {
+  const x = t.trim();
+  return x ? `${x.charAt(0).toUpperCase()}${x.slice(1)}${/[.!?]$/.test(x) ? "" : "."}` : "";
+};
 
-export function luminance(rgb: readonly number[]): number {
-  const ch = rgb.slice(0, 3).map((v) => {
-    const c = v / 255;
-    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
-}
-
-export function contrast(a: readonly number[], b: readonly number[]): number {
-  const la = luminance(a);
-  const lb = luminance(b);
-  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
-}
-
-const round2 = (n: number): string => (Math.round(n * 100) / 100).toFixed(2);
-
-/** The suggested fix for a finding, from what was measured. CSS where CSS fixes it; code otherwise. */
+/** The suggested fix for a finding: the check's own CSS and fix text when it gave them, else a fix for the kind. */
 export function suggestFix(f: RawFinding): string {
-  const sel = f.selector || "selector";
   const d = f.detail ?? {};
-  switch (f.kind) {
-    case "low-contrast": {
-      const bg = Array.isArray(d.bg) ? (d.bg as number[]) : [255, 255, 255];
-      const ink = luminance(bg) > 0.18 ? [26, 26, 26] : [245, 245, 245];
-      return `${sel} { color: ${hex(ink).toLowerCase()}; } /* ${round2(contrast(ink, bg))}:1 on ${hex(bg).toLowerCase()} */`;
-    }
-    case "template-leak":
-      return `Render a fallback when the value is missing (for example {price ?? "Price on request"}), or keep the element hidden until its data has loaded: ${sel}:empty { display: none; }`;
-    case "failed-font":
-      return `@font-face { font-display: swap; } and a fallback stack with similar metrics: font-family: ${String(d.family || "YourFont")}, system-ui, sans-serif; then fix the font URL.`;
-    case "broken-image":
-      return `Fix the image URL. Until then, keep the space readable: ${sel} { color: #4a4a4a; font: 14px/1.4 system-ui, sans-serif; } so the alt text shows instead of a broken icon.`;
-    case "failed-stylesheet":
-      return `Serve ${String(d.url || "the stylesheet")} with status 200 and content-type text/css (check the build's hashed file name), and inline the CSS the first screen needs.`;
-    case "horizontal-overflow": {
-      const tag = String(d.tag || "");
-      if (/^(img|video|iframe|canvas|svg|picture)$/.test(tag)) return `${sel} { max-width: 100%; height: auto; }`;
-      if (/^(pre|table|code)$/.test(tag)) return `${sel} { max-width: 100%; overflow-x: auto; }`;
-      return `${sel} { max-width: 100%; overflow-wrap: anywhere; } /* or find the fixed width that is wider than ${String(d.viewport || 390)} px */`;
-    }
-    case "covered-control":
-      return `${String(d.cover || "the covering element")} { pointer-events: none; } if that layer is decorative; otherwise move it below the control with a lower z-index.`;
-    case "duplicate-submit":
-      return "Disable the button while the request is in flight: form.addEventListener(\"submit\", (e) => { e.submitter && (e.submitter.disabled = true); }); and send an idempotency key so the server can drop a repeat.";
-    case "genclass-detection":
-      return (DIAGNOSIS_WORDS[diagnosisKey(f)] ?? DIAGNOSIS_WORDS.stale).fix;
-  }
+  if (f.kind === "duplicate-submit")
+    return "Disable the button while the request is in flight: form.addEventListener(\"submit\", (e) => { e.submitter && (e.submitter.disabled = true); }); and send an idempotency key so the server can drop a repeat.";
+  if (f.kind === "genclass-detection") return (DIAGNOSIS_WORDS[diagnosisKey(f)] ?? DIAGNOSIS_WORDS.stale).fix;
+  const css = typeof d.css === "string" ? d.css.trim() : "";
+  const note = typeof d.cssNote === "string" ? d.cssNote.trim() : "";
+  const text = typeof d.fixText === "string" ? sentence(d.fixText) : "";
+  const parts = [css, note ? sentence(note) : "", text].filter(Boolean);
+  return parts.length ? parts.join("\n") : GENERIC_FIX[f.kind];
 }
 
 /** The words to use for a GenClass detection: its diagnosis, with a duplicate GET kept apart from a duplicate write. */
@@ -237,24 +351,13 @@ export function sanitizeFinding(v: unknown): RawFinding | null {
   return { kind: o.kind as Kind, selector: clamp(o.selector, 200), box, measured: clamp(o.measured, 240), detail };
 }
 
-/** Notes the scanner's own checks write: kept only when they look like one (short, plain characters, at most four). */
-export function sanitizeNotes(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  return v.filter((n): n is string => typeof n === "string" && n.length > 0 && n.length <= 200 && /^[\w\s.,;:()%'\/#=-]+$/.test(n)).slice(0, 4);
-}
-
 /** The page statistics the checks return, numbers and one boolean only. */
 export function sanitizeStats(v: unknown): Record<string, unknown> | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  for (const k of ["textChecked", "textElements", "textOutsideCapture", "docHeight", "docWidth", "ms"]) if (finite(o[k]) !== null) out[k] = o[k];
+  for (const k of ["docHeight", "docWidth", "ms", "passes", "elements", "partial", "abstained", "skipped"]) if (finite(o[k]) !== null) out[k] = o[k];
   if (Array.isArray(o.viewport) && o.viewport.length === 2 && o.viewport.every((x) => finite(x) !== null)) out.viewport = o.viewport;
   if (typeof o.viewportMeta === "boolean") out.viewportMeta = o.viewportMeta;
-  if (o.contrastSkipped && typeof o.contrastSkipped === "object" && !Array.isArray(o.contrastSkipped)) {
-    const skips: Record<string, number> = {};
-    for (const [k, n] of Object.entries(o.contrastSkipped as Record<string, unknown>).slice(0, 12)) if (/^[\w-]{1,30}$/.test(k) && finite(n) !== null) skips[k] = n as number;
-    out.contrastSkipped = skips;
-  }
   return out;
 }

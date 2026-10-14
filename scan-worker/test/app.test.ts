@@ -35,6 +35,7 @@ function setup(script: PageScript = {}, envExtra: Partial<Env> = {}) {
       await new Promise((r) => setTimeout(r, 0));
     },
     runtimeSource: async () => "window.__rt = 1;",
+    visualSource: "window.__genclassScanVisual = function () {};",
     scanId: () => `scan${String(++n).padStart(4, "0")}`,
   };
   const env: Env = { BROWSER: { fetch }, BUCKET: bucket, SCAN_LIMIT: limiter, MAX_CONCURRENT: "2", ...envExtra };
@@ -56,9 +57,9 @@ const SCRIPT: PageScript = {
   ],
   findings: (view) =>
     view === "desktop"
-      ? [{ kind: "low-contrast", selector: "p.fine-print", box: { x: 40, y: 900, w: 300, h: 16 }, measured: "Contrast 1.08:1 (#F7F7F7 on #FFFFFF), 13 px text", detail: { fg: [247, 247, 247], bg: [255, 255, 255] } }]
+      ? [{ kind: "text-invisible", selector: "p.fine-print", box: { x: 40, y: 900, w: 300, h: 16 }, measured: "text contrast 1.08:1 on p.fine-print", detail: { severity: "high", css: "p.fine-print { color: #767676; }" } }]
       : view === "phone"
-        ? [{ kind: "horizontal-overflow", selector: "div.promo", box: { x: 0, y: 300, w: 452, h: 80 }, measured: "Page is 452 px wide on a 390 px screen", detail: { tag: "div", viewport: 390 } }]
+        ? [{ kind: "page-overflow-x", selector: "div.promo", box: { x: 0, y: 300, w: 452, h: 80 }, measured: "the page scrolls sideways on a 390 px viewport", detail: { severity: "high" } }]
         : [],
   search: true,
   button: true,
@@ -196,7 +197,7 @@ describe("a full scan with the browser mocked", () => {
     const r = done.report;
 
     // the findings: contrast (desktop), overflow (phone), and the double click that sent two identical POSTs
-    assert.deepEqual(r.findings.map((f: { kind: string }) => f.kind).sort(), ["duplicate-submit", "horizontal-overflow", "low-contrast"]);
+    assert.deepEqual(r.findings.map((f: { kind: string }) => f.kind).sort(), ["duplicate-submit", "page-overflow-x", "text-invisible"]);
     assert.equal(r.score.value, 70);
     assert.equal(r.withGenClass.shown, false, "the column is behind the flag by default");
     const dup = r.findings.find((f: { kind: string }) => f.kind === "duplicate-submit");
@@ -227,6 +228,14 @@ describe("a full scan with the browser mocked", () => {
     assert.ok(guardPage.onNew.some((s) => s.includes('"holdBudgetMs":900')));
     assert.ok(b.pages.every((p) => p.ua.endsWith("GenClassScan/1.0 (+https://genclass.dev/scan)")));
     assert.deepEqual(b.pages.slice(0, 3).map((p) => [p.viewport!.width, p.scheme]), [[1366, "light"], [390, "light"], [390, "dark"]]);
+    // the visual checks: report-only with the column off, Tab presses on the desktop only, scrolling everywhere, stopped
+    for (const p of b.pages.slice(0, 3)) {
+      assert.deepEqual(p.visual.find((c) => c.cmd === "start")!.arg, { id: "a", mode: "observe", fix: false, csp: [] }, p.view);
+      assert.equal(p.visual.filter((c) => c.cmd === "start").length, 1, "no re-check without fixes");
+      assert.equal(p.visual.at(-1)!.cmd, "stop");
+      assert.ok(p.wheels > 0, p.view);
+    }
+    assert.ok(b.pages[0].keys.length > 0 && b.pages[1].keys.length === 0);
 
     // stored: the report and three screenshots, under scans/
     const keys = [...t.bucket.objects.keys()];
@@ -283,7 +292,7 @@ describe("a full scan with the browser mocked", () => {
     assert.ok(r.ms.total <= 45_000 + 2000, `budget respected: ${r.ms.total}`);
   });
 
-  it("does not load a subresource whose name resolves privately, and keeps a dead host as a failed stylesheet", async () => {
+  it("does not load a subresource whose name resolves privately, and leaves out visual findings about files it refused", async () => {
     const t = setup({
       load: [
         { url: "https://inside.example.net/logo.png", type: "image" },
@@ -295,12 +304,45 @@ describe("a full scan with the browser mocked", () => {
     await Promise.all(t.waits);
     const desk = t.browsers[0].pages[0];
     for (const u of ["https://inside.example.net/logo.png", "https://evil.example.com/app.js", "https://gone.example.net/theme.css"]) assert.equal(desk.handled.find((h) => h.url === u)?.outcome, "abort", u);
-    const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
-    const css = r.findings.find((f: { kind: string }) => f.kind === "failed-stylesheet");
-    assert.match(css.measured, /hostname does not resolve for gone\.example\.net\/theme\.css/);
+    assert.ok(msgs.some((m) => m.type === "done"));
+    // the hosts the scanner refused are left out of the visual findings; a name with no address fails for visitors too
+    const skip = desk.visual.find((c) => c.cmd === "collect")!.arg.skipHosts as string[];
+    assert.ok(skip.includes("inside.example.net") && skip.includes("evil.example.com"), skip.join(","));
+    assert.ok(!skip.includes("gone.example.net"));
     // each name was looked up once for the whole scan
     const lookups = t.net.calls.filter((c) => c.endsWith("name=inside.example.net&type=A"));
     assert.equal(lookups.length, 1);
+  });
+
+  it("with GenClass on, runs the visual checks with their fixes and counts a fix only when the re-check no longer finds it", async () => {
+    const fixable = (fixApplied: boolean) => ({ kind: "text-invisible", selector: "p.fine-print", box: null, measured: "text contrast 1.08:1", detail: { severity: "high", fixApplied, fixCss: "p.fine-print { color: rgb(118, 118, 118); }" } });
+    const overflow = { kind: "page-overflow-x", selector: "div.promo", box: null, measured: "the page scrolls sideways", detail: { severity: "high" } };
+    const script: PageScript = {
+      ...SCRIPT,
+      findings: (view) => (view === "phone-dark" ? [fixable(false)] : [fixable(true), overflow]),
+      recheck: (view) => (view === "phone" ? [fixable(false), overflow] : [overflow]),
+    };
+    const t = setup(script, { WITH_GENCLASS: "on" });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    const b = t.browsers[0];
+    for (const p of b.pages.slice(0, 3)) {
+      assert.deepEqual(p.visual.find((c) => c.cmd === "start")!.arg, { id: "a", mode: "guard", fix: true, csp: [] }, p.view);
+      assert.equal(p.visual.at(-1)!.cmd, "stop", "engine a is stopped last: every fix is undone before the screenshot");
+      assert.equal(p.visual.at(-1)!.arg.id, "a");
+    }
+    // desktop and phone applied a fix; only the desktop's re-check no longer found it; the dark phone applied none
+    assert.ok(b.pages[0].visual.some((c) => c.cmd === "start" && c.arg.id === "c" && c.arg.mode === "observe" && c.arg.fix === false));
+    assert.equal(r.views[0].fixes ?? null, null, "the report carries the result per finding, not the raw view data");
+    const f = r.findings.find((x: { kind: string }) => x.kind === "text-invisible");
+    assert.deepEqual(f.views, ["desktop", "phone", "phone-dark"]);
+    assert.equal(f.fixed, null, "not fixed in every view it appeared in");
+    assert.equal(f.genclass.status, "not-fixed");
+    const o = r.findings.find((x: { kind: string }) => x.kind === "page-overflow-x");
+    assert.equal(o.genclass.status, "reported");
+    assert.equal(r.withGenClass.shown, true);
+    assert.equal(r.withGenClass.fixed, 1, "only the double submit, fixed by guard's own coalesce");
   });
 
   it("ignores response addresses when the browser reaches the network through a local proxy", async () => {
@@ -372,14 +414,14 @@ describe("a full scan with the browser mocked", () => {
   it("says when the page's own POSTs got stand-in answers while loading, and does not score what may come from them", async () => {
     const t = setup({
       load: [{ url: "https://shop.example.com/graphql", method: "POST", type: "fetch", body: '{"query":"{products{price}}"}' }],
-      findings: (view) => (view === "phone-dark" ? [] : [{ kind: "template-leak", selector: "span.price", box: { x: 10, y: 10, w: 80, h: 18 }, measured: '"Price: NaN"', detail: { text: "NaN" } }]),
+      findings: (view) => (view === "phone-dark" ? [] : [{ kind: "text-template-leak", selector: "span.price", box: { x: 10, y: 10, w: 80, h: 18 }, measured: '"Price: $NaN"', detail: { severity: "high" } }]),
     });
     const msgs = await ndjson(await t.post("shop.example.com"));
     await Promise.all(t.waits);
     const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
     assert.equal(r.views[0].standIns, 1);
     assert.ok(r.views[0].notes.some((n: string) => /sent 1 request other than GET while loading \(POST shop\.example\.com\/graphql\)/.test(n)), r.views[0].notes.join(" | "));
-    const leak = r.findings.find((f: { kind: string }) => f.kind === "template-leak");
+    const leak = r.findings.find((f: { kind: string }) => f.kind === "text-template-leak");
     assert.match(leak.unscored, /stand-in answer/);
     assert.equal(r.score.value, 100);
   });

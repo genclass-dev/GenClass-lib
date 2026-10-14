@@ -26,9 +26,13 @@
     { "name": "SITE_LIMIT", "namespace_id": "4811", "simple": { "limit": 4, "period": 60 } }
   ],
   "vars": {
-    "MAX_CONCURRENT": "3",
-    // The with-GenClass score column stays off until the runtime ships visual fixes (branch wave2/visual).
-    "WITH_GENCLASS": "off",
+    // Scans at once across everyone; each holds one Browser Rendering browser. Browser Rendering allows 200 at once
+    // and 3 new browsers a second on Workers Paid (developers.cloudflare.com/browser-rendering/limits, 2026-09-26);
+    // the bound here is the lease file scans/slots.json, written twice per scan, and R2 takes one write a second per
+    // key: 10 scans of about 35 s are about 0.6 writes a second.
+    "MAX_CONCURRENT": "10",
+    // The with-GenClass column: the visual checks' fixes in guard mode, re-checked, and the race probe's guard pass.
+    "WITH_GENCLASS": "on",
     "GUARD_HOLD_MS": "900"
   },
   // Hourly retention sweep: scan reports and screenshots older than 24 hours.

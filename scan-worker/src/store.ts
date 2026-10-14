@@ -76,12 +76,15 @@ export async function acquireSlot(bucket: Bucket, cap: number, id: string, key: 
     if (client && live.some((l) => l.client === client)) return "mine";
     if (live.length >= cap) return "busy";
     live.push({ id, key, until: now + LEASE_MS, ...(client ? { client } : {}) });
-    const put = await bucket.put("scans/slots.json", JSON.stringify({ leases: live }), {
-      onlyIf: obj ? { etagMatches: obj.etag } : new Headers({ "if-none-match": "*" }),
-      httpMetadata: { contentType: "application/json" },
-    });
+    // R2 takes at most one write per second to one key and answers more with 429 (thrown here): that is a retry too
+    const put = await bucket
+      .put("scans/slots.json", JSON.stringify({ leases: live }), {
+        onlyIf: obj ? { etagMatches: obj.etag } : new Headers({ "if-none-match": "*" }),
+        httpMetadata: { contentType: "application/json" },
+      })
+      .catch(() => null);
     if (put) return "ok";
-    await new Promise((r) => setTimeout(r, 40 + attempt * 60));
+    await new Promise((r) => setTimeout(r, 250 + attempt * 200));
   }
   return "busy";
 }
@@ -97,9 +100,9 @@ export async function releaseSlot(bucket: Bucket, id: string, now: number): Prom
       return;
     }
     const leases = (slots.leases || []).filter((l) => l.id !== id && l.until > now);
-    const put = await bucket.put("scans/slots.json", JSON.stringify({ leases }), { onlyIf: { etagMatches: obj.etag }, httpMetadata: { contentType: "application/json" } });
+    const put = await bucket.put("scans/slots.json", JSON.stringify({ leases }), { onlyIf: { etagMatches: obj.etag }, httpMetadata: { contentType: "application/json" } }).catch(() => null);
     if (put) return;
-    await new Promise((r) => setTimeout(r, 40 + attempt * 60));
+    await new Promise((r) => setTimeout(r, 250 + attempt * 200));
   }
 }
 
