@@ -1501,7 +1501,7 @@ describe("Managed Payments for Pro, flexible billing mode, switching between Pro
     log.mockRestore();
   });
 
-  it("the daily sweep ends overdue plans first, even when the rest of the sweep fails", async () => {
+  it("the daily sweep still ends overdue plans when the rest of it fails", async () => {
     const t = await switching("pro", "sub_pro0000001");
     const DAY = 86_400_000;
     setPlan(t.sql, t.account.id, "pro", { subscription_status: "past_due", past_due_since: new Date(now().getTime() - 20 * DAY).toISOString() });

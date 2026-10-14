@@ -271,13 +271,12 @@ export async function endOverduePlans(db: D1Like, now: Date): Promise<void> {
 }
 
 /**
- * The daily sweep (index.ts): overdue plans end first (endOverduePlans: the past-due backstop runs whatever happens
- * after it; an ended plan's data keeps its GRACE_DAYS either way), then dashboard rows by plan, stored-batch index and
- * export copies by plan, forwarding dedupe rows older than 2 hours, handled Stripe event ids older than 30 days. A
- * failure in one step does not stop the others; the first one's error is thrown at the end.
+ * The daily sweep (index.ts): dashboard rows by plan, stored-batch index and export copies by plan, forwarding dedupe
+ * rows older than 2 hours, handled Stripe event ids older than 30 days, then overdue plans end (endOverduePlans; an
+ * ended plan's data keeps its GRACE_DAYS either way). A failing step does not stop the ones after it, so the
+ * past-due backstop always runs; the retention step's error is thrown at the end.
  */
 export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps, mode?: StripeMode | null): Promise<void> {
-  await endOverduePlans(db, now).catch(() => undefined);
   const long = longRetention(now, mode);
   let failed: unknown = null;
   await retention(db, now, long).catch((e: unknown) => {
@@ -291,5 +290,6 @@ export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps, m
       db.prepare("DELETE FROM billing_events WHERE received < ?").bind(new Date(now.getTime() - 30 * DAY).toISOString()),
     ])
     .catch(() => undefined);
+  await endOverduePlans(db, now).catch(() => undefined);
   if (failed) throw failed;
 }
