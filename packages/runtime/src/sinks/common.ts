@@ -1,65 +1,19 @@
-// Shared pieces of the sink adapters (@genclass/runtime/sinks/*, OPTIONS-SPEC §4.11): the SDK lookup on the page, a
-// grouping signature built from a record's own fields, a flat property bag and a per-session cap per signature.
+// Shared pieces of the sink adapters (@genclass/runtime/sinks/*, OPTIONS-SPEC §4.11): the global lookup, a grouping
+// signature built from a record's own fields and a per-session cap per signature.
 //
-// Invariants: an adapter never throws into the app (every send is wrapped), never imports a vendor SDK (it uses the
-// one the page already has, found at send time, or the one passed in), and never reads page text: everything it
-// forwards is the SinkRecord the runtime handed it (redacted evidence included, OPTIONS-SPEC §4.10).
+// Invariants: an adapter never throws into the app (every send is wrapped), imports nothing from the runtime but
+// types, and never reads page text: everything it forwards is the SinkRecord the runtime handed it (redacted evidence
+// included, OPTIONS-SPEC §4.10).
 
-import type { SinkKind, SinkRecord } from "../types.js";
+import type { SinkRecord } from "../types.js";
 
-/** Record kinds the tool adapters forward by default: everything but the session summary. */
-export const DEFAULT_KINDS: SinkKind[] = ["detection", "intervention", "undo", "breaker", "error"];
-
-/** Default `maxPerSignature` of the tool adapters. */
+/** Default `maxPerSignature` of the webhook adapter. */
 export const DEFAULT_MAX_PER_SIGNATURE = 10;
 
 /** Signatures tracked per session for the cap; beyond that, records pass. */
 const MAX_SIGNATURES = 500;
 
-/** Options every tool adapter takes. */
-export interface AdapterOptions {
-  /** Record kinds to forward (default: detection, intervention, undo, breaker, error; never the session summary). */
-  kinds?: SinkKind[];
-  /** Session-deterministic sampling (SinkObject.sampleRate); interventions, undos and breaker trips are never dropped. */
-  sampleRate?: number;
-  /**
-   * At most this many records per signature (kind, trigger, diagnosis, action and the subject's shape) per page
-   * load, so a failure storm does not burn an event quota (default 10; 0 = no cap).
-   */
-  maxPerSignature?: number;
-  /**
-   * Send the redacted evidence: the console line, the subject and the timeline (default true). Timeline lines can hold
-   * short fragments of app data (a store value summary, an error message, text typed into an ordinary input); false
-   * sends the structured fields only (kind, diagnosis, p, action, route, ...).
-   */
-  evidence?: boolean;
-  /**
-   * Also forward "possible" detections (observe's lower tier, `SinkRecord.detection` "possible"; InitOptions.detect).
-   * Default false: likely detections only.
-   */
-  possible?: boolean;
-  /** Where the SDK global is looked up (default `globalThis`). */
-  global?: object;
-}
-
 export const globalOf = (o: { global?: object } | undefined): Record<string, unknown> => (o?.global ?? globalThis) as Record<string, unknown>;
-
-/**
- * A function that, the first time it is called, prints one console warning (on the adapter's global) that a record
- * arrived and the adapter found no SDK, so it was dropped, and how to fix it. Later calls do nothing. Never throws.
- */
-export function warnOnce(o: { global?: object } | undefined, message: string): () => void {
-  let done = false;
-  return () => {
-    if (done) return;
-    done = true;
-    try {
-      (globalOf(o).console as { warn?: (...a: unknown[]) => void } | undefined)?.warn?.(`[GenClass] ${message}`);
-    } catch {
-      /* never into the app */
-    }
-  };
-}
 
 /**
  * Whether one path segment names an entity rather than a route: a UUID, long hex, a long token with letters and
@@ -79,7 +33,7 @@ export function idLike(seg: string): boolean {
 
 /**
  * A grouping key with op ids, numbers and id-like path segments (UUIDs, hex, tokens, slugs, emails: `idLike`)
- * normalised, so repeats of one bug on different entities land in one issue and share one `maxPerSignature` cap.
+ * normalised, so repeats of one bug on different entities share one `maxPerSignature` cap.
  */
 export function signature(r: SinkRecord): string {
   const subject = (r.evidence?.subject ?? "")
@@ -87,25 +41,6 @@ export function signature(r: SinkRecord): string {
     .replace(/#\d+/g, "#")
     .replace(/\d+(\.\d+)?/g, "n");
   return [r.kind, r.trigger ?? "", r.diagnosis ?? "", r.action ?? "", subject].join("|");
-}
-
-/** The one-line title: the console line the runtime printed for this record, else one built from its fields. */
-export function titleOf(r: SinkRecord): string {
-  if (r.evidence?.message) return r.evidence.message;
-  const what = r.diagnosis ? `${r.diagnosis} ${r.trigger ?? ""}`.trim() : r.kind;
-  return `[GenClass] ${r.kind}: ${what}${r.action ? ` (${r.action})` : ""}`;
-}
-
-/** The record's fields as one flat, JSON-safe object (evidence lifted to message / subject / timeline). */
-export function flatten(r: SinkRecord): Record<string, unknown> {
-  const { evidence, ...rest } = r;
-  const out: Record<string, unknown> = { ...rest };
-  if (evidence) {
-    if (evidence.message) out.message = evidence.message;
-    if (evidence.subject) out.subject = evidence.subject;
-    if (evidence.timeline) out.timeline = evidence.timeline;
-  }
-  return out;
 }
 
 /** Per-session cap per signature: true when this record is over the cap and should be dropped. */

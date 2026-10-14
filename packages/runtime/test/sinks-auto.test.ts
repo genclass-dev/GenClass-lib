@@ -32,7 +32,7 @@ describe("startAuto with sinks by name (GENCLASS_CONFIG)", () => {
 
   it("a valid ignore list keeps its own matchers and gains the webhook's endpoint; the runtime starts", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    W.GENCLASS_CONFIG = { ...SAFE, requests: { ignore: ["/beacon"] }, sinks: ["webhook:/genclass", "sentry"] };
+    W.GENCLASS_CONFIG = { ...SAFE, requests: { ignore: ["/beacon"] }, sinks: ["webhook:/genclass", "console-json"] };
     let rt: unknown;
     expect(() => (rt = startAuto())).not.toThrow();
     expect(rt).toBe(GenClass.runtime);
@@ -41,12 +41,26 @@ describe("startAuto with sinks by name (GENCLASS_CONFIG)", () => {
 
   it("a sinks value that is not a list is left out and never thrown over; the runtime starts", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    for (const sinks of ["sentry", 42, { send: 1 }, null]) {
+    for (const sinks of ["console-json", 42, { send: 1 }, null]) {
       W.GENCLASS_CONFIG = { ...SAFE, sinks };
       expect(() => startAuto()).not.toThrow();
       expect(GenClass.runtime).toBeTruthy();
       GenClass.destroy();
     }
+    expect(couldNotStart(warn)).toBe(false);
+  });
+
+  it("sentry, posthog or datadog by name: one console warning that forwarding to them is a GenClass Pro feature on the dashboard, and the runtime starts", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    W.GENCLASS_CONFIG = { ...SAFE, sinks: ["sentry", "posthog:noevidence", "datadog", "webhook:/genclass"] };
+    let rt: unknown;
+    expect(() => (rt = startAuto())).not.toThrow();
+    expect(rt).toBe(GenClass.runtime);
+    const pro = warn.mock.calls.map((c) => String(c[0])).filter((m) => /GenClass Pro/.test(m));
+    expect(pro).toEqual([
+      "[GenClass] Ignored sink sentry, posthog:noevidence, datadog: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing",
+    ]);
+    expect(warn.mock.calls.some((c) => /neither a function|unknown sink|could not load/.test(String(c[0])))).toBe(false);
     expect(couldNotStart(warn)).toBe(false);
   });
 });

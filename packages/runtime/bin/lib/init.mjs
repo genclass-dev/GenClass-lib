@@ -15,7 +15,7 @@ import { mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync 
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { detectCsp, detectProject, detectState, htmlFiles, isDir, isFile, readText, walkSkipped, walkSources } from "./detect.mjs";
-import { MARK, hasMarker, isEmptyConfig, planRemoval, removeMarked, sinkBase, sinkNoEvidence, sinkSdk, switchMetaConfig, switchMode, switchTagConfig, updateConfigText } from "./edit.mjs";
+import { MARK, hasMarker, isEmptyConfig, planRemoval, removeMarked, sinkBase, sinkNoEvidence, switchMetaConfig, switchMode, switchTagConfig, updateConfigText } from "./edit.mjs";
 import { AUTO, configFileChange, configFileFor, planInit, scriptTag } from "./plan.mjs";
 import { createAccountProject, readCredentials } from "./account.mjs";
 import { hostConfig, hostUrl } from "./host.mjs";
@@ -38,11 +38,13 @@ const REPO = "https://github.com/genclass-dev/GenClass-lib/blob/main";
 export const TELEMETRY_URL = `${REPO}/packages/runtime/TELEMETRY.md`;
 export const INTERCEPTION_URL = "https://genclass.dev/docs/interception";
 export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
+/** GenClass Pro: forwarding to Sentry, PostHog and Datadog, configured on the dashboard (not part of the free runtime). */
+export const PRO_URL = "https://genclass.dev/pricing";
 
 export const USAGE = `Usage:
   genclass-runtime init   [--mode observe|guard|heal] [--token <gc_...> | --no-token]
                           [--no-telemetry | --telemetry] [--model-url <url>]
-                          [--sink sentry|posthog|datadog|console-json|webhook:<url>]
+                          [--sink console-json|webhook:<url>]
                           [--yes] [--dry-run] [--no-install] [--no-devtools] [--cwd <dir>]
   genclass-runtime remove [--yes] [--dry-run] [--keep-package] [--cwd <dir>]
 
@@ -67,14 +69,14 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
                    takes the opt-out out and writes no telemetry option of its own
   --model-url <u>  use a self-hosted model directory (made with \`fetch-model\`), e.g. /genclass-model/,
                    with ONNX Runtime from <u>ort/ (for a Content-Security-Policy without cdn.jsdelivr.net)
-  --sink <name>    send every detection and intervention to a tool you already open, with no new
-                   dependency: sentry (Sentry.captureMessage), posthog (posthog.capture), datadog
-                   (DD_RUM.addError / addAction), console-json (one JSON line per record), webhook:<url>
-                   (batched POSTs of the records to your own endpoint). Repeat the flag or separate names
-                   with commas; add :noevidence (sentry:noevidence) to send the structured fields without
-                   the evidence text. Written as sinks: [...] in the option file (with @sentry/* or
-                   posthog-js in package.json: the adapter, imported, with your SDK passed in), data-sink
-                   on a script tag, sink= in the Astro meta line (README "See it where you already look")
+  --sink <name>    also send every detection and intervention to your own side, with no new dependency:
+                   console-json (one JSON line per record on the console, for a log shipper) or
+                   webhook:<url> (batched POSTs of the records to an endpoint you own). Repeat the flag or
+                   separate names with commas; add :noevidence (console-json:noevidence) to send the
+                   structured fields without the evidence text. Written as sinks: [...] in the option
+                   file, data-sink on a script tag, sink= in the Astro meta line (README "See it where you
+                   already look"). Forwarding to Sentry, PostHog or Datadog is a GenClass Pro feature,
+                   configured on the dashboard (${PRO_URL})
   --yes, -y        apply without asking
   --dry-run        show what would change; write nothing
   --no-install     do not run the package manager
@@ -103,8 +105,10 @@ const BOOL = {
   h: "help",
 };
 const VALUE = { mode: "mode", from: "from", cdn: "cdn", cwd: "cwd", strategy: "strategy", "model-url": "modelUrl", token: "token" };
-/** A --sink value: a name (optionally :noevidence / :evidence), or webhook:<url> (src/cdn/sinks-fanout.ts parses the same). */
-const SINK_RE = /^(?:(?:sentry|posthog|datadog|console-json)(?:[:=](?:no-?)?evidence)?|webhook[:=]\S+)$/;
+/** A --sink value: console-json (optionally :noevidence / :evidence), or webhook:<url> (src/cdn/sinks-fanout.ts parses the same). */
+const SINK_RE = /^(?:console-json(?:[:=](?:no-?)?evidence)?|webhook[:=]\S+)$/;
+/** sentry, posthog, datadog: not part of the free runtime (src/cdn/sinks.ts ignores those names with one console warning). */
+const PRO_SINK_RE = /^(sentry|posthog|datadog)\b/i;
 
 /** init's and remove's flags; `spec` replaces them ({ bool, value } maps of flag -> option name) for other commands. */
 export function parse(argv, spec = { bool: BOOL, value: VALUE }) {
@@ -119,11 +123,12 @@ export function parse(argv, spec = { bool: BOOL, value: VALUE }) {
       continue;
     }
     if (key === "sink" && spec.value === VALUE) {
-      // init's and remove's only: repeatable, and "sentry,posthog" (a webhook URL holds no comma)
+      // init's and remove's only: repeatable, and "console-json,webhook:/g" (a webhook URL holds no comma)
       const v = eq > 0 ? a.slice(eq + 1) : argv[++i];
       if (v === undefined || v.startsWith("--")) throw new UsageError(`--sink needs a value`);
       for (const s of v.split(",").map((x) => x.trim()).filter(Boolean)) {
-        if (!SINK_RE.test(s)) throw new UsageError(`--sink ${s}: the sinks are sentry, posthog, datadog, console-json (each optionally :noevidence) and webhook:<url>`);
+        if (PRO_SINK_RE.test(s)) throw new UsageError(`--sink ${s}: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: ${PRO_URL}. The sinks here are console-json (optionally :noevidence) and webhook:<url>`);
+        if (!SINK_RE.test(s)) throw new UsageError(`--sink ${s}: the sinks are console-json (optionally :noevidence) and webhook:<url>`);
         if (!(o.sinks ??= []).includes(s)) o.sinks.push(s);
       }
       continue;
@@ -354,111 +359,18 @@ export function configOf(o, token) {
   return c;
 }
 
-const README_URL = `${REPO}/packages/runtime/README.md`;
 /** What each sink does, for the notices. */
 const SINK_WHAT = {
-  sentry: "Sentry.captureMessage per record, grouped per bug",
-  posthog: "posthog.capture(\"genclass_<kind>\")",
-  datadog: "DD_RUM.addError (detections, interventions) / addAction",
   "console-json": "one JSON line per record on the console",
   webhook: "batched POSTs of the records to your endpoint (route, diagnosis, action and the evidence text GenClass prints; nothing else)",
 };
-const sinkName = sinkBase;
-/** The page global a sink written as its name finds its SDK under, and what sets it. */
-const SINK_GLOBAL = {
-  sentry: ["Sentry", "the Sentry Loader Script and CDN bundles set it; the npm SDK does not"],
-  posthog: ["posthog", "the PostHog snippet sets it; posthog-js from npm does not"],
-  datadog: ["DD_RUM", "the Datadog snippets and @datadog/browser-rum set it"],
-};
-/** Sinks whose npm SDK sets no page global: written as the adapter with the SDK passed in (edit.mjs sinkImports). */
-const NEEDS_IMPORT = new Set(["sentry", "posthog"]);
-
-/** Where findings go besides the console: the sinks init writes, how each finds its tool, and what it sends. */
+/** Where findings go besides the console: the sinks init writes and what each sends. */
 function sinksNotice(cfg, where) {
   if (!cfg.sinks?.length) return;
   row("Findings", `${c.bold(cfg.sinks.join(", "))} ${c.gray(`(--sink${where ? `, written to ${where}` : ""})`)}`);
   out(`             Every detection, intervention, undo and breaker trip goes there as well as to the console:`);
-  for (const s of cfg.sinks) {
-    const n = sinkName(s);
-    const pkg = sinkSdk(cfg, s);
-    const via = pkg ? `, through ${pkg} (imported there, passed to the adapter)` : SINK_GLOBAL[n] ? `, through window.${SINK_GLOBAL[n][0]} (${SINK_GLOBAL[n][1]})` : "";
-    out(`             ${sym.dot} ${s}: ${SINK_WHAT[n] ?? ""}${via}`);
-  }
-  const tools = cfg.sinks.filter((s) => SINK_GLOBAL[sinkName(s)]);
-  if (tools.length) {
-    const off = tools.filter(sinkNoEvidence);
-    if (off.length < tools.length)
-      out(`             With the evidence: the console line, subject and timeline (short pieces of app data can appear, such as text typed into an input); ${c.cyan(`--sink ${sinkName(tools.find((s) => !sinkNoEvidence(s)))}:noevidence`)} sends the structured fields only.`);
-    if (off.length) out(`             ${off.join(", ")}: the structured fields only (no evidence text).`);
-  }
-  out(`             No dependency is added: each adapter uses the SDK your app already has.`);
+  for (const s of cfg.sinks) out(`             ${sym.dot} ${s}: ${SINK_WHAT[sinkBase(s)] ?? ""}${sinkNoEvidence(s) ? " (the structured fields only, no evidence text)" : ""}`);
 }
-
-/**
- * The SDK packages each sink forwards to, best first: Sentry's browser SDKs (the framework ones, which the app
- * initialises, before @sentry/browser; never its build plugins or server SDKs), posthog-js, Datadog RUM.
- */
-const MONITORING = {
-  sentry: ["nextjs", "nuxt", "sveltekit", "remix", "react-router", "astro", "solidstart", "tanstackstart-react", "gatsby", "angular", "angular-ivy", "react", "vue", "svelte", "solid", "ember", "browser"].map((n) => `@sentry/${n}`),
-  posthog: ["posthog-js"],
-  datadog: ["@datadog/browser-rum", "@datadog/browser-rum-slim"],
-};
-/** Monitoring SDKs the project depends on: [{ sink, dep }], one per sink. */
-export function monitoringSdks(project) {
-  const deps = project?.deps ?? {};
-  const found = [];
-  for (const [sink, pkgs] of Object.entries(MONITORING)) {
-    const dep = pkgs.find((p) => Object.prototype.hasOwnProperty.call(deps, p));
-    if (dep) found.push({ sink, dep });
-  }
-  return found;
-}
-
-/** Option-file projects (not plain HTML or Astro's meta line) write a sentry / posthog sink against the npm SDK they depend on. */
-const writesImports = (project) => project.framework !== "html" && project.framework !== "astro";
-
-/** cfg plus `sdks` ({ sentry: "@sentry/vue", posthog: "posthog-js" }) for the sinks init writes as adapters with the app's SDK. */
-export function withSinkSdks(cfg, project) {
-  if (!cfg.sinks?.length || !writesImports(project)) return cfg;
-  const sdks = {};
-  for (const { sink, dep } of monitoringSdks(project)) if (NEEDS_IMPORT.has(sink) && cfg.sinks.some((s) => sinkName(s) === sink)) sdks[sink] = dep;
-  return Object.keys(sdks).length ? { ...cfg, sdks } : cfg;
-}
-
-/** A plain HTML page or an Astro meta line can only name a sink: say what a name needs when the SDK comes from npm. */
-function sdkNotes(project, cfg) {
-  if (writesImports(project)) return [];
-  const notes = [];
-  for (const { sink, dep } of monitoringSdks(project)) {
-    const s = (cfg.sinks ?? []).find((x) => sinkName(x) === sink);
-    if (!s || !NEEDS_IMPORT.has(sink)) continue;
-    const g = SINK_GLOBAL[sink][0];
-    notes.push(
-      `${s}: ${dep} from npm sets no window.${g}, and a ${project.framework === "astro" ? "<meta> tag" : "script tag"} can only name the sink. Add \`window.${g} = ${g};\` where your app imports ${dep}, or pass the SDK in code (${README_URL}#see-it-where-you-already-look). Until then GenClass says so once in the console and sends nothing there.`,
-    );
-  }
-  return notes;
-}
-
-/** The project uses Sentry / PostHog / Datadog and nothing points GenClass there: suggest --sink (nothing is applied). */
-function printSinkAdvice(project, cfg, alreadySet) {
-  if (alreadySet) return;
-  const have = new Set((cfg.sinks ?? []).map(sinkName));
-  const missing = monitoringSdks(project).filter((f) => !have.has(f.sink));
-  if (!missing.length) return;
-  out(`  ${c.bold("Findings")} ${c.gray(`(found ${missing.map((f) => f.dep).join(", ")}; not applied)`)}`);
-  out(`    In production GenClass's detections print to your users' browser console, not yours. Send them to`);
-  out(`    ${missing.map((f) => f.dep).join(" and ")} as well, with no new dependency:`);
-  out(`        ${c.cyan(`${CMD} init --sink ${missing.map((f) => f.sink).join(",")}`)}`);
-  const npm = missing.filter((f) => NEEDS_IMPORT.has(f.sink));
-  if (!npm.length) out(`    (it finds the SDK on the page; ${README_URL}#see-it-where-you-already-look)`);
-  else if (writesImports(project)) out(`    (init writes the adapter with your ${npm.map((f) => f.dep).join(" and ")} into its option file; ${README_URL}#see-it-where-you-already-look)`);
-  else out(`    (then add ${npm.map((f) => `window.${SINK_GLOBAL[f.sink][0]} = ${SINK_GLOBAL[f.sink][0]};`).join(" and ")} where your app imports it: an npm SDK sets no page global; ${README_URL}#see-it-where-you-already-look)`);
-  out();
-}
-
-/** True when the files init wrote already name a sink. */
-const currentSinks = (files) => files.some((f) => /\bsinks\s*:\s*\[|data-sink=|\bsink=/.test(readText(f) ?? ""));
 
 /** Telemetry disclosure: it is on by default, what it sends, how to turn it off, where the policy is. */
 function telemetryNotice(cfg, where) {
@@ -610,7 +522,7 @@ async function switchModes(o, project, planned, install, spec, cwd, what, tk) {
   return { code: 0, applied: true, tk };
 }
 
-/** "the new app's token, telemetry off, model /genclass-model/, sinks sentry" */
+/** "the new app's token, telemetry off, model /genclass-model/, sinks webhook:/genclass" */
 const describeConfig = (cfg) =>
   [
     cfg.token ? (cfg.token === PENDING_TOKEN ? "the new app's token" : `token ${cfg.token}`) : null,
@@ -841,7 +753,7 @@ export async function init(o, ctx = {}) {
   if (ctx.banner !== false) banner("init");
   if (ctx.banner !== false) hostNotice();
   const project = detectProject(cwd);
-  let cfg = withSinkSdks(withLocalDevice(configOf(o), project), project);
+  let cfg = withLocalDevice(configOf(o), project);
   if (project.refused) {
     out(`  ${c.yellow(sym.warn)} Not adding GenClass to ${c.bold(cwd)}: ${project.refused}.`);
     out(`  If this is a browser app, add the import as the first line of its browser entry file yourself:`);
@@ -908,10 +820,8 @@ export async function init(o, ctx = {}) {
     tokenRow(tk);
     if (tk.token && !tk.app && !ctx.creds && readCredentials()) out(`             ${c.gray(`Signed in: ${CMD} connect adds this app to your account if it is not there yet.`)}`);
     sinksNotice(cfg, null);
-    for (const n of sdkNotes(project, cfg)) out(`  ${c.yellow(sym.warn)} ${n}`);
     cspAdvice(project, files, cfg);
     out();
-    printSinkAdvice(project, cfg, currentSinks(marked));
     if (switches.length) {
       const r = await switchModes(o, project, switches, install, spec, cwd, { mode: !!o.mode && switches.some((ch) => switchMode(ch.before, o.mode) !== ch.before), options: optionsChanged && !isEmptyConfig(cfg) ? describeConfig(cfg) : null }, tk);
       dashboardNotice(r.tk ?? tk, cwd, r.applied);
@@ -961,7 +871,7 @@ export async function init(o, ctx = {}) {
   for (const ch of plan.changes) printChange({ ...ch, file: ch.rel });
   if (install) out(`  ${c.bold("Install")}  ${c.cyan(installArgs(project.pm, spec).flat().join(" "))}`);
   else if (needsPackage) out(`  ${c.yellow(sym.warn)} --no-install: add ${PKG} to your dependencies yourself.`);
-  for (const n of [...(plan.notes ?? []), ...sdkNotes(project, cfg)]) out(`  ${c.yellow(sym.warn)} ${n}`);
+  for (const n of plan.notes ?? []) out(`  ${c.yellow(sym.warn)} ${n}`);
   out();
 
   const recs = recommendations(project, detectState(project, files));
@@ -969,7 +879,6 @@ export async function init(o, ctx = {}) {
   if (o.dryRun) {
     printRecommendations(recs);
     printMoneyAdvice(money, cfgAt);
-    printSinkAdvice(project, cfg, false);
     out(`  ${c.gray("Dry run: nothing was written.")}`);
     out();
     return 0;
@@ -1027,14 +936,13 @@ export async function init(o, ctx = {}) {
   if (project.framework === "html") out(`    ${sym.dot} Open your page. GenClass starts before your other scripts.`);
   else if (script) out(`    ${sym.dot} Run ${c.cyan(runCmd(project.pm, script))} and open the app.`);
   out(`    ${sym.dot} Detections and actions appear in the browser console as ${c.cyan("[GenClass] ...")} lines.`);
-  if (cfg.sinks?.length) out(`    ${sym.dot} They also reach ${c.cyan(cfg.sinks.join(", "))}: ${cfg.sinks.map((s) => SINK_WHAT[sinkName(s)] ?? s).join("; ")}.`);
+  if (cfg.sinks?.length) out(`    ${sym.dot} They also reach ${c.cyan(cfg.sinks.join(", "))}: ${cfg.sinks.map((s) => SINK_WHAT[sinkBase(s)] ?? s).join("; ")}.`);
   if (devtools && changes.some((ch) => /devtools/.test(ch.after))) out(`    ${sym.dot} In development an overlay shows what GenClass sees (bottom-right, ${c.bold("Alt+Shift+G")}).`);
   out(`    ${sym.dot} Rule it out while debugging: add ${c.cyan("?genclass=off")} to the URL.`);
 
   out();
   printRecommendations(recs);
   printMoneyAdvice(money, cfgAt);
-  printSinkAdvice(project, cfg, false);
   out(`  Undo: ${c.cyan(`${CMD} remove`)}`);
   out();
   return 0;

@@ -3,13 +3,14 @@
 //
 // Never in the first load of /auto (it is reached through cdn/sinks-load.ts, a lazy chunk); the script tag carries it
 // and loads the adapters themselves from the CDN (dist/sinks/<name>.js). Every adapter is made with its own options
-// (a webhook gets its URL; `sentry:noevidence` gets `evidence: false`) and gets the records it asks for: its `kinds`,
-// and the evidence only with `evidence`.
+// (a webhook gets its URL; `console-json:noevidence` gets `evidence: false`) and gets the records it asks for: its
+// `kinds`, and the evidence only with `evidence`. The names are console-json and webhook: forwarding to Sentry, PostHog
+// or Datadog is not part of the free runtime (cdn/sinks.ts applySinks warns about those names before they get here).
 // Never throws: an unknown name or an adapter that cannot load is one warning each, and the others still work.
 
 import type { SinkObject, SinkRecord } from "../types.js";
 
-export const SINK_NAMES = ["sentry", "posthog", "datadog", "console-json", "webhook"] as const;
+export const SINK_NAMES = ["console-json", "webhook"] as const;
 export type SinkName = (typeof SINK_NAMES)[number];
 
 export interface SinkSpec {
@@ -29,8 +30,8 @@ export interface SinkModule {
 export type SinkLoader = (name: SinkName) => Promise<SinkModule>;
 
 /**
- * "sentry" | "console-json" | "posthog:noevidence" | "webhook:/genclass" | "webhook=https://…" → spec; null for
- * anything else (an unknown name, a webhook without a URL, an option other than evidence / noevidence).
+ * "console-json" | "console-json:noevidence" | "webhook:/genclass" | "webhook=https://…" → spec; null for anything
+ * else (an unknown name, a webhook without a URL, an option other than evidence / noevidence).
  */
 export function parseSinkSpec(s: unknown): SinkSpec | null {
   if (typeof s !== "string") return null;
@@ -62,7 +63,7 @@ export async function fanout(names: string[], load: SinkLoader, warn: (message: 
   for (const s of names) {
     const spec = parseSinkSpec(s);
     if (!spec) {
-      warn(`unknown sink "${s}" (the names are sentry, posthog, datadog, console-json, each optionally :noevidence, and webhook:<url>); ignored.`);
+      warn(`unknown sink "${s}" (the names are console-json, optionally :noevidence, and webhook:<url>); ignored.`);
       continue;
     }
     const key = `${spec.name}:${spec.arg ?? ""}:${spec.evidence ?? ""}`;

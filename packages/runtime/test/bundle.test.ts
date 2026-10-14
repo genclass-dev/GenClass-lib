@@ -73,7 +73,10 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // detection tiers and deferred situations (wave2/detect-observe) took 1.42 / 1.48 KB of that: 107.66 / 99.69 KB (CI
   // run 38471973596, RESULTS.md §11); merged with release/0.3.0 (its 429 back-off is this branch's), 107.65 / 99.68 KB
   // (CI run 38477575339); with the review fixes, paid for by moving the expectation report's console text into the lazy
-  // flow chunk, 107.56 / 99.59 KB (CI run 38482297879). Both sizes are printed before either is asserted.
+  // flow chunk, 107.56 / 99.59 KB (CI run 38482297879). The Sentry, PostHog and Datadog adapters were removed (never
+  // shipped: forwarding to those tools is a GenClass Pro feature); the one warning for those names in /auto's page
+  // config (src/cdn/sinks.ts applySinks) brings /auto to 107.73 KB, the main entry unchanged at 99.61 KB (CI run
+  // 38491077597, wave2/no-vendor-sinks 31ddc98). Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 107.74, "index.js": 99.71 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
@@ -122,9 +125,11 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       // the sink adapters (@genclass/runtime/sinks/*) and the name table and fan-out (src/cdn/sinks-fanout.ts) are lazy
       // chunks of /auto and absent from the main entry
       expect(code, entry).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
-      expect(code, entry).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
       expect(code, entry).not.toContain("console-json"); // src/cdn/sinks-fanout.ts SINK_NAMES, src/cdn/sinks-load.ts
       expect(code, entry).not.toContain("unknown sink"); // src/cdn/sinks-fanout.ts
+      // the one warning for the names sentry / posthog / datadog (src/cdn/sinks.ts applySinks) is /auto's alone
+      if (entry === "auto.js") expect(code, entry).toContain("https://genclass.dev/pricing");
+      else expect(code, entry).not.toContain("https://genclass.dev/pricing");
       // the flow expectations (src/learn/flows.ts) are a lazy chunk, loaded only with learn.expectations
       expect(code, entry).not.toContain("Expected a follow-up on"); // src/learn/flows.ts
       expect(code, entry).not.toContain("Expected a response:"); // src/learn/flows.ts
@@ -146,8 +151,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
     console.info(`[bundle] script tag genclass.global.min.js: ${gz.toFixed(2)} KB minified + gzip (${(buf.length / 1024).toFixed(1)} KB minified)`);
     const code = buf.toString("utf8");
     expect(code).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
-    expect(code).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
     expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
+    expect(code).toContain("https://genclass.dev/pricing"); // the one warning for sentry / posthog / datadog by name
     expect(gz).toBeGreaterThan(0);
   });
 });

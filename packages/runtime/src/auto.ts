@@ -8,7 +8,7 @@
 // time already see GenClass.runtime. Optional configuration, read once:
 //   <meta name="genclass" content="mode=observe, devtools=local">
 //   window.GENCLASS_CONFIG = { mode: "observe", devtools: true };   // set before this module runs; any InitOptions
-//   window.GENCLASS_CONFIG = { sinks: ["sentry"] };                 // findings in your tools, by name (cdn/sinks.ts)
+//   window.GENCLASS_CONFIG = { sinks: ["webhook:/genclass"] };      // findings to your own endpoint, by name (cdn/sinks.ts)
 //
 // The URL kill switch (`?genclass=off|observe|guard|heal`, `localStorage.genclass`) works as with GenClass.init().
 // Outside a browser (SSR, Node, workers) nothing is read or installed: the default export is GenClass.init()'s

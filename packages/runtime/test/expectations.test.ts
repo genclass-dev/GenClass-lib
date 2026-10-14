@@ -5,7 +5,6 @@
 // setupFlows() turns it on and waits for it; "off by default" checks that nothing is loaded, learned or stored without it.
 import { describe, expect, it, vi } from "vitest";
 import { FlowProfiles, type FlowEnv } from "../src/learn/flows.js";
-import { DEFAULT_KINDS } from "../src/sinks/common.js";
 import { webhook } from "../src/sinks/webhook.js";
 import type { Expectation, Report, SinkRecord } from "../src/types.js";
 import { RUNTIME_VERSION } from "../src/version.js";
@@ -655,14 +654,14 @@ describe("flow expectations: false-positive controls (EXPECTATIONS.md §3)", () 
     expect(s.rt.flows).toBeNull();
   });
 
-  it("sink defaults: the tool adapters' default kinds leave expectation records out; the webhook's forward-all gets them only with the layer on", async () => {
-    expect(DEFAULT_KINDS).not.toContain("expectation");
+  it("sink kinds: a sink that lists kinds without expectation never gets them; the webhook's forward-all gets them only with the layer on", async () => {
+    const KINDS: SinkRecord["kind"][] = ["detection", "intervention", "undo", "breaker", "error"];
     for (const on of [true, false]) {
       const posted: { records: SinkRecord[] }[] = [];
       const tool: SinkRecord[] = [];
       const w = webhook({ url: "/genclass", send: (_u: string, body: string) => void posted.push(JSON.parse(body)) });
       const reports: Report[] = [];
-      const s = await setupFlows({ learn: { persist: false, expectations: on }, report: (r) => reports.push(r), sinks: [w, { kinds: DEFAULT_KINDS, send: (r: SinkRecord) => void tool.push(r) }] });
+      const s = await setupFlows({ learn: { persist: false, expectations: on }, report: (r) => reports.push(r), sinks: [w, { kinds: KINDS, send: (r: SinkRecord) => void tool.push(r) }] });
       const { click } = cartApp(s);
       for (let i = 0; i < 9; i++) await click();
       await click({ send: false });

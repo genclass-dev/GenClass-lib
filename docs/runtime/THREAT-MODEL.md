@@ -247,8 +247,9 @@ location and `document.baseURI`: a backslash (`/\evil.example/c`), a tab inside 
 injected `<base href>` that moves a relative path off the origin all count as cross-origin. A webhook URL is then made
 absolute once, at init ([cdn/sinks.ts](../../packages/runtime/src/cdn/sinks.ts)), so a `<base>` injected later cannot
 move it. An injected `sink=webhook:<url>` therefore cannot send the sink records (and their evidence text) to another
-origin. The other sink names (`sentry`, `posthog`, `datadog`, `console-json`) only reach an SDK or console the page
-already has.
+origin. The other sink name, `console-json`, only prints to the page's own console. The runtime has no Sentry,
+PostHog or Datadog adapter (that forwarding is a GenClass Pro feature, configured on the dashboard), so an injected
+`sink=sentry` loads and sends nothing: it only prints one console warning.
 
 **Residual.** Markup injected into `<head>` can still set the mode and same-origin sinks (not a cross-origin model or
 webhook): pages that let untrusted HTML into `<head>` should configure through `window.GENCLASS_CONFIG` (it wins) or

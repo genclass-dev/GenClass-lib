@@ -1,18 +1,22 @@
 // Sinks by name for the zero-code entries (README "See it where you already look"; OPTIONS-SPEC §4.11).
 // Owner: INSTALL.
 //
-//   <meta name="genclass" content="sink=sentry+posthog">              (+ joins names: commas separate meta keys)
-//   <script src=".../genclass.global.min.js" data-sink="sentry,posthog"></script>
-//   window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }
-//   npx @genclass/runtime init --sink sentry
+//   <meta name="genclass" content="sink=console-json+webhook:/genclass">   (+ joins names: commas separate meta keys)
+//   <script src=".../genclass.global.min.js" data-sink="console-json,webhook:/genclass"></script>
+//   window.GENCLASS_CONFIG = { sinks: ["webhook:/genclass"] }
+//   npx @genclass/runtime init --sink webhook:/genclass
 //
-// Names: sentry, posthog, datadog, console-json (each optionally `:noevidence`), webhook:<url>. This module is the
-// part in the first load, and it is kept small on purpose: `applySinks` turns the names of a page configuration into
-// ONE proxy sink (`namedSinks`) that queues records until the entry's resolver has loaded the adapters, which starts
-// on the first record (never before, so a page with `?genclass=off`, or a runtime that never reports, loads nothing),
-// then hands the queue over. The name table, the parsing of a name and the adapters are behind the resolver
-// (cdn/sinks-fanout.ts): a lazy chunk of /auto (cdn/sinks-load.ts), and for the script tag dist/sinks/<name>.js from
-// the CDN. test/bundle.test.ts keeps them out of the first load of /auto and of the main entry.
+// Names: console-json (optionally `:noevidence`), webhook:<url>. The names sentry, posthog and datadog are not part of
+// the free runtime (forwarding to those tools is a GenClass Pro feature, configured on the dashboard): `applySinks`
+// leaves them out with one console warning that says so, and nothing is loaded or sent for them.
+//
+// This module is the part in the first load, and it is kept small on purpose: `applySinks` turns the names of a page
+// configuration into ONE proxy sink (`namedSinks`) that queues records until the entry's resolver has loaded the
+// adapters, which starts on the first record (never before, so a page with `?genclass=off`, or a runtime that never
+// reports, loads nothing), then hands the queue over. The name table, the parsing of a name and the adapters are
+// behind the resolver (cdn/sinks-fanout.ts): a lazy chunk of /auto (cdn/sinks-load.ts), and for the script tag
+// dist/sinks/<name>.js from the CDN. test/bundle.test.ts keeps them out of the first load of /auto and of the main
+// entry.
 //
 // A webhook URL is resolved once, here at init, against document.baseURI (what sendBeacon and fetch would use), so a
 // `<base>` injected later cannot move it; that endpoint (origin and path, any query) joins requests.ignore, so the
@@ -28,7 +32,7 @@ export type SinkResolver = (names: string[], warn: (message: string) => void) =>
 /** Records the proxy keeps while the adapters load. */
 const MAX_QUEUED = 200;
 
-/** "sentry,posthog" / "sentry+posthog" / "sentry posthog" → the names (a webhook URL may hold none of those separators). */
+/** "a,b" / "a+b" / "a b" → the names (a webhook URL may hold none of those separators). */
 export const parseSinkList = (v: string): string[] => String(v ?? "").split(/[,+|\s]+/).filter(Boolean);
 
 /** "webhook:<url>" / "webhook=<url>" → the URL; undefined for anything else. */
@@ -80,9 +84,11 @@ export function namedSinks(names: string[], resolve: SinkResolver, warn: (messag
 
 /**
  * Page-config `sinks` → InitOptions: the names become one `namedSinks` proxy, functions and objects pass through
- * (GenClass.init checks them), blanks are skipped. A webhook URL is made absolute against `g`'s document.baseURI (else
- * its location) and its endpoint joins `requests.ignore` as an exact match (origin and path). Returns `init` unchanged
- * when the list is empty or not a list. An unknown name warns once the resolver has loaded.
+ * (GenClass.init checks them), blanks are skipped. The names sentry, posthog and datadog (any case, with or without an
+ * option) are left out with one warning for them all: forwarding to those tools is a GenClass Pro feature, configured
+ * on the dashboard. A webhook URL is made absolute against `g`'s document.baseURI (else its location) and its endpoint
+ * joins `requests.ignore` as an exact match (origin and path). Returns `init` unchanged when the list is empty or not
+ * a list. An unknown name warns once the resolver has loaded.
  *
  * Total: in /auto this runs while the app's entry module is being evaluated, before GenClass.init's own guard, so it
  * never throws. A `requests.ignore` that is not a list (one RegExp by mistake) stays as the page wrote it, for
@@ -93,6 +99,7 @@ export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolv
     if (!Array.isArray(list) || !list.length) return init;
     const sinks: Sink[] = [];
     const names: string[] = [];
+    const pro: string[] = [];
     const ignore: NonNullable<NonNullable<InitOptions["requests"]>["ignore"]> = [];
     let base: string | undefined;
     try {
@@ -113,6 +120,10 @@ export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolv
       if (typeof s === "string") {
         let v = s.trim();
         if (!v) continue;
+        if (/^(sentry|posthog|datadog)\b/i.test(v)) {
+          pro.push(v);
+          continue;
+        }
         const u = webhookUrl(v);
         const key = u ? endpoint(u) : "";
         if (key) {
@@ -122,6 +133,7 @@ export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolv
         names.push(v);
       } else if (s) sinks.push(s as Sink);
     }
+    if (pro.length) warn(`Ignored sink ${pro.join(", ")}: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing`);
     if (names.length) sinks.push(namedSinks(names, resolve, warn));
     const out: InitOptions = { ...init, sinks };
     // an ignore that is not a list (one RegExp by mistake) stays as written: GenClass.init reports it, sinks or not

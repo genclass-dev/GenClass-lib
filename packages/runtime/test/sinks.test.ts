@@ -1,12 +1,11 @@
-// The sink adapters (@genclass/runtime/sinks/*; OPTIONS-SPEC §4.11, README "See it where you already look"): each
-// forwards the runtime's SinkRecords to the SDK already on the page, never throws into the app, and sends nothing but
-// the record's own fields (redacted evidence included unless `evidence: false`, no situation text, no query values).
+// The sink adapters (@genclass/runtime/sinks/*; OPTIONS-SPEC §4.11, README "See it where you already look"): the
+// vendor-neutral console-json and webhook adapters keep the records on the developer's side (the console, an endpoint
+// the app owns), never throw into the app, and send nothing but the record's own fields (redacted evidence included
+// unless `evidence: false`, no situation text, no query values). There is no Sentry, PostHog or Datadog adapter in the
+// free runtime: forwarding to those tools is a GenClass Pro feature, configured on the dashboard.
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_KINDS, signature, titleOf } from "../src/sinks/common.js";
+import { signature } from "../src/sinks/common.js";
 import { consoleJson } from "../src/sinks/console-json.js";
-import { datadog } from "../src/sinks/datadog.js";
-import { posthog } from "../src/sinks/posthog.js";
-import { sentry } from "../src/sinks/sentry.js";
 import { WEBHOOK_MAX_BODY_BYTES, WEBHOOK_SCHEMA, utf8Length, webhook } from "../src/sinks/webhook.js";
 import type { Sink, SinkRecord } from "../src/types.js";
 import { RUNTIME_VERSION } from "../src/version.js";
@@ -50,27 +49,13 @@ async function intervene(sinks: Sink[]) {
   return s;
 }
 
-describe("sinks/sentry", () => {
-  it("captureMessage at level warning: tags per diagnosis, mode and action, the record under extra, a fingerprint per bug", () => {
-    const fake = { captureMessage: vi.fn(), addBreadcrumb: vi.fn() };
-    const r = rec({ kind: "intervention", action: "discard", tier: "guard" });
-    sentry({ sentry: fake }).send(r);
-    expect(fake.captureMessage).toHaveBeenCalledTimes(1);
-    expect(fake.addBreadcrumb).not.toHaveBeenCalled();
-    const [message, ctx] = fake.captureMessage.mock.calls[0] as [string, { level: string; tags: Record<string, unknown>; extra: { genclass: Record<string, unknown> }; fingerprint: string[] }];
-    expect(message).toBe(r.evidence!.message);
-    expect(ctx.level).toBe("warning");
-    expect(ctx.tags).toEqual({ genclass: "stale", "genclass.kind": "intervention", "genclass.mode": "observe", "genclass.action": "discard", "genclass.trigger": "delivery", "genclass.route": "/search" });
-    expect(ctx.extra.genclass.message).toBe(r.evidence!.message);
-    expect(ctx.extra.genclass.subject).toBe(r.evidence!.subject);
-    expect(ctx.extra.genclass.timeline).toEqual(r.evidence!.timeline);
-    expect(ctx.extra.genclass.evidence).toBeUndefined();
-    expect(ctx.extra.genclass.sessionId).toBe("S");
-    expect(ctx.fingerprint).toEqual(["genclass", signature(r)]);
-    // op ids and numbers never split one bug into many issues
+describe("sinks/common: the per-bug signature the webhook caps repeats by", () => {
+  it("op ids, numbers and id-like path segments (UUIDs, hex, tokens, slug ids, emails) never split one bug; a route stays itself", () => {
+    const r = rec();
+    // op ids and numbers never split one bug into many
     expect(signature(rec({ evidence: { subject: "response to GET /api/search?q=… (#17)" } }))).toBe(signature(rec({ evidence: { subject: "response to GET /api/search?q=… (#3)" } })));
-    expect(signature(rec({ diagnosis: "duplicate" }))).not.toBe(signature(rec()));
-    // nor do ids with letters in the request's path (UUIDs, hex, tokens, slug ids, emails): one issue per bug, not per entity
+    expect(signature(rec({ diagnosis: "duplicate" }))).not.toBe(signature(r));
+    // nor do ids with letters in the request's path: one signature per bug, not per entity
     const on = (path: string) => signature(rec({ evidence: { subject: `response to GET ${path}?q=… (#4)` } }));
     expect(on("/api/orders/550e8400-e29b-41d4-a716-446655440000")).toBe(on("/api/orders/7c9e6679-7425-40de-944b-e07fc1f90ae7"));
     expect(on("/api/orders/5f3a9c0e1b2d")).toBe(on("/api/orders/a1b2c3d4e5f6"));
@@ -83,83 +68,10 @@ describe("sinks/sentry", () => {
     expect(on("/api/v2/sha256/item42/report.pdf")).toContain("GET /api/vn/shan/itemn/report.pdf?q=…");
   });
 
-  it("no SDK: nothing and no throw; a throwing SDK is contained; the SDK is looked up on every record, so a late load works", () => {
-    const g: Record<string, unknown> = {};
-    const s = sentry({ global: g });
-    expect(() => s.send(rec())).not.toThrow();
-    g.Sentry = {
-      captureMessage: () => {
-        throw new Error("x");
-      },
-    };
-    expect(() => s.send(rec())).not.toThrow();
-    const spy = vi.fn();
-    g.Sentry = { captureMessage: spy };
-    s.send(rec());
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(() => sentry({ sentry: null as never, global: {} }).send(rec())).not.toThrow();
-    expect(() => sentry({ sentry: {} }).send(rec())).not.toThrow();
-  });
-
-  it("no SDK when records arrive (an npm SDK sets no global): one console warning that names the fix, per adapter", () => {
-    for (const [make, fix] of [
-      [sentry, "sentry({ sentry: Sentry })"],
-      [posthog, "posthog({ posthog })"],
-      [datadog, "datadog({ rum: datadogRum })"],
-    ] as const) {
-      const warn = vi.fn();
-      const g: Record<string, unknown> = { console: { warn } };
-      const s = make({ global: g });
-      s.send(rec());
-      s.send(rec({ id: "r2", diagnosis: "duplicate" }));
-      expect(warn, make.name).toHaveBeenCalledTimes(1);
-      expect(String(warn.mock.calls[0][0]), make.name).toMatch(/^\[GenClass\] The \w+ sink found no /);
-      expect(String(warn.mock.calls[0][0]), make.name).toContain(fix);
-      // a console that throws is contained
-      const t = make({ global: { console: { warn: () => { throw new Error("x"); } } } });
-      expect(() => t.send(rec()), make.name).not.toThrow();
-    }
-    // with an SDK there is no warning
-    const warn = vi.fn();
-    sentry({ global: { console: { warn }, Sentry: { captureMessage: vi.fn() } } }).send(rec());
-    expect(warn).not.toHaveBeenCalled();
-  });
-
-  it("kinds default to everything but the summary; maxPerSignature caps repeats of one bug; as:'breadcrumb' files breadcrumbs only", () => {
-    expect(sentry().kinds).toEqual(DEFAULT_KINDS);
-    expect(sentry().kinds).not.toContain("summary");
-    expect(sentry({ kinds: ["intervention"] }).kinds).toEqual(["intervention"]);
-    expect(sentry({ sampleRate: 0.5 }).sampleRate).toBe(0.5);
-    expect(sentry().evidence).toBe(true);
-    const fake = { captureMessage: vi.fn() };
-    const s = sentry({ sentry: fake });
-    for (let i = 0; i < 12; i++) s.send(rec({ id: `r${i}` }));
-    expect(fake.captureMessage).toHaveBeenCalledTimes(10);
-    s.send(rec({ diagnosis: "duplicate" }));
-    expect(fake.captureMessage).toHaveBeenCalledTimes(11);
-    const unlimited = { captureMessage: vi.fn() };
-    const u = sentry({ sentry: unlimited, maxPerSignature: 0 });
-    for (let i = 0; i < 12; i++) u.send(rec());
-    expect(unlimited.captureMessage).toHaveBeenCalledTimes(12);
-    const crumbs = { captureMessage: vi.fn(), addBreadcrumb: vi.fn() };
-    sentry({ sentry: crumbs, as: "breadcrumb", level: "info" }).send(rec());
-    expect(crumbs.captureMessage).not.toHaveBeenCalled();
-    expect(crumbs.addBreadcrumb).toHaveBeenCalledTimes(1);
-    const crumb = crumbs.addBreadcrumb.mock.calls[0][0] as { category: string; level: string; message: string; data: Record<string, unknown> };
-    expect(crumb.category).toBe("genclass");
-    expect(crumb.level).toBe("info");
-    expect(crumb.message).toBe(rec().evidence!.message);
-    expect(crumb.data.diagnosis).toBe("stale");
-    // an SDK without captureMessage (an old loader stub) still gets a breadcrumb
-    const old = { addBreadcrumb: vi.fn() };
-    sentry({ sentry: old }).send(rec());
-    expect(old.addBreadcrumb).toHaveBeenCalledTimes(1);
-  });
-
   it("the record's route is normalised as telemetry's: id-like and email segments as :id, at most 200 chars", async () => {
-    const fake = { captureMessage: vi.fn() };
+    const send = vi.fn();
     const s = setup({
-      sinks: [sentry({ sentry: fake })],
+      sinks: [webhook({ url: "/genclass", send })],
       triage: "always",
       script: DELAY,
       extraGlobal: { location: { href: "http://app.test/u/jane@example.com/reset/a8f3b2c9d1e04f5a/orders/12345", pathname: "/u/jane@example.com/reset/a8f3b2c9d1e04f5a/orders/12345", search: "" } },
@@ -169,163 +81,24 @@ describe("sinks/sentry", () => {
     await s.clock.advance(2000);
     await p;
     await s.clock.advance(10);
-    expect(fake.captureMessage).toHaveBeenCalledTimes(1);
-    const ctx = fake.captureMessage.mock.calls[0][1] as { tags: Record<string, unknown>; extra: { genclass: Record<string, unknown> } };
-    expect(ctx.tags["genclass.route"]).toBe("/u/:id/reset/:id/orders/:id");
-    expect(ctx.extra.genclass.route).toBe("/u/:id/reset/:id/orders/:id");
-    expect(JSON.stringify(ctx)).not.toContain("jane");
+    await drain();
+    expect(send).toHaveBeenCalled();
+    const records = (send.mock.calls as [string, string][]).flatMap(([, b]) => (JSON.parse(b) as { records: SinkRecord[] }).records);
+    const iv = records.find((r) => r.kind === "intervention")!;
+    expect(iv.route).toBe("/u/:id/reset/:id/orders/:id");
+    expect(JSON.stringify(records)).not.toContain("jane");
   });
 
-  it("through the runtime: an intervention reaches Sentry as the console line, redacted, with its route", async () => {
-    const fake = { captureMessage: vi.fn() };
-    await intervene([sentry({ sentry: fake })]);
-    expect(fake.captureMessage).toHaveBeenCalledTimes(1);
-    const [message, ctx] = fake.captureMessage.mock.calls[0] as [string, { tags: Record<string, unknown>; extra: { genclass: Record<string, unknown> } }];
-    expect(message).toMatch(/^\[GenClass\] Slowed down an overload request: /);
-    expect(ctx.tags.genclass).toBe("overload");
-    expect(ctx.tags["genclass.action"]).toBe("delay");
-    expect(ctx.tags["genclass.kind"]).toBe("intervention");
-    expect(ctx.tags["genclass.route"]).toBe("/search");
-    expect(ctx.extra.genclass.route).toBe("/search");
-    const text = JSON.stringify([message, ctx]);
-    expect(text).toContain("/api/x");
-    expect(text).not.toContain("secret");
-    expect(text).not.toContain("situationText");
-  });
-
-  it("evidence: false sends the structured fields only (every adapter takes it; default true)", async () => {
-    for (const make of [sentry, posthog, datadog, consoleJson]) {
-      expect(make().evidence, make.name).toBe(true);
-      expect(make({ evidence: false }).evidence, make.name).toBe(false);
-    }
-    expect(webhook({ url: "/g" }).evidence).toBe(true);
+  it("evidence: true by default on both adapters; evidence: false sends the structured fields only", () => {
+    for (const make of [() => consoleJson(), () => webhook({ url: "/g" })]) expect(make().evidence).toBe(true);
+    expect(consoleJson({ evidence: false }).evidence).toBe(false);
     expect(webhook({ url: "/g", evidence: false }).evidence).toBe(false);
-    const fake = { captureMessage: vi.fn() };
-    await intervene([sentry({ sentry: fake, evidence: false })]);
-    expect(fake.captureMessage).toHaveBeenCalledTimes(1);
-    const [message, ctx] = fake.captureMessage.mock.calls[0] as [string, { tags: Record<string, unknown>; extra: { genclass: Record<string, unknown> } }];
-    expect(message).toBe("[GenClass] intervention: overload request (delay)");
-    expect(ctx.tags.genclass).toBe("overload");
-    expect(ctx.extra.genclass.route).toBe("/search");
-    for (const k of ["message", "subject", "timeline", "evidence"]) expect(ctx.extra.genclass[k], k).toBeUndefined();
-    expect(JSON.stringify([message, ctx])).not.toContain("/api/x");
-  });
-});
-
-describe("sinks/posthog", () => {
-  it("capture('genclass_<kind>', properties) with the record's fields flat and a per-bug signature", () => {
-    const fake = { capture: vi.fn() };
-    const r = rec();
-    posthog({ posthog: fake }).send(r);
-    expect(fake.capture).toHaveBeenCalledTimes(1);
-    const [event, props] = fake.capture.mock.calls[0] as [string, Record<string, unknown>];
-    expect(event).toBe("genclass_detection");
-    expect(props.kind).toBe("detection");
-    expect(props.diagnosis).toBe("stale");
-    expect(props.p).toBe(0.93);
-    expect(props.route).toBe("/search");
-    expect(props.message).toBe(r.evidence!.message);
-    expect(props.subject).toBe(r.evidence!.subject);
-    expect(props.timeline).toEqual(r.evidence!.timeline);
-    expect(props.evidence).toBeUndefined();
-    expect(props.sessionId).toBe("S");
-    expect(props.tags).toEqual({ release: "1.0" });
-    expect(props.signature).toBe(signature(r));
-    expect(posthog().kinds).toEqual(DEFAULT_KINDS);
   });
 
-  it("the snippet's pre-init stub works; no client, or one without capture, sends nothing and never throws; prefix", () => {
-    const g: Record<string, unknown> = {};
-    const s = posthog({ global: g });
-    expect(() => s.send(rec())).not.toThrow();
-    g.posthog = {};
-    expect(() => s.send(rec())).not.toThrow();
-    const stub = Object.assign([] as unknown[], { capture: vi.fn() });
-    g.posthog = stub;
-    s.send(rec({ kind: "intervention" }));
-    expect(stub.capture).toHaveBeenCalledWith("genclass_intervention", expect.objectContaining({ kind: "intervention" }));
-    const fake = { capture: vi.fn() };
-    posthog({ posthog: fake, prefix: "gc:" }).send(rec());
-    expect(fake.capture.mock.calls[0][0]).toBe("gc:detection");
-    const bad = {
-      capture: () => {
-        throw new Error("x");
-      },
-    };
-    expect(() => posthog({ posthog: bad }).send(rec())).not.toThrow();
-    const capped = { capture: vi.fn() };
-    const c = posthog({ posthog: capped, maxPerSignature: 2 });
-    for (let i = 0; i < 5; i++) c.send(rec());
-    expect(capped.capture).toHaveBeenCalledTimes(2);
-  });
-
-  it("through the runtime: an intervention is one genclass_intervention event, redacted", async () => {
-    const fake = { capture: vi.fn() };
-    await intervene([posthog({ posthog: fake })]);
-    expect(fake.capture).toHaveBeenCalledTimes(1);
-    const [event, props] = fake.capture.mock.calls[0] as [string, Record<string, unknown>];
-    expect(event).toBe("genclass_intervention");
-    expect(props.action).toBe("delay");
-    expect(props.diagnosis).toBe("overload");
-    expect(String(props.message)).toMatch(/^\[GenClass\] Slowed down/);
-    expect(JSON.stringify(props)).not.toContain("secret");
-  });
-});
-
-describe("sinks/datadog", () => {
-  it("detections and interventions are RUM errors named GenClassDetection / GenClassIntervention; undo, breaker and errors are actions", () => {
-    const rum = { addError: vi.fn(), addAction: vi.fn() };
-    const d = datadog({ rum });
-    d.send(rec());
-    expect(rum.addError).toHaveBeenCalledTimes(1);
-    const [err, ctx] = rum.addError.mock.calls[0] as [Error, { genclass: Record<string, unknown> }];
-    expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe("GenClassDetection");
-    expect(err.message).toBe(titleOf(rec()));
-    expect(ctx.genclass.diagnosis).toBe("stale");
-    expect(ctx.genclass.message).toBe(rec().evidence!.message);
-    expect(ctx.genclass.signature).toBe(signature(rec()));
-    d.send(rec({ kind: "intervention", action: "discard" }));
-    expect((rum.addError.mock.calls[1][0] as Error).name).toBe("GenClassIntervention");
-    d.send(rec({ kind: "undo", undone: true }));
-    d.send(rec({ kind: "breaker" }));
-    d.send(rec({ kind: "error" }));
-    expect(rum.addAction.mock.calls.map((c) => c[0])).toEqual(["genclass_undo", "genclass_breaker", "genclass_error"]);
-    expect((rum.addAction.mock.calls[0][1] as { genclass: Record<string, unknown> }).genclass.kind).toBe("undo");
-    expect(datadog().kinds).toEqual(DEFAULT_KINDS);
-  });
-
-  it("as:'action' sends everything as actions; the async stub's onReady is honoured; no SDK: nothing, never throws", () => {
-    const rum = { addError: vi.fn(), addAction: vi.fn() };
-    datadog({ rum, as: "action" }).send(rec());
-    expect(rum.addError).not.toHaveBeenCalled();
-    expect(rum.addAction).toHaveBeenCalledWith("genclass_detection", expect.objectContaining({ genclass: expect.objectContaining({ diagnosis: "stale" }) }));
-    const stub: { onReady: ReturnType<typeof vi.fn>; addError?: ReturnType<typeof vi.fn> } = { onReady: vi.fn() };
-    datadog({ rum: stub }).send(rec());
-    expect(stub.onReady).toHaveBeenCalledTimes(1);
-    stub.addError = vi.fn();
-    (stub.onReady.mock.calls[0][0] as () => void)();
-    expect(stub.addError).toHaveBeenCalledTimes(1);
-    expect(() => datadog({ global: {} }).send(rec())).not.toThrow();
-    expect(() => datadog({ rum: {} }).send(rec())).not.toThrow();
-    const bad = {
-      addError: () => {
-        throw new Error("x");
-      },
-    };
-    expect(() => datadog({ rum: bad }).send(rec())).not.toThrow();
-  });
-
-  it("through the runtime: an intervention is one GenClassIntervention error, redacted", async () => {
-    const rum = { addError: vi.fn(), addAction: vi.fn() };
-    await intervene([datadog({ rum })]);
-    expect(rum.addError).toHaveBeenCalledTimes(1);
-    expect(rum.addAction).not.toHaveBeenCalled();
-    const [err, ctx] = rum.addError.mock.calls[0] as [Error, { genclass: Record<string, unknown> }];
-    expect(err.name).toBe("GenClassIntervention");
-    expect(err.message).toMatch(/^\[GenClass\] Slowed down/);
-    expect(ctx.genclass.action).toBe("delay");
-    expect(JSON.stringify(ctx)).not.toContain("secret");
+  it("@genclass/runtime/sinks exports the vendor-neutral adapters only: no Sentry, PostHog or Datadog adapter", async () => {
+    const all = (await import("../src/sinks/index.js")) as Record<string, unknown>;
+    expect(Object.keys(all).sort()).toEqual(["DEFAULT_MAX_PER_SIGNATURE", "WEBHOOK_MAX_BODY_BYTES", "WEBHOOK_MAX_QUEUED", "WEBHOOK_SCHEMA", "consoleJson", "signature", "webhook"]);
+    for (const name of ["sentry", "posthog", "datadog"]) expect(all[name], name).toBeUndefined();
   });
 });
 
@@ -631,7 +404,7 @@ describe("sinks/webhook", () => {
     expect(ids).toEqual([["r0", "r1"], ["r2", "r3"], ["r4"]]);
   });
 
-  it("caps repeats of one bug at maxPerSignature (10) per page load, like the tool adapters; the summary always goes; 0 = no cap", async () => {
+  it("caps repeats of one bug at maxPerSignature (10) per page load; the summary always goes; 0 = no cap", async () => {
     const send = vi.fn();
     const w = webhook({ url: "/genclass", send, maxBatch: 500 });
     for (let i = 0; i < 25; i++) w.send(rec({ id: `r${i}` }));
