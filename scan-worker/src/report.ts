@@ -1,13 +1,17 @@
-// Turns a scan result into the report the page shows and the cache keeps: findings merged across views, numbered
-// in a fixed order, with their words and fixes; the score and its breakdown; and the measured "with GenClass" pass.
-// A finding counts as fixed only when the re-check in the same browser session shows it gone and a GenClass
-// action is on record for it (a visual fix the chunk applied, or guard's own action on the clicked request). Nothing
-// here estimates or projects a fix. Every other finding is reported for the developer with its suggested fix. A finding that may come from the scanner's own
-// stand-in answer to the page's POST requests is listed but not scored.
+// Turns a scan result into the report the page shows and the cache keeps: findings merged across views and grouped
+// by category and rule, numbered in a fixed order, with their words, the standard each is judged by, and fixes; the
+// six category scores and the overall score; the top issues; what was measured; and the measured "with GenClass" pass.
+// A finding counts as fixed only when the re-check in the same browser session shows it gone and a GenClass action is
+// on record for it (a visual fix the chunk applied, or guard's own action on the clicked request). Nothing here
+// estimates or projects a fix. Every other finding is reported for the developer with its suggested fix. A finding
+// that may come from the scanner's own stand-in answers (or from requests it refused) is listed but not scored, and so
+// is a finding in a category this scan did not measure.
 
-import { describe, isVisual, KINDS, severityOf, suggestFix, type Kind, type RawFinding } from "./catalog.ts";
+import { categoryOf, describe, isAudit, isVisual, KINDS, ruleOf, severityOf, standardsOf, suggestFix, type Kind, type RawFinding, type Source } from "./catalog.ts";
 import type { ProbeResult, ScanResult, VisualFixes } from "./scan.ts";
-import { CATEGORIES, score, type Category, type ScoreBreakdown, type Severity } from "./score.ts";
+import { LCP_GOOD_MS, LCP_POOR_MS, TIMING_NOTE } from "./audits.ts";
+import { CATEGORIES, ruleImpact, score, SEVERITY_ORDER, type Category, type ScoreBreakdown, type Severity } from "./score.ts";
+import type { Standard } from "./standards.ts";
 import type { Target } from "./target.ts";
 import { FIX_KINDS, RUNTIME_VERSION, visualKey, visualStatus } from "./visual.ts";
 
@@ -15,19 +19,31 @@ import { FIX_KINDS, RUNTIME_VERSION, visualKey, visualStatus } from "./visual.ts
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 5;
+export const REPORT_VERSION = 6;
 
 export interface Finding {
   n: number;
   kind: Kind;
+  /** The rule it belongs to: the kind, or "axe:<rule id>". Findings are grouped and scored by rule. */
+  rule: string;
+  /** Which part of the scanner measured it. */
+  source: Source;
   category: Category;
   severity: Severity;
+  /** How many elements or instances it stands for (the most found in any one view). */
+  count: number;
   views: string[];
   selector: string;
+  /** More elements with the same problem (axe-core rules and the audits), up to 5. */
+  examples: string[];
   boxes: Record<string, { x: number; y: number; w: number; h: number }>;
   measured: string;
   what: string;
   why: string;
+  /** The standards it is judged by (a WCAG success criterion, a web.dev metric), each with its link. */
+  standards: Standard[];
+  /** axe-core's guide for the rule (dequeuniversity.com), when there is one. */
+  guide: string | null;
   fix: string;
   /** How GenClass fixed it, measured in the with-GenClass pass; null when it did not. */
   fixed: { how: string } | null;
@@ -50,11 +66,24 @@ export interface Report {
   scannedAt: string;
   runtime: string;
   chrome: string;
+  /** The axe-core version that ran. */
+  axe: string;
   ms: ScanResult["ms"];
   timedOut: boolean;
-  views: { id: string; label: string; width: number; height: number; ok: boolean; status: number | null; ms: number; notes: string[]; shot: string | null; shotHeight: number; error?: string; checks: unknown; standIns: number }[];
+  views: {
+    id: string; label: string; width: number; height: number; ok: boolean; status: number | null; ms: number; notes: string[]; shot: string | null; shotHeight: number; error?: string; checks: unknown; standIns: number;
+    coverage: ScanResult["views"][number]["coverage"];
+    /** What the page could read about its window: innerWidth, innerHeight, outerWidth, outerHeight, screen.width, screen.height, clientWidth. */
+    env?: number[];
+  }[];
   findings: Finding[];
   score: ScoreBreakdown;
+  /** The rules that cost the overall score the most, at most 5: the first finding's number and the points they cost. */
+  top: { rule: string; category: Category; what: string; severity: Severity; count: number; n: number; points: number }[];
+  /** Why a category was not measured on this scan (absent when it was). */
+  notMeasured: Partial<Record<Category, string>>;
+  /** Measured once on this load: the desktop's Largest Contentful Paint and layout shift, its JavaScript, and the light phone's LCP for comparison. */
+  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; phoneLcpMs: number | null; phoneCls: number | null; axeIncomplete: number; axePasses: number; whoAsks: number };
   withGenClass: { shown: boolean; value: number | null; breakdown: ScoreBreakdown | null; fixed: number; note: string };
   probe: {
     observe: ProbeResult | null; guard: ProbeResult | null; guardHoldMs: number | null; guardAggressiveness: string; guardMargin: number | null;
@@ -66,17 +95,29 @@ export interface Report {
   notes: string[];
 }
 
-const SEV_ORDER: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
+const SEV_ORDER = Object.fromEntries(SEVERITY_ORDER.map((s, i) => [s, i])) as Record<Severity, number>;
 const CAT_ORDER = Object.fromEntries(CATEGORIES.map((c, i) => [c.id, i])) as Record<Category, number>;
 const VIEW_ORDER: Record<string, number> = { desktop: 0, phone: 1, "phone-dark": 2, probe: 3 };
+const VIEW_WORDS: Record<string, string> = { desktop: "desktop", phone: "phone", "phone-dark": "dark phone" };
 
-/** The identity of a finding across views: the same element with the same problem is one finding. */
+/**
+ * The identity of a finding across views. A visual finding is one element with one problem; an axe-core rule or an
+ * audit is one finding per scan, whatever views it showed in (its count is the most found in one view).
+ */
 function identity(f: RawFinding): string {
   const d = f.detail ?? {};
   if (f.kind === "genclass-detection") return `${f.kind}|${String(d.diagnosis)}|${String(d.subject)}`;
+  if (f.kind === "axe") return `axe|${String(d.rule)}`;
+  if (isAudit(f.kind)) return `audit|${f.kind}`;
   if (isVisual(f.kind)) return visualKey(f);
   return `${f.kind}|${f.selector}`;
 }
+/** Findings that stand for many elements: merged across views by rule rather than by element. */
+const aggregate = (f: RawFinding): boolean => f.kind === "axe" || isAudit(f.kind);
+const countOf = (f: RawFinding): number => {
+  const c = f.detail?.count;
+  return typeof c === "number" && Number.isFinite(c) && c >= 1 ? Math.round(c) : 1;
+};
 
 const MOVES: Record<string, string> = { coalesce: "merging the two", discard: "dropping it", defer: "holding it back", retry: "retrying it", cancel: "cancelling it" };
 /** A diagnosis with its article ("a duplicate", "an inconsistency"); the page uses the same words. */
@@ -231,10 +272,27 @@ export function guardSetting(aggr: string, margin: number | null, holdMs: number
   return `GenClass in guard mode with ${gates}${holdMs ? `, holding requests for up to ${holdMs} ms while it decides` : ""}`;
 }
 
+
 /** Kinds whose evidence can come from the scanner's stand-in answer to a POST made while the page loaded. */
-const STAND_IN_KINDS = new Set<Kind>(["text-template-leak", "text-placeholder", "image-broken", "page-blank"]);
+const STAND_IN_KINDS = new Set<Kind>(["text-template-leak", "text-placeholder", "image-broken", "page-blank", "js-error", "console-error"]);
 export const STAND_IN_NOTE =
   "The page sent requests other than GET while loading and the scanner answered them itself, so this may come from that stand-in answer rather than from the site.";
+/** Kinds whose evidence can come from files the scanner refused to load (a lookup that failed, a private answer). */
+const REFUSED_KINDS = new Set<Kind>(["js-error", "console-error"]);
+export const REFUSED_NOTE =
+  "The scanner did not load some of this page's files (their hostnames could not be looked up, or pointed to private addresses), so this may come from those missing files rather than from the site.";
+export const JS_NOTE =
+  "A note, not scored: the transferred size alone does not make a page slow, and the Speed score already measures when the main content shows (LCP).";
+/**
+ * Layout shift measured in the scanner's browser is listed, never scored. Every request there waits for the scanner's
+ * own checks before it continues, so content that scripts add after the first paint (a cookie banner, a fundraising
+ * banner) moves the page more than it does for most visitors: on the three public pages of the calibration where the
+ * scanner measured a shift, a desktop browser loading the same page measured none (scan-worker/CALIBRATION.md).
+ */
+const SHIFT_KINDS = new Set<Kind>(["cls-high", "layout-shift"]);
+export const SHIFT_NOTE =
+  "Listed, not scored: in the scanner's browser every request waits for the scanner's own checks, so content that scripts add after the first paint moves the page more than it does for most visitors. Compare with Chrome's field data (CrUX) or a Lighthouse run before acting on it.";
+const notMeasuredNote = (label: string): string => `Listed, not scored: ${label} was not measured on this scan.`;
 
 /** The with-GenClass note, from what this scan measured: only the steps that ran are named. */
 export function withNote(r: ScanResult, aggr: string, margin: number | null, holdMs: number | null): string {
@@ -254,33 +312,116 @@ export function withNote(r: ScanResult, aggr: string, margin: number | null, hol
     const kinds = [...new Set(uncovered.values())].join(", ");
     parts.push(`With the fixes in place the re-check also found ${uncovered.size} ${uncovered.size === 1 ? "problem" : "problems"} the first pass did not report (${kinds}); neither score counts ${uncovered.size === 1 ? "it" : "them"}.`);
   }
-  parts.push("The visual fixes change three kinds in the page (invisible text colour, a leaked pointer-events: none, a leaked scroll lock); everything else is reported for the developer.");
+  parts.push("The visual fixes change three kinds in the page (invisible text colour, a leaked pointer-events: none, a leaked scroll lock); everything else, including every accessibility, phone, reliability and speed finding, is reported for the developer.");
   return parts.join(" ");
 }
 
+/** Which categories this scan measured, and why the others were not. */
+export function coverageOf(r: ScanResult): { measured: Record<Category, boolean>; notMeasured: Partial<Record<Category, string>> } {
+  const ok = r.views.filter((v) => v.ok);
+  const measured: Record<Category, boolean> = {
+    visual: ok.some((v) => v.checks !== null),
+    accessibility: ok.some((v) => v.coverage?.axe.ran === true),
+    phone: ok.some((v) => v.coverage?.phone === true),
+    reliability: ok.some((v) => v.coverage?.reliability === true),
+    speed: ok.some((v) => v.id === "desktop" && v.coverage?.vitals === true),
+    races: !!(r.probe?.ran && (r.probe.typed || r.probe.clicked)),
+  };
+  const notMeasured: Partial<Record<Category, string>> = {};
+  const axeError = ok.map((v) => v.coverage?.axe.error).find((e) => !!e);
+  if (!measured.visual) notMeasured.visual = ok.length ? "The visual checks did not run in any view." : "No view loaded.";
+  if (!measured.accessibility) notMeasured.accessibility = ok.length ? `axe-core did not finish in any view${axeError ? ` (${axeError})` : ""}.` : "No view loaded.";
+  if (!measured.phone) notMeasured.phone = "The phone audits did not run on the phone view.";
+  if (!measured.reliability) notMeasured.reliability = "The browser's own record of errors and requests could not be read.";
+  if (!measured.speed) notMeasured.speed = "The desktop view's timings could not be read.";
+  if (!measured.races) notMeasured.races = !r.probe?.ran ? "The race probe did not run." : "The page has no search box and no form that posts, so the race probe had nothing to try.";
+  return { measured, notMeasured };
+}
+
+/**
+ * Largest Contentful Paint is judged on the faster of two loads in the same browser: the desktop view and the light
+ * phone, which loads without GenClass. One load in the scanner's browser can be much slower than a visitor's (measured
+ * in calibration: 2.64 s for a text heading that a desktop browser painted at 0.59 s, while the light phone measured
+ * 2.13 s). When the faster load is within web.dev's 2.5 s there is no finding; otherwise the severity follows the faster
+ * load and the finding names both. When the phone's LCP could not be read, the desktop's stands alone and says so.
+ */
+function lcpOnFasterLoad(merged: Map<string, { raw: RawFinding; severity: Severity; views: string[] }>, r: ScanResult): void {
+  const k = "audit|lcp-slow";
+  const e = merged.get(k);
+  if (!e) return;
+  const desk = typeof e.raw.detail?.ms === "number" ? (e.raw.detail.ms as number) : null;
+  const phone = r.views.find((v) => v.id === "phone" && v.ok)?.metrics?.lcpMs ?? null;
+  if (desk === null) return;
+  const s = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
+  if (phone === null) {
+    e.raw = { ...e.raw, measured: `${e.raw.measured} The phone view's LCP could not be read, so this is one load.` };
+    return;
+  }
+  const faster = Math.min(desk, phone);
+  if (faster <= LCP_GOOD_MS) {
+    merged.delete(k);
+    return;
+  }
+  const poor = faster > LCP_POOR_MS;
+  const el = e.raw.selector ? ` (${e.raw.selector})` : "";
+  e.severity = poor ? "moderate" : "minor";
+  e.raw = {
+    ...e.raw,
+    measured: `Largest Contentful Paint at ${s(desk)} on the desktop view${el} and ${s(phone)} on the phone view; the faster load is ${poor ? "poor (above 4 s)" : "above 2.5 s (needs improvement)"}. ${TIMING_NOTE}`,
+    detail: { ...e.raw.detail, severity: e.severity, phoneMs: phone },
+  };
+}
+
+const helpUrl = (v: unknown): string | null => (typeof v === "string" && /^https:\/\/dequeuniversity\.com\/rules\/axe\//.test(v) ? v : null);
+const listWords = (xs: string[]): string => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
 export function buildReport(
   target: Target,
-  ids: { id: string; key: string; at: Date; runtime: string; shotUrl: (view: string) => string | null; guardHoldMs: number | null; guardAggressiveness?: string; guardMargin?: number | null },
+  ids: { id: string; key: string; at: Date; runtime: string; axe?: string; shotUrl: (view: string) => string | null; guardHoldMs: number | null; guardAggressiveness?: string; guardMargin?: number | null },
   r: ScanResult,
   flags: { withGenClass: boolean },
 ): Report {
-  const merged = new Map<string, { raw: RawFinding; views: string[]; boxes: Finding["boxes"] }>();
+  type Entry = { raw: RawFinding; views: string[]; boxes: Finding["boxes"]; counts: Record<string, number>; examples: string[]; severity: Severity; best: number };
+  const merged = new Map<string, Entry>();
   const add = (f: RawFinding, view: string) => {
     const k = identity(f);
+    const sev = severityOf(f);
+    const n = countOf(f);
+    const ex = Array.isArray(f.detail?.examples) ? (f.detail.examples as unknown[]).filter((x): x is string => typeof x === "string" && x !== "") : [];
     const cur = merged.get(k);
-    if (cur) {
-      if (!cur.views.includes(view)) cur.views.push(view);
-      if (f.box && !cur.boxes[view]) cur.boxes[view] = f.box;
+    if (!cur) {
+      merged.set(k, { raw: f, views: [view], boxes: f.box ? { [view]: f.box } : {}, counts: { [view]: n }, examples: ex.slice(0, 5), severity: sev, best: n });
       return;
     }
-    merged.set(k, { raw: f, views: [view], boxes: f.box ? { [view]: f.box } : {} });
+    if (!cur.views.includes(view)) cur.views.push(view);
+    if (f.box && !cur.boxes[view]) cur.boxes[view] = f.box;
+    cur.counts[view] = Math.max(cur.counts[view] ?? 0, n);
+    for (const e of ex) if (!cur.examples.includes(e) && cur.examples.length < 5) cur.examples.push(e);
+    if (SEV_ORDER[sev] < SEV_ORDER[cur.severity]) cur.severity = sev;
+    // a finding that stands for many elements takes its words from the view where it found the most
+    if (aggregate(f) && n > cur.best) {
+      cur.raw = f;
+      cur.best = n;
+    }
   };
-  for (const v of r.views) for (const f of v.findings) if (Object.hasOwn(KINDS, f.kind)) add(f, v.id);
+  for (const v of r.views) {
+    for (const f of v.findings) if (Object.hasOwn(KINDS, f.kind)) add(f, v.id);
+    for (const f of v.audits ?? []) if (Object.hasOwn(KINDS, f.kind)) add(f, v.id);
+  }
+  // a phone view laid out wider than the phone because there is no viewport meta tag, when the visual checks did not say so
+  if (![...merged.values()].some((e) => e.raw.kind === "viewport-meta-missing")) {
+    const wide = r.views.find((v) => v.ok && (v.id === "phone" || v.id === "phone-dark") && v.checks?.viewportMeta === false && v.width > 390);
+    if (wide)
+      add({ kind: "viewport-meta-missing", selector: "head", box: null, measured: `The page has no viewport meta tag, so a phone lays it out ${wide.width} px wide and shows it zoomed out on a 390 px screen.`, detail: { severity: "high" } }, wide.id);
+  }
   for (const f of probeFindings(r.probe)) add(f, "probe");
+  lcpOnFasterLoad(merged, r);
 
-  // views whose page got stand-in answers while loading (the probe ran on the desktop page)
+  const { measured, notMeasured } = coverageOf(r);
+  // views whose page got stand-in answers while loading (the probe ran on the desktop page), or had files refused
   const standIn = new Set(r.views.filter((v) => (v.standIns?.count ?? 0) > 0).map((v) => v.id as string));
   if (standIn.has("desktop") || (r.probe?.loadStandIns ?? 0) > 0) standIn.add("probe");
+  const refused = new Set(r.views.filter((v) => (v.metrics?.skippedHosts ?? 0) > 0).map((v) => v.id as string));
   // each view's with-GenClass pass: a visual finding is fixed only when it was fixed and re-checked in every view it
   // appeared in
   const viewFixes = new Map<string, VisualFixes | null>(r.views.map((v) => [v.id as string, v.fixes ?? null]));
@@ -295,49 +436,83 @@ export function buildReport(
     }
     return { fixed: null, why: "it was fixed in one view but not re-checked in every view it appeared in, so it is not counted." };
   };
-  const list = [...merged.values()].map(({ raw, views, boxes }) => {
-    const meta = KINDS[raw.kind];
+  const list: Finding[] = [...merged.values()].map(({ raw, views, boxes, counts, examples, severity }) => {
     const words = describe(raw);
     let fixed: { how: string } | null = null;
     let why: string | null = null;
     if (raw.kind === "duplicate-submit" || raw.kind === "genclass-detection") {
       fixed = raceFix(raw, r.probe, r.guard);
       why = heldBack(raw, r.probe, r.guard, (ids.guardMargin ?? null) === null && (ids.guardAggressiveness ?? "balanced") === "balanced");
+    } else if (FIX_KINDS.has(raw.kind) && flags.withGenClass) ({ fixed, why } = visualFix(identity(raw), views));
+    const sorted = views.sort((a, b) => (VIEW_ORDER[a] ?? 9) - (VIEW_ORDER[b] ?? 9));
+    const category = categoryOf(raw.kind, sorted);
+    const count = Math.max(1, ...Object.values(counts));
+    const fromStandIn = (STAND_IN_KINDS.has(raw.kind) || (raw.kind === "genclass-detection" && String(raw.detail?.diagnosis) !== "duplicate")) && sorted.every((v) => standIn.has(v));
+    const fromRefused = !fromStandIn && REFUSED_KINDS.has(raw.kind) && sorted.every((v) => refused.has(v) || standIn.has(v));
+    const label = CATEGORIES.find((c) => c.id === category)!.label;
+    const unscored = raw.kind === "js-heavy" ? JS_NOTE : SHIFT_KINDS.has(raw.kind) ? SHIFT_NOTE : fromStandIn ? STAND_IN_NOTE : fromRefused ? REFUSED_NOTE : !measured[category] ? notMeasuredNote(label) : null;
+    let text = raw.measured;
+    if (raw.kind === "axe") {
+      const per = sorted.filter((v) => counts[v]).map((v) => `${counts[v]} on the ${VIEW_WORDS[v] ?? v}`);
+      text = `${count === 1 && per.length === 1 ? "1 element" : `Elements: ${listWords(per)}`}.${raw.measured ? ` First: ${raw.measured}` : ""}`;
+    } else if (aggregate(raw) && sorted.length > 1) {
+      const others = sorted.filter((v) => !raw.measured.includes(`the ${VIEW_WORDS[v] ?? v} view`)).map((v) => VIEW_WORDS[v] ?? v);
+      if (others.length && others.length < sorted.length) text = `${raw.measured} Also on the ${listWords(others)} view.`;
     }
-    else if (FIX_KINDS.has(raw.kind) && flags.withGenClass) ({ fixed, why } = visualFix(identity(raw), views));
-    const fromStandIn = (STAND_IN_KINDS.has(raw.kind) || (raw.kind === "genclass-detection" && String(raw.detail?.diagnosis) !== "duplicate")) && views.every((v) => standIn.has(v));
     return {
       n: 0,
       kind: raw.kind,
-      category: meta.category,
-      severity: severityOf(raw),
-      views: views.sort((a, b) => (VIEW_ORDER[a] ?? 9) - (VIEW_ORDER[b] ?? 9)),
+      rule: ruleOf(raw),
+      source: KINDS[raw.kind].source,
+      category,
+      severity,
+      count,
+      views: sorted,
       selector: raw.selector,
+      examples: examples.slice(0, 5),
       boxes,
-      measured: raw.measured,
+      measured: text,
       what: words.what,
       why: words.why,
+      standards: standardsOf(raw),
+      guide: raw.kind === "axe" ? helpUrl(raw.detail?.helpUrl) : null,
       fix: suggestFix(raw),
       fixed,
-      genclass: fixed ? { status: "fixed", text: `Fixed. ${fixed.how}` } : { status: FIX_KINDS.has(raw.kind) || raw.kind === "duplicate-submit" || raw.kind === "genclass-detection" ? "not-fixed" : "reported", text: notFixedText(raw.kind, why) },
-      unscored: fromStandIn ? STAND_IN_NOTE : null,
+      genclass: fixed
+        ? { status: "fixed", text: `Fixed. ${fixed.how}` }
+        : { status: FIX_KINDS.has(raw.kind) || raw.kind === "duplicate-submit" || raw.kind === "genclass-detection" ? "not-fixed" : "reported", text: notFixedText(raw.kind, why) },
+      unscored,
     } satisfies Finding;
   });
+
+  const scorable = (fs: readonly Finding[]) => fs.filter((f) => !f.unscored).map((f) => ({ category: f.category, severity: f.severity, rule: f.rule, count: f.count }));
+  const without = score(scorable(list), measured);
+  const points = new Map<string, number>();
+  for (const c of without.categories) for (const rule of c.rules) points.set(`${c.id}|${rule.rule}`, rule.points);
+  const pts = (f: Finding) => points.get(`${f.category}|${f.rule}`) ?? 0;
   list.sort(
     (a, b) =>
-      SEV_ORDER[a.severity] - SEV_ORDER[b.severity] ||
       CAT_ORDER[a.category] - CAT_ORDER[b.category] ||
+      pts(b) - pts(a) ||
+      a.rule.localeCompare(b.rule) ||
+      SEV_ORDER[a.severity] - SEV_ORDER[b.severity] ||
       (VIEW_ORDER[a.views[0]] ?? 9) - (VIEW_ORDER[b.views[0]] ?? 9) ||
-      a.kind.localeCompare(b.kind) ||
       a.selector.localeCompare(b.selector) ||
       a.measured.localeCompare(b.measured),
   );
   list.forEach((f, i) => (f.n = i + 1));
 
-  const scored = list.filter((f) => !f.unscored);
-  const without = score(scored);
-  const fixedCount = scored.filter((f) => f.fixed).length;
-  const withBreakdown = score(scored.filter((f) => !f.fixed));
+  const top = ruleImpact(scorable(list), measured)
+    .filter((t) => t.points > 0)
+    .slice(0, 5)
+    .map((t) => {
+      const mine = list.filter((f) => f.category === t.category && f.rule === t.rule && !f.unscored);
+      const sev = mine.map((f) => f.severity).sort((a, b) => SEV_ORDER[a] - SEV_ORDER[b])[0] ?? "minor";
+      return { rule: t.rule, category: t.category, what: mine[0]?.what ?? t.rule, severity: sev, count: mine.reduce((s, f) => s + f.count, 0), n: mine[0]?.n ?? 0, points: t.points };
+    });
+
+  const fixedCount = list.filter((f) => !f.unscored && f.fixed).length;
+  const withBreakdown = score(scorable(list.filter((f) => !f.fixed)), measured);
   const guardRan = !!r.guard?.ran;
   const visualRan = r.views.some((v) => v.ok && v.checks !== null);
   const measuredWith = guardRan || visualRan;
@@ -346,6 +521,9 @@ export function buildReport(
     : measuredWith
       ? withNote(r, ids.guardAggressiveness ?? "balanced", ids.guardMargin ?? null, ids.guardHoldMs)
       : "GenClass could not be measured on this page, so nothing is counted as fixed.";
+  const desk = r.views.find((v) => v.id === "desktop" && v.ok);
+  const phone = r.views.find((v) => v.id === "phone" && v.ok);
+  const axeViews = r.views.filter((v) => v.coverage?.axe.ran);
 
   return {
     v: REPORT_VERSION,
@@ -357,14 +535,29 @@ export function buildReport(
     scannedAt: ids.at.toISOString(),
     runtime: ids.runtime,
     chrome: r.chrome,
+    axe: ids.axe ?? "",
     ms: r.ms,
     timedOut: r.timedOut,
     views: r.views.map((v) => ({
       id: v.id, label: v.label, width: v.width, height: v.height, ok: v.ok, status: v.status, ms: v.ms, notes: v.notes,
       shot: v.shot ? ids.shotUrl(v.id) : null, shotHeight: v.shotHeight, ...(v.error ? { error: v.error } : {}), checks: v.checks, standIns: v.standIns?.count ?? 0,
+      coverage: v.coverage,
+      ...(v.metrics?.env ? { env: v.metrics.env } : {}),
     })),
     findings: list,
     score: without,
+    top,
+    notMeasured,
+    metrics: {
+      lcpMs: desk?.metrics?.lcpMs ?? null,
+      cls: desk?.metrics?.cls ?? null,
+      jsBytes: desk?.metrics?.jsBytes ?? null,
+      phoneLcpMs: phone?.metrics?.lcpMs ?? null,
+      phoneCls: phone?.metrics?.cls ?? null,
+      axeIncomplete: Math.max(0, ...axeViews.map((v) => v.coverage.axe.incomplete)),
+      axePasses: Math.max(0, ...axeViews.map((v) => v.coverage.axe.passes)),
+      whoAsks: Math.max(0, ...r.views.map((v) => v.metrics?.whoAsks ?? 0)),
+    },
     withGenClass: {
       shown: flags.withGenClass && measuredWith,
       value: flags.withGenClass && measuredWith ? withBreakdown.value : null,

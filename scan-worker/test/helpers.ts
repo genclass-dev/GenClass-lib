@@ -158,7 +158,44 @@ export interface PageScript {
   button?: boolean;
   /** What a double click makes the page send, by mode: the number of identical POSTs. */
   postsOnDoubleClick?: { observe: number; guard: number };
+  /** Where the double click's POSTs go (default the page's own /api/subscribe). */
+  postUrl?: string;
   detections?: unknown[];
+  /** What axe-core's run returns in each view (the scanner then gets axe built in); unset: no axe-core. */
+  axe?: (view: string) => unknown;
+  /** What the page audits measure (src/audits.ts pageSide): timings, the layout audit per view, the reflow probe per width. */
+  vitals?: (view: string) => unknown;
+  audit?: (view: string) => unknown;
+  reflow?: (width: number) => unknown;
+  /** The window's overflow as the page reads it (html and body overflow-y, scroll and client height). */
+  overflow?: (view: string) => unknown;
+  /** Response statuses by URL in the browser's own record (default 200), and other DevTools events sent while loading. */
+  statuses?: Record<string, number>;
+  cdpEvents?: [string, unknown][];
+  /** The page has no DevTools session for the scanner (reliability is then not measured). */
+  noCdp?: boolean;
+}
+
+/** A DevTools session the scanner opens on a fake page: it records what was turned on; the page emits events into it. */
+export class FakeCdp {
+  sent: string[] = [];
+  detached = false;
+  private handlers = new Map<string, ((p: unknown) => void)[]>();
+  async send(method: string): Promise<unknown> {
+    this.sent.push(method);
+    if (method === "Runtime.enable") this.emit("Runtime.executionContextCreated", { context: { id: 1, auxData: { isDefault: true, frameId: "MAIN" } } });
+    if (method === "Page.getFrameTree") return { frameTree: { frame: { id: "MAIN" } } };
+    return {};
+  }
+  on(event: string, h: (p: unknown) => void) {
+    this.handlers.set(event, [...(this.handlers.get(event) ?? []), h]);
+  }
+  emit(event: string, p: unknown) {
+    for (const h of this.handlers.get(event) ?? []) h(p);
+  }
+  async detach() {
+    this.detached = true;
+  }
 }
 
 export class FakePage implements PageLike {
@@ -175,7 +212,7 @@ export class FakePage implements PageLike {
   mode: "none" | "observe" | "guard" = "none";
   mouse = {
     click: async (_x: number, _y: number, o?: { count?: number }) => this.click(o?.count ?? 1),
-    move: async () => undefined,
+    move: async (x: number, y: number) => void this.moves.push([x, y]),
     wheel: async () => void this.wheels++,
   };
   keyboard = { type: async (text: string) => this.typeText(text), press: async (key: string) => void this.keys.push(key) };
@@ -183,13 +220,29 @@ export class FakePage implements PageLike {
   keys: string[] = [];
   /** Commands the scanner sent to the visual checks, in order. */
   visual: { cmd: string; arg: Record<string, any> }[] = [];
+  /** The page audits the scanner ran (src/audits.ts pageSide), and the views axe-core ran in. */
+  audits: { cmd: string; arg: Record<string, any> }[] = [];
+  axeRuns: string[] = [];
+  /** Where the pointer was moved, in order, and where it was each time axe-core ran. */
+  moves: [number, number][] = [];
+  pointerAtAxe: ([number, number] | undefined)[] = [];
   private script: PageScript;
   private settle: () => Promise<void>;
+  /** The scanner's DevTools session on this page, once it opened one. */
+  cdp: FakeCdp | null = null;
+  createCDPSession?: () => Promise<FakeCdp>;
+  /** Every viewport width the scanner set, in order. */
+  widths: number[] = [];
+  private rid = 0;
   constructor(script: PageScript, settle: () => Promise<void>) {
     this.script = script;
     this.settle = settle;
+    if (!script.noCdp) this.createCDPSession = async () => (this.cdp = new FakeCdp());
   }
-  async setViewport(v: { width: number; height: number }) { this.viewport = v; }
+  async setViewport(v: { width: number; height: number }) {
+    this.viewport = v;
+    this.widths.push(v.width);
+  }
   async setUserAgent(ua: string) { this.ua = ua; }
   async emulateMediaFeatures(f: { name: string; value: string }[]) { this.scheme = f.find((x) => x.name === "prefers-color-scheme")?.value || "light"; }
   async setBypassCSP() {}
@@ -211,6 +264,18 @@ export class FakePage implements PageLike {
     const r = new FakeRequest(this, url, method, type, nav, main, body);
     this.emit("request", r);
     for (let i = 0; i < 50 && !r.handled; i++) await this.settle();
+    // the browser's own record of the request, as a DevTools session sees it
+    if (this.cdp && r.handled) {
+      const id = `req${++this.rid}`;
+      const cdpType = type === "xhr" ? "XHR" : type.charAt(0).toUpperCase() + type.slice(1);
+      this.cdp.emit("Network.requestWillBeSent", { requestId: id, request: { url, method, mixedContentType: "none" }, type: cdpType });
+      if (r.handled.outcome === "abort") this.cdp.emit("Network.loadingFailed", { requestId: id, errorText: "net::ERR_BLOCKED_BY_CLIENT" });
+      else if (!hang) {
+        const status = r.handled.outcome === "respond" ? r.handled.status ?? 200 : this.script.statuses?.[url] ?? 200;
+        this.cdp.emit("Network.responseReceived", { requestId: id, type: cdpType, response: { url, status, mimeType: type === "script" ? "text/javascript" : "text/html" } });
+        this.cdp.emit("Network.loadingFinished", { requestId: id, encodedDataLength: type === "script" ? 600_000 : 2000 });
+      }
+    }
     if (r.handled?.outcome === "continue" && !hang) {
       const addr = ip ?? this.script.ip ?? "93.184.215.14";
       this.emit("response", { status: () => 200, url: () => url, request: () => r, remoteAddress: () => ({ ip: addr, port: 443 }) });
@@ -229,6 +294,7 @@ export class FakePage implements PageLike {
       this.current = this.script.redirect;
     }
     for (const l of this.script.load || []) await this.request(l.url, l.method || "GET", l.type || "fetch", !!l.nav, l.main ?? false, l.body, l.ip, !!l.hang);
+    for (const [event, params] of this.script.cdpEvents ?? []) this.cdp?.emit(event, params);
     const status = this.script.status ?? 200;
     return { status: () => status, url: () => url, request: () => doc };
   }
@@ -236,7 +302,7 @@ export class FakePage implements PageLike {
   private async click(count: number) {
     if (count < 2 || !this.script.postsOnDoubleClick) return;
     const n = this.mode === "guard" ? this.script.postsOnDoubleClick.guard : this.script.postsOnDoubleClick.observe;
-    for (let i = 0; i < n; i++) await this.request(`${new URL(this.current).origin}/api/subscribe`, "POST", "fetch", false, false, '{"email":""}');
+    for (let i = 0; i < n; i++) await this.request(this.script.postUrl ?? `${new URL(this.current).origin}/api/subscribe`, "POST", "fetch", false, false, '{"email":""}');
   }
   typed = "";
   private async typeText(text: string) {
@@ -248,6 +314,18 @@ export class FakePage implements PageLike {
   async evaluate(src: string): Promise<unknown> {
     this.evaluated.push(src);
     if (src.includes('Object.getOwnPropertyDescriptor(window, "__genclassScanVisual")')) return true; // the visual checks' installer
+    if (src.includes('Object.getOwnPropertyDescriptor(window, "axe")')) return !!this.script.axe; // axe-core's installer
+    if (src.includes("ax.run(document")) {
+      this.axeRuns.push(this.view);
+      this.pointerAtAxe.push(this.moves.at(-1));
+      return JSON.stringify(this.script.axe ? this.script.axe(this.view) : { ok: false, error: "axe-core is not installed" });
+    }
+    const side = /\)\("(vitals|audit|reflow|overflow)", (\{.*\})\)\)\)\(\)$/.exec(src);
+    if (side) {
+      this.audits.push({ cmd: side[1], arg: JSON.parse(side[2]) });
+      const v = side[1] === "vitals" ? this.script.vitals?.(this.view) : side[1] === "audit" ? this.script.audit?.(this.view) : side[1] === "overflow" ? this.script.overflow?.(this.view) : this.script.reflow?.(this.viewport?.width ?? 0);
+      return JSON.stringify(v ?? null);
+    }
     const vc = /await f\("(\w+)", (\{.*\})\)\); \}\)\(\)$/.exec(src);
     if (vc) return JSON.stringify(this.visualCommand(vc[1], JSON.parse(vc[2])));
     if (src.includes('("read")')) return JSON.stringify({ held: false, wsHosts: this.script.wsHosts ?? [] });

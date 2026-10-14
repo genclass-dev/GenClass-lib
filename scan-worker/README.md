@@ -1,14 +1,19 @@
 # genclass-scan: the genclass.dev page check
 
-Type an address, and a Cloudflare browser loads that one page as a desktop and a phone, light and dark, runs the
-measured visual checks built for the GenClass runtime (23 kinds, 22 of them run here; in testing on `wave2/visual`, not
-in any released runtime: npm's 0.2.1, main and release/0.3.0 have no visual code), then types into the search box and
-double-clicks a submit button with GenClass 0.2.1 watching. The page shows a score out of 100 with its breakdown and a with-GenClass score,
-screenshots with numbered boxes, every finding with what was measured, the suggested CSS or code, and whether GenClass
-fixed it in the page (measured by a re-check) or reports it for the developer, what the race probe tried and what
-GenClass saw, with and without guard mode.
+Type an address, and a Cloudflare browser loads that one page as a desktop and a phone, light and dark, and checks it six
+ways: the measured visual checks built for the GenClass runtime (23 kinds, 22 of them run here; in testing on
+`wave2/visual`, not in any released runtime: npm's 0.2.1, main and release/0.3.0 have no visual code), axe-core 4.13.0's
+WCAG 2.2 A and AA rules and best practices in every view, phone audits (WCAG 2.5.8 tap targets, WCAG 1.4.4 zoom, the
+viewport meta tag, 12 px text, WCAG 1.4.10 reflow at 360 and 320 px), the browser's own record of errors and failed
+requests, speed (Largest Contentful Paint, oversized and unsized images), and races: it types into the search box and
+double-clicks a submit button with GenClass 0.2.1 watching. The page shows an overall score, six category scores and the
+top issues, then screenshots with numbered boxes and every finding grouped by category and rule, with what was measured,
+the standard it is judged by (with its link), the element, the suggested fix, and whether GenClass fixed it in the page
+(measured by a re-check) or reports it for the developer.
 
-- **Test copy:** `https://genclass-scan.mehar-144.workers.dev/scan` (workers.dev only; deployed from this directory).
+- **Test copy:** `https://genclass-scan-test.mehar-144.workers.dev/scan` (wrangler env `test`: workers.dev only, no
+  routes, its own bucket prefix `scan-test/` and rate-limit counters; `npm run deploy:test`). The production worker,
+  `genclass-scan`, also answers on `https://genclass-scan.mehar-144.workers.dev`; this branch has not been deployed to it.
 - **Routes it will own on genclass.dev** (not live; the owner adds them after review): `genclass.dev/api/scan*` and
   `genclass.dev/scan*`. The more specific `/api/scan*` route wins over the telemetry worker's `genclass.dev/api/*`.
   The trailing `*` is needed: Workers route matching includes the query string, so `genclass.dev/scan` alone would
@@ -65,14 +70,27 @@ scripts, and puts all dynamic text in place with `textContent` from a `<script t
    compare-and-swap leases on `scans/slots.json` that record the client hash (expire after 60 s by themselves).
    When the person who started a scan goes away (`request.signal`, compatibility flag `enable_request_signal`, or a
    cancelled stream), the scan stops at once, closes the browser, frees the slot and saves nothing.
-9. **Scan** (`src/scan.ts`), 45 s hard budget, against Browser Rendering (`@cloudflare/puppeteer` 1.4.0):
+9. **Scan** (`src/scan.ts`), 50 s hard budget (`SCAN_BUDGET_MS`; leases last 60 s), against Browser Rendering
+   (`@cloudflare/puppeteer` 1.4.0):
    - three views in parallel, each in a browser window of its own (`Target.createTarget` with `newWindow`: in one
      window only the front tab is visible, and both the visual checks and the runtime treat a hidden page
      differently): desktop 1366×768 light, phone 390×844 light, phone 390×844 dark (`prefers-color-scheme`); user
-     agent: a Chrome UA ending in `GenClassScan/1.0 (+https://genclass.dev/scan)`; navigation capped at 20 s, then up
-     to 4 s for the page's network to go quiet (the scanner's own runtime and model downloads do not count);
+     agent: a Chrome UA ending in `GenClassScan/1.0 (+https://genclass.dev/scan)`; navigation capped at 16 s, then up
+     to 4 s for the page's network to go quiet (half a second after a load that timed out; the scanner's own runtime
+     and model downloads do not count); the desktop window and screen are sized to the viewport (`fitDesktopWindow`:
+     a new headless window is 780×580 on an 800×600 screen, which a page can read from `outerWidth` and `screen`);
+   - a DevTools session of the scanner's own per view (`src/cdp.ts`), opened before navigation: uncaught errors,
+     `console.error`, every response's status and size, mixed content; closed when the view's checks end;
+   - at network quiet, before any key press or scroll: Largest Contentful Paint, layout shifts and images without
+     dimensions (`pageSide("vitals")` in `src/audits.ts`);
    - the GenClass visual checks for about 6 s (below), with the with-GenClass re-check when fixes were applied, then a
      JPEG of the top of the page with the fixes undone, and a box for every finding;
+   - then the deeper checks (`deeperChecks`), after the pointer leaves the page and focus is cleared (the visual
+     checks' Tab presses and scrolling would leave `:focus` or `:hover` styles on what is judged), each only when the
+     time left before the race probe allows it, each saying so when it does not (and its category is then "not
+     measured", never 100): axe-core in every view; the page
+     audits on the desktop and the light phone; on the light phone, last, the same page narrowed to 360 and 320 px
+     without a reload for the reflow check (below);
    - the race probe on the desktop page with `@genclass/runtime` 0.2.1 injected before any page script (observe,
      `telemetry: false`, model from `https://genclass.dev/model/@genclass/runtime-model@0.2.0/files/`): type `a`, `ab`,
      `abc` 80 ms apart into the first search-like input, then double-click the most prominent submit button of a
@@ -191,15 +209,75 @@ findings, 5 confirmed real, 0 check errors, 3 unconfirmed. The scanner embeds th
 per view with 4 Tab presses and no hover (the bench: hover over 8 controls, 8 Tab presses), so these numbers describe
 the checks, not this scanner. `/scan/about` says the same.
 
+## The deeper checks (scan-score/3)
+
+Each one measures something a developer can reproduce, against a published threshold the finding names. Thresholds and
+the reasons for each choice are in `src/audits.ts`, `src/axe.ts` and `src/cdp.ts`; `/scan/about#audits` publishes them.
+
+- **axe-core 4.13.0** (`src/axe.ts`, `src/axe-source.ts`; MPL-2.0, embedded unmodified with its notice, built by
+  `scripts/build-axe.mjs` from the pinned package; `test/axe.test.ts` fails when the committed file is not that package
+  byte for byte). Installed in the isolated world of every view the way the visual chunk is (taken only when the
+  embedded source defined it, pinned under a per-scan name, `window.axe` deleted). Tags `wcag2a`, `wcag2aa`, `wcag21a`,
+  `wcag21aa`, `wcag22aa`, `best-practice`; violations only; no iframes; `preload: false` (no fetches); scroll restored;
+  9 s at most per view. `target-size`, `meta-viewport` and `meta-viewport-large` are off: the phone audits measure the
+  same thing. Needs-review results are a count (`metrics.axeIncomplete`), never findings. Impact is the severity;
+  best-practice-only rules are one level lower. One finding per rule across views, its count the most elements any view
+  found, up to 5 example selectors, the WCAG success criteria from its tags with their Understanding links, and axe's
+  rule guide (`dequeuniversity.com` only). An element the visual checks reported as invisible text is removed from
+  `color-contrast` in that view (counted once). `color-contrast` also leaves out text WCAG 1.4.3 exempts: inside an
+  element marked `role="img"` or `aria-hidden="true"` (incidental), and text that is only the site's own name (a
+  logotype); both measured in calibration.
+- **Phone audits** (light phone, `pageSide("audit")`): WCAG 2.5.8 tap targets (links, buttons, form controls and control
+  roles under 24×24 CSS px whose 24 px circle touches another target or another small target's circle; inline links in a
+  sentence, checkboxes and radios at the browser's own size or with a 24×24 label, disabled, hidden, clipped and covered
+  targets are left out; every target is hit-tested at its centre, half a screen at a time); WCAG 1.4.4 zoom
+  (`user-scalable=no` or `maximum-scale` below 2); a missing viewport meta tag (Lighthouse's viewport audit), added from
+  the phone layout when the visual checks did not report it; 12 px text (Lighthouse's legible font size: a body text
+  block of at least 40 characters under 12 px is minor, more than 40% of the text is moderate); WCAG 1.4.10 reflow (the
+  same page narrowed to 360 and 320 px without a reload: wider than the viewport and able to scroll sideways; serious at
+  360, moderate at 320 only, minor when only tables or `pre` stick out; skipped when it already overflows at 390).
+- **Images** (desktop and light phone): more than 4 times the pixels the image covers on a 2x (desktop) or 3x (phone)
+  screen and more than 100 KB transferred (Lighthouse's "Properly size images", stricter); images without width/height
+  or aspect-ratio (attributes or inline style), arriving after the first paint, tied to a layout shift that moved content
+  below them within 500 ms of the image loading (always minor).
+- **Reliability** (`src/cdp.ts`): uncaught errors and unhandled rejections in the page's own main-frame context,
+  `console.error`, same-site scripts, data requests and frames answered 4xx or 5xx (images, stylesheets, fonts and media
+  are the visual checks'; 401/403/407/429 counted in `metrics.whoAsks`, not scored; `/favicon.ico` left out), mixed
+  content blocked (serious) or upgraded (minor). The scanner's own code and messages are filtered out. JavaScript errors
+  are listed but not scored when every view they appeared in had stand-in answers or refused files.
+- **Speed**: Largest Contentful Paint against web.dev on the faster of two loads, the desktop view and the light phone
+  (minor above 2.5 s, moderate above 4 s; `lcpOnFasterLoad` in `src/report.ts`), every finding naming both and saying
+  they were measured once in a data center. More than 1 MB of JavaScript is a note, not scored.
+- **Layout shift is listed, not scored** (the scanner's CLS and the visual checks' `layout-shift`): every request in the
+  scanner's browser waits for the scanner's checks, so content that scripts add after the first paint moves more than
+  for most visitors. On the three public pages where the calibration measured a shift, a desktop browser measured none
+  (CALIBRATION.md).
+- **A scanner-side correction of the visual chunk**: a `scroll-lock-stuck` on body is left out when html's overflow-y is
+  scroll or auto and there is content to scroll to (body's overflow does not reach the viewport then; the window
+  scrolls). Measured on a public page in calibration; the root cause belongs in the runtime's check, like the phone
+  overflow cause above.
+
 ## The score and the with-GenClass column
 
-`score = 100 − Σ_category min(25, Σ points)`, with 10, 5 or 2 points by severity (`src/score.ts`, published on
-`/scan/about`). Every visual kind has a category in `src/catalog.ts` (readability: text kinds and fonts; media: images,
-media, distortion; layout: stylesheets, CSP, CSS variables, sideways scrolling, the viewport meta tag, layout shift, a
-blank page; interaction: clicks, scroll locks, covered controls, focus, dialogs, the race findings) and the severity the
-check measured (a broken image is high or medium). The same element with the same problem in several views counts once.
-A GenClass "duplicate" on a GET counts as low. Findings marked `unscored` are listed only. Deterministic: the same
-findings give the same score.
+`src/score.ts`, published on `/scan/about#score` from the same constants:
+
+```
+points(rule) = base(severity) × min(2, 1 + log10(instances))      base: critical 30, serious 15, moderate 7, minor 3
+category     = 100 × Π over the category's rules (1 − points / 100)
+score        = Σ weight × category / Σ weight, over the categories measured on this scan
+weights      : Visual bugs 25, Accessibility 25, Phone 20, Reliability 15, Speed 10, Races 5
+```
+
+A rule is one visual kind, one axe-core rule or one audit; its severity is the most severe instance. A rule's points stop
+at twice its base, so 200 instances of one rule take what 10 do. Rules multiply, so each further rule takes a share of
+what is left and a category stays above 0. A category this scan did not measure (axe-core did not finish, no phone
+audit, no DevTools record, no desktop timings, nothing for the race probe to try) is left out of the mean, shown as "not
+measured" with the reason (`notMeasured`), and its findings are listed but not scored. The top issues are the five rules
+that cost the overall score the most (`ruleImpact`: the score without the rule minus the score with it). The same
+element with the same problem in several views counts once. A GenClass "duplicate" on a GET is minor. Findings marked
+`unscored` are listed only. Deterministic: the same findings give the same score. Severities: the visual checks' high,
+medium and low read as serious, moderate and minor (a blank page, a page that ignores clicks or cannot scroll:
+critical); axe-core's impact; the audits' own. The weights were set before calibration and not changed by it.
 
 With `WITH_GENCLASS=on` (the default now):
 
@@ -248,10 +326,14 @@ that as a demo setting.
 | `GUARD_MARGIN` | unset | `policy.thresholds.guard` (a gain margin) for the guard pass; the report and `/scan/about` call it a demo setting |
 | `BLOCKLIST` | unset | extra opted-out hosts, comma-separated |
 | `PUBLIC_ORIGIN` | genclass.dev on genclass.dev, else this origin | base of share links |
+| `STORE_PREFIX` | unset (production) | a test copy's key prefix in the bucket (`scan-test/` in env `test`, `src/prefix.ts`): its reports, screenshots and leases live under it; the opt-out list `scans/blocklist.json` is shared |
 
 Bindings: `BROWSER` (Browser Rendering), `BUCKET` (R2 `genclass-telemetry`, `scans/` prefix only), `SCAN_LIMIT`
 (per client, namespace 4810), `SITE_LIMIT` (per site, namespace 4811) and `SITE` (the site worker `genclass-site`, for
-`/scan…` paths that are the site's). Compatibility flag `enable_request_signal`
+`/scan…` paths that are the site's). The env `test` repeats every binding (they are not inherited), sets `"routes": []`
+(routes are inherited unless set; wrangler resolves `rawEnv.routes ?? topLevel.routes`, so an empty list means none),
+its own rate-limit namespaces 4820 and 4821, `MAX_CONCURRENT` 3 and `STORE_PREFIX` `scan-test/`, and keeps the hourly
+sweep over its prefix. Compatibility flag `enable_request_signal`
 (a cancelled request stops its scan). Hourly cron `23 * * * *` deletes `scans/shots/` and `scans/reports/` objects older than
 24 hours (`sweep` in `src/store.ts`); no R2 lifecycle rule was added.
 
@@ -279,16 +361,31 @@ stand-in answers, cancellation, screenshots and opt-outs, report escaping, the p
 and `test/report.test.ts` (the in-flight count reaches the checks before they start, periodic fixes need a long enough
 re-check, the re-check is compared with every key, uncovered findings are named and not scored, the phone overflow
 cause, the report without JavaScript, the "in testing" wording, `/scan…` paths handed to the site, contention and
-launch pacing, race fixes tied to the same request, the held-back words). CI jobs: `scan-worker` and `scan-visual` in
-`.github/workflows/ci.yml`.
+launch pacing, race fixes tied to the same request, the held-back words). For scan-score/3: `test/score.test.ts`
+(rule points and their cap, diminishing deductions, the weighted mean, unmeasured categories left out, rule impact),
+`test/axe.test.ts` (the embedded axe-core is the pinned package byte for byte with its MPL-2.0 notice, the installer,
+the run's options, impact to severity, best practices one level lower, rules off and misshapen data dropped, the
+invisible-text duplicate, hostile rule text escaped and links only to the standards' own sites), `test/audits.test.ts`
+(each audit's threshold with fixtures: tap targets and the spacing exception, zoom, text size, reflow, oversized and
+unsized images, LCP and CLS session windows, overflow propagation), `test/cdp.test.ts` (errors from the main frame only,
+the scanner's own left out, failed same-site requests by type and status, who-asks statuses, mixed content, JavaScript
+bytes, the test copy's bucket prefix), and in `test/app.test.ts` a full deep scan through the mocked browser (axe-core
+in every view, the phone narrowed to 360 and 320, the DevTools record, the static report's six categories and top
+issues), categories left unmeasured when time runs out or there is no DevTools session, and the scroll-lock
+correction. CI jobs: `scan-worker` and `scan-visual` in `.github/workflows/ci.yml`.
 
 `test/fixture/` is a test page with problems on purpose (`genclass-scan-fixture.mehar-144.workers.dev`): text at
 1.08:1, `Total: $NaN`, a 404 stylesheet, a 404 image, a 640 px box on a 390 px phone, a link at the end of the page
 under a fixed bar, a typeahead and a subscribe form for the race probe. `?leak=1` leaves `pointer-events: none` on body,
 as a menu that closed without releasing it does.
 `?blank=1` adds a bigger POST form with `target=_blank` (the probe must skip it), `?standin=1` a price loaded by POST
-while the page loads (the report must say so and not score what follows from it). Non-GET requests that reach the
-fixture are logged (`wrangler tail genclass-scan-fixture`).
+while the page loads (the report must say so and not score what follows from it). `?deep=1` adds one deliberate problem
+per deeper check (zoom off, text at 2.85:1, an image without alt, a button with no name, 16 px tap targets side by side,
+10 px body text, a 340 px box that fits 390 px but not 360 or 320, an 800×600 image of 1.4 MB shown at 80×60, an image
+without dimensions that arrives after 1.5 s and pushes the page down, an uncaught TypeError, a console.error, a 404
+script, a script and an image asked for over http); `?deep=1&slow=1` delays the late image to 4.5 s. The default page is
+unchanged. Non-GET requests that reach the fixture are logged (`wrangler tail genclass-scan-fixture`). Calibration on
+public pages: `CALIBRATION.md`.
 
 ## Re-run after the launch review's fixes (2026-10-14, test copy, report version 5)
 
@@ -385,13 +482,16 @@ the DNS pre-check of every name is the enforcement and the address check applies
 ## Deploying
 
 ```bash
-cd scan-worker && npm ci && npx --yes wrangler@4 deploy          # workers.dev only: no routes in wrangler.jsonc
+cd scan-worker && npm ci
+npx --yes wrangler@4 deploy --env test                           # the test copy: genclass-scan-test, workers.dev only, no routes
 npx --yes wrangler@4 deploy -c test/fixture/wrangler.jsonc       # the fixture page (optional)
+npx --yes wrangler@4 deploy                                      # production (genclass-scan, with the genclass.dev routes): the owner only
 ```
 
-The owner's steps to go live: add `"routes": [{ "pattern": "genclass.dev/api/scan*", "zone_name": "genclass.dev" },
-{ "pattern": "genclass.dev/scan*", "zone_name": "genclass.dev" }]` here and deploy (the `SITE` binding hands the site's
-own `/scan…` files back to it); deploy the site worker, whose `wrangler.jsonc` now binds `SCAN` to `genclass-scan` for
-the `genclass.dev/<url>` form. After go-live, check that `genclass.dev/scan-box.js` (or the name the site gives it)
+The production worker has had its genclass.dev routes since 2026-10-14 (`wrangler.jsonc`), so a plain `wrangler deploy`
+from this directory deploys to them. scan-score/3 has been deployed to the test env only. Before production: review
+`CALIBRATION.md` and the wording on the test copy's `/scan` and `/scan/about`; `REPORT_VERSION` 6 makes every cached
+version-5 report a miss, so pages rescan on their first view. After a production deploy, check that
+`genclass.dev/scan-box.js` (or the name the site gives it)
 answers 200 with `text/javascript`, and that `genclass.dev/scan?url=…` and `genclass.dev/api/scan/health` reach this
 worker.
