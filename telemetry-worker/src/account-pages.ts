@@ -8,7 +8,7 @@ import { DASH_CSS, embed, esc, LOGO, shell, SIGNED_IN_NAV } from "./pages.js";
 
 // --------------------------------------------------------------------------------------------- styles, icons
 
-const ACCOUNT_CSS = `
+export const ACCOUNT_CSS = `
 code{font-family:var(--mono);font-size:.9em}
 .eb{font:500 12.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
 .auth{max-width:440px;margin:0 auto;padding:44px 0 64px}
@@ -88,7 +88,7 @@ const KEY_ICON =
 // --------------------------------------------------------------------------------------------- client scripts
 
 /** Shared by the pages: JSON POST with the page's Origin, base64url helpers, the passkey ceremonies, error wording. */
-const CLIENT_JS = `
+export const CLIENT_JS = `
 function gcPost(url, body, method){
   return fetch(url, { method: method || "POST", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) })
     .then(function(r){
@@ -166,7 +166,7 @@ gcTimes();
 // --------------------------------------------------------------------------------------------- helpers
 
 /** <time> with a UTC fallback; the page script rewrites it in local time ("ago", "date" or "time"). */
-function time(iso: string | null, f: "ago" | "date" | "time" = "date", empty = "never"): string {
+export function time(iso: string | null, f: "ago" | "date" | "time" = "date", empty = "never"): string {
   if (!iso) return `<span class="muted">${empty}</span>`;
   const fallback = f === "time" ? `${iso.slice(11, 16)} UTC` : iso.slice(0, 10);
   return `<time datetime="${esc(iso)}" data-f="${f}">${esc(fallback)}</time>`;
@@ -517,7 +517,7 @@ ${rows.map((s, i) => sessionRow(s, kind, i)).join("\n")}
   <div class="grp">Your apps</div>
   <nav class="apps" aria-label="Your apps">${appsNav}<a class="new" href="#new-app">New app</a></nav>
   <div class="grp">Account</div>
-  <div class="out"><a href="#signin">Sign-in methods</a><a href="#sessions">Sessions</a><a href="#delete">Delete account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
+  <div class="out"><a href="/account/billing">Plan and billing</a><a href="#signin">Sign-in methods</a><a href="#sessions">Sessions</a><a href="#delete">Delete account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
 </aside>
 <div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
@@ -566,7 +566,7 @@ ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.k
 </section>
 <section class="blk" id="delete">
   <div class="blk-h"><h2>Delete account</h2><span class="aside">Cannot be undone</span></div>
-  <p class="intro">Deletes this account, its passkeys and its sessions. Apps created in the account are deleted with their stats. Apps that still have a private dashboard link leave the account and keep working through that link.</p>
+  <p class="intro">Deletes this account, its passkeys and its sessions. Apps created in the account are deleted with their stats. Apps that still have a private dashboard link leave the account and keep working through that link. A paid plan is cancelled at once; for a refund of the unused time, email mehar@daybot.ca.</p>
   <div class="acct-form"><button class="btn danger" type="button" id="del"><span>Delete account</span></button></div>
   <p class="err" id="delerr" role="alert"></p>
 </section>
