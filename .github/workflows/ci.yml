@@ -94,3 +94,40 @@ jobs:
         run: npm test
       - name: Site worker path rule
         run: node --test site/check/scan-path.test.mjs
+
+  # The scanner's visual checks are the runtime's own lazy visual chunk (packages/runtime/dist/visual/index.js) from
+  # branch wave2/visual at VISUAL_REF, bundled with scan-worker/visual/scan-entry.js into src/visual-source.ts by
+  # scan-worker/scripts/build-visual.sh. This job builds it from source, uploads it (artifact scan-visual), and fails
+  # when the committed copy is not exactly that build.
+  scan-visual:
+    name: "scan-worker: build the visual chunk from wave2/visual and check the embedded copy"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+      VISUAL_REF: 6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VISUAL_REF }}
+          path: visual-src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install (wave2/visual)
+        working-directory: visual-src
+        run: npm ci --no-audit --no-fund
+      - name: Build the runtime (wave2/visual)
+        working-directory: visual-src
+        run: npm run build -w @genclass/runtime
+      - name: Bundle the scanner's visual source
+        run: sh scan-worker/scripts/build-visual.sh "$GITHUB_WORKSPACE/visual-src" "$RUNNER_TEMP/visual-source.ts"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scan-visual
+          path: |
+            ${{ runner.temp }}/visual-source.ts
+            visual-src/packages/runtime/dist/visual/index.js
+      - name: The committed src/visual-source.ts is this build
+        run: cmp scan-worker/src/visual-source.ts "$RUNNER_TEMP/visual-source.ts"
