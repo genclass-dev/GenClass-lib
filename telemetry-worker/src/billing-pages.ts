@@ -1,6 +1,7 @@
-// HTML for the paid plans: /account/billing (the plan, its renewal or end, the plans side by side, Upgrade and Manage
-// billing buttons) and the plan-dependent sections of an owned app's dashboard (forwarding and export, and the note
-// on the time ranges). Same shell, tokens and rules as the account pages; server-rendered text goes through esc(),
+// HTML for the paid plans: /account/billing (the plan, its renewal or end, the plans side by side, Upgrade, Switch and
+// Manage billing buttons) and the plan-dependent sections of an owned app's dashboard (forwarding and export, and the
+// note on the time ranges). A switch between Pro and Custom is a new Checkout (src/billing.ts checkout); back from it
+// the page waits for the new plan. Same shell, tokens and rules as the account pages; server-rendered text goes through esc(),
 // scripts insert text with textContent. Buttons that need Stripe are shown only to an account that can buy (a live
 // STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS).
 
@@ -45,6 +46,10 @@ export interface BillingView {
   done: boolean;
   /** The plan chosen on the pricing page (?plan=pro|custom). */
   picked: string | null;
+  /** Back from a switch's Checkout (?to=pro|custom): the plan it bought. */
+  switchTo?: string | null;
+  /** The names of the plans sold through Stripe Managed Payments (src/stripe.ts managedPayments). */
+  managedPlans?: string[];
   now: Date;
 }
 
@@ -93,8 +98,9 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
 function planColumn(v: BillingView, p: Plan, current: Plan): string {
   const cur = p.id === current.id;
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && current.id !== "free";
-  // back from Checkout and still waiting for Stripe's word: no buttons, so a second purchase cannot start
-  const waiting = v.done && current.id === "free";
+  // back from Checkout (a purchase or a switch) and still waiting for Stripe's word: no buttons, so a second purchase
+  // or switch cannot start
+  const waiting = !!awaited(v, current);
   const pick = !cur && v.picked === p.id && v.live && !waiting;
   let act = "";
   if (cur) act = '<span class="tag">Your plan</span>';
@@ -107,19 +113,37 @@ function planColumn(v: BillingView, p: Plan, current: Plan): string {
   return `<div class="plan${cur ? " cur" : pick ? " pick" : ""}"><h3>${esc(p.name)}</h3><p class="price">${esc(priceText(p))}</p><p class="sum">${esc(p.summary)}</p><ul>${features}</ul><div class="act">${act}</div></div>`;
 }
 
+/** Back from Checkout and the plan bought is not on the account yet: that plan ("paid": any paid plan), else null. */
+function awaited(v: BillingView, current: Plan): string | null {
+  if (!v.done) return null;
+  if (v.switchTo && v.switchTo !== current.id) return v.switchTo;
+  return current.id === "free" ? "paid" : null;
+}
+
 export function billingPage(nonce: string, v: BillingView): string {
   const plan = planById(v.billing.plan);
+  const want = awaited(v, plan);
   const a = v.account;
   const who = a.email ? esc(a.email) : a.githubLogin ? `@${esc(a.githubLogin)} on GitHub` : "No email";
   const appsNav = v.apps.map((p) => `<a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a>`).join("");
   const manage = v.live && v.billing.stripe_customer_id;
   let notice = "";
   if (v.done) {
-    notice =
-      plan.id === "free"
+    const to = want && want !== "paid" ? planById(want) : null;
+    notice = to
+      ? `<p class="notice n-ok" role="status" id="donemsg"><b>Thanks.</b> Stripe has your payment for ${esc(to.name)}. This page changes to it as soon as Stripe tells us, usually within a minute. Your ${esc(plan.name)} plan then ends, and its unused days are credited to your Stripe balance for your next invoice.</p>`
+      : want
         ? '<p class="notice n-ok" role="status" id="donemsg"><b>Thanks.</b> Stripe has your payment. This page changes to your new plan as soon as Stripe tells us, usually within a minute.</p>'
         : `<p class="notice n-ok" role="status"><b>Thanks.</b> You are on the ${esc(plan.name)} plan now.</p>`;
   }
+  const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && plan.id !== "free";
+  const switchNote =
+    subscribed && v.live && !want
+      ? '<p class="intro">Switching between Pro and Custom opens Stripe\'s checkout for the new plan. Your current plan stays until that payment goes through, then ends at once, and its unused days are credited to your Stripe balance for your next invoice.</p>'
+      : "";
+  const managed = v.live && v.managedPlans?.length
+    ? ` ${esc(v.managedPlans.join(" and "))} ${v.managedPlans.length > 1 ? "are" : "is"} sold through Link, Stripe's merchant of record service: Link's name is on the receipt and on your card statement, it adds sales tax or VAT where it applies, and it answers questions about the payment.`
+    : "";
   const custom =
     plan.id === "custom"
       ? `<p class="status">A person from GenClass emails ${a.email ? esc(a.email) : "you"} within 1 business day of your purchase to start training your classifier. You can also write to <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.</p>`
@@ -150,23 +174,24 @@ ${notice}${test}
   <div class="blk-h"><h2>Plans</h2><span class="aside">US dollars, billed monthly</span></div>
   <div class="plans">${PLANS.map((p) => planColumn(v, p, plan)).join("")}</div>
   <p class="err" id="planerr" role="alert"></p>
+  ${switchNote}
   <p class="intro">${esc(PLANS_FILE.footer).replace(esc(CONTACT), `<a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>`)}</p>
 </section>
 ${
   manage
     ? `<section class="blk" id="manage">
   <div class="blk-h"><h2>Manage billing</h2><span class="aside">On Stripe</span></div>
-  <p class="intro">Change your card, see and download invoices, switch between Pro and Custom, or cancel. A cancelled plan stays until the end of the period you paid for.</p>
+  <p class="intro">Change your card, see and download invoices, or cancel. A cancelled plan stays until the end of the period you paid for. To switch between Pro and Custom, use the buttons under Plans.</p>
   <div class="acct-form"><button class="btn ghost" type="button" id="portal"><span>Manage billing</span></button></div>
   <p class="err" id="portalerr" role="alert"></p>
 </section>`
     : ""
 }
-<footer class="dfoot">Payments are handled by Stripe. GenClass stores your Stripe customer and subscription ids, the subscription's
+<footer class="dfoot">Payments are handled by Stripe.${managed} GenClass stores your Stripe customer and subscription ids, the subscription's
 status and renewal date, and your plan; never card details. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
 </div>
-<script type="application/json" id="cfg">${embed({ poll: v.done && plan.id === "free" })}</script>`;
+<script type="application/json" id="cfg">${embed({ want })}</script>`;
 
   const script = `
 (function(){
@@ -187,13 +212,13 @@ status and renewal date, and your plan; never card details. <a href="https://gen
     gcBusy(portal, true, "Opening Stripe...");
     gcPost("/api/billing/portal", {}).then(function(j){ location.href = j.url; }, function(e){ err.textContent = gcWhy(e); gcBusy(portal, false); });
   });
-  if (cfg.poll) {
+  if (cfg.want) {
     var tries = 0;
     var timer = setInterval(function(){
       if (++tries > 40) { clearInterval(timer); var m = document.getElementById("donemsg"); if (m) m.lastChild.textContent = " Stripe has not told us yet. Reload this page in a few minutes; if your plan still shows Free, email ${esc(CONTACT)}."; return; }
       fetch("/api/billing", { headers: { accept: "application/json" }, cache: "no-store", credentials: "same-origin" })
         .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(j){ if (j && j.plan && j.plan !== "free") { clearInterval(timer); location.reload(); } })
+        .then(function(j){ if (j && j.plan && (cfg.want === "paid" ? j.plan !== "free" : j.plan === cfg.want)) { clearInterval(timer); location.reload(); } })
         .catch(function(){});
     }, 3000);
   }

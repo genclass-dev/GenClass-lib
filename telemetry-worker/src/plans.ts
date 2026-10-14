@@ -6,10 +6,10 @@
 // - A plan comes from accounts.plan, which src/stripe.ts derives from the Stripe subscription. Entitlements follow the
 //   plan whatever the server's configuration, except that a plan bought in Stripe's test mode counts only while the
 //   key is a test key (inMode): a test purchase never carries over to live. A live plan always counts.
-// - The Stripe account is shared (daybot.ca's, which also runs Polar Parts), so a price names a plan only when it is
-//   provably GenClass's: a lookup key starting with genclass_ AND a product whose metadata genclass_plan names a paid
-//   plan (planForPrice).
-// - A plan whose payment is overdue ends here, whatever the shared account's retry settings: past_due keeps the plan
+// - A price names a plan only when it is provably GenClass's: a lookup key starting with genclass_ AND a product whose
+//   metadata genclass_plan names a paid plan (planForPrice). GenClass now has a Stripe account of its own; this rule
+//   is kept from when it shared daybot.ca's account with Polar Parts, as a defence in depth.
+// - A plan whose payment is overdue ends here, whatever the Stripe account's retry settings: past_due keeps the plan
 //   for PAST_DUE_GRACE_DAYS (14) after GenClass first saw it past due, then it is Free (the webhook, and the daily
 //   sweep below); unpaid is Free at once.
 // - The Free plan's limits (3 apps, 7 days in view) apply only once paid plans are on sale to everyone (a live
@@ -37,6 +37,10 @@ export interface Plan {
   summary: string;
   price_usd_cents: { monthly: number; yearly: number | null };
   stripe_lookup_keys: { monthly: string | null; yearly: string | null };
+  /** The Stripe product tax code scripts/stripe-setup.mjs sets on the plan's product (null for Free). */
+  stripe_tax_code: string | null;
+  /** Sold through Stripe Managed Payments (src/stripe.ts managedPayments): Pro only; Custom is a person's work. */
+  managed_payments: boolean;
   limits: { apps: number | null; history_days: number };
   entitlements: Record<Entitlement, boolean>;
   features: { text: string; available: boolean }[];
@@ -254,9 +258,10 @@ export function longRetention(now: Date, mode?: StripeMode | null): { tokens: st
 }
 
 /**
- * Plans whose payment is overdue end, whatever the Stripe account's retry settings (they are account-wide, shared with
- * Polar Parts): an unpaid subscription, or one past_due for more than PAST_DUE_GRACE_DAYS, leaves its account on
- * Free. The webhook does the same when an event arrives; this catches the accounts no event arrives for.
+ * Plans whose payment is overdue end, whatever the Stripe account's retry settings (the owner sets them to cancel the
+ * subscription once every retry failed; this is the backstop): an unpaid subscription, or one past_due for more than
+ * PAST_DUE_GRACE_DAYS, leaves its account on Free. The webhook does the same when an event arrives; this catches the
+ * accounts no event arrives for.
  */
 export async function endOverduePlans(db: D1Like, now: Date): Promise<void> {
   await db

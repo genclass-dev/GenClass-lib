@@ -4,39 +4,41 @@
 //   STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs     test mode first
 //   STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs     then live
 //
-// The key is for daybot.ca's Stripe account, which also runs Polar Parts (its own products, prices, customers,
-// subscriptions, webhooks and Billing Portal). This script creates, finds and edits only GenClass's own objects, and
-// never lists, changes, archives or deletes anything else (telemetry-worker/README.md, "Shared Stripe account"):
+// The key is for GenClass's own Stripe account ("GenClass", in the Stripe organization "GenClass"). GenClass used to
+// bill through daybot.ca's account, shared with Polar Parts, and this script keeps the rules it had then: it creates,
+// finds and edits only GenClass's own objects, and never lists, changes, archives or deletes anything else
+// (telemetry-worker/README.md, "Shared-account defences"):
 // 1. the products GenClass Pro and GenClass Custom, with the ids genclass_pro and genclass_custom, metadata
-//    genclass_plan and the statement descriptor GENCLASS. A product from an earlier run with an id Stripe chose is
-//    found by a search on metadata genclass_plan (which returns only such products). A product with GenClass's id but
-//    without that metadata is not GenClass's: the script stops and changes nothing;
+//    genclass_plan, the statement descriptor GENCLASS and the product tax code from billing/plans.json
+//    (stripe_tax_code: Pro's is eligible for Stripe Managed Payments, Custom's is not, since a person trains the
+//    model). A product from an earlier run with an id Stripe chose is found by a search on metadata genclass_plan
+//    (which returns only such products). A product with GenClass's id but without that metadata is not GenClass's:
+//    the script stops and changes nothing;
 // 2. each plan's monthly price under its lookup key from billing/plans.json (all start with genclass_). Prices are
 //    read only by those lookup keys; a key on another product's price stops the script. A changed amount gets a new
 //    price: the old one is archived and keeps a genclass_..._retired_<price id> lookup key, so its subscribers stay
 //    on it and on their plan (the worker reads a plan from a genclass_ lookup key and the product's metadata);
 // 3. its webhook endpoint https://genclass.dev/api/billing/webhook with the description "GenClass billing", for the
-//    events the worker handles and no others (the customer.subscription events: they reach GenClass for the whole
-//    account, Polar Parts' too, and carry no buyer's name, email or address). Stripe has no search for endpoints, so
-//    the list is read to find that one; no other endpoint is ever edited or deleted, and an endpoint for the same URL
-//    with another description stops the script. The new endpoint's signing secret is piped straight into `npx wrangler secret put` (never
-//    printed): STRIPE_WEBHOOK_SECRET in live mode, STRIPE_WEBHOOK_SECRET_TEST in test mode, so a test run can never
-//    replace the live secret. An existing endpoint keeps its secret, since Stripe shows a secret only once
-//    (--new-webhook deletes GenClass's endpoint, the one with that exact URL and description, and makes a new one);
-// 4. its own Billing Portal configuration (metadata genclass=1, a headline naming GenClass, GenClass's products only):
-//    cancel at the end of the period, switch between Pro and Custom (charged at once, prorated), update the card,
-//    invoices, and change the email or tax id on the GenClass customer (no address: GenClass has no use for one).
-//    To find it the script lists the non-default configurations (is_default=false), reading their settings and
-//    changing none but its own: the account's default configuration, which Polar Parts may use, is never read or
-//    changed, and GenClass's is never made the default. Its id goes to the worker with `npx wrangler secret put`
-//    (STRIPE_PORTAL_CONFIGURATION in live mode, STRIPE_PORTAL_CONFIGURATION_TEST in test mode): the worker fetches
-//    that one configuration by id, and lists none.
+//    events the worker handles and no others (the customer.subscription events, which carry no buyer's name, email or
+//    address). Stripe has no search for endpoints, so the list is read to find that one; no other endpoint is ever
+//    edited or deleted, and an endpoint for the same URL with another description stops the script. The new
+//    endpoint's signing secret is piped straight into `npx wrangler secret put` (never printed):
+//    STRIPE_WEBHOOK_SECRET in live mode, STRIPE_WEBHOOK_SECRET_TEST in test mode, so a test run can never replace
+//    the live secret. An existing endpoint keeps its secret, since Stripe shows a secret only once (--new-webhook
+//    deletes GenClass's endpoint, the one with that exact URL and description, and makes a new one);
+// 4. its own Billing Portal configuration (metadata genclass=1, a headline naming GenClass): cancel at the end of the
+//    period, update the card, invoices, and change the email or tax id on the GenClass customer (no address: GenClass
+//    has no use for one). It offers no plan switch: a Pro subscription sold through Managed Payments cannot take the
+//    Custom price, so the billing page switches plans with a new Checkout (telemetry-worker/src/billing.ts). To find
+//    it the script lists the non-default configurations (is_default=false), reading their settings and changing none
+//    but its own: the account's default configuration is never read or changed, and GenClass's is never made the
+//    default. Its id goes to the worker with `npx wrangler secret put` (STRIPE_PORTAL_CONFIGURATION in live mode,
+//    STRIPE_PORTAL_CONFIGURATION_TEST in test mode): the worker fetches that one configuration by id, and lists none.
 // Everything is read and checked first; changes start only when every check passed. Then it prints the remaining
-// steps and the checks on Polar Parts' side that only the owner can make. Running it again changes only what differs
-// (its portal configuration is written again with the same settings, and its id stored again). Account-wide settings
-// (public business name, statement descriptor, branding, customer emails, payment methods, invoices, tax, the
-// customer portal's login link and default configuration, revenue recovery) are never changed: they apply to Polar
-// Parts too, and the README lists them as the owner's call.
+// steps. Running it again changes only what differs (its portal configuration is written again with the same
+// settings, and its id stored again). Account-wide settings (Managed Payments, business details, branding, customer
+// emails, revenue recovery, Stripe Tax) are never changed: they are the owner's dashboard steps, which the script
+// prints and the README lists in order.
 //
 // Flags: --dry-run (read only: say what would change), --new-webhook (replace GenClass's endpoint and its secret).
 
@@ -52,6 +54,7 @@ export const WEBHOOK_URL = `${SITE}/api/billing/webhook`;
 export const WEBHOOK_DESCRIPTION = "GenClass billing";
 export const STATEMENT_DESCRIPTOR = "GENCLASS";
 export const PORTAL_HEADLINE = "Manage your GenClass plan";
+const TAX_CODE_RE = /^txcd_\d{8}$/;
 /** metadata.genclass on everything GenClass creates in the shared account (the worker checks the same mark). */
 const MARK = "1";
 const LOOKUP_PREFIX = "genclass_";
@@ -177,6 +180,7 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
         const cents = plan.price_usd_cents[field];
         if (!lookup || cents === null || cents === undefined) continue;
         if (!lookup.startsWith(LOOKUP_PREFIX)) fail(`billing/plans.json: the lookup key ${lookup} must start with ${LOOKUP_PREFIX}`);
+        if (!TAX_CODE_RE.test(plan.stripe_tax_code ?? "")) fail(`billing/plans.json: the ${plan.name} plan needs a Stripe product tax code (stripe_tax_code, txcd_ and 8 digits)`);
         const [price] = (await stripe("GET", "/v1/prices", { lookup_keys: [lookup], limit: 1 })).data ?? [];
         if (price && price.product !== product?.id) {
           fail(`the lookup key ${lookup} is on price ${price.id} of product ${price.product}, not on GenClass's product ${product?.id ?? id}; this script does not touch it. Nothing was changed.`);
@@ -216,13 +220,22 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
     const result = {};
     for (const { plan, id, product: found, prices } of state) {
       const name = `GenClass ${plan.name}`;
-      const want = { name, description: plan.summary, statement_descriptor: STATEMENT_DESCRIPTOR };
+      // the tax code: Managed Payments sells only products with an eligible one (Pro's), Stripe Tax reads it for Custom
+      const want = { name, description: plan.summary, statement_descriptor: STATEMENT_DESCRIPTOR, tax_code: plan.stripe_tax_code };
+      const taxCode = (x) => (x && typeof x === "object" ? x.id : x) ?? null;
       let product = found;
       if (!product) {
-        would(`create product ${name} (${id}, statement descriptor ${STATEMENT_DESCRIPTOR})`);
+        would(`create product ${name} (${id}, statement descriptor ${STATEMENT_DESCRIPTOR}, tax code ${plan.stripe_tax_code})`);
         product = DRY ? { id, planned: true } : await stripe("POST", "/v1/products", { id, ...want, metadata: { genclass: MARK, genclass_plan: plan.id } });
-      } else if (product.name !== name || product.description !== plan.summary || product.statement_descriptor !== STATEMENT_DESCRIPTOR || product.active === false || product.metadata?.genclass !== MARK) {
-        would(`update product ${name} (${product.id})`);
+      } else if (
+        product.name !== name ||
+        product.description !== plan.summary ||
+        product.statement_descriptor !== STATEMENT_DESCRIPTOR ||
+        taxCode(product.tax_code) !== plan.stripe_tax_code ||
+        product.active === false ||
+        product.metadata?.genclass !== MARK
+      ) {
+        would(`update product ${name} (${product.id}, tax code ${plan.stripe_tax_code})`);
         if (!DRY) product = await stripe("POST", `/v1/products/${product.id}`, { ...want, active: true, metadata: { genclass: MARK } });
       } else say(`product ${name}: ${product.id}, unchanged`);
       result[plan.id] = { product: product.id, planned: !!product.planned, prices: [] };
@@ -293,9 +306,7 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
     say(`${SECRET_NAME} stored on the worker.`);
   }
 
-  async function portal(existing, ids) {
-    // GenClass's products and their current prices only
-    const products = Object.values(ids).filter((x) => x.prices.length && !x.planned);
+  async function portal(existing) {
     const params = {
       business_profile: { headline: PORTAL_HEADLINE, privacy_policy_url: `${SITE}/privacy`, terms_of_service_url: `${SITE}/terms` },
       default_return_url: `${SITE}/account/billing`,
@@ -309,13 +320,9 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
           mode: "at_period_end",
           cancellation_reason: { enabled: true, options: ["too_expensive", "missing_features", "switched_service", "unused", "other"] },
         },
-        subscription_update: {
-          enabled: products.length > 1,
-          default_allowed_updates: ["price"],
-          // a switch is invoiced and charged at once (prorated), so Custom is paid before it starts
-          proration_behavior: "always_invoice",
-          products: products.map((x) => ({ product: x.product, prices: x.prices })),
-        },
+        // no plan switch here: a Managed Payments subscription (Pro) cannot take the Custom price, and Pro must not move
+        // onto a Custom subscription outside Managed Payments; the billing page switches with a new Checkout
+        subscription_update: { enabled: false },
       },
       metadata: { genclass: MARK },
     };
@@ -342,32 +349,21 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
   const state = await readPlans();
   const endpoints = (await readWebhooks()).filter((w) => w.description === WEBHOOK_DESCRIPTION);
   const existingPortal = await readPortal();
-  const ids = await products(state);
+  await products(state);
   await webhook(endpoints);
-  await portal(existingPortal, ids);
-  const shared = `
-The Stripe account is shared with Polar Parts. Check Polar Parts' side before the worker gets this mode's key, in
-test mode and again live (telemetry-worker/README.md, "Shared Stripe account", has the details and the event table):
-a. Customers: Polar Parts' code never finds or reuses a customer by email (customers.list with email,
-   customers.search, "find or create") and skips customers described "GenClass account" (metadata genclass=1).
-   Otherwise a GenClass buyer's next Polar Parts order lands on the GenClass customer, mixing the two businesses'
-   cards, balances and invoices; GenClass then refuses to open Stripe billing for that buyer.
-b. Catalog: whatever lists or syncs products or prices from Stripe (the storefront, product, price or plan webhooks)
-   leaves out products with metadata genclass_plan, or GenClass Pro and GenClass Custom show up for sale in the store.
-c. Webhooks: Polar Parts' endpoints receive GenClass's events of every type they subscribe to (customer,
-   checkout.session, customer.subscription, invoice, invoiceitem, invoice_payment, payment_intent, charge,
-   payment_method, setup_intent, billing_portal; product, price and plan from this script). Most carry no GenClass
-   mark: the handlers must answer 2xx and do nothing for objects whose customer is not one of Polar Parts' own. A
-   failing endpoint is retried for 3 days and then disabled, and a failed invoice.created holds GenClass's invoices
-   for up to 72 hours.
-This script changed no account-wide setting. These apply to both businesses and stay the owner's call: the public
-business name and statement descriptor (they head the Checkout page and card statements; GenClass's products add
-GENCLASS where Stripe uses a product's descriptor), branding, customer emails (receipts, failed payments), payment
-methods, invoice numbering, footer and account tax ids, tax, the customer portal's no-code login link and default
-configuration, and Billing, Revenue recovery: retries, and its email links (pointed at the customer portal, they
-open the default configuration, not GenClass's). The worker ends a plan that stays past due for 14 days, or goes
-unpaid, whatever the retry settings.`;
-  // before the worker's first key: rows written by code older than these checks must not name a Stripe object
+  await portal(existingPortal);
+  const dashboard = `
+Dashboard steps for GenClass's Stripe account, in this mode, before the worker gets its key (the reasons are in
+telemetry-worker/README.md, "Paid plans"):
+a. Settings, Managed Payments: accept the terms and turn it on. Pro's Checkout asks for it (the worker's var
+   MANAGED_PAYMENTS is "on"), so turn it on before Pro is sold, or set the var to "off". Custom never uses it.
+b. Billing, Revenue recovery: Smart Retries on, failed-payment emails on, and when all retries for a payment fail,
+   cancel the subscription. The worker also ends a plan that stays past due for 14 days, or goes unpaid.
+c. Settings, Customer emails: receipts for successful payments on (Custom's; Link sends Pro's receipts itself).
+d. Settings, Branding: icon, logo and colours (Checkout, the customer portal, receipts and invoices).
+e. Stripe Tax: the head office address, and threshold monitoring on (Custom is sold without Managed Payments, so its
+   sales count towards GenClass's own registration thresholds).`;
+  // before the worker's first key: rows written for an earlier account must not name a Stripe object
   const clean = `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "SELECT COUNT(*) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL"`;
   say(
     mode === "test"
@@ -376,27 +372,28 @@ Done in test mode. Next (from telemetry-worker/; the full list is in telemetry-w
 1. If not done yet: the migrations, the export lifecycle rule, INTEGRATIONS_KEY, NOTIFY_WEBHOOK and a deploy. Before
    the worker's first Stripe key, this must print n = 0 (nothing was ever on sale; if not, see the README):
      ${clean}
-2. The Polar Parts checks below (a to c), in test mode.
+2. If not done yet (the README lists them before this script): the dashboard steps below (a to e), in test mode.
 3. Only the accounts you list can buy while the key is a test key (your email or account id, comma-separated):
      npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS
 4. The test key (paste it when asked). Nothing changes for anyone else: no limits, no buttons.
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
 5. Test: on ${SITE}/account/billing choose Upgrade to Pro and pay with card 4242 4242 4242 4242, any future
-   date and any CVC. The page shows Pro within a minute. Then Manage billing: switch to Custom (charged at once;
-   a custom_requests row and a test-mode notice), and cancel.
+   date and any CVC (the Checkout page is Link's, for Managed Payments). The page shows Pro within a minute. Then
+   Switch to Custom: a second Checkout; once it is paid the page shows Custom, the Pro subscription is cancelled
+   with a prorated credit, and a custom_requests row and a test-mode notice appear. Then Manage billing, and cancel.
 6. Then live: the reset in the README, this script with STRIPE_SECRET_KEY=sk_live_..., and step 4 with the live key.
-${shared}`
+${dashboard}`
       : `
 Done in live mode. Next (from telemetry-worker/; the full list is in telemetry-worker/README.md, "Owner steps"):
 1. If you tested in test mode on this worker, clear the test records first (they no longer count once the key is
    live, but this keeps the tables clean):
      npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"
    With no test pass before, this must print n = 0 instead: ${clean}
-2. The Polar Parts checks below (a to c), live this time.
+2. If not done yet: the dashboard steps below (a to e), live this time.
 3. Put paid plans on sale (paste the live key when asked). From then on the Free plan's limits apply.
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
 4. Check ${SITE}/account/billing while signed in.
-${shared}`,
+${dashboard}`,
   );
 }
 

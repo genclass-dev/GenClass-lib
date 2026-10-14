@@ -2,10 +2,10 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { planForPrice } from "../src/plans.js";
 import { STRIPE_VERSION, WEBHOOK_EVENTS } from "../src/stripe.js";
 
-// scripts/stripe-setup.mjs against a fake of daybot.ca's Stripe account, which also holds Polar Parts' products,
-// prices, webhook endpoint, default Billing Portal configuration and another (non-default) one of its own. The script
-// must create, find and edit only GenClass's own objects, never change anything of Polar Parts', and never touch
-// account-wide settings.
+// scripts/stripe-setup.mjs against a fake Stripe account that also holds another business's objects (Polar Parts'
+// products, prices, webhook endpoint, default Billing Portal configuration and another, non-default, one), as
+// daybot.ca's shared account did. GenClass now has an account of its own; the script still must create, find and edit
+// only GenClass's own objects, never change anything else, and never touch account-wide settings.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let setup: any;
@@ -67,7 +67,7 @@ function account() {
       const x = products.get(m[1]!);
       if (!x) return missing("product");
       if (method === "POST") {
-        Object.assign(x, { name: body.name ?? x.name, description: body.description ?? x.description, statement_descriptor: body.statement_descriptor ?? x.statement_descriptor });
+        Object.assign(x, { name: body.name ?? x.name, description: body.description ?? x.description, statement_descriptor: body.statement_descriptor ?? x.statement_descriptor, tax_code: body.tax_code ?? x.tax_code });
         if (body.active) x.active = body.active === "true";
         Object.assign(x.metadata, meta(body));
       }
@@ -76,7 +76,7 @@ function account() {
     if (method === "POST" && p === "/v1/products") {
       const id = body.id ?? `prod_made${++n}`;
       if (products.has(id)) return ok({ error: { message: "Product already exists." } }, 400);
-      const x = { id, object: "product", active: true, name: body.name, description: body.description, statement_descriptor: body.statement_descriptor, metadata: meta(body) };
+      const x = { id, object: "product", active: true, name: body.name, description: body.description, statement_descriptor: body.statement_descriptor, tax_code: body.tax_code ?? null, metadata: meta(body) };
       products.set(id, x);
       return ok(x);
     }
@@ -176,9 +176,10 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     onlyGenClass(r.calls);
     expect(r.calls.some((c) => c.method === "DELETE")).toBe(false);
 
-    // products: GenClass's ids, metadata and statement descriptor
-    expect(a.products.get("genclass_pro")).toMatchObject({ name: "GenClass Pro", statement_descriptor: "GENCLASS", metadata: { genclass: "1", genclass_plan: "pro" } });
-    expect(a.products.get("genclass_custom")).toMatchObject({ name: "GenClass Custom", statement_descriptor: "GENCLASS", metadata: { genclass: "1", genclass_plan: "custom" } });
+    // products: GenClass's ids, metadata, statement descriptor and tax codes (Pro's is eligible for Managed Payments:
+    // SaaS, business use; Custom's is custom software, business use, which is not)
+    expect(a.products.get("genclass_pro")).toMatchObject({ name: "GenClass Pro", statement_descriptor: "GENCLASS", tax_code: "txcd_10103001", metadata: { genclass: "1", genclass_plan: "pro" } });
+    expect(a.products.get("genclass_custom")).toMatchObject({ name: "GenClass Custom", statement_descriptor: "GENCLASS", tax_code: "txcd_10203001", metadata: { genclass: "1", genclass_plan: "custom" } });
     expect(a.products.size).toBe(3);
     // prices under GenClass's lookup keys, which the worker reads as the plans
     const made = [...a.prices.values()].filter((x) => x.id !== "price_polar0000001");
@@ -193,14 +194,15 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     expect(ours).toHaveLength(1);
     expect(ours[0]).toMatchObject({ url: setup.WEBHOOK_URL, description: "GenClass billing", enabled_events: WEBHOOK_EVENTS, api_version: STRIPE_VERSION, metadata: { genclass: "1" } });
     expect(setup.WEBHOOK_URL).toBe("https://genclass.dev/api/billing/webhook");
-    // one portal configuration of GenClass's own: metadata, headline, GenClass's products only; Polar Parts' untouched
+    // one portal configuration of GenClass's own: metadata, headline, no plan switch; Polar Parts' untouched
     const configs = [...a.portal.values()].filter((c) => !c.id.startsWith("bpc_polar"));
     expect(configs).toHaveLength(1);
     const f = configs[0]!.form as Obj;
     expect(configs[0]).toMatchObject({ is_default: false, metadata: { genclass: "1" } });
     expect(f["business_profile[headline]"]).toMatch(/GenClass/);
-    const listed = Object.entries(f).filter(([k]) => /^features\[subscription_update\]\[products\]\[\d+\]\[product\]$/.test(k)).map(([, v]) => v);
-    expect(listed).toEqual(["genclass_pro", "genclass_custom"]);
+    // switching between Pro and Custom is a new Checkout: a Managed Payments subscription cannot take the Custom price
+    expect(f["features[subscription_update][enabled]"]).toBe("false");
+    expect(Object.keys(f).some((k) => /^features\[subscription_update\]\[(products|default_allowed_updates|proration_behavior)/.test(k))).toBe(false);
     expect(Object.keys(f).some((k) => /is_default/.test(k))).toBe(false);
     // a buyer may change the email and tax id of their GenClass customer, never an address (GenClass needs none)
     const updates = Object.entries(f).filter(([k]) => /^features\[customer_update\]\[allowed_updates\]\[\d+\]$/.test(k)).map(([, v]) => v);
@@ -216,16 +218,16 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     ]);
     expect(r.out).not.toContain(r.secrets[0]![1]);
 
-    // no account-wide setting is asked for; the ones that touch Polar Parts are named as the owner's call, with the
-    // checks only the owner can make on Polar Parts' side
-    expect(r.out).not.toMatch(/Cancel the subscription/);
-    expect(r.out).toMatch(/shared with Polar Parts/);
+    // no account-wide setting is changed by the script; the owner's dashboard steps for GenClass's own account are
+    // printed instead, and the Polar Parts checks of the shared account are gone
+    expect(r.out).toMatch(/Settings, Managed Payments: accept the terms and turn it on/);
+    expect(r.out).toMatch(/Smart Retries on, failed-payment emails on, and when all retries for a payment fail,\s+cancel the subscription/);
     expect(r.out).toMatch(/past due for 14 days/);
-    expect(r.out).toMatch(/never finds or reuses a customer by email \(customers.list with email,\s+customers.search/);
-    expect(r.out).toMatch(/leaves out products with metadata genclass_plan/);
-    expect(r.out).toMatch(/answer 2xx and do nothing/);
-    expect(r.out).toMatch(/invoice\.created holds\s+GenClass's invoices/);
-    expect(r.out).toMatch(/no-code login link/);
+    expect(r.out).toMatch(/receipts for successful payments on/);
+    expect(r.out).toMatch(/Settings, Branding/);
+    expect(r.out).toMatch(/Stripe Tax: the head office address, and threshold monitoring on/);
+    expect(r.out).toMatch(/Switch to Custom: a second Checkout/);
+    expect(r.out).not.toMatch(/Polar Parts/);
     expect(r.out).toMatch(/SELECT COUNT\(\*\) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL/);
   });
 
@@ -245,8 +247,21 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     expect(dry.secrets).toEqual([]);
     onlyGenClass(dry.calls);
     expect(dry.out).toMatch(/would store its id as STRIPE_PORTAL_CONFIGURATION_TEST/);
-    expect(dry.out).toMatch(/would create product GenClass Pro \(genclass_pro, statement descriptor GENCLASS\)/);
+    expect(dry.out).toMatch(/would create product GenClass Pro \(genclass_pro, statement descriptor GENCLASS, tax code txcd_10103001\)/);
     expect(dry.out).toMatch(/would create GenClass's Billing Portal configuration/);
+  });
+
+  it("a product whose tax code differs gets plans.json's; an expanded tax code that matches is left alone", async () => {
+    const a = account();
+    await run(a);
+    a.products.get("genclass_pro")!.tax_code = "txcd_10000000";
+    a.products.get("genclass_custom")!.tax_code = { id: "txcd_10203001", object: "tax_code" };
+    const r = await run(a);
+    onlyGenClass(r.calls);
+    expect(r.writes.filter((c) => c.url.pathname.startsWith("/v1/products")).map((c) => [c.url.pathname, c.body.tax_code])).toEqual([["/v1/products/genclass_pro", "txcd_10103001"]]);
+    expect(a.products.get("genclass_pro")!.tax_code).toBe("txcd_10103001");
+    expect(r.out).toMatch(/update product GenClass Pro \(genclass_pro, tax code txcd_10103001\)/);
+    expect(r.out).toMatch(/product GenClass Custom: genclass_custom, unchanged/);
   });
 
   it("a price change retires the old price under a genclass_ key, so its subscribers keep their plan", async () => {

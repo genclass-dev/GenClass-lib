@@ -1,7 +1,7 @@
 // Routes for the paid plans. Checked before the account routes (src/auth.ts); null for any other path.
 //
-//   POST /api/billing/checkout {plan: "pro" | "custom"}  browser session + Origin; {url} of Stripe Checkout (or of the
-//                                                       Billing Portal's plan change when a plan is already paid)
+//   POST /api/billing/checkout {plan: "pro" | "custom"}  browser session + Origin; {url} of Stripe Checkout (with
+//                                                       switch: true when it replaces the plan already paid)
 //   POST /api/billing/portal                           browser session + Origin; {url} of the Billing Portal
 //   POST /api/billing/webhook                          Stripe only: signature, no session (src/stripe.ts)
 //   GET  /api/billing                                  browser session; the plan and subscription state
@@ -33,6 +33,7 @@ import {
   foreignInvoice,
   HOLDING_STATUSES,
   isGenClassSubscription,
+  managedPayments,
   missingCustomer,
   modeNote,
   notifyOwner,
@@ -143,6 +144,8 @@ export async function routeBilling(request: Request, url: URL, path: string, env
           testMode: stripeMode(env) === "test",
           done: url.searchParams.get("done") === "1",
           picked: picked?.id ?? null,
+          switchTo: pickedPlan(url.searchParams.get("to"))?.id ?? null,
+          managedPlans: PAID_PLANS.filter((p) => managedPayments(env, p)).map((p) => p.name),
           now: c.now,
         }),
       );
@@ -157,9 +160,9 @@ export async function routeBilling(request: Request, url: URL, path: string, env
 // --------------------------------------------------------------------------------------------- Checkout, portal
 
 /**
- * The Stripe account is shared (daybot.ca's, also Polar Parts'): GenClass opens no Stripe page for, and starts no
- * Checkout on, a stored customer that is not provably its own or that holds anything else (src/stripe.ts
- * checkCustomer, sharedCustomer, foreignInvoice). The buyer gets a 409 with the contact address, nothing is opened,
+ * GenClass opens no Stripe page for, and starts no Checkout on, a stored customer that is not provably its own or that
+ * holds anything else (src/stripe.ts checkCustomer, sharedCustomer, foreignInvoice): a defence kept from when the
+ * Stripe account was shared with Polar Parts. The buyer gets a 409 with the contact address, nothing is opened,
  * and the owner gets a shared_customer notice with the ids (NOTIFY_WEBHOOK; worker logs are not kept).
  */
 async function refuseShared(c: C, f: Fetch, accountId: string, customer: string, why: string): Promise<Response> {
@@ -168,7 +171,7 @@ async function refuseShared(c: C, f: Fetch, accountId: string, customer: string,
     { env: c.env, fetch: f, now: c.now },
     {
       event: "shared_customer",
-      text: `${modeNote(c.env)}GenClass account ${accountId}: its Stripe customer ${customer} ${why}, so GenClass opened no Stripe page for it. Move the other business's objects to a customer of its own (telemetry-worker/README.md, "Shared Stripe account").`,
+      text: `${modeNote(c.env)}GenClass account ${accountId}: its Stripe customer ${customer} ${why}, so GenClass opened no Stripe page for it. Move the other objects to a customer of their own (telemetry-worker/README.md, "Shared-account defences").`,
       account_id: accountId,
       customer,
     },
@@ -194,9 +197,9 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
   try {
     let customer = await ensureCustomer(c.env, f, c.db, account);
     if (!customer.fresh) {
-      // the stored customer must be the account's own GenClass customer, holding nothing else (the Stripe account is
-      // shared); then what Stripe has now (a webhook can lag behind a payment): an account that pays changes its
-      // subscription in the Billing Portal, never gets a second one
+      // the stored customer must be the account's own GenClass customer, holding nothing else; then what Stripe has
+      // now (a webhook can lag behind a payment): an account that pays gets the same plan refused and the other plan as
+      // a switch, never a second subscription of its own making
       const own = await checkCustomer(c.env, f, account.id, customer.id);
       if (own.state === "not_genclass") return refuseShared(c, f, account.id, customer.id, NOT_GENCLASS);
       if (own.state === "ok" && sharedCustomer(own.subs)) return refuseShared(c, f, account.id, customer.id, SHARED_SUBSCRIPTION);
@@ -204,7 +207,8 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
       if (own.state === "missing") {
         customer = await ensureCustomer(c.env, f, c.db, { ...account, stripe_customer_id: customer.id, stripe_mode: stripeMode(c.env) }, customer.id);
       }
-      const held = subs.find((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s));
+      const holding = subs.filter((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s));
+      const held = holding[0];
       if (held) {
         const st = subscriptionState(held);
         if (held.status === "past_due" || held.status === "unpaid") {
@@ -214,10 +218,15 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
         if (st.priced === plan.id) {
           return fail(409, `you are already on the ${plan.name} plan${st.cancelAtPeriodEnd ? "; to keep it after this period, resume it in Manage billing" : ""}`);
         }
-        // the portal shows everything on the customer: its invoices must be GenClass's too
+        // a switch is paid on Checkout, never in the portal: a Pro subscription sold through Managed Payments cannot take
+        // the Custom price, and Pro must not move onto a Custom subscription outside it (src/stripe.ts header)
+        if (holding.length > 1) return fail(409, `a plan change is already going through; reload this page in a minute, or email ${PLANS_FILE.contact}`);
+        if (held.status !== "active" && held.status !== "trialing") return fail(409, `your ${planById(st.priced).name} plan is ${held.status}; email ${PLANS_FILE.contact} to change it`);
+        // nothing but GenClass's billing on the customer: the credit for the old plan goes to its balance
         if (await foreignInvoice(c.env, f, customer.id, subs)) return refuseShared(c, f, account.id, customer.id, SHARED_INVOICE);
-        const url = await portalSession(c.env, f, { customer: customer.id, origin: c.cfg.origin, subscription: held.id, now: c.now });
-        return json(200, { url, portal: true });
+        // the webhook cancels `held`, with a prorated credit, once the new subscription is active; until then it stays
+        const url = await checkoutSession(c.env, f, { account, customer: customer.id, plan, origin: c.cfg.origin, now: c.now, switchFrom: held.id });
+        return json(200, { url, switch: true });
       }
     }
     const url = await checkoutSession(c.env, f, { account, customer: customer.id, plan, origin: c.cfg.origin, now: c.now, fresh: customer.fresh });
