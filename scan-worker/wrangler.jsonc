@@ -48,5 +48,32 @@
   // Hourly retention sweep: scan reports and screenshots older than 24 hours.
   "triggers": { "crons": ["23 * * * *"] },
   "limits": { "cpu_ms": 60000 },
-  "observability": { "enabled": false }
+  "observability": { "enabled": false },
+  // A test copy on workers.dev only: npx --yes wrangler@4 deploy --env test   (https://genclass-scan-test.mehar-144.workers.dev)
+  // Its own name, no routes (routes are inherited unless set, so "routes": [] is required here), its own rate
+  // limit counters, and its own key prefix in the bucket (STORE_PREFIX, src/prefix.ts): its reports, screenshots and
+  // leases never mix with production's. It reads the same opt-out list. Bindings and vars are not inherited by an env,
+  // so every one is repeated.
+  "env": {
+    "test": {
+      "name": "genclass-scan-test",
+      "routes": [],
+      "workers_dev": true,
+      "browser": { "binding": "BROWSER" },
+      "services": [{ "binding": "SITE", "service": "genclass-site" }],
+      "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
+      "ratelimits": [
+        { "name": "SCAN_LIMIT", "namespace_id": "4820", "simple": { "limit": 5, "period": 60 } },
+        { "name": "SITE_LIMIT", "namespace_id": "4821", "simple": { "limit": 4, "period": 60 } }
+      ],
+      "vars": {
+        "MAX_CONCURRENT": "3",
+        "WITH_GENCLASS": "on",
+        "GUARD_HOLD_MS": "900",
+        "STORE_PREFIX": "scan-test/"
+      },
+      // the same hourly sweep, over the test prefix: the test copy keeps reports and screenshots 24 hours at most too
+      "triggers": { "crons": ["23 * * * *"] }
+    }
+  }
 }

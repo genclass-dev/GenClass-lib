@@ -7,3 +7,8 @@ The CDN build of @genclass/runtime (dist/genclass.global*.js) bundles onnxruntim
 (MIT License, Copyright (c) Microsoft Corporation).
 
 The default model, @genclass/runtime-model, is initialised from jhu-clsp/ettin-encoder-17m (MIT License).
+
+The page check (scan-worker/) embeds axe-core, unmodified (scan-worker/src/axe-source.ts, generated from the npm
+package): Copyright (c) 2015 - 2026 Deque Systems, Inc., licensed under the Mozilla Public License 2.0
+(https://mozilla.org/MPL/2.0/). Its source code is at https://github.com/dequelabs/axe-core. axe-core includes code
+under the MIT License, listed in its LICENSE-3RD-PARTY.txt.

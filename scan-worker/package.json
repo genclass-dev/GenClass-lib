@@ -6,11 +6,13 @@
   "scripts": {
     "test": "node --test --test-reporter=spec test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "deploy:test": "npx --yes wrangler@4 deploy",
-    "dry-run": "npx --yes wrangler@4 deploy --dry-run --outdir .wrangler/dry"
+    "deploy:test": "npx --yes wrangler@4 deploy --env test",
+    "build:axe": "node scripts/build-axe.mjs",
+    "dry-run": "npx --yes wrangler@4 deploy --env test --dry-run --outdir .wrangler/dry"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "1.4.0"
+    "@cloudflare/puppeteer": "1.4.0",
+    "axe-core": "4.13.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260915.1",
