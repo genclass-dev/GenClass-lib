@@ -112,7 +112,7 @@ export function pageSide(cmd: string, options?: any): any {
         const s = style(img);
         if (s.position === "absolute" || s.position === "fixed") continue; // they push nothing
         const ar = String(s.aspectRatio || "auto");
-        const attrs = img.hasAttribute("width") && img.hasAttribute("height");
+        const attrs = (img.hasAttribute("width") && img.hasAttribute("height")) || (!!img.style.width && !!img.style.height) || !!img.style.aspectRatio;
         const follows = Math.abs(r.height - (r.width * img.naturalHeight) / img.naturalWidth) <= 2;
         if (attrs || ar !== "auto" || !follows) continue;
         const src = String(img.currentSrc || img.src || "");
@@ -124,7 +124,8 @@ export function pageSide(cmd: string, options?: any): any {
       // what the page can read about its window and screen (a page that lays itself out from these sees what a
       // visitor's browser would report only when they agree with the viewport)
       const env = [g.innerWidth, g.innerHeight, g.outerWidth, g.outerHeight, g.screen ? g.screen.width : 0, g.screen ? g.screen.height : 0, de.clientWidth].map((x: any) => Math.round(Number(x) || 0));
-      return { lcp, shifts: sh, unsized, visibility: String(doc.visibilityState || ""), env };
+      const paint = g.performance.getEntriesByType("paint").find((p: any) => p.name === "first-paint");
+      return { lcp, shifts: sh, unsized, visibility: String(doc.visibilityState || ""), env, firstPaint: paint ? Math.round(paint.startTime) : null };
     });
   }
 
@@ -746,22 +747,26 @@ export function judgeCls(raw: unknown): RawFinding | null {
 }
 
 /**
- * Images without width and height (or aspect-ratio) whose box follows the file's shape, tied to a layout shift they
- * caused: a shift without input, from 50 ms before to 1.5 s after the image finished loading, that moved down an
- * element that was at or below the image's top and overlaps it horizontally. Images that shifted nothing are not
- * reported. Always minor: the defect is the missing dimensions; how far the page moved in the scanner's browser is listed,
- * not used, since shifts there run larger than for most visitors (report.ts SHIFT_NOTE).
+ * Images without width and height (or aspect-ratio, as attributes or inline style) whose box follows the file's shape,
+ * tied to a layout shift they caused: the image finished loading after the first paint (before it, its size was known
+ * at the first layout), and a shift without input, from 50 ms before to 500 ms after that, moved down an element that
+ * was at or below the image's top and overlaps it horizontally. Images that shifted nothing are not reported. Always
+ * minor: the defect is the missing dimensions; how far the page moved in the scanner's browser is listed, not used,
+ * since shifts there run larger than for most visitors (report.ts SHIFT_NOTE). Measured in calibration: a logo sized by
+ * inline style that loaded before the first paint was tied to a shift 660 ms later that something else caused.
  */
-export function judgeUnsized(rawImages: unknown, rawShifts: unknown): RawFinding | null {
+export const UNSIZED_WINDOW_MS = 500;
+export function judgeUnsized(rawImages: unknown, rawShifts: unknown, firstPaint: unknown = null): RawFinding | null {
   const shifts = parseShifts(rawShifts).filter((s) => !s.input);
+  const painted = typeof firstPaint === "number" && Number.isFinite(firstPaint) ? firstPaint : 0;
   const hits: { sel: string; box: Box; end: number; shift: Shift; moved: string }[] = [];
   const used = new Set<Shift>();
   for (const v of (Array.isArray(rawImages) ? rawImages : []).slice(0, 40)) {
     const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
-    if (typeof o.end !== "number" || !Number.isFinite(o.end)) continue;
+    if (typeof o.end !== "number" || !Number.isFinite(o.end) || o.end <= painted) continue;
     const img = { sel: s0(o.sel), box: { x: n0(o.x), y: n0(o.y), w: n0(o.w), h: n0(o.h) }, end: o.end };
     for (const s of shifts) {
-      if (s.t < img.end - 50 || s.t > img.end + 1500) continue;
+      if (s.t < img.end - 50 || s.t > img.end + UNSIZED_WINDOW_MS) continue;
       const src = s.sources.find((x) => x.prev && x.cur && x.cur.y > x.prev.y + 1 && x.prev.y >= img.box.y - 4 && x.cur.x < img.box.x + img.box.w && x.cur.x + x.cur.w > img.box.x);
       if (!src) continue;
       hits.push({ ...img, shift: s, moved: src.sel });

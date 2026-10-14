@@ -85,8 +85,10 @@ scripts, and puts all dynamic text in place with `textContent` from a `<script t
      dimensions (`pageSide("vitals")` in `src/audits.ts`);
    - the GenClass visual checks for about 6 s (below), with the with-GenClass re-check when fixes were applied, then a
      JPEG of the top of the page with the fixes undone, and a box for every finding;
-   - then the deeper checks (`deeperChecks`), each only when the time left before the race probe allows it, each
-     saying so when it does not (and its category is then "not measured", never 100): axe-core in every view; the page
+   - then the deeper checks (`deeperChecks`), after the pointer leaves the page and focus is cleared (the visual
+     checks' Tab presses and scrolling would leave `:focus` or `:hover` styles on what is judged), each only when the
+     time left before the race probe allows it, each saying so when it does not (and its category is then "not
+     measured", never 100): axe-core in every view; the page
      audits on the desktop and the light phone; on the light phone, last, the same page narrowed to 360 and 320 px
      without a reload for the reflow check (below);
    - the race probe on the desktop page with `@genclass/runtime` 0.2.1 injected before any page script (observe,
@@ -234,7 +236,8 @@ the reasons for each choice are in `src/audits.ts`, `src/axe.ts` and `src/cdp.ts
   360, moderate at 320 only, minor when only tables or `pre` stick out; skipped when it already overflows at 390).
 - **Images** (desktop and light phone): more than 4 times the pixels the image covers on a 2x (desktop) or 3x (phone)
   screen and more than 100 KB transferred (Lighthouse's "Properly size images", stricter); images without width/height
-  or aspect-ratio tied to a layout shift that moved content below them within 1.5 s of the image loading (always minor).
+  or aspect-ratio (attributes or inline style), arriving after the first paint, tied to a layout shift that moved content
+  below them within 500 ms of the image loading (always minor).
 - **Reliability** (`src/cdp.ts`): uncaught errors and unhandled rejections in the page's own main-frame context,
   `console.error`, same-site scripts, data requests and frames answered 4xx or 5xx (images, stylesheets, fonts and media
   are the visual checks'; 401/403/407/429 counted in `metrics.whoAsks`, not scored; `/favicon.ico` left out), mixed

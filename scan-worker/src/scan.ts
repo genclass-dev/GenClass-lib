@@ -1029,7 +1029,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         // the visual checks' own layout-shift finding (above 0.25, with the element) stands for the same shifts
         const cls = view.findings.some((f) => f.kind === "layout-shift") ? null : judgeCls(vitals.shifts);
         if (cls) out.push(cls);
-        const unsized = judgeUnsized(vitals.unsized, vitals.shifts);
+        const unsized = judgeUnsized(vitals.unsized, vitals.shifts, vitals.firstPaint);
         if (unsized) out.push(unsized);
       }
     } else if (spec.id === "desktop") view.notes.push("The page's timings (Largest Contentful Paint, layout shifts) could not be read in this view, so speed was not measured.");

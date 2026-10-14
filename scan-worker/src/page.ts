@@ -1010,7 +1010,8 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     ${OVERSIZE_RATIO} times the pixels the image covers on a ${JUDGE_DPR.desktop}x screen (desktop) or ${JUDGE_DPR.phone}x screen
     (phone), and more than ${Math.round(OVERSIZE_BYTES / 1024)} KB transferred. SVG is left out.</li>
     <li><b>Images without dimensions</b> (web.dev, minor): no width and height and no
-    aspect-ratio, and a layout shift from 50 ms before to 1.5 s after the image loaded moved content below it down. An unsized
+    aspect-ratio (as attributes or inline style), arriving after the first paint, and a layout shift from 50 ms before to 500 ms
+    after it arrived moved content below it down. An unsized
     image that moved nothing is not reported.</li>
     <li><b>Largest Contentful Paint</b> (desktop, <a href="https://web.dev/articles/lcp">web.dev</a>): minor above ${lcpGood} s
     (needs improvement), moderate above ${lcpPoor} s (poor).</li>

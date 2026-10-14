@@ -168,6 +168,10 @@ describe("Largest Contentful Paint and Cumulative Layout Shift: web.dev threshol
     assert.match(f.measured, /img\.banner finished loading at 1\.20 s; a shift of 0\.120 at 1\.24 s moved main > h1 down/);
     assert.equal(judgeUnsized(image, moved(900, 100, 300)), null, "a shift before the image arrived");
     assert.equal(judgeUnsized(image, moved(3000, 100, 300)), null, "a shift long after it arrived");
+    assert.equal(judgeUnsized(image, moved(1880, 100, 300)), null, "660 ms after it arrived: something else moved it");
+    assert.ok(judgeUnsized(image, moved(1690, 100, 300)), "490 ms after");
+    assert.equal(judgeUnsized(image, moved(1240, 100, 300), 1300), null, "the image arrived before the first paint: its size was known at the first layout");
+    assert.ok(judgeUnsized(image, moved(1240, 100, 300), 900), "after the first paint");
     assert.equal(judgeUnsized(image, moved(1240, 20, 220)), null, "content above the image did not move because of it");
     assert.equal(judgeUnsized(image, moved(1240, 100, 300, 700)), null, "content beside it, not below it");
     assert.equal(judgeUnsized(image, moved(1240, 300, 100)), null, "content that moved up");
