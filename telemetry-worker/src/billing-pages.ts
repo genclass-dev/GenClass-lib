@@ -87,7 +87,9 @@ function planColumn(v: BillingView, p: Plan, current: Plan): string {
   if (cur) act = '<span class="tag">Your plan</span>';
   else if (p.id === "free") act = subscribed && v.live ? '<span class="muted">To go back to Free, cancel in Manage billing.</span>' : "";
   else if (v.live) act = `<button class="btn${p.id === "custom" ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
-  const features = p.features.map((f) => `<li${f.available ? "" : ' class="soon"'}>${esc(f.text)}</li>`).join("");
+  const features = p.features
+    .map((f) => `<li${f.available ? "" : ' class="soon"'}>${esc(f.text)}${f.available || /coming next/i.test(f.text) ? "" : " (coming next)"}</li>`)
+    .join("");
   return `<div class="plan${cur ? " cur" : ""}"><h3>${esc(p.name)}</h3><p class="price">${esc(priceText(p))}</p><p class="sum">${esc(p.summary)}</p><ul>${features}</ul><div class="act">${act}</div></div>`;
 }
 
@@ -374,6 +376,13 @@ ${rows}
       });
   }
   function say(node, text){ if (node) node.textContent = text ? text.charAt(0).toUpperCase() + text.slice(1) + (/[.]$/.test(text) ? "" : ".") : ""; }
+  // times in the viewer's zone ("12 min ago", "13 Oct 2026"); the server wrote UTC dates
+  document.querySelectorAll(".paid time[data-f]").forEach(function(t){
+    var d = new Date(t.getAttribute("datetime")); if (isNaN(d)) return;
+    var s = (Date.now() - d.getTime()) / 1000;
+    t.textContent = t.getAttribute("data-f") === "ago" && s >= 0 && s < 129600 ? (s < 90 ? "just now" : s < 5400 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago") : d.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+    t.title = d.toLocaleString();
+  });
   // the plan's ranges: a short note under the range buttons
   if (C.note) document.querySelectorAll(".seg").forEach(function(s){ var p = el("p", "rnote", C.note + " "); var a = el("a", null, "Pro shows a year."); a.href = "/account/billing"; p.appendChild(a); s.parentNode.insertBefore(p, s.nextSibling); });
   // forwarding

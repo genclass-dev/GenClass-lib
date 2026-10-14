@@ -867,6 +867,18 @@ export interface DashboardOptions {
 }
 
 const RANGE_LABELS: Record<string, string> = { "24h": "24 h", "7d": "7 days", "30d": "30 days", "90d": "90 days", "1y": "1 year" };
+/** Short labels when a plan shows more than three ranges (five buttons fit the sidebar only this way). */
+const RANGE_SHORT: Record<string, string> = { "24h": "24h", "7d": "7d", "30d": "30d", "90d": "90d", "1y": "1y" };
+
+function rangeButtons(ranges: string[]): string {
+  const short = ranges.length > 3;
+  return ranges
+    .map((r) => {
+      const label = esc(RANGE_LABELS[r] ?? r);
+      return `<button type="button" data-r="${esc(r)}" aria-pressed="${r === "7d"}"${short ? ` aria-label="${label}" title="${label}">${esc(RANGE_SHORT[r] ?? r)}` : `>${label}`}</button>`;
+    })
+    .join("");
+}
 
 /** More apps than this and the sidebar lists only the current one, with a link to all of them. */
 const SIDEBAR_APPS = 4;
@@ -951,7 +963,7 @@ export function dashboardPage(
   // Account mode: Connect has its own group; while the app waits for its first event the range control and the section
   // links (which point into the hidden stats) stay hidden, and render() shows them when data arrives.
   const sections = `<div class="seg" role="group" aria-label="Time range">
-    ${(opts.ranges ?? ["24h", "7d", "30d"]).map((r) => `<button type="button" data-r="${esc(r)}" aria-pressed="${r === "7d"}">${esc(RANGE_LABELS[r] ?? r)}</button>`).join("")}
+    ${rangeButtons(opts.ranges ?? ["24h", "7d", "30d"])}
   </div>
   <div class="grp">This period</div>
   <nav class="snav" id="snav" aria-label="Sections">

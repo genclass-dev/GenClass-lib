@@ -415,7 +415,7 @@ describe("plans: the Free plan's limits (apps, dashboard ranges)", () => {
     expect(year.range).toBe("1y");
     expect(year.series).toHaveLength(365);
     const proPage = await (await call(env, "GET", `/account/apps/${app.id}`, { cookie })).text();
-    expect(proPage).toContain('<button type="button" data-r="1y" aria-pressed="false">1 year</button>');
+    expect(proPage).toContain('<button type="button" data-r="1y" aria-pressed="false" aria-label="1 year" title="1 year">1y</button>');
     expect(proPage).toContain("Data is kept 1 year");
     expect(proPage).not.toContain("The Free plan shows");
   });

@@ -62,10 +62,10 @@ export const entitled = (plan: Plan, e: Entitlement): boolean => plan.entitlemen
 /** Paid plans are on sale: the Stripe secret key is set. */
 export const billingLive = (env: Env): boolean => !!env.STRIPE_SECRET_KEY;
 
-/** "$99 / month", or "Free". */
+/** "$99 / month", or "$0". */
 export function priceText(plan: Plan): string {
   const c = plan.price_usd_cents.monthly;
-  if (!c) return "Free";
+  if (!c) return "$0";
   return `$${c % 100 ? (c / 100).toFixed(2) : String(c / 100)} / month`;
 }
 
