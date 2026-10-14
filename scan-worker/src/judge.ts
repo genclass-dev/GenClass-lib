@@ -1,19 +1,21 @@
 // The model judge: Cloudflare's Clef (@cf/cloudflare/clef, a vision decision model) on Workers AI, asked about one
-// element at a time. It reads a crop of the view (the element's box plus 24 px, cut from a viewport screenshot) and
-// the element's measured facts (src/judge-page.ts), with the prompt, questions and score of the evaluation on
-// wave2/clef-eval (vision/clef/README.md, vision/clef/eval.py variant clef-img-p3: image + facts + the caution line,
-// score 1 - P(nothing is wrong) on the family question). Two uses (src/report.ts):
-//   1. a second stage on the measured visual checks' findings: one the model scores below KEEP_THRESHOLD in every
-//      view it appeared in is listed, not scored ("a model judged it as probably fine"), never dropped;
-//      page-overflow-x, image-broken and text-template-leak are left as they are (the evaluation: the crop cannot show
-//      a page that scrolls sideways, and the model drops real ones there), and so is a finding with no element to crop;
-//   2. findings of its own on elements the measured checks abstain on, when it scores one at FIND_THRESHOLD or more:
-//      Visual bugs, moderate, labelled "Judged from the screenshot by a model (Clef)", never a measured check.
+// element at a time. It reads a crop of the view (the element's box plus 24 px, cut from a viewport screenshot) and a
+// state text, with the questions and score of the evaluation on wave2/clef-eval (vision/clef/README.md,
+// vision/clef/eval.py; score 1 - P(nothing is wrong) on the family question). Two uses (src/report.ts):
+//   1. a second stage on the measured visual checks' findings, with the element's measured facts (src/judge-page.ts)
+//      and the caution line (clef-img-p3): one the model scores below KEEP_THRESHOLD in every view it appeared in is
+//      listed, not scored ("a model judged it as probably fine"), never dropped; page-overflow-x, image-broken and
+//      text-template-leak are left as they are (the evaluation: the crop cannot show a page that scrolls sideways, and
+//      the model drops real ones there), and so is a finding with no element to crop;
+//   2. findings of its own on elements the measured checks abstain on, with the image and the tag only
+//      (clef-imgonly-p2, ABSTAIN_TEXT, chosen in calibration), when it scores one at FIND_THRESHOLD or more: Visual
+//      bugs, moderate, labelled "Judged from the screenshot by a model (Clef)", never a measured check.
 //
 // Invariants:
 // - A judge failure never breaks a scan: a call that throws, answers malformed data or takes longer than
 //   JUDGE_TIMEOUT_MS is recorded as unanswered, and its finding stays as the measured checks reported it.
-// - At most JUDGE_MAX_CALLS calls per scan (shared by the three views, JUDGE_SHARE each), all in parallel.
+// - At most JUDGE_MAX_CALLS calls per scan (JudgeBudget: each view's JUDGE_SHARE guaranteed, what a view leaves goes
+//   to the views after it); each call is sent as soon as its crop is taken, and they run in parallel.
 // - What the page controls reaches the model only as the evaluation's extractor kept it: numbers, colours, a tag and
 //   a role cut to [a-z-], text lengths, leak-pattern ids and their matched characters (at most 24). The crop image is
 //   the page as a visitor sees it, and is the only thing sent besides that text.
