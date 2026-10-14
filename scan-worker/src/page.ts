@@ -459,7 +459,9 @@ export function staticReport(r: Record<string, unknown>): string {
       const on = c.measured === true && int(c.value) !== null;
       const wc = withCats.find((x) => str(x.id) === str(c.id));
       const withDiff = withOn && wc && int(wc.value) !== null && int(wc.value) !== int(c.value) ? ` · ${esc(withLabel())} ${esc(str(wc.value))}` : "";
-      const sub = on ? `weight ${esc(str(c.weight))} · ${int(c.count) ? `${esc(str(c.count))} ${int(c.count) === 1 ? "finding" : "findings"}` : "nothing found"}${withDiff}` : esc(str(notMeasured[str(c.id)]) || "Not measured on this scan.");
+      const review = int(obj(r.metrics).axeIncomplete) ?? 0;
+      const needsReview = str(c.id) === "accessibility" && review > 0 ? ` · ${review} ${review === 1 ? "rule needs" : "rules need"} review, not scored` : "";
+      const sub = on ? `weight ${esc(str(c.weight))} · ${int(c.count) ? `${esc(str(c.count))} ${int(c.count) === 1 ? "finding" : "findings"}` : "nothing found"}${withDiff}${needsReview}` : esc(str(notMeasured[str(c.id)]) || "Not measured on this scan.");
       return `<div class="cat${on ? "" : " off"}" role="listitem"><div class="k">${esc(str(c.label))}</div><div class="v">${on ? `${esc(str(c.value))}<small>/ 100</small>` : "not measured"}</div><div class="s">${sub}</div></div>`;
     })
     .join("");
@@ -637,7 +639,7 @@ function renderScore(r){
     cell.appendChild(el("div", "k", c.label));
     var v = el("div", "v", on ? String(c.value) : "not measured"); if (on) v.appendChild(el("small", null, "/ 100")); cell.appendChild(v);
     var wc = withOn ? catIn(w.breakdown, c.id) : null;
-    cell.appendChild(el("div", "s", on ? "weight " + c.weight + " · " + (c.count ? c.count + (c.count === 1 ? " finding" : " findings") : "nothing found") + (wc && wc.value !== null && wc.value !== c.value ? " · " + ST.withLabel + " " + wc.value : "") : ((r.notMeasured && r.notMeasured[c.id]) || "Not measured on this scan.")));
+    cell.appendChild(el("div", "s", on ? "weight " + c.weight + " · " + (c.count ? c.count + (c.count === 1 ? " finding" : " findings") : "nothing found") + (wc && wc.value !== null && wc.value !== c.value ? " · " + ST.withLabel + " " + wc.value : "") + (c.id === "accessibility" && r.metrics && r.metrics.axeIncomplete ? " · " + r.metrics.axeIncomplete + (r.metrics.axeIncomplete === 1 ? " rule needs" : " rules need") + " review, not scored" : "") : ((r.notMeasured && r.notMeasured[c.id]) || "Not measured on this scan.")));
     row.appendChild(cell);
   });
   var top = $("top"); top.textContent = "";

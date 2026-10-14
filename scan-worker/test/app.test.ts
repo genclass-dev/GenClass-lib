@@ -527,6 +527,7 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     assert.match(cached, /<h2>Top issues<\/h2>/);
     assert.match(cached, /<a href="https:\/\/www\.w3\.org\/WAI\/WCAG22\/Understanding\/target-size-minimum\.html">WCAG 2\.2 SC 2\.5\.8 Target Size \(Minimum\), level AA<\/a>/);
     assert.equal((cached.match(/<div class="cat" role="listitem">/g) || []).length, 6);
+    assert.match(cached, /<div class="k">Accessibility<\/div>.*?2 rules need review, not scored<\/div>/, "axe-core's needs-review count is shown, not scored");
   });
 
   it("leaves accessibility and the phone unmeasured, and says why, when the views leave no time for them", async () => {
