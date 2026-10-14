@@ -296,8 +296,9 @@ On the 420 crops of train hosts that round 2's training agent labelled (311 not 
   `model.onnx`, `model.int8.onnx`, `spec.json`, `score_onnx.py`). The other runs are in `models/`. The c21 and c22
   runs were not copied back, apart from four model files: f-s-lr5, f-s-lr3, f-l-lr2, f-s-lr2-e20.
 - Index and facts: `~/vision-out/vision-v1/index/` (`nat.jsonl`, `inj.jsonl`, `lab.jsonl`; `shots.jsonl` names
-  hosts and stays there). Shot crops: `~/vision-out/vision-v1/crops/`. Packs: `pack/` (224 x 128) and
-  `pack-320x192/`.
+  hosts and stays there). Shot crops: `~/vision-out/vision-v1/crops/`. Pack: `pack/` (224 x 128; the 320 x 192
+  pack was deleted to free disk, and `VV1_INPUT=320x192 pack.py --sets lab,nat` rebuilds it in about 5 minutes).
+  The eval key was deleted from the node.
 - Clef answers: `~/vision-out/vision-v1/clef/<prompt>/answers-*.jsonl`.
 - Fresh test set: `~/vision-out/vision-v1/test/`. That holds `manifest.jsonl` (random ids), `labels.json`, the
   blind sheets and keys of passes A, B and C, `results-final.json` and `heldout.json`. Its digests are in
