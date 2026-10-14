@@ -253,7 +253,7 @@ The highest-scored public elements under it, readable links on site C, scored 0.
 On the evaluation's labelled crops the same comparison, for the crops no rule had flagged (the judge's own findings are
 of that kind), favours image + tag only on the dev split (AP 0.129 against 0.120, 6 real) and on the report split (0.420
 against 0.207; at the thresholds above, 5 of 5 right against 1 of 3). A third prompt, the facts without the contrast
-sentences whose background is unknown, was also run on the labelled crops (300 prompts change) and rejected: dev AP 0.450
+sentences whose background is unknown, was also run on the labelled crops (it changes 303 of the 1,856 prompts) and rejected: dev AP 0.450
 against 0.488.
 
 | # | change | why |

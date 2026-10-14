@@ -451,11 +451,11 @@ the scanner's own left out, failed same-site requests by type and status, who-as
 bytes, the test copy's bucket prefix), and in `test/app.test.ts` a full deep scan through the mocked browser (axe-core
 in every view, the phone narrowed to 360 and 320, the DevTools record, the static report's six categories and top
 issues), categories left unmeasured when time runs out or there is no DevTools session, and the scroll-lock
-correction. `test/judge.test.ts` (the model judge: the state text word for word with Python's rounding, the Clef input,
-answers read back and refused when malformed, unknown options ignored, a call that throws, hangs or answers nonsense
-never breaking anything, the 40-call cap and its shares, the scroll groups, the page's list checked, the page side
-serialised without bundler names; through the mocked browser and a fake `AI`: 40 calls at most across the views, a
-finding kept, one listed as probably fine and not scored, every finding as measured when the model is down or hangs,
+correction. `test/judge.test.ts` (the model judge: both state texts word for word with Python's rounding, which one each element
+gets, the Clef input, answers read back and refused when malformed, unknown options ignored, a call that throws, hangs
+or answers nonsense never breaking anything, the 40-call cap and its shares, the scroll groups, the page's list
+checked, the page side serialised without bundler names; through the mocked browser and a fake `AI`: 40 calls at most
+across the views, crops never captured two at a time, a finding kept, one listed as probably fine and not scored, every finding as measured when the model is down or hangs,
 off without the binding or with `JUDGE=off`, the three kinds and box-less findings never sent; the two thresholds at their
 edges, every view needed for "probably fine", no finding of its own over a measured one, the light and dark phone merged,
 which crops are kept; `/scan/about` and the report page wording, and escaping of what the model and the page said, with
