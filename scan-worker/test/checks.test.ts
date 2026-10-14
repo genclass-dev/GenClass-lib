@@ -44,6 +44,13 @@ describe("the embedded visual checks", () => {
     for (const k of VISUAL_KINDS) assert.ok(VISUAL_SOURCE!.includes(`"${k}"`), k);
     assert.equal(VISUAL_KINDS.length, 23);
   });
+  it("see the page's requests in flight through the net command, not a stand-in 0", () => {
+    assert.match(VISUAL_SOURCE!, /inFlight:\{get size\(\)\{return \w+\}\}/, "the runtime stand-in reads the count the scanner hands in");
+    assert.doesNotMatch(VISUAL_SOURCE!, /inFlight:\{size:0\}/);
+    const ctx = sandbox();
+    assert.equal(vm.runInContext(installSource("__gcsN", VISUAL_SOURCE!), ctx), true);
+    assert.equal(vm.runInContext(`JSON.stringify(window.__gcsN("net", { n: 2 }))`, ctx), JSON.stringify({ ok: true }));
+  });
   it("install from the built bundle, and answer under the per-scan name only", () => {
     const ctx = sandbox();
     assert.equal(vm.runInContext(installSource("__gcsV", VISUAL_SOURCE!), ctx), true);
