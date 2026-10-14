@@ -5,13 +5,13 @@
 export type Category = "readability" | "media" | "layout" | "interaction";
 export type Severity = "high" | "medium" | "low";
 
-export const SCORE_VERSION = "scan-score/1";
+export const SCORE_VERSION = "scan-score/2";
 
 export const CATEGORIES: { id: Category; label: string; cap: number; covers: string }[] = [
-  { id: "readability", label: "Readability", cap: 25, covers: "Text that cannot be read, template text that leaked onto the page, fonts that failed to load" },
-  { id: "media", label: "Images and media", cap: 25, covers: "Images that failed to load" },
-  { id: "layout", label: "Layout", cap: 25, covers: "Sideways scrolling on a phone, stylesheets that failed to load" },
-  { id: "interaction", label: "Interaction and races", cap: 25, covers: "Controls covered by another element, a double click that sends a request twice, a response GenClass flagged as landing over newer data" },
+  { id: "readability", label: "Readability", cap: 25, covers: "Text that cannot be read, template or placeholder text, garbled characters, fonts and icon fonts that failed to load" },
+  { id: "media", label: "Images and media", cap: 25, covers: "Images, background images, video and audio that failed to load, stretched images" },
+  { id: "layout", label: "Layout", cap: 25, covers: "Stylesheets that failed or were blocked, CSS variables defined nowhere, sideways scrolling, no viewport meta tag, layout shifts, an empty page" },
+  { id: "interaction", label: "Interaction and races", cap: 25, covers: "A page that ignores clicks or cannot scroll, controls under fixed bars, hidden focus, covered dialogs, a double click that sends a request twice, problems GenClass's model diagnosed" },
 ];
 
 export const SEVERITY_POINTS: Record<Severity, number> = { high: 10, medium: 5, low: 2 };
