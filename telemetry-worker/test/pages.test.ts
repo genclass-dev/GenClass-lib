@@ -249,12 +249,36 @@ describe("pages: genclass.dev's palette, buttons, header and focus ring", () => 
   it("every page carries the site's tokens, its focus ring and its sticky header", () => {
     for (const html of [startPage("n"), dashboardPage("n", project), loginPage("n", { google: false, github: false, next: null })]) {
       // site/src/css/base.css: ink navy, the green (fills, large text, small text), the red-orange (fills; small text)
-      for (const t of ["--ink:#0E1F4D", "--accent-f:#14B86A", "--accent-x:#0E9A58", "--accent:#08794A", "--warn-f:#F0451C", "--warn:#C2360F", "--panel:#F5F8FB", "--rule:#DFE4EC", "--rule2:#C6CEDB"]) expect(html).toContain(t);
+      for (const t of ["--ink:#0E1F4D", "--accent-f:#14B86A", "--accent-x:#0E9A58", "--accent:#08794A", "--warn-f:#F0451C", "--warn:#C42A12", "--panel:#F5F8FB", "--rule:#DFE4EC", "--rule2:#C6CEDB"]) expect(html).toContain(t);
       expect(html).toContain(":focus-visible{outline:2px solid var(--accent);outline-offset:3px}");
       expect(html).toContain("prefers-color-scheme:dark");
     }
     expect(startPage("n")).toMatch(/header\.top\{position:sticky;top:0;/);
     expect(startPage("n")).toContain('src="https://genclass.dev/brand/lockup-h.png?v=2"');
+  });
+
+  it("scroll targets clear the sticky header; one small button size; focus rings unclipped; one green item in the sidebar", () => {
+    // site/src/css/base.css: html{scroll-padding-top:72px}. It covers /start's out.scrollIntoView(), every #section
+    // link (the div #did included) and focus scrolling; the dashboard adds the sticky sidebar strip below 920px.
+    for (const html of [startPage("n"), dashboardPage("n", project)]) expect(html).toContain("html:has(header.top){scroll-padding-top:72px}");
+    expect(DASH_CSS).toContain("@media (max-width:920px){");
+    expect(DASH_CSS).toContain("html:has(.app>.side:not(.acct)){scroll-padding-top:125px}");
+    expect(DASH_CSS).not.toContain("scroll-margin-top"); // it would add to the padding
+    // the 320px header fits: a smaller lockup and gap below 361px
+    expect(startPage("n")).toContain("@media (max-width:360px){header.top .wrap{gap:10px}.logo .lk{height:26px}}");
+    // .btn.sm is 34px everywhere (44px on phones), with no per-place override
+    const all = startPage("n") + dashboardPage("n", project) + messagePage("n", { title: "T", text: "x", links: [["One", "/a"]] });
+    expect(all).toContain(".btn.sm{min-height:34px;");
+    expect(all).toContain("@media (max-width:620px){.btn.sm{min-height:44px}}");
+    expect(all).not.toMatch(/\.btn\.sm\{min-height:(28|30)px/);
+    // room for the 2px ring at 3px offset inside the sidebar's and the tables' scroll containers
+    expect(DASH_CSS).toContain("padding:28px 24px 28px 16px;margin-left:-16px;");
+    expect(startPage("n")).toContain(".tablewrap{overflow-x:auto;padding-left:6px;margin-left:-6px}");
+    // the current app is ink on panel; the green tint is the scroll-spy section's alone
+    expect(DASH_CSS).toContain(".side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:600}");
+    // a route with a total but no per-type breakdown is drawn in the Other grey, not stale responses' red-orange
+    expect(dashboardPage("n", project)).toContain('i0.style.background = "var(--t0)"');
+    expect(dashboardPage("n", project)).not.toContain("var(--bar3)");
   });
 
   it("the main action of a page is the site's green button; the header ends in its ink button", () => {

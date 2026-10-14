@@ -64,13 +64,13 @@ const ICON =
 // values as the site has them. The site is light-only; the dark values are steps of the same hues on its night navy
 // (#0B1736, the site's code and console panels), each text colour at least 4.5:1 on --paper and --panel and each UI
 // colour (focus ring, input border, fills) at least 3:1. Light: --accent #08794A is the site's small green text,
-// --accent-x #0E9A58 its large green text, --accent-f #14B86A its green fills and buttons; --warn #C2360F the
-// red-orange for small text (the hero mesh's note colour), --warn-f #F0451C its bug fills. --line is an input border at
+// --accent-x #0E9A58 its large green text, --accent-f #14B86A its green fills and buttons; --warn #C42A12 the
+// red-orange for small text (the site's --orange), --warn-f #F0451C its bug fills. --line is an input border at
 // 3:1 (the site's --rule2 is 1.6:1, fine for a ghost button whose text names it, not for an empty field).
 const CSS = `
 :root{
   --paper:#FFFFFF;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;--line:#848FA6;
-  --accent:#08794A;--accent-x:#0E9A58;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C2360F;--warn-f:#F0451C;--warn-t:#FDE6E0;
+  --accent:#08794A;--accent-x:#0E9A58;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C42A12;--warn-f:#F0451C;--warn-t:#FDE6E0;
   --bar:#0E1F4D;--bar2:#14B86A;--bar3:#F0451C;--ink-h:#071331;--green-h:#0FA35D;--on-green:#0E1F4D;--head:rgba(255,255,255,.92);
   --code:#0B1736;--codeink:#E8EDF8;
   --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(14,31,77,.16)' stroke-width='1'/%3E%3C/svg%3E");
@@ -87,6 +87,7 @@ const CSS = `
 }}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html:has(header.top){scroll-padding-top:72px}
 a{color:inherit;text-underline-offset:3px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .wrap{max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
@@ -108,6 +109,7 @@ header.top nav form.so{display:contents}
 header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
 @media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}.logo .lk{height:30px}.logo .lkd img{width:26px;height:26px}.logo .wm{font-size:23px}}
 @media (max-width:420px){header.top nav .dc{display:none}}
+@media (max-width:360px){header.top .wrap{gap:10px}.logo .lk{height:26px}}
 h1,h2,h3{font-family:var(--display);text-wrap:balance}
 h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:700}
 h2{font-size:17px;letter-spacing:-.01em;font-weight:700;margin-bottom:10px}
@@ -123,6 +125,7 @@ p.lead{color:var(--ink2);font-size:16px;max-width:62ch;margin-top:10px}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule2)}
 .btn.ghost:hover{background:transparent;border-color:var(--ink)}
 .btn.sm{min-height:34px;padding:0 12px;font-size:13.5px}
+@media (max-width:620px){.btn.sm{min-height:44px}}
 input[type=text]{min-height:46px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans);width:100%}
 input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 ::placeholder{color:var(--ink3);opacity:1}
@@ -160,7 +163,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
 th{color:var(--ink3);font-weight:600}
 td.mono{font-family:var(--mono)}
-.tablewrap{overflow-x:auto}
+.tablewrap{overflow-x:auto;padding-left:6px;margin-left:-6px}
 section{margin-top:22px}
 details summary{cursor:pointer;font-weight:700}
 footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
@@ -351,6 +354,9 @@ export function notFoundPage(nonce: string): string {
 // validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-13: light on #FFFFFF all checks pass, worst
 // CVD ΔE 20.0, normal-vision 31.3, amber 2.2:1 so the table view and legend carry it; dark on #0B1736 all pass, worst
 // CVD 15.3, normal-vision 19.2, every slot at least 3:1 (the palette it replaces: 16.3/19.6 light, 13.2/19.3 dark).
+// A bar draws only the types it has, so slots that are not palette neighbours can touch: in dark, t2 on t4 (stale on
+// slow, when failing endpoints is absent) is deutan ΔE 1.8 and normal-vision 13.7, and t1 on t3 normal-vision 9.7.
+// The 2px paper gap between segments, the legend, the hover breakdown and the table view carry identity there.
 // Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
 // outlined bars in the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the
 // confirmed counts.
@@ -364,7 +370,6 @@ h1,h2,h3{letter-spacing:-.03em}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
 .dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;line-height:1.05}
 .meta{font:12.5px var(--mono);color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px}
-.meta .btn.sm{min-height:28px;padding:0 10px;font:500 12.5px var(--sans)}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
 .live.on i{background:var(--accent-f)}
@@ -450,7 +455,7 @@ details.more summary{font:600 15px var(--sans);cursor:pointer}
 .dfoot a{color:var(--ink2)}
 main.wrap:has(.app){max-width:1360px}
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0 48px;align-items:start}
-.side{position:sticky;top:61px;align-self:start;max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 10px;margin-left:-10px;border-right:1px solid var(--rule);min-height:calc(100vh - 61px)}
+.side{position:sticky;top:61px;align-self:start;max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 16px;margin-left:-16px;border-right:1px solid var(--rule);min-height:calc(100vh - 61px)}
 .side .proj{font:600 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
 .side .proj small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px;font-weight:400}
 .side .live{margin-top:10px;font:12px var(--mono)}
@@ -465,7 +470,7 @@ main.wrap:has(.app){max-width:1360px}
 .side .out a{display:block;font-size:13.5px;color:var(--ink2);text-decoration:none;padding:5px 0}
 .side .out a:hover{color:var(--ink)}
 .side .btn{width:100%;margin-top:14px}
-.side nav a[aria-current=page]{color:var(--accent);background:var(--accent-t);font-weight:600}
+.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:600}
 .side nav.apps a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side nav.apps a.new{color:var(--accent);font-weight:500}
 #period{display:contents}
@@ -498,7 +503,6 @@ main.wrap:has(.app){max-width:1360px}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
 .mainc .dh{margin-top:32px}
-section[id]{scroll-margin-top:77px}
 @media (max-width:920px){
   .app{grid-template-columns:minmax(0,1fr)}
   .side{position:sticky;top:61px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
@@ -509,7 +513,7 @@ section[id]{scroll-margin-top:77px}
   .side nav a{margin:0;white-space:nowrap;padding:6px 10px;font-size:13px}
   .side nav a span{display:none}
   .side nav.apps{display:none}
-  section[id]{scroll-margin-top:125px}
+  html:has(.app>.side:not(.acct)){scroll-padding-top:125px}
 }
 `;
 
@@ -794,7 +798,7 @@ const DASH_JS = `
     list.slice(0, 8).forEach(function(r){
       var tr = el("tr"); var rc = el("td", "route", r.route); rc.title = r.route; tr.appendChild(rc); tr.appendChild(el("td", "num", fmt(r.total)));
       var td = el("td", "wide"), mix = el("div", "mix"), parts = SLOTS.concat(["other"]).filter(function(s){ return r.parts[s]; });
-      if (!parts.length && r.total) { var i0 = el("i"); i0.style.width = (100 * r.total / max) + "%"; i0.style.background = "var(--bar3)"; mix.appendChild(i0); }
+      if (!parts.length && r.total) { var i0 = el("i"); i0.style.width = (100 * r.total / max) + "%"; i0.style.background = "var(--t0)"; i0.title = "Not broken down by type: " + fmt(r.total); mix.appendChild(i0); }
       parts.forEach(function(s){ var i = el("i"); i.style.width = (100 * r.parts[s] / max) + "%"; i.style.background = colorOf(s); i.title = (s === "other" ? "Other" : TYPES[s].name) + ": " + fmt(r.parts[s]); mix.appendChild(i); });
       td.appendChild(mix); tr.appendChild(td);
       if (anyPoss) tr.appendChild(el("td", "num poss-n", r.poss ? fmt(r.poss) : "-"));

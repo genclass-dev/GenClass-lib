@@ -65,7 +65,6 @@ dl.req dt{font:500 12.5px var(--mono);color:var(--ink3);padding-top:13px;padding
 table.dt td.name{white-space:normal;max-width:28ch;overflow-wrap:anywhere}
 table.dt td.pkey{font:13px var(--mono)}
 table.dt td.pkey .btn{margin-left:8px}
-table.dt td .btn.sm{min-height:30px}
 table.dt td.act{text-align:right}
 table.dt td a{color:var(--ink)}
 table.dt td .tag{font:500 12px var(--mono);color:var(--accent);margin-left:8px}
