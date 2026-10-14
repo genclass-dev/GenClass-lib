@@ -22,8 +22,9 @@
   // would end up inside them and is not defined in the scanned page.
   "keep_names": false,
   "browser": { "binding": "BROWSER" },
-  // Workers AI, for the model judge (src/judge.ts): Clef (@cf/cloudflare/clef) reads a crop of the screenshot and the
-  // element's measured facts. At most 40 calls a scan, about $0.0125 at list price; JUDGE "off" turns it off.
+  // Workers AI, for the model judge (src/judge.ts): Clef (@cf/cloudflare/clef) reads a crop of the screenshot (and, for
+  // a measured finding, the element's measured facts). At most 40 calls a scan, at most about $0.0125 at list price;
+  // JUDGE "off" turns it off.
   "ai": { "binding": "AI" },
   // The site worker, for paths under the /scan* route that are the site's files (its /scan-box.js), read-only GETs.
   "services": [{ "binding": "SITE", "service": "genclass-site" }],
