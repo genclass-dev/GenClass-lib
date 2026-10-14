@@ -50,7 +50,7 @@ def wilson(k, n, z=1.96):
     d = 1 + z * z / n
     c = (p + z * z / (2 * n)) / d
     h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
-    return [round(c - h, 3), round(c + h, 3)]
+    return [round(max(0.0, c - h), 3), round(min(1.0, c + h), 3)]
 
 
 # ---------------------------------------------------------------- scores

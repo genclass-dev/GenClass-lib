@@ -27,7 +27,8 @@ def main():
     ap.add_argument("--eval", required=True)
     ap.add_argument("--final", default="test-final.json")
     a = ap.parse_args()
-    sel = json.load(open(os.path.join(a.eval, "selection.json")))
+    sp = os.path.join(a.eval, "selection.json")
+    sel = json.load(open(sp)) if os.path.exists(sp) else {"rows": []}
     print("## Selection (fresh dev)\n")
     print("| run | score | family target | any head | lr head / backbone | seed | dev AP (last 3) | dev AP final | round-2 dev AP | minutes |")
     print("|---|---|---|---|---|---:|---:|---:|---:|---:|")

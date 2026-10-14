@@ -1,0 +1,24 @@
+{
+ "sizeBytes": {
+  "onnxFp32": 4767031,
+  "params": 1188787
+ },
+ "parity": {
+  "fp32MaxAbsAny": 2.9206275939941406e-06,
+  "fp32MaxAbsFamily": 3.069639205932617e-06,
+  "fp32MaxAbsVerdict": 2.9206275939941406e-06
+ },
+ "latencyOneThreadBatch1": {
+  "onnxFp32": {
+   "medianMs": 0.528,
+   "p95Ms": 0.532
+  },
+  "torchEager": {
+   "medianMs": 1.763,
+   "p95Ms": 1.774
+  }
+ },
+ "cpu": "AMD EPYC 9V45 96-Core Processor",
+ "onnxruntime": "1.31.0",
+ "torch": "2.14.1+cpu"
+}

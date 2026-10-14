@@ -1,0 +1,14 @@
+{
+ "n": 300,
+ "maxAbsAny": 2.8014183044433594e-06,
+ "meanAbsAny": 3.34779421488444e-07,
+ "maxAbsFamily": 2.0265579223632812e-06,
+ "rankCorrAny": 1.0,
+ "cleanRun": {
+  "items": 300,
+  "seconds": 1.97,
+  "msPerCropIncludingStartup": 6.58,
+  "env": "env -i, python -I, venv with numpy, Pillow, onnxruntime only",
+  "batch": 1
+ }
+}

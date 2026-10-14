@@ -1,0 +1,84 @@
+{
+ "devSet": {
+  "devHosts": 404,
+  "hostsInPool": 398,
+  "pool": 4527,
+  "poolRules": 263,
+  "poolRandomSource": 2093,
+  "poolRest": 4102,
+  "strata": {
+   "rules": 230,
+   "random": 162,
+   "clef-high": 162,
+   "clef-low": 46
+  },
+  "hostsInDev": 235,
+  "byDevice": {
+   "desktop": 301,
+   "phone": 299
+  },
+  "byScheme": {
+   "light": 439,
+   "dark": 161
+  },
+  "byGroup": {
+   "ai-builder": 431,
+   "control": 169
+  },
+  "quota": {
+   "rules": 230,
+   "random": 162,
+   "clef-high": 162,
+   "clef-low": 46
+  },
+  "seed": 23
+ },
+ "devBuilt": "2026-10-14T16:56:53Z",
+ "devHosts": {
+  "salt": "vision-v2-fresh-dev",
+  "share": 0.082,
+  "trainHosts": 5605,
+  "withLabels": 348,
+  "testHeldOut": 815,
+  "fresh": 4442,
+  "dev": 404
+ },
+ "devLabels": {
+  "crops": 600,
+  "labelledByAandB": 600,
+  "verdictAgreementAB": 0.8817,
+  "kappaAB": 0.7878,
+  "familyAgreementWhenBothReal": 0.9896,
+  "adjudicated": 72,
+  "passC": 72,
+  "resolved": {
+   "not": 371,
+   "real": 105,
+   "unclear": 124
+  },
+  "realByFamily": {
+   "text": 16,
+   "media": 38,
+   "blank": 5,
+   "overflow": 10,
+   "occlusion": 16,
+   "leaks": 6,
+   "dark": 7,
+   "responsive": 4,
+   "mixed": 2,
+   "other": 1
+  },
+  "realByStratum": {
+   "clef-high": 72,
+   "rules": 30,
+   "random": 3
+  }
+ },
+ "openaiLabels": {
+  "crops": 100000,
+  "batches": 50,
+  "labelled": 99991,
+  "inputTokensMean": 1097.5,
+  "inputTokensP95": 1337
+ }
+}

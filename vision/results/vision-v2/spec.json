@@ -1,0 +1,209 @@
+{
+ "name": "genclass-vision-v2",
+ "arch": "mnv3s",
+ "epoch": 11,
+ "familyTarget": "avg",
+ "inputs": {
+  "image": {
+   "shape": [
+    "n",
+    3,
+    128,
+    224
+   ],
+   "dtype": "float32",
+   "range": "RGB 0..255, no normalisation (the model normalises)",
+   "crop": "the element's border box plus 24 CSS px on each side, clipped to the viewport, at CSS-pixel resolution",
+   "letterbox": {
+    "width": 224,
+    "height": 128,
+    "scale": "min(W / w, H / h, 2.0)",
+    "resample": "bicubic when scaling up, bilinear when scaling down",
+    "fill": [
+     128,
+     128,
+     128
+    ],
+    "placement": "centred, offsets floor((W - w') / 2), floor((H - h') / 2)"
+   }
+  },
+  "facts": {
+   "shape": [
+    "n",
+    64
+   ],
+   "dtype": "float32",
+   "names": [
+    "phone",
+    "dark",
+    "pageSideways",
+    "pageSidewaysPx",
+    "appDark",
+    "pageFailedLoads",
+    "x/vw",
+    "right/vw",
+    "y/vh",
+    "bottom/vh",
+    "logW",
+    "logH",
+    "inv",
+    "inCropX",
+    "inCropY",
+    "inCropW",
+    "inCropH",
+    "interactive",
+    "pointer",
+    "pointerEventsNone",
+    "disabled",
+    "fixedOrSticky",
+    "absolute",
+    "hasOwnText",
+    "logOwnText",
+    "logAllText",
+    "fontSize",
+    "contrast",
+    "contrastMissing",
+    "bgKnown",
+    "paintContrast",
+    "paintContrastMissing",
+    "effOpacity",
+    "hitSelf",
+    "hitOther",
+    "hitAncestor",
+    "hitNone",
+    "tagImg",
+    "tagSvg",
+    "tagMedia",
+    "tagButton",
+    "tagA",
+    "tagField",
+    "tagText",
+    "tagOther",
+    "imgBroken",
+    "imgDistortion",
+    "imgNoNaturalSize",
+    "imgNoAlt",
+    "scrollsX",
+    "scrollsY",
+    "overflowHidden",
+    "clipAncestors",
+    "clipVisible",
+    "textSpill",
+    "leakPattern",
+    "undefinedVar",
+    "zIndex",
+    "transform",
+    "filter",
+    "animation",
+    "bgImage",
+    "logKids",
+    "clipPath"
+   ],
+   "reference": "score_onnx.py facts() (identical to vision/vision_v2/common.py facts(), unchanged since Vision v1)",
+   "source": "one element row of vision/src/extract.js, its view's page record and the crop geometry",
+   "tagGroups": {
+    "tagImg": [
+     "img"
+    ],
+    "tagSvg": [
+     "svg",
+     "path",
+     "use",
+     "g"
+    ],
+    "tagMedia": [
+     "video",
+     "canvas",
+     "iframe",
+     "picture",
+     "object",
+     "embed"
+    ],
+    "tagButton": [
+     "button"
+    ],
+    "tagA": [
+     "a"
+    ],
+    "tagField": [
+     "input",
+     "select",
+     "textarea"
+    ],
+    "tagText": [
+     "b",
+     "blockquote",
+     "code",
+     "dd",
+     "dt",
+     "em",
+     "figcaption",
+     "h1",
+     "h2",
+     "h3",
+     "h4",
+     "h5",
+     "h6",
+     "i",
+     "label",
+     "li",
+     "p",
+     "pre",
+     "small",
+     "span",
+     "strong",
+     "td",
+     "th"
+    ],
+    "tagOther": "none of the above"
+   },
+   "clip": [
+    -3,
+    3
+   ]
+  }
+ },
+ "outputs": {
+  "family": {
+   "classes": [
+    "none",
+    "text",
+    "dark",
+    "overflow",
+    "responsive",
+    "occlusion",
+    "media",
+    "leaks",
+    "blank",
+    "controls",
+    "other"
+   ],
+   "what": "the student's family probabilities (taught by OpenAI's family answer averaged with Clef's)"
+  },
+  "any": {
+   "what": "1 - P(verdict = fine), the student's copy of OpenAI's notFine score"
+  },
+  "verdict": {
+   "classes": [
+    "fine",
+    "unreadable_text",
+    "hidden_control",
+    "broken_image",
+    "cut_off",
+    "overlap",
+    "leak",
+    "blank"
+   ],
+   "what": "the student's verdict probabilities (taught by OpenAI's verdict answer)"
+  }
+ },
+ "thresholdsFromFreshDev": {
+  "any": 0.7146836519241333,
+  "text": 0.6978420615196228,
+  "responsive": 0.19919252395629883,
+  "media": 0.1006915345788002,
+  "rules+v2:media": 0.1494426280260086,
+  "secondStage:v2": 0.7515736222267151
+ },
+ "labels": "distilled from OpenAI Decisions answers (gpt-6-luna, public beta) on 100,000 natural crops; thresholds and evaluation against AI-agent labels (not people)"
+}

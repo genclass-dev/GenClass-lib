@@ -1,0 +1,3652 @@
+{
+ "model": "A5s2",
+ "score": "notFine",
+ "n": 1300,
+ "labels": {
+  "crops": 1300,
+  "labelledByAandB": 1300,
+  "verdictAgreementAB": 0.8531,
+  "kappaAB": 0.711,
+  "familyAgreementWhenBothReal": 0.9236,
+  "adjudicated": 202,
+  "passC": 202,
+  "resolved": {
+   "not": 879,
+   "unclear": 248,
+   "real": 173
+  },
+  "realByFamily": {
+   "other": 2,
+   "occlusion": 37,
+   "overflow": 34,
+   "text": 41,
+   "blank": 8,
+   "media": 16,
+   "responsive": 13,
+   "leaks": 6,
+   "dark": 14,
+   "mixed": 2
+  }
+ },
+ "dry": false,
+ "strata": {
+  "clef-high": 350,
+  "clef-low": 100,
+  "random": 350,
+  "rules": 500
+ },
+ "realByStratum": {
+  "clef-high": 85,
+  "clef-low": 1,
+  "random": 12,
+  "rules": 75
+ },
+ "realByFamily": {
+  "text": 41,
+  "dark": 14,
+  "overflow": 34,
+  "responsive": 13,
+  "occlusion": 37,
+  "media": 16,
+  "leaks": 6,
+  "blank": 8,
+  "controls": 0,
+  "other": 2
+ },
+ "thresholds": {
+  "v2:any": 0.7146836519241333,
+  "clef:any": 6.966167702916908,
+  "luna:any": 0.73,
+  "ens:any": 0.8387916834452429,
+  "rules:text": 0.5,
+  "v2:text": 0.6978420615196228,
+  "rules+v2:text": null,
+  "clef:text": 0.71035,
+  "rules+clef:text": 0.6369500000000001,
+  "luna:text": 0.77,
+  "rules+luna:text": 0.79,
+  "ens:text": 0.6691750000000001,
+  "rules+ens:text": 0.648475,
+  "rules:dark": 0.5,
+  "v2:dark": null,
+  "rules+v2:dark": null,
+  "clef:dark": null,
+  "rules+clef:dark": null,
+  "luna:dark": null,
+  "rules+luna:dark": null,
+  "ens:dark": null,
+  "rules+ens:dark": null,
+  "rules:overflow": 0.5,
+  "v2:overflow": null,
+  "rules+v2:overflow": null,
+  "clef:overflow": null,
+  "rules+clef:overflow": null,
+  "luna:overflow": null,
+  "rules+luna:overflow": null,
+  "ens:overflow": 0.545375,
+  "rules+ens:overflow": null,
+  "v2:responsive": 0.19919252395629883,
+  "clef:responsive": 0.2743,
+  "luna:responsive": null,
+  "ens:responsive": 0.2478,
+  "rules:occlusion": 0.5,
+  "v2:occlusion": null,
+  "rules+v2:occlusion": null,
+  "clef:occlusion": 0.47650000000000003,
+  "rules+clef:occlusion": null,
+  "luna:occlusion": null,
+  "rules+luna:occlusion": null,
+  "ens:occlusion": 0.555675,
+  "rules+ens:occlusion": null,
+  "rules:media": 0.5,
+  "v2:media": 0.1006915345788002,
+  "rules+v2:media": 0.1494426280260086,
+  "clef:media": 0.18569999999999998,
+  "rules+clef:media": 0.202,
+  "luna:media": 0.05,
+  "rules+luna:media": 0.19999999999999996,
+  "ens:media": 0.12392499999999998,
+  "rules+ens:media": 0.311,
+  "rules:leaks": 0.5,
+  "v2:leaks": null,
+  "rules+v2:leaks": null,
+  "clef:leaks": null,
+  "rules+clef:leaks": null,
+  "luna:leaks": null,
+  "rules+luna:leaks": null,
+  "ens:leaks": null,
+  "rules+ens:leaks": null,
+  "v2:blank": null,
+  "clef:blank": null,
+  "luna:blank": null,
+  "ens:blank": null,
+  "v2:controls": null,
+  "clef:controls": null,
+  "luna:controls": null,
+  "ens:controls": null,
+  "v2:other": null,
+  "clef:other": null,
+  "luna:other": null,
+  "ens:other": null,
+  "secondStage:v2": 0.7515736222267151,
+  "secondStage:clef": 7.07750927819468,
+  "secondStage:luna": 0.79,
+  "secondStage:ens": 0.8822809741879605,
+  "v1:any": 0.9770037531852722,
+  "v1:overflow": 0.6352276802062988,
+  "rules+v1:overflow": 0.6339658498764038,
+  "v1:media": 0.3503243923187256,
+  "rules+v1:media": 0.3006706237792969,
+  "secondStage:v1": 0.96185302734375
+ },
+ "operatingPoints": {
+  "v2:any": {
+   "flags": 159,
+   "realInFamily": 72,
+   "realAnyFamily": 72,
+   "precisionInFamily": 0.453,
+   "ci95": [
+    0.377,
+    0.53
+   ],
+   "precisionAnyFamily": 0.453,
+   "recallInFamily": 0.416,
+   "inFamilyRealInSet": 173,
+   "weightedPrecisionInFamily": 0.453,
+   "threshold": 0.7146836519241333,
+   "byStratum": {
+    "clef-high": {
+     "flags": 59,
+     "realInFamily": 31,
+     "realAnyFamily": 31,
+     "precisionInFamily": 0.525,
+     "ci95": [
+      0.4,
+      0.647
+     ],
+     "precisionAnyFamily": 0.525,
+     "recallInFamily": 0.365,
+     "inFamilyRealInSet": 85
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "random": {
+     "flags": 10,
+     "realInFamily": 5,
+     "realAnyFamily": 5,
+     "precisionInFamily": 0.5,
+     "ci95": [
+      0.237,
+      0.763
+     ],
+     "precisionAnyFamily": 0.5,
+     "recallInFamily": 0.417,
+     "inFamilyRealInSet": 12
+    },
+    "rules": {
+     "flags": 90,
+     "realInFamily": 36,
+     "realAnyFamily": 36,
+     "precisionInFamily": 0.4,
+     "ci95": [
+      0.305,
+      0.503
+     ],
+     "precisionAnyFamily": 0.4,
+     "recallInFamily": 0.48,
+     "inFamilyRealInSet": 75
+    }
+   }
+  },
+  "v1:any": {
+   "flags": 34,
+   "realInFamily": 19,
+   "realAnyFamily": 19,
+   "precisionInFamily": 0.559,
+   "ci95": [
+    0.395,
+    0.711
+   ],
+   "precisionAnyFamily": 0.559,
+   "recallInFamily": 0.11,
+   "inFamilyRealInSet": 173,
+   "weightedPrecisionInFamily": 0.552,
+   "threshold": 0.9770037531852722,
+   "byStratum": {
+    "clef-high": {
+     "flags": 10,
+     "realInFamily": 6,
+     "realAnyFamily": 6,
+     "precisionInFamily": 0.6,
+     "ci95": [
+      0.313,
+      0.832
+     ],
+     "precisionAnyFamily": 0.6,
+     "recallInFamily": 0.071,
+     "inFamilyRealInSet": 85
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "random": {
+     "flags": 4,
+     "realInFamily": 3,
+     "realAnyFamily": 3,
+     "precisionInFamily": 0.75,
+     "ci95": [
+      0.301,
+      0.954
+     ],
+     "precisionAnyFamily": 0.75,
+     "recallInFamily": 0.25,
+     "inFamilyRealInSet": 12
+    },
+    "rules": {
+     "flags": 20,
+     "realInFamily": 10,
+     "realAnyFamily": 10,
+     "precisionInFamily": 0.5,
+     "ci95": [
+      0.299,
+      0.701
+     ],
+     "precisionAnyFamily": 0.5,
+     "recallInFamily": 0.133,
+     "inFamilyRealInSet": 75
+    }
+   }
+  },
+  "clef:any": {
+   "flags": 109,
+   "realInFamily": 51,
+   "realAnyFamily": 51,
+   "precisionInFamily": 0.468,
+   "ci95": [
+    0.377,
+    0.561
+   ],
+   "precisionAnyFamily": 0.468,
+   "recallInFamily": 0.295,
+   "inFamilyRealInSet": 173,
+   "weightedPrecisionInFamily": 0.466,
+   "threshold": 6.966167702916908,
+   "byStratum": {
+    "clef-high": {
+     "flags": 41,
+     "realInFamily": 19,
+     "realAnyFamily": 19,
+     "precisionInFamily": 0.463,
+     "ci95": [
+      0.321,
+      0.613
+     ],
+     "precisionAnyFamily": 0.463,
+     "recallInFamily": 0.224,
+     "inFamilyRealInSet": 85
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "random": {
+     "flags": 6,
+     "realInFamily": 4,
+     "realAnyFamily": 4,
+     "precisionInFamily": 0.667,
+     "ci95": [
+      0.3,
+      0.903
+     ],
+     "precisionAnyFamily": 0.667,
+     "recallInFamily": 0.333,
+     "inFamilyRealInSet": 12
+    },
+    "rules": {
+     "flags": 62,
+     "realInFamily": 28,
+     "realAnyFamily": 28,
+     "precisionInFamily": 0.452,
+     "ci95": [
+      0.334,
+      0.575
+     ],
+     "precisionAnyFamily": 0.452,
+     "recallInFamily": 0.373,
+     "inFamilyRealInSet": 75
+    }
+   }
+  },
+  "luna:any": {
+   "flags": 233,
+   "realInFamily": 99,
+   "realAnyFamily": 99,
+   "precisionInFamily": 0.425,
+   "ci95": [
+    0.363,
+    0.489
+   ],
+   "precisionAnyFamily": 0.425,
+   "recallInFamily": 0.572,
+   "inFamilyRealInSet": 173,
+   "weightedPrecisionInFamily": 0.44,
+   "threshold": 0.73,
+   "byStratum": {
+    "clef-high": {
+     "flags": 96,
+     "realInFamily": 49,
+     "realAnyFamily": 49,
+     "precisionInFamily": 0.51,
+     "ci95": [
+      0.412,
+      0.608
+     ],
+     "precisionAnyFamily": 0.51,
+     "recallInFamily": 0.576,
+     "inFamilyRealInSet": 85
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "random": {
+     "flags": 13,
+     "realInFamily": 8,
+     "realAnyFamily": 8,
+     "precisionInFamily": 0.615,
+     "ci95": [
+      0.355,
+      0.823
+     ],
+     "precisionAnyFamily": 0.615,
+     "recallInFamily": 0.667,
+     "inFamilyRealInSet": 12
+    },
+    "rules": {
+     "flags": 124,
+     "realInFamily": 42,
+     "realAnyFamily": 42,
+     "precisionInFamily": 0.339,
+     "ci95": [
+      0.261,
+      0.426
+     ],
+     "precisionAnyFamily": 0.339,
+     "recallInFamily": 0.56,
+     "inFamilyRealInSet": 75
+    }
+   }
+  },
+  "ens:any": {
+   "flags": 229,
+   "realInFamily": 101,
+   "realAnyFamily": 101,
+   "precisionInFamily": 0.441,
+   "ci95": [
+    0.378,
+    0.506
+   ],
+   "precisionAnyFamily": 0.441,
+   "recallInFamily": 0.584,
+   "inFamilyRealInSet": 173,
+   "weightedPrecisionInFamily": 0.457,
+   "threshold": 0.8387916834452429,
+   "byStratum": {
+    "clef-high": {
+     "flags": 96,
+     "realInFamily": 50,
+     "realAnyFamily": 50,
+     "precisionInFamily": 0.521,
+     "ci95": [
+      0.422,
+      0.618
+     ],
+     "precisionAnyFamily": 0.521,
+     "recallInFamily": 0.588,
+     "inFamilyRealInSet": 85
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "random": {
+     "flags": 13,
+     "realInFamily": 8,
+     "realAnyFamily": 8,
+     "precisionInFamily": 0.615,
+     "ci95": [
+      0.355,
+      0.823
+     ],
+     "precisionAnyFamily": 0.615,
+     "recallInFamily": 0.667,
+     "inFamilyRealInSet": 12
+    },
+    "rules": {
+     "flags": 120,
+     "realInFamily": 43,
+     "realAnyFamily": 43,
+     "precisionInFamily": 0.358,
+     "ci95": [
+      0.278,
+      0.447
+     ],
+     "precisionAnyFamily": 0.358,
+     "recallInFamily": 0.573,
+     "inFamilyRealInSet": 75
+    }
+   }
+  },
+  "rules:text": {
+   "flags": 108,
+   "realInFamily": 15,
+   "realAnyFamily": 20,
+   "precisionInFamily": 0.139,
+   "ci95": [
+    0.086,
+    0.217
+   ],
+   "precisionAnyFamily": 0.185,
+   "recallInFamily": 0.366,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.139,
+   "threshold": 0.5,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 108,
+     "realInFamily": 15,
+     "realAnyFamily": 20,
+     "precisionInFamily": 0.139,
+     "ci95": [
+      0.086,
+      0.217
+     ],
+     "precisionAnyFamily": 0.185,
+     "recallInFamily": 0.536,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "v2:text": {
+   "flags": 14,
+   "realInFamily": 7,
+   "realAnyFamily": 8,
+   "precisionInFamily": 0.5,
+   "ci95": [
+    0.268,
+    0.732
+   ],
+   "precisionAnyFamily": 0.571,
+   "recallInFamily": 0.171,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.481,
+   "threshold": 0.6978420615196228,
+   "byStratum": {
+    "clef-high": {
+     "flags": 3,
+     "realInFamily": 3,
+     "realAnyFamily": 3,
+     "precisionInFamily": 1.0,
+     "ci95": [
+      0.438,
+      1.0
+     ],
+     "precisionAnyFamily": 1.0,
+     "recallInFamily": 0.25,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 11,
+     "realInFamily": 4,
+     "realAnyFamily": 5,
+     "precisionInFamily": 0.364,
+     "ci95": [
+      0.152,
+      0.646
+     ],
+     "precisionAnyFamily": 0.455,
+     "recallInFamily": 0.143,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "clef:text": {
+   "flags": 17,
+   "realInFamily": 14,
+   "realAnyFamily": 15,
+   "precisionInFamily": 0.824,
+   "ci95": [
+    0.59,
+    0.938
+   ],
+   "precisionAnyFamily": 0.882,
+   "recallInFamily": 0.341,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.832,
+   "threshold": 0.71035,
+   "byStratum": {
+    "clef-high": {
+     "flags": 7,
+     "realInFamily": 5,
+     "realAnyFamily": 5,
+     "precisionInFamily": 0.714,
+     "ci95": [
+      0.359,
+      0.918
+     ],
+     "precisionAnyFamily": 0.714,
+     "recallInFamily": 0.417,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 10,
+     "realInFamily": 9,
+     "realAnyFamily": 10,
+     "precisionInFamily": 0.9,
+     "ci95": [
+      0.596,
+      0.982
+     ],
+     "precisionAnyFamily": 1.0,
+     "recallInFamily": 0.321,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "rules+clef:text": {
+   "flags": 26,
+   "realInFamily": 11,
+   "realAnyFamily": 13,
+   "precisionInFamily": 0.423,
+   "ci95": [
+    0.255,
+    0.611
+   ],
+   "precisionAnyFamily": 0.5,
+   "recallInFamily": 0.268,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.423,
+   "threshold": 0.6369500000000001,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 26,
+     "realInFamily": 11,
+     "realAnyFamily": 13,
+     "precisionInFamily": 0.423,
+     "ci95": [
+      0.255,
+      0.611
+     ],
+     "precisionAnyFamily": 0.5,
+     "recallInFamily": 0.393,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "luna:text": {
+   "flags": 41,
+   "realInFamily": 15,
+   "realAnyFamily": 18,
+   "precisionInFamily": 0.366,
+   "ci95": [
+    0.236,
+    0.519
+   ],
+   "precisionAnyFamily": 0.439,
+   "recallInFamily": 0.366,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.375,
+   "threshold": 0.77,
+   "byStratum": {
+    "clef-high": {
+     "flags": 14,
+     "realInFamily": 3,
+     "realAnyFamily": 4,
+     "precisionInFamily": 0.214,
+     "ci95": [
+      0.076,
+      0.476
+     ],
+     "precisionAnyFamily": 0.286,
+     "recallInFamily": 0.25,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 27,
+     "realInFamily": 12,
+     "realAnyFamily": 14,
+     "precisionInFamily": 0.444,
+     "ci95": [
+      0.276,
+      0.627
+     ],
+     "precisionAnyFamily": 0.519,
+     "recallInFamily": 0.429,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "rules+luna:text": {
+   "flags": 24,
+   "realInFamily": 11,
+   "realAnyFamily": 13,
+   "precisionInFamily": 0.458,
+   "ci95": [
+    0.279,
+    0.649
+   ],
+   "precisionAnyFamily": 0.542,
+   "recallInFamily": 0.268,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.458,
+   "threshold": 0.79,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 24,
+     "realInFamily": 11,
+     "realAnyFamily": 13,
+     "precisionInFamily": 0.458,
+     "ci95": [
+      0.279,
+      0.649
+     ],
+     "precisionAnyFamily": 0.542,
+     "recallInFamily": 0.393,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "ens:text": {
+   "flags": 49,
+   "realInFamily": 18,
+   "realAnyFamily": 24,
+   "precisionInFamily": 0.367,
+   "ci95": [
+    0.247,
+    0.507
+   ],
+   "precisionAnyFamily": 0.49,
+   "recallInFamily": 0.439,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.375,
+   "threshold": 0.6691750000000001,
+   "byStratum": {
+    "clef-high": {
+     "flags": 19,
+     "realInFamily": 5,
+     "realAnyFamily": 8,
+     "precisionInFamily": 0.263,
+     "ci95": [
+      0.118,
+      0.488
+     ],
+     "precisionAnyFamily": 0.421,
+     "recallInFamily": 0.417,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 30,
+     "realInFamily": 13,
+     "realAnyFamily": 16,
+     "precisionInFamily": 0.433,
+     "ci95": [
+      0.274,
+      0.608
+     ],
+     "precisionAnyFamily": 0.533,
+     "recallInFamily": 0.464,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "rules+ens:text": {
+   "flags": 33,
+   "realInFamily": 14,
+   "realAnyFamily": 17,
+   "precisionInFamily": 0.424,
+   "ci95": [
+    0.272,
+    0.592
+   ],
+   "precisionAnyFamily": 0.515,
+   "recallInFamily": 0.341,
+   "inFamilyRealInSet": 41,
+   "weightedPrecisionInFamily": 0.424,
+   "threshold": 0.648475,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 12
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 33,
+     "realInFamily": 14,
+     "realAnyFamily": 17,
+     "precisionInFamily": 0.424,
+     "ci95": [
+      0.272,
+      0.592
+     ],
+     "precisionAnyFamily": 0.515,
+     "recallInFamily": 0.5,
+     "inFamilyRealInSet": 28
+    }
+   }
+  },
+  "rules:dark": {
+   "flags": 97,
+   "realInFamily": 3,
+   "realAnyFamily": 20,
+   "precisionInFamily": 0.031,
+   "ci95": [
+    0.011,
+    0.087
+   ],
+   "precisionAnyFamily": 0.206,
+   "recallInFamily": 0.214,
+   "inFamilyRealInSet": 14,
+   "weightedPrecisionInFamily": 0.031,
+   "threshold": 0.5,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 6
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "rules": {
+     "flags": 97,
+     "realInFamily": 3,
+     "realAnyFamily": 20,
+     "precisionInFamily": 0.031,
+     "ci95": [
+      0.011,
+      0.087
+     ],
+     "precisionAnyFamily": 0.206,
+     "recallInFamily": 0.375,
+     "inFamilyRealInSet": 8
+    }
+   }
+  },
+  "rules:overflow": {
+   "flags": 37,
+   "realInFamily": 12,
+   "realAnyFamily": 17,
+   "precisionInFamily": 0.324,
+   "ci95": [
+    0.196,
+    0.485
+   ],
+   "precisionAnyFamily": 0.459,
+   "recallInFamily": 0.353,
+   "inFamilyRealInSet": 34,
+   "weightedPrecisionInFamily": 0.324,
+   "threshold": 0.5,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 16
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 3
+    },
+    "rules": {
+     "flags": 37,
+     "realInFamily": 12,
+     "realAnyFamily": 17,
+     "precisionInFamily": 0.324,
+     "ci95": [
+      0.196,
+      0.485
+     ],
+     "precisionAnyFamily": 0.459,
+     "recallInFamily": 0.8,
+     "inFamilyRealInSet": 15
+    }
+   }
+  },
+  "v1:overflow": {
+   "flags": 4,
+   "realInFamily": 2,
+   "realAnyFamily": 3,
+   "precisionInFamily": 0.5,
+   "ci95": [
+    0.15,
+    0.85
+   ],
+   "precisionAnyFamily": 0.75,
+   "recallInFamily": 0.059,
+   "inFamilyRealInSet": 34,
+   "weightedPrecisionInFamily": 0.476,
+   "threshold": 0.6352276802062988,
+   "byStratum": {
+    "clef-high": {
+     "flags": 1,
+     "realInFamily": 0,
+     "realAnyFamily": 1,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.793
+     ],
+     "precisionAnyFamily": 1.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 16
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 2,
+     "realInFamily": 2,
+     "realAnyFamily": 2,
+     "precisionInFamily": 1.0,
+     "ci95": [
+      0.342,
+      1.0
+     ],
+     "precisionAnyFamily": 1.0,
+     "recallInFamily": 0.667,
+     "inFamilyRealInSet": 3
+    },
+    "rules": {
+     "flags": 1,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.793
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 15
+    }
+   }
+  },
+  "rules+v1:overflow": {
+   "flags": 1,
+   "realInFamily": 0,
+   "realAnyFamily": 0,
+   "precisionInFamily": 0.0,
+   "ci95": [
+    0.0,
+    0.793
+   ],
+   "precisionAnyFamily": 0.0,
+   "recallInFamily": 0.0,
+   "inFamilyRealInSet": 34,
+   "weightedPrecisionInFamily": 0.0,
+   "threshold": 0.6339658498764038,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 16
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 3
+    },
+    "rules": {
+     "flags": 1,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.793
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 15
+    }
+   }
+  },
+  "ens:overflow": {
+   "flags": 19,
+   "realInFamily": 10,
+   "realAnyFamily": 13,
+   "precisionInFamily": 0.526,
+   "ci95": [
+    0.317,
+    0.727
+   ],
+   "precisionAnyFamily": 0.684,
+   "recallInFamily": 0.294,
+   "inFamilyRealInSet": 34,
+   "weightedPrecisionInFamily": 0.52,
+   "threshold": 0.545375,
+   "byStratum": {
+    "clef-high": {
+     "flags": 12,
+     "realInFamily": 6,
+     "realAnyFamily": 9,
+     "precisionInFamily": 0.5,
+     "ci95": [
+      0.254,
+      0.746
+     ],
+     "precisionAnyFamily": 0.75,
+     "recallInFamily": 0.375,
+     "inFamilyRealInSet": 16
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 4,
+     "realInFamily": 3,
+     "realAnyFamily": 3,
+     "precisionInFamily": 0.75,
+     "ci95": [
+      0.301,
+      0.954
+     ],
+     "precisionAnyFamily": 0.75,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 3
+    },
+    "rules": {
+     "flags": 3,
+     "realInFamily": 1,
+     "realAnyFamily": 1,
+     "precisionInFamily": 0.333,
+     "ci95": [
+      0.061,
+      0.792
+     ],
+     "precisionAnyFamily": 0.333,
+     "recallInFamily": 0.067,
+     "inFamilyRealInSet": 15
+    }
+   }
+  },
+  "v2:responsive": {
+   "flags": 40,
+   "realInFamily": 7,
+   "realAnyFamily": 24,
+   "precisionInFamily": 0.175,
+   "ci95": [
+    0.087,
+    0.32
+   ],
+   "precisionAnyFamily": 0.6,
+   "recallInFamily": 0.538,
+   "inFamilyRealInSet": 13,
+   "weightedPrecisionInFamily": 0.171,
+   "threshold": 0.19919252395629883,
+   "byStratum": {
+    "clef-high": {
+     "flags": 19,
+     "realInFamily": 4,
+     "realAnyFamily": 10,
+     "precisionInFamily": 0.211,
+     "ci95": [
+      0.085,
+      0.433
+     ],
+     "precisionAnyFamily": 0.526,
+     "recallInFamily": 0.4,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 5,
+     "realInFamily": 1,
+     "realAnyFamily": 3,
+     "precisionInFamily": 0.2,
+     "ci95": [
+      0.036,
+      0.624
+     ],
+     "precisionAnyFamily": 0.6,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 16,
+     "realInFamily": 2,
+     "realAnyFamily": 11,
+     "precisionInFamily": 0.125,
+     "ci95": [
+      0.035,
+      0.36
+     ],
+     "precisionAnyFamily": 0.688,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 2
+    }
+   }
+  },
+  "clef:responsive": {
+   "flags": 28,
+   "realInFamily": 9,
+   "realAnyFamily": 22,
+   "precisionInFamily": 0.321,
+   "ci95": [
+    0.179,
+    0.507
+   ],
+   "precisionAnyFamily": 0.786,
+   "recallInFamily": 0.692,
+   "inFamilyRealInSet": 13,
+   "weightedPrecisionInFamily": 0.309,
+   "threshold": 0.2743,
+   "byStratum": {
+    "clef-high": {
+     "flags": 14,
+     "realInFamily": 6,
+     "realAnyFamily": 10,
+     "precisionInFamily": 0.429,
+     "ci95": [
+      0.214,
+      0.674
+     ],
+     "precisionAnyFamily": 0.714,
+     "recallInFamily": 0.6,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 2,
+     "realInFamily": 1,
+     "realAnyFamily": 2,
+     "precisionInFamily": 0.5,
+     "ci95": [
+      0.095,
+      0.905
+     ],
+     "precisionAnyFamily": 1.0,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 12,
+     "realInFamily": 2,
+     "realAnyFamily": 10,
+     "precisionInFamily": 0.167,
+     "ci95": [
+      0.047,
+      0.448
+     ],
+     "precisionAnyFamily": 0.833,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 2
+    }
+   }
+  },
+  "ens:responsive": {
+   "flags": 33,
+   "realInFamily": 9,
+   "realAnyFamily": 23,
+   "precisionInFamily": 0.273,
+   "ci95": [
+    0.151,
+    0.442
+   ],
+   "precisionAnyFamily": 0.697,
+   "recallInFamily": 0.692,
+   "inFamilyRealInSet": 13,
+   "weightedPrecisionInFamily": 0.264,
+   "threshold": 0.2478,
+   "byStratum": {
+    "clef-high": {
+     "flags": 18,
+     "realInFamily": 6,
+     "realAnyFamily": 11,
+     "precisionInFamily": 0.333,
+     "ci95": [
+      0.163,
+      0.563
+     ],
+     "precisionAnyFamily": 0.611,
+     "recallInFamily": 0.6,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 2,
+     "realInFamily": 1,
+     "realAnyFamily": 2,
+     "precisionInFamily": 0.5,
+     "ci95": [
+      0.095,
+      0.905
+     ],
+     "precisionAnyFamily": 1.0,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 13,
+     "realInFamily": 2,
+     "realAnyFamily": 10,
+     "precisionInFamily": 0.154,
+     "ci95": [
+      0.043,
+      0.422
+     ],
+     "precisionAnyFamily": 0.769,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 2
+    }
+   }
+  },
+  "rules:occlusion": {
+   "flags": 320,
+   "realInFamily": 10,
+   "realAnyFamily": 29,
+   "precisionInFamily": 0.031,
+   "ci95": [
+    0.017,
+    0.057
+   ],
+   "precisionAnyFamily": 0.091,
+   "recallInFamily": 0.27,
+   "inFamilyRealInSet": 37,
+   "weightedPrecisionInFamily": 0.031,
+   "threshold": 0.5,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 18
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 3
+    },
+    "rules": {
+     "flags": 320,
+     "realInFamily": 10,
+     "realAnyFamily": 29,
+     "precisionInFamily": 0.031,
+     "ci95": [
+      0.017,
+      0.057
+     ],
+     "precisionAnyFamily": 0.091,
+     "recallInFamily": 0.625,
+     "inFamilyRealInSet": 16
+    }
+   }
+  },
+  "clef:occlusion": {
+   "flags": 13,
+   "realInFamily": 6,
+   "realAnyFamily": 6,
+   "precisionInFamily": 0.462,
+   "ci95": [
+    0.232,
+    0.709
+   ],
+   "precisionAnyFamily": 0.462,
+   "recallInFamily": 0.162,
+   "inFamilyRealInSet": 37,
+   "weightedPrecisionInFamily": 0.258,
+   "threshold": 0.47650000000000003,
+   "byStratum": {
+    "clef-high": {
+     "flags": 7,
+     "realInFamily": 3,
+     "realAnyFamily": 3,
+     "precisionInFamily": 0.429,
+     "ci95": [
+      0.158,
+      0.75
+     ],
+     "precisionAnyFamily": 0.429,
+     "recallInFamily": 0.167,
+     "inFamilyRealInSet": 18
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 2,
+     "realInFamily": 1,
+     "realAnyFamily": 1,
+     "precisionInFamily": 0.5,
+     "ci95": [
+      0.095,
+      0.905
+     ],
+     "precisionAnyFamily": 0.5,
+     "recallInFamily": 0.333,
+     "inFamilyRealInSet": 3
+    },
+    "rules": {
+     "flags": 4,
+     "realInFamily": 2,
+     "realAnyFamily": 2,
+     "precisionInFamily": 0.5,
+     "ci95": [
+      0.15,
+      0.85
+     ],
+     "precisionAnyFamily": 0.5,
+     "recallInFamily": 0.125,
+     "inFamilyRealInSet": 16
+    }
+   }
+  },
+  "ens:occlusion": {
+   "flags": 2,
+   "realInFamily": 0,
+   "realAnyFamily": 0,
+   "precisionInFamily": 0.0,
+   "ci95": [
+    0.0,
+    0.658
+   ],
+   "precisionAnyFamily": 0.0,
+   "recallInFamily": 0.0,
+   "inFamilyRealInSet": 37,
+   "weightedPrecisionInFamily": 0.0,
+   "threshold": 0.555675,
+   "byStratum": {
+    "clef-high": {
+     "flags": 2,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.658
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 18
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 3
+    },
+    "rules": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 16
+    }
+   }
+  },
+  "rules:media": {
+   "flags": 34,
+   "realInFamily": 5,
+   "realAnyFamily": 9,
+   "precisionInFamily": 0.147,
+   "ci95": [
+    0.064,
+    0.301
+   ],
+   "precisionAnyFamily": 0.265,
+   "recallInFamily": 0.312,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.147,
+   "threshold": 0.5,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 34,
+     "realInFamily": 5,
+     "realAnyFamily": 9,
+     "precisionInFamily": 0.147,
+     "ci95": [
+      0.064,
+      0.301
+     ],
+     "precisionAnyFamily": 0.265,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "v2:media": {
+   "flags": 106,
+   "realInFamily": 15,
+   "realAnyFamily": 27,
+   "precisionInFamily": 0.142,
+   "ci95": [
+    0.088,
+    0.22
+   ],
+   "precisionAnyFamily": 0.255,
+   "recallInFamily": 0.938,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.043,
+   "threshold": 0.1006915345788002,
+   "byStratum": {
+    "clef-high": {
+     "flags": 40,
+     "realInFamily": 9,
+     "realAnyFamily": 15,
+     "precisionInFamily": 0.225,
+     "ci95": [
+      0.123,
+      0.375
+     ],
+     "precisionAnyFamily": 0.375,
+     "recallInFamily": 0.9,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 3,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.562
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 20,
+     "realInFamily": 1,
+     "realAnyFamily": 1,
+     "precisionInFamily": 0.05,
+     "ci95": [
+      0.009,
+      0.236
+     ],
+     "precisionAnyFamily": 0.05,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 43,
+     "realInFamily": 5,
+     "realAnyFamily": 11,
+     "precisionInFamily": 0.116,
+     "ci95": [
+      0.051,
+      0.245
+     ],
+     "precisionAnyFamily": 0.256,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "rules+v2:media": {
+   "flags": 27,
+   "realInFamily": 5,
+   "realAnyFamily": 9,
+   "precisionInFamily": 0.185,
+   "ci95": [
+    0.082,
+    0.367
+   ],
+   "precisionAnyFamily": 0.333,
+   "recallInFamily": 0.312,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.185,
+   "threshold": 0.1494426280260086,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 27,
+     "realInFamily": 5,
+     "realAnyFamily": 9,
+     "precisionInFamily": 0.185,
+     "ci95": [
+      0.082,
+      0.367
+     ],
+     "precisionAnyFamily": 0.333,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "v1:media": {
+   "flags": 36,
+   "realInFamily": 12,
+   "realAnyFamily": 13,
+   "precisionInFamily": 0.333,
+   "ci95": [
+    0.202,
+    0.497
+   ],
+   "precisionAnyFamily": 0.361,
+   "recallInFamily": 0.75,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.259,
+   "threshold": 0.3503243923187256,
+   "byStratum": {
+    "clef-high": {
+     "flags": 18,
+     "realInFamily": 7,
+     "realAnyFamily": 7,
+     "precisionInFamily": 0.389,
+     "ci95": [
+      0.203,
+      0.614
+     ],
+     "precisionAnyFamily": 0.389,
+     "recallInFamily": 0.7,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 2,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.658
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 16,
+     "realInFamily": 5,
+     "realAnyFamily": 6,
+     "precisionInFamily": 0.312,
+     "ci95": [
+      0.142,
+      0.556
+     ],
+     "precisionAnyFamily": 0.375,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "rules+v1:media": {
+   "flags": 16,
+   "realInFamily": 5,
+   "realAnyFamily": 6,
+   "precisionInFamily": 0.312,
+   "ci95": [
+    0.142,
+    0.556
+   ],
+   "precisionAnyFamily": 0.375,
+   "recallInFamily": 0.312,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.312,
+   "threshold": 0.3006706237792969,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 16,
+     "realInFamily": 5,
+     "realAnyFamily": 6,
+     "precisionInFamily": 0.312,
+     "ci95": [
+      0.142,
+      0.556
+     ],
+     "precisionAnyFamily": 0.375,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "clef:media": {
+   "flags": 86,
+   "realInFamily": 15,
+   "realAnyFamily": 19,
+   "precisionInFamily": 0.174,
+   "ci95": [
+    0.109,
+    0.268
+   ],
+   "precisionAnyFamily": 0.221,
+   "recallInFamily": 0.938,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.069,
+   "threshold": 0.18569999999999998,
+   "byStratum": {
+    "clef-high": {
+     "flags": 37,
+     "realInFamily": 9,
+     "realAnyFamily": 9,
+     "precisionInFamily": 0.243,
+     "ci95": [
+      0.134,
+      0.401
+     ],
+     "precisionAnyFamily": 0.243,
+     "recallInFamily": 0.9,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 15,
+     "realInFamily": 1,
+     "realAnyFamily": 1,
+     "precisionInFamily": 0.067,
+     "ci95": [
+      0.012,
+      0.298
+     ],
+     "precisionAnyFamily": 0.067,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 34,
+     "realInFamily": 5,
+     "realAnyFamily": 9,
+     "precisionInFamily": 0.147,
+     "ci95": [
+      0.064,
+      0.301
+     ],
+     "precisionAnyFamily": 0.265,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "rules+clef:media": {
+   "flags": 26,
+   "realInFamily": 5,
+   "realAnyFamily": 8,
+   "precisionInFamily": 0.192,
+   "ci95": [
+    0.085,
+    0.379
+   ],
+   "precisionAnyFamily": 0.308,
+   "recallInFamily": 0.312,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.192,
+   "threshold": 0.202,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 26,
+     "realInFamily": 5,
+     "realAnyFamily": 8,
+     "precisionInFamily": 0.192,
+     "ci95": [
+      0.085,
+      0.379
+     ],
+     "precisionAnyFamily": 0.308,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "luna:media": {
+   "flags": 115,
+   "realInFamily": 16,
+   "realAnyFamily": 29,
+   "precisionInFamily": 0.139,
+   "ci95": [
+    0.087,
+    0.214
+   ],
+   "precisionAnyFamily": 0.252,
+   "recallInFamily": 1.0,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.048,
+   "threshold": 0.05,
+   "byStratum": {
+    "clef-high": {
+     "flags": 43,
+     "realInFamily": 10,
+     "realAnyFamily": 17,
+     "precisionInFamily": 0.233,
+     "ci95": [
+      0.132,
+      0.377
+     ],
+     "precisionAnyFamily": 0.395,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 1,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.793
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 19,
+     "realInFamily": 1,
+     "realAnyFamily": 2,
+     "precisionInFamily": 0.053,
+     "ci95": [
+      0.009,
+      0.246
+     ],
+     "precisionAnyFamily": 0.105,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 52,
+     "realInFamily": 5,
+     "realAnyFamily": 10,
+     "precisionInFamily": 0.096,
+     "ci95": [
+      0.042,
+      0.206
+     ],
+     "precisionAnyFamily": 0.192,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "rules+luna:media": {
+   "flags": 29,
+   "realInFamily": 5,
+   "realAnyFamily": 9,
+   "precisionInFamily": 0.172,
+   "ci95": [
+    0.076,
+    0.345
+   ],
+   "precisionAnyFamily": 0.31,
+   "recallInFamily": 0.312,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.172,
+   "threshold": 0.19999999999999996,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 29,
+     "realInFamily": 5,
+     "realAnyFamily": 9,
+     "precisionInFamily": 0.172,
+     "ci95": [
+      0.076,
+      0.345
+     ],
+     "precisionAnyFamily": 0.31,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "ens:media": {
+   "flags": 103,
+   "realInFamily": 16,
+   "realAnyFamily": 25,
+   "precisionInFamily": 0.155,
+   "ci95": [
+    0.098,
+    0.238
+   ],
+   "precisionAnyFamily": 0.243,
+   "recallInFamily": 1.0,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.056,
+   "threshold": 0.12392499999999998,
+   "byStratum": {
+    "clef-high": {
+     "flags": 41,
+     "realInFamily": 10,
+     "realAnyFamily": 15,
+     "precisionInFamily": 0.244,
+     "ci95": [
+      0.138,
+      0.393
+     ],
+     "precisionAnyFamily": 0.366,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 1,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.793
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 16,
+     "realInFamily": 1,
+     "realAnyFamily": 1,
+     "precisionInFamily": 0.062,
+     "ci95": [
+      0.011,
+      0.283
+     ],
+     "precisionAnyFamily": 0.062,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 45,
+     "realInFamily": 5,
+     "realAnyFamily": 9,
+     "precisionInFamily": 0.111,
+     "ci95": [
+      0.048,
+      0.235
+     ],
+     "precisionAnyFamily": 0.2,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "rules+ens:media": {
+   "flags": 24,
+   "realInFamily": 5,
+   "realAnyFamily": 8,
+   "precisionInFamily": 0.208,
+   "ci95": [
+    0.092,
+    0.405
+   ],
+   "precisionAnyFamily": 0.333,
+   "recallInFamily": 0.312,
+   "inFamilyRealInSet": 16,
+   "weightedPrecisionInFamily": 0.208,
+   "threshold": 0.311,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 10
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 1
+    },
+    "rules": {
+     "flags": 24,
+     "realInFamily": 5,
+     "realAnyFamily": 8,
+     "precisionInFamily": 0.208,
+     "ci95": [
+      0.092,
+      0.405
+     ],
+     "precisionAnyFamily": 0.333,
+     "recallInFamily": 1.0,
+     "inFamilyRealInSet": 5
+    }
+   }
+  },
+  "rules:leaks": {
+   "flags": 1,
+   "realInFamily": 0,
+   "realAnyFamily": 0,
+   "precisionInFamily": 0.0,
+   "ci95": [
+    0.0,
+    0.793
+   ],
+   "precisionAnyFamily": 0.0,
+   "recallInFamily": 0.0,
+   "inFamilyRealInSet": 6,
+   "weightedPrecisionInFamily": 0.0,
+   "threshold": 0.5,
+   "byStratum": {
+    "clef-high": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 4
+    },
+    "clef-low": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    },
+    "random": {
+     "flags": 0,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": null,
+     "ci95": null,
+     "precisionAnyFamily": null,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 2
+    },
+    "rules": {
+     "flags": 1,
+     "realInFamily": 0,
+     "realAnyFamily": 0,
+     "precisionInFamily": 0.0,
+     "ci95": [
+      0.0,
+      0.793
+     ],
+     "precisionAnyFamily": 0.0,
+     "recallInFamily": 0.0,
+     "inFamilyRealInSet": 0
+    }
+   }
+  }
+ },
+ "ship": {
+  "v2:text": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 14,
+   "precisionInFamily": 0.5,
+   "ci95": [
+    0.268,
+    0.732
+   ],
+   "weightedPrecisionInFamily": 0.481
+  },
+  "clef:text": {
+   "ships": true,
+   "passesFlagsAndPrecision": true,
+   "flags": 17,
+   "precisionInFamily": 0.824,
+   "ci95": [
+    0.59,
+    0.938
+   ],
+   "weightedPrecisionInFamily": 0.832
+  },
+  "rules+clef:text": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 26,
+   "precisionInFamily": 0.423,
+   "ci95": [
+    0.255,
+    0.611
+   ],
+   "weightedPrecisionInFamily": 0.423
+  },
+  "luna:text": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 41,
+   "precisionInFamily": 0.366,
+   "ci95": [
+    0.236,
+    0.519
+   ],
+   "weightedPrecisionInFamily": 0.375
+  },
+  "rules+luna:text": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 24,
+   "precisionInFamily": 0.458,
+   "ci95": [
+    0.279,
+    0.649
+   ],
+   "weightedPrecisionInFamily": 0.458
+  },
+  "ens:text": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 49,
+   "precisionInFamily": 0.367,
+   "ci95": [
+    0.247,
+    0.507
+   ],
+   "weightedPrecisionInFamily": 0.375
+  },
+  "rules+ens:text": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 33,
+   "precisionInFamily": 0.424,
+   "ci95": [
+    0.272,
+    0.592
+   ],
+   "weightedPrecisionInFamily": 0.424
+  },
+  "v1:overflow": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 4,
+   "precisionInFamily": 0.5,
+   "ci95": [
+    0.15,
+    0.85
+   ],
+   "weightedPrecisionInFamily": 0.476
+  },
+  "rules+v1:overflow": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 1,
+   "precisionInFamily": 0.0,
+   "ci95": [
+    0.0,
+    0.793
+   ],
+   "weightedPrecisionInFamily": 0.0
+  },
+  "ens:overflow": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 19,
+   "precisionInFamily": 0.526,
+   "ci95": [
+    0.317,
+    0.727
+   ],
+   "weightedPrecisionInFamily": 0.52
+  },
+  "v2:responsive": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 40,
+   "precisionInFamily": 0.175,
+   "ci95": [
+    0.087,
+    0.32
+   ],
+   "weightedPrecisionInFamily": 0.171
+  },
+  "clef:responsive": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 28,
+   "precisionInFamily": 0.321,
+   "ci95": [
+    0.179,
+    0.507
+   ],
+   "weightedPrecisionInFamily": 0.309
+  },
+  "ens:responsive": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 33,
+   "precisionInFamily": 0.273,
+   "ci95": [
+    0.151,
+    0.442
+   ],
+   "weightedPrecisionInFamily": 0.264
+  },
+  "clef:occlusion": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 13,
+   "precisionInFamily": 0.462,
+   "ci95": [
+    0.232,
+    0.709
+   ],
+   "weightedPrecisionInFamily": 0.258
+  },
+  "ens:occlusion": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 2,
+   "precisionInFamily": 0.0,
+   "ci95": [
+    0.0,
+    0.658
+   ],
+   "weightedPrecisionInFamily": 0.0
+  },
+  "v2:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 106,
+   "precisionInFamily": 0.142,
+   "ci95": [
+    0.088,
+    0.22
+   ],
+   "weightedPrecisionInFamily": 0.043
+  },
+  "rules+v2:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 27,
+   "precisionInFamily": 0.185,
+   "ci95": [
+    0.082,
+    0.367
+   ],
+   "weightedPrecisionInFamily": 0.185
+  },
+  "v1:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 36,
+   "precisionInFamily": 0.333,
+   "ci95": [
+    0.202,
+    0.497
+   ],
+   "weightedPrecisionInFamily": 0.259
+  },
+  "rules+v1:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 16,
+   "precisionInFamily": 0.312,
+   "ci95": [
+    0.142,
+    0.556
+   ],
+   "weightedPrecisionInFamily": 0.312
+  },
+  "clef:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 86,
+   "precisionInFamily": 0.174,
+   "ci95": [
+    0.109,
+    0.268
+   ],
+   "weightedPrecisionInFamily": 0.069
+  },
+  "rules+clef:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 26,
+   "precisionInFamily": 0.192,
+   "ci95": [
+    0.085,
+    0.379
+   ],
+   "weightedPrecisionInFamily": 0.192
+  },
+  "luna:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 115,
+   "precisionInFamily": 0.139,
+   "ci95": [
+    0.087,
+    0.214
+   ],
+   "weightedPrecisionInFamily": 0.048
+  },
+  "rules+luna:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 29,
+   "precisionInFamily": 0.172,
+   "ci95": [
+    0.076,
+    0.345
+   ],
+   "weightedPrecisionInFamily": 0.172
+  },
+  "ens:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 103,
+   "precisionInFamily": 0.155,
+   "ci95": [
+    0.098,
+    0.238
+   ],
+   "weightedPrecisionInFamily": 0.056
+  },
+  "rules+ens:media": {
+   "ships": false,
+   "passesFlagsAndPrecision": false,
+   "flags": 24,
+   "precisionInFamily": 0.208,
+   "ci95": [
+    0.092,
+    0.405
+   ],
+   "weightedPrecisionInFamily": 0.208
+  }
+ },
+ "ranking": {
+  "v2": {
+   "all": {
+    "n": 1052,
+    "real": 173,
+    "ap": 0.611,
+    "rocAuc": 0.829,
+    "precisionAtRecall0.5": 0.635,
+    "recallAtPrecision0.6": 0.538,
+    "recallAtPrecision0.8": 0.26
+   },
+   "clef-high": {
+    "n": 258,
+    "real": 85,
+    "ap": 0.661,
+    "rocAuc": 0.735,
+    "precisionAtRecall0.5": 0.733,
+    "recallAtPrecision0.6": 0.671,
+    "recallAtPrecision0.8": 0.306
+   },
+   "clef-low": {
+    "n": 99,
+    "real": 1,
+    "ap": 0.013,
+    "rocAuc": 0.224,
+    "precisionAtRecall0.5": 0.013,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "random": {
+    "n": 328,
+    "real": 12,
+    "ap": 0.529,
+    "rocAuc": 0.844,
+    "precisionAtRecall0.5": 0.75,
+    "recallAtPrecision0.6": 0.5,
+    "recallAtPrecision0.8": 0.417
+   },
+   "rules": {
+    "n": 367,
+    "real": 75,
+    "ap": 0.617,
+    "rocAuc": 0.771,
+    "precisionAtRecall0.5": 0.615,
+    "recallAtPrecision0.6": 0.533,
+    "recallAtPrecision0.8": 0.333
+   }
+  },
+  "v1": {
+   "all": {
+    "n": 1052,
+    "real": 173,
+    "ap": 0.518,
+    "rocAuc": 0.8,
+    "precisionAtRecall0.5": 0.479,
+    "recallAtPrecision0.6": 0.318,
+    "recallAtPrecision0.8": 0.202
+   },
+   "clef-high": {
+    "n": 258,
+    "real": 85,
+    "ap": 0.522,
+    "rocAuc": 0.615,
+    "precisionAtRecall0.5": 0.512,
+    "recallAtPrecision0.6": 0.271,
+    "recallAtPrecision0.8": 0.118
+   },
+   "clef-low": {
+    "n": 99,
+    "real": 1,
+    "ap": 0.011,
+    "rocAuc": 0.061,
+    "precisionAtRecall0.5": 0.011,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "random": {
+    "n": 328,
+    "real": 12,
+    "ap": 0.406,
+    "rocAuc": 0.779,
+    "precisionAtRecall0.5": 0.5,
+    "recallAtPrecision0.6": 0.417,
+    "recallAtPrecision0.8": 0.333
+   },
+   "rules": {
+    "n": 367,
+    "real": 75,
+    "ap": 0.557,
+    "rocAuc": 0.771,
+    "precisionAtRecall0.5": 0.47,
+    "recallAtPrecision0.6": 0.36,
+    "recallAtPrecision0.8": 0.333
+   }
+  },
+  "clef": {
+   "all": {
+    "n": 1052,
+    "real": 173,
+    "ap": 0.615,
+    "rocAuc": 0.869,
+    "precisionAtRecall0.5": 0.583,
+    "recallAtPrecision0.6": 0.468,
+    "recallAtPrecision0.8": 0.283
+   },
+   "clef-high": {
+    "n": 258,
+    "real": 85,
+    "ap": 0.592,
+    "rocAuc": 0.721,
+    "precisionAtRecall0.5": 0.606,
+    "recallAtPrecision0.6": 0.506,
+    "recallAtPrecision0.8": 0.106
+   },
+   "clef-low": {
+    "n": 99,
+    "real": 1,
+    "ap": 0.05,
+    "rocAuc": 0.806,
+    "precisionAtRecall0.5": 0.05,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "random": {
+    "n": 328,
+    "real": 12,
+    "ap": 0.502,
+    "rocAuc": 0.825,
+    "precisionAtRecall0.5": 0.7,
+    "recallAtPrecision0.6": 0.583,
+    "recallAtPrecision0.8": 0.333
+   },
+   "rules": {
+    "n": 367,
+    "real": 75,
+    "ap": 0.64,
+    "rocAuc": 0.821,
+    "precisionAtRecall0.5": 0.623,
+    "recallAtPrecision0.6": 0.547,
+    "recallAtPrecision0.8": 0.44
+   }
+  },
+  "luna": {
+   "all": {
+    "n": 1052,
+    "real": 173,
+    "ap": 0.651,
+    "rocAuc": 0.87,
+    "precisionAtRecall0.5": 0.657,
+    "recallAtPrecision0.6": 0.572,
+    "recallAtPrecision0.8": 0.399
+   },
+   "clef-high": {
+    "n": 258,
+    "real": 85,
+    "ap": 0.729,
+    "rocAuc": 0.823,
+    "precisionAtRecall0.5": 0.742,
+    "recallAtPrecision0.6": 0.647,
+    "recallAtPrecision0.8": 0.447
+   },
+   "clef-low": {
+    "n": 99,
+    "real": 1,
+    "ap": 0.012,
+    "rocAuc": 0.25,
+    "precisionAtRecall0.5": 0.012,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "random": {
+    "n": 328,
+    "real": 12,
+    "ap": 0.726,
+    "rocAuc": 0.854,
+    "precisionAtRecall0.5": 1.0,
+    "recallAtPrecision0.6": 0.667,
+    "recallAtPrecision0.8": 0.667
+   },
+   "rules": {
+    "n": 367,
+    "real": 75,
+    "ap": 0.596,
+    "rocAuc": 0.773,
+    "precisionAtRecall0.5": 0.549,
+    "recallAtPrecision0.6": 0.453,
+    "recallAtPrecision0.8": 0.347
+   }
+  },
+  "ens": {
+   "all": {
+    "n": 1052,
+    "real": 173,
+    "ap": 0.686,
+    "rocAuc": 0.883,
+    "precisionAtRecall0.5": 0.693,
+    "recallAtPrecision0.6": 0.607,
+    "recallAtPrecision0.8": 0.416
+   },
+   "clef-high": {
+    "n": 258,
+    "real": 85,
+    "ap": 0.733,
+    "rocAuc": 0.828,
+    "precisionAtRecall0.5": 0.763,
+    "recallAtPrecision0.6": 0.647,
+    "recallAtPrecision0.8": 0.447
+   },
+   "clef-low": {
+    "n": 99,
+    "real": 1,
+    "ap": 0.031,
+    "rocAuc": 0.684,
+    "precisionAtRecall0.5": 0.031,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "random": {
+    "n": 328,
+    "real": 12,
+    "ap": 0.719,
+    "rocAuc": 0.848,
+    "precisionAtRecall0.5": 1.0,
+    "recallAtPrecision0.6": 0.75,
+    "recallAtPrecision0.8": 0.667
+   },
+   "rules": {
+    "n": 367,
+    "real": 75,
+    "ap": 0.646,
+    "rocAuc": 0.796,
+    "precisionAtRecall0.5": 0.644,
+    "recallAtPrecision0.6": 0.56,
+    "recallAtPrecision0.8": 0.36
+   }
+  },
+  "gbtSmallV1": {
+   "all": {
+    "n": 1052,
+    "real": 173,
+    "ap": 0.199,
+    "rocAuc": 0.531,
+    "precisionAtRecall0.5": 0.184,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "clef-high": {
+    "n": 258,
+    "real": 85,
+    "ap": 0.332,
+    "rocAuc": 0.451,
+    "precisionAtRecall0.5": 0.341,
+    "recallAtPrecision0.6": 0.024,
+    "recallAtPrecision0.8": 0.012
+   },
+   "clef-low": {
+    "n": 99,
+    "real": 1,
+    "ap": 0.013,
+    "rocAuc": 0.224,
+    "precisionAtRecall0.5": 0.013,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "random": {
+    "n": 328,
+    "real": 12,
+    "ap": 0.038,
+    "rocAuc": 0.492,
+    "precisionAtRecall0.5": 0.041,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "rules": {
+    "n": 367,
+    "real": 75,
+    "ap": 0.218,
+    "rocAuc": 0.475,
+    "precisionAtRecall0.5": 0.206,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   }
+  },
+  "rulesAny": {
+   "all": {
+    "flags": 500,
+    "realInFamily": 75,
+    "realAnyFamily": 75,
+    "precisionInFamily": 0.15,
+    "ci95": [
+     0.121,
+     0.184
+    ],
+    "precisionAnyFamily": 0.15,
+    "recallInFamily": 0.434,
+    "inFamilyRealInSet": 173
+   }
+  }
+ },
+ "perFamily": {
+  "text": {
+   "real": 41,
+   "v2": {
+    "n": 920,
+    "real": 41,
+    "ap": 0.304,
+    "rocAuc": 0.824,
+    "precisionAtRecall0.5": 0.175,
+    "recallAtPrecision0.6": 0.146,
+    "recallAtPrecision0.8": 0.073
+   },
+   "v1": {
+    "n": 920,
+    "real": 41,
+    "ap": 0.361,
+    "rocAuc": 0.846,
+    "precisionAtRecall0.5": 0.174,
+    "recallAtPrecision0.6": 0.293,
+    "recallAtPrecision0.8": 0.098
+   },
+   "clef": {
+    "n": 920,
+    "real": 41,
+    "ap": 0.511,
+    "rocAuc": 0.904,
+    "precisionAtRecall0.5": 0.348,
+    "recallAtPrecision0.6": 0.39,
+    "recallAtPrecision0.8": 0.341
+   },
+   "luna": {
+    "n": 920,
+    "real": 41,
+    "ap": 0.312,
+    "rocAuc": 0.82,
+    "precisionAtRecall0.5": 0.244,
+    "recallAtPrecision0.6": 0.195,
+    "recallAtPrecision0.8": 0.0
+   },
+   "ens": {
+    "n": 920,
+    "real": 41,
+    "ap": 0.48,
+    "rocAuc": 0.887,
+    "precisionAtRecall0.5": 0.382,
+    "recallAtPrecision0.6": 0.341,
+    "recallAtPrecision0.8": 0.22
+   }
+  },
+  "dark": {
+   "real": 14,
+   "v2": {
+    "n": 893,
+    "real": 14,
+    "ap": 0.039,
+    "rocAuc": 0.803,
+    "precisionAtRecall0.5": 0.054,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "v1": {
+    "n": 893,
+    "real": 14,
+    "ap": 0.037,
+    "rocAuc": 0.789,
+    "precisionAtRecall0.5": 0.044,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "clef": {
+    "n": 893,
+    "real": 14,
+    "ap": 0.039,
+    "rocAuc": 0.787,
+    "precisionAtRecall0.5": 0.047,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "luna": {
+    "n": 893,
+    "real": 14,
+    "ap": 0.06,
+    "rocAuc": 0.729,
+    "precisionAtRecall0.5": 0.035,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "ens": {
+    "n": 893,
+    "real": 14,
+    "ap": 0.044,
+    "rocAuc": 0.797,
+    "precisionAtRecall0.5": 0.045,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   }
+  },
+  "overflow": {
+   "real": 34,
+   "v2": {
+    "n": 913,
+    "real": 34,
+    "ap": 0.691,
+    "rocAuc": 0.969,
+    "precisionAtRecall0.5": 0.85,
+    "recallAtPrecision0.6": 0.735,
+    "recallAtPrecision0.8": 0.5
+   },
+   "v1": {
+    "n": 913,
+    "real": 34,
+    "ap": 0.589,
+    "rocAuc": 0.959,
+    "precisionAtRecall0.5": 0.607,
+    "recallAtPrecision0.6": 0.5,
+    "recallAtPrecision0.8": 0.294
+   },
+   "clef": {
+    "n": 913,
+    "real": 34,
+    "ap": 0.569,
+    "rocAuc": 0.953,
+    "precisionAtRecall0.5": 0.667,
+    "recallAtPrecision0.6": 0.735,
+    "recallAtPrecision0.8": 0.147
+   },
+   "luna": {
+    "n": 913,
+    "real": 34,
+    "ap": 0.682,
+    "rocAuc": 0.975,
+    "precisionAtRecall0.5": 0.773,
+    "recallAtPrecision0.6": 0.735,
+    "recallAtPrecision0.8": 0.382
+   },
+   "ens": {
+    "n": 913,
+    "real": 34,
+    "ap": 0.78,
+    "rocAuc": 0.982,
+    "precisionAtRecall0.5": 0.905,
+    "recallAtPrecision0.6": 0.794,
+    "recallAtPrecision0.8": 0.618
+   }
+  },
+  "responsive": {
+   "real": 13,
+   "v2": {
+    "n": 892,
+    "real": 13,
+    "ap": 0.515,
+    "rocAuc": 0.888,
+    "precisionAtRecall0.5": 0.538,
+    "recallAtPrecision0.6": 0.385,
+    "recallAtPrecision0.8": 0.385
+   },
+   "v1": {
+    "n": 892,
+    "real": 13,
+    "ap": 0.509,
+    "rocAuc": 0.875,
+    "precisionAtRecall0.5": 0.7,
+    "recallAtPrecision0.6": 0.538,
+    "recallAtPrecision0.8": 0.154
+   },
+   "clef": {
+    "n": 892,
+    "real": 13,
+    "ap": 0.79,
+    "rocAuc": 0.993,
+    "precisionAtRecall0.5": 0.889,
+    "recallAtPrecision0.6": 0.692,
+    "recallAtPrecision0.8": 0.692
+   },
+   "luna": {
+    "n": 892,
+    "real": 13,
+    "ap": 0.791,
+    "rocAuc": 0.99,
+    "precisionAtRecall0.5": 1.0,
+    "recallAtPrecision0.6": 0.692,
+    "recallAtPrecision0.8": 0.692
+   },
+   "ens": {
+    "n": 892,
+    "real": 13,
+    "ap": 0.847,
+    "rocAuc": 0.996,
+    "precisionAtRecall0.5": 1.0,
+    "recallAtPrecision0.6": 0.769,
+    "recallAtPrecision0.8": 0.692
+   }
+  },
+  "occlusion": {
+   "real": 37,
+   "v2": {
+    "n": 916,
+    "real": 37,
+    "ap": 0.162,
+    "rocAuc": 0.805,
+    "precisionAtRecall0.5": 0.111,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "v1": {
+    "n": 916,
+    "real": 37,
+    "ap": 0.255,
+    "rocAuc": 0.822,
+    "precisionAtRecall0.5": 0.119,
+    "recallAtPrecision0.6": 0.108,
+    "recallAtPrecision0.8": 0.027
+   },
+   "clef": {
+    "n": 916,
+    "real": 37,
+    "ap": 0.296,
+    "rocAuc": 0.872,
+    "precisionAtRecall0.5": 0.268,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "luna": {
+    "n": 916,
+    "real": 37,
+    "ap": 0.097,
+    "rocAuc": 0.781,
+    "precisionAtRecall0.5": 0.12,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "ens": {
+    "n": 916,
+    "real": 37,
+    "ap": 0.182,
+    "rocAuc": 0.838,
+    "precisionAtRecall0.5": 0.136,
+    "recallAtPrecision0.6": 0.081,
+    "recallAtPrecision0.8": 0.0
+   }
+  },
+  "media": {
+   "real": 16,
+   "v2": {
+    "n": 895,
+    "real": 16,
+    "ap": 0.759,
+    "rocAuc": 0.984,
+    "precisionAtRecall0.5": 0.889,
+    "recallAtPrecision0.6": 0.75,
+    "recallAtPrecision0.8": 0.688
+   },
+   "v1": {
+    "n": 895,
+    "real": 16,
+    "ap": 0.804,
+    "rocAuc": 0.977,
+    "precisionAtRecall0.5": 1.0,
+    "recallAtPrecision0.6": 0.812,
+    "recallAtPrecision0.8": 0.75
+   },
+   "clef": {
+    "n": 895,
+    "real": 16,
+    "ap": 0.916,
+    "rocAuc": 0.995,
+    "precisionAtRecall0.5": 1.0,
+    "recallAtPrecision0.6": 0.938,
+    "recallAtPrecision0.8": 0.875
+   },
+   "luna": {
+    "n": 895,
+    "real": 16,
+    "ap": 0.619,
+    "rocAuc": 0.99,
+    "precisionAtRecall0.5": 0.692,
+    "recallAtPrecision0.6": 0.688,
+    "recallAtPrecision0.8": 0.125
+   },
+   "ens": {
+    "n": 895,
+    "real": 16,
+    "ap": 0.853,
+    "rocAuc": 0.996,
+    "precisionAtRecall0.5": 0.9,
+    "recallAtPrecision0.6": 0.938,
+    "recallAtPrecision0.8": 0.625
+   }
+  },
+  "leaks": {
+   "real": 6,
+   "v2": {
+    "n": 885,
+    "real": 6,
+    "ap": 0.016,
+    "rocAuc": 0.637,
+    "precisionAtRecall0.5": 0.02,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "v1": {
+    "n": 885,
+    "real": 6,
+    "ap": 0.017,
+    "rocAuc": 0.65,
+    "precisionAtRecall0.5": 0.024,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "clef": {
+    "n": 885,
+    "real": 6,
+    "ap": 0.071,
+    "rocAuc": 0.828,
+    "precisionAtRecall0.5": 0.114,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "luna": {
+    "n": 885,
+    "real": 6,
+    "ap": 0.061,
+    "rocAuc": 0.422,
+    "precisionAtRecall0.5": 0.007,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   },
+   "ens": {
+    "n": 885,
+    "real": 6,
+    "ap": 0.115,
+    "rocAuc": 0.809,
+    "precisionAtRecall0.5": 0.115,
+    "recallAtPrecision0.6": 0.0,
+    "recallAtPrecision0.8": 0.0
+   }
+  },
+  "blank": {
+   "real": 8,
+   "v2": {
+    "n": 887,
+    "real": 8,
+    "ap": 0.517,
+    "rocAuc": 0.944,
+    "precisionAtRecall0.5": 0.467,
+    "recallAtPrecision0.6": 0.25,
+    "recallAtPrecision0.8": 0.25
+   },
+   "v1": {
+    "n": 887,
+    "real": 8,
+    "ap": 0.556,
+    "rocAuc": 0.963,
+    "precisionAtRecall0.5": 0.571,
+    "recallAtPrecision0.6": 0.25,
+    "recallAtPrecision0.8": 0.25
+   },
+   "clef": {
+    "n": 887,
+    "real": 8,
+    "ap": 0.586,
+    "rocAuc": 0.995,
+    "precisionAtRecall0.5": 0.583,
+    "recallAtPrecision0.6": 0.25,
+    "recallAtPrecision0.8": 0.125
+   },
+   "luna": {
+    "n": 887,
+    "real": 8,
+    "ap": 0.546,
+    "rocAuc": 0.996,
+    "precisionAtRecall0.5": 0.636,
+    "recallAtPrecision0.6": 0.875,
+    "recallAtPrecision0.8": 0.0
+   },
+   "ens": {
+    "n": 887,
+    "real": 8,
+    "ap": 0.565,
+    "rocAuc": 0.996,
+    "precisionAtRecall0.5": 0.667,
+    "recallAtPrecision0.6": 1.0,
+    "recallAtPrecision0.8": 0.0
+   }
+  }
+ },
+ "vs": {
+  "text": {
+   "v1": {
+    "diff": -0.056,
+    "ci95": [
+     -0.139,
+     0.011
+    ],
+    "verdict": "matches"
+   },
+   "clef": {
+    "diff": -0.207,
+    "ci95": [
+     -0.304,
+     -0.059
+    ],
+    "verdict": "falls short"
+   },
+   "luna": {
+    "diff": -0.007,
+    "ci95": [
+     -0.158,
+     0.139
+    ],
+    "verdict": "matches"
+   },
+   "ens": {
+    "diff": -0.176,
+    "ci95": [
+     -0.286,
+     -0.03
+    ],
+    "verdict": "falls short"
+   }
+  },
+  "overflow": {
+   "v1": {
+    "diff": 0.102,
+    "ci95": [
+     -0.048,
+     0.227
+    ],
+    "verdict": "matches"
+   },
+   "clef": {
+    "diff": 0.121,
+    "ci95": [
+     -0.046,
+     0.257
+    ],
+    "verdict": "matches"
+   },
+   "luna": {
+    "diff": 0.009,
+    "ci95": [
+     -0.149,
+     0.154
+    ],
+    "verdict": "matches"
+   },
+   "ens": {
+    "diff": -0.09,
+    "ci95": [
+     -0.204,
+     -0.006
+    ],
+    "verdict": "falls short"
+   }
+  },
+  "occlusion": {
+   "v1": {
+    "diff": -0.093,
+    "ci95": [
+     -0.212,
+     0.02
+    ],
+    "verdict": "matches"
+   },
+   "clef": {
+    "diff": -0.135,
+    "ci95": [
+     -0.305,
+     0.01
+    ],
+    "verdict": "matches"
+   },
+   "luna": {
+    "diff": 0.064,
+    "ci95": [
+     0.003,
+     0.185
+    ],
+    "verdict": "beats"
+   },
+   "ens": {
+    "diff": -0.021,
+    "ci95": [
+     -0.109,
+     0.068
+    ],
+    "verdict": "matches"
+   }
+  },
+  "media": {
+   "v1": {
+    "diff": -0.045,
+    "ci95": [
+     -0.209,
+     0.05
+    ],
+    "verdict": "matches"
+   },
+   "clef": {
+    "diff": -0.157,
+    "ci95": [
+     -0.439,
+     0.047
+    ],
+    "verdict": "matches"
+   },
+   "luna": {
+    "diff": 0.14,
+    "ci95": [
+     -0.172,
+     0.468
+    ],
+    "verdict": "matches"
+   },
+   "ens": {
+    "diff": -0.094,
+    "ci95": [
+     -0.362,
+     0.171
+    ],
+    "verdict": "matches"
+   }
+  },
+  "any": {
+   "v1": {
+    "diff": 0.093,
+    "ci95": [
+     0.013,
+     0.17
+    ],
+    "verdict": "beats"
+   },
+   "clef": {
+    "diff": -0.004,
+    "ci95": [
+     -0.099,
+     0.085
+    ],
+    "verdict": "matches"
+   },
+   "luna": {
+    "diff": -0.04,
+    "ci95": [
+     -0.119,
+     0.044
+    ],
+    "verdict": "matches"
+   },
+   "ens": {
+    "diff": -0.075,
+    "ci95": [
+     -0.151,
+     0.003
+    ],
+    "verdict": "matches"
+   }
+  }
+ },
+ "secondStage": {
+  "rulesAlone": {
+   "flags": 500,
+   "realInFamily": 75,
+   "realAnyFamily": 75,
+   "precisionInFamily": 0.15,
+   "ci95": [
+    0.121,
+    0.184
+   ],
+   "precisionAnyFamily": 0.15,
+   "recallInFamily": 0.434,
+   "inFamilyRealInSet": 173
+  },
+  "v2": {
+   "flags": 69,
+   "realInFamily": 33,
+   "realAnyFamily": 33,
+   "precisionInFamily": 0.478,
+   "ci95": [
+    0.365,
+    0.594
+   ],
+   "precisionAnyFamily": 0.478,
+   "recallInFamily": 0.191,
+   "inFamilyRealInSet": 173,
+   "apWithinRuleFlags": 0.617,
+   "threshold": 0.7515736222267151
+  },
+  "v1": {
+   "flags": 72,
+   "realInFamily": 26,
+   "realAnyFamily": 26,
+   "precisionInFamily": 0.361,
+   "ci95": [
+    0.26,
+    0.476
+   ],
+   "precisionAnyFamily": 0.361,
+   "recallInFamily": 0.15,
+   "inFamilyRealInSet": 173,
+   "apWithinRuleFlags": 0.557,
+   "threshold": 0.96185302734375
+  },
+  "clef": {
+   "flags": 50,
+   "realInFamily": 28,
+   "realAnyFamily": 28,
+   "precisionInFamily": 0.56,
+   "ci95": [
+    0.423,
+    0.688
+   ],
+   "precisionAnyFamily": 0.56,
+   "recallInFamily": 0.162,
+   "inFamilyRealInSet": 173,
+   "apWithinRuleFlags": 0.64,
+   "threshold": 7.07750927819468
+  },
+  "luna": {
+   "flags": 86,
+   "realInFamily": 35,
+   "realAnyFamily": 35,
+   "precisionInFamily": 0.407,
+   "ci95": [
+    0.309,
+    0.513
+   ],
+   "precisionAnyFamily": 0.407,
+   "recallInFamily": 0.202,
+   "inFamilyRealInSet": 173,
+   "apWithinRuleFlags": 0.596,
+   "threshold": 0.79
+  },
+  "ens": {
+   "flags": 74,
+   "realInFamily": 35,
+   "realAnyFamily": 35,
+   "precisionInFamily": 0.473,
+   "ci95": [
+    0.363,
+    0.585
+   ],
+   "precisionAnyFamily": 0.473,
+   "recallInFamily": 0.202,
+   "inFamilyRealInSet": 173,
+   "apWithinRuleFlags": 0.646,
+   "threshold": 0.8822809741879605
+  }
+ },
+ "teacherAnswersMissing": {
+  "v2": 0,
+  "v1": 0,
+  "clef": 0,
+  "luna": 0,
+  "ens": 0
+ }
+}

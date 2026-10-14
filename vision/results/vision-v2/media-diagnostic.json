@@ -1,0 +1,92 @@
+{
+ "dev": {
+  "crops": 600,
+  "mediaReal": 38,
+  "mediaRealShare": 0.0633,
+  "mediaRealByStratum": {
+   "clef-high": 29,
+   "clef-low": 0,
+   "random": 0,
+   "rules": 9
+  },
+  "byStratumSize": {
+   "clef-high": 162,
+   "clef-low": 46,
+   "random": 162,
+   "rules": 230
+  },
+  "clef": {
+   "flags": 61,
+   "flagShare": 0.1017,
+   "meanScoreOfFlags": 0.599,
+   "flagsReal": 37,
+   "flagsUnclear": 13,
+   "flagsNotOrOtherFamily": 11,
+   "flagsRealOtherFamily": 1,
+   "probAtLeast0.5": {
+    "flags": 36,
+    "mediaReal": 35,
+    "unclear": 0
+   }
+  },
+  "luna": {
+   "flags": 61,
+   "flagShare": 0.1017,
+   "meanScoreOfFlags": 0.51,
+   "flagsReal": 37,
+   "flagsUnclear": 6,
+   "flagsNotOrOtherFamily": 18,
+   "flagsRealOtherFamily": 2,
+   "probAtLeast0.5": {
+    "flags": 32,
+    "mediaReal": 29,
+    "unclear": 0
+   }
+  }
+ },
+ "test": {
+  "crops": 1300,
+  "mediaReal": 16,
+  "mediaRealShare": 0.0123,
+  "mediaRealByStratum": {
+   "clef-high": 10,
+   "clef-low": 0,
+   "random": 1,
+   "rules": 5
+  },
+  "byStratumSize": {
+   "clef-high": 350,
+   "clef-low": 100,
+   "random": 350,
+   "rules": 500
+  },
+  "clef": {
+   "flags": 86,
+   "flagShare": 0.0662,
+   "meanScoreOfFlags": 0.471,
+   "flagsReal": 15,
+   "flagsUnclear": 28,
+   "flagsNotOrOtherFamily": 43,
+   "flagsRealOtherFamily": 4,
+   "probAtLeast0.5": {
+    "flags": 33,
+    "mediaReal": 15,
+    "unclear": 8
+   }
+  },
+  "luna": {
+   "flags": 115,
+   "flagShare": 0.0885,
+   "meanScoreOfFlags": 0.355,
+   "flagsReal": 16,
+   "flagsUnclear": 34,
+   "flagsNotOrOtherFamily": 65,
+   "flagsRealOtherFamily": 13,
+   "probAtLeast0.5": {
+    "flags": 29,
+    "mediaReal": 11,
+    "unclear": 7
+   }
+  }
+ }
+}
