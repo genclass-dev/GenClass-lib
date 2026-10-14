@@ -7,8 +7,8 @@
 //   npx @genclass/runtime init --sink webhook:/genclass
 //
 // Names: console-json (optionally `:noevidence`), webhook:<url>. The names sentry, posthog and datadog are not part of
-// the free runtime (forwarding to those tools is a GenClass Pro feature, configured on the dashboard): `applySinks`
-// leaves them out with one console warning that says so, and nothing is loaded or sent for them.
+// the free runtime (no plan offers forwarding to those tools yet): `applySinks` leaves them out with one console
+// warning that says so, and nothing is loaded or sent for them.
 //
 // This module is the part in the first load, and it is kept small on purpose: `applySinks` turns the names of a page
 // configuration into ONE proxy sink (`namedSinks`) that queues records until the entry's resolver has loaded the
@@ -85,8 +85,7 @@ export function namedSinks(names: string[], resolve: SinkResolver, warn: (messag
 /**
  * Page-config `sinks` → InitOptions: the names become one `namedSinks` proxy, functions and objects pass through
  * (GenClass.init checks them), blanks are skipped. The names sentry, posthog and datadog (any case, with or without an
- * option) are left out with one warning for them all: forwarding to those tools is a GenClass Pro feature, configured
- * on the dashboard. A webhook URL is made absolute against `g`'s document.baseURI (else its location) and its endpoint
+ * option) are left out with one warning for them all: forwarding to those tools is not in the free runtime. A webhook URL is made absolute against `g`'s document.baseURI (else its location) and its endpoint
  * joins `requests.ignore` as an exact match (origin and path). Returns `init` unchanged when the list is empty or not
  * a list. An unknown name warns once the resolver has loaded.
  *
@@ -133,7 +132,7 @@ export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolv
         names.push(v);
       } else if (s) sinks.push(s as Sink);
     }
-    if (pro.length) warn(`Ignored sink ${pro.join(", ")}: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing`);
+    if (pro.length) warn(`Ignored sink ${pro.join(", ")}: Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing`);
     if (names.length) sinks.push(namedSinks(names, resolve, warn));
     const out: InitOptions = { ...init, sinks };
     // an ignore that is not a list (one RegExp by mistake) stays as written: GenClass.init reports it, sinks or not

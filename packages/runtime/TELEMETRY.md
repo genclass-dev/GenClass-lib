@@ -268,7 +268,7 @@ the session event names your hostname. Depending on your users and jurisdiction 
   endpoint run by someone else, disclose that recipient too: the webhook sends the redacted evidence by default (the
   console line, subject and timeline, which can hold short fragments of what users typed) to the URL you configure
   (`evidence: false` sends the structured fields only). The free runtime forwards nothing to Sentry, PostHog or
-  Datadog: that forwarding is a GenClass Pro feature, configured on the dashboard. Sinks are your configuration, not
+  Datadog. Sinks are your configuration, not
   telemetry: the telemetry opt-outs (`telemetry: false`, `?genclass=no-telemetry`, the `localStorage` switch) and
   Global Privacy Control do not turn them off; `?genclass=off` turns GenClass off altogether.
 

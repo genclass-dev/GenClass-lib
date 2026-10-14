@@ -428,7 +428,7 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On `pagehide`, or once on `visibilitychange→hidden` as a fallback, one `summary` record is emitted and each sink's `flush()` is called.
 - `rt.summary()` is always available. Two vendor-neutral adapters ship as entries of the package, outside the first-load bundle: `@genclass/runtime/sinks/{console-json,webhook}` (`src/sinks/`, each a function returning a `SinkObject` that never throws and sends only the record: one JSON line per record on the console, or batched POSTs to the URL the developer configures). The zero-code entries take them by name (`src/cdn/sinks.ts`: `window.GENCLASS_CONFIG.sinks: ["webhook:/genclass"]`, `<meta name="genclass" content="sink=console-json">`, `data-sink`, `init --sink`), as one proxy sink that queues records and loads the adapters on the first record, never before (`src/cdn/sinks-fanout.ts`, a lazy chunk of `/auto`; `dist/sinks/<name>.js` from the CDN for the script tag), so only the proxy is in the first load; a `webhook:<url>` is made absolute at init (against `document.baseURI`) and its endpoint (origin and path) joins `requests.ignore` as an exact match, and from a `<meta>` tag it must be same-origin as the browser resolves it (against the page and `document.baseURI`). Each adapter takes `evidence` (default true; false sends the structured fields only; `console-json:noevidence` in the no-code forms); the webhook caps repeats of one bug at `maxPerSignature` (10) per page load. A string in `GenClass.init({ sinks })` is ignored with one warning.
-- No Sentry, PostHog or Datadog adapter (owner decision, 2026-10-13): forwarding to those tools is a GenClass Pro feature, server-side and configured on the dashboard. A page config that names `sentry`, `posthog` or `datadog` (any case, with or without an option) gets one console warning for them all that says so, with https://genclass.dev/pricing, and nothing is loaded or sent for those names (`applySinks`); `init --sink sentry` is a usage error that says the same.
+- No Sentry, PostHog or Datadog adapter (owner decision, 2026-10-13): forwarding to those tools is not part of the free runtime. The owner intends it as a paid, server-side feature; it is not built, and no plan on https://genclass.dev/pricing offers it yet. A page config that names `sentry`, `posthog` or `datadog` (any case, with or without an option) gets one console warning for them all that says so, with https://genclass.dev/pricing, and nothing is loaded or sent for those names (`applySinks`); `init --sink sentry` is a usage error that says the same.
 
 **Hooks.** `report.ts` (`toSinkRecord`, `SinkDispatcher`), the new `decide/summary.ts`, and a pagehide listener in `runtime.ts`.
 
@@ -636,7 +636,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
 >   sinks: [
 >     { send: (r) => navigator.sendBeacon("/genclass", JSON.stringify(r)),
 >       kinds: ["intervention", "undo", "breaker", "summary"] },
->     { send: (r) => Sentry.addBreadcrumb({ category: "genclass", data: r }), sampleRate: 0.2 },
+>     { send: (r) => myLogger.info("genclass", r), sampleRate: 0.2 },
 >   ],
 >   session: { tags: { release: __RELEASE__, tenant: tenantTier } },
 >   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init

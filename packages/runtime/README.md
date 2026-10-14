@@ -117,7 +117,7 @@ newer data (search.results). (stale, 0.97; discard 0.98)
 In production these lines print in your users' browsers. From `0.3.0` you can send them to your own endpoint or your
 log shipper as well: `npx @genclass/runtime@beta init --sink webhook:/genclass`, or `data-sink="webhook:/genclass"` on
 the script tag ([See it where you already look](#see-it-where-you-already-look)). Forwarding to Sentry, PostHog or
-Datadog is a GenClass Pro feature, configured on the dashboard ([genclass.dev/pricing](https://genclass.dev/pricing)).
+Datadog is not part of the free runtime, and no paid plan offers it yet ([genclass.dev/pricing](https://genclass.dev/pricing)).
 
 ## Install
 
@@ -755,9 +755,8 @@ intervention, undo, breaker trip and runtime error to your own side as well: one
 for a log shipper (`console-json`), batched POSTs to an endpoint you own (`webhook`), or a function or `{ send }` object
 of yours. The records go only where you point them. The console default does not change.
 
-**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime: it is a GenClass
-Pro feature, configured on the dashboard ([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime has no
-adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
+**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime, and no paid plan
+offers it yet ([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime has no adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
 so, and nothing is loaded or sent for those names; `init --sink sentry` stops with a usage error that says the same.
 
 With `/auto` or the script tag you write no adapter code yourself:
@@ -843,7 +842,7 @@ GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that ap
 - **Activation**: `enabled` (a boolean, a predicate, or a subscribable feature flag; while it is false the model is never downloaded), `rt.disable({ undo: true })` (remote kill that also rolls back recent actions), `sample` (the fraction of sessions allowed to act; the rest only observe).
 - **Scope**: `routes` (per-route mode and aggressiveness, which can only be lowered), `requests.ignore` (analytics traffic), `requests.protect` (endpoints that are never held, retried, cached or discarded), `requests.labels` (endpoint names for reports), `requests.correlate` (attach your trace id to records).
 - **Safety**: `breaker` (automatic downgrade after undos, or after errors that follow an action), `shadow` (records what a higher mode would have done), `onBeforeAction` + `vetoMode` (a synchronous veto, or a report-only trial of one), `policy.actionLimits` (per-minute, per-subject and per-session caps), `policy.holdBudgetMs` (a hard ceiling on added latency).
-- **Your own telemetry**: `sinks` (structured, redacted records; ready-made adapters in `@genclass/runtime/sinks` for JSON console lines and a webhook to your own endpoint, see "See it where you already look"; forwarding to Sentry, PostHog or Datadog is a GenClass Pro feature on the dashboard), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
+- **Your own telemetry**: `sinks` (structured, redacted records; ready-made adapters in `@genclass/runtime/sinks` for JSON console lines and a webhook to your own endpoint, see "See it where you already look"; forwarding to Sentry, PostHog or Datadog is not in the free runtime), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
 - **Loading and cost**: `model.loadIf`, `model.threads`, `model.timeoutMs`, `model.maxDecisionsPerMinute`, `model.unloadAfterIdleMs`.
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.
@@ -881,7 +880,7 @@ const rt = GenClass.init({
   sinks: [
     { send: (r) => navigator.sendBeacon("/genclass", JSON.stringify(r)),
       kinds: ["intervention", "undo", "breaker", "summary"] },
-    { send: (r) => Sentry.addBreadcrumb({ category: "genclass", data: r }), sampleRate: 0.2 },
+    { send: (r) => myLogger.info("genclass", r), sampleRate: 0.2 },
   ],
   session: { tags: { release: __RELEASE__, tenant: tenantTier } },
   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init

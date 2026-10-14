@@ -1,6 +1,6 @@
 // `genclass-runtime init --sink <name>`: findings on the developer's own side (console-json, webhook:<url>), written
 // into the project with no code (the option file, data-sink on a script tag, sink= in the Astro meta line). Forwarding
-// to Sentry, PostHog or Datadog is not part of the free runtime (a GenClass Pro feature, configured on the dashboard):
+// to Sentry, PostHog or Datadog is not part of the free runtime, and no plan offers it yet:
 // `--sink sentry` is a usage error that says so, and init suggests no sink for a project that depends on those SDKs.
 // Fixture projects, no network, no package manager (--no-install).
 
@@ -13,7 +13,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 // @ts-expect-error plain ESM module without types
 import { configLiteral, isEmptyConfig, metaContent, tagWithConfig, updateConfigText } from "../../bin/lib/edit.mjs";
 // @ts-expect-error plain ESM module without types
-import { PRO_URL, USAGE, configOf } from "../../bin/lib/init.mjs";
+import { PRICING_URL, USAGE, configOf } from "../../bin/lib/init.mjs";
 import { fromDataset, readMetaConfig } from "../../src/cdn/config.js";
 import { parseSinkSpec } from "../../src/cdn/sinks-fanout.js";
 import { applySinks } from "../../src/cdn/sinks.js";
@@ -99,7 +99,7 @@ const astro = (deps: Record<string, string> = {}) =>
 
 /** The usage error init prints for a --sink value that names a vendor (the first line of its output). */
 const proError = (value: string) =>
-  `genclass-runtime init: --sink ${value}: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing. The sinks here are console-json (optionally :noevidence) and webhook:<url>`;
+  `genclass-runtime init: --sink ${value}: Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing. The sinks here are console-json (optionally :noevidence) and webhook:<url>`;
 
 describe("init --sink: findings on the developer's own side", () => {
   it("Vite: --sink webhook:/genclass writes sinks: [\"webhook:/genclass\"] to genclass.config.js, imported right before /auto; remove restores everything", () => {
@@ -138,8 +138,8 @@ describe("init --sink: findings on the developer's own side", () => {
     expect(configOf({})).toEqual({});
   });
 
-  it("--sink sentry, posthog or datadog: a usage error that forwarding to them is a GenClass Pro feature on the dashboard; nothing is written", () => {
-    expect(PRO_URL).toBe("https://genclass.dev/pricing");
+  it("--sink sentry, posthog or datadog: a usage error that forwarding to them is not in the free runtime; nothing is written", () => {
+    expect(PRICING_URL).toBe("https://genclass.dev/pricing");
     for (const value of ["sentry", "posthog", "datadog", "Sentry:noevidence", "posthog=evidence"]) {
       const dir = viteVue({ "@sentry/vue": "^9" });
       const before = snapshot(dir);
@@ -233,10 +233,11 @@ describe("init --sink: findings on the developer's own side", () => {
     expect(cli(astro(), "init", "--dry-run", "--no-install", "--sink", "webhook:/genclass").out).not.toContain("same-origin webhook URL");
   });
 
-  it("USAGE documents --sink and that vendor forwarding is Pro; package.json exports the two adapters with types, and no vendor adapter", () => {
+  it("USAGE documents --sink and that vendor forwarding is not in the free runtime; package.json exports the two adapters with types, and no vendor adapter", () => {
     expect(USAGE).toContain("--sink console-json|webhook:<url>");
     expect(USAGE).toContain("--sink <name>");
-    expect(USAGE).toContain("Forwarding to Sentry, PostHog or Datadog is a GenClass Pro feature");
+    expect(USAGE).toContain("Forwarding to Sentry, PostHog or Datadog is not in the free\n                   runtime (https://genclass.dev/pricing)");
+    expect(USAGE).not.toMatch(/GenClass Pro|on the dashboard/);
     expect(USAGE).toContain("https://genclass.dev/pricing");
     const map = PKG_JSON.typesVersions?.["*"] ?? {};
     for (const name of ["index", "console-json", "webhook"]) {

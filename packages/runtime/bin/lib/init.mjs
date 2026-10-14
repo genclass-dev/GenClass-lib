@@ -38,8 +38,8 @@ const REPO = "https://github.com/genclass-dev/GenClass-lib/blob/main";
 export const TELEMETRY_URL = `${REPO}/packages/runtime/TELEMETRY.md`;
 export const INTERCEPTION_URL = "https://genclass.dev/docs/interception";
 export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
-/** GenClass Pro: forwarding to Sentry, PostHog and Datadog, configured on the dashboard (not part of the free runtime). */
-export const PRO_URL = "https://genclass.dev/pricing";
+/** The plans page: forwarding to Sentry, PostHog and Datadog is not part of the free runtime, and no plan offers it yet. */
+export const PRICING_URL = "https://genclass.dev/pricing";
 
 export const USAGE = `Usage:
   genclass-runtime init   [--mode observe|guard|heal] [--token <gc_...> | --no-token]
@@ -75,8 +75,8 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
                    separate names with commas; add :noevidence (console-json:noevidence) to send the
                    structured fields without the evidence text. Written as sinks: [...] in the option
                    file, data-sink on a script tag, sink= in the Astro meta line (README "See it where you
-                   already look"). Forwarding to Sentry, PostHog or Datadog is a GenClass Pro feature,
-                   configured on the dashboard (${PRO_URL})
+                   already look"). Forwarding to Sentry, PostHog or Datadog is not in the free
+                   runtime (${PRICING_URL})
   --yes, -y        apply without asking
   --dry-run        show what would change; write nothing
   --no-install     do not run the package manager
@@ -127,7 +127,7 @@ export function parse(argv, spec = { bool: BOOL, value: VALUE }) {
       const v = eq > 0 ? a.slice(eq + 1) : argv[++i];
       if (v === undefined || v.startsWith("--")) throw new UsageError(`--sink needs a value`);
       for (const s of v.split(",").map((x) => x.trim()).filter(Boolean)) {
-        if (PRO_SINK_RE.test(s)) throw new UsageError(`--sink ${s}: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: ${PRO_URL}. The sinks here are console-json (optionally :noevidence) and webhook:<url>`);
+        if (PRO_SINK_RE.test(s)) throw new UsageError(`--sink ${s}: Sentry, PostHog and Datadog forwarding is not in the free runtime: ${PRICING_URL}. The sinks here are console-json (optionally :noevidence) and webhook:<url>`);
         if (!SINK_RE.test(s)) throw new UsageError(`--sink ${s}: the sinks are console-json (optionally :noevidence) and webhook:<url>`);
         if (!(o.sinks ??= []).includes(s)) o.sinks.push(s);
       }

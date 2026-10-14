@@ -2,7 +2,7 @@
 // vendor-neutral console-json and webhook adapters keep the records on the developer's side (the console, an endpoint
 // the app owns), never throw into the app, and send nothing but the record's own fields (redacted evidence included
 // unless `evidence: false`, no situation text, no query values). There is no Sentry, PostHog or Datadog adapter in the
-// free runtime: forwarding to those tools is a GenClass Pro feature, configured on the dashboard.
+// free runtime, and no plan offers forwarding to those tools yet.
 import { describe, expect, it, vi } from "vitest";
 import { signature } from "../src/sinks/common.js";
 import { consoleJson } from "../src/sinks/console-json.js";

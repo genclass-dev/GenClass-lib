@@ -453,8 +453,8 @@ export const writtenConfig = (cfg) => (cfg && cfg.telemetry === true ? { ...cfg,
 const modelLiteral = (m) => `model: { baseUrl: ${JSON.stringify(m.baseUrl)}, ortWasmPaths: ${JSON.stringify(m.ortWasmPaths)}${m.device ? `, device: ${JSON.stringify(m.device)}` : ""} }`;
 
 // Sinks are written as their names, which the zero-code entries resolve (src/cdn/sinks.ts): console-json and
-// webhook:<url>. Forwarding to Sentry, PostHog or Datadog is not part of the free runtime (a GenClass Pro feature,
-// configured on the dashboard), so init writes no such sink.
+// webhook:<url>. Forwarding to Sentry, PostHog or Datadog is not part of the free runtime, so init writes no such
+// sink.
 /** "console-json:noevidence" → "console-json". */
 export const sinkBase = (s) => String(s).split(/[:=]/)[0].trim().toLowerCase();
 /** `<name>:noevidence`: the structured fields only (src/cdn/sinks-fanout.ts parseSinkSpec reads the same). */

@@ -39,8 +39,8 @@ text is still `situation-v2.3` and the default model is still `@genclass/runtime
   `scope: "functions"`, and genclass.dev accounts with the CLI's `login`, `connect`, `whoami` and `logout` (`init`
   asks whether a new app goes into a signed-in account).
 - **No Sentry, PostHog or Datadog adapter.** The vendor adapters that were in development for this release are not
-  part of the free runtime: forwarding findings to Sentry, PostHog or Datadog is a GenClass Pro feature, configured on
-  the dashboard (https://genclass.dev/pricing). A page config that names `sentry`, `posthog` or `datadog` gets one
+  part of the free runtime, and no paid plan offers forwarding findings to Sentry, PostHog or Datadog yet
+  (https://genclass.dev/pricing). A page config that names `sentry`, `posthog` or `datadog` gets one
   console warning that says so, and nothing else happens; `init --sink sentry` stops with a usage error that says the
   same.
 - **The webhook adapter, if you add one, caps repeats and sends evidence by default.** Unlike telemetry, it forwards
@@ -297,11 +297,10 @@ sent; what telemetry adds in 0.3.0 with or without one is under "What changes wh
   500 records wait, and on page hide one batch goes (the session summary first) and the rest is dropped.
 - **Sentry, PostHog and Datadog: not in the free runtime.** The adapters for those tools that were in development for
   this release (`@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`, with `init --sink sentry` detecting an
-  npm-installed SDK and passing it in) are not part of it and were never published: forwarding findings to Sentry,
-  PostHog or Datadog is a GenClass Pro feature, configured on the dashboard (https://genclass.dev/pricing). The
-  runtime has no adapter, export or CDN file for them. A page config that names `sentry`, `posthog` or `datadog` (any
-  case, with or without an option) gets one console warning for them all, "Ignored sink sentry: forwarding to Sentry,
-  PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing", and
+  npm-installed SDK and passing it in) are not part of it and were never published, and no paid plan offers forwarding
+  findings to Sentry, PostHog or Datadog yet (https://genclass.dev/pricing). The runtime has no adapter, export or CDN file for them. A page config that names `sentry`, `posthog` or `datadog` (any
+  case, with or without an option) gets one console warning for them all, "Ignored sink sentry: Sentry, PostHog and
+  Datadog forwarding is not in the free runtime: https://genclass.dev/pricing", and
   nothing is loaded or sent for those names; `init --sink sentry` is a usage error that says the same, and `init`
   suggests no sink for a project that depends on those SDKs.
 - **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["webhook:/genclass"] }`,

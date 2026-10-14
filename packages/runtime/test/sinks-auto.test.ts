@@ -50,15 +50,15 @@ describe("startAuto with sinks by name (GENCLASS_CONFIG)", () => {
     expect(couldNotStart(warn)).toBe(false);
   });
 
-  it("sentry, posthog or datadog by name: one console warning that forwarding to them is a GenClass Pro feature on the dashboard, and the runtime starts", () => {
+  it("sentry, posthog or datadog by name: one console warning that forwarding to them is not in the free runtime, and the runtime starts", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     W.GENCLASS_CONFIG = { ...SAFE, sinks: ["sentry", "posthog:noevidence", "datadog", "webhook:/genclass"] };
     let rt: unknown;
     expect(() => (rt = startAuto())).not.toThrow();
     expect(rt).toBe(GenClass.runtime);
-    const pro = warn.mock.calls.map((c) => String(c[0])).filter((m) => /GenClass Pro/.test(m));
+    const pro = warn.mock.calls.map((c) => String(c[0])).filter((m) => /not in the free runtime/.test(m));
     expect(pro).toEqual([
-      "[GenClass] Ignored sink sentry, posthog:noevidence, datadog: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing",
+      "[GenClass] Ignored sink sentry, posthog:noevidence, datadog: Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing",
     ]);
     expect(warn.mock.calls.some((c) => /neither a function|unknown sink|could not load/.test(String(c[0])))).toBe(false);
     expect(couldNotStart(warn)).toBe(false);

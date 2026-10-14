@@ -3,7 +3,7 @@
 // window.GENCLASS_CONFIG become one lazy proxy, the records queued while the adapters load are handed over, each
 // adapter gets the kinds and evidence it asks for, and a webhook URL joins requests.ignore (same-origin only from a
 // meta tag). The names sentry, posthog and datadog are not part of the free runtime: one console warning says that
-// forwarding to those tools is a GenClass Pro feature, configured on the dashboard, and nothing else happens.
+// forwarding to those tools is not in the free runtime, and nothing else happens.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveSinks } from "../src/cdn/auto-start.js";
 import { fromDataset, fromPairs, mergeConfig, parsePairs, readMetaConfig, sameOriginUrl, splitConfig } from "../src/cdn/config.js";
@@ -467,7 +467,7 @@ describe("applySinks: page config → InitOptions", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("sentry, posthog and datadog are not in the free runtime: one warning for them all names GenClass Pro and the pricing link, and nothing else happens", async () => {
+  it("sentry, posthog and datadog are not in the free runtime: one warning for them all says so with the pricing link, and nothing else happens", async () => {
     const warn = vi.fn();
     const resolver = vi.fn<SinkResolver>(() => Promise.resolve({ send: vi.fn() }));
     const init = { mode: "observe" as const };
@@ -475,8 +475,9 @@ describe("applySinks: page config → InitOptions", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     const text = String(warn.mock.calls[0][0]);
     expect(text).toBe(
-      "Ignored sink sentry, PostHog, datadog:noevidence, Sentry=evidence: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing",
+      "Ignored sink sentry, PostHog, datadog:noevidence, Sentry=evidence: Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing",
     );
+    expect(text).not.toMatch(/GenClass Pro|on the dashboard/);
     expect(text).not.toMatch(/\u2014|!/);
     // no proxy, no requests.ignore, nothing loaded now or later
     expect(out).toEqual({ mode: "observe", sinks: [] });
@@ -486,7 +487,7 @@ describe("applySinks: page config → InitOptions", () => {
     const w2 = vi.fn();
     const mixed = applySinks({}, ["webhook:/genclass", "sentry", "console-json", "posthog"], resolver, w2, {});
     expect(w2).toHaveBeenCalledTimes(1);
-    expect(String(w2.mock.calls[0][0])).toMatch(/^Ignored sink sentry, posthog: forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https:\/\/genclass\.dev\/pricing$/);
+    expect(String(w2.mock.calls[0][0])).toMatch(/^Ignored sink sentry, posthog: Sentry, PostHog and Datadog forwarding is not in the free runtime: https:\/\/genclass\.dev\/pricing$/);
     expect(mixed.sinks!.length).toBe(1);
     expect(mixed.requests!.ignore!.length).toBe(1);
     (mixed.sinks![0] as SinkObject).send(rec());
@@ -511,7 +512,7 @@ describe("applySinks: page config → InitOptions", () => {
     await drain(8);
     expect(s.rt.interventions().length).toBe(1);
     expect(resolver).not.toHaveBeenCalled();
-    const pro = warn.mock.calls.filter((c) => /GenClass Pro/.test(String(c[0])));
+    const pro = warn.mock.calls.filter((c) => /not in the free runtime/.test(String(c[0])));
     expect(pro).toHaveLength(1);
     expect(String(pro[0][0])).toContain("https://genclass.dev/pricing");
     expect(warn.mock.calls.some((c) => /sink .* (is neither|could not load)|unknown sink/.test(String(c[0])))).toBe(false);

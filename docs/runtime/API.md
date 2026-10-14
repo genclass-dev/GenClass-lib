@@ -606,8 +606,8 @@ overlay uses it), so debugging tools never become causes in situations.
 ### See it where you already look
 
 0.3.0 (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
-in `0.2.x`. The free runtime has no Sentry, PostHog or Datadog adapter: forwarding to those tools is a GenClass Pro
-feature, configured on the dashboard (https://genclass.dev/pricing).
+in `0.2.x`. The free runtime has no Sentry, PostHog or Datadog adapter, and no paid plan offers forwarding to
+those tools yet (https://genclass.dev/pricing).
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
 `sampled`, `diagnosis`, `p`, `detection` (kind `detection`: `"likely"`, or `"possible"` for a sink with
@@ -648,8 +648,7 @@ since commas separate the meta keys), `data-sink="webhook:/genclass,console-json
 `npx @genclass/runtime init --sink webhook:/genclass` (the names are `console-json` and `webhook:<url>`;
 `console-json:noevidence` makes its adapter with `evidence: false`). The names `sentry`, `posthog` and `datadog` (any
 case, with or without an option) are left out at init with one console warning for them all, `Ignored sink <names>:
-forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard:
-https://genclass.dev/pricing`, and nothing is loaded or sent for them; `init --sink sentry` is a usage error that says
+Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing`, and nothing is loaded or sent for them; `init --sink sentry` is a usage error that says
 the same. GENCLASS_CONFIG passes sink objects through. The names become one proxy sink at init that
 queues records (at most 200) and loads the adapters on the first record (never before: a page that reports nothing,
 or runs with `?genclass=off`, fetches none): a lazy chunk of `/auto`, `dist/sinks/<name>.js` from the CDN for the

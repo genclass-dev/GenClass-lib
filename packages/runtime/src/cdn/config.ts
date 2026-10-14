@@ -14,7 +14,7 @@
 // (off/false/no: no automatic state discovery; on by default in these entries), token (the app's dashboard token,
 // gc_...), scope (app or functions), sink (sinks by name: console-json, webhook:<url>; "console-json+webhook:/g" in
 // the meta tag since commas separate its keys, data-sink="console-json,webhook:/g" on the tag; src/cdn/sinks.ts, which
-// warns once about the names sentry, posthog and datadog: forwarding to those tools is a GenClass Pro feature).
+// warns once about the names sentry, posthog and datadog: forwarding to those tools is not in the free runtime).
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model, onnxruntime-web

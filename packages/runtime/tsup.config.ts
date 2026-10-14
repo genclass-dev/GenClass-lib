@@ -79,7 +79,7 @@ const ortExternal = {
 
 // The vendor-neutral sink adapters (@genclass/runtime/sinks/*): entries of their own (importable, and what /auto's lazy
 // chunks and the script tag's `data-sink` load from dist/sinks/), never part of the first-load bundle. There is no
-// Sentry, PostHog or Datadog adapter: forwarding to those tools is a GenClass Pro feature, configured on the dashboard.
+// Sentry, PostHog or Datadog adapter: forwarding to those tools is not in the free runtime.
 const SINK_ENTRIES = {
   "sinks/index": "src/sinks/index.ts",
   "sinks/console-json": "src/sinks/console-json.ts",
