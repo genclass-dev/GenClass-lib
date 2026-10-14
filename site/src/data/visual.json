@@ -4,7 +4,7 @@
   "updated": "2026-10-13",
   "ready_by": null,
   "scan_live": true,
-  "scan_runs": "subset",
+  "scan_runs": "chunk",
   "checks_in_runtime": null,
   "checks": {
     "name": "GenClass visual checks",
@@ -133,8 +133,8 @@
     {
       "id": "catalog",
       "title": "Visual and CSS bugs in AI-generated web apps: catalog",
-      "path": "research/visual/CATALOG.md",
-      "used_for": "the bug families and their order"
+      "url": "https://github.com/genclass-dev/GenClass-lib/blob/92ec23e52bab9ae173279b51cf08e2bd3b8e3915/research/visual/CATALOG.md",
+      "used_for": "the bug families, their order and the evidence for each bug"
     },
     {
       "id": "results",

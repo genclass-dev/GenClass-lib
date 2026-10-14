@@ -409,8 +409,9 @@ SCAN_LIVE = D.get("scan_live", False)
 if not isinstance(SCAN_LIVE, bool):
     _fail("scan_live must be true or false")
 SCAN_RUNS = D.get("scan_runs") or "subset"
-if SCAN_RUNS not in ("subset", "all"):
-    _fail('scan_runs must be "subset" (the page check\'s built-in checks) or "all" (the runtime\'s visual chunk)')
+if SCAN_RUNS not in ("subset", "chunk", "all"):
+    _fail('scan_runs must be "subset" (the page check\'s old built-in checks), "chunk" (the runtime\'s visual chunk, every '
+          'kind but click-blocked) or "all" (every kind)')
 STAGE = (D.get("model") or {}).get("stage") or "planned"
 if STAGE not in STAGES:
     _fail(f"model.stage must be one of {', '.join(STAGES)}, not {STAGE!r}")
@@ -472,13 +473,20 @@ def dec2(x):
 
 STAMP = '<span class="vsample">Sample data, not measured</span>' if SAMPLE else ""
 
-# What the page check runs while scan_runs is "subset": the built-in checks of scan-worker/src/checks.ts (branch
-# wave2/scan, scan-worker/README.md "Visual checks and the visual-chunk interface"), in the site's words.
+# What the page check runs, by scan_runs:
+#   "subset": the old built-in checks of scan-worker/src/checks.ts (branch wave2/scan), in the site's words. Branch
+#             wave2/scan-launch deleted them.
+#   "chunk":  the runtime's visual chunk (branch wave2/scan-launch, scan-worker/README.md "How it runs"): every kind
+#             except click-blocked, because the scanner clicks nothing but the race probe's submit button.
+#   "all":    every kind.
 SCAN_SUBSET = ("text under 1.5:1 contrast, broken images, stylesheets and fonts that failed to load, template leaks, "
                "sideways scrolling on a phone, and controls covered on the first screen")
+SCAN_SKIP = "click-blocked"
+SCAN_SKIP_WHY = "which needs a visitor's clicks"
 
 def scan_runs(lead="The page check runs", which=True):
     if SCAN_RUNS == "all": return f"{lead} the same checks on one public page"
+    if SCAN_RUNS == "chunk": return f"{lead} the same checks on one public page, except <code>{SCAN_SKIP}</code>, {SCAN_SKIP_WHY}"
     return f"{lead} a built-in subset of them on one public page" + (f": {SCAN_SUBSET}" if which else "")
 
 def model_sentence():
@@ -550,11 +558,22 @@ def vt(key):
         return (f" Measured in CI on {when(C['date'])}: {count(C['fixtures']['found'])} of {count(C['fixtures']['planted'])} "
                 f"planted faults found on fixture pages, {count(C['clean']['false_reports'])} false reports in "
                 f"{count(C['clean']['page_views'])} page views of unmodified apps, and on public home pages "
-                f"{count(r['findings'])} findings in {count(r['loads'])} loads, {count(r['confirmed_real'])} of them confirmed real.")
+                f"({_public_label(r)}), {count(r['findings'])} findings in {count(r['loads'])} loads, "
+                f"{count(r['confirmed_real'])} of them confirmed real and {count(r['unconfirmed'])} unconfirmed.")
     raise SystemExit(f"visual.py: unknown text key {key!r}")
 
 def _public_run():
     return next(r for r in C["public"]["runs"] if r["run"] == C["public"]["run"])
+
+def _public_label(r):
+    """Which bench run and how many of the sites a public-site number is from: "bench run 4, 31 of 40 sites"."""
+    return f"bench run {count(r['run'])}, {count(r['sites'])} of {count(C['public']['sites'])} sites"
+
+def _public_unreviewed():
+    """Later bench runs whose findings nobody looked at (confirmed_real null), as "run 5" or "runs 5 and 6"."""
+    later = [x["run"] for x in C["public"]["runs"] if x["run"] > C["public"]["run"] and x.get("confirmed_real") is None]
+    if not later: return ""
+    return ("run " if len(later) == 1 else "runs ") + " and ".join(count(n) for n in later)
 
 def llms_head(rt):
     if SHIPPED: return f"Visual bug checks, from runtime {D['checks_in_runtime']}"
@@ -570,10 +589,12 @@ def llms_line():
                  f"{esc(C['name'])} {esc(C['version'])}, not a model. Measured on {esc(C['measured_on'])}, {when(C['date'])}: "
                  f"{count(C['fixtures']['found'])} of {count(C['fixtures']['planted'])} planted faults found on fixture pages; "
                  f"{count(C['clean']['false_reports'])} false reports in {count(C['clean']['page_views'])} page views of unmodified "
-                 f"demo, template and compatibility apps; on public home pages, {count(r['findings'])} findings in "
-                 f"{count(r['loads'])} loads, {count(r['confirmed_real'])} confirmed real. https://genclass.dev/visual#numbers"]
+                 f"demo, template and compatibility apps; on public home pages ({_public_label(r)}), {count(r['findings'])} findings in "
+                 f"{count(r['loads'])} loads, {count(r['confirmed_real'])} confirmed real, {count(r['unconfirmed'])} unconfirmed. "
+                 f"https://genclass.dev/visual#numbers"]
         if SCAN_LIVE:
-            what = "the same checks" if SCAN_RUNS == "all" else f"a built-in subset of the checks ({SCAN_SUBSET})"
+            what = ("the same checks" if SCAN_RUNS == "all" else f"the same checks except {SCAN_SKIP}, {SCAN_SKIP_WHY}"
+                    if SCAN_RUNS == "chunk" else f"a built-in subset of the checks ({SCAN_SUBSET})")
             lines.append(f"- Page check: https://genclass.dev/visual#scan, or genclass.dev/<address>. A cloud browser loads one public page and runs {what}.")
         if MODEL_LIVE:
             m = D["model"]
@@ -610,7 +631,9 @@ def state():
     elif READY_BY:
         rows.append(("Model results due", when_html(READY_BY), True))
     if SCAN_LIVE:
-        rows.append(("Page check", "Open. " + ("All of the checks" if SCAN_RUNS == "all" else "A built-in subset of the checks")
+        rows.append(("Page check", "Open. " + ("All of the checks" if SCAN_RUNS == "all" else
+                                               "All of the checks except the one that needs a visitor's clicks"
+                                               if SCAN_RUNS == "chunk" else "A built-in subset of the checks")
                      + ", on one public page.", False))
     if SHIPPED:
         rows.append(("In the runtime", f"From runtime {esc(D['checks_in_runtime'])}.", False))
@@ -642,7 +665,8 @@ def checks_nums():
         (f'{count(r["confirmed_real"])} of {count(r["findings"])}',
          f'findings on public home pages confirmed real by a person, in {count(r["loads"])} loads; {count(r["unconfirmed"])} unconfirmed, '
          f'{count(r["check_errors"])} check errors',
-         f'{count(r["sites"])} of {count(pub["sites"])} sites measured; bench run {count(r["run"])}'),
+         f'{_public_label(r)}; the checks were tuned on these sites'
+         + (f'; {_public_unreviewed()} {"is" if _public_unreviewed().startswith("run ") else "are"} not reviewed yet' if _public_unreviewed() else '')),
     ]
     items = "".join(f'<div><b>{big}</b><p>{p}</p><small>{small}</small></div>' for big, p, small in cells)
     scan = f" {scan_runs('The page check runs')}." if SCAN_LIVE else ""
@@ -663,7 +687,7 @@ def specimens():
             f"No check yet {'does' if gaps == 1 else 'do'} not." if gaps else " Each has a measured check.")
     return f'''<figure class="vspec-fig">
       <div class="vspec">{cells}</div>
-      <figcaption><b>Fig. 1</b> Six of the bugs in the GenClass catalog of visual bugs in AI-built sites, with their catalog ids.{note} Drawn for this page; none is a screenshot of a real site. <a href="/visual#families">Every family →</a></figcaption>
+      <figcaption><b>Fig. 1</b> Six of the bugs in the {src_link("catalog", "GenClass catalog of visual bugs in AI-built sites")}, with their catalog ids.{note} Drawn for this page; none is a screenshot of a real site. <a href="/visual#families">Every family →</a></figcaption>
     </figure>'''
 
 def crawl_fig():
@@ -750,6 +774,14 @@ def model_step():
             f'regular sites, {count(t["elements"])} labelled elements, with {count(t["injected_faults"])} faults injected from outside '
             f'the page. It reads {esc(m["input"])}. Its recall and false reports are in Tables 5 and 6.{STAMP}</p>')
 
+def _scan_numbers_note():
+    """How the numbers on /visual relate to the page check: they were measured on the runtime's bench, not through it."""
+    if not SCAN_LIVE: return ""
+    if SCAN_RUNS == "subset":
+        return " The page check runs a built-in subset of them; these numbers are for the full set built for the runtime."
+    skip = f", except <code>{SCAN_SKIP}</code>" if SCAN_RUNS == "chunk" else ""
+    return f" The page check runs the same checks{skip}; these numbers were measured on the runtime's bench, not through the page check."
+
 def _checks_tables():
     fx, rc, cl, pub, co = C["fixtures"], C["recall"], C["clean"], C["public"], C["cost"]
     res = src_link("results", "the runtime results, sections 8 and 9", bare=True)
@@ -768,7 +800,7 @@ def _checks_tables():
                      for p in co["passes"])
     r = _public_run()
     return f'''<div class="sh"><span class="no">Results</span><h2>What was measured, and on what.</h2></div>
-    <p class="intro">Every number below is for {esc(C["name"])} {esc(C["version"])} (branch <code>{esc(C["branch"])}</code>), measured on {esc(C["measured_on"])} on {when_html(C["date"])}, and copied with its label from {res}. These are measurements of fixed checks with documented thresholds, not of a model.{" The page check runs a built-in subset of them; these numbers are for the full set built for the runtime." if SCAN_LIVE and SCAN_RUNS == "subset" else ""}</p>
+    <p class="intro">Every number below is for {esc(C["name"])} {esc(C["version"])} (branch <code>{esc(C["branch"])}</code>), measured on {esc(C["measured_on"])} on {when_html(C["date"])}, and copied with its label from {res}. These are measurements of fixed checks with documented thresholds, not of a model.{_scan_numbers_note()}</p>
     <ul class="vlim vkey">
       <li><b>{count(fx["found"])} of {count(fx["planted"])} planted faults found on fixture pages</b>, each on its element, {count(fx["kinds"])} kinds, {count(fx["tests_passed"])} tests passed. These are {esc(fx["on"])}, so this shows the checks work as designed.</li>
       <li><b>{count(cl["false_reports"])} false reports and {count(cl["fixes_applied"])} fixes applied in {count(cl["page_views"])} page views</b> of unmodified pages (Table 2).</li>
@@ -839,8 +871,12 @@ def model_limit():
         return "<li><b>The model's numbers hold for the data in Tables 5 and 6.</b> On kinds of sites the crawl did not cover, recall and precision may be lower.</li>"
     s = "<li><b>The learned model has no numbers yet.</b> Nothing on this page claims a detection rate for it until one is measured and published.</li>"
     if LIVE:
-        s += ("<li><b>Measured on GenClass's own apps and 40 public home pages.</b> Recall is on faults planted in the author's own forms, "
-              "and the public sites were also used to tune the checks between runs, so they are not held out.</li>")
+        sites = [x["sites"] for x in C["public"]["runs"]]
+        lo, hi = min(sites), max(sites)
+        per = f"{count(lo)} to {count(hi)}" if lo != hi else count(lo)
+        s += (f"<li><b>Measured on GenClass's own apps and {per} of {count(C['public']['sites'])} public home pages per run.</b> "
+              "Recall is on faults planted in the author's own forms, and the public sites were also used to tune the checks "
+              "between runs, so they are not held out.</li>")
     return s
 
 def sources():
@@ -864,7 +900,7 @@ def scan_section():
     return f'''<section id="scan">
   <div class="wrap">
     <div class="sh"><span class="no">Page check</span><h2>Scan a page.</h2></div>
-    <p class="intro">Paste the address of a public page. A cloud browser loads it, runs {"the measured checks" if SCAN_RUNS == "all" else "a built-in subset of the measured checks (" + SCAN_SUBSET + ")"}, and shows each problem on a screenshot with what was measured and a suggested fix.</p>
+    <p class="intro">Paste the address of a public page. A cloud browser loads it, runs {"the measured checks" if SCAN_RUNS == "all" else f"the measured checks (all but <code>{SCAN_SKIP}</code>, {SCAN_SKIP_WHY})" if SCAN_RUNS == "chunk" else "a built-in subset of the measured checks (" + SCAN_SUBSET + ")"}, and shows each problem on a screenshot with what was measured and a suggested fix.</p>
     <!--@scanform visual-->
   </div>
 </section>'''

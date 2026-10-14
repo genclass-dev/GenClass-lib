@@ -4,7 +4,7 @@
   "updated": "2026-10-14",
   "ready_by": null,
   "scan_live": true,
-  "scan_runs": "subset",
+  "scan_runs": "chunk",
   "checks_in_runtime": null,
   "checks": {
     "name": "Sample checks",

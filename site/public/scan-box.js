@@ -21,15 +21,16 @@
       return { error: "That is not a web address. Try something like example.com/pricing." };
     }
     if (u.username || u.password) return { error: "Remove the user name and password from the address." };
-    if (u.port) return { error: "The scan loads pages on the default port only. Remove the port from the address." };
+    // The host before the port: for localhost:3000 the message that matters is that local pages cannot be scanned.
     const host = u.hostname.replace(/\.$/, "").toLowerCase();
     if (host.startsWith("[") || /^[0-9.]+$/.test(host) || /^0x/i.test(host)) return { error: "Enter a host name, not an IP address." };
+    if (RESERVED.test(host)) return { error: "The scan runs on our servers, so it can only load pages on the public internet." };
     const labels = host.split(".");
     const tld = labels[labels.length - 1];
     if (labels.length < 2 || !labels.every((l) => LABEL.test(l)) || !/^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/.test(tld))
       return { error: "That host name is not a public one. Try something like example.com." };
-    if (RESERVED.test(host)) return { error: "The scan runs on our servers, so it can only load pages on the public internet." };
     if (host === "genclass.dev" || host.endsWith(".genclass.dev")) return { error: "Enter the address of your own page." };
+    if (u.port) return { error: "The scan loads pages on the default port only. Remove the port from the address." };
     const path = u.pathname === "/" ? "" : u.pathname;
     return { path: "/scan?url=" + encodeURIComponent((u.protocol === "http:" ? "http://" : "") + host + path + u.search) };
   }
