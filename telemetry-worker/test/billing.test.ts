@@ -649,7 +649,10 @@ describe("GET /account/billing", () => {
     expect(waiting).toContain('id="donemsg"');
     expect(waiting).not.toContain("data-plan=");
     setPlan(sql, a.account.id, "pro", { subscription_id: "sub_p000000001", subscription_status: "active", current_period_end: "2026-11-13T12:00:00.000Z" });
-    expect(await (await call(env, "GET", "/account/billing?plan=pro", { cookie: a.cookie })).text()).not.toContain("data-pick");
+    // already on that plan: nothing to pick (the page script's [data-pick] selector is not a button)
+    const onPro = await (await call(env, "GET", "/account/billing?plan=pro", { cookie: a.cookie })).text();
+    expect(onPro).not.toContain(" data-pick>");
+    expect(onPro).not.toContain('class="plan pick"');
   });
 
   it("GET /api/billing gives the browser its plan; a Custom page says who emails and when", async () => {
