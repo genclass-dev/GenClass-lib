@@ -290,14 +290,15 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
 - **Which elements.** First the visual checks' findings with an element to crop, except `page-overflow-x`,
   `image-broken` and `text-template-leak` (left as measured, as the evaluation recommends: at its threshold the model
   dropped 13 of 34 real sideways-scrolling findings and 4 of 15 broken images; template text was right 5 times in 6) and
-  `layout-shift` (listed, not scored already); a finding is matched to its element by selector and box. Then elements the
-  measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five points,
-  controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible link and button with
-  text or an icon (not fields: the model takes a placeholder for leaked example text), and text whose background along
-  its ancestors or under its centre is an image, a gradient, media or a filter; covered controls and text on the first screen before the rest, top to bottom (a crop further down is taken
-  after scrolling to it, so only what the screenshot covers); nothing inside `aria-hidden`, `role="img"`, `inert` or a
-  closed `details`, nothing that is only the site's own name (a logotype, which WCAG 1.4.3 exempts, the same rule as
-  axe-core's `color-contrast` here), and nothing inside or around an element already chosen.
+  `layout-shift` (listed, not scored already); a finding is matched to its element by selector and box. Then elements
+  the measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five
+  points, controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible link and button
+  with text or an icon (not fields: the model takes a placeholder for leaked example text), and text whose background
+  along its ancestors or under its centre is an image, a gradient, media or a filter; covered controls and text on the
+  first screen before the rest, top to bottom (a crop further down is taken after scrolling to it, so only what the
+  screenshot covers); nothing inside `aria-hidden`, `role="img"`, `inert` or a closed `details`, nothing that is only
+  the site's own name (a logotype, which WCAG 1.4.3 exempts, the same rule as axe-core's `color-contrast` here), and
+  nothing inside or around an element already chosen.
 - **The cap.** At most 40 calls a scan (`JUDGE_MAX_CALLS`), the findings first. Each view is guaranteed its share, 14 for
   the desktop and 13 for each phone view (`JUDGE_SHARE`), and may also take what the views that asked before it left
   (`JudgeBudget`: in calibration the desktop asked about 0 to 14 elements, the light phone 0 to 7, the dark phone up to
@@ -407,12 +408,12 @@ that as a demo setting.
 | `JUDGE` | `on` | the model judge over the `AI` binding; `off` runs the measured checks only |
 | `JUDGE_CROPS` | unset (production), `all` in env `test` | keep every judged crop and put each call's state text in the report (calibration) |
 
-Bindings: `BROWSER` (Browser Rendering), `AI` (Workers AI, the model judge), `BUCKET` (R2 `genclass-telemetry`, `scans/` prefix only), `SCAN_LIMIT`
-(per client, namespace 4810), `SITE_LIMIT` (per site, namespace 4811) and `SITE` (the site worker `genclass-site`, for
-`/scan…` paths that are the site's). The env `test` repeats every binding (they are not inherited), sets `"routes": []`
-(routes are inherited unless set; wrangler resolves `rawEnv.routes ?? topLevel.routes`, so an empty list means none),
-its own rate-limit namespaces 4820 and 4821, `MAX_CONCURRENT` 3 and `STORE_PREFIX` `scan-test/`, and keeps the hourly
-sweep over its prefix. Compatibility flag `enable_request_signal`
+Bindings: `BROWSER` (Browser Rendering), `AI` (Workers AI, the model judge), `BUCKET` (R2 `genclass-telemetry`, `scans/`
+prefix only), `SCAN_LIMIT` (per client, namespace 4810), `SITE_LIMIT` (per site, namespace 4811) and `SITE` (the site
+worker `genclass-site`, for `/scan…` paths that are the site's). The env `test` repeats every binding (they are not
+inherited), sets `"routes": []` (routes are inherited unless set; wrangler resolves `rawEnv.routes ?? topLevel.routes`,
+so an empty list means none), its own rate-limit namespaces 4820 and 4821, `MAX_CONCURRENT` 3 and `STORE_PREFIX`
+`scan-test/`, and keeps the hourly sweep over its prefix. Compatibility flag `enable_request_signal`
 (a cancelled request stops its scan). Hourly cron `23 * * * *` deletes `scans/shots/` and `scans/reports/` objects older than
 24 hours (`sweep` in `src/store.ts`); no R2 lifecycle rule was added.
 
@@ -451,15 +452,16 @@ the scanner's own left out, failed same-site requests by type and status, who-as
 bytes, the test copy's bucket prefix), and in `test/app.test.ts` a full deep scan through the mocked browser (axe-core
 in every view, the phone narrowed to 360 and 320, the DevTools record, the static report's six categories and top
 issues), categories left unmeasured when time runs out or there is no DevTools session, and the scroll-lock
-correction. `test/judge.test.ts` (the model judge: both state texts word for word with Python's rounding, which one each element
-gets, the Clef input, answers read back and refused when malformed, unknown options ignored, a call that throws, hangs
-or answers nonsense never breaking anything, the 40-call cap and its shares, the scroll groups, the page's list
+correction. `test/judge.test.ts` (the model judge: both state texts word for word with Python's rounding, which one each
+element gets, the Clef input, answers read back and refused when malformed, unknown options ignored, a call that throws,
+hangs or answers nonsense never breaking anything, the 40-call cap and its shares, the scroll groups, the page's list
 checked, the page side serialised without bundler names; through the mocked browser and a fake `AI`: 40 calls at most
-across the views, crops never captured two at a time, a finding kept, one listed as probably fine and not scored, every finding as measured when the model is down or hangs,
-off without the binding or with `JUDGE=off`, the three kinds and box-less findings never sent; the two thresholds at their
-edges, every view needed for "probably fine", no finding of its own over a measured one, the light and dark phone merged,
-which crops are kept; `/scan/about` and the report page wording, and escaping of what the model and the page said, with
-only this origin's crop URLs shown). CI jobs: `scan-worker` and `scan-visual` in `.github/workflows/ci.yml`.
+across the views, crops never captured two at a time, a finding kept, one listed as probably fine and not scored, every
+finding as measured when the model is down or hangs, off without the binding or with `JUDGE=off`, the three kinds and
+box-less findings never sent; the two thresholds at their edges, every view needed for "probably fine", no finding of
+its own over a measured one, the light and dark phone merged, which crops are kept; `/scan/about` and the report page
+wording, and escaping of what the model and the page said, with only this origin's crop URLs shown). CI jobs:
+`scan-worker` and `scan-visual` in `.github/workflows/ci.yml`.
 
 `test/fixture/` is a test page with problems on purpose (`genclass-scan-fixture.mehar-144.workers.dev`): text at
 1.08:1, `Total: $NaN`, a 404 stylesheet, a 404 image, a 640 px box on a 390 px phone, a link at the end of the page
