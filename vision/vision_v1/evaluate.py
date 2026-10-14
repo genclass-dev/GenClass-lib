@@ -88,7 +88,10 @@ def student_scores(model_dir, pack, rows, which):
     import torch
     from train import Student, load_pack, score
     ck = torch.load(os.path.join(model_dir, "model.pt"), map_location="cpu")
-    m = Student(ck["arch"], pretrained=False)
+    from common import IN_W as _W, IN_H as _H
+    if list(ck.get("input", [_W, _H])) != [_W, _H]:
+        sys.exit("the model was trained at %s; set VV1_INPUT to match" % ck["input"])
+    m = Student(ck["arch"], pretrained=False, any_head=ck.get("anyHead", False))
     m.load_state_dict(ck["state"])
     m = m.to(memory_format=torch.channels_last)
     _, X, Xd, F = load_pack(pack)
@@ -196,10 +199,12 @@ def cmd(a):
     dev, dev_rows = dev_set()
     dev_ids = [it["id"] for it in dev]
     st_dev = student_scores(a.model, "lab", dev_rows, a.input)
+    if a.score == "anyT":
+        st_dev["any"] = st_dev["anyT"]
     cf_dev, ca_dev = clef_scores(dev_ids, extra_dirs=[os.path.join(OUT, "clef-ref", "runs")])
     d_real, d_in = labels_arrays([it["verdict"] for it in dev], [it["family"] for it in dev])
     det_dev = detectors(st_dev, cf_dev, ca_dev, [it["rules"] for it in dev])
-    res = {"input": a.input, "model": os.path.basename(os.path.normpath(a.model)), "dev": {}, "thresholds": {}}
+    res = {"input": a.input, "score": a.score, "model": os.path.basename(os.path.normpath(a.model)), "dev": {}, "thresholds": {}}
     clear = np.array([it["verdict"] != "unclear" for it in dev])
     rep = np.array([it["clefSplit"] == "report" for it in dev])
     gbt_dev = np.array([it.get("gbt") if it.get("gbt") is not None else np.nan for it in dev], float)
@@ -242,7 +247,7 @@ def cmd(a):
     res["dev"]["clefVariantsOnExtraLabels"]["sumOfLogits"] = ranking(yx, lg(cv["clef-img-p3"]) + lg(cv["clef-imgonly-p2"]))
     if a.cmd == "dev":
         print(json.dumps(res["dev"], indent=1)[:6000])
-        json.dump(res, open(os.path.join(a.model, "eval-dev-%s.json" % a.input), "w"), indent=1)
+        json.dump(res, open(os.path.join(a.model, "eval-dev-%s-%s.json" % (a.input, a.score)), "w"), indent=1)
         return
 
     # ---------------------------------------------------------------- the one test evaluation
@@ -252,10 +257,13 @@ def cmd(a):
     man = [json.loads(l) for l in open(os.path.join(TD, "manifest.jsonl"))]
     lab = json.load(open(os.path.join(TD, "labels.json")))["labels"]
     man = [m for m in man if m["test"] in lab]
-    nat = json.load(open(os.path.join(OUT, "pack", "nat.json")))["items"]
+    from common import PACK_DIR
+    nat = json.load(open(os.path.join(PACK_DIR, "nat.json")))["items"]
     row_of = {it["id"]: k for k, it in enumerate(nat)}
     rows = [row_of[m["crop"]] for m in man]
     st = student_scores(a.model, "nat", rows, a.input)
+    if a.score == "anyT":
+        st["any"] = st["anyT"]
     cf, ca = clef_scores([m["crop"] for m in man])
     verd = [lab[m["test"]]["verdict"] for m in man]
     fams = [lab[m["test"]]["family"] for m in man]
@@ -265,7 +273,7 @@ def cmd(a):
     groups = [m["g"] for m in man]
     gbt = np.array([nat[r].get("gbt") if nat[r].get("gbt") is not None else np.nan for r in rows], float)
     det = detectors(st, cf, ca, [m["rules"] for m in man])
-    out = {"input": a.input, "model": res["model"], "n": len(man), "labels": json.load(open(os.path.join(TD, "labels.json")))["stats"],
+    out = {"input": a.input, "score": a.score, "model": res["model"], "n": len(man), "labels": json.load(open(os.path.join(TD, "labels.json")))["stats"],
            "strata": {s: int((strata == s).sum()) for s in sorted(set(strata))},
            "realByStratum": {s: int((real & (strata == s)).sum()) for s in sorted(set(strata))},
            "thresholds": res["thresholds"], "operatingPoints": {}, "ship": {}, "ranking": {}, "vsClef": {}}
@@ -328,6 +336,7 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--input", default="full", choices=["full", "degraded"])
     ap.add_argument("--threads", type=int, default=16)
+    ap.add_argument("--score", default="any", choices=["any", "anyT"], help="the student's any-problem score (the dev choice)")
     a = ap.parse_args()
     import torch
     torch.set_num_threads(a.threads)

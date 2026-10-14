@@ -119,6 +119,9 @@ def main():
     ap.add_argument("--batch", type=int, default=64)
     a = ap.parse_args()
     spec = json.load(open(os.path.join(os.path.dirname(os.path.abspath(a.model)), "spec.json")))
+    global IN_W, IN_H
+    IN_W = spec["inputs"]["image"]["letterbox"]["width"]
+    IN_H = spec["inputs"]["image"]["letterbox"]["height"]
     assert spec["inputs"]["facts"]["names"] == FACT_NAMES, "facts out of step with spec.json"
     so = ort.SessionOptions()
     so.intra_op_num_threads = 4
@@ -127,7 +130,7 @@ def main():
     with open(a.out, "w") as out:
         for s in range(0, len(items), a.batch):
             chunk = items[s: s + a.batch]
-            x = np.stack([letterbox(Image.open(it["img"]).convert("RGB"))[0] for it in chunk]).astype(np.float32).transpose(0, 3, 1, 2)
+            x = np.stack([letterbox(Image.open(it["img"]).convert("RGB"), IN_W, IN_H)[0] for it in chunk]).astype(np.float32).transpose(0, 3, 1, 2)
             f = np.stack([facts(it) for it in chunk]).astype(np.float32)
             fam, anyp = sess.run(None, {"image": np.ascontiguousarray(x), "facts": f})
             for it, fa, an in zip(chunk, fam, anyp):

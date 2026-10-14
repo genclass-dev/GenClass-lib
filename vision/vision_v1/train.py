@@ -27,10 +27,10 @@ import torch.nn as nn
 import torch.nn.functional as Fn
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import OUT, IN_W, IN_H, FAMILIES, VERDICTS, INJ_FAMILY, INJ_VERDICT, FACT_NAMES  # noqa: E402
+from common import OUT, PACK_DIR, IN_W, IN_H, FAMILIES, VERDICTS, INJ_FAMILY, INJ_VERDICT, FACT_NAMES  # noqa: E402
 import metrics  # noqa: E402
 
-PD = os.path.join(OUT, "pack")
+PD = PACK_DIR
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1) * 255
 STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1) * 255
 TEACHERS = {"A": "clef-img-p3", "B": "clef-imgonly-p2"}
@@ -39,7 +39,7 @@ TEACHERS = {"A": "clef-img-p3", "B": "clef-imgonly-p2"}
 class Student(nn.Module):
     """uint8-range RGB (N, 3, 128, 224) + facts (N, 64) -> logits of famA, famB, verA, verB."""
 
-    def __init__(self, arch="mnv3s", pretrained=True, nf=len(FACT_NAMES)):
+    def __init__(self, arch="mnv3s", pretrained=True, nf=len(FACT_NAMES), any_head=False):
         super().__init__()
         import torchvision
         if arch == "mnv3s":
@@ -62,13 +62,17 @@ class Student(nn.Module):
         self.famB = nn.Linear(384, len(FAMILIES))
         self.verA = nn.Linear(384, len(VERDICTS))
         self.verB = nn.Linear(384, len(VERDICTS))
+        self.any_head = any_head
+        if any_head:  # one logit for the teacher's combined anyProblem (the sum of the two prompts' logits)
+            self.anyT = nn.Linear(384, 1)
 
     def forward(self, x, f):
         # keep channels-last after the broadcast (it falls back to NCHW, which runs the convolutions ~3x slower)
         x = ((x - self.mean) / self.std).contiguous(memory_format=torch.channels_last)
         h = self.features(x).mean((2, 3))
         z = self.trunk(torch.cat([h, self.fact(f)], 1))
-        return self.famA(z), self.famB(z), self.verA(z), self.verB(z)
+        out = (self.famA(z), self.famB(z), self.verA(z), self.verB(z))
+        return out + (self.anyT(z)[:, 0],) if self.any_head else out
 
 
 def load_pack(name):
@@ -192,19 +196,24 @@ def score(model, X, F, bs=512, bf16=False):
     """Per crop: family probabilities A, B and their mean, verdict probabilities A, B, and the anyProblem scores."""
     model.eval()
     outs = {k: [] for k in ("famA", "famB", "verA", "verB")}
+    at = []
     for s in range(0, len(F), bs):
         x = torch.from_numpy(np.asarray(X[s: s + bs])).permute(0, 3, 1, 2).float().contiguous(memory_format=torch.channels_last)
         f = torch.from_numpy(np.asarray(F[s: s + bs]))
         with torch.autocast("cpu", dtype=torch.bfloat16, enabled=bf16):
-            fa, fb, va, vb = model(x, f)
-        for k, z in zip(("famA", "famB", "verA", "verB"), (fa, fb, va, vb)):
+            r = model(x, f)
+        for k, z in zip(("famA", "famB", "verA", "verB"), r[:4]):
             outs[k].append(torch.softmax(z.float(), 1).numpy())
+        if len(r) > 4:
+            at.append(torch.sigmoid(r[4].float()).numpy())
     o = {k: np.concatenate(v) for k, v in outs.items()}
     lg = lambda p: np.log(np.clip(p, 1e-6, 1 - 1e-6) / (1 - np.clip(p, 1e-6, 1 - 1e-6)))
     o["anyA"] = 1 - o["famA"][:, 0]
     o["anyB"] = 1 - o["famB"][:, 0]
     o["any"] = 1 / (1 + np.exp(-(lg(o["anyA"]) + lg(o["anyB"])) / 2))
     o["fam"] = (o["famA"] + o["famB"]) / 2
+    if at:
+        o["anyT"] = np.concatenate(at)
     return o
 
 
@@ -213,8 +222,9 @@ def dev_metrics(o, items):
     k = [i for i, it in enumerate(items) if it["kind"] == "lab" and it["verdict"] != "unclear"]
     y = np.array([items[i]["verdict"] == "real" for i in k], float)
     out = {"n": len(k), "real": int(y.sum())}
-    for s in ("anyA", "anyB", "any"):
-        out[s] = round(metrics.ap(y, o[s][k]), 4)
+    for s in ("anyA", "anyB", "any", "anyT"):
+        if s in o:
+            out[s] = round(metrics.ap(y, o[s][k]), 4)
     return out
 
 
@@ -233,6 +243,8 @@ def main():
     ap.add_argument("--threads", type=int, default=78)
     ap.add_argument("--limit", type=int, default=0, help="training crops per epoch (0: all), for quick runs")
     ap.add_argument("--no-pretrained", action="store_true")
+    ap.add_argument("--any-head", action="store_true", help="add a head for the teacher's combined anyProblem")
+    ap.add_argument("--w-any", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -261,7 +273,14 @@ def main():
             "teacherCoverage": {t: int(T[t][2].sum()) for t in T}, "epochs": []}
     print(json.dumps({k: v for k, v in info.items() if k != "config"}), flush=True)
 
-    model = Student(a.arch, pretrained=not a.no_pretrained).to(memory_format=torch.channels_last)
+    model = Student(a.arch, pretrained=not a.no_pretrained, any_head=a.any_head).to(memory_format=torch.channels_last)
+    # the teacher's combined anyProblem (sigmoid of the mean of the two prompts' logits, or the one answer there is)
+    lgt = lambda p: np.log(np.clip(p, 1e-6, 1 - 1e-6) / (1 - np.clip(p, 1e-6, 1 - 1e-6)))
+    la, lb = lgt(1 - T["A"][0][:, 0]), lgt(1 - T["B"][0][:, 0])
+    ma_, mb_ = T["A"][2], T["B"][2]
+    tany = np.where(ma_ & mb_, (la + lb) / 2, np.where(ma_, la, lb))
+    tany = (1 / (1 + np.exp(-tany))).astype(np.float32)
+    iany = np.array([1.0 if it["kind"] == "fault" else 0.0 for it in inj], np.float32)
     bb = [p for n, p in model.named_parameters() if n.startswith("features.")]
     hd = [p for n, p in model.named_parameters() if not n.startswith("features.")]
     opt = torch.optim.AdamW([{"params": bb, "lr": a.lr_backbone}, {"params": hd, "lr": a.lr}], weight_decay=a.wd)
@@ -301,10 +320,17 @@ def main():
             tt = torch.from_numpy
             wt = torch.from_numpy(w)
             with torch.autocast("cpu", dtype=torch.bfloat16, enabled=a.bf16):
-                za, zb, va, vb = model(x, f)
+                r = model(x, f)
+            za, zb, va, vb = r[:4]
             lossf = lambda z, t, m: (wt[m] * -(t[m] * Fn.log_softmax(z.float()[m], 1)).sum(1)).sum() / max(1.0, float(wt[m].sum()))
             loss = (lossf(za, tt(tfa), tt(ma)) + lossf(zb, tt(tfb), tt(mb)) +
                     a.w_ver * (lossf(va, tt(tva), tt(mva)) + lossf(vb, tt(tvb), tt(mvb))))
+            if a.any_head:
+                ta_ = np.where(isn, 0, 0).astype(np.float32)
+                ta_[isn] = tany[rn]
+                ta_[~isn] = iany[ri_]
+                bce = Fn.binary_cross_entropy_with_logits(r[4].float(), torch.from_numpy(ta_), reduction="none")
+                loss = loss + a.w_any * (wt * bce).sum() / wt.sum()
             opt.zero_grad(set_to_none=True)
             loss.backward()
             opt.step()
@@ -332,11 +358,11 @@ def main():
                "distillVal": dv, "dev": dev_metrics(od, lab), "devDegraded": dev_metrics(odd, lab)}
         info["epochs"].append(rec)
         print(json.dumps(rec), flush=True)
-        torch.save({"state": model.state_dict(), "arch": a.arch, "epoch": ep}, os.path.join(a.out, "model-ep%d.pt" % ep))
+        torch.save({"state": model.state_dict(), "arch": a.arch, "epoch": ep, "anyHead": a.any_head, "input": [IN_W, IN_H]}, os.path.join(a.out, "model-ep%d.pt" % ep))
         np.savez(os.path.join(a.out, "scores-dev-ep%d.npz" % ep), **{k: v for k, v in od.items()},
                  **{"deg_" + k: v for k, v in odd.items()})
     info["trainSeconds"] = round(time.time() - t_start)
-    torch.save({"state": model.state_dict(), "arch": a.arch, "epoch": a.epochs - 1}, os.path.join(a.out, "model.pt"))
+    torch.save({"state": model.state_dict(), "arch": a.arch, "epoch": a.epochs - 1, "anyHead": a.any_head, "input": [IN_W, IN_H]}, os.path.join(a.out, "model.pt"))
     json.dump(info, open(os.path.join(a.out, "train.json"), "w"), indent=1)
     print("done in %d s" % info["trainSeconds"])
 

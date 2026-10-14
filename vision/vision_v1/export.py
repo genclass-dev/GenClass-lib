@@ -24,13 +24,16 @@ from train import Student, load_pack  # noqa: E402
 class Export(torch.nn.Module):
     """image (N, 3, 128, 224) RGB 0..255, facts (N, 64) -> family (N, 11) probabilities, any (N) probability."""
 
-    def __init__(self, m):
+    def __init__(self, m, score="any"):
         super().__init__()
         self.m = m
+        self.score = score
 
     def forward(self, image, facts):
-        fa, fb, _, _ = self.m(image, facts)
-        pa, pb = torch.softmax(fa, 1), torch.softmax(fb, 1)
+        r = self.m(image, facts)
+        pa, pb = torch.softmax(r[0], 1), torch.softmax(r[1], 1)
+        if self.score == "anyT":
+            return (pa + pb) / 2, torch.sigmoid(r[4])
         eps = 1e-6
         la = torch.log((1 - pa[:, 0]).clamp(eps, 1 - eps) / pa[:, 0].clamp(eps, 1 - eps))
         lb = torch.log((1 - pb[:, 0]).clamp(eps, 1 - eps) / pb[:, 0].clamp(eps, 1 - eps))
@@ -55,14 +58,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--thresholds", default="")
+    ap.add_argument("--score", default="any", choices=["any", "anyT"], help="which any-problem output to export (the dev choice)")
     a = ap.parse_args()
     ed = os.path.join(a.model, "export")
     os.makedirs(ed, exist_ok=True)
     ck = torch.load(os.path.join(a.model, "model.pt"), map_location="cpu")
-    m = Student(ck["arch"], pretrained=False)
+    from common import IN_W as _W, IN_H as _H
+    if list(ck.get("input", [_W, _H])) != [_W, _H]:
+        sys.exit("the model was trained at %s; set VV1_INPUT to match" % ck["input"])
+    m = Student(ck["arch"], pretrained=False, any_head=ck.get("anyHead", False))
     m.load_state_dict(ck["state"])
     m.eval()
-    ex = Export(m).eval()
+    ex = Export(m, a.score).eval()
     x0 = torch.full((1, 3, IN_H, IN_W), 128.0)
     f0 = torch.zeros(1, len(FACT_NAMES))
     p32 = os.path.join(ed, "model.onnx")
@@ -115,7 +122,8 @@ def main():
                                     "tagOther": "none of the above"},
                       "clip": [-3, 3]}},
         "outputs": {"family": {"classes": FAMILIES, "what": "mean of the two heads' family probabilities (Clef's family question under its two prompts)"},
-                    "any": {"what": "sigmoid of the mean over the two heads of logit(1 - P(none))"}},
+                    "any": {"what": "sigmoid of the mean over the two heads of logit(1 - P(none))" if a.score == "any"
+                            else "the any-problem head (trained on the teacher's combined anyProblem)"}},
         "verdictClasses": VERDICTS,
         "thresholdsFromDev": th,
         "labels": "distilled from Clef answers; evaluated against AI-agent labels (not people)",

@@ -19,7 +19,9 @@ OUT = os.path.expanduser(os.environ.get("VISION_V1", "~/vision-out/vision-v1")) 
 
 SHOT_SCALE = {"desktop": 0.5, "phone": 0.75}  # crawl.mjs DEVICES[device].shotScale
 PAD = 24  # context around the element box, CSS px (candidates.mjs cropRect)
-IN_W, IN_H = 224, 128  # student input, letterboxed
+# student input, letterboxed: 224 x 128 unless VV1_INPUT says otherwise (e.g. "320x192"); each size has its own pack
+IN_W, IN_H = (int(v) for v in os.environ.get("VV1_INPUT", "224x128").split("x"))
+PACK_DIR = os.path.join(OUT, "pack" if (IN_W, IN_H) == (224, 128) else "pack-%dx%d" % (IN_W, IN_H))
 MAX_UPSCALE = 2.0
 LETTERBOX_FILL = (128, 128, 128)
 

@@ -15,9 +15,9 @@ from multiprocessing import Pool
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import OUT, IN_W, IN_H, letterbox, degrade, facts  # noqa: E402
+from common import OUT, PACK_DIR, IN_W, IN_H, letterbox, degrade, facts  # noqa: E402
 
-PD = os.path.join(OUT, "pack")
+PD = PACK_DIR
 
 
 def work(job):
