@@ -255,15 +255,18 @@ def main():
     held = set(json.load(open(os.path.join(OUT, "test", "heldout.json")))["g"])
 
     nat, Xn, Xnd, Fn_ = load_pack("nat")
-    inj, Xi, Xid, Fi = load_pack("inj")
+    if a.w_inj > 0:
+        inj, Xi, Xid, Fi = load_pack("inj")
+    else:  # no injected rows: the injected pack is not needed (other input sizes pack only nat and lab)
+        inj, Xi, Xid, Fi = [], None, None, np.zeros((0, len(FACT_NAMES)), np.float32)
     lab, Xl, Xld, Fl = load_pack("lab")
     T = teacher_targets(nat)
     ifam, iver, imv = injected_targets(inj)
     full_n = np.array([it["src"] == "crawl" for it in nat])
     nat_ok = np.array([it["g"] not in held for it in nat]) & (T["A"][2] | T["B"][2])
-    inj_ok = np.array([it["g"] not in held for it in inj])
+    inj_ok = np.array([it["g"] not in held for it in inj], bool)
     dval_n = np.array([host_bucket(it["g"]) < 0.05 for it in nat])
-    dval_i = np.array([host_bucket(it["g"]) < 0.05 for it in inj])
+    dval_i = np.array([host_bucket(it["g"]) < 0.05 for it in inj], bool)
     tr_n = np.nonzero(nat_ok & ~dval_n)[0]
     tr_i = np.nonzero(inj_ok & ~dval_i)[0] if a.w_inj > 0 else np.zeros(0, int)
     va_n = np.nonzero(nat_ok & dval_n)[0]
@@ -280,7 +283,7 @@ def main():
     ma_, mb_ = T["A"][2], T["B"][2]
     tany = np.where(ma_ & mb_, (la + lb) / 2, np.where(ma_, la, lb))
     tany = (1 / (1 + np.exp(-tany))).astype(np.float32)
-    iany = np.array([1.0 if it["kind"] == "fault" else 0.0 for it in inj], np.float32)
+    iany = np.array([1.0 if it["kind"] == "fault" else 0.0 for it in inj], np.float32).reshape(-1)
     bb = [p for n, p in model.named_parameters() if n.startswith("features.")]
     hd = [p for n, p in model.named_parameters() if not n.startswith("features.")]
     opt = torch.optim.AdamW([{"params": bb, "lr": a.lr_backbone}, {"params": hd, "lr": a.lr}], weight_decay=a.wd)

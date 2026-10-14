@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import OUT, FAMILIES  # noqa: E402
 import metrics  # noqa: E402
 
-TD = os.path.join(OUT, "test")
+TD = os.environ.get("VV1_TEST_DIR", os.path.join(OUT, "test"))  # overridden only by the dry run (dryrun.py)
 # the v1 rules that look for each family (vision/clef/eval.py FAMILY_RULES)
 FAMILY_RULES = {"media": {"image-broken", "image-distorted", "media-failed", "text-placeholder"},
                 "overflow": {"page-overflow-x"}, "occlusion": {"control-unreachable", "click-blocked"},
@@ -271,7 +271,13 @@ def cmd(a):
     w = np.array([1.0 / m["pi"] for m in man])
     strata = np.array([m["stratum"] for m in man])
     groups = [m["g"] for m in man]
-    gbt = np.array([nat[r].get("gbt") if nat[r].get("gbt") is not None else np.nan for r in rows], float)
+    def v1_score(m):  # the v1 gbt-small score the crawl stored in the crop's sidecar
+        try:
+            s = json.load(open(m["img"][:-4] + ".json")).get("score")
+        except (OSError, ValueError, KeyError):
+            s = None
+        return np.nan if s is None else s
+    gbt = np.array([v1_score(m) for m in man], float)
     det = detectors(st, cf, ca, [m["rules"] for m in man])
     out = {"input": a.input, "score": a.score, "model": res["model"], "n": len(man), "labels": json.load(open(os.path.join(TD, "labels.json")))["stats"],
            "strata": {s: int((strata == s).sum()) for s in sorted(set(strata))},
