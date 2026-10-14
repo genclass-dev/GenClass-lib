@@ -1,0 +1,84 @@
+{
+ "model": "HistGradientBoostingClassifier",
+ "features": 108,
+ "dropped": [
+  "pDark",
+  "pRound",
+  "pVh",
+  "pVw"
+ ],
+ "train": {
+  "rows": 856103,
+  "faults": 54288,
+  "iterations": 1352
+ },
+ "val": {
+  "rows": 391801,
+  "faults": 7233,
+  "controls": 238,
+  "clean": 101978,
+  "natural": 282352,
+  "averagePrecision": 0.7248,
+  "rocAuc": 0.9571,
+  "threshold": 0.607,
+  "atThreshold": {
+   "precision": 0.9001,
+   "recall": 0.4582,
+   "recallPixelSeen": 0.7489,
+   "recallNotSeenInViewport": 0.3651,
+   "controlsFlagged": 0.0336,
+   "cleanFlagged": 0.00353,
+   "naturalFlagged": 0.00194
+  },
+  "recallByFamily": {
+   "blank": 0.768,
+   "controls": 0.257,
+   "dark": 0.952,
+   "design": 0.292,
+   "leaks": 0.797,
+   "media": 0.833,
+   "motion": 0.953,
+   "occlusion": 0.88,
+   "other": 0.217,
+   "overflow": 0.854,
+   "responsive": 0.744,
+   "styles": 0.35,
+   "text": 0.486
+  }
+ },
+ "test": {
+  "rows": 356967,
+  "faults": 5994,
+  "controls": 212,
+  "clean": 88468,
+  "natural": 262293,
+  "averagePrecision": 0.7713,
+  "rocAuc": 0.9684,
+  "threshold": 0.607,
+  "atThreshold": {
+   "precision": 0.9051,
+   "recall": 0.5012,
+   "recallPixelSeen": 0.7574,
+   "recallNotSeenInViewport": 0.4247,
+   "controlsFlagged": 0.0802,
+   "cleanFlagged": 0.00337,
+   "naturalFlagged": 0.00148
+  },
+  "recallByFamily": {
+   "blank": 0.779,
+   "controls": 0.343,
+   "dark": 0.936,
+   "design": 0.272,
+   "leaks": 0.812,
+   "media": 0.835,
+   "motion": 0.901,
+   "occlusion": 0.852,
+   "other": 0.274,
+   "overflow": 0.919,
+   "responsive": 0.749,
+   "styles": 0.374,
+   "text": 0.571
+  }
+ },
+ "seconds": 45
+}

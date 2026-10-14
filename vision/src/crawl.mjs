@@ -443,6 +443,11 @@ async function main() {
           const scheme = env.colorScheme === "dark" ? "dark" : "light";
           const envChanged = scheme !== "light" || !!env.viewport || !!env.reducedMotion;
           try {
+            // a client-side redirect or reload replaced the document since round 1: its runtime and baseline are gone
+            if (!(await page.evaluate("typeof globalThis.__visionInject === 'function' && typeof globalThis.__visionLib === 'object'").catch(() => false))) {
+              nav.docReplaced = round;
+              break;
+            }
             if (envChanged) {
               await page.emulateMedia({ colorScheme: scheme, reducedMotion: env.reducedMotion || "no-preference" });
               if (env.viewport) await page.setViewportSize({ width: env.viewport[0], height: env.viewport[1] });

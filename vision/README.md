@@ -6,6 +6,10 @@ checks designed in `docs/runtime/VISUAL.md` (branch `wave2/visual`) and uses the
 `research/visual/` (`CATALOG.md`, `injectors.json`). The network model and its text (`situation-v2.3`) are not
 touched.
 
+The first full run (2026-10-14: 3,000 AI-builder and 600 control homepages, 35,074 injected faults in 13
+families, a 4.0M-row training set and a sanity baseline) is summarised in `results/README.md`; its raw data is on
+c20 in `~/vision-out`.
+
 Everything that loads a browser or queries Common Crawl runs on a cluster node, never on the Mac. The only thing
 meant for the Mac is the browser-free test (`npm test`).
 
@@ -19,6 +23,7 @@ meant for the Mac is the browser-free test (`npm test`).
 | `src/inject.mjs` | node and page | applies `research/visual/injectors.json` recipes to the crawled page and labels the elements |
 | `src/robots.mjs` | node | robots.txt rules (RFC 9309 matching) |
 | `src/build_set.mjs` | node | the training set from merged crawl shards: near-duplicate removal, host splits, feature matrices, labels, pixel verdicts, `summary.json` |
+| `train/baseline.py` | node | a sanity baseline on the training set (scikit-learn, the jev venv on the node) |
 | `results/` | | summaries copied from the node (no raw data) |
 | `scripts/node_setup.sh` | node | Node 22.22.0 (checksum verified), `npm ci`, Playwright Chromium and its system libraries, `~/vision-out` |
 | `scripts/cluster.sh` | Mac | `sync`, `setup`, `exec`, `crawl`, `status` over ssh, hosts from `~/.jev-local/azure_hosts` |

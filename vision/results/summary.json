@@ -1,0 +1,1775 @@
+{
+ "built": "2026-10-14T00:21:22.335Z",
+ "crawl": {
+  "hosts": 4549,
+  "byGroup": {
+   "control": {
+    "attempted": 1025,
+    "ok": 599,
+    "partial": 1,
+    "skipped": {
+     "robots-disallow": 31,
+     "robots-unreachable": 266,
+     "robots-5xx": 4
+    },
+    "failed": 124
+   },
+   "ai-builder": {
+    "attempted": 3524,
+    "ok": 2978,
+    "partial": 22,
+    "skipped": {
+     "robots-disallow": 43,
+     "robots-unreachable": 84
+    },
+    "failed": 397
+   }
+  },
+  "hostsWithViewsByDomain": {
+   "base44.app": 577,
+   "control": 599,
+   "replit.app": 375,
+   "vusercontent.net": 98,
+   "lovable.app": 1434,
+   "windsurf.build": 11,
+   "manus.space": 332,
+   "emergent.host": 63,
+   "genspark.space": 23,
+   "created.app": 87
+  },
+  "views": {
+   "total": 35643,
+   "clean": 8363,
+   "injected": 27280,
+   "byDeviceScheme": {
+    "desktop-light": 3599,
+    "phone-light": 3580,
+    "phone-dark": 1184
+   }
+  },
+  "elementRows": 13986510,
+  "hostMs": {
+   "p50": 44304,
+   "p90": 74946
+  }
+ },
+ "extractorCostMs": {
+  "perView": {
+   "p50": 21,
+   "p90": 67.4,
+   "p99": 238,
+   "max": 3410
+  },
+  "perCleanLoad": {
+   "p50": 31,
+   "p90": 84.3
+  },
+  "rowsPerView": {
+   "p50": 246,
+   "p90": 929
+  },
+  "truncatedViews": 630
+ },
+ "injection": {
+  "injectedViews": 27280,
+  "partialViews": 81,
+  "faultsApplied": 35074,
+  "controlsApplied": 2310,
+  "byFamily": {
+   "motion": {
+    "faults": 2297,
+    "recipes": 8,
+    "markedElements": 2962,
+    "matrixRows": 2845,
+    "pixel": {
+     "seen": 721,
+     "unseen": 242,
+     "out": 1882,
+     "none": 0,
+     "noisy": 266
+    }
+   },
+   "controls": {
+    "faults": 2900,
+    "recipes": 14,
+    "markedElements": 19477,
+    "matrixRows": 19187,
+    "pixel": {
+     "seen": 2493,
+     "unseen": 3975,
+     "out": 12719,
+     "none": 0,
+     "noisy": 2528
+    }
+   },
+   "media": {
+    "faults": 2632,
+    "recipes": 14,
+    "markedElements": 2632,
+    "matrixRows": 2600,
+    "pixel": {
+     "seen": 1025,
+     "unseen": 206,
+     "out": 1367,
+     "none": 2,
+     "noisy": 360
+    }
+   },
+   "occlusion": {
+    "faults": 2795,
+    "recipes": 7,
+    "markedElements": 2795,
+    "matrixRows": 2776,
+    "pixel": {
+     "seen": 1861,
+     "unseen": 303,
+     "out": 610,
+     "none": 2,
+     "noisy": 387
+    }
+   },
+   "overflow": {
+    "faults": 3644,
+    "recipes": 14,
+    "markedElements": 3871,
+    "matrixRows": 3841,
+    "pixel": {
+     "seen": 1344,
+     "unseen": 460,
+     "out": 2037,
+     "none": 0,
+     "noisy": 435
+    }
+   },
+   "responsive": {
+    "faults": 4162,
+    "recipes": 10,
+    "markedElements": 4877,
+    "matrixRows": 2392,
+    "pixel": {
+     "seen": 790,
+     "unseen": 231,
+     "out": 1371,
+     "none": 0,
+     "noisy": 201
+    }
+   },
+   "text": {
+    "faults": 3734,
+    "recipes": 10,
+    "markedElements": 5928,
+    "matrixRows": 3429,
+    "pixel": {
+     "seen": 921,
+     "unseen": 128,
+     "out": 2380,
+     "none": 0,
+     "noisy": 895
+    }
+   },
+   "blank": {
+    "faults": 2253,
+    "recipes": 6,
+    "markedElements": 2253,
+    "matrixRows": 2194,
+    "pixel": {
+     "seen": 938,
+     "unseen": 89,
+     "out": 1167,
+     "none": 0,
+     "noisy": 651
+    }
+   },
+   "styles": {
+    "faults": 2131,
+    "recipes": 13,
+    "markedElements": 12591,
+    "matrixRows": 12349,
+    "pixel": {
+     "seen": 2286,
+     "unseen": 2050,
+     "out": 8013,
+     "none": 0,
+     "noisy": 704
+    }
+   },
+   "other": {
+    "faults": 2446,
+    "recipes": 10,
+    "markedElements": 8439,
+    "matrixRows": 7898,
+    "pixel": {
+     "seen": 1490,
+     "unseen": 1267,
+     "out": 5141,
+     "none": 0,
+     "noisy": 1788
+    }
+   },
+   "leaks": {
+    "faults": 2292,
+    "recipes": 7,
+    "markedElements": 2934,
+    "matrixRows": 2440,
+    "pixel": {
+     "seen": 801,
+     "unseen": 251,
+     "out": 1387,
+     "none": 1,
+     "noisy": 281
+    }
+   },
+   "dark": {
+    "faults": 1725,
+    "recipes": 5,
+    "markedElements": 2179,
+    "matrixRows": 2070,
+    "pixel": {
+     "seen": 473,
+     "unseen": 87,
+     "out": 1510,
+     "none": 0,
+     "noisy": 643
+    }
+   },
+   "design": {
+    "faults": 2063,
+    "recipes": 5,
+    "markedElements": 3986,
+    "matrixRows": 3950,
+    "pixel": {
+     "seen": 1412,
+     "unseen": 208,
+     "out": 2330,
+     "none": 0,
+     "noisy": 340
+    }
+   }
+  },
+  "byRecipe": {
+   "scroll-snap-trap": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 669,
+    "na": 0,
+    "error": 0,
+    "marked": 1222
+   },
+   "hover-only-actions": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 201,
+    "na": 643,
+    "error": 0,
+    "marked": 1444
+   },
+   "icon-shrink": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 1536,
+    "na": 0,
+    "error": 0,
+    "marked": 1536
+   },
+   "fixed-footer-over-cta": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 1624,
+    "na": 488,
+    "error": 0,
+    "marked": 1624
+   },
+   "overflow-wide-pre": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 215,
+    "na": 152,
+    "error": 0,
+    "marked": 215
+   },
+   "mobile-section-hidden": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 199,
+    "na": 233,
+    "error": 0,
+    "marked": 199
+   },
+   "reveal-threshold-unreachable": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 660,
+    "na": 0,
+    "error": 0,
+    "marked": 660
+   },
+   "vh-hero-cta-bottom": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 126,
+    "na": 0,
+    "error": 0,
+    "marked": 126
+   },
+   "jank-layout-animation": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 188,
+    "na": 195,
+    "error": 0,
+    "marked": 188
+   },
+   "gradient-text-descender": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 218,
+    "na": 12,
+    "error": 0,
+    "marked": 218
+   },
+   "control-reveal-completes": {
+    "family": "motion",
+    "kind": "control",
+    "applied": 62,
+    "na": 48,
+    "error": 0,
+    "marked": 62
+   },
+   "blank-root-emptied": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 540,
+    "na": 35,
+    "error": 0,
+    "marked": 540
+   },
+   "text-tiny-mobile": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 2451,
+    "na": 0,
+    "error": 0,
+    "marked": 2451
+   },
+   "image-invented-unsplash": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 78,
+    "na": 109,
+    "error": 0,
+    "marked": 78
+   },
+   "token-undefined": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 415,
+    "na": 22,
+    "error": 0,
+    "marked": 415
+   },
+   "popup-no-focus": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 390,
+    "na": 0,
+    "error": 0,
+    "marked": 390
+   },
+   "wheel-hijack": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 75,
+    "na": 0,
+    "error": 0,
+    "marked": 75
+   },
+   "sticky-broken-wrapper": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 284,
+    "na": 146,
+    "error": 0,
+    "marked": 511
+   },
+   "clip-fixed-height": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 345,
+    "na": 110,
+    "error": 0,
+    "marked": 345
+   },
+   "tw-v4-name-in-v3": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 336,
+    "na": 94,
+    "error": 0,
+    "marked": 336
+   },
+   "stat-zero": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 92,
+    "na": 305,
+    "error": 0,
+    "marked": 204
+   },
+   "align-nudge": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 313,
+    "na": 244,
+    "error": 0,
+    "marked": 313
+   },
+   "rtl-flip": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 895,
+    "na": 0,
+    "error": 0,
+    "marked": 895
+   },
+   "fill-image-parent-static": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 6,
+    "na": 296,
+    "error": 0,
+    "marked": 6
+   },
+   "fake-clickable-card": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 146,
+    "na": 118,
+    "error": 0,
+    "marked": 405
+   },
+   "icon-button-emptied": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 224,
+    "na": 74,
+    "error": 0,
+    "marked": 224
+   },
+   "button-long-label": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 667,
+    "na": 31,
+    "error": 0,
+    "marked": 667
+   },
+   "tw-config-tokens-missing": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 142,
+    "na": 124,
+    "error": 4,
+    "marked": 2042
+   },
+   "template-leak-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 314,
+    "na": 101,
+    "error": 0,
+    "marked": 628
+   },
+   "align-card-cta": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 114,
+    "na": 341,
+    "error": 0,
+    "marked": 460
+   },
+   "drift-padding-colour": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 288,
+    "na": 243,
+    "error": 0,
+    "marked": 1150
+   },
+   "important-blocks-hover": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 326,
+    "na": 21,
+    "error": 0,
+    "marked": 326
+   },
+   "control-webgl-fallback-shown": {
+    "family": "media",
+    "kind": "control",
+    "applied": 3,
+    "na": 76,
+    "error": 0,
+    "marked": 3
+   },
+   "error-colour-only": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 123,
+    "na": 137,
+    "error": 0,
+    "marked": 123
+   },
+   "vendor-grouped": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 107,
+    "na": 146,
+    "error": 0,
+    "marked": 229
+   },
+   "regression-token-swap": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 418,
+    "na": 0,
+    "error": 0,
+    "marked": 418
+   },
+   "overflow-fixed-width": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 245,
+    "na": 139,
+    "error": 0,
+    "marked": 245
+   },
+   "layout-grid-fixed-columns": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 342,
+    "na": 137,
+    "error": 0,
+    "marked": 342
+   },
+   "text-scale-200": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 905,
+    "na": 0,
+    "error": 0,
+    "marked": 905
+   },
+   "crowd-zero-gap": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 715,
+    "na": 60,
+    "error": 0,
+    "marked": 715
+   },
+   "vite-template-centering": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 436,
+    "na": 0,
+    "error": 0,
+    "marked": 436
+   },
+   "color-scheme-light-on-dark": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 260,
+    "na": 0,
+    "error": 0,
+    "marked": 260
+   },
+   "scrollbar-double": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 217,
+    "na": 0,
+    "error": 0,
+    "marked": 217
+   },
+   "gradient-text-no-bg": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 226,
+    "na": 9,
+    "error": 0,
+    "marked": 226
+   },
+   "builder-badge-and-title": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 587,
+    "na": 0,
+    "error": 0,
+    "marked": 587
+   },
+   "dark-variant-media-only": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 83,
+    "na": 0,
+    "error": 0,
+    "marked": 83
+   },
+   "embed-rickroll-placeholder": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 184,
+    "na": 179,
+    "error": 0,
+    "marked": 184
+   },
+   "img-inline": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 261,
+    "na": 54,
+    "error": 0,
+    "marked": 3304
+   },
+   "hero-scrim-removed": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 118,
+    "na": 79,
+    "error": 0,
+    "marked": 965
+   },
+   "blowout-long-string": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 345,
+    "na": 150,
+    "error": 0,
+    "marked": 345
+   },
+   "tap-target-shrink": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 627,
+    "na": 306,
+    "error": 0,
+    "marked": 3542
+   },
+   "pseudo-localize": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 660,
+    "na": 0,
+    "error": 0,
+    "marked": 660
+   },
+   "embed-youtube-dead-id": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 94,
+    "na": 85,
+    "error": 0,
+    "marked": 94
+   },
+   "focus-ring-removed": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 348,
+    "na": 10,
+    "error": 0,
+    "marked": 12128
+   },
+   "tw4-container-uncentered": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 111,
+    "na": 237,
+    "error": 0,
+    "marked": 839
+   },
+   "overlap-fixed-height": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 289,
+    "na": 102,
+    "error": 0,
+    "marked": 289
+   },
+   "prose-dark-uninverted": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 802,
+    "na": 571,
+    "error": 0,
+    "marked": 802
+   },
+   "input-font-14": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 229,
+    "na": 223,
+    "error": 0,
+    "marked": 944
+   },
+   "emoji-nav-icons": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 232,
+    "na": 89,
+    "error": 0,
+    "marked": 1206
+   },
+   "control-sr-only-text": {
+    "family": "text",
+    "kind": "control",
+    "applied": 93,
+    "na": 41,
+    "error": 0,
+    "marked": 93
+   },
+   "nav-items-hidden": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 149,
+    "na": 113,
+    "error": 0,
+    "marked": 528
+   },
+   "reveal-never-fires": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 182,
+    "na": 210,
+    "error": 0,
+    "marked": 182
+   },
+   "chrome-section-repeated": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 263,
+    "na": 156,
+    "error": 0,
+    "marked": 263
+   },
+   "text-white-on-white-card": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 76,
+    "na": 80,
+    "error": 0,
+    "marked": 76
+   },
+   "layout-fixed-sidebar": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 289,
+    "na": 163,
+    "error": 0,
+    "marked": 289
+   },
+   "transparent-overlay-cta": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 208,
+    "na": 66,
+    "error": 0,
+    "marked": 208
+   },
+   "chrome-footer-cloned": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 297,
+    "na": 131,
+    "error": 0,
+    "marked": 297
+   },
+   "disabled-looks-enabled": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 46,
+    "na": 4,
+    "error": 0,
+    "marked": 46
+   },
+   "mobile-nav-no-toggle": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 75,
+    "na": 696,
+    "error": 0,
+    "marked": 76
+   },
+   "whitespace-band": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 399,
+    "na": 107,
+    "error": 0,
+    "marked": 399
+   },
+   "mobile-nav-dead-toggle": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 107,
+    "na": 652,
+    "error": 0,
+    "marked": 107
+   },
+   "embed-maps-placeholder-key": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 166,
+    "na": 44,
+    "error": 0,
+    "marked": 166
+   },
+   "decoration-over-text": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 273,
+    "na": 98,
+    "error": 0,
+    "marked": 273
+   },
+   "contrast-muted-dark": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 131,
+    "na": 58,
+    "error": 0,
+    "marked": 989
+   },
+   "blank-root-hidden": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 618,
+    "na": 32,
+    "error": 0,
+    "marked": 618
+   },
+   "chrome-header-cloned": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 275,
+    "na": 156,
+    "error": 0,
+    "marked": 275
+   },
+   "pane-min-height-removed": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 37,
+    "na": 337,
+    "error": 0,
+    "marked": 37
+   },
+   "overflow-decorative-blob": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 291,
+    "na": 87,
+    "error": 0,
+    "marked": 291
+   },
+   "overflow-nowrap-row": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 221,
+    "na": 139,
+    "error": 0,
+    "marked": 221
+   },
+   "align-icon-baseline": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 633,
+    "na": 65,
+    "error": 0,
+    "marked": 1348
+   },
+   "video-source-dead-sample": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 12,
+    "na": 159,
+    "error": 0,
+    "marked": 12
+   },
+   "control-image-lazy-offscreen": {
+    "family": "media",
+    "kind": "control",
+    "applied": 130,
+    "na": 15,
+    "error": 0,
+    "marked": 130
+   },
+   "sticky-stack": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 979,
+    "na": 0,
+    "error": 0,
+    "marked": 979
+   },
+   "class-subtree-unbacked": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 132,
+    "na": 143,
+    "error": 0,
+    "marked": 132
+   },
+   "dark-input-low": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 232,
+    "na": 0,
+    "error": 0,
+    "marked": 686
+   },
+   "svg-viewbox-removed": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 230,
+    "na": 34,
+    "error": 0,
+    "marked": 230
+   },
+   "placeholder-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 329,
+    "na": 105,
+    "error": 0,
+    "marked": 657
+   },
+   "inline-links-plain": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 90,
+    "na": 179,
+    "error": 0,
+    "marked": 829
+   },
+   "overflow-iframe-fixed": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 229,
+    "na": 123,
+    "error": 0,
+    "marked": 229
+   },
+   "icon-ligature-typo": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 2,
+    "na": 164,
+    "error": 0,
+    "marked": 2
+   },
+   "overlap-clone-offset": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 214,
+    "na": 135,
+    "error": 0,
+    "marked": 214
+   },
+   "control-maps-query-embed": {
+    "family": "media",
+    "kind": "control",
+    "applied": 129,
+    "na": 31,
+    "error": 0,
+    "marked": 129
+   },
+   "chart-parent-zero": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 17,
+    "na": 155,
+    "error": 0,
+    "marked": 17
+   },
+   "control-logo-marquee": {
+    "family": "blank",
+    "kind": "control",
+    "applied": 96,
+    "na": 44,
+    "error": 0,
+    "marked": 96
+   },
+   "block-deleted": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 260,
+    "na": 164,
+    "error": 0,
+    "marked": 260
+   },
+   "markdown-raw-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 215,
+    "na": 146,
+    "error": 0,
+    "marked": 215
+   },
+   "control-embed-real-video": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 61,
+    "na": 50,
+    "error": 0,
+    "marked": 61
+   },
+   "mojibake-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 227,
+    "na": 160,
+    "error": 0,
+    "marked": 227
+   },
+   "token-double-wrap": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 196,
+    "na": 133,
+    "error": 0,
+    "marked": 1483
+   },
+   "header-fixed-no-offset": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 260,
+    "na": 132,
+    "error": 0,
+    "marked": 260
+   },
+   "tw4-border-currentcolor": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 290,
+    "na": 78,
+    "error": 0,
+    "marked": 3816
+   },
+   "image-dead-placeholder-host": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 70,
+    "na": 114,
+    "error": 0,
+    "marked": 70
+   },
+   "control-overflow-in-scroller": {
+    "family": "overflow",
+    "kind": "control",
+    "applied": 683,
+    "na": 331,
+    "error": 0,
+    "marked": 683
+   },
+   "blowout-grid-1fr": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 90,
+    "na": 0,
+    "error": 0,
+    "marked": 90
+   },
+   "text-color-equals-bg": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 198,
+    "na": 27,
+    "error": 0,
+    "marked": 198
+   },
+   "control-dark-brand-section": {
+    "family": "dark",
+    "kind": "control",
+    "applied": 113,
+    "na": 0,
+    "error": 0,
+    "marked": 113
+   },
+   "tw4-cursor-default": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 398,
+    "na": 36,
+    "error": 0,
+    "marked": 3346
+   },
+   "contrast-button-500": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 206,
+    "na": 16,
+    "error": 0,
+    "marked": 206
+   },
+   "glass-over-light": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 18,
+    "na": 149,
+    "error": 0,
+    "marked": 54
+   },
+   "control-ghost-transparent": {
+    "family": "styles",
+    "kind": "control",
+    "applied": 172,
+    "na": 8,
+    "error": 0,
+    "marked": 172
+   },
+   "webgl-context-lost": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 1,
+    "na": 167,
+    "error": 0,
+    "marked": 1
+   },
+   "labels-to-placeholders": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 61,
+    "na": 188,
+    "error": 0,
+    "marked": 326
+   },
+   "overlap-negative-margin": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 129,
+    "na": 191,
+    "error": 0,
+    "marked": 129
+   },
+   "control-markdown-rendered": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 93,
+    "na": 47,
+    "error": 0,
+    "marked": 93
+   },
+   "dark-card-hardcoded-white": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 348,
+    "na": 0,
+    "error": 0,
+    "marked": 348
+   },
+   "contrast-muted-light": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 92,
+    "na": 81,
+    "error": 0,
+    "marked": 545
+   },
+   "motion-infinite-decoration": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 175,
+    "na": 0,
+    "error": 0,
+    "marked": 175
+   },
+   "control-markdown-in-code": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 75,
+    "na": 39,
+    "error": 0,
+    "marked": 75
+   },
+   "control-scroller-scrollbar-visible": {
+    "family": "controls",
+    "kind": "control",
+    "applied": 38,
+    "na": 0,
+    "error": 0,
+    "marked": 38
+   },
+   "overflow-100vw-classic": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 65,
+    "na": 0,
+    "error": 0,
+    "marked": 65
+   },
+   "image-stretch": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 72,
+    "na": 108,
+    "error": 0,
+    "marked": 72
+   },
+   "control-nav-mobile-hidden": {
+    "family": "blank",
+    "kind": "control",
+    "applied": 104,
+    "na": 50,
+    "error": 0,
+    "marked": 104
+   },
+   "jank-blur-stack": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 256,
+    "na": 177,
+    "error": 0,
+    "marked": 256
+   },
+   "clip-over-truncate": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 393,
+    "na": 150,
+    "error": 0,
+    "marked": 393
+   },
+   "control-embed-id-in-code": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 47,
+    "na": 42,
+    "error": 0,
+    "marked": 47
+   },
+   "stylesheets-disabled": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 58,
+    "na": 0,
+    "error": 0,
+    "marked": 58
+   },
+   "bg-repeat": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 115,
+    "na": 0,
+    "error": 0,
+    "marked": 115
+   },
+   "image-outline-removed": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 60,
+    "na": 149,
+    "error": 0,
+    "marked": 910
+   },
+   "image-css-background-404": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 158,
+    "na": 50,
+    "error": 0,
+    "marked": 158
+   },
+   "class-unbacked-token": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 21,
+    "na": 49,
+    "error": 189,
+    "marked": 21
+   },
+   "control-code-block-null": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 90,
+    "na": 33,
+    "error": 0,
+    "marked": 90
+   },
+   "keyframes-removed": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 20,
+    "na": 14,
+    "error": 0,
+    "marked": 91
+   },
+   "svg-unsized": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 194,
+    "na": 31,
+    "error": 0,
+    "marked": 194
+   },
+   "control-object-cover": {
+    "family": "media",
+    "kind": "control",
+    "applied": 56,
+    "na": 63,
+    "error": 0,
+    "marked": 56
+   },
+   "shift-late-banner": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 0,
+    "na": 44,
+    "error": 0,
+    "marked": 0
+   },
+   "control-pointer-none-decoration": {
+    "family": "controls",
+    "kind": "control",
+    "applied": 114,
+    "na": 28,
+    "error": 0,
+    "marked": 114
+   },
+   "control-embed-live-video": {
+    "family": "media",
+    "kind": "control",
+    "applied": 66,
+    "na": 53,
+    "error": 0,
+    "marked": 66
+   },
+   "breakpoint-small-range": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 118,
+    "na": 0,
+    "error": 0,
+    "marked": 118
+   },
+   "control-line-clamp-with-title": {
+    "family": "overflow",
+    "kind": "control",
+    "applied": 75,
+    "na": 33,
+    "error": 0,
+    "marked": 75
+   },
+   "sidebar-zero-width": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 39,
+    "na": 0,
+    "error": 0,
+    "marked": 39
+   },
+   "video-autoplay-unmuted": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 2,
+    "na": 18,
+    "error": 0,
+    "marked": 2
+   },
+   "bootstrap4-attrs-on-5": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 11,
+    "na": 0,
+    "error": 0,
+    "marked": 11
+   },
+   "control-bootstrap-both-attrs": {
+    "family": "styles",
+    "kind": "control",
+    "applied": 5,
+    "na": 0,
+    "error": 0,
+    "marked": 5
+   },
+   "prose-rules-removed": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 1,
+    "na": 29,
+    "error": 0,
+    "marked": 1
+   },
+   "control-video-muted-autoplay": {
+    "family": "media",
+    "kind": "control",
+    "applied": 2,
+    "na": 8,
+    "error": 0,
+    "marked": 2
+   },
+   "scroller-scrollbar-hidden": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 14,
+    "na": 0,
+    "error": 0,
+    "marked": 14
+   },
+   "control-video-controls": {
+    "family": "media",
+    "kind": "control",
+    "applied": 1,
+    "na": 9,
+    "error": 0,
+    "marked": 1
+   },
+   "control-scroller-with-arrows": {
+    "family": "controls",
+    "kind": "control",
+    "applied": 2,
+    "na": 0,
+    "error": 0,
+    "marked": 2
+   }
+  },
+  "recipesNeverApplied": [
+   "video-no-playsinline-ios",
+   "shift-late-banner",
+   "engine-gated-shift",
+   "radius-transform-safari",
+   "bg-fixed-hero"
+  ],
+  "layoutSameAfterUndo": {
+   "p10": 0.51,
+   "p50": 1
+  }
+ },
+ "naturalSignals": {
+  "byGroupDeviceScheme": {
+   "ai-builder|desktop|light": {
+    "views": 3000,
+    "brokenImg": 51,
+    "leak": 19,
+    "invisibleText": 570,
+    "invisibleTextStrict": 269,
+    "placeholderImg": 4,
+    "varUndefined": 1201,
+    "sideways": 32,
+    "noViewportMeta": 0,
+    "fontError": 32,
+    "cssFailed": 87,
+    "consoleErrors": 991,
+    "leakIds": {
+     "alt:mustache": 1,
+     "mustache": 1,
+     "placeholder-contact": 11,
+     "template-literal": 2,
+     "double-escaped": 1,
+     "lorem": 2,
+     "weak-NaN": 1,
+     "replacement-char": 1,
+     "currency-nan": 1
+    },
+    "brokenImgShare": 0.017,
+    "leakShare": 0.006,
+    "invisibleTextShare": 0.19,
+    "invisibleTextStrictShare": 0.09,
+    "placeholderImgShare": 0.001,
+    "varUndefinedShare": 0.4,
+    "sidewaysShare": 0.011,
+    "noViewportMetaShare": 0,
+    "fontErrorShare": 0.011,
+    "cssFailedShare": 0.029,
+    "consoleErrorsShare": 0.33
+   },
+   "ai-builder|phone|light": {
+    "views": 2986,
+    "brokenImg": 48,
+    "leak": 18,
+    "invisibleText": 555,
+    "invisibleTextStrict": 263,
+    "placeholderImg": 4,
+    "varUndefined": 1201,
+    "sideways": 286,
+    "noViewportMeta": 3,
+    "fontError": 34,
+    "cssFailed": 87,
+    "consoleErrors": 996,
+    "leakIds": {
+     "alt:mustache": 1,
+     "mustache": 1,
+     "placeholder-contact": 11,
+     "template-literal": 2,
+     "double-escaped": 1,
+     "lorem": 2,
+     "replacement-char": 1,
+     "currency-nan": 1
+    },
+    "brokenImgShare": 0.016,
+    "leakShare": 0.006,
+    "invisibleTextShare": 0.186,
+    "invisibleTextStrictShare": 0.088,
+    "placeholderImgShare": 0.001,
+    "varUndefinedShare": 0.402,
+    "sidewaysShare": 0.096,
+    "noViewportMetaShare": 0.001,
+    "fontErrorShare": 0.011,
+    "cssFailedShare": 0.029,
+    "consoleErrorsShare": 0.334
+   },
+   "control|desktop|light": {
+    "views": 599,
+    "brokenImg": 38,
+    "leak": 8,
+    "invisibleText": 147,
+    "invisibleTextStrict": 94,
+    "placeholderImg": 0,
+    "varUndefined": 174,
+    "sideways": 15,
+    "noViewportMeta": 0,
+    "fontError": 41,
+    "cssFailed": 2,
+    "consoleErrors": 244,
+    "leakIds": {
+     "template-literal": 1,
+     "weak-null": 2,
+     "alt:object-object": 1,
+     "placeholder-contact": 2,
+     "replacement-char": 1,
+     "alt:double-escaped": 2,
+     "mojibake": 1
+    },
+    "brokenImgShare": 0.063,
+    "leakShare": 0.013,
+    "invisibleTextShare": 0.245,
+    "invisibleTextStrictShare": 0.157,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.29,
+    "sidewaysShare": 0.025,
+    "noViewportMetaShare": 0,
+    "fontErrorShare": 0.068,
+    "cssFailedShare": 0.003,
+    "consoleErrorsShare": 0.407
+   },
+   "control|phone|light": {
+    "views": 594,
+    "brokenImg": 35,
+    "leak": 7,
+    "invisibleText": 140,
+    "invisibleTextStrict": 88,
+    "placeholderImg": 0,
+    "varUndefined": 172,
+    "sideways": 33,
+    "noViewportMeta": 17,
+    "fontError": 34,
+    "cssFailed": 2,
+    "consoleErrors": 246,
+    "leakIds": {
+     "template-literal": 1,
+     "weak-null": 2,
+     "alt:object-object": 1,
+     "placeholder-contact": 1,
+     "replacement-char": 1,
+     "alt:double-escaped": 2
+    },
+    "brokenImgShare": 0.059,
+    "leakShare": 0.012,
+    "invisibleTextShare": 0.236,
+    "invisibleTextStrictShare": 0.148,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.29,
+    "sidewaysShare": 0.056,
+    "noViewportMetaShare": 0.029,
+    "fontErrorShare": 0.057,
+    "cssFailedShare": 0.003,
+    "consoleErrorsShare": 0.414
+   },
+   "ai-builder|phone|dark": {
+    "views": 991,
+    "brokenImg": 18,
+    "leak": 3,
+    "invisibleText": 195,
+    "invisibleTextStrict": 84,
+    "placeholderImg": 0,
+    "varUndefined": 412,
+    "sideways": 99,
+    "noViewportMeta": 1,
+    "fontError": 13,
+    "cssFailed": 36,
+    "consoleErrors": 339,
+    "leakIds": {
+     "alt:mustache": 1,
+     "mustache": 1,
+     "placeholder-contact": 2
+    },
+    "brokenImgShare": 0.018,
+    "leakShare": 0.003,
+    "invisibleTextShare": 0.197,
+    "invisibleTextStrictShare": 0.085,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.416,
+    "sidewaysShare": 0.1,
+    "noViewportMetaShare": 0.001,
+    "fontErrorShare": 0.013,
+    "cssFailedShare": 0.036,
+    "consoleErrorsShare": 0.342
+   },
+   "control|phone|dark": {
+    "views": 193,
+    "brokenImg": 8,
+    "leak": 4,
+    "invisibleText": 37,
+    "invisibleTextStrict": 23,
+    "placeholderImg": 0,
+    "varUndefined": 47,
+    "sideways": 14,
+    "noViewportMeta": 4,
+    "fontError": 5,
+    "cssFailed": 0,
+    "consoleErrors": 76,
+    "leakIds": {
+     "weak-null": 1,
+     "replacement-char": 1,
+     "alt:double-escaped": 2
+    },
+    "brokenImgShare": 0.041,
+    "leakShare": 0.021,
+    "invisibleTextShare": 0.192,
+    "invisibleTextStrictShare": 0.119,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.244,
+    "sidewaysShare": 0.073,
+    "noViewportMetaShare": 0.021,
+    "fontErrorShare": 0.026,
+    "cssFailedShare": 0,
+    "consoleErrorsShare": 0.394
+   }
+  },
+  "desktopLightByDomain": {
+   "base44.app": {
+    "pages": 577,
+    "brokenImg": 16,
+    "leak": 3,
+    "invisibleText": 107,
+    "invisibleTextStrict": 52,
+    "sidewaysPhone": 56
+   },
+   "control (Tranco)": {
+    "pages": 599,
+    "brokenImg": 38,
+    "leak": 8,
+    "invisibleText": 147,
+    "invisibleTextStrict": 94,
+    "sidewaysPhone": 33
+   },
+   "replit.app": {
+    "pages": 375,
+    "brokenImg": 4,
+    "leak": 0,
+    "invisibleText": 53,
+    "invisibleTextStrict": 27,
+    "sidewaysPhone": 23
+   },
+   "vusercontent.net": {
+    "pages": 98,
+    "brokenImg": 0,
+    "leak": 0,
+    "invisibleText": 0,
+    "invisibleTextStrict": 0,
+    "sidewaysPhone": 0
+   },
+   "lovable.app": {
+    "pages": 1434,
+    "brokenImg": 12,
+    "leak": 12,
+    "invisibleText": 296,
+    "invisibleTextStrict": 130,
+    "sidewaysPhone": 145
+   },
+   "windsurf.build": {
+    "pages": 11,
+    "brokenImg": 0,
+    "leak": 1,
+    "invisibleText": 0,
+    "invisibleTextStrict": 0,
+    "sidewaysPhone": 1
+   },
+   "manus.space": {
+    "pages": 332,
+    "brokenImg": 12,
+    "leak": 0,
+    "invisibleText": 89,
+    "invisibleTextStrict": 48,
+    "sidewaysPhone": 44
+   },
+   "emergent.host": {
+    "pages": 63,
+    "brokenImg": 1,
+    "leak": 0,
+    "invisibleText": 15,
+    "invisibleTextStrict": 6,
+    "sidewaysPhone": 6
+   },
+   "genspark.space": {
+    "pages": 23,
+    "brokenImg": 5,
+    "leak": 2,
+    "invisibleText": 1,
+    "invisibleTextStrict": 1,
+    "sidewaysPhone": 4
+   },
+   "created.app": {
+    "pages": 87,
+    "brokenImg": 1,
+    "leak": 1,
+    "invisibleText": 9,
+    "invisibleTextStrict": 5,
+    "sidewaysPhone": 7
+   }
+  }
+ },
+ "dedupe": {
+  "clusters": 3434,
+  "hostsFingerprinted": 3544,
+  "nearDuplicateHosts": 110,
+  "largestClusters": [
+   64,
+   6,
+   5,
+   4,
+   4,
+   4,
+   3,
+   3,
+   3,
+   3
+  ]
+ },
+ "trainset": {
+  "train": {
+   "nat": 2435257,
+   "clean": 796232,
+   "fault": 54288,
+   "control": 1815,
+   "views": 27931,
+   "hosts": 2804
+  },
+  "val": {
+   "nat": 282352,
+   "clean": 101978,
+   "fault": 7233,
+   "control": 238,
+   "views": 3550,
+   "hosts": 351
+  },
+  "test": {
+   "nat": 262293,
+   "clean": 88468,
+   "fault": 5994,
+   "control": 212,
+   "views": 3126,
+   "hosts": 305
+  }
+ },
+ "F": 112
+}

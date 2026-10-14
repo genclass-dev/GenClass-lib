@@ -166,10 +166,25 @@ function pageFeatures(view) {
 
 // ---------------------------------------------------------------- natural signals (clean views only)
 
-const NAT_BITS = { brokenImg: 1, leak: 2, invisibleText: 4, placeholderImg: 8, varUndefined: 16 };
+const NAT_BITS = { brokenImg: 1, leak: 2, invisibleText: 4, placeholderImg: 8, varUndefined: 16, invisibleTextStrict: 32 };
 
 function newNat() {
-  return { brokenImg: 0, leak: 0, invisibleText: 0, placeholderImg: 0, varUndefined: 0, leakIds: {} };
+  return { brokenImg: 0, leak: 0, invisibleText: 0, invisibleTextStrict: 0, placeholderImg: 0, varUndefined: 0, leakIds: {} };
+}
+
+/**
+ * Low-contrast text the measurements agree on: at least 2 characters, opaque enough to be meant as visible (colour
+ * alpha above 0, ancestor opacity at least 0.2, no background-clip text or text-fill colour), under 1.5:1 on a solid
+ * ancestor-chain background, and when the paint stack was read (text in the viewport) it also found a solid
+ * background and under 1.5:1. The loose signal (bit 4) counts hero text over an image the ancestor chain cannot
+ * see and one-character separators; this one does not.
+ */
+function invisibleStrict(row) {
+  if ((row.tl || 0) < 2 || row.vis !== 1 || typeof row.cr !== "number" || row.cr >= 1.5 || (row.ebs || 0) !== 0) return false;
+  if (row.bclip || row.tfc || (row.eop ?? 1) < 0.2) return false;
+  if (Array.isArray(row.c) && (row.c[3] ?? 1) === 0) return false;
+  if (row.sbs !== undefined && (row.sbs !== 0 || typeof row.scr !== "number" || row.scr >= 1.5)) return false;
+  return true;
 }
 function natRow(n, row) {
   let bits = 0;
@@ -180,6 +195,7 @@ function natRow(n, row) {
     for (const [id] of row.lk) n.leakIds[id] = (n.leakIds[id] || 0) + 1;
   }
   if ((row.tl || 0) > 0 && row.vis === 1 && typeof row.cr === "number" && row.cr < 1.5 && (row.ebs || 0) === 0) (n.invisibleText++, (bits |= 4));
+  if (invisibleStrict(row)) (n.invisibleTextStrict++, (bits |= 32));
   if (row.tag === "img" && row.src === "ph" && row.vis === 1) (n.placeholderImg++, (bits |= 8));
   if ((row.vu || 0) > 0) (n.varUndefined++, (bits |= 16));
   return bits;
@@ -478,10 +494,10 @@ async function main() {
   const natSummary = {};
   for (const v of clean) {
     const key = `${v.group}|${v.device}|${v.scheme}`;
-    const n = (natSummary[key] = natSummary[key] || { views: 0, brokenImg: 0, leak: 0, invisibleText: 0, placeholderImg: 0, varUndefined: 0, sideways: 0, noViewportMeta: 0, fontError: 0, cssFailed: 0, consoleErrors: 0, leakIds: {} });
+    const n = (natSummary[key] = natSummary[key] || { views: 0, brokenImg: 0, leak: 0, invisibleText: 0, invisibleTextStrict: 0, placeholderImg: 0, varUndefined: 0, sideways: 0, noViewportMeta: 0, fontError: 0, cssFailed: 0, consoleErrors: 0, leakIds: {} });
     n.views++;
     const nat = v.nat || newNat();
-    for (const k of ["brokenImg", "leak", "invisibleText", "placeholderImg", "varUndefined"]) if (nat[k] > 0) n[k]++;
+    for (const k of ["brokenImg", "leak", "invisibleText", "invisibleTextStrict", "placeholderImg", "varUndefined"]) if (nat[k] > 0) n[k]++;
     for (const id of Object.keys(nat.leakIds || {})) n.leakIds[id] = (n.leakIds[id] || 0) + 1;
     const p = v.page || {};
     if ((p.scrollW || 0) > (p.clientW || 0) + 1) n.sideways++;
@@ -491,17 +507,21 @@ async function main() {
     if (v.nav && v.nav.consoleErrors > 0) n.consoleErrors++;
   }
   for (const n of Object.values(natSummary))
-    for (const k of ["brokenImg", "leak", "invisibleText", "placeholderImg", "varUndefined", "sideways", "noViewportMeta", "fontError", "cssFailed", "consoleErrors"]) n[k + "Share"] = r3(n[k] / Math.max(1, n.views));
+    for (const k of ["brokenImg", "leak", "invisibleText", "invisibleTextStrict", "placeholderImg", "varUndefined", "sideways", "noViewportMeta", "fontError", "cssFailed", "consoleErrors"]) n[k + "Share"] = r3(n[k] / Math.max(1, n.views));
   const natByBuilder = {};
+  const phoneLight = new Map(clean.filter((x) => x.device === "phone" && x.scheme === "light").map((x) => [x.host, x]));
   for (const v of clean) {
     if (v.device !== "desktop" || v.scheme !== "light") continue;
     const k = v.group === "control" ? "control (Tranco)" : v.domain || v.builder;
-    const n = (natByBuilder[k] = natByBuilder[k] || { pages: 0, brokenImg: 0, leak: 0, invisibleText: 0 });
+    const n = (natByBuilder[k] = natByBuilder[k] || { pages: 0, brokenImg: 0, leak: 0, invisibleText: 0, invisibleTextStrict: 0, sidewaysPhone: 0 });
     n.pages++;
     const nat = v.nat || newNat();
     if (nat.brokenImg) n.brokenImg++;
     if (nat.leak) n.leak++;
     if (nat.invisibleText) n.invisibleText++;
+    if (nat.invisibleTextStrict) n.invisibleTextStrict++;
+    const ph = phoneLight.get(v.host);
+    if (ph && ph.page && (ph.page.scrollW || 0) > (ph.page.clientW || 0) + 1) n.sidewaysPhone++;
   }
   const pre = inj.map((v) => (v.injected && v.injected.pre && typeof v.injected.pre.same === "number" ? v.injected.pre.same : 1));
   const summary = {

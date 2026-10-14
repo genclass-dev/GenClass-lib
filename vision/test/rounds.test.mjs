@@ -61,6 +61,11 @@ test("encode: fixed width, defaults for absent keys, categorical codes", () => {
   assert.equal(buf[F + FEATURES.indexOf("nowrap")], 0);
   assert.ok(buf[FEATURES.indexOf("cat_tag")] >= 2);
   const n = newNat();
-  assert.equal(natRow(n, rows[0]), 4);
+  // under 1.5:1 on a solid background and nothing contradicts it: loose (4) and strict (32)
+  assert.equal(natRow(n, rows[0]), 36);
   assert.equal(natRow(n, rows[1]), 1);
+  // the paint stack found an image behind the text: loose only
+  assert.equal(natRow(n, { ...rows[0], sbs: 2, scr: 1 }), 4);
+  // a one-character separator: loose only
+  assert.equal(natRow(n, { ...rows[0], tl: 1 }), 4);
 });
