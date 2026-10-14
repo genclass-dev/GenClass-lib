@@ -71,19 +71,23 @@ export function runAxeSource(name: string): string {
     const last = t[t.length - 1];
     return Array.isArray(last) ? last.map(String).join(" >>> ") : String(last);
   };
-  const box = (t) => {
+  const find = (t) => {
     if (!Array.isArray(t) || t.length !== 1 || typeof t[0] !== "string") return null;
-    let el = null;
-    try { el = document.querySelector(t[0]); } catch (e) { return null; }
+    try { return document.querySelector(t[0]); } catch (e) { return null; }
+  };
+  const box = (t) => {
+    const el = find(t);
     if (!el) return null;
     const b = el.getBoundingClientRect();
     if (!(b.width > 0 && b.height > 0)) return null;
     return { x: Math.round(b.left + sx), y: Math.round(b.top + sy), w: Math.round(b.width), h: Math.round(b.height) };
   };
+  // inside an element the author marked as a picture or as decoration (WCAG 1.4.3's incidental text)
+  const picture = (t) => { const el = find(t); return !!(el && el.closest && el.closest('[role="img"], [aria-hidden="true"]')); };
   const violations = (r.violations || []).slice(0, 80).map((v) => ({
     id: v.id, impact: v.impact, tags: v.tags, help: v.help, description: v.description, helpUrl: v.helpUrl,
     count: (v.nodes || []).length,
-    nodes: (v.nodes || []).slice(0, ${AXE_BOXES}).map((n, i) => ({ target: target(n.target), box: box(n.target), summary: i < 5 ? String(n.failureSummary || "").slice(0, 600) : "" })),
+    nodes: (v.nodes || []).slice(0, ${AXE_BOXES}).map((n, i) => ({ target: target(n.target), box: box(n.target), picture: v.id === "color-contrast" ? picture(n.target) : false, summary: i < 5 ? String(n.failureSummary || "").slice(0, 600) : "" })),
   }));
   return JSON.stringify({ ok: true, ms: Math.round(performance.now() - t0), version: String(ax.version || ""), violations, incomplete: (r.incomplete || []).length, passes: (r.passes || []).length });
 })()`;
@@ -174,11 +178,15 @@ export function parseAxe(v: unknown): AxeView {
     if (!rule || seen.has(rule) || (AXE_OFF as readonly string[]).includes(rule)) continue;
     seen.add(rule);
     const tags = (Array.isArray(r.tags) ? r.tags : []).filter((t): t is string => typeof t === "string" && KEEP_TAG.test(t)).slice(0, 8);
-    const nodes = (Array.isArray(r.nodes) ? r.nodes : []).slice(0, AXE_BOXES).map((n) => {
+    const all = (Array.isArray(r.nodes) ? r.nodes : []).slice(0, AXE_BOXES).map((n) => {
       const x = (n && typeof n === "object" ? n : {}) as Record<string, unknown>;
-      return { target: cut(x.target, 200), box: boxOf(x.box), summary: axeSummary(cut(x.summary, 600)) };
+      return { target: cut(x.target, 200), box: boxOf(x.box), summary: axeSummary(cut(x.summary, 600)), picture: x.picture === true };
     });
-    const count = Math.max(nodes.length, Math.round(num(r.count) ?? 0));
+    // color-contrast: text inside an element marked role="img" or aria-hidden="true" is part of a picture or decoration,
+    // which WCAG 1.4.3 exempts ("incidental"); measured in calibration on a public page's product illustrations
+    const pictures = rule === "color-contrast" ? all.filter((n) => n.picture).length : 0;
+    const nodes = all.filter((n) => !(rule === "color-contrast" && n.picture)).map(({ target, box, summary }) => ({ target, box, summary }));
+    const count = Math.max(nodes.length, Math.round(num(r.count) ?? 0) - pictures);
     if (count < 1) continue;
     const helpUrl = typeof r.helpUrl === "string" && HELP_URL.test(r.helpUrl) ? r.helpUrl : null;
     base.rules.push({

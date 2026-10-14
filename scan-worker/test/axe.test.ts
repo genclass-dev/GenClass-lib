@@ -129,6 +129,18 @@ describe("axe-core results become findings", () => {
     assert.equal(r.summary, "A; B; C.");
     assert.equal(axeSummary(""), "");
   });
+  it("leave out of color-contrast the text inside an element marked role=img or aria-hidden (WCAG 1.4.3's incidental text)", () => {
+    const nodes = [
+      { target: ".mock-ui span", box: null, picture: true, summary: "Fix any of the following:\n  Element has insufficient color contrast of 2.41" },
+      { target: ".price", box: null, picture: false, summary: "Fix any of the following:\n  Element has insufficient color contrast of 3.9" },
+    ];
+    const [cc] = parseAxe({ ok: true, violations: [violation({ count: 2, nodes })] }).rules;
+    assert.deepEqual([cc.count, cc.nodes.map((n) => n.target), cc.summary], [1, [".price"], "Element has insufficient color contrast of 3.9."]);
+    assert.deepEqual(parseAxe({ ok: true, violations: [violation({ count: 1, nodes: [nodes[0]] })] }).rules, [], "nothing left of the rule");
+    const [other] = parseAxe({ ok: true, violations: [violation({ id: "link-name", count: 2, nodes })] }).rules;
+    assert.equal(other.count, 2, "only color-contrast has the exception");
+    assert.match(runAxeSource("__x"), /closest\('\[role="img"\], \[aria-hidden="true"\]'\)/);
+  });
   it("count an element the visual checks found as invisible text once: in the visual finding", () => {
     const rules = parseAxe({ ok: true, violations: [violation(), violation({ id: "image-alt", impact: "critical", tags: ["wcag2a", "wcag111"] })] }).rules;
     const invisible: RawFinding = { kind: "text-invisible", selector: "p.a", box: { x: 11, y: 19, w: 101, h: 18 }, measured: "1.08:1", detail: { severity: "high" } };

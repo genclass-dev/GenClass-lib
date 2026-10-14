@@ -548,6 +548,27 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     assert.ok(browser.pages.every((p) => p.axeRuns.length === 0), "axe-core never ran");
   });
 
+  it("leaves out a scroll lock blamed on body when html scrolls the window, and keeps one that reaches the window", async () => {
+    const lock = { kind: "scroll-lock-stuck", selector: "body", box: null, measured: "the page cannot scroll: body has overflow-y: hidden", detail: { severity: "high" } };
+    for (const [html, kept] of [["scroll", false], ["visible", true]] as const) {
+      const t = setup({ ...SCRIPT, findings: () => [lock], overflow: () => ({ html, body: "hidden", sh: 9150, ch: 768 }) });
+      const r = (await ndjson(await t.post("shop.example.com"))).find((m) => m.type === "done") as { report: Record<string, any> };
+      await Promise.all(t.waits);
+      assert.equal(r.report.findings.some((f: { kind: string }) => f.kind === "scroll-lock-stuck"), kept, html);
+      assert.equal(r.report.views[0].notes.some((n: string) => /reported a scroll lock on body, but html has overflow-y: scroll, so the window itself scrolls/.test(n)), !kept, html);
+    }
+  });
+
+  it("counts a double submit only for the site's own requests, never for another site's beacons", async () => {
+    for (const [postUrl, doubled] of [["https://analytics.example.net/collect", false], ["https://api.shop.example.com/subscribe", true]] as const) {
+      const t = setup({ ...SCRIPT, postUrl, postsOnDoubleClick: { observe: 2, guard: 2 } });
+      const r = ((await ndjson(await t.post("shop.example.com"))).find((m) => m.type === "done") as { report: Record<string, any> }).report;
+      await Promise.all(t.waits);
+      assert.equal(r.findings.some((f: { kind: string }) => f.kind === "duplicate-submit"), doubled, postUrl);
+      assert.equal(r.probe.observe.clicked.sent, doubled ? 2 : 0, postUrl);
+    }
+  });
+
   it("leaves reliability unmeasured when the browser offers no DevTools session", async () => {
     const t = setup({ ...DEEP, noCdp: true });
     const msgs = await ndjson(await t.post("shop.example.com"));

@@ -158,6 +158,8 @@ export interface PageScript {
   button?: boolean;
   /** What a double click makes the page send, by mode: the number of identical POSTs. */
   postsOnDoubleClick?: { observe: number; guard: number };
+  /** Where the double click's POSTs go (default the page's own /api/subscribe). */
+  postUrl?: string;
   detections?: unknown[];
   /** What axe-core's run returns in each view (the scanner then gets axe built in); unset: no axe-core. */
   axe?: (view: string) => unknown;
@@ -165,6 +167,8 @@ export interface PageScript {
   vitals?: (view: string) => unknown;
   audit?: (view: string) => unknown;
   reflow?: (width: number) => unknown;
+  /** The window's overflow as the page reads it (html and body overflow-y, scroll and client height). */
+  overflow?: (view: string) => unknown;
   /** Response statuses by URL in the browser's own record (default 200), and other DevTools events sent while loading. */
   statuses?: Record<string, number>;
   cdpEvents?: [string, unknown][];
@@ -295,7 +299,7 @@ export class FakePage implements PageLike {
   private async click(count: number) {
     if (count < 2 || !this.script.postsOnDoubleClick) return;
     const n = this.mode === "guard" ? this.script.postsOnDoubleClick.guard : this.script.postsOnDoubleClick.observe;
-    for (let i = 0; i < n; i++) await this.request(`${new URL(this.current).origin}/api/subscribe`, "POST", "fetch", false, false, '{"email":""}');
+    for (let i = 0; i < n; i++) await this.request(this.script.postUrl ?? `${new URL(this.current).origin}/api/subscribe`, "POST", "fetch", false, false, '{"email":""}');
   }
   typed = "";
   private async typeText(text: string) {
@@ -312,10 +316,10 @@ export class FakePage implements PageLike {
       this.axeRuns.push(this.view);
       return JSON.stringify(this.script.axe ? this.script.axe(this.view) : { ok: false, error: "axe-core is not installed" });
     }
-    const side = /\)\("(vitals|audit|reflow)", (\{.*\})\)\)\)\(\)$/.exec(src);
+    const side = /\)\("(vitals|audit|reflow|overflow)", (\{.*\})\)\)\)\(\)$/.exec(src);
     if (side) {
       this.audits.push({ cmd: side[1], arg: JSON.parse(side[2]) });
-      const v = side[1] === "vitals" ? this.script.vitals?.(this.view) : side[1] === "audit" ? this.script.audit?.(this.view) : this.script.reflow?.(this.viewport?.width ?? 0);
+      const v = side[1] === "vitals" ? this.script.vitals?.(this.view) : side[1] === "audit" ? this.script.audit?.(this.view) : side[1] === "overflow" ? this.script.overflow?.(this.view) : this.script.reflow?.(this.viewport?.width ?? 0);
       return JSON.stringify(v ?? null);
     }
     const vc = /await f\("(\w+)", (\{.*\})\)\); \}\)\(\)$/.exec(src);

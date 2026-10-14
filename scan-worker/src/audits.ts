@@ -128,6 +128,11 @@ export function pageSide(cmd: string, options?: any): any {
     });
   }
 
+  if (cmd === "overflow") {
+    // the window's own scrolling: html's overflow-y, body's, and how far there is to scroll
+    return { html: style(de).overflowY, body: doc.body ? style(doc.body).overflowY : "visible", sh: de.scrollHeight, ch: de.clientHeight };
+  }
+
   if (cmd === "reflow") {
     const width = de.clientWidth;
     const sw = Math.max(de.scrollWidth, doc.body ? doc.body.scrollWidth : 0);
@@ -301,6 +306,8 @@ export function pageSide(cmd: string, options?: any): any {
       if (!/\S/.test(t)) continue;
       const p = n.parentElement;
       if (!p || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TEXTAREA|OPTION)$/.test(p.tagName) || p.closest("svg")) continue;
+      // text in an element marked as a picture or as decoration is not body text (a mock interface in an illustration)
+      if (p.closest('[role="img"], [aria-hidden="true"]')) continue;
       const r = p.getBoundingClientRect();
       if (r.width < 2 || r.height < 2 || !visible(p)) continue;
       const chars = t.replace(/\s+/g, "").length;
@@ -335,7 +342,7 @@ export function pageSide(cmd: string, options?: any): any {
 }
 
 /** The source that runs pageSide in the page and returns its result as a JSON string. */
-export function pageSideSource(cmd: "vitals" | "audit" | "reflow", options: Record<string, unknown> = {}): string {
+export function pageSideSource(cmd: "vitals" | "audit" | "reflow" | "overflow", options: Record<string, unknown> = {}): string {
   return `(async () => JSON.stringify(await (${pageSide.toString()})(${JSON.stringify(cmd)}, ${JSON.stringify(options)})))()`;
 }
 
@@ -470,6 +477,20 @@ export function judgeZoom(content: string | null): RawFinding | null {
     measured: `The viewport meta tag is "${s0(content, 120)}": ${why.join(" and ")}.`,
     detail: { severity: "serious" satisfies Severity, count: 1 },
   };
+}
+
+/**
+ * Whether the window scrolls, by CSS overflow propagation (CSS Overflow Module Level 3, 3.3): body's overflow reaches the
+ * viewport only when html's is visible. The visual checks blame a scroll lock on body's overflow-y: hidden; when html
+ * sets overflow-y: scroll or auto, the window scrolls anyway (measured on a public page: 600 px in a desktop browser),
+ * so that finding is left out, provided there is content to scroll to.
+ */
+export function windowScrolls(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const o = raw as Record<string, unknown>;
+  const html = s0(o.html, 20);
+  const viewport = html !== "visible" ? html : s0(o.body, 20);
+  return (viewport === "auto" || viewport === "scroll") && n0(o.sh) - n0(o.ch) > 100;
 }
 
 /** A viewport meta tag that sets width or initial-scale (what Lighthouse's viewport audit asks for). */

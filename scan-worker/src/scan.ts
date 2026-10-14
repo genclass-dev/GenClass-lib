@@ -14,13 +14,13 @@
 // one: in Browser Rendering it connects through a local proxy, so it reports the proxy), when a WebSocket host
 // resolves privately, when the page ended up on a site that opted out, or when the person who asked went away.
 
-import { clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, judgeTapTargets, judgeUnsized, judgeZoom, JUDGE_DPR, pageSideSource, parseShifts, viewportOk } from "./audits.ts";
+import { clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, judgeTapTargets, judgeUnsized, judgeZoom, JUDGE_DPR, pageSideSource, parseShifts, viewportOk, windowScrolls } from "./audits.ts";
 import { axeFindings, installAxeSource, parseAxe, runAxeSource, withoutVisualDuplicates } from "./axe.ts";
 import { KINDS, sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { jsNote, judgeReliability, PageLog, type CdpLike } from "./cdp.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
-import { blockedAddress, type Target } from "./target.ts";
+import { blockedAddress, siteOf, type Target } from "./target.ts";
 import { callSource, FIX_KINDS, installSource, PERIODIC_KINDS, visualKey, visualStatus } from "./visual.ts";
 
 // ------------------------------------------------------------------------------- the browser we drive
@@ -102,6 +102,8 @@ const RESERVE_AFTER_VIEWS = 18_000;
  * scroll-lock-stuck) means anything: the chunk reports those only after two periodic reads 2 s apart, judged over 1 s.
  */
 const PERIODIC_RECHECK_MS = 4500;
+/** Takes focus off whatever has it, so the checks after the Tab presses see the page as it rests. */
+export const BLUR_SOURCE = `(() => { try { const a = document.activeElement; if (a && a !== document.body && typeof a.blur === "function") a.blur(); } catch (e) {} return true; })()`;
 /** The whole scan's hard budget, in ms (scans/slots.json leases last 60 s: store.ts LEASE_MS). */
 export const SCAN_BUDGET_MS = 50_000;
 /** At most this long for axe-core in one view. */
@@ -419,6 +421,15 @@ const withTimeout = <T>(p: Promise<T>, ms: number, what: string): Promise<T> =>
       },
     );
   });
+
+/** The site (registrable domain, approximately) of a URL, or "" when it has none. */
+const siteOfUrl = (u: string): string => {
+  try {
+    return siteOf(new URL(u).hostname.toLowerCase());
+  } catch {
+    return "";
+  }
+};
 
 const pathOf = (u: string): string => {
   try {
@@ -963,10 +974,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
 
   /**
    * The desktop view's window and screen, the size of its viewport. A new headless window is about 780 by 580 px on an
-   * 800 by 600 screen, and the viewport emulation does not change what the page reads from window.outerWidth or
-   * screen.width; a page that lays itself out from those (measured on a public page: a narrow column inside the 1366 px
-   * viewport, then a layout shift of 1.0) would be judged in a layout no visitor gets. Phone emulation already reports
-   * the phone's size everywhere. Best effort: when the browser refuses, the view runs as before.
+   * 800 by 600 screen (measured in calibration), and the viewport emulation does not change what the page reads from
+   * window.outerWidth or screen.width, where a visitor's are never smaller than the viewport; a page that lays itself out
+   * from those would be judged in a layout no visitor gets. Phone emulation already reports the phone's size everywhere.
+   * Best effort: when the browser refuses, the view runs as before.
    */
   async function fitDesktopWindow(cdp: CdpLike, spec: ViewSpec): Promise<void> {
     try {
@@ -999,6 +1010,9 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     const phone = spec.id === "phone";
     const word = spec.id === "phone-dark" ? "dark phone" : spec.id;
     const say = (e: unknown) => cutText(e instanceof Error ? e.message : String(e), 120);
+    // the visual checks pressed Tab on the desktop: whatever has focus now would be judged in its :focus style (measured
+    // in calibration: a link that loses its underline on focus, reported by axe-core as a link without styling)
+    await withTimeout(evalDom(page, BLUR_SOURCE), 1000, "clearing focus").catch(() => undefined);
 
     // Largest Contentful Paint, layout shifts and unsized images, read at network quiet (judged on the desktop only)
     if (vitals) {
@@ -1176,6 +1190,15 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         view.checks = sanitizeStats({ ...top, ...(a.stats ?? {}), skipped: a.skipped }) as ViewResult["checks"];
         const layoutW = numOrNull(view.checks?.viewport?.[0]);
         view.findings = cleanFindings(a.findings).map((f) => (spec.mobile ? phoneOverflow(f, spec.width, layoutW) : f));
+        // a scroll lock blamed on body while html scrolls the window: body's overflow does not reach the viewport then
+        if (view.findings.some((f) => f.kind === "scroll-lock-stuck" && f.selector === "body")) {
+          const o = parseJson<unknown>(await withTimeout(evalDom(page, pageSideSource("overflow")), 2000, "reading the page's overflow").catch(() => null), null);
+          if (windowScrolls(o)) {
+            view.findings = view.findings.filter((f) => !(f.kind === "scroll-lock-stuck" && f.selector === "body"));
+            const ov = (o ?? {}) as Record<string, unknown>;
+            view.notes.push(`The visual checks reported a scroll lock on body, but html has overflow-y: ${cutText(ov.html, 12)}, so the window itself scrolls (CSS overflow propagation); the finding is left out.`);
+          }
+        }
         const total = numOrNull(a.total) ?? 0;
         if (total > view.findings.length && total > MAX_VIEW_FINDINGS) {
           const more = Math.round(total - view.findings.length);
@@ -1391,7 +1414,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         const from = net.answered.length;
         await page.mouse.click(at.x, at.y, { count: 2, delay: 40 });
         await deps.sleep(Math.min(2500, Math.max(0, left() - 1500)));
-        const sent = net.answered.slice(from).filter((e) => e.phase === "click" && e.method !== "OPTIONS");
+        // the site's own requests: a click also fires analytics and ad beacons to other sites, and two identical beacons
+        // are not a double submit (measured in calibration: two identical ad-tracking POSTs from one double click)
+        const site = siteOfUrl(ctx.pageOrigin || target.url);
+        const sent = net.answered.slice(from).filter((e) => e.phase === "click" && e.method !== "OPTIONS" && siteOfUrl(e.url) === site);
         const groups = new Map<string, number>();
         for (const e of sent) {
           const k = `${e.method} ${e.url} ${e.body ?? ""}`;

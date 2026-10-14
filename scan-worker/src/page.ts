@@ -346,10 +346,8 @@ ${report ? staticReport(report) : ""}
       </div>
     </div>
     <div>
-      <p class="measures" id="measures"><b>What the score measures:</b> this page, this one load, in three views. Each of the six
-      categories is scored from 100 by its own findings, and the score is their weighted mean (${esc(weightsWords())}).
-      A category that was not measured is left out, never counted as 100. <a href="/scan/about#score">How the score works</a>.
-      <b>What it does not measure:</b> SEO, anything that needs a signed-in user or a second page, and what only a person can judge.</p>
+      <p class="measures">The weighted mean of six category scores (${esc(weightsWords())}); a category that was not measured is left
+      out. <a href="/scan/about#score">How the score works</a>.</p>
       <div class="share" id="share"></div>
     </div>
   </section>
@@ -358,6 +356,9 @@ ${report ? staticReport(report) : ""}
     <div class="blk-h"><h2>Top issues</h2><span class="aside">The rules that cost the most points</span></div>
     <ol class="top" id="top"></ol>
   </section>
+  <p class="measures" id="measures"><b>What the score measures:</b> this page, this one load, in three views, each category from 100
+  by its own findings. <b>What it does not measure:</b> SEO, anything that needs a signed-in user or a second page, and what only a
+  person can judge.</p>
   <section class="blk" id="where">
     <div class="blk-h"><h2>Where the findings are</h2><span class="aside" id="figs"></span></div>
     <div class="shots" id="shots"></div>
@@ -508,11 +509,12 @@ export function staticReport(r: Record<string, unknown>): string {
     ${withOn ? `<div class="num with"><div class="k">${esc(withLabel())}</div><div class="v">${esc(str(w.value))}<small>/ 100</small></div><div class="s">${esc(str(w.fixed))} fixed in the page and gone on a re-check in the same browser.</div></div>` : ""}
   </div></div>
   <div>
-    <p class="measures">The weighted mean of six categories (${esc(weightsWords())}). ${withOn ? esc(str(w.note)) : ""} Screenshots and the race probe show with JavaScript on. <a href="/scan/about#score">How the score works</a>.</p>
+    <p class="measures">The weighted mean of six category scores (${esc(weightsWords())}); a category that was not measured is left out. Screenshots and the race probe show with JavaScript on. <a href="/scan/about#score">How the score works</a>.</p>
   </div>
 </section>
 <div class="cats" role="list" aria-label="Category scores">${cells}</div>
 ${top ? `<section class="blk"><div class="blk-h"><h2>Top issues</h2><span class="aside">The rules that cost the most points</span></div><ol class="top">${top}</ol></section>` : ""}
+${withOn ? `<p class="measures">${esc(str(w.note))}</p>` : ""}
 <section class="blk"><div class="blk-h"><h2>Findings</h2><span class="aside">Table 1. ${findings.length} ${findings.length === 1 ? "finding" : "findings"}, by category and rule</span></div>
 ${findings.length ? `<ol class="finds">${items}</ol>` : `<p class="quiet">No findings from these checks on this load.</p>`}</section>
 </div>`;
@@ -627,7 +629,7 @@ function renderScore(r){
   var w = r.withGenClass, withOn = !!(w && w.shown);
   show("withbox", withOn);
   $("sk").textContent = withOn ? "Without GenClass" : "Score";
-  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (n === 1 ? " finding" : " findings") + " fixed in the page and gone on a re-check in the same browser, with " + (ST.fixes || "the GenClass visual fixes") + " and guard mode. The rest are listed with a suggested fix." : "Nothing to fix on this load."); }
+  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (n === 1 ? " finding" : " findings") + " fixed in the page by GenClass and gone on a re-check in the same browser. The note under the top issues says how." : "Nothing to fix on this load."); }
   var row = $("cats"); row.textContent = "";
   s.categories.forEach(function(c){
     var on = c.measured && c.value !== null;

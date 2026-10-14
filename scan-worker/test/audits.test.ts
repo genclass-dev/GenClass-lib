@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, judgeTapTargets, judgeUnsized, judgeZoom, pageSide, pageSideSource, parseShifts, viewportOk, viewportPairs,
+  clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, judgeTapTargets, judgeUnsized, judgeZoom, pageSide, pageSideSource, parseShifts, viewportOk, viewportPairs, windowScrolls,
 } from "../src/audits.ts";
 import { sanitizeFinding } from "../src/catalog.ts";
 
@@ -172,6 +172,17 @@ describe("Largest Contentful Paint and Cumulative Layout Shift: web.dev threshol
     assert.equal(judgeUnsized(image, moved(1240, 100, 300, 700)), null, "content beside it, not below it");
     assert.equal(judgeUnsized(image, moved(1240, 300, 100)), null, "content that moved up");
     assert.equal(judgeUnsized([{ ...image[0], end: null }], moved(1240, 100, 300)), null, "no load time, no claim");
+  });
+});
+
+describe("whether the window scrolls: CSS overflow propagation", () => {
+  it("lets body's overflow reach the window only when html's is visible, and needs content to scroll to", () => {
+    assert.equal(windowScrolls({ html: "scroll", body: "hidden", sh: 9150, ch: 768 }), true, "html scrolls the window; body's hidden stays on body");
+    assert.equal(windowScrolls({ html: "auto", body: "hidden", sh: 3000, ch: 768 }), true);
+    assert.equal(windowScrolls({ html: "visible", body: "hidden", sh: 9150, ch: 768 }), false, "body's hidden reaches the window: a real lock");
+    assert.equal(windowScrolls({ html: "hidden", body: "auto", sh: 9150, ch: 768 }), false);
+    assert.equal(windowScrolls({ html: "scroll", body: "hidden", sh: 800, ch: 768 }), false, "nothing to scroll to: body clips its content");
+    assert.equal(windowScrolls(null), false);
   });
 });
 
