@@ -3,6 +3,9 @@
 //
 // Routes it will own on genclass.dev, added by the owner after review (NOT live from this file):
 //   genclass.dev/api/scan*   and   genclass.dev/scan*
+// (the * is needed: route matching includes the query string, so genclass.dev/scan alone misses /scan?url=). The
+// /scan* route also matches the site's own /scan-box.js: this worker answers /scan, /scan/ and /scan/about only and
+// hands every other /scan... path to the site worker over the SITE binding below.
 // Until then it answers on https://genclass-scan.mehar-144.workers.dev only.
 {
   "name": "genclass-scan",
@@ -16,6 +19,8 @@
   // would end up inside them and is not defined in the scanned page.
   "keep_names": false,
   "browser": { "binding": "BROWSER" },
+  // The site worker, for paths under the /scan* route that are the site's files (its /scan-box.js), read-only GETs.
+  "services": [{ "binding": "SITE", "service": "genclass-site" }],
   // Existing bucket, scans/ prefix only: reports (6 h cache), screenshots (deleted after 24 h), slots, blocklist.
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
   // New scans per client per minute (keyed by a hash of the IP, or of its /64 for IPv6, never stored), and per site
@@ -32,6 +37,8 @@
     // key: 10 scans of about 35 s are about 0.6 writes a second.
     "MAX_CONCURRENT": "10",
     // The with-GenClass column: the visual checks' fixes in guard mode, re-checked, and the race probe's guard pass.
+    // The visual fixes are in testing (no released runtime has them); every page and report says so until
+    // VISUAL_IN_RUNTIME in src/visual.ts names a published runtime. "off" runs the visual checks report-only.
     "WITH_GENCLASS": "on",
     "GUARD_HOLD_MS": "900"
   },

@@ -262,3 +262,37 @@ describe("guard held back", () => {
     assert.match(r.findings.find((f) => f.kind === "duplicate-submit")!.genclass.text, /held back at the default safety margin/);
   });
 });
+
+describe("review fixes for the launch: race words", () => {
+  const stale = (subject: string) => ({ kind: "genclass-detection" as const, selector: subject, measured: "", detail: { diagnosis: "stale", subject } });
+  const discard = (subject: string, id = "x1") => ({ id, decisionId: `d-${id}`, action: "discard", trigger: "delivery", subject, ok: true, changed: "Dropped the late response.", late: false });
+  it("counts a late response as fixed only for guard's own recorded action on that same request", () => {
+    const g = (acts: ProbeResult["acts"], detections: ProbeResult["detections"] = []) => probe("guard", 0, 0, acts, detections);
+    assert.equal(raceFix(stale(""), null, g([discard("")])), null, "never for an unnamed subject");
+    assert.equal(raceFix(stale("response to GET /api/search?q=a (#7)"), null, g([discard("response to GET /api/other (#7)")])), null, "not for another request");
+    const fixed = raceFix(stale("response to GET /api/search?q=a (#7)"), null, g([discard("response to GET /api/search?q=a (#9)")]));
+    assert.ok(fixed, "the same request, numbered apart in the guard page");
+    assert.equal(fixed!.how, "GenClass guard ran discard on the response to GET /api/search?q=a (its recorded action: Dropped the late response).");
+    const still = [{ id: "d-y", trigger: "delivery", subject: "response to GET /api/search?q=a (#11)", diagnosis: "stale", p: 0.9, action: "none", ran: "none", executed: false, latencyMs: 100 }];
+    assert.equal(raceFix(stale("response to GET /api/search?q=a (#7)"), null, g([discard("response to GET /api/search?q=a (#9)")], still)), null, "not while guard left another late response to it alone");
+  });
+  it("says what the held-back double click sent, from the guard pass's own counts, with the right article", () => {
+    const held = (diagnosis: string) => [{ id: "d1", trigger: "request", subject: "POST /api/orders (#3)", diagnosis, p: 0.99, action: "none", ran: "none", executed: false, latencyMs: 200, candidate: "coalesce", gain: 2.84, margin: 4 }];
+    const dup: RawFinding = { kind: "duplicate-submit", selector: "button.cta", measured: "", detail: {} };
+    const two = heldBack(dup, probe("observe", 2, 2), probe("guard", 2, 2, [], held("duplicate")), true)!;
+    assert.match(two, /so it did not act: the page sent 2 identical requests \(the scanner answered them; none reached the site\)\./);
+    assert.doesNotMatch(two, /both requests went out/);
+    const three = heldBack(dup, probe("observe", 3, 3), probe("guard", 3, 3, [], held("duplicate")), true)!;
+    assert.match(three, /the page sent 3 identical requests/);
+    const inc: RawFinding = { kind: "genclass-detection", selector: "POST /api/orders (#3)", measured: "", detail: { diagnosis: "inconsistent", subject: "POST /api/orders (#3)" } };
+    assert.match(heldBack(inc, probe("observe", 0, 0), probe("guard", 0, 0, [], held("inconsistent")), true)!, /sure this was an inconsistency, but/);
+  });
+  it("names the re-check in the with-GenClass note only when one ran", () => {
+    const none = buildReport(target, ids, scan(), { withGenClass: true });
+    assert.doesNotMatch(none.withGenClass.note, /second set of the same checks re-measured/);
+    assert.match(none.withGenClass.note, /no re-check ran/);
+    const rechecked = buildReport(target, ids, scan({ views: scan().views.map((v) => (v.id === "desktop" ? { ...v, fixes: fixedIn("text-invisible|p.note|") } : v)) }), { withGenClass: true });
+    assert.match(rechecked.withGenClass.note, /second set of the same checks re-measured the page/);
+    assert.match(rechecked.withGenClass.note, /runtime 0\.2\.1 in guard mode/);
+  });
+});

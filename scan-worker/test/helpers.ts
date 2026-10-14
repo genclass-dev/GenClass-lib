@@ -135,7 +135,7 @@ class FakeRequest implements RequestLike {
 
 export interface PageScript {
   /** Requests the page makes while loading (after the main document); `ip` is the address the response came from. */
-  load?: { url: string; method?: string; type?: string; nav?: boolean; main?: boolean; body?: string; ip?: string }[];
+  load?: { url: string; method?: string; type?: string; nav?: boolean; main?: boolean; body?: string; ip?: string; hang?: boolean }[];
   /** The main document redirects here (a main-frame navigation request the scanner must allow). */
   redirect?: string;
   /** WebSocket hosts the page opened (what the safety bootstrap would have recorded). */
@@ -146,6 +146,10 @@ export interface PageScript {
   findings?: (view: string) => unknown[];
   /** What the report-only re-check (engine "c") finds with the fixes in place, per view (default: the same findings). */
   recheck?: (view: string) => unknown[];
+  /** Every finding's identity the re-check reports (`keys`), when it is more than its first 40 findings. */
+  recheckKeys?: (view: string) => string[];
+  /** How long the re-check ran, as the page reports it (stats.elapsed, ms). */
+  recheckElapsed?: number;
   docHeight?: number;
   status?: number;
   gotoError?: string;
@@ -203,11 +207,11 @@ export class FakePage implements PageLike {
   emit(ev: string, a: unknown) {
     for (const h of this.handlers.get(ev) || []) h(a);
   }
-  async request(url: string, method = "GET", type = "fetch", nav = false, main = false, body?: string, ip?: string): Promise<FakeRequest> {
+  async request(url: string, method = "GET", type = "fetch", nav = false, main = false, body?: string, ip?: string, hang = false): Promise<FakeRequest> {
     const r = new FakeRequest(this, url, method, type, nav, main, body);
     this.emit("request", r);
     for (let i = 0; i < 50 && !r.handled; i++) await this.settle();
-    if (r.handled?.outcome === "continue") {
+    if (r.handled?.outcome === "continue" && !hang) {
       const addr = ip ?? this.script.ip ?? "93.184.215.14";
       this.emit("response", { status: () => 200, url: () => url, request: () => r, remoteAddress: () => ({ ip: addr, port: 443 }) });
       this.emit("requestfinished", r);
@@ -224,7 +228,7 @@ export class FakePage implements PageLike {
       if (hop.handled?.outcome !== "continue") throw new Error("net::ERR_BLOCKED_BY_CLIENT");
       this.current = this.script.redirect;
     }
-    for (const l of this.script.load || []) await this.request(l.url, l.method || "GET", l.type || "fetch", !!l.nav, l.main ?? false, l.body, l.ip);
+    for (const l of this.script.load || []) await this.request(l.url, l.method || "GET", l.type || "fetch", !!l.nav, l.main ?? false, l.body, l.ip, !!l.hang);
     const status = this.script.status ?? 200;
     return { status: () => status, url: () => url, request: () => doc };
   }
@@ -277,13 +281,18 @@ export class FakePage implements PageLike {
   private visualCommand(cmd: string, arg: Record<string, any>): unknown {
     this.visual.push({ cmd, arg });
     const page = { viewport: [this.viewport?.width ?? 0, this.viewport?.height ?? 0], viewportMeta: true, docHeight: this.script.docHeight ?? 1800, docWidth: this.viewport?.width ?? 0, atEnd: true, visibility: "visible" };
-    if (cmd === "start" || cmd === "stop") return { ok: true };
+    if (cmd === "start" || cmd === "stop" || cmd === "net") return { ok: true };
     if (cmd === "status") return { ok: true, stats: { passes: 1 } };
     if (cmd === "point") return { x: 400, y: 300 };
     if (cmd === "page" || cmd === "top") return page;
     if (cmd === "collect") {
       const list = arg.id === "c" && this.script.recheck ? this.script.recheck(this.view) : this.script.findings ? this.script.findings(this.view) : [];
-      return { ok: true, findings: list, skipped: 0, stats: { passes: 2, partial: 0, elements: 100, abstained: 0, ms: 12 } };
+      const c = arg.id === "c";
+      return {
+        ok: true, findings: list, skipped: 0,
+        ...(c && this.script.recheckKeys ? { keys: this.script.recheckKeys(this.view) } : {}),
+        stats: { passes: 2, partial: 0, elements: 100, abstained: 0, ms: 12, ...(c && this.script.recheckElapsed !== undefined ? { elapsed: this.script.recheckElapsed } : {}) },
+      };
     }
     return { ok: false };
   }

@@ -527,3 +527,139 @@ describe("retention sweep", () => {
     assert.deepEqual([...bucket.objects.keys()].sort(), ["events/dt=2026-10-12/keep.jsonl.gz", "scans/shots/k/new-desktop.jpg"]);
   });
 });
+
+describe("review fixes for the launch", () => {
+  const pe = (fixApplied: boolean) => ({ kind: "pointer-events-leak", selector: "body", box: null, measured: "pointer-events: none on body for 1.2 s", detail: { severity: "high", fixApplied, fixCss: "body { pointer-events: auto; }" } });
+  const done = (msgs: Record<string, unknown>[]) => (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
+
+  it("hands the page's fetch and XHR requests in flight to the visual checks before they start", async () => {
+    const t = setup({ ...SCRIPT, load: [...SCRIPT.load!, { url: "https://shop.example.com/api/slow", type: "fetch", hang: true }] });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    assert.ok(done(msgs));
+    for (const p of t.browsers[0].pages.slice(0, 3)) {
+      const first = p.visual.findIndex((c) => c.cmd === "start");
+      const net = p.visual.findIndex((c) => c.cmd === "net");
+      assert.ok(net >= 0 && net < first, `${p.view}: the count arrives before the checks start`);
+      assert.deepEqual(p.visual[net].arg, { n: 1 }, p.view);
+    }
+    const quiet = setup(SCRIPT);
+    await ndjson(await quiet.post("shop.example.com"));
+    await Promise.all(quiet.waits);
+    assert.deepEqual(quiet.browsers[0].pages[1].visual.find((c) => c.cmd === "net")!.arg, { n: 0 }, "requests the scanner answered or that finished are not in flight");
+  });
+
+  it("counts a fix of a periodic kind only when the re-check ran long enough to see it again", async () => {
+    for (const [elapsed, fixed] of [[2000, false], [5200, true]] as const) {
+      const t = setup({ ...SCRIPT, findings: () => [pe(true)], recheck: () => [], recheckElapsed: elapsed }, { WITH_GENCLASS: "on" });
+      const r = done(await ndjson(await t.post("shop.example.com")));
+      await Promise.all(t.waits);
+      const f = r.findings.find((x: { kind: string }) => x.kind === "pointer-events-leak");
+      assert.equal(!!f.fixed, fixed, `elapsed ${elapsed}`);
+      if (!fixed) assert.match(f.genclass.text, /did not run long enough/);
+      else assert.match(f.fixed.how, /visual fixes in testing \(not in runtime 0\.2\.1\) changed the page/);
+    }
+  });
+
+  it("compares the re-check with every finding it made, not only the first 40", async () => {
+    const t = setup(
+      { ...SCRIPT, findings: () => [{ kind: "text-invisible", selector: "p.x", box: null, measured: "1.08:1", detail: { severity: "high", fixApplied: true } }], recheck: () => [], recheckKeys: () => ["text-invisible|p.x|"] },
+      { WITH_GENCLASS: "on" },
+    );
+    const r = done(await ndjson(await t.post("shop.example.com")));
+    await Promise.all(t.waits);
+    const f = r.findings.find((x: { kind: string }) => x.kind === "text-invisible");
+    assert.equal(f.fixed, null);
+    assert.match(f.genclass.text, /re-check still found the problem/);
+  });
+
+  it("says when the re-check found problems the first pass did not report, and scores neither", async () => {
+    const t = setup(
+      { ...SCRIPT, findings: () => [pe(true)], recheck: () => [{ kind: "text-invisible", selector: "p.fine", box: null, measured: "1.08:1", detail: { severity: "high" } }] },
+      { WITH_GENCLASS: "on" },
+    );
+    const r = done(await ndjson(await t.post("shop.example.com")));
+    await Promise.all(t.waits);
+    assert.match(r.withGenClass.note, /re-check also found 1 problem the first pass did not report \(text-invisible\)/);
+    assert.ok(!r.findings.some((x: { kind: string }) => x.kind === "text-invisible"));
+    assert.match(r.withGenClass.note, /in testing \(not in runtime 0\.2\.1\)/);
+  });
+
+  it("drops the chunk's 100vw cause and CSS for sideways scrolling on a phone, and keeps the measured excess", async () => {
+    const wide = { kind: "page-overflow-x", selector: "body > main", box: null, measured: 'the page scrolls sideways on a 390 px viewport: <main> ends at 696 px (306 px too wide, a width of 100vw with a classic scrollbar).', detail: { severity: "high", css: "body > main { width: 100%; }" } };
+    const t = setup({ ...SCRIPT, findings: (v) => (v === "desktop" ? [] : [wide]) });
+    const r = done(await ndjson(await t.post("shop.example.com")));
+    await Promise.all(t.waits);
+    const f = r.findings.find((x: { kind: string }) => x.kind === "page-overflow-x");
+    assert.match(f.measured, /\(306 px too wide\)\. On a phone the browser widens the layout/);
+    assert.doesNotMatch(f.measured + f.fix, /100vw|main \{ width: 100%; \}/);
+    assert.match(f.fix, /max-width: 100%; when it sits in a flex or grid row, also give it min-width: 0/);
+  });
+
+  it("shows a cached report without JavaScript, and says the scan needs it when there is none", async () => {
+    const t = setup(SCRIPT);
+    await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const cached = await (await t.call("/scan?url=shop.example.com")).text();
+    assert.match(cached, /<div id="ssr">/);
+    assert.match(cached, /Text that is almost invisible on its background/);
+    assert.match(cached, /<td class="cat">Layout<small>Up to 25 points<\/small><\/td><td class="r">1<\/td><td class="r">-10<\/td>/);
+    assert.doesNotMatch(cached, /<noscript>/);
+    assert.doesNotMatch(cached, /id="ctaprobe" class="hidden"/, "the race probe sentence shows with a report");
+    const fresh = await (await t.call("/scan?url=a.example.com")).text();
+    assert.match(fresh, /<noscript>.*runs in your browser with JavaScript/s);
+    assert.match(fresh, /id="ctaprobe" class="hidden"/, "no race probe to point at");
+    const refused = await (await t.call("/scan?url=127.0.0.1")).text();
+    assert.match(refused, /<section id="problem" class="callout bad" role="alert"><p><b id="problemt">[^<]+<\/b>/, "a refusal reads without JavaScript");
+  });
+
+  it("says where the visual checks come from: in testing, not in the runtime the install line loads", async () => {
+    const t = setup(SCRIPT, { GUARD_MARGIN: "0", GUARD_AGGRESSIVENESS: "eager" });
+    const scanPage = await (await t.call("/scan")).text();
+    assert.doesNotMatch(scanPage, /runtime ships|ships in runtime/);
+    assert.match(scanPage, /built for the GenClass runtime \(in testing; not in runtime 0\.2\.1\)/);
+    assert.match(scanPage, /in testing for a release after 0\.2\.1; runtime 0\.2\.1 does not have them yet/);
+    assert.match(scanPage, /With GenClass \(in testing\)/);
+    const about = await (await t.call("/scan/about")).text();
+    assert.match(about, /31 of 40 sites measured, 96 loads/);
+    assert.match(about, /22 of which run in the page check/);
+    assert.match(about, /Not run in the page check: it needs a visitor's clicks/);
+    assert.match(about, /a demo setting that lowers its safety margin to 0, eager profile \(not the default\)/);
+    assert.doesNotMatch(about, /The checks in this scanner are that build/);
+  });
+
+  it("hands paths under /scan that are the site's back to the site worker", async () => {
+    const seen: string[] = [];
+    const t = setup(SCRIPT, { SITE: { fetch: async (req: Request) => (seen.push(new URL(req.url).pathname), new Response("/* the site's script */", { headers: { "content-type": "text/javascript" } })) } });
+    const res = await t.call("/scan-box.js?v=c0bfa242");
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "text/javascript");
+    assert.deepEqual(seen, ["/scan-box.js"]);
+    for (const own of ["/scan", "/scan/", "/scan/about", "/scan/about/"]) assert.match(await (await t.call(own)).text(), /<!doctype html>/, own);
+    assert.deepEqual(seen, ["/scan-box.js"], "its own pages are not forwarded");
+    assert.equal((await setup(SCRIPT).call("/scan-box.js")).status, 404, "without the binding it is a 404 as before");
+  });
+
+  it("tells contention apart from full, and paces new browsers to 3 a second", async () => {
+    const bucket = new MemBucket();
+    const now = Date.parse("2026-10-13T12:00:00Z");
+    const wait = async () => undefined;
+    for (const id of ["s1", "s2", "s3"]) assert.equal(await acquireSlot(bucket, 10, id, `k-${id}`, now, "", wait), "ok");
+    assert.equal(await acquireSlot(bucket, 10, "s4", "k-s4", now, "", wait), "contention", "a fourth browser in the same second waits");
+    assert.equal(await acquireSlot(bucket, 10, "s4", "k-s4", now + 1500, "", wait), "ok");
+    const throttled = new MemBucket();
+    const put = throttled.put.bind(throttled);
+    throttled.put = async (key: string, value: unknown, o?: Record<string, unknown>) => {
+      if (key === "scans/slots.json") throw new Error("429: too many writes to this key");
+      return put(key, value, o);
+    };
+    assert.equal(await acquireSlot(throttled, 10, "x", "k-x", now, "", wait), "contention");
+    // the HTTP answer: 503 with a short retry
+    const t = setup(SCRIPT);
+    t.bucket.put = throttled.put;
+    const res = await t.post("shop.example.com");
+    assert.equal(res.status, 503);
+    assert.equal(((await res.json()) as { code: string }).code, "contention");
+    assert.equal(res.headers.get("retry-after"), "3");
+  });
+});

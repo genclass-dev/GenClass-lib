@@ -1,6 +1,7 @@
 // HTTP for the scan worker (genclass-scan). Routes it will own on genclass.dev: /api/scan* and /scan* (the owner adds
 // the zone routes after review; until then it answers on its workers.dev URL). The site worker hands it
-// genclass.dev/<url-like path> as /scan?url=<path> over a service binding.
+// genclass.dev/<url-like path> as /scan?url=<path> over a service binding. A route ending in * also matches the site's
+// own files that start with /scan (genclass.dev/scan-box.js): those go back to the site worker over the SITE binding.
 //
 //   GET  /scan                 the URL box                      GET /scan?url=...    report page (cached, or starts a scan)
 //   GET  /scan/about           what it does, score formula, opt-out, retention
@@ -13,10 +14,11 @@
 // DNS and robots.txt checks (navigationAllowed).
 
 import { classifyIp, parseIPv6 } from "./ip.ts";
-import { buildReport, REPORT_VERSION } from "./report.ts";
+import { buildReport, guardSetting, REPORT_VERSION } from "./report.ts";
 import { runScan, ScanError, UA_TOKEN, type BrowserLike, type NavVerdict, type ScanResult } from "./scan.ts";
 import { aboutPage, nonce, notFoundPage, scanPage, securityHeaders, type ScanPageData } from "./page.ts";
 import { acquireSlot, cachedReport, cacheKey, optedOut, releaseSlot, saveReport, SHOT_PATH, shotKey, type Bucket } from "./store.ts";
+import { RUNTIME_VERSION } from "./visual.ts";
 import { blockedName, normaliseTarget, publicHostname, resolveCheck, robotsDisallows, robotsRules, siteOf, type Fetcher, type Target } from "./target.ts";
 
 export interface RateLimiter {
@@ -44,6 +46,11 @@ export interface Env {
   GUARD_MARGIN?: string;
   /** Base of share links (default https://genclass.dev). */
   PUBLIC_ORIGIN?: string;
+  /**
+   * The site worker (genclass-site), for paths under the /scan* route that are the site's, not this worker's (its
+   * /scan-box.js). Unset: those paths are 404 here.
+   */
+  SITE?: { fetch(request: Request): Promise<Response> };
 }
 
 export interface Ctx {
@@ -61,7 +68,7 @@ export interface AppDeps {
   scanId(): string;
 }
 
-export const RUNTIME_VERSION = "0.2.1";
+export { RUNTIME_VERSION };
 export const DEFAULT_MODEL_BASE = "https://genclass.dev/model/@genclass/runtime-model@0.2.0/files/";
 
 const JSON_HEADERS = {
@@ -157,9 +164,11 @@ export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps
     }
     if (path.startsWith("/api/")) return json({ ok: false, code: "not-found", message: "Not found." }, 404);
 
+    // genclass.dev/scan* also matches the site's own files that start with /scan: they are the site worker's
+    if (path.startsWith("/scan") && !OWN_PATH.test(path) && env.SITE) return env.SITE.fetch(request);
     if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     const n = nonce();
-    if (path === "/scan/about" || path === "/scan/about/") return html(aboutPage(n), n);
+    if (path === "/scan/about" || path === "/scan/about/") return html(aboutPage(n, guardSetting(...guardConfig(env))), n);
     if (path === "/scan" || path === "/scan/") return html(scanPage(n, await pageData(url.searchParams.get("url"), env, deps, url)), n);
     const fromPath = path.length > 1 && !path.startsWith("/scan/") ? targetFromPath(path + url.search) : null;
     if (fromPath) return html(scanPage(n, await pageData(fromPath, env, deps, url)), n);
@@ -168,6 +177,16 @@ export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps
     console.error("scan worker error", e instanceof Error ? e.message : String(e));
     return json({ ok: false, code: "internal", message: "Something went wrong on our side. Try again in a minute." }, 500);
   }
+}
+
+/** The paths under /scan this worker answers; anything else that starts with /scan belongs to the site. */
+const OWN_PATH = /^\/scan(?:\/(?:about\/?)?)?$/;
+
+/** The guard pass's configuration from the environment: aggressiveness, gain margin (null: shipped gates), hold budget. */
+function guardConfig(env: Env): [aggr: "cautious" | "balanced" | "eager", margin: number | null, holdMs: number] {
+  const aggr = env.GUARD_AGGRESSIVENESS === "eager" || env.GUARD_AGGRESSIVENESS === "cautious" ? env.GUARD_AGGRESSIVENESS : "balanced";
+  const margin = env.GUARD_MARGIN !== undefined && env.GUARD_MARGIN !== "" && Number.isFinite(Number(env.GUARD_MARGIN)) ? Number(env.GUARD_MARGIN) : null;
+  return [aggr, margin, Number(env.GUARD_HOLD_MS) || 900];
 }
 
 async function pageData(input: string | null, env: Env, deps: AppDeps, url: URL): Promise<ScanPageData> {
@@ -217,10 +236,11 @@ async function startScan(request: Request, env: Env, ctx: Ctx, deps: AppDeps, ur
   }
   const id = deps.scanId();
   const cap = Math.max(1, Number(env.MAX_CONCURRENT) || 3);
-  const slot = await acquireSlot(env.BUCKET, cap, id, key, deps.now(), client);
+  const slot = await acquireSlot(env.BUCKET, cap, id, key, deps.now, client);
   if (slot === "same") return json({ ok: false, code: "in-progress", message: "A scan of this page is already running." }, 409, { "retry-after": "20" });
   if (slot === "mine") return json({ ok: false, code: "running", message: "You already have a scan running. It finishes within a minute." }, 429, { "retry-after": "30" });
   if (slot === "busy") return json({ ok: false, code: "busy", message: "All scanners are busy." }, 503, { "retry-after": "30" });
+  if (slot === "contention") return json({ ok: false, code: "contention", message: "Many scans are starting at once." }, 503, { "retry-after": "3" });
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
@@ -251,7 +271,7 @@ async function startScan(request: Request, env: Env, ctx: Ctx, deps: AppDeps, ur
       send({ type: "error", code, message, detail: e instanceof ScanError && code === "browser" ? e.message : "" });
     })
     .finally(async () => {
-      await releaseSlot(env.BUCKET, id, deps.now()).catch(() => undefined);
+      await releaseSlot(env.BUCKET, id, deps.now).catch(() => undefined);
       open = false;
       void writer.close().catch(() => undefined); // not awaited: an unread stream must not hold the scan open
     });
@@ -318,9 +338,7 @@ async function runAndSave(
   signal: AbortSignal,
   rules: { allow: boolean; path: string }[] | null,
 ): Promise<void> {
-  const guardHoldMs = Number(env.GUARD_HOLD_MS) || 900;
-  const aggr = env.GUARD_AGGRESSIVENESS === "eager" || env.GUARD_AGGRESSIVENESS === "cautious" ? env.GUARD_AGGRESSIVENESS : "balanced";
-  const margin = env.GUARD_MARGIN !== undefined && env.GUARD_MARGIN !== "" && Number.isFinite(Number(env.GUARD_MARGIN)) ? Number(env.GUARD_MARGIN) : null;
+  const [aggr, margin, guardHoldMs] = guardConfig(env);
   const result: ScanResult = await runScan(target, {
     launch: () => deps.launch(env),
     now: deps.now,

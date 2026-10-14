@@ -55,13 +55,31 @@ interface Slots {
   leases: { id: string; key: string; until: number; client?: string }[];
 }
 
+/** New browsers a second across everyone: Browser Rendering on Workers Paid allows 3 (limits page, 2026-09-26). */
+export const LAUNCHES_PER_SECOND = 3;
+
+export type SlotAnswer = "ok" | "busy" | "same" | "mine" | "contention";
+
 /**
  * Takes one of `cap` global scan slots, or reports why not: "same" (this URL is already being scanned), "mine" (this
- * client already has a scan running: one at a time per client) or "busy" (all taken). Compare-and-swap on the
- * object's etag; a lease expires by itself after LEASE_MS.
+ * client already has a scan running: one at a time per client), "busy" (all taken) or "contention" (slots may be free,
+ * but every attempt lost the compare-and-swap race or got R2's 429: worth a retry in a few seconds). Compare-and-swap
+ * on the object's etag; a lease expires by itself after LEASE_MS. A lease is not taken while LAUNCHES_PER_SECOND
+ * others started in the last second, so new browsers stay under Browser Rendering's rate. `now` is read again on
+ * every attempt.
  */
-export async function acquireSlot(bucket: Bucket, cap: number, id: string, key: string, now: number, client = ""): Promise<"ok" | "busy" | "same" | "mine"> {
+export async function acquireSlot(
+  bucket: Bucket,
+  cap: number,
+  id: string,
+  key: string,
+  now: number | (() => number),
+  client = "",
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<SlotAnswer> {
+  const clock = typeof now === "function" ? now : () => now;
   for (let attempt = 0; attempt < 6; attempt++) {
+    const t = clock();
     const obj = await bucket.get("scans/slots.json");
     let slots: Slots = { leases: [] };
     if (obj) {
@@ -71,26 +89,31 @@ export async function acquireSlot(bucket: Bucket, cap: number, id: string, key: 
         slots = { leases: [] };
       }
     }
-    const live = (slots.leases || []).filter((l) => l.until > now);
+    const live = (slots.leases || []).filter((l) => l.until > t);
     if (live.some((l) => l.key === key)) return "same";
     if (client && live.some((l) => l.client === client)) return "mine";
     if (live.length >= cap) return "busy";
-    live.push({ id, key, until: now + LEASE_MS, ...(client ? { client } : {}) });
-    // R2 takes at most one write per second to one key and answers more with 429 (thrown here): that is a retry too
-    const put = await bucket
-      .put("scans/slots.json", JSON.stringify({ leases: live }), {
-        onlyIf: obj ? { etagMatches: obj.etag } : new Headers({ "if-none-match": "*" }),
-        httpMetadata: { contentType: "application/json" },
-      })
-      .catch(() => null);
-    if (put) return "ok";
-    await new Promise((r) => setTimeout(r, 250 + attempt * 200));
+    const recent = live.filter((l) => l.until - LEASE_MS > t - 1000).length;
+    if (recent < LAUNCHES_PER_SECOND) {
+      live.push({ id, key, until: t + LEASE_MS, ...(client ? { client } : {}) });
+      // R2 takes at most one write per second to one key and answers more with 429 (thrown here): that is a retry too
+      const put = await bucket
+        .put("scans/slots.json", JSON.stringify({ leases: live }), {
+          onlyIf: obj ? { etagMatches: obj.etag } : new Headers({ "if-none-match": "*" }),
+          httpMetadata: { contentType: "application/json" },
+        })
+        .catch(() => null);
+      if (put) return "ok";
+    }
+    await wait(250 + attempt * 200 + Math.floor(Math.random() * 150));
   }
-  return "busy";
+  return "contention";
 }
 
-export async function releaseSlot(bucket: Bucket, id: string, now: number): Promise<void> {
-  for (let attempt = 0; attempt < 6; attempt++) {
+/** Gives a slot back. More attempts than taking one: a release that loses every round keeps its slot for LEASE_MS. */
+export async function releaseSlot(bucket: Bucket, id: string, now: number | (() => number)): Promise<void> {
+  const clock = typeof now === "function" ? now : () => now;
+  for (let attempt = 0; attempt < 10; attempt++) {
     const obj = await bucket.get("scans/slots.json");
     if (!obj) return;
     let slots: Slots;
@@ -99,10 +122,12 @@ export async function releaseSlot(bucket: Bucket, id: string, now: number): Prom
     } catch {
       return;
     }
-    const leases = (slots.leases || []).filter((l) => l.id !== id && l.until > now);
+    if (!(slots.leases || []).some((l) => l.id === id)) return;
+    const t = clock();
+    const leases = (slots.leases || []).filter((l) => l.id !== id && l.until > t);
     const put = await bucket.put("scans/slots.json", JSON.stringify({ leases }), { onlyIf: { etagMatches: obj.etag }, httpMetadata: { contentType: "application/json" } }).catch(() => null);
     if (put) return;
-    await new Promise((r) => setTimeout(r, 250 + attempt * 200));
+    await new Promise((r) => setTimeout(r, 250 + attempt * 200 + Math.floor(Math.random() * 150)));
   }
 }
 

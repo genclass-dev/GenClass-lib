@@ -11,6 +11,8 @@
 // Nothing here measures or fixes anything itself. It starts and stops engines, collects what they reported, and turns
 // each finding into the plain data the scanner stores (src/catalog.ts sanitizeFinding checks it again).
 //
+// The stand-in's in-flight count is the page's fetch and XHR requests, counted by the scanner and handed in with "net".
+//
 // Defines one function, window.__genclassScanVisual(command, argument), on the isolated world's window. The scanner
 // takes it only when this script defined it (src/visual.ts installSource) and calls it under a per-scan name.
 
@@ -41,16 +43,30 @@ function describeEl(el) {
 }
 
 /**
+ * The page's fetch and XHR requests in flight. The scanner counts them outside the page (every request passes its
+ * request handler) and hands the count here with the "net" command every 250 ms while the checks run, so the chunk
+ * sees what the runtime's own count would show: it does not judge a blank page, a leaked pointer-events: none or a
+ * covering layer while a request runs.
+ */
+let netInflight = 0;
+
+/**
  * The parts of the runtime the chunk's bridge reads (src/visual/bridge.ts RtLike): the clock, the window, the mode,
- * sampling and pause state, the in-flight count (0: the scanner waits for the network to go quiet before it starts
- * the checks), and where findings and fix audits go. Reports are silent: nothing is printed in the page.
+ * sampling and pause state, the in-flight count (netInflight, above), and where findings and fix audits go. Reports
+ * are silent: nothing is printed in the page.
  */
 function standIn(mode, rec) {
   const teardown = [];
   return {
     clock,
     global: window,
-    ops: { inFlight: { size: 0 } },
+    ops: {
+      inFlight: {
+        get size() {
+          return netInflight;
+        },
+      },
+    },
     isPaused: false,
     vis: null,
     effectiveMode: () => mode,
@@ -173,6 +189,12 @@ function boxOf(f) {
   return { x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height) };
 }
 
+/** A finding's identity in one view, as the scanner computes it on the stored finding (src/visual.ts visualKey). */
+function keyOf(f) {
+  const state = (f.context && f.context.state) || "";
+  return `${f.kind}|${String(f.selector || "").slice(0, 200)}|${String(state).slice(0, 200)}`;
+}
+
 /** A finding as plain data: what the report shows, and the fix state the with-GenClass column needs. */
 function serial(f) {
   let text = String(f.message || "");
@@ -214,14 +236,17 @@ async function collect(o) {
   const skip = new Set(Array.isArray(o.skipHosts) ? o.skipHosts.map((h) => String(h).toLowerCase()) : []);
   let skipped = 0;
   const findings = [];
+  const keys = [];
   for (const f of rec.findings) {
     if (skip.size && ASSET.has(f.kind) && skip.has(fileHost(f))) {
       skipped++;
       continue;
     }
+    // every finding's identity, so a re-check is compared with all of it; the first 40 as data for the report
+    if (keys.length < 400) keys.push(keyOf(f));
     if (findings.length < 40) findings.push(serial(f));
   }
-  return { ok: true, findings, skipped, stats: stats(rec), audit: rec.audit.slice(0, 40) };
+  return { ok: true, findings, keys, total: rec.findings.length - skipped, skipped, stats: stats(rec), audit: rec.audit.slice(0, 40) };
 }
 
 function stop(o) {
@@ -286,6 +311,11 @@ function scanVisual(cmd, arg) {
     return pageInfo();
   }
   if (cmd === "page") return pageInfo();
+  if (cmd === "net") {
+    const n = Math.floor(Number(o.n));
+    netInflight = Number.isFinite(n) ? Math.max(0, Math.min(1000, n)) : 0;
+    return { ok: true };
+  }
   return { ok: false, error: "unknown command" };
 }
 

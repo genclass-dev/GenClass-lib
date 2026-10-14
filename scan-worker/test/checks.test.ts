@@ -198,9 +198,11 @@ describe("the safety bootstrap", () => {
     vm.runInContext(`window.__gcsS("hold", true)`, ctx);
     assert.equal(JSON.parse(String(vm.runInContext(`window.__gcsS("read")`, ctx))).held, true);
   });
-  it("records Content-Security-Policy violations as plain data for the visual checks", () => {
+  it("records the browser's Content-Security-Policy violations as plain data for the visual checks, and not the page's own", () => {
     const { ctx, listeners } = run();
-    for (const fn of listeners["doc:securitypolicyviolation"]) fn({ disposition: "enforce", effectiveDirective: "img-src", violatedDirective: "img-src", blockedURI: "https://cdn.example.net/a.png", sourceFile: "" });
+    // a page can dispatch a fake securitypolicyviolation event (isTrusted false) to plant text in a public report
+    for (const fn of listeners["doc:securitypolicyviolation"]) fn({ isTrusted: false, disposition: "enforce", effectiveDirective: "img-src", violatedDirective: "img-src", blockedURI: "https://planted.example/ad text", sourceFile: "" });
+    for (const fn of listeners["doc:securitypolicyviolation"]) fn({ isTrusted: true, disposition: "enforce", effectiveDirective: "img-src", violatedDirective: "img-src", blockedURI: "https://cdn.example.net/a.png", sourceFile: "" });
     assert.deepEqual(JSON.parse(String(vm.runInContext(`window.__gcsS("read")`, ctx))).csp, [{ disposition: "enforce", effectiveDirective: "img-src", violatedDirective: "img-src", blockedURI: "https://cdn.example.net/a.png", sourceFile: "" }]);
   });
 });

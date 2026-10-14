@@ -30,6 +30,8 @@ export const VISUAL_KINDS = [
   "dialog-covered",
 ] as const;
 export type VisualKind = (typeof VISUAL_KINDS)[number];
+/** Kinds the page check cannot see: click-blocked needs a visitor's clicks, and the scanner clicks only the probe's button. */
+export const NOT_RUN_HERE = new Set<VisualKind>(["click-blocked"]);
 export type Kind = VisualKind | "duplicate-submit" | "genclass-detection";
 
 export interface RawFinding {
@@ -267,7 +269,7 @@ const GENERIC_FIX: Record<VisualKind, string> = {
   "text-encoding": "Serve the page as UTF-8 (Content-Type: text/html; charset=utf-8) and escape text once.",
   "css-var-undefined": "Define the variable, or give var() a fallback value.",
   "image-distorted": "Set object-fit: cover (or contain), or give the image a height that matches its aspect ratio.",
-  "page-overflow-x": "Find the element wider than the screen and give it max-width: 100%.",
+  "page-overflow-x": "Find the element wider than the screen and give it max-width: 100%; when it sits in a flex or grid row, also give it min-width: 0 so it can shrink.",
   "viewport-meta-missing": 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to the head.',
   "layout-shift": "Reserve space for content that arrives late (width and height on images, min-height on slots for embeds and ads).",
   "page-blank": "Check the main region's render path: a failed data request, a script error or content left hidden.",

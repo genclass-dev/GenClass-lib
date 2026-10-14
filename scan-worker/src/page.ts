@@ -3,11 +3,18 @@
 // and one inline style per response, each under a fresh CSP nonce. Every dynamic string reaches the page through
 // textContent, never innerHTML; data travels in a <script type="application/json"> block escaped by embed().
 
-import { KINDS } from "./catalog.ts";
+import { KINDS, NOT_RUN_HERE, VISUAL_KINDS } from "./catalog.ts";
 import { UA_TOKEN, userAgent, VIEWS } from "./scan.ts";
 import { CATEGORIES, SCORE_VERSION, SEVERITY_POINTS } from "./score.ts";
+import { RUNTIME_VERSION, visualStatus } from "./visual.ts";
+import { VISUAL_BUILD } from "./visual-source.ts";
 
-export const INSTALL_LINE = '<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.1" data-mode="guard"></script>';
+export const INSTALL_LINE = `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@${RUNTIME_VERSION}" data-mode="guard"></script>`;
+
+/** The with-GenClass column's label: it says the visual fixes are in testing until a released runtime has them. */
+export function withLabel(): string {
+  return visualStatus().shipped ? "With GenClass on" : "With GenClass (in testing)";
+}
 export const OPT_OUT_EMAIL = "mehar@daybot.ca";
 
 export function securityHeaders(nonce: string, extra: Record<string, string> = {}): Record<string, string> {
@@ -208,6 +215,14 @@ code.kind{font:12.5px var(--mono);color:var(--ink3)}
 .two{display:grid;gap:40px;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));margin-top:28px}
 .prose h3.h3{margin-top:28px;font-size:19px;color:var(--ink)}
 .formula{font:15px/1.7 var(--mono);color:var(--ink);border-top:1px solid var(--ink);border-bottom:1px solid var(--rule);padding:16px 0;margin-top:18px;overflow-wrap:anywhere}
+.notrun{display:block;font:12px var(--mono);color:var(--ink3);margin-top:2px}
+/* narrow screens: a visible gap between the number columns, and number tags beside their boxes, not over the text */
+@media (max-width:560px){
+  table.dt th.r,table.dt td.r{padding-left:10px}
+  table.dt th{font-size:10.5px;letter-spacing:.02em}
+  .frame .mark.in a{left:0;top:auto;bottom:100%;margin:0 0 2px}
+  .frame .mark.in.low a{bottom:auto;top:100%;margin:2px 0 0}
+}
 `;
 
 function shell(n: string, title: string, current: "scan" | "about", body: string, script: string): string {
@@ -257,12 +272,15 @@ const LIMITS = [
 
 export function scanPage(n: string, data: ScanPageData): string {
   const t = data.target;
+  const st = visualStatus();
+  const report = data.report && typeof data.report === "object" ? (data.report as Record<string, unknown>) : null;
+  const errorDetail = data.error && (data.error.code === "robots" || data.error.code === "opted-out") ? "Site owners can opt out of the page check; this site has." : "";
   const body = `
-<script type="application/json" id="data">${embed(data)}</script>
+<script type="application/json" id="data">${embed({ ...data, status: { withLabel: withLabel(), fixes: st.fixes, shipped: st.shipped, runtime: RUNTIME_VERSION } })}</script>
 <section class="hero">
   <p class="eyebrow">Page check</p>
   <h1 id="title">${t ? esc(t.display) : "What breaks on one page load."}</h1>
-  <div class="meta" id="meta"></div>
+  <div class="meta" id="meta">${report ? staticMeta(report) : ""}</div>
   <form class="urlbox" action="/scan" method="get" role="search">
     <label class="sr" for="u">Address of a public page</label>
     <input id="u" name="url" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="2048" placeholder="example.com/pricing" value="${esc(data.input)}">
@@ -270,26 +288,28 @@ export function scanPage(n: string, data: ScanPageData): string {
   </form>
   <p class="lead" id="lead"${t ? ' hidden' : ""}>Paste an address. A browser loads the page on a desktop and on a phone, light and dark, and checks
   for text you cannot read, images and stylesheets that failed, sideways scrolling, a page that ignores clicks or cannot scroll,
-  and controls hidden under fixed bars, with the same measured checks the GenClass runtime ships. Then it types
-  into the search box and double-clicks a submit button to look for races, with GenClass watching. Requests that could change
-  something on the site are answered inside the browser and never sent.</p>
+  and controls hidden under fixed bars, with ${esc(st.checks)}. Then it types into the search box and double-clicks a
+  submit button to look for races, with GenClass ${esc(RUNTIME_VERSION)} watching. Requests that could change something on
+  the site are answered inside the browser and never sent.</p>
 </section>
+${t && !report && !data.error ? `<noscript><section class="callout"><p><b>The page check runs in your browser with JavaScript.</b></p><p class="muted">Turn JavaScript on to check this page, or read <a href="/scan/about">how the page check works</a>.</p></section></noscript>` : ""}
+${report ? staticReport(report) : ""}
 <section id="progress" class="hidden" aria-live="polite">
   <ol class="steps" id="steps"></ol>
   <p class="elapsed" id="elapsed"></p>
 </section>
-<section id="problem" class="callout bad hidden" role="alert"><p><b id="problemt"></b></p><p id="problemd" class="muted"></p></section>
+<section id="problem" class="callout bad${data.error ? "" : " hidden"}" role="alert"><p><b id="problemt">${data.error ? esc(data.error.message) : ""}</b></p><p id="problemd" class="muted">${esc(errorDetail)}</p></section>
 <div id="result" class="hidden">
   <section class="scoregrid" id="scorebox" aria-labelledby="sh">
     <div>
       <h2 class="sr" id="sh">Score</h2>
       <div class="nums">
         <div class="num"><div class="k" id="sk">Score</div><div class="v"><span id="sv"></span><small>/ 100</small></div><div class="s" id="ss"></div></div>
-        <div class="num with hidden" id="withbox"><div class="k">With GenClass on</div><div class="v"><span id="wv"></span><small>/ 100</small></div><div class="s" id="ws"></div></div>
+        <div class="num with hidden" id="withbox"><div class="k">${esc(withLabel())}</div><div class="v"><span id="wv"></span><small>/ 100</small></div><div class="s" id="ws"></div></div>
       </div>
     </div>
     <div>
-      <table class="dt"><thead><tr><th>Category</th><th class="r">Findings</th><th class="r">Deducted</th><th class="r hidden" id="wth">With GenClass</th></tr></thead><tbody id="breakdown"></tbody></table>
+      <table class="dt"><thead><tr><th>Category</th><th class="r">Findings</th><th class="r">Deducted</th><th class="r hidden" id="wth">${esc(withLabel())}</th></tr></thead><tbody id="breakdown"></tbody></table>
       <p class="measures" id="measures"><b>What the score measures:</b> this page, this one load, in three views, against the checks listed on
       <a href="/scan/about#score">How it works</a>. Each finding takes 10, 5 or 2 points by severity, and no category can take more than 25.
       <b>What it does not measure:</b> speed, SEO, accessibility beyond contrast, or anything that needs a signed-in user or a second page.</p>
@@ -324,10 +344,12 @@ export function scanPage(n: string, data: ScanPageData): string {
     <h2 id="ctah">Watch every visit, not one page load.</h2>
     <p>GenClass runs inside your pages for real visitors and reports the races that only real traffic triggers: responses that land
     over newer data, duplicate submits, endpoints that keep failing. In guard mode it can merge a duplicate submit or drop a late
-    response when the expected gain clears its safety margin. The race probe above shows whether it did on this page. The visual
-    checks above are the ones the runtime runs with <code>visual: { on: true }</code>; with <code>fix: true</code> in guard mode it
-    also fixes invisible text, a leaked <code>pointer-events: none</code> and a leaked scroll lock for your visitors, and reports
-    the rest to you.</p>
+    response when the expected gain clears its safety margin.<span id="ctaprobe"${report ? "" : ' class="hidden"'}> The race probe above shows whether it did on this page.</span>
+    ${
+      st.shipped
+        ? `The visual checks ship in runtime ${esc(String(RUNTIME_VERSION))}: <code>visual: { on: true }</code> runs them, and with <code>fix: true</code> in guard mode it also fixes invisible text, a leaked <code>pointer-events: none</code> and a leaked scroll lock.`
+        : `The visual checks on this page are built for the runtime and in testing for a release after ${esc(RUNTIME_VERSION)}; runtime ${esc(RUNTIME_VERSION)} does not have them yet.`
+    }</p>
     <div class="row"><a class="btn" href="https://genclass.dev/start">Get a token and a dashboard</a><a class="btn ghost" href="https://genclass.dev/docs">Read the docs</a></div>
   </div>
   <div>
@@ -342,16 +364,80 @@ deleted after 24 hours. Site owners can opt out: <a href="/scan/about#opt-out">h
   return shell(n, t ? `${t.display} | GenClass page check` : "Page check | GenClass", "scan", body, CLIENT_JS);
 }
 
+// The cached report as static HTML, for a browser without JavaScript (the script replaces it with the full report).
+// Every value goes through esc(); the report is read defensively, since it comes from storage.
+
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+const str = (v: unknown): string => (typeof v === "string" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : "");
+const int = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null);
+const VIEW_WORDS: Record<string, string> = { desktop: "Desktop", phone: "Phone", "phone-dark": "Phone, dark", probe: "Race probe" };
+const CAT_WORDS: Record<string, string> = { readability: "Readability", media: "Images and media", layout: "Layout", interaction: "Interaction and races" };
+
+function staticMeta(r: Record<string, unknown>): string {
+  const at = Date.parse(str(r.scannedAt));
+  const total = int(obj(r.ms).total);
+  return [str(r.url), Number.isFinite(at) ? `Scanned ${new Date(at).toISOString().slice(0, 16).replace("T", " ")} UTC` : "", total !== null ? `${(total / 1000).toFixed(1)} s in total` : "", str(r.runtime) ? `@genclass/runtime ${str(r.runtime)}` : ""]
+    .filter(Boolean)
+    .map((x) => `<span>${esc(x)}</span>`)
+    .join("");
+}
+
+export function staticReport(r: Record<string, unknown>): string {
+  const score = obj(r.score);
+  const w = obj(r.withGenClass);
+  const withOn = w.shown === true && int(w.value) !== null;
+  const findings = arr(r.findings).map(obj);
+  const withCats = arr(obj(w.breakdown).categories).map(obj);
+  const rows = arr(score.categories)
+    .map(obj)
+    .map((c, i) => {
+      const d = int(c.deducted) ?? 0;
+      const wd = int(withCats[i]?.deducted) ?? 0;
+      return `<tr><td class="cat">${esc(str(c.label))}<small>Up to ${esc(str(c.cap))} points</small></td><td class="r">${esc(str(c.count))}</td><td class="r">${d ? `-${d}` : "0"}</td>${withOn ? `<td class="r">${wd ? `-${wd}` : "0"}</td>` : ""}</tr>`;
+    })
+    .join("");
+  const items = findings
+    .map((f) => {
+      const sev = str(f.severity);
+      const views = arr(f.views).map((v) => VIEW_WORDS[str(v)] ?? str(v)).filter(Boolean).join(" · ");
+      const gc = obj(f.genclass);
+      const fixed = obj(f.fixed);
+      const row = (k: string, v: string) => (v ? `<dt>${esc(k)}</dt><dd>${v}</dd>` : "");
+      return `<li class="find${withOn && str(fixed.how) ? " fixed" : ""}" id="sf-${esc(str(f.n))}"><div class="no">${esc(str(f.n))}</div><div><h3>${esc(str(f.what))}</h3>
+<div class="tags"><span class="sev-${sev === "high" ? "high" : "x"}">${sev === "high" ? "Serious" : sev === "medium" ? "Moderate" : sev === "low" ? "Minor" : ""}</span><span>${esc(CAT_WORDS[str(f.category)] ?? "")}</span><span>${esc(views)}</span>${str(f.unscored) ? "<span>Not scored</span>" : ""}</div>
+<dl>${row("Where", str(f.selector) ? `<code>${esc(str(f.selector))}</code>` : "")}${row("Measured", esc(str(f.measured)))}${row("Not scored", esc(str(f.unscored)))}${row("Why it matters", esc(str(f.why)))}${row("Suggested fix", str(f.fix) ? `<pre>${esc(str(f.fix))}</pre>` : "")}${withOn ? row("With GenClass", esc(str(fixed.how) ? `Fixed. ${str(fixed.how)}` : str(gc.text))) : ""}</dl></div></li>`;
+    })
+    .join("");
+  const n = findings.filter((f) => !str(f.unscored)).length;
+  return `<div id="ssr">
+<section class="scoregrid" aria-label="Score">
+  <div><div class="nums">
+    <div class="num"><div class="k">${withOn ? "Without GenClass" : "Score"}</div><div class="v">${esc(str(score.value))}<small>/ 100</small></div><div class="s">${n ? `${n} scored ${n === 1 ? "finding" : "findings"}.` : "No scored findings from these checks."}</div></div>
+    ${withOn ? `<div class="num with"><div class="k">${esc(withLabel())}</div><div class="v">${esc(str(w.value))}<small>/ 100</small></div><div class="s">${esc(str(w.fixed))} fixed in the page and gone on a re-check in the same browser.</div></div>` : ""}
+  </div></div>
+  <div>
+    <table class="dt"><thead><tr><th>Category</th><th class="r">Findings</th><th class="r">Deducted</th>${withOn ? `<th class="r">${esc(withLabel())}</th>` : ""}</tr></thead><tbody>${rows}</tbody></table>
+    <p class="measures">${withOn ? esc(str(w.note)) : ""} Screenshots and the race probe show with JavaScript on. <a href="/scan/about#score">How the score works</a>.</p>
+  </div>
+</section>
+<section class="blk"><div class="blk-h"><h2>Findings</h2><span class="aside">Table 1. ${findings.length} ${findings.length === 1 ? "finding" : "findings"}, most serious first</span></div>
+${findings.length ? `<ol class="finds">${items}</ol>` : `<p class="quiet">No findings from these checks on this load.</p>`}</section>
+</div>`;
+}
+
 // The client: progress over the NDJSON stream, then the report. textContent only.
 const CLIENT_JS = `(function(){
 "use strict";
 var D = JSON.parse(document.getElementById("data").textContent);
+var ST = D.status || {};
+var ssr = document.getElementById("ssr"); if (ssr && ssr.parentNode) ssr.parentNode.removeChild(ssr);
 var $ = function(id){ return document.getElementById(id); };
 function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; }
 function show(id, on){ $(id).classList.toggle("hidden", !on); }
 var nf = new Intl.NumberFormat("en-US");
 function secs(ms){ return (Math.round(ms / 100) / 10).toFixed(1) + " s"; }
-var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks","Running the GenClass visual checks, with and without its fixes, and taking screenshots"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
+var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks", ST.shipped ? "Running the GenClass visual checks, with and without their fixes, and taking screenshots" : "Running the visual checks (in testing), with and without their fixes, and taking screenshots"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
 var t0 = 0, timer = null;
 
 function problem(title, detail){
@@ -373,7 +459,7 @@ function progress(step){
 function start(){
   show("progress", true); show("problem", false); $("go").disabled = true;
   t0 = Date.now(); progress("check");
-  timer = setInterval(function(){ $("elapsed").textContent = secs(Date.now() - t0) + " elapsed. A scan usually takes 10 to 25 seconds."; }, 200);
+  timer = setInterval(function(){ $("elapsed").textContent = secs(Date.now() - t0) + " elapsed. A scan usually takes 15 to 35 seconds."; }, 200);
   fetch("/api/scan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: D.target.url }) }).then(function(res){
     var ct = res.headers.get("content-type") || "";
     if (ct.indexOf("ndjson") < 0) return res.json().then(function(j){ refused(res.status, j); }, function(){ problem("The scanner did not answer.", "HTTP " + res.status + ". Try again in a minute."); });
@@ -393,15 +479,18 @@ function start(){
     return pump();
   }).catch(function(){ problem("Could not reach the scanner.", "Check your connection and try again."); });
 }
-var retried = false;
+var retried = false, contended = 0;
 function refused(status, j){
   var code = j && j.code;
   if (code === "in-progress") { progress("views"); return poll(0); }
+  // many scans starting at once: the slots may be free, so try again shortly, a few times
+  if (code === "contention" && contended < 4) { contended++; return setTimeout(start, 2000 + Math.floor(Math.random() * 2000)); }
   if (j && j.report) return done(j.report);
   var title = (j && j.message) || ("The scanner answered HTTP " + status + ".");
   var detail = code === "rate" ? "Each visitor can start five new scans a minute. Results are cached for 6 hours, so a shared link does not start a new scan."
     : code === "site-rate" ? "Each site can have a few new scans started a minute, whoever asks. Try again in a minute."
     : code === "running" ? "Each visitor can run one scan at a time. Try again when it has finished."
+    : code === "contention" ? "Many scans are starting at once. Try again in a few seconds."
     : status === 503 ? "Every scanner is busy right now. Try again in a minute." : "";
   problem(title, detail);
 }
@@ -426,6 +515,7 @@ function render(r){
   var meta = $("meta"); meta.textContent = "";
   [r.url, "Scanned " + new Date(r.scannedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), secs(r.ms.total) + " in total", "@genclass/runtime " + r.runtime].forEach(function(t){ meta.appendChild(el("span", null, t)); });
   renderScore(r); renderShots(r); renderFindings(r); renderProbe(r); renderShare(r);
+  show("ctaprobe", true);
   if (history.replaceState && D.target) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
 }
 
@@ -437,7 +527,7 @@ function renderScore(r){
   var w = r.withGenClass, withOn = !!(w && w.shown);
   show("withbox", withOn); show("wth", withOn);
   $("sk").textContent = withOn ? "Without GenClass" : "Score";
-  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (n === 1 ? " finding" : " findings") + " fixed in the page by GenClass and gone on a re-check in the same browser. GenClass reports the rest for the developer, with the suggested fix." : "Nothing to fix on this load."); }
+  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (n === 1 ? " finding" : " findings") + " fixed in the page and gone on a re-check in the same browser, with " + (ST.fixes || "the GenClass visual fixes") + " and guard mode. The rest are listed with a suggested fix." : "Nothing to fix on this load."); }
   var tb = $("breakdown"); tb.textContent = "";
   r.score.categories.forEach(function(c, i){
     var tr = el("tr"), td = el("td", "cat", c.label); td.appendChild(el("small", null, "Up to " + c.cap + " points"));
@@ -462,7 +552,7 @@ function renderShots(r){
       frame.appendChild(img);
       mine.forEach(function(f){
         var b = f.boxes[v.id]; if (b.y > v.shotHeight) return;
-        var m = el("div", "mark" + (b.x < 0.06 * v.width ? " in" : ""));
+        var m = el("div", "mark" + (b.x < 0.06 * v.width ? " in" + (b.y < 24 ? " low" : "") : ""));
         m.style.left = (100 * Math.max(0, b.x) / v.width) + "%"; m.style.top = (100 * Math.max(0, b.y) / v.shotHeight) + "%";
         m.style.width = (100 * Math.min(b.w, v.width - Math.max(0, b.x)) / v.width) + "%"; m.style.height = (100 * Math.min(b.h, v.shotHeight - Math.max(0, b.y)) / v.shotHeight) + "%";
         var a = el("a", null, String(f.n)); a.href = "#f-" + f.n; a.setAttribute("aria-label", "Finding " + f.n + ": " + f.what);
@@ -508,7 +598,7 @@ function renderFindings(r){
   show("none", !r.findings.length);
   var withOn = !!(r.withGenClass && r.withGenClass.shown);
   var nfix = r.findings.filter(function(f){ return f.fixed; }).length;
-  $("listn").textContent = r.findings.length ? "Table 1. " + r.findings.length + (r.findings.length === 1 ? " finding" : " findings") + ", most serious first" + (withOn ? ". " + nfix + " fixed by GenClass, " + (r.findings.length - nfix) + " reported for the developer" : "") : "Table 1. No findings";
+  $("listn").textContent = r.findings.length ? "Table 1. " + r.findings.length + (r.findings.length === 1 ? " finding" : " findings") + ", most serious first" + (withOn ? ". " + nfix + " fixed in this scan, " + (r.findings.length - nfix) + " not fixed" : "") : "Table 1. No findings";
   r.findings.forEach(function(f){
     var li = el("li", "find" + (withOn && f.fixed ? " fixed" : "")); li.id = "f-" + f.n;
     li.appendChild(el("div", "no", String(f.n)));
@@ -571,19 +661,32 @@ function renderProbe(r){
     var cmp = el("div", "cmp"), acted = !!(r.probe.guardClick && r.probe.guardClick.acted);
     [["Without GenClass", o.clicked.sent, ""], ["With GenClass guard", g.clicked.sent, acted ? "g" : ""]].forEach(function(x){ var d = el("div"); d.appendChild(el("div", "k", x[0])); d.appendChild(el("div", "n " + x[2], x[1] + (x[1] === 1 ? " request" : " requests"))); cmp.appendChild(d); });
     var acts = (g.acts || []).map(function(a){ return a.action + ": " + String(a.changed || "").replace(/\\.$/, ""); });
-    var held = (g.detections || []).filter(function(d){ return !d.executed && d.candidate && typeof d.gain === "number" && typeof d.margin === "number"; })[0];
+    var req = (o.clicked.requests || [])[0];
+    var held = req ? (g.detections || []).filter(function(d){ return d.trigger === "request" && names(d.subject, req.method, req.path) && !d.executed && d.candidate && typeof d.gain === "number" && typeof d.margin === "number"; })[0] : null;
     var dflt = r.probe.guardMargin === null && r.probe.guardAggressiveness === "balanced";
     var WORDS = { duplicate: "a duplicate", stale: "a late response", conflict: "a conflict", inconsistent: "an inconsistency", failing: "a failing request" };
+    var gs = g.clicked.identical >= 2 ? g.clicked.identical : g.clicked.sent;
+    var sentWords = !gs ? "the page sent nothing" : "the page sent " + (g.clicked.identical >= 2 ? gs + " identical requests" : gs === 1 ? "1 request" : gs + " requests") + " (the scanner answered " + (gs === 1 ? "it; it did not reach" : "them; none reached") + " the site)";
     var MOVES = { coalesce: "merging the two", discard: "dropping it", defer: "holding it back", retry: "retrying it", cancel: "cancelling it" };
     var why = acted ? r.probe.guardClick.how
       : acts.length ? "GenClass did: " + acts.slice(0, 3).join("; ") + ". That did not change what the double click sent."
-      : held ? "Flagged, held back at " + (dflt ? "the default safety margin" : "this setting's safety margin") + ": GenClass was " + Math.round(held.p * 100) + "% sure this was " + (WORDS[held.diagnosis] || held.diagnosis) + ", but " + (MOVES[held.candidate] || held.candidate) + " had an expected gain of " + (Math.round(held.gain * 100) / 100) + " against a margin of " + held.margin + ", so it did not act and both requests went out."
+      : held ? "Flagged, held back at " + (dflt ? "the default safety margin" : "this setting's safety margin") + ": GenClass was " + Math.round(held.p * 100) + "% sure this was " + (WORDS[held.diagnosis] || held.diagnosis) + ", but " + (MOVES[held.candidate] || held.candidate) + " had an expected gain of " + (Math.round(held.gain * 100) / 100) + " against a margin of " + held.margin + ", so it did not act: " + sentWords + "."
       : (g.model || {}).state === "ready" ? "GenClass took no action." : "GenClass took no action: its model did not load in time.";
     row("Guard mode", cmp, "Measured, not projected: the same double click in a fresh page with " + (r.probe.guardSetting || "GenClass in guard mode") + ". " + why);
   } else if (g && g.ran && !triedAny) row("Guard mode", "Nothing to compare", "With nothing to type into or click, guard mode had nothing to change on this page.");
   else if (g && g.ran && o.typed && !o.clicked) row("Guard mode", "Typing only", "The guard pass typed the same letters" + ((g.acts || []).length ? " and GenClass did: " + g.acts.slice(0, 3).map(function(a){ return a.action + ": " + a.changed; }).join("; ") + "." : "; GenClass took no action."));
   else if (g && !g.ran) row("Guard mode", "Not measured", g.note || "");
   else if (!g) row("Guard mode", "Not measured", (r.notes || []).filter(function(n){ return /guard/i.test(n); }).join(" ") || "The guard pass did not run on this scan.");
+}
+
+// whether a GenClass subject ("POST /api/subscribe (#12)") names this request: the same rule as report.ts subjectNames
+function names(subject, method, path){
+  var slash = path.indexOf("/"), pathname = slash >= 0 ? path.slice(slash) : path, s = String(subject || "").trim();
+  if (s.toUpperCase().indexOf(String(method).toUpperCase() + " ") !== 0) return false;
+  var rest = s.slice(method.length + 1), i = rest.indexOf(pathname);
+  if (i < 0) return false;
+  var after = rest.charAt(i + pathname.length);
+  return after === "" || after === "?" || after === "#" || after === " " || after === "(";
 }
 
 function renderShare(r){
@@ -610,9 +713,13 @@ else if (D.target && !automated) start();
 
 // ------------------------------------------------------------------------------------- /scan/about
 
-export function aboutPage(n: string): string {
+/** /scan/about. `guard` is the guard pass's configuration in words (report.ts guardSetting, from the worker's vars). */
+export function aboutPage(n: string, guard = "GenClass in guard mode with its default settings"): string {
+  const st = visualStatus();
+  const run = VISUAL_KINDS.length - NOT_RUN_HERE.size;
+  const commit = VISUAL_BUILD.commit.slice(0, 7);
   const kinds = Object.entries(KINDS)
-    .map(([k, v]) => `<tr><td>${esc(v.what)}<br><code class="kind">${esc(k)}</code></td><td>${esc(CATEGORIES.find((c) => c.id === v.category)!.label)}</td><td>${esc(v.severity)}</td><td class="r">${SEVERITY_POINTS[v.severity]}</td></tr>`)
+    .map(([k, v]) => `<tr><td>${esc(v.what)}<br><code class="kind">${esc(k)}</code>${NOT_RUN_HERE.has(k as never) ? `<span class="notrun">Not run in the page check: it needs a visitor's clicks</span>` : ""}</td><td>${esc(CATEGORIES.find((c) => c.id === v.category)!.label)}</td><td>${esc(v.severity)}</td><td class="r">${SEVERITY_POINTS[v.severity]}</td></tr>`)
     .join("");
   const cats = CATEGORIES.map((c) => `<tr><td class="cat">${esc(c.label)}<small>${esc(c.covers)}</small></td><td class="r">${c.cap}</td></tr>`).join("");
   const body = `
@@ -629,13 +736,15 @@ export function aboutPage(n: string): string {
     cloud metadata addresses. It reads the site's <code>robots.txt</code> for a <code>GenClassScan</code> group.</li>
     <li>Starts a fresh browser (Cloudflare Browser Rendering) with no cookies or storage, and loads the page three times in
     parallel: ${VIEWS.map((v) => esc(v.label.toLowerCase())).join("; ")}. Each load has 20 seconds, then up to 4 more for the network to go quiet.</li>
-    <li>Runs the GenClass visual checks in each view for about 6 seconds: the runtime's own measured checks
-    (<code>@genclass/runtime</code> visual chunk), in an isolated part of the browser the page's scripts cannot reach. It presses
+    <li>Runs the visual checks in each view for about 6 seconds: ${esc(st.checks)}, the runtime's visual chunk from
+    commit <code>${esc(commit)}</code>, in an isolated part of the browser the page's scripts cannot reach. It presses
     Tab a few times on the desktop and scrolls with the mouse wheel, which some checks need (focus under a sticky header, a
     scroll lock, a control under a fixed bar). With GenClass on, the checks run in guard mode with their fixes turned on, and a
-    second, report-only set of the same checks then measures the page again; the fixes are undone before the screenshot.</li>
+    second, report-only set of the same checks then measures the page again; the fixes are undone before the screenshot.
+    The page's fetch and XHR requests in flight are counted and handed to the checks, which do not judge a blank page or a
+    page that ignores clicks while a request runs.</li>
     <li>Takes a screenshot of the top of the page in each view and records the box of every finding.</li>
-    <li>On the desktop page, with the GenClass runtime loaded in observe mode (telemetry off, model from
+    <li>On the desktop page, with GenClass ${esc(RUNTIME_VERSION)} loaded in observe mode (telemetry off, model from
     <code>genclass.dev/model/</code>), types <code>a</code>, <code>ab</code>, <code>abc</code> into the first search box, 80 ms apart,
     and double-clicks the most prominent submit button of a same-origin form that would POST. Forms with a password or card
     field are skipped, and so are forms and buttons that would submit into another window. GET responses during the probe get 0 to 1,500 ms of extra latency, so they can arrive out of order.</li>
@@ -694,28 +803,38 @@ export function aboutPage(n: string): string {
     <figcaption>Table 2. Every kind of finding, its category and weight. The same element with the same problem in two views counts once.</figcaption></div>
   </div>
   <div class="prose">
-  <p>The checks are the GenClass runtime's measured visual checks, 23 kinds with fixed thresholds (Table 2): text under 1.5:1
+  <p>The checks are the measured visual checks built for the GenClass runtime (${esc(st.short)}), 23 kinds with fixed
+  thresholds (Table 2), ${run} of which run in the page check (<code>click-blocked</code> needs a visitor's clicks, and the
+  scanner clicks only the race probe's button): text under 1.5:1
   contrast on a background it can measure (text over images, gradients or video is skipped), <code>[object Object]</code>,
   <code>$NaN</code> or raw <code>{{ }}</code> placeholders in visible text, lorem ipsum, garbled characters, images, background
   images, video, stylesheets, fonts and icon fonts that failed, files the Content-Security-Policy blocked, CSS variables defined
   nowhere, stretched images, sideways scrolling, a missing viewport meta tag on phones, layout shifts above 0.25, an empty main
   region, a page that ignores clicks or cannot scroll, controls under fixed bars, focus hidden under sticky bars, and dialogs that
   are covered. Each finding says what was measured and against which threshold.</p>
-  <p>How often they are right, as measured for the runtime (GitHub runners, Chromium, 2026-10-13): on its fixture pages, 35 of
-  35 planted faults found across the 23 kinds; on its bench, no false reports in 128 page views of clean local apps, and every
-  planted fault in real app layouts found for 19 of the 23 kinds; on 40 public home pages, 8 findings in 96 loads, 5 of them
-  confirmed real and none shown wrong (the other 3 unconfirmed). The checks in this scanner are that build. Details are in the
-  runtime's RESULTS.md, sections 8 and 9.</p>
+  <p>How often the checks are right, as measured for the runtime on GitHub runners (Chromium 153, 2026-10-13): on its
+  fixture pages, 35 of 35 planted faults found across the 23 kinds; on its bench, no false reports in 128 page views of
+  clean local apps, and recall 1.00 on planted faults in real app layouts for 19 of the 23 kinds (bench run 5); on public
+  home pages (bench run 4: 31 of 40 sites measured, 96 loads), 8 findings, 5 confirmed real, 0 check errors, 3
+  unconfirmed. The scanner embeds the same checks at a later commit (<code>${esc(commit)}</code>) and runs them in
+  Cloudflare's browser (Chrome 128 when last measured) for about 6 s per view, with 4 Tab presses and no hover, so these
+  numbers describe the checks, not this scanner. Details are in the runtime's RESULTS.md, sections 8 and 9.</p>
   <h3 class="h3">The with-GenClass score</h3>
-  <p>It is measured, never projected. In the same browser, the visual checks run in guard mode with their fixes on, as
-  <code>GenClass.init({ mode: "guard", visual: { on: true, fix: true } })</code> runs them, and a second set of the same checks,
-  report-only, measures the page again with the fixes in place. GenClass fixes three kinds in the page: text colour for
-  invisible text, a leaked inline <code>pointer-events: none</code> and a leaked inline scroll lock on html or body. A finding
-  counts as fixed only when GenClass applied its fix and the re-check no longer found it, in every view where it appeared.
-  Every other kind is reported for the developer with the suggested CSS or code, and the report says so on each finding. The
-  race probe runs again in a fresh page with GenClass guard at its default settings; a double submit counts as fixed only when
-  guard's own action sent fewer requests. When guard flags a problem but its expected gain does not clear the safety margin, the
-  report says it held back.</p>
+  <p>It is measured, never projected${st.shipped ? "" : `, and its visual half uses code that is not released yet: the visual
+  fixes are in testing for a release after runtime ${esc(RUNTIME_VERSION)}, and runtime ${esc(RUNTIME_VERSION)}, which the install
+  line on the page check loads, does not have them`}. In the same browser, the visual checks run in guard mode with their
+  fixes on, as the ${st.shipped ? "" : "coming "}option <code>GenClass.init({ mode: "guard", visual: { on: true, fix: true } })</code>
+  runs them, and a second set of the same checks, report-only, measures the page again with the fixes in place. The visual
+  fixes change three kinds in the page: text colour for invisible text, a leaked inline <code>pointer-events: none</code> and a
+  leaked inline scroll lock on html or body. A finding counts as fixed only when the fix was applied and the re-check no
+  longer found it, in every view where it appeared; for a leaked <code>pointer-events: none</code> or scroll lock the re-check
+  must also have run long enough (about 4.5 s) to see it again. Every other kind is reported for the developer with the
+  suggested CSS or code, and the report says so on each finding. The with-GenClass score only subtracts verified fixes: a
+  problem that shows up only once a fix is in place (text that becomes measurable after a leaked
+  <code>pointer-events: none</code> is removed, for example) is not added to it, and the report says how many there were.</p>
+  <p>The race probe runs again in a fresh page with ${esc(guard)}; a double submit counts as fixed only when guard's own
+  action sent fewer requests, and a late response only when guard's own recorded discard or defer was on that same request.
+  When guard flags a problem but its expected gain does not clear the safety margin, the report says it held back.</p>
   </div>
 </section>
 <section class="blk prose" id="opt-out">

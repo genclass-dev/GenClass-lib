@@ -14,11 +14,11 @@
 // one: in Browser Rendering it connects through a local proxy, so it reports the proxy), when a WebSocket host
 // resolves privately, when the page ended up on a site that opted out, or when the person who asked went away.
 
-import { sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
+import { KINDS, sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
 import { blockedAddress, type Target } from "./target.ts";
-import { callSource, FIX_KINDS, installSource, PERIODIC_KINDS, visualKey } from "./visual.ts";
+import { callSource, FIX_KINDS, installSource, PERIODIC_KINDS, visualKey, visualStatus } from "./visual.ts";
 
 // ------------------------------------------------------------------------------- the browser we drive
 
@@ -92,17 +92,63 @@ const NXDOMAIN = "a host that does not resolve";
 const VISUAL_MS = 6000;
 /** Time the views leave for the race probe and the guard pass after them (the views run in parallel, so all wait). */
 const RESERVE_AFTER_VIEWS = 18_000;
+/**
+ * How long a report-only re-check must have run before its silence about a periodic kind (pointer-events-leak,
+ * scroll-lock-stuck) means anything: the chunk reports those only after two periodic reads 2 s apart, judged over 1 s.
+ */
+const PERIODIC_RECHECK_MS = 4500;
+/** Findings kept per view in the report. */
+const MAX_VIEW_FINDINGS = 40;
 
 /** What the visual checks' collect command returns (visual/scan-entry.js). */
 interface Collected {
   ok?: boolean;
   findings?: unknown;
+  /** The identity (visualKey) of every finding the engine reported, not only the first 40 that are serialised. */
+  keys?: unknown;
+  /** How many findings the engine reported, after the ones about files the scanner refused were left out. */
+  total?: unknown;
   skipped?: number;
-  stats?: { passes?: number; [k: string]: unknown };
+  stats?: { passes?: number; elapsed?: number; [k: string]: unknown };
 }
 
 /** Findings from the page, validated (sanitizeFinding), at most 40. */
-const cleanFindings = (v: unknown): RawFinding[] => (Array.isArray(v) ? v.slice(0, 40).map(sanitizeFinding).filter((f): f is RawFinding => f !== null) : []);
+const cleanFindings = (v: unknown): RawFinding[] => (Array.isArray(v) ? v.slice(0, MAX_VIEW_FINDINGS).map(sanitizeFinding).filter((f): f is RawFinding => f !== null) : []);
+
+/** Every finding's identity from a collect (its `keys`, cut to the sizes sanitizeFinding keeps), else from its findings. */
+function collectedKeys(c: Collected): Set<string> {
+  if (Array.isArray(c.keys))
+    return new Set(
+      c.keys
+        .slice(0, 400)
+        .filter((k): k is string => typeof k === "string")
+        .map((k) => {
+          const [kind, selector = "", ...state] = k.split("|");
+          return `${kind}|${selector.slice(0, 200)}|${state.join("|").slice(0, 200)}`;
+        }),
+    );
+  return new Set(cleanFindings(c.findings).map(visualKey));
+}
+
+/**
+ * Sideways scrolling on a phone, measured by the chunk: Chrome widens a phone's layout viewport to the content, so any
+ * full-width wrapper that a wide child stretched is as wide as the viewport and trips the chunk's "a width of 100vw with
+ * a classic scrollbar" rule (phones have no classic scrollbar), and the cause and CSS it suggests are for the wrong
+ * element. When that cause shows, or the layout viewport is wider than the phone, the finding keeps the measured excess
+ * and loses the chunk's cause and CSS: the report then gives the kind's own fix.
+ */
+export function phoneOverflow(f: RawFinding, phoneWidth: number, layoutWidth: number | null): RawFinding {
+  if (f.kind !== "page-overflow-x") return f;
+  const d = f.detail ?? {};
+  const said = [f.measured, d.css, d.cssNote, d.fixText].map((x) => (typeof x === "string" ? x : "")).join(" ");
+  if (!/100vw with a classic scrollbar/.test(said) && !(layoutWidth !== null && layoutWidth > phoneWidth)) return f;
+  const measured = f.measured.replace(/ \((\d[\d,]* px too wide), [^)]*\)/, " ($1)").replace(/\.?$/, ".");
+  return {
+    ...f,
+    measured: `${measured} On a phone the browser widens the layout to fit the content, so the element that causes it can be inside this one.`,
+    detail: { ...d, css: "", cssNote: "", fixText: "" },
+  };
+}
 
 /** The answer to a navigation check: allowed, or refused with the code and message the person sees. */
 export type NavVerdict = { ok: true } | { ok: false; code: string; message: string };
@@ -173,8 +219,8 @@ export function userAgent(chromeMajor: string, mobile: boolean): string {
  *   at the page itself (a new window is a browser target the request checks do not cover);
  * - WebSocket connections to IP addresses and local names are refused, the hosts of the others are kept for a DNS
  *   check, and messages are held while the probe types and clicks;
- * - Content-Security-Policy violations are recorded as plain data for the visual checks' csp-blocked kind (the checks
- *   start after load, when the browser no longer reports earlier violations).
+ * - Content-Security-Policy violations the browser raised (isTrusted) are recorded as plain data for the visual checks'
+ *   csp-blocked kind (the checks start after load, when the browser no longer reports earlier violations).
  * The switch and the host list live in this closure, reached through window[name] (non-writable), not on window.
  */
 export function safetyBootstrap(name = "__gcScanSafety"): string {
@@ -183,6 +229,7 @@ export function safetyBootstrap(name = "__gcScanSafety"): string {
   var LOCAL = /(^|\\.)(localhost|local|internal|test|example|invalid|onion|arpa|home|lan|corp|intranet|private|localdomain)$/;
   try {
     document.addEventListener("securitypolicyviolation", function (e) {
+      if (!e.isTrusted) return; // a page can dispatch its own; only the browser's count
       if (csp.length < 50) csp.push({ disposition: String(e.disposition || ""), effectiveDirective: String(e.effectiveDirective || ""), violatedDirective: String(e.violatedDirective || ""), blockedURI: String(e.blockedURI || "").slice(0, 300), sourceFile: String(e.sourceFile || "").slice(0, 300) });
     }, true);
   } catch (e) {}
@@ -277,6 +324,11 @@ export interface VisualFixes {
   fixed: { kind: string; selector: string; key: string; how: string }[];
   /** Findings of a kind GenClass can fix that it did not fix in this view, and why. */
   notFixed: { kind: string; selector: string; key: string; why: string }[];
+  /**
+   * What the re-check found that engine "a" never reported (for example text that became measurable once a leaked
+   * pointer-events: none was removed). Neither score counts these; the report says how many there were.
+   */
+  uncovered?: { kind: string; key: string }[];
 }
 
 export interface ProbeResult {
@@ -363,6 +415,11 @@ const OURS = /^https:\/\/(genclass\.dev\/model\/|cdn\.jsdelivr\.net\/npm\/(@genc
 class NetLog {
   /** Page requests in flight (not counting the scanner's own downloads). */
   inflight = new Set<object>();
+  /**
+   * The page's fetch and XHR requests in flight, those the scanner answers itself included: what the visual checks
+   * treat as "a request in flight" (the runtime's own count; the bench counted fetch and XHR the same way).
+   */
+  fetching = new Set<object>();
   lastActivity = 0;
   answered: NetEntry[] = [];
   aborted: NetEntry[] = [];
@@ -377,12 +434,16 @@ class NetLog {
     if (e) e.finishedAt = at;
     this.settle(req, at);
   }
+  fetchStart(req: RequestLike): void {
+    if (DATA_FETCH.has(req.resourceType()) && !OURS.test(req.url())) this.fetching.add(req as object);
+  }
   start(req: RequestLike, at: number): void {
     if (OURS.test(req.url())) return;
     this.inflight.add(req as object);
     this.lastActivity = at;
   }
   settle(req: RequestLike, at: number): void {
+    this.fetching.delete(req as object);
     if (this.inflight.delete(req as object)) this.lastActivity = at;
   }
 }
@@ -663,6 +724,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
             await req.abort("blockedbyclient");
             return;
           }
+          net.fetchStart(req);
           if (verdict.kind === "fulfill") {
             localN++;
             let body: string | undefined;
@@ -674,6 +736,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
             net.answered.push({ ...entry, reason: verdict.reason, body });
             if (verdict.delayMs) await deps.sleep(verdict.delayMs);
             await req.respond({ status: verdict.status, headers: verdict.headers, body: verdict.body });
+            net.fetching.delete(req as object);
             return;
           }
           if (verdict.check !== "none") {
@@ -701,7 +764,8 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
               }
             }
             if (why) {
-                net.aborted.push({ ...entry, reason: why });
+              net.aborted.push({ ...entry, reason: why });
+              net.fetching.delete(req as object);
               await req.abort("blockedbyclient");
               return;
             }
@@ -712,6 +776,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           await req.continue();
         } catch {
           /* the page closed or the request was already handled */
+          net.fetching.delete(req as object);
         }
       })();
     });
@@ -797,8 +862,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
 
     if (!skipChecks && !discard) {
       deps.progress("checks", { view: spec.id });
+      if (runtime)
+        view.notes.push("The page's Content-Security-Policy was turned off in this view so the GenClass runtime could load for the race probe, so files the policy blocks are reported from the phone views only.");
       try {
-        await visualChecks(page, view, net, spec.id === "desktop");
+        await visualChecks(page, view, net, spec);
       } catch (e) {
         view.notes.push(`The visual checks did not finish: ${e instanceof Error ? e.message : String(e)}.`);
       }
@@ -857,13 +924,16 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
    * a few times on the desktop (focus checks), scrolls with the mouse wheel to the end of the page and once more
    * after the first periodic read (scroll locks, controls under fixed bars), and collects at VISUAL_MS with one more
    * pass at the top. When fixes were applied, engine "c" (report-only) re-measures the page with them in place.
-   * Stopping "a" undoes every fix, before the screenshot and the race probe.
+   * Stopping "a" undoes every fix, before the screenshot and the race probe. While the checks run, the page's fetch
+   * and XHR requests in flight are handed to them every 250 ms ("net"): the chunk does not judge a blank page, a
+   * leaked pointer-events: none or a covering layer while a request runs, as in the runtime.
    */
-  async function visualChecks(page: PageLike, view: ViewResult, net: NetLog, desktop: boolean): Promise<void> {
+  async function visualChecks(page: PageLike, view: ViewResult, net: NetLog, spec: ViewSpec): Promise<void> {
     if (!deps.visualSource) {
       view.notes.push("The visual checks are not built into this copy of the scanner.");
       return;
     }
+    const desktop = spec.id === "desktop";
     const call = async <T>(cmd: string, arg: Record<string, unknown> = {}, ms = 5000): Promise<T> =>
       parseJson<T>(await withTimeout(evalDom(page, callSource(N.checks, cmd, arg)), Math.min(ms, Math.max(500, left() - 1000)), `the visual checks (${cmd})`), {} as T);
     if ((await evalDom(page, installSource(N.checks, deps.visualSource))) !== true) throw new Error("the GenClass visual checks did not install");
@@ -876,23 +946,54 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     const fix = deps.visualFixes === true;
     // what must stay for after the views: the race probe and the guard pass (the views run in parallel, so all wait)
     const reserve = RESERVE_AFTER_VIEWS;
-    const started = await call<{ ok?: boolean; error?: string }>("start", { id: "a", mode: fix ? "guard" : "observe", fix, csp });
-    if (!started.ok) throw new Error(cutText(started.error || "they did not start", 120));
+    // the page's requests in flight, as the runtime would count them: sent when the count changes, and once a second
+    let sentN = -1;
+    let sentAt = 0;
+    let sending = false;
+    const pushNet = async (): Promise<void> => {
+      const n = net.fetching.size;
+      if (sending || (n === sentN && deps.now() - sentAt < 1000)) return;
+      sending = true;
+      try {
+        await evalDom(page, callSource(N.checks, "net", { n }));
+        sentN = n;
+        sentAt = deps.now();
+      } catch {
+        /* the page closed */
+      } finally {
+        sending = false;
+      }
+    };
+    await pushNet();
+    const pump = setInterval(() => void pushNet(), 250);
     try {
-      const t0 = deps.now();
-      const end = Math.min(t0 + VISUAL_MS, deps.now() + Math.max(0, left() - reserve));
-      await interact(page, call, "a", t0, end, desktop);
-      while (deps.now() < end) await deps.sleep(Math.min(250, end - deps.now()));
-      const top = await call<Record<string, unknown>>("top");
-      const a = await call<Collected>("collect", { id: "a", pass: true, passMs: 2500, skipHosts }, 4000);
-      view.findings = cleanFindings(a.findings);
-      view.checks = sanitizeStats({ ...top, ...(a.stats ?? {}), skipped: a.skipped }) as ViewResult["checks"];
-      const st = a.stats ?? {};
-      if (Number(st.passes) > 0 && Number(st.partial) >= Number(st.passes)) view.notes.push("The visual checks ran out of their time budget on every pass in this view, so parts of the page were not checked.");
-      if (a.skipped) view.notes.push(`${a.skipped} visual ${a.skipped === 1 ? "finding is" : "findings are"} left out: ${a.skipped === 1 ? "it is" : "they are"} about files the scanner did not load (their hosts could not be looked up or were refused).`);
-      if (fix) view.fixes = await recheck(page, call, view.findings, skipHosts, reserve);
+      const started = await call<{ ok?: boolean; error?: string }>("start", { id: "a", mode: fix ? "guard" : "observe", fix, csp });
+      if (!started.ok) throw new Error(cutText(started.error || "they did not start", 120));
+      try {
+        const t0 = deps.now();
+        const end = Math.min(t0 + VISUAL_MS, deps.now() + Math.max(0, left() - reserve));
+        await interact(page, call, "a", t0, end, desktop);
+        while (deps.now() < end) await deps.sleep(Math.min(250, end - deps.now()));
+        const top = await call<Record<string, unknown>>("top");
+        const a = await call<Collected>("collect", { id: "a", pass: true, passMs: 2500, skipHosts }, 4000);
+        view.checks = sanitizeStats({ ...top, ...(a.stats ?? {}), skipped: a.skipped }) as ViewResult["checks"];
+        const layoutW = numOrNull(view.checks?.viewport?.[0]);
+        view.findings = cleanFindings(a.findings).map((f) => (spec.mobile ? phoneOverflow(f, spec.width, layoutW) : f));
+        const total = numOrNull(a.total) ?? 0;
+        if (total > view.findings.length && total > MAX_VIEW_FINDINGS) {
+          const more = Math.round(total - view.findings.length);
+          view.notes.push(`${more} more visual ${more === 1 ? "finding" : "findings"} in this view ${more === 1 ? "is" : "are"} not in the report, which keeps the first ${MAX_VIEW_FINDINGS} per view.`);
+        }
+        const st = a.stats ?? {};
+        if (Number(st.passes) > 0 && Number(st.partial) >= Number(st.passes)) view.notes.push("The visual checks ran out of their time budget on every pass in this view, so parts of the page were not checked.");
+        if (a.skipped) view.notes.push(`${a.skipped} visual ${a.skipped === 1 ? "finding is" : "findings are"} left out: ${a.skipped === 1 ? "it is" : "they are"} about files the scanner did not load (their hosts could not be looked up or were refused).`);
+        if (fix) view.fixes = await recheck(page, call, view.findings, collectedKeys(a), skipHosts, reserve);
+      } finally {
+        clearInterval(pump);
+        await call("stop", { id: "a" }).catch(() => undefined); // undoes every fix this engine applied
+      }
     } finally {
-      await call("stop", { id: "a" }).catch(() => undefined); // undoes every fix this engine applied
+      clearInterval(pump);
     }
   }
 
@@ -932,14 +1033,24 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   /**
    * The with-GenClass re-check of one view: a second, report-only engine ("c") measures the page while engine "a"'s
    * fixes are in place. A finding counts as fixed only when "a" applied a fix for it, the fix still holds, and "c"
-   * no longer finds it; "c" gets the same periodic reads when a fix was one of the periodic kinds.
+   * no longer finds it among everything it reported (not only the first 40). "c" gets the same periodic reads when a
+   * fix was one of the periodic kinds, and its silence about a periodic kind counts only when it ran long enough to
+   * have seen it (PERIODIC_RECHECK_MS). What "c" found that "a" never reported is kept as `uncovered`.
    */
-  async function recheck(page: PageLike, call: <T>(cmd: string, arg?: Record<string, unknown>, ms?: number) => Promise<T>, found: RawFinding[], skipHosts: string[], reserve: number): Promise<VisualFixes | null> {
+  async function recheck(
+    page: PageLike,
+    call: <T>(cmd: string, arg?: Record<string, unknown>, ms?: number) => Promise<T>,
+    found: RawFinding[],
+    foundKeys: Set<string>,
+    skipHosts: string[],
+    reserve: number,
+  ): Promise<VisualFixes | null> {
     const fixable = found.filter((f) => FIX_KINDS.has(f.kind));
     if (!fixable.length) return null;
-    const out: VisualFixes = { applied: fixable.filter((f) => f.detail?.fixApplied === true).length, rechecked: false, fixed: [], notFixed: [] };
+    const out: VisualFixes = { applied: fixable.filter((f) => f.detail?.fixApplied === true).length, rechecked: false, fixed: [], notFixed: [], uncovered: [] };
     let after = fixable;
     let still: Set<string> | null = null;
+    let periodicSeen = false;
     if (out.applied && left() - reserve > 2500) {
       const started = await call<{ ok?: boolean }>("start", { id: "c", mode: "observe", fix: false });
       if (started.ok) {
@@ -953,8 +1064,13 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           const c = await call<Collected>("collect", { id: "c", pass: true, passMs: 2500, skipHosts }, 4000);
           const a = await call<Collected>("collect", { id: "a", skipHosts });
           if (c.ok && (c.stats?.passes ?? 0) >= 1) {
-            still = new Set(cleanFindings(c.findings).map(visualKey));
+            still = collectedKeys(c);
             out.rechecked = true;
+            periodicSeen = (numOrNull(c.stats?.elapsed) ?? deps.now() - t0) >= PERIODIC_RECHECK_MS;
+            for (const key of still) {
+              const kind = key.slice(0, key.indexOf("|"));
+              if (!foundKeys.has(key) && Object.hasOwn(KINDS, kind) && out.uncovered!.length < 20) out.uncovered!.push({ kind, key });
+            }
           }
           if (a.ok) after = cleanFindings(a.findings).filter((f) => FIX_KINDS.has(f.kind));
         } finally {
@@ -962,20 +1078,25 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         }
       }
     }
+    const fixes = visualStatus().fixes;
     for (const f of after) {
       const key = visualKey(f);
       const applied = f.detail?.fixApplied === true;
       const css = cutText(f.detail?.fixCss, 160);
-      if (applied && still && !still.has(key)) out.fixed.push({ kind: f.kind, selector: f.selector, key, how: `GenClass changed the page: ${css || "its fix for this kind"}. The re-check no longer found it.` });
+      const judged = still !== null && (!PERIODIC_KINDS.has(f.kind) || periodicSeen);
+      if (applied && judged && !still!.has(key))
+        out.fixed.push({ kind: f.kind, selector: f.selector, key, how: `${fixes.charAt(0).toUpperCase()}${fixes.slice(1)} changed the page: ${css || "its fix for this kind"}. The re-check no longer found it.` });
       else
         out.notFixed.push({
           kind: f.kind,
           selector: f.selector,
           key,
           why: applied
-            ? still
+            ? judged
               ? "GenClass applied a fix, but the re-check still found the problem."
-              : "GenClass applied a fix, but there was no time left to re-check it, so it is not counted."
+              : still
+                ? "GenClass applied a fix, but the re-check did not run long enough to see this kind again (it needs about 4.5 s), so it is not counted."
+                : "GenClass applied a fix, but there was no time left to re-check it, so it is not counted."
             : cutText(f.detail?.fixReason, 200) || "GenClass did not apply a fix here.",
         });
     }

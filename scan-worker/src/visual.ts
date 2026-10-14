@@ -9,8 +9,10 @@
 // non-writable name, and deletes the well-known one. Commands (visual/scan-entry.js):
 //   start   { id, mode: "observe" | "guard", fix, csp }  start an engine (guard + fix: the chunk's opt-in fixes)
 //   status  { id }                                      passes, findings so far, elapsed time, visibility
-//   collect { id, pass, passMs, skipHosts }             the findings as plain data (sanitized again here)
+//   collect { id, pass, passMs, skipHosts }             the first 40 findings as plain data (sanitized again here),
+//                                                       every finding's identity (keys) and how many there were
 //   stop    { id }                                      stop an engine; this undoes every fix it applied
+//   net     { n }                                       the page's fetch/XHR requests in flight (the scanner counts)
 //   point | top | page                                  a quiet point for wheel events; scroll to the top; page size
 
 /** The installer: true when the visual checks are installed under `name` (also when they already were). */
@@ -37,6 +39,34 @@ ${visualSource}
 /** One command to the installed checks; resolves with its result as a JSON string ("{}" when not installed). */
 export function callSource(name: string, cmd: string, arg: Record<string, unknown> = {}): string {
   return `(async () => { const f = window[${JSON.stringify(name)}]; if (typeof f !== "function") return "{}"; return JSON.stringify(await f(${JSON.stringify(cmd)}, ${JSON.stringify(arg)})); })()`;
+}
+
+/** The @genclass/runtime version the race probe injects and the install line on /scan names. */
+export const RUNTIME_VERSION = "0.2.1";
+
+/**
+ * The released @genclass/runtime version that ships these visual checks and their fixes, or null while they are in
+ * testing (branch wave2/visual; no published runtime has them: npm, main and release/0.3.0 have no visual code). Every
+ * sentence on /scan and /scan/about, and every report, that says where the checks and fixes come from is built from
+ * this, as the site's visual.json checks_in_runtime is. Set it only when that runtime is on npm.
+ */
+export const VISUAL_IN_RUNTIME: string | null = null;
+
+/** Where the visual checks and fixes come from, in words: "in testing, not in runtime 0.2.1", or "in runtime 0.3.0". */
+export function visualStatus(): { shipped: boolean; short: string; checks: string; fixes: string } {
+  if (VISUAL_IN_RUNTIME)
+    return {
+      shipped: true,
+      short: `in runtime ${VISUAL_IN_RUNTIME}`,
+      checks: `the measured checks the GenClass runtime ships from version ${VISUAL_IN_RUNTIME}`,
+      fixes: `the GenClass visual fixes (runtime ${VISUAL_IN_RUNTIME})`,
+    };
+  return {
+    shipped: false,
+    short: `in testing, not in runtime ${RUNTIME_VERSION}`,
+    checks: `the measured checks built for the GenClass runtime (in testing; not in runtime ${RUNTIME_VERSION})`,
+    fixes: `the GenClass visual fixes in testing (not in runtime ${RUNTIME_VERSION})`,
+  };
 }
 
 /** The kinds the runtime can fix in the page (visual: { fix: true } in guard mode); everything else is reported only. */

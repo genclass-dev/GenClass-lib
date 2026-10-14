@@ -1,8 +1,9 @@
 # genclass-scan: the genclass.dev page check
 
 Type an address, and a Cloudflare browser loads that one page as a desktop and a phone, light and dark, runs the
-GenClass runtime's measured visual checks (23 kinds), then types into the search box and double-clicks a submit button
-with the GenClass runtime watching. The page shows a score out of 100 with its breakdown and a with-GenClass score,
+measured visual checks built for the GenClass runtime (23 kinds, 22 of them run here; in testing on `wave2/visual`, not
+in any released runtime: npm's 0.2.1, main and release/0.3.0 have no visual code), then types into the search box and
+double-clicks a submit button with GenClass 0.2.1 watching. The page shows a score out of 100 with its breakdown and a with-GenClass score,
 screenshots with numbered boxes, every finding with what was measured, the suggested CSS or code, and whether GenClass
 fixed it in the page (measured by a re-check) or reports it for the developer, what the race probe tried and what
 GenClass saw, with and without guard mode.
@@ -10,6 +11,11 @@ GenClass saw, with and without guard mode.
 - **Test copy:** `https://genclass-scan.mehar-144.workers.dev/scan` (workers.dev only; deployed from this directory).
 - **Routes it will own on genclass.dev** (not live; the owner adds them after review): `genclass.dev/api/scan*` and
   `genclass.dev/scan*`. The more specific `/api/scan*` route wins over the telemetry worker's `genclass.dev/api/*`.
+  The trailing `*` is needed: Workers route matching includes the query string, so `genclass.dev/scan` alone would
+  not match `/scan?url=…`. It also matches the site's own files that start with `/scan`, such as `/scan-box.js` (the
+  home page's scan box on wave2/site-launch): this worker answers only `/scan`, `/scan/` and `/scan/about` and hands
+  every other `/scan…` path to the site worker over the service binding `SITE` (`genclass-site`). Renaming the site's
+  asset outside `/scan` (for example `/visual-scan.js`) removes the overlap altogether.
 - **genclass.dev/&lt;url&gt;** (`genclass.dev/example.com`, `genclass.dev/https://example.com/pricing`): the site worker
   hands a path to this worker as `/scan?url=<path>` over the service binding `SCAN`, only when no page or asset answered
   (404), for GET/HEAD, when the path is URL-safe and starts with `http(s):` or is a hostname with an IANA TLD
@@ -121,10 +127,14 @@ not scored, when every view it appeared in had such answers (`unscored` on the f
 
 ## The visual checks: the runtime's own chunk
 
-The checks are the GenClass runtime's measured visual checks (`packages/runtime/src/visual`, branch `wave2/visual`,
-docs/runtime/VISUAL.md): 23 kinds, each a deterministic measurement against a fixed threshold, the same code an app
-loads with `GenClass.init({ visual: { on: true } })`. Nothing in the scanner measures pages itself any more (the
-built-in subset in `src/checks.ts` is gone).
+The checks are the measured visual checks built for the GenClass runtime (`packages/runtime/src/visual`, branch
+`wave2/visual`, docs/runtime/VISUAL.md): 23 kinds, each a deterministic measurement against a fixed threshold, the code
+an app will load with `GenClass.init({ visual: { on: true } })` once a runtime release has it. **No released runtime
+has it yet** (npm latest 0.2.1; main and release/0.3.0 have no `packages/runtime/src/visual`), so every sentence on
+`/scan` and `/scan/about` that says where the checks and fixes come from is built from `VISUAL_IN_RUNTIME` in
+`src/visual.ts` (null: "in testing, not in runtime 0.2.1"; set it to the version once that runtime is on npm, as the
+site's `visual.json` `checks_in_runtime` does). Nothing in the scanner measures pages itself any more (the built-in
+subset in `src/checks.ts` is gone).
 
 - **Build.** CI job `scan-visual` (`.github/workflows/ci.yml`) checks out `wave2/visual` at `VISUAL_REF`, builds the
   runtime, and runs `scripts/build-visual.sh`, which bundles the runtime's lazy chunk `dist/visual/index.js` with
@@ -135,11 +145,18 @@ built-in subset in `src/checks.ts` is gone).
   `src/visual-source.ts`, commit. Never build the runtime on the owner's Mac.
 - **How it runs** (`visual/scan-entry.js`). The chunk is started as the runtime starts it, `startVisual(rt, options)`,
   with a stand-in for the runtime object that its bridge reads (`src/visual/bridge.ts` RtLike): the mode the scanner
-  asks for, sampled in, not paused, 0 requests in flight (the scanner has waited for network quiet), silent reports.
+  asks for, sampled in, not paused, silent reports, and the page's fetch and XHR requests in flight. The scanner counts
+  those in its request handler (requests it answers itself included; its own runtime and model downloads not) and
+  hands the count in with the `net` command when it changes and at least once a second, polled every 250 ms, as the
+  bench's harness counted fetch and XHR. The chunk does not judge `page-blank`, `pointer-events-leak` or
+  `click-blocked` while a request runs (a busy shield is intended), so a page still loading its data after the 4 s
+  quiet cap is not reported blank.
   Options: `on: true`, `lowEnd: "full"` (every kind on every device), `passBudgetMs: 1500` and `budgetMs: 16` so a long
   page gets a whole pass. One function, `window.__genclassScanVisual(command, argument)`, is taken by the installer
   (`src/visual.ts`) only when the bundle defined it, then lives under a per-scan random, non-writable name in the
-  isolated world. Commands: `start`, `status`, `collect`, `stop`, `point`, `top`, `page`.
+  isolated world. Commands: `start`, `status`, `collect` (the first 40 findings as data, every finding's identity as
+  `keys`, and the `total`), `stop`, `net`, `point`, `top`, `page`. A view with more than 40 findings says how many
+  were left out of the report.
 - **Per view** (`visualChecks` in `src/scan.ts`): engine "a" starts at network quiet; the scanner waits for its first
   pass (at most 4 s), presses Tab four times on the desktop (focus under a sticky bar), scrolls with the mouse wheel to
   the end of the page (controls under a fixed bar at the end), and once more about 3 s in, after the first periodic
@@ -151,15 +168,28 @@ built-in subset in `src/checks.ts` is gone).
   all is kept: it fails in a visitor's browser too.
 - **CSP.** The checks start after load, when the browser no longer reports earlier Content-Security-Policy violations,
   so the safety bootstrap records them as plain data (`disposition`, directives, `blockedURI`, `sourceFile`) and the
-  scanner hands them to the chunk as its early events.
+  scanner hands them to the chunk as its early events. Only events the browser raised count (`isTrusted`): a page could
+  otherwise dispatch its own and put text of its choosing in a public report. The desktop view runs with the page's CSP
+  bypassed so the GenClass runtime can load for the race probe, so `csp-blocked` comes from the phone views only, and
+  the desktop view says so.
+- **Sideways scrolling on phones.** Chrome widens a phone's layout viewport to the content, so any full-width wrapper a
+  wide child stretched trips the chunk's "a width of 100vw with a classic scrollbar" rule, and its `width: 100%` fix is
+  for the wrong element (the fixture: `body > main`, where the cause is a 640 px box in a flex item that cannot shrink).
+  On the phone views, when that cause shows or the layout viewport is wider than the phone, the scanner keeps the
+  measured excess and drops the chunk's cause and CSS (`phoneOverflow` in `src/scan.ts`); the report gives the kind's
+  own fix. The root cause belongs in the runtime's check (blame a scrollbar only when `innerWidth - clientWidth` is a
+  scrollbar's width, and test the flex-item case first).
 - **Results** are plain data (`serial` in the entry): kind, selector, box, the measured sentence, and in `detail` the
   check's severity, its suggested CSS (`css`, `cssNote`) or fix text (`fixText`), the threshold, and the fix state
   (`fixApplied`, `fixCss`, `fixReason`). `sanitizeFinding` in `src/catalog.ts` checks them again.
 
-Measured for the runtime (RESULTS.md sections 8 and 9, 2026-10-13): 35 of 35 planted faults on its fixture pages; on
-its bench, no false reports in 128 clean local page views, every planted fault in real app layouts found for 19 of the
-23 kinds (run 5); on 40 public home pages, 8 findings in 96 loads (run 4), 5 confirmed real, none shown wrong, 3
-unconfirmed.
+Measured for the runtime (RESULTS.md sections 8 and 9, GitHub runners, Chromium 153, 2026-10-13): 35 of 35 planted
+faults on its fixture pages; on its bench, no false reports in 128 clean local page views, and recall 1.00 on planted
+faults for 19 of 23 kinds (bench run 5); on public home pages (bench run 4: 31 of 40 sites measured, 96 loads), 8
+findings, 5 confirmed real, 0 check errors, 3 unconfirmed. The scanner embeds the same checks at a later commit
+(`6ae209f`; runs 4 and 5 were `5c47a71` and `47b94c1`) and runs them in Chrome 128 in Browser Rendering for about 6 s
+per view with 4 Tab presses and no hover (the bench: hover over 8 controls, 8 Tab presses), so these numbers describe
+the checks, not this scanner. `/scan/about` says the same.
 
 ## The score and the with-GenClass column
 
@@ -173,21 +203,34 @@ findings give the same score.
 
 With `WITH_GENCLASS=on` (the default now):
 
+- **In testing.** The visual half of the column uses code no released runtime has; the column is labelled "With
+  GenClass (in testing)" and every page and report says the fixes are in testing, not in runtime 0.2.1, until
+  `VISUAL_IN_RUNTIME` is set. Set `WITH_GENCLASS=off` to run the visual checks report-only until the chunk ships.
 - **Visual fixes, measured.** In every view engine "a" runs in guard mode with `fix: true`, which is what
-  `GenClass.init({ mode: "guard", visual: { on: true, fix: true } })` does: the chunk's own fix gate applies its three
+  `GenClass.init({ mode: "guard", visual: { on: true, fix: true } })` will do: the chunk's own fix gate applies its three
   opt-in fixes (text colour for `text-invisible` through an adopted stylesheet rule; removing a leaked inline
   `pointer-events: none` or scroll lock on html or body) and re-measures each 50 ms later. When "a" applied a fix,
   engine "c", report-only, starts in the same page with the fixes in place and measures it again (with the same
   periodic reads when the fix was a periodic kind). A finding counts as fixed only when "a" applied its fix, the fix
-  still holds, and "c" no longer finds it, in every view the finding appeared in (`recheck` in `src/scan.ts`,
-  `visualFix` in `src/report.ts`). Stopping "a" undoes every fix before the screenshot and before the race probe.
+  still holds, and "c" no longer finds it among every finding it reported (its `keys`, not only the first 40), in every
+  view the finding appeared in (`recheck` in `src/scan.ts`, `visualFix` in `src/report.ts`). For the periodic kinds
+  (`pointer-events-leak`, `scroll-lock-stuck`) "c" must also have run at least 4.5 s, since the chunk reports them only
+  after two periodic reads 2 s apart; a shorter re-check says "did not run long enough" and does not count. Stopping
+  "a" undoes every fix before the screenshot and before the race probe.
+- **Only verified fixes are subtracted.** What "c" finds that "a" never reported (text that becomes measurable once a
+  leaked `pointer-events: none` is removed, on the fixture's `?leak=1`) is not added to either score; the note says how
+  many there were and of which kinds. The note names only the steps that ran (no re-check is mentioned when none ran).
 - **Everything else is reported.** The other 20 kinds have no runtime fix by design (VISUAL.md 11.4); each such finding
   says "Reported for the developer" with the suggested CSS or code. A fixable kind that was not fixed says why (the
   chunk's own reason, for example a scroll lock held since load, or "the re-check still found the problem").
-- **Races.** The race probe's guard pass is unchanged: a double submit counts as fixed only when guard's own coalesce,
-  defer or discard on the clicked request sent fewer requests (`guardClickFix`). When guard diagnosed it but its
+- **Races.** A double submit counts as fixed only when guard's own coalesce, defer or discard on the clicked request
+  sent fewer requests (`guardClickFix`). A late response GenClass diagnosed counts only for guard's own recorded
+  discard or defer on that same request (subjects compared without their `(#N)` number, never an empty one), with no
+  other unacted diagnosis on it left in the guard pass, worded as the recorded action. When guard diagnosed it but its
   expected gain did not clear the margin, the finding says "Flagged, held back at the default safety margin" with the
-  confidence, the gain and the margin (`heldBack`).
+  confidence, the gain, the margin and what the guard pass's double click measurably sent ("the page sent 2 identical
+  requests (the scanner answered them; none reached the site)") (`heldBack`; the page uses the same match on the
+  clicked request).
 
 **Owner decision still open** for the race half: at the shipped gates guard holds back on the fixture's double submit
 (expected gain 2.5 to 3.0 against a margin of 4), so the with-GenClass score counts the visual fixes only there. The home
@@ -198,16 +241,17 @@ that as a demo setting.
 
 | var | default | what |
 |---|---|---|
-| `MAX_CONCURRENT` | `10` | scans at once across everyone; each holds one Browser Rendering browser. Browser Rendering on Workers Paid allows 200 at once and 3 new browsers a second (developers.cloudflare.com/browser-rendering/limits, updated 2026-09-26; Free: 3 and one per 20 s). The bound here is the lease file `scans/slots.json`, written twice per scan, and R2 takes one write a second per key (more get 429, which the lease code retries): 10 scans of about 35 s are about 0.6 writes a second. Going much higher needs a Durable Object for the leases |
+| `MAX_CONCURRENT` | `10` | scans at once across everyone; each holds one Browser Rendering browser. Browser Rendering on Workers Paid allows 200 at once and 3 new browsers a second (developers.cloudflare.com/browser-rendering/limits, updated 2026-09-26; Free: 3 and one per 20 s). The bound here is the lease file `scans/slots.json`, written twice per scan, and R2 takes one write a second per key (more get 429, which the lease code retries): 10 scans of about 35 s are about 0.6 writes a second. A lease is not taken while 3 others started in the last second (`LAUNCHES_PER_SECOND`), `now` is read on every attempt, and an acquire that lost every compare-and-swap round (or got 429) answers 503 `contention` with `retry-after: 3`, which the page retries by itself up to 4 times, instead of "all busy". A release gets 10 rounds. Under a launch-day burst this is still one key: move the leases to a Durable Object before going much higher |
 | `WITH_GENCLASS` | `on` | the with-GenClass column: visual fixes in guard mode, re-checked, and the race probe's guard pass; `off` runs the visual checks report-only |
 | `GUARD_HOLD_MS` | `900` | `policy.holdBudgetMs` in the guard pass (the WASM model's decisions take 180 to 450 ms here) |
 | `GUARD_AGGRESSIVENESS` | unset = `balanced` | the guard pass's profile; the report names it |
-| `GUARD_MARGIN` | unset | `policy.thresholds.guard` (a gain margin) for the guard pass; the report calls it a demo setting |
+| `GUARD_MARGIN` | unset | `policy.thresholds.guard` (a gain margin) for the guard pass; the report and `/scan/about` call it a demo setting |
 | `BLOCKLIST` | unset | extra opted-out hosts, comma-separated |
 | `PUBLIC_ORIGIN` | genclass.dev on genclass.dev, else this origin | base of share links |
 
 Bindings: `BROWSER` (Browser Rendering), `BUCKET` (R2 `genclass-telemetry`, `scans/` prefix only), `SCAN_LIMIT`
-(per client, namespace 4810) and `SITE_LIMIT` (per site, namespace 4811). Compatibility flag `enable_request_signal`
+(per client, namespace 4810), `SITE_LIMIT` (per site, namespace 4811) and `SITE` (the site worker `genclass-site`, for
+`/scan…` paths that are the site's). Compatibility flag `enable_request_signal`
 (a cancelled request stops its scan). Hourly cron `23 * * * *` deletes `scans/shots/` and `scans/reports/` objects older than
 24 hours (`sweep` in `src/store.ts`); no R2 lifecycle rule was added.
 
@@ -231,7 +275,11 @@ and site, one scan per client, IPv6 /64, automated clients, cache and its versio
 interception outcome of every request and the visual commands per view, the with-GenClass flow with a re-check, files
 the scanner refused, private names and addresses, redirects to opted-out or robots-disallowed sites, WebSocket hosts,
 stand-in answers, cancellation, screenshots and opt-outs, report escaping, the path form, the sweep),
-`test/tlds.test.ts` (the two TLD copies and path rules agree). CI jobs: `scan-worker` and `scan-visual` in
+`test/tlds.test.ts` (the two TLD copies and path rules agree), and the launch review's fixes in `test/app.test.ts`
+and `test/report.test.ts` (the in-flight count reaches the checks before they start, periodic fixes need a long enough
+re-check, the re-check is compared with every key, uncovered findings are named and not scored, the phone overflow
+cause, the report without JavaScript, the "in testing" wording, `/scan…` paths handed to the site, contention and
+launch pacing, race fixes tied to the same request, the held-back words). CI jobs: `scan-worker` and `scan-visual` in
 `.github/workflows/ci.yml`.
 
 `test/fixture/` is a test page with problems on purpose (`genclass-scan-fixture.mehar-144.workers.dev`): text at
@@ -244,7 +292,8 @@ fixture are logged (`wrangler tail genclass-scan-fixture`).
 
 ## End-to-end runs with the GenClass visual chunk (2026-10-14, test copy, Chrome 128 in Browser Rendering)
 
-The deployed test copy (`WITH_GENCLASS=on`, the shipped guard gates, `MAX_CONCURRENT=10`), the fixture and the same
+These runs predate commit `a71d3d6` (score text `scan-score/2`) and the launch review's fixes (report version 5); the
+re-run after them is in the next section. The deployed test copy (`WITH_GENCLASS=on`, the shipped guard gates, `MAX_CONCURRENT=10`), the fixture and the same
 three public pages as below (not named). Times in ms: launch / three views in parallel / observe probe / guard pass.
 
 | page | total | launch / views / probe / guard | score | with GenClass | findings | what GenClass did |
@@ -326,5 +375,8 @@ npx --yes wrangler@4 deploy -c test/fixture/wrangler.jsonc       # the fixture p
 ```
 
 The owner's steps to go live: add `"routes": [{ "pattern": "genclass.dev/api/scan*", "zone_name": "genclass.dev" },
-{ "pattern": "genclass.dev/scan*", "zone_name": "genclass.dev" }]` here and deploy; deploy the site worker, whose
-`wrangler.jsonc` now binds `SCAN` to `genclass-scan` for the `genclass.dev/<url>` form.
+{ "pattern": "genclass.dev/scan*", "zone_name": "genclass.dev" }]` here and deploy (the `SITE` binding hands the site's
+own `/scan…` files back to it); deploy the site worker, whose `wrangler.jsonc` now binds `SCAN` to `genclass-scan` for
+the `genclass.dev/<url>` form. After go-live, check that `genclass.dev/scan-box.js` (or the name the site gives it)
+answers 200 with `text/javascript`, and that `genclass.dev/scan?url=…` and `genclass.dev/api/scan/health` reach this
+worker.
