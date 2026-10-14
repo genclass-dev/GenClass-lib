@@ -1,0 +1,4100 @@
+{
+ "split": {
+  "dev": {
+   "n": 412,
+   "real": 25,
+   "hosts": 215
+  },
+  "report": {
+   "n": 1444,
+   "real": 114,
+   "hosts": 767
+  }
+ },
+ "sameSplitAndLabelsAsClef": true,
+ "reportRealByFamily": {
+  "responsive": 6,
+  "overflow": 35,
+  "text": 6,
+  "dark": 17,
+  "media": 27,
+  "leaks": 7,
+  "occlusion": 16
+ },
+ "familiesReported": [
+  "overflow",
+  "media",
+  "dark",
+  "occlusion"
+ ],
+ "primaryScore": "anyProblem (as Clef); /notFine names use 1 - P(verdict = fine)",
+ "detectors": {
+  "luna-img-p3": {
+   "score": "anyProblem",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.441,
+     "rocAuc": 0.87,
+     "precisionAtRecall0.5": 0.279,
+     "recallAtPrecision0.6": 0.32,
+     "recallAtPrecision0.8": 0.16
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.697,
+     "rocAuc": 0.934,
+     "precisionAtRecall0.5": 0.867,
+     "recallAtPrecision0.6": 0.6,
+     "recallAtPrecision0.8": 0.52
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.544,
+     "rocAuc": 0.908,
+     "precisionAtRecall0.5": 0.553,
+     "recallAtPrecision0.6": 0.412,
+     "recallAtPrecision0.8": 0.158,
+     "apCI": [
+      0.431,
+      0.645
+     ],
+     "pAtR05CI": [
+      0.411,
+      0.689
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.712,
+     "rocAuc": 0.946,
+     "precisionAtRecall0.5": 0.826,
+     "recallAtPrecision0.6": 0.684,
+     "recallAtPrecision0.8": 0.518
+    },
+    "curve": {
+     "0.1": 0.947,
+     "0.2": 0.774,
+     "0.3": 0.618,
+     "0.4": 0.61,
+     "0.5": 0.553,
+     "0.6": 0.486,
+     "0.7": 0.339,
+     "0.8": 0.307,
+     "0.9": 0.221
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.307
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 3
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 12
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 23
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.578,
+      "rocAuc": 0.77,
+      "precisionAtRecall0.5": 0.56,
+      "recallAtPrecision0.6": 0.413,
+      "recallAtPrecision0.8": 0.196
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.381,
+      "rocAuc": 0.915,
+      "precisionAtRecall0.5": 0.625,
+      "recallAtPrecision0.6": 0.556,
+      "recallAtPrecision0.8": 0.0
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.469,
+      "rocAuc": 0.894,
+      "precisionAtRecall0.5": 0.583,
+      "recallAtPrecision0.6": 0.385,
+      "recallAtPrecision0.8": 0.385
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.17,
+       "rocAuc": 0.877,
+       "precisionAtRecall0.5": 0.182,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.551,
+       "rocAuc": 0.983,
+       "precisionAtRecall0.5": 0.523,
+       "recallAtPrecision0.6": 0.486,
+       "recallAtPrecision0.8": 0.029
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.431,
+       "precisionScore": 0.087
+      },
+      "topFamilyOfReals": {
+       "responsive": 2,
+       "overflow": 23,
+       "none": 9,
+       "leaks": 1
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.702,
+       "rocAuc": 0.985,
+       "precisionAtRecall0.5": 0.682,
+       "recallAtPrecision0.6": 0.667,
+       "recallAtPrecision0.8": 0.481
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.924,
+       "rocAuc": 0.998,
+       "precisionAtRecall0.5": 0.933,
+       "recallAtPrecision0.6": 1.0,
+       "recallAtPrecision0.8": 0.889
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.743,
+       "precisionScore": 0.243
+      },
+      "topFamilyOfReals": {
+       "media": 27
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.098,
+       "rocAuc": 0.915,
+       "precisionAtRecall0.5": 0.11,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.084,
+       "rocAuc": 0.754,
+       "precisionAtRecall0.5": 0.026,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.026,
+       "precisionScore": 0.11
+      },
+      "topFamilyOfReals": {
+       "text": 8,
+       "occlusion": 3,
+       "none": 3,
+       "overflow": 3
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.077,
+       "rocAuc": 0.854,
+       "precisionAtRecall0.5": 0.099,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.408,
+       "rocAuc": 0.889,
+       "precisionAtRecall0.5": 0.36,
+       "recallAtPrecision0.6": 0.312,
+       "recallAtPrecision0.8": 0.188
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.36,
+       "precisionScore": 0.099
+      },
+      "topFamilyOfReals": {
+       "occlusion": 12,
+       "none": 4
+      }
+     }
+    },
+    "familyTop1OnReal": 0.64,
+    "secondStage": {
+     "threshold": 0.84,
+     "flagged": 121,
+     "tp": 59,
+     "precision": 0.488,
+     "recall": 0.518,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 17,
+       "keptReal": 8
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 13,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 43,
+       "keptReal": 12
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 21,
+       "keptReal": 18
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 11,
+       "keptReal": 6
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 1,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 1,
+       "keptReal": 1
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 15,
+       "keptReal": 14
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.84,
+     "flagged": 142,
+     "tp": 69,
+     "fp": 73,
+     "precision": 0.486,
+     "recall": 0.605
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.578,
+     "rocAuc": 0.77,
+     "precisionAtRecall0.5": 0.56,
+     "recallAtPrecision0.6": 0.413,
+     "recallAtPrecision0.8": 0.196
+    }
+   }
+  },
+  "luna-img-p3/notFine": {
+   "score": "notFine",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.697,
+     "rocAuc": 0.934,
+     "precisionAtRecall0.5": 0.867,
+     "recallAtPrecision0.6": 0.6,
+     "recallAtPrecision0.8": 0.52
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.697,
+     "rocAuc": 0.934,
+     "precisionAtRecall0.5": 0.867,
+     "recallAtPrecision0.6": 0.6,
+     "recallAtPrecision0.8": 0.52
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.712,
+     "rocAuc": 0.946,
+     "precisionAtRecall0.5": 0.826,
+     "recallAtPrecision0.6": 0.684,
+     "recallAtPrecision0.8": 0.518,
+     "apCI": [
+      0.617,
+      0.797
+     ],
+     "pAtR05CI": [
+      0.603,
+      0.929
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.712,
+     "rocAuc": 0.946,
+     "precisionAtRecall0.5": 0.826,
+     "recallAtPrecision0.6": 0.684,
+     "recallAtPrecision0.8": 0.518
+    },
+    "curve": {
+     "0.1": 1.0,
+     "0.2": 0.966,
+     "0.3": 0.947,
+     "0.4": 0.87,
+     "0.5": 0.826,
+     "0.6": 0.676,
+     "0.7": 0.584,
+     "0.8": 0.43,
+     "0.9": 0.342
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.43
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 0
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 7
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 13
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.745,
+      "rocAuc": 0.876,
+      "precisionAtRecall0.5": 0.839,
+      "recallAtPrecision0.6": 0.728,
+      "recallAtPrecision0.8": 0.543
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.483,
+      "rocAuc": 0.941,
+      "precisionAtRecall0.5": 0.455,
+      "recallAtPrecision0.6": 0.333,
+      "recallAtPrecision0.8": 0.222
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.64,
+      "rocAuc": 0.941,
+      "precisionAtRecall0.5": 0.8,
+      "recallAtPrecision0.6": 0.692,
+      "recallAtPrecision0.8": 0.615
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.381,
+       "rocAuc": 0.933,
+       "precisionAtRecall0.5": 0.292,
+       "recallAtPrecision0.6": 0.229,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.551,
+       "rocAuc": 0.983,
+       "precisionAtRecall0.5": 0.523,
+       "recallAtPrecision0.6": 0.486,
+       "recallAtPrecision0.8": 0.029
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.431,
+       "precisionScore": 0.174
+      },
+      "topFamilyOfReals": {
+       "responsive": 2,
+       "overflow": 23,
+       "none": 9,
+       "leaks": 1
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.85,
+       "rocAuc": 0.992,
+       "precisionAtRecall0.5": 0.941,
+       "recallAtPrecision0.6": 0.852,
+       "recallAtPrecision0.8": 0.778
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.924,
+       "rocAuc": 0.998,
+       "precisionAtRecall0.5": 0.933,
+       "recallAtPrecision0.6": 1.0,
+       "recallAtPrecision0.8": 0.889
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.743,
+       "precisionScore": 0.463
+      },
+      "topFamilyOfReals": {
+       "media": 27
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.168,
+       "rocAuc": 0.934,
+       "precisionAtRecall0.5": 0.148,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.084,
+       "rocAuc": 0.754,
+       "precisionAtRecall0.5": 0.026,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.026,
+       "precisionScore": 0.148
+      },
+      "topFamilyOfReals": {
+       "text": 8,
+       "occlusion": 3,
+       "none": 3,
+       "overflow": 3
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.135,
+       "rocAuc": 0.887,
+       "precisionAtRecall0.5": 0.105,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.408,
+       "rocAuc": 0.889,
+       "precisionAtRecall0.5": 0.36,
+       "recallAtPrecision0.6": 0.312,
+       "recallAtPrecision0.8": 0.188
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.36,
+       "precisionScore": 0.105
+      },
+      "topFamilyOfReals": {
+       "occlusion": 12,
+       "none": 4
+      }
+     }
+    },
+    "familyTop1OnReal": 0.64,
+    "secondStage": {
+     "threshold": 0.9,
+     "flagged": 46,
+     "tp": 41,
+     "precision": 0.891,
+     "recall": 0.36,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 6,
+       "keptReal": 6
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 1,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 6,
+       "keptReal": 4
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 11,
+       "keptReal": 10
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 4,
+       "keptReal": 3
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 6,
+       "keptReal": 5
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 13,
+       "keptReal": 13
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.9,
+     "flagged": 54,
+     "tp": 47,
+     "fp": 7,
+     "precision": 0.87,
+     "recall": 0.412
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.745,
+     "rocAuc": 0.876,
+     "precisionAtRecall0.5": 0.839,
+     "recallAtPrecision0.6": 0.728,
+     "recallAtPrecision0.8": 0.543
+    }
+   }
+  },
+  "luna-imgonly-p2": {
+   "score": "anyProblem",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.558,
+     "rocAuc": 0.889,
+     "precisionAtRecall0.5": 0.448,
+     "recallAtPrecision0.6": 0.4,
+     "recallAtPrecision0.8": 0.36
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.637,
+     "rocAuc": 0.917,
+     "precisionAtRecall0.5": 0.722,
+     "recallAtPrecision0.6": 0.56,
+     "recallAtPrecision0.8": 0.48
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.652,
+     "rocAuc": 0.919,
+     "precisionAtRecall0.5": 0.682,
+     "recallAtPrecision0.6": 0.632,
+     "recallAtPrecision0.8": 0.351,
+     "apCI": [
+      0.549,
+      0.742
+     ],
+     "pAtR05CI": [
+      0.536,
+      0.833
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.723,
+     "rocAuc": 0.943,
+     "precisionAtRecall0.5": 0.773,
+     "recallAtPrecision0.6": 0.763,
+     "recallAtPrecision0.8": 0.474
+    },
+    "curve": {
+     "0.1": 1.0,
+     "0.2": 0.939,
+     "0.3": 0.854,
+     "0.4": 0.742,
+     "0.5": 0.682,
+     "0.6": 0.621,
+     "0.7": 0.526,
+     "0.8": 0.322,
+     "0.9": 0.217
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.322
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 3
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 15
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 21
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.724,
+      "rocAuc": 0.873,
+      "precisionAtRecall0.5": 0.727,
+      "recallAtPrecision0.6": 0.75,
+      "recallAtPrecision0.8": 0.391
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.41,
+      "rocAuc": 0.894,
+      "precisionAtRecall0.5": 0.467,
+      "recallAtPrecision0.6": 0.333,
+      "recallAtPrecision0.8": 0.0
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.613,
+      "rocAuc": 0.935,
+      "precisionAtRecall0.5": 0.778,
+      "recallAtPrecision0.6": 0.615,
+      "recallAtPrecision0.8": 0.385
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.386,
+       "rocAuc": 0.937,
+       "precisionAtRecall0.5": 0.323,
+       "recallAtPrecision0.6": 0.171,
+       "recallAtPrecision0.8": 0.057
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.434,
+       "rocAuc": 0.958,
+       "precisionAtRecall0.5": 0.373,
+       "recallAtPrecision0.6": 0.171,
+       "recallAtPrecision0.8": 0.114
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.292,
+       "precisionScore": 0.231
+      },
+      "topFamilyOfReals": {
+       "responsive": 2,
+       "overflow": 31,
+       "none": 2
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.88,
+       "rocAuc": 0.996,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.926,
+       "recallAtPrecision0.8": 0.704
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.935,
+       "rocAuc": 0.989,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.926,
+       "recallAtPrecision0.8": 0.926
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.862,
+       "precisionScore": 0.676
+      },
+      "topFamilyOfReals": {
+       "media": 24,
+       "overflow": 2,
+       "occlusion": 1
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.065,
+       "rocAuc": 0.826,
+       "precisionAtRecall0.5": 0.036,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.023,
+       "rocAuc": 0.606,
+       "precisionAtRecall0.5": 0.018,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.018,
+       "precisionScore": 0.036
+      },
+      "topFamilyOfReals": {
+       "none": 8,
+       "text": 8,
+       "overflow": 1
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.173,
+       "rocAuc": 0.892,
+       "precisionAtRecall0.5": 0.22,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.334,
+       "rocAuc": 0.944,
+       "precisionAtRecall0.5": 0.571,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.571,
+       "precisionScore": 0.22
+      },
+      "topFamilyOfReals": {
+       "none": 4,
+       "overflow": 2,
+       "occlusion": 10
+      }
+     }
+    },
+    "familyTop1OnReal": 0.614,
+    "secondStage": {
+     "threshold": 0.81,
+     "flagged": 73,
+     "tp": 51,
+     "precision": 0.699,
+     "recall": 0.447,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 9,
+       "keptReal": 8
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 23,
+       "keptReal": 10
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 25,
+       "keptReal": 17
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 1,
+       "keptReal": 1
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 15,
+       "keptReal": 15
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.81,
+     "flagged": 94,
+     "tp": 62,
+     "fp": 32,
+     "precision": 0.66,
+     "recall": 0.544
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.724,
+     "rocAuc": 0.873,
+     "precisionAtRecall0.5": 0.727,
+     "recallAtPrecision0.6": 0.75,
+     "recallAtPrecision0.8": 0.391
+    }
+   }
+  },
+  "luna-imgonly-p2/notFine": {
+   "score": "notFine",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.637,
+     "rocAuc": 0.917,
+     "precisionAtRecall0.5": 0.722,
+     "recallAtPrecision0.6": 0.56,
+     "recallAtPrecision0.8": 0.48
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.637,
+     "rocAuc": 0.917,
+     "precisionAtRecall0.5": 0.722,
+     "recallAtPrecision0.6": 0.56,
+     "recallAtPrecision0.8": 0.48
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.723,
+     "rocAuc": 0.943,
+     "precisionAtRecall0.5": 0.773,
+     "recallAtPrecision0.6": 0.763,
+     "recallAtPrecision0.8": 0.474,
+     "apCI": [
+      0.624,
+      0.808
+     ],
+     "pAtR05CI": [
+      0.634,
+      0.905
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.723,
+     "rocAuc": 0.943,
+     "precisionAtRecall0.5": 0.773,
+     "recallAtPrecision0.6": 0.763,
+     "recallAtPrecision0.8": 0.474
+    },
+    "curve": {
+     "0.1": 1.0,
+     "0.2": 0.962,
+     "0.3": 0.946,
+     "0.4": 0.823,
+     "0.5": 0.773,
+     "0.6": 0.729,
+     "0.7": 0.672,
+     "0.8": 0.503,
+     "0.9": 0.293
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.503
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 3
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 8
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 13
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.8,
+      "rocAuc": 0.913,
+      "precisionAtRecall0.5": 0.857,
+      "recallAtPrecision0.6": 0.826,
+      "recallAtPrecision0.8": 0.565
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.555,
+      "rocAuc": 0.932,
+      "precisionAtRecall0.5": 0.714,
+      "recallAtPrecision0.6": 0.778,
+      "recallAtPrecision0.8": 0.111
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.446,
+      "rocAuc": 0.912,
+      "precisionAtRecall0.5": 0.5,
+      "recallAtPrecision0.6": 0.231,
+      "recallAtPrecision0.8": 0.154
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.3,
+       "rocAuc": 0.929,
+       "precisionAtRecall0.5": 0.273,
+       "recallAtPrecision0.6": 0.086,
+       "recallAtPrecision0.8": 0.029
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.434,
+       "rocAuc": 0.958,
+       "precisionAtRecall0.5": 0.373,
+       "recallAtPrecision0.6": 0.171,
+       "recallAtPrecision0.8": 0.114
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.292,
+       "precisionScore": 0.196
+      },
+      "topFamilyOfReals": {
+       "responsive": 2,
+       "overflow": 31,
+       "none": 2
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.899,
+       "rocAuc": 0.997,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.852,
+       "recallAtPrecision0.8": 0.815
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.935,
+       "rocAuc": 0.989,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.926,
+       "recallAtPrecision0.8": 0.926
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.862,
+       "precisionScore": 0.509
+      },
+      "topFamilyOfReals": {
+       "media": 24,
+       "overflow": 2,
+       "occlusion": 1
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.161,
+       "rocAuc": 0.905,
+       "precisionAtRecall0.5": 0.188,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.023,
+       "rocAuc": 0.606,
+       "precisionAtRecall0.5": 0.018,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.018,
+       "precisionScore": 0.188
+      },
+      "topFamilyOfReals": {
+       "none": 8,
+       "text": 8,
+       "overflow": 1
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.238,
+       "rocAuc": 0.901,
+       "precisionAtRecall0.5": 0.32,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.334,
+       "rocAuc": 0.944,
+       "precisionAtRecall0.5": 0.571,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.571,
+       "precisionScore": 0.32
+      },
+      "topFamilyOfReals": {
+       "none": 4,
+       "overflow": 2,
+       "occlusion": 10
+      }
+     }
+    },
+    "familyTop1OnReal": 0.614,
+    "secondStage": {
+     "threshold": 0.73,
+     "flagged": 58,
+     "tp": 48,
+     "precision": 0.828,
+     "recall": 0.421,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 8,
+       "keptReal": 8
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 17,
+       "keptReal": 11
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 14,
+       "keptReal": 11
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 1,
+       "keptReal": 1
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 6,
+       "keptReal": 5
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 12,
+       "keptReal": 12
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.73,
+     "flagged": 70,
+     "tp": 54,
+     "fp": 16,
+     "precision": 0.771,
+     "recall": 0.474
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.8,
+     "rocAuc": 0.913,
+     "precisionAtRecall0.5": 0.857,
+     "recallAtPrecision0.6": 0.826,
+     "recallAtPrecision0.8": 0.565
+    }
+   }
+  },
+  "clef-img-p3": {
+   "score": "anyProblem",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.488,
+     "rocAuc": 0.883,
+     "precisionAtRecall0.5": 0.542,
+     "recallAtPrecision0.6": 0.44,
+     "recallAtPrecision0.8": 0.2
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.422,
+     "rocAuc": 0.851,
+     "precisionAtRecall0.5": 0.189,
+     "recallAtPrecision0.6": 0.32,
+     "recallAtPrecision0.8": 0.24
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.576,
+     "rocAuc": 0.909,
+     "precisionAtRecall0.5": 0.574,
+     "recallAtPrecision0.6": 0.412,
+     "recallAtPrecision0.8": 0.254,
+     "apCI": [
+      0.451,
+      0.69
+     ],
+     "pAtR05CI": [
+      0.423,
+      0.731
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.347,
+     "rocAuc": 0.867,
+     "precisionAtRecall0.5": 0.296,
+     "recallAtPrecision0.6": 0.14,
+     "recallAtPrecision0.8": 0.096
+    },
+    "curve": {
+     "0.1": 0.938,
+     "0.2": 0.806,
+     "0.3": 0.729,
+     "0.4": 0.648,
+     "0.5": 0.574,
+     "0.6": 0.523,
+     "0.7": 0.449,
+     "0.8": 0.39,
+     "0.9": 0.242
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.39
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 5
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 11
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 20
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.655,
+      "rocAuc": 0.841,
+      "precisionAtRecall0.5": 0.63,
+      "recallAtPrecision0.6": 0.554,
+      "recallAtPrecision0.8": 0.315
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.06,
+      "rocAuc": 0.791,
+      "precisionAtRecall0.5": 0.075,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.514,
+      "rocAuc": 0.822,
+      "precisionAtRecall0.5": 0.667,
+      "recallAtPrecision0.6": 0.615,
+      "recallAtPrecision0.8": 0.462
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.27,
+       "rocAuc": 0.918,
+       "precisionAtRecall0.5": 0.265,
+       "recallAtPrecision0.6": 0.057,
+       "recallAtPrecision0.8": 0.029
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.571,
+       "rocAuc": 0.972,
+       "precisionAtRecall0.5": 0.606,
+       "recallAtPrecision0.6": 0.6,
+       "recallAtPrecision0.8": 0.229
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.406,
+       "precisionScore": 0.115
+      },
+      "topFamilyOfReals": {
+       "responsive": 3,
+       "overflow": 30,
+       "leaks": 1,
+       "dark": 1
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.482,
+       "rocAuc": 0.969,
+       "precisionAtRecall0.5": 0.424,
+       "recallAtPrecision0.6": 0.37,
+       "recallAtPrecision0.8": 0.296
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.951,
+       "rocAuc": 0.999,
+       "precisionAtRecall0.5": 0.955,
+       "recallAtPrecision0.6": 1.0,
+       "recallAtPrecision0.8": 1.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.9,
+       "precisionScore": 0.205
+      },
+      "topFamilyOfReals": {
+       "media": 27
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.231,
+       "rocAuc": 0.95,
+       "precisionAtRecall0.5": 0.204,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.025,
+       "rocAuc": 0.704,
+       "precisionAtRecall0.5": 0.034,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.034,
+       "precisionScore": 0.204
+      },
+      "topFamilyOfReals": {
+       "text": 8,
+       "occlusion": 8,
+       "controls": 1
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.038,
+       "rocAuc": 0.684,
+       "precisionAtRecall0.5": 0.053,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.213,
+       "rocAuc": 0.876,
+       "precisionAtRecall0.5": 0.068,
+       "recallAtPrecision0.6": 0.188,
+       "recallAtPrecision0.8": 0.062
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.068,
+       "precisionScore": 0.053
+      },
+      "topFamilyOfReals": {
+       "occlusion": 9,
+       "overflow": 1,
+       "none": 6
+      }
+     }
+    },
+    "familyTop1OnReal": 0.693,
+    "secondStage": {
+     "threshold": 0.9777,
+     "flagged": 109,
+     "tp": 61,
+     "precision": 0.56,
+     "recall": 0.535,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 4,
+       "keptReal": 4
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 9,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 22,
+       "keptReal": 9
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 33,
+       "keptReal": 21
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 23,
+       "keptReal": 11
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 6,
+       "keptReal": 5
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 13,
+       "keptReal": 11
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.9777,
+     "flagged": 120,
+     "tp": 65,
+     "fp": 55,
+     "precision": 0.542,
+     "recall": 0.57
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.655,
+     "rocAuc": 0.841,
+     "precisionAtRecall0.5": 0.63,
+     "recallAtPrecision0.6": 0.554,
+     "recallAtPrecision0.8": 0.315
+    }
+   }
+  },
+  "clef-imgonly-p2": {
+   "score": "anyProblem",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.413,
+     "rocAuc": 0.853,
+     "precisionAtRecall0.5": 0.295,
+     "recallAtPrecision0.6": 0.24,
+     "recallAtPrecision0.8": 0.16
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.307,
+     "rocAuc": 0.821,
+     "precisionAtRecall0.5": 0.227,
+     "recallAtPrecision0.6": 0.12,
+     "recallAtPrecision0.8": 0.12
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.668,
+     "rocAuc": 0.922,
+     "precisionAtRecall0.5": 0.769,
+     "recallAtPrecision0.6": 0.632,
+     "recallAtPrecision0.8": 0.395,
+     "apCI": [
+      0.555,
+      0.763
+     ],
+     "pAtR05CI": [
+      0.553,
+      0.885
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.632,
+     "rocAuc": 0.91,
+     "precisionAtRecall0.5": 0.679,
+     "recallAtPrecision0.6": 0.526,
+     "recallAtPrecision0.8": 0.395
+    },
+    "curve": {
+     "0.1": 0.96,
+     "0.2": 0.96,
+     "0.3": 0.907,
+     "0.4": 0.785,
+     "0.5": 0.769,
+     "0.6": 0.645,
+     "0.7": 0.533,
+     "0.8": 0.382,
+     "0.9": 0.245
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.382
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 6
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 9
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 21
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.768,
+      "rocAuc": 0.903,
+      "precisionAtRecall0.5": 0.836,
+      "recallAtPrecision0.6": 0.793,
+      "recallAtPrecision0.8": 0.576
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.429,
+      "rocAuc": 0.869,
+      "precisionAtRecall0.5": 0.238,
+      "recallAtPrecision0.6": 0.444,
+      "recallAtPrecision0.8": 0.222
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.476,
+      "rocAuc": 0.863,
+      "precisionAtRecall0.5": 0.235,
+      "recallAtPrecision0.6": 0.462,
+      "recallAtPrecision0.8": 0.308
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.245,
+       "rocAuc": 0.893,
+       "precisionAtRecall0.5": 0.222,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.385,
+       "rocAuc": 0.882,
+       "precisionAtRecall0.5": 0.25,
+       "recallAtPrecision0.6": 0.257,
+       "recallAtPrecision0.8": 0.143
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.131,
+       "precisionScore": 0.089
+      },
+      "topFamilyOfReals": {
+       "responsive": 1,
+       "overflow": 31,
+       "media": 1,
+       "leaks": 1,
+       "dark": 1
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.834,
+       "rocAuc": 0.981,
+       "precisionAtRecall0.5": 0.944,
+       "recallAtPrecision0.6": 0.889,
+       "recallAtPrecision0.8": 0.852
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.952,
+       "rocAuc": 0.998,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.963,
+       "recallAtPrecision0.8": 0.889
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.735,
+       "precisionScore": 0.316
+      },
+      "topFamilyOfReals": {
+       "media": 27
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.261,
+       "rocAuc": 0.948,
+       "precisionAtRecall0.5": 0.31,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.025,
+       "rocAuc": 0.746,
+       "precisionAtRecall0.5": 0.035,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.035,
+       "precisionScore": 0.31
+      },
+      "topFamilyOfReals": {
+       "text": 15,
+       "dark": 1,
+       "blank": 1
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.083,
+       "rocAuc": 0.794,
+       "precisionAtRecall0.5": 0.081,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.34,
+       "rocAuc": 0.947,
+       "precisionAtRecall0.5": 0.367,
+       "recallAtPrecision0.6": 0.25,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.367,
+       "precisionScore": 0.081
+      },
+      "topFamilyOfReals": {
+       "none": 4,
+       "overflow": 4,
+       "occlusion": 7,
+       "text": 1
+      }
+     }
+    },
+    "familyTop1OnReal": 0.675,
+    "secondStage": {
+     "threshold": 0.9376,
+     "flagged": 107,
+     "tp": 69,
+     "precision": 0.645,
+     "recall": 0.605,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 10,
+       "keptReal": 9
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 41,
+       "keptReal": 15
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 26,
+       "keptReal": 20
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 11,
+       "keptReal": 7
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 6,
+       "keptReal": 5
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 13,
+       "keptReal": 13
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.9376,
+     "flagged": 160,
+     "tp": 80,
+     "fp": 80,
+     "precision": 0.5,
+     "recall": 0.702
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.768,
+     "rocAuc": 0.903,
+     "precisionAtRecall0.5": 0.836,
+     "recallAtPrecision0.6": 0.793,
+     "recallAtPrecision0.8": 0.576
+    }
+   }
+  },
+  "ens-img-p3": {
+   "score": "anyProblem+anyProblem",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.521,
+     "rocAuc": 0.88,
+     "precisionAtRecall0.5": 0.361,
+     "recallAtPrecision0.6": 0.4,
+     "recallAtPrecision0.8": 0.32
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.711,
+     "rocAuc": 0.932,
+     "precisionAtRecall0.5": 1.0,
+     "recallAtPrecision0.6": 0.64,
+     "recallAtPrecision0.8": 0.52
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.589,
+     "rocAuc": 0.913,
+     "precisionAtRecall0.5": 0.582,
+     "recallAtPrecision0.6": 0.447,
+     "recallAtPrecision0.8": 0.263,
+     "apCI": [
+      0.479,
+      0.686
+     ],
+     "pAtR05CI": [
+      0.433,
+      0.775
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.707,
+     "rocAuc": 0.943,
+     "precisionAtRecall0.5": 0.826,
+     "recallAtPrecision0.6": 0.667,
+     "recallAtPrecision0.8": 0.526
+    },
+    "curve": {
+     "0.1": 1.0,
+     "0.2": 0.92,
+     "0.3": 0.766,
+     "0.4": 0.697,
+     "0.5": 0.582,
+     "0.6": 0.527,
+     "0.7": 0.388,
+     "0.8": 0.302,
+     "0.9": 0.233
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.302
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 3
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 12
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 24
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.643,
+      "rocAuc": 0.799,
+      "precisionAtRecall0.5": 0.653,
+      "recallAtPrecision0.6": 0.522,
+      "recallAtPrecision0.8": 0.304
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.197,
+      "rocAuc": 0.897,
+      "precisionAtRecall0.5": 0.14,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.461,
+      "rocAuc": 0.881,
+      "precisionAtRecall0.5": 0.583,
+      "recallAtPrecision0.6": 0.462,
+      "recallAtPrecision0.8": 0.308
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.242,
+       "rocAuc": 0.899,
+       "precisionAtRecall0.5": 0.225,
+       "recallAtPrecision0.6": 0.114,
+       "recallAtPrecision0.8": 0.029
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.7,
+       "rocAuc": 0.99,
+       "precisionAtRecall0.5": 0.857,
+       "recallAtPrecision0.6": 0.8,
+       "recallAtPrecision0.8": 0.514
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.622,
+       "precisionScore": 0.091
+      },
+      "topFamilyOfReals": {
+       "responsive": 3,
+       "overflow": 31,
+       "leaks": 1
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.766,
+       "rocAuc": 0.989,
+       "precisionAtRecall0.5": 0.875,
+       "recallAtPrecision0.6": 0.741,
+       "recallAtPrecision0.8": 0.593
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.966,
+       "rocAuc": 0.999,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 1.0,
+       "recallAtPrecision0.8": 1.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.867,
+       "precisionScore": 0.302
+      },
+      "topFamilyOfReals": {
+       "media": 27
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.159,
+       "rocAuc": 0.93,
+       "precisionAtRecall0.5": 0.155,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.032,
+       "rocAuc": 0.748,
+       "precisionAtRecall0.5": 0.034,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.034,
+       "precisionScore": 0.155
+      },
+      "topFamilyOfReals": {
+       "text": 9,
+       "occlusion": 8
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.057,
+       "rocAuc": 0.783,
+       "precisionAtRecall0.5": 0.046,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.337,
+       "rocAuc": 0.904,
+       "precisionAtRecall0.5": 0.444,
+       "recallAtPrecision0.6": 0.062,
+       "recallAtPrecision0.8": 0.062
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.444,
+       "precisionScore": 0.046
+      },
+      "topFamilyOfReals": {
+       "occlusion": 12,
+       "overflow": 1,
+       "none": 3
+      }
+     }
+    },
+    "familyTop1OnReal": 0.728,
+    "secondStage": {
+     "threshold": 0.9052,
+     "flagged": 110,
+     "tp": 58,
+     "precision": 0.527,
+     "recall": 0.509,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 13,
+       "keptReal": 8
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 10,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 37,
+       "keptReal": 11
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 21,
+       "keptReal": 18
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 11,
+       "keptReal": 6
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 1,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 2,
+       "keptReal": 1
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 16,
+       "keptReal": 14
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.9052,
+     "flagged": 121,
+     "tp": 64,
+     "fp": 57,
+     "precision": 0.529,
+     "recall": 0.561
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.643,
+     "rocAuc": 0.799,
+     "precisionAtRecall0.5": 0.653,
+     "recallAtPrecision0.6": 0.522,
+     "recallAtPrecision0.8": 0.304
+    }
+   }
+  },
+  "ens-imgonly-p2": {
+   "score": "anyProblem+anyProblem",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.566,
+     "rocAuc": 0.899,
+     "precisionAtRecall0.5": 0.52,
+     "recallAtPrecision0.6": 0.44,
+     "recallAtPrecision0.8": 0.36
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.63,
+     "rocAuc": 0.921,
+     "precisionAtRecall0.5": 0.65,
+     "recallAtPrecision0.6": 0.56,
+     "recallAtPrecision0.8": 0.44
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.726,
+     "rocAuc": 0.943,
+     "precisionAtRecall0.5": 0.765,
+     "recallAtPrecision0.6": 0.702,
+     "recallAtPrecision0.8": 0.456,
+     "apCI": [
+      0.632,
+      0.805
+     ],
+     "pAtR05CI": [
+      0.671,
+      0.893
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.769,
+     "rocAuc": 0.952,
+     "precisionAtRecall0.5": 0.87,
+     "recallAtPrecision0.6": 0.763,
+     "recallAtPrecision0.8": 0.605
+    },
+    "curve": {
+     "0.1": 1.0,
+     "0.2": 0.973,
+     "0.3": 0.973,
+     "0.4": 0.825,
+     "0.5": 0.765,
+     "0.6": 0.75,
+     "0.7": 0.625,
+     "0.8": 0.487,
+     "0.9": 0.322
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.487
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 3
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 7
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 13
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.786,
+      "rocAuc": 0.909,
+      "precisionAtRecall0.5": 0.797,
+      "recallAtPrecision0.6": 0.783,
+      "recallAtPrecision0.8": 0.489
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.57,
+      "rocAuc": 0.904,
+      "precisionAtRecall0.5": 0.714,
+      "recallAtPrecision0.6": 0.556,
+      "recallAtPrecision0.8": 0.333
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.631,
+      "rocAuc": 0.928,
+      "precisionAtRecall0.5": 0.778,
+      "recallAtPrecision0.6": 0.615,
+      "recallAtPrecision0.8": 0.462
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.448,
+       "rocAuc": 0.946,
+       "precisionAtRecall0.5": 0.439,
+       "recallAtPrecision0.6": 0.229,
+       "recallAtPrecision0.8": 0.2
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.459,
+       "rocAuc": 0.959,
+       "precisionAtRecall0.5": 0.475,
+       "recallAtPrecision0.6": 0.4,
+       "recallAtPrecision0.8": 0.114
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.283,
+       "precisionScore": 0.231
+      },
+      "topFamilyOfReals": {
+       "responsive": 2,
+       "overflow": 30,
+       "none": 1,
+       "leaks": 1,
+       "dark": 1
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.938,
+       "rocAuc": 0.998,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.926,
+       "recallAtPrecision0.8": 0.926
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.956,
+       "rocAuc": 0.998,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.963,
+       "recallAtPrecision0.8": 0.926
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.833,
+       "precisionScore": 0.833
+      },
+      "topFamilyOfReals": {
+       "media": 25,
+       "overflow": 1,
+       "occlusion": 1
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.121,
+       "rocAuc": 0.917,
+       "precisionAtRecall0.5": 0.093,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.023,
+       "rocAuc": 0.73,
+       "precisionAtRecall0.5": 0.028,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.028,
+       "precisionScore": 0.093
+      },
+      "topFamilyOfReals": {
+       "text": 15,
+       "dark": 1,
+       "overflow": 1
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.216,
+       "rocAuc": 0.866,
+       "precisionAtRecall0.5": 0.314,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.426,
+       "rocAuc": 0.952,
+       "precisionAtRecall0.5": 0.588,
+       "recallAtPrecision0.6": 0.188,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.588,
+       "precisionScore": 0.314
+      },
+      "topFamilyOfReals": {
+       "none": 4,
+       "overflow": 2,
+       "occlusion": 10
+      }
+     }
+    },
+    "familyTop1OnReal": 0.675,
+    "secondStage": {
+     "threshold": 0.8747,
+     "flagged": 70,
+     "tp": 55,
+     "precision": 0.786,
+     "recall": 0.482,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 9,
+       "keptReal": 9
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 21,
+       "keptReal": 12
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 24,
+       "keptReal": 18
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 2,
+       "keptReal": 2
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 14,
+       "keptReal": 14
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.8747,
+     "flagged": 89,
+     "tp": 66,
+     "fp": 23,
+     "precision": 0.742,
+     "recall": 0.579
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.786,
+     "rocAuc": 0.909,
+     "precisionAtRecall0.5": 0.797,
+     "recallAtPrecision0.6": 0.783,
+     "recallAtPrecision0.8": 0.489
+    }
+   }
+  },
+  "ens-devchoices": {
+   "score": "notFine+anyProblem",
+   "refusals": 0,
+   "dev": {
+    "score": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.704,
+     "rocAuc": 0.928,
+     "precisionAtRecall0.5": 0.929,
+     "recallAtPrecision0.6": 0.64,
+     "recallAtPrecision0.8": 0.52
+    },
+    "notFine": {
+     "n": 412,
+     "real": 25,
+     "ap": 0.711,
+     "rocAuc": 0.932,
+     "precisionAtRecall0.5": 1.0,
+     "recallAtPrecision0.6": 0.64,
+     "recallAtPrecision0.8": 0.52
+    }
+   },
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.721,
+     "rocAuc": 0.94,
+     "precisionAtRecall0.5": 0.845,
+     "recallAtPrecision0.6": 0.684,
+     "recallAtPrecision0.8": 0.526,
+     "apCI": [
+      0.626,
+      0.801
+     ],
+     "pAtR05CI": [
+      0.638,
+      0.95
+     ]
+    },
+    "notFine": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.707,
+     "rocAuc": 0.943,
+     "precisionAtRecall0.5": 0.826,
+     "recallAtPrecision0.6": 0.667,
+     "recallAtPrecision0.8": 0.526
+    },
+    "curve": {
+     "0.1": 1.0,
+     "0.2": 1.0,
+     "0.3": 0.951,
+     "0.4": 0.906,
+     "0.5": 0.845,
+     "0.6": 0.683,
+     "0.7": 0.541,
+     "0.8": 0.387,
+     "0.9": 0.319
+    },
+    "atRulesRecall": {
+     "recall": 0.807,
+     "precision": 0.387
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 3
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 7
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 14
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.764,
+      "rocAuc": 0.883,
+      "precisionAtRecall0.5": 0.839,
+      "recallAtPrecision0.6": 0.75,
+      "recallAtPrecision0.8": 0.565
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.39,
+      "rocAuc": 0.905,
+      "precisionAtRecall0.5": 0.231,
+      "recallAtPrecision0.6": 0.333,
+      "recallAtPrecision0.8": 0.222
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.6,
+      "rocAuc": 0.891,
+      "precisionAtRecall0.5": 0.875,
+      "recallAtPrecision0.6": 0.538,
+      "recallAtPrecision0.8": 0.538
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "score": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.422,
+       "rocAuc": 0.941,
+       "precisionAtRecall0.5": 0.345,
+       "recallAtPrecision0.6": 0.257,
+       "recallAtPrecision0.8": 0.057
+      },
+      "ownProbability": {
+       "n": 1365,
+       "real": 35,
+       "ap": 0.7,
+       "rocAuc": 0.99,
+       "precisionAtRecall0.5": 0.857,
+       "recallAtPrecision0.6": 0.8,
+       "recallAtPrecision0.8": 0.514
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.8,
+       "precisionOwnProbability": 0.622,
+       "precisionScore": 0.185
+      },
+      "topFamilyOfReals": {
+       "responsive": 3,
+       "overflow": 31,
+       "leaks": 1
+      }
+     },
+     "media": {
+      "score": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.874,
+       "rocAuc": 0.993,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 0.889,
+       "recallAtPrecision0.8": 0.815
+      },
+      "ownProbability": {
+       "n": 1357,
+       "real": 27,
+       "ap": 0.966,
+       "rocAuc": 0.999,
+       "precisionAtRecall0.5": 1.0,
+       "recallAtPrecision0.6": 1.0,
+       "recallAtPrecision0.8": 1.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.889,
+       "precisionOwnProbability": 0.867,
+       "precisionScore": 0.51
+      },
+      "topFamilyOfReals": {
+       "media": 27
+      }
+     },
+     "dark": {
+      "score": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.194,
+       "rocAuc": 0.943,
+       "precisionAtRecall0.5": 0.18,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1347,
+       "real": 17,
+       "ap": 0.032,
+       "rocAuc": 0.748,
+       "precisionAtRecall0.5": 0.034,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.471,
+       "precisionOwnProbability": 0.034,
+       "precisionScore": 0.18
+      },
+      "topFamilyOfReals": {
+       "text": 9,
+       "occlusion": 8
+      }
+     },
+     "occlusion": {
+      "score": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.107,
+       "rocAuc": 0.805,
+       "precisionAtRecall0.5": 0.06,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0
+      },
+      "ownProbability": {
+       "n": 1346,
+       "real": 16,
+       "ap": 0.337,
+       "rocAuc": 0.904,
+       "precisionAtRecall0.5": 0.444,
+       "recallAtPrecision0.6": 0.062,
+       "recallAtPrecision0.8": 0.062
+      },
+      "atOwnRulesRecall": {
+       "recall": 0.438,
+       "precisionOwnProbability": 0.444,
+       "precisionScore": 0.06
+      },
+      "topFamilyOfReals": {
+       "occlusion": 12,
+       "overflow": 1,
+       "none": 3
+      }
+     }
+    },
+    "familyTop1OnReal": 0.728,
+    "secondStage": {
+     "threshold": 0.9398,
+     "flagged": 45,
+     "tp": 40,
+     "precision": 0.889,
+     "recall": 0.351,
+     "byRule": {
+      "image-distorted": {
+       "flagged": 31,
+       "real": 9,
+       "kept": 6,
+       "keptReal": 6
+      },
+      "css-var-undefined": {
+       "flagged": 47,
+       "real": 0,
+       "kept": 1,
+       "keptReal": 0
+      },
+      "control-unreachable": {
+       "flagged": 195,
+       "real": 18,
+       "kept": 5,
+       "keptReal": 3
+      },
+      "page-overflow-x": {
+       "flagged": 60,
+       "real": 34,
+       "kept": 11,
+       "keptReal": 10
+      },
+      "text-invisible": {
+       "flagged": 38,
+       "real": 11,
+       "kept": 4,
+       "keptReal": 3
+      },
+      "font-failed": {
+       "flagged": 12,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "click-blocked": {
+       "flagged": 4,
+       "real": 0,
+       "kept": 0,
+       "keptReal": 0
+      },
+      "text-template-leak": {
+       "flagged": 6,
+       "real": 5,
+       "kept": 6,
+       "keptReal": 5
+      },
+      "image-broken": {
+       "flagged": 17,
+       "real": 15,
+       "kept": 13,
+       "keptReal": 13
+      }
+     }
+    },
+    "allCropsAtDevThreshold": {
+     "threshold": 0.9398,
+     "flagged": 51,
+     "tp": 46,
+     "fp": 5,
+     "precision": 0.902,
+     "recall": 0.404
+    },
+    "withinRuleFlagged": {
+     "n": 408,
+     "real": 92,
+     "ap": 0.764,
+     "rocAuc": 0.883,
+     "precisionAtRecall0.5": 0.839,
+     "recallAtPrecision0.6": 0.75,
+     "recallAtPrecision0.8": 0.565
+    }
+   }
+  }
+ },
+ "pairedApDifferences": {
+  "luna-img-p3 minus clef-img-p3": {
+   "diff": -0.032,
+   "ci95": [
+    -0.141,
+    0.079
+   ],
+   "verdict": "no clear difference"
+  },
+  "luna-imgonly-p2 minus clef-imgonly-p2": {
+   "diff": -0.015,
+   "ci95": [
+    -0.124,
+    0.094
+   ],
+   "verdict": "no clear difference"
+  },
+  "luna-img-p3/notFine minus clef-img-p3": {
+   "diff": 0.136,
+   "ci95": [
+    0.035,
+    0.236
+   ],
+   "verdict": "higher"
+  },
+  "luna-img-p3/notFine minus clef-imgonly-p2": {
+   "diff": 0.045,
+   "ci95": [
+    -0.046,
+    0.132
+   ],
+   "verdict": "no clear difference"
+  },
+  "luna-imgonly-p2 minus luna-img-p3": {
+   "diff": 0.109,
+   "ci95": [
+    0.024,
+    0.198
+   ],
+   "verdict": "higher"
+  },
+  "luna-img-p3/notFine minus luna-img-p3": {
+   "diff": 0.168,
+   "ci95": [
+    0.103,
+    0.239
+   ],
+   "verdict": "higher"
+  },
+  "ens-img-p3 minus clef-img-p3": {
+   "diff": 0.013,
+   "ci95": [
+    -0.087,
+    0.115
+   ],
+   "verdict": "no clear difference"
+  },
+  "ens-img-p3 minus luna-img-p3": {
+   "diff": 0.046,
+   "ci95": [
+    0.016,
+    0.074
+   ],
+   "verdict": "higher"
+  },
+  "ens-imgonly-p2 minus clef-imgonly-p2": {
+   "diff": 0.059,
+   "ci95": [
+    -0.03,
+    0.152
+   ],
+   "verdict": "no clear difference"
+  },
+  "ens-imgonly-p2 minus luna-imgonly-p2": {
+   "diff": 0.074,
+   "ci95": [
+    0.043,
+    0.106
+   ],
+   "verdict": "higher"
+  },
+  "ens-devchoices minus clef-img-p3": {
+   "diff": 0.145,
+   "ci95": [
+    0.052,
+    0.237
+   ],
+   "verdict": "higher"
+  },
+  "ens-devchoices minus clef-imgonly-p2": {
+   "diff": 0.054,
+   "ci95": [
+    -0.033,
+    0.136
+   ],
+   "verdict": "no clear difference"
+  },
+  "ens-devchoices minus luna-img-p3/notFine": {
+   "diff": 0.009,
+   "ci95": [
+    -0.012,
+    0.029
+   ],
+   "verdict": "no clear difference"
+  }
+ },
+ "perFamilyApDifferences": {
+  "luna-img-p3 minus clef-img-p3": {
+   "overflow": {
+    "score": {
+     "diff": -0.1,
+     "ci95": [
+      -0.226,
+      0.001
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.02,
+     "ci95": [
+      -0.202,
+      0.15
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.22,
+     "ci95": [
+      0.048,
+      0.396
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": -0.028,
+     "ci95": [
+      -0.156,
+      0.076
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.132,
+     "ci95": [
+      -0.422,
+      0.021
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.059,
+     "ci95": [
+      0.001,
+      0.287
+     ],
+     "verdict": "higher"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.039,
+     "ci95": [
+      -0.016,
+      0.122
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.194,
+     "ci95": [
+      -0.069,
+      0.457
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "luna-imgonly-p2 minus clef-imgonly-p2": {
+   "overflow": {
+    "score": {
+     "diff": 0.141,
+     "ci95": [
+      -0.028,
+      0.288
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.048,
+     "ci95": [
+      -0.115,
+      0.214
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.045,
+     "ci95": [
+      -0.112,
+      0.27
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.017,
+     "ci95": [
+      -0.056,
+      0.019
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.195,
+     "ci95": [
+      -0.491,
+      0.037
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.002,
+     "ci95": [
+      -0.015,
+      0.04
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.089,
+     "ci95": [
+      -0.019,
+      0.241
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.006,
+     "ci95": [
+      -0.236,
+      0.187
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "luna-img-p3/notFine minus clef-img-p3": {
+   "overflow": {
+    "score": {
+     "diff": 0.11,
+     "ci95": [
+      -0.05,
+      0.27
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.02,
+     "ci95": [
+      -0.202,
+      0.15
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.368,
+     "ci95": [
+      0.163,
+      0.562
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": -0.028,
+     "ci95": [
+      -0.156,
+      0.076
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.063,
+     "ci95": [
+      -0.27,
+      0.064
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.059,
+     "ci95": [
+      0.001,
+      0.287
+     ],
+     "verdict": "higher"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.097,
+     "ci95": [
+      0.008,
+      0.284
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.194,
+     "ci95": [
+      -0.069,
+      0.457
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "luna-img-p3/notFine minus clef-imgonly-p2": {
+   "overflow": {
+    "score": {
+     "diff": 0.136,
+     "ci95": [
+      -0.035,
+      0.289
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.165,
+     "ci95": [
+      -0.02,
+      0.354
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.016,
+     "ci95": [
+      -0.164,
+      0.228
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.028,
+     "ci95": [
+      -0.166,
+      0.061
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.093,
+     "ci95": [
+      -0.373,
+      0.128
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.059,
+     "ci95": [
+      -0.005,
+      0.301
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.051,
+     "ci95": [
+      -0.038,
+      0.207
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.068,
+     "ci95": [
+      -0.252,
+      0.314
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "luna-imgonly-p2 minus luna-img-p3": {
+   "overflow": {
+    "score": {
+     "diff": 0.216,
+     "ci95": [
+      0.085,
+      0.349
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": -0.117,
+     "ci95": [
+      -0.304,
+      0.068
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.178,
+     "ci95": [
+      0.03,
+      0.377
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.011,
+     "ci95": [
+      -0.094,
+      0.17
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.033,
+     "ci95": [
+      -0.128,
+      0.059
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.061,
+     "ci95": [
+      -0.304,
+      0.011
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.095,
+     "ci95": [
+      0.025,
+      0.231
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": -0.074,
+     "ci95": [
+      -0.289,
+      0.159
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "luna-img-p3/notFine minus luna-img-p3": {
+   "overflow": {
+    "score": {
+     "diff": 0.21,
+     "ci95": [
+      0.089,
+      0.338
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.0,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.149,
+     "ci95": [
+      0.031,
+      0.283
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.0,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": 0.07,
+     "ci95": [
+      -0.008,
+      0.253
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.0,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.058,
+     "ci95": [
+      -0.014,
+      0.236
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.0,
+     "ci95": [
+      0.0,
+      0.0
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "ens-img-p3 minus clef-img-p3": {
+   "overflow": {
+    "score": {
+     "diff": -0.028,
+     "ci95": [
+      -0.149,
+      0.075
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.129,
+     "ci95": [
+      0.022,
+      0.25
+     ],
+     "verdict": "higher"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.284,
+     "ci95": [
+      0.113,
+      0.456
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.015,
+     "ci95": [
+      -0.054,
+      0.104
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.072,
+     "ci95": [
+      -0.305,
+      0.069
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.007,
+     "ci95": [
+      0.0,
+      0.031
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.019,
+     "ci95": [
+      -0.023,
+      0.102
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.123,
+     "ci95": [
+      -0.059,
+      0.367
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "ens-img-p3 minus luna-img-p3": {
+   "overflow": {
+    "score": {
+     "diff": 0.072,
+     "ci95": [
+      0.025,
+      0.117
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.149,
+     "ci95": [
+      0.033,
+      0.28
+     ],
+     "verdict": "higher"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.065,
+     "ci95": [
+      0.02,
+      0.121
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.042,
+     "ci95": [
+      0.005,
+      0.117
+     ],
+     "verdict": "higher"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": 0.06,
+     "ci95": [
+      0.008,
+      0.18
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": -0.052,
+     "ci95": [
+      -0.255,
+      -0.001
+     ],
+     "verdict": "lower"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": -0.02,
+     "ci95": [
+      -0.077,
+      0.029
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.071,
+     "ci95": [
+      -0.211,
+      0.095
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "ens-imgonly-p2 minus clef-imgonly-p2": {
+   "overflow": {
+    "score": {
+     "diff": 0.203,
+     "ci95": [
+      0.045,
+      0.332
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.073,
+     "ci95": [
+      -0.034,
+      0.176
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.104,
+     "ci95": [
+      -0.011,
+      0.297
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.005,
+     "ci95": [
+      -0.01,
+      0.031
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.139,
+     "ci95": [
+      -0.409,
+      0.109
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.002,
+     "ci95": [
+      -0.006,
+      0.001
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.132,
+     "ci95": [
+      0.03,
+      0.295
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.087,
+     "ci95": [
+      -0.024,
+      0.214
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "ens-imgonly-p2 minus luna-imgonly-p2": {
+   "overflow": {
+    "score": {
+     "diff": 0.061,
+     "ci95": [
+      -0.001,
+      0.125
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.025,
+     "ci95": [
+      -0.07,
+      0.118
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.058,
+     "ci95": [
+      -0.004,
+      0.133
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.021,
+     "ci95": [
+      0.0,
+      0.055
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": 0.056,
+     "ci95": [
+      0.014,
+      0.135
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": -0.0,
+     "ci95": [
+      -0.04,
+      0.011
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.043,
+     "ci95": [
+      -0.001,
+      0.119
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.092,
+     "ci95": [
+      -0.019,
+      0.246
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "ens-devchoices minus clef-img-p3": {
+   "overflow": {
+    "score": {
+     "diff": 0.152,
+     "ci95": [
+      -0.001,
+      0.29
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.129,
+     "ci95": [
+      0.022,
+      0.25
+     ],
+     "verdict": "higher"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.392,
+     "ci95": [
+      0.19,
+      0.58
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.015,
+     "ci95": [
+      -0.054,
+      0.104
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.037,
+     "ci95": [
+      -0.242,
+      0.116
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.007,
+     "ci95": [
+      0.0,
+      0.031
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.069,
+     "ci95": [
+      -0.005,
+      0.256
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.123,
+     "ci95": [
+      -0.059,
+      0.367
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "ens-devchoices minus clef-imgonly-p2": {
+   "overflow": {
+    "score": {
+     "diff": 0.177,
+     "ci95": [
+      -0.0,
+      0.315
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.314,
+     "ci95": [
+      0.154,
+      0.493
+     ],
+     "verdict": "higher"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.039,
+     "ci95": [
+      -0.135,
+      0.245
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.014,
+     "ci95": [
+      -0.064,
+      0.089
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": -0.067,
+     "ci95": [
+      -0.352,
+      0.175
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.007,
+     "ci95": [
+      -0.008,
+      0.044
+     ],
+     "verdict": "no clear difference"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": 0.023,
+     "ci95": [
+      -0.066,
+      0.18
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.003,
+     "ci95": [
+      -0.281,
+      0.246
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  },
+  "ens-devchoices minus luna-img-p3/notFine": {
+   "overflow": {
+    "score": {
+     "diff": 0.042,
+     "ci95": [
+      -0.002,
+      0.074
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": 0.149,
+     "ci95": [
+      0.033,
+      0.28
+     ],
+     "verdict": "higher"
+    }
+   },
+   "media": {
+    "score": {
+     "diff": 0.023,
+     "ci95": [
+      0.005,
+      0.053
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": 0.042,
+     "ci95": [
+      0.005,
+      0.117
+     ],
+     "verdict": "higher"
+    }
+   },
+   "dark": {
+    "score": {
+     "diff": 0.026,
+     "ci95": [
+      0.003,
+      0.082
+     ],
+     "verdict": "higher"
+    },
+    "ownProbability": {
+     "diff": -0.052,
+     "ci95": [
+      -0.255,
+      -0.001
+     ],
+     "verdict": "lower"
+    }
+   },
+   "occlusion": {
+    "score": {
+     "diff": -0.028,
+     "ci95": [
+      -0.08,
+      0.005
+     ],
+     "verdict": "no clear difference"
+    },
+    "ownProbability": {
+     "diff": -0.071,
+     "ci95": [
+      -0.211,
+      0.095
+     ],
+     "verdict": "no clear difference"
+    }
+   }
+  }
+ },
+ "rulesV1": {
+  "flagged": 408,
+  "tp": 92,
+  "precision": 0.225,
+  "recall": 0.807
+ },
+ "rulesV1OwnFamily": {
+  "overflow": {
+   "rules": [
+    "page-overflow-x"
+   ],
+   "flagged": 54,
+   "tp": 28,
+   "precision": 0.519,
+   "recall": 0.8
+  },
+  "media": {
+   "rules": [
+    "image-broken",
+    "image-distorted",
+    "media-failed",
+    "text-placeholder"
+   ],
+   "flagged": 48,
+   "tp": 24,
+   "precision": 0.5,
+   "recall": 0.889
+  },
+  "dark": {
+   "rules": [
+    "css-var-undefined",
+    "text-invisible"
+   ],
+   "flagged": 81,
+   "tp": 8,
+   "precision": 0.099,
+   "recall": 0.471
+  },
+  "occlusion": {
+   "rules": [
+    "click-blocked",
+    "control-unreachable"
+   ],
+   "flagged": 188,
+   "tp": 7,
+   "precision": 0.037,
+   "recall": 0.438
+  }
+ },
+ "devChoice": {
+  "openai": "luna-img-p3/notFine",
+  "clef": "clef-img-p3"
+ },
+ "tokensLatency": {
+  "luna-img-p3": {
+   "calls": 1856,
+   "inputTokensMean": 1099.0,
+   "inputTokensMedian": 1066,
+   "inputTokensP95": 1335,
+   "wallMsMedian": 388,
+   "wallMsP95": 797,
+   "usdPer1000Standard": 0.1099,
+   "usdPer1000Batch": 0.055,
+   "usdPerScan40Standard": 0.0044,
+   "serverMsMedian": 120,
+   "serverMsP95": 428,
+   "usageKeys": [
+    "input_tokens",
+    "input_tokens_details",
+    "output_tokens",
+    "output_tokens_details",
+    "total_tokens"
+   ],
+   "pilot": {
+    "calls": 100,
+    "inputTokensMean": 1089.9,
+    "inputTokensP95": 1338,
+    "wallMsMedian": 317,
+    "wallMsP95": 543,
+    "serverMsMedian": 102,
+    "serverMsP95": 265
+   }
+  },
+  "luna-imgonly-p2": {
+   "calls": 1856,
+   "inputTokensMean": 825.8,
+   "inputTokensMedian": 775,
+   "inputTokensP95": 1100,
+   "wallMsMedian": 363,
+   "wallMsP95": 737,
+   "usdPer1000Standard": 0.0826,
+   "usdPer1000Batch": 0.0413,
+   "usdPerScan40Standard": 0.0033,
+   "serverMsMedian": 106,
+   "serverMsP95": 328,
+   "usageKeys": [
+    "input_tokens",
+    "input_tokens_details",
+    "output_tokens",
+    "output_tokens_details",
+    "total_tokens"
+   ],
+   "pilot": {
+    "calls": 100,
+    "inputTokensMean": 811.9,
+    "inputTokensP95": 1100,
+    "wallMsMedian": 365,
+    "wallMsP95": 668,
+    "serverMsMedian": 127,
+    "serverMsP95": 327
+   }
+  }
+ },
+ "tokenSplit": {
+  "crops": 100,
+  "textTokensMean": 1028.4,
+  "imageTokensMean": 61.5,
+  "imageTokensMedian": 16,
+  "imageTokensP95": 352,
+  "totalTokensMean": 1089.9
+ },
+ "latencyRuns": {
+  "luna-img-p3": {
+   "variant": "luna-img-p3",
+   "sequentialCalls": 100,
+   "serverMsMedian": 101,
+   "serverMsP95": 282,
+   "wallMsMedian": 329,
+   "wallMsP95": 551,
+   "scans40": [
+    {
+     "wallMs": 1388,
+     "errors": 0,
+     "serverMsMax": 587,
+     "wallMsMaxCall": 1266
+    },
+    {
+     "wallMs": 1866,
+     "errors": 0,
+     "serverMsMax": 445,
+     "wallMsMaxCall": 1731
+    },
+    {
+     "wallMs": 3918,
+     "errors": 0,
+     "serverMsMax": 399,
+     "wallMsMaxCall": 3782
+    },
+    {
+     "wallMs": 2164,
+     "errors": 0,
+     "serverMsMax": 294,
+     "wallMsMaxCall": 2122
+    },
+    {
+     "wallMs": 1661,
+     "errors": 0,
+     "serverMsMax": 456,
+     "wallMsMaxCall": 1508
+    }
+   ]
+  }
+ },
+ "spend": {
+  "calls": 4112,
+  "inputTokens": 4003864,
+  "usdStandard": 0.4004,
+  "byKind": {
+   "luna-img-p3": {
+    "calls": 1856,
+    "inputTokens": 2039793
+   },
+   "luna-imgonly-p2": {
+    "calls": 1856,
+    "inputTokens": 1532718
+   },
+   "textonly": {
+    "calls": 100,
+    "inputTokens": 102842
+   },
+   "latency": {
+    "calls": 300,
+    "inputTokens": 328511
+   }
+  }
+ }
+}
