@@ -996,9 +996,9 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     page that ignores clicks while a request runs.</li>
     <li>Takes a screenshot of the top of the page in each view and records the box of every finding.</li>
     <li>Asks a model, ${esc(JUDGE_NAME)} on ${esc(JUDGE_PLATFORM)}, about up to ${JUDGE_MAX_CALLS} single elements across the three views,
-    from a crop of a viewport screenshot and the element's measured facts: the visual checks' findings, for a second look, and
-    elements the measured checks cannot judge (text over images, covered controls, buttons and links in the dark view). What it
-    finds is labelled as judged by a model, never as measured (<a href="#judge">the model judge</a>, below).</li>
+    from a crop of a viewport screenshot: the visual checks' findings, for a second look (with the element's measured facts),
+    and elements the measured checks cannot judge (text over images, covered controls, buttons and links in the dark view).
+    What it finds is labelled as judged by a model, never as measured (<a href="#judge">the model judge</a>, below).</li>
     <li>Runs axe-core ${esc(AXE_BUILD.version)} in each view, unmodified, in the same isolated part of the browser: its WCAG 2.2
     A and AA rules (tags ${AXE_TAGS.filter((t) => t !== "best-practice").map((t) => `<code>${esc(t)}</code>`).join(", ")}) and its best
     practices (<code>best-practice</code>). Only violations become findings; rules axe-core cannot decide by itself ("needs
