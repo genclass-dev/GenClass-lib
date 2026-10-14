@@ -1,5 +1,14 @@
 # Visual-bug classifier v2: training and evaluation on real pages, 2026-10-14
 
+> **Status (2026-10-14, after review): nothing from round 2 ships.** Two independent reviews found that the labelled
+> test split was read before the "shipped" media and responsive detectors were designed, that the required hand check
+> was done by the same agent that trained them and labelled the 420 extra training crops, that every piece of
+> real-page evidence covers only elements on the first screen, and that "flags counted as real" used any family, not
+> the detector's own. The labellers were six AI agents working in parallel, not people. The numbers below are kept as
+> a record; they are not evidence that any detector meets the ship bar. The next attempt (GenClass Vision v1) uses a
+> fresh, untouched test set.
+
+
 Data: the v2 crawl and training set (`README.md` in this folder: 6,011 AI-builder and 1,209 control homepages, one load
 each, traceless injection, provenance audit passed at ROC AUC 0.528). Labels: 2,200 element crops of held-out pages
 labelled by 6 labellers, plus 420 crops of training pages labelled for training only. Code: `vision/label/resolve.py`,
