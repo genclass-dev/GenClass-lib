@@ -58,6 +58,19 @@ are on training hosts and are not used as labels at all.
   C, and unclear when all three differ. The family of a real crop is the family at least two real votes share, else
   "mixed" (real for any-family numbers, never in-family).
 
+### Labels frozen (2026-10-14, before any model scored a test crop)
+
+Passes A and B were 6 agents each (one per block of about 25 sheets; no agent labelled in two passes), pass C 2
+agents. A and B agreed on the verdict for 85.3% of the 1,300 crops (Cohen's kappa 0.711; the round-2 labellers
+reached 0.705) and, when both said real, on the family for 92.4%. 202 crops differed in verdict or family and went to
+pass C. Resolved: 173 real, 248 unclear, 879 not. Real by family: text 41, occlusion 37, overflow 34, media 16,
+dark 14, responsive 13, blank 8, leaks 6, other 2, mixed 2. Real by stratum: rules 75 of 500, random 12 of 350,
+clef-high 85 of 350, clef-low 1 of 100. The families with at least 15 in-family real crops, which get the
+comparison with Clef, are text, occlusion, overflow and media.
+
+Labels digest (`freshtest.py labeldigest`: SHA-256 over `test-id verdict family` lines sorted by test id):
+`6d62fef07323e15f0f04eec2a16a33da31886d43159a58802530583294c2688a`.
+
 ## Metrics (one evaluation run, after the model is final)
 
 - **In-family precision**: a flag of a family-f detector counts as real only when the crop is a real bug of family f.

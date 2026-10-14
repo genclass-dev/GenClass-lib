@@ -225,8 +225,13 @@ def sheets(manifest, name, rng, ids=None):
             im = im.resize((max(1, int(im.width * f)), max(1, int(im.height * f))))
             ox, oy = cx + PAD + (aw - im.width) // 2, cy + CAPTION + (ah - im.height) // 2
             sheet.paste(im, (ox, oy))
+            # the frame sits just outside the element's box, clipped to the crop (a box larger than the crop
+            # continues past its edges) so it never reaches into a neighbouring cell
             x, y, w, h = [float(v) * f for v in m["inCrop"]]
-            dr.rectangle([ox + x - 2, oy + y - 2, ox + x + max(w, 0) + 1, oy + y + max(h, 0) + 1], outline=FRAME, width=2)
+            fx0, fy0 = max(ox - 2, ox + x - 2), max(oy - 2, oy + y - 2)
+            fx1, fy1 = min(ox + im.width + 1, ox + x + max(w, 0) + 1), min(oy + im.height + 1, oy + y + max(h, 0) + 1)
+            if fx1 > fx0 and fy1 > fy0:
+                dr.rectangle([fx0, fy0, fx1, fy1], outline=FRAME, width=2)
             rows.append([file, cell, code, "", "", ""])
         sheet.save(os.path.join(d, file))
     json.dump(key, open(os.path.join(d, "key.json"), "w"))
@@ -328,12 +333,26 @@ def main():
     sp.add_parser("hosts")
     p = sp.add_parser("build")
     p.add_argument("--seed", type=int, default=11)
+    p = sp.add_parser("sheets")  # (re)draw the blind sheets of passes A and B from the frozen manifest
+    p.add_argument("--passes", default="A,B")
     sp.add_parser("digest")
     sp.add_parser("adjudicate")
     sp.add_parser("resolve")
+    sp.add_parser("labeldigest")
     a = ap.parse_args()
     if a.cmd == "digest":
         print(digest())
+    elif a.cmd == "labeldigest":
+        # SHA-256 over the resolved labels, "test-id verdict family" lines sorted by test id
+        L = json.load(open(os.path.join(TD, "labels.json")))["labels"]
+        h = hashlib.sha256()
+        for t in sorted(L):
+            h.update(("%s %s %s\n" % (t, L[t]["verdict"], L[t]["family"])).encode())
+        print(h.hexdigest())
+    elif a.cmd == "sheets":
+        manifest = [json.loads(l) for l in open(os.path.join(TD, "manifest.jsonl"))]
+        for p in a.passes.split(","):
+            sheets(manifest, p, random.Random(secrets.randbits(64)))
     else:
         {"hosts": cmd_hosts, "build": cmd_build, "adjudicate": cmd_adjudicate, "resolve": cmd_resolve}[a.cmd](a)
 

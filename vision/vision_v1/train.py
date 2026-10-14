@@ -64,7 +64,8 @@ class Student(nn.Module):
         self.verB = nn.Linear(384, len(VERDICTS))
 
     def forward(self, x, f):
-        x = (x - self.mean) / self.std
+        # keep channels-last after the broadcast (it falls back to NCHW, which runs the convolutions ~3x slower)
+        x = ((x - self.mean) / self.std).contiguous(memory_format=torch.channels_last)
         h = self.features(x).mean((2, 3))
         z = self.trunk(torch.cat([h, self.fact(f)], 1))
         return self.famA(z), self.famB(z), self.verA(z), self.verB(z)
@@ -252,7 +253,7 @@ def main():
     dval_n = np.array([host_bucket(it["g"]) < 0.05 for it in nat])
     dval_i = np.array([host_bucket(it["g"]) < 0.05 for it in inj])
     tr_n = np.nonzero(nat_ok & ~dval_n)[0]
-    tr_i = np.nonzero(inj_ok & ~dval_i)[0]
+    tr_i = np.nonzero(inj_ok & ~dval_i)[0] if a.w_inj > 0 else np.zeros(0, int)
     va_n = np.nonzero(nat_ok & dval_n)[0]
     sets = [("nat", Xn, Xnd, Fn_, full_n), ("inj", Xi, Xid, Fi, None)]
     info = {"config": vars(a), "trainNatural": int(len(tr_n)), "trainInjected": int(len(tr_i)), "distillVal": int(len(va_n)),
