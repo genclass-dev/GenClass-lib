@@ -6,9 +6,12 @@
 //        [--site-verdicts <file outside the repo>] [--out summary.json] [--md summary.md] [--detail detail.md]
 //
 // summary.json and summary.md hold counts per check kind only. Public sites are never named there: their findings are
-// counted per kind and configuration, and verdicts come from --site-verdicts, a file kept with the CI artifact and
-// never committed. detail.md lists every finding with its page, message and crop file, for a person to inspect; it
-// names public sites and belongs in the CI artifact only.
+// counted per kind and configuration. In CI the public-site jobs hand over counts files only (run.mjs countsOnly:
+// tokens instead of sites, finding kinds without messages), so their findings count as unconfirmed. A person who
+// decrypts a run's sealed per-site results (VISUAL_BENCH_KEY) runs this script on them with --site-verdicts, a file
+// kept outside the repository; the full files then replace the counts files. detail.md lists every finding with its
+// page, message and crop file, for a person to inspect: with the per-site results it names public sites, and it is
+// never committed or uploaded unencrypted.
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -45,7 +48,9 @@ const runs = files(DIR)
     }
   })
   .filter(Boolean);
-const loads = runs.flatMap((r) => r.loads.map((l) => ({ ...l, group: l.group ?? r.group })));
+// full per-site results (decrypted by a person) replace the counts files of the same runs
+const fullSites = runs.some((r) => r.group === "sites" && !r.counts);
+const loads = runs.filter((r) => !(r.counts && fullSites)).flatMap((r) => r.loads.map((l) => ({ ...l, group: l.group ?? r.group, counted: !!r.counts })));
 const labels = LABELS ? JSON.parse(readFileSync(LABELS, "utf8")).labels ?? [] : [];
 const verdicts = VERDICTS ? JSON.parse(readFileSync(VERDICTS, "utf8")).verdicts ?? [] : [];
 
@@ -148,7 +153,7 @@ for (const group of ["demos", "templates", "compat"]) {
         s.verdicts[key]++;
         s.verdictsByKind[f.kind] ??= { real: 0, checkError: 0, unconfirmed: 0 };
         s.verdictsByKind[f.kind][key]++;
-        detail.push({ group: "sites", page: l.page, url: l.url, cfg, kind: f.kind, selector: f.selector, message: f.message, crop: f.crop, view: l.view, label: v ?? "unlabelled" });
+        if (!l.counted) detail.push({ group: "sites", page: l.page, url: l.url, cfg, kind: f.kind, selector: f.selector, message: f.message, crop: f.crop, view: l.view, label: v ?? "unlabelled" });
       }
     }
     s.sitesWithFindings = withF.size;
@@ -222,6 +227,10 @@ for (const group of ["demos", "templates", "compat"]) {
           maxSliceMs: { p50: r1(q(ls.map((l) => l.firstPass.maxSliceMs), 0.5)), p95: r1(q(ls.map((l) => l.firstPass.maxSliceMs), 0.95)), max: r1(Math.max(...ls.map((l) => l.firstPass.maxSliceMs))) },
           elements: { p50: q(ls.map((l) => l.firstPass.elements), 0.5), max: Math.max(...ls.map((l) => l.firstPass.elements)) },
           sessionMs: { p50: r1(q(ls.map((l) => l.summary?.ms ?? 0), 0.5)), p95: r1(q(ls.map((l) => l.summary?.ms ?? 0), 0.95)) },
+          // long tasks on the page after the engine started, any cause (the page's own work too)
+          ...(ls.some((l) => l.longTasks)
+            ? { longTasks: { loadsWithAny: ls.filter((l) => l.longTasks?.n > 0).length, loads: ls.filter((l) => l.longTasks).length, maxMs: Math.max(0, ...ls.map((l) => l.longTasks?.maxMs ?? 0)) } }
+            : {}),
           ...(ls.some((l) => l.sheetWalk)
             ? (() => {
                 const w = ls.filter((l) => l.sheetWalk?.readable).map((l) => l.sheetWalk.ms);

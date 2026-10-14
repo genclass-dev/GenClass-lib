@@ -1,30 +1,34 @@
 // InitOptions.visual: how the first-load stub resolves it and when it downloads the chunk (docs/runtime/VISUAL.md
 // sections 7 and 8; src/visual/start.ts). Off means nothing at all; "local" is the GenClass.init() default and turns
-// on only on development hosts (or through ?genclass-visual=on, the overlay, checkNow()); the chunk loads 1.5 s after
-// `load` (6.5 s at most) and never while `enabled` is false or pending.
+// on only on development hosts (devHost: a dev server's port on localhost, or *.test; never Capacitor, Tauri,
+// Electron or intranet hosts), or through ?genclass-visual=on, the overlay, checkNow(); the chunk loads 1.5 s after
+// `load` (6.5 s at most) and never while `enabled` is false or pending, the tab is hidden or the page prerenders.
 import { afterEach, describe, expect, it } from "vitest";
 import { createRuntime, GenClass } from "../src/index.js";
 import { fromPairs, parsePairs } from "../src/cdn/config.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import type { CreateOptions } from "../src/types.js";
-import { startVisual } from "../src/visual/start.js";
+import { devHost, startVisual } from "../src/visual/start.js";
 import { visualRegistry } from "../src/visual/registry.js";
 import type { VisualChunk } from "../src/visual/host.js";
 import { drain, FakeClock } from "./helpers.js";
 
 const OFF = { fetch: false, xhr: false, user: false, errors: false, nav: false, storage: false, perf: false, websocket: false, eventsource: false, timers: false };
 
-function fakeWindow(o: { host?: string; search?: string; ready?: "loading" | "complete" } = {}) {
+function fakeWindow(o: { host?: string; port?: string; protocol?: string; search?: string; ready?: "loading" | "complete"; visibility?: "visible" | "hidden"; prerendering?: boolean } = {}) {
   const win = new Map<string, Set<() => void>>();
   const doc: string[] = [];
   const host = o.host ?? "localhost";
+  const port = o.port ?? (o.host ? "" : "5173");
+  const protocol = o.protocol ?? "http:";
   return {
     docListeners: doc,
     fire: (t: string) => [...(win.get(t) ?? [])].forEach((f) => f()),
     g: {
       document: {
         readyState: o.ready ?? "complete",
-        visibilityState: "visible",
+        visibilityState: o.visibility ?? "visible",
+        prerendering: !!o.prerendering,
         title: "Fixture",
         addEventListener: (t: string) => void doc.push(t),
         removeEventListener: (t: string) => {
@@ -32,7 +36,7 @@ function fakeWindow(o: { host?: string; search?: string; ready?: "loading" | "co
           if (i >= 0) doc.splice(i, 1);
         },
       },
-      location: { hostname: host, search: o.search ?? "", pathname: "/", href: `http://${host}/${o.search ?? ""}` },
+      location: { protocol, hostname: host, port, host: port ? `${host}:${port}` : host, search: o.search ?? "", pathname: "/", href: `${protocol}//${host}${port ? `:${port}` : ""}/${o.search ?? ""}` },
       addEventListener: (t: string, fn: () => void) => {
         if (!win.has(t)) win.set(t, new Set());
         win.get(t)!.add(fn);
@@ -90,11 +94,36 @@ describe("InitOptions.visual resolution (VISUAL.md 7)", () => {
     expect(runtime(fakeWindow({ host: "shop.example.com" }), { visual: true }).rt.vis?.setting).toBe("on");
     const pub = runtime(fakeWindow({ host: "shop.example.com" })).rt;
     expect(startVisual(pub, undefined, true)?.setting).toBe("local");
-    for (const host of ["localhost", "127.0.0.1", "app.test", "192.168.1.20"]) expect(startVisual(runtime(fakeWindow({ host })).rt, undefined, true)?.setting, host).toBe("on");
+    for (const [host, port] of [["localhost", "5173"], ["127.0.0.1", "3000"], ["[::1]", "8080"], ["app.localhost", "3000"], ["app.test", ""]])
+      expect(startVisual(runtime(fakeWindow({ host, port })).rt, undefined, true)?.setting, `${host}:${port}`).toBe("on");
+    // production hosts that telemetry's isLocalHost counts as local: hybrid apps, Electron, intranets
+    for (const [protocol, host, port] of [
+      ["https:", "localhost", ""], // Capacitor
+      ["capacitor:", "localhost", ""],
+      ["http:", "tauri.localhost", ""], // Tauri on Windows
+      ["file:", "", ""], // Electron loading a file
+      ["http:", "192.168.1.20", ""],
+      ["http:", "10.0.0.5", "8080"],
+      ["http:", "intranet", ""],
+      ["https:", "app.corp.internal", ""],
+      ["http:", "nas.local", ""],
+    ])
+      expect(startVisual(runtime(fakeWindow({ protocol, host, port })).rt, undefined, true)?.setting, `${protocol}//${host}:${port}`).toBe("local");
     // ?genclass-visual=on turns report-only checks on for a public host
     expect(startVisual(runtime(fakeWindow({ host: "shop.example.com", search: "?genclass-visual=on" })).rt, undefined, true)?.setting).toBe("on");
     // an app's explicit false wins over the URL
     expect(startVisual(runtime(fakeWindow({ search: "?genclass-visual=on" })).rt, false, true)).toBeNull();
+  });
+
+  it("devHost: a dev server's port on a loopback name, or *.test; nothing else", () => {
+    const u = (href: string) => {
+      const l = new URL(href);
+      return { protocol: l.protocol, hostname: l.hostname, port: l.port };
+    };
+    for (const h of ["http://localhost:5173/", "https://localhost:3000/", "http://127.0.0.1:8080/", "http://[::1]:3000/", "http://app.localhost:3000/", "http://myapp.test/", "https://myapp.test:8443/"]) expect(devHost(u(h)), h).toBe(true);
+    for (const h of ["http://localhost/", "https://localhost/", "capacitor://localhost/", "http://tauri.localhost/", "file:///index.html", "http://192.168.1.20:5173/", "http://intranet:8080/", "https://app.corp.internal/", "http://printer.local/", "https://shop.example.com/", "http://test.example.com/"])
+      expect(devHost(u(h)), h).toBe(false);
+    expect(devHost(undefined)).toBe(false);
   });
 
   it("a headless global (no document) never starts", () => {
@@ -150,6 +179,23 @@ describe("when the chunk loads (VISUAL.md 8 steps 1 to 3)", () => {
     await clock.advance(1);
     await drain();
     expect(loads).toBe(1);
+  });
+
+  it("a hidden tab or a prerendered page: no download until it is shown", async () => {
+    for (const o of [{ visibility: "hidden" as const }, { prerendering: true }]) {
+      fakeChunk();
+      const w = fakeWindow(o);
+      const { clock } = runtime(w, { visual: true });
+      await clock.advance(20_000);
+      await drain();
+      expect(loads).toBe(0);
+      const d = w.g.document as { visibilityState: string; prerendering: boolean };
+      d.visibilityState = "visible";
+      d.prerendering = false;
+      await clock.advance(5000);
+      await drain();
+      expect(loads).toBe(1);
+    }
   });
 
   it("enabled pending: no download until it turns on", async () => {

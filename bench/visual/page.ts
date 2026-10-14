@@ -77,8 +77,10 @@ interface Bench {
   rootColors(): Record<string, string>;
   quietPoint(): { x: number; y: number };
   hoverTargets(max: number): { x: number; y: number }[];
-  /** Time of one stylesheet walk as css-var-undefined does it (one step of a pass, exempt from the slow-read rule). */
+  /** Time of one whole stylesheet walk as css-var-undefined does it (the engine runs it in steps of 200 rules). */
   sheetWalk(): { ms: number; rules: number; readable: boolean };
+  /** Long tasks (50 ms or more, any cause: the page's own work too) since the engine started. */
+  longTasks(): { n: number; maxMs: number };
 }
 
 type W = Window & { __GC_BENCH_CFG?: BenchCfg; __gcBench?: Bench };
@@ -149,6 +151,14 @@ function boot(): void {
   } catch {
     /* no layout-shift entries */
   }
+  const long: { s: number; d: number }[] = [];
+  try {
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) if (long.length < 500) long.push({ s: e.startTime, d: e.duration });
+    }).observe({ type: "longtask", buffered: true });
+  } catch {
+    /* no longtask entries */
+  }
 
   const B: Bench = {
     cfg,
@@ -195,7 +205,11 @@ function boot(): void {
     sheetWalk: () => {
       const t = performance.now();
       const r = readSheets(document);
-      return { ms: Math.round((performance.now() - t) * 10) / 10, rules: r ? r.decls.length : 0, readable: !!r };
+      return { ms: Math.round((performance.now() - t) * 10) / 10, rules: r ? r.rules : 0, readable: !!r };
+    },
+    longTasks: () => {
+      const after = long.filter((e) => B.startedAt !== null && e.s >= B.startedAt);
+      return { n: after.length, maxMs: Math.round(Math.max(0, ...after.map((e) => e.d))) };
     },
   } as Bench;
   w.__gcBench = B;

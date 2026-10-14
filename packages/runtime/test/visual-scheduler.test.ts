@@ -16,6 +16,11 @@ type Internals = {
   muts: number;
   budget: { start: number; spent: number };
   onMutations(r: MutationRecord[]): void;
+  addResource(e: unknown): void;
+  entry(url: string): { name: string } | undefined;
+  okRes: Map<string, unknown>;
+  failedRes: Map<string, unknown>;
+  moResting: boolean;
   whenVisible(): Promise<void>;
   pass(roots: Element[] | null, manual?: boolean): Promise<unknown[]>;
 };
@@ -152,6 +157,39 @@ describe("visual scheduling (VISUAL.md 8)", () => {
     expect(i.muts).toBe(0);
     i.onMutations([{ type: "attributes", attributeName: "class", target: p, addedNodes: [] as unknown as NodeList, removedNodes: [] as unknown as NodeList } as unknown as MutationRecord]);
     expect(i.muts).toBe(1);
+    v.stop();
+  });
+
+  it("resource entries: only images, CSS requests and stylesheets, at most 500 good and 200 failed, newest kept", () => {
+    withLayout();
+    const clock = new FakeClock();
+    const v = new Visual(host(clock), { on: true }, [], false);
+    const i = v as unknown as Internals;
+    // a dashboard polling a cache-busted URL that answers 401, and an analytics pixel with a random query: bounded
+    for (let n = 0; n < 1000; n++) i.addResource({ name: `https://app.example/api/status?_=${n}`, initiatorType: "fetch", responseStatus: 401, startTime: n });
+    expect(i.failedRes.size + i.okRes.size).toBe(0);
+    for (let n = 0; n < 1000; n++) i.addResource({ name: `https://px.example/p.gif?r=${n}`, initiatorType: "img", responseStatus: 404, startTime: n });
+    expect(i.failedRes.size).toBe(200);
+    expect(i.entry("https://px.example/p.gif?r=999")?.name).toBe("https://px.example/p.gif?r=999");
+    for (let n = 0; n < 900; n++) i.addResource({ name: `https://app.example/img/${n}.png`, initiatorType: "img", responseStatus: 200, startTime: n });
+    expect(i.okRes.size).toBe(500);
+    v.stop();
+  });
+
+  it("a flood of mutation records (an animation library writing styles every frame) rests the observer for 5 s", async () => {
+    withLayout();
+    const clock = new FakeClock();
+    const v = new Visual(host(clock), { on: true }, [], false);
+    const i = v as unknown as Internals;
+    document.body.innerHTML = "<p>Hi</p>";
+    const p = document.querySelector("p")!;
+    const rec = { type: "attributes", attributeName: "style", target: p, addedNodes: [] as unknown as NodeList, removedNodes: [] as unknown as NodeList } as unknown as MutationRecord;
+    i.onMutations(Array.from({ length: 2000 }, () => rec));
+    expect(i.moResting).toBe(false);
+    i.onMutations(Array.from({ length: 2000 }, () => rec));
+    expect(i.moResting).toBe(true);
+    await clock.advance(5000);
+    expect(i.moResting).toBe(false);
     v.stop();
   });
 

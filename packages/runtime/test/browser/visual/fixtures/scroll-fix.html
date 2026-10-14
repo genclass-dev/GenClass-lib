@@ -5,10 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scroll lock left on body</title>
 <script src="/dist/genclass.global.js" data-model="off" data-telemetry="off" data-mode="guard" data-visual="fix"></script>
-<style>body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; } .tall { height: 3000px; background: linear-gradient(#fff, #e5e7eb); }</style>
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .tall { height: 3000px; background: linear-gradient(#fff, #e5e7eb); }
+  .dlg { position: fixed; top: 80px; left: 80px; padding: 16px; background: #fff; border: 1px solid #d1d5db; z-index: 10; }
+</style>
 </head>
-<body style="overflow: hidden" data-k="body" data-expect="scroll-lock-stuck">
+<!-- A settings dialog locks the body's scroll when it opens; its close path removes the dialog and forgets the lock
+     (the leak). -->
+<body data-k="body" data-expect="scroll-lock-stuck">
 <h1>Article</h1>
+<button type="button" id="open">Settings</button>
 <div class="tall"><p>Long content below the fold.</p></div>
+<script>
+  document.getElementById("open").addEventListener("click", () => {
+    document.body.style.overflow = "hidden";
+    const d = document.createElement("div");
+    d.className = "dlg";
+    d.setAttribute("role", "dialog");
+    d.setAttribute("aria-label", "Settings");
+    d.innerHTML = '<p>Settings</p><button type="button" id="close">Close</button>';
+    document.body.appendChild(d);
+    d.querySelector("#close").addEventListener("click", () => d.remove());
+  });
+</script>
 </body>
 </html>

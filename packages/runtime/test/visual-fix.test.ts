@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { AuditEntry, CheckFinding, ModeOrOff } from "../src/types.js";
 import type { Draft } from "../src/visual/draft.js";
 import { Visual } from "../src/visual/engine.js";
-import { Fixer, MAX_FIXES } from "../src/visual/fix.js";
+import { CONTEXT_CHANGED, Fixer, MAX_FIXES } from "../src/visual/fix.js";
 import type { VisualHost } from "../src/visual/host.js";
 import { FakeClock } from "./helpers.js";
 
@@ -21,7 +21,7 @@ class FakeSheet {
   }
 }
 
-function fixer() {
+function fixer(prefix?: string) {
   const clock = new FakeClock();
   const doc = { adoptedStyleSheets: [] as unknown[], body: document.body, documentElement: document.documentElement };
   const audits: NonNullable<AuditEntry["fix"]>[] = [];
@@ -34,6 +34,7 @@ function fixer() {
     note: (m) => void notes.push(m),
     warn: (m) => void warns.push(m),
     quietly: (fn) => fn(),
+    ...(prefix !== undefined ? { prefix } : {}),
   });
   return { fx, clock, doc, audits, notes, warns };
 }
@@ -97,6 +98,38 @@ describe("visual fixes: owned rule (VISUAL.md 11.2, 11.3)", () => {
     expect(f.fix.reason).toBe("did not clear the threshold");
     expect(notes.at(-1)).toContain("did not clear the threshold");
     expect(fx.allowed("text-invisible", "k2")).toBe(true); // not a developer undo
+  });
+
+  it("a colour fix that no longer fits its element is undone (the item stopped being active, the scheme changed)", () => {
+    const { fx, audits } = fixer();
+    document.body.innerHTML = "<p>Hi</p>";
+    const p = document.querySelector("p")!;
+    const f = finding();
+    let fits = true;
+    f.fix = fx.apply({ type: "color", kind: "text-invisible", el: p, color: "rgb(17, 24, 39)", fill: false, target: 4.5, bg: "#ffffff" }, f, "k", () => true, () => fits);
+    expect(fx.colour).toBe(1);
+    fx.reverify();
+    expect(p.hasAttribute("data-genclass-fix")).toBe(true);
+    fits = false; // the background it was computed for is gone
+    fx.reverify();
+    expect(p.hasAttribute("data-genclass-fix")).toBe(false);
+    expect(f.fix.applied).toBe(false);
+    expect(f.fix.reason).toBe(CONTEXT_CHANGED);
+    expect(fx.allowed("text-invisible", "k2")).toBe(true); // not a developer undo: the kind stays on
+    expect(audits.map((a) => a.what)).toEqual(["apply", "undo"]);
+  });
+
+  it("two engines on one page never share a token (a per-engine prefix)", () => {
+    const a = fixer("a1-");
+    const b = fixer("b2-");
+    document.body.innerHTML = "<p>One</p><p>Two</p>";
+    const [p1, p2] = [...document.querySelectorAll("p")];
+    const fa = a.fx.apply({ type: "color", kind: "text-invisible", el: p1, color: "rgb(0, 0, 0)", fill: false, target: 4.5, bg: "#ffffff" }, finding(), "k", () => true);
+    const fb = b.fx.apply({ type: "color", kind: "text-invisible", el: p2, color: "rgb(255, 255, 255)", fill: false, target: 4.5, bg: "#000000" }, finding(), "k", () => true);
+    expect(fa.id).not.toBe(fb.id);
+    expect(p1.getAttribute("data-genclass-fix")).toBe("fa1-1");
+    expect(p2.getAttribute("data-genclass-fix")).toBe("fb2-1");
+    expect((a.doc.adoptedStyleSheets[0] as FakeSheet).cssRules[0].cssText).toContain('[data-genclass-fix~="fa1-1"]');
   });
 
   it("never writes a colour it did not generate", () => {
@@ -206,7 +239,7 @@ describe("the fix gate (VISUAL.md 11.1)", () => {
     measured: { ratio: 1 },
     threshold: { value: 1.5, unit: ":1", source: "test" },
     text: "text contrast 1.00:1 on p.hero, below 1.5:1.",
-    plan: { type: "color", kind: "text-invisible", el, color: "rgb(115, 115, 115)", fill: false, target: 4.5 },
+    plan: { type: "color", kind: "text-invisible", el, color: "rgb(115, 115, 115)", fill: false, target: 4.5, bg: "#ffffff" },
   });
 
   it("observe with fix: true: reported, nothing written", () => {
@@ -230,7 +263,7 @@ describe("the fix gate (VISUAL.md 11.1)", () => {
     const { v, reports } = engine(mode);
     (v as unknown as { publish(d: Draft[]): CheckFinding[] }).publish([draft(p)]);
     expect(reports[0].fix?.applied).toBe(true);
-    expect(p.getAttribute("data-genclass-fix")).toMatch(/^f\d+$/);
+    expect(p.getAttribute("data-genclass-fix")).toMatch(/^f[0-9a-z]+-\d+$/);
     mode.m = "observe";
     v.gateFixes();
     expect(p.hasAttribute("data-genclass-fix")).toBe(false);

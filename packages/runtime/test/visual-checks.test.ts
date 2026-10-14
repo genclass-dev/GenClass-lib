@@ -3,14 +3,14 @@
 // images, shadows, translucent groups, dark canvases), the text patterns, the asset and layout verdicts, and the
 // finding format (labelled as measured, never a probability).
 import { describe, expect, it } from "vitest";
-import { cssVarJudgeable, judgeContrast, undefinedVarRefs, type ContrastInput } from "../src/visual/checks/text.js";
+import { cssVarJudgeable, emojiOnly, judgeContrast, undefinedVarRefs, type ContrastInput } from "../src/visual/checks/text.js";
 import { brokenImageVerdict, cspReportable, familyStatus, firstFamily, iconBroken, mediaVerdict } from "../src/visual/checks/assets.js";
-import { overflowReportable, poorWindows, shiftVerdict, viewportMetaMissing } from "../src/visual/checks/layout.js";
-import { coverJudgeable, dialogReportable, paintsAt, triggerOpens } from "../src/visual/checks/interact.js";
-import { excerpt, placeholderHost, scanText } from "../src/visual/patterns.js";
+import { overflowReportable, poorWindows, pruneShifts, shiftVerdict, viewportMetaMissing } from "../src/visual/checks/layout.js";
+import { canScroll, coverJudgeable, dialogReportable, intersect, paintsAt, triggerOpens } from "../src/visual/checks/interact.js";
+import { excerpt, placeholderHost, SCAN_CHARS, scanText } from "../src/visual/patterns.js";
 import { fold, toFinding } from "../src/visual/report.js";
 import { hash32, KINDS, LIGHT, resolveCfg, transitionMs } from "../src/visual/engine.js";
-import { hashedClass } from "../src/visual/measure.js";
+import { canvasScheme, hashedClass } from "../src/visual/measure.js";
 import type { Draft } from "../src/visual/draft.js";
 
 const light = { html: "rgba(0, 0, 0, 0)", body: "rgba(0, 0, 0, 0)", darkCanvas: false };
@@ -79,6 +79,40 @@ describe("text-invisible verdict (VISUAL.md 2.4, 3.8)", () => {
     expect(judgeContrast(input({ fg: "rgb(56, 56, 56)", chains: [layers("rgb(255, 255, 255)")], root: dark }))).toMatchObject({ verdict: "ok", canvas: false });
   });
 
+  it("the canvas scheme: the computed color-scheme, else the meta tag; dark-only lists are dark for every visitor", () => {
+    // <meta name="color-scheme" content="light dark"> leaves the computed value at "normal"
+    expect(canvasScheme("normal", "light dark", true)).toBe("dark");
+    expect(canvasScheme("normal", "light dark", false)).toBe("light");
+    // color-scheme: dark (or only dark) is dark even for a visitor who prefers light
+    expect(canvasScheme("dark", null, false)).toBe("dark");
+    expect(canvasScheme("only dark", null, false)).toBe("dark");
+    expect(canvasScheme("normal", "dark", false)).toBe("dark");
+    expect(canvasScheme("light dark", null, true)).toBe("dark");
+    expect(canvasScheme("light dark", null, false)).toBe("light");
+    // the computed value wins over the meta tag; nothing declared is light
+    expect(canvasScheme("light", "dark", true)).toBe("light");
+    expect(canvasScheme("normal", null, true)).toBe("light");
+    expect(canvasScheme("", null, true)).toBe("light");
+    // a browser without the computed property and no meta tag: unknown
+    expect(canvasScheme(undefined, null, true)).toBe("unknown");
+    expect(canvasScheme(undefined, "light dark", true)).toBe("dark");
+  });
+
+  it("an unknown canvas scheme: light text on the canvas is not judged; dark text still is", () => {
+    const unknown = { ...light, canvasUnknown: true };
+    const none = [layers("rgba(0, 0, 0, 0)")];
+    expect(judgeContrast(input({ fg: "rgb(255, 255, 255)", chains: none, root: unknown }))).toEqual({ verdict: "unknown", reason: "canvas-unknown" });
+    expect(judgeContrast(input({ fg: "rgb(250, 250, 250)", chains: none, root: unknown }))).toEqual({ verdict: "unknown", reason: "canvas-unknown" });
+    expect(judgeContrast(input({ fg: "rgb(17, 24, 39)", chains: none, root: unknown }))).toMatchObject({ verdict: "ok" });
+    // an opaque background makes the canvas irrelevant
+    expect(judgeContrast(input({ fg: "rgb(255, 255, 255)", chains: [layers("rgb(255, 255, 255)")], root: unknown }))).toMatchObject({ verdict: "low" });
+  });
+
+  it("text made only of emoji is not judged by its colour (colour glyphs ignore it)", () => {
+    for (const t of ["🎉", "🔥🔥", "👍🏽", "🇨🇦", "👨‍👩‍👧", "❤️", "✅ ✅"]) expect(emojiOnly(t), t).toBe(true);
+    for (const t of ["Hi 🎉", "#1", "123", "★ rated", "", "  "]) expect(emojiOnly(t), t).toBe(false);
+  });
+
   it("the suggestion's target follows large text", () => {
     expect(judgeContrast(input({ fg: "rgb(255, 255, 255)", fontPx: 24 }))).toMatchObject({ large: true, target: 3 });
     expect(judgeContrast(input({ fg: "rgb(255, 255, 255)", fontPx: 18.66, weight: 700 }))).toMatchObject({ large: true, target: 3 });
@@ -111,6 +145,10 @@ describe("text patterns (VISUAL.md 3.9 to 3.11)", () => {
   });
   it("correct text is not a match", () => {
     for (const s of ["Café, crème brûlée, São Paulo, naïve, Ærø", "Price: $0", "The NaN value in JavaScript", "null", "Use {braces} in prose", "Fish & chips", "Totally undefined behaviour", "Loremipsum"]) expect(ids(s), s).toEqual([]);
+  });
+  it("a huge text node is scanned in its first SCAN_CHARS characters only (one bounded step)", () => {
+    expect(ids(`${"x".repeat(SCAN_CHARS - 20)} [object Object]`)).toEqual(["object-object"]);
+    expect(ids(`${"x ".repeat(SCAN_CHARS)} [object Object]`)).toEqual([]);
   });
   it("excerpts and placeholder hosts", () => {
     expect(excerpt("Your order total is $NaN today", 20)).toContain("$NaN");
@@ -245,6 +283,9 @@ describe("findings: labelled as measured checks (VISUAL.md 1, 9.1, 9.2)", () => 
     expect(f.details.join("\n")).toContain("This is a measured check with a fixed threshold, not a model finding.");
     expect(f.details.join("\n")).toContain('visual: { ignore: ["p.a"] }');
     expect(f.details.join("\n")).not.toContain("Situation sent to the model");
+    // the advertised configuration is one that actually turns fixes on
+    const withPlan = toFinding(draft({ plan: { type: "color", kind: "text-invisible", el: {} as Element, color: "rgb(0, 0, 0)", fill: false, target: 4.5, bg: "#ffffff" } }), ctx);
+    expect(withPlan.details.join("\n")).toContain('visual: { on: true, fix: true }');
     expect(f.element()).toBeNull();
     expect(f.context).toEqual({ scheme: "light", viewport: { w: 1280, h: 800 }, coarse: false, tier: "full" });
   });
@@ -350,6 +391,36 @@ describe("bench regressions: exclusions measured on real pages (VISUAL.md 15, 19
     // an expanded accordion in the content does not own the page's scroll
     expect(triggerOpens({ haspopup: null, inNav: false, controlsVisible: true })).toBe(false);
     expect(triggerOpens({ haspopup: "false", inNav: false, controlsVisible: true })).toBe(false);
+  });
+
+  it("scroll-lock-stuck: an attempt counts only where the page could have moved", () => {
+    // first section, wheel up; last section, wheel down: no evidence of a lock
+    expect(canScroll(-100, 0, 800, 3200)).toBe(false);
+    expect(canScroll(100, 2400, 800, 3200)).toBe(false);
+    expect(canScroll(100, 0, 800, 3200)).toBe(true);
+    expect(canScroll(-100, 400, 800, 3200)).toBe(true);
+    expect(canScroll(0, 0, 800, 3200)).toBe(false);
+  });
+
+  it("dialog-covered: a child's centre is tested inside the part its scroll containers show", () => {
+    // a button scrolled below a dialog's scroll area (top 100, 200 tall) is not visible at all
+    expect(intersect({ left: 20, top: 322, right: 200, bottom: 343 }, { left: 0, top: 100, right: 390, bottom: 300 })).toBeNull();
+    expect(intersect({ left: 20, top: 280, right: 200, bottom: 320 }, { left: 0, top: 100, right: 390, bottom: 300 })).toEqual({ left: 20, top: 280, right: 200, bottom: 300 });
+  });
+
+  it("layout-shift: judged windows are pruned, so later passes and routes do not report them again", () => {
+    const e = [
+      { t: 200, value: 0.3 },
+      { t: 400, value: 0.05 },
+      { t: 3000, value: 0.01 },
+      { t: 9000, value: 0.2 },
+      { t: 9300, value: 0.1 },
+    ];
+    pruneShifts(e);
+    expect(e.map((x) => x.t)).toEqual([9000, 9300]);
+    const one = [{ t: 100, value: 0.3 }];
+    pruneShifts(one);
+    expect(one.length).toBe(1);
   });
 
   it("layout-shift: a window needs an element that moved, and is not the page answering a scroll", () => {

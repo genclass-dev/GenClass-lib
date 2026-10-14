@@ -4,9 +4,9 @@
 
 import type { Ctx, Draft } from "../draft.js";
 import { fixed2, named } from "../draft.js";
-import { AA_LARGE_RATIO, composite, contrast, DARK_CANVASES, INVISIBLE_RATIO, isLargeText, over, parseColor, suggestColor, targetRatio, toHex, toRgb, WHITE, type RGBA } from "../math.js";
-import { containsDeep, inShadow, layersAt, rootInfo, safeMatches, textPoints, type Layer, type Reader, type RootInfo } from "../measure.js";
-import { excerpt, placeholderHost, scanText, WEAK_VALUES, type TextPattern } from "../patterns.js";
+import { AA_LARGE_RATIO, composite, contrast, DARK_CANVASES, INVISIBLE_RATIO, isLargeText, luminance, over, parseColor, suggestColor, targetRatio, toHex, toRgb, WHITE, type RGBA } from "../math.js";
+import { containsDeep, inShadow, layersAt, rootInfo, safeMatches, skippedLayer, textPoints, type Layer, type Reader, type RootInfo } from "../measure.js";
+import { excerpt, placeholderHost, SCAN_CHARS, scanText, WEAK_VALUES, type TextPattern } from "../patterns.js";
 
 // ------------------------------------------------------------------------------------------- contrast verdict
 
@@ -30,6 +30,8 @@ export interface ContrastInput {
   translucent?: boolean;
   /** Fully transparent text with a visible copy of the same text under it (layout reservers, typewriter effects). */
   stackedCopy?: boolean;
+  /** The sample points the chains were read at (for the skipped-layer search; the verdict does not use them). */
+  points?: { x: number; y: number }[];
 }
 
 export type ContrastVerdict =
@@ -41,7 +43,8 @@ const sameColor = (a: RGBA, b: RGBA) => Math.abs(a[0] - b[0]) <= 1 && Math.abs(a
 /**
  * VISUAL.md 2.4 and 3.8: the contrast of text against its fully resolved background. "unknown" (abstain) whenever the
  * background is not a known solid colour: an image or gradient, a replaced element, a filter or blend mode, a pseudo
- * layer, partial opacity, a text shadow or stroke, sample points that disagree, or a dark canvas the verdict depends on.
+ * layer, partial opacity, a text shadow or stroke, sample points that disagree, a dark canvas the verdict depends on,
+ * or light text on a canvas whose colour scheme cannot be read.
  */
 export function judgeContrast(i: ContrastInput): ContrastVerdict {
   if (i.shadow && i.shadow !== "none") return { verdict: "unknown", reason: "text-shadow" };
@@ -81,6 +84,8 @@ export function judgeContrast(i: ContrastInput): ContrastVerdict {
     }
     if (!bg) return { verdict: "unknown", reason: "background-unknown" };
     const shown = fg[3] < 1 ? over(fg, bg) : fg;
+    // light text on a canvas of unknown scheme: on a dark canvas it would read fine (0.179: equal contrast with white and black)
+    if (usedCanvas && i.root.canvasUnknown && luminance(shown) > 0.179) return { verdict: "unknown", reason: "canvas-unknown" };
     const ratio = transparent ? 1 : contrast(shown, bg);
     const v: ContrastVerdict = {
       verdict: ratio < INVISIBLE_RATIO ? "low" : "ok",
@@ -203,7 +208,7 @@ export function patternDrafts(ctx: Ctx, scan: TextScan, out: Draft[]): void {
       recheck: (r) => {
         if (!h.el.isConnected || !r.visible(h.el)) return null;
         if (isImg) return (h.el as HTMLImageElement).currentSrc === ex ? d : null;
-        return h.node.isConnected && h.p.re.test(h.node.data) ? d : null;
+        return h.node.isConnected && h.p.re.test(h.node.data.slice(0, SCAN_CHARS)) ? d : null;
       },
     };
     if (kind === "text-template-leak" && (id === "mustache" || id === "template-literal")) d.suggestion = { selector: "[v-cloak]", css: "display: none;", note: "Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route." };
@@ -220,6 +225,7 @@ export function contrastInput(r: Reader, el: Element, rootI: RootInfo): Contrast
   if (fontPx < 6) return null;
   const pts = textPoints(r, el);
   const chains: Layer[][] = [];
+  const used: { x: number; y: number }[] = [];
   let copy = false;
   const fill = (s as CSSStyleDeclaration & { webkitTextFillColor?: string }).webkitTextFillColor;
   const fg = parseColor(fill && fill !== s.color ? fill : s.color);
@@ -227,6 +233,7 @@ export function contrastInput(r: Reader, el: Element, rootI: RootInfo): Contrast
     const l = layersAt(r, el, p.x, p.y);
     if (l === "covered" || l === "outside") continue;
     chains.push(l);
+    used.push(p);
     if (fg && fg[3] === 0 && !copy) {
       const text = (el.textContent ?? "").trim();
       const st = r.stack(p.x, p.y);
@@ -247,12 +254,23 @@ export function contrastInput(r: Reader, el: Element, rootI: RootInfo): Contrast
     root: rootI,
     translucent: r.translucent(el),
     stackedCopy: copy,
+    points: used,
   };
 }
 
-/** Elements text-invisible never judges: disabled controls and their labels, SVG text, a single icon glyph. */
+const EMOJI_ONLY = /^[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\u200d\ufe0e\ufe0f\u20e3\s]+$/u;
+
+/** Text made only of emoji: colour glyphs ignore `color`, so their contrast cannot be judged from it. */
+export function emojiOnly(text: string): boolean {
+  return EMOJI_ONLY.test(text) && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(text);
+}
+
+/**
+ * Elements text-invisible never judges: disabled controls and their labels, SVG text, a single icon glyph, text made
+ * only of emoji, and anything inside `[aria-busy="true"]` (skeletons and loading placeholders).
+ */
 export function skipText(el: Element): boolean {
-  if (safeMatches(el, ":disabled, [aria-disabled=true]") || el.closest(':disabled, [aria-disabled="true"], svg')) return true;
+  if (safeMatches(el, ":disabled, [aria-disabled=true]") || el.closest(':disabled, [aria-disabled="true"], svg, [aria-busy="true"]')) return true;
   const label = el.closest("label") as HTMLLabelElement | null;
   if (label && (label.control as HTMLInputElement | null)?.disabled) return true;
   const t = [...el.childNodes].filter((c) => c.nodeType === 3).map((c) => (c as Text).data).join("").trim();
@@ -260,7 +278,7 @@ export function skipText(el: Element): boolean {
     const cp = t.codePointAt(0) ?? 0;
     if (cp >= 0xe000 && cp <= 0xf8ff) return true;
   }
-  return false;
+  return emojiOnly(t);
 }
 
 export interface ContrastRead {
@@ -278,7 +296,16 @@ export function readContrast(ctx: Ctx, r: Reader, el: Element, rootI: RootInfo):
     ctx.abstain(`text-invisible:${v.reason}`);
     return null;
   }
+  if (v.verdict === "low" && hiddenLayer(ctx, r, el, input)) return null;
   return { v, input };
+}
+
+/** A painted layer hit testing skips is under or over the text (skippedLayer): the verdict is not trusted. */
+export function hiddenLayer(ctx: Ctx, r: Reader, el: Element, input: ContrastInput): boolean {
+  const h = skippedLayer(r, el, input.points ?? []);
+  if (!h) return false;
+  ctx.abstain(`text-invisible:${h === "unknown" ? "layer-search-limit" : "pointer-events-layer"}`);
+  return true;
 }
 
 /** A text-invisible draft for a low verdict (state: rest unless measured on hover or focus). */
@@ -318,7 +345,7 @@ export function contrastDraft(ctx: Ctx, el: Element, read: ContrastRead, state: 
     },
     details: [`Sample points: ${read.input.chains.length}; scheme: ${ctx.scheme}; state: ${state}.`],
   };
-  if (state === "rest") d.plan = { type: "color", kind: "text-invisible", el, color: toRgb(sug), fill, target: v.target };
+  if (state === "rest") d.plan = { type: "color", kind: "text-invisible", el, color: toRgb(sug), fill, target: v.target, bg: toHex(v.bg) };
   return d;
 }
 
@@ -335,6 +362,9 @@ export function* measureContrast(ctx: Ctx, cands: Element[], out: Draft[], rest:
     if (ctx.r.animating(el)) continue;
     const d = contrastDraft(ctx, el, read, "rest");
     d.persistMs = 1000;
+    // re-measured after network quiet: a loading placeholder (transparent or low-contrast text while a request runs)
+    // is gone by then
+    d.quiet = true;
     d.recheck = (r) => {
       if (r.animating(el)) return null;
       const again = readContrast(ctx, r, el, rootInfo(r));
@@ -361,50 +391,81 @@ export function undefinedVarRefs(decls: { selector: string; prop: string; value:
   return out;
 }
 
-/** Rules, defined names and references of the readable stylesheets; null when one cannot be read (abstain). */
-export function readSheets(doc: Document, limit = 5000): { decls: { selector: string; prop: string; value: string; href: string }[]; defined: Set<string> } | null {
-  const decls: { selector: string; prop: string; value: string; href: string }[] = [];
-  const defined = new Set<string>();
-  let n = 0;
-  const walk = (rules: CSSRuleList, href: string): void => {
-    for (const rule of rules) {
-      if (++n > limit) return;
-      const name = (rule as { name?: string }).name;
-      if (rule.constructor?.name === "CSSPropertyRule" && name) defined.add(name);
-      const st = (rule as CSSStyleRule).style;
-      const sel = (rule as CSSStyleRule).selectorText;
-      if (st) {
-        for (let i = 0; i < st.length; i++) if (st[i].startsWith("--")) defined.add(st[i]);
-        if (sel && st.cssText.includes("var(")) {
-          for (const part of st.cssText.split(";")) {
-            const c = part.indexOf(":");
-            if (c < 0) continue;
-            const prop = part.slice(0, c).trim();
-            const value = part.slice(c + 1).trim();
-            if (prop.startsWith("--")) defined.add(prop);
-            if (value.includes("var(")) decls.push({ selector: sel, prop, value, href });
-          }
+/** What the stylesheet walk collects: declarations that use var(), the custom properties defined anywhere. */
+export interface SheetRead {
+  decls: { selector: string; prop: string; value: string; href: string }[];
+  defined: Set<string>;
+  /** A stylesheet's rules cannot be read (a cross-origin sheet): the check abstains, before any other work. */
+  unreadable?: boolean;
+  /** Rules walked. */
+  rules: number;
+}
+
+export function newSheetRead(): SheetRead {
+  return { decls: [], defined: new Set(), rules: 0 };
+}
+
+/**
+ * Walk the document's stylesheets (and adopted ones), at most `limit` rules, yielding every `every` rules so the walk
+ * runs in the engine's idle slices (VISUAL.md 8): one step never walks more than `every` rules. Every sheet is checked
+ * for readable rules first, so a page with one cross-origin sheet costs no walk at all.
+ */
+export function* walkSheets(doc: Document, out: SheetRead, limit = 5000, every = 200): Generator<void> {
+  const sheets = [...doc.styleSheets, ...((doc as Document & { adoptedStyleSheets?: CSSStyleSheet[] }).adoptedStyleSheets ?? [])];
+  const frames: { rules: CSSRuleList; i: number; href: string }[] = [];
+  for (const sh of sheets) {
+    try {
+      frames.push({ rules: sh.cssRules, i: 0, href: sh.href ?? "inline <style>" });
+    } catch {
+      out.unreadable = true;
+      return;
+    }
+  }
+  frames.reverse();
+  while (frames.length) {
+    const f = frames[frames.length - 1];
+    if (f.i >= f.rules.length) {
+      frames.pop();
+      continue;
+    }
+    const rule = f.rules[f.i++];
+    if (++out.rules > limit) break;
+    if (out.rules % every === 0) yield;
+    const name = (rule as { name?: string }).name;
+    if (rule.constructor?.name === "CSSPropertyRule" && name) out.defined.add(name);
+    const st = (rule as CSSStyleRule).style;
+    const sel = (rule as CSSStyleRule).selectorText;
+    if (st) {
+      for (let i = 0; i < st.length; i++) if (st[i].startsWith("--")) out.defined.add(st[i]);
+      if (sel && st.cssText.includes("var(")) {
+        for (const part of st.cssText.split(";")) {
+          const c = part.indexOf(":");
+          if (c < 0) continue;
+          const prop = part.slice(0, c).trim();
+          const value = part.slice(c + 1).trim();
+          if (prop.startsWith("--")) out.defined.add(prop);
+          if (value.includes("var(")) out.decls.push({ selector: sel, prop, value, href: f.href });
         }
       }
-      const inner = (rule as CSSGroupingRule).cssRules;
-      if (inner) walk(inner, href);
     }
-  };
-  const sheets = [...doc.styleSheets, ...((doc as Document & { adoptedStyleSheets?: CSSStyleSheet[] }).adoptedStyleSheets ?? [])];
-  for (const sh of sheets) {
-    let rules: CSSRuleList;
-    try {
-      rules = sh.cssRules;
-    } catch {
-      return null;
-    }
-    walk(rules, sh.href ?? "inline <style>");
+    const inner = (rule as CSSGroupingRule).cssRules;
+    if (inner && inner.length) frames.push({ rules: inner, i: 0, href: f.href });
   }
+  yield;
+  let n = 0;
   for (const el of doc.querySelectorAll('[style*="--"]')) {
+    if (++n > 2000) break;
+    if (n % every === 0) yield;
     const st = (el as HTMLElement).style;
-    for (let i = 0; i < st.length; i++) if (st[i].startsWith("--")) defined.add(st[i]);
+    for (let i = 0; i < st.length; i++) if (st[i].startsWith("--")) out.defined.add(st[i]);
   }
-  return { decls, defined };
+}
+
+/** The whole walk at once (the bench times it): null when a sheet cannot be read. */
+export function readSheets(doc: Document, limit = 5000): SheetRead | null {
+  const out = newSheetRead();
+  for (const _ of walkSheets(doc, out, limit)) void _;
+  return out.unreadable ? null : out;
 }
 
 /**
@@ -472,14 +533,20 @@ function cssVarRead(ctx: Ctx, el: Element, prop: string): { textEl: Element; rat
     ctx.abstain("css-var-undefined:readable");
     return null;
   }
+  if (read.v.verdict !== "low" && hiddenLayer(ctx, r, textEl, read.input)) return null;
   return { textEl, ratio: read.v.ratio };
 }
 
-export function cssVarDrafts(ctx: Ctx, out: Draft[]): void {
+/**
+ * VISUAL.md 3.12, as a generator the engine runs in idle slices: the stylesheet walk yields every 200 rules, and each
+ * reference costs one step (one querySelector and at most one contrast read). Selectors with :has() are not queried.
+ */
+export function* cssVarDrafts(ctx: Ctx, out: Draft[]): Generator<void> {
   if (!ctx.on("css-var-undefined")) return;
   const doc = ctx.r.doc;
-  const sheets = readSheets(doc);
-  if (!sheets) {
+  const sheets = newSheetRead();
+  yield* walkSheets(doc, sheets);
+  if (sheets.unreadable) {
     ctx.abstain("css-var-undefined:unreadable-sheet");
     return;
   }
@@ -492,6 +559,11 @@ export function cssVarDrafts(ctx: Ctx, out: Draft[]): void {
       ctx.abstain(`css-var-undefined:${why}`);
       continue;
     }
+    if (/:has\(/i.test(ref.selector)) {
+      ctx.abstain("css-var-undefined:has-selector");
+      continue;
+    }
+    yield;
     if (rootCs.getPropertyValue(ref.name).trim()) continue;
     let el: Element | null = null;
     try {

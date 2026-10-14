@@ -5,7 +5,7 @@
 import type { Ctx, Draft } from "../draft.js";
 import { named, px } from "../draft.js";
 import { coverage } from "../math.js";
-import { sameOrigin, sameSite, type Reader } from "../measure.js";
+import { safeMatches, sameOrigin, sameSite, type Reader } from "../measure.js";
 
 /** What the engine collects for the asset checks. */
 export interface AssetEnv {
@@ -268,8 +268,10 @@ export function* failedStylesheets(ctx: Ctx, env: AssetEnv, out: Draft[]): Gener
 // ------------------------------------------------------------------------------------- font-failed, icon fonts
 
 const ICON_FAMILY = /icon|awesome|material|symbol|glyph|feather|ionicons|remix|lucide|tabler|fontello|icomoon|dashicons|octicons|bootstrap-icons/i;
-const ICON_SEL =
-  '[class*="fa-"], .fa, .fas, .far, .fab, .fal, .material-icons, [class*="material-icons"], [class*="material-symbols"], [class^="bi-"], [class*=" bi-"], [class*="glyphicon"], [class^="icon-"], [class*=" icon-"], i';
+const ICON_CLASS_SEL =
+  '[class*="fa-"], .fa, .fas, .far, .fab, .fal, .material-icons, [class*="material-icons"], [class*="material-symbols"], [class^="bi-"], [class*=" bi-"], [class*="glyphicon"], [class^="icon-"], [class*=" icon-"]';
+/** Icon elements: the icon classes, and any <i> (judged only when its font family is an icon font's). */
+const ICON_SEL = `${ICON_CLASS_SEL}, i`;
 
 export function firstFamily(fontFamily: string): string {
   return (fontFamily.split(",")[0] ?? "").trim().replace(/^["']|["']$/g, "").toLowerCase();
@@ -415,6 +417,9 @@ export function* failedIconFonts(ctx: Ctx, env: AssetEnv, out: Draft[]): Generat
     const how = iconBroken({ content: before?.content ?? "", text, widthPx: ctx.r.rect(el).width, fontPx });
     if (!how) continue;
     const family = firstFamily(how === "pua" && before ? before.fontFamily : s.fontFamily);
+    // a plain <i> is usually an italic word: judged only in an icon font's family (an italic word in a failed text
+    // font is font-failed's finding)
+    if (!safeMatches(el, ICON_CLASS_SEL) && !ICON_FAMILY.test(family)) continue;
     const st = familyStatus(fs, family);
     if (st === "loaded" || (st === "pending" && !late)) continue;
     if (st === "none" && how === "ligature" && !ICON_FAMILY.test(family) && !/material/i.test(el.className)) continue;
@@ -428,7 +433,8 @@ export function* failedIconFonts(ctx: Ctx, env: AssetEnv, out: Draft[]): Generat
   }
   for (const h of hits.values()) {
     const el = h.els[0];
-    out.push({
+    const pending = h.status !== "error" && h.status !== "not declared";
+    const d: Draft = {
       kind: "icon-font-failed",
       el,
       els: h.els,
@@ -436,10 +442,15 @@ export function* failedIconFonts(ctx: Ctx, env: AssetEnv, out: Draft[]): Generat
       key: `icon-font-failed|${h.family}|${h.how}`,
       severity: h.label ? "high" : "medium",
       measured: { family: h.family, status: h.status, shows: h.how === "pua" ? `a box for ${h.glyph}` : `the word "${h.glyph}"`, icons: h.els.length, onlyLabel: h.label },
-      threshold: { value: "error", unit: "FontFace.status", source: "an icon glyph (Private Use Area, or a ligature word wider than 1.6 em) without its font" },
+      threshold: { value: "error", unit: "FontFace.status", source: "an icon glyph (Private Use Area, or a ligature word wider than 1.6 em) without its font, re-read 1 s later (5 s for a face still loading)" },
       text: `the icon font "${h.family}" is not available (${h.status}): ${h.els.length} icon${h.els.length === 1 ? "" : "s"} show ${h.how === "pua" ? "an empty box" : "their ligature word"}, for example ${named(ctx, el)}${h.label ? "; at least one is the only label of a button or link" : ""}.`,
       fixText: "fix the font path or its CORS headers, self-host the icon font, or switch to inline SVG icons; give icon-only buttons an aria-label",
-    });
+      // FontFace.status is read again before the report: a face still loading on a slow connection (an icon in a
+      // menu opened late) gets 5 s more, a failed one 1 s
+      persistMs: pending ? 5000 : 1000,
+    };
+    d.recheck = (r) => (el.isConnected && r.visible(el) && familyStatus(faces(ctx), h.family) !== "loaded" ? d : null);
+    out.push(d);
   }
 }
 

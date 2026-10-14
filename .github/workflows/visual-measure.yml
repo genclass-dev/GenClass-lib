@@ -7,8 +7,12 @@ name: Visual bench
 # pushes that change the bench. Not on pull requests and not scheduled: loading the public sites weekly is an owner
 # decision (VISUAL.md 17).
 #
-# The per-load JSON, detail.md and the element crops name public sites and stay in the artifacts (kept 7 days); the
-# job summary and summary.json hold counts per check kind only.
+# This repository is public, and so are its run logs and artifacts. For the public sites, the log shows progress and
+# totals only, and the plain artifact holds counts only (counts-sites-<shard>.json: configuration, measured or not,
+# finding kinds and cost per load, sites replaced by tokens that cannot be mapped back). The per-load JSON, the element
+# crops and the screenshots name sites: they are uploaded only encrypted with the VISUAL_BENCH_KEY repository secret
+# (AES-256, `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:KEY`), and not at all when the secret is not
+# set. The summary job and summary.json hold counts per check kind only.
 on:
   workflow_dispatch:
     inputs:
@@ -91,6 +95,8 @@ jobs:
     name: "public sites: shard ${{ matrix.shard }} of 4"
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    env:
+      HAS_KEY: ${{ secrets.VISUAL_BENCH_KEY != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -115,12 +121,27 @@ jobs:
         run: node bench/visual/build.mjs
       - name: Measure (one load per site and configuration, no clicks, no forms)
         run: node bench/visual/run.mjs --group sites --shard ${{ matrix.shard }}/4 --out ${{ runner.temp }}/visual-out/sites-${{ matrix.shard }}
-      - name: Upload
+      - name: Upload the counts (no site names)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: visual-sites-${{ matrix.shard }}
-          path: ${{ runner.temp }}/visual-out
+          path: ${{ runner.temp }}/visual-out/sites-${{ matrix.shard }}/counts-sites-*.json
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Seal the per-site results (only with the VISUAL_BENCH_KEY secret)
+        if: always() && env.HAS_KEY == 'true'
+        env:
+          KEY: ${{ secrets.VISUAL_BENCH_KEY }}
+        run: |
+          tar -czf - -C "${{ runner.temp }}/visual-out/sites-${{ matrix.shard }}" private \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:KEY -out "${{ runner.temp }}/sealed-sites-${{ matrix.shard }}.tgz.enc"
+      - name: Upload the sealed results
+        if: always() && env.HAS_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sealed-sites-${{ matrix.shard }}
+          path: ${{ runner.temp }}/sealed-sites-${{ matrix.shard }}.tgz.enc
           retention-days: 7
           if-no-files-found: warn
 

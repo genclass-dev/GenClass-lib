@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A busy shield during a slow request</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off" data-mode="guard" data-visual="fix"></script>
+<!-- Save disables the whole page (an inline pointer-events: none on body, with a spinner) while a 6 s request runs,
+     then releases it: an intended busy shield, not a leak. Guard mode with fixes on: nothing is reported or removed. -->
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .spinner { display: none; }
+  body.saving .spinner { display: inline; }
+</style>
+</head>
+<body>
+<h1>Checkout</h1>
+<button type="button" id="save">Place order</button> <span class="spinner">Saving...</span>
+<script>
+  document.getElementById("save").addEventListener("click", () => {
+    document.body.style.pointerEvents = "none";
+    document.body.classList.add("saving");
+    fetch("/img/1x1.png?delay=6000").finally(() => {
+      document.body.style.pointerEvents = "";
+      document.body.classList.remove("saving");
+    });
+  });
+</script>
+</body>
+</html>

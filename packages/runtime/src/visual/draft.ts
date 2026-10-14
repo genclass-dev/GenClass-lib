@@ -6,7 +6,16 @@ import type { Reader, Win } from "./measure.js";
 
 /** A runtime fix a check proposes; fix.ts applies it only when the fix gate allows (VISUAL.md section 11). */
 export type FixPlan =
-  | { type: "color"; kind: Extract<VisualFixKind, "text-invisible">; el: Element; color: string; fill: boolean; target: number }
+  | {
+      type: "color";
+      kind: Extract<VisualFixKind, "text-invisible">;
+      el: Element;
+      color: string;
+      fill: boolean;
+      target: number;
+      /** The resolved background ("#rrggbb") the colour was computed against: the fix holds only while it is unchanged. */
+      bg: string;
+    }
   | { type: "inline"; kind: Exclude<VisualFixKind, "text-invisible">; el: HTMLElement; props: string[] };
 
 export interface Draft {

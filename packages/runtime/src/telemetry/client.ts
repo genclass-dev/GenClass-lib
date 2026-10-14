@@ -33,8 +33,6 @@ export interface TelemetrySessionInfo {
   shadow?: string | false;
   holdWrites?: boolean;
   install?: string;
-  /** Measured visual checks: "local" or "on"; absent: off. */
-  visual?: "local" | "on";
 }
 
 const r4 = (n: unknown): number | undefined => (typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : undefined);
@@ -194,7 +192,6 @@ export class TelemetryClient implements TelemetryStatus {
       shadow: info.shadow || undefined,
       holdWrites: info.holdWrites || undefined,
       install: info.install,
-      visual: info.visual,
       device: compact({
         webgpu: !!nav.gpu,
         cores: typeof nav.hardwareConcurrency === "number" ? nav.hardwareConcurrency : undefined,
@@ -473,9 +470,6 @@ export class TelemetryClient implements TelemetryStatus {
         modelErrors: { ...c.modelErrors },
         failOpen: { ...c.failOpen },
       },
-      // measured visual checks: counts per kind and per normalised route, fixes and cost (never selectors, text,
-      // colours or URLs); absent until the checks have run
-      visual: rs?.visual,
       runtime: rs
         ? {
             model: compact({ state: rs.model.state, p50Ms: r4(rs.model.p50Ms), p95Ms: r4(rs.model.p95Ms), decisions: rs.model.decisions, dropped: rs.model.dropped, hiddenSkipped: rs.model.hiddenSkipped }),

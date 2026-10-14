@@ -2,8 +2,9 @@
 //
 // It resolves InitOptions.visual. Off means nothing at all: no listener, no timer, no download. On means: buffer
 // securitypolicyviolation events (violations during page load cannot be queried later), wait for `load` (at most
-// 5 s) and 1.5 s more, then import the chunk (src/visual/index.ts); the chunk does all its work in idle callbacks. "local" on a public host loads
-// the chunk only when the devtools overlay mounts or checkNow() is called. Everything else (the host the checks see,
+// 6.5 s) and 1.5 s more, and for a visible tab that is not prerendering, then import the chunk (src/visual/index.ts);
+// the chunk does all its work in idle callbacks. "local" means on for development hosts (devHost) only; elsewhere it
+// loads the chunk only when the devtools overlay mounts or checkNow() is called. Everything else (the host the checks see,
 // checks, messages, colour maths, selectors) lives in the chunk, so this file stays small: the first-load budget is
 // 0.5 KB gzip for all of visual (test/bundle.test.ts). All timing uses the runtime's Clock (AGENTS.md rule 5).
 
@@ -11,7 +12,6 @@ import type { RuntimeImpl } from "../runtime.js";
 import type { CheckFinding, InitOptions, VisualOptions } from "../types.js";
 import type { VisualChunk, VisualController } from "./host.js";
 import { describeElement } from "../observe/dom-user.js";
-import { isLocalHost } from "../telemetry/config.js";
 import { normalizePath } from "../util.js";
 import { visualRegistry } from "./registry.js";
 
@@ -28,11 +28,22 @@ export interface VisualStub {
   start(): unknown;
 }
 
+type Loc = { protocol?: string; hostname?: string; port?: string };
 type G = Record<string, unknown> & {
-  document?: Document;
-  location?: { search?: string; hostname?: string };
+  document?: Document & { prerendering?: boolean };
+  location?: Loc;
   addEventListener?: (t: string, fn: () => void) => void;
 };
+
+/**
+ * A development host, where the "local" default turns the checks on (VISUAL.md 7.2): http(s) on localhost, 127.0.0.1,
+ * [::1] or a *.localhost name with an explicit port (a dev server), or a *.test name. Narrower than telemetry's
+ * isLocalHost on purpose: a false "local" there sends less, here it would run the checks for a production app's
+ * visitors (Capacitor on https://localhost, Tauri on tauri.localhost, Electron on file:, intranet apps on private
+ * addresses and bare names).
+ */
+export const devHost = (l?: Loc): boolean =>
+  /^https?:$/.test(l?.protocol ?? "") && (/\.test$/.test(l?.hostname ?? "") || (!!l?.port && /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(l?.hostname ?? "")));
 
 /**
  * Called by createRuntime (src/index.ts) once the runtime exists. `init`: the GenClass.init() default ("local")
@@ -46,7 +57,7 @@ export function startVisual(rt: RuntimeImpl, opt: InitOptions["visual"], init: b
   const q = (rt as unknown as { urlParams(): URLSearchParams }).urlParams().get("genclass-visual");
   const base = o.on ?? (init && "local");
   if (q == "off" || !base) return null;
-  const local = isLocalHost(g.location?.hostname);
+  const local = devHost(g.location);
   const early: Event[] = [];
   const csp = (e: Event) => void (early.length < 50 && early.push(e));
   const clock = rt.clock;
@@ -73,9 +84,10 @@ export function startVisual(rt: RuntimeImpl, opt: InitOptions["visual"], init: b
   });
   if (v.setting != "local") {
     doc.addEventListener("securitypolicyviolation", csp, true);
-    // enabled false or pending (effective mode "off"): no download until it turns on (checked every 5 s). load()
-    // runs once, so the 1.5 s after `load` and the 6.5 s cap (a `load` held up by a slow request) may both call it.
-    const go = (): unknown => dead || (rt.effectiveMode() != "off" ? load() : clock.setTimeout(go, 5000));
+    // enabled false or pending (effective mode "off"), a hidden tab or a prerendered page: no download until that
+    // changes (checked every 5 s). load() runs once, so the 1.5 s after `load` and the 6.5 s cap (a `load` held up by
+    // a slow request) may both call it.
+    const go = (): unknown => dead || (rt.effectiveMode() != "off" && doc.visibilityState != "hidden" && !doc.prerendering ? load() : clock.setTimeout(go, 5000));
     const soon = () => clock.setTimeout(go, 1500);
     if (doc.readyState == "complete") soon();
     else {

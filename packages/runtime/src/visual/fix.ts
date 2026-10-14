@@ -9,9 +9,13 @@
 // 2. Removing one leaked inline declaration (pointer-events-leak, scroll-lock-stuck) on html or body, after recording
 //    its value and priority. Locks set through classes or stylesheets are never touched.
 //
-// Every fix is re-measured 50 ms later and undone if it did not clear the threshold. Undo restores exactly what was
+// Every fix is re-measured 50 ms later and undone if it did not clear the threshold. A colour fix is computed for one
+// background: it is re-measured on every periodic read, after class and style changes anywhere and when the colour
+// scheme changes, and undone as soon as the background differs or the colour no longer reaches its target (the app's
+// own colour may be right again, for example when an item stops being the active one). Undo restores exactly what was
 // there; a developer undo disables the kind for the session (three undos disable all fixes). When the app changes a
-// fixed element's class or style, or replaces it, the fix is dropped, never restored over the app's write.
+// fixed element's class or style, or replaces it, the fix is dropped, never restored over the app's write. Tokens
+// carry a per-engine prefix, so two runtimes on one page never share a rule.
 
 import type { AuditEntry, CheckFinding, Clock, VisualFixKind } from "../types.js";
 import type { FixPlan } from "./draft.js";
@@ -19,6 +23,8 @@ import type { Win } from "./measure.js";
 
 export const FIX_KINDS: VisualFixKind[] = ["text-invisible", "pointer-events-leak", "scroll-lock-stuck"];
 export const MAX_FIXES = 50;
+/** The undo reason when a colour fix no longer fits its element (a re-check may apply it again). */
+export const CONTEXT_CHANGED = "the background or colour scheme changed, so the fix no longer fits";
 const ATTR = "data-genclass-fix";
 
 export interface FixHost {
@@ -29,6 +35,8 @@ export interface FixHost {
   warn(message: string): void;
   /** Run a write so that the engine's MutationObserver does not see it as an app change. */
   quietly(fn: () => void): void;
+  /** Token prefix of this engine (default none). */
+  prefix?: string;
 }
 
 interface Applied {
@@ -40,6 +48,8 @@ interface Applied {
   rule?: CSSRule;
   token?: string;
   inline?: { prop: string; value: string; priority: string }[];
+  /** Re-measure later (colour fixes): false means the fix no longer fits. */
+  recheck?: () => boolean;
 }
 
 type AdoptDoc = Document & { adoptedStyleSheets?: CSSStyleSheet[] };
@@ -64,6 +74,19 @@ export class Fixer {
     return this.live.size;
   }
 
+  /** Live owned-rule (colour) fixes. */
+  get colour(): number {
+    let n = 0;
+    for (const a of this.live.values()) if (a.rule) n++;
+    return n;
+  }
+
+  /** A removed inline declaration is live. */
+  get inline(): boolean {
+    for (const a of this.live.values()) if (a.inline) return true;
+    return false;
+  }
+
   /** The kind may be fixed now (the engine checks mode, sampling and visibility). */
   allowed(kind: VisualFixKind, key: string): boolean {
     return !this.off && !this.disabledKinds.has(kind) && this.pageFixes < MAX_FIXES && (this.perKey.get(key) ?? 0) < 2;
@@ -76,13 +99,13 @@ export class Fixer {
   }
 
   /**
-   * Apply a plan for a finding. `verify` re-measures 50 ms later (true: the threshold is cleared). Returns the
-   * finding's `fix` value.
+   * Apply a plan for a finding. `verify` re-measures 50 ms later (true: the threshold is cleared); `recheck`, when
+   * given, re-measures on every reverify() afterwards. Returns the finding's `fix` value.
    */
-  apply(plan: FixPlan, f: CheckFinding, key: string, verify: () => boolean): NonNullable<CheckFinding["fix"]> {
+  apply(plan: FixPlan, f: CheckFinding, key: string, verify: () => boolean, recheck?: () => boolean): NonNullable<CheckFinding["fix"]> {
     const doc = this.h.win.document as AdoptDoc;
-    const id = `f${++this.seq}`;
-    const a: Applied = { id, kind: plan.kind, el: plan.el, finding: f, css: "" };
+    const id = `f${this.h.prefix ?? ""}${++this.seq}`;
+    const a: Applied = { id, kind: plan.kind, el: plan.el, finding: f, css: "", ...(recheck ? { recheck } : {}) };
     const fail = (reason: string): NonNullable<CheckFinding["fix"]> => ({ id, applied: false, reason, undo: () => false });
     try {
       if (plan.type === "color") {
@@ -180,6 +203,20 @@ export class Fixer {
 
   undoAll(reason: string): void {
     for (const id of [...this.live.keys()]) this.undo(id, reason, false);
+  }
+
+  /** Re-measure the fixes that can be (colour fixes): undo each one that no longer fits (CONTEXT_CHANGED). */
+  reverify(): void {
+    for (const a of [...this.live.values()]) {
+      if (!a.recheck || !this.live.has(a.id)) continue;
+      let ok = false;
+      try {
+        ok = a.recheck();
+      } catch {
+        ok = false;
+      }
+      if (!ok) this.undo(a.id, CONTEXT_CHANGED, false);
+    }
   }
 
   /** Drop every inline fix (a dialog or menu opened: the app owns html/body again). */

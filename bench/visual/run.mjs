@@ -15,9 +15,17 @@
 // Public sites run in observe mode (report-only) and get no clicks, no forms and no crawling.
 //
 // Writes <out>/<group>[-<shard>]-<parts>.json with every load and finding (messages, selectors, page text excerpts)
-// and <out>/crops/*.png. Both go to the CI artifact only; summarize.mjs reduces them to counts per check kind.
+// and <out>/crops/*.png; summarize.mjs reduces them to counts per check kind.
+//
+// Public sites (--group sites): the repository and its CI runs are public, so nothing that names a site goes to the
+// log or to a plain artifact. The log shows progress and totals only. The per-load JSON and the crops go to
+// <out>/private/ (the workflow uploads them only encrypted, with the VISUAL_BENCH_KEY secret, or not at all), and
+// <out>/counts-sites-<shard>.json holds what the summary needs: per load, the configuration, whether it was measured,
+// the finding kinds and the cost, with the site replaced by a token from a random salt that is never stored, in
+// token order.
 
 import { chromium } from "@playwright/test";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,8 +43,11 @@ const PARTS = new Set(opt("parts", "clean,cost,faults,integration").split(","));
 const WORKERS = Number(opt("workers", "2"));
 const SEED = Number(opt("seed", "1"));
 const OUT = resolve(opt("out", join(HERE, ".out", GROUP ?? "x")));
+/** Public sites: per-site output stays out of the plain artifact (see the header). */
+const PUBLIC = GROUP === "sites";
+const PRIV = PUBLIC ? join(OUT, "private") : OUT;
 const PAGE_JS = readFileSync(join(HERE, ".out/page.js"), "utf8");
-mkdirSync(join(OUT, "crops"), { recursive: true });
+mkdirSync(join(PRIV, "crops"), { recursive: true });
 
 const VIEWPORTS = {
   desktop: { viewport: { width: 1280, height: 800 } },
@@ -55,6 +66,9 @@ const EARLY = new Set(["page-blank", "viewport-meta-missing"]);
 const PAGE_LEVEL = new Set(["pointer-events-leak", "scroll-lock-stuck", "layout-shift", "page-blank", "viewport-meta-missing", "csp-blocked"]);
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
+let publicDone = 0;
+/** One line per load: for public sites only a running count, never the site, its findings or their kinds. */
+const loadLog = (line) => log(PUBLIC ? `public site loads done: ${++publicDone}` : line);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class NotMeasured extends Error {}
@@ -234,8 +248,8 @@ async function crop(page, rec, f) {
       const pad = 24;
       const x = Math.max(0, box.x - pad);
       const y = Math.max(0, box.y - pad);
-      await page.screenshot({ path: join(OUT, "crops", file), fullPage: true, clip: { x, y, width: Math.min(1400, box.w + 2 * pad), height: Math.min(1000, box.h + 2 * pad) }, timeout: 8000 });
-    } else await page.screenshot({ path: join(OUT, "crops", file), timeout: 8000 });
+      await page.screenshot({ path: join(PRIV, "crops", file), fullPage: true, clip: { x, y, width: Math.min(1400, box.w + 2 * pad), height: Math.min(1000, box.h + 2 * pad) }, timeout: 8000 });
+    } else await page.screenshot({ path: join(PRIV, "crops", file), timeout: 8000 });
     f.crop = file;
   } catch (e) {
     f.cropError = String(e?.message ?? e).slice(0, 160);
@@ -263,7 +277,7 @@ async function guarded(fn, browser, spec, o, id) {
   if (r) return r;
   await bounded(holder.ctx?.close() ?? Promise.resolve(), 15_000);
   const rec = { ...(holder.rec ?? { id, group: spec.group, page: spec.id, viewport: o.viewport, scheme: o.scheme }), measured: false, notMeasured: `timed out after ${LOAD_MS / 1000} s`, findings: [] };
-  log(`${id}: not measured (${rec.notMeasured})`);
+  loadLog(`${id}: not measured (${rec.notMeasured})`);
   return rec;
 }
 
@@ -276,7 +290,7 @@ async function cleanLoadInner(browser, spec, o, holder) {
     spec.reset?.();
     await arrive(page, spec, rec, t0);
     if (o.viewport === "desktop" && !o.throttle) rec.root = await ev(page, () => window.__gcBench.rootColors());
-    if (!spec.local) await page.screenshot({ path: join(OUT, "crops", `${rec.id}-view.jpg`), type: "jpeg", quality: 55, timeout: 8000 }).then(() => (rec.view = `${rec.id}-view.jpg`), () => undefined);
+    if (!spec.local) await page.screenshot({ path: join(PRIV, "crops", `${rec.id}-view.jpg`), type: "jpeg", quality: 55, timeout: 8000 }).then(() => (rec.view = `${rec.id}-view.jpg`), () => undefined);
     if (o.throttle) {
       await ev(page, () => window.__gcBench.now());
     } else await scan(page);
@@ -287,6 +301,7 @@ async function cleanLoadInner(browser, spec, o, holder) {
     rec.measured = true;
     await collect(page, rec, !o.throttle);
     rec.sheetWalk = await ev(page, () => window.__gcBench.sheetWalk());
+    rec.longTasks = await ev(page, () => window.__gcBench.longTasks());
     rec.throttled = (await ev(page, () => performance.getEntriesByType("resource").filter((e) => e.responseStatus === 429).length)) ?? 0;
     if (o.viewport === "desktop" && !o.throttle) {
       rec.dark = await ev(page, () => window.__gcBench.darkSupport());
@@ -299,8 +314,45 @@ async function cleanLoadInner(browser, spec, o, holder) {
     rec.pageErrors = errors;
     await bounded(ctx.close().catch(() => undefined), 15_000);
   }
-  log(`${rec.id}: ${rec.measured ? `${rec.findings.length} finding(s)${rec.findings.length ? ` [${[...new Set(rec.findings.map((f) => f.kind))].join(", ")}]` : ""}` : `not measured (${rec.notMeasured})`} ${Math.round(rec.ms / 1000)} s`);
+  loadLog(`${rec.id}: ${rec.measured ? `${rec.findings.length} finding(s)${rec.findings.length ? ` [${[...new Set(rec.findings.map((f) => f.kind))].join(", ")}]` : ""}` : `not measured (${rec.notMeasured})`} ${Math.round(rec.ms / 1000)} s`);
   return rec;
+}
+
+/**
+ * The public-site run reduced to what the repository may show: per load, the configuration, whether it was
+ * measured (the reason without titles or URLs), the finding kinds and the cost. The site becomes a token from a
+ * random salt that is never stored, and the loads are sorted by token, so a load cannot be matched to a site.
+ */
+function countsOnly(out) {
+  const salt = randomBytes(16).toString("hex");
+  const token = (p) => createHash("sha256").update(`${salt}|${p}`).digest("hex").slice(0, 12);
+  const reason = (x) =>
+    String(x ?? "")
+      .replace(/\(.*\)/, "")
+      .replace(/HTTP \d+/, "HTTP error")
+      .replace(/\s*at https?:\/\/\S+/g, "")
+      .replace(/https?:\/\/\S+/g, "<url>")
+      .trim();
+  const cost = (v) => (v ? { ms: v.ms, maxSliceMs: v.maxSliceMs, partial: v.partial, elements: v.elements, passes: v.passes } : null);
+  const loads = out.loads
+    .map((l) => ({
+      group: l.group,
+      part: l.part,
+      page: token(l.page),
+      viewport: l.viewport,
+      scheme: l.scheme,
+      measured: !!l.measured,
+      ...(l.measured ? {} : { notMeasured: reason(l.notMeasured) }),
+      darkDesign: !!l.darkDesign,
+      throttled: (l.throttled ?? 0) > 0 || (l.findings ?? []).some((f) => /\bHTTP 429\b/.test(f.message ?? "")),
+      findings: (l.findings ?? []).map((f) => ({ kind: f.kind })),
+      firstPass: cost(l.firstPass),
+      summary: cost(l.summary),
+      sheetWalk: l.sheetWalk ?? null,
+      longTasks: l.longTasks ?? null,
+    }))
+    .sort((a, b) => (a.page < b.page ? -1 : a.page > b.page ? 1 : 0));
+  return { counts: true, group: out.group, shard: out.shard, parts: out.parts, seed: out.seed, at: out.at, commit: out.commit, run: out.run, chromium: out.chromium, loads };
 }
 
 async function drive(page, fault, planted) {
@@ -396,6 +448,7 @@ async function faultLoadInner(browser, spec, o, holder) {
     await ev(page, () => window.__gcBench.now());
     for (const p of rec.planted) if (p.ok) p.truth = (await ev(page, (id) => window.__gcBench.truth(id), p.id)) ?? { ok: false, why: "truth failed" };
     rec.injectedAt = await ev(page, () => window.__gcBench.injectedAt);
+    rec.longTasks = await ev(page, () => window.__gcBench.longTasks());
     rec.measured = true;
     await collect(page, rec, false);
     match(rec);
@@ -495,8 +548,11 @@ async function main() {
   if (process.env.VISUAL_SMOKE === "true") corpus.pages = corpus.pages.filter((p) => GROUP !== "compat" || p.faults).slice(0, 2);
   const browser = await chromium.launch();
   const out = { group: GROUP, shard: SHARD, parts: [...PARTS], seed: SEED, at: new Date().toISOString(), commit: process.env.GITHUB_SHA ?? null, run: process.env.GITHUB_RUN_ID ?? null, chromium: browser.version(), pages: corpus.pages.map((p) => p.id), loads: [] };
-  const file = join(OUT, `${GROUP}${SHARD ? `-${SHARD.replace("/", "of")}` : ""}-${[...PARTS].join("+")}.json`);
-  const save = () => writeFileSync(file, JSON.stringify(out, null, 1));
+  const file = join(PRIV, `${GROUP}${SHARD ? `-${SHARD.replace("/", "of")}` : ""}-${[...PARTS].join("+")}.json`);
+  const save = () => {
+    writeFileSync(file, JSON.stringify(out, null, 1));
+    if (PUBLIC) writeFileSync(join(OUT, `counts-sites-${SHARD ? SHARD.replace("/", "of") : "all"}.json`), JSON.stringify(countsOnly(out), null, 1));
+  };
   try {
     if (GROUP === "sites") {
       // one site at a time; dark loads only where the site has a dark design
@@ -541,10 +597,11 @@ async function main() {
     await corpus.stop().catch(() => undefined);
   }
   const m = out.loads.filter((l) => l.measured);
-  log(`${file}: ${out.loads.length} loads, ${m.length} measured, ${m.reduce((a, l) => a + (l.part === "clean" ? l.findings.length : 0), 0)} findings on clean loads`);
+  log(`${PUBLIC ? "public sites" : file}: ${out.loads.length} loads, ${m.length} measured, ${m.reduce((a, l) => a + (l.part === "clean" ? l.findings.length : 0), 0)} findings on clean loads`);
 }
 
 main().catch((e) => {
-  console.error(e);
+  // a public-site error message can carry a site's URL: only its first line, without URLs
+  console.error(PUBLIC ? String(e?.message ?? e).split("\n")[0].replace(/https?:\/\/\S+/g, "<url>") : e);
   process.exit(1);
 });

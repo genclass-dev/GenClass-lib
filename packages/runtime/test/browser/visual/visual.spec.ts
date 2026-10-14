@@ -253,6 +253,60 @@ test.describe("measured visual checks (VISUAL.md section 14)", () => {
     console.log(`[visual-bench] big.html: passes ${v.passes}, total ${v.ms} ms, max slice ${v.maxSliceMs} ms, partial ${v.partial}, reads ${v.elements}`);
     expect(v.maxSliceMs).toBeLessThan(50); // never a long task of its own
   });
+
+  test("10,000 elements with hover, clicks and scrolling: no long task once the checks run", async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __lt: { s: number; d: number }[] };
+      w.__lt = [];
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) w.__lt.push({ s: e.startTime, d: e.duration });
+      }).observe({ type: "longtask", buffered: true });
+    });
+    await open(page, "/f/big.html");
+    await settle(page);
+    const t0 = await page.evaluate(() => performance.now());
+    for (let i = 0; i < 12; i++) {
+      await page.mouse.move(80 + i * 7, 120 + i * 40);
+      await page.waitForTimeout(150);
+    }
+    for (let i = 0; i < 3; i++) {
+      await page.mouse.click(100, 200 + i * 60);
+      await page.waitForTimeout(300);
+    }
+    for (let i = 0; i < 25; i++) {
+      await page.mouse.wheel(0, 4000);
+      await page.waitForTimeout(80);
+    }
+    await page.waitForTimeout(3000); // the end-of-page check and two periodic reads
+    await settle(page);
+    const long = await page.evaluate((t0) => (window as unknown as { __lt: { s: number; d: number }[] }).__lt.filter((e) => e.s >= t0), t0);
+    const v = await page.evaluate(() => (window as unknown as { GenClass: { runtime: { summary(): { visual: { maxSliceMs: number; ms: number } } } } }).GenClass.runtime.summary().visual);
+    console.log(`[visual-bench] big.html with interaction: total ${v.ms} ms, max slice ${v.maxSliceMs} ms, long tasks ${JSON.stringify(long)}`);
+    expect(long).toEqual([]);
+    expect(v.maxSliceMs).toBeLessThan(50);
+  });
+
+  test("5,000 stylesheet rules with var(): the walk runs in short slices, no long task", async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __lt: { s: number; d: number }[]; __t0: number };
+      w.__lt = [];
+      w.__t0 = Infinity;
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) w.__lt.push({ s: e.startTime, d: e.duration });
+      }).observe({ type: "longtask", buffered: true });
+      // the page's own work (building and applying the stylesheet) is done well before the checks start
+      addEventListener("load", () => setTimeout(() => (w.__t0 = performance.now()), 1000));
+    });
+    await open(page, "/f/big-css.html");
+    expect((await settle(page)).map((f) => f.message)).toEqual([]);
+    const r = await page.evaluate(() => {
+      const w = window as unknown as { __lt: { s: number; d: number }[]; __t0: number; GenClass: { runtime: { summary(): { visual: { maxSliceMs: number; ms: number } } } } };
+      return { long: w.__lt.filter((e) => e.s >= w.__t0), v: w.GenClass.runtime.summary().visual };
+    });
+    console.log(`[visual-bench] big-css.html: total ${r.v.ms} ms, max slice ${r.v.maxSliceMs} ms, long tasks ${JSON.stringify(r.long)}`);
+    expect(r.long).toEqual([]);
+    expect(r.v.maxSliceMs).toBeLessThan(25);
+  });
 });
 
 test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () => {
@@ -264,7 +318,7 @@ test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () 
     expect(before[0].fix?.applied).toBe(true);
     const color = () => page.evaluate(() => getComputedStyle(document.querySelector("[data-k=t1]")!).color);
     expect(await color()).not.toBe("rgb(255, 255, 255)");
-    expect(await page.evaluate(() => document.querySelector("[data-k=t1]")!.getAttribute("data-genclass-fix"))).toMatch(/^f\d+$/);
+    expect(await page.evaluate(() => document.querySelector("[data-k=t1]")!.getAttribute("data-genclass-fix"))).toMatch(/^f[0-9a-z]+-\d+$/);
     await page.waitForTimeout(300); // the 50 ms re-measure kept it
     expect(await color()).not.toBe("rgb(255, 255, 255)");
     await page.evaluate(() => (window as unknown as { GenClass: { runtime: { setMode(m: string): void } } }).GenClass.runtime.setMode("observe"));
@@ -284,8 +338,12 @@ test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () 
     expect(await page.evaluate(() => document.body.style.pointerEvents)).toBe("none");
   });
 
-  test("scroll-lock-stuck: the inline overflow is removed and the page scrolls", async ({ page }) => {
+  test("scroll-lock-stuck: a lock a closed dialog left behind is removed and the page scrolls", async ({ page }) => {
     await open(page, "/f/scroll-fix.html");
+    await page.click("#open");
+    await page.waitForTimeout(600);
+    await page.click("#close");
+    expect(await page.evaluate(() => [document.body.style.overflow, document.querySelector("[role=dialog]")])).toEqual(["hidden", null]);
     await page.mouse.move(400, 400);
     for (let i = 0; i < 12; i++) {
       await page.mouse.wheel(0, 400);
@@ -299,6 +357,46 @@ test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () 
     await page.waitForFunction(() => window.scrollY > 0);
   });
 
+  test("scroll-lock-stuck: a lock held since the page loaded, with no dialog ever open, is reported but not removed", async ({ page }) => {
+    await open(page, "/f/scroll-load-fix.html");
+    await page.mouse.move(400, 400);
+    for (let i = 0; i < 12; i++) {
+      await page.mouse.wheel(0, 400);
+      await page.waitForTimeout(500);
+      if (await page.evaluate(() => (window as unknown as { GenClass: { runtime: { checks(): { kind: string }[] } } }).GenClass.runtime.checks().length)) break;
+    }
+    await until(page, "scroll-lock-stuck");
+    const found = await seen(page);
+    exact(found, await planted(page));
+    expect(found[0].fix).toBeUndefined();
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+  });
+
+  test("text-invisible: a fix computed for one background is undone when the background changes", async ({ page }) => {
+    await open(page, "/f/fix-state.html");
+    await settle(page);
+    const before = await seen(page);
+    expect(before.map((f) => `${f.id} ${f.kind}`)).toEqual(["l1 text-invisible"]);
+    expect(before[0].fix?.applied).toBe(true);
+    const color = () => page.evaluate(() => getComputedStyle(document.querySelector("[data-k=l1]")!).color);
+    expect(await color()).not.toBe("rgb(255, 255, 255)");
+    // another item becomes active: the first one's label is on its dark background again, where white is right
+    await page.click("#second");
+    await page.waitForFunction(() => getComputedStyle(document.querySelector("[data-k=l1]")!).color === "rgb(255, 255, 255)", null, { timeout: 10_000 });
+    expect(await page.evaluate(() => document.querySelector("[data-k=l1]")!.hasAttribute("data-genclass-fix"))).toBe(false);
+  });
+
+  test("a busy shield (pointer-events: none on body while a request runs) is neither reported nor removed", async ({ page }) => {
+    await open(page, "/f/clean-busy.html");
+    await page.click("#save");
+    expect(await page.evaluate(() => document.body.style.pointerEvents)).toBe("none");
+    await page.waitForTimeout(4500); // two periodic reads during the request
+    expect(await page.evaluate(() => document.body.style.pointerEvents)).toBe("none"); // not removed by a fix
+    await page.waitForFunction(() => document.body.style.pointerEvents === "", null, { timeout: 10_000 });
+    await page.waitForTimeout(2500);
+    expect((await seen(page)).map((f) => f.message)).toEqual([]);
+  });
+
   test("under a strict CSP (style-src 'self'): the owned rule applies with no violation", async ({ page }) => {
     await open(page, "/csp/csp-fix.html");
     await settle(page);
@@ -308,6 +406,83 @@ test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () 
     expect(await page.evaluate(() => getComputedStyle(document.querySelector("[data-k=t1]")!).color)).not.toBe("rgb(255, 255, 255)");
     const v = await page.evaluate(() => (window as unknown as { __violations: { directive: string }[] }).__violations);
     expect(v.filter((x) => x.directive.startsWith("style-src"))).toEqual([]);
+  });
+});
+
+// False reports a review found by reading the checks (VISUAL.md section 19, "Review of 2026-10-13"): correct pages
+// that looked broken. Each fixture is a correct page; some carry one planted fault next to the pattern, so the check
+// is shown to be running.
+test.describe("review regressions (VISUAL.md 19): correct pages that looked broken", () => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    for (const name of ["clean-scheme-meta.html", "clean-scheme-dark.html"]) {
+      test(`${name} in ${colorScheme} mode: the canvas follows the page's colour scheme, zero findings`, async ({ browser }) => {
+        const ctx = await browser.newContext({ colorScheme });
+        const page = await ctx.newPage();
+        await open(page, `/f/${name}`);
+        expect((await settle(page)).map((f) => f.message)).toEqual([]);
+        await ctx.close();
+      });
+    }
+  }
+
+  test("white text over pointer-events: none layers (overlay, canvas, video): only the planted white-on-white card", async ({ page }) => {
+    await open(page, "/f/clean-layers.html");
+    exact(await settle(page), await planted(page));
+    // the pattern is real: hit testing skips the layer under the headline
+    const skipped = await page.evaluate(() => {
+      const h = document.querySelector("h2")!.getBoundingClientRect();
+      return !document.elementsFromPoint(h.left + 10, h.top + h.height / 2).some((e) => e.classList.contains("overlay"));
+    });
+    expect(skipped).toBe(true);
+  });
+
+  test("the same page in guard mode with fixes on: only the planted text is recoloured", async ({ page }) => {
+    await open(page, "/f/clean-layers.html?fix");
+    const found = await settle(page);
+    exact(found, await planted(page));
+    expect(found[0].fix?.applied).toBe(true);
+    const white = "rgb(255, 255, 255)";
+    const nearWhite = "rgb(249, 250, 251)";
+    expect(await page.evaluate(() => [...document.querySelectorAll(".hero h2, .hero p")].map((e) => getComputedStyle(e).color))).toEqual([white, nearWhite, white, nearWhite, white, nearWhite]);
+    expect(await page.evaluate(() => document.querySelectorAll("[data-genclass-fix]").length)).toBe(1);
+  });
+
+  test("a full-screen particles canvas (fixed, z-index -1, pointer-events: none) behind white text: zero findings", async ({ page }) => {
+    await open(page, "/f/clean-particles.html");
+    expect((await settle(page)).map((f) => f.message)).toEqual([]);
+  });
+
+  test("a dialog that scrolls inside, over a fixed backdrop: controls scrolled away are not covered", async ({ page }) => {
+    await open(page, "/f/clean-dialog-scroll.html");
+    // the pattern is real: the hit test at a scrolled-away control's centre lands on the backdrop
+    const hit = await page.evaluate(() => {
+      const b = [...document.querySelectorAll(".paper button")].at(-1)!.getBoundingClientRect();
+      return document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)?.className;
+    });
+    expect(hit).toBe("backdrop");
+    expect((await settle(page)).map((f) => f.message)).toEqual([]);
+  });
+
+  test("a web-component app (its UI in a shadow root): no page-blank", async ({ page }) => {
+    await open(page, "/f/clean-web-component.html");
+    await page.waitForTimeout(8000); // settle + 3 s and 2 s more: the page-blank window has passed
+    expect((await seen(page)).map((f) => f.message)).toEqual([]);
+  });
+
+  test("a full-page section scroller: wheels at the ends and during transitions are not a stuck scroll lock", async ({ page }) => {
+    await open(page, "/f/clean-fullpage.html");
+    await page.mouse.move(640, 400);
+    for (let i = 0; i < 2; i++) {
+      await page.mouse.wheel(0, -400); // up, on the first section
+      await page.waitForTimeout(400);
+    }
+    for (let i = 0; i < 10; i++) {
+      await page.mouse.wheel(0, 400); // down to the last section, and on past it
+      await page.waitForTimeout(i < 3 ? 950 : 400);
+    }
+    expect(await page.evaluate(() => [scrollY, document.getElementById("fp")!.style.transform])).toEqual([0, "translateY(-300vh)"]);
+    await page.waitForTimeout(4500); // two periodic reads
+    expect((await seen(page)).map((f) => f.message)).toEqual([]);
   });
 });
 

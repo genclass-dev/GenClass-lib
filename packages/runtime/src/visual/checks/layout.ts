@@ -232,6 +232,18 @@ export function shiftVerdict(o: { moved: number; afterScroll: boolean; imageCaus
 /** A scroll within this many ms before a window's start makes it a response to the scroll. */
 export const SHIFT_AFTER_SCROLL_MS = 1000;
 
+/**
+ * Drop the entries of windows a full pass has judged: every window but the last is closed (a later entry started a
+ * new one), so only the last window's entries are kept. Shifts are not re-judged on later passes or routes.
+ */
+export function pruneShifts<T extends { t: number; value: number }>(entries: T[]): void {
+  const w = shiftWindows(entries);
+  if (w.length < 2) return;
+  const start = w[w.length - 1].start;
+  const keep = entries.filter((e) => e.t >= start);
+  entries.splice(0, entries.length, ...keep);
+}
+
 export function layoutShifts(ctx: Ctx, entries: ShiftEntry[], fontSwaps: number[], out: Draft[], scrolls: number[] = []): void {
   if (!ctx.on("layout-shift") || !entries.length) return;
   const all = shiftWindows(entries);
@@ -298,38 +310,57 @@ export interface BlankRead {
   hiddenBy?: string;
 }
 
-/** VISUAL.md 3.17: the main region (or body) shows no visible text and no visible media. */
-export function blankRead(r: Reader, sel: (el: Element) => string): BlankRead | null {
+/**
+ * VISUAL.md 3.17: the main region (or body) shows no visible text and no visible media. A generator (the engine runs
+ * it in idle slices, 250 nodes a step); the result is set on `out.res`. A custom element or a shadow host with a box
+ * of at least 16 x 16 counts as content: web-component apps (Lit, Stencil) render inside shadow roots the walk does
+ * not enter.
+ */
+export function* blankScan(r: Reader, sel: (el: Element) => string, out: { res: BlankRead | null }): Generator<void> {
+  out.res = null;
   const doc = r.doc;
   const main = doc.querySelector("main, [role=main]");
   const region = main && r.visible(main) ? main : doc.body;
-  if (!region) return null;
+  if (!region) return;
   let n = 0;
   const tw = doc.createTreeWalker(region, 0x1 | 0x4);
   let firstText: Text | null = null;
+  const big = (el: Element) => {
+    const rc = r.rect(el);
+    return rc.width >= 16 && rc.height >= 16 && r.visible(el);
+  };
   for (let x = tw.nextNode(); x; x = tw.nextNode()) {
-    if (++n > 5000) return { region, content: true, elements: n };
+    if (++n > 5000) {
+      out.res = { region, content: true, elements: n };
+      return;
+    }
+    if (n % 250 === 0) yield;
     if (x.nodeType === 3) {
       const t = x as Text;
       if (!t.data.trim()) continue;
       const p = t.parentElement;
       if (!p || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(p.tagName)) continue;
       firstText ??= t;
-      if (r.visible(p)) return { region, content: true, elements: n };
+      if (r.visible(p)) {
+        out.res = { region, content: true, elements: n };
+        return;
+      }
       continue;
     }
     const el = x as Element;
     const tag = el.tagName.toUpperCase();
     if (el.hasAttribute("data-genclass-ignore")) continue;
-    if (tag === "IMG" ? (el as HTMLImageElement).naturalWidth > 0 : MEDIA.has(tag) || CONTROLS.has(tag)) {
-      const rc = r.rect(el);
-      if (rc.width >= 16 && rc.height >= 16 && r.visible(el)) return { region, content: true, elements: n };
+    if (tag === "IMG" ? (el as HTMLImageElement).naturalWidth > 0 : MEDIA.has(tag) || CONTROLS.has(tag) || tag.includes("-") || !!(el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot) {
+      if (big(el)) {
+        out.res = { region, content: true, elements: n };
+        return;
+      }
       continue;
     }
     const bi = r.cs(el).backgroundImage;
-    if (bi && bi.includes("url(")) {
-      const rc = r.rect(el);
-      if (rc.width >= 16 && rc.height >= 16 && r.visible(el)) return { region, content: true, elements: n };
+    if (bi && bi.includes("url(") && big(el)) {
+      out.res = { region, content: true, elements: n };
+      return;
     }
   }
   let hiddenBy: string | undefined;
@@ -344,7 +375,14 @@ export function blankRead(r: Reader, sel: (el: Element) => string): BlankRead | 
       if (p === region) break;
     }
   }
-  return { region, content: false, elements: n, ...(hiddenBy ? { hiddenBy } : {}) };
+  out.res = { region, content: false, elements: n, ...(hiddenBy ? { hiddenBy } : {}) };
+}
+
+/** blankScan in one go (tools and tests). */
+export function blankRead(r: Reader, sel: (el: Element) => string): BlankRead | null {
+  const out: { res: BlankRead | null } = { res: null };
+  for (const _ of blankScan(r, sel, out)) void _;
+  return out.res;
 }
 
 export function blankDraft(ctx: Ctx, b: BlankRead, errors: number): Draft {

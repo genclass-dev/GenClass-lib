@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A fix that stops fitting</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off" data-mode="guard" data-visual="fix"></script>
+<!-- The active item has a white background and its label is white (the bug). Selecting another item gives the first
+     one its dark background back, where the white label is correct: the fix computed for the white background must
+     be undone then. -->
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #f9fafb; }
+  .list { list-style: none; padding: 0; width: 280px; }
+  .item { background: #1f2937; padding: 10px 12px; margin: 4px 0; cursor: pointer; }
+  .item.active { background: #fff; }
+  .label { color: #fff; }
+</style>
+</head>
+<body>
+<ul class="list">
+  <li class="item active" id="first"><span class="label" data-k="l1" data-expect="text-invisible">Inbox</span></li>
+  <li class="item" id="second"><span class="label">Archive</span></li>
+</ul>
+<script>
+  for (const li of document.querySelectorAll(".item")) li.addEventListener("click", () => document.querySelectorAll(".item").forEach((x) => x.classList.toggle("active", x === li)));
+</script>
+</body>
+</html>

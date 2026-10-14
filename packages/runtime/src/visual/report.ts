@@ -70,7 +70,7 @@ export function toFinding(d: Draft & { folded?: number }, c: FindingContext): Ch
     if (d.fixText) details.push(`Fix: ${d.fixText}.`);
   }
   for (const x of d.details ?? []) details.push(x);
-  if (FIXABLE.has(d.kind) && d.plan) details.push("Runtime fix: available with GenClass.init({ mode: \"guard\", visual: { fix: true } }); observe mode never changes the page.");
+  if (FIXABLE.has(d.kind) && d.plan) details.push("Runtime fix: available with GenClass.init({ mode: \"guard\", visual: { on: true, fix: true } }); observe mode never changes the page.");
   details.push("This is a measured check with a fixed threshold, not a model finding.");
   details.push(`Ignore: add data-genclass-ignore to the element, or GenClass.init({ visual: { ignore: [${JSON.stringify(c.selector)}] } }).`);
   const f: CheckFinding = {

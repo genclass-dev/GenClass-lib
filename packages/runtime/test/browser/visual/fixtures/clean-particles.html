@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A full-screen particles canvas</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<!-- The tsParticles fullScreen pattern: a fixed canvas behind the page (z-index -1, pointer-events: none) paints its
+     background colour, and the page's text is white. The body's own background is white, but the canvas covers it. -->
+<style>
+  body { margin: 0; padding: 32px; font: 18px/1.5 system-ui, sans-serif; color: #fff; background: #fff; }
+  #tsparticles canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="tsparticles"><canvas id="bg"></canvas></div>
+<h1>Build something bright</h1>
+<p>White text over the particles canvas.</p>
+<p>More copy, readable on the dark canvas.</p>
+<script>
+  const c = document.getElementById("bg");
+  c.width = innerWidth;
+  c.height = innerHeight;
+  const g = c.getContext("2d");
+  g.fillStyle = "#0b1020";
+  g.fillRect(0, 0, c.width, c.height);
+</script>
+</body>
+</html>

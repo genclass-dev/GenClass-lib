@@ -5,6 +5,9 @@
 // Invariants:
 // - Reads only, except fix.ts behind the fix gate (guard or heal mode, visual.fix, sampled in, visible tab). In
 //   observe mode nothing on the page changes: no attributes, styles, inserted elements, scrolling or focus.
+// - Page reads never run inside the app's event handlers or in plain timers: passes, re-checks, the periodic read, the
+//   interaction checks and page-blank run in idle callbacks, timed on the Clock and counted in the summary's cost and
+//   the session budget (`idleWork`, `run`).
 // - Time comes from host.clock and idle callbacks from host.global.requestIdleCallback (AGENTS.md rule 5). Event
 //   timestamps the browser hands over (font loadingdone, layout-shift startTime) are compared only with each other.
 // - Never throws into the page: every listener and timer body runs in try/catch.
@@ -14,10 +17,10 @@
 import type { CheckFinding, CheckKind, Clock, VisualFixKind, VisualOptions, VisualSummary } from "../types.js";
 import type { VisualController, VisualHost } from "./host.js";
 import type { Ctx, Draft } from "./draft.js";
-import { DIALOG_SEL, fivePoints, Reader, rootInfo, safeMatches, selectorOf, type Win } from "./measure.js";
+import { DIALOG_SEL, fivePoints, INTERACTIVE_SEL, Reader, rootInfo, safeMatches, selectorOf, type Win } from "./measure.js";
 import { fold, toFinding } from "./report.js";
-import { FIX_KINDS, Fixer } from "./fix.js";
-import { INVISIBLE_RATIO } from "./math.js";
+import { CONTEXT_CHANGED, FIX_KINDS, Fixer } from "./fix.js";
+import { INVISIBLE_RATIO, parseColor } from "./math.js";
 import * as A from "./checks/assets.js";
 import * as T from "./checks/text.js";
 import * as L from "./checks/layout.js";
@@ -68,6 +71,17 @@ export const LIGHT = new Set<CheckKind>([
   "dialog-covered",
 ]);
 const COLOUR = new Set<CheckKind>(["text-invisible"]);
+/**
+ * Kinds judged from events the whole session shares (CSP violations, layout-shift entries): one report per session,
+ * not one per route, so an SPA navigation does not report the first page's events again on the next route.
+ */
+const SESSION_WIDE = new Set<CheckKind>(["csp-blocked", "layout-shift"]);
+/** Resource timing entries the asset checks read (images, CSS-initiated requests, stylesheets). */
+const RES_TYPES = new Set(["img", "image", "input", "css", "link"]);
+const MO_OPTS: MutationObserverInit = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["class", "style", "hidden", "src", "srcset", "width", "height", "open", "data-genclass-fix"] };
+/** Mutation records per second above which the observer rests for 5 s (an animation library writing styles every frame). */
+const MO_RATE = 3000;
+let engines = 0;
 const TEXT = new Set<CheckKind>(["text-invisible", "text-template-leak", "text-placeholder", "text-encoding", "page-overflow-x"]);
 const LAYOUT = new Set<CheckKind>(["page-overflow-x", "viewport-meta-missing", "control-unreachable", "focus-obscured", "dialog-covered", "click-blocked"]);
 
@@ -148,7 +162,9 @@ export class Visual implements VisualController {
   private ids = 0;
   private readonly fixer: Fixer;
   private readonly env: A.AssetEnv;
-  private readonly resources = new Map<string, PerformanceResourceTiming>();
+  /** Resource timing entries by URL (bounded, least recently added dropped first): successful ones and failed ones. */
+  private readonly okRes = new Map<string, PerformanceResourceTiming>();
+  private readonly failedRes = new Map<string, PerformanceResourceTiming>();
   private readonly failedCss: PerformanceResourceTiming[] = [];
   private readonly shifts: L.ShiftEntry[] = [];
   private readonly fontSwaps: number[] = [];
@@ -169,7 +185,6 @@ export class Visual implements VisualController {
   private budget: { start: number; spent: number };
   private slow = 1;
   private maxEl: number;
-  private exempt = false;
   private route: string;
   private lastClick: { overlay: Element; at: number; muts: number; href: string; active: Element | null } | null = null;
   private rootClicks: number[] = [];
@@ -178,6 +193,17 @@ export class Visual implements VisualController {
   private peSince: number | null = null;
   private lockSince: number | null = null;
   private attempts = 0;
+  private attemptPending = false;
+  private touch: { x: number; y: number } | null = null;
+  /** A periodic read saw html and body without a scroll lock (so a lock seen later appeared after the page settled). */
+  private lockSeenFree = false;
+  /** A dialog, menu or drawer was seen open in this session. */
+  private overlayEver = false;
+  /** visibilitychange events to hidden (page-blank requires a tab visible for its whole window). */
+  private hides = 0;
+  private mutWin = { start: 0, n: 0 };
+  private moResting = false;
+  private reverifyTimer: unknown = null;
   private dialogSeen = new WeakSet<Element>();
   private dialogTries = new WeakMap<Element, number>();
   private dialogTimer: unknown = null;
@@ -215,6 +241,7 @@ export class Visual implements VisualController {
       note: (m, f, imp) => this.host.note(m, f, imp),
       warn: (m) => this.warn(m),
       quietly: (fn) => this.quietly(fn),
+      prefix: `${(hash32(`${host.seed}/${++engines}`) % 1679616).toString(36)}-`,
     });
     for (const e of early) this.onCsp(e as SecurityPolicyViolationEvent);
     if (!this.env.statusSupported) this.stats.unsupported.push("image-css-broken");
@@ -357,7 +384,20 @@ export class Visual implements VisualController {
     this.on(doc, "pointercancel", () => (this.dragging = false), cap);
     this.on(doc, "keydown", (e) => this.onKey(e as KeyboardEvent), cap);
     this.on(win, "wheel", (e) => this.onAttempt(e), cap);
+    this.on(win, "touchstart", (e) => {
+      const t = (e as TouchEvent).touches?.[0];
+      this.touch = t ? { x: t.clientX, y: t.clientY } : null;
+    }, cap);
     this.on(win, "touchmove", (e) => this.onAttempt(e), cap);
+    this.on(doc, "visibilitychange", () => {
+      if (doc.visibilityState === "hidden") this.hides++;
+    }, pas);
+    try {
+      // a colour fix is computed for one colour scheme: re-measure when the visitor's scheme changes (no DOM mutation)
+      this.on(this.win.matchMedia?.("(prefers-color-scheme: dark)"), "change", () => this.scheduleReverify(), pas);
+    } catch {
+      /* no matchMedia */
+    }
     this.on(win, "scroll", (e) => {
       if (this.scrolls.length >= 200) this.scrolls.shift();
       this.scrolls.push(e.timeStamp);
@@ -380,8 +420,10 @@ export class Visual implements VisualController {
         try {
           const po = new PO((list) => {
             for (const e of list.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean; sources?: L.ShiftEntry["sources"] })[]) {
-              if (e.hadRecentInput || this.shifts.length >= 500) continue;
+              if (e.hadRecentInput) continue;
               this.shifts.push({ t: e.startTime, value: e.value, sources: [...(e.sources ?? [])].slice(0, 5) });
+              // full passes prune judged windows (pruneShifts); this only bounds a page that shifts without pause
+              if (this.shifts.length > 500) this.shifts.shift();
             }
           });
           po.observe({ type: "layout-shift", buffered: true });
@@ -411,14 +453,23 @@ export class Visual implements VisualController {
           /* ignore */
         }
       });
-      this.mo.observe(doc.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["class", "style", "hidden", "src", "srcset", "width", "height", "open", "data-genclass-fix"] });
+      this.mo.observe(doc.documentElement, MO_OPTS);
     }
   }
 
+  /**
+   * Keep the entries the asset checks read: images, CSS-initiated requests and stylesheets (never fetch, XHR or
+   * beacons), at most 500 successful and 200 failed ones, the oldest dropped first. entry() falls back to the browser's
+   * own resource timeline for the rest.
+   */
   private addResource(e: PerformanceResourceTiming): void {
+    if (!RES_TYPES.has(e.initiatorType)) return;
     const st = (e as { responseStatus?: number }).responseStatus;
     const failed = typeof st === "number" && st >= 400;
-    if (this.resources.size < 2000 || failed) this.resources.set(e.name, e);
+    const m = failed ? this.failedRes : this.okRes;
+    m.delete(e.name);
+    m.set(e.name, e);
+    if (m.size > (failed ? 200 : 500)) m.delete(m.keys().next().value as string);
     if (failed && e.initiatorType === "css" && this.failedCss.length < 50) {
       try {
         if (new URL(e.name).origin === new URL(this.win.location?.href ?? "").origin) this.failedCss.push(e);
@@ -429,7 +480,9 @@ export class Visual implements VisualController {
   }
 
   private entry(url: string): PerformanceResourceTiming | undefined {
-    const e = this.resources.get(url);
+    const a = this.okRes.get(url);
+    const b = this.failedRes.get(url);
+    const e = a && b ? (a.startTime > b.startTime ? a : b) : a ?? b;
     if (e) return e;
     try {
       const list = this.win.performance?.getEntriesByName(url, "resource") as PerformanceResourceTiming[] | undefined;
@@ -448,7 +501,7 @@ export class Visual implements VisualController {
     await this.enqueue(() => this.pass(null));
     this.tick();
     this.scheduleBlank();
-    this.later(() => this.unreachable(this.isAtMax()), 0);
+    this.unreachable(false);
   }
 
   // ------------------------------------------------------------------------------------- timing helpers
@@ -499,6 +552,23 @@ export class Visual implements VisualController {
         res(null);
       }, 0);
       this.timers.add(h);
+    });
+  }
+
+  /**
+   * Run `fn` in an idle callback, timed on the Clock and counted like a pass slice (summary cost, longest slice, the
+   * session budget): interaction and periodic reads never run inside the app's event handlers (VISUAL.md 8).
+   */
+  private idleWork(fn: () => void): Promise<void> {
+    return this.idle().then(() => {
+      if (this.dead) return;
+      const t0 = this.clock.now();
+      try {
+        fn();
+      } catch {
+        /* checks never break the page */
+      }
+      this.account(this.clock.now() - t0);
     });
   }
 
@@ -566,7 +636,6 @@ export class Visual implements VisualController {
       let done = false;
       for (;;) {
         const u0 = this.clock.now();
-        this.exempt = false;
         let r: IteratorResult<void>;
         try {
           r = gen.next();
@@ -574,7 +643,7 @@ export class Visual implements VisualController {
           r = { done: true, value: undefined };
         }
         const u = this.clock.now() - u0;
-        if (u > 16 && !this.exempt) {
+        if (u > 16) {
           // one read forced a long layout: end the pass, wait longer next time, measure fewer elements
           this.slow = Math.min(8, this.slow * 2);
           this.maxEl = Math.max(50, Math.floor(this.maxEl / 2));
@@ -710,6 +779,7 @@ export class Visual implements VisualController {
         L.viewportMeta(ctx, drafts);
         yield;
         L.layoutShifts(ctx, self.shifts, self.fontSwaps, drafts, self.scrolls);
+        L.pruneShifts(self.shifts);
         yield* A.brokenCssImages(ctx, env, drafts);
         yield* L.pageOverflow(ctx, drafts);
         yield* self.cssVars(ctx, drafts);
@@ -768,9 +838,15 @@ export class Visual implements VisualController {
     for (const d of fold(drafts)) {
       if (this.dead) break;
       if (!d.text) continue;
-      const key = `${d.key}|${this.route}`;
+      const key = SESSION_WIDE.has(d.kind) ? d.key : `${d.key}|${this.route}`;
       const known = this.reported.get(key);
       if (known) {
+        // a colour fix undone because its context changed (the item stopped being active, the scheme changed) may
+        // apply again when the same element is unreadable again (at most twice per finding and page)
+        if (d.plan && known.fix && !known.fix.applied && known.fix.reason === CONTEXT_CHANGED) {
+          this.maybeFix(d, known, key);
+          if (known.fix?.applied) this.host.note(`[GenClass] Applied a CSS fix for check ${known.id} again: ${known.fix.css}.`, known, true);
+        }
         out.push(known);
         continue;
       }
@@ -857,20 +933,38 @@ export class Visual implements VisualController {
       if (this.cfg.fix.has(plan.kind)) set(`Runtime fix: not applied (${why}).`);
       return;
     }
-    f.fix = this.fixer.apply(plan, f, key, () => this.verifyFix(d));
+    f.fix = this.fixer.apply(plan, f, key, () => this.verifyFix(d, true), plan.type === "color" ? () => this.verifyFix(d, false) : undefined);
     set(f.fix.applied ? `Runtime fix: applied (${f.fix.css}). Undo: GenClass.runtime.checks().find(c => c.id === "${f.id}").fix.undo()` : `Runtime fix: not applied (${f.fix.reason}).`);
   }
 
-  /** Re-measure after a fix (VISUAL.md 11.2): the threshold must be cleared, else the fix is undone. */
-  private verifyFix(d: Draft): boolean {
+  /**
+   * Re-measure a fix (VISUAL.md 11.2): the threshold must be cleared, else the fix is undone. A colour fix also needs
+   * the background it was computed for, unchanged; `deep` (the check 50 ms after applying) also searches for a painted
+   * layer that hit testing skips, which the resolver cannot see.
+   */
+  private verifyFix(d: Draft, deep: boolean): boolean {
     const plan = d.plan!;
     const r = this.reader();
     if (plan.type === "color") {
-      const read = T.readContrast(this.ctx(r), r, plan.el, rootInfo(r));
-      return !!read && read.v.verdict !== "unknown" && read.v.ratio >= plan.target;
+      if (!plan.el.isConnected) return false;
+      // a re-measure, not a pass: its abstentions are not counted again
+      const ctx = { ...this.ctx(r), abstain: () => undefined };
+      const read = T.readContrast(ctx, r, plan.el, rootInfo(r));
+      if (!read || read.v.verdict === "unknown" || read.v.ratio < plan.target || !nearColor(read.v.bg, plan.bg)) return false;
+      return !deep || !T.hiddenLayer(ctx, r, plan.el, read.input);
     }
     const s = r.cs(plan.el);
     return plan.kind === "pointer-events-leak" ? s.pointerEvents !== "none" : s.overflowY !== "hidden" && s.overflowY !== "clip";
+  }
+
+  /** Re-measure the colour fixes soon (a class or style change, a colour scheme change), debounced. */
+  private scheduleReverify(): void {
+    if (this.dead || !this.fixer.colour) return;
+    this.cancel(this.reverifyTimer);
+    this.reverifyTimer = this.later(() => {
+      this.reverifyTimer = null;
+      void this.idleWork(() => this.fixer.reverify());
+    }, 300);
   }
 
   /** Mode, enabled, breaker, pause: when fixes are no longer allowed, every fix is undone. */
@@ -894,14 +988,41 @@ export class Visual implements VisualController {
     if (!recs.length) return;
     this.fixer.watch(recs);
     const doc = this.doc;
+    const now = this.clock.now();
+    if (now - this.mutWin.start >= 1000) this.mutWin = { start: now, n: 0 };
+    this.mutWin.n += recs.length;
+    if (this.mutWin.n > MO_RATE && this.mo && !this.moResting) {
+      // an animation library writing styles on every frame: rest for 5 s, then one full pass
+      this.moResting = true;
+      this.mo.disconnect();
+      this.later(() => {
+        this.moResting = false;
+        if (!this.mo) return;
+        this.mo.observe(doc.documentElement, MO_OPTS);
+        this.lastMut = this.clock.now();
+        this.requestFull();
+        this.scheduleReverify();
+      }, 5000);
+      return;
+    }
     let counted = false;
     let dialogs = false;
+    let styled = false;
+    // closest() per element once per batch: records of one batch often share their targets
+    const ignored = new Map<Element, boolean>();
     for (const m of recs) {
       if (m.type === "attributes" && m.attributeName === "data-genclass-fix") continue;
       const t = m.target;
       const el = t.nodeType === 1 ? (t as Element) : t.parentElement;
-      if (!el || el.closest("[data-genclass-ignore]")) continue;
+      if (!el) continue;
+      let ign = ignored.get(el);
+      if (ign === undefined) {
+        ign = !!el.closest("[data-genclass-ignore]");
+        ignored.set(el, ign);
+      }
+      if (ign) continue;
       counted = true;
+      if (m.type === "attributes" && (m.attributeName === "class" || m.attributeName === "style")) styled = true;
       if ((el === doc.documentElement || el === doc.body) && m.type === "attributes") {
         if (m.attributeName === "class" || m.attributeName === "style") this.fullWanted = true;
         continue;
@@ -921,12 +1042,16 @@ export class Visual implements VisualController {
     }
     if (!counted) return;
     this.muts++;
-    this.lastMut = this.clock.now();
+    this.lastMut = now;
     if (this.dirty.size > 200) {
       this.dirty.clear();
       this.fullWanted = true;
     }
-    if (dialogs) this.dialogSoon();
+    if (dialogs) {
+      this.overlayEver = true;
+      this.dialogSoon();
+    }
+    if (styled || this.fullWanted) this.scheduleReverify();
     if (this.settledAt !== null) this.scheduleDirty();
   }
 
@@ -978,6 +1103,8 @@ export class Visual implements VisualController {
     this.route = r;
     this.fixer.newPage();
     this.lastClick = null;
+    // a route scoped to observe gets no fixes, also while the tab is hidden
+    this.gateFixes();
     this.requestFull();
     this.scheduleBlank();
   }
@@ -1041,30 +1168,36 @@ export class Visual implements VisualController {
       this.rootClicks = [...this.rootClicks.filter((x) => now - x <= 10_000), now];
     }
     if (t.closest('a[href^="#"]')) this.later(() => this.onAnchor(), 400);
-    const r = this.reader();
-    const ctx = this.ctx(r);
-    if (!ctx.on("click-blocked") || e.detail === 0 || this.dragging) {
+    // what the event says now; the measurement runs after it, in an idle callback, never inside the app's handlers
+    if (e.detail === 0 || this.dragging || t.closest(INTERACTIVE_SEL)) {
       this.lastClick = null;
       return;
     }
-    const c = I.clickBlockedRead(r, t, e.clientX, e.clientY);
+    const at = { t, x: e.clientX, y: e.clientY, now, muts: this.muts, href: String(this.win.location?.href ?? "") };
+    void this.idleWork(() => this.clickRead(at));
+  }
+
+  private clickRead(at: { t: Element; x: number; y: number; now: number; muts: number; href: string }): void {
+    if (!this.live() || !at.t.isConnected) return;
+    const r = this.reader();
+    const ctx = this.ctx(r);
+    if (!ctx.on("click-blocked")) {
+      this.lastClick = null;
+      return;
+    }
+    const c = I.clickBlockedRead(r, at.t, at.x, at.y);
     if (!c || this.doc.querySelector('[aria-busy="true"], [aria-expanded="true"]') || this.host.inflight() > 0) {
       this.lastClick = null;
       return;
     }
-    const href = String(this.win.location?.href ?? "");
     const prev = this.lastClick;
-    if (prev && prev.overlay === c.overlay && now - prev.at <= 3000 && prev.muts === this.muts && prev.href === href && prev.active === this.doc.activeElement) {
+    if (prev && prev.overlay === c.overlay && at.now - prev.at <= 3000 && prev.muts === at.muts && prev.href === at.href && prev.active === this.doc.activeElement) {
       this.lastClick = null;
       this.report([I.clickBlockedDraft(ctx, c)]);
       return;
     }
-    const snap = { overlay: c.overlay, at: now, muts: this.muts, href, active: this.doc.activeElement };
-    this.lastClick = snap;
-    // the click's own focus change has happened once the event is done: compare against that
-    this.later(() => {
-      snap.active = this.doc.activeElement;
-    }, 0);
+    // compared with the next click: the focus once this click's own focus change has happened
+    this.lastClick = { overlay: c.overlay, at: at.now, muts: at.muts, href: at.href, active: this.doc.activeElement };
   }
 
   /** text-invisible on hover and focus (VISUAL.md 3.8 States): readable at rest, unreadable in the state. */
@@ -1074,47 +1207,54 @@ export class Visual implements VisualController {
     if (now - this.stateAt < 500) return;
     const t = e.target as Element | null;
     if (!t || t.nodeType !== 1) return;
-    const ctl = t.closest('a, button, summary, [role="button"], [tabindex]');
+    // a tabindex="-1" wrapper (Gatsby's focus wrapper holds the whole app) is not a control
+    const ctl = t.closest('a, button, summary, [role="button"], [tabindex]:not([tabindex="-1"])');
     if (!ctl || ctl.closest("genclass-devtools")) return;
     if (which === "focus" && !safeMatches(ctl, ":focus-visible")) return;
-    const r0 = this.reader();
-    if (!this.ctx(r0).on("text-invisible")) return;
     this.stateAt = now;
-    const wait = Math.min(1000, transitionMs(r0.cs(ctl)));
     const state = which === "focus" ? "focus" : (e as PointerEvent).pointerType === "touch" ? "touch" : "hover";
     const holds = () => safeMatches(ctl, which === "hover" ? ":hover" : ":focus-visible");
-    const els = [ctl, ...ctl.querySelectorAll("*")].filter((x) => [...x.childNodes].some((n) => n.nodeType === 3 && (n as Text).data.trim())).slice(0, 5);
-    const measure = (): { el: Element; read: T.ContrastRead; rest: number }[] => {
-      const r = this.reader();
-      const ctx = this.ctx(r);
-      const rootI = rootInfo(r);
-      const out: { el: Element; read: T.ContrastRead; rest: number }[] = [];
-      for (const el of els) {
-        const rest = this.rest.get(el);
-        if (rest === undefined || rest < INVISIBLE_RATIO) continue;
-        const read = T.readContrast(ctx, r, el, rootI);
-        if (read && read.v.verdict === "low") out.push({ el, read, rest });
-      }
-      return out;
-    };
-    this.later(() => {
-      if (!holds()) return;
-      const first = measure();
-      if (!first.length) return;
+    void this.idleWork(() => {
+      const r0 = this.reader();
+      if (!this.ctx(r0).on("text-invisible")) return;
+      const wait = Math.min(1000, transitionMs(r0.cs(ctl)));
+      const els = textEls(ctl, 5, 200);
+      const measure = (): { el: Element; read: T.ContrastRead; rest: number }[] => {
+        const r = this.reader();
+        const ctx = this.ctx(r);
+        const rootI = rootInfo(r);
+        const out: { el: Element; read: T.ContrastRead; rest: number }[] = [];
+        for (const el of els) {
+          const rest = this.rest.get(el);
+          if (rest === undefined || rest < INVISIBLE_RATIO || r.animating(el)) continue;
+          const read = T.readContrast(ctx, r, el, rootI);
+          if (read && read.v.verdict === "low") out.push({ el, read, rest });
+        }
+        return out;
+      };
       this.later(() => {
         if (!holds()) return;
-        const again = measure();
-        if (!again.length) return;
-        const ctx = this.ctx(this.reader());
-        this.report(again.map((x) => T.contrastDraft(ctx, x.el, x.read, state, x.rest)));
-      }, 250);
-    }, wait);
+        void this.idleWork(() => {
+          if (!holds() || !measure().length) return;
+          this.later(() => {
+            if (!holds()) return;
+            void this.idleWork(() => {
+              if (!holds()) return;
+              const again = measure();
+              if (!again.length) return;
+              const ctx = this.ctx(this.reader());
+              this.report(again.map((x) => T.contrastDraft(ctx, x.el, x.read, state, x.rest)));
+            });
+          }, 250);
+        });
+      }, wait);
+    });
   }
 
   private onFocus(e: Event): void {
     const t = e.target as Element | null;
     if (!t || t.nodeType !== 1 || !this.settledAt || !safeMatches(t, ":focus-visible")) return;
-    this.later(() => this.testObscured(t, "focus"), 150);
+    this.later(() => void this.idleWork(() => this.testObscured(t, "focus")), 150);
   }
 
   private onAnchor(): void {
@@ -1127,11 +1267,26 @@ export class Visual implements VisualController {
     } catch {
       /* raw */
     }
-    let el: Element | null = this.doc.getElementById(id);
-    if (!el) return;
-    if (el.getBoundingClientRect().height === 0) el = [...el.querySelectorAll("*")].find((x) => x.getBoundingClientRect().height > 0) ?? el;
-    const target = el;
-    this.later(() => this.testObscured(target, "anchor"), 400);
+    const found = this.doc.getElementById(id);
+    if (!found) return;
+    this.later(
+      () =>
+        void this.idleWork(() => {
+          let el: Element = found;
+          if (el.getBoundingClientRect().height === 0) {
+            let n = 0;
+            for (const x of descendants(found)) {
+              if (++n > 200) break;
+              if (x.getBoundingClientRect().height > 0) {
+                el = x;
+                break;
+              }
+            }
+          }
+          this.testObscured(el, "anchor");
+        }),
+      400,
+    );
   }
 
   private testObscured(t: Element, trigger: "focus" | "anchor"): void {
@@ -1159,51 +1314,94 @@ export class Visual implements VisualController {
   private onScroll(): void {
     if (!this.settledAt) return;
     this.cancel(this.scrollTimer);
-    this.scrollTimer = this.later(() => {
-      if (this.isAtMax()) this.unreachable(true);
-    }, 500);
+    this.scrollTimer = this.later(() => this.unreachable(true), 500);
   }
 
-  private unreachable(atMax: boolean): void {
-    if (!this.live()) return;
-    const r = this.reader();
-    const ctx = this.ctx(r);
-    if (!ctx.on("control-unreachable")) return;
-    const drafts: Draft[] = [];
-    for (const c of I.controlsInView(r, this.maxEl)) {
-      const u = I.unreachableRead(r, c, atMax);
-      if (!u) continue;
-      const d = I.unreachableDraft(ctx, c, u);
-      d.persistMs = 1000;
-      d.recheck = (r2) => {
-        const u2 = I.unreachableRead(r2, c, this.isAtMax());
-        return u2 ? I.unreachableDraft(ctx, c, u2) : null;
-      };
-      drafts.push(d);
-    }
-    this.report(drafts);
+  /**
+   * VISUAL.md 3.21, in idle slices. `onlyAtMax`: after scrolling stopped, only when the page is at its end. The scan
+   * starts at the end of the document at max scroll, and each cover's controls are looked up once.
+   */
+  private unreachable(onlyAtMax: boolean): void {
+    if (!this.live() || this.overSession()) return;
+    void this.enqueue(async () => {
+      if (!this.live()) return [];
+      if (!this.visibleNow()) await this.whenVisible();
+      const r = this.reader();
+      const ctx = this.ctx(r);
+      if (!ctx.on("control-unreachable")) return [];
+      const drafts: Draft[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const self = this;
+      function* scan(): Generator<void> {
+        const atMax = self.isAtMax();
+        if (onlyAtMax && !atMax) return;
+        yield;
+        const covers = new Map<Element, boolean>();
+        for (const c of I.controlsInView(r, self.maxEl, atMax)) {
+          yield;
+          const u = I.unreachableRead(r, c, atMax, covers);
+          if (!u) continue;
+          const d = I.unreachableDraft(ctx, c, u);
+          d.persistMs = 1000;
+          d.recheck = (r2) => {
+            const u2 = I.unreachableRead(r2, c, self.isAtMax());
+            return u2 ? I.unreachableDraft(ctx, c, u2) : null;
+          };
+          drafts.push(d);
+        }
+      }
+      await this.run(scan(), { spent: 0, partial: false });
+      return this.confirm(drafts);
+    });
   }
 
   private onKey(e: KeyboardEvent): void {
     if (this.lockSince === null || !["PageDown", " ", "ArrowDown", "End", "Spacebar"].includes(e.key)) return;
     const t = e.target as Element | null;
+    if (this.attemptPending) return;
     if (t && t.nodeType === 1 && (safeMatches(t, "input, textarea, select, [contenteditable], [contenteditable] *") || innerScroller(this.reader(), t))) return;
-    this.attempt();
+    this.attempt(1, e);
   }
 
+  /**
+   * A wheel or a touch drag while the page is locked. Only vertical gestures count (a sideways wheel or swipe is a
+   * carousel's), and only once per 300 ms.
+   */
   private onAttempt(e: Event): void {
-    if (this.lockSince === null) return;
+    if (this.lockSince === null || this.attemptPending) return;
+    let dy: number;
+    if (e.type === "wheel") {
+      const w = e as WheelEvent;
+      if (Math.abs(w.deltaX) >= Math.abs(w.deltaY)) return;
+      dy = w.deltaY;
+    } else {
+      const p = (e as TouchEvent).touches?.[0];
+      if (!p || !this.touch) return;
+      dy = this.touch.y - p.clientY;
+      if (Math.abs(this.touch.x - p.clientX) >= Math.abs(dy)) return;
+    }
     const t = e.target as Element | null;
     if (t && t.nodeType === 1 && innerScroller(this.reader(), t)) return;
-    this.attempt();
+    this.attempt(dy, e);
   }
 
-  private attempt(): void {
-    if (this.lockSince === null) return;
+  /**
+   * A scroll attempt counts when the page could have moved that way (canScroll), and 300 ms later the app did not
+   * consume the event (defaultPrevented: a map zoom, a slider), scrollY and the DOM did not change, and the page does
+   * not scroll by moving a layer (scrollByTransform: full-page sliders, smooth-scroll libraries, mid-transition).
+   */
+  private attempt(dy: number, e: Event): void {
+    if (this.lockSince === null || this.attemptPending) return;
     const y = this.win.scrollY;
+    if (!I.canScroll(dy, y, this.win.innerHeight, this.doc.documentElement.scrollHeight)) return;
     const m = this.muts;
+    this.attemptPending = true;
     this.later(() => {
-      if (this.win.scrollY === y && this.muts === m) this.attempts++;
+      this.attemptPending = false;
+      if (e.defaultPrevented || this.win.scrollY !== y || this.muts !== m) return;
+      void this.idleWork(() => {
+        if (!I.scrollByTransform(this.reader())) this.attempts++;
+      });
     }, 300);
   }
 
@@ -1214,27 +1412,43 @@ export class Visual implements VisualController {
     }, 2000);
   }
 
-  /** VISUAL.md 3.19, 3.20: two computed-style reads every 2 s while visible; route changes; the fix gate. */
+  /** VISUAL.md 3.19, 3.20: every 2 s, the fix gate and route; while visible, an idle read of html and body. */
   private periodic(): void {
-    if (!this.visibleNow()) return;
     this.checkRoute();
     this.gateFixes();
-    if (!this.live()) return;
+    if (!this.visibleNow() || !this.live()) return;
+    void this.idleWork(() => this.periodicRead());
+  }
+
+  private periodicRead(): void {
+    if (!this.live() || !this.visibleNow()) return;
     this.fixer.checkSheet();
+    if (this.fixer.colour) this.fixer.reverify();
     const r = this.reader();
     const ctx = this.ctx(r);
     const l = I.lockRead(r);
     const now = this.clock.now();
-    const open = I.openOverlay(r, false);
-    if (open && this.fixer.active) this.fixer.dropInline("a dialog or menu opened, so the app owns html and body again");
-    if (l.pointer && ctx.on("pointer-events-leak") && !this.dragging && !open) {
+    const inlineFix = this.fixer.inline;
+    // the open set is read only when something is locked or an inline fix is live
+    const open = l.pointer || l.scroll || inlineFix ? I.openOverlay(r, false) : false;
+    if (open) this.overlayEver = true;
+    if (open && inlineFix) this.fixer.dropInline("a dialog or menu opened, so the app owns html and body again");
+    // a busy shield (pointer-events: none while a request runs, a submit in progress) is intended
+    const busy = this.host.inflight() > 0 || !!this.doc.querySelector('[aria-busy="true"]');
+    if (l.pointer && ctx.on("pointer-events-leak") && !this.dragging && !open && !busy) {
       this.peSince ??= now;
       const clicks = this.rootClicks.filter((t) => now - t <= 10_000).length;
       if (now - this.peSince >= 1000 && (l.pointer.inline || clicks > 0)) this.report([I.pointerLeakDraft(ctx, l.pointer, now - this.peSince, clicks)]);
     } else this.peSince = null;
-    if (l.scroll && l.tall && ctx.on("scroll-lock-stuck") && !open && !I.openOverlay(r, true)) {
+    if (!l.scroll) this.lockSeenFree = true;
+    let judge = !!l.scroll && ctx.on("scroll-lock-stuck") && !open && I.isTall(r);
+    if (judge && I.openDrawer(r)) {
+      this.overlayEver = true;
+      judge = false;
+    }
+    if (judge && l.scroll) {
       this.lockSince ??= now;
-      if (now - this.lockSince >= 1000 && this.attempts > 0) this.report([I.scrollLockDraft(ctx, l.scroll, this.attempts)]);
+      if (now - this.lockSince >= 1000 && this.attempts > 0) this.report([I.scrollLockDraft(ctx, l.scroll, this.attempts, this.lockSeenFree || this.overlayEver)]);
     } else {
       this.lockSince = null;
       this.attempts = 0;
@@ -1245,22 +1459,39 @@ export class Visual implements VisualController {
     this.later(() => void this.blank(), 3000);
   }
 
-  /** VISUAL.md 3.17: settle + 3 s, again 2 s later with nothing in flight (waiting at most 10 s more). */
+  /**
+   * VISUAL.md 3.17: settle + 3 s, again 2 s later with nothing in flight (waiting at most 10 s more), the tab visible
+   * for the whole window (a hidden tab pauses requestAnimationFrame, so a fade-in route stays at opacity 0 there).
+   */
   private async blank(): Promise<void> {
+    if (!this.live()) return;
+    await this.whenVisible();
     if (!this.live()) return;
     const sel = (el: Element) => selectorOf(el, this.win).selector;
     const r = this.reader();
     if (!this.ctx(r).on("page-blank")) return;
-    const b = L.blankRead(r, sel);
+    const hides = this.hides;
+    const b = await this.blankScan(r, sel);
     if (!b || b.content) return;
     await this.sleep(2000);
     for (let i = 0; i < 10 && this.host.inflight() > 0 && !this.dead; i++) await this.sleep(1000);
     if (this.dead || this.host.inflight() > 0) return;
+    if (this.hides !== hides || !this.visibleNow()) {
+      // the tab was hidden during the window: start again once it is visible
+      this.scheduleBlank();
+      return;
+    }
     const r2 = this.reader();
-    const b2 = L.blankRead(r2, sel);
-    if (!b2 || b2.content) return;
+    const b2 = await this.blankScan(r2, sel);
+    if (!b2 || b2.content || this.hides !== hides) return;
     const ctx = this.ctx(r2);
     void this.enqueue(() => Promise.resolve(this.publish([L.blankDraft(ctx, b2, this.host.errors())])));
+  }
+
+  private async blankScan(r: Reader, sel: (el: Element) => string): Promise<L.BlankRead | null> {
+    const out: { res: L.BlankRead | null } = { res: null };
+    const done = await this.run(L.blankScan(r, sel, out), { spent: 0, partial: false });
+    return done ? out.res : null;
   }
 
   private dialogSoon(): void {
@@ -1269,9 +1500,16 @@ export class Visual implements VisualController {
     this.dialogTimer = this.later(() => {
       this.dialogTimer = null;
       if (!this.live()) return;
-      void this.enqueue(() => {
+      void this.enqueue(async () => {
         const drafts: Draft[] = [];
-        this.dialogs(this.ctx(this.reader()), drafts);
+        const ctx = this.ctx(this.reader());
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        function* step(): Generator<void> {
+          yield;
+          self.dialogs(ctx, drafts);
+        }
+        await this.run(step(), { spent: 0, partial: false });
         return this.confirm(drafts);
       });
     }, 300);
@@ -1301,15 +1539,22 @@ export class Visual implements VisualController {
     }
   }
 
+  /** css-var-undefined once per stylesheet set (in slices: the walk yields every 200 rules, each reference is a step). */
   private *cssVars(ctx: Ctx, out: Draft[]): Generator<void> {
     if (!ctx.on("css-var-undefined")) return;
     const sig = `${this.doc.styleSheets.length}|${(this.doc as Document & { adoptedStyleSheets?: unknown[] }).adoptedStyleSheets?.length ?? 0}`;
     if (sig === this.cssVarSig) return;
-    this.cssVarSig = sig;
     yield;
-    this.exempt = true;
-    T.cssVarDrafts(ctx, out);
+    yield* T.cssVarDrafts(ctx, out);
+    // only a finished walk counts: a pass that ran out of budget walks again next time
+    this.cssVarSig = sig;
   }
+}
+
+/** Two "#rrggbb" colours within 2 of each other on every channel (measurements of one background agree to rounding). */
+function nearColor(c: [number, number, number, number], hex: string): boolean {
+  const h = parseColor(hex);
+  return !!h && Math.abs(c[0] - h[0]) <= 2 && Math.abs(c[1] - h[1]) <= 2 && Math.abs(c[2] - h[2]) <= 2;
 }
 
 /** The longest transition for color or background-color (or all), duration plus delay, in ms. */
@@ -1329,6 +1574,25 @@ function toMs(v: string): number {
   const n = parseFloat(t);
   if (!Number.isFinite(n)) return 0;
   return t.endsWith("ms") ? n : n * 1000;
+}
+
+/** The control and its descendants that have their own text: at most `n`, looking at no more than `limit` elements. */
+export function textEls(ctl: Element, n: number, limit: number): Element[] {
+  const out: Element[] = [];
+  const own = (x: Element) => [...x.childNodes].some((c) => c.nodeType === 3 && (c as Text).data.trim());
+  if (own(ctl)) out.push(ctl);
+  let seen = 0;
+  for (const x of descendants(ctl)) {
+    if (out.length >= n || ++seen > limit) break;
+    if (own(x)) out.push(x);
+  }
+  return out;
+}
+
+/** Descendant elements in document order, lazily (a TreeWalker: stopping early costs nothing for the rest). */
+function* descendants(root: Element): Generator<Element> {
+  const tw = root.ownerDocument.createTreeWalker(root, 0x1);
+  for (let x = tw.nextNode(); x; x = tw.nextNode()) yield x as Element;
 }
 
 /** The target is inside a container that scrolls on its own (scroll attempts there are not about the page). */

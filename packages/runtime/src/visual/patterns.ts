@@ -38,12 +38,16 @@ export const WEAK_VALUES = new Set(["undefined", "null", "NaN"]);
 /** Image hosts that only serve placeholder images. */
 export const PLACEHOLDER_HOSTS = ["placehold.co", "via.placeholder.com", "placeholder.com", "dummyimage.com", "picsum.photos", "placekitten.com"];
 
-/** The patterns `text` shows, with the index of the first match. */
+/** Characters of one text node the patterns look at: a huge node (a log or JSON viewer) costs one bounded step. */
+export const SCAN_CHARS = 4000;
+
+/** The patterns `text` shows (in its first SCAN_CHARS characters), with the index of the first match. */
 export function scanText(text: string): { p: TextPattern; index: number }[] {
   const out: { p: TextPattern; index: number }[] = [];
   if (!text || text.length < 3) return out;
+  const t = text.length > SCAN_CHARS ? text.slice(0, SCAN_CHARS) : text;
   for (const p of TEXT_PATTERNS) {
-    const m = p.re.exec(text);
+    const m = p.re.exec(t);
     if (m) out.push({ p, index: m.index });
   }
   return out;

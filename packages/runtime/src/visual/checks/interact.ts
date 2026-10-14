@@ -101,7 +101,11 @@ export function openOverlay(r: Reader, drawers: boolean): boolean {
   }
   if (list.some((el) => r.visible(el))) return true;
   if (openByTrigger(r)) return true;
-  if (!drawers) return false;
+  return drawers && openDrawer(r);
+}
+
+/** A fixed element covering half the viewport or more is under its centre (a drawer without ARIA). */
+export function openDrawer(r: Reader): boolean {
   for (const el of r.stack(Math.floor(r.win.innerWidth / 2), Math.floor(r.win.innerHeight / 2))) {
     const p = r.pinned(el);
     if (p && p.tagName !== "GENCLASS-DEVTOOLS" && coverage(r.rect(p), r.win.innerWidth, r.win.innerHeight) >= 0.5) return true;
@@ -114,8 +118,37 @@ export interface LockRead {
   pointer: { el: HTMLElement; inline: boolean } | null;
   /** html or body with overflow-y hidden or clip (or the iOS fixed-body lock). */
   scroll: { el: HTMLElement; value: string; inline: string[]; fixedBody: boolean } | null;
-  /** The document is taller than the viewport by more than 100 px. */
-  tall: boolean;
+}
+
+/** The document is taller than the viewport by more than 100 px (read only when a scroll lock is found: it forces layout). */
+export function isTall(r: Reader): boolean {
+  return r.doc.documentElement.scrollHeight > r.win.innerHeight + 100;
+}
+
+/**
+ * A scroll attempt could have moved the page if it were not locked: down while there is page below the viewport, up
+ * while the page is scrolled. A wheel up at the top or down at the end is no evidence of a lock (VISUAL.md 3.20).
+ */
+export function canScroll(dy: number, scrollY: number, innerHeight: number, scrollHeight: number): boolean {
+  if (dy > 0) return scrollY + innerHeight < scrollHeight - 2;
+  if (dy < 0) return scrollY > 0;
+  return false;
+}
+
+/**
+ * The page scrolls by moving a layer instead of the document (fullPage.js, Swiper and pagePiling full-page sliders,
+ * smooth-scroll libraries): an element under the viewport's centre, at least 90% of the viewport tall, that is
+ * transformed or has a running animation or transition. Such a page locks the document on purpose.
+ */
+export function scrollByTransform(r: Reader): boolean {
+  const vh = r.win.innerHeight;
+  const hit = r.at(Math.floor(r.win.innerWidth / 2), Math.floor(vh / 2));
+  for (let x: Element | null = hit; x && x !== r.doc.body && x !== r.doc.documentElement; x = parentOf(x)) {
+    if (r.rect(x).height < vh * 0.9) continue;
+    const t = r.cs(x).transform;
+    if ((t && t !== "none") || r.animating(x)) return true;
+  }
+  return false;
 }
 
 export function lockRead(r: Reader): LockRead {
@@ -133,7 +166,7 @@ export function lockRead(r: Reader): LockRead {
   }
   const body = doc.body;
   if (!scroll && body && r.cs(body).position === "fixed" && parseFloat(body.style.top) < 0) scroll = { el: body, value: `position: fixed; top: ${body.style.top}`, inline: [], fixedBody: true };
-  return { pointer, scroll, tall: doc.documentElement.scrollHeight > r.win.innerHeight + 100 };
+  return { pointer, scroll };
 }
 
 export function pointerLeakDraft(ctx: Ctx, p: NonNullable<LockRead["pointer"]>, ms: number, rootClicks: number): Draft {
@@ -152,7 +185,12 @@ export function pointerLeakDraft(ctx: Ctx, p: NonNullable<LockRead["pointer"]>, 
   };
 }
 
-export function scrollLockDraft(ctx: Ctx, l: NonNullable<LockRead["scroll"]>, attempts: number): Draft {
+/**
+ * `fixable`: the lock appeared after the page settled or a dialog or menu was seen in this session. A lock held since
+ * the page loaded with nothing ever open is the page's design (a full-page slider, an app shell) more often than a
+ * leak, so it is reported but never removed at runtime.
+ */
+export function scrollLockDraft(ctx: Ctx, l: NonNullable<LockRead["scroll"]>, attempts: number, fixable = true): Draft {
   const sel = l.el === ctx.r.doc.body ? "body" : "html";
   const cls = [...l.el.classList].filter((c) => /lock|modal|open|noscroll|no-scroll|overflow/i.test(c));
   return {
@@ -173,18 +211,19 @@ export function scrollLockDraft(ctx: Ctx, l: NonNullable<LockRead["scroll"]>, at
     fixText: cls.length
       ? `remove the ${cls[0]} class in every close path (including an unmount mid-animation and route changes)`
       : "release the lock in every close path, including an unmount mid-animation and route changes (cleanup in the effect's return); prefer lock utilities that count nested locks",
-    ...(l.inline.length ? { plan: { type: "inline" as const, kind: "scroll-lock-stuck" as const, el: l.el, props: l.inline } } : {}),
+    ...(l.inline.length && fixable ? { plan: { type: "inline" as const, kind: "scroll-lock-stuck" as const, el: l.el, props: l.inline } } : {}),
+    ...(l.inline.length && !fixable ? { details: ["Runtime fix: not offered (the lock has been in place since the page loaded and no dialog or menu was open in this session)."] } : {}),
   };
 }
 
 // --------------------------------------------------------------------------------------- control-unreachable
 
-/** The element at all five points, if they agree. */
+/** The element at all five points, if they agree and it is not the control (one hit test when the control is on top). */
 function sameHit(r: Reader, el: Element): Element | null {
   let hit: Element | null = null;
   for (const p of fivePoints(r.rect(el))) {
     const h = r.at(p.x, p.y);
-    if (!h) return null;
+    if (!h || h === el || containsDeep(el, h)) return null;
     if (hit && h !== hit) return null;
     hit = h;
   }
@@ -205,14 +244,22 @@ export function coverJudgeable(o: { width: number; height: number; innerHeight: 
   return "ok";
 }
 
-/** VISUAL.md 3.21: a control under a fixed or sticky element that scrolling cannot move it out from under. */
-export function unreachableRead(r: Reader, ctl: Element, atMax: boolean): { cover: Element; pinned: Element } | null {
+/**
+ * VISUAL.md 3.21: a control under a fixed or sticky element that scrolling cannot move it out from under. `covers`
+ * caches each cover's verdict for one scan (its controls are looked up once, not once per control under it).
+ */
+export function unreachableRead(r: Reader, ctl: Element, atMax: boolean, covers?: Map<Element, boolean>): { cover: Element; pinned: Element } | null {
   const hit = sameHit(r, ctl);
   if (!hit || hit === ctl || containsDeep(ctl, hit) || containsDeep(hit, ctl)) return null;
   const p = r.pinned(hit);
   if (!p || containsDeep(p, ctl) || inDialog(p) || p.tagName === "GENCLASS-DEVTOOLS") return null;
   const pr = r.rect(p);
-  if (coverJudgeable({ width: pr.width, height: pr.height, innerHeight: r.win.innerHeight, controls: focusableInside(p).filter((f) => f !== p).length }) !== "ok") return null;
+  let ok = covers?.get(p);
+  if (ok === undefined) {
+    ok = coverJudgeable({ width: pr.width, height: pr.height, innerHeight: r.win.innerHeight, controls: focusableInside(p).filter((f) => f !== p).length }) === "ok";
+    covers?.set(p, ok);
+  }
+  if (!ok) return null;
   const bottom = pr.bottom >= r.win.innerHeight - 2;
   const top = pr.top <= 2;
   if (!((bottom && atMax) || (top && r.win.scrollY <= 1))) return null;
@@ -360,8 +407,10 @@ export function dialogRead(r: Reader, dlg: Element): DialogRead {
   if (W > 4 && H > 4) for (const fy of [0.1, 0.5, 0.9]) for (const fx of [0.1, 0.5, 0.9]) pts.push({ x: Math.floor(L + W * fx), y: Math.floor(T + H * fy) });
   const kids = focusableInside(dlg).filter((k) => r.visible(k)).slice(0, 11);
   for (const k of kids) {
-    const kr = r.rect(k);
-    if (kr.bottom > 0 && kr.top < vh) pts.push({ x: Math.floor(kr.left + kr.width / 2), y: Math.floor(kr.top + kr.height / 2), child: k });
+    // the part of the child its scroll containers (up to the dialog) and the viewport show: a child scrolled out of a
+    // dialog's own scroll area is not covered by anything, it is just scrolled away
+    const c = clippedRect(r, k, dlg);
+    if (c) pts.push({ x: Math.floor((c.left + c.right) / 2), y: Math.floor((c.top + c.bottom) / 2), child: k });
   }
   const out: DialogRead = { total: 0, covered: 0 };
   for (const p of pts) {
@@ -379,7 +428,8 @@ export function dialogRead(r: Reader, dlg: Element): DialogRead {
   const s = r.cs(dlg);
   if (s.position === "fixed" && rc.bottom > vh && !/auto|scroll/.test(s.overflowY)) {
     const b = kids.length ? kids : focusableInside(dlg);
-    out.below = b.find((k) => r.rect(k).top >= vh);
+    // a child inside a scroll container of the dialog can be scrolled to
+    out.below = b.find((k) => r.rect(k).top >= vh && !scrollsInside(r, k, dlg));
   }
   for (let p = parentOf(dlg); p && p !== r.doc.body; p = parentOf(p)) {
     const ps = r.cs(p);
@@ -390,6 +440,41 @@ export function dialogRead(r: Reader, dlg: Element): DialogRead {
     }
   }
   return out;
+}
+
+type Box = { left: number; top: number; right: number; bottom: number };
+
+/** Intersection of two boxes, or null when it is empty. */
+export function intersect(a: Box, b: Box): Box | null {
+  const o = { left: Math.max(a.left, b.left), top: Math.max(a.top, b.top), right: Math.min(a.right, b.right), bottom: Math.min(a.bottom, b.bottom) };
+  return o.right - o.left >= 1 && o.bottom - o.top >= 1 ? o : null;
+}
+
+const clipsOverflow = (s: CSSStyleDeclaration) => /hidden|clip|auto|scroll/.test(`${s.overflowX} ${s.overflowY}`);
+
+/** The visible part of `el`: its rect clipped by every overflow-clipping ancestor up to and including `top`, and the viewport. */
+export function clippedRect(r: Reader, el: Element, top: Element): Box | null {
+  let box: Box | null = intersect(r.rect(el), { left: 0, top: 0, right: r.win.innerWidth, bottom: r.win.innerHeight });
+  for (let a = parentOf(el); a && box; a = parentOf(a)) {
+    if (clipsOverflow(r.cs(a))) {
+      const ar = r.rect(a);
+      const he = a as HTMLElement;
+      const l = ar.left + (he.clientLeft || 0);
+      const t = ar.top + (he.clientTop || 0);
+      box = intersect(box, { left: l, top: t, right: l + (he.clientWidth || ar.width), bottom: t + (he.clientHeight || ar.height) });
+    }
+    if (a === top) break;
+  }
+  return box;
+}
+
+/** `el` sits in a container (up to and including `top`) that scrolls vertically. */
+function scrollsInside(r: Reader, el: Element, top: Element): boolean {
+  for (let a = parentOf(el); a; a = parentOf(a)) {
+    if (/auto|scroll/.test(r.cs(a).overflowY)) return true;
+    if (a === top) break;
+  }
+  return false;
 }
 
 export function dialogReportable(d: DialogRead): boolean {
@@ -435,13 +520,26 @@ export function dialogDraft(ctx: Ctx, dlg: Element, d: DialogRead): Draft {
   };
 }
 
-/** Controls to test for control-unreachable: visible, interactive, intersecting the viewport (at most 50). */
-export function controlsInView(r: Reader, max: number): Element[] {
+/**
+ * Controls to test for control-unreachable: visible, interactive, intersecting the viewport (at most 50). At the end
+ * of the page the scan runs from the last control backwards; it stops after 20 controls in a row that lie beyond the
+ * viewport in the scan's direction (document order follows the page, so the rest are out of view too).
+ */
+export function controlsInView(r: Reader, max: number, fromEnd = false): Element[] {
   const out: Element[] = [];
   const all = r.doc.querySelectorAll(INTERACTIVE_SEL);
-  for (let i = 0; i < all.length && i < max && out.length < 50; i++) {
-    const el = all[i];
-    if (el.closest("genclass-devtools") || !r.inViewport(el) || !r.visible(el) || !isInteractive(el, r)) continue;
+  const n = Math.min(all.length, max);
+  let beyond = 0;
+  for (let k = 0; k < n && out.length < 50 && beyond < 20; k++) {
+    const el = all[fromEnd ? all.length - 1 - k : k];
+    if (el.closest("genclass-devtools")) continue;
+    const rc = r.rect(el);
+    if (fromEnd ? rc.bottom <= 0 : rc.top >= r.win.innerHeight) {
+      beyond++;
+      continue;
+    }
+    beyond = 0;
+    if (!r.inViewport(el) || !r.visible(el) || !isInteractive(el, r)) continue;
     out.push(el);
   }
   return out;

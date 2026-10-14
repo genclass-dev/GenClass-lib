@@ -75,6 +75,8 @@ export class Reader {
   private hiddenAnc = new Map<Element, boolean>();
   /** Elements that are, or are inside, a running animation or transition target (collected once per pass). */
   private anim: Set<Element> | null = null;
+  /** elementsFromPoint results of this pass, by point (the resolver and the skipped-layer search share them). */
+  private stacks = new Map<string, Element[]>();
   readonly doc: Document;
   /** Reads done (for budgets and stats). */
   reads = 0;
@@ -233,8 +235,14 @@ export class Reader {
 
   stack(x: number, y: number): Element[] {
     if (x < 0 || y < 0 || x >= this.win.innerWidth || y >= this.win.innerHeight) return [];
-    this.reads++;
-    return this.doc.elementsFromPoint(x, y);
+    const k = `${x},${y}`;
+    let st = this.stacks.get(k);
+    if (!st) {
+      this.reads++;
+      st = this.doc.elementsFromPoint(x, y);
+      if (this.stacks.size < 500) this.stacks.set(k, st);
+    }
+    return st;
   }
 }
 
@@ -329,8 +337,29 @@ export interface Layer {
 export interface RootInfo {
   html: string;
   body: string;
-  /** The root allows dark (computed color-scheme) and the visitor prefers dark: the UA canvas is dark. */
+  /** The page's used colour scheme is dark (canvasScheme): the UA canvas is dark. */
   darkCanvas: boolean;
+  /** The used colour scheme cannot be read: light text on the canvas is not judged. */
+  canvasUnknown?: boolean;
+}
+
+/**
+ * The colour scheme of the canvas behind a page whose root has no opaque background (VISUAL.md 2.4). It is the root's
+ * computed `color-scheme`, or, when that is "normal", the `<meta name="color-scheme">` content (the meta tag sets the
+ * used scheme without changing the computed value). A list without "light" ("dark", "only dark") is dark whatever the
+ * visitor prefers; "light dark" follows the visitor; anything else is light. "unknown": the browser does not expose
+ * the computed value and no meta tag says it.
+ */
+export function canvasScheme(computed: string | undefined, meta: string | null, prefersDark: boolean): "light" | "dark" | "unknown" {
+  let v = typeof computed === "string" ? computed.trim().toLowerCase() : "";
+  if (!v || v === "normal") {
+    if (meta !== null) v = meta.trim().toLowerCase();
+    else if (typeof computed !== "string") return "unknown";
+  }
+  const t = v.split(/[\s,]+/);
+  const dark = t.includes("dark");
+  if (dark && !t.includes("light")) return "dark";
+  return dark && prefersDark ? "dark" : "light";
 }
 
 /** The layers under a point from `el` down (el first), or "covered" when something else is on top. */
@@ -371,14 +400,83 @@ export function layersAt(r: Reader, el: Element, x: number, y: number): Layer[] 
 export function rootInfo(r: Reader): RootInfo {
   const html = r.doc.documentElement;
   const body = r.doc.body;
-  const scheme = r.cs(html).colorScheme || "normal";
   let prefersDark = false;
   try {
     prefersDark = !!r.win.matchMedia?.("(prefers-color-scheme: dark)").matches;
   } catch {
     prefersDark = false;
   }
-  return { html: r.cs(html).backgroundColor, body: body ? r.cs(body).backgroundColor : "transparent", darkCanvas: prefersDark && /\bdark\b/.test(scheme) };
+  let meta: string | null = null;
+  try {
+    meta = r.doc.querySelector('meta[name="color-scheme" i]')?.getAttribute("content") ?? null;
+  } catch {
+    meta = null;
+  }
+  const c = canvasScheme((r.cs(html) as CSSStyleDeclaration & { colorScheme?: string }).colorScheme, meta, prefersDark);
+  return { html: r.cs(html).backgroundColor, body: body ? r.cs(body).backgroundColor : "transparent", darkCanvas: c === "dark", ...(c === "unknown" ? { canvasUnknown: true } : {}) };
+}
+
+/** The element paints at its box: a replaced element, a background colour or image, or a pseudo layer with one. */
+function paintsBox(r: Reader, el: Element, s: CSSStyleDeclaration): boolean {
+  if (REPLACED.has(el.tagName.toUpperCase())) return true;
+  const bg = parseColor(s.backgroundColor);
+  if ((bg && bg[3] > 0) || (s.backgroundImage && s.backgroundImage !== "none")) return true;
+  for (const p of ["::before", "::after"] as const) {
+    const ps = r.pseudo(el, p);
+    if (!ps || ps.content === "none" || ps.content === "normal") continue;
+    const pc = parseColor(ps.backgroundColor);
+    if ((pc && pc[3] > 0) || (ps.backgroundImage && ps.backgroundImage !== "none")) return true;
+  }
+  return false;
+}
+
+/**
+ * A layer that paints under (or over) the text but that hit testing skips: an element with `pointer-events: none`
+ * whose box contains a sample point and covers at least half of the text element's box, and that paints (a hero
+ * video, a particles canvas, a dark overlay). `elementsFromPoint` never returns such a layer, so the background
+ * resolver cannot see its colour (VISUAL.md 2.4 step 7): a low verdict is not trusted while one exists. The search
+ * covers the document's replaced elements, the text element's ancestors that hit testing skipped, and the subtrees
+ * under the element and its ancestors, descending only into boxes that contain a point (or have no box of their own).
+ * "unknown" when it read more than `max` boxes. Only run for low verdicts, which are rare.
+ */
+export function skippedLayer(r: Reader, el: Element, pts: { x: number; y: number }[], max = 3000): Element | "unknown" | null {
+  if (!pts.length) return null;
+  const er = r.rect(el);
+  const area = Math.max(1, er.width * er.height);
+  const inside = (rc: DOMRect) => pts.some((p) => p.x >= rc.left && p.x < rc.right && p.y >= rc.top && p.y < rc.bottom);
+  const covers = (rc: DOMRect) => Math.max(0, Math.min(rc.right, er.right) - Math.max(rc.left, er.left)) * Math.max(0, Math.min(rc.bottom, er.bottom) - Math.max(rc.top, er.top)) >= area / 2;
+  const layer = (e: Element, rc: DOMRect): boolean => {
+    if (e === el || !inside(rc) || !covers(rc)) return false;
+    const s = r.cs(e);
+    if (s.pointerEvents !== "none" || s.visibility !== "visible" || !(parseFloat(s.opacity) > 0)) return false;
+    const cv = (e as Element & { checkVisibility?: (o: Record<string, boolean>) => boolean }).checkVisibility;
+    if (typeof cv === "function" && !cv.call(e, { opacityProperty: true, visibilityProperty: true })) return false;
+    return paintsBox(r, e, s);
+  };
+  let n = 0;
+  for (const m of r.doc.querySelectorAll("video, canvas, img, iframe, embed, object")) {
+    if (++n > max) return "unknown";
+    if (layer(m, r.rect(m))) return m;
+  }
+  const hit = new Set<Element>();
+  for (const p of pts) for (const e of r.stack(p.x, p.y)) hit.add(e);
+  const queue: Element[] = [...el.children];
+  let prev: Element = el;
+  for (let a = parentOf(el); a; a = parentOf(a)) {
+    if (!hit.has(a) && layer(a, r.rect(a))) return a;
+    for (const c of a.children) if (c !== prev) queue.push(c);
+    prev = a;
+  }
+  for (let i = 0; i < queue.length; i++) {
+    if (++n > max) return "unknown";
+    const e = queue[i];
+    const rc = r.rect(e);
+    if (inside(rc)) {
+      if (layer(e, rc)) return e;
+      for (const c of e.children) queue.push(c);
+    } else if ((rc.width < 1 || rc.height < 1) && r.cs(e).display !== "none") for (const c of e.children) queue.push(c);
+  }
+  return null;
 }
 
 /** Points to test a text element at: its first direct text node's first and last line boxes, and its content box. */

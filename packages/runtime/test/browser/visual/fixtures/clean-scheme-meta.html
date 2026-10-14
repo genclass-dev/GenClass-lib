@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Dark mode from the meta tag alone (web.dev's advice for an unstyled page): the computed color-scheme stays
+     "normal", but the canvas and the default text colour follow the visitor. Correct in both schemes. -->
+<meta name="color-scheme" content="light dark">
+<title>Dark mode from the meta tag</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; }</style>
+</head>
+<body>
+<h1>Release notes</h1>
+<p>Text in the default colour on the browser's canvas, in whichever scheme the visitor uses.</p>
+<p>A second paragraph, and a <a href="#notes">link</a>.</p>
+<ul><li>First item</li><li>Second item</li></ul>
+<button type="button">Default button</button>
+</body>
+</html>
