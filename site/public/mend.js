@@ -26,6 +26,7 @@
   const OPEN = at(0.6); // where the scripted breaks may start
   const Z1 = at(0.2), Z2 = at(0.55); // red and green come in three strengths so nothing loud crosses the headline
   const HEAL = 1300; // how long a mended point stays green, the visible repair front
+  const LIFE = 3600, LIFE_PHONE = 3200; // how long a note stays up; a phone shows one at a time, so one per break
 
   // The small caption under the lattice. Its top edge is a floor for the notes and the scripted breaks.
   const cap = document.createElement("p");
@@ -38,12 +39,13 @@
 
   let TEXT = [], BODY = []; // the soft boxes; BODY leaves out the caption (the breaks keep their centres above it)
   let W = 0, H = 0, DPR = 1, S = 22, bump = 0, LW = 1.35, K = 1, N = 0, cols = 0, rows = 0, RH = 0, E = 0, capTop = 0;
-  let phone = false, MONO = "11" + FONT, NH = 18; // NH: a note's height
+  let narrow = false, phone = false, MONO = "11" + FONT, NH = 18; // NH: a note's height
+  let bandTop = 0, bandBot = 0; // on a phone: the open band between the last line of text and the caption
   let EV = { stale: 62, dup: 50, tear: 170 };
   let hx, hy, x, y, vx, vy, st, ts, ta, al, ea, eb, a0, adj, fresh;
   const ghosts = [], labels = [];
   let now = 0, last = 0, nextEvent = 1400, raf = 0, visible = true, onScreen = true;
-  let nBroken = 0, nHealed = 0, kind = 0, slow = 0, frames = 0, introDone = false;
+  let nBroken = 0, nHealed = 0, kind = 0, slow = 0, frames = 0, introDone = false, dust = 0; // dust: intro points not yet knitted
 
   // ---------- lattice ----------
   function build() {
@@ -56,15 +58,20 @@
     cv.style.width = W + "px";
     cv.style.height = H + "px";
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    phone = W < 700;
-    S = (phone ? 26 : 22) + bump; // a slow device gets a coarser lattice (bump), never a finer one
+    // narrow (under 700px): a coarser cell and smaller breaks. phone: the CSS phone layout (640px and under, the same
+    // media query), where the text fills the width, the soft areas hug each line and the breaks play in the band
+    // between the text and the caption
+    narrow = W < 700;
+    phone = narrow && mq("(max-width: 640px)");
+    S = (narrow ? 26 : 22) + bump; // a slow device gets a coarser lattice (bump), never a finer one
     // On a 1x screen a line wider than one device pixel loses the fast thin-line path; where the canvas is drawn on
     // the CPU that costs about 8x per frame. There the lines stay 1px and a little stronger (K) for the same weight.
     const thin = DPR < 1.5;
-    LW = thin ? 1 : phone ? 1.25 : 1.35;
+    LW = thin ? 1 : narrow ? 1.25 : 1.35;
     K = (thin ? 1.3 : 1) * (phone ? 0.88 : 1); // on a phone the open lattice is most of the screen: a touch lighter
-    // a phone's open field is short, so its breaks are smaller; its notes are a size larger so they read at arm's length
-    EV = phone ? { stale: 38, dup: 30, tear: 104 } : { stale: 62, dup: 50, tear: 170 };
+    // a phone's band is short, so its breaks are smaller (and shrink further to fit the band, see spotPhone); its notes
+    // are a size larger so they read at arm's length
+    EV = phone ? { stale: 38, dup: 30, tear: 104 } : narrow ? { stale: 44, dup: 36, tear: 110 } : { stale: 62, dup: 50, tear: 170 };
     MONO = (phone ? "12" : "11") + FONT;
     NH = phone ? 20 : 18;
     RH = S * 0.8660254;
@@ -97,7 +104,7 @@
     a0 = deg; adj = new Int32Array(2 * E);
     const fill = a0.slice(0, N);
     for (let e = 0; e < E; e++) { adj[fill[ea[e]]++] = eb[e]; adj[fill[eb[e]]++] = ea[e]; }
-    ghosts.length = 0; labels.length = 0;
+    ghosts.length = 0; labels.length = 0; dust = 0;
     mask();
     if (!introDone && !reduce) intro();
   }
@@ -114,7 +121,7 @@
       const a = Math.random() * 6.2832, r = 30 + Math.random() * 110;
       x[k] = hx[k] + Math.cos(a) * r; y[k] = hy[k] + Math.sin(a) * r;
       vx[k] = vy[k] = 0;
-      st[k] = 1; fresh[k] = 1; ts[k] = now; ta[k] = now + 250 + d * 1.35;
+      st[k] = 1; fresh[k] = 1; ts[k] = now; ta[k] = now + 250 + d * 1.35; dust++;
     }
     nextEvent = now + 2800;
   }
@@ -141,6 +148,8 @@
     TEXT = phone ? BODY.concat(soft([cap.getBoundingClientRect()])) : BODY;
     const cr = cap.getBoundingClientRect();
     capTop = cr.height > 0 ? cr.top - sr.top : H - 34;
+    bandTop = BODY.reduce((m, b) => Math.max(m, b[3]), 0);
+    bandBot = capTop - 6;
     for (let k = 0; k < N; k++) {
       const d = clear(hx[k], hy[k]);
       const f = d >= fade ? 1 : d <= 0 ? 0 : (d / fade) * (d / fade) * (3 - 2 * (d / fade));
@@ -178,74 +187,111 @@
   }
   function hurt(k, delay) {
     if (st[k] !== 1) nBroken++;
-    fresh[k] = 0;
+    if (fresh[k]) { fresh[k] = 0; dust--; }
     st[k] = 1; ts[k] = now; ta[k] = now + delay;
   }
-  // A place for a scripted break whose whole reach (R) stays in open lattice, clear of the text and the caption.
+  // the notes on screen, as boxes
+  const noteBoxes = () => labels.filter((L) => now - L.t0 < L.life).map((L) => [L.lx - 5, L.ly - L.h / 2, L.lx - 5 + L.w, L.ly + L.h / 2]);
+  // A place for a scripted break whose whole reach (R) stays in open lattice, clear of the text, the caption and the
+  // notes on screen (a new break never starts under an old note).
   function spot(R) {
+    const notes = noteBoxes();
     for (let n = 0; n < 80; n++) {
       const k = (Math.random() * N) | 0, px = hx[k], py = hy[k];
-      if (al[k] > OPEN && px > 40 && px < W - 40 && py > 60 && py < Math.min(H - 90, capTop - 30) && clear(px, py, BODY) > R + 12) return [px, py];
+      if (al[k] > OPEN && px > 40 && px < W - 40 && py > 60 && py < Math.min(H - 90, capTop - 30) && clear(px, py, BODY) > R + 12 && clear(px, py, notes) > R) return [px, py, 1, null];
     }
     return null;
   }
-  // A note goes where it overlaps no text and no other note and stays inside the canvas; if there is no such place, no note.
-  function label(cx, cy, bad, good, heal) {
-    ctx.font = MONO;
-    const w = Math.max(ctx.measureText(bad).width, ctx.measureText(good).width) + 10, h = NH;
-    if (w > W - 24 || (phone && labels.length)) return; // a phone shows one note at a time
-    const xs = [Math.min(Math.max(12, cx - w / 2), W - 12 - w), cx + 18, cx - 18 - w], ys = [cy + 52, cy - 52, cy + 78, cy - 78];
-    for (const ly of ys) for (const lx of xs) {
+  // On a phone the field is the band under the text. A break goes in it with room below for its note, at a size that
+  // fits the band: full size where it can, down to 0.6 of it on a short screen (a band shorter than that gets none).
+  // ext(sc) is how far a kind's damage, with the red edges to the points around it, reaches up, down and to each side.
+  // The red edges from a break's top row may run one row up into the fade under the text, where they are drawn as soft
+  // ink or faint red; the broken points themselves stay below the text's soft box.
+  const NOTE_ROOM = 32; // the gap under a break and its note's box
+  function spotPhone(ext) {
+    const LIFT = RH, room = bandBot - NOTE_ROOM - bandTop + LIFT;
+    let sc = 1, e = ext(1);
+    while (e[0] + e[1] > room && sc > 0.61) { sc -= 0.05; e = ext(sc); }
+    if (e[0] + e[1] > room) return null;
+    const [up, down, side] = e, lo = bandTop - LIFT + up, hi = bandBot - NOTE_ROOM - down, notes = noteBoxes();
+    for (let n = 0; n < 40; n++) {
+      const cx = side + Math.random() * Math.max(0, W - 2 * side), cy = lo + Math.random() * (hi - lo);
+      if (alAt(cx, cy) > OPEN && !notes.some(([l, t, r, b]) => cx - side < r && cx + side > l && cy - up < b && cy + down > t)) return [cx, cy, sc, e];
+    }
+    return null;
+  }
+  // A note goes where it overlaps no text and no other note and stays inside the canvas; if there is no such place, no
+  // note. On a phone it sits right under its break (e: the break's reach), or else right over it.
+  function label(cx, cy, bad, good, heal, e) {
+    let font = MONO;
+    const width = () => { ctx.font = font; return Math.max(ctx.measureText(bad).width, ctx.measureText(good).width) + 10; };
+    let w = width();
+    if (phone && w > W - 24) { font = "11" + FONT; w = width(); } // a 320px screen: the 11px of a wide screen
+    const h = NH;
+    if (w > W - 24 || (narrow && labels.length)) return; // a narrow screen shows one note at a time
+    const fits = (lx, ly) => {
       const l = lx - 4, t = ly - h / 2 - 4, r = lx + w + 4, b = ly + h / 2 + 4;
-      if (l < 8 || r > W - 8 || t < 50 || b > Math.min(H - 34, capTop - 6)) continue;
-      if (TEXT.some(([tl, tt, tr, tb]) => l < tr && r > tl && t < tb && b > tt)) continue;
-      if (labels.some((o) => l < o.lx + o.w && r > o.lx - 9 && t < o.ly + 13 && b > o.ly - 13)) continue; // nor another note
-      labels.push({ lx: lx + 5, ly, w, h, bad, good, t0: now, tg: now + heal });
+      if (l < 8 || r > W - 8 || t < 50 || b > Math.min(H - 34, capTop - 6)) return false;
+      if (TEXT.some(([tl, tt, tr, tb]) => l < tr && r > tl && t < tb && b > tt)) return false;
+      return !labels.some((o) => l < o.lx + o.w && r > o.lx - 9 && t < o.ly + o.h / 2 + 4 && b > o.ly - o.h / 2 - 4); // nor another note
+    };
+    const add = (lx, ly) => labels.push({ lx: lx + 5, ly, w, h, font, bad, good, t0: now, tg: now + heal, life: phone ? LIFE_PHONE : LIFE });
+    if (phone && e) {
+      const lx = Math.min(Math.max(12, cx - w / 2), W - 12 - w);
+      for (const ly of [cy + e[1] + 8 + h / 2, cy - e[0] - 8 - h / 2]) if (fits(lx, ly)) return add(lx, ly);
       return;
     }
+    const xs = [Math.min(Math.max(12, cx - w / 2), W - 12 - w), cx + 18, cx - 18 - w], ys = [cy + 52, cy - 52, cy + 78, cy - 78];
+    for (const ly of ys) for (const lx of xs) if (fits(lx, ly)) return add(lx, ly);
   }
 
   // The notes name guard-tier actions (discard, coalesce, delay): what opt-in guard mode does; observe only reports.
   // An older response lands over newer data: a patch of the lattice shows up where it used to be.
-  function stale(cx, cy) {
-    const ox = (Math.random() < 0.5 ? -1 : 1) * (16 + Math.random() * 14), oy = (Math.random() - 0.5) * 18;
-    near(cx, cy, EV.stale, (k, d) => { x[k] = hx[k] + ox; y[k] = hy[k] + oy; vx[k] = vy[k] = 0; hurt(k, 950 + d * 5); });
-    label(cx, cy, "an older response landed over newer data", "[GenClass] kept the newer data", 1000);
+  function stale(cx, cy, sc, e) {
+    const ox = (Math.random() < 0.5 ? -1 : 1) * (16 + Math.random() * 14) * sc, oy = (Math.random() - 0.5) * 18 * sc;
+    near(cx, cy, EV.stale * sc, (k, d) => { x[k] = hx[k] + ox; y[k] = hy[k] + oy; vx[k] = vy[k] = 0; hurt(k, 950 + d * 5); });
+    label(cx, cy, "an older response landed over newer data", "[GenClass] kept the newer data", 1000, e);
   }
   // The same change arrives twice: a ghost copy sits beside the real patch until it is merged into it.
-  function duplicate(cx, cy) {
+  function duplicate(cx, cy, sc, e) {
     const list = [];
-    near(cx, cy, EV.dup, (k) => { list.push(k); hurt(k, 1100); });
+    near(cx, cy, EV.dup * sc, (k) => { list.push(k); hurt(k, 1100); });
     ghosts.push({ list, ox: 9 + Math.random() * 7, oy: -7 - Math.random() * 5, t0: now, tm: now + 1100 });
-    label(cx, cy, "the same POST, sent twice", "[GenClass] reused the first response", 1150);
+    label(cx, cy, "the same POST, sent twice", "[GenClass] reused the first response", 1150, e);
   }
-  // An endpoint keeps failing: a seam tears open, then closes from its ends.
-  function tear(cx, cy) {
-    const a = Math.random() * Math.PI, c = Math.cos(a), s = Math.sin(a), L = EV.tear;
+  // An endpoint keeps failing: a seam tears open, then closes from its ends. On a phone the seam stands upright and
+  // opens sideways, the way the short, wide band has room for.
+  function tear(cx, cy, sc, e) {
+    const a = phone ? Math.PI / 2 + (Math.random() - 0.5) * 0.08 : Math.random() * Math.PI, c = Math.cos(a), s = Math.sin(a);
+    const L = EV.tear * sc, push = 240; // a shorter seam on a phone still tears open
     near(cx, cy, L / 2 + 30, (k) => {
       const px = hx[k] - cx, py = hy[k] - cy, along = px * c + py * s, perp = -px * s + py * c;
       if (Math.abs(along) > L / 2 || Math.abs(perp) > 24) return;
       const side = perp >= 0 ? 1 : -1, f = 1 - Math.abs(perp) / 24;
-      vx[k] += -s * side * 240 * f; vy[k] += c * side * 240 * f;
+      vx[k] += -s * side * push * f; vy[k] += c * side * push * f;
       hurt(k, 1300 - Math.abs(along) * 4);
     });
-    label(cx, cy, "GET /api/stock failed 5 times in a row", "[GenClass] slowed the polling down", 1150);
+    label(cx, cy, "GET /api/stock failed 5 times in a row", "[GenClass] slowed the polling down", 1150, e);
   }
-  // each kind with how far its damage reaches from its centre
+  // each kind with how far its damage reaches from its centre (a radius, kept clear of the text on a wide screen) and,
+  // on a phone, how far it reaches up, down and to each side at size sc: the moved points plus one row or cell more,
+  // where the red edges end
   const KINDS = [
-    [stale, () => EV.stale + 30],
-    [duplicate, () => EV.dup + 16],
-    [tear, () => EV.tear / 2 + 12],
+    [stale, () => EV.stale + 30, (sc) => { const r = EV.stale * sc; return [r + RH + 2, r + RH + 2, r + 30 * sc + S]; }],
+    [duplicate, () => EV.dup + 16, (sc) => { const r = EV.dup * sc; return [r + RH + 2, r + RH + 2, r + S + 2]; }],
+    [tear, () => EV.tear / 2 + 12, (sc) => { const r = (EV.tear * sc) / 2 + 4 * sc; return [r + RH + 2, r + RH + 2, 98]; }],
   ];
 
   // ---------- simulation ----------
   function step(dt) {
     const ms = dt * 1000;
     now += ms;
-    if (now >= nextEvent) {
-      const [fn, reach] = KINDS[kind++ % KINDS.length], p = spot(reach());
-      if (p) fn(p[0], p[1]);
-      nextEvent = now + (!p ? 400 : phone ? 2200 + Math.random() * 1400 : 1500 + Math.random() * 1200);
+    // on a phone the knitting front reaches the band under the text last: the first break waits for it to finish
+    if (now >= nextEvent && (!phone || dust <= 0 || now > 6000)) {
+      const [fn, reach, ext] = KINDS[kind++ % KINDS.length], p = phone ? spotPhone(ext) : spot(reach());
+      if (p) fn(p[0], p[1], p[2], p[3]);
+      // a phone's next break waits for this one's note to go, so every break has its own note and no note covers one
+      nextEvent = now + (!p ? 400 : phone ? LIFE_PHONE + 250 + Math.random() * 600 : narrow ? 2200 + Math.random() * 1400 : 1500 + Math.random() * 1200);
     }
     for (let k = 0; k < N; k++) {
       const s = st[k];
@@ -257,7 +303,7 @@
           if (st[n] === 0 || (st[n] === 2 && now - ts[n] > 60)) ok = true;
         }
         if (ok && Math.random() < dt * 16) { st[k] = 2; ts[k] = now; }
-      } else if (s === 2 && now - ts[k] > HEAL) { st[k] = 0; if (fresh[k]) fresh[k] = 0; else nHealed++; }
+      } else if (s === 2 && now - ts[k] > HEAL) { st[k] = 0; if (fresh[k]) { fresh[k] = 0; dust--; } else nHealed++; }
       const sp = s === 1 ? 0 : s === 2 ? 95 : 28, dm = s === 1 ? 2.4 : s === 2 ? 15 : 9;
       const tx = hx[k] + (s === 0 ? Math.sin(now * 0.0007 + hy[k] * 0.031) * 0.8 : 0);
       const ty = hy[k] + (s === 0 ? Math.cos(now * 0.0006 + hx[k] * 0.027) * 0.8 : 0);
@@ -284,6 +330,9 @@
       const dx = x[b] - x[a], dy = y[b] - y[a];
       if (dx * dx + dy * dy > tornSq) continue; // torn open
       let p, v = (al[a] + al[b]) * 0.5;
+      // on a phone the soft areas hug the lines, so an edge running from the open lattice into one is as soft as its
+      // softer end: it never crosses a glyph at the open lattice's strength
+      if (phone && (al[a] < SOFT || al[b] < SOFT)) v = Math.min(al[a], al[b]);
       const moved = sa !== 0 || sb !== 0;
       // a broken or mending edge is as soft as the softest place it touches, home or drawn, and under the text it is
       // drawn as plain soft ink: no red or green crosses the headline
@@ -327,19 +376,19 @@
       const G = ghosts[g], f = now < G.tm ? 1 : Math.max(0, 1 - (now - G.tm) / 520);
       if (f <= 0) { ghosts.splice(g, 1); continue; }
       const path = new Path2D();
-      for (const k of G.list) dot(path, x[k] + G.ox * f, y[k] + G.oy * f, 1.8);
+      for (const k of G.list) { const gx = x[k] + G.ox * f, gy = y[k] + G.oy * f; if (alAt(gx, gy) >= SOFT) dot(path, gx, gy, 1.8); } // none over the text
       ctx.fillStyle = now < G.tm ? `rgba(${RED},0.75)` : `rgba(${GREEN},${0.8 * f})`;
       ctx.fill(path);
     }
 
     // event notes, written like the runtime's console lines
-    ctx.font = MONO;
     ctx.textBaseline = "middle";
     for (let i = labels.length - 1; i >= 0; i--) {
       const L = labels[i], age = now - L.t0;
-      if (age > 3600) { labels.splice(i, 1); continue; }
+      if (age > L.life) { labels.splice(i, 1); continue; }
+      ctx.font = L.font;
       const healed = now >= L.tg, text = healed ? L.good : L.bad;
-      const a = Math.min(1, age / 160, (3600 - age) / 450);
+      const a = Math.min(1, age / 160, (L.life - age) / 450);
       ctx.fillStyle = `rgba(255,255,255,${0.9 * a})`;
       ctx.fillRect(L.lx - 5, L.ly - L.h / 2, L.w, L.h);
       ctx.fillStyle = `rgba(${healed ? GREEN_TXT : RED_TXT},${a})`;

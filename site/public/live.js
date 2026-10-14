@@ -34,7 +34,10 @@
   text($("lab-cfg"), shipped
     ? `mode: "${mode}", aggressiveness: "balanced"`
     : `mode: "${mode}", aggressiveness: "eager", policy: { thresholds: { guard: ${Number(thr)}, heal: ${Number(thr)} } }`);
-  text($("lab-chip"), shipped ? `${mode}\u00a0· balanced\u00a0· shipped gates` : `${mode}\u00a0· gain margins ${Number(thr)}\u00a0· eager profile (demo)`); // a no-break space before each dot: a wrapped line never starts with one
+  // three parts, each kept on one line, with a space between them for screen readers; the CSS adds a dot between them
+  // on a wide screen and lays them out with a gap on a phone, so no dot ever hangs at the end of a line
+  const chip = $("lab-chip");
+  if (chip) chip.replaceChildren(...(shipped ? [mode, "balanced", "shipped gates"] : [mode, `gain margins ${Number(thr)}`, "eager profile (demo)"]).flatMap((s, i) => (i ? [" ", el("span", "", s)] : [el("span", "", s)])));
   if (shipped) {
     const what = mode === "observe" ? "defaults: observe mode and" : "gates: " + mode + " mode with";
     const expect = mode === "observe" ? "no action: observe never changes what the app does" : "few or no actions: at the shipped gates it acts on under 8% of the cases where acting would help";
