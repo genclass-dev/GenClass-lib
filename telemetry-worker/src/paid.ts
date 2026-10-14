@@ -1,6 +1,7 @@
-// What the collector does after storing a batch from a known token, beyond the dashboard counters: index the batch
-// for the export (copied under export/ when the owner's plan keeps more than 90 days) and forward its detections when
-// the owner's plan includes forwarding and a destination is on. Runs in waitUntil; never affects the response.
+// What the collector does after storing a batch from an app in an account, beyond the dashboard counters: index the
+// batch for the export (copied under export/ when the owner's plan keeps more than 90 days) and forward its detections
+// when the owner's plan includes forwarding and a destination is on. Apps without an account (private links only)
+// cannot export or forward, so their batches cost nothing more. Runs in waitUntil; never affects the response.
 
 import type { BucketLike, Env } from "./collector.js";
 import { RETENTION_DAYS, type D1Like } from "./dashboard.js";
@@ -58,8 +59,7 @@ export interface StoredBatch {
 
 export async function afterBatch(env: Env & { BUCKET: BucketLike }, db: D1Like, b: StoredBatch, now: Date, f: Fetch): Promise<void> {
   const owner = await ownerOf(db, b.token, now.getTime());
-  if (!owner) return;
-  const owned = !!owner.accountId;
+  if (!owner?.accountId) return;
   const tasks: Promise<unknown>[] = [
     storeForExport(db, env.BUCKET, {
       token: b.token,
@@ -68,10 +68,10 @@ export async function afterBatch(env: Env & { BUCKET: BucketLike }, db: D1Like, 
       received: b.received,
       events: b.events.length,
       id: b.id,
-      keepLong: owned && keepDays(owner.plan) > RETENTION_DAYS,
+      keepLong: keepDays(owner.plan) > RETENTION_DAYS,
     }),
   ];
-  if (owned && owner.projectId && owner.destinations > 0 && entitled(owner.plan, "forwarding") && b.events.some((e) => e.t === "detect")) {
+  if (owner.projectId && owner.destinations > 0 && entitled(owner.plan, "forwarding") && b.events.some((e) => e.t === "detect")) {
     const origin = (env.AUTH_ORIGIN || env.DASHBOARD_ORIGIN || "https://genclass.dev").replace(/\/+$/, "");
     tasks.push(forwardBatch(env, db, { id: owner.projectId, name: owner.name, dashboard: `${origin}/account/apps/${owner.projectId}` }, b, now, f));
   }

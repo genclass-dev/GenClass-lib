@@ -141,13 +141,14 @@ describe("export: GET /api/account/projects/<id>/events", () => {
     expect(html).toContain(`https://genclass.dev/api/account/projects/${t.app.id}/events?from=2026-10-01&#38;to=2026-10-14&#38;format=jsonl`);
   });
 
-  it("apps of Free accounts and apps without an account are indexed under events/ only (no copy)", async () => {
+  it("an app of a Free account is indexed under events/ only (no copy); an app without an account is not indexed", async () => {
     const t = await proApp("free");
     await sendBatch(t.env, t.app.token, [{ t: "session", seq: 0 }]);
     const anon = (await (await call(t.env, "POST", "/api/projects", { body: { name: "Anon" }, origin: null })).json()) as any;
     await sendBatch(t.env, anon.token, [{ t: "session", seq: 0 }]);
     const keys = t.sql.rows("SELECT key FROM event_batches").map((r) => String(r.key));
-    expect(keys).toHaveLength(2);
+    expect(keys).toHaveLength(1);
+    expect(t.sql.rows("SELECT token FROM event_batches")).toEqual([{ token: t.app.token }]);
     for (const k of keys) expect(k).toMatch(/^events\/dt=2026-10-13\//);
     expect([...t.r2.objects.keys()].some((k) => k.startsWith("export/"))).toBe(false);
   });

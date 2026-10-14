@@ -64,7 +64,7 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   if (plan.id === "free") {
     const limits = v.live ? `up to ${plan.limits.apps ?? "any number of"} apps (you have ${apps}) and ${plan.limits.history_days} days of dashboard history` : `your apps' dashboards (you have ${apps} apps)`;
     const ended =
-      b.subscription_id && b.current_period_end && b.subscription_status && !LIVE_STATUSES.has(b.subscription_status) && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
+      b.subscription_id && b.current_period_end && (b.subscription_status === "canceled" || b.subscription_status === "unpaid") && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
         ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
         : "";
     return `You are on the ${name} plan: ${limits}.${ended}${v.live ? "" : " Paid plans are not on sale yet."}`;

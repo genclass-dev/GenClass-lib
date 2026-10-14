@@ -80,6 +80,33 @@ with their stats, and apps that still have a private dashboard link leave the ac
 link. If you cannot sign in any more, write to the contact below from an address Google has verified for that
 account; an account id or an unverified email alone is not enough, because both can be known to others.
 
+## Paid plans, payments and Stripe
+
+The Pro and Custom plans are paid through Stripe, which processes payments for us. When you upgrade, we send Stripe
+your account's email (if it has one) and your GenClass account id, and you type your card or other payment details
+into Stripe's own checkout page: they go to Stripe and never reach GenClass. Stripe handles them under its own privacy
+policy (stripe.com/privacy) and keeps your invoices and receipts, which you can see under Manage billing on your
+billing page.
+
+GenClass stores only your Stripe customer id, your subscription id, the subscription's status and renewal or end date,
+and your plan. Never card numbers, bank details or billing addresses. When someone buys the Custom plan we also keep a
+record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to them
+to start the work.
+
+**Forwarding** is off unless an account on a paid plan turns it on for one of its apps. Then, for each new detection
+from that app, GenClass sends a short record to the services that account chose (Sentry, PostHog, Datadog, Slack or
+its own webhook URL): the kind of problem, the model's confidence, what triggered the check, the page path, the
+runtime and model versions, the time and a link to the app's dashboard. Never text from the page. Those services
+handle the records under their own terms with the account owner. The keys and URLs for them are stored encrypted.
+
+**Export** lets an account on a paid plan download, or read with an export key, the events GenClass received for its
+own apps, as stored. Export keys are stored as one-way hashes.
+
+For apps on a paid plan, the dashboard data and the stored events are kept for 1 year instead of 90 days, and for 30
+days after the paid period ends; then they are deleted as for every other app. Deleting your account cancels a paid
+plan at once and deletes the forwarding settings, export keys and stored copies made for your apps; Stripe keeps its
+own records of past payments as the law requires.
+
 ## Where it goes and how long we keep it
 
 Data is sent to our collector on Cloudflare and stored in Cloudflare R2. It is deleted automatically after

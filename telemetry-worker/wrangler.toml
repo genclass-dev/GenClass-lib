@@ -32,6 +32,10 @@ routes = [
 [vars]
 RUNTIME_ON_NPM = "0.2.2"
 
+# Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET (scripts/stripe-setup.mjs
+# stores it), INTEGRATIONS_KEY (32 random bytes, base64) and, optionally, NOTIFY_WEBHOOK. Without STRIPE_SECRET_KEY
+# nothing is on sale.
+
 [observability]
 enabled = false
 

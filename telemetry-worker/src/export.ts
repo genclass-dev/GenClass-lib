@@ -1,8 +1,8 @@
 // Export (a paid feature): every event GenClass received for an owned app, as JSON Lines or CSV, read back from the
 // gzip batches in R2.
 //
-// - R2 keys are by day, runtime and model, not by app, so every batch from a known token gets a row in event_batches
-//   (token, time, key). For an app whose owner's plan keeps more than 90 days, the batch is also written under
+// - R2 keys are by day, runtime and model, not by app, so every batch from an app in an account gets a row in
+//   event_batches (token, time, key). For an app whose owner's plan keeps more than 90 days, the batch is also written under
 //   export/<token>/ (an R2 lifecycle rule on that prefix keeps it a year; events/ expires after 90 days) and the row
 //   points at that copy.
 // - A page is at most PAGE_MAX batches, streamed one object at a time; the next page's cursor is in the

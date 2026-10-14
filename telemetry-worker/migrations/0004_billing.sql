@@ -55,7 +55,7 @@ CREATE TABLE forward_log (
 ) WITHOUT ROWID;
 
 -- Which stored batches belong to which app, for the export (R2 keys are by day, not by app). One row per batch from
--- a known token; the key is the batch under events/ (90 days) or, for an app on a paid plan, its copy under
+-- an app in an account; the key is the batch under events/ (90 days) or, for an app on a paid plan, its copy under
 -- export/<token>/ (kept as long as the plan's history). Swept with the dashboard data.
 CREATE TABLE event_batches (
   token    TEXT NOT NULL,

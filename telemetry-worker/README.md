@@ -27,6 +27,8 @@ keep several apps in one place and let `npx @genclass/runtime login` connect an 
   - D1: a daily Cron Trigger (`17 3 * * *`, `scheduled` in `src/index.ts`, `retention()` in `src/dashboard.ts`)
     deletes `daily` and `recent` rows older than 90 days, `hourly` rows older than 48 hours and `sessions` rows older
     than 2 days. Projects themselves (token, name, hash of the secret) are kept until deleted.
+  - Paid plans keep an app's daily counters, recent rows and export copies for a year instead
+    ([Paid plans](#paid-plans)); nothing is ever kept shorter than the 90 days above.
 
 ## Architecture
 
@@ -48,8 +50,15 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `src/webauthn.ts`, `src/cbor.ts` | WebAuthn verification with WebCrypto and a minimal CBOR decoder (no dependencies) |
 | `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/device`, `/account` and the account message pages |
 | `src/http.ts` | shared JSON response and capped body reader |
+| `../billing/plans.json` | the plans (prices, Stripe lookup keys, limits, entitlements, pricing-page lines); the site's build reads it too |
+| `src/plans.ts` | plans from `plans.json`, the Free plan's limits, dashboard ranges per plan, the plan-aware retention sweep |
+| `src/stripe.ts` | Stripe over `fetch`: Checkout, Billing Portal, cancellation, webhook signature and events, plan from a subscription |
+| `src/billing.ts`, `src/billing-pages.ts` | the billing, forwarding, export and export-key routes; `/account/billing` and the app page's Forwarding and Export sections |
+| `src/forward.ts`, `src/paid.ts` | forwarding to Sentry, PostHog, Datadog, Slack and webhooks (encrypted settings, dedupe, hourly cap); what runs after each stored batch |
+| `src/export.ts` | the batch index, export copies, JSONL/CSV export pages and their sweep |
+| `../scripts/stripe-setup.mjs` | for the owner: Stripe products, prices, webhook endpoint and Billing Portal from `plans.json` |
 | `migrations/*.sql` | D1 schema |
-| `test/index.test.ts`, `test/dashboard.test.ts`, `test/auth.test.ts` | unit tests (R2 mocked; D1 = `node:sqlite` running the real migrations, `test/d1.ts`; passkeys from a software authenticator, `test/authenticator.mjs`; Google and GitHub mocked) |
+| `test/index.test.ts`, `test/dashboard.test.ts`, `test/auth.test.ts`, `test/billing.test.ts`, `test/forward.test.ts`, `test/export.test.ts` | unit tests (R2 mocked; D1 = `node:sqlite` running the real migrations, `test/d1.ts`; passkeys from a software authenticator, `test/authenticator.mjs`; Google and GitHub mocked) |
 
 ## Endpoints
 
@@ -302,6 +311,101 @@ npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
 
 (then delete its throwaway projects with "Delete a project" below).
 
+## Paid plans
+
+The plans live in [`billing/plans.json`](../billing/plans.json): Free (US$0), Pro (US$99 a month) and Custom (US$599 a
+month), with their limits (`apps`, `history_days`), entitlements (`forwarding`, `export`, `analytics`, `custom_model`)
+and Stripe lookup keys (`genclass_pro_monthly`, `genclass_custom_monthly`; a yearly price can be added later). Change
+a price or a limit there; `src/plans.ts` imports the file and `scripts/stripe-setup.mjs` makes Stripe match it.
+
+An account's plan is `accounts.plan`, written only by the Stripe webhook from the subscription as Stripe has it (the
+price's lookup key names the plan; `active` and `trialing` give it, `past_due` keeps it while Stripe retries the card,
+anything else is Free). Entitlements follow the plan. The Free plan's limits apply only once paid plans are on sale
+(`STRIPE_SECRET_KEY` set); before that every account keeps what it had.
+
+| | Free | Pro, Custom |
+|---|---|---|
+| apps per account | 3 (a fourth is refused with 409 and a link to `/account/billing`; apps already there stay) | no plan limit; the 200-app abuse cap stays |
+| dashboard ranges | 24 h, 7 days | 24 h, 7, 30, 90 days, 1 year |
+| kept (daily counters, recent rows, stored batches) | 90 days, as every project before plans | 1 year, and 30 days of grace after a paid period ends |
+| forwarding, export | no | yes |
+| `custom_model` | no | Custom only |
+
+Apps without an account (private links) keep the current behaviour: 30-day views and 90 days of data.
+
+### Routes
+
+| route | behaviour |
+|---|---|
+| `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's Stripe customer once (email, `metadata.account_id`), then a Checkout Session in subscription mode for the plan's lookup key, `client_reference_id` = account id, success `https://genclass.dev/account/billing?done=1`. `{ url }`. An account that already pays gets `{ url, portal: true }`: the Billing Portal's plan change, never a second subscription. 503 when `STRIPE_SECRET_KEY` is unset. |
+| `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, switch plans, card, invoices). 409 before a first purchase. |
+| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body` under `STRIPE_WEBHOOK_SECRET`, any `v1`, within 5 minutes; else 400). Handles `checkout.session.completed`, `customer.subscription.created`/`updated`/`deleted`, `invoice.paid`, `invoice.payment_failed`: each one fetches the subscription and writes the plan, status, period end and cancel flag. Event ids are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. Events for customers GenClass does not know are logged by type and id and ignored. |
+| `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale }` |
+| `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade and Switch buttons and Manage billing (only when `STRIPE_SECRET_KEY` is set) |
+| `GET /api/account/projects/<id>/integrations` | browser session: the app's forwarding destinations, masked |
+| `PUT /api/account/projects/<id>/integrations/<kind>` | browser session and `Origin`, paid plan, `INTEGRATIONS_KEY` set (503 otherwise). `kind` is `sentry` `{dsn}`, `posthog` `{key, host}`, `datadog` `{api_key, site}`, `slack` `{url}` or `webhook` `{url}`; a new webhook gets a signing secret, returned once as `secret` |
+| `PATCH`, `DELETE` same path; `POST .../<kind>/test` | turn a destination on or off (`{enabled}`), remove it, or send it one test record (502 with the reason when it fails) |
+| `GET /api/account/projects/<id>/events?from&to&format&limit&cursor` | export, paid plans: an export key (`Authorization: Bearer gce_...`) or the browser session; a CLI token is refused. `from`/`to` take a date or an ISO time (default the last 7 days; `from` is moved up to the plan's history), `format` `jsonl` (default) or `csv`, `limit` 1 to 200 batches. The next page's cursor is in `x-genclass-next-cursor` and `Link: rel="next"` |
+| `GET`, `POST /api/account/export-keys`; `DELETE .../<id>` | browser session: list, create (paid plans, at most 10; the key is shown once, only its SHA-256 is stored) and revoke export keys |
+
+### Migration 0004 (`migrations/0004_billing.sql`)
+
+Additive. `accounts` gains `plan` (default `'free'`), `stripe_customer_id`, `subscription_id`, `subscription_status`,
+`current_period_end`, `cancel_at_period_end`. New tables: `billing_events` (handled Stripe event ids),
+`custom_requests` (one row per Custom subscription: the owner starts the training work from it), `integrations`
+(forwarding destinations, AES-GCM ciphertext only), `forward_log` (dedupe and the hourly cap, kept 2 hours),
+`event_batches` (which stored batch belongs to which app, for the export) and `export_keys` (hashes only).
+
+### Forwarding
+
+After a batch from an app whose owner is on Pro or Custom, each new likely detection (`detect` without
+`tier: "possible"`) goes to every enabled destination of that app: the diagnosis, confidence, trigger, page route,
+runtime and model versions, the time and a link to the app's dashboard. Never page text. Sentry gets an event through
+the envelope endpoint of the DSN, PostHog a `genclass detection` capture (no person profiles), Datadog a log through
+`http-intake.logs.<site>/api/v2/logs`, Slack one message, a webhook a JSON POST with
+`x-genclass-signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">`. The same diagnosis on the same route is sent once
+per UTC hour, at most 60 records per app per hour and 20 per batch. It all runs in `waitUntil`; a failure is written
+to the destination's `last_error` and the collector still answers 202. Settings are encrypted with `INTEGRATIONS_KEY`
+(AES-GCM, the app id and kind as additional data); without that secret nothing can be saved or sent.
+
+### Export
+
+Every batch from an app in an account gets an `event_batches` row (apps known only by a private link cannot export,
+so theirs get none). For an app on a paid plan the batch is also written to
+`export/<token>/dt=<day>/<uuid>.jsonl.gz` and the row points there; that prefix needs its own R2 lifecycle rule of a
+year (owner step 2 below), since `events/` expires after 90 days. The export streams the stored lines of the app's
+batches (each line is checked against the app's token), so it covers batches received after this version was deployed.
+The daily sweep deletes index rows and export copies past each plan's retention (in chunks of 90 keys).
+
+### Settings
+
+| name | kind | what |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | secret | puts paid plans on sale (`sk_test_...` or `sk_live_...`); without it the buttons are hidden, checkout answers 503, and the Free plan's limits do not apply |
+| `STRIPE_WEBHOOK_SECRET` | secret | the webhook endpoint's signing secret (`whsec_...`); `scripts/stripe-setup.mjs` stores it |
+| `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
+| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event: "custom_purchase", account_id, email, subscription_id }` when someone buys Custom (`text` suits Slack, `content` Discord) |
+
+### Owner steps, in order
+
+1. In test mode first: `STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs` from the repo root (signed in
+   to wrangler). It creates GenClass Pro and GenClass Custom with their monthly prices under the lookup keys, the
+   webhook endpoint `https://genclass.dev/api/billing/webhook` (its signing secret goes straight into
+   `wrangler secret put STRIPE_WEBHOOK_SECRET`, never printed) and the Billing Portal, then prints the next steps.
+   `--dry-run` only reads; running it again changes only what differs.
+2. In `telemetry-worker/`: `npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`, then the export
+   copies' lifecycle rule:
+   `npx --yes wrangler@4 r2 bucket lifecycle add genclass-telemetry expire-export-366d export/ --expire-days 366`.
+3. `openssl rand -base64 32 | npx --yes wrangler@4 secret put INTEGRATIONS_KEY` (once), and optionally
+   `npx --yes wrangler@4 secret put NOTIFY_WEBHOOK`.
+4. `npx --yes wrangler@4 deploy`.
+5. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Paid plans are now on sale in test mode.
+6. Test a checkout: on `https://genclass.dev/account/billing` choose Upgrade to Pro and pay with Stripe's test card
+   `4242 4242 4242 4242`, any future expiry date and any CVC. The page shows Pro within a minute. Then try Manage
+   billing, switch to Custom (a `custom_requests` row and the `NOTIFY_WEBHOOK` notice), and cancel.
+7. Live: `STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs` (live products, prices, webhook and its
+   secret), then step 5 again with the live key.
+
 ## Develop / deploy
 
 ```sh
@@ -349,11 +453,16 @@ T=gc_XXXXXXXXXXXXXXXXXXXXXX
 npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
   DELETE FROM daily WHERE token = '$T'; DELETE FROM hourly WHERE token = '$T';
   DELETE FROM recent WHERE token = '$T'; DELETE FROM sessions WHERE token = '$T';
+  DELETE FROM integrations WHERE project_id = (SELECT id FROM projects WHERE token = '$T');
+  DELETE FROM event_batches WHERE token = '$T';
   DELETE FROM projects WHERE token = '$T';"
 ```
 
 The dashboard link then returns 404 and later batches with that token are stored in R2 only (the in-memory token cache
-may keep aggregating for up to 5 minutes). Raw R2 objects are not indexed by token; they expire after 90 days.
+may keep aggregating for up to 5 minutes). Raw R2 objects under `events/` expire after 90 days; an app on a paid plan
+also has copies under `export/<token>/`, deleted with
+`npx --yes wrangler@4 r2 object delete "genclass-telemetry/<key>" --remote` for each key the Cloudflare API lists under
+that prefix.
 
 ### Test data and live checks
 
