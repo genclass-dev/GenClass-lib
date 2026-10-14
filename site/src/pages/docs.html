@@ -17,8 +17,8 @@
   <div class="wrap doc">
     <nav class="toc" aria-label="On this page">
       <b>Start</b><a href="#install">Install</a><a href="#init">Initialize</a><a href="#first">The first five minutes</a><a href="#modes">Modes</a><a href="#profiles">Aggressiveness</a>
-      <b>Operate</b><a href="#reports">Where reports go</a><a href="#explain">Explain and undo</a><a href="#off">Kill switch</a><a href="#costs">What it costs</a><a href="#selfhost">Self-host the model</a><a href="#privacy">Privacy and telemetry</a>
-      <b>Planned</b><a href="#cloud">Cloud (planned)</a><b>Reference</b><a href="/docs/api">API</a><a href="/docs/options">Options</a><a href="/docs/architecture">Architecture</a><a href="/docs/compatibility">Compatibility</a>
+      <b>Operate</b><a href="#reports">Where reports go</a><a href="#explain">Explain and undo</a><a href="#off">Kill switch</a><a href="#costs">What it costs</a><a href="#selfhost">Self-host the model</a><a href="#skip">When to skip it</a><a href="#privacy">Privacy and telemetry</a>
+      <b>Plans</b><a href="#dashboard">Dashboard and plans</a><b>Reference</b><a href="/docs/api">API</a><a href="/docs/options">Options</a><a href="/docs/architecture">Architecture</a><a href="/docs/compatibility">Compatibility</a>
     </nav>
     <div class="prose">
       <h2 id="install">Install</h2>
@@ -31,6 +31,7 @@ npx @genclass/runtime remove          # undo exactly what init added</code></pre
       <p>No build step? Add one script tag first in <code>&lt;head&gt;</code>. Keep the version pinned: the unversioned URL may serve an older release from the CDN cache.</p>
 <pre><code>&lt;script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@{{rt}}"
         data-mode="observe" data-devtools="local"&gt;&lt;/script&gt;</code></pre>
+      <p>Starter apps for React + Vite, Next.js, Vue and SvelteKit, each with the one line and a racing mock API, are in <a href="https://github.com/genclass-dev/GenClass-lib/tree/main/templates">templates/</a> on GitHub.</p>
 
       <h2 id="init">Initialize</h2>
       <p>The one line, first in your entry file. It starts the runtime in observe mode, discovers React, Redux and Zustand (devtools) state on its own, and loads the model at idle:</p>
@@ -73,7 +74,8 @@ user action (#7). (stale, 0.96)</code></pre>
 <pre><code>GenClass.init({ mode: "guard", aggressiveness: "cautious" }); // "cautious" | "balanced" | "eager"</code></pre>
 
       <h2 id="reports">Where the reports go</h2>
-      <p>By default a report is a console line in the end user's browser. In production that is not your console. The <code>sinks</code> option hands every detection, intervention, undo, breaker trip or summary to your own code as a structured, redacted record; the anonymous diagnostics (below) go to the GenClass maintainers, not to you.</p>
+      <p>By default a report is a console line in the end user's browser. In production that is not your console. The <code>sinks</code> option hands every detection, intervention, undo, breaker trip or summary to your own code as a structured, redacted record; the anonymous diagnostics (below) go to the GenClass maintainers. An optional free account also shows your app's detections on a dashboard at genclass.dev; runtime 0.2.2 and earlier do not send to it.</p>
+      <p>Keep your error monitor and session replay. They see exceptions, failed requests, slow spans and what the user saw, but they cannot tell that a response was stale or that a POST was a duplicate, because nothing threw. GenClass decides that on the device, and a sink hands each report to the tools you already use.</p>
 <pre><code>GenClass.init({
   sinks: [
     { send: (r) =&gt; Sentry.addBreadcrumb({ category: "genclass", data: r }) },
@@ -82,7 +84,7 @@ user action (#7). (stale, 0.96)</code></pre>
   ],
   requests: { ignore: ["/genclass"] },   // a sink that ships over fetch sends to an ignored endpoint
 });</code></pre>
-      <p>First-party Sentry and PostHog sinks are planned for the next release; the generic sink above ships in {{rt}}. <code>rt.audit()</code> exports every decision and action as JSON. <a href="/docs/options">All sink options</a>.</p>
+      <p>The generic sink above ships in {{rt}}. Forwarding from the genclass.dev collector to Sentry, PostHog, Datadog, Slack or a signed webhook, with no code in your app, is part of <a href="/pricing">Pro</a>. <code>rt.audit()</code> exports every decision and action as JSON. <a href="/docs/options">All sink options</a>.</p>
 
       <h2 id="explain">Explain and undo</h2>
       <p>Every detection and intervention is logged in plain English. <code>rt.explain(id)</code> returns the exact situation the model read, its facts and every answer. Discards and rollbacks return an <code>ActionRecord</code> with <code>undo()</code>, and the devtools overlay lists everything live. In guard mode the stale-response report above becomes:</p>
@@ -116,16 +118,15 @@ newer data (search.results). (stale, 0.97; discard 0.98)</code></pre>
 <pre><code>npx @genclass/runtime fetch-model public/genclass-model
 npx @genclass/runtime init --model-url /genclass-model/</code></pre>
 
-      <h2 id="privacy">Privacy and telemetry</h2>
-      <p>Decisions are made on the device. From runtime 0.2.1, anonymous diagnostics are on by default on public hosts and off on local and private hosts (<code>localhost</code>, <code>*.localhost</code>, <code>*.local</code>, <code>*.test</code>, <code>127.0.0.1</code>, <code>::1</code>, private IP ranges). They go to the GenClass maintainers' collector to improve the model. By default they contain no text from the page: a random per-page session id, versions, mode, device class, your hostname and id-normalised path, and per decision the trigger, diagnosis and confidence, action, gate, outcome, latency and counts. The situation text the model read is sent only if you opt in with <code>telemetry: { include: { situation: true } }</code>. Turn it off with <code>GenClass.init({ telemetry: false })</code>, <code>npx @genclass/runtime init --no-telemetry</code>, <code>?genclass=no-telemetry</code>, <code>localStorage</code> <code>genclass.telemetry=off</code>, or Global Privacy Control. Apps that ship GenClass may need to disclose this to their users. See <a href="/docs/telemetry">telemetry</a> and <a href="/privacy">privacy</a>.</p>
+      <h2 id="skip">When to skip it</h2>
+      <p>On a mostly static site there are no requests that write state, so there is nothing to decide and the model download is the only effect. GenClass also has little to report where every write is already idempotent on the server and reads are deduplicated in the client, as TanStack Query and SWR do.</p>
+      <p>On pages used mostly from 2 GB phones, set a device floor (<a href="#costs">above</a>) or leave GenClass off those pages. If a strict Content-Security-Policy blocks cdn.jsdelivr.net and you cannot <a href="#selfhost">self-host the model</a>, it detects nothing. If you need bugs fixed today rather than reported, read the <a href="/benchmarks">benchmarks</a> first: at the shipped setting guard acts on under 8% of the cases where acting would help (model 0.2.0, balanced), and six demo apps under chaos show the same bug rate with GenClass on or off.</p>
 
-      <h2 id="cloud">GenClass Cloud (planned)</h2>
-      <!--@planned GenClass Cloud-->
-      <p>The <code>cloud</code> option below is a proposed API and is not in the current runtime. <a href="/cloud#early-access">Join the waitlist</a>.</p>
-<pre><code>GenClass.init({
-  cloud: { projectKey: "gc_pub_..." },   // proposed: publishable, metrics-only key
-});</code></pre>
-      <p>The runtime would never wait on the cloud; if it is unreachable, everything keeps working locally.</p>
+      <h2 id="privacy">Privacy and telemetry</h2>
+      <p>Decisions are made on the device. From runtime 0.2.1, anonymous diagnostics are on by default on public hosts. From 0.2.2 they are off on local and private hosts (<code>localhost</code>, <code>*.localhost</code>, <code>*.local</code>, <code>*.test</code>, <code>127.0.0.1</code>, <code>::1</code>, private IP ranges); 0.2.1 sent from those hosts too, by mistake. They go to the GenClass maintainers' collector to improve the model. By default they contain no text from the page: a random per-page session id, versions, mode, device class, your hostname and id-normalised path, and per decision the trigger, diagnosis and confidence, action, gate, outcome, latency and counts. The situation text the model read is sent only if you opt in with <code>telemetry: { include: { situation: true } }</code>. Turn it off with <code>GenClass.init({ telemetry: false })</code>, <code>npx @genclass/runtime init --no-telemetry</code>, <code>?genclass=no-telemetry</code>, <code>localStorage</code> <code>genclass.telemetry=off</code>, or Global Privacy Control. Apps that ship GenClass may need to disclose this to their users. See <a href="/docs/telemetry">telemetry</a> and <a href="/privacy">privacy</a>.</p>
+
+      <h2 id="dashboard">Dashboard and plans</h2>
+      <p>The runtime needs no account. An optional genclass.dev account shows each app's detections, actions, routes and model load on a dashboard. Pages send to it with the app's token while diagnostics are on; runtime 0.2.2 and earlier do not send to it. The dashboard is free for {{plan.free.apps}} apps with {{plan.free.history}} of history. Pro ({{plan.pro.price}} a month) adds unlimited apps, {{plan.pro.history}} of history, export of every event and forwarding to the tools you use; Custom ({{plan.custom.price}} a month) adds a model trained on your app. See <a href="/pricing">pricing</a>.</p>
 
       <h2 id="more">Reference</h2>
       <ul>

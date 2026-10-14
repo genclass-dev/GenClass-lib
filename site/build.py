@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Builds genclass.dev: src/pages/*.html (meta header + body) -> public/<slug>.html, plus sitemap, styles."""
-import json, math, re, hashlib, pathlib, datetime
+import json, re, html, hashlib, pathlib, datetime
 
 ROOT = pathlib.Path(__file__).parent
 SRC, PUB = ROOT / "src", ROOT / "public"
@@ -13,22 +13,71 @@ MODEL = "0.2.0"  # the model package the pinned runtime loads
 CONTACT = "mehar@daybot.ca"  # the contact in SECURITY.md; GitHub issues and discussions are not enabled on the repo
 HEADLINE = "Catch the bugs that never throw. Then stop them."  # the one line: H1, og.png, og:image:alt
 
+# The plans: billing/plans.json at the repo root is the one source (the telemetry worker imports the same file).
+# In src/, "{{plan.<id>.price|apps|history|name}}", "{{plans.apps_cap}}" and "{{plans.contact}}" render from it.
+PLANS = json.loads((ROOT.parent / "billing/plans.json").read_text())
+PLAN = {p["id"]: p for p in PLANS["plans"]}
+APPS_CAP = 200  # the abuse cap on apps per account, whatever the plan (MAX_APPS_PER_ACCOUNT in telemetry-worker/src/auth.ts)
+SOON = "(coming next)"  # shown after a feature line whose "available" is false
+# Paid plans go on sale on this site only when the pinned runtime sends to the dashboard: DASH_RT is the first version
+# that sends app tokens (earlier ones ignore them, so a paid dashboard, its export and its forwarding would stay empty).
+# build.sh refuses an RT the CDN does not have, so raising RT to DASH_RT or later is what opens them. Until then the
+# paid plans show their prices with an inactive button, and the Product JSON-LD and llms.txt offer only Free.
+# Deploy order for paid plans: (1) the telemetry worker with billing deployed, migration 0004 applied and
+# scripts/stripe-setup.mjs run, so genclass.dev/account/billing sells; (2) runtime DASH_RT published to npm;
+# (3) RT raised above, then ./build.sh and deploy the site.
+DASH_RT = "0.3.0"
+
+def semver(v):
+    core, _, pre = v.partition("-")
+    return tuple(int(x) for x in core.split(".")) + ((0,) if pre else (1,))
+
+PAID_OPEN = semver(RT) >= semver(DASH_RT)
+BILLING_URL = "https://genclass.dev/account/billing"  # served by the telemetry worker; it asks the visitor to sign in
+# The buttons under each plan: label, link (None: an inactive button), button style, the line under it.
+CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed to run it. The dashboard needs a free account."),
+       "pro": ("Start Pro", BILLING_URL, "btn green", "Sign in first, then pay on Stripe.")}
+
+def cta(p):
+    if p["id"] != "free" and not PAID_OPEN:
+        return (f"Opens with runtime {DASH_RT}", None, "btn ghost off", f"On sale when runtime {DASH_RT}, the first version that sends to the dashboard, is on npm.")
+    return CTA.get(p["id"], (f'Start {p["name"]}', BILLING_URL, "btn", "Sign in first, then pay on Stripe."))
+
+def usd(cents):
+    return f"${cents // 100:,}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
+
+def apps(n):
+    return "Unlimited" if n is None else str(n)
+
+def history(days):
+    return (f"{days // 365} year" + ("s" if days >= 730 else "")) if days % 365 == 0 else f"{days} days"
+
+def plan_tokens(s):
+    s = s.replace("{{plans.apps_cap}}", str(APPS_CAP))
+    s = s.replace("{{plans.contact}}", PLANS["contact"]).replace("{{dash_rt}}", DASH_RT)
+    pick = {"name": lambda p: p["name"], "price": lambda p: usd(p["price_usd_cents"]["monthly"]),
+            "apps": lambda p: apps(p["limits"]["apps"]), "history": lambda p: history(p["limits"]["history_days"])}
+    return re.sub(r"\{\{plan\.(\w+)\.(\w+)\}\}", lambda m: pick[m.group(2)](PLAN[m.group(1)]), s)
+
 css = (SRC / "css/base.css").read_text() + "\n" + (SRC / "css/components.css").read_text()
 (PUB / "styles.css").write_text(css)
 CSSV = hashlib.sha1(css.encode()).hexdigest()[:8]
 JSV = hashlib.sha1((PUB / "app.js").read_bytes()).hexdigest()[:8]
 
-# Cloud, Enterprise and Pricing are planned products with no customers yet: reachable from the footer, not the top nav.
-NAV = [("Docs", "/docs", "docs"), ("How it works", "/how-it-works", "how"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides")]
+# /login, /signup and /account (with /account/billing, where Pro and Custom are bought) are served by the telemetry
+# worker, not built here; the header only links to /login. /cloud redirects to /pricing (src/worker.js).
+NAV = [("Docs", "/docs", "docs"), ("How it works", "/how-it-works", "how"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides"), ("Pricing", "/pricing", "pricing")]
 
 def nav(active):
     links = "".join(f'<a href="{h}"{" class=\"on\" aria-current=\"page\"" if k == active else ""}>{t}</a>' for t, h, k in NAV)
-    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{GH}">GitHub</a><a href="/docs">Get started</a>'
+    # Sign in: the optional accounts and their dashboards (genclass.dev/login, served by telemetry-worker/)
+    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{GH}">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a>'
     return f'''<header class="nav">
   <div class="wrap">
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
     <nav aria-label="Main">{links}</nav>
     <a class="gh" href="{GH}">GitHub</a>
+    <a class="gh signin" href="/login">Sign in</a>
     <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel">{mlinks}</div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
@@ -43,7 +92,7 @@ FOOTER = f'''<footer class="end">
       <a class="btn ghost" href="{GH}">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="{GH}">GitHub</a><a href="{NPM}">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="{GH}/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="{GH}/blob/main/LICENSE">License (Apache-2.0)</a><a href="{GH}/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
@@ -70,6 +119,8 @@ def page(meta, body):
         trail = '<a href="/">Home</a>' + "".join(f'<span aria-hidden="true">/</span>{"<a href=" + chr(34) + h + chr(34) + ">" + n + "</a>" if i < len(crumbs) - 1 else "<span>" + n + "</span>"}' for i, (n, h) in enumerate(crumbs))
         body = body.replace("<!--@crumbs-->", f'<nav class="crumbs" aria-label="Breadcrumb">{trail}</nav>')
     graph += meta.get("jsonld", [])
+    if meta.get("offers_from_plans"): graph.append(offers_jsonld())
+    if meta.get("faq_from_body"): graph.append(faq_jsonld(body))
     robots = "noindex, follow" if meta.get("noindex") else "index, follow, max-image-preview:large, max-snippet:-1"
     og_type = meta.get("og_type", "website")
     extra = ""
@@ -114,135 +165,58 @@ def page(meta, body):
 <body>
 <a class="skip" href="#main">Skip to content</a>
 '''
-    return (head + nav(meta.get("nav")) + f'\n<main id="main">\n{body}\n</main>\n' + FOOTER + f'\n<script src="/app.js?v={JSV}" defer></script>\n{meta.get("body_extra", "")}</body>\n</html>\n').replace("{{rt}}", RT)
+    out = (head + nav(meta.get("nav")) + f'\n<main id="main">\n{body}\n</main>\n' + FOOTER + f'\n<script src="/app.js?v={JSV}" defer></script>\n{meta.get("body_extra", "")}</body>\n</html>\n').replace("{{rt}}", RT)
+    return plan_tokens(out)
 
 # ---------- shared blocks ----------
-def bars():
-    raw = [80 + 40 * math.sin(i * .55) + 25 * math.sin(i * 1.7 + 1) + i * 1.6 for i in range(30)]
-    s = sum(raw); vals = [round(v / s * 3291) for v in raw]; vals[-1] += 3291 - sum(vals)
-    top = max(vals)
-    return "".join(f'<i style="height: {v / top * 100:.1f}%" title="{v}"></i>' for v in vals)
+def plans_block():
+    """The plans as one ruled comparison, every line from billing/plans.json. Desktop: three columns whose rows line
+    up (CSS subgrid); phone: the plans stacked."""
+    def line(f):
+        t = f["text"]
+        if t.startswith("Everything in "): return f'<li class="inc">{t}</li>'
+        if f["available"]: return f'<li><span>{t}</span></li>'
+        return f'<li class="soon"><span>{t.replace(SOON, "").strip()} <em>{SOON}</em></span></li>'
+    cols = []
+    for i, p in enumerate(PLANS["plans"]):
+        cents = p["price_usd_cents"]["monthly"]
+        label, href, btn, note = cta(p)
+        cols.append(f'''<article class="plan" aria-labelledby="plan-{p["id"]}">
+      <p class="plan-k">{i + 1:02d}</p>
+      <h3 id="plan-{p["id"]}">{p["name"]}</h3>
+      <p class="plan-price"><b>{usd(cents)}</b><span>{"per month" if cents else "no card needed"}</span></p>
+      <p class="plan-sum">{p["summary"]}</p>
+      <div class="plan-cta">{f'<a class="{btn}" href="{href}">{label}</a>' if href else f'<span class="{btn}" aria-disabled="true">{label}</span>'}<p>{note}</p></div>
+      <ul class="plan-feat">{"".join(line(f) for f in p["features"])}</ul>
+    </article>''')
+    c = PLANS["contact"]
+    more = PLANS["footer"].replace(c, f'<a href="mailto:{c}?subject=GenClass%20self-hosting%2C%20SSO%20or%20invoices">{c}</a>')
+    return '<div class="plans">\n    ' + "\n    ".join(cols) + f'\n    </div>\n    <p class="plans-more">{more}</p>'
 
-ICONS = {
- "overview": '<path d="M3 13h4v7H3zM10 4h4v16h-4zM17 9h4v11h-4z"/>',
- "interventions": '<path d="M12 3l8 4v5c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V7z"/><path d="M8.5 12l2.4 2.4L15.5 10"/>',
- "releases": '<path d="M6 3v12M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9c0 6-12 3-12 6"/>',
- "alerts": '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
- "policies": '<path d="M4 6h16M4 12h10M4 18h6"/><circle cx="18" cy="15" r="3"/>',
- "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
-}
+def faq_jsonld(body):
+    """FAQPage JSON-LD from the page's own <details> questions, so the structured data cannot drift from the text."""
+    qa = []
+    for q, a in re.findall(r"<details><summary>(.*?)</summary>\s*<p>(.*?)</p></details>", body, re.S):
+        clean = lambda t: re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", t))).strip()
+        qa.append({"@type": "Question", "name": clean(q), "acceptedAnswer": {"@type": "Answer", "text": clean(a)}})
+    return {"@type": "FAQPage", "mainEntity": qa}
 
-def dashboard():
-    side = "".join(f'<button type="button" data-view="{k}" aria-current="{"true" if k == "overview" else "false"}"><svg viewBox="0 0 24 24" aria-hidden="true">{p}</svg>{k.capitalize()}</button>' for k, p in ICONS.items())
-    return f'''<div class="app" data-app>
-  <div class="app-top"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="url">app.genclass.dev / acme / storefront-web</span><span class="badge n sample">Mock-up · sample data</span></div>
-  <div class="app-body">
-    <div class="app-side" role="tablist" aria-label="GenClass Cloud sections">
-      <div class="proj"><img src="/brand/mark-64.png?v=2" alt="" width="26" height="26"><div><b>storefront-web</b><span>production</span></div></div>
-      {side}
-    </div>
-    <div class="app-main">
-      <div class="view" data-panel="overview">
-        <div class="app-head"><h3>Reliability overview</h3><div class="ctl"><span class="sel">Production</span><span class="sel">Last 30 days</span></div></div>
-        <div class="kpis">
-          <div class="kpi"><div class="k">Anomalies detected</div><div class="v">12,847</div><div class="d mut">across 1.9M sessions</div></div>
-          <div class="kpi"><div class="k">Interventions applied</div><div class="v">3,291</div><div class="d up">stale writes, duplicates, retries</div></div>
-          <div class="kpi"><div class="k">Undone by users</div><div class="v">14</div><div class="d up">0.43% of interventions</div></div>
-          <div class="kpi"><div class="k">P50 decision</div><div class="v">182 ms</div><div class="d mut">WASM, 1 thread · faster on WebGPU</div></div>
-        </div>
-        <div class="panels">
-          <div class="pnl"><h4>Interventions per day <span>30 days</span></h4><div class="spark" aria-hidden="true">{bars()}</div><div class="axisx"><span>Sep 10</span><span>Sep 25</span><span>Oct 9</span></div></div>
-          <div class="pnl"><h4>By category <span>3,291 total</span></h4><div class="cat">
-            <div><div class="r"><span>Stale writes prevented</span><b>1,420</b></div><div class="t"><i style="width: 100%"></i></div></div>
-            <div><div class="r"><span>Duplicate requests merged</span><b>1,030</b></div><div class="t"><i style="width: 72.5%"></i></div></div>
-            <div><div class="r"><span>Retries and recovery</span><b>841</b></div><div class="t"><i style="width: 59.2%"></i></div></div>
-          </div></div>
-        </div>
-        <div class="pnl" style="margin-top: 10px"><h4>Live events <span>streaming</span></h4><div class="feed">
-          <div class="ev"><span class="tm">12:04:11</span><span class="badge">stale · discard</span><span class="msg">GET /api/search?q=pa landed after q=paris was shown</span><span class="mut" style="font-size: 12px">/search</span></div>
-          <div class="ev"><span class="tm">12:03:57</span><span class="badge">duplicate · coalesce</span><span class="msg">POST /api/orders repeated 140 ms after #212; one order placed</span><span class="mut" style="font-size: 12px">/checkout</span></div>
-          <div class="ev"><span class="tm">12:03:40</span><span class="badge o">failing · observed</span><span class="msg">GET /api/inventory failed 5 times in 8 s</span><span class="mut" style="font-size: 12px">/product</span></div>
-          <div class="ev"><span class="tm">12:02:18</span><span class="badge n">transient · retry</span><span class="msg">PUT /api/cart/42 retried once with its idempotency key</span><span class="mut" style="font-size: 12px">/cart</span></div>
-        </div></div>
-      </div>
-      <div class="view" data-panel="interventions" hidden>
-        <div class="app-head"><h3>Interventions</h3><div class="ctl"><span class="sel">All categories</span><span class="sel">Last 24 hours</span></div></div>
-        <div class="tbl-wrap" style="margin-top: 14px"><table class="rel">
-          <thead><tr><th>Time</th><th>Diagnosis</th><th>Action</th><th>Endpoint</th><th>Confidence</th><th>Undo</th></tr></thead>
-          <tbody>
-            <tr><td>12:04:11</td><td>stale</td><td><span class="badge">discard</span></td><td>GET /api/search</td><td>0.98</td><td class="mut">available</td></tr>
-            <tr><td>12:03:57</td><td>duplicate</td><td><span class="badge">coalesce</span></td><td>POST /api/orders</td><td>0.96</td><td class="mut">n/a</td></tr>
-            <tr><td>12:02:18</td><td>transient</td><td><span class="badge n">retry</span></td><td>PUT /api/cart/42</td><td>0.93</td><td class="mut">n/a</td></tr>
-            <tr><td>11:58:02</td><td>conflict</td><td><span class="badge">discard</span></td><td>GET /api/board</td><td>0.97</td><td class="mut">available</td></tr>
-            <tr><td>11:51:44</td><td>stale</td><td><span class="badge">defer</span></td><td>GET /api/profile</td><td>0.94</td><td class="mut">n/a</td></tr>
-          </tbody></table></div>
-      </div>
-      <div class="view" data-panel="releases" hidden>
-        <div class="app-head"><h3>Release comparison</h3><div class="ctl"><span class="sel">v2.14.0 vs v2.13.2</span></div></div>
-        <div class="tbl-wrap" style="margin-top: 14px"><table class="rel">
-          <thead><tr><th>Per 10k sessions</th><th>v2.13.2</th><th>v2.14.0</th><th>Change</th></tr></thead>
-          <tbody>
-            <tr><td>Stale overwrites detected</td><td>41.2</td><td>18.6</td><td class="up">−55%</td></tr>
-            <tr><td>Duplicate submits</td><td>9.8</td><td>9.1</td><td class="up">−7%</td></tr>
-            <tr><td>Failing-request storms</td><td>2.1</td><td>3.4</td><td class="dn">+62%</td></tr>
-            <tr><td>Interventions applied</td><td>17.0</td><td>15.3</td><td class="mut">−10%</td></tr>
-          </tbody></table></div>
-        <div class="pnl" style="margin-top: 12px"><h4>Guard-mode rollout <span>v2.14.0</span></h4><p style="font-size: 14px; color: var(--ink2); margin-top: 8px">Guard runs on 25% of sessions; the rest observe. Promote when interventions undone stay under 1%.</p></div>
-      </div>
-      <div class="view" data-panel="alerts" hidden>
-        <div class="app-head"><h3>Alerts</h3><div class="ctl"><span class="sel">Slack · #web-reliability</span></div></div>
-        <div class="feed" style="margin-top: 10px">
-          <div class="ev"><span class="tm">rule</span><span class="toggle"><i></i>on</span><span class="msg">Failure storm on any /api/checkout route</span><span class="mut" style="font-size: 12px">page</span></div>
-          <div class="ev"><span class="tm">rule</span><span class="toggle"><i></i>on</span><span class="msg">Interventions undone above 1% in an hour</span><span class="mut" style="font-size: 12px">email</span></div>
-          <div class="ev"><span class="tm">rule</span><span class="toggle"><i></i>on</span><span class="msg">New release raises stale overwrites by 20%</span><span class="mut" style="font-size: 12px">slack</span></div>
-          <div class="ev"><span class="tm">rule</span><span class="toggle off"><i></i>off</span><span class="msg">P95 decision latency above 600 ms</span><span class="mut" style="font-size: 12px">slack</span></div>
-        </div>
-      </div>
-      <div class="view" data-panel="policies" hidden>
-        <div class="app-head"><h3>Policies</h3><div class="ctl"><span class="sel">Profile: balanced</span></div></div>
-        <div class="tbl-wrap" style="margin-top: 14px"><table class="rel">
-          <thead><tr><th>Route</th><th>Mode</th><th>Protected endpoints</th><th>Sessions</th></tr></thead>
-          <tbody>
-            <tr><td>/search</td><td><span class="badge">guard</span></td><td class="mut">none</td><td>100%</td></tr>
-            <tr><td>/checkout</td><td><span class="badge">guard</span></td><td>POST /api/payments</td><td>25%</td></tr>
-            <tr><td>/account</td><td><span class="badge n">observe</span></td><td>all</td><td>100%</td></tr>
-            <tr><td>/admin</td><td><span class="badge o">off</span></td><td>n/a</td><td>0%</td></tr>
-          </tbody></table></div>
-      </div>
-      <div class="view" data-panel="settings" hidden>
-        <div class="app-head"><h3>Connect your app</h3></div>
-        <p style="font-size: 14.5px; color: var(--ink2); margin-top: 10px">Paste the publishable project key. It can only send aggregate metrics, and the runtime keeps protecting your app if the cloud is unreachable.</p>
-        <div class="console" style="margin-top: 12px"><div class="d">// early access: proposed API</div><div>GenClass.init({{ cloud: {{ projectKey: <span class="b">"gc_pub_7Hq2…"</span> }} }});</div></div>
-      </div>
-    </div>
-  </div>
-  <p class="app-note">Mock-up with sample data. GenClass Cloud is not available and has no customers; every figure here is invented to show the planned layout and is not a measurement.</p>
-</div>'''
-
-def waitlist(plan, heading, text):
-    opts = "".join(f'<option value="{v}"{" selected" if v == plan else ""}>{l}</option>' for v, l in [("cloud", "GenClass Cloud (Teams)"), ("enterprise", "GenClass Enterprise"), ("community", "Community updates")])
-    return f'''<div class="formcard" id="early-access">
-  <div><h2>{heading}</h2><p>{text}</p><p style="font-size: 14px">The open-source runtime needs no account. This list is only for the paid products and is never shared.</p></div>
-  <form class="wl" method="post" action="/forms/waitlist" data-waitlist>
-    <label>Work email<input type="email" name="email" required autocomplete="email" placeholder="you@company.com"></label>
-    <div class="row2"><label>Company<input type="text" name="company" autocomplete="organization"></label>
-    <label>Production apps<select name="apps"><option value="1">1</option><option value="2-5">2 to 5</option><option value="6-20">6 to 20</option><option value="21+">21 or more</option></select></label></div>
-    <label>Interested in<select name="plan">{opts}</select></label>
-    <label class="hp" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
-    <button class="btn green" type="submit">Request early access</button>
-    <div class="msg" role="status" aria-live="polite"></div>
-    <small>By submitting you agree to be contacted about GenClass. See <a href="/privacy">privacy</a>.</small>
-  </form>
-</div>'''
-
-def planned(what):
-    return (f'<p class="notice planned"><b>Planned.</b> No customers yet; we are looking for design partners. '
-            f'{what} is not available; the open-source runtime is what ships today.</p>')
+def offers_jsonld():
+    """Product JSON-LD with one Offer per plan in billing/plans.json."""
+    offers = []
+    for p in PLANS["plans"]:
+        cents = p["price_usd_cents"]["monthly"]; price = f"{cents / 100:g}"
+        if cents and not PAID_OPEN: continue  # not on sale on this site yet (DASH_RT)
+        o = {"@type": "Offer", "name": p["name"], "price": price, "priceCurrency": "USD", "url": f"{SITE}/pricing",
+             "availability": "https://schema.org/InStock", "description": p["summary"]}
+        if cents:
+            o["priceSpecification"] = {"@type": "UnitPriceSpecification", "price": price, "priceCurrency": "USD", "unitText": "MONTH", "billingDuration": "P1M"}
+        offers.append(o)
+    return {"@type": "Product", "name": "GenClass", "brand": {"@type": "Brand", "name": "GenClass"}, "image": f"{SITE}/icon-512.png", "url": f"{SITE}/pricing",
+            "description": "An open-source runtime that reports, and can prevent, the web app bugs that never throw, with a dashboard at genclass.dev.", "offers": offers}
 
 def blocks(s):
-    s = s.replace("<!--@dashboard-->", dashboard())
-    s = re.sub(r'<!--@waitlist (\w+) "([^"]*)" "([^"]*)"-->', lambda m: waitlist(m.group(1), m.group(2), m.group(3)), s)
-    s = re.sub(r'<!--@planned ([^-]+?)-->', lambda m: planned(m.group(1).strip()), s)
+    s = s.replace("<!--@plans-->", plans_block())
     for name in ("trace", "demo", "figs", "data", "status", "how", "lab"):
         p = SRC / "partials" / f"{name}.html"
         if p.exists(): s = s.replace(f"<!--@{name}-->", p.read_text())
@@ -334,17 +308,29 @@ sm.append("</urlset>")
 
 # ---------- llms.txt: generated here so the version and the numbers cannot drift from the pages ----------
 # Sources: docs/runtime/RESULTS.md (model numbers), compat/RESULTS.md (matrix), packages/runtime/README.md (costs, telemetry).
+def llms_plans():
+    out = []
+    for p in PLANS["plans"]:
+        cents = p["price_usd_cents"]["monthly"]
+        sale = f"billed monthly through Stripe Checkout; sign in, then {BILLING_URL}" if PAID_OPEN else f"not on sale yet: it opens with runtime {DASH_RT}, the first version that sends to the dashboard"
+        head = f'- {p["name"]}, ' + (f"US{usd(cents)} per month ({sale})" if cents else "US$0")
+        feats = "; ".join(f["text"] if f["available"] or SOON in f["text"] else f'{f["text"]} {SOON}' for f in p["features"])
+        out.append(f"{head}: {feats}.")
+    out.append(f"- Unlimited apps means no plan limit; one account holds at most {APPS_CAP} apps as an abuse limit. The runtime is free in every plan.")
+    out.append(f'- {PLANS["footer"]} https://genclass.dev/enterprise')
+    return "\n".join(out)
+
 LLMS = f"""# GenClass
 
-> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. GenClass Cloud and GenClass Enterprise are planned paid products with no customers yet.
+> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. The optional genclass.dev dashboard is free for {apps(PLAN['free']['limits']['apps'])} apps; the paid plans (Pro, Custom) add history, data export, forwarding and a model trained on the customer's app; the runtime stays free in every plan.
 
 ## Shipped
 - `@genclass/runtime` {RT} with `@genclass/runtime-model` {MODEL} (training run r17-v2dT). Default mode observe, default aggressiveness "balanced", report threshold 0.90.
 - Install: `npm install @genclass/runtime`, then `import "@genclass/runtime/auto"` as the first line of the entry file. CLI: `npx @genclass/runtime init`. Script tag, first in <head>: `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@{RT}"></script>` (pin the version: the unversioned URL may serve an older release from the CDN cache).
 - Modes: observe (default; changes nothing), guard (opt-in: discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync).
 - Cost: +98 KB of JavaScript on first load; about 13 MB downloaded once at idle on WASM (18 MB on WebGPU), then cached; 190 to 280 MB of memory in a Web Worker while the model is loaded; no device floor by default (`model.loadIf` sets one; `model: false` installs no model and then detects nothing).
-- Telemetry: anonymous diagnostics are on by default on public hosts and off on localhost and private hosts; they contain no page text. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
-- Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging, Sentry or PostHog.
+- Telemetry: anonymous diagnostics are on by default on public hosts; from runtime 0.2.2 they are off on localhost and private hosts (0.2.1 sent from those too, by mistake); they contain no page text. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
+- Reports are console lines in the end user's browser; the `sinks` option hands each report to the app's own code. Forwarding detections from the genclass.dev collector to Sentry, PostHog, Datadog, Slack or a signed webhook is part of the Pro plan.
 
 ## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
 - Model {MODEL} at the shipped setting (balanced), held-out real apps: detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state; guard acts on 7.5% of the cases where acting would help.
@@ -356,8 +342,8 @@ LLMS = f"""# GenClass
 - Model: 8.8M parameters, 10.2 MB q8, about 180 ms per decision on one WASM thread (182 ms for the shipped export), faster on WebGPU.
 - Training data: about 17.6M labelled runtime situations, including 837,623 real-browser rows from 158 apps.
 
-## Planned, no customers yet
-- GenClass Cloud (a dashboard across apps) and GenClass Enterprise: https://genclass.dev/cloud, https://genclass.dev/enterprise, https://genclass.dev/pricing
+## Plans (https://genclass.dev/pricing; source: billing/plans.json)
+{llms_plans()}
 
 ## Guides
 - How to fix race conditions in React data fetching: https://genclass.dev/guides/race-conditions-react

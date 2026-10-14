@@ -1,7 +1,10 @@
 // Real-framework install test (VM only): for each scaffold made by scaffold.sh,
-//   copy it -> `npx <tarball> init --yes --from <tarball>` -> init again (must change nothing) -> build ->
+//   copy it -> `npx <tarball> init --yes --from <tarball> --no-token` -> init again (must change nothing) -> build ->
 //   production server + headless Chromium -> dev server + Chromium -> `npx <tarball> remove --yes` -> every file
 //   back byte for byte.
+// Never any network for a token: by default init creates a project at https://genclass.dev/api/projects, so every
+// run passes --no-token, and the `-token` variants pass a fixed --token (TEST_TOKEN, no network) and check that it is
+// written into what init adds and that no project was created (no .genclass.local, no dashboard link).
 // In Chromium the jsDelivr defaults (the model package, which is not published yet, and onnxruntime-web's wasm) are
 // served from local copies, so "[GenClass] Model ready" proves the framework bundled the model worker.
 //
@@ -47,6 +50,9 @@ const NPX = (args) => `npx --yes ${JSON.stringify(`file:${RUN_TGZ}`)} ${args}`;
 // pnpm (scaffold.sh installs it under SCAFFOLDS/.pnpm): init must find it on PATH like on a developer's machine
 process.env.PATH = `${join(SCAFFOLDS, ".bin")}:${process.env.PATH}`;
 
+/** A well-formed app token that exists nowhere (gc_ + 22 base62): `init --token` writes it without any network. */
+const TEST_TOKEN = "gc_InstallSuiteTok0000001";
+
 const vitePreview = "npx vite preview --port {port} --strictPort --host 127.0.0.1";
 const viteDev = "npx vite --port {port} --strictPort --host 127.0.0.1";
 const FRAMEWORKS = {
@@ -65,6 +71,9 @@ const FRAMEWORKS = {
   "react-router": { build: "npm run build", prod: "npx react-router-serve ./build/server/index.js", dev: "npx react-router dev --port {port} --host 127.0.0.1", env: { PORT: "{port}", HOST: "127.0.0.1" } },
   angular: { build: "npx ng build", prod: { static: "dist/*/browser" }, dev: "npx ng serve --port {port} --host 127.0.0.1" },
   "plain-html": { build: null, prod: { static: "." }, dev: null, prodDevtools: true, init: ["--cdn", `${cdn.url}/pkg/dist/genclass.global.min.js`] },
+  // app tokens: the token goes into genclass.config.ts (bundlers) or data-token (script tag); remove takes it out
+  "vite-react-ts-token": { scaffold: "vite-react-ts", token: true, build: "npm run build", prod: vitePreview, dev: viteDev },
+  "plain-html-token": { scaffold: "plain-html", token: true, build: null, prod: { static: "." }, dev: null, prodDevtools: true, init: ["--cdn", `${cdn.url}/pkg/dist/genclass.global.min.js`] },
 };
 
 // -------------------------------------------------------------------------------------------- helpers
@@ -233,10 +242,23 @@ async function runOne(name) {
   const before = snapshot(dir);
   const pkgBefore = existsSync(join(dir, "package.json")) ? readFileSync(join(dir, "package.json"), "utf8") : null;
 
-  const initCmd = NPX(`init --yes --from ${JSON.stringify(RUN_TGZ)} ${(fw.init ?? []).map((a) => JSON.stringify(a)).join(" ")}`);
+  // never the default token path: it would POST to https://genclass.dev/api/projects and write .genclass.local
+  const tokenArgs = fw.token ? ["--token", TEST_TOKEN] : ["--no-token"];
+  const initCmd = NPX(`init --yes --from ${JSON.stringify(RUN_TGZ)} ${[...tokenArgs, ...(fw.init ?? [])].map((a) => JSON.stringify(a)).join(" ")}`);
   const init = sh(initCmd, dir);
   const afterInit = snapshot(dir);
-  res.steps.init = { ok: init.ok, ms: init.ms, changed: diffSnap(before, afterInit), out: init.ok ? undefined : init.out.slice(-3000) };
+  const changed = diffSnap(before, afterInit);
+  const changedFiles = changed.map((c) => c.replace(/ \((new|deleted)\)$/, "")).filter((f) => existsSync(join(dir, f)));
+  res.steps.init = {
+    ok: init.ok,
+    ms: init.ms,
+    changed,
+    // no project was created: no .genclass.local, no dashboard link printed
+    noProject: !existsSync(join(dir, ".genclass.local")) && !/genclass\.dev\/dashboard\//.test(init.out),
+    // the -token variants: the token is in what init added
+    tokenWritten: fw.token ? changedFiles.some((f) => readFileSync(join(dir, f), "utf8").includes(TEST_TOKEN)) : undefined,
+    out: init.ok ? undefined : init.out.slice(-3000),
+  };
   res.initOutput = init.out;
   if (!init.ok) return res;
 
@@ -297,7 +319,8 @@ function verdict(r) {
   // production builds never mount the overlay; the plain-HTML tag uses data-devtools="local", which does on 127.0.0.1
   const prodOk = s.prod && !s.prod.error && s.prod.modelReady && s.prod.fetchWrapped && s.prod.devtools === !!FRAMEWORKS[r.name].prodDevtools && s.prod.errors.length === 0;
   const devOk = !s.dev || (!s.dev.error && s.dev.devtools && s.dev.fetchWrapped && s.dev.errors.length === 0);
-  const ok = s.init?.ok && s.idempotent?.ok && (s.build === undefined || s.build.ok) && prodOk && devOk && s.remove?.ok && s.remove?.restored;
+  const tokenOk = s.init?.noProject && (!FRAMEWORKS[r.name].token || s.init?.tokenWritten);
+  const ok = s.init?.ok && tokenOk && s.idempotent?.ok && (s.build === undefined || s.build.ok) && prodOk && devOk && s.remove?.ok && s.remove?.restored;
   return ok ? "PASS" : "FAIL";
 }
 
@@ -323,7 +346,7 @@ try {
     all.push(r);
     const s = r.steps ?? {};
     console.log(
-      `${r.verdict} ${name}: ${r.skipped ?? ""}${r.error ? `error ${r.error.slice(0, 300)}` : ""} init=${s.init?.ok} changed=[${s.init?.changed?.join(", ") ?? ""}] idempotent=${s.idempotent?.ok} build=${s.build ? `${s.build.ok} ${Math.round(s.build.ms / 1000)}s` : "-"} ` +
+      `${r.verdict} ${name}: ${r.skipped ?? ""}${r.error ? `error ${r.error.slice(0, 300)}` : ""} init=${s.init?.ok} changed=[${s.init?.changed?.join(", ") ?? ""}] noProject=${s.init?.noProject} token=${s.init?.tokenWritten ?? "-"} idempotent=${s.idempotent?.ok} build=${s.build ? `${s.build.ok} ${Math.round(s.build.ms / 1000)}s` : "-"} ` +
         `prod={ready:${!!s.prod?.modelReady} workers:${s.prod?.workers?.length ?? "-"} fetch:${s.prod?.fetchWrapped} devtools:${s.prod?.devtools} errors:${s.prod?.errors?.length ?? s.prod?.error ?? "-"}} ` +
         `dev={ready:${!!s.dev?.modelReady} workers:${s.dev?.workers?.length ?? "-"} devtools:${s.dev?.devtools} errors:${s.dev?.errors?.length ?? s.dev?.error ?? "-"} coldErrors:${s.dev?.coldErrors?.length ?? "-"}} ` +
         `remove={restored:${s.remove?.restored} pkg.json bytes:${s.remove?.packageJsonByteEqual}}`,

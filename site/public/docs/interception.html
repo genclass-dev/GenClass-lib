@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=a1056390">
+<link rel="stylesheet" href="/styles.css?v=98d3f7f4">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Interception surface", "item": "https://genclass.dev/docs/interception"}]}, {"@type": "TechArticle", "headline": "Interception surface", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/INTERCEPTION.md"}]}</script>
 </head>
 <body>
@@ -39,9 +39,10 @@
 <header class="nav">
   <div class="wrap">
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
-    <nav aria-label="Main"><a href="/docs" class="on" aria-current="page">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
+    <nav aria-label="Main"><a href="/docs" class="on" aria-current="page">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a></nav>
     <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    <a class="gh signin" href="/login">Sign in</a>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
 </header>
@@ -819,7 +820,8 @@ changes on a browser global, and whether <code>destroy()</code> restores it or l
 listeners it adds to <code>window</code> and <code>document</code> (all removed by <code>destroy()</code>). <code>sites</code> lines count the patch sites per file
 in <code>src/</code> (<code>addEventListener(</code> calls, <code>Object.defineProperty(</code>, <code>Reflect.set</code>/<code>defineProperty</code>, assignments to
 global, prototype and hook objects): a change in a count fails the test until the rows above and this block are
-updated.</p>
+updated. <code>src/protect.ts</code> counts two <code>Object.defineProperty(</code> calls that are not interceptions: <code>protect()</code> sets
+<code>name</code> and <code>length</code> on the wrapper function it returns (its own object, never a page global; nothing to restore).</p>
 <!-- inventory:start -->
 
 <pre><code class="language-text">patch window.fetch restored
@@ -876,6 +878,7 @@ sites src/observe/storage.ts 6
 sites src/observe/timers.ts 4
 sites src/observe/websocket.ts 4
 sites src/observe/xhr.ts 15
+sites src/protect.ts 2
 sites src/runtime.ts 1
 sites src/telemetry/client.ts 2
 </code></pre>
@@ -890,7 +893,7 @@ sites src/telemetry/client.ts 2
       <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
@@ -900,6 +903,6 @@ sites src/telemetry/client.ts 2
     </div>
   </div>
 </footer>
-<script src="/app.js?v=7a4fd5f9" defer></script>
+<script src="/app.js?v=7e896e7d" defer></script>
 </body>
 </html>

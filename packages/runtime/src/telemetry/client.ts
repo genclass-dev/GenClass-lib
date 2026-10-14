@@ -11,7 +11,7 @@
 
 import type { RuntimeImpl } from "../runtime.js";
 import type { ActionRecord, Answer, Decision, ModelStatus, TelemetryStatus } from "../types.js";
-import { normalizePath } from "../util.js";
+import { REDACTED, normalizePath } from "../util.js";
 import { RUNTIME_VERSION } from "../version.js";
 import { TELEMETRY_SCHEMA, type TelemetryConfig } from "./config.js";
 
@@ -37,6 +37,20 @@ export interface TelemetrySessionInfo {
 
 const r4 = (n: unknown): number | undefined => (typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : undefined);
 const cut = (s: unknown, n: number): string | undefined => (typeof s === "string" ? (s.length > n ? s.slice(0, n) : s) : undefined);
+
+/** An e-mail address, a URL, a run of 4+ digits (ids, phone or card numbers) or 12+ hex digits (a UUID, a hash). */
+const DATA_LIKE = /[^\s@]+@[^\s@]+\.[^\s@]+|\b(?:https?:\/\/|www\.)|\d{4,}|\b[0-9a-f]{12,}\b/i;
+
+/**
+ * A protect() label as telemetry sends it (only on batches with the app's token): a name the developer chose, at most
+ * 80 characters. A label that looks like it carries data rather than naming a function (DATA_LIKE: `save ${email}`)
+ * is sent as "[redacted]". Decision.fn keeps the full label locally.
+ */
+export function fnLabel(s: unknown): string | undefined {
+  const v = cut(s, 80);
+  if (v === undefined) return undefined;
+  return DATA_LIKE.test(v) ? REDACTED : v;
+}
 const inc = (c: Counts, k: string, by = 1) => {
   c[k] = (c[k] ?? 0) + by;
 };
@@ -119,6 +133,9 @@ export class TelemetryClient implements TelemetryStatus {
   }
   get sessionId(): string {
     return this.cfg.sessionId;
+  }
+  get token(): string | undefined {
+    return this.cfg.token;
   }
 
   // ------------------------------------------------------------------------------------------------ events
@@ -273,6 +290,9 @@ export class TelemetryClient implements TelemetryStatus {
         : undefined,
       effectiveMode: d.effectiveMode,
       shadow: d.shadow ? compact({ action: d.shadow.action, tier: d.shadow.tier, wouldPass: d.shadow.wouldPass, reason: cut(d.shadow.reason, 120) }) : undefined,
+      // the protect()ed function the subject ran inside (a name the app chose), only on batches that carry the app's
+      // token: it feeds that app's dashboard and is not sent otherwise; a label that looks like data is redacted
+      fn: this.cfg.token ? fnLabel(d.fn) : undefined,
     });
     if (d.reason === "vetoed" || d.reason === "would-veto") {
       c.vetoes++;
@@ -527,7 +547,8 @@ export class TelemetryClient implements TelemetryStatus {
     } catch {
       /* ignore */
     }
-    return `{"schema":${JSON.stringify(TELEMETRY_SCHEMA)},"sid":${JSON.stringify(this.cfg.sessionId)},"sent":${this.at()},"runtime":${JSON.stringify(RUNTIME_VERSION)},"model":${JSON.stringify(model)},"events":[`;
+    const token = this.cfg.token ? `"token":${JSON.stringify(this.cfg.token)},` : "";
+    return `{"schema":${JSON.stringify(TELEMETRY_SCHEMA)},${token}"sid":${JSON.stringify(this.cfg.sessionId)},"sent":${this.at()},"runtime":${JSON.stringify(RUNTIME_VERSION)},"model":${JSON.stringify(model)},"events":[`;
   }
 
   private send(body: string, n: number, beacon: boolean): Promise<void> {

@@ -5,6 +5,10 @@
 // carries the marker `genclass:init`, so `remove` can take out exactly that and nothing else (and refuses when a
 // marked line or block was edited). Running init twice changes nothing; running it again with another --mode
 // switches the marked import (or the script tag's data-mode) to that mode in place.
+//
+// Signed in (`login`, account.mjs), init asks before anything is sent whether a new app goes into the account
+// (POST /api/account/projects) instead of getting a private dashboard link (POST /api/projects); without saved
+// credentials it behaves exactly as before. `connect` (login.mjs) runs this same flow with an app of the account.
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
@@ -13,7 +17,10 @@ import { fileURLToPath } from "node:url";
 import { detectCsp, detectProject, detectState, htmlFiles, isDir, isFile, readText, walkSkipped, walkSources } from "./detect.mjs";
 import { MARK, hasMarker, isEmptyConfig, planRemoval, removeMarked, switchMetaConfig, switchMode, switchTagConfig, updateConfigText } from "./edit.mjs";
 import { AUTO, configFileChange, configFileFor, planInit, scriptTag } from "./plan.mjs";
-import { banner, c, confirm, err, out, printChange, row, sym } from "./ui.mjs";
+import { createAccountProject, readCredentials } from "./account.mjs";
+import { hostConfig, hostUrl } from "./host.mjs";
+import { LOCAL_FILE, PENDING_TOKEN, START_URL, TOKEN_RE, createProject, readLocal, saveLocal, tokenInFiles } from "./token.mjs";
+import { banner, c, confirm, err, interactive, out, printChange, row, sym } from "./ui.mjs";
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const VERSION = (() => {
@@ -33,7 +40,8 @@ export const INTERCEPTION_URL = "https://genclass.dev/docs/interception";
 export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
 
 export const USAGE = `Usage:
-  genclass-runtime init   [--mode observe|guard|heal] [--no-telemetry | --telemetry] [--model-url <url>]
+  genclass-runtime init   [--mode observe|guard|heal] [--token <gc_...> | --no-token]
+                          [--no-telemetry | --telemetry] [--model-url <url>]
                           [--yes] [--dry-run] [--no-install] [--no-devtools] [--cwd <dir>]
   genclass-runtime remove [--yes] [--dry-run] [--keep-package] [--cwd <dir>]
 
@@ -44,9 +52,16 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
          one of them was edited) and uninstalls the package if nothing else imports it.
 
   --mode <m>       observe (default: reports, never changes anything), guard or heal
+  --token <gc_...> use this app token (no network). By default, on a new setup and only once you
+                   approve the changes (or pass --yes), init creates one at genclass.dev (sending
+                   package.json's name), writes it into what it adds, and saves the token and your
+                   private dashboard link in ${LOCAL_FILE}. Signed in (\`login\`), init first asks
+                   whether the new app goes into your GenClass account instead (--yes: it does)
+  --no-token       no token, no network (no dashboard; you can add one later: ${START_URL})
   --no-telemetry   turn off GenClass's anonymous diagnostics (on by default; see TELEMETRY.md and
                    PRIVACY.md). Written as an option file (genclass.config.ts/js, imported right before
-                   the auto import), or data-telemetry="off" on a plain HTML script tag
+                   the auto import), or data-telemetry="off" on a plain HTML script tag. Implies
+                   --no-token (a dashboard only gets data while telemetry is on)
   --telemetry      undo --no-telemetry: back to the default (on, but never from local hosts); init
                    takes the opt-out out and writes no telemetry option of its own
   --model-url <u>  use a self-hosted model directory (made with \`fetch-model\`), e.g. /genclass-model/,
@@ -62,7 +77,7 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
                    URLs get no hash)
   --no-sri         plain HTML: no integrity attribute`;
 
-class UsageError extends Error {}
+export class UsageError extends Error {}
 
 const BOOL = {
   yes: "yes",
@@ -74,32 +89,37 @@ const BOOL = {
   "no-sri": "noSri",
   "no-telemetry": "noTelemetry",
   telemetry: "telemetry",
+  "no-token": "noToken",
   help: "help",
   h: "help",
 };
-const VALUE = { mode: "mode", from: "from", cdn: "cdn", cwd: "cwd", strategy: "strategy", "model-url": "modelUrl" };
+const VALUE = { mode: "mode", from: "from", cdn: "cdn", cwd: "cwd", strategy: "strategy", "model-url": "modelUrl", token: "token" };
 
-function parse(argv) {
+/** init's and remove's flags; `spec` replaces them ({ bool, value } maps of flag -> option name) for other commands. */
+export function parse(argv, spec = { bool: BOOL, value: VALUE }) {
   const o = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith("-")) throw new UsageError(`unexpected argument ${a}`);
     const eq = a.indexOf("=");
     const key = (eq > 0 ? a.slice(0, eq) : a).replace(/^--?/, "");
-    if (BOOL[key]) {
-      o[BOOL[key]] = true;
+    if (spec.bool[key]) {
+      o[spec.bool[key]] = true;
       continue;
     }
-    if (VALUE[key]) {
+    if (spec.value[key]) {
       const v = eq > 0 ? a.slice(eq + 1) : argv[++i];
       if (v === undefined || v.startsWith("--")) throw new UsageError(`--${key} needs a value`);
-      o[VALUE[key]] = v;
+      o[spec.value[key]] = v;
       continue;
     }
     throw new UsageError(`unknown option ${a}`);
   }
   if (o.mode && !MODES.includes(o.mode)) throw new UsageError(`--mode must be observe, guard or heal`);
   if (o.noTelemetry && o.telemetry) throw new UsageError(`--telemetry and --no-telemetry contradict each other`);
+  if (o.token !== undefined && o.noToken) throw new UsageError(`--token and --no-token contradict each other`);
+  if (o.token !== undefined && o.noTelemetry) throw new UsageError(`--no-telemetry means no token (a dashboard only gets data while telemetry is on): drop --token`);
+  if (o.token !== undefined && !TOKEN_RE.test(o.token)) throw new UsageError(`--token must be "gc_" followed by 22 letters or digits (get one: ${START_URL})`);
   if (o.strategy && !["instrumentation", "layout", "pages"].includes(o.strategy)) throw new UsageError(`--strategy must be instrumentation, layout or pages`);
   return o;
 }
@@ -153,7 +173,7 @@ function installSpec(o) {
 // ------------------------------------------------------------------------------------------- helpers
 
 /** The project directory: --cwd, else the current directory, else the nearest parent with a package.json. */
-function projectDir(o) {
+export function projectDir(o) {
   const start = resolve(o.cwd ?? process.cwd());
   if (o.cwd || isFile(join(start, "package.json")) || htmlFiles(start).length || isDir(join(start, ".git"))) return start;
   for (let d = dirname(start); d !== dirname(d); d = dirname(d)) {
@@ -299,9 +319,10 @@ function printRecommendations(recs) {
 
 // ----------------------------------------------------------------------------------------- options
 
-/** The options init writes: { telemetry?, model? } (empty: none). */
-export function configOf(o) {
+/** The options init writes: { token?, telemetry?, model? } (empty: none). */
+export function configOf(o, token) {
   const c = {};
+  if (token) c.token = token;
   if (o.noTelemetry) c.telemetry = false;
   else if (o.telemetry) c.telemetry = true;
   if (o.modelUrl) {
@@ -404,8 +425,12 @@ function planConfigSwitch(project, cwd, marked, cfg, readText) {
 
 // ------------------------------------------------------------------------------------------------ init
 
-/** init --mode <m> / --no-telemetry / ... on a project init already set up: rewrite the marked code in place. */
-async function switchModes(o, project, changes, install, spec, cwd, what) {
+/**
+ * init --mode <m> / --no-telemetry / ... on a project init already set up: rewrite the marked code in place. A
+ * pending token (`connect` creating a new app) is created after the approval. Returns { code, applied, tk }.
+ */
+async function switchModes(o, project, planned, install, spec, cwd, what, tk) {
+  let changes = planned;
   if (what.mode) row("Mode", `${o.mode} ${c.gray("(switching what init added)")}`);
   if (what.options) row("Options", `${what.options} ${c.gray("(changing what init added)")}`);
   out();
@@ -417,35 +442,45 @@ async function switchModes(o, project, changes, install, spec, cwd, what) {
   if (o.dryRun) {
     out(`  ${c.gray("Dry run: nothing was written.")}`);
     out();
-    return 0;
+    return { code: 0, applied: false, tk };
   }
   if (!o.yes) {
     const ok = await confirm(what.mode ? `Switch to ${o.mode} mode${what.options ? ` (${what.options})` : ""}?` : `Apply ${what.options}?`);
     if (ok === null) {
       out(`  Not a terminal, so nothing was written. Re-run with ${c.bold("--yes")} to apply.`);
       out();
-      return 1;
+      return { code: 1, applied: false, tk };
     }
     if (!ok) {
       out(`  Nothing changed.`);
       out();
-      return 0;
+      return { code: 0, applied: false, tk };
     }
     out();
   }
   if (install && !spawn(...installArgs(project.pm, spec), cwd)) {
     err(`  ${c.red(sym.cross)} Installing ${PKG} failed, so no files were changed.`);
-    return 1;
+    return { code: 1, applied: false, tk };
+  }
+  if (tk?.pending) {
+    const settled = await settleToken(tk, changes, () => []);
+    tk = settled.tk;
+    changes = settled.changes;
+    if (!changes.length) {
+      err(`  ${c.red(sym.cross)} No app was created, so no files were changed.`);
+      out();
+      return { code: 1, applied: false, tk };
+    }
   }
   for (const ch of changes) writeChange(ch);
   const done = [what.mode ? `now starts in ${o.mode} mode` : null, what.options ? `options: ${what.options}` : null].filter(Boolean).join("; ");
   out(`  ${c.green(sym.ok)} ${c.bold(`GenClass Runtime ${done}.`)} ${c.gray(`(${changes.map((ch) => ch.rel).join(", ")})`)}`);
   out();
-  return 0;
+  return { code: 0, applied: true, tk };
 }
 
 /** "telemetry off, model /genclass-model/" */
-const describeConfig = (cfg) => [cfg.telemetry === false ? "telemetry off" : cfg.telemetry ? "telemetry on" : null, cfg.model ? `model ${cfg.model.baseUrl}` : null].filter(Boolean).join(", ");
+const describeConfig = (cfg) => [cfg.token ? (cfg.token === PENDING_TOKEN ? "the new app's token" : `token ${cfg.token}`) : null, cfg.telemetry === false ? "telemetry off" : cfg.telemetry ? "telemetry on" : null, cfg.model ? `model ${cfg.model.baseUrl}` : null].filter(Boolean).join(", ");
 
 /** Telemetry as the marked files set it (an existing setup): false when init wrote the opt-out. */
 function currentConfig(files) {
@@ -472,11 +507,200 @@ function withLocalDevice(cfg, project) {
   return cfg;
 }
 
-async function init(o) {
+// ------------------------------------------------------------------------------------- token, dashboard
+
+/**
+ * The app token init writes: { token?, write (put it into what init adds), source, local?, pending? (a new project
+ * is created once the user approves the changes; `name` is what it is called), why? (no token), wouldCreate?
+ * (dry run), hint? (an existing setup without one) }. Never touches the network: `settleToken` creates the project,
+ * after the user said yes. A new project is only proposed for a new setup (`fresh`), never with --token, --no-token,
+ * --no-telemetry or --dry-run, or when this project already has a token.
+ */
+function planToken(o, project, cwd, marked, fresh) {
+  if (o.noTelemetry) return { why: "--no-telemetry" };
+  if (o.noToken) return { why: "--no-token" };
+  const inFiles = tokenInFiles(marked);
+  const local = readLocal(cwd);
+  if (o.token) return { token: o.token, write: o.token !== inFiles, source: "--token", local: local?.token === o.token ? local : null };
+  if (inFiles) return { token: inFiles, write: false, source: "already in your setup", local: local?.token === inFiles ? local : null };
+  if (local) return { token: local.token, write: true, source: LOCAL_FILE, local };
+  if (!o.telemetry && currentConfig(marked).telemetry === false) return { why: "telemetry is off in your setup" };
+  // a setup init made earlier without a token (offline, --no-token, or before tokens existed): never a new project
+  // as a side effect of another change (a mode switch, a re-run)
+  if (!fresh) return { why: "none in your setup", hint: true };
+  if (o.dryRun) return { why: "dry run", wouldCreate: true };
+  return { pending: true, name: project.pkg?.name || project.name };
+}
+
+/** cfg without its token (what init writes when no token could be created). */
+const withoutToken = (cfg) => {
+  const { token: _t, ...rest } = cfg;
+  return rest;
+};
+
+/**
+ * After the user approved (or --yes) and the install succeeded: create the pending project (one POST to
+ * genclass.dev: in the signed-in account when `tk.account` is set, else with a private dashboard link) and put its
+ * token where the planned changes hold PENDING_TOKEN. When that fails, say so and return `replan()`: the same
+ * changes without a token. Returns { tk, changes }.
+ */
+async function settleToken(tk, changes, replan) {
+  if (!tk.pending) return { tk, changes };
+  const r = tk.account ? await createAccountProject(tk.account, tk.name) : await createProject(tk.name);
+  if (r.ok) {
+    const put = (ch) => (typeof ch.after === "string" ? { ...ch, after: ch.after.split(PENDING_TOKEN).join(r.token) } : ch);
+    return { tk: { token: r.token, write: true, source: tk.account ? "account" : "new", created: r, account: tk.account }, changes: changes.map(put) };
+  }
+  const failed = { why: r.reason, failed: true, account: tk.account };
+  tokenRow(failed);
+  out();
+  return { tk: failed, changes: replan() };
+}
+
+/** "dev@example.com" (or the GitHub login, or the account id) for a saved session. */
+export const accountLabel = (account) => account?.email || (account?.github_login ? `GitHub ${account.github_login}` : account?.id ? `account ${account.id}` : "your account");
+
+/** The command running init's flow ("init", or "connect"), for the messages that say what it will send. */
+let actor = "init";
+
+function tokenRow(tk) {
+  const name = c.bold(String(tk.name ?? "").slice(0, 80) || "unnamed");
+  if (tk.pending && tk.account) {
+    row("Token", `a new app in your account (${accountLabel(tk.account.account)}) ${c.gray("once you apply these changes")}`);
+    out(`             ${actor} then sends this app's name (${name}) to ${c.cyan(hostUrl("/api/account/projects"))} with your`);
+    out(`             CLI session and gets back the app's public token. ${c.cyan("--no-token")}: no token, no network.`);
+    return;
+  }
+  if (tk.pending) {
+    row("Token", `a new one for this app, created at genclass.dev ${c.gray("once you apply these changes")}`);
+    out(`             init then sends this app's name (${name}) to ${c.cyan(hostUrl("/api/projects"))} and gets back`);
+    out(`             a public token and your private dashboard link. ${c.cyan("--no-token")}: no token, no network.`);
+    return;
+  }
+  if (tk.token) {
+    const from = tk.source === "new" ? "created for this app at genclass.dev" : tk.source === "account" ? `a new app in your account (${accountLabel(tk.account?.account)})` : tk.source;
+    row("Token", `${tk.token} ${c.gray(`(${from})`)}`);
+    out(`             Public (it ships in your page). The diagnostics above also feed this app's ${tk.app || tk.source === "account" ? "dashboard in your account" : "private dashboard"}.`);
+    return;
+  }
+  if (tk.wouldCreate) {
+    const where = tk.account ? `, in your account (${accountLabel(tk.account.account)})${tk.chosen ? "" : " if you agree"}` : "";
+    // connect --dry-run has read the account's apps (GET /api/me) to get here; init --dry-run sends nothing
+    row("Token", `${c.gray(`a new one would be created at genclass.dev${where} (dry run: ${tk.chosen ? "nothing is created" : "no network"})`)}`);
+    return;
+  }
+  if (tk.failed) {
+    row("Token", `none: could not create one (${tk.why})`, c.yellow(sym.warn));
+    out(`             GenClass works without it; you only miss the dashboard. ${tk.account ? `Run ${c.cyan(`${CMD} login`)} again, then` : `Get a token at ${c.cyan(START_URL)}`}`);
+    out(`             ${tk.account ? c.cyan(`${CMD} connect`) : `and run ${c.cyan(`${CMD} init --token gc_...`)}`}`);
+    return;
+  }
+  if (tk.hint) {
+    row("Token", c.gray(`none in your setup (for a dashboard: get a token at ${START_URL}, then ${CMD} init --token gc_...)`));
+    return;
+  }
+  row("Token", c.gray(`none (${tk.why})`));
+}
+
+/**
+ * A project created in this run with a private link: save its token and the link to .genclass.local. saveLocal's
+ * result, or { error }. An app in the account has no secret link: nothing is saved for it.
+ */
+function persistCreated(tk, cwd) {
+  if (tk.created?.account) return null;
+  try {
+    return saveLocal(cwd, { token: tk.token, dashboardUrl: tk.created.dashboardUrl, name: tk.created.name, created: tk.created.created });
+  } catch (e) {
+    return { error: e?.message ?? String(e) };
+  }
+}
+
+const SAVED_WHERE = {
+  added: " (added to .gitignore)",
+  created: " (git did not ignore it: added to a new .gitignore here)",
+  listed: " (git already ignores it)",
+  none: " (no git repository and no .gitignore here: keep it out of version control)",
+};
+
+/**
+ * After init wrote its changes (`applied`): the dashboard link. `saved`: what persistCreated did for a project created
+ * in this run (it runs before any file is written, so a failed write cannot lose the link). `remind`: a run with
+ * nothing to do may repeat the link from .genclass.local. A run that wrote nothing never created a project and prints
+ * no link.
+ */
+function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
+  if (tk.created?.account || tk.app) {
+    if (!applied || !tk.token) return;
+    const link = tk.created?.dashboardUrl ?? tk.app?.dashboard_url ?? hostUrl("/account");
+    out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
+    out(`  ${c.gray(`In your GenClass account (${accountLabel(tk.account?.account)}): sign in at genclass.dev to open it.`)}`);
+    out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
+    out(`  ${c.gray("networks) never send, and visitors who opt out or send Global Privacy Control are not counted.")}`);
+    out();
+    return;
+  }
+  const link = tk.created?.dashboardUrl ?? tk.local?.dashboardUrl;
+  if (!tk.token || !link) return;
+  if (!applied && !(remind && tk.local && !tk.created)) return;
+  if (tk.created && saved?.error) err(`  ${c.yellow(sym.warn)} Could not write ${LOCAL_FILE} (${saved.error}): copy the link below now.`);
+  out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
+  out(`  ${c.yellow("Keep this link private; it is the only way to open your dashboard.")}`);
+  if (tk.created && saved && !saved.error) out(`  ${c.gray(`Saved in ${LOCAL_FILE}${SAVED_WHERE[saved.gitignore] ?? ""}.`)}`);
+  else if (tk.local) out(`  ${c.gray(`(from ${LOCAL_FILE})`)}`);
+  out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
+  out(`  ${c.gray("networks) never send, and visitors who opt out or send Global Privacy Control are not counted.")}`);
+  out();
+}
+
+/**
+ * Prints the GENCLASS_HOST in use when it is not genclass.dev (tests, a local wrangler dev). Every command that can
+ * reach the network calls it first.
+ */
+export function hostNotice() {
+  const h = hostConfig();
+  if (h.overridden && !h.error) row("Host", `${h.host} ${c.gray("(GENCLASS_HOST is set: for tests only, instead of https://genclass.dev)")}`, c.yellow(sym.warn));
+}
+
+/** What init finds in the project directory (no writes, no network). */
+export function inspectProject(o) {
   const cwd = projectDir(o);
-  banner("init");
   const project = detectProject(cwd);
-  const cfg = withLocalDevice(configOf(o), project);
+  const files = project.refused || !project.framework ? [] : walkSources(cwd);
+  const marked = files.filter((f) => hasMarker(readText(f) ?? ""));
+  const manual = marked.length ? [] : manualRefs(files);
+  const local = readLocal(cwd);
+  return { cwd, project, files, marked, handWritten: !marked.length && manual.length > 0, fresh: !marked.length && !manual.length, token: tokenInFiles(marked) ?? local?.token ?? null, local };
+}
+
+/**
+ * Signed in and about to create a new app (a fresh setup): ask whether it goes into the account. --yes, or no
+ * terminal (then nothing is sent anyway: init stops before applying), means yes. Asks before anything is sent.
+ */
+async function offerAccount(o, tk) {
+  if (!tk.pending && !tk.wouldCreate) return tk;
+  const creds = readCredentials();
+  if (!creds) return tk;
+  if (tk.wouldCreate || o.yes || !interactive()) return { ...tk, account: creds };
+  const ok = await confirm(`Signed in as ${accountLabel(creds.account)}: create this app in your GenClass account?`);
+  if (ok === false) {
+    out(`  ${c.gray("Not in your account: init creates the app with a private dashboard link instead, as without an account.")}`);
+    return tk;
+  }
+  return { ...tk, account: creds };
+}
+
+/**
+ * `init`, and the second half of `connect` (ctx: { creds, app } to use an app of the account, or { creds, create:
+ * name } to create one once the changes are approved; banner: false when the caller printed its own). Returns the
+ * exit code.
+ */
+export async function init(o, ctx = {}) {
+  actor = ctx.cmd ?? "init";
+  const cwd = projectDir(o);
+  if (ctx.banner !== false) banner("init");
+  if (ctx.banner !== false) hostNotice();
+  const project = detectProject(cwd);
+  let cfg = withLocalDevice(configOf(o), project);
   if (project.refused) {
     out(`  ${c.yellow(sym.warn)} Not adding GenClass to ${c.bold(cwd)}: ${project.refused}.`);
     out(`  If this is a browser app, add the import as the first line of its browser entry file yourself:`);
@@ -496,6 +720,20 @@ async function init(o) {
 
   const files = walkSources(cwd);
   const marked = files.filter((f) => hasMarker(readText(f) ?? ""));
+  // a hand-written setup (no init markers): init leaves the code alone, so no token is created for it
+  const handWritten = !marked.length && manualRefs(files).length > 0;
+  const fresh = !marked.length && !manualRefs(files).length;
+  // no network here: a new project (tk.pending) is created only after the user approved the changes (settleToken)
+  let tk;
+  if (handWritten) tk = { why: "GenClass is set up by hand here: pass token to GenClass.init()" };
+  else if (ctx.create !== undefined && !o.dryRun) tk = { pending: true, name: ctx.create, account: ctx.creds };
+  else if (ctx.create !== undefined) tk = { why: "dry run", wouldCreate: true, account: ctx.creds, chosen: true };
+  else {
+    tk = planToken(o, project, cwd, marked, fresh);
+    if (ctx.app && tk.token === ctx.app.token) tk = { ...tk, source: `your account's app "${ctx.app.name}"`, app: ctx.app, account: ctx.creds };
+  }
+  if (tk.write) cfg = { token: tk.token, ...cfg };
+  else if (tk.pending) cfg = { token: PENDING_TOKEN, ...cfg };
   const needsPackage = !!project.pkg && project.framework !== "html" && !project.has(PKG);
   const install = needsPackage && !o.noInstall;
   const spec = installSpec(o);
@@ -526,12 +764,19 @@ async function init(o) {
     const optionsChanged = switches.some((ch) => !o.mode || ch.kind === "create" || switchMode(ch.before, o.mode) !== ch.after);
     out();
     telemetryNotice(isEmptyConfig(cfg) ? currentConfig(marked) : { ...currentConfig(marked), ...cfg }, null);
+    tokenRow(tk);
+    if (tk.token && !tk.app && !ctx.creds && readCredentials()) out(`             ${c.gray(`Signed in: ${CMD} connect adds this app to your account if it is not there yet.`)}`);
     cspAdvice(project, files, cfg);
     out();
-    if (switches.length) return switchModes(o, project, switches, install, spec, cwd, { mode: !!o.mode && switches.some((ch) => switchMode(ch.before, o.mode) !== ch.before), options: optionsChanged && !isEmptyConfig(cfg) ? describeConfig(cfg) : null });
+    if (switches.length) {
+      const r = await switchModes(o, project, switches, install, spec, cwd, { mode: !!o.mode && switches.some((ch) => switchMode(ch.before, o.mode) !== ch.before), options: optionsChanged && !isEmptyConfig(cfg) ? describeConfig(cfg) : null }, tk);
+      dashboardNotice(r.tk ?? tk, cwd, r.applied);
+      return r.code;
+    }
     if (!install) {
       out(`  ${c.green("Nothing to do.")}${marked.length ? ` To take it out: ${c.cyan(`${CMD} remove`)}` : ""}`);
       out();
+      dashboardNotice(tk, cwd, false, true);
       return 0;
     }
     out();
@@ -549,7 +794,8 @@ async function init(o) {
   }
 
   const devtools = !o.noDevtools;
-  const plan = planInit(project, { mode: o.mode, devtools, cdn: o.cdn, sri: !o.noSri, strategy: o.strategy, config: cfg }, { pkgDir: PKG_DIR, version: VERSION });
+  const planFor = (config) => planInit(project, { mode: o.mode, devtools, cdn: o.cdn, sri: !o.noSri, strategy: o.strategy, config }, { pkgDir: PKG_DIR, version: VERSION });
+  const plan = planFor(cfg);
   if (plan.manual || !plan.changes.length) {
     out(`  ${c.yellow(sym.warn)} Could not add GenClass automatically: ${plan.manual ?? "nothing to change"}.`);
     out();
@@ -558,8 +804,11 @@ async function init(o) {
   }
   row("Entry", posix(relative(cwd, plan.entry)));
   row("Mode", `${o.mode ?? "observe"}${o.mode ? "" : c.gray(" (default: reports only, never changes anything; --mode guard lets it act)")}`);
-  const cfgAt = plan.changes.find((ch) => /genclass\.config\.[cm]?[jt]s$/.test(ch.file))?.rel ?? (cfg.telemetry === false ? plan.changes[0]?.rel : null);
+  const cfgAtOf = (changes, config) => changes.find((ch) => /genclass\.config\.[cm]?[jt]s$/.test(ch.file))?.rel ?? (config.telemetry === false ? changes[0]?.rel : null);
+  let cfgAt = cfgAtOf(plan.changes, cfg);
   telemetryNotice(cfg, cfgAt);
+  if (!ctx.creds) tk = await offerAccount(o, tk);
+  tokenRow(tk);
   cspAdvice(project, files, cfg);
   out();
   out(`  ${c.bold("Changes")}`);
@@ -580,6 +829,7 @@ async function init(o) {
     return 0;
   }
   if (!o.yes) {
+    // declined or not a terminal: nothing is written and nothing is sent (no project is created)
     const ok = await confirm("Apply these changes?");
     if (ok === null) {
       out(`  Not a terminal, so nothing was written. Re-run with ${c.bold("--yes")} to apply (or ${c.bold("--dry-run")} to preview).`);
@@ -598,17 +848,40 @@ async function init(o) {
     err(`  ${c.red(sym.cross)} Installing ${PKG} failed, so no files were changed.`);
     return 1;
   }
-  for (const ch of plan.changes) writeChange(ch);
+  const settled = await settleToken(tk, plan.changes, () => {
+    const p = planFor(withoutToken(cfg));
+    return p.manual ? [] : p.changes;
+  });
+  tk = settled.tk;
+  const changes = settled.changes;
+  if (!changes.length) {
+    err(`  ${c.red(sym.cross)} Could not set GenClass up without a token, so no files were changed. Re-run init.`);
+    return 1;
+  }
+  if (changes !== plan.changes) cfgAt = cfgAtOf(changes, tk.token ? cfg : withoutToken(cfg));
+  // a project created just now: keep its private link before writing anything else (it is shown only once)
+  const saved = tk.created ? persistCreated(tk, cwd) : null;
+  for (const ch of changes) {
+    try {
+      writeChange(ch);
+    } catch (e) {
+      err(`  ${c.red(sym.cross)} Could not write ${ch.rel} (${e?.message ?? e}). GenClass may be half set up: run ${c.cyan(`${CMD} remove`)}, then init again${tk.token ? ` with ${c.cyan(`--token ${tk.token}`)} to keep this app's token` : ""}.`);
+      out();
+      dashboardNotice(tk, cwd, true, false, saved);
+      return 1;
+    }
+  }
 
   out();
-  out(`  ${c.green(sym.ok)} ${c.bold("GenClass Runtime is set up.")} ${c.gray(`(${plan.changes.map((ch) => ch.rel).join(", ")})`)}`);
+  out(`  ${c.green(sym.ok)} ${c.bold("GenClass Runtime is set up.")} ${c.gray(`(${changes.map((ch) => ch.rel).join(", ")})`)}`);
   out();
+  dashboardNotice(tk, cwd, true, false, saved);
   out(`  ${c.bold("Next")}`);
   const script = project.pkg?.scripts?.dev ? "dev" : project.pkg?.scripts?.start ? "start" : null;
   if (project.framework === "html") out(`    ${sym.dot} Open your page. GenClass starts before your other scripts.`);
   else if (script) out(`    ${sym.dot} Run ${c.cyan(runCmd(project.pm, script))} and open the app.`);
   out(`    ${sym.dot} Detections and actions appear in the browser console as ${c.cyan("[GenClass] ...")} lines.`);
-  if (devtools && plan.changes.some((ch) => /devtools/.test(ch.after))) out(`    ${sym.dot} In development an overlay shows what GenClass sees (bottom-right, ${c.bold("Alt+Shift+G")}).`);
+  if (devtools && changes.some((ch) => /devtools/.test(ch.after))) out(`    ${sym.dot} In development an overlay shows what GenClass sees (bottom-right, ${c.bold("Alt+Shift+G")}).`);
   out(`    ${sym.dot} Rule it out while debugging: add ${c.cyan("?genclass=off")} to the URL.`);
 
   out();
@@ -703,6 +976,8 @@ async function remove(o) {
   }
   out();
   out(`  ${c.green(sym.ok)} ${c.bold("GenClass Runtime is removed.")}${changes.length ? ` ${c.gray(`(${changes.map((ch) => ch.rel).join(", ")})`)}` : ""}`);
+  if (isFile(join(cwd, LOCAL_FILE)))
+    out(`  ${c.gray(`${LOCAL_FILE} stays (your token and private dashboard link), and so does its .gitignore line, so the link never ends up in git; delete both when you no longer need the dashboard.`)}`);
   out();
   return 0;
 }
@@ -722,6 +997,11 @@ export async function run(cmd, argv) {
   if (o.help) {
     out(USAGE);
     return 0;
+  }
+  const h = hostConfig();
+  if (cmd === "init" && h.error) {
+    err(`genclass-runtime ${cmd}: ${h.error}`);
+    return 2;
   }
   return cmd === "remove" ? remove(o) : init(o);
 }

@@ -1,0 +1,145 @@
+// The app token and private dashboard link for `genclass-runtime init` (owner: INSTALL).
+//
+// A token (`gc_` + 22 base62) identifies one web app. It is public (it ships in the page) and only lets telemetry be
+// grouped under that app. The dashboard link (https://genclass.dev/dashboard/<secret>) is private: whoever has it sees
+// the app's stats. init creates both with POST https://genclass.dev/api/projects (server: telemetry-worker/), sending
+// only the app's name, and only after the user approved the changes (the diff shows PENDING_TOKEN until then). It
+// writes the token into the snippet it adds and keeps the link in .genclass.local, which it makes sure git ignores
+// (asking git itself, so a monorepo's root .gitignore counts; `remove` keeps the file and that line). An app created
+// in a signed-in account (account.mjs) has no secret link, so nothing is saved for it here.
+
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { DEFAULT_HOST, apiHost, hostUrl } from "./host.mjs";
+
+export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
+const TOKEN_IN_TEXT = /\bgc_[A-Za-z0-9]{22}\b/;
+export const PROJECTS_URL = "https://genclass.dev/api/projects";
+export const START_URL = "https://genclass.dev/start";
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+
+/**
+ * Whether `url` is a private dashboard link (`<origin>/dashboard/<secret>`) on genclass.dev or on the GENCLASS_HOST
+ * the CLI talks to.
+ */
+export function isDashboardLink(url) {
+  const origins = [...new Set([DEFAULT_HOST, apiHost()])].map(escapeRe).join("|");
+  return new RegExp(`^(?:${origins})/dashboard/[A-Za-z0-9]+$`).test(String(url ?? ""));
+}
+export const LOCAL_FILE = ".genclass.local";
+/**
+ * Stands for the token in the diff init shows before the project exists. Not a valid token (TOKEN_RE), so it is never
+ * taken for one; before anything is written it is replaced by the real token, or the changes are planned again
+ * without one.
+ */
+export const PENDING_TOKEN = "gc_new-token-created-when-you-apply";
+const TIMEOUT_MS = 10_000;
+
+const read = (f) => {
+  try {
+    return readFileSync(f, "utf8");
+  } catch {
+    return null;
+  }
+};
+
+/** { token?, dashboardUrl? } from <dir>/.genclass.local (KEY=value lines), or null. */
+export function readLocal(dir) {
+  const t = read(join(dir, LOCAL_FILE));
+  if (t === null) return null;
+  const kv = {};
+  for (const line of t.split(/\r?\n/)) {
+    const m = /^\s*([A-Z_]+)\s*=\s*(\S*)\s*$/.exec(line);
+    if (m) kv[m[1]] = m[2];
+  }
+  const r = {};
+  if (TOKEN_RE.test(kv.GENCLASS_TOKEN ?? "")) r.token = kv.GENCLASS_TOKEN;
+  if (isDashboardLink(kv.GENCLASS_DASHBOARD)) r.dashboardUrl = kv.GENCLASS_DASHBOARD;
+  return r.token ? r : null;
+}
+
+/** The first token written in these files (a setup init already made), or null. */
+export function tokenInFiles(files) {
+  for (const f of files) {
+    const m = TOKEN_IN_TEXT.exec(read(f) ?? "");
+    if (m) return m[0];
+  }
+  return null;
+}
+
+/**
+ * Whether git ignores <dir>/<name>: true or false, or null when <dir> is not inside a git work tree or git is not
+ * installed (`git check-ignore` exits 0 when ignored, 1 when not, 128 outside a repository).
+ */
+export function gitIgnores(dir, name) {
+  try {
+    const r = spawnSync("git", ["check-ignore", "-q", "--", name], { cwd: dir, stdio: "ignore", timeout: 5000, shell: false });
+    if (r.status === 0) return true;
+    if (r.status === 1) return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes .genclass.local and makes sure git ignores it. Returns { file, gitignore }: "listed" (git, or <dir>/.gitignore,
+ * already ignores it), "added" (appended to <dir>/.gitignore), "created" (inside a git work tree with no .gitignore
+ * in <dir>, such as a monorepo package: a new <dir>/.gitignore with that one line) or "none" (not a git work tree and
+ * no .gitignore: nothing to add it to).
+ */
+export function saveLocal(dir, { token, dashboardUrl, name, created }) {
+  const lines = [
+    "# GenClass: this app's token and private dashboard link (written by `npx @genclass/runtime init`).",
+    "# Keep this file private and out of git: the dashboard link is the only way to open your dashboard.",
+    `GENCLASS_TOKEN=${token}`,
+    ...(dashboardUrl ? [`GENCLASS_DASHBOARD=${dashboardUrl}`] : []),
+    ...(name ? [`GENCLASS_PROJECT=${String(name).replace(/\s+/g, "_")}`] : []),
+    ...(created ? [`GENCLASS_CREATED=${created}`] : []),
+  ];
+  const file = join(dir, LOCAL_FILE);
+  writeFileSync(file, `${lines.join("\n")}\n`);
+  const ignored = gitIgnores(dir, LOCAL_FILE);
+  if (ignored === true) return { file, gitignore: "listed" };
+  const gi = join(dir, ".gitignore");
+  const g = read(gi);
+  if (g === null) {
+    if (ignored === null) return { file, gitignore: "none" };
+    writeFileSync(gi, `${LOCAL_FILE}\n`);
+    return { file, gitignore: "created" };
+  }
+  if (g.split(/\r?\n/).some((l) => /^\/?\.genclass\.local\s*$/.test(l.trim()))) return { file, gitignore: "listed" };
+  const eol = g.includes("\r\n") ? "\r\n" : "\n";
+  writeFileSync(gi, `${g}${g === "" || g.endsWith("\n") ? "" : eol}${LOCAL_FILE}${eol}`);
+  return { file, gitignore: "added" };
+}
+
+/**
+ * POST /api/projects (on genclass.dev, or GENCLASS_HOST). Resolves { ok: true, token, dashboardUrl, name, created } or { ok: false, reason } (never
+ * rejects). `fetchFn` defaults to the global fetch (tests replace it).
+ */
+export async function createProject(name, fetchFn = globalThis.fetch) {
+  if (typeof fetchFn !== "function") return { ok: false, reason: "this Node.js has no fetch" };
+  const ctl = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), TIMEOUT_MS) : null;
+  try {
+    const body = JSON.stringify(name ? { name: String(name).slice(0, 80) } : {});
+    const res = await fetchFn(hostUrl("/api/projects"), { method: "POST", headers: { "content-type": "application/json" }, body, ...(ctl ? { signal: ctl.signal } : {}) });
+    if (res.status === 429) return { ok: false, reason: "too many new projects from this network right now (HTTP 429)" };
+    if (!res.ok) return { ok: false, reason: `the server answered HTTP ${res.status}` };
+    let j;
+    try {
+      j = await res.json();
+    } catch {
+      return { ok: false, reason: "the server's answer was not JSON" };
+    }
+    if (!j || !TOKEN_RE.test(String(j.token ?? "")) || !isDashboardLink(j.dashboardUrl)) return { ok: false, reason: "the server's answer had no valid token and dashboard link" };
+    return { ok: true, token: j.token, dashboardUrl: j.dashboardUrl, name: typeof j.name === "string" ? j.name : name, created: typeof j.created === "string" ? j.created : undefined };
+  } catch (e) {
+    const aborted = e?.name === "AbortError";
+    return { ok: false, reason: aborted ? `no answer within ${TIMEOUT_MS / 1000} s` : `network error (${e?.cause?.code ?? e?.message ?? e})` };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}

@@ -7,6 +7,8 @@
 
 export const TOKEN_RE = /^gc_[A-Za-z0-9]{22}$/;
 export const SECRET_RE = /^[A-Za-z0-9]{32}$/;
+/** A project's stable id (16 lowercase hex), used in account URLs; the token stays the public key. */
+export const PROJECT_ID_RE = /^[0-9a-f]{16}$/;
 export const RECENT_CAP = 500;
 export const RETENTION_DAYS = 90;
 /** Distinct counters one batch may touch (bounds D1 writes per batch). */
@@ -46,6 +48,8 @@ export function randomBase62(n: number): string {
 
 export const newToken = (): string => `gc_${randomBase62(22)}`;
 export const newSecret = (): string => randomBase62(32);
+/** 16 lowercase hex, the same shape migration 0003 gave existing projects (lower(hex(randomblob(8)))). */
+export const newProjectId = (): string => [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 export async function sha256Hex(s: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
@@ -67,37 +71,74 @@ export const hourKey = (d: Date): string => d.toISOString().slice(0, 13);
 // --------------------------------------------------------------------------------------------- projects
 
 export interface Project {
+  /** Stable id (PROJECT_ID_RE); null only for a row written by code older than migration 0003. */
+  id: string | null;
   token: string;
   name: string;
   created: string;
   last_event: string | null;
+  first_event: string | null;
+  /** The owning account, or null for a project known only by its private dashboard link. */
+  account_id: string | null;
+  /** 1 when a private dashboard link (/dashboard/<secret>) opens this project; 0 for an app created in an account
+   * (nobody was given a link) or one whose owner turned its link off. */
+  private_link: number;
 }
 
-export async function createProject(db: D1Like, name: string, now: Date): Promise<{ token: string; secret: string; name: string; created: string }> {
+export const PROJECT_COLUMNS = "id, token, name, created, last_event, first_event, account_id, private_link";
+
+/**
+ * Create a project. Without an account it is reachable through its private dashboard link (the secret, returned once).
+ * With an account the secret is generated and hashed the same way (the column is required) but the caller does not
+ * show it and `private_link` is 0: the app is opened from the account only.
+ */
+export async function createProject(
+  db: D1Like,
+  name: string,
+  now: Date,
+  accountId: string | null = null,
+): Promise<{ id: string; token: string; secret: string; name: string; created: string }> {
   for (let attempt = 0; ; attempt++) {
+    const id = newProjectId();
     const token = newToken();
     const secret = newSecret();
     const created = now.toISOString();
     try {
       await db
-        .prepare("INSERT INTO projects (token, secret_hash, name, created) VALUES (?, ?, ?, ?)")
-        .bind(token, await sha256Hex(secret), name, created)
+        .prepare("INSERT INTO projects (id, token, secret_hash, name, created, account_id, private_link) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(id, token, await sha256Hex(secret), name, created, accountId, accountId ? 0 : 1)
         .run();
       tokenCache.set(token, { ok: true, exp: now.getTime() + CACHE_OK_MS });
-      return { token, secret, name, created };
+      return { id, token, secret, name, created };
     } catch (e) {
       if (attempt >= 2) throw e; // a collision is astronomically unlikely; anything else is a real error
     }
   }
 }
 
+/**
+ * Projects created after `since` (all clients together), for the global creation ceilings. Anonymous creation
+ * (/api/projects) and creation in an account have separate ceilings, so a flood of anonymous requests cannot stop
+ * signed-in owners from creating apps, nor the reverse.
+ */
+export async function projectsCreatedSince(db: D1Like, since: Date, by: "anonymous" | "account"): Promise<number> {
+  const owner = by === "account" ? "account_id IS NOT NULL" : "account_id IS NULL";
+  const row = await db.prepare(`SELECT COUNT(*) AS n FROM projects WHERE created > ? AND ${owner}`).bind(since.toISOString()).first<{ n: number }>();
+  return Number(row?.n ?? 0);
+}
+
 /** Look a project up by its dashboard secret (by hash, so lookup time does not depend on how much of it matches). */
 export async function projectBySecret(db: D1Like, secret: string): Promise<Project | null> {
   if (!SECRET_RE.test(secret)) return null;
   return db
-    .prepare("SELECT token, name, created, last_event FROM projects WHERE secret_hash = ?")
+    .prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE secret_hash = ?`)
     .bind(await sha256Hex(secret))
     .first<Project>();
+}
+
+/** Drop a deleted project's token from this isolate's cache, so its batches stop being counted here at once. */
+export function forgetToken(token: string): void {
+  tokenCache.delete(token);
 }
 
 const CACHE_OK_MS = 5 * 60_000;
@@ -352,7 +393,7 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
   const stmts: D1Stmt[] = [
     ...upserts(db, "daily", "day", token, day, counters),
     ...upserts(db, "hourly", "hour", token, hourKey(now), counters),
-    db.prepare("UPDATE projects SET last_event = ? WHERE token = ?").bind(iso, token),
+    db.prepare("UPDATE projects SET last_event = ?1, first_event = COALESCE(first_event, ?1) WHERE token = ?2").bind(iso, token),
   ];
   if (sessionStmt) stmts.push(sessionStmt);
   for (const r of recent) {
@@ -374,7 +415,8 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
 
 // --------------------------------------------------------------------------------------------- stats
 
-export type Range = "24h" | "7d" | "30d";
+/** 90d and 1y: account dashboards on a plan with that much history (src/plans.ts); link dashboards use RANGES. */
+export type Range = "24h" | "7d" | "30d" | "90d" | "1y";
 export const RANGES: Range[] = ["24h", "7d", "30d"];
 const SERIES_METRICS = ["sessions", "decisions", "detections", "acted"];
 
@@ -400,7 +442,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
   const hourly = range === "24h";
   const table = hourly ? "hourly" : "daily";
   const col = hourly ? "hour" : "day";
-  const span = hourly ? 24 : range === "7d" ? 7 : 30;
+  const span = hourly ? 24 : range === "7d" ? 7 : range === "90d" ? 90 : range === "1y" ? 365 : 30;
   const buckets: string[] = [];
   for (let i = span - 1; i >= 0; i--) {
     const d = new Date(now.getTime() - i * (hourly ? 3_600_000 : 86_400_000));
@@ -485,12 +527,23 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
 
 // --------------------------------------------------------------------------------------------- retention
 
-export async function retention(db: D1Like, now: Date): Promise<void> {
+/**
+ * `longer` (src/plans.ts): a SELECT of the tokens whose owner's plan keeps daily counters and recent rows for `days`
+ * (more than RETENTION_DAYS); their rows are kept that long instead. Without it every token keeps RETENTION_DAYS.
+ */
+export async function retention(db: D1Like, now: Date, longer?: { tokens: string; params: unknown[]; days: number }): Promise<void> {
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * 86_400_000);
-  await db.batch([
-    db.prepare("DELETE FROM daily WHERE day < ?").bind(dayKey(cutoff)),
+  const keep = longer ? ` AND token NOT IN (${longer.tokens})` : "";
+  const p = longer?.params ?? [];
+  const stmts = [
+    db.prepare(`DELETE FROM daily WHERE day < ?${keep}`).bind(dayKey(cutoff), ...p),
     db.prepare("DELETE FROM hourly WHERE hour < ?").bind(hourKey(new Date(now.getTime() - 48 * 3_600_000))),
-    db.prepare("DELETE FROM recent WHERE t < ?").bind(cutoff.toISOString()),
+    db.prepare(`DELETE FROM recent WHERE t < ?${keep}`).bind(cutoff.toISOString(), ...p),
     db.prepare("DELETE FROM sessions WHERE day < ?").bind(dayKey(new Date(now.getTime() - 2 * 86_400_000))),
-  ]);
+  ];
+  if (longer) {
+    const far = new Date(now.getTime() - Math.max(longer.days, RETENTION_DAYS) * 86_400_000);
+    stmts.push(db.prepare("DELETE FROM daily WHERE day < ?").bind(dayKey(far)), db.prepare("DELETE FROM recent WHERE t < ?").bind(far.toISOString()));
+  }
+  await db.batch(stmts);
 }
