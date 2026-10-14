@@ -3,7 +3,7 @@
 Method, prompt and worker: [`vision/clef/README.md`](../../clef/README.md). All numbers come from
 `vision/clef/eval.py report` and are in `metrics.json` next to this file. No crop, image or host is in git.
 
-- **Data.** 2,200 crops from the v2 contact sheets were labelled by a person (208 of them by two people, Cohen's
+- **Data.** 2,200 crops from the v2 contact sheets were labelled by AI agents (six labeller agents working in parallel, not people; 208 of them by two agents, Cohen's
   kappa 0.705). The 344 unclear labels are left out, which leaves 1,856 crops: 1,717 not, 139 real. They were drawn by
   stratum from 83,402 candidate crops on val and test hosts: 800 crops a v1 rule flagged, 700 the v1 gbt-small model
   chose, and 700 random crops that no rule flagged.
