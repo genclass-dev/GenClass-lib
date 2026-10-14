@@ -425,3 +425,59 @@ kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-widt
 .hero3 .mend-cap span+span::before{content:" · "}
 .hero3 .mend-cap span:empty{display:none}
 @media (max-width:640px){.hero3 .mend-stage{padding:40px 0 140px;min-height:calc(100vh - 85px);min-height:calc(100svh - 85px)}.hero3 .mend-cap{left:16px;right:16px;text-align:left}.hero3 .mend-cap span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hero3 .mend-cap span+span::before{content:none}}
+
+/* ---------- pricing v2: the plans as one ruled comparison, built from billing/plans.json ---------- */
+.price-hero h1{max-width:26ch}
+.price-sec{padding-top:40px}
+.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.plan{display:grid;grid-row:span 6;grid-template-rows:subgrid;row-gap:0;padding:18px 28px 12px;border-left:1px solid var(--rule);min-width:0}
+.plan:first-child{border-left:0;padding-left:0}
+.plan:last-child{padding-right:0}
+.plan-k{font:500 12.5px var(--mono);color:var(--ink3)}
+.plan h3{font:650 26px/1.1 var(--display);letter-spacing:-.02em;margin-top:8px}
+.plan-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:16px}
+.plan-price b{font:700 48px/1 var(--display);letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+.plan-price span{font:500 14px var(--sans);color:var(--ink3)}
+.plan-sum{font-size:15px;color:var(--ink2);margin-top:14px;max-width:36ch}
+.plan-cta{margin-top:22px}
+.plan-cta .btn{width:100%}
+.plan-cta p{font-size:13.5px;line-height:1.5;color:var(--ink3);margin-top:10px;max-width:38ch}
+.plan-feat{list-style:none;margin-top:24px;border-top:1px solid var(--ink);font-size:15px;color:var(--ink2)}
+.plan-feat li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.plan-feat li:last-child{border-bottom:0}
+.plan-feat li::before{content:"";flex:none;width:14px;height:14px;margin-top:5px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.4l3.2 3.1L13 4.6' fill='none' stroke='%230E1F4D' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat}
+.plan-feat li.inc{font:500 12px/1.5 var(--mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;padding:12px 0 10px}
+.plan-feat li.inc::before{display:none}
+.plan-feat li.soon{color:var(--ink3)}
+.plan-feat li.soon::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5.2' fill='none' stroke='%235A6684' stroke-width='1.4' stroke-dasharray='2.2 2'/%3E%3C/svg%3E")}
+.plan-feat li.soon em{font:500 12.5px var(--mono);font-style:normal;white-space:nowrap}
+.plans-more{padding:16px 0 0;font-size:15.5px;color:var(--ink2)}
+.plans-more a{color:var(--ink);font-weight:500;text-underline-offset:3px}
+@media (max-width:860px){
+  .plans{grid-template-columns:1fr;border-top:0;border-bottom:0}
+  .plan{display:block;padding:18px 0 4px;border-left:0;border-top:1px solid var(--ink)}
+  .plan + .plan{margin-top:36px}
+  .plan:last-child{border-bottom:1px solid var(--ink)}
+  .plan-sum,.plan-cta p{max-width:none}
+}
+.pnotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));border-top:1px solid var(--ink);margin-top:32px}
+.pnotes > div{padding:20px 24px 20px 0}
+.pnotes > div + div{padding-left:24px;border-left:1px solid var(--rule)}
+@media (max-width:620px){.pnotes > div + div{padding-left:0;border-left:0;border-top:1px solid var(--rule)}}
+.pnotes h3{font:600 17px/1.35 var(--sans);letter-spacing:-.01em}
+.pnotes p{font-size:15px;color:var(--ink2);margin-top:6px}
+.ent{margin-top:32px;border-top:1px solid var(--ink)}
+.ent-h,.ent-r{display:grid;grid-template-columns:minmax(150px,.7fr) minmax(0,2fr) minmax(0,1.3fr);gap:8px 32px}
+.ent-h{font:500 12px var(--mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;padding:12px 0;border-bottom:1px solid var(--ink)}
+.ent-r{padding:18px 0;border-bottom:1px solid var(--rule)}
+.ent-r h3{font:600 17px/1.4 var(--sans);letter-spacing:-.01em}
+.ent-r p{font-size:15px;color:var(--ink2)}
+.ent-r a{color:var(--ink)}
+.ent-l{display:none}
+@media (max-width:760px){.ent-h{display:none}.ent-r{grid-template-columns:1fr;gap:6px}.ent-l{display:block;font:500 11.5px var(--mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:6px}}
+/* the header with Pricing in it: no wrapped links between the phone menu (860px) and wide screens */
+.nav nav a,.nav .gh{white-space:nowrap}
+@media (max-width:1080px){.nav .wrap{gap:18px}.nav nav{gap:16px}.nav .gh:not(.signin){display:none}}
+/* docs on a phone: long code lines scroll inside their block instead of widening the page */
+@media (max-width:900px){.doc{grid-template-columns:minmax(0,1fr)}}
+.prose code{overflow-wrap:anywhere}

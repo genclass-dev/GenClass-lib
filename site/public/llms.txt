@@ -1,6 +1,6 @@
 # GenClass
 
-> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. GenClass Cloud and GenClass Enterprise are planned paid products with no customers yet.
+> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. The optional genclass.dev dashboard is free for 3 apps; the paid plans (Pro, Custom) add history, data export, forwarding and a model trained on the customer's app; the runtime stays free in every plan.
 
 ## Shipped
 - `@genclass/runtime` 0.2.1 with `@genclass/runtime-model` 0.2.0 (training run r17-v2dT). Default mode observe, default aggressiveness "balanced", report threshold 0.90.
@@ -20,8 +20,12 @@
 - Model: 8.8M parameters, 10.2 MB q8, about 180 ms per decision on one WASM thread (182 ms for the shipped export), faster on WebGPU.
 - Training data: about 17.6M labelled runtime situations, including 837,623 real-browser rows from 158 apps.
 
-## Planned, no customers yet
-- GenClass Cloud (a dashboard across apps) and GenClass Enterprise: https://genclass.dev/cloud, https://genclass.dev/enterprise, https://genclass.dev/pricing
+## Plans (https://genclass.dev/pricing; source: billing/plans.json)
+- Free, US$0: The open-source runtime with every mode: observe, guard and heal; Reports in the browser console; The genclass.dev page scanner (coming next); Dashboard for up to 3 apps; 7 days of dashboard history.
+- Pro, US$99 per month (billed monthly through Stripe Checkout; sign in, then https://genclass.dev/account/billing?plan=pro): Everything in Free; Unlimited apps; 1 year of dashboard history; Full data export: every event GenClass received for your apps, as JSONL or CSV, by download or API; Forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook; Interaction analytics (coming next); Email support from mehar@daybot.ca.
+- Custom, US$599 per month (billed monthly through Stripe Checkout; sign in, then https://genclass.dev/account/billing?plan=custom): Everything in Pro; A classifier trained for your app: we train a GenClass model on your app's own traffic and bug reports and ship it as a private model your runtime loads; A person from GenClass emails you within 1 business day of purchase to start; Priority support.
+- Unlimited apps means no plan limit; one account holds at most 200 apps as an abuse limit. The runtime is free in every plan.
+- Need self-hosting, SSO or invoices? Email mehar@daybot.ca. https://genclass.dev/enterprise
 
 ## Guides
 - How to fix race conditions in React data fetching: https://genclass.dev/guides/race-conditions-react

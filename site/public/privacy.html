@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=362399af">
+<link rel="stylesheet" href="/styles.css?v=a0f20305">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Privacy", "item": "https://genclass.dev/privacy"}]}]}</script>
 </head>
 <body>
@@ -39,10 +39,10 @@
 <header class="nav">
   <div class="wrap">
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
-    <nav aria-label="Main"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
+    <nav aria-label="Main"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a></nav>
     <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
     <a class="gh signin" href="/login">Sign in</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
 </header>
@@ -69,8 +69,9 @@
       <h2>Accounts</h2>
       <p>An account on genclass.dev is optional: the runtime, its diagnostics and private dashboard links work without one. If you create one, to keep your apps in one place or to connect an app with <code>npx @genclass/runtime login</code> (from the next release), it stores: your email as you typed it at passkey sign-up (we do not verify it) or as Google returned it, and whether it is verified; your passkeys' public keys, with when each was added and last used; your Google account id (<code>sub</code>) if you sign in with Google, and your GitHub user id and login if you sign in with GitHub; your sign-in sessions (a one-way hash of each session secret, its times, and the name the command line gave itself); and which apps you own, and whether each one's private dashboard link still opens it. Nothing else: no password, no IP address, and no Google or GitHub access token after sign-in. We use the email only for notices about your account.</p>
       <p>Signing in sets one session cookie (30 days in the browser; a terminal signed in with the command line gets a 90-day token instead), and a Google or GitHub sign-in uses a cookie that lasts at most 10 minutes. Sign out, or revoke sessions, on your account page. To delete your account, choose Delete account on your account page while signed in: the account, its passkeys and its sessions are deleted at once, apps created in the account are deleted with their stats, and apps that still have a private dashboard link leave the account and keep working through that link. If you cannot sign in any more, email <a href="mailto:mehar@daybot.ca?subject=GenClass%20account%20deletion">mehar@daybot.ca</a> from an address Google has verified for that account; an account id or an unverified email alone is not enough.</p>
-      <h2>GenClass Cloud</h2>
-      <p>Cloud is not available yet. It is planned to be optional and to receive only data from apps you connect with a publishable project key: aggregate metrics such as counts, categories and timings.</p>
+      <h2>Paid plans</h2>
+      <p>Pro and Custom are paid through Stripe Checkout. Stripe collects the card, billing address and tax details and sends the receipts; GenClass never sees the full card number. For an account on a paid plan we store the plan, its status and renewal date, and the Stripe customer and subscription ids that link the account to Stripe. What Stripe keeps is covered by <a href="https://stripe.com/privacy">Stripe's privacy policy</a>.</p>
+      <p>Each app's dashboard data is kept for 90 days on every plan, and for 1 year while its account is on Pro or Custom (until 30 days after that plan ends); the Free dashboard shows the last 7 days of it. Forwarding, on Pro and Custom, is off until you turn it on for an app; while it is on, the collector sends that app's detections to the destinations you connect (Sentry, PostHog, Datadog, Slack or a webhook) and keeps the settings and keys you entered for them, encrypted, until you remove them. Forwarded records carry the diagnosis, confidence, route, versions and a dashboard link, never page text. When you start Custom we record the request so a person can email you, and the model we train from your app's events and the bug reports you share is shipped only to you.</p>
       <h2>Early-access sign-ups</h2>
       <p>When you request early access we store your email, company, number of apps and the plan you picked. We use it only to contact you about GenClass, never sell or share it, and delete it on request.</p>
       <h2>This website</h2>
@@ -89,7 +90,7 @@
       <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/cloud">Cloud (planned)</a><a href="/enterprise">Enterprise (planned)</a><a href="/pricing">Pricing (planned)</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
