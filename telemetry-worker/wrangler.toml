@@ -31,11 +31,13 @@ routes = [
 # and `npx @genclass/runtime login` are not published yet. Set it to the new version when release.yml publishes 0.3.0.
 [vars]
 RUNTIME_ON_NPM = "0.2.2"
-# Pro is sold through Stripe Managed Payments: Stripe, through Link, is the merchant of record (sales tax and VAT,
+# "on" sells Pro through Stripe Managed Payments: Stripe, through Link, is the merchant of record (sales tax and VAT,
 # fraud, disputes, payment support; Link's name on the receipt and the card statement) for 3.5% of each Pro payment on
-# top of Stripe's fees. "off" sells Pro on standard Checkout instead (GenClass is then the seller and owes the tax);
-# Custom never uses it. Turn Managed Payments on in the Stripe dashboard before Pro is sold (README "Paid plans").
-MANAGED_PAYMENTS = "on"
+# top of Stripe's fees. "off" (and unset) sells Pro on standard Checkout, with GenClass the seller owing the tax; Custom
+# never uses it. It stays "off" until the owner has accepted the Managed Payments terms in the Stripe dashboard and one
+# test-mode Pro checkout with it "on" went through (Stripe's changelog lists the parameter under a newer API version
+# than the pinned one; README "Owner steps"). Then set "on" and deploy.
+MANAGED_PAYMENTS = "off"
 
 # Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
 # STRIPE_WEBHOOK_SECRET_TEST, STRIPE_PORTAL_CONFIGURATION and STRIPE_PORTAL_CONFIGURATION_TEST (GenClass's Billing

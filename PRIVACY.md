@@ -86,10 +86,10 @@ The Pro and Custom plans are paid through Stripe, which processes payments for u
 your account's email (if it has one) and your GenClass account id, and you type your card or other payment details
 into Stripe's own checkout page: they go to Stripe and never reach GenClass. Stripe handles them under its own privacy
 policy (stripe.com/privacy) and keeps your invoices and receipts, which you can see under Manage billing on your
-billing page. Stripe is the merchant of record for Pro purchases: it sells Pro to you through Link, its checkout
-service, so Link's name is on your Pro receipts and card statement, and Stripe handles the sales tax and payment
-support. To work out the tax, its checkout page asks for your name and billing address, which Stripe keeps and GenClass
-does not store.
+billing page. When GenClass sells Pro through Stripe Managed Payments, Stripe is the merchant of record for Pro
+purchases: it sells Pro to you through Link, its checkout service, so Link's name is on your Pro receipts and card
+statement, and Stripe handles the sales tax and payment support. To work out the tax, its checkout page asks for your
+name and billing address, which Stripe keeps and GenClass does not store.
 
 GenClass stores only your Stripe customer id, your subscription id, the subscription's status and renewal or end date,
 and your plan. Never card numbers, bank details or billing addresses. When someone buys the Custom plan we also keep a

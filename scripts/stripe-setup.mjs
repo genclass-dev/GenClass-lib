@@ -19,8 +19,9 @@
 //    price: the old one is archived and keeps a genclass_..._retired_<price id> lookup key, so its subscribers stay
 //    on it and on their plan (the worker reads a plan from a genclass_ lookup key and the product's metadata);
 // 3. its webhook endpoint https://genclass.dev/api/billing/webhook with the description "GenClass billing", for the
-//    events the worker handles and no others (the customer.subscription events, which carry no buyer's name, email or
-//    address). Stripe has no search for endpoints, so the list is read to find that one; no other endpoint is ever
+//    events the worker handles and no others (the customer.subscription events, invoice.paid, charge.refunded and
+//    charge.dispute.created; the worker reads only ids and amounts from the last three, which carry the buyer's
+//    details). Stripe has no search for endpoints, so the list is read to find that one; no other endpoint is ever
 //    edited or deleted, and an endpoint for the same URL with another description stops the script. The new
 //    endpoint's signing secret is piped straight into `npx wrangler secret put` (never printed):
 //    STRIPE_WEBHOOK_SECRET in live mode, STRIPE_WEBHOOK_SECRET_TEST in test mode, so a test run can never replace
@@ -355,8 +356,8 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
   const dashboard = `
 Dashboard steps for GenClass's Stripe account, in this mode, before the worker gets its key (the reasons are in
 telemetry-worker/README.md, "Paid plans"):
-a. Settings, Managed Payments: accept the terms and turn it on. Pro's Checkout asks for it (the worker's var
-   MANAGED_PAYMENTS is "on"), so turn it on before Pro is sold, or set the var to "off". Custom never uses it.
+a. Settings, Managed Payments: accept the terms and turn it on. The worker's var MANAGED_PAYMENTS stays "off"
+   until one test-mode Pro checkout with it "on" went through (step 5); Custom never uses it.
 b. Billing, Revenue recovery: Smart Retries on, failed-payment emails on, and when all retries for a payment fail,
    cancel the subscription. The worker also ends a plan that stays past due for 14 days, or goes unpaid.
 c. Settings, Customer emails: receipts for successful payments on (Custom's; Link sends Pro's receipts itself).
@@ -377,10 +378,13 @@ Done in test mode. Next (from telemetry-worker/; the full list is in telemetry-w
      npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS
 4. The test key (paste it when asked). Nothing changes for anyone else: no limits, no buttons.
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
-5. Test: on ${SITE}/account/billing choose Upgrade to Pro and pay with card 4242 4242 4242 4242, any future
-   date and any CVC (the Checkout page is Link's, for Managed Payments). The page shows Pro within a minute. Then
-   Switch to Custom: a second Checkout; once it is paid the page shows Custom, the Pro subscription is cancelled
-   with a prorated credit, and a custom_requests row and a test-mode notice appear. Then Manage billing, and cancel.
+5. Test with MANAGED_PAYMENTS = "on" in wrangler.toml (and a deploy): on ${SITE}/account/billing choose Upgrade
+   to Pro and pay with card 4242 4242 4242 4242, any future date and any CVC (the Checkout page is Link's). Check
+   in Developers, Logs that Stripe accepted the Checkout Session with managed_payments and billing_mode flexible; if
+   it rejected the parameter, set MANAGED_PAYMENTS back to "off" and deploy. The page shows Pro within a minute.
+   Then Switch to Custom: a second Checkout; once it is paid the page shows Custom, the Pro subscription is
+   cancelled and its unused time refunded to the card, and a custom_requests row and test-mode notices appear.
+   Then Manage billing, and cancel.
 6. Then live: the reset in the README, this script with STRIPE_SECRET_KEY=sk_live_..., and step 4 with the live key.
 ${dashboard}`
       : `

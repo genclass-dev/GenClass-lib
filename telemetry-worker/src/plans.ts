@@ -79,9 +79,9 @@ export function planByMetadata(meta: unknown): Plan | null {
 }
 
 /**
- * The plan a Stripe price sells, or null when the price is not provably GenClass's. The Stripe account is shared with
- * Polar Parts, so both must hold: the price's lookup_key starts with genclass_, and its product (expanded) carries
- * metadata genclass_plan naming a paid plan; the plan is the product's. A price the setup script replaced keeps its
+ * The plan a Stripe price sells, or null when the price is not provably GenClass's. Both must hold (a rule from when
+ * the Stripe account was shared, kept as a defence): the price's lookup_key starts with genclass_, and its product
+ * (expanded) carries metadata genclass_plan naming a paid plan; the plan is the product's. A price the setup script replaced keeps its
  * product and gets a genclass_..._retired_<id> lookup key, so its subscribers keep their plan. A lookup key from
  * plans.json that names another plan than the product does is refused as inconsistent.
  */
@@ -271,13 +271,18 @@ export async function endOverduePlans(db: D1Like, now: Date): Promise<void> {
 }
 
 /**
- * The daily sweep (index.ts): dashboard rows by plan, stored-batch index and export copies by plan, forwarding
- * dedupe rows older than 2 hours, handled Stripe event ids older than 30 days, then overdue plans end
- * (endOverduePlans; an ended plan's data keeps its GRACE_DAYS either way).
+ * The daily sweep (index.ts): overdue plans end first (endOverduePlans: the past-due backstop runs whatever happens
+ * after it; an ended plan's data keeps its GRACE_DAYS either way), then dashboard rows by plan, stored-batch index and
+ * export copies by plan, forwarding dedupe rows older than 2 hours, handled Stripe event ids older than 30 days. A
+ * failure in one step does not stop the others; the first one's error is thrown at the end.
  */
 export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps, mode?: StripeMode | null): Promise<void> {
+  await endOverduePlans(db, now).catch(() => undefined);
   const long = longRetention(now, mode);
-  await retention(db, now, long);
+  let failed: unknown = null;
+  await retention(db, now, long).catch((e: unknown) => {
+    failed = e;
+  });
   // one after the other (each D1 batch is a transaction); a failure in one does not stop the next
   await exportSweep(db, bucket, now, long).catch(() => undefined);
   await db
@@ -286,5 +291,5 @@ export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps, m
       db.prepare("DELETE FROM billing_events WHERE received < ?").bind(new Date(now.getTime() - 30 * DAY).toISOString()),
     ])
     .catch(() => undefined);
-  await endOverduePlans(db, now).catch(() => undefined);
+  if (failed) throw failed;
 }

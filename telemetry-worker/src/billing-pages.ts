@@ -131,15 +131,15 @@ export function billingPage(nonce: string, v: BillingView): string {
   if (v.done) {
     const to = want && want !== "paid" ? planById(want) : null;
     notice = to
-      ? `<p class="notice n-ok" role="status" id="donemsg"><b>Thanks.</b> Stripe has your payment for ${esc(to.name)}. This page changes to it as soon as Stripe tells us, usually within a minute. Your ${esc(plan.name)} plan then ends, and its unused days are credited to your Stripe balance for your next invoice.</p>`
+      ? `<p class="notice n-ok" role="status" id="donemsg"><b>Thanks.</b> This page changes to ${esc(to.name)} as soon as Stripe confirms your payment, usually within a minute (a bank debit can take a few days). Your ${esc(plan.name)} plan stays until then, then ends, and its unused days are refunded to the card or account that paid for it.</p>`
       : want
-        ? '<p class="notice n-ok" role="status" id="donemsg"><b>Thanks.</b> Stripe has your payment. This page changes to your new plan as soon as Stripe tells us, usually within a minute.</p>'
+        ? '<p class="notice n-ok" role="status" id="donemsg"><b>Thanks.</b> This page changes to your new plan as soon as Stripe confirms your payment, usually within a minute (a bank debit can take a few days).</p>'
         : `<p class="notice n-ok" role="status"><b>Thanks.</b> You are on the ${esc(plan.name)} plan now.</p>`;
   }
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && plan.id !== "free";
   const switchNote =
     subscribed && v.live && !want
-      ? '<p class="intro">Switching between Pro and Custom opens Stripe\'s checkout for the new plan. Your current plan stays until that payment goes through, then ends at once, and its unused days are credited to your Stripe balance for your next invoice.</p>'
+      ? '<p class="intro">Switching between Pro and Custom opens Stripe\'s checkout for the new plan. Your current plan stays until that payment goes through, then ends at once, and its unused days are refunded to the card or account that paid for it.</p>'
       : "";
   const managed = v.live && v.managedPlans?.length
     ? ` ${esc(v.managedPlans.join(" and "))} ${v.managedPlans.length > 1 ? "are" : "is"} sold through Link, Stripe's merchant of record service: Link's name is on the receipt and on your card statement, it adds sales tax or VAT where it applies, and it answers questions about the payment.`

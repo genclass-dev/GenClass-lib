@@ -96,8 +96,9 @@ export interface Env {
    * stores the one for its key's mode. Without it the portal answers 503. */
   STRIPE_PORTAL_CONFIGURATION?: string;
   STRIPE_PORTAL_CONFIGURATION_TEST?: string;
-  /** Worker var (wrangler.toml, "on"): Pro's Checkout uses Stripe Managed Payments (Stripe, through Link, is the
-   * merchant of record). "off" sells Pro on standard Checkout, as Custom always is (src/stripe.ts managedPayments). */
+  /** Worker var (wrangler.toml, "off" until verified): "on" makes Pro's Checkout use Stripe Managed Payments (Stripe,
+   * through Link, is the merchant of record). Unset or "off" sells Pro on standard Checkout, as Custom always is
+   * (src/stripe.ts managedPayments). */
   MANAGED_PAYMENTS?: string;
   /** Export pages per account per minute (src/billing.ts); without it the export is not rate-limited. */
   EXPORT_LIMIT?: RateLimiterLike;

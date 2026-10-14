@@ -3,7 +3,7 @@ import PLANS_JSON from "../../billing/plans.json";
 import { resetTokenCache } from "../src/dashboard.js";
 import { resetOwnerCache } from "../src/paid.js";
 import { ACCOUNT_RANGES, canBuy, PAST_DUE_GRACE_DAYS, PLANS, pickRange, planByLookupKey, planForPrice, planRetention, priceText, stripeMode, viewRanges } from "../src/plans.js";
-import { form, invoicePaysCustom, invoiceSubscription, isGenClassSubscription, latestInvoicePaysCustom, managedPayments, resetStripeCache, sharedCustomer, STRIPE_VERSION, subscriptionState, verifySignature, WEBHOOK_EVENTS } from "../src/stripe.js";
+import { form, invoicePaysCustom, invoiceSubscription, isGenClassSubscription, latestInvoicePaysCustom, managedPayments, paymentCleared, resetStripeCache, sharedCustomer, STRIPE_VERSION, subscriptionState, verifySignature, WEBHOOK_EVENTS } from "../src/stripe.js";
 import {
   advance,
   call,
@@ -13,6 +13,7 @@ import {
   fakeStripe,
   GENCLASS_PORTAL,
   invoice,
+  paymentIntentFor,
   refusingLimiter,
   resetClock,
   setPlan,
@@ -152,8 +153,9 @@ describe("POST /api/billing/checkout and /api/billing/portal", () => {
       "subscription_data[metadata][genclass]": "1",
       "subscription_data[metadata][genclass_account]": account.id,
       "subscription_data[billing_mode][type]": "flexible",
-      "managed_payments[enabled]": "true",
     });
+    // Managed Payments only once the owner turns it on (MANAGED_PAYMENTS unset here)
+    expect(session!.form!.has("managed_payments[enabled]")).toBe(false);
     for (const c of s.calls) {
       expect(c.headers.authorization).toBe("Bearer sk_live_fake");
       expect(c.headers["stripe-version"]).toBe(STRIPE_VERSION);
@@ -441,9 +443,9 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(invoiceSubscription({ parent: { subscription_details: { subscription: "sub_new0000001" } } })).toBe("sub_new0000001");
     expect(invoiceSubscription({ lines: { data: [{ parent: { subscription_item_details: { subscription: "sub_line000001" } } }] } })).toBe("sub_line000001");
     expect(invoiceSubscription({})).toBeNull();
-    // subscription events only: they carry no buyer's name, email or address (Checkout, invoice, charge and customer
-    // events do, for Polar Parts' orders too, so the endpoint takes none of them)
-    expect(WEBHOOK_EVENTS).toEqual(["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"]);
+    // the subscription events, invoice.paid (a first payment that clears after "active") and the refund and dispute
+    // notices; no Checkout or customer events, which bring buyers' details and nothing the worker needs
+    expect(WEBHOOK_EVENTS).toEqual(["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted", "invoice.paid", "charge.refunded", "charge.dispute.created"]);
   });
 
   it("an older subscription ending does not downgrade an account that has a newer live one", async () => {
@@ -564,22 +566,26 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(latestInvoicePaysCustom({ ...sub, latest_invoice: { ...paidSwitch, parent: { subscription_details: { subscription: "sub_other00001" } } } })).toBe(false);
   });
 
-  it("invoice and Checkout events are not GenClass's to handle: even GenClass's own are ignored, unfetched and unstored", async () => {
+  it("Checkout events are not GenClass's to handle; invoice.paid is read for its subscription's id only, which is fetched again", async () => {
     const t = await paying("genclass_custom_monthly");
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const own = [
-      stripeEvent("checkout.session.completed", { id: "cs_test_000001", mode: "subscription", metadata: { genclass: "1", genclass_account: t.account.id, genclass_plan: "custom" }, customer: "cus_ada0000001", subscription: "sub_ada0000001", payment_status: "paid" }),
-      stripeEvent("invoice.paid", invoice("in_ada0000001", "cus_ada0000001", "sub_ada0000001", [["price_custom0001", 59900]])),
-    ];
-    for (const ev of own) {
-      expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
-      expect(log).toHaveBeenCalledWith(`stripe webhook: ${ev.type} ${ev.id} ignored: event type not handled`);
-    }
-    log.mockRestore();
+    const done = stripeEvent("checkout.session.completed", { id: "cs_test_000001", mode: "subscription", metadata: { genclass: "1", genclass_account: t.account.id, genclass_plan: "custom" }, customer: "cus_ada0000001", subscription: "sub_ada0000001", payment_status: "paid" });
+    expect(await (await deliver(t.env, done, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    expect(log).toHaveBeenCalledWith(`stripe webhook: checkout.session.completed ${done.id} ignored: event type not handled`);
     expect(t.s.calls).toEqual([]);
-    expect(t.plan().plan).toBe("free");
-    expect(t.sql.rows("SELECT COUNT(*) AS n FROM billing_events")[0]!.n).toBe(0);
-    expect(t.sql.rows("SELECT COUNT(*) AS n FROM custom_requests")[0]!.n).toBe(0);
+    // invoice.paid: the subscription is fetched as Stripe has it now, and that is what counts
+    const paid = invoice("in_ada0000001", "cus_ada0000001", "sub_ada0000001", [["price_custom0001", 59900]]);
+    t.s.invoices.set("in_ada0000001", paid);
+    t.s.subs.get("sub_ada0000001")!.latest_invoice = "in_ada0000001";
+    const ev = stripeEvent("invoice.paid", { ...paid, customer_email: "ada@example.com", customer_name: "Ada Lovelace", customer_address: { line1: "1 Main St" } });
+    expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    log.mockRestore();
+    expect(t.s.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["GET /v1/subscriptions/sub_ada0000001", "GET /v1/subscriptions"]);
+    expect(t.plan().plan).toBe("custom");
+    expect(t.sql.rows("SELECT subscription_id FROM custom_requests")).toEqual([{ subscription_id: "sub_ada0000001" }]);
+    // nothing of the buyer's from the invoice is stored or sent
+    const stored = JSON.stringify([t.sql.rows("SELECT * FROM accounts"), t.sql.rows("SELECT * FROM billing_events"), t.s.other.map((o) => o.body)]);
+    for (const x of ["Ada Lovelace", "1 Main St"]) expect(stored).not.toContain(x);
   });
 
   it("after a price change, subscribers on the replaced price keep their plan (a retired genclass_ key, the same product)", async () => {
@@ -591,22 +597,29 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(t.plan()).toMatchObject({ plan: "pro", subscription_status: "active" });
   });
 
-  it("two subscriptions for one account (two tabs paid): the newest is kept, the other cancelled at once with a credit", async () => {
+  it("two subscriptions for one account (two tabs paid): Custom is kept over Pro, Pro's payment refunded to its card and Pro cancelled", async () => {
     const t = await paying();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    t.s.invoices.set("in_ada0000001", invoice("in_ada0000001", "cus_ada0000001", "sub_ada0000001", [["price_pro000001", 9900]]));
+    t.s.subs.get("sub_ada0000001")!.latest_invoice = "in_ada0000001";
     t.s.subs.set("sub_ada0000002", subscription("sub_ada0000002", t.account.id, "cus_ada0000001", "genclass_custom_monthly", "active", { created: 1_790_000_100 }));
-    // the older one's start is reported first: the newer is still the one kept
+    // the older one's start is reported first: the newer (and higher) plan is still the one kept
     const r = await deliver(t.env, subscribed(t), t.s.fetch);
     log.mockRestore();
     expect(r.status).toBe(200);
+    // Pro's payment back to the card it came from, in full, then Pro cancelled with no proration (no balance credit)
+    const refund = t.s.calls.find((c) => c.method === "POST" && c.url.pathname === "/v1/refunds")!;
+    expect(Object.fromEntries(refund.form!)).toMatchObject({ payment_intent: paymentIntentFor("in_ada0000001"), amount: "9900", reason: "duplicate", "metadata[genclass_refund]": "duplicate:sub_ada0000001" });
     const cancel = t.s.calls.find((c) => c.method === "DELETE")!;
+    expect(t.s.calls.indexOf(refund)).toBeLessThan(t.s.calls.indexOf(cancel));
     expect(cancel.url.pathname).toBe("/v1/subscriptions/sub_ada0000001");
-    expect(cancel.url.searchParams.get("prorate")).toBe("true");
-    expect(cancel.url.searchParams.get("invoice_now")).toBe("true");
+    expect(cancel.url.search).toBe("");
     expect(t.s.subs.get("sub_ada0000001")!.status).toBe("canceled");
     expect(t.plan()).toMatchObject({ plan: "custom", subscription_id: "sub_ada0000002" });
     const notice = JSON.parse(t.s.other.find((o) => o.body.includes("duplicate_subscription"))!.body);
-    expect(notice).toMatchObject({ event: "duplicate_subscription", account_id: t.account.id, kept: "sub_ada0000002", cancelled: ["sub_ada0000001"], credited: true });
+    expect(notice).toMatchObject({ event: "duplicate_subscription", account_id: t.account.id, kept: "sub_ada0000002", cancelled: ["sub_ada0000001"] });
+    expect(notice.refunds).toEqual([{ subscription: "sub_ada0000001", kind: "duplicate", refund: "re_test000001", amount: 9900, currency: "usd" }]);
+    expect(notice.text).toContain("sub_ada0000001: refunded 99.00 USD to the card (re_test000001)");
     // the cancelled one's own events change nothing
     const ended = await deliver(t.env, stripeEvent("customer.subscription.deleted", t.s.subs.get("sub_ada0000001")!), t.s.fetch);
     expect(await ended.json()).toEqual({ received: true, result: "ignored" });
@@ -794,8 +807,9 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect(t.sql.rows("SELECT * FROM billing_events")).toEqual([]);
     const dump = JSON.stringify([t.sql.rows("SELECT * FROM custom_requests"), t.sql.rows("SELECT plan, stripe_customer_id, subscription_id, subscription_status FROM accounts")]);
     for (const x of PRIVATE) expect(dump).not.toContain(x);
-    // the endpoint does not even subscribe to the event types that carry Polar Parts' order details
-    for (const ev of events) if (!ev.type.startsWith("customer.subscription.")) expect(WEBHOOK_EVENTS).not.toContain(ev.type);
+    // the endpoint subscribes to no Checkout or customer events, and the invoice and charge events it takes were dropped
+    // above like the rest, with no Stripe call
+    for (const type of ["checkout.session.completed", "customer.created"]) expect(WEBHOOK_EVENTS).not.toContain(type);
   });
 
   it("a Checkout whose client_reference_id or metadata names a GenClass account changes nothing", async () => {
@@ -951,8 +965,8 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect((await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(200);
     expect(opened()).toHaveLength(1);
 
-    // a second GenClass subscription while a Polar Parts one is on the customer: the duplicate is cancelled without a
-    // credit (a balance credit would pay Polar Parts' next invoice)
+    // a second GenClass subscription while a Polar Parts one is on the customer: the duplicate is refunded to its card
+    // and cancelled with no balance credit (a balance credit would pay Polar Parts' next invoice); Custom is kept
     t.s.subs.set("sub_polar0000002", { ...polarSub(), id: "sub_polar0000002", customer: "cus_ada0000001", created: 1_790_000_300 });
     t.s.subs.set("sub_ada0000002", subscription("sub_ada0000002", t.account.id, "cus_ada0000001", "genclass_custom_monthly", "active", { created: 1_790_000_400 }));
     t.s.calls.length = 0;
@@ -964,8 +978,9 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect(cancels[0]!.url.search).toBe("");
     expect(t.s.subs.get("sub_polar0000002")!.status).toBe("active");
     const dup = JSON.parse(t.s.other[0]!.body);
-    expect(dup).toMatchObject({ event: "duplicate_subscription", kept: "sub_ada0000002", cancelled: ["sub_ada0000001"], credited: false });
-    expect(dup.text).toMatch(/without a credit, because the Stripe customer cus_ada0000001 also holds a subscription that is not GenClass's/);
+    expect(dup).toMatchObject({ event: "duplicate_subscription", kept: "sub_ada0000002", cancelled: ["sub_ada0000001"] });
+    expect(dup.refunds).toEqual([{ subscription: "sub_ada0000001", kind: "duplicate", refund: "re_test000001", amount: 9900, currency: "usd" }]);
+    expect(t.s.refunds.get("re_test000001")).toMatchObject({ payment_intent: paymentIntentFor("in_ada0000001"), amount: 9900 });
     expect(sharedCustomer([t.s.subs.get("sub_ada0000002")!])).toBe(false);
   });
 
@@ -1048,11 +1063,13 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
 
 // ------------------------------------------------------------------------------------------------- Managed Payments, switching
 
-describe("Managed Payments for Pro, flexible billing mode, and switching between Pro and Custom by Checkout", () => {
+describe("Managed Payments for Pro, flexible billing mode, switching between Pro and Custom by Checkout, refunds and notices", () => {
   const sessionForm = (s: ReturnType<typeof fakeStripe>) => Object.fromEntries(s.calls.filter((c) => c.method === "POST" && c.url.pathname === "/v1/checkout/sessions").at(-1)!.form!);
   const calls = (s: ReturnType<typeof fakeStripe>) => s.calls.map((c) => `${c.method} ${c.url.pathname}`);
+  const PRO_UNUSED = 409; // floor(9900 * 107200 / 2592000): 29 h 46 min of the 30-day period left at T0
+  const CUSTOM_UNUSED = 2477; // floor(59900 * 107200 / 2592000)
 
-  it("Pro's Checkout uses Managed Payments and Custom's never; MANAGED_PAYMENTS=off drops it; both are flexible", async () => {
+  it("Managed Payments is off unless MANAGED_PAYMENTS is on, only ever for Pro; both plans are flexible", async () => {
     expect(STRIPE_VERSION).toBe("2025-06-30.basil");
     // what Managed Payments refuses on a subscription Checkout Session (and what GenClass never sends anyway)
     const refused = [
@@ -1070,73 +1087,88 @@ describe("Managed Payments for Pro, flexible billing mode, and switching between
       const page = await (await call(env, "GET", "/account/billing", { cookie })).text();
       return { form: sessionForm(s), page };
     };
-    const pro = await buy({}, "pro");
+    const mp = (f: Record<string, string>) => Object.keys(f).some((k) => k.startsWith("managed_payments"));
+    const pro = await buy({ MANAGED_PAYMENTS: "on" }, "pro");
     expect(pro.form).toMatchObject({ mode: "subscription", customer: "cus_test0001", "line_items[0][price]": "price_pro000001", "managed_payments[enabled]": "true", "subscription_data[billing_mode][type]": "flexible" });
     for (const k of Object.keys(pro.form)) for (const r of refused) expect(k.startsWith(r), k).toBe(false);
     expect(pro.page).toContain("Pro is sold through Link, Stripe's merchant of record service");
-    const custom = await buy({}, "custom");
+    const custom = await buy({ MANAGED_PAYMENTS: "on" }, "custom");
     expect(custom.form).toMatchObject({ "line_items[0][price]": "price_custom0001", "subscription_data[billing_mode][type]": "flexible" });
-    expect(Object.keys(custom.form).some((k) => k.startsWith("managed_payments"))).toBe(false);
-    const off = await buy({ MANAGED_PAYMENTS: "off" }, "pro");
-    expect(Object.keys(off.form).some((k) => k.startsWith("managed_payments"))).toBe(false);
-    expect(off.form["subscription_data[billing_mode][type]"]).toBe("flexible");
-    expect(off.page).not.toContain("sold through Link");
-    // the var: anything but off (false, 0, no) is on, unset too; Custom is never eligible, whatever it says
+    expect(mp(custom.form)).toBe(false);
+    for (const over of [{}, { MANAGED_PAYMENTS: "off" }]) {
+      const off = await buy(over, "pro");
+      expect(mp(off.form)).toBe(false);
+      expect(off.form["subscription_data[billing_mode][type]"]).toBe("flexible");
+      expect(off.page).not.toContain("sold through Link");
+    }
+    // the var: on (true, 1, yes) is on; unset and anything else is off; Custom is never eligible
     const pro_ = PLANS.find((p) => p.id === "pro")!;
     const custom_ = PLANS.find((p) => p.id === "custom")!;
     const env = (v?: string) => ({ BUCKET: { async put() {} }, MANAGED_PAYMENTS: v }) as any;
-    for (const v of [undefined, "on", " ON ", "yes"]) expect(managedPayments(env(v), pro_), String(v)).toBe(true);
-    for (const v of ["off", "OFF", "false", "0", "no"]) expect(managedPayments(env(v), pro_), v).toBe(false);
+    for (const v of ["on", " ON ", "true", "1", "yes"]) expect(managedPayments(env(v), pro_), v).toBe(true);
+    for (const v of [undefined, "", "off", "OFF", "false", "0", "no", "maybe"]) expect(managedPayments(env(v), pro_), String(v)).toBe(false);
     expect(managedPayments(env("on"), custom_)).toBe(false);
     // plans.json: the tax codes the setup script sets, and which plan is eligible
     expect([pro_.stripe_tax_code, pro_.managed_payments, custom_.stripe_tax_code, custom_.managed_payments]).toEqual(["txcd_10103001", true, "txcd_10203001", false]);
+    // paid means the latest invoice is paid or asks for nothing
+    expect(paymentCleared({ latest_invoice: { status: "paid" } })).toBe(true);
+    expect(paymentCleared({ latest_invoice: { status: "open", amount_due: 0 } })).toBe(true);
+    expect(paymentCleared({ latest_invoice: { status: "open", amount_due: 9900 } })).toBe(false);
+    expect(paymentCleared({ latest_invoice: "in_x00000001" })).toBe(false);
+    expect(paymentCleared({ latest_invoice: null })).toBe(false);
   });
 
-  /** An account paying for `plan` (subscription `subId` on customer cus_sw00000001), with a fake Stripe that records the account's row at each cancellation. */
-  async function switching(plan: "pro" | "custom", subId: string, o: { failCancel?: number } = {}) {
-    const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify" });
+  /**
+   * An account paying for `plan` with subscription `subId` (its latest invoice paid) on customer cus_sw00000001, and a
+   * fake Stripe that records the account's row at each cancellation; `answer` can refuse a request.
+   */
+  async function switching(plan: "pro" | "custom", subId: string, o: { mp?: boolean; answer?: (u: URL, init: RequestInit) => Response | undefined } = {}) {
+    const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify", ...(o.mp ? { MANAGED_PAYMENTS: "on" } : {}) });
     const a = await signedIn(t.env);
     const atCancel: unknown[] = [];
-    let fail = o.failCancel ?? 0;
     const s = fakeStripe({
       answer: (u, init) => {
-        if (init.method !== "DELETE") return undefined;
-        atCancel.push(t.sql.rows("SELECT plan, subscription_id FROM accounts")[0]);
-        if (fail-- > 0) return new Response(JSON.stringify({ error: { message: "Stripe is having trouble" } }), { status: 500 });
-        return undefined;
+        if (init.method === "DELETE") atCancel.push(t.sql.rows("SELECT plan, subscription_id FROM accounts")[0]);
+        return o.answer?.(u, init);
       },
     });
+    const line = (p: "pro" | "custom"): [string, number] => (p === "custom" ? ["price_custom0001", 59900] : ["price_pro000001", 9900]);
     setPlan(t.sql, a.account.id, plan, { stripe_customer_id: "cus_sw00000001", subscription_id: subId, subscription_status: "active", stripe_mode: "live", current_period_end: "2026-11-13T12:00:00.000Z" });
     s.genclassCustomer("cus_sw00000001", a.account.id);
-    s.subs.set(subId, subscription(subId, a.account.id, "cus_sw00000001", `genclass_${plan}_monthly`));
+    s.invoices.set(`in_${subId.slice(4)}`, invoice(`in_${subId.slice(4)}`, "cus_sw00000001", subId, [line(plan)]));
+    s.subs.set(subId, subscription(subId, a.account.id, "cus_sw00000001", `genclass_${plan}_monthly`, "active", { latest_invoice: `in_${subId.slice(4)}` }));
     const row = () => t.sql.rows("SELECT plan, subscription_id, subscription_status FROM accounts")[0]!;
-    /** The subscription the switch's Checkout made, as Stripe has it after payment (or not). */
-    const bought = (id: string, to: "pro" | "custom", status = "active") => {
-      s.invoices.set(`in_${id.slice(4)}`, invoice(`in_${id.slice(4)}`, "cus_sw00000001", id, [[to === "custom" ? "price_custom0001" : "price_pro000001", to === "custom" ? 59900 : 9900]], status === "active" ? "paid" : "open"));
-      const sub = subscription(id, a.account.id, "cus_sw00000001", `genclass_${to}_monthly`, status, {
-        created: 1_790_000_500,
-        metadata: { genclass: "1", genclass_account: a.account.id, genclass_switch_from: subId },
-        latest_invoice: `in_${id.slice(4)}`,
-      });
+    /** A subscription Stripe started for the account (by default the switch's, its first invoice paid). */
+    const bought = (id: string, to: "pro" | "custom", b: { status?: string; paid?: boolean; switchFrom?: string | null; created?: number } = {}) => {
+      const status = b.status ?? "active";
+      const inv = `in_${id.slice(4)}`;
+      s.invoices.set(inv, invoice(inv, "cus_sw00000001", id, [line(to)], (b.paid ?? status === "active") ? "paid" : "open"));
+      const from = b.switchFrom === undefined ? subId : b.switchFrom;
+      const metadata: Record<string, string> = { genclass: "1", genclass_account: a.account.id, ...(from ? { genclass_switch_from: from } : {}) };
+      const sub = subscription(id, a.account.id, "cus_sw00000001", `genclass_${to}_monthly`, status, { created: b.created ?? 1_790_000_500, metadata, latest_invoice: inv });
       s.subs.set(id, sub);
       return sub;
     };
-    return { ...t, ...a, s, atCancel, row, bought };
+    /** Stripe's word that the latest invoice of subscription `id` is paid. */
+    const invoicePaid = (id: string) => stripeEvent("invoice.paid", s.invoices.get(`in_${id.slice(4)}`)!);
+    const notices = () => s.other.map((x) => JSON.parse(x.body));
+    return { ...t, ...a, s, atCancel, row, bought, invoicePaid, notices };
   }
 
-  it("Pro to Custom: the Switch button opens a Checkout; once Custom is active it is on the account, then Pro is cancelled with a credit", async () => {
+  it("Pro to Custom: the Switch button opens a Checkout; once Custom is paid it is on the account, Pro's unused time is refunded to its card, then Pro is cancelled", async () => {
     const t = await switching("pro", "sub_pro0000001");
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     // the billing page offers the switch on the plan, and Manage billing no longer does
     const page = await (await call(t.env, "GET", "/account/billing", { cookie: t.cookie })).text();
     expect(page).toContain('data-plan="custom"><span>Switch to Custom</span>');
     expect(page).toContain("Switching between Pro and Custom opens Stripe's checkout for the new plan.");
+    expect(page).toContain("its unused days are refunded to the card or account that paid for it");
     expect(page).not.toContain("switch between Pro and Custom, or cancel");
     expect(page).toContain("To switch between Pro and Custom, use the buttons under Plans.");
     const r = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "custom" }, cookie: t.cookie, fetch: t.s.fetch });
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ url: "https://checkout.stripe.com/c/pay/cs_test_000001", switch: true });
-    // the customer and everything on it are checked, the invoices too (the old plan's credit goes to its balance)
+    // the customer and everything on it are checked, the invoices too
     expect(calls(t.s)).toEqual(["GET /v1/customers/cus_sw00000001", "GET /v1/subscriptions", "GET /v1/invoices", "GET /v1/checkout/sessions", "GET /v1/prices", "POST /v1/checkout/sessions"]);
     const form = sessionForm(t.s);
     expect(form).toMatchObject({
@@ -1152,14 +1184,14 @@ describe("Managed Payments for Pro, flexible billing mode, and switching between
     expect(Object.keys(form).some((k) => k.startsWith("managed_payments"))).toBe(false);
     expect(t.s.calls.at(-1)!.headers["idempotency-key"]).toMatch(new RegExp(`^genclass-checkout-${t.account.id}-custom-\\d+-from-sub_pro0000001$`));
     expect(t.s.calls.some((c) => c.url.pathname.startsWith("/v1/billing_portal") || c.method === "DELETE")).toBe(false);
-    // a second click gets the same page; a plain Custom page from before would have been closed
+    // a second click gets the same page
     t.s.calls.length = 0;
     expect(((await (await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "custom" }, cookie: t.cookie, fetch: t.s.fetch })).json()) as any).url).toBe("https://checkout.stripe.com/c/pay/cs_test_000001");
     expect(t.s.calls.some((c) => c.method === "POST")).toBe(false);
 
     // back from Checkout before Stripe's word: still Pro, and a page that waits for Custom with no buttons
     const back = await (await call(t.env, "GET", "/account/billing?done=1&to=custom", { cookie: t.cookie })).text();
-    expect(back).toContain("Stripe has your payment for Custom.");
+    expect(back).toContain("This page changes to Custom as soon as Stripe confirms your payment");
     expect(back).toContain('id="donemsg"');
     expect(back).toContain('{"want":"custom"}');
     expect(back).not.toContain("data-plan=");
@@ -1170,30 +1202,57 @@ describe("Managed Payments for Pro, flexible billing mode, and switching between
     t.s.calls.length = 0;
     const ev = stripeEvent("customer.subscription.created", custom);
     expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
-    // Custom was on the account before Pro was cancelled: never without a plan
+    // Custom on the account first; then Pro's unused time back to the card that paid it; then Pro cancelled
+    expect(calls(t.s)).toEqual([
+      "GET /v1/subscriptions/sub_cus0000001",
+      "GET /v1/subscriptions",
+      "GET /v1/invoices",
+      "GET /v1/invoice_payments",
+      "GET /v1/refunds",
+      "POST /v1/refunds",
+      "DELETE /v1/subscriptions/sub_pro0000001",
+    ]);
     expect(t.atCancel).toEqual([{ plan: "custom", subscription_id: "sub_cus0000001" }]);
-    expect(calls(t.s)).toEqual(["GET /v1/subscriptions/sub_cus0000001", "GET /v1/subscriptions", "DELETE /v1/subscriptions/sub_pro0000001"]);
-    const cancel = t.s.calls.at(-1)!;
-    expect(cancel.url.searchParams.get("prorate")).toBe("true");
-    expect(cancel.url.searchParams.get("invoice_now")).toBe("true");
+    expect(t.s.calls[2]!.url.searchParams.get("subscription")).toBe("sub_pro0000001");
+    expect(t.s.calls[2]!.url.searchParams.get("status")).toBe("paid");
+    const refund = t.s.calls[5]!;
+    expect(Object.fromEntries(refund.form!)).toEqual({
+      payment_intent: paymentIntentFor("in_pro0000001"),
+      amount: String(PRO_UNUSED),
+      reason: "requested_by_customer",
+      "metadata[genclass]": "1",
+      "metadata[genclass_account]": t.account.id,
+      "metadata[genclass_refund]": "switch:sub_pro0000001",
+      "metadata[genclass_invoice]": "in_pro0000001",
+    });
+    expect(refund.headers["idempotency-key"]).toBe(`genclass-refund-switch:sub_pro0000001-in_pro0000001-${PRO_UNUSED}`);
+    // no proration, no final invoice: nothing goes to the customer's balance
+    expect(t.s.calls[6]!.url.search).toBe("");
     expect(t.s.subs.get("sub_pro0000001")!.status).toBe("canceled");
     expect(t.row()).toEqual({ plan: "custom", subscription_id: "sub_cus0000001", subscription_status: "active" });
-    // the Custom purchase is recorded; a switch is no duplicate, so the owner hears of the purchase only
+    // the Custom purchase is recorded; the owner always hears of the switch, with the refund
     expect(t.sql.rows("SELECT subscription_id FROM custom_requests")).toEqual([{ subscription_id: "sub_cus0000001" }]);
-    expect(t.s.other.map((o) => JSON.parse(o.body).event)).toEqual(["custom_purchase"]);
-    expect(log).toHaveBeenCalledWith(`stripe webhook: account ${t.account.id} switched plans; kept sub_cus0000001, cancelled sub_pro0000001 with a prorated credit`);
-    // Pro's own end, and the same start again, change nothing
+    expect(t.notices().map((n) => n.event)).toEqual(["custom_purchase", "plan_switch"]);
+    const sw = t.notices()[1];
+    expect(sw).toMatchObject({ account_id: t.account.id, kept: "sub_cus0000001", cancelled: ["sub_pro0000001"] });
+    expect(sw.refunds).toEqual([{ subscription: "sub_pro0000001", kind: "switch", refund: "re_test000001", amount: PRO_UNUSED, currency: "usd" }]);
+    expect(sw.text).toBe(
+      `GenClass account ${t.account.id} switched plans. Kept sub_cus0000001; cancelled sub_pro0000001. sub_pro0000001: refunded 4.09 USD to the card (re_test000001). Stripe (Link support, for Pro) can also refund a payment within 60 days of it: a charge_refunded notice would show it.`,
+    );
+    expect(log).toHaveBeenCalledWith(`stripe webhook: account ${t.account.id} switched plans; kept sub_cus0000001, cancelled sub_pro0000001`);
+    // Pro's own end, the same start again, and Custom's invoice.paid change nothing more
     expect(await (await deliver(t.env, stripeEvent("customer.subscription.deleted", t.s.subs.get("sub_pro0000001")!), t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
     expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, duplicate: true });
+    expect(await (await deliver(t.env, t.invoicePaid("sub_cus0000001"), t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
     expect(t.row().plan).toBe("custom");
     expect(t.atCancel).toHaveLength(1);
-    // the page now says Custom
+    expect(t.s.refunds.size).toBe(1);
     expect(await (await call(t.env, "GET", "/account/billing?done=1&to=custom", { cookie: t.cookie })).text()).toContain("You are on the Custom plan now.");
     log.mockRestore();
   });
 
-  it("Custom to Pro: Pro's Checkout uses Managed Payments; once Pro is active it is on the account, then Custom is cancelled with a credit", async () => {
-    const t = await switching("custom", "sub_cus0000001");
+  it("Custom to Pro, with MANAGED_PAYMENTS on: Pro's Checkout uses it; once Pro is paid, Custom's unused time is refunded and Custom cancelled", async () => {
+    const t = await switching("custom", "sub_cus0000001", { mp: true });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const r = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: t.s.fetch });
     expect(await r.json()).toEqual({ url: "https://checkout.stripe.com/c/pay/cs_test_000001", switch: true });
@@ -1212,26 +1271,70 @@ describe("Managed Payments for Pro, flexible billing mode, and switching between
     (ev.data as any).previous_attributes = { status: "incomplete" };
     expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
     expect(t.atCancel).toEqual([{ plan: "pro", subscription_id: "sub_pro0000001" }]);
-    expect(calls(t.s)).toEqual(["GET /v1/subscriptions/sub_pro0000001", "GET /v1/subscriptions", "DELETE /v1/subscriptions/sub_cus0000001"]);
-    expect(t.s.calls.at(-1)!.url.searchParams.get("prorate")).toBe("true");
     expect(t.s.subs.get("sub_cus0000001")!.status).toBe("canceled");
+    expect([...t.s.refunds.values()]).toEqual([expect.objectContaining({ payment_intent: paymentIntentFor("in_cus0000001"), amount: CUSTOM_UNUSED, metadata: expect.objectContaining({ genclass_refund: "switch:sub_cus0000001" }) })]);
     expect(t.row()).toEqual({ plan: "pro", subscription_id: "sub_pro0000001", subscription_status: "active" });
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM custom_requests")[0]!.n).toBe(0);
-    expect(t.s.other).toEqual([]);
+    expect(t.notices().map((n) => n.event)).toEqual(["plan_switch"]);
+    expect(t.notices()[0].text).toContain(`sub_cus0000001: refunded 24.77 USD to the card (re_test000001)`);
     log.mockRestore();
   });
 
-  it("a switch that is never paid leaves the old plan; a cancellation that fails is retried with the new plan already on", async () => {
-    const t = await switching("pro", "sub_pro0000001", { failCancel: 1 });
+  it("a first payment still processing (active, invoice open) grants nothing and cancels nothing; invoice.paid grants it and records Custom", async () => {
+    const t = await switching("pro", "sub_pro0000001");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // the switch's Custom subscription is active, but its bank debit has not cleared
+    const custom = t.bought("sub_cus0000001", "custom", { paid: false });
+    const created = stripeEvent("customer.subscription.created", custom);
+    expect(await (await deliver(t.env, created, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    expect(log).toHaveBeenCalledWith(`stripe webhook: customer.subscription.created ${created.id} ignored: its first payment has not cleared yet`);
+    // Pro renews meanwhile: the Custom subscription is not counted yet, so nothing is cancelled
+    expect(await (await deliver(t.env, t.invoicePaid("sub_pro0000001"), t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    expect(t.s.calls.some((c) => c.method === "DELETE" || c.url.pathname === "/v1/refunds")).toBe(false);
+    expect(t.row()).toEqual({ plan: "pro", subscription_id: "sub_pro0000001", subscription_status: "active" });
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM custom_requests")[0]!.n).toBe(0);
+    // and no third Checkout starts while both exist
+    expect((await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "custom" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(409);
+    // the debit clears: invoice.paid (read for its subscription id only) grants Custom, records it, settles Pro
+    t.s.invoices.set("in_cus0000001", invoice("in_cus0000001", "cus_sw00000001", "sub_cus0000001", [["price_custom0001", 59900]]));
+    expect(await (await deliver(t.env, t.invoicePaid("sub_cus0000001"), t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    expect(t.atCancel).toEqual([{ plan: "custom", subscription_id: "sub_cus0000001" }]);
+    expect(t.row()).toEqual({ plan: "custom", subscription_id: "sub_cus0000001", subscription_status: "active" });
+    expect(t.sql.rows("SELECT subscription_id FROM custom_requests")).toEqual([{ subscription_id: "sub_cus0000001" }]);
+    expect(t.notices().map((n) => n.event)).toEqual(["custom_purchase", "plan_switch"]);
+
+    // a first purchase the same way: Free until the payment clears
+    const u = await switching("pro", "sub_pro0000009");
+    setPlan(u.sql, u.account.id, "free", { subscription_id: null, subscription_status: null });
+    u.s.subs.delete("sub_pro0000009");
+    const first = u.bought("sub_pro0000002", "pro", { paid: false, switchFrom: null });
+    expect(await (await deliver(u.env, stripeEvent("customer.subscription.created", first), u.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    expect(u.row()).toEqual({ plan: "free", subscription_id: null, subscription_status: null });
+    u.s.invoices.set("in_pro0000002", invoice("in_pro0000002", "cus_sw00000001", "sub_pro0000002", [["price_pro000001", 9900]]));
+    expect(await (await deliver(u.env, u.invoicePaid("sub_pro0000002"), u.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    expect(u.row()).toEqual({ plan: "pro", subscription_id: "sub_pro0000002", subscription_status: "active" });
+    // an invoice of another business's subscription on that customer is not even fetched
+    u.s.calls.length = 0;
+    const foreign = stripeEvent("invoice.paid", { ...invoice("in_polar0000009", "cus_sw00000001", "sub_polar0000009", [["price_polar0000001", 18900]]), parent: { subscription_details: { subscription: "sub_polar0000009", metadata: { order: "PP-1" } } } });
+    expect(await (await deliver(u.env, foreign, u.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    expect(u.s.calls).toEqual([]);
+    log.mockRestore();
+  });
+
+  it("a switch never paid leaves the old plan; a failed cancellation is retried with the new plan on and the refund made once", async () => {
+    let failDelete = 1;
+    const t = await switching("pro", "sub_pro0000001", {
+      answer: (u, init) => (init.method === "DELETE" && failDelete-- > 0 ? new Response(JSON.stringify({ error: { message: "Stripe is having trouble" } }), { status: 500 }) : undefined),
+    });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     // Checkout made the Custom subscription but its payment did not go through
-    const unpaid = t.bought("sub_cus0000001", "custom", "incomplete");
+    const unpaid = t.bought("sub_cus0000001", "custom", { status: "incomplete" });
     expect(await (await deliver(t.env, stripeEvent("customer.subscription.created", unpaid), t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
     unpaid.status = "incomplete_expired";
     const expired = stripeEvent("customer.subscription.updated", unpaid, undefined, {});
     (expired.data as any).previous_attributes = { status: "incomplete" };
     expect(await (await deliver(t.env, expired, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
-    expect(t.s.calls.some((c) => c.method === "DELETE")).toBe(false);
+    expect(t.s.calls.some((c) => c.method === "DELETE" || c.url.pathname === "/v1/refunds")).toBe(false);
     expect(t.row()).toEqual({ plan: "pro", subscription_id: "sub_pro0000001", subscription_status: "active" });
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM custom_requests")[0]!.n).toBe(0);
 
@@ -1244,17 +1347,114 @@ describe("Managed Payments for Pro, flexible billing mode, and switching between
     expect(t.row()).toEqual({ plan: "custom", subscription_id: "sub_cus0000002", subscription_status: "active" });
     expect(t.s.subs.get("sub_pro0000001")!.status).toBe("active");
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM billing_events WHERE id = ?", ev.id)[0]!.n).toBe(0);
+    expect(t.s.refunds.size).toBe(1);
     // while both bill, no third Checkout starts
     expect((await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "custom" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(409);
-    // Stripe delivers the event again: Pro is cancelled, Custom stays, the purchase is recorded once
+    // Stripe delivers the event again: the refund is found, not made twice; Pro is cancelled; Custom is recorded once
+    t.s.calls.length = 0;
     expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    expect(t.s.calls.filter((c) => c.method === "POST" && c.url.pathname === "/v1/refunds")).toEqual([]);
+    expect(t.s.refunds.size).toBe(1);
     expect(t.s.subs.get("sub_pro0000001")!.status).toBe("canceled");
     expect(t.row()).toEqual({ plan: "custom", subscription_id: "sub_cus0000002", subscription_status: "active" });
     expect(t.sql.rows("SELECT subscription_id FROM custom_requests")).toEqual([{ subscription_id: "sub_cus0000002" }]);
+    expect(t.notices().filter((n) => n.event === "plan_switch")[0].refunds).toEqual([{ subscription: "sub_pro0000001", kind: "switch", refund: "re_test000001", amount: PRO_UNUSED, currency: "usd" }]);
     log.mockRestore();
   });
 
-  it("no switch from a paused plan or while one is going through; deleting the account mid-switch cancels both GenClass subscriptions only", async () => {
+  it("a refused cancellation counts as done only when Stripe shows the subscription ended; a refused refund is reported, the cancellation still made", async () => {
+    // Stripe refuses the DELETE (a 400 that mentions cancelling) while the subscription is still active: not done
+    let mode: "active" | "ended" = "active";
+    const t = await switching("pro", "sub_pro0000001", {
+      answer: (u, init) => {
+        if (init.method === "DELETE") {
+          if (mode === "ended") t.s.subs.get("sub_pro0000001")!.status = "canceled";
+          return new Response(JSON.stringify({ error: { message: "This subscription cannot be canceled right now" } }), { status: 400 });
+        }
+        if (init.method === "POST" && u.pathname === "/v1/refunds") return new Response(JSON.stringify({ error: { message: "Charge ch_x has already been refunded." } }), { status: 400 });
+        return undefined;
+      },
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const ev = stripeEvent("customer.subscription.created", t.bought("sub_cus0000001", "custom"));
+    expect((await deliver(t.env, ev, t.s.fetch)).status).toBe(500);
+    // it was read back after the refusal
+    expect(t.s.calls.slice(-2).map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["DELETE /v1/subscriptions/sub_pro0000001", "GET /v1/subscriptions/sub_pro0000001"]);
+    expect(t.s.subs.get("sub_pro0000001")!.status).toBe("active");
+    // the same refusal once it has ended (cancelled meanwhile): done
+    mode = "ended";
+    expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    // the refund Stripe refused (Link support refunded the payment first, say) is in the owner's notice
+    const sw = t.notices().find((n) => n.event === "plan_switch");
+    expect(sw.refunds).toEqual([{ subscription: "sub_pro0000001", kind: "switch", refund: null, amount: 0, currency: "usd", note: "Stripe refused the refund (Charge ch_x has already been refunded.)" }]);
+    expect(sw.text).toContain("sub_pro0000001: not refunded, because Stripe refused the refund (Charge ch_x has already been refunded.); refund by hand if anything is due");
+    log.mockRestore();
+  });
+
+  it("an accidental second purchase (no switch): Custom is kept over Pro, the other one's latest payment refunded in full, the owner told", async () => {
+    const t = await switching("custom", "sub_cus0000001");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // an old Pro page completed later: a newer Pro subscription with no switch in its metadata
+    const dup = t.bought("sub_pro0000002", "pro", { switchFrom: null });
+    expect(await (await deliver(t.env, stripeEvent("customer.subscription.created", dup), t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    expect(t.row()).toEqual({ plan: "custom", subscription_id: "sub_cus0000001", subscription_status: "active" });
+    expect(t.s.subs.get("sub_pro0000002")!.status).toBe("canceled");
+    expect(t.s.subs.get("sub_cus0000001")!.status).toBe("active");
+    expect([...t.s.refunds.values()]).toEqual([expect.objectContaining({ payment_intent: paymentIntentFor("in_pro0000002"), amount: 9900, reason: "duplicate" })]);
+    const n = t.notices().find((x) => x.event === "duplicate_subscription");
+    expect(n).toMatchObject({ kept: "sub_cus0000001", cancelled: ["sub_pro0000002"] });
+    expect(n.text).toContain("paid for a second subscription. Kept sub_cus0000001; cancelled sub_pro0000002. sub_pro0000002: refunded 99.00 USD to the card");
+    log.mockRestore();
+  });
+
+  it("an event about another, older subscription never overwrites the account's live plan unless it was chosen", async () => {
+    const t = await switching("pro", "sub_pro0000001");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // an older Custom subscription Stripe still has (not settled yet): a plain update of it
+    t.s.subs.set("sub_old0000001", subscription("sub_old0000001", t.account.id, "cus_sw00000001", "genclass_custom_monthly", "active", { created: 1_789_000_000 }));
+    const ev = stripeEvent("customer.subscription.updated", t.s.subs.get("sub_old0000001")!);
+    expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    expect(log).toHaveBeenCalledWith(`stripe webhook: customer.subscription.updated ${ev.id} ignored: not the account's current subscription`);
+    expect(t.row()).toEqual({ plan: "pro", subscription_id: "sub_pro0000001", subscription_status: "active" });
+    // once the account's plan has ended, a live one may take its place (a purchase after a cancelled plan)
+    setPlan(t.sql, t.account.id, "free", { subscription_status: "canceled" });
+    t.s.subs.get("sub_pro0000001")!.status = "canceled";
+    expect(await (await deliver(t.env, stripeEvent("customer.subscription.updated", t.s.subs.get("sub_old0000001")!), t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    expect(t.row()).toEqual({ plan: "custom", subscription_id: "sub_old0000001", subscription_status: "active" });
+    log.mockRestore();
+  });
+
+  it("refunds and disputes of a GenClass customer's charges reach the owner with ids only; anyone else's are dropped", async () => {
+    const t = await switching("pro", "sub_pro0000001");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const PII = ["ada@example.com", "Ada Lovelace", "1 Main St"];
+    const refunded = stripeEvent("charge.refunded", { id: "ch_sw00000001", object: "charge", customer: "cus_sw00000001", amount_refunded: PRO_UNUSED, currency: "usd", billing_details: { email: PII[0], name: PII[1], address: { line1: PII[2] } } });
+    expect(await (await deliver(t.env, refunded, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    t.s.charges.set("ch_sw00000002", { id: "ch_sw00000002", object: "charge", customer: "cus_sw00000001", billing_details: { email: PII[0] } });
+    const disputed = stripeEvent("charge.dispute.created", { id: "dp_sw00000001", object: "dispute", charge: "ch_sw00000002", amount: 9900, currency: "usd", evidence: { customer_email_address: PII[0] } });
+    expect(await (await deliver(t.env, disputed, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    expect(t.notices()).toEqual([
+      expect.objectContaining({ event: "charge_refunded", account_id: t.account.id, charge: "ch_sw00000001", amount: PRO_UNUSED, currency: "usd" }),
+      expect.objectContaining({ event: "charge_disputed", account_id: t.account.id, charge: "ch_sw00000002", dispute: "dp_sw00000001", amount: 9900 }),
+    ]);
+    expect(t.notices()[0].text).toContain("check that nothing is refunded twice");
+    for (const o of t.s.other) for (const x of PII) expect(o.body).not.toContain(x);
+    expect(t.sql.rows("SELECT type FROM billing_events ORDER BY type")).toEqual([{ type: "charge.dispute.created" }, { type: "charge.refunded" }]);
+    // another customer's: no notice, nothing stored; a dispute's charge is read (it names no customer) and nothing else
+    t.s.calls.length = 0;
+    t.s.other.length = 0;
+    t.s.charges.set("ch_zzz0000001", { id: "ch_zzz0000001", object: "charge", customer: "cus_zzz0000001" });
+    for (const ev of [
+      stripeEvent("charge.refunded", { id: "ch_zzz0000002", object: "charge", customer: "cus_zzz0000001", amount_refunded: 100, currency: "cad" }),
+      stripeEvent("charge.dispute.created", { id: "dp_zzz0000001", object: "dispute", charge: "ch_zzz0000001", amount: 100, currency: "cad" }),
+    ]) expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    expect(calls(t.s)).toEqual(["GET /v1/charges/ch_zzz0000001"]);
+    expect(t.s.other).toEqual([]);
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM billing_events")[0]!.n).toBe(2);
+    log.mockRestore();
+  });
+
+  it("no switch from a paused plan or while one is going through; deleting the account closes its own Checkout pages and cancels both subscriptions", async () => {
     const t = await switching("pro", "sub_pro0000001");
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     t.s.subs.get("sub_pro0000001")!.status = "paused";
@@ -1268,9 +1468,13 @@ describe("Managed Payments for Pro, flexible billing mode, and switching between
     expect(busy.status).toBe(409);
     expect(((await busy.json()) as any).error).toBe("a plan change is already going through; reload this page in a minute, or email mehar@daybot.ca");
     expect(t.s.calls.some((c) => c.method === "POST" && c.url.pathname === "/v1/checkout/sessions")).toBe(false);
-    // something else on the customer is never cancelled
+    // an open Checkout page of the account's, one GenClass did not make, and something else on the customer
+    t.s.sessions.set("cs_test_own00001", { id: "cs_test_own00001", object: "checkout.session", status: "open", customer: "cus_sw00000001", metadata: { genclass: "1", genclass_account: t.account.id, genclass_plan: "pro" }, url: "https://checkout.stripe.com/c/pay/cs_test_own00001" });
+    t.s.sessions.set("cs_test_manual01", { id: "cs_test_manual01", object: "checkout.session", status: "open", customer: "cus_sw00000001", metadata: {}, url: "https://checkout.stripe.com/c/pay/cs_test_manual01" });
     t.s.subs.set("sub_hand0000001", { ...subscription("sub_hand0000001", t.account.id, "cus_sw00000001", null), items: { data: [{ id: "si_hand0000001", price: price("polar_tires_monthly") }] } });
     expect((await call(t.env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(204);
+    expect(t.s.sessions.get("cs_test_own00001")!.status).toBe("expired");
+    expect(t.s.sessions.get("cs_test_manual01")!.status).toBe("open");
     expect(t.s.calls.filter((c) => c.method === "DELETE").map((c) => c.url.pathname).sort()).toEqual(["/v1/subscriptions/sub_cus0000001", "/v1/subscriptions/sub_pro0000001"]);
     expect(t.s.subs.get("sub_hand0000001")!.status).toBe("active");
     log.mockRestore();
@@ -1295,6 +1499,15 @@ describe("Managed Payments for Pro, flexible billing mode, and switching between
     expect(await (await deliver(t.env, stripeEvent("customer.subscription.deleted", sub), t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
     expect(t.row()).toEqual({ plan: "free", subscription_id: "sub_pro0000001", subscription_status: "canceled" });
     log.mockRestore();
+  });
+
+  it("the daily sweep ends overdue plans first, even when the rest of the sweep fails", async () => {
+    const t = await switching("pro", "sub_pro0000001");
+    const DAY = 86_400_000;
+    setPlan(t.sql, t.account.id, "pro", { subscription_status: "past_due", past_due_since: new Date(now().getTime() - 20 * DAY).toISOString() });
+    const broken = { ...t.sql.api, batch: async () => { throw new Error("D1 is down"); } };
+    await expect(planRetention(broken as any, now())).rejects.toThrow("D1 is down");
+    expect(t.row().plan).toBe("free");
   });
 });
 
@@ -1445,7 +1658,7 @@ describe("deleting an account with a paid plan", () => {
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(1);
     const del = await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: a.cookie, fetch: s.fetch });
     expect(del.status).toBe(204);
-    expect(s.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["GET /v1/customers/cus_del0000001", "GET /v1/subscriptions", "DELETE /v1/subscriptions/sub_del0000001"]);
+    expect(s.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["GET /v1/customers/cus_del0000001", "GET /v1/subscriptions", "GET /v1/checkout/sessions", "DELETE /v1/subscriptions/sub_del0000001"]);
     expect(s.subs.get("sub_del0000001")!.status).toBe("canceled");
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
   });

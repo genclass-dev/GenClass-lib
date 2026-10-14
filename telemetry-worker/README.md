@@ -358,8 +358,12 @@ flexible billing mode (`subscription_data[billing_mode][type]=flexible`). Stripe
 this set-up for the account; the reasons and the documentation behind each point are in "Stripe documentation notes"
 below.
 
-**Pro: Stripe Managed Payments.** Pro's Checkout Session carries `managed_payments[enabled]=true`, which makes Stripe
-the merchant of record for Pro. Stripe sells Pro to the buyer through Link, its checkout and wallet service:
+**Pro: Stripe Managed Payments, once the owner turns it on.** With `MANAGED_PAYMENTS = "on"` in `wrangler.toml`,
+Pro's Checkout Session carries `managed_payments[enabled]=true`, which makes Stripe the merchant of record for Pro.
+The var is `"off"` (and unset counts as off) until the owner has accepted the Managed Payments terms and one test-mode
+Pro checkout with it on went through ("Owner steps" below): Stripe's changelog lists the parameter under a newer API
+version than the one the worker pins. Off, Pro is sold on standard Checkout like Custom. On, Stripe sells Pro to the
+buyer through Link, its checkout and wallet service:
 
 - The Checkout page is Link's, and the buyer sees the purchase as "Sold through Link". Link sends the receipts,
   invoices and refund notices for Pro (the dashboard's receipt settings do not apply to them), and the card statement
@@ -395,16 +399,38 @@ is a small change in `checkoutSession` (`src/stripe.ts`).
 | Pro | `txcd_10103001` Software as a service (SaaS), business use | eligible for Managed Payments. What Pro sells is hosted software for businesses (dashboards, a year of history, export, forwarding); the classifier runs in the buyer's own pages from the free open-source runtime, so the AI-as-a-service codes (`txcd_10105002`, `txcd_10105004`, also eligible) describe Pro less well |
 | Custom | `txcd_10203001` Downloadable Software, custom, business use | not eligible, as Custom is not. Custom's deliverable is a model trained for one buyer that their runtime downloads; `txcd_20060000` Professional Services is the other candidate. The owner's accountant has the last word on both |
 
+**A plan is granted once Stripe has the money.** Stripe can make a subscription `active` while its first payment is
+still processing (a bank debit can take days). So a subscription the account has not been granted yet counts only
+when its latest invoice is paid, or asks for nothing; until then the webhook changes nothing. The endpoint takes
+`invoice.paid` for this: when the payment clears, the worker reads the invoice's subscription id (nothing else of the
+invoice, which carries the buyer's name, email and address), fetches the subscription again and grants the plan. A
+Custom purchase is recorded on that same event.
+
 **Switching between Pro and Custom** is a new Checkout for the other plan, never a price change in the portal: a
 Managed Payments subscription can only hold eligible products and only authorises Managed Payments to charge the
 card, so Pro's subscription cannot take the Custom price, and moving Custom's subscription to Pro would sell Pro
-outside Managed Payments. The billing page's Switch button posts to `/api/billing/checkout`, which opens a Checkout
-whose subscription carries `genclass_switch_from=<the current subscription>`. When the new subscription is active, the
-webhook writes it to the account first and then cancels the old one at once with a prorated credit
-(`prorate=true`, `invoice_now=true`: the unused time goes to the customer's Stripe balance and pays their next
-invoice). So the account is never without a plan, and is billed for both only between those two calls (a failure
-answers 500 and Stripe's retry cancels the old one). If the new payment never goes through, nothing changes. GenClass's
-portal configuration offers no plan switch.
+outside Managed Payments (and Checkout is the one path either way). The billing page's Switch button posts to
+`/api/billing/checkout`, which opens a Checkout whose subscription carries `genclass_switch_from=<the current
+subscription>`. When the new subscription's first payment has cleared, the webhook:
+
+1. writes the new plan to the account, so the account is never without one;
+2. refunds the unused part of the old plan to the payment method that paid it: a refund on the payment intent (or
+   charge) of the old subscription's latest paid invoice, of that invoice's total times the share of its paid period
+   left (counted from the current hour). It is made once: the refund carries `genclass_refund=switch:<old
+   subscription>` in its metadata and an idempotency key, and a retry finds it. No balance credit: Pro's invoices are
+   issued through Link (Managed Payments) and Custom's by GenClass, so a credit on the customer's balance could be
+   stranded, or pay the other issuer's invoice;
+3. cancels the old subscription at once, with no proration and no final invoice (Stripe's defaults);
+4. tells the owner (`plan_switch`, with the refund, or why there was none: a refusal, such as a payment Stripe or Link
+   support already refunded, is reported and not retried).
+
+The account is billed for both only until step 3 (a failure answers 500 and Stripe's retry finishes the job). If the
+new payment never clears (it fails, or the subscription expires unpaid), the old plan stays and nothing is refunded or
+cancelled. Note for refunds: Stripe can refund a Pro payment through Link support within 60 days of it, also after a
+switch refunded its unused part; every refund of a GenClass customer's charge reaches the owner as `charge_refunded`,
+so a double refund shows. An accidental second purchase that is not a switch (two tabs paid, an old Checkout page
+completed later) keeps the higher plan (Custom over Pro, then the newest) and refunds the other's latest payment in
+full, then cancels it; the owner gets `duplicate_subscription`. GenClass's portal configuration offers no plan switch.
 
 ### Stripe documentation notes
 
@@ -417,8 +443,9 @@ does about it.
   [update-checkout](https://docs.stripe.com/payments/managed-payments/update-checkout). The changelog lists the
   parameter under `2026-02-25.preview`
   ([changelog](https://docs.stripe.com/changelog/clover/2026-02-25/managed-payments)); the integration guide's
-  `2025-03-31.basil` is what the worker relies on, and the owner's test-mode Pro checkout confirms it (a refusal would
-  show as "Stripe: ..." on the billing page; `MANAGED_PAYMENTS = "off"` is the fallback).
+  `2025-03-31.basil` is what the integration guide asks for, but until a test-mode Pro checkout with
+  `MANAGED_PAYMENTS = "on"` has gone through with the pinned `2025-06-30.basil` (and `billing_mode` flexible beside
+  it), the var stays `"off"` (a refusal would show as "Stripe: ..." on the billing page).
 - **Not allowed with it (subscription mode):** `adaptive_pricing`, `automatic_tax`, `tax_id_collection`,
   `subscription_data.default_tax_rates`, `payment_method_configuration`, `payment_method_types`,
   `customer_update[name]`, `customer_update[address]`, `shipping_address_collection`, `shipping_options`,
@@ -443,14 +470,18 @@ does about it.
   payment methods, billing address); the Customer Portal can be offered too; `subscription.default_payment_method`
   cannot be changed through the API for these subscriptions, only by the buyer in the portal
   ([how it works](https://docs.stripe.com/payments/managed-payments/how-it-works)). GenClass's portal keeps card,
-  invoices, email, tax id and cancel at period end. Cancelling with `prorate` and `invoice_now` puts the credit for
-  unused time on the customer's balance for future invoices
-  ([cancel](https://docs.stripe.com/billing/subscriptions/cancel)).
+  invoices, email, tax id and cancel at period end. Cancelling with `prorate` and `invoice_now` would put the credit
+  for unused time on the customer's balance for future invoices; both default to false
+  ([cancel](https://docs.stripe.com/billing/subscriptions/cancel)), and GenClass sends neither: it refunds the unused
+  time to the card instead (a refund can be partial and goes to the payment method charged:
+  [refunds](https://docs.stripe.com/api/refunds/create); an invoice's payment intent comes from
+  [invoice payments](https://docs.stripe.com/api/invoice-payment/list) in API `2025-03-31.basil` and later).
 - **Events.** No event types of its own for subscriptions: the usual `customer.subscription.*` (and
   `checkout.session.*`) events ([set-up](https://docs.stripe.com/payments/managed-payments/set-up)); the Subscription
   object gains a `managed_payments` field
-  ([changelog](https://docs.stripe.com/changelog/clover/2026-02-25/managed-payments)). The webhook needs no change for
-  them. A buyer's data deletion request cancels their Managed Payments subscriptions and erases their data from the
+  ([changelog](https://docs.stripe.com/changelog/clover/2026-02-25/managed-payments)). A subscription can be `active`
+  while its first payment is still processing, so the plan waits for `invoice.paid`
+  ([subscription webhooks](https://docs.stripe.com/billing/subscriptions/webhooks)). A buyer's data deletion request cancels their Managed Payments subscriptions and erases their data from the
   customer ([how it works](https://docs.stripe.com/payments/managed-payments/how-it-works)): the webhook accepts the end
   of the subscription recorded for an account even when the customer's metadata is gone, since ending a plan only takes
   entitlements away.
@@ -477,7 +508,7 @@ does about it.
 |---|---|
 | `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's own Stripe customer once (email, description `GenClass account`, metadata `genclass=1` and `genclass_account`); never looks one up by email. A stored customer is checked first (`GET /v1/customers/<id>`): its metadata must name the account, and every subscription on it must be GenClass's, else 409 with the contact address, nothing opened, and a `shared_customer` notice ("Shared-account defences" below). Then it asks Stripe, not the database, whether that customer already has a GenClass subscription: one on this plan is a 409, one whose last payment failed (`past_due`, `unpaid`) is a 409 pointing to Manage billing, two at once (a switch still going through) or a paused one is a 409, and an active one on the other plan is a switch: after the same invoice check as Manage billing, `{ url, switch: true }` of a Checkout for the new plan whose session and subscription carry `genclass_switch_from=<the current subscription>` (success URL `...?done=1&to=<plan>`). Otherwise `{ url }` of a Checkout Session in subscription mode for that customer and the plan's lookup key (metadata `genclass=1`, `genclass_account`, `genclass_plan`; the subscription gets `genclass` and `genclass_account` and flexible billing mode; `client_reference_id` = account id; success `https://genclass.dev/account/billing?done=1`), with `managed_payments[enabled]=true` for Pro unless `MANAGED_PAYMENTS` is `off`, never for Custom. GenClass's open Checkout page of the account for the same plan (and the same switch) is reused, its other open pages are closed first, and any other open page is left alone. 503 unless the account can buy (above). |
 | `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, card, email and tax id, invoices; no plan switch, which is a new Checkout) on GenClass's own portal configuration: the one whose id `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` (test) names, fetched by that id and checked (metadata `genclass=1`, active, not the default; cached 10 minutes), never the account's default one: without it, 503 ("run scripts/stripe-setup.mjs"). The portal acts on everything on the customer, so first the customer must be the account's (metadata), every subscription on it GenClass's, and each of its latest 100 invoices for a GenClass subscription; otherwise 409 with the contact address, no session, and a `shared_customer` notice. 409 before a first purchase, and when Stripe no longer has the customer (the stored ids are then cleared). |
-| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `customer.subscription.created`, `.updated` and `.deleted`, and subscribes to nothing else: they arrive for the whole Stripe account, so first, with no Stripe call, the subscription's customer must be in `accounts.stripe_customer_id`, and the subscription in the event must look like GenClass's (the one recorded for the account, metadata `genclass=1`, or a `genclass_` lookup key on a price). Then it fetches the subscription (its prices' products, its customer and its latest invoice expanded), which must be provably GenClass's (every price a `genclass_` lookup key on a `genclass_plan` product, or the subscription already recorded for the account) and the account's (its customer's `genclass_account` names the account), and writes the plan, status, `past_due_since`, period end (when it ended, for one cancelled at once), cancel flag and mode. When a subscription starts billing (`created`, or `updated` with a status change), if the customer has two GenClass subscriptions that bill (a switch paid, or two tabs paid), the account keeps one (a live one before an unpaid or paused one, then the newest, which a switch's new subscription is): it is written to the account first, then the others are cancelled at once, with the unused time credited to the customer's balance only when every subscription on the customer is GenClass's (else no credit, and the notice says to refund by hand). A switch (the kept subscription's `genclass_switch_from` names the one cancelled) sends no notice unless a refund is needed (`plan_switch`); anything else is a `duplicate_subscription` notice. A new subscription that never becomes active (`incomplete`, `incomplete_expired`) is not the account's current one and changes nothing. The end of the subscription recorded for the account is applied even when its customer's metadata is gone (Stripe erasing a buyer's data on request). A Custom purchase is recorded (`custom_requests`, `NOTIFY_WEBHOOK`) only when Stripe reports the Custom price paid: the subscription's latest invoice is paid and has a positive Custom line (a first Custom invoice, a switch from Pro included; Stripe sends `customer.subscription.updated` when a subscription becomes active, renews or changes price). Every other event (another business's subscriptions, in a shared account) is answered 200, logged as `stripe webhook: <type> <id> ignored: <reason>`, not stored, and nothing about it is fetched. The ids of events about GenClass customers are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. |
+| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `customer.subscription.created`, `.updated` and `.deleted`, `invoice.paid`, `charge.refunded` and `charge.dispute.created`, and subscribes to nothing else: they arrive for the whole Stripe account, so first, with no Stripe call, the customer must be in `accounts.stripe_customer_id`, and the subscription must look like GenClass's (the one recorded for the account, metadata `genclass=1` on it or copied onto the invoice, or a `genclass_` lookup key on a price). From an invoice only its subscription id is read; a refund or dispute of a GenClass customer's charge sends the owner `charge_refunded` or `charge_disputed` (ids and amounts; a dispute names no customer, so its charge is read first). Then it fetches the subscription (its prices' products, its customer and its latest invoice expanded), which must be provably GenClass's (every price a `genclass_` lookup key on a `genclass_plan` product, or the subscription already recorded for the account) and the account's (its customer's `genclass_account` names the account), and writes the plan, status, `past_due_since`, period end (when it ended, for one cancelled at once), cancel flag and mode. A subscription the account has not been granted yet is written only once its latest invoice is paid (or asks for nothing), never on `active` alone; another subscription than the account's current one never overwrites a live plan unless it was chosen as below. When a subscription starts billing (`created`, `updated` with a status change, or `invoice.paid`), if the customer has two GenClass subscriptions that bill and are paid for (a switch, or two tabs paid), the account keeps one (a switch's new plan; otherwise a live one, then Custom over Pro, then the newest): it is written to the account first, then each other one is refunded to its payment method (a switch's old plan: its unused time; a duplicate: its latest payment in full; once, by the metadata `genclass_refund`) and cancelled at once with no proration, and `NOTIFY_WEBHOOK` gets `plan_switch` or `duplicate_subscription` with the refunds. A new subscription that is never paid (`incomplete`, `incomplete_expired`, or `active` with its invoice unpaid) changes nothing. The end of the subscription recorded for the account is applied even when its customer's metadata is gone (Stripe erasing a buyer's data on request). A Custom purchase is recorded (`custom_requests`, `NOTIFY_WEBHOOK`) only when Stripe reports the Custom price paid: the subscription's latest invoice is paid and has a positive Custom line (a first Custom invoice, a switch from Pro included, seen on `invoice.paid` or the subscription's own events). Every other event (another business's subscriptions, in a shared account) is answered 200, logged as `stripe webhook: <type> <id> ignored: <reason>`, not stored, and nothing about it is fetched. The ids of events about GenClass customers are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. |
 | `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale }` |
 | `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade and Switch buttons and Manage billing (only to an account that can buy), and which plan is sold through Link (Managed Payments). `?plan=pro\|custom` (the pricing page's buttons) survives the sign-in redirect and highlights and focuses that plan's button. Back from Checkout (`?done=1`) while the plan still reads Free, or back from a switch (`?done=1&to=<plan>`) while the plan is still the old one, it shows no buttons and waits for the webhook. |
 | `GET /api/account/projects/<id>/integrations` | browser session: the app's forwarding destinations, masked |
@@ -517,7 +548,7 @@ What GenClass creates in the account, in each mode, and nothing else:
 |---|---|---|
 | 2 products: GenClass Pro (id `genclass_pro`) and GenClass Custom (id `genclass_custom`), active | metadata `genclass_plan` (`pro`, `custom`) and `genclass=1`; statement descriptor `GENCLASS`; tax codes `txcd_10103001` and `txcd_10203001` | `scripts/stripe-setup.mjs` |
 | their prices, active: `genclass_pro_monthly` (US$99 a month) and `genclass_custom_monthly` (US$599 a month); after a price change, the archived old price keeps `genclass_<plan>_monthly_retired_<price id>` | a lookup key starting with `genclass_`, on a product with `genclass_plan`; metadata `genclass=1`, `genclass_plan` | the script |
-| 1 webhook endpoint, `https://genclass.dev/api/billing/webhook` | that URL and the description `GenClass billing` (metadata `genclass=1`); only `customer.subscription.created`, `.updated`, `.deleted` | the script |
+| 1 webhook endpoint, `https://genclass.dev/api/billing/webhook` | that URL and the description `GenClass billing` (metadata `genclass=1`); only `customer.subscription.created`, `.updated`, `.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created` | the script |
 | 1 Billing Portal configuration | metadata `genclass=1`; never the default; headline "Manage your GenClass plan"; no plan switch; its id in `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` | the script |
 | customers, one per GenClass account that buys | description `GenClass account`, metadata `genclass=1` and `genclass_account=<account id>`; the id in `accounts.stripe_customer_id`, which nothing else writes | the worker (checkout) |
 | Checkout Sessions, Billing Portal sessions | Checkout: subscription mode, a GenClass customer, metadata `genclass=1`, `genclass_account`, `genclass_plan` (and `genclass_switch_from` for a switch); portal: GenClass's configuration | the worker |
@@ -525,14 +556,15 @@ What GenClass creates in the account, in each mode, and nothing else:
 
 What reaches GenClass, and what it reads:
 
-- The webhook endpoint subscribes to `customer.subscription.created`, `.updated` and `.deleted` only, and Stripe sends
-  them for the whole account, so Polar Parts' subscription events arrive too. A subscription carries ids (customer,
-  prices, products, payment method), its status, dates and amounts, and whatever description and metadata Polar Parts
-  sets on it; no name, email or address, unless Polar Parts puts one in that metadata. The worker parses it, looks the
-  customer id up in `accounts.stripe_customer_id`, and drops it: no Stripe call, nothing stored, one log line with the
-  event type and id (worker logs are not kept: observability is off, so only a live `wrangler tail` shows them).
-  GenClass takes no Checkout, invoice, charge or customer event, which would bring Polar Parts' order details (names,
-  emails, phone numbers, addresses).
+- The webhook endpoint subscribes to `customer.subscription.created`, `.updated`, `.deleted`, `invoice.paid`,
+  `charge.refunded` and `charge.dispute.created` only, and Stripe sends them for the whole account, so another
+  business's events of those types arrive too. A subscription carries ids, its status, dates and amounts, and whatever
+  description and metadata its business sets; an invoice, charge or dispute also carries the buyer's name, email or
+  address. The worker parses the event, looks the customer id up in `accounts.stripe_customer_id`, and drops it: no
+  Stripe call (except a dispute's charge, read for its customer id alone, since a dispute names none), nothing stored,
+  one log line with the event type and id (worker logs are not kept: observability is off, so only a live
+  `wrangler tail` shows them). Of GenClass's own invoices, charges and disputes it reads ids and amounts only.
+  GenClass takes no Checkout or customer event.
 - The worker reads from Stripe: its prices by `genclass_` lookup key; its portal configuration by id; and, for a
   customer in `accounts.stripe_customer_id` only, that customer, its subscriptions, its open Checkout pages, its
   latest 100 invoices (before a portal session) and a subscription it got an event for that looks like GenClass's,
@@ -559,9 +591,8 @@ What GenClass never does there:
   `shared_customer` notice with the account and customer ids. The portal would otherwise let the buyer cancel the
   other subscription, change the card that pays it, and read its invoices under GenClass's headline. The portal
   configuration lets a buyer change only the email and tax id of their GenClass customer, never an address.
-- Put money on a shared balance. A duplicate subscription is cancelled with a prorated credit to the customer's
-  balance (which pays that customer's next invoice, whoever sends it) only when every subscription on the customer is
-  GenClass's; otherwise it is cancelled without a credit, and the notice says to refund by hand.
+- Put money on a customer's balance (which pays that customer's next invoice, whoever sends it). A switch's old plan
+  and a duplicate subscription are refunded to the payment method that paid them, and cancelled with no proration.
 - Act on another Checkout Session, subscription or invoice. The webhook checks the event's customer against GenClass's
   database before any Stripe call. Account deletion cancels only GenClass subscriptions that Stripe lists on the
   account's checked GenClass customer, never a subscription by its recorded id alone; if the stored customer is not
@@ -599,7 +630,7 @@ Owner checks on Polar Parts' side, needed only while GenClass bills through an a
 
    | events | how to recognise GenClass's |
    |---|---|
-   | `customer.created`, `customer.updated` (email or tax id changed in the portal, balance credited), `customer.tax_id.*` | the customer: description `GenClass account`, metadata `genclass=1` (a tax id: its `customer`) |
+   | `customer.created`, `customer.updated` (email or tax id changed in the portal), `customer.tax_id.*` | the customer: description `GenClass account`, metadata `genclass=1` (a tax id: its `customer`) |
    | `checkout.session.completed`, `.expired` and the other `checkout.session.*` | metadata `genclass=1`, `genclass_account`, `genclass_plan`; mode `subscription` |
    | `customer.subscription.*` | metadata `genclass=1`, `genclass_account`; prices with `genclass_` lookup keys |
    | `invoice.*` (created, finalized, paid, payment_succeeded, payment_failed, upcoming, updated, voided, ...), `invoiceitem.*` | no metadata on the invoice itself: `parent.subscription_details.metadata.genclass` is `1`, or the customer is GenClass's |
@@ -642,7 +673,8 @@ Owner checks on Polar Parts' side, needed only while GenClass bills through an a
    must print 0. If not, clear those ids first (still before any key):
    `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL"`.
 6. **Privacy notes.** PRIVACY.md and the site's privacy page say GenClass's payments go through Stripe and that Stripe
-   (through Link) is the merchant of record for Pro. With a shared account again, whether to name it is the owner's call.
+   (through Link) is the merchant of record for Pro when it is sold through Managed Payments. With a shared account
+   again, whether to name it is the owner's call.
 
 ### Forwarding
 
@@ -678,9 +710,9 @@ removed its object by then).
 | `STRIPE_PORTAL_CONFIGURATION` | secret (an id, not secret) | GenClass's live Billing Portal configuration (`bpc_...`); the script with a live key stores it. The portal answers 503 without it, or when it does not name a configuration with metadata `genclass=1` that is active and not the default |
 | `STRIPE_PORTAL_CONFIGURATION_TEST` | secret (an id) | the same for test mode; the script with a test key stores it |
 | `STRIPE_TEST_ACCOUNTS` | secret | emails or account ids, comma-separated, that can buy while the key is a test key |
-| `MANAGED_PAYMENTS` | var (`wrangler.toml`) | `on` (the default there): Pro's Checkout uses Stripe Managed Payments, Stripe (through Link) the merchant of record, 3.5% of each Pro payment on top of Stripe's fees. `off`: new Pro subscriptions are sold on standard Checkout with GenClass as the seller. Custom never uses it. Unset counts as `on` |
+| `MANAGED_PAYMENTS` | var (`wrangler.toml`) | `"off"` there, and unset counts as off: Pro is sold on standard Checkout. `"on"` (or `true`, `1`, `yes`): Pro's Checkout uses Stripe Managed Payments, Stripe (through Link) the merchant of record, 3.5% of each Pro payment on top of Stripe's fees; the owner sets it after accepting the Managed Payments terms and one test-mode Pro checkout with it on (Owner steps). Custom never uses it |
 | `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
-| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a Custom plan is paid, `duplicate_subscription` when a second subscription was cancelled (`credited` says whether the unused time went to the customer's balance), `plan_switch` when a switch cancelled the old plan without a credit (refund by hand), `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
+| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a Custom plan is paid, `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
 | `EXPORT_LIMIT` | rate limit binding | export pages per account per minute (120) |
 
 A Custom buyer's email, for the notice above:
@@ -694,10 +726,10 @@ test-mode and a live copy unless the dashboard says it is shared):
 1. **Activate the account** (Settings, Business): business details, the bank account for payouts, the public business
    name (GenClass) and statement descriptor (GENCLASS), and the support email and phone. Managed Payments sends its
    escalations to that support email; answer within 48 hours, or Stripe may refund the buyer without asking.
-2. **Managed Payments** (Settings, Managed Payments): accept its terms and turn it on. Pro's Checkout asks for it
-   (`MANAGED_PAYMENTS = "on"` in `wrangler.toml`). To sell Pro without it, set that var to `"off"` and deploy instead.
-   Optionally add GenClass's terms (`https://genclass.dev/terms`) and privacy policy (`https://genclass.dev/privacy`)
-   in Settings, Checkout: the Managed Payments page shows them in its footer.
+2. **Managed Payments** (Settings, Managed Payments): accept its terms and turn it on, in test mode first. The
+   worker's `MANAGED_PAYMENTS` stays `"off"` until step 12 shows Stripe accepts it. Optionally add GenClass's terms
+   (`https://genclass.dev/terms`) and privacy policy (`https://genclass.dev/privacy`) in Settings, Checkout: the
+   Managed Payments page shows them in its footer.
 3. **Revenue recovery** (Billing, Revenue recovery): Smart Retries on; failed-payment emails on (and the expiring-card
    ones); when all retries for a payment fail, **cancel the subscription**. The worker's 14-day past-due limit stays
    as a backstop.
@@ -724,17 +756,24 @@ test-mode and a live copy unless the dashboard says it is shared):
     `STRIPE_WEBHOOK_SECRET_TEST`, never printed) and GenClass's own Billing Portal configuration (no plan switch; its id
     goes into `STRIPE_PORTAL_CONFIGURATION_TEST`). Running it again changes only what differs. Then
     `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Only your account can buy.
-12. **The test card**: on `https://genclass.dev/account/billing` choose Upgrade to Pro and pay on Link's Checkout page
-    with `4242 4242 4242 4242`, any future expiry date and any CVC (try a few billing addresses to see the tax). The page
-    shows Pro within a minute. In the Stripe dashboard (Transactions) the payment shows the tax Managed Payments
-    withheld and the statement descriptor. Then Switch to Custom: a second Checkout; once paid, the page shows Custom,
-    the Pro subscription is cancelled with a prorated credit, and a `custom_requests` row with mode `test` and a
-    test-mode notice appear. Then Manage billing (card, invoices) and cancel. Developers, Webhooks shows no failed
-    deliveries. In test mode Link sends no receipt emails by itself; the payment's page has Send receipt.
+12. **The test card, with Managed Payments**: set `MANAGED_PAYMENTS = "on"` in `wrangler.toml` and deploy (only
+    `STRIPE_TEST_ACCOUNTS` can buy while the key is a test key). On `https://genclass.dev/account/billing` choose
+    Upgrade to Pro and pay on Link's Checkout page with `4242 4242 4242 4242`, any future expiry date and any CVC (try a
+    few billing addresses to see the tax). Confirm that Stripe accepted the Checkout Session with both
+    `managed_payments[enabled]` and `subscription_data[billing_mode][type]=flexible` (Developers, Logs: the
+    `POST /v1/checkout/sessions` request answered 200, and the subscription shows billing mode flexible). **If Stripe
+    rejects the parameter, set `MANAGED_PAYMENTS` back to `"off"`, deploy, and sell Pro on standard Checkout** (or ask
+    for a newer pinned API version). The page shows Pro within a minute. In the Stripe dashboard (Transactions) the
+    payment shows the tax Managed Payments withheld and the statement descriptor. Then Switch to Custom: a second
+    Checkout; once paid, the page shows Custom, the Pro subscription is cancelled and its unused time refunded to the
+    card (`plan_switch` notice), and a `custom_requests` row with mode `test` and a test-mode notice appear. Then
+    Manage billing (card, invoices) and cancel. Developers, Webhooks shows no failed deliveries. In test mode Link sends
+    no receipt emails by itself; the payment's page has Send receipt.
 13. Before going live, clear the test records (once the key is live they no longer count, but this keeps the tables
     clean):
     `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"`
-14. **Live**: steps 2 to 6 in live mode if the dashboard keeps them per mode, then
+14. **Live**: steps 2 to 6 in live mode if the dashboard keeps them per mode (Managed Payments' terms included, if
+    `MANAGED_PAYMENTS` stays on), then
     `STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs` (`--dry-run` first; live products, prices, webhook
     endpoint and `STRIPE_WEBHOOK_SECRET`, portal configuration and `STRIPE_PORTAL_CONFIGURATION`), then
     `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the live key. Paid plans are on sale and the Free plan's
