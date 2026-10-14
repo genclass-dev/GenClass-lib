@@ -73,7 +73,10 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // detection tiers and deferred situations (wave2/detect-observe) took 1.42 / 1.48 KB of that: 107.66 / 99.69 KB (CI
   // run 38471973596, RESULTS.md §11); merged with release/0.3.0 (its 429 back-off is this branch's), 107.65 / 99.68 KB
   // (CI run 38477575339); with the review fixes, paid for by moving the expectation report's console text into the lazy
-  // flow chunk, 107.56 / 99.59 KB (CI run 38482297879). Both sizes are printed before either is asserted.
+  // flow chunk, 107.56 / 99.59 KB (CI run 38482297879). The Sentry, PostHog and Datadog adapters were removed (never
+  // shipped: forwarding to those tools is a GenClass Pro feature); the one warning for those names in /auto's page
+  // config (src/cdn/sinks.ts applySinks) brings /auto to 107.73 KB, the main entry unchanged at 99.61 KB (CI run
+  // 38491077597, wave2/no-vendor-sinks 31ddc98). Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 107.74, "index.js": 99.71 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");

@@ -34,14 +34,19 @@ text is still `situation-v2.3` and the default model is still `@genclass/runtime
 - **Guard and heal no longer retry a `fetch(new Request(...))` whose body is over 64 KB** (`retry` is not offered
   for it): 0.2.x kept a second copy of every such upload in memory to make it replayable. String, form, Blob and
   BufferSource bodies passed in `init` are unchanged (Defaults, footprint and fixes, below).
-- New and opt-in: sink adapters (`@genclass/runtime/sinks/*`, `init --sink`), flow expectations
-  (`learn: { expectations: true }`), `protect()` and `scope: "functions"`, and genclass.dev accounts with the CLI's
-  `login`, `connect`, `whoami` and `logout` (`init` asks whether a new app goes into a signed-in account).
-- **Sink adapters, if you add one, cap repeats and send evidence by default.** Unlike telemetry, the Sentry, PostHog,
-  Datadog and webhook adapters forward at most 10 records per bug signature per page load (`maxPerSignature`, `0`
-  for no cap), a sink's `sampleRate` below 1 can drop detections, and they send the redacted evidence (console line,
-  subject, timeline, which can hold short fragments of typed input) to that tool unless you pass `evidence: false`
-  (or `<name>:noevidence`).
+- New and opt-in: vendor-neutral sink adapters that keep the records on your side (`@genclass/runtime/sinks/console-json`
+  and `/webhook`, `init --sink`), flow expectations (`learn: { expectations: true }`), `protect()` and
+  `scope: "functions"`, and genclass.dev accounts with the CLI's `login`, `connect`, `whoami` and `logout` (`init`
+  asks whether a new app goes into a signed-in account).
+- **No Sentry, PostHog or Datadog adapter.** The vendor adapters that were in development for this release are not
+  part of the free runtime: forwarding findings to Sentry, PostHog or Datadog is a GenClass Pro feature, configured on
+  the dashboard (https://genclass.dev/pricing). A page config that names `sentry`, `posthog` or `datadog` gets one
+  console warning that says so, and nothing else happens; `init --sink sentry` stops with a usage error that says the
+  same.
+- **The webhook adapter, if you add one, caps repeats and sends evidence by default.** Unlike telemetry, it forwards
+  at most 10 records per bug signature per page load (`maxPerSignature`, `0` for no cap), a sink's `sampleRate` below
+  1 can drop detections, and it sends the redacted evidence (console line, subject, timeline, which can hold short
+  fragments of typed input) to the URL you configure unless you pass `evidence: false`.
 - **Observe reports more** (below). What an app wired to `rt.on("detect")`, `rt.on("report")` or `report: fn`
   receives is unchanged by default: likely detections only, as in 0.2.x. New: "possible" detections on
   `console.debug`, in the devtools, `summary()` and telemetry (to your listeners and report function only with
@@ -275,34 +280,38 @@ sent; what telemetry adds in 0.3.0 with or without one is under "What changes wh
 
 ### Reports where developers look: sink adapters
 
-- **Findings reach the developer: sink adapters for the tools you already open.** In production the `[GenClass]`
-  console lines print in your users' browsers; `@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`,
-  `/console-json` and `/webhook` (all five in `@genclass/runtime/sinks`) forward every detection, intervention, undo,
-  breaker trip and runtime error as well: `Sentry.captureMessage` at level `warning` with tags `genclass` (the
-  diagnosis), `genclass.mode`, `genclass.action` and a per-bug fingerprint (or breadcrumbs with `as: "breadcrumb"`);
-  `posthog.capture("genclass_<kind>", { ... })`; `DD_RUM.addError` (`GenClassDetection`, `GenClassIntervention`) and
-  `DD_RUM.addAction("genclass_<kind>")`; one JSON line per record on the console; batched POSTs of
-  `{ schema: "genclass-sink/1", version, records }` to a URL you own by `navigator.sendBeacon`, else `fetch` keepalive
-  (at most one POST per idle-time delivery round, or per `flushMs` window with a `clock`).
-  No new dependency: each finds the SDK on the page at send time (or takes the client you pass) and never throws. They
-  send only the record the runtime built: kind, diagnosis, probability, action, route, session tags and the redacted
-  evidence (the console line, subject and timeline, URL query values as `…`; timeline lines can hold short fragments
-  of app data, as the console does). `evidence: false` on any adapter sends the structured fields only. Never the
-  situation text, bodies, headers or cookies. Separate entries, never in the first-load bundle. A tool adapter that
-  finds no SDK when a record arrives says so once in the console, naming the fix. The tool adapters and the webhook
-  cap repeats of one bug at 10 per page load (`maxPerSignature`); a bug's signature treats op ids, numbers and id-like
-  path segments (UUIDs, hex, tokens, slug ids, emails) as one, so one bug on many orders is one Sentry issue and one
-  cap. The webhook sends at most 50 records and 32,000 UTF-8 bytes per POST and at most one POST per round (the
+- **Findings reach the developer's own side: vendor-neutral sink adapters.** In production the `[GenClass]` console
+  lines print in your users' browsers; `@genclass/runtime/sinks/console-json` and `/webhook` (both in
+  `@genclass/runtime/sinks`) forward every detection, intervention, undo, breaker trip and runtime error as well: one
+  JSON line per record on the console, for a log shipper; batched POSTs of
+  `{ schema: "genclass-sink/1", version, records }` to a URL you configure by `navigator.sendBeacon`, else `fetch`
+  keepalive (at most one POST per idle-time delivery round, or per `flushMs` window with a `clock`). No new
+  dependency, and neither ever throws. They send only the record the runtime built: kind, diagnosis, probability,
+  action, route, session tags and the redacted evidence (the console line, subject and timeline, URL query values as
+  `…`; timeline lines can hold short fragments of app data, as the console does). `evidence: false` on either sends
+  the structured fields only. Never the situation text, bodies, headers or cookies. Separate entries, never in the
+  first-load bundle. The webhook caps repeats of one bug at 10 per page load (`maxPerSignature`); a bug's signature
+  treats op ids, numbers and id-like path segments (UUIDs, hex, tokens, slug ids, emails) as one, so one bug on many
+  orders is one cap. It sends at most 50 records and 32,000 UTF-8 bytes per POST and at most one POST per round (the
   browser's 64 KiB keepalive budget is shared with the app's own beacons); the rest waits for the next round, at most
   500 records wait, and on page hide one batch goes (the session summary first) and the rest is dropped.
-- **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["sentry", "webhook:/genclass"] }`,
-  `<meta name="genclass" content="sink=sentry+posthog">`, `data-sink="sentry,posthog"` on the script tag, and
-  `npx @genclass/runtime init --sink sentry` (repeatable; written to the option file, the tag or the Astro meta line;
-  `remove` takes it out). `<name>:noevidence` (`sentry:noevidence`, `--sink posthog:noevidence`) sends the structured
-  fields only. The names become one proxy sink that queues records (at most 200) and loads the adapters on the first
-  record, never before (a page with `?genclass=off`, or one that reports nothing, fetches none); the name table and the
-  adapters are lazy chunks of `/auto` and come from the CDN for the script tag, so only the proxy is in the first
-  load. A `webhook:<url>` is made absolute at init and only its own endpoint (origin and path) joins `requests.ignore`
+- **Sentry, PostHog and Datadog: not in the free runtime.** The adapters for those tools that were in development for
+  this release (`@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`, with `init --sink sentry` detecting an
+  npm-installed SDK and passing it in) are not part of it and were never published: forwarding findings to Sentry,
+  PostHog or Datadog is a GenClass Pro feature, configured on the dashboard (https://genclass.dev/pricing). The
+  runtime has no adapter, export or CDN file for them. A page config that names `sentry`, `posthog` or `datadog` (any
+  case, with or without an option) gets one console warning for them all, "Ignored sink sentry: forwarding to Sentry,
+  PostHog and Datadog is a GenClass Pro feature, configured on the dashboard: https://genclass.dev/pricing", and
+  nothing is loaded or sent for those names; `init --sink sentry` is a usage error that says the same, and `init`
+  suggests no sink for a project that depends on those SDKs.
+- **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["webhook:/genclass"] }`,
+  `<meta name="genclass" content="sink=webhook:/genclass+console-json">`, `data-sink="webhook:/genclass,console-json"`
+  on the script tag, and `npx @genclass/runtime init --sink webhook:/genclass` (repeatable; written to the option file,
+  the tag or the Astro meta line; `remove` takes it out). `console-json:noevidence` (`--sink console-json:noevidence`)
+  prints the structured fields only. The names become one proxy sink that queues records (at most 200) and loads the
+  adapters on the first record, never before (a page with `?genclass=off`, or one that reports nothing, fetches none);
+  the name table and the adapters are lazy chunks of `/auto` and come from the CDN for the script tag, so only the
+  proxy is in the first load. A `webhook:<url>` is made absolute at init and only its own endpoint (origin and path) joins `requests.ignore`
   (`webhook:/collect` never hides `/collections`); from a `<meta>` tag it must be same-origin, like the model URL (a
   cross-origin one is ignored with one warning; THREAT-MODEL T8), and `init` says so for an absolute webhook URL on
   Astro. A string passed to `GenClass.init({ sinks })` directly is now ignored with one warning that names the fix
@@ -310,21 +319,15 @@ sent; what telemetry adds in 0.3.0 with or without one is under "What changes wh
   page-config sinks into options never throws into the app (it runs before `GenClass.init`'s own guard, while `/auto`
   is imported): a `requests.ignore` that is not a list stays as written, for `GenClass.init` to report as it would
   without sinks, and any other failure is one warning.
-- **`init` reaches npm-installed SDKs.** It suggests `--sink` when `package.json` depends on a Sentry browser SDK
-  (`@sentry/react`, `@sentry/vue`, `@sentry/nextjs`, ...; no longer its build plugins or server SDKs), `posthog-js` or
-  `@datadog/browser-rum`. The npm Sentry and PostHog SDKs set no page global, so in its option file `init` writes such a
-  sink as the adapter with your SDK passed in (`import * as Sentry from "@sentry/vue"; ... sinks:
-  [sentrySink({ sentry: Sentry })]`); another `--sink` rewrites those imports, and `remove` takes them out. On plain
-  HTML and Astro, where only names fit, it says to add `window.Sentry = Sentry`.
 - **Security: the same-origin check on meta-tag URLs resolves them as the browser does.** A model, ORT or webhook URL
   in `<meta name="genclass">` is now resolved with the WHATWG URL parser against the page and `document.baseURI`, so
   `/\evil.example/`, a tab inside `//` or an injected `<base href>` no longer pass as a same-origin path (the 0.2.2
   check let them through for model and ORT URLs too).
 - `SinkRecord.route`: the page path the subject's operation was created on, normalised as telemetry sends it (id-like
   segments and segments holding an `@`, such as an e-mail address, as `:id`; at most 200 chars).
-- Every adapter sends the evidence (the console line, subject and timeline) by default, while a sink you write
-  yourself still gets it only with `evidence: true` (`SinkObject.evidence`, default false). `:noevidence` /
-  `evidence: false` turns it off per adapter.
+- Both adapters send the evidence (the console line, subject and timeline) by default, while a sink you write
+  yourself still gets it only with `evidence: true` (`SinkObject.evidence`, default false). `evidence: false` (or
+  `console-json:noevidence`) turns it off per adapter.
 - The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
 
 ### Flow expectations (opt-in): learn what each action usually does, report the step that did not happen
@@ -348,7 +351,7 @@ text changed (no new fact, trigger or situation text).
 - `Report.kind "expectation"` with `Report.expectation` (the learned counts); `rt.on("expectation", fn)`; sink
   records of kind `expectation` (counts and signatures, no page text), which reach a sink that forwards every kind
   (a function, `{ send }` without `kinds`, the webhook and console-json adapters) only while the layer is on, and
-  never the Sentry, PostHog or Datadog adapters unless `kinds` lists `"expectation"`; one console line per deviation
+  never a sink whose `kinds` leaves `"expectation"` out; one console line per deviation
   in the usual style, with a collapsed group; folded repeats as for every report. `report: "interventions"` prints
   none.
 - `rt.learned()`: whether the layer is on (`expectations`), the learned flows (current route first) with their
@@ -450,7 +453,10 @@ the expectation report's console text moved into the lazy flow chunk to pay for 
 code, and the dashboard's counting, which is the worker's) measures the same: 107.56 / 99.59 KB, script tag
 127.89 KB (CI run 38485063587, RESULTS.md §10). With the release review's telemetry fixes (path segments holding an
 `@` and URLs in model error text masked): **107.61 KB** and **99.61 KB**, script tag 127.92 KB (CI run 38488753971),
-0.13 / 0.10 KB under the limits, which are not re-set.
+0.13 / 0.10 KB under the limits, which are not re-set. Removing the Sentry, PostHog and Datadog adapters changes no
+first load (they were lazy chunks and CDN files); the one console warning for those names in a page config adds
+0.12 KB to `/auto` and 0.09 KB to the script tag, and nothing to the main entry: **107.73 KB** and **99.61 KB**, script
+tag 128.01 KB (CI run 38491077597, RESULTS.md §10), 0.01 / 0.10 KB under the limits, which are not re-set.
 
 ## 0.2.2 (2026-10-13)
 

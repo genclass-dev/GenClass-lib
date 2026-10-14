@@ -321,8 +321,7 @@ GenClass.init({ learn: { expectations: true } })  // opt in (default false: lear
 ```
 
 **Sinks.** An `expectation` record reaches a sink that forwards every kind (a function, `{ send }` without `kinds`,
-the webhook and console-json adapters) only while the layer is on; the Sentry, PostHog and Datadog adapters leave it
-out of their default kinds (add `"expectation"` to `kinds` to forward it).
+the webhook and console-json adapters) only while the layer is on; a sink whose `kinds` leaves it out never gets it.
 
 **Persistence.** With `learn.expectations` on, the learned flows (they only produce reports) are kept per origin in `localStorage` by default;
 transition profiles, which the model reads, stay in memory unless `learn.persist` is set (`true` or `"local"`:
@@ -607,7 +606,8 @@ overlay uses it), so debugging tools never become causes in situations.
 ### See it where you already look
 
 0.3.0 (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
-in `0.2.x`.
+in `0.2.x`. The free runtime has no Sentry, PostHog or Datadog adapter: forwarding to those tools is a GenClass Pro
+feature, configured on the dashboard (https://genclass.dev/pricing).
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
 `sampled`, `diagnosis`, `p`, `detection` (kind `detection`: `"likely"`, or `"possible"` for a sink with
@@ -615,29 +615,14 @@ in `0.2.x`.
 created on, normalised as telemetry sends it: id-like and email segments as `:id`, at most 200 chars), `changed`
 (paths), `reason`, `shadow`, `correlationId`, and with `evidence: true` the redacted `message`,
 `subject` and `timeline` (URL query and fragment values as `…`; timeline lines can hold short fragments of app data,
-as the console does: a store value summary, an error message, text typed into an ordinary input). Five adapters, no
-dependencies, each a function returning that sink shape, each finding the SDK on the page at send time (or taking the
-client you pass), never throwing, and sending nothing beyond the record. Each takes `kinds`, `sampleRate`,
-`evidence` (default true; false sends the structured fields only) and `possible` (0.3.0, default false: likely
-detections only; sinks by name never get possible ones):
+as the console does: a store value summary, an error message, text typed into an ordinary input). Two vendor-neutral
+adapters keep the records on your side, with no dependencies, each a function returning that sink shape, never
+throwing, and sending nothing beyond the record. Each takes `kinds`, `sampleRate`, `evidence` (default true; false
+sends the structured fields only) and `possible` (0.3.0, default false: likely detections only; sinks by name never
+get possible ones):
 
 ```ts
-import { consoleJson, datadog, posthog, sentry, webhook } from "@genclass/runtime/sinks"; // or @genclass/runtime/sinks/<name>
-
-sentry({ sentry: Sentry, as: "event", level: "warning", kinds, sampleRate, maxPerSignature: 10 });
-// Sentry.captureMessage(line, { level, tags: { genclass: diagnosis, "genclass.kind", "genclass.mode", "genclass.action",
-//   "genclass.trigger", "genclass.route" }, extra: { genclass: record }, fingerprint: ["genclass", <per-bug signature>] });
-// as: "breadcrumb" → Sentry.addBreadcrumb({ category: "genclass", message: line, data: record }) only.
-// Default SDK: globalThis.Sentry (the loader / CDN bundles); the npm SDK sets no global, so pass it.
-
-posthog({ posthog: client, prefix: "genclass_" });
-// posthog.capture("genclass_detection" | "genclass_intervention" | "genclass_undo" | "genclass_breaker" | "genclass_error",
-//   { ...record, message, subject, timeline, signature }). Default client: globalThis.posthog (the snippet's stub queues too).
-
-datadog({ rum: datadogRum, as: "error" });
-// detections and interventions: DD_RUM.addError(Error named GenClassDetection / GenClassIntervention, { genclass: record });
-// undo, breaker, error: DD_RUM.addAction("genclass_<kind>", { genclass: record }); as: "action" sends everything as actions.
-// Default SDK: globalThis.DD_RUM (the async stub's onReady is honoured).
+import { consoleJson, webhook } from "@genclass/runtime/sinks"; // or @genclass/runtime/sinks/<name>
 
 consoleJson({ method: "log", kinds });
 // console.log('{"source":"genclass","schema":1,"kind":"detection",...}'), one line per record, every kind (summary too).
@@ -653,22 +638,19 @@ webhook({ url: "/genclass", maxBatch: 50, maxPerSignature: 10, headers, kinds, s
 // cookies. With headers (fetch only) or no sendBeacon, list the URL in requests.ignore.
 ```
 
-The tool adapters (sentry, posthog, datadog) default to `kinds: ["detection", "intervention", "undo", "breaker",
-"error"]`; they and `webhook` cap repeats of one bug (same kind, trigger, diagnosis, action and subject shape, with op
-ids, numbers and id-like path segments such as UUIDs, hex, tokens, slug ids and emails as one) at `maxPerSignature` 10
-per page load (the webhook never caps its `summary` record); `consoleJson` and `webhook` forward every kind. A tool
-adapter that finds no SDK when a record arrives prints one console warning naming the fix.
+Both forward every kind (the summary included). `webhook` caps repeats of one bug (same kind, trigger, diagnosis,
+action and subject shape, with op ids, numbers and id-like path segments such as UUIDs, hex, tokens, slug ids and
+emails as one) at `maxPerSignature` 10 per page load, and never caps its `summary` record.
 
 Sinks by name, with no code, in the zero-code entries (`/auto`, the script tag): `window.GENCLASS_CONFIG = { sinks:
-["sentry", "webhook:/genclass"] }`, `<meta name="genclass" content="sink=sentry+posthog">` (`+` joins names, since
-commas separate the meta keys), `data-sink="sentry,posthog"` on the script tag, or `npx @genclass/runtime init --sink
-sentry`. A name finds its SDK as a page global (`window.Sentry`, `window.posthog`, `window.DD_RUM`); `<name>:noevidence`
-(`sentry:noevidence`) makes its adapter with `evidence: false`. `init` suggests the flag when `package.json` depends on
-a Sentry browser SDK (`@sentry/react`, `@sentry/vue`, `@sentry/nextjs`, ...; not its build plugins or server SDKs),
-`posthog-js` or `@datadog/browser-rum`, and in an option file it writes a `sentry` or `posthog` sink whose SDK comes
-from npm (which sets no global) as the adapter with that SDK passed in: `import * as Sentry from "@sentry/vue"; import
-{ sentry as sentrySink } from "@genclass/runtime/sinks/sentry"; globalThis.GENCLASS_CONFIG = { sinks: [sentrySink({
-sentry: Sentry })] };` (GENCLASS_CONFIG passes sink objects through). The names become one proxy sink at init that
+["webhook:/genclass"] }`, `<meta name="genclass" content="sink=webhook:/genclass+console-json">` (`+` joins names,
+since commas separate the meta keys), `data-sink="webhook:/genclass,console-json"` on the script tag, or
+`npx @genclass/runtime init --sink webhook:/genclass` (the names are `console-json` and `webhook:<url>`;
+`console-json:noevidence` makes its adapter with `evidence: false`). The names `sentry`, `posthog` and `datadog` (any
+case, with or without an option) are left out at init with one console warning for them all, `Ignored sink <names>:
+forwarding to Sentry, PostHog and Datadog is a GenClass Pro feature, configured on the dashboard:
+https://genclass.dev/pricing`, and nothing is loaded or sent for them; `init --sink sentry` is a usage error that says
+the same. GENCLASS_CONFIG passes sink objects through. The names become one proxy sink at init that
 queues records (at most 200) and loads the adapters on the first record (never before: a page that reports nothing,
 or runs with `?genclass=off`, fetches none): a lazy chunk of `/auto`, `dist/sinks/<name>.js` from the CDN for the
 script tag. Only the proxy is in the first-load bundle. A webhook URL is made absolute at init (against
@@ -814,9 +796,10 @@ Subpath exports: `@genclass/runtime/react` (`useGenClassState(name, initial, opt
 `useGenClass()`), `@genclass/runtime/redux` (`genclassEnhancer(runtime, { name })`), `@genclass/runtime/zustand`
 (`genclass(runtime, name)(stateCreator)`), `@genclass/runtime/devtools` (`mountDevtools(runtime, opts?)`),
 `@genclass/runtime/discover` (automatic state discovery for `GenClass.init({ autoState: true })`; import it first),
-`@genclass/runtime/sinks` (`sentry`, `posthog`, `datadog`, `consoleJson`, `webhook`; 0.3.0) and one subpath per
-adapter, `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}` (each also its default export; see
-"See it where you already look"). They are documented with their source. To integrate another state library use:
+`@genclass/runtime/sinks` (`consoleJson`, `webhook`; 0.3.0) and one subpath per adapter,
+`@genclass/runtime/sinks/{console-json,webhook}` (each also its default export; see "See it where you already
+look"; there is no Sentry, PostHog or Datadog adapter in the free runtime). They are documented with their source. To
+integrate another state library use:
 
 ```ts
 rt.adapter<T>(name: string, io: { get(): T; set?(v: T): void; subscribe?(fn: () => void): () => void }, opts?): {

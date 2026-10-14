@@ -264,12 +264,13 @@ the session event names your hostname. Depending on your users and jurisdiction 
   later, create the runtime after consent);
 - turn it off (`telemetry: false`) in apps that handle regulated data (health, finance, children's services): a
   custom `redact` lowers what reaches situation text but does not guarantee that nothing sensitive does;
-- if you add a sink adapter (`@genclass/runtime/sinks/*`, `init --sink`, 0.3.0), disclose that tool too: the
-  Sentry, PostHog, Datadog and webhook adapters send the redacted evidence by default (the console line, subject and
-  timeline, which can hold short fragments of what users typed) to that third party (`evidence: false` or
-  `<name>:noevidence` sends the structured fields only). Sinks are your configuration, not telemetry: the telemetry
-  opt-outs (`telemetry: false`, `?genclass=no-telemetry`, the `localStorage` switch) and Global Privacy Control do
-  not turn them off; `?genclass=off` turns GenClass off altogether.
+- if you add a webhook sink (`@genclass/runtime/sinks/webhook`, `init --sink webhook:<url>`, 0.3.0) that posts to an
+  endpoint run by someone else, disclose that recipient too: the webhook sends the redacted evidence by default (the
+  console line, subject and timeline, which can hold short fragments of what users typed) to the URL you configure
+  (`evidence: false` sends the structured fields only). The free runtime forwards nothing to Sentry, PostHog or
+  Datadog: that forwarding is a GenClass Pro feature, configured on the dashboard. Sinks are your configuration, not
+  telemetry: the telemetry opt-outs (`telemetry: false`, `?genclass=no-telemetry`, the `localStorage` switch) and
+  Global Privacy Control do not turn them off; `?genclass=off` turns GenClass off altogether.
 
 Privacy policy for this collection: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md). Data processing terms are not published yet
 (planned); if you cannot disclose a third-party diagnostics recipient, set `telemetry: false`.

@@ -353,7 +353,7 @@ code splitting) and gzips (level 9) every file of the first load on its own; it 
 limits. No model is involved, so no model, threshold or FIR applies. GitHub Actions `ci.yml`, Node 22, the same test
 for both columns:
 
-| entry | 0.2.2 | Unreleased (sink adapters, sinks by name) | limit |
+| entry | 0.2.2 | Unreleased (sink adapters, sinks by name; the Sentry, PostHog and Datadog adapters were later removed and never shipped, §10) | limit |
 |---|---|---|---|
 | `@genclass/runtime/auto` (automatic state discovery; Unreleased also the sink names' proxy) | 99.17 KB in 3 files (96.25 + 2.74 + 0.19) | 99.97 KB in 3 files (97.04 + 2.74 + 0.19) | 100 KB |
 | main entry, `GenClass.init({})` | 91.70 KB in 3 files (88.77 + 2.74 + 0.19) | 91.83 KB in 3 files (88.91 + 2.74 + 0.19) | 92 KB |
@@ -364,7 +364,8 @@ size-printing bundle test added); Unreleased is run 38443030760. The Unreleased 
 0.13 KB to the main entry (`SinkRecord.route` and the sink-shape check) and 1.37 KB to the script tag; the sink
 adapters, their name table and the fan-out are absent from both first loads (asserted in the same test). That leaves
 0.03 KB under the `/auto` limit and 0.17 KB under the main entry's, so the next change that adds to the first load
-needs a smaller first load or a new limit. The 0.3.0-beta.0 sizes and limits are in §10.
+needs a smaller first load or a new limit. The 0.3.0-beta.0 sizes and limits are in §10. The Sentry, PostHog and
+Datadog adapters measured here were lazy chunks, outside both first loads; they are not shipped (§10, last rows).
 
 ## 10. Release 0.3.0-beta.0: first load and telemetry volume (CI)
 
@@ -386,7 +387,7 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | 0.2.2 (§9, run 38441488459) | 99.17 KB | 91.70 KB | 113.49 KB |
 | + app tokens, `protect()` (wave1/projects 625a491, run 38436300545; earlier walk) | 100.68 KB | 93.19 KB | not printed |
 | + device floor, telemetry sampling (`738a05b`, run 38461782967; earlier walk) | 102.16 KB | 94.66 KB | not printed |
-| + sink adapters, sinks by name (`53b04f2`, run 38462380432) | 102.94 KB in 3 files | 94.79 KB in 3 files | 117.96 KB |
+| + sink adapters, sinks by name (`53b04f2`, run 38462380432; the Sentry, PostHog and Datadog adapters in it were removed before release and never shipped, last rows) | 102.94 KB in 3 files | 94.79 KB in 3 files | 117.96 KB |
 | + flow expectations, `src/learn/flows.ts` lazy (`fcefedb`, run 38463736575) | 106.16 KB in 4 files | 98.13 KB in 4 files | 126.03 KB |
 | + even sampling draw (`c2f0b54`, run 38464240236) | 106.23 KB | 98.20 KB | 126.11 KB |
 | **0.3.0-beta.0** (`bff4a71`, run 38465242176) | **106.24 KB** (100.26 + 3.05 + 2.74 + 0.19) | **98.21 KB** (92.24 + 3.05 + 2.74 + 0.19) | **126.12 KB** (369.4 KB minified) |
@@ -394,7 +395,14 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | + detection tiers, deferred decisions, review fixes (wave2/detect-observe `dd20233`, run 38482297879; §11) | 107.56 KB | 99.59 KB | 127.89 KB |
 | **release candidate**: + main (accounts and the CLI commands: no browser code) and wave2/dash-detect (the worker only) (`18e89f0`, run 38485063587) | **107.56 KB** (101.59 + 3.05 + 2.74 + 0.19) | **99.59 KB** (93.62 + 3.05 + 2.74 + 0.19) | **127.89 KB** (374.9 KB minified) |
 | + release review: telemetry masks path segments holding an `@` and URLs in model error text (`9d567a0`, run 38488753971) | **107.61 KB** (101.63 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **127.92 KB** (375.0 KB minified) |
-| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; the release candidate is 0.13 / 0.10 KB under it, so it is not re-set) | 107.74 KB | 99.71 KB | none |
+| + no vendor sink adapters: the Sentry, PostHog and Datadog adapters removed (never shipped), one console warning for those names in a page config (wave2/no-vendor-sinks `31ddc98`, run 38491077597) | **107.73 KB** (101.75 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **128.01 KB** (375.2 KB minified) |
+| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; not re-set: the release candidate was 0.13 / 0.10 KB under it, and with the vendor-name warning `/auto` is 0.01 KB under it) | 107.74 KB | 99.71 KB | none |
+
+Removing the vendor adapters changes no first load (they were lazy chunks of `/auto` and files the script tag loaded
+from the CDN). The one warning for the names `sentry`, `posthog` and `datadog` (`src/cdn/sinks.ts` `applySinks`: the
+name check and the text with the pricing link) adds 0.12 KB to `/auto` and 0.09 KB to the script tag; the main entry,
+which has no sink names, is unchanged. That leaves 0.01 KB under the `/auto` limit: the next change that adds to
+`/auto`'s first load needs a smaller first load or a new limit.
 
 The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's
 99.17 KB on wave1/expectations, run 38455195053). Imported lazily, and only with `learn.expectations: true`, they
