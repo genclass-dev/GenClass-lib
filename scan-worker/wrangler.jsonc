@@ -1,12 +1,11 @@
 // genclass.dev/scan: one public page in a Cloudflare browser, the GenClass visual checks, a side-effect-free race
 // probe, and a score. Deploy (workers.dev only): npx --yes wrangler@4 deploy   (from this directory)
 //
-// Routes it will own on genclass.dev, added by the owner after review (NOT live from this file):
-//   genclass.dev/api/scan*   and   genclass.dev/scan*
+// Routes on genclass.dev (live since 2026-10-14): genclass.dev/api/scan* and genclass.dev/scan*
 // (the * is needed: route matching includes the query string, so genclass.dev/scan alone misses /scan?url=). The
 // /scan* route also matches the site's own /scan-box.js: this worker answers /scan, /scan/ and /scan/about only and
 // hands every other /scan... path to the site worker over the SITE binding below.
-// Until then it answers on https://genclass-scan.mehar-144.workers.dev only.
+// It also answers on https://genclass-scan.mehar-144.workers.dev.
 {
   "name": "genclass-scan",
   "main": "src/index.ts",
@@ -15,6 +14,10 @@
   "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
   "account_id": "144bd5f5270b51dbe7faf46227a154f0",
   "workers_dev": true,
+  "routes": [
+    { "pattern": "genclass.dev/api/scan*", "zone_name": "genclass.dev" },
+    { "pattern": "genclass.dev/scan*", "zone_name": "genclass.dev" }
+  ],
   // The page-side checks are serialised with Function.prototype.toString(): esbuild's keep-names helper (__name)
   // would end up inside them and is not defined in the scanned page.
   "keep_names": false,
