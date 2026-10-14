@@ -302,8 +302,8 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   the desktop and 13 for each phone view (`JUDGE_SHARE`), and may also take what the views that asked before it left
   (`JudgeBudget`: in calibration the desktop asked about 0 to 14 elements, the light phone 0 to 7, the dark phone up to
   23 when the views before it left room). A view's calls go out one by one as its crops are taken; each answer counts
-  only when it comes within
-  4 s (`JUDGE_TIMEOUT_MS`) of being sent; the scan waits for the stragglers only as long as its budget allows. A call that
+  only when it comes within 4 s (`JUDGE_TIMEOUT_MS`) of being sent; the scan waits for the stragglers only as long as its
+  budget allows. A call that
   throws, answers late or answers malformed data (only the questions' own options, probabilities in [0, 1]) leaves the
   finding as measured, and the report counts it.
 - **Time.** Finding, measuring and cropping take at most 3.5 s a view (`JUDGE_PREP_MS`), and only the time the deeper
@@ -331,7 +331,8 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   route with the same opt-out check, deleted by the same 24-hour sweep). `JUDGE_CROPS=all` (the test copy only) keeps
   every crop and puts each call's state text in the report's `judge.asked`, for calibration.
 - **Cost.** About 1,300 input tokens a call with the facts and about 1,000 with the image + tag only, at $0.24 per million
-  (Workers AI pricing, 2026-10-14): at most about $0.0003 a call, $0.0125 for 40. Each report has `judge` with the calls, answers, tokens and their price, and the times.
+  (Workers AI pricing, 2026-10-14): at most about $0.0003 a call, $0.0125 for 40. Each report has `judge` with the
+  calls, answers, tokens and their price, and the times.
 
 ## The score and the with-GenClass column
 
