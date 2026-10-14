@@ -222,7 +222,7 @@ def offers_jsonld():
 
 def blocks(s):
     s = s.replace("<!--@plans-->", plans_block())
-    for name in ("trace", "demo", "figs", "data", "status", "how", "lab", "visual"):
+    for name in ("trace", "demo", "figs", "data", "status", "how", "lab", "visual", "before-after"):
         p = SRC / "partials" / f"{name}.html"
         if p.exists(): s = s.replace(f"<!--@{name}-->", p.read_text())
     return V.markers(s)
