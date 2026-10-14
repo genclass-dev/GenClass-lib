@@ -1263,7 +1263,7 @@ export function judgeSection(): string {
     problems where the rules alone found ${e.keep.rulesRecall.toFixed(2)}.</li>
     <li><b>Findings of its own, where the measured checks abstain:</b> controls another element covers or that are partly clipped,
     every visible button and link in the dark view, and text over images, gradients or backgrounds the checks cannot know, in
-    that order and the top of the page first. An element it scores at ${FIND_THRESHOLD} or more becomes a Visual bugs finding,
+    that order, on the first screen of the page only. An element it scores at ${FIND_THRESHOLD} or more becomes a Visual bugs finding,
     moderate, labelled "${esc(JUDGE_LABEL)}", with the crop and what it answered. That threshold was the lowest with precision at
     least 0.8 on the part of the evaluation used to choose it (${e.find.devReal} of ${e.find.devFlagged}); on the rest,
     ${e.find.real} of the ${e.find.flagged} elements it scored that high were real problems (precision ${e.find.precision.toFixed(2)}).</li>

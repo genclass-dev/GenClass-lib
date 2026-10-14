@@ -114,6 +114,15 @@ export const FAMILY_WORDS: Record<string, string> = {
   other: "another visible problem",
 };
 
+/**
+ * What the model reads about an element the measured checks abstain on: "facts" (clef-img-p3, as for a measured
+ * finding) or "tag" (clef-imgonly-p2: the image, the view and the tag). A measured finding always gets the facts.
+ */
+export const ABSTAIN_TEXT: "facts" | "tag" = "facts";
+
+/** The state text for one judged element: the facts and the caution for a measured finding, ABSTAIN_TEXT otherwise. */
+export const judgeText = (finding: boolean, f: JudgeFacts, c: Crop): string => (finding || ABSTAIN_TEXT === "facts" ? stateText(f, c) : tagOnlyText(f, c));
+
 /** Visual kinds that are never sent to the judge: left as the measured checks reported them. */
 export const NOT_JUDGED = new Set(["page-overflow-x", "image-broken", "text-template-leak", "layout-shift"]);
 

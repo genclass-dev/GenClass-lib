@@ -18,7 +18,7 @@ import { clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, jud
 import { axeFindings, installAxeSource, parseAxe, runAxeSource, withoutVisualDuplicates } from "./axe.ts";
 import { KINDS, sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { jsNote, judgeReliability, PageLog, type CdpLike } from "./cdp.ts";
-import { askJudge, cropOf, JUDGE_MAX_CALLS, JUDGE_TIMEOUT_MS, JudgeBudget, judgeInput, NOT_JUDGED, sanitizePage, sanitizeRow, stateText, toBase64, type CandidateClass, type Crop, type JudgeClient, type JudgeFacts, type JudgeResult } from "./judge.ts";
+import { askJudge, cropOf, JUDGE_MAX_CALLS, JUDGE_TIMEOUT_MS, JudgeBudget, judgeInput, judgeText, NOT_JUDGED, sanitizePage, sanitizeRow, toBase64, type CandidateClass, type Crop, type JudgeClient, type JudgeFacts, type JudgeResult } from "./judge.ts";
 import { judgePageSource } from "./judge-page.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
@@ -1209,7 +1209,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         jobs.forEach((j, k) => {
           const image = shots[k];
           if (!image) return;
-          const state = stateText(j.facts, j.crop);
+          const state = judgeText(j.it.cls === "finding", j.facts, j.crop);
           const res: JudgeResult = { id: `${spec.id}-j${judged.length + 1}`, view: spec.id, cls: j.it.cls, key: j.it.key, kind: j.it.kind, selector: j.it.sel, box: j.it.box, crop: j.crop, state, image, answer: null, error: null, ms: 0 };
           judged.push(res);
           sent++;

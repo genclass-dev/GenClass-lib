@@ -8,7 +8,7 @@ import { handle, type AppDeps, type Env } from "../src/app.ts";
 import type { RawFinding } from "../src/catalog.ts";
 import {
   askJudge, cropOf, elementWords, FIND_THRESHOLD, FAMILY_CRITERIA, GUIDE, imageWords, JUDGE_LABEL, JUDGE_MAX_CALLS, JUDGE_SHARE, JudgeBudget, judgeInput, KEEP_THRESHOLD, pageWords,
-  parseAnswer, pyFixed, pyRound, sanitizeRow, stateText, VERDICT_CRITERIA, type JudgeFacts, type JudgeResult,
+  parseAnswer, pyFixed, pyRound, sanitizeRow, stateText, tagOnlyText, VERDICT_CRITERIA, type JudgeFacts, type JudgeResult,
 } from "../src/judge.ts";
 import { judgePageSource } from "../src/judge-page.ts";
 import { aboutPage, CROP_URL, scanPage } from "../src/page.ts";
@@ -55,6 +55,13 @@ describe("the prompt and the call (vision/clef/eval.py, clef-img-p3)", () => {
     assert.equal(stateText(FACTS, CROP).split("\n")[0], GUIDE);
     assert.match(GUIDE, /^Judge by what the screenshot shows a visitor\./);
     assert.match(GUIDE, /Treat them as hints that explain what you see, never as proof that something is broken\.$/);
+  });
+  it("builds the evaluation's image + tag only text (clef-imgonly-p2): the image, the view, the tag; no facts, no caution", () => {
+    assert.equal(
+      tagOnlyText(FACTS, CROP),
+      "The image is a screenshot of the area around the element, 190 x 93 px; the element's box is at x 24, y 24, 142 x 44 px inside it (a box larger than the image continues past its edges).\nPage: phone view, dark colour scheme.\nElement: <a>, role link.",
+    );
+    assert.doesNotMatch(tagOnlyText(FACTS, CROP), /contrast|Judge by/);
   });
   it("rounds as Python does: an exact half to even", () => {
     assert.equal(pyFixed(24.5, 0), "24");

@@ -277,10 +277,12 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   `vision/src/extract.js` measured the labelled crops (`judgePage("facts")`, a per-element port; text lengths, never
   text); `stateText` gives the same text as `eval.py` for all 1,856 labelled rows of the evaluation. Two `choice`
   questions, `verdict` and `family`, with the evaluation's criteria. The score is 1 − P(`family` = `none`).
-- **Where the elements are.** At the top of the page, as they are after the checks; otherwise scrolled into the viewport
-  first (a quarter of the way down; to the end of the page for `control-unreachable`, which is covered "even at the end
-  of the page"; focused for `focus-obscured`), then the page is scrolled back and focus cleared (`judgePage("restore")`).
-  On the light phone the width the reflow check left (320 px) is set back to 390 px first.
+- **Where the elements are.** At the top of the page, as they are after the checks; a measured finding further down is
+  scrolled into the viewport first (a quarter of the way down; to the end of the page for `control-unreachable`, which is
+  covered "even at the end of the page"; focused for `focus-obscured`). Each group is measured and cropped once no finite
+  animation runs on its elements or their ancestors (at most 1 s: pages that fade content in as it scrolls into view),
+  then the page is scrolled back and focus cleared (`judgePage("restore")`). On the light phone the width the reflow check
+  left (320 px) is set back to 390 px first.
 - **Which elements.** First the visual checks' findings with an element to crop, except `page-overflow-x`,
   `image-broken` and `text-template-leak` (left as measured, as the evaluation recommends: at its threshold the model
   dropped 13 of 34 real sideways-scrolling findings and 4 of 15 broken images; template text was right 5 times in 6) and
@@ -288,7 +290,7 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five points
   (the first screen only), controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible
   link, button or field with text or an icon, and text whose background along its ancestors or under its centre is an
-  image, a gradient, media or a filter; the first screen before the rest, top to bottom; nothing inside `aria-hidden`,
+  image, a gradient, media or a filter; on the first screen only (further down they would be cropped after scrolling, where pages that fade content in show it blank: calibration below), top to bottom; nothing inside `aria-hidden`,
   `role="img"`, `inert` or a closed `details`, and nothing inside or around an element already chosen.
 - **The cap.** At most 40 calls a scan (`JUDGE_MAX_CALLS`), the findings first. Each view is guaranteed its share, 14 for
   the desktop and 13 for each phone view (`JUDGE_SHARE`), and may also take what the views that asked before it left
