@@ -235,8 +235,8 @@ sent; what telemetry adds in 0.3.0 with or without one is under "What changes wh
   themselves are not sent). Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
   arriving after the cap (about 40 KB an hour). This narrows what is sent; nothing new about the page is sent.
   Measured in CI for one page over a simulated hour at 30 decisions a minute (scripted decisions, not the model;
-  situation text off; the release candidate's runs 38485063587 and 38485289326, and 38471973596 with the detection
-  tiers): all routine, 250.9 to 252.2 KB in 157 to 167 requests (61 summaries, 40.7 KB; which routine decisions are
+  situation text off; the release candidate's runs 38485063587, 38485289326 and 38488753971, and 38471973596 with
+  the detection tiers): all routine, 250.9 to 252.2 KB in 157 to 167 requests (61 summaries, 40.7 KB; which routine decisions are
   sampled follows the random session id); every decision a detection, 2,068.5 KB in 361 requests, the same as with
   every record (TELEMETRY.md, "Volume"; docs/runtime/RESULTS.md §10).
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
@@ -448,7 +448,9 @@ the expectation report's console text moved into the lazy flow chunk to pay for 
 **99.59 KB** (CI run 38482297879; script tag 127.89 KB), still under the same limits, 0.18 / 0.12 KB below them
 (docs/runtime/RESULTS.md §11). The release candidate (with main's accounts and CLI commands, which add no browser
 code, and the dashboard's counting, which is the worker's) measures the same: 107.56 / 99.59 KB, script tag
-127.89 KB (CI run 38485063587, RESULTS.md §10); the limits are not re-set.
+127.89 KB (CI run 38485063587, RESULTS.md §10). With the release review's telemetry fixes (path segments holding an
+`@` and URLs in model error text masked): **107.61 KB** and **99.61 KB**, script tag 127.92 KB (CI run 38488753971),
+0.13 / 0.10 KB under the limits, which are not re-set.
 
 ## 0.2.2 (2026-10-13)
 

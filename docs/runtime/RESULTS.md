@@ -393,7 +393,8 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | + telemetry 429 back-off, no sampling settings in `session` (`7c7c6d6`, run 38477010836) | **106.59 KB** (100.62 + 3.05 + 2.74 + 0.19) | **98.57 KB** (92.59 + 3.05 + 2.74 + 0.19) | **126.45 KB** (370.5 KB minified) |
 | + detection tiers, deferred decisions, review fixes (wave2/detect-observe `dd20233`, run 38482297879; §11) | 107.56 KB | 99.59 KB | 127.89 KB |
 | **release candidate**: + main (accounts and the CLI commands: no browser code) and wave2/dash-detect (the worker only) (`18e89f0`, run 38485063587) | **107.56 KB** (101.59 + 3.05 + 2.74 + 0.19) | **99.59 KB** (93.62 + 3.05 + 2.74 + 0.19) | **127.89 KB** (374.9 KB minified) |
-| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; the release candidate is 0.18 / 0.12 KB under it, so it is not re-set) | 107.74 KB | 99.71 KB | none |
+| + release review: telemetry masks path segments holding an `@` and URLs in model error text (`9d567a0`, run 38488753971) | **107.61 KB** (101.63 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **127.92 KB** (375.0 KB minified) |
+| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; the release candidate is 0.13 / 0.10 KB under it, so it is not re-set) | 107.74 KB | 99.71 KB | none |
 
 The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's
 99.17 KB on wave1/expectations, run 38455195053). Imported lazily, and only with `learn.expectations: true`, they
@@ -415,6 +416,8 @@ routine records per page load):
 | `bff4a71` (38465242176), 0.3.0-beta.0 (a longer version string in every envelope) | 250.3 KB, 163 requests | 2,067.1 KB, 361 requests | 2,067.1 KB, 361 requests |
 | **`7c7c6d6` (38477010836)**: 429 back-off; `session` without `decisionSample` / `maxDecisions` (about 40 bytes once per page load, below the 0.1 KB rounding) | **250.3 KB, 163 requests** | **2,067.1 KB, 361 requests** | 2,067.1 KB, 361 requests |
 | **release candidate `18e89f0` (38485063587)**: with wave2/detect-observe (§11) | **251.9 KB, 165 requests** | **2,068.5 KB, 361 requests** | 2,068.5 KB, 361 requests |
+| release candidate `f363e92` (38485289326), docs only | 250.9 KB, 157 requests | 2,068.5 KB, 361 requests | 2,068.5 KB, 361 requests |
+| release review `9d567a0` (38488753971): `@` path segments and URLs in model error text masked | 251.9 KB, 165 requests | 2,068.5 KB, 361 requests | 2,068.5 KB, 361 requests |
 
 Summaries: 61 per hour in every case, 39.3 KB (routine) and 40.8 KB (detections); 40.7 KB and 42.2 KB in the
 release candidate, whose summaries also carry `possibleDetections`.

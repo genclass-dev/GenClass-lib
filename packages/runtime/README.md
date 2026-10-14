@@ -1029,8 +1029,8 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | settled-point check | 0.3 ms |
 
 - **Bundle:** what every page loads is about 108 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 107.56 KB and
-  99.59 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38482297879), which keeps them under
+  discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 107.61 KB and
+  99.61 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38488753971), which keeps them under
   107.74 KB and 99.71 KB (the `0.3.0-beta.0` release build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
   99.17 KB and 91.70 KB; `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink
   names' proxy and the learned-state persistence (docs/runtime/RESULTS.md §10), then observe's detection tiers and
@@ -1039,7 +1039,7 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   expectations are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  128 KB gzip (127.89 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
+  128 KB gzip (127.92 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
   its model worker, ONNX Runtime glue and sink adapters load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass

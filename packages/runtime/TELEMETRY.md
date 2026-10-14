@@ -120,7 +120,7 @@ by `test/telemetry.test.ts` "an hour at the built-in model's maximum rate": one 
 simulated hour (1,800 decisions from a scripted decider, not the model; situation text off), all bytes of all
 request bodies counted:
 
-| decisions | defaults (`0.3.0-beta.0`: CI run 38471973596 with the detection tiers, and the release candidate's runs 38485063587 and 38485289326) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
+| decisions | defaults (`0.3.0-beta.0`: CI run 38471973596 with the detection tiers, and the release candidate's runs 38485063587, 38485289326 and 38488753971) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
 |---|---|---|
 | all routine | 250.9 to 252.2 KB in 157 to 167 requests (which routine decisions are sampled, and so how many requests, follows the random session id) | not measured |
 | every one a detection | 2,068.5 KB in 361 requests: every record (detections are never sampled or capped) | 2,068.5 KB in 361 requests |
