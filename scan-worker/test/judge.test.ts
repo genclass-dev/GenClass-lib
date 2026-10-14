@@ -7,8 +7,8 @@ import { describe, it } from "node:test";
 import { handle, type AppDeps, type Env } from "../src/app.ts";
 import type { RawFinding } from "../src/catalog.ts";
 import {
-  askJudge, cropOf, elementWords, FIND_THRESHOLD, FAMILY_CRITERIA, GUIDE, imageWords, JUDGE_LABEL, JUDGE_MAX_CALLS, JUDGE_SHARE, JudgeBudget, judgeInput, KEEP_THRESHOLD, pageWords,
-  parseAnswer, pyFixed, pyRound, sanitizeRow, stateText, tagOnlyText, VERDICT_CRITERIA, type JudgeFacts, type JudgeResult,
+  askJudge, cropOf, elementWords, FIND_THRESHOLD, FAMILY_CRITERIA, GUIDE, imageWords, JUDGE_EVAL, JUDGE_LABEL, JUDGE_MAX_CALLS, JUDGE_SHARE, JudgeBudget, judgeInput, KEEP_THRESHOLD, pageWords,
+  judgeText, parseAnswer, pyFixed, pyRound, sanitizeRow, stateText, tagOnlyText, VERDICT_CRITERIA, type JudgeFacts, type JudgeResult,
 } from "../src/judge.ts";
 import { judgePageSource } from "../src/judge-page.ts";
 import { aboutPage, CROP_URL, scanPage } from "../src/page.ts";
@@ -62,6 +62,11 @@ describe("the prompt and the call (vision/clef/eval.py, clef-img-p3)", () => {
       "The image is a screenshot of the area around the element, 190 x 93 px; the element's box is at x 24, y 24, 142 x 44 px inside it (a box larger than the image continues past its edges).\nPage: phone view, dark colour scheme.\nElement: <a>, role link.",
     );
     assert.doesNotMatch(tagOnlyText(FACTS, CROP), /contrast|Judge by/);
+  });
+  it("asks about a measured finding with the facts and the caution, and about the rest with the image and the tag only", () => {
+    assert.equal(judgeText(true, FACTS, CROP), EXPECTED_STATE);
+    assert.equal(judgeText(false, FACTS, CROP), tagOnlyText(FACTS, CROP));
+    assert.equal(JUDGE_EVAL.find.variant, "clef-imgonly-p2");
   });
   it("rounds as Python does: an exact half to even", () => {
     assert.equal(pyFixed(24.5, 0), "24");
@@ -269,7 +274,10 @@ describe("the judge in a scan", () => {
     const r = await t.post();
     assert.ok(r);
     assert.equal(asked.length, JUDGE_MAX_CALLS);
-    assert.ok(asked.every((a) => a.startsWith("@cf/cloudflare/clef|Judge by w")));
+    assert.ok(asked.every((a) => a.startsWith("@cf/cloudflare/clef|")));
+    // a measured finding is asked with the facts and the caution (clef-img-p3); the rest with the image and the tag only
+    assert.ok(asked.some((a) => a.includes("|Judge by w")));
+    assert.ok(asked.some((a) => a.includes("|The image ")));
     assert.equal(r.judge.calls, 40);
     assert.equal(r.judge.answered, 40);
     const invisible = r.findings.find((f: any) => f.kind === "text-invisible");
@@ -419,7 +427,7 @@ describe("the thresholds", () => {
     assert.equal(at.findings[0].kind, "visual-judged");
     assert.equal(at.findings[0].what, "Text that looks unreadable in the screenshot");
     assert.equal(at.findings[0].judge?.outcome, "found");
-    assert.ok(FIND_THRESHOLD > KEEP_THRESHOLD);
+    assert.ok(JUDGE_EVAL.find.devPrecision >= 0.8, "the lowest dev threshold with precision at least 0.8");
     assert.equal(report(scan([view("desktop", [], [res("desktop", "text-bg", "", FIND_THRESHOLD - 0.0001, "div.hero > p")])])).findings.length, 0);
     const covered = report(scan([view("desktop", [INVISIBLE], [res("desktop", "text-bg", "", 0.999, "p.fine")])]));
     assert.equal(covered.findings.filter((f) => f.kind === "visual-judged").length, 0, "the measured finding covers that place");
@@ -446,9 +454,9 @@ describe("what the report and /scan/about say", () => {
   it("/scan/about names the model, Workers AI, what is sent, the measured precision and that AI agents made the labels", () => {
     const html = aboutPage("n0nce");
     for (const s of ["@cf/cloudflare/clef", "Cloudflare Workers AI", 'id="judge"', "judged, not measured", "six AI labeller agents working in parallel, not people", "Cohen's kappa 0.705",
-      `${KEEP_THRESHOLD}`, `${FIND_THRESHOLD}`, "precision 0.75", "33 of the 44", "does not use", "https://developers.cloudflare.com/workers-ai/platform/data-usage/", "Listed, not scored (a model judged it as probably fine)", JUDGE_LABEL])
+      `${KEEP_THRESHOLD}`, `${FIND_THRESHOLD}`, "precision 0.89", "32 of the 36", "clef-imgonly-p2", "clef-img-p3", "does not use", "https://developers.cloudflare.com/workers-ai/platform/data-usage/", "Listed, not scored (a model judged it as probably fine)", JUDGE_LABEL])
       assert.ok(html.includes(s.replace(/'/g, "&#39;")) || html.includes(s), s);
-    assert.match(html, /sideways scrolling, images\s+that failed to load and template text, which stay as measured/);
+    assert.match(html, /Sideways scrolling, images that failed to load and template text stay\s+as measured/);
   });
   it("the report page has the probably-fine list and the judge note, and says the crops go to Workers AI", () => {
     const html = scanPage("n0nce", { target: null, input: "", error: null, report: null, shareBase: "https://genclass.dev" });

@@ -270,13 +270,17 @@ decision model, which reads images) over the `AI` binding; `JUDGE=off` turns it 
 The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, `vision/results/clef/RESULTS.md`).
 
 - **What it is asked.** One element at a time: a crop of a viewport screenshot (the element's box and 24 px around it,
-  clamped to the viewport, JPEG quality 90, taken over the view's own DevTools session with `Page.captureScreenshot`),
-  and the state text of the evaluation's `clef-img-p3`: the caution line ("Judge by what the screenshot shows a
-  visitor. … Treat them as hints …"), where the element is in the image, the page (view, colour scheme, sideways
-  scrolling, failed loads, fonts) and the element's measured facts in words. The facts are measured in the page as
+  clamped to the viewport, JPEG quality 90, taken one at a time over the view's own DevTools session with
+  `Page.captureScreenshot`: Chrome mixes up the clips of concurrent captures, CALIBRATION.md) and a state text. For a
+  measured finding it is the evaluation's `clef-img-p3` (`stateText`): the caution line ("Judge by what the screenshot
+  shows a visitor. … Treat them as hints …"), where the element is in the image, the page (view, colour scheme,
+  sideways scrolling, failed loads, fonts) and the element's measured facts in words, measured in the page as
   `vision/src/extract.js` measured the labelled crops (`judgePage("facts")`, a per-element port; text lengths, never
-  text); `stateText` gives the same text as `eval.py` for all 1,856 labelled rows of the evaluation. Two `choice`
-  questions, `verdict` and `family`, with the evaluation's criteria. The score is 1 − P(`family` = `none`).
+  text). For an element the measured checks abstain on it is the evaluation's `clef-imgonly-p2` (`tagOnlyText`):
+  where the element is in the image, the view and colour scheme, the tag and role (`ABSTAIN_TEXT`, chosen in
+  calibration: the facts of such an element are the measurements the checks could not make). Both texts are the same as
+  `eval.py`'s for all 1,856 labelled rows of the evaluation. Two `choice` questions, `verdict` and `family`, with the
+  evaluation's criteria. The score is 1 − P(`family` = `none`).
 - **Where the elements are.** At the top of the page, as they are after the checks; a measured finding further down is
   scrolled into the viewport first (a quarter of the way down; to the end of the page for `control-unreachable`, which is
   covered "even at the end of the page"; focused for `focus-obscured`). Each group is measured and cropped once no finite
@@ -289,8 +293,8 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   `layout-shift` (listed, not scored already); a finding is matched to its element by selector and box. Then elements the
   measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five points,
   controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible link and button with
-  text or an icon (not fields: the model takes a placeholder for leaked example text), and text whose background along its ancestors or under its centre is an image, a gradient, media or a
-  filter; covered controls and text on the first screen before the rest, top to bottom (a crop further down is taken
+  text or an icon (not fields: the model takes a placeholder for leaked example text), and text whose background along
+  its ancestors or under its centre is an image, a gradient, media or a filter; covered controls and text on the first screen before the rest, top to bottom (a crop further down is taken
   after scrolling to it, so only what the screenshot covers); nothing inside `aria-hidden`, `role="img"`, `inert` or a
   closed `details`, nothing that is only the site's own name (a logotype, which WCAG 1.4.3 exempts, the same rule as
   axe-core's `color-contrast` here), and nothing inside or around an element already chosen.
@@ -309,12 +313,14 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   fine)", with the crop; one view at or above it keeps it ("A model agreed"); a view without an answer leaves it as
   measured. On the evaluation's report split, the rules then the model at this threshold had precision 0.56 (rules alone
   0.225) and recall 0.535 (rules alone 0.807).
-- **Findings of its own.** An element of the second kind scored at 0.9843 or more (`FIND_THRESHOLD`: the lowest dev
-  threshold with precision at least 0.8, 5 of 6) becomes `visual-judged`: Visual bugs, moderate, its headline from the
-  problem it named, "What the model saw" instead of "Measured", the label "Judged from the screenshot by a model (Clef)",
-  the crop with the element outlined. Not where a measured finding of that view covers the same place (60% of the smaller
-  box); one finding for the same element in the light and the dark phone. On the evaluation's report split, 33 of the
-  44 crops scored that high were real (precision 0.75).
+- **Findings of its own.** An element of the second kind scored at 0.9757 or more with the image + tag only text
+  (`FIND_THRESHOLD`: that variant's lowest dev threshold with precision at least 0.8, 4 of 4; its recall-0.5 point is
+  0.9376) becomes `visual-judged`: Visual bugs, moderate, its headline from the problem it named, "What the model saw"
+  instead of "Measured", the label "Judged from the screenshot by a model (Clef)", the crop with the element outlined.
+  Not where a measured finding of that view covers the same place (60% of the smaller box); one finding for the same
+  element in the light and the dark phone. On the evaluation's report split, 32 of the 36 crops scored that high were
+  real (precision 0.89), 5 of 5 among the crops no rule had flagged. (With the facts and the caution the same rule gave
+  0.9843: 5 of 6 on dev, 33 of 44 on report, 1 of 3 on the crops no rule had flagged.)
 - **The labels.** The evaluation's 1,856 crops were labelled by six AI labeller agents working in parallel, not people (208
   labelled twice, Cohen's kappa 0.705); `/scan/about#judge` says so next to every number.
 - **What is sent and kept.** The crop and the state text go to Workers AI, with no account or visitor data. Cloudflare's
@@ -323,8 +329,8 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   model's own findings) are saved next to the screenshots (`scans/shots/<key>/<id>-<view>-j<n>.jpg`, served by the shot
   route with the same opt-out check, deleted by the same 24-hour sweep). `JUDGE_CROPS=all` (the test copy only) keeps
   every crop and puts each call's state text in the report's `judge.asked`, for calibration.
-- **Cost.** About 1,300 input tokens a call at $0.24 per million (Workers AI pricing, 2026-10-14): about $0.0003 a call,
-  $0.0125 for 40. Each report has `judge` with the calls, answers, tokens and their price, and the times.
+- **Cost.** About 1,300 input tokens a call with the facts and about 1,000 with the image + tag only, at $0.24 per million
+  (Workers AI pricing, 2026-10-14): at most about $0.0003 a call, $0.0125 for 40. Each report has `judge` with the calls, answers, tokens and their price, and the times.
 
 ## The score and the with-GenClass column
 

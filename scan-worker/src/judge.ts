@@ -28,7 +28,7 @@ export const JUDGE_PLATFORM = "Cloudflare Workers AI";
  * The prompt and candidate rules, by name: the evaluation's variant, and a suffix for each change calibration made
  * (CALIBRATION.md). Reports and /api/scan/health carry it, so a report says which prompt judged it.
  */
-export const JUDGE_PROMPT = "clef-img-p3 r2";
+export const JUDGE_PROMPT = "clef-img-p3 + clef-imgonly-p2 r3";
 /** Calls per scan, at most, across the three views; each view's share (desktop, light phone, dark phone). */
 export const JUDGE_MAX_CALLS = 40;
 export const JUDGE_SHARE: Record<string, number> = { desktop: 14, phone: 13, "phone-dark": 13 };
@@ -44,10 +44,12 @@ export const CROP_PAD = 24;
  */
 export const KEEP_THRESHOLD = 0.9777;
 /**
- * A finding of the model's own from this score: the lowest dev threshold with precision at least 0.8 (6 crops at or
- * above it on dev, 5 of them real; recall 0.20). On the report split: 44 at or above it, 33 real, precision 0.75.
+ * A finding of the model's own from this score, with the image + tag only text (ABSTAIN_TEXT): the lowest dev threshold
+ * of clef-imgonly-p2 with precision at least 0.8 (4 crops at or above it on dev, all 4 real; recall 0.16). On the
+ * report split: 36 at or above it, 32 real, precision 0.89; on the crops no rule flagged, 5 of 5. (With the facts and the
+ * caution, clef-img-p3, the same rule gave 0.9843: 5 of 6 on dev, 33 of 44 on report, 1 of 3 on crops no rule flagged.)
  */
-export const FIND_THRESHOLD = 0.9843;
+export const FIND_THRESHOLD = 0.9757;
 
 /** The evaluation's numbers the page and /scan/about publish (vision/results/clef/RESULTS.md, metrics.json). */
 export const JUDGE_EVAL = {
@@ -60,7 +62,7 @@ export const JUDGE_EVAL = {
   dev: { crops: 412, real: 25 },
   report: { crops: 1444, real: 114 },
   keep: { kept: 109, real: 61, precision: 0.56, recall: 0.535, rulesPrecision: 0.225, rulesRecall: 0.807 },
-  find: { flagged: 44, real: 33, precision: 0.75, devFlagged: 6, devReal: 5, devPrecision: 0.833 },
+  find: { variant: "clef-imgonly-p2", flagged: 36, real: 32, precision: 0.89, devFlagged: 4, devReal: 4, devPrecision: 1, noRuleFlagged: 5, noRuleReal: 5 },
   usdPerMillionInput: 0.24,
   pricingDate: "2026-10-14",
 } as const;
@@ -117,8 +119,11 @@ export const FAMILY_WORDS: Record<string, string> = {
 /**
  * What the model reads about an element the measured checks abstain on: "facts" (clef-img-p3, as for a measured
  * finding) or "tag" (clef-imgonly-p2: the image, the view and the tag). A measured finding always gets the facts.
+ * "tag" since calibration (CALIBRATION.md): the facts of such an element are the measurements the checks could not
+ * make (a contrast against a background they could not know), and on the fixture they talked the model out of both
+ * deliberate bugs; on the evaluation's crops no rule flagged, image + tag only ranked better on dev and on report.
  */
-export const ABSTAIN_TEXT: "facts" | "tag" = "facts";
+export const ABSTAIN_TEXT = "tag" as "facts" | "tag";
 
 /** The state text for one judged element: the facts and the caution for a measured finding, ABSTAIN_TEXT otherwise. */
 export const judgeText = (finding: boolean, f: JudgeFacts, c: Crop): string => (finding || ABSTAIN_TEXT === "facts" ? stateText(f, c) : tagOnlyText(f, c));

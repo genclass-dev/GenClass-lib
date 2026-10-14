@@ -1246,27 +1246,32 @@ export function judgeSection(): string {
   <div class="blk-h"><h2>The model judge (${esc(JUDGE_NAME)})</h2><span class="aside">judged, not measured</span></div>
   <p>Every other finding comes from a measured check: a number against a threshold the finding names. The page check also asks a
   model, <b>${esc(JUDGE_NAME)}</b> (<code>${esc(JUDGE_MODEL)}</code>, Cloudflare's open decision model, which reads images), running on
-  <b>${esc(JUDGE_PLATFORM)}</b>, about single elements. It is given a crop of a viewport screenshot (the element's box and
-  ${CROP_PAD} px around it) and the element's measured facts in words: its box, colours and contrast, what is behind it, what the
-  hit test found on top of it, how much of it is clipped, text lengths but never the text, with the instruction to judge by what
-  the screenshot shows and to treat the facts as hints. It answers whether a visitor can see and use the element as intended,
-  and if not, what kind of problem it is. Its score is 1 minus its probability that nothing is wrong.</p>
+  <b>${esc(JUDGE_PLATFORM)}</b>, about single elements. It is always given a crop of a viewport screenshot (the element's box and
+  ${CROP_PAD} px around it), where the element is in it, and the view. It answers whether a visitor can see and use the element as
+  intended, and if not, what kind of problem it is; its score is 1 minus its probability that nothing is wrong.</p>
   <ul>
-    <li><b>A second look at measured findings.</b> The visual checks' findings go to the model, except sideways scrolling, images
-    that failed to load and template text, which stay as measured, as the evaluation recommends (at its threshold the model
-    dropped 13 of 34 real sideways-scrolling findings, which a crop cannot show, and 4 of 15 real broken images; template text was
-    already real 5 times in 6), findings with no element to crop (a failed stylesheet or font, a missing
-    viewport tag, a lock on the whole page) and layout shift (already listed, not scored). A finding the model scores below
-    ${KEEP_THRESHOLD} in every view it appeared in moves to "Listed, not scored (a model judged it as probably fine)", with the
-    crop; it is never dropped. On the evaluation, the rules followed by the model at that threshold had precision
-    ${e.keep.precision.toFixed(2)} where the rules alone had ${e.keep.rulesPrecision}, and found ${e.keep.recall.toFixed(2)} of the real
-    problems where the rules alone found ${e.keep.rulesRecall.toFixed(2)}.</li>
+    <li><b>A second look at measured findings.</b> For a visual check's finding the model is also given the element's measured
+    facts in words (its box, colours and contrast, what is behind it, what the hit test found on top of it, how much of it is
+    clipped; text lengths, never the text), with the instruction to judge by what the screenshot shows and to treat the facts as
+    hints: the evaluation's <code>clef-img-p3</code> prompt. Sideways scrolling, images that failed to load and template text stay
+    as measured, as the evaluation recommends (at its threshold the model dropped 13 of 34 real sideways-scrolling findings, which a
+    crop cannot show, and 4 of 15 real broken images; template text was already real 5 times in 6), and so do findings with no
+    element to crop (a failed stylesheet or font, a missing viewport tag, a lock on the whole page) and layout shift (already listed,
+    not scored). A finding the model scores below ${KEEP_THRESHOLD} in every view it appeared in moves to "Listed, not scored (a model
+    judged it as probably fine)", with the crop; it is never dropped. On the evaluation, the rules followed by the model at that
+    threshold had precision ${e.keep.precision.toFixed(2)} where the rules alone had ${e.keep.rulesPrecision}, and found
+    ${e.keep.recall.toFixed(2)} of the real problems where the rules alone found ${e.keep.rulesRecall.toFixed(2)}.</li>
     <li><b>Findings of its own, where the measured checks abstain:</b> controls another element covers or that are partly clipped,
     every visible button and link in the dark view, and text over images, gradients or backgrounds the checks cannot know, in
-    that order and the first screen of the page first. An element it scores at ${FIND_THRESHOLD} or more becomes a Visual bugs finding,
-    moderate, labelled "${esc(JUDGE_LABEL)}", with the crop and what it answered. That threshold was the lowest with precision at
-    least 0.8 on the part of the evaluation used to choose it (${e.find.devReal} of ${e.find.devFlagged}); on the rest,
-    ${e.find.real} of the ${e.find.flagged} elements it scored that high were real problems (precision ${e.find.precision.toFixed(2)}).</li>
+    that order and the first screen of the page first, leaving out the site's own name (a logotype). Here the model gets the crop,
+    the view and the tag only (the evaluation's <code>${esc(e.find.variant)}</code> prompt): the facts of such an element are the
+    measurements the checks could not make, and in calibration they talked the model out of the fixture's deliberate bugs. An
+    element it scores at ${FIND_THRESHOLD} or more becomes a Visual bugs finding, moderate, labelled "${esc(JUDGE_LABEL)}", with the
+    crop and what it answered. That threshold was the lowest with precision at least 0.8 on the part of the evaluation used to
+    choose it (${e.find.devReal} of ${e.find.devFlagged}); on the rest, ${e.find.real} of the ${e.find.flagged} crops it scored that high
+    were real problems (precision ${e.find.precision.toFixed(2)}), ${e.find.noRuleReal} of ${e.find.noRuleFlagged} among the crops no rule
+    had flagged. Few public pages give it anything to find: <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/scan-worker/CALIBRATION.md">the
+    calibration</a> counts what it found and whether it was right.</li>
     <li><b>How it was measured</b> (<code>${esc(e.ref)}</code>): ${e.crops.toLocaleString("en-US")} crops of elements on public
     pages, ${e.real} of them real problems, labelled by ${esc(e.labellers)} (${e.doubleLabelled} crops labelled by two agents agreed with
     Cohen's kappa ${e.kappa}). Split by site: ${e.dev.crops} crops (${e.dev.real} real) to choose the prompt and thresholds,
@@ -1276,9 +1281,9 @@ export function judgeSection(): string {
     dark phone views, and a view may use what the views before it left), all asked at once while the rest of the scan runs; an
     answer counts only if it comes within
     ${JUDGE_TIMEOUT_MS / 1000} seconds. When ${esc(JUDGE_PLATFORM)} does not answer, or answers late, the findings stay as measured.
-    About ${tokens.toLocaleString("en-US")} input tokens per element at $${e.usdPerMillionInput} per million (Workers AI pricing,
-    ${esc(e.pricingDate)}): about $${((tokens * JUDGE_MAX_CALLS * e.usdPerMillionInput) / 1e6).toFixed(4)} for ${JUDGE_MAX_CALLS} elements.</li>
-    <li><b>What is sent.</b> The crop and the facts in words go to ${esc(JUDGE_PLATFORM)}, inside Cloudflare's network, with no
+    About ${tokens.toLocaleString("en-US")} input tokens per element or fewer at $${e.usdPerMillionInput} per million (Workers AI
+    pricing, ${esc(e.pricingDate)}): at most about $${((tokens * JUDGE_MAX_CALLS * e.usdPerMillionInput) / 1e6).toFixed(4)} for ${JUDGE_MAX_CALLS} elements.</li>
+    <li><b>What is sent.</b> The crop and the words above go to ${esc(JUDGE_PLATFORM)}, inside Cloudflare's network, with no
     account or visitor data. Cloudflare's <a href="${esc(WORKERS_AI_DATA_URL)}">Workers AI data-usage page</a> says it does not use
     what is sent to train models, and stores it only when the account adds a storage service; this scanner does not. The crops a
     report shows are kept with its screenshots and deleted with them after 24 hours.</li>
