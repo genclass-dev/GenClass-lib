@@ -443,11 +443,11 @@ modes, partial opacity, forced colours and page translation are skipped, not gue
 | `stylesheet-failed`, `font-failed`, `icon-font-failed` | a first-party stylesheet, a web font in use, or an icon font (boxes or ligature words shown) that failed |
 | `csp-blocked` | a style, font, image or media blocked by the page's Content-Security-Policy |
 | `text-template-leak`, `text-placeholder`, `text-encoding` | `[object Object]`, `$NaN`, `{{ x }}`, `Invalid Date`; lorem ipsum and placeholder-image hosts; mojibake and double-escaped entities |
-| `css-var-undefined` | `var(--x)` without a fallback where `--x` is defined nowhere |
-| `image-distorted`, `page-overflow-x`, `viewport-meta-missing`, `layout-shift` | a stretched image; sideways scrolling and its cause; a phone showing the 980 px layout; a layout shift above 0.25 (Chromium) |
+| `css-var-undefined` | `var(--x)` without a fallback where `--x` is defined nowhere and the fallback leaves text below 3:1 |
+| `image-distorted`, `page-overflow-x`, `viewport-meta-missing`, `layout-shift` | a stretched image; sideways scrolling and its cause; a phone showing the 980 px layout; a layout shift above 0.25 that names the element that moved and does not follow a scroll (Chromium) |
 | `page-blank` | the main region shows no text and no media after the page settled |
 | `click-blocked`, `pointer-events-leak`, `scroll-lock-stuck` | an invisible layer that took two clicks; `pointer-events: none` or a scroll lock left on `body` |
-| `control-unreachable`, `focus-obscured`, `dialog-covered` | a control under a fixed bar; a focused element or anchor target under a sticky header; a dialog under other elements |
+| `control-unreachable`, `focus-obscured`, `dialog-covered` | a control under a fixed bar with no controls of its own; a focused element or anchor target under a sticky header or banner that paints over it; a dialog under other elements |
 
 **Where they run.** On by default on development hosts (`localhost`, `*.local`, `*.test`, private networks) and when
 the devtools overlay mounts, where the developer reads the console; off on public hosts. Turn them on in production
@@ -470,7 +470,9 @@ resolves with the findings, for a Playwright or Cypress test.
 
 Not covered yet: text over photos, video and gradients; canvas and WebGL content; the colour scheme, viewport or hover
 state the visitor is not using; layout shifts and failed CSS images outside Chromium; low contrast that is readable but
-below WCAG AA. No precision figure is measured yet. Design and thresholds:
+below WCAG AA. Measured in CI on the demos, templates, compat apps and 40 public home pages: 0 false reports in 128
+views of the local pages, 8 findings in 96 loads of 31 public sites (5 confirmed real, 3 unconfirmed), and recall 1.00 on
+planted faults for 20 of the 23 kinds ([RESULTS.md section 9](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)). Design and thresholds:
 [VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md).
 
 ## State it can protect

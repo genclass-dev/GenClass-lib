@@ -37,8 +37,17 @@
     text, colours or URLs are sent. [TELEMETRY.md](TELEMETRY.md).
   - Not covered yet: text over photos, video and gradients, canvas and WebGL content, the colour scheme or viewport
     the visitor is not using, layout shifts and failed CSS images outside Chromium, low contrast that is readable but
-    below WCAG AA. No precision figure is measured yet; [VISUAL.md section 15](../../docs/runtime/VISUAL.md) has the
-    bench plan.
+    below WCAG AA.
+  - **Measured** by a new bench (`bench/visual`, GitHub Actions only;
+    [RESULTS.md section 9](../../docs/runtime/RESULTS.md)): 0 false reports in 128 views of the demos, templates and
+    compat apps (desktop and phone, light and dark); on public home pages (31 of 40 measured), 8 findings in 96 loads, 5 of them
+    confirmed real (3 bugs on 2 sites), none a confirmed check error, 3 unconfirmed; recall 1.00 on planted faults
+    for 20 of the 23 kinds (`click-blocked` and `scroll-lock-stuck` 0.67, `css-var-undefined` 0.96). Because of what
+    the bench found, `css-var-undefined` now reports a missing token only where its fallback leaves text below 3:1;
+    `focus-obscured` needs a cover that paints and is at most half the viewport tall; `layout-shift` needs an element
+    that moved and skips windows that start within 1 s after a scroll; `control-unreachable` sees controls inside open
+    shadow roots and skips covers with no box; `scroll-lock-stuck` and `pointer-events-leak` treat an expanded popup
+    trigger as something open; and a pass on a page that is never idle no longer advances one step per second.
 
 ## 0.2.2 (2026-10-13)
 

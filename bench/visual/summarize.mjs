@@ -105,7 +105,11 @@ for (const group of ["demos", "templates", "compat"]) {
 {
   const ls = loads.filter((l) => l.group === "sites");
   if (ls.length) {
-    const counted = ls.filter((l) => l.measured && (l.scheme === "light" || l.darkDesign));
+    // a load the site rate-limited (HTTP 429 on its own files) shows a broken page that visitors do not normally get:
+    // its findings are correct for that load (stylesheet-failed, image-broken and what follows from them) but say
+    // nothing about the site, so it is left out of the rate and counted as not measured
+    const throttled = (l) => !!l.throttled || (l.findings ?? []).some((f) => /\bHTTP 429\b/.test(f.message));
+    const counted = ls.filter((l) => l.measured && !throttled(l) && (l.scheme === "light" || l.darkDesign));
     const s = {
       sites: new Set(ls.map((l) => l.page)).size,
       sitesMeasured: new Set(counted.map((l) => l.page)).size,
@@ -123,6 +127,7 @@ for (const group of ["demos", "templates", "compat"]) {
     };
     const nm = {};
     // reasons only, never a site: titles in parentheses and URLs are dropped
+    for (const l of ls) if (l.measured && throttled(l) && (l.scheme === "light" || l.darkDesign)) inc(nm, "rate limited (HTTP 429 on the site's own files)");
     for (const l of ls) if (!l.measured) inc(nm, String(l.notMeasured).replace(/\(.*\)/, "").replace(/HTTP \d+/, "HTTP error").replace(/\s*at https?:\/\/\S+/g, "").replace(/https?:\/\/\S+/g, "<url>").trim());
     s.notMeasured = nm;
     const withF = new Set();

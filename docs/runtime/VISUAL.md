@@ -565,9 +565,11 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   and whether the value comes from an inline declaration (`el.style.getPropertyValue("pointer-events")`).
 - Reports when: the value is `none` for at least 1,000 ms (two reads) while nothing open and `visible` matches
   `[role=dialog]`, `[role=alertdialog]`, `dialog[open]`, `[aria-modal=true]`, `[role=menu]`, `[role=listbox]`,
-  `[data-state=open]` or `:popover-open`, and no drag is in progress. When the value comes from a stylesheet rather
-  than an inline style, a user click in the last 10 s that landed on `html` or `body` is also required (a page may
-  disable pointer events on `body` on purpose and re-enable them on its own elements).
+  `[data-state=open]` or `:popover-open` (since the bench, also a visible trigger with `aria-expanded="true"` and
+  `aria-haspopup`, or one in a navigation bar whose `aria-controls` panel is visible: a mega-menu that is open), and no
+  drag is in progress. When the value comes from a stylesheet rather than an inline style, a user click in the last
+  10 s that landed on `html` or `body` is also required (a page may disable pointer events on `body` on purpose and
+  re-enable them on its own elements).
 - Evidence: element, source (`inline` or `stylesheet`), duration, the time since a dialog or menu was last seen
   closing, clicks that landed on `html`/`body`.
 - Severity: high (the whole page ignores clicks).
@@ -606,9 +608,11 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   is not the control, its ancestor or its descendant, is not a dialog (`[role=dialog]`, `[role=alertdialog]`,
   `[aria-modal=true]`, `dialog`), and contains no focusable element other than itself. The same result 1,000 ms
   later.
-- Skips: covers that contain controls (cookie and consent banners, bottom navigation bars), which keeps this check
-  precise at the cost of missing bars that hide the last row of controls (a later version, once measured); covers with
-  `pointer-events: none` (hit testing passes through them).
+- Skips: covers that contain controls (cookie and consent banners, bottom navigation bars; since the bench, also
+  controls inside the cover's open shadow roots), which keeps this check precise at the cost of missing bars that hide
+  the last row of controls (a later version, once measured); covers with `pointer-events: none` (hit testing passes
+  through them); covers without a box of their own (a shadow host 0 px tall whose banner renders in a closed shadow
+  root: its controls cannot be seen).
 - Evidence: control `selector` and accessible name (local), cover `selector`, its rect, `position` and `z-index`,
   points covered (5 of 5), scroll position.
 - Severity: high.
@@ -1138,8 +1142,7 @@ Browser job (new, `visual-browser` in `.github/workflows/ci.yml`, in parallel wi
 **Status: built** (2026-10-13): [`bench/visual/`](../../bench/visual/README.md) and
 `.github/workflows/visual-measure.yml`. The numbers are in [RESULTS.md section 9](RESULTS.md); what the bench changed
 in the checks is in section 19. Where the bench differs from the plan below: the workflow is `visual-measure.yml`,
-started by hand (and by pushes to `bench/visual/` on the visual branch, because a `workflow_dispatch` workflow can only
-be dispatched once it is on the default branch), not weekly; the public sites run without `bypassCSP` (Playwright's
+started by hand (and by pushes to `bench/visual/` on the visual branch), not weekly; the public sites run without `bypassCSP` (Playwright's
 init scripts run under a page's policy, and the site's own policy stays in force for `csp-blocked`); phone loads send
 an Android user agent that keeps the `HeadlessChrome` token, so sites that pick their mobile layout by user agent are
 measured in it; dark loads run where the site has a dark design (a `prefers-color-scheme` rule, a `color-scheme`
@@ -1226,10 +1229,15 @@ Owner decisions:
 2. **Fixes**: explicit `visual.fix` plus `guard` or `heal`, and the three v1 fix kinds.
 3. **Telemetry**: the fields in section 10 (counts per kind and normalised route), under rule 8.
 4. **Sinks**: `"check"` records only for sinks that list it in `kinds`.
-5. **Gates**: the numbers in section 15.
+5. **Gates**: the numbers in section 15. Measured on 2026-10-13 (RESULTS.md section 9): the false-report, fix and
+   4x-throttling gates are met; recall is below 0.7 for `click-blocked` and `scroll-lock-stuck` (0.67, pages whose DOM
+   changes all the time); the cost gates are not met on public sites (p95 pass time 97.8 ms, p95 longest slice 57.1
+   ms). Whether kinds that miss a gate stay on by default on development hosts is open.
 6. **CONTRACT.md**: the same rule 2 exception added to CONTRACT section 0 rule 1, and a new section for visual checks,
    when implementation starts.
-7. **Public-site bench**: the list of about 40 sites and loading them weekly from GitHub runners.
+7. **Public-site bench**: the list of about 40 sites and loading them weekly from GitHub runners. The list is
+   `bench/visual/sites.json`; the workflow runs on manual dispatch only (no schedule) until this is decided. Four
+   runs on 2026-10-13 loaded each site up to 4 times per run; one site answered HTTP 429 in the fourth.
 8. **v3**: a go-ahead for a new situation tag, when v1 and v2 numbers justify it.
 
 Open questions to verify in the browser job: whether `getComputedStyle` exposes Chrome's autofill background; Safari
@@ -1283,6 +1291,34 @@ What the code does where it differs from the design above (2026-10-13, branch `w
   35 KB gzip (the estimate was 6 to 12 KB); a 10,000-element page took 2 passes, 72.9 to 127.8 ms of check time in all
   (two runs), a longest slice of 8.5 ms and no partial pass. On the fixture pages every planted fault was found and
   nothing else was reported (35 faults, 23 kinds; written by the checks' author, so this is not a precision figure).
-- **Not built yet:** the bench (`bench/visual/`, `visual-bench.yml`, section 15), the explain step (likely source
-  rule, 2.6), the "inserted content" cause tag of `layout-shift`, `genclass-runtime init --no-visual`, Firefox and
-  WebKit in the browser job (it runs Chromium only), v2 and v3. No precision or recall figure is measured.
+- **Not built yet:** the explain step (likely source rule, 2.6), the "inserted content" cause tag of `layout-shift`,
+  `genclass-runtime init --no-visual`, Firefox and WebKit in the browser job (it runs Chromium only), v2 and v3.
+
+What the bench (section 15, [RESULTS.md section 9](RESULTS.md)) changed, 2026-10-13. Every finding on a public site was
+looked at from its element crop; each check error led to an exclusion with a unit test in
+`test/visual-checks.test.ts` ("bench regressions") and a fixture in `test/browser/visual/fixtures/regress-*.html` that
+reproduces the pattern, asserts that it happened, and asserts that nothing but the planted faults is reported:
+
+- **Idle slices on pages that are never idle.** `requestIdleCallback` on a page that animates every frame only fires
+  on its 1 s timeout, with no time remaining, and the engine then ran one step per callback: a public site never
+  finished its first pass. A timed-out callback now gets one slice of `budgetMs`.
+- **`css-var-undefined`** (35 of the 49 public-site findings of the first run, all without a visible effect: a
+  theme-scope rule on `html` with legacy token names, `:hover` rules, a banner height a script sets only when a
+  banner shows, optional per-token variables of a code highlighter, custom-property aliases): now reported only where
+  the fallback leaves text below 3:1 (3.12). `regress-css-var.html`.
+- **`focus-obscured`** (6): a transparent full-screen pop-up layer over a cookie banner; the focused links showed
+  through it. The cover must paint and be at most half the viewport tall (3.22). `regress-focus-overlay.html`.
+- **`layout-shift`** (2 check errors): an infinite list pushing its footer down while the visitor scrolled, and a
+  window with no element left to name. Windows within 1 s after a scroll (unless an image without reserved space
+  caused them) and windows without a moved element are counted, not reported (3.16). `regress-shift-scroll.html`.
+- **`control-unreachable`** (second run, 5): a consent banner rendered inside a shadow root, its host a fixed element
+  0 px tall, so its buttons were invisible to the check and it looked like a bar without controls. Controls in open
+  shadow roots now count, and a cover without a box is not judged (3.21). `regress-shadow-banner.html`.
+- **`scroll-lock-stuck`** (third run, 1): a navigation mega-menu, opened by keyboard focus, locked the body's scroll
+  while open; its panel is not marked as a menu, its trigger has `aria-expanded="true" aria-haspopup="true"`. An
+  expanded popup trigger, or a navigation disclosure whose panel is visible, now counts as something open (3.19,
+  3.20). `regress-menu-lock.html`.
+- **Known gaps the bench measured, not changed:** `click-blocked` and `scroll-lock-stuck` stay silent on pages whose
+  DOM changes all the time (all their misses were on the six demo pages, which update a live log); a single read
+  can take longer than the 8 ms slice on heavy pages (the longest slice is in RESULTS.md section 9), most likely the
+  stylesheet walk of `css-var-undefined`, which is exempt from the slow-read rule.

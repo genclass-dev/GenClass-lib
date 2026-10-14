@@ -39,7 +39,19 @@ observe mode, report-only.
 | `summarize.mjs` | counts per check kind for the repository; `detail.md` (every finding, with its crop) for a person |
 | `sites.json` | the public sites |
 | `labels.json` | verdicts (real or false) for findings on the local pages |
-| `results/` | the committed summaries |
+| `results/` | the committed summaries (counts per kind; no site names) |
+
+## Results
+
+[docs/runtime/RESULTS.md section 9](../../docs/runtime/RESULTS.md) has the numbers; `results/2026-10-13-run{1,2,3,4}.json`
+are the summaries of the four runs of 2026-10-13 (`summarize.mjs` output). Each run after the first followed changes to
+the checks made because of what the previous run found (docs/runtime/VISUAL.md section 19), each with a regression
+fixture in `packages/runtime/test/browser/visual/fixtures/regress-*.html`.
+
+To judge findings: download the artifacts of a run, run `summarize.mjs` with `--detail detail.md`, and look at each
+finding's element crop (`crops/<load>-<n>.png`, and `<load>-view.jpg` for the first screen of a public site). Verdicts
+on local pages go in `labels.json`. Verdicts on public sites go in a file kept with the artifact, outside the
+repository, passed with `--site-verdicts`; the summary then counts them per kind.
 
 ## Privacy of the public-site results
 
@@ -50,7 +62,7 @@ no site is named as having a bug. Verdicts on public-site findings are counted t
 ## Run
 
 ```bash
-gh workflow run visual-measure.yml --repo genclass-dev/GenClass-lib --ref <branch>   # once the workflow is on main
+gh workflow run visual-measure.yml --repo genclass-dev/GenClass-lib --ref <branch>
 gh run list --repo genclass-dev/GenClass-lib --workflow visual-measure.yml --limit 1
 gh run download <id> --repo genclass-dev/GenClass-lib --name visual-summary
 ```

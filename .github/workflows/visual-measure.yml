@@ -3,9 +3,9 @@ name: Visual bench
 # The measured visual checks' bench (docs/runtime/VISUAL.md section 15, bench/visual/README.md), on GitHub runners
 # only: false reports on clean pages (the six demos, the starter templates, the compat apps, about 40 public home
 # pages), recall on faults planted by the harness, cost at 1x and 4x CPU throttling, and the real integration's
-# timing. Manual dispatch; on the visual branch also on pushes that change the bench (a workflow_dispatch workflow can
-# only be dispatched once it is on the default branch). Not on pull requests and not scheduled: loading the public
-# sites weekly is an owner decision (VISUAL.md 17).
+# timing. Manual dispatch (`gh workflow run visual-measure.yml --ref <branch>`), and on the visual branch also on
+# pushes that change the bench. Not on pull requests and not scheduled: loading the public sites weekly is an owner
+# decision (VISUAL.md 17).
 #
 # The per-load JSON, detail.md and the element crops name public sites and stay in the artifacts (kept 7 days); the
 # job summary and summary.json hold counts per check kind only.
