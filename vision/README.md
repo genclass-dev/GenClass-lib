@@ -18,6 +18,8 @@ meant for the Mac is the browser-free test (`npm test`).
 | `src/extract.js` | in the page | the per-element feature extractor (classic script, no imports) |
 | `src/inject.mjs` | node and page | applies `research/visual/injectors.json` recipes to the crawled page and labels the elements |
 | `src/robots.mjs` | node | robots.txt rules (RFC 9309 matching) |
+| `src/build_set.mjs` | node | the training set from merged crawl shards: near-duplicate removal, host splits, feature matrices, labels, pixel verdicts, `summary.json` |
+| `results/` | | summaries copied from the node (no raw data) |
 | `scripts/node_setup.sh` | node | Node 22.22.0 (checksum verified), `npm ci`, Playwright Chromium and its system libraries, `~/vision-out` |
 | `scripts/cluster.sh` | Mac | `sync`, `setup`, `exec`, `crawl`, `status` over ssh, hosts from `~/.jev-local/azure_hosts` |
 | `test/extract.test.mjs` | anywhere | colour parsing, contrast, background resolution, leak patterns, viewport meta, var() substitution, robots rules, CDX parsing, recipe compilation, with fixtures in `test/fixtures/` |
@@ -33,14 +35,20 @@ bash vision/scripts/cluster.sh setup "c20 c21 c22 c23"   # detached; log in ~/vi
 # 2. discovery on one node (about 35 s with the ZipNum files), then copy urls.jsonl to the others
 bash vision/scripts/cluster.sh exec c20 'node src/discover.mjs --crawls 6 --ai-hosts 30000'
 # 3. the crawl: shard i of N on the i-th host, detached; resumes from done-*.jsonl when restarted
-bash vision/scripts/cluster.sh crawl "c20 c21 c22 c23" --workers 48 --inject 0.35
+bash vision/scripts/cluster.sh crawl "c20 c21 c22 c23" --workers 56 --inject 1 --groups ai-builder,control \
+  --targets ai-builder=3000,control=600
 bash vision/scripts/cluster.sh status "c20 c21 c22 c23"
+# 4. copy every shard to the node that will train (inside the VNet), then on that node:
+#    node --max-old-space-size=24000 src/build_set.mjs --in ~/vision-out/crawl --out ~/vision-out/trainset
 ```
 
 On a node directly: `cd ~/gcl/vision && node src/crawl.mjs --urls ~/vision-out/discover/urls.jsonl --shard 0/4`.
 Flags: `--workers` (default 60% of vCPUs), `--per-browser 8` (contexts per Chromium process), `--limit`,
-`--inject` (share of loads that get faults, default 0.35), `--seed`, `--timeout 15000` (per load), `--max-rows 2500`
-(per view), `--groups ai-builder,mixed-host,control`, `--shots false`.
+`--inject` (share of loads that get injection rounds, default 0.35), `--rounds desktop=8,phone=6` (rounds per load),
+`--targets ai-builder=3000,control=600` (hosts with views per group across all shards; each shard takes its share
+and stops taking that group when full), `--dark-share 0.333` (hosts whose phone load also gets a dark view),
+`--pixel false` (skip the pixel check), `--seed`, `--timeout 15000` (per load), `--max-rows 2500` (per view),
+`--groups ai-builder,mixed-host,control`, `--shots false`.
 
 Cluster rules that apply (`internal/training/NEEDS.md` has the claim table): check other agents' processes and take
 the `~/.gcl-claim` lock on each node before using it; run `az` one call at a time with `--query` and `timeout 120`;
@@ -97,9 +105,14 @@ a single desktop load resized to 390 px would hide the viewport-meta bugs (catal
 Nothing else is requested from the host: no links followed, no reloads, the colour scheme switched in place.
 
 Each load: `goto` with a 15 s cap (if `load` does not fire, whatever committed is measured), then fonts ready
-(3 s cap) and 500 ms without DOM mutations (5 s cap), then the light view, `emulateMedia` dark, a 1.5 s settle and
-the dark view. Each view is extracted and screenshotted (viewport only, JPEG quality 55, 683x384 desktop and
-293x633 phone). On a seeded share of loads (`--inject`), 1 to 3 recipes are applied and one more view is extracted.
+(3 s cap) and 500 ms without DOM mutations (5 s cap), then the light view. The phone load of a seeded third of the
+hosts (`--dark-share`) also gets the dark view (`emulateMedia` dark, a 1.5 s settle); desktop loads are light only.
+Each view is extracted and screenshotted (viewport only, JPEG quality 55, 683x384 desktop and 293x633 phone). On a
+seeded share of loads (`--inject`), injection rounds follow (Fault injection below), each with one more view.
+
+Host order: within a group, hosts are in seeded hash order and domains are drawn with weight sqrt(hosts in the
+domain), so a capped run is not almost all lovable.app; the groups are interleaved. With `--targets`, a shard stops
+taking a group's hosts once its share of hosts with views is reached.
 
 Safety: downloads refused, service workers blocked, popups and `window.open` closed, form `submit` cancelled by an
 init script, dialogs dismissed, no typing, no clicks, no logins; a fresh context per load, closed after it, so
@@ -116,13 +129,15 @@ screenshots 11 MB. The run's files are kept in `c20:~/vision-out/smoke2/shard-3`
 Under `~/vision-out/crawl/shard-I/`, one set per process start (`T`):
 
 - `views-T.jsonl.gz`: one line per view: `vid`, `host`, `group`, `builder`, `domain`, `device` (desktop, phone),
-  `scheme` (light, dark), `inj`, `page` (below), `cost` (ms per extractor phase: page, walk, rows, hit, vars,
-  total), `nav` (HTTP status, content type, final host, load and settle ms, console errors, page errors, failed
-  requests, request count, `loadTimeout`, `redirectedOff`), `injected` (null, or `{env, recipes, partial}`), `shot`
-  (bytes).
+  `scheme` (light, dark), `inj`, `round` (0 for a clean view, else the injection round), `page` (below), `cost`
+  (ms per extractor phase: page, walk, rows, hit, vars, total), `nav` (HTTP status, content type, final host, load
+  and settle ms, console errors, page errors, failed requests, request count, `loadTimeout`, `redirectedOff`),
+  `injected` (null, or `{env, round, final, recipes, partial, pre, undo, pix}`, below), `shot` (bytes). The `vid`
+  of an injected view ends in `-rN`.
 - `elements-T.jsonl.gz`: one line per element row: `{vid, ...row}`.
-- `shots/<host>/<device>-<scheme>[-inj].jpg`.
-- `done-T.jsonl`: `{host, group, status, ms, views, error, notApplied}`; `stats-T.json` at the end.
+- `shots/<host>/<device>-<scheme>[-rN].jpg`.
+- `done-T.jsonl`: `{host, group, status, ms, views, error, dark, rounds, drift, notApplied}`; `stats-T.json` at the
+  end (hosts, views, rounds, faults and controls applied, faults per family, undo drift, pixel checks).
 
 `page` fields: viewport and DPR, `vvScale`, document `scrollW`/`scrollH`/`clientW` (sideways scroll), parsed
 `viewportMeta` (`present`, `deviceWidth`, `fixedWidth`, `initialScale`, `maxScale`, `userScalableNo`,
@@ -183,12 +198,37 @@ most 2,500 rules that use var().
 
 ## Fault injection
 
-`inject.mjs` runs the 122 recipes of `injectors.json` whose phase is `after-load` and whose env is Chromium. A load
-gets 1 to 3: the first at random (a control with probability 0.15), the rest from faults with the same env and
-different catalog ids. Phone recipes (touch, or a viewport under 600 px) run in the phone load. Before applying,
-the crawl sets the recipe's colour scheme, reduced motion, viewport size and classic scrollbars. Recipes run as
-plain functions in `page.evaluate` (no `eval`, so a page CSP cannot block them); `css()` falls back to a constructed
-sheet when a CSP blocks inline style elements.
+`inject.mjs` runs the recipes of `injectors.json` whose phase is `after-load` and whose env is Chromium (148 of 216
+in the 2026-10-13 file: 124 faults, 24 controls). Phone recipes (touch, or a viewport under 600 px) run in the phone
+load. Recipes run as plain functions in `page.evaluate` (no `eval`, so a page CSP cannot block them); `css()` falls
+back to a constructed sheet when a CSP blocks inline style elements.
+
+Rounds: an injected load gets up to `--rounds` rounds (8 desktop, 6 phone). Each round picks 1 to 3 recipes with
+`chooseRound`: the first is a control with probability 0.15, else a fault whose family is drawn with weight
+1 / (faults of that family applied so far in this process + 3), so families that rarely find a target are tried
+more often; the rest share the first one's env, have distinct catalog ids and were not used earlier in the load.
+The crawl sets the round's colour scheme, reduced motion and viewport, takes a full-resolution JPEG of the
+viewport, applies the recipes, settles, extracts the labelled view, measures the marked boxes and takes a second
+JPEG. Then it undoes the round:
+
+- Undo journal: a MutationObserver on the document records every attribute, text and child-list change the recipes
+  make; `takeRecords()` drains it as soon as the synchronous recipes return, before any page script can run, and
+  `__visionUndo()` replays the records backwards and restores `adoptedStyleSheets`. Recipes whose effect the journal
+  cannot see (CSSOM rule edits, `stylesheet.disabled`, timers, listeners, media playback state; `finalOnly` in
+  inject.mjs, 11 of 148) run only in a load's last round, which is not undone.
+- Gate: after the undo, the env goes back to the device default, the window scrolls to the top, and the next round
+  runs only if the undo threw nothing, no `data-bench-fault` attribute is left and the element count is within 2%
+  of the count before round 1. Pages also move on their own (reveal on scroll, carousels, resize handlers), so the
+  share of the first 400 element boxes that match the pre-round layout is stored as `injected.pre.same` on the next
+  view instead of gating; a host's `drift` lists the rounds that stopped a load.
+
+Pixel check (VISUAL.md section 15): in a blank comparator page (never the crawled page), the two JPEGs are compared
+inside each marked element's box (the union of its box after injection and after the undo, clipped to the
+viewport); a pixel changed when a channel differs by more than 32. `injected.pix` holds, per marked element, the
+label, the box, the area in the viewport `a` and the changed pixels `n`, plus the changed pixels in the whole
+viewport. build_set.mjs turns them into verdicts: `seen` (n at least 16 and at least 1% of the box), `unseen` (in
+the viewport but no visible change: a NOI candidate, such as a focus style that needs the keyboard), `out` (outside
+the viewport), with `noisy` when more than 5% of the viewport outside the boxes changed.
 
 Labels: every marked element carries `data-bench-fault` with the recipe id, so element rows of the injected view
 carry `lab`; `injected.recipes` lists each recipe with `applied`, `marked` and `reason` (`n/a: ...` when no visible
@@ -196,13 +236,36 @@ target existed). A recipe that changed the page and then threw gets its labels r
 `injected.partial`; drop those views. Controls are correct lookalikes: a report on a control target is a false
 report.
 
-The validation run exercised 99 of the 122 recipes; one threw: `class-unbacked-token` picks any element with a
-`bg-` class and fails when that element has no numeric shade class (for example `bg-background`). It is recorded as
-an error, not a fault. The other phases (before-load, network, init, on-interaction: 38 recipes) need a second load
-or real input on a live site and are not run by this crawl.
+`class-unbacked-token` still throws when the picked element has no numeric shade class (for example
+`bg-background`); it is recorded as an error, not a fault. The other phases (before-load, network, init,
+on-interaction: 64 of 216 recipes) need a second load or real input on a live site, and 4 after-load recipes need
+Firefox or WebKit; this crawl runs neither.
 
-Before training on the injected views, VISUAL.md section 15 and CATALOG.md ask for a pixel check of layout labels
-(verdicts true positive, false positive, NOI) and near-duplicate removal; neither is done here.
+## The training set
+
+`build_set.mjs` reads every `shard-*` under `--in` and writes to `--out`:
+
+- Near-duplicate removal: hosts whose clean light view (desktop, else phone) has the same layout fingerprint (tag
+  and 16 px quantized box of the first 150 visible rows) form a cluster; only the representative host (lowest
+  SHA-1) goes into the matrices. This is coarser than the ORB similarity CATALOG.md cites, and catches identical
+  templates, not restyled ones.
+- Splits by representative host: SHA-1 of `seed|host`, first byte under 205 train, under 230 val, else test.
+- `X-<split>.f32` (float32, `F` columns, `schema.json` names them: numeric row keys with the README defaults,
+  derived overflow, colour and image columns, categorical codes, ten page columns) and `meta-<split>.jsonl.gz`, one
+  line per matrix row: `{v, i, y}` with `y` = `nat` (element of a clean view, label unknown, mostly negative),
+  `clean` (unlabelled element of an injected view, at most `--clean-per-view` 40 per view, seeded), `fault` (with
+  recipe ids `r`, families `f`, catalog ids `c`, label attributes `a`, pixel verdict `pv`, `pa`, `pn`, `noisy`)
+  or `control` (marked only by a control recipe: a hard negative). Natural rows carry `n`, a bitmask of the
+  measured signals (1 broken image, 2 template leak, 4 text under 1.5:1 on a solid background, 8 placeholder image
+  host, 16 undefined var()).
+- `views.jsonl.gz`: one line per view with its index `v`, split, cluster, applied recipes, page-level labels
+  (`attribute: page` recipes label the page, not a row), the page facts and the natural signals.
+- `summary.json`: crawl success by group, views by device and scheme, extractor cost, faults per family and
+  recipe, pixel verdicts per family, natural-signal prevalence by group, device and scheme. The run's copy is in
+  `results/`.
+
+Style, script, link, meta, head, title, noscript and template rows are left out of the matrices. Views with
+`partial` set are dropped.
 
 ## Test
 

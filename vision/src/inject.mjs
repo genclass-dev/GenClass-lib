@@ -60,6 +60,66 @@ export function chooseRecipes(recipes, device, rand, { max = 3, controlShare = 0
   return out;
 }
 
+/**
+ * Recipes whose effect the undo journal cannot reverse (CSSOM edits, stylesheet.disabled, timers, listeners, media
+ * playback state). crawl.mjs runs them only in the last injection round of a load.
+ */
+export function finalOnly(recipe) {
+  return /deleteRules|rewriteDarkRulesToMedia|insertRule|deleteRule\(|replaceSync|adoptedStyleSheets|styleSheets|\.disabled\s*=|setTimeout|setInterval|requestAnimationFrame|addEventListener\(|\.pause\(|\.play\(|currentTime|history\.|location\b/.test(recipe.operation);
+}
+
+/**
+ * Choose the recipes for one injection round on `device`, balanced by family: with probability `controlShare` the
+ * first is a control, else a fault whose family is drawn with weight 1 / (applied faults of that family so far + 3),
+ * so families that apply rarely (no visible target) are tried more often. Up to `max` recipes per round, the rest
+ * with the same emulation, distinct catalog ids, none used earlier in this load (`used`). `final` allows finalOnly
+ * recipes. `counts` is shared across the process: {family: applied faults}.
+ */
+export function chooseRound(recipes, device, rand, counts, { max = 3, controlShare = 0.15, final = false, used = new Set() } = {}) {
+  const pool = recipes.filter((r) => deviceOf(r) === device && !used.has(r.id) && (final || !finalOnly(r)));
+  const faults = pool.filter((r) => r.kind === "fault");
+  const controls = pool.filter((r) => r.kind === "control");
+  const byFamily = (list) => {
+    const m = new Map();
+    for (const r of list) {
+      if (!m.has(r.family)) m.set(r.family, []);
+      m.get(r.family).push(r);
+    }
+    return m;
+  };
+  const drawFault = (list) => {
+    const fam = byFamily(list);
+    if (!fam.size) return null;
+    const ks = [...fam.keys()];
+    const w = ks.map((k) => 1 / ((counts[k] || 0) + 3));
+    let x = rand() * w.reduce((a, b) => a + b, 0);
+    let k = ks[ks.length - 1];
+    for (let i = 0; i < ks.length; i++) {
+      x -= w[i];
+      if (x <= 0) {
+        k = ks[i];
+        break;
+      }
+    }
+    const rs = fam.get(k);
+    return rs[Math.floor(rand() * rs.length)];
+  };
+  let first = null;
+  if (controls.length && rand() < controlShare) first = controls[Math.floor(rand() * controls.length)];
+  else first = drawFault(faults);
+  if (!first) return [];
+  const envKey = JSON.stringify(first.env || {});
+  const k = 1 + Math.floor(rand() * max);
+  const out = [first];
+  let same = faults.filter((r) => r !== first && JSON.stringify(r.env || {}) === envKey && r.catalog_id !== first.catalog_id);
+  while (out.length < k && same.length) {
+    const r = drawFault(same);
+    same = same.filter((x) => x !== r && x.catalog_id !== r.catalog_id);
+    if (!out.some((o) => o.catalog_id === r.catalog_id)) out.push(r);
+  }
+  return out;
+}
+
 /** The emulation a set of recipes needs (they share one env by construction). */
 export function envOf(recipes) {
   return (recipes[0] && recipes[0].env) || {};
@@ -120,7 +180,84 @@ export const PAGE_RUNTIME = String.raw`
     }
     return c.toDataURL("image/jpeg", 0.8);
   }
-  root.__visionInject = function (list, seed) {
+  // Undo journal for multi-round injection. Every DOM change a recipe makes synchronously (attributes, text,
+  // inserted or removed nodes) is recorded by a MutationObserver and drained with takeRecords() before any page
+  // script can run; __visionUndo() replays the records backwards. CSSOM edits, stylesheet.disabled, timers and
+  // listeners are not recorded, so crawl.mjs runs recipes that use them (finalOnly) only in a load's last round.
+  root.__visionInject = function (list, seed, opts) {
+    opts = opts || {};
+    const mo = new MutationObserver(() => {});
+    mo.observe(document, { subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true, characterDataOldValue: true });
+    const adopted = document.adoptedStyleSheets ? document.adoptedStyleSheets.slice() : null;
+    let results;
+    try {
+      if (opts.classicScrollbars) {
+        const s = document.createElement("style");
+        s.textContent = "::-webkit-scrollbar{width:16px;height:16px}::-webkit-scrollbar-thumb{background:#999}";
+        (document.head || document.documentElement).appendChild(s);
+      }
+      results = injectAll(list, seed);
+    } finally {
+      const records = mo.takeRecords();
+      mo.disconnect();
+      root.__visionJournal = { records, adopted };
+      root.__visionMarked = Array.from(document.querySelectorAll("[data-bench-fault]")).filter((el) => el.tagName !== "STYLE");
+      for (const el of root.__visionMarked) el.__benchLab = el.getAttribute("data-bench-fault") || "";
+    }
+    return results;
+  };
+  root.__visionUndo = function () {
+    const j = root.__visionJournal;
+    if (!j) return { ok: false, n: 0 };
+    let bad = 0;
+    for (let k = j.records.length - 1; k >= 0; k--) {
+      const r = j.records[k];
+      try {
+        if (r.type === "attributes") {
+          if (r.oldValue === null) r.target.removeAttributeNS(r.attributeNamespace, r.attributeName);
+          else if (r.attributeNamespace) r.target.setAttributeNS(r.attributeNamespace, r.attributeName, r.oldValue);
+          else r.target.setAttribute(r.attributeName, r.oldValue);
+        } else if (r.type === "characterData") {
+          r.target.data = r.oldValue;
+        } else {
+          for (let i = r.addedNodes.length - 1; i >= 0; i--) {
+            const n = r.addedNodes[i];
+            if (n.parentNode === r.target) r.target.removeChild(n);
+          }
+          const next = r.nextSibling && r.nextSibling.parentNode === r.target ? r.nextSibling : null;
+          for (let i = 0; i < r.removedNodes.length; i++) r.target.insertBefore(r.removedNodes[i], next);
+        }
+      } catch (e) {
+        bad++;
+      }
+    }
+    try {
+      if (j.adopted) document.adoptedStyleSheets = j.adopted;
+    } catch (e) {
+      bad++;
+    }
+    const n = j.records.length;
+    root.__visionJournal = null;
+    return { ok: bad === 0, n, bad };
+  };
+  /** Viewport boxes of the elements the last injection marked (labels taken at injection time). */
+  root.__visionMarkedBoxes = function () {
+    return (root.__visionMarked || []).map((el) => {
+      const r = el.isConnected ? el.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
+      return { lab: el.__benchLab || "", page: el === document.documentElement ? 1 : 0, x: Math.round(r.left * 10) / 10, y: Math.round(r.top * 10) / 10, w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 };
+    });
+  };
+  /** A cheap layout signature: element count and the rounded boxes of the first 400 elements. */
+  root.__visionSig = function () {
+    const els = document.getElementsByTagName("*");
+    const boxes = [];
+    for (let i = 0; i < els.length && boxes.length < 400; i++) {
+      const r = els[i].getBoundingClientRect();
+      boxes.push(((Math.round(r.left / 4) * 73856093) ^ (Math.round(r.top / 4) * 19349663) ^ (Math.round(r.width / 4) * 83492791) ^ Math.round(r.height / 4)) >>> 0);
+    }
+    return { n: els.length, boxes };
+  };
+  function injectAll(list, seed) {
     const results = [];
     const lib = root.__visionLib;
     for (const item of list) {
@@ -289,7 +426,7 @@ export const PAGE_RUNTIME = String.raw`
       results.push(res);
     }
     return results;
-  };
+  }
 })(globalThis);
 `;
 
@@ -297,7 +434,7 @@ export const PAGE_RUNTIME = String.raw`
  * The expression page.evaluate runs to apply `recipes`: each operation becomes a function of the helper object, so
  * the page never needs eval (a page CSP without unsafe-eval cannot block it).
  */
-export function injectionScript(recipes, seed) {
+export function injectionScript(recipes, seed, opts = {}) {
   const items = recipes.map((r) => {
     const params = "{ sel, id, seed, pick, pickMany, tallest, mark, markAll, markPage, css, deleteRules, setText, textNodes, resolvedBackground, enableAppDarkMode, rewriteDarkRulesToMedia, photoUrl, lightPhotoUrl }";
     // photoUrl and lightPhotoUrl are getters; destructuring reads them only when the operation names them
@@ -305,5 +442,5 @@ export function injectionScript(recipes, seed) {
     const p = needsPhoto ? params : params.replace(", photoUrl, lightPhotoUrl", "");
     return `{ id: ${JSON.stringify(r.id)}, kind: ${JSON.stringify(r.kind)}, catalog_id: ${JSON.stringify(r.catalog_id)}, select: ${JSON.stringify(r.select || "")}, label: ${JSON.stringify(r.label)}, fn: function (${p}) { ${r.operation}\n } }`;
   });
-  return `globalThis.__visionInject([${items.join(",\n")}], ${seed >>> 0})`;
+  return `globalThis.__visionInject([${items.join(",\n")}], ${seed >>> 0}, ${JSON.stringify(opts)})`;
 }
