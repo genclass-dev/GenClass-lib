@@ -191,3 +191,77 @@ run, one page 90.
 - That pages building their content from POST requests (common for AI-builder sites using a hosted database) get the
   scanner's stand-in answers, so what axe-core and the audits see there can differ from a visitor's page (site T's
   sampled scrollable-region finding was not reproduced for that reason).
+
+# Calibration of the model judge (Clef)
+
+The model judge (README, "The model judge"; `src/judge.ts`) on the same reference set: the 20 public home pages A to T
+above and the fixture with `?deep=1&judge=1` (X), which adds the judge's cases to the deliberate bugs: a "Start free
+trial" link drawn as a white button with a white-to-near-white gradient, whose text is dark in the light scheme and
+white in the dark scheme (white on white there); grey text over a busy image; and two controls, bold white text over the
+same image under a dark overlay (readable) and, from pass 3, a paragraph coloured by a CSS variable defined nowhere,
+which the visual checks report but which reads normally. The measured checks abstain on the first three (a gradient, an
+image). 2026-10-14, the test copy, Chrome 128 in Browser Rendering, `@cf/cloudflare/clef` on Workers AI, report version 7.
+Three passes, one site at a time, 20 s apart, through the public `POST /api/scan` of the test copy, the test copy's
+cached reports deleted before each pass; and 6 fixture scans while building.
+
+## How the judge's work was checked
+
+Every finding the judge made and every measured finding it judged (kept, or listed as probably fine) was checked by
+looking at the crop the model saw, and where the crop and the view's screenshot disagreed, at the screenshot too. A
+finding the model made counts as right when the crop shows a problem a visitor would have (text they cannot read, a
+control they cannot see or use), and a measured finding it kept or listed as fine counts as right when the crop agrees
+with that. From pass 2 the test copy kept every crop and every call's text (`JUDGE_CROPS=all`), so elements below the
+thresholds could be looked at too, and every crop was asked again with the other prompt through the evaluation's private
+worker (the same model; `vision/clef/worker`), so the two prompts were compared on the same inputs.
+
+## Pass 1: every element with the facts and the caution (`clef-img-p3`), keep 0.9777, own findings 0.9843
+
+21 scans, 297 calls, all answered within 4 s. The model made 4 findings: three on site N (two buttons and a heading over
+photos, further down the page) and the fixture's readable control text. All 4 were wrong: N's crops were blank where the
+view's screenshot shows the buttons and heading clearly, and the fixture's crop for the readable text showed the faint
+sentence instead. It kept the fixture's faint text (1.08:1), the right decision, but on the crop of the readable text.
+
+The cause was the scanner's: the crops of one group were captured with concurrent `Page.captureScreenshot` calls, and
+Chrome applied the clips across requests (the fixture's two crops came back exactly swapped, 121 px apart). Every
+judgement of pass 1 on a group of more than one element is therefore void.
+
+| # | change | why |
+|---|---|---|
+| 1 | crops are captured one at a time, each call sent as soon as its crop is taken; a test checks that no two captures overlap | the swapped crops above |
+| 2 | a group waits (at most 0.6 s) until no finite animation runs on its elements or their ancestors before it is measured and cropped | a precaution for pages that fade content in as it scrolls into view; first written as "first screen only" from N's blank crops, withdrawn when those turned out to be swapped crops |
+
+## Pass 2: the same prompt, crops one at a time, every crop kept
+
+21 scans, 309 calls, all answered within 4 s. With the facts and the caution the model made no finding of its own, on
+any page, and kept the fixture's faint text in both phone views (right: the crop shows white text on white). It listed
+nothing as probably fine: on the public pages the visual checks reported only one sideways-scrolling page and one layout
+shift, which the judge leaves as measured, so the second stage had only the fixture to work on.
+
+It missed both of the fixture's deliberate bugs it was meant to find: the white-on-white button in the dark view scored
+0.75 and the text over the busy image 0.94 to 0.96 (the threshold is 0.9843). The button's facts say why: its own
+background is a transparent gradient, so the ancestor background is the dark section around it, and the facts report a
+contrast of 17.6:1 for text the crop shows as white on white. For an element the measured checks abstain on, the facts
+are exactly the measurements they could not make.
+
+Asked again with the evaluation's image + tag only prompt (`clef-imgonly-p2`), at that prompt's own dev threshold for
+precision at least 0.8 (0.9757), the same crops gave 4 findings: the fixture's dark button (0.984) and busy-image text
+(0.976), both right; an email field's placeholder "you@example.com" in the fixture's dark view, which the model called a
+leak (wrong: a placeholder in an empty field), and a header link on site G whose image is the site's name in faint grey
+(wrong by the scanner's own rule: WCAG 1.4.3 exempts logotypes, and axe-core's `color-contrast` here leaves them out).
+The highest-scored public elements under it, readable links on site C, scored 0.959 to 0.974, under the threshold.
+
+On the evaluation's labelled crops the same comparison, for the crops no rule had flagged (the judge's own findings are
+of that kind), favours image + tag only on the dev split (AP 0.129 against 0.120, 6 real) and on the report split (0.420
+against 0.207; at the thresholds above, 5 of 5 right against 1 of 3). A third prompt, the facts without the contrast
+sentences whose background is unknown, was also run on the labelled crops (300 prompts change) and rejected: dev AP 0.450
+against 0.488.
+
+| # | change | why |
+|---|---|---|
+| 3 | elements the measured checks abstain on are asked with the image and the tag only (`clef-imgonly-p2`); their findings start at 0.9757, that prompt's lowest dev threshold with precision at least 0.8 (4 of 4 on dev; 32 of 36 on the report split). Measured findings keep `clef-img-p3` and 0.9777 | the fixture's two misses above, and the evaluation's numbers for crops no rule had flagged |
+| 4 | the dark view's class is buttons and links, as specified, not form fields | the placeholder read as a leak |
+| 5 | an element whose text, or image alt or label, is only the site's own name is not asked about | the logotype on G |
+
+No change was made to the keep threshold, to the questions or to the facts prompt itself.
+
+PASS3_PLACEHOLDER

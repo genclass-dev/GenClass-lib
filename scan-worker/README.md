@@ -300,8 +300,9 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   axe-core's `color-contrast` here), and nothing inside or around an element already chosen.
 - **The cap.** At most 40 calls a scan (`JUDGE_MAX_CALLS`), the findings first. Each view is guaranteed its share, 14 for
   the desktop and 13 for each phone view (`JUDGE_SHARE`), and may also take what the views that asked before it left
-  (`JudgeBudget`: in calibration the light views mostly had few elements to ask about, the dark phone always more than
-  its 13). All of a view's calls are sent at once; each answer counts only when it comes within
+  (`JudgeBudget`: in calibration the desktop asked about 0 to 14 elements, the light phone 0 to 7, the dark phone up to
+  23 when the views before it left room). A view's calls go out one by one as its crops are taken; each answer counts
+  only when it comes within
   4 s (`JUDGE_TIMEOUT_MS`) of being sent; the scan waits for the stragglers only as long as its budget allows. A call that
   throws, answers late or answers malformed data (only the questions' own options, probabilities in [0, 1]) leaves the
   finding as measured, and the report counts it.

@@ -1226,7 +1226,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           );
         }
       }
-      if (sent < chosen) view.notes.push(`The model judge (Clef) ran out of its time in this view: ${sent} of the ${chosen} elements chosen were sent to it.`);
+      if (sent < chosen) view.notes.push(`The model judge (Clef) ran out of its time in this view: ${sent} of the ${chosen} elements chosen ${sent === 1 ? "was" : "were"} sent to it; what it did not see stands as measured.`);
     } catch (e) {
       view.notes.push(`The model judge (Clef) did not run in this view (${cutText(e instanceof Error ? e.message : String(e), 100)}), so the findings here stand as measured.`);
     } finally {
