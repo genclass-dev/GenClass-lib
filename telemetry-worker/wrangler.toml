@@ -32,6 +32,11 @@ routes = [
 [vars]
 RUNTIME_ON_NPM = "0.2.2"
 
+# Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET and
+# STRIPE_WEBHOOK_SECRET_TEST (scripts/stripe-setup.mjs stores the one for its key's mode), STRIPE_TEST_ACCOUNTS (who
+# can buy while the key is a test key), INTEGRATIONS_KEY (32 random bytes, base64) and, optionally, NOTIFY_WEBHOOK.
+# Without a live STRIPE_SECRET_KEY nothing is on sale to the public and the Free plan's limits do not apply.
+
 [observability]
 enabled = false
 
@@ -71,6 +76,12 @@ simple = { limit = 30, period = 60 }
 name = "AUTH_LIMIT"
 namespace_id = "7302"
 simple = { limit = 20, period = 60 }
+
+# Export pages (src/billing.ts): 120 per 60 s per account (the key is a hash of the account id).
+[[ratelimits]]
+name = "EXPORT_LIMIT"
+namespace_id = "7303"
+simple = { limit = 120, period = 60 }
 
 # Read-only use of the site worker: unknown genclass.dev/start* and /dashboard* paths are handed to it unchanged.
 [[services]]

@@ -460,12 +460,12 @@ const DASH_JS = `
   var secret = location.pathname.split("/").filter(Boolean)[1] || "";
   var statsUrl = P.statsUrl || ("/api/projects/" + encodeURIComponent(secret));
   var range = "7d";
-  try { var saved = localStorage.getItem("gc.dash.range"); if (saved === "24h" || saved === "7d" || saved === "30d") range = saved; } catch (e) {}
+  try { var saved = localStorage.getItem("gc.dash.range"); if (/^(24h|7d|30d|90d|1y)$/.test(saved || "") && document.querySelector('.seg button[data-r="' + saved + '"]')) range = saved; } catch (e) {}
   var nf = new Intl.NumberFormat();
   function fmt(n){ return nf.format(Math.round(n || 0)); }
   function plural(n, one, many){ return fmt(n) + " " + (Math.round(n) === 1 ? one : many); }
-  var RANGE = { "24h": "In the last 24 hours", "7d": "In the last 7 days", "30d": "In the last 30 days" };
-  var PREV = { "24h": "the 24 hours before", "7d": "the previous 7 days", "30d": "the previous 30 days" };
+  var RANGE = { "24h": "In the last 24 hours", "7d": "In the last 7 days", "30d": "In the last 30 days", "90d": "In the last 90 days", "1y": "In the last year" };
+  var PREV = { "24h": "the 24 hours before", "7d": "the previous 7 days", "30d": "the previous 30 days", "90d": "the previous 90 days", "1y": "the year before" };
   var TYPES = {
     duplicate: { name: "Double submits", c: "--t1",
       what: "The same request was sent again with no new intent behind it. Usually a second click on a button that stays enabled while the first request is still running.",
@@ -858,6 +858,26 @@ export interface DashboardOptions {
   privateLink?: boolean;
   /** Whether the @genclass/runtime on npm reads project keys (0.3.0 or later); until then the panel says so first. */
   runtimeReady?: boolean;
+  /** Account mode: the time ranges the account's plan shows (src/plans.ts); default 24 h, 7 and 30 days. */
+  ranges?: string[];
+  /** Account mode: how many days the plan keeps this app's data (the footer says it); default 90. */
+  keepDays?: number;
+  /** Account mode: plan-dependent sections (forwarding, export; src/billing-pages.ts) and their script. */
+  extra?: { html: string; script: string };
+}
+
+const RANGE_LABELS: Record<string, string> = { "24h": "24 h", "7d": "7 days", "30d": "30 days", "90d": "90 days", "1y": "1 year" };
+/** Short labels when a plan shows more than three ranges (five buttons fit the sidebar only this way). */
+const RANGE_SHORT: Record<string, string> = { "24h": "24h", "7d": "7d", "30d": "30d", "90d": "90d", "1y": "1y" };
+
+function rangeButtons(ranges: string[]): string {
+  const short = ranges.length > 3;
+  return ranges
+    .map((r) => {
+      const label = esc(RANGE_LABELS[r] ?? r);
+      return `<button type="button" data-r="${esc(r)}" aria-pressed="${r === "7d"}"${short ? ` aria-label="${label}" title="${label}">${esc(RANGE_SHORT[r] ?? r)}` : `>${label}`}</button>`;
+    })
+    .join("");
 }
 
 /** More apps than this and the sidebar lists only the current one, with a link to all of them. */
@@ -925,7 +945,7 @@ export function dashboardPage(
     ? `<div class="grp">Your apps</div>
   <nav class="apps" aria-label="Your apps">${appLinks}<a class="new" href="/account#new-app">New app</a></nav>
   <div class="grp">Account</div>
-  <div class="out"><a href="/account">Account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>`
+  <div class="out"><a href="/account">Account</a><a href="/account/billing">Plan and billing</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>`
     : "";
   const setup = acct
     ? ""
@@ -943,7 +963,7 @@ export function dashboardPage(
   // Account mode: Connect has its own group; while the app waits for its first event the range control and the section
   // links (which point into the hidden stats) stay hidden, and render() shows them when data arrives.
   const sections = `<div class="seg" role="group" aria-label="Time range">
-    <button type="button" data-r="24h" aria-pressed="false">24 h</button><button type="button" data-r="7d" aria-pressed="true">7 days</button><button type="button" data-r="30d" aria-pressed="false">30 days</button>
+    ${rangeButtons(opts.ranges ?? ["24h", "7d", "30d"])}
   </div>
   <div class="grp">This period</div>
   <nav class="snav" id="snav" aria-label="Sections">
@@ -1022,15 +1042,16 @@ Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts 
 <section class="blk"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 </div>
 ${setup}
+${opts.extra?.html ?? ""}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
-decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept 90 days (hourly detail 48 hours). ${privacy}</footer>
+decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
 </div>
 </div>`;
   return shell(
     nonce,
     `${project.name} | GenClass dashboard`,
     body,
-    acct ? DASH_JS + CONNECT_JS : DASH_JS,
+    acct ? DASH_JS + CONNECT_JS + (opts.extra?.script ?? "") : DASH_JS,
     acct ? { nav: SIGNED_IN_NAV, account: true, skip: "mc" } : { skip: "mc" },
   );
 }
