@@ -293,7 +293,7 @@ The daily cron also deletes expired challenges and device codes and expired or r
 |---|---|---|---|
 | `AUTH_ORIGIN` | var | `https://genclass.dev` | expected `Origin`, WebAuthn origin, OAuth redirect URIs, cookie `Secure` |
 | `AUTH_RP_ID` | var | `genclass.dev` | WebAuthn RP ID |
-| `RUNTIME_ON_NPM` | var (wrangler.toml) | `0.2.2` | the newest `@genclass/runtime` on npm; below `0.3.0` the Connect panel says first that keys and `login` are not published yet. Set it to `0.3.0` when release.yml publishes 0.3.0, then deploy |
+| `RUNTIME_ON_NPM` | var (wrangler.toml) | `0.2.2` | the newest `@genclass/runtime` on npm, on any dist-tag; below `0.3.0-beta.0` the Connect panel, `/start` and private dashboards say first that keys and `login` are not published yet. Set it to `0.3.0-beta.0` once release.yml has published the beta and jsDelivr serves it, then deploy; at `0.3.0`, set it with `src/pages.ts` `SNIPPET_RUNTIME` and `RUNTIME_PKG` (the snippets pin the script tag to `SNIPPET_RUNTIME` and name the `@beta` dist-tag in their commands while it is a prerelease) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secret | unset | Google sign-in; both needed |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | secret | unset | GitHub sign-in; both needed |
 

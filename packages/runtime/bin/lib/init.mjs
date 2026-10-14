@@ -774,7 +774,8 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
     out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
     out(`  ${c.gray(`In your GenClass account (${accountLabel(tk.account?.account)}): sign in at genclass.dev to open it.`)}`);
     out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
-    out(`  ${c.gray("networks) never send, and visitors who opt out or send Global Privacy Control are not counted.")}`);
+    out(`  ${c.gray("networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send")}`);
+    out(`  ${c.gray("Global Privacy Control are not counted.")}`);
     out();
     return;
   }
@@ -787,7 +788,8 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
   if (tk.created && saved && !saved.error) out(`  ${c.gray(`Saved in ${LOCAL_FILE}${SAVED_WHERE[saved.gitignore] ?? ""}.`)}`);
   else if (tk.local) out(`  ${c.gray(`(from ${LOCAL_FILE})`)}`);
   out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
-  out(`  ${c.gray("networks) never send, and visitors who opt out or send Global Privacy Control are not counted.")}`);
+  out(`  ${c.gray("networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send")}`);
+  out(`  ${c.gray("Global Privacy Control are not counted.")}`);
   out();
 }
 

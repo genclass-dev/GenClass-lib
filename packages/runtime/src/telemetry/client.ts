@@ -58,8 +58,17 @@ export interface TelemetrySessionInfo {
 
 const r4 = (n: unknown): number | undefined => (typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : undefined);
 const cut = (s: unknown, n: number): string | undefined => (typeof s === "string" ? (s.length > n ? s.slice(0, n) : s) : undefined);
-/** URLs in browser error text are not sent (a Worker constructor's SecurityError names the script and the page origin). */
+/**
+ * URLs in error text are not sent: a Worker constructor's SecurityError names the script and the page origin, and the
+ * model host's own messages (ModelNotReadyError, a failed attempt) can quote that text. Applied to `workerError`,
+ * `error` and `attempts[].error` on `model` events and to `model-error` messages.
+ */
 const noUrls = (s: unknown): unknown => (typeof s === "string" ? s.replace(/\b(?:[a-z][a-z0-9+.-]*:\/\/|(?:blob|data):[a-z])[^\s'"`<>]*/gi, "<url>") : s);
+/**
+ * A path segment holding an `@` (raw or `%40`: an e-mail address, a handle) is sent as `:id`, as sink records do
+ * (runtime.ts toSinkRecord); normalizePath (util.ts, model-visible and frozen) only replaces id-like segments.
+ */
+const noEmails = (p: string): string => p.replace(/[^/]*(?:@|%40)[^/]*/gi, ":id");
 
 /** An e-mail address, a URL, a run of 4+ digits (ids, phone or card numbers) or 12+ hex digits (a UUID, a hash). */
 const DATA_LIKE = /[^\s@]+@[^\s@]+\.[^\s@]+|\b(?:https?:\/\/|www\.)|\d{4,}|\b[0-9a-f]{12,}\b/i;
@@ -208,11 +217,14 @@ export class TelemetryClient implements TelemetryStatus {
     this.arm();
   }
 
-  /** `at`, else the page's path now, normalised; a deferred decision's is the path at its trigger (decisionInfo). */
+  /**
+   * `at`, else the page's path now, normalised (id-like segments and segments with an `@` as `:id`); a deferred
+   * decision's is the path at its trigger (decisionInfo).
+   */
   private route(at?: string): string | undefined {
     try {
       const p = at ?? (this.g.location as { pathname?: unknown } | undefined)?.pathname;
-      return typeof p === "string" ? cut(normalizePath(p), 200) : undefined;
+      return typeof p === "string" ? cut(noEmails(normalizePath(p)), 200) : undefined;
     } catch {
       return undefined;
     }
@@ -319,8 +331,8 @@ export class TelemetryClient implements TelemetryStatus {
       bytes: s.bytes,
       phase: s.phase,
       reason: cut(s.reason, 120),
-      error: cut(s.error, 200),
-      attempts: Array.isArray(s.attempts) ? s.attempts.slice(0, 6).map((a) => ({ variant: cut(a.variant, 80), device: cut(a.device, 16), error: cut(a.error, 160) })) : undefined,
+      error: cut(noUrls(s.error), 200),
+      attempts: Array.isArray(s.attempts) ? s.attempts.slice(0, 6).map((a) => ({ variant: cut(a.variant, 80), device: cut(a.device, 16), error: cut(noUrls(a.error), 160) })) : undefined,
     });
   }
 
@@ -485,7 +497,7 @@ export class TelemetryClient implements TelemetryStatus {
         const err = e as { code?: unknown; name?: unknown; message?: unknown } | null;
         const code = cut(typeof err?.code === "string" ? err.code : typeof err?.name === "string" ? err.name : "error", 40) ?? "error";
         inc(this.c.modelErrors, code);
-        if (this.errorEvents++ < MAX_ERROR_EVENTS) this.push({ t: "model-error", code, message: cut(typeof err?.message === "string" ? err.message : String(e), 200) });
+        if (this.errorEvents++ < MAX_ERROR_EVENTS) this.push({ t: "model-error", code, message: cut(noUrls(typeof err?.message === "string" ? err.message : String(e)), 200) });
       },
       failOpen: (reason, trigger) => {
         try {

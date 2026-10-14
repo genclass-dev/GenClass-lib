@@ -17,14 +17,16 @@ One line, first in `<head>` or first in your entry file:
 ```
 
 ```ts
-import "@genclass/runtime/auto"; // after npm install @genclass/runtime
+import "@genclass/runtime/auto"; // after npm install @genclass/runtime@beta
 ```
 
 Pin the version in the script tag, as above: the unversioned URL may serve an older release from the CDN cache.
+While `0.3.0` is in beta, `@beta` is part of every npm and npx command here: without it npm installs the stable
+`0.2.x`, whose CLI has no `login`, `connect`, `whoami`, `logout` or `--sink` and whose runtime ignores a token.
 
 That covers the whole app: network, user actions, errors, timing, and the app's state (React component state,
 Redux / Redux Toolkit and Zustand `devtools` stores are discovered automatically; discovered React and Zustand state
-is observed only). Observe mode by default: it reports only. `npx @genclass/runtime init` writes the line for you;
+is observed only). Observe mode by default: it reports only. `npx @genclass/runtime@beta init` writes the line for you;
 `GenClass.init()` is the explicit setup ([package README](packages/runtime/README.md#automatic-state-discovery)).
 
 GenClass Runtime records what the app does: user actions, async operations and their causal chains, network
@@ -44,8 +46,8 @@ Pick one; all of them start the same runtime in observe mode unless you choose o
 `init` flags, page configuration and the script-tag attributes: [package README](packages/runtime/README.md#install).
 
 ```bash
-npx @genclass/runtime init          # finds the framework, adds the import, shows the diff first
-npm install @genclass/runtime       # then: import "@genclass/runtime/auto" (or GenClass.init())
+npx @genclass/runtime@beta init     # finds the framework, adds the import, shows the diff first
+npm install @genclass/runtime@beta  # then: import "@genclass/runtime/auto" (or GenClass.init())
 ```
 
 The package is **ESM only** (no `require`). Jest users need `transformIgnorePatterns` that lets
@@ -85,7 +87,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 - **Token and dashboard.** A token (`gc_` plus 22 letters and digits, public) groups your app's diagnostics under a
   private dashboard link (`https://genclass.dev/dashboard/...`; whoever holds the link sees the stats). Get one at
   [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. Or keep the
-  dashboards in an optional genclass.dev account: `npx @genclass/runtime login` signs in from the terminal (device
+  dashboards in an optional genclass.dev account: `npx @genclass/runtime@beta login` signs in from the terminal (device
   flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
   dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`,
   private networks) do not send by default; `telemetry: true` or any telemetry options object (`telemetry: { ... }`)
@@ -140,7 +142,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 > text it reads (`situation-v2.3`) are the same as in 0.2.x; the numbers below were measured with them.
 >
 > - **Runtime:** works and is unit-tested (situation format tag `situation-v2.3`). Install with
->   `npx @genclass/runtime init`, one import (`@genclass/runtime/auto`) or one script tag.
+>   `npx @genclass/runtime@beta init`, one import (`@genclass/runtime/auto`) or one script tag.
 > - **Default mode** is `observe`: the model diagnoses salient situations and the runtime reports likely problems,
 >   without changing what the app does (it never holds or delays a response). `guard` is opt-in; `heal` is
 >   experimental.
@@ -171,7 +173,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
-- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path (from `0.3.0` a segment with an `@`, such as an e-mail address, is `:id` too), and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries

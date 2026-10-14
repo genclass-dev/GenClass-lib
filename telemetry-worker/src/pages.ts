@@ -4,7 +4,22 @@
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
-export const CDN_SCRIPT = "https://cdn.jsdelivr.net/npm/@genclass/runtime";
+/** The first @genclass/runtime that reads project keys (tokens) and has `login`; earlier versions ignore a key. */
+export const KEY_RUNTIME = "0.3.0-beta.0";
+/**
+ * The runtime the snippets install, pinned in the script tag: the unversioned jsDelivr URL serves npm's `latest`
+ * (0.2.x until 0.3.0, which ignores a key) and may serve an older release from the CDN cache. While it is a
+ * prerelease, the npm and npx commands name its dist-tag (`@beta`): without it they install `latest`. At 0.3.0 set
+ * SNIPPET_RUNTIME to "0.3.0" and RUNTIME_PKG to "@genclass/runtime" (and RUNTIME_ON_NPM in wrangler.toml), then deploy.
+ */
+export const SNIPPET_RUNTIME = "0.3.0-beta.0";
+export const RUNTIME_PKG = "@genclass/runtime@beta";
+export const CDN_SCRIPT = `https://cdn.jsdelivr.net/npm/@genclass/runtime@${SNIPPET_RUNTIME}`;
+/** What local and private hosts do, as the runtime behaves (src/telemetry/config.ts) and PRIVACY.md says. */
+const LOCAL_HOSTS =
+  "Local hosts (localhost, *.local, *.test and private networks) do not send by default, token or not; telemetry: true or a telemetry options object opts them in.";
+/** Said first while the runtime that reads keys is not on npm yet (RUNTIME_ON_NPM, auth.ts runtimeHasTokens). */
+const NOT_ON_NPM = `<b>Not on npm yet.</b> Project keys ship in @genclass/runtime ${KEY_RUNTIME} (npm dist-tag <code>beta</code>), which is not published yet: until it is, the script tag below does not load, <code>npx ${RUNTIME_PKG}</code> fails and 0.2.x ignores the key.`;
 
 /**
  * Headers for every HTML page. `account: true` (the account pages) allows same-origin form posts (the sign-out form)
@@ -136,12 +151,12 @@ function snippets(tok){
   return [
     ["Easy: one script tag", "Paste into your HTML. GenClass starts itself and protects the whole app.",
      '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
-    ["Easy: with a bundler", "A meta tag plus one import (npm i @genclass/runtime).",
+    ["Easy: with a bundler", "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
      '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
     ["Function-specific", "Protect only the functions you choose; the dashboard shows each by name.",
      'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions" });\\nconst save = protect("saveCart", saveCartImpl);'],
     ["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
-     'npx @genclass/runtime init']
+     'npx ${RUNTIME_PKG} init']
   ];
 }
 function gcSelect(node){
@@ -222,7 +237,8 @@ export const SIGNED_IN_NAV =
 
 // ------------------------------------------------------------------------------------------------- /start
 
-export function startPage(nonce: string): string {
+export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}): string {
+  const notYet = opts.runtimeReady === true ? "" : `<p class="note small" id="notyet">${NOT_ON_NPM}</p>`;
   const body = `
 <section class="stack mt-xl">
   <h1>Get a token for your web app</h1>
@@ -250,7 +266,7 @@ export function startPage(nonce: string): string {
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
     <div class="row"><a id="open" class="btn" href="#">Open dashboard</a></div>
   </div>
-  <div class="card stack"><h2 class="h2l">Install</h2><p class="muted small">The token needs @genclass/runtime 0.3.0 or later; earlier versions ignore it. Local hosts (localhost, *.local, *.test and private networks) never send anything, token or not, unless you pass telemetry: true.</p><div id="snips" class="stack"></div></div>
+  <div class="card stack"><h2 class="h2l">Install</h2>${notYet}<p class="muted small">The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier versions ignore it. ${LOCAL_HOSTS}</p><div id="snips" class="stack"></div></div>
 </section>
 <footer>Dashboards show counts only (never the situation text) and keep data for 90 days.
 See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">privacy</a> and
@@ -955,7 +971,10 @@ export interface DashboardOptions {
   firstEvent?: string | null;
   /** Account mode: whether the app's private dashboard link still opens these stats (the footer says so). */
   privateLink?: boolean;
-  /** Whether the @genclass/runtime on npm reads project keys (0.3.0 or later); until then the panel says so first. */
+  /**
+   * Whether a @genclass/runtime that reads project keys (KEY_RUNTIME or later, any dist-tag) is on npm (RUNTIME_ON_NPM);
+   * until then the Connect panel, and the setup notes of a private-link dashboard, say so first.
+   */
   runtimeReady?: boolean;
 }
 
@@ -972,11 +991,9 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
     const id = `csnip${++n}`;
     return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
   };
-  const notYet = runtimeReady
-    ? ""
-    : `<p class="cnote" id="cnote"><b>Not on npm yet.</b> Project keys and <code>login</code> ship in @genclass/runtime 0.3.0, the next release. Until it is published, <code>npx @genclass/runtime login</code> stops with "unknown command" and 0.2.x does not send this key, so this line keeps waiting.</p>`;
+  const notYet = runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
   return `<section class="connect${connected ? " hidden" : ""}" id="connect" aria-labelledby="connect-h">
-  <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime 0.3.0 or later</span></div>
+  <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime ${KEY_RUNTIME} or later</span></div>
   ${notYet}
   <div class="keyrow">
     <div class="k">Project API key</div>
@@ -988,7 +1005,7 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
     <div class="way">
       <div class="eb">1 · Run in your project</div>
       <h3>Sign in from the terminal</h3>
-      ${snip("In the app's folder", "the login command", "npx @genclass/runtime login")}
+      ${snip("In the app's folder", "the login command", `npx ${RUNTIME_PKG} login`)}
       <p>Signs you in and connects the app in that folder: you pick this app, it shows the change to your files, and writes the key after you agree.</p>
     </div>
     <div class="way">
@@ -999,8 +1016,8 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
       ${snip("Meta tag, with a bundler", "the meta tag", meta)}
     </div>
   </div>
-  <p class="fine">The key needs @genclass/runtime 0.3.0 or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
-  Local hosts (localhost, *.local, *.test, private networks) do not send by default, even with a key, so the first event comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
+  <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
+  Local hosts (localhost, *.local, *.test, private networks) do not send by default, even with a key (telemetry: true or a telemetry options object opts them in), so the first event usually comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
 </section>`;
 }
 
@@ -1030,7 +1047,8 @@ export function dashboardPage(
     ? ""
     : `<section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
   <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
-  <p class="muted small mt-s">The token needs @genclass/runtime 0.3.0 or later. Local hosts never send anything unless you pass telemetry: true.</p>
+  ${opts.runtimeReady === true ? "" : `<p class="note small mt-s">${NOT_ON_NPM}</p>`}
+  <p class="muted small mt-s">The token needs @genclass/runtime ${KEY_RUNTIME} or later. ${LOCAL_HOSTS}</p>
   <div id="snips" class="stack mt-s"></div></details></section>`;
   const report = '<a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a>';
   const privacy = acct
@@ -1088,9 +1106,8 @@ export function dashboardPage(
 </section>
 ${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
 <section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
-Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime 0.3.0 or later; earlier
-versions ignore it. Local hosts (localhost, *.local, *.test and private networks) never send anything, token or not,
-unless you pass telemetry: true; your deployed site does.</p></section>
+Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
+versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
 <div id="content" class="hidden">
 <div class="statrow" id="tiles"></div>
 <section class="blk" id="trend">

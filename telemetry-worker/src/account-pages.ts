@@ -4,7 +4,7 @@
 // textContent. Every page is served under a per-response CSP nonce with form-action 'self' (for the sign-out form).
 // Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
-import { DASH_CSS, embed, esc, LOGO, shell, SIGNED_IN_NAV } from "./pages.js";
+import { DASH_CSS, embed, esc, LOGO, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
 
 // --------------------------------------------------------------------------------------------- styles, icons
 
@@ -239,7 +239,7 @@ export function signupPage(nonce: string, o: AuthPageOptions): string {
   const providers = providerButtons(o, o.next);
   const inner = `
 <h1>Create your GenClass account</h1>
-<p class="lead">Your account keeps your apps' dashboards in one place, and lets <code>npx @genclass/runtime login</code> connect an app for you.</p>
+<p class="lead">Your account keeps your apps' dashboards in one place, and lets <code>npx ${RUNTIME_PKG} login</code> connect an app for you.</p>
 <div class="ways">
 ${providers}
 ${providers ? '<div class="or">or with a passkey</div>' : ""}
@@ -329,7 +329,7 @@ export interface DeviceView {
   providers: { google: boolean; github: boolean };
 }
 
-const RUN = "<code>npx @genclass/runtime login</code>";
+const RUN = `<code>npx ${RUNTIME_PKG} login</code>`;
 
 export function devicePage(nonce: string, v: DeviceView): string {
   const entry = `
@@ -407,7 +407,7 @@ ${providers}
     ["caution", "scope"].forEach(function(id){ document.getElementById(id).classList.add("hidden"); });
     done.classList.remove("hidden"); done.textContent = text;
   }
-  function gone(){ finish("This code is no longer valid", "It expired or was already used. Run npx @genclass/runtime login again for a new code."); }
+  function gone(){ finish("This code is no longer valid", "It expired or was already used. Run npx ${RUNTIME_PKG} login again for a new code."); }
   var left = Date.parse(cfg.expires) - Date.now();
   if (left > 0 && left < 3600000) timer = setTimeout(gone, left);
   function answer(ok){
@@ -506,7 +506,7 @@ ${rows.map((s, i) => sessionRow(s, kind, i)).join("\n")}
 </tbody></table></div>`;
   const cli = v.cli.length
     ? sessions(v.cli, "cli")
-    : '<p class="quiet">No terminal is signed in. Run <code>npx @genclass/runtime login</code> in a project folder to sign one in.</p>';
+    : `<p class="quiet">No terminal is signed in. Run <code>npx ${RUNTIME_PKG} login</code> in a project folder to sign one in.</p>`;
   const others = v.web.filter((s) => !s.current).length + v.cli.length;
 
   const body = `
@@ -537,7 +537,7 @@ ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.k
   <p class="err" id="linkerr" role="alert"></p>
 </section>
 <section class="blk" id="claim">
-  <div class="blk-h"><h2>Add an existing dashboard</h2><span class="aside">From genclass.dev/start or <code>npx @genclass/runtime init</code></span></div>
+  <div class="blk-h"><h2>Add an existing dashboard</h2><span class="aside">From genclass.dev/start or <code>npx ${RUNTIME_PKG} init</code></span></div>
   <p class="intro">Paste the app's private dashboard link. The app joins this account and keeps its key, so nothing changes in its code. The link keeps working for anyone who already has it until you turn it off in the table above.</p>
   <form class="acct-form" id="claimf" novalidate>
     <div class="f"><label for="link">Dashboard link</label><input id="link" type="text" autocomplete="off" spellcheck="false" placeholder="https://genclass.dev/dashboard/..."></div>
@@ -559,7 +559,7 @@ ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.k
 <section class="blk" id="sessions">
   <div class="blk-h"><h2>Sessions</h2><span class="aside">Table 3. Browsers signed in to this account</span></div>
   ${sessions(v.web, "web")}
-  <div class="blk-h mt-l" id="cli"><h2>Terminals</h2><span class="aside">Table 4. Signed in with <code>npx @genclass/runtime login</code></span></div>
+  <div class="blk-h mt-l" id="cli"><h2>Terminals</h2><span class="aside">Table 4. Signed in with <code>npx ${RUNTIME_PKG} login</code></span></div>
   ${cli}
   ${others ? '<div class="acct-form"><button class="btn ghost" type="button" id="others"><span>Sign out everywhere else</span></button></div>' : ""}
   <p class="err" id="clierr" role="alert"></p>

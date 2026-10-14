@@ -384,6 +384,61 @@ describe("telemetry: event shapes and the situation text", () => {
     expect(rt.status.workerError).toBe(text);
   });
 
+  it("a model event's error and attempts, and a model-error message, carry no URLs either (the model host's messages quote the worker's)", async () => {
+    const fns = new Set<(s: ModelStatus) => void>();
+    const decider = {
+      status: { state: "loading" } as ModelStatus,
+      ready: () => Promise.resolve(),
+      evaluate: () => Promise.reject(new Error("no model")),
+      onStatus(fn: (s: ModelStatus) => void) {
+        fns.add(fn);
+        return () => fns.delete(fn);
+      },
+    };
+    const { rt, transport } = tsetup({ decider });
+    decider.status = {
+      state: "error",
+      error: "model not ready: the worker failed (SecurityError: Script at 'https://cdn.example/npm/x/worker.js' cannot be accessed from origin 'https://shop.example')",
+      attempts: [{ variant: "q8", device: "wasm", error: "fetch https://cdn.example/npm/m/model.onnx failed" }],
+    } as ModelStatus;
+    for (const f of fns) f(decider.status);
+    await rt.telemetry!.flush();
+    const m = ofType(transport, "model").at(-1)! as Record<string, any>;
+    expect(m.error).toBe("model not ready: the worker failed (SecurityError: Script at '<url>' cannot be accessed from origin '<url>')");
+    expect(m.attempts).toEqual([{ variant: "q8", device: "wasm", error: "fetch <url> failed" }]);
+
+    const { rt: rt2, clock: c2, transport: t2 } = tsetup({
+      triage: "always",
+      script: () => {
+        throw Object.assign(new Error("Model not loaded: Failed to construct 'Worker': Script at 'https://cdn.example/npm/x/worker.js' cannot be accessed from origin 'https://shop.example'."), { code: "not_ready" });
+      },
+    });
+    const b = rt2.atom("b", 1);
+    void rt2.op("w", () => b.set(2));
+    await c2.flush();
+    await rt2.telemetry!.flush();
+    expect(ofType(t2, "model-error")[0]).toMatchObject({ code: "not_ready", message: "Model not loaded: Failed to construct 'Worker': Script at '<url>' cannot be accessed from origin '<url>'." });
+    expect(JSON.stringify(t2.sent)).not.toContain("cdn.example");
+    expect(JSON.stringify(transport.sent)).not.toContain("cdn.example");
+  });
+
+  it("a page path segment holding an e-mail address (raw or %40) is sent as :id, as sink records have it", async () => {
+    const pathname = "/users/alice@example.com/orders/bob%40example.org/42";
+    const { rt, clock, transport } = tsetup({
+      triage: "always",
+      script: defaultScript({ mutation: { diagnosis: "stale", action: "discard" } }),
+      extraGlobal: { location: { href: `https://app.test${pathname}`, pathname, search: "" } },
+    });
+    const a = rt.atom("a", 1);
+    void rt.op("w", () => a.set(2));
+    await clock.flush();
+    await rt.telemetry!.flush();
+    expect(ofType(transport, "session")[0].route).toBe("/users/:id/orders/:id/:id");
+    const [d] = ofType(transport, "decision");
+    expect(d.route).toBe("/users/:id/orders/:id/:id");
+    expect(JSON.stringify(transport.sent)).not.toMatch(/alice|bob|example\.(com|org)/);
+  });
+
   it("telemetry never changes what the model sees", async () => {
     const run = async (telemetry: boolean) => {
       const s = telemetry ? tsetup({ triage: "always" }) : setup({ triage: "always" });

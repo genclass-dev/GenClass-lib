@@ -693,16 +693,23 @@ describe("dashboard counts (display fixes)", () => {
     expect(s.recent).toMatchObject([{ kind: "acted", diagnosis: "duplicate", confidence: 0.91 }]);
   });
 
-  it("/start and the empty dashboard say local hosts send nothing without telemetry: true and the token needs 0.3.0", async () => {
+  it("/start and the empty dashboard say local hosts do not send by default and the token needs 0.3.0-beta.0", async () => {
     const { env } = setup();
     const start = await (await handle(new Request("https://genclass.dev/start"), env, opts)).text();
     const { json } = await create(env);
     const dash = await (await handle(new Request(json.dashboardUrl), env, opts)).text();
     for (const html of [start, dash]) {
-      expect(html).toContain("needs @genclass/runtime 0.3.0 or later");
-      expect(html).toContain("unless you pass telemetry: true");
+      expect(html).toContain("needs @genclass/runtime 0.3.0-beta.0 or later");
+      expect(html).toContain("do not send by default, token or not; telemetry: true or a telemetry options object opts them in");
       expect(html).not.toContain("only send data with an explicit token");
+      // RUNTIME_ON_NPM unset: the runtime that reads keys is not on npm yet, and the pages say so first
+      expect(html).toContain("Not on npm yet.");
     }
+    const { env: ready } = setup();
+    ready.RUNTIME_ON_NPM = "0.3.0-beta.0";
+    expect(await (await handle(new Request("https://genclass.dev/start"), ready, opts)).text()).not.toContain("Not on npm yet.");
+    const made = await create(ready);
+    expect(await (await handle(new Request(made.json.dashboardUrl), ready, opts)).text()).not.toContain("Not on npm yet.");
   });
 });
 

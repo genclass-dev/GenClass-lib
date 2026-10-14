@@ -36,7 +36,8 @@ When it is on, the console shows one notice per page:
 
 Only data the runtime already computes for its own decisions. **By default, no text from the page is sent:**
 decision events carry the trigger kind, the diagnosis and its confidence, the chosen action, the gate, the outcome,
-latency and counts, plus the app's hostname and the id-normalised route (no query or fragment).
+latency and counts, plus the app's hostname and the id-normalised route (no query or fragment; from 0.3.0 a path
+segment holding an `@`, such as an e-mail address, is `:id` too).
 
 - **The situation text the model read is sent only with `include: { situation: true }`** (default off since
   `0.2.1`). It is the text exactly as built for the model, after the redactor (`InitOptions.redact`, default:
@@ -75,15 +76,15 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 
 | `t` | when | fields |
 |---|---|---|
-| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included). Not the page's `decisionSample` or `maxDecisions` setting: `summary.telemetry` says how many records were sent and withheld ([Volume](#volume)) |
-| `model` | model state changes, and once right after `session` when the model was skipped or failed before telemetry started (the device floor: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`) | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError` (why the model worker was not used, URLs replaced by `<url>`), `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars), `attempts` |
+| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, and from 0.3.0 any segment holding an `@` or `%40`, such as an e-mail address; no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included). Not the page's `decisionSample` or `maxDecisions` setting: `summary.telemetry` says how many records were sent and withheld ([Volume](#volume)) |
+| `model` | model state changes, and once right after `session` when the model was skipped or failed before telemetry started (the device floor: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`; with `model.inlineFallback: false` and no worker, `reason` `worker-unavailable`) | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError` (why the model worker was not used, URLs replaced by `<url>`), `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars, URLs replaced by `<url>`), `attempts` (variant, device and error per load attempt, URLs replaced by `<url>`) |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
 | `decision` | a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted or was vetoed, always; a `decisionSample` share (default 1 in 4) of the routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route` (the page path, normalised; for a decision deferred until the model loaded or the tab was visible again, 0.3.0, the path at its trigger), `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
-| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record; since 0.3.0 also observe's "possible" ones (`InitOptions.detect`: below the report gate, at or above the eager profile's report value) | `decision`, `trigger`, `diagnosis`, `p`, `tier` (0.3.0: `"possible"` on a possible detection; absent on a likely one, as from earlier runtimes. It follows from `p` and the decision record's `gates.report`, which are already sent, except for a decision deferred until the model loaded or the tab was visible again, which is `"possible"` whatever its `p` until the false-report rate of those late decisions is measured) |
+| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record; since 0.3.0 also observe's "possible" ones (`InitOptions.detect`: below the report gate, at or above the eager profile's report value) | `decision`, `trigger`, `diagnosis`, `p`, `tier` (0.3.0: `"possible"` on a possible detection; absent on a likely one, as from earlier runtimes. It cannot be derived from the decision record: a possible detection is one whose `p` is below `gates.report` and at least the eager profile's report value (`gates().possible`, 0.70 with model 0.2.0), which the record does not carry, so `tier` says which side of that threshold a near-miss fell on. A decision deferred until the model loaded or the tab was visible again is `"possible"` whatever its `p`, until the false-report rate of those late decisions is measured. Nothing about the page) |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
 | `veto` | `onBeforeAction` vetoed an action (every one) | `decision`, `action`, `enforced` |
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
-| `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars) |
+| `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars, URLs replaced by `<url>`: a model host's message can quote the browser's worker error, which names the script and the page origin) |
 | `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart), actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
 
 Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
@@ -119,9 +120,9 @@ by `test/telemetry.test.ts` "an hour at the built-in model's maximum rate": one 
 simulated hour (1,800 decisions from a scripted decider, not the model; situation text off), all bytes of all
 request bodies counted:
 
-| decisions | defaults (`0.3.0-beta.0`, CI run 38471973596) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
+| decisions | defaults (`0.3.0-beta.0`: CI run 38471973596 with the detection tiers, and the release candidate's runs 38485063587 and 38485289326) | `decisionSample: 1, maxDecisions: Infinity` (every record, as in `0.2.2` and earlier) |
 |---|---|---|
-| all routine | 252.2 KB in 167 requests (which routine decisions are sampled follows the random session id: 249.0 to 252.2 KB in the last five runs) | not measured |
+| all routine | 250.9 to 252.2 KB in 157 to 167 requests (which routine decisions are sampled, and so how many requests, follows the random session id) | not measured |
 | every one a detection | 2,068.5 KB in 361 requests: every record (detections are never sampled or capped) | 2,068.5 KB in 361 requests |
 | of which `summary` events | 61 summaries, 40.7 KB (routine) and 42.2 KB (detections) | 61 summaries, 42.2 KB |
 
@@ -262,7 +263,13 @@ the session event names your hostname. Depending on your users and jurisdiction 
   GenClass with `telemetry: false` until consent is given (`GenClass.init()` reads the option once; to switch it on
   later, create the runtime after consent);
 - turn it off (`telemetry: false`) in apps that handle regulated data (health, finance, children's services): a
-  custom `redact` lowers what reaches situation text but does not guarantee that nothing sensitive does.
+  custom `redact` lowers what reaches situation text but does not guarantee that nothing sensitive does;
+- if you add a sink adapter (`@genclass/runtime/sinks/*`, `init --sink`, 0.3.0), disclose that tool too: the
+  Sentry, PostHog, Datadog and webhook adapters send the redacted evidence by default (the console line, subject and
+  timeline, which can hold short fragments of what users typed) to that third party (`evidence: false` or
+  `<name>:noevidence` sends the structured fields only). Sinks are your configuration, not telemetry: the telemetry
+  opt-outs (`telemetry: false`, `?genclass=no-telemetry`, the `localStorage` switch) and Global Privacy Control do
+  not turn them off; `?genclass=off` turns GenClass off altogether.
 
 Privacy policy for this collection: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md). Data processing terms are not published yet
 (planned); if you cannot disclose a third-party diagnostics recipient, set `telemetry: false`.

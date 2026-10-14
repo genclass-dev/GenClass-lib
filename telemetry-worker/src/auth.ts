@@ -142,11 +142,12 @@ export function authConfig(env: Env): AuthConfig {
 }
 
 /**
- * Whether the @genclass/runtime on npm (the RUNTIME_ON_NPM var) reads project keys and has `login`: 0.3.0 or later.
- * Unset or unreadable counts as no, so the Connect panel keeps saying the release is still to come.
+ * Whether the @genclass/runtime on npm (the RUNTIME_ON_NPM var, on any dist-tag) reads project keys and has `login`:
+ * 0.3.0-beta.0 or later, so a 0.3.x prerelease on the `beta` dist-tag counts (the pages then name `@beta` in their
+ * commands, pages.ts RUNTIME_PKG). Unset or unreadable counts as no, so the pages keep saying it is still to come.
  */
 export function runtimeHasTokens(env: Env): boolean {
-  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(env.RUNTIME_ON_NPM ?? "").trim());
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(String(env.RUNTIME_ON_NPM ?? "").trim());
   if (!m) return false;
   const [maj, min] = [Number(m[1]), Number(m[2])];
   return maj > 0 || min >= 3;

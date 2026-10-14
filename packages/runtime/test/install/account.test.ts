@@ -348,6 +348,32 @@ describe("connect: the app in this folder and an app of the account", () => {
     expect(readFileSync(join(dir, "src/main.ts"), "utf8").split("\n").slice(0, 2)).toEqual([`import "./genclass.config"; // genclass:init`, `import genclass from "@genclass/runtime/auto"; // genclass:init`]);
   });
 
+  it("a setup made by init --sink keeps its sinks and the adapter import when connect adds the token", () => {
+    const pkg = JSON.stringify({ name: "shop-web", private: true, dependencies: { vite: "^7", "@sentry/browser": "^9" } }, null, 2) + "\n";
+    const dir = viteApp({ "package.json": pkg });
+    expect(run(["init", "--yes", "--no-install", "--no-token", "--sink", "sentry", "--cwd", dir]).code).toBe(0);
+    const sinks = `sinks: [sentrySink({ sentry: Sentry })]`;
+    expect(configOf(dir)).toContain(`GENCLASS_CONFIG = { ${sinks} };`);
+    const r = run(["connect", "--yes", "--no-install", "--cwd", dir], { config: signedIn() });
+    expect(r.code, r.out).toBe(0);
+    expect(routes(r.calls)).toEqual(["GET /api/me", "POST /api/account/projects"]);
+    const cfg = configOf(dir);
+    expect(cfg).toContain(`GENCLASS_CONFIG = { token: "${NEW_TOKEN}", ${sinks} };`);
+    expect(cfg.split("\n").filter((l) => l.startsWith("import "))).toEqual([
+      `import * as Sentry from "@sentry/browser";`,
+      `import { sentry as sentrySink } from "@genclass/runtime/sinks/sentry";`,
+    ]);
+  });
+
+  it("--sink is init's and remove's: login and connect refuse it as an unknown option (exit 2) and contact nothing", () => {
+    for (const cmd of ["login", "connect"]) {
+      const r = run([cmd, "--sink", "sentry", "--cwd", viteApp()], { config: signedIn() });
+      expect(r.code, `${cmd}: ${r.out}`).toBe(2);
+      expect(r.out).toContain(`genclass-runtime ${cmd}: unknown option --sink`);
+      expect(r.calls).toEqual([]);
+    }
+  });
+
   it("a setup init made with a private link: the dashboard is added to the account (claim) and the key stays", () => {
     const dir = viteApp({ ".gitignore": "node_modules\n" });
     const made = run(["init", "--yes", "--no-install", "--cwd", dir]); // not signed in: a private link, as before
@@ -480,6 +506,17 @@ describe("init and a signed-in account", () => {
     expect(r.code, r.out).toBe(0);
     expect(r.calls).toEqual([]);
     expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("init --sink while signed in: both notices (the sinks and the account question), and the token and sinks together", () => {
+    const dir = viteApp();
+    const r = run(["init", "--no-install", "--sink", "sentry", "--cwd", dir], { config: signedIn(), input: "y\ny\n" });
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain("Signed in as dev@example.com: create this app in your GenClass account?");
+    expect(r.out).toMatch(/Findings\s+sentry \(--sink, written to src\/genclass\.config\.ts\)/);
+    expect(r.out).toContain("They also reach sentry");
+    expect(routes(r.calls)).toEqual(["POST /api/account/projects"]);
+    expect(configOf(dir)).toContain(`GENCLASS_CONFIG = { token: "${NEW_TOKEN}", sinks: ["sentry"] };`);
   });
 
   it("--yes uses the account; without saved credentials (or with ones for another host) init is unchanged", () => {

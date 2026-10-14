@@ -167,6 +167,18 @@ when situation text is opted in,
 `rt.explain()`, the devtools overlay and sinks with `evidence: true`. Add a `redact` function for such fields, set
 `telemetry: { include: { situation: false } }`, or turn telemetry off.
 
+Page paths are sent by default: the telemetry `route` (session and decision events) and `SinkRecord.route` replace
+id-like segments and, from 0.3.0, any segment holding an `@` (an e-mail address, a handle) with `:id`, but personal
+data in other segments (a username or a name in `/u/jane-doe`, a search term in the path) is sent as it is, kept 90
+days by the collector and shown among an app's top routes on its dashboard. Apps with such paths should set
+`telemetry: false` or route those pages under an id.
+
+App tokens (0.3.0) are public: anyone who reads one from a page can post batches under it to the collector, within
+its per-address limits, and so inflate or pollute that app's dashboard counts, routes, function names and recent
+rows with values of their choosing. The dashboard inserts every such string as text (`textContent`, escaped HTML),
+never as markup, and a token grants no read access (the dashboard needs the private link or the owning account). A
+dashboard is therefore a diagnostic view, not an audit record.
+
 ## T6. State discovery reading application state
 
 **Threat.** `autoState` hooks React's DevTools interface and the Redux DevTools globals and so sees component and store
@@ -270,6 +282,8 @@ account and sign-in endpoints (`protectPreset("auth")`), `policy.deny: ["serve_c
    late revert may make a loop resend (bounded).
 8. Meta tags in `<head>` configure the zero-code entries (mode, same-origin model URLs); `debug: true` lets the URL raise the mode.
 9. `serve_cached` ignores cookies (cross-user responses in a long-lived SPA session, heal only).
+10. Telemetry and sink routes keep path segments that are neither id-like nor hold an `@` (usernames, names, search
+    terms in the path); app tokens are public, so anyone can post forged batches to an app's dashboard (T5).
 
 ## Recommended production setup
 

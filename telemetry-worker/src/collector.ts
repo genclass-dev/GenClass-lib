@@ -17,7 +17,7 @@
 // Accounts (src/auth.ts, src/account-pages.ts; routed on genclass.dev/{login*,signup*,logout*,account*,auth/*} and
 // /api/{auth,device,me,account}*): passkeys, Google and GitHub sign-in, sessions, the CLI's device flow, owned apps.
 
-import { routeAuth } from "./auth.js";
+import { routeAuth, runtimeHasTokens } from "./auth.js";
 import {
   aggregate,
   createProject,
@@ -70,8 +70,9 @@ export interface Env {
   AUTH_ORIGIN?: string;
   /** WebAuthn relying party id (default genclass.dev). */
   AUTH_RP_ID?: string;
-  /** The newest @genclass/runtime on npm (a var in wrangler.toml). Below 0.3.0 the Connect panel says that project
-   * keys and `login` are not published yet; unset counts as not published. */
+  /** The newest @genclass/runtime on npm, on any dist-tag (a var in wrangler.toml): "0.3.0-beta.0" once release.yml
+   * has published the beta. Below 0.3.0-beta.0 the Connect panel, /start and private dashboards say first that
+   * project keys and `login` are not published yet; unset counts as not published. */
   RUNTIME_ON_NPM?: string;
   /** Google sign-in (Worker secrets). The Google button is shown only when both are set. */
   GOOGLE_CLIENT_ID?: string;
@@ -325,7 +326,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
   if (path === "/start") {
     if (m !== "GET" && m !== "HEAD") return null;
     const nonce = randomBase62(22);
-    return html(200, startPage(nonce), nonce);
+    return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env) }), nonce);
   }
 
   if (path === "/dashboard") {
@@ -337,10 +338,11 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
   if (dash) {
     if (m !== "GET" && m !== "HEAD") return null;
     const nonce = randomBase62(22);
-    if (dash[1] === SAMPLE_SECRET) return html(200, dashboardPage(nonce, { ...SAMPLE_PROJECT, lastEvent: new Date(now.getTime() - 180_000).toISOString() }), nonce);
+    const runtimeReady = runtimeHasTokens(env);
+    if (dash[1] === SAMPLE_SECRET) return html(200, dashboardPage(nonce, { ...SAMPLE_PROJECT, lastEvent: new Date(now.getTime() - 180_000).toISOString() }, { runtimeReady }), nonce);
     const p = env.DB ? await projectBySecret(env.DB, dash[1]!) : null;
     if (!p) return html(404, notFoundPage(nonce), nonce);
-    return html(200, dashboardPage(nonce, { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event }), nonce);
+    return html(200, dashboardPage(nonce, { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event }, { runtimeReady }), nonce);
   }
 
   if (path.startsWith("/api/")) return json(404, { ok: false, error: "not found" });

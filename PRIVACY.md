@@ -18,7 +18,9 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
   write), the model's diagnosis and suggested action, its confidence, whether anything was changed or undone, and
   (from runtime 0.3.0) whether a detection was a lower-confidence "possible" one, with a count of those per page
-  load. No text from the page is included by default.
+  load. From runtime 0.3.0, routine decisions (nothing found, nothing changed) are sampled: one in four is sent, at
+  most 200 per page load, and the page load's summary says how many were sent and left out; every detection is
+  sent. No text from the page is included by default.
 - **The situation text the model read, only if the website's developer opted in** (`include: { situation: true }`).
   This describes recent app activity: request paths, store field names and short summaries of their values
   (including app state GenClass finds on its own, such as React component state), timing, route changes, short
@@ -28,8 +30,9 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
   their users.
 - **Technical details:** GenClass and model versions, settings, device type (WebGPU or WASM), load times and error
   counts, and the website's hostname.
-- **The page's path**, with id-like segments replaced by `:id` and no query string or fragment (for example
-  `/orders/:id`), on each page load and each decision.
+- **The page's path**, with id-like segments (and, from runtime 0.3.0, segments containing an `@`, such as an e-mail
+  address) replaced by `:id` and no query string or fragment (for example `/orders/:id`), on each page load and each
+  decision. Other words in the path, such as a username, are sent as they are.
 - **Your approximate country**, from our server provider.
 - **The website's GenClass token**, if the site set one (from runtime 0.3.0). It tells us which website the data
   came from, so that website's owner can see it on their dashboard.

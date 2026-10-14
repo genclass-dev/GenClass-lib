@@ -9,7 +9,16 @@ text is still `situation-v2.3` and the default model is still `@genclass/runtime
 ### What changes when you upgrade from 0.2.x
 
 - **App tokens and dashboards:** a page with `token` set also feeds that app's private dashboard on genclass.dev
-  (below). Without a token, telemetry sends the same kinds of data as 0.2.2.
+  (below); the token and `fn` are sent only then.
+- **Telemetry sends more kinds of events and counts, with or without a token** (nothing new about the page itself;
+  TELEMETRY.md): a `detect` event for each of observe's possible detections, with `tier: "possible"` (on by default
+  in observe; 0.2.x sent no `detect` event below the report gate); `summary.counts.possibleDetections`;
+  `summary.telemetry.decisionRecords`, `decisionsSampledOut` and `decisionsCapped`; a `model` event right after
+  `session` when the model was skipped (the device floor) or failed before telemetry started; and `decision` and
+  `detect` records for situations deferred while the model loaded or the tab was hidden, which 0.2.x dropped, with
+  the page path at their trigger. It sends less elsewhere: routine decision records are sampled and capped (next
+  bullet), a path segment holding an `@` (an e-mail address) is sent as `:id`, and URLs in model error text as
+  `<url>`.
 - **Detections are never sampled or capped in telemetry.** Only routine decisions (top diagnosis `expected`, nothing
   acted) are thinned, to one in four and at most 200 per page load (Telemetry, below).
 - **No model on devices reporting 2 GB of memory or less, or on Save-Data connections** (`model.loadIf` default;
@@ -19,6 +28,12 @@ text is still `situation-v2.3` and the default model is still `@genclass/runtime
   `--token <gc_...>`, `--no-telemetry` or `--dry-run`.
 - **Stored learned state from 0.2.2 is discarded once** (a new format, tagged with the runtime version). In a default
   install nothing is stored; transition profiles are stored only with `learn.persist`, as before.
+- **`model.inlineFallback: false` now skips the model** when the worker cannot be created or does not come up
+  (`status.state` `skipped`, reason `worker-unavailable`); 0.2.x ignored the option and ran the model inline on the
+  main thread. The default (`true`) is unchanged.
+- **Guard and heal no longer retry a `fetch(new Request(...))` whose body is over 64 KB** (`retry` is not offered
+  for it): 0.2.x kept a second copy of every such upload in memory to make it replayable. String, form, Blob and
+  BufferSource bodies passed in `init` are unchanged (Defaults, footprint and fixes, below).
 - New and opt-in: sink adapters (`@genclass/runtime/sinks/*`, `init --sink`), flow expectations
   (`learn: { expectations: true }`), `protect()` and `scope: "functions"`, and genclass.dev accounts with the CLI's
   `login`, `connect`, `whoami` and `logout` (`init` asks whether a new app goes into a signed-in account).
@@ -104,8 +119,8 @@ tiers are thresholds on the model's own output, the rest is when a situation is 
 
 Each web app can have a token that groups its diagnostics under a private dashboard on genclass.dev, and GenClass can
 be pointed at a few functions instead of the whole app. No model-visible text changes (`scope: "functions"` changes
-which subjects are decided, never what the model reads about one). Without a token, telemetry sends what 0.2.2
-sends.
+which subjects are decided, never what the model reads about one). Without a token, neither the token nor `fn` is
+sent; what telemetry adds in 0.3.0 with or without one is under "What changes when you upgrade", above.
 
 - **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">` in `<head>`,
   `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as
@@ -190,7 +205,11 @@ sends.
   batch and sampled or capped decision records are counted once and exactly. A `detect` event with
   `tier: "possible"` counts as a possible issue (Fig. 2, its own cards and a Possible column), exact from
   `summary.counts.possibleDetections`, never as a detection; a `detect` without a tier is a detection, as from
-  earlier runtimes. docs/runtime/RESULTS.md §12.
+  earlier runtimes. docs/runtime/RESULTS.md §12. This needs the worker from this release on genclass.dev: the one
+  before it counts every `detect` event, possible ones included, as a detection, takes decisions from the records
+  that arrived (too few once routine ones are sampled) and keeps those aggregates 90 days. So the worker, and the
+  maintainers' admin aggregates (`site/`), are deployed before this version is published (release.yml, "Before you
+  push the tag").
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
 - **Cost:** about +1.8 KB gzip on each first load (CI run 38436014497); the release's total is under "First-load
   size" below.
@@ -216,9 +235,10 @@ sends.
   themselves are not sent). Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
   arriving after the cap (about 40 KB an hour). This narrows what is sent; nothing new about the page is sent.
   Measured in CI for one page over a simulated hour at 30 decisions a minute (scripted decisions, not the model;
-  situation text off; run 38465242176): all routine, 250.3 KB in 163 requests (61 summaries, 39.3 KB); every
-  decision a detection, 2,067.1 KB in 361 requests, the same as with every record (TELEMETRY.md, "Volume";
-  docs/runtime/RESULTS.md §10).
+  situation text off; the release candidate's runs 38485063587 and 38485289326, and 38471973596 with the detection
+  tiers): all routine, 250.9 to 252.2 KB in 157 to 167 requests (61 summaries, 40.7 KB; which routine decisions are
+  sampled follows the random session id); every decision a detection, 2,068.5 KB in 361 requests, the same as with
+  every record (TELEMETRY.md, "Volume"; docs/runtime/RESULTS.md §10).
   (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
 - **A 429 is a back-off, not a failure.** 0.2.2 stopped a page's telemetry after 3 failed requests in a row, and an
   HTTP 429 from the collector's per-address limit counted as one, so pages behind a busy shared IP (an office or
@@ -234,14 +254,24 @@ sends.
 - **A page the device floor skips still reports why.** Its `session` event says `modelState: "skipped"`, and a
   `model` event with the reason (`device-memory`, `save-data`, `loadIf`) follows it; before, the reason was only in
   the console line, because the model never changed state after telemetry started.
-- **Telemetry: `workerError` in the `model` event carries no URLs.** This version also records the Worker
+- **Telemetry: model error text carries no URLs.** This version also records the Worker
   constructor's exception in `status.workerError` (see `inlineFallback` below; before, nothing was recorded), and a browser's text
   for it can name the worker script's URL and the page's origin (a Content-Security-Policy or cross-origin
-  `SecurityError`). Telemetry replaces every URL in `workerError` with `<url>`, for that and for the errors a worker
-  reports before it comes up; `status.workerError` and the console warning keep the full text.
+  `SecurityError`). Telemetry replaces every URL with `<url>` in the `model` event's `workerError`, `error` and
+  `attempts[].error` and in `model-error` messages (a `ModelNotReadyError` refusing the inline fallback quotes the
+  worker's error), for that and for the errors a worker reports before it comes up; `status.workerError` and the
+  console warning keep the full text.
+- **Telemetry: a page path segment holding an `@` is sent as `:id`.** The `route` on `session` and `decision`
+  events replaced only id-like segments (numbers, UUIDs, long hex or tokens, slug ids), so `/users/alice@example.com`
+  was sent as it is, kept by the collector and shown among an app's top routes; now any segment with `@` or `%40`
+  (an e-mail address, a handle) is `:id`, as in sink records. A name or username in a segment without an `@` is still
+  sent (docs/runtime/THREAT-MODEL.md T5). Not model-visible: the situation text and `util.ts` are unchanged.
 - **Disclosed:** the app token in every batch of a page that sets one, `fn` on its `decision` events, and the
   project `init` creates (the `name` from `package.json`) are approved by the owner for 0.3.0 and described in
-  TELEMETRY.md, PRIVACY.md, both READMEs and the console notice. Without a token nothing new is sent.
+  TELEMETRY.md, PRIVACY.md, both READMEs and the console notice. What is new with or without a token (the possible
+  tier's `detect` events and count, the `summary.telemetry` record counts, the skipped-model `model` event and the
+  records of deferred decisions; "What changes when you upgrade", above) is counts and tiers of the runtime's own
+  decisions, nothing about the page, and is described in TELEMETRY.md, PRIVACY.md and both READMEs.
 
 ### Reports where developers look: sink adapters
 
@@ -291,7 +321,7 @@ sends.
   `/\evil.example/`, a tab inside `//` or an injected `<base href>` no longer pass as a same-origin path (the 0.2.2
   check let them through for model and ORT URLs too).
 - `SinkRecord.route`: the page path the subject's operation was created on, normalised as telemetry sends it (id-like
-  and email segments as `:id`, at most 200 chars).
+  segments and segments holding an `@`, such as an e-mail address, as `:id`; at most 200 chars).
 - Every adapter sends the evidence (the console line, subject and timeline) by default, while a sink you write
   yourself still gets it only with `evidence: true` (`SinkObject.evidence`, default false). `:noevidence` /
   `evidence: false` turns it off per adapter.
