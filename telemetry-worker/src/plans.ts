@@ -6,6 +6,12 @@
 // - A plan comes from accounts.plan, which src/stripe.ts derives from the Stripe subscription. Entitlements follow the
 //   plan whatever the server's configuration, except that a plan bought in Stripe's test mode counts only while the
 //   key is a test key (inMode): a test purchase never carries over to live. A live plan always counts.
+// - The Stripe account is shared (daybot.ca's, which also runs Polar Parts), so a price names a plan only when it is
+//   provably GenClass's: a lookup key starting with genclass_ AND a product whose metadata genclass_plan names a paid
+//   plan (planForPrice).
+// - A plan whose payment is overdue ends here, whatever the shared account's retry settings: past_due keeps the plan
+//   for PAST_DUE_GRACE_DAYS (14) after GenClass first saw it past due, then it is Free (the webhook, and the daily
+//   sweep below); unpaid is Free at once.
 // - The Free plan's limits (3 apps, 7 days in view) apply only once paid plans are on sale to everyone (a live
 //   STRIPE_SECRET_KEY): before that nobody could upgrade, so accounts keep the limits they had (200 apps, 30 days in
 //   view). With a test key only the accounts in STRIPE_TEST_ACCOUNTS can buy (canBuy), and no limits change.
@@ -53,28 +59,37 @@ export function planById(id: unknown): Plan {
   return PLANS.find((p) => p.id === id) ?? FREE;
 }
 
-/** The plan a Stripe price lookup_key sells (monthly or yearly), or null for a price GenClass does not know. */
+/** Every GenClass lookup key starts with this: plans.json's, and those of prices scripts/stripe-setup.mjs retired. */
+export const LOOKUP_PREFIX = "genclass_";
+
+/** The plan a lookup_key from billing/plans.json sells (monthly or yearly), or null for any other key. */
 export function planByLookupKey(key: unknown): Plan | null {
   if (typeof key !== "string" || !key) return null;
   return PLANS.find((p) => p.stripe_lookup_keys.monthly === key || p.stripe_lookup_keys.yearly === key) ?? null;
 }
 
-/** The paid plan named by a Stripe price's or product's metadata.genclass_plan (scripts/stripe-setup.mjs sets it). */
+/** The paid plan named by a Stripe product's (or price's) metadata.genclass_plan (scripts/stripe-setup.mjs sets it). */
 export function planByMetadata(meta: unknown): Plan | null {
   const id = meta && typeof meta === "object" ? (meta as Record<string, unknown>).genclass_plan : null;
   return PAID_PLANS.find((p) => p.id === id) ?? null;
 }
 
 /**
- * The plan a Stripe price sells: by its lookup_key, else by the genclass_plan metadata on the price or on its
- * product (when expanded). A price the setup script replaced keeps its metadata but loses its lookup_key, and its
- * subscribers stay on it, so the metadata keeps their plan.
+ * The plan a Stripe price sells, or null when the price is not provably GenClass's. The Stripe account is shared with
+ * Polar Parts, so both must hold: the price's lookup_key starts with genclass_, and its product (expanded) carries
+ * metadata genclass_plan naming a paid plan; the plan is the product's. A price the setup script replaced keeps its
+ * product and gets a genclass_..._retired_<id> lookup key, so its subscribers keep their plan. A lookup key from
+ * plans.json that names another plan than the product does is refused as inconsistent.
  */
 export function planForPrice(price: unknown): Plan | null {
   if (!price || typeof price !== "object") return null;
   const p = price as Record<string, unknown>;
+  if (typeof p.lookup_key !== "string" || !p.lookup_key.startsWith(LOOKUP_PREFIX)) return null;
   const product = p.product && typeof p.product === "object" ? (p.product as Record<string, unknown>) : null;
-  return planByLookupKey(p.lookup_key) ?? planByMetadata(p.metadata) ?? planByMetadata(product?.metadata);
+  const plan = planByMetadata(product?.metadata);
+  if (!plan) return null;
+  const named = planByLookupKey(p.lookup_key);
+  return named && named.id !== plan.id ? null : plan;
 }
 
 export const entitled = (plan: Plan, e: Entitlement): boolean => plan.entitlements[e] === true;
@@ -112,8 +127,17 @@ export function priceText(plan: Plan): string {
 
 // --------------------------------------------------------------------------------------------- an account's plan
 
-/** Subscription statuses that keep a paid plan (past_due: while Stripe retries the card). */
+/** Subscription statuses that keep a paid plan (past_due: for PAST_DUE_GRACE_DAYS, while Stripe retries the card). */
 export const LIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
+
+/** How long a past_due subscription keeps its plan, counted from when GenClass first saw it past due. */
+export const PAST_DUE_GRACE_DAYS = 14;
+
+/** A past_due subscription seen past due since `since` (ISO) has used up its grace at `now`. */
+export const pastDueLapsed = (since: string | null | undefined, now: Date): boolean => {
+  const t = since ? Date.parse(since) : NaN;
+  return Number.isFinite(t) && now.getTime() - t > PAST_DUE_GRACE_DAYS * DAY;
+};
 
 export interface Billing {
   plan: string;
@@ -230,8 +254,21 @@ export function longRetention(now: Date, mode?: StripeMode | null): { tokens: st
 }
 
 /**
+ * Plans whose payment is overdue end, whatever the Stripe account's retry settings (they are account-wide, shared with
+ * Polar Parts): an unpaid subscription, or one past_due for more than PAST_DUE_GRACE_DAYS, leaves its account on
+ * Free. The webhook does the same when an event arrives; this catches the accounts no event arrives for.
+ */
+export async function endOverduePlans(db: D1Like, now: Date): Promise<void> {
+  await db
+    .prepare("UPDATE accounts SET plan = 'free' WHERE plan <> 'free' AND (subscription_status = 'unpaid' OR (subscription_status = 'past_due' AND past_due_since < ?))")
+    .bind(new Date(now.getTime() - PAST_DUE_GRACE_DAYS * DAY).toISOString())
+    .run();
+}
+
+/**
  * The daily sweep (index.ts): dashboard rows by plan, stored-batch index and export copies by plan, forwarding
- * dedupe rows older than 2 hours, handled Stripe event ids older than 30 days.
+ * dedupe rows older than 2 hours, handled Stripe event ids older than 30 days, then overdue plans end
+ * (endOverduePlans; an ended plan's data keeps its GRACE_DAYS either way).
  */
 export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps, mode?: StripeMode | null): Promise<void> {
   const long = longRetention(now, mode);
@@ -244,4 +281,5 @@ export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps, m
       db.prepare("DELETE FROM billing_events WHERE received < ?").bind(new Date(now.getTime() - 30 * DAY).toISOString()),
     ])
     .catch(() => undefined);
+  await endOverduePlans(db, now).catch(() => undefined);
 }

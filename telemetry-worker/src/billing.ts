@@ -25,12 +25,13 @@ import { decodeCursor, exportResponse, PAGE_MAX, parseTime } from "./export.js";
 import { checkConfig, claimTestSend, deliver, integrationRows, integrationsKey, isKind, maskConfig, openConfig, sealConfig, testRecord, type Kind } from "./forward.js";
 import { json, readCapped } from "./http.js";
 import { forgetOwner } from "./paid.js";
-import { accountBilling, billingLive, canBuy, entitled, PAID_PLANS, planById, stripeMode, type Plan } from "./plans.js";
+import { accountBilling, billingLive, canBuy, entitled, PAID_PLANS, PLANS_FILE, planById, stripeMode, type Plan } from "./plans.js";
 import {
   checkoutSession,
   customerSubscriptions,
   ensureCustomer,
   HOLDING_STATUSES,
+  isGenClassSubscription,
   missingCustomer,
   portalSession,
   StripeError,
@@ -166,7 +167,7 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
     let customer = await ensureCustomer(c.env, f, c.db, account);
     if (!customer.fresh) {
       // what Stripe has now (a webhook can lag behind a payment): an account that pays changes its subscription in the
-      // Billing Portal, never gets a second one
+      // Billing Portal, never gets a second one. Only GenClass subscriptions count (the Stripe account is shared)
       let subs: Awaited<ReturnType<typeof customerSubscriptions>> = [];
       try {
         subs = await customerSubscriptions(c.env, f, customer.id);
@@ -174,9 +175,13 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
         if (!missingCustomer(e)) throw e;
         customer = await ensureCustomer(c.env, f, c.db, { ...account, stripe_customer_id: customer.id, stripe_mode: stripeMode(c.env) }, customer.id);
       }
-      const held = subs.find((s) => HOLDING_STATUSES.has(s.status));
+      const held = subs.find((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s));
       if (held) {
         const st = subscriptionState(held);
+        if (held.status === "past_due" || held.status === "unpaid") {
+          // the plan may already be Free here (src/plans.ts PAST_DUE_GRACE_DAYS); paying the open invoice brings it back
+          return fail(409, `the last payment for your ${planById(st.priced).name} plan did not go through; update your card in Manage billing to pay it, or email ${PLANS_FILE.contact}`);
+        }
         if (st.priced === plan.id) {
           return fail(409, `you are already on the ${plan.name} plan${st.cancelAtPeriodEnd ? "; to keep it after this period, resume it in Manage billing" : ""}`);
         }

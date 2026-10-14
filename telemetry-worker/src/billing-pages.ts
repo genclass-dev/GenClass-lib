@@ -16,6 +16,7 @@ import {
   GRACE_DAYS,
   keepDays,
   LIVE_STATUSES,
+  PAST_DUE_GRACE_DAYS,
   PLANS,
   PLANS_FILE,
   planById,
@@ -70,15 +71,17 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   const name = `<b>${esc(plan.name)}</b>`;
   if (plan.id === "free") {
     const limits = v.limits ? `up to ${plan.limits.apps ?? "any number of"} apps (you have ${apps}) and ${plan.limits.history_days} days of dashboard history` : `your apps' dashboards (you have ${apps} apps)`;
-    const ended =
-      b.subscription_id && b.current_period_end && (b.subscription_status === "canceled" || b.subscription_status === "unpaid") && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
+    const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
+    const ended = overdue
+      ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
+      : b.subscription_id && b.current_period_end && b.subscription_status === "canceled" && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
         ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
         : "";
     return `You are on the ${name} plan: ${limits}.${ended}${v.live ? "" : " Paid plans are not on sale yet."}`;
   }
   if (!b.subscription_id) return `You are on the ${name} plan, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
   if (b.subscription_status === "past_due") {
-    return `You are on the ${name} plan. The last payment did not go through; Stripe tries the card again over the next days. Update it in Manage billing to keep ${esc(plan.name)}.`;
+    return `You are on the ${name} plan. The last payment did not go through; Stripe tries the card again over the next days. Update it in Manage billing to keep ${esc(plan.name)}: if it is still unpaid ${PAST_DUE_GRACE_DAYS} days after the failed payment, the account moves to the Free plan.`;
   }
   if (b.cancel_at_period_end) {
     return `You are on the ${name} plan until ${day(b.current_period_end)}. It is cancelled and will not renew; you can resume it in Manage billing before then.`;

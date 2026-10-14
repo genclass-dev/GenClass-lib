@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PLANS_JSON from "../../billing/plans.json";
 import { resetTokenCache } from "../src/dashboard.js";
 import { resetOwnerCache } from "../src/paid.js";
-import { ACCOUNT_RANGES, canBuy, PLANS, pickRange, planByLookupKey, planForPrice, priceText, stripeMode, viewRanges } from "../src/plans.js";
-import { form, invoicePaysCustom, invoiceSubscription, resetStripeCache, STRIPE_VERSION, subscriptionState, verifySignature, WEBHOOK_EVENTS } from "../src/stripe.js";
+import { ACCOUNT_RANGES, canBuy, PAST_DUE_GRACE_DAYS, PLANS, pickRange, planByLookupKey, planForPrice, planRetention, priceText, stripeMode, viewRanges } from "../src/plans.js";
+import { form, invoicePaysCustom, invoiceSubscription, isGenClassSubscription, resetStripeCache, STRIPE_VERSION, subscriptionState, verifySignature, WEBHOOK_EVENTS } from "../src/stripe.js";
 import {
+  advance,
   call,
   cliToken,
   createApp,
@@ -19,6 +20,7 @@ import {
   subscription,
   WEBHOOK_SECRET,
   now,
+  price,
 } from "./account-helpers.js";
 
 // Paid plans (src/plans.ts, src/stripe.ts, src/billing.ts): billing/plans.json, the Stripe webhook (signature,
@@ -119,7 +121,7 @@ describe("Stripe requests: form encoding, version, idempotency", () => {
 // ------------------------------------------------------------------------------------------------- Checkout, portal
 
 describe("POST /api/billing/checkout and /api/billing/portal", () => {
-  it("checkout: a customer is created once with the account's email, then a subscription session by lookup_key", async () => {
+  it("checkout: a GenClass customer is created once with the account's email, then a subscription session by lookup_key", async () => {
     const { env, sql } = setup(LIVE);
     const { cookie, account } = await signedIn(env);
     const s = fakeStripe();
@@ -130,7 +132,9 @@ describe("POST /api/billing/checkout and /api/billing/portal", () => {
     const [customer, prices, session] = s.calls;
     expect(prices!.url.searchParams.get("lookup_keys[0]")).toBe("genclass_pro_monthly");
     expect(prices!.url.searchParams.get("active")).toBe("true");
-    expect(Object.fromEntries(customer!.form!)).toEqual({ email: "ada@example.com", "metadata[account_id]": account.id });
+    expect(prices!.url.searchParams.get("expand[0]")).toBe("data.product");
+    // GenClass's own customer, marked as such: never one found by email (the Stripe account is shared with Polar Parts)
+    expect(Object.fromEntries(customer!.form!)).toEqual({ email: "ada@example.com", description: "GenClass account", "metadata[genclass]": "1", "metadata[genclass_account]": account.id });
     expect(customer!.headers["idempotency-key"]).toBe(`genclass-customer-${account.id}`);
     expect(Object.fromEntries(session!.form!)).toMatchObject({
       mode: "subscription",
@@ -140,10 +144,11 @@ describe("POST /api/billing/checkout and /api/billing/portal", () => {
       "line_items[0][quantity]": "1",
       success_url: "https://genclass.dev/account/billing?done=1",
       cancel_url: "https://genclass.dev/account/billing",
-      "metadata[account_id]": account.id,
-      "metadata[plan]": "pro",
-      "subscription_data[metadata][account_id]": account.id,
-      "subscription_data[metadata][plan]": "pro",
+      "metadata[genclass]": "1",
+      "metadata[genclass_account]": account.id,
+      "metadata[genclass_plan]": "pro",
+      "subscription_data[metadata][genclass]": "1",
+      "subscription_data[metadata][genclass_account]": account.id,
     });
     for (const c of s.calls) {
       expect(c.headers.authorization).toBe("Bearer sk_live_fake");
@@ -206,7 +211,7 @@ describe("POST /api/billing/checkout and /api/billing/portal", () => {
     expect((await call(off.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: o.cookie, fetch: s.fetch })).status).toBe(503);
   });
 
-  it("portal: a session for the account's customer, with the configuration the setup script made", async () => {
+  it("portal: a session for the account's customer, with GenClass's own configuration, never the account's default", async () => {
     const { env, sql } = setup(LIVE);
     const { cookie, account } = await signedIn(env);
     setPlan(sql, account.id, "pro", { stripe_customer_id: "cus_known0001", subscription_id: "sub_known0001", subscription_status: "active" });
@@ -216,6 +221,8 @@ describe("POST /api/billing/checkout and /api/billing/portal", () => {
     expect(await r.json()).toEqual({ url: "https://billing.stripe.com/p/session/test_000001" });
     const sess = s.calls.find((c) => c.url.pathname === "/v1/billing_portal/sessions")!;
     expect(Object.fromEntries(sess.form!)).toEqual({ customer: "cus_known0001", return_url: "https://genclass.dev/account/billing", configuration: "bpc_genclass01" });
+    const list = s.calls.find((c) => c.url.pathname === "/v1/billing_portal/configurations")!;
+    expect(list.url.searchParams.get("is_default")).toBe("false");
   });
 
   it("a paying account asking for the other plan is sent to the portal's plan change, never into a second subscription", async () => {
@@ -312,13 +319,23 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify" });
     const a = await signedIn(t.env);
     const s = fakeStripe();
-    t.sql.db.prepare("UPDATE accounts SET stripe_customer_id = 'cus_ada0000001' WHERE id = ?").run(a.account.id);
+    t.sql.db.prepare("UPDATE accounts SET stripe_customer_id = 'cus_ada0000001', stripe_mode = 'live' WHERE id = ?").run(a.account.id);
+    s.genclassCustomer("cus_ada0000001", a.account.id);
     s.subs.set("sub_ada0000001", subscription("sub_ada0000001", a.account.id, "cus_ada0000001", planKey));
     const plan = () => t.sql.rows("SELECT plan, subscription_id, subscription_status, current_period_end, cancel_at_period_end FROM accounts")[0]!;
     return { ...t, ...a, s, plan };
   }
   const checkoutDone = (accountId: string) =>
-    stripeEvent("checkout.session.completed", { id: "cs_test_000001", object: "checkout.session", mode: "subscription", client_reference_id: accountId, customer: "cus_ada0000001", subscription: "sub_ada0000001", payment_status: "paid" });
+    stripeEvent("checkout.session.completed", {
+      id: "cs_test_000001",
+      object: "checkout.session",
+      mode: "subscription",
+      client_reference_id: accountId,
+      metadata: { genclass: "1", genclass_account: accountId, genclass_plan: "pro" },
+      customer: "cus_ada0000001",
+      subscription: "sub_ada0000001",
+      payment_status: "paid",
+    });
 
   it("checkout.session.completed: Pro, from the subscription's lookup key; the same event again changes nothing", async () => {
     const t = await paying();
@@ -327,9 +344,12 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ received: true, result: "applied" });
     expect(t.plan()).toEqual({ plan: "pro", subscription_id: "sub_ada0000001", subscription_status: "active", current_period_end: new Date(1_792_000_000_000).toISOString(), cancel_at_period_end: 0 });
-    // the subscription (with its prices' products), then the customer's subscriptions (one subscription per account)
+    // the subscription (with its prices' products and its customer), then the customer's subscriptions (one
+    // subscription per account)
     expect(t.s.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["GET /v1/subscriptions/sub_ada0000001", "GET /v1/subscriptions"]);
     expect(t.s.calls[0]!.url.searchParams.get("expand[0]")).toBe("items.data.price.product");
+    expect(t.s.calls[0]!.url.searchParams.get("expand[1]")).toBe("customer");
+    expect(t.s.calls[1]!.url.searchParams.get("expand[0]")).toBe("data.items.data.price.product");
     expect(t.sql.rows("SELECT stripe_mode FROM accounts")).toEqual([{ stripe_mode: "live" }]);
     expect(t.sql.rows("SELECT id, type FROM billing_events")).toEqual([{ id: ev.id, type: "checkout.session.completed" }]);
     // a redelivery is recognised by its id: no second fetch, no change
@@ -353,16 +373,16 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     sub.cancel_at_period_end = true;
     expect(await send("customer.subscription.updated", sub)).toMatchObject({ plan: "pro", cancel_at_period_end: 1 });
     sub.cancel_at_period_end = false;
-    // a failed renewal: past_due keeps Pro while Stripe retries
+    // a failed renewal: past_due keeps Pro while Stripe retries (for 14 days at most: the past-due tests below)
     sub.status = "past_due";
-    expect(await send("invoice.payment_failed", { id: "in_1", object: "invoice", customer: "cus_ada0000001", parent: { subscription_details: { subscription: "sub_ada0000001" } } })).toMatchObject({ plan: "pro", subscription_status: "past_due" });
+    expect(await send("customer.subscription.updated", sub)).toMatchObject({ plan: "pro", subscription_status: "past_due" });
     sub.status = "active";
-    expect(await send("invoice.paid", { id: "in_2", object: "invoice", customer: "cus_ada0000001", subscription: "sub_ada0000001" })).toMatchObject({ plan: "pro", subscription_status: "active" });
+    expect(await send("invoice.paid", { id: "in_2", object: "invoice", customer: "cus_ada0000001", parent: { subscription_details: { subscription: "sub_ada0000001" } } })).toMatchObject({ plan: "pro", subscription_status: "active" });
     // switched to Custom in the portal
-    sub.items.data[0].price.lookup_key = "genclass_custom_monthly";
+    sub.items.data[0].price = price("genclass_custom_monthly");
     expect((await send("customer.subscription.updated", sub)).plan).toBe("custom");
     sub.status = "unpaid";
-    expect(await send("invoice.payment_failed", { id: "in_3", object: "invoice", customer: "cus_ada0000001", subscription: "sub_ada0000001" })).toMatchObject({ plan: "free", subscription_status: "unpaid" });
+    expect(await send("customer.subscription.updated", sub)).toMatchObject({ plan: "free", subscription_status: "unpaid" });
     sub.status = "canceled";
     expect(await send("customer.subscription.deleted", sub)).toMatchObject({ plan: "free", subscription_status: "canceled", cancel_at_period_end: 0 });
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM billing_events")[0]!.n).toBe(7);
@@ -374,12 +394,24 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
       expect(subscriptionState({ ...base, status }).plan, status).toBe(plan);
     }
     expect(subscriptionState({ ...base, items: { data: [{ price: { lookup_key: "old_plan_key" } }] } })).toMatchObject({ plan: "free", priced: null, lookupKey: "old_plan_key" });
-    // a price the setup script replaced has lost its lookup key but keeps its metadata: its subscribers keep the plan
-    expect(subscriptionState({ ...base, items: { data: [{ price: { id: "price_old", lookup_key: null, metadata: { genclass_plan: "pro" } } }] } })).toMatchObject({ plan: "pro", priced: "pro", lookupKey: null });
-    expect(subscriptionState({ ...base, items: { data: [{ price: { id: "price_old", lookup_key: null, metadata: {}, product: { id: "prod_1", metadata: { genclass_plan: "custom" } } } }] } }).plan).toBe("custom");
+    // a price the setup script replaced keeps its product and gets a genclass_..._retired_ key: its subscribers keep the plan
+    const retired = price("genclass_pro_monthly_retired_price_old000001", { id: "price_old000001", plan: "pro" });
+    expect(subscriptionState({ ...base, items: { data: [{ price: retired }] } })).toMatchObject({ plan: "pro", priced: "pro", lookupKey: "genclass_pro_monthly_retired_price_old000001" });
+    // provably GenClass's only: a genclass_ lookup key AND a product with metadata genclass_plan naming a paid plan
+    expect(planForPrice(price("genclass_custom_monthly"))?.id).toBe("custom");
+    expect(planForPrice({ ...price("genclass_pro_monthly"), product: "genclass_pro" })).toBeNull(); // product not expanded
+    expect(planForPrice(price("genclass_pro_monthly", { plan: null }))).toBeNull(); // a product without the metadata
+    expect(planForPrice(price("polar_box_monthly", { plan: "pro" }))).toBeNull(); // not a GenClass lookup key
+    expect(planForPrice({ id: "price_1", lookup_key: null, metadata: { genclass_plan: "pro" }, product: { metadata: { genclass_plan: "pro" } } })).toBeNull();
+    expect(planForPrice(price("genclass_pro_monthly", { plan: "custom" }))).toBeNull(); // the key and the product disagree
     // metadata can only name a paid plan in plans.json
-    expect(planForPrice({ lookup_key: null, metadata: { genclass_plan: "free" } })).toBeNull();
-    expect(planForPrice({ lookup_key: null, metadata: { genclass_plan: "enterprise" } })).toBeNull();
+    expect(planForPrice(price("genclass_free", { plan: "free" }))).toBeNull();
+    expect(planForPrice(price("genclass_enterprise", { plan: "enterprise" }))).toBeNull();
+    for (const p of PLANS) for (const k of Object.values(p.stripe_lookup_keys)) if (k) expect(k.startsWith("genclass_")).toBe(true);
+    // every price must be GenClass's for the subscription to be
+    expect(isGenClassSubscription(base)).toBe(true);
+    expect(isGenClassSubscription({ ...base, items: { data: [...base.items.data, { price: price("polar_box_monthly") }] } })).toBe(false);
+    expect(isGenClassSubscription({ ...base, items: { data: [] } })).toBe(false);
     // cancelled at once (deletion, a refund, dunning): the period ends when it ended, not at the paid period's end
     expect(subscriptionState({ ...base, status: "canceled", ended_at: 1_791_000_000 })).toMatchObject({ plan: "free", periodEnd: new Date(1_791_000_000_000).toISOString(), cancelAtPeriodEnd: false });
     expect(subscriptionState({ ...base, status: "active", ended_at: 1_791_000_000 }).periodEnd).toBe(new Date(1_792_000_000_000).toISOString());
@@ -390,7 +422,7 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(invoiceSubscription({ parent: { subscription_details: { subscription: "sub_new0000001" } } })).toBe("sub_new0000001");
     expect(invoiceSubscription({ lines: { data: [{ parent: { subscription_item_details: { subscription: "sub_line000001" } } }] } })).toBe("sub_line000001");
     expect(invoiceSubscription({})).toBeNull();
-    expect(WEBHOOK_EVENTS).toEqual(["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted", "invoice.paid", "invoice.payment_failed"]);
+    expect(WEBHOOK_EVENTS).toEqual(["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted", "invoice.paid"]);
   });
 
   it("an older subscription ending does not downgrade an account that has a newer live one", async () => {
@@ -402,14 +434,15 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(t.plan()).toMatchObject({ plan: "pro", subscription_id: "sub_new0000001" });
   });
 
-  it("events for a customer GenClass does not know are logged by type and id and ignored", async () => {
+  it("events for a customer GenClass does not know are logged by type and id and ignored, with no Stripe call", async () => {
     const t = await paying();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     t.s.subs.set("sub_zzz0000001", subscription("sub_zzz0000001", "Z".repeat(22), "cus_zzz0000001", "genclass_pro_monthly"));
     const ev = stripeEvent("customer.subscription.updated", t.s.subs.get("sub_zzz0000001")!);
     const r = await deliver(t.env, ev, t.s.fetch);
     expect(await r.json()).toEqual({ received: true, result: "ignored" });
-    expect(log).toHaveBeenCalledWith(`stripe webhook: customer.subscription.updated ${ev.id} ignored: no GenClass account for this customer`);
+    expect(log).toHaveBeenCalledWith(`stripe webhook: customer.subscription.updated ${ev.id} ignored: not a GenClass customer`);
+    expect(t.s.calls).toEqual([]);
     log.mockRestore();
     expect(t.plan().plan).toBe("free");
     expect((await deliver(t.env, stripeEvent("customer.created", { id: "cus_1" }), t.s.fetch)).status).toBe(200);
@@ -464,7 +497,7 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     const sub = t.s.subs.get("sub_ada0000001")!;
     expect((await deliver(t.env, checkoutDone(t.account.id), t.s.fetch)).status).toBe(200);
     // the portal changes the price; the plan follows, but nothing is recorded or announced before payment
-    sub.items.data[0].price = { id: "price_custom0001", lookup_key: "genclass_custom_monthly" };
+    sub.items.data[0].price = price("genclass_custom_monthly");
     expect((await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).status).toBe(200);
     expect(t.plan().plan).toBe("custom");
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM custom_requests")[0]!.n).toBe(0);
@@ -489,10 +522,10 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(invoicePaysCustom({ lines: { data: [{ amount: 0, price: { id: "price_custom0001" } }] } }, sub)).toBe(false);
   });
 
-  it("after a price change, subscribers on the replaced price keep their plan (its lookup key moved, its metadata did not)", async () => {
+  it("after a price change, subscribers on the replaced price keep their plan (a retired genclass_ key, the same product)", async () => {
     const t = await paying();
     const sub = t.s.subs.get("sub_ada0000001")!;
-    sub.items.data[0].price = { id: "price_old000001", lookup_key: null, active: false, metadata: { genclass_plan: "pro" } };
+    sub.items.data[0].price = { ...price("genclass_pro_monthly_retired_price_old000001", { id: "price_old000001", plan: "pro" }), active: false };
     const r = await deliver(t.env, stripeEvent("invoice.paid", { id: "in_renew", object: "invoice", customer: "cus_ada0000001", subscription: "sub_ada0000001" }), t.s.fetch);
     expect(r.status).toBe(200);
     expect(t.plan()).toMatchObject({ plan: "pro", subscription_status: "active" });
@@ -524,13 +557,329 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     const t = await paying();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     t.s.subs.set("sub_oth0000001", subscription("sub_oth0000001", "Z".repeat(22), "cus_oth0000001", "genclass_custom_monthly"));
-    const ev = stripeEvent("checkout.session.completed", { id: "cs_test_other1", mode: "subscription", client_reference_id: t.account.id, customer: "cus_oth0000001", subscription: "sub_oth0000001", payment_status: "paid" });
+    const meta = { genclass: "1", genclass_account: t.account.id, genclass_plan: "custom" };
+    const ev = stripeEvent("checkout.session.completed", { id: "cs_test_other1", mode: "subscription", client_reference_id: t.account.id, metadata: meta, customer: "cus_oth0000001", subscription: "sub_oth0000001", payment_status: "paid" });
     const r = await deliver(t.env, ev, t.s.fetch);
-    expect(log).toHaveBeenCalledWith(`stripe webhook: checkout.session.completed ${ev.id} ignored: the subscription belongs to another Stripe customer than the account's`);
+    expect(log).toHaveBeenCalledWith(`stripe webhook: checkout.session.completed ${ev.id} ignored: the checkout's customer is not the account's GenClass customer`);
     log.mockRestore();
     expect(await r.json()).toEqual({ received: true, result: "ignored" });
+    expect(t.s.calls).toEqual([]);
     expect(t.plan().plan).toBe("free");
     expect(t.sql.rows("SELECT stripe_customer_id FROM accounts")).toEqual([{ stripe_customer_id: "cus_ada0000001" }]);
+  });
+
+  it("past_due keeps the plan 14 days from when GenClass first saw it, then Free, whatever the account's retry settings", async () => {
+    const t = await paying();
+    const sub = t.s.subs.get("sub_ada0000001")!;
+    const state = () => t.sql.rows("SELECT plan, subscription_status, past_due_since FROM accounts")[0]!;
+    const DAY = 86_400_000;
+    expect(PAST_DUE_GRACE_DAYS).toBe(14);
+    expect((await deliver(t.env, checkoutDone(t.account.id), t.s.fetch)).status).toBe(200);
+    const first = now().toISOString();
+    sub.status = "past_due";
+    expect((await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).status).toBe(200);
+    expect(state()).toEqual({ plan: "pro", subscription_status: "past_due", past_due_since: first });
+    // a retry fails 10 days later: still Pro, and the grace still counts from the first time
+    advance(10 * DAY);
+    expect((await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).status).toBe(200);
+    expect(state()).toEqual({ plan: "pro", subscription_status: "past_due", past_due_since: first });
+    await planRetention(t.sql.api, now());
+    expect(state().plan).toBe("pro");
+    // day 15 with no event at all (the shared account may leave the subscription past due for good): the daily sweep
+    advance(5 * DAY);
+    await planRetention(t.sql.api, now());
+    expect(state()).toEqual({ plan: "free", subscription_status: "past_due", past_due_since: first });
+    // an event after the grace keeps it Free
+    expect((await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).status).toBe(200);
+    expect(state().plan).toBe("free");
+    // the page says why, and Upgrade asks for the open payment instead of a second subscription
+    const page = await (await call(t.env, "GET", "/account/billing", { cookie: t.cookie })).text();
+    expect(page).toContain("The last payment for your paid plan did not go through, so it has ended.");
+    expect(page).toContain('id="portal"');
+    const again = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: t.s.fetch });
+    expect(again.status).toBe(409);
+    expect(((await again.json()) as any).error).toBe("the last payment for your Pro plan did not go through; update your card in Manage billing to pay it, or email mehar@daybot.ca");
+    expect(t.s.calls.some((c) => c.method === "POST" && c.url.pathname === "/v1/checkout/sessions")).toBe(false);
+    // paid after all: Pro again, and the next failure starts a new grace
+    sub.status = "active";
+    expect((await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).status).toBe(200);
+    expect(state()).toEqual({ plan: "pro", subscription_status: "active", past_due_since: null });
+    sub.status = "past_due";
+    expect((await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).status).toBe(200);
+    expect(state().past_due_since).toBe(now().toISOString());
+    const proPage = await (await call(t.env, "GET", "/account/billing", { cookie: t.cookie })).text();
+    expect(proPage).toContain("if it is still unpaid 14 days after the failed payment, the account moves to the Free plan");
+    advance(13 * DAY);
+    await planRetention(t.sql.api, now());
+    expect(state().plan).toBe("pro");
+    // unpaid (the account's retry setting may say "mark as unpaid") is Free at once, and the sweep catches it too
+    sub.status = "unpaid";
+    expect((await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).status).toBe(200);
+    expect(state()).toEqual({ plan: "free", subscription_status: "unpaid", past_due_since: null });
+    t.sql.db.prepare("UPDATE accounts SET plan = 'pro'").run();
+    await planRetention(t.sql.api, now());
+    expect(state().plan).toBe("free");
+  });
+
+  it("subscriptionState: past_due past its grace gives Free", () => {
+    const sub = subscription("sub_x00000001", "a".repeat(22), "cus_x00000001", "genclass_pro_monthly", "past_due");
+    const at = new Date("2026-10-30T00:00:00Z");
+    expect(subscriptionState(sub, { pastDueSince: "2026-10-16T00:00:00.000Z", now: at }).plan).toBe("pro");
+    expect(subscriptionState(sub, { pastDueSince: "2026-10-15T23:59:59.000Z", now: at }).plan).toBe("free");
+    expect(subscriptionState(sub).plan).toBe("pro");
+  });
+});
+
+// ------------------------------------------------------------------------------------------------- shared account
+
+describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches only its own objects", () => {
+  // Polar Parts sells in the same Stripe account: its customers (one has the same email as a GenClass account), its
+  // orders, subscriptions and invoices. None of it may change a plan, be fetched from Stripe, or be stored or logged
+  // beyond an event's id and type.
+  const POLAR = "cus_polar0000001";
+  const polarCustomer = { id: POLAR, object: "customer", email: "ada@example.com", name: "Ada Lovelace", phone: "+14165550100", address: { line1: "1 Polar Way", city: "Toronto" }, metadata: { polar_id: "7781" } };
+  const PRIVATE = [POLAR, "ada@example.com", "Ada Lovelace", "Polar Way", "4165550100", "PP-1001", "sub_polar0000001", "in_polar0000001", "price_polar0000001"];
+  const polarSub = (status = "active") => ({
+    id: "sub_polar0000001",
+    object: "subscription",
+    customer: POLAR,
+    status,
+    created: 1_790_000_000,
+    metadata: { order: "PP-1001" },
+    cancel_at_period_end: false,
+    items: { data: [{ id: "si_polar0000001", current_period_end: 1_792_000_000, price: { id: "price_polar0000001", object: "price", lookup_key: "polar_tires_monthly", product: "prod_polar0000001" } }] },
+  });
+  const polarInvoice = (sub: string | null) => ({
+    id: "in_polar0000001",
+    object: "invoice",
+    customer: POLAR,
+    customer_email: "ada@example.com",
+    customer_name: "Ada Lovelace",
+    customer_address: { line1: "1 Polar Way", city: "Toronto" },
+    parent: sub ? { subscription_details: { subscription: sub, metadata: { order: "PP-1001" } } } : null,
+    lines: { data: [{ amount: 18900, pricing: { price_details: { price: "price_polar0000001" } } }] },
+  });
+
+  async function shop(over: Record<string, unknown> = {}) {
+    const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify", ...over });
+    const a = await signedIn(t.env); // ada@example.com, like the Polar Parts customer
+    const s = fakeStripe();
+    s.customers.set(POLAR, structuredClone(polarCustomer));
+    s.subs.set("sub_polar0000001", polarSub());
+    const state = () => t.sql.rows("SELECT plan, stripe_customer_id, subscription_id, subscription_status, past_due_since FROM accounts");
+    return { ...t, ...a, s, state };
+  }
+
+  /** Polar Parts' webhook traffic, as GenClass's endpoint receives it for the whole account. */
+  const polarEvents = (accountId: string) => [
+    // a one-time order
+    stripeEvent("checkout.session.completed", {
+      id: "cs_live_polar00001",
+      object: "checkout.session",
+      mode: "payment",
+      payment_status: "paid",
+      client_reference_id: "PP-1001",
+      customer: POLAR,
+      customer_details: { email: "ada@example.com", name: "Ada Lovelace", phone: "+14165550100", address: { line1: "1 Polar Way" } },
+      metadata: { order: "PP-1001" },
+    }),
+    // a Polar Parts subscription bought through Checkout
+    stripeEvent("checkout.session.completed", { id: "cs_live_polar00002", object: "checkout.session", mode: "subscription", payment_status: "paid", customer: POLAR, subscription: "sub_polar0000001", metadata: { order: "PP-1001" } }),
+    // a Checkout whose client_reference_id happens to look like a GenClass account id, without GenClass's metadata
+    stripeEvent("checkout.session.completed", { id: "cs_live_polar00003", object: "checkout.session", mode: "subscription", payment_status: "paid", client_reference_id: accountId, customer: POLAR, subscription: "sub_polar0000001", metadata: { order: "PP-1001" } }),
+    // ... or with an account_id of its own
+    stripeEvent("checkout.session.completed", { id: "cs_live_polar00004", object: "checkout.session", mode: "subscription", payment_status: "paid", client_reference_id: accountId, customer: POLAR, subscription: "sub_polar0000001", metadata: { account_id: accountId, genclass_account: accountId } }),
+    stripeEvent("customer.subscription.created", polarSub()),
+    stripeEvent("customer.subscription.updated", { ...polarSub("past_due"), metadata: { account_id: accountId } }),
+    stripeEvent("customer.subscription.deleted", polarSub("canceled")),
+    stripeEvent("invoice.paid", polarInvoice("sub_polar0000001")),
+    stripeEvent("invoice.paid", polarInvoice(null)),
+    stripeEvent("invoice.payment_failed", polarInvoice("sub_polar0000001")),
+    stripeEvent("customer.created", polarCustomer),
+    stripeEvent("charge.refunded", { id: "ch_polar0000001", object: "charge", customer: POLAR, billing_details: { email: "ada@example.com" } }),
+  ];
+
+  it("Polar Parts orders, subscriptions and invoices change no plan, call Stripe for nothing, and leave only event ids and types", async () => {
+    const t = await shop();
+    // one GenClass account on Free, one paying for Pro
+    const b = await signedIn(t.env, "bob@example.com");
+    setPlan(t.sql, b.account.id, "pro", { stripe_customer_id: "cus_bob0000001", subscription_id: "sub_bob0000001", subscription_status: "active", stripe_mode: "live", current_period_end: "2026-11-13T12:00:00.000Z" });
+    const before = t.state();
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const events = [...polarEvents(t.account.id), ...polarEvents(b.account.id)];
+    for (const ev of events) {
+      const r = await deliver(t.env, ev, t.s.fetch);
+      expect(r.status, ev.type).toBe(200);
+      expect(await r.json(), ev.type).toEqual({ received: true, result: "ignored" });
+    }
+    const lines = log.mock.calls.map((c) => c.join(" "));
+    log.mockRestore();
+    expect(t.state()).toEqual(before);
+    // nothing about them was fetched or sent anywhere
+    expect(t.s.calls).toEqual([]);
+    expect(t.s.other).toEqual([]);
+    // logged by type and id only
+    expect(lines).toHaveLength(events.length);
+    for (const [i, line] of lines.entries()) {
+      expect(line.startsWith(`stripe webhook: ${events[i]!.type} ${events[i]!.id} ignored: `)).toBe(true);
+      for (const x of PRIVATE) expect(line).not.toContain(x);
+      expect(line).not.toContain(t.account.id);
+    }
+    // stored: the event ids and types, nothing else
+    const stored = t.sql.rows("SELECT * FROM billing_events ORDER BY id");
+    expect(stored.map((r) => Object.keys(r).sort())).toEqual(events.map(() => ["id", "received", "type"]));
+    expect(stored.map((r) => r.id).sort()).toEqual(events.map((e) => e.id).sort());
+    const dump = JSON.stringify([stored, t.sql.rows("SELECT * FROM custom_requests"), t.sql.rows("SELECT plan, stripe_customer_id, subscription_id, subscription_status FROM accounts")]);
+    for (const x of PRIVATE) expect(dump).not.toContain(x);
+  });
+
+  it("a Checkout whose client_reference_id looks like a GenClass account id but lacks GenClass's metadata changes nothing", async () => {
+    const t = await shop();
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // the account has no Stripe customer yet: the old code would have adopted the Checkout's customer
+    const ev = stripeEvent("checkout.session.completed", { id: "cs_live_lookalike1", mode: "subscription", payment_status: "paid", client_reference_id: t.account.id, customer: POLAR, subscription: "sub_polar0000001" });
+    expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    expect(log).toHaveBeenCalledWith(`stripe webhook: checkout.session.completed ${ev.id} ignored: not a GenClass checkout`);
+    // GenClass's metadata naming an account, but not that account's GenClass customer
+    const forged = stripeEvent("checkout.session.completed", { id: "cs_live_lookalike2", mode: "subscription", payment_status: "paid", client_reference_id: t.account.id, metadata: { genclass: "1", genclass_account: t.account.id }, customer: POLAR, subscription: "sub_polar0000001" });
+    expect(await (await deliver(t.env, forged, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
+    log.mockRestore();
+    expect(t.state()).toEqual([{ plan: "free", stripe_customer_id: null, subscription_id: null, subscription_status: null, past_due_since: null }]);
+    expect(t.s.calls).toEqual([]);
+  });
+
+  it("a subscription of a GenClass customer counts only when it is provably GenClass's and its customer names the account", async () => {
+    const t = await shop();
+    t.sql.db.prepare("UPDATE accounts SET stripe_customer_id = 'cus_ada0000001', stripe_mode = 'live' WHERE id = ?").run(t.account.id);
+    t.s.genclassCustomer("cus_ada0000001", t.account.id);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const send = async (sub: Record<string, unknown>) => {
+      t.s.subs.set(String(sub.id), sub);
+      return ((await (await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).json()) as any).result;
+    };
+    const mine = (id: string, p: Record<string, unknown>) => ({ ...subscription(id, t.account.id, "cus_ada0000001", null), items: { data: [{ id: `si_${id.slice(4)}`, current_period_end: 1_792_000_000, price: p }] } });
+    // a Polar Parts price on the GenClass customer
+    expect(await send(mine("sub_foreign00001", price("polar_tires_monthly")))).toBe("ignored");
+    // a genclass_ lookup key on a product without genclass_plan, and GenClass's product under another lookup key
+    expect(await send(mine("sub_foreign00002", price("genclass_pro_monthly", { plan: null })))).toBe("ignored");
+    expect(await send(mine("sub_foreign00003", price("tires_pro_monthly", { plan: "pro" })))).toBe("ignored");
+    // a GenClass price, but a subscription that names another account
+    expect(await send({ ...subscription("sub_other00001", "Z".repeat(22), "cus_ada0000001", "genclass_pro_monthly") })).toBe("ignored");
+    expect(t.state()[0]).toMatchObject({ plan: "free", subscription_id: null });
+    // a GenClass price, but the customer's metadata names another account (the row was tampered with, say)
+    t.s.customers.get("cus_ada0000001")!.metadata.genclass_account = "Z".repeat(22);
+    expect(await send(subscription("sub_ada0000009", t.account.id, "cus_ada0000001", "genclass_pro_monthly"))).toBe("ignored");
+    t.s.customers.get("cus_ada0000001")!.metadata.genclass_account = t.account.id;
+    expect(t.state()[0]).toMatchObject({ plan: "free", subscription_id: null });
+    // GenClass's: applied
+    expect(await send(subscription("sub_ada0000009", t.account.id, "cus_ada0000001", "genclass_pro_monthly"))).toBe("applied");
+    expect(t.state()[0]).toMatchObject({ plan: "pro", subscription_id: "sub_ada0000009" });
+    // a customer deleted in Stripe keeps no metadata: the account row (only ensureCustomer writes it) names it
+    t.s.customers.set("cus_ada0000001", { id: "cus_ada0000001", object: "customer", deleted: true });
+    t.s.subs.get("sub_ada0000009")!.status = "canceled";
+    expect(await send(t.s.subs.get("sub_ada0000009")!)).toBe("applied");
+    log.mockRestore();
+    expect(t.state()[0]).toMatchObject({ plan: "free", subscription_status: "canceled" });
+    // only GenClass's own subscriptions were fetched, and never a Polar Parts object
+    for (const c of t.s.calls) for (const x of PRIVATE) expect(c.url.toString()).not.toContain(x);
+  });
+
+  it("customers: GenClass makes its own, never looks one up by email, and never reads or changes Polar Parts' customer", async () => {
+    const t = await shop();
+    const r = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: t.s.fetch });
+    expect(r.status).toBe(200);
+    const customerCalls = t.s.calls.filter((c) => c.url.pathname.startsWith("/v1/customers"));
+    expect(customerCalls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["POST /v1/customers"]);
+    const made = [...t.s.customers.values()].find((c) => c.id !== POLAR)!;
+    expect(made).toMatchObject({ email: "ada@example.com", description: "GenClass account", metadata: { genclass: "1", genclass_account: t.account.id } });
+    expect(t.state()[0]!.stripe_customer_id).toBe(made.id);
+    expect(t.s.customers.get(POLAR)).toEqual(polarCustomer);
+    // Checkout is for that customer only (no customer_email, so Stripe makes no customer of its own)
+    const session = t.s.calls.find((c) => c.method === "POST" && c.url.pathname === "/v1/checkout/sessions")!;
+    expect(session.form!.get("customer")).toBe(made.id);
+    expect(session.form!.has("customer_email")).toBe(false);
+    expect(session.form!.has("customer_creation")).toBe(false);
+    // a Checkout page of that customer that GenClass did not make is never reused or closed
+    t.s.sessions.set("cs_test_manual01", { id: "cs_test_manual01", object: "checkout.session", status: "open", customer: made.id, metadata: {}, url: "https://checkout.stripe.com/c/pay/cs_test_manual01" });
+    const second = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "custom" }, cookie: t.cookie, fetch: t.s.fetch });
+    expect(((await second.json()) as any).url).not.toContain("cs_test_manual01");
+    expect(t.s.sessions.get("cs_test_manual01")!.status).toBe("open");
+    expect(t.s.calls.some((c) => c.url.pathname.includes("cs_test_manual01"))).toBe(false);
+    // no request at all names a Polar Parts object
+    for (const c of t.s.calls) for (const x of PRIVATE.filter((p) => p !== "ada@example.com")) expect(`${c.url} ${c.form ?? ""}`).not.toContain(x);
+  });
+
+  it("checkout sells only a price on GenClass's product: a genclass_ lookup key on another product is refused", async () => {
+    const t = await shop();
+    // someone moved GenClass's lookup key onto a Polar Parts price
+    const s = fakeStripe({ answer: (u) => (u.pathname === "/v1/prices" ? new Response(JSON.stringify({ data: [price("genclass_pro_monthly", { id: "price_polar0000001", plan: null })] }), { status: 200 }) : undefined) });
+    const r = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: s.fetch });
+    expect(r.status).toBe(503);
+    expect(((await r.json()) as any).error).toBe(
+      "Stripe: the price with the lookup key genclass_pro_monthly is not on GenClass's Pro product (metadata genclass_plan=pro); run scripts/stripe-setup.mjs",
+    );
+    expect(s.calls.some((c) => c.url.pathname === "/v1/checkout/sessions")).toBe(false);
+  });
+
+  it("deleting an account, or a second paid Checkout, cancels GenClass subscriptions only", async () => {
+    const t = await shop();
+    t.sql.db.prepare("UPDATE accounts SET stripe_customer_id = 'cus_ada0000001', stripe_mode = 'live' WHERE id = ?").run(t.account.id);
+    t.s.genclassCustomer("cus_ada0000001", t.account.id);
+    t.s.subs.set("sub_ada0000001", subscription("sub_ada0000001", t.account.id, "cus_ada0000001", "genclass_pro_monthly"));
+    // something else on the GenClass customer (added by hand in the dashboard, say): not provably GenClass's
+    t.s.subs.set("sub_hand0000001", { ...subscription("sub_hand0000001", t.account.id, "cus_ada0000001", null, "active", { created: 1_790_000_500 }), items: { data: [{ id: "si_hand0000001", price: price("polar_tires_monthly") }] } });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const done = stripeEvent("checkout.session.completed", { id: "cs_test_000001", mode: "subscription", payment_status: "paid", metadata: { genclass: "1", genclass_account: t.account.id, genclass_plan: "pro" }, customer: "cus_ada0000001", subscription: "sub_ada0000001" });
+    expect(await (await deliver(t.env, done, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    log.mockRestore();
+    // the newer one is not GenClass's: it is not counted as a second subscription, and not cancelled
+    expect(t.s.calls.some((c) => c.method === "DELETE")).toBe(false);
+    expect(t.state()[0]).toMatchObject({ plan: "pro", subscription_id: "sub_ada0000001" });
+    expect((await call(t.env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(204);
+    expect(t.s.calls.filter((c) => c.method === "DELETE").map((c) => c.url.pathname)).toEqual(["/v1/subscriptions/sub_ada0000001"]);
+    expect(t.s.subs.get("sub_hand0000001")!.status).toBe("active");
+    expect(t.s.subs.get("sub_polar0000001")!.status).toBe("active");
+  });
+
+  it("portal: always GenClass's configuration (metadata genclass=1), looked up once; never the default, even without one", async () => {
+    const t = await shop();
+    setPlan(t.sql, t.account.id, "pro", { stripe_customer_id: "cus_ada0000001", subscription_id: "sub_ada0000001", subscription_status: "active", stripe_mode: "live" });
+    // the account's default configuration (Polar Parts') even carries the metadata here: still never used
+    t.s.portal[0]!.metadata = { genclass: "1" };
+    for (let i = 0; i < 2; i++) expect((await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(200);
+    const sessions = t.s.calls.filter((c) => c.url.pathname === "/v1/billing_portal/sessions");
+    expect(sessions.map((c) => c.form!.get("configuration"))).toEqual(["bpc_genclass01", "bpc_genclass01"]);
+    expect(t.s.calls.filter((c) => c.url.pathname === "/v1/billing_portal/configurations")).toHaveLength(1);
+    // the worker never creates or changes a portal configuration
+    expect(t.s.calls.some((c) => c.method === "POST" && c.url.pathname.startsWith("/v1/billing_portal/configurations"))).toBe(false);
+
+    // no GenClass configuration (the setup script has not run): 503, and no session on the default configuration
+    resetStripeCache();
+    const u = await shop();
+    setPlan(u.sql, u.account.id, "pro", { stripe_customer_id: "cus_ada0000001", subscription_id: "sub_ada0000001", subscription_status: "active", stripe_mode: "live" });
+    u.s.portal.splice(2, 1);
+    u.s.portal[0]!.metadata = { genclass: "1" };
+    const r = await call(u.env, "POST", "/api/billing/portal", { body: {}, cookie: u.cookie, fetch: u.s.fetch });
+    expect(r.status).toBe(503);
+    expect(((await r.json()) as any).error).toMatch(/Billing Portal configuration \(metadata genclass=1\) is missing; run scripts\/stripe-setup.mjs/);
+    expect(u.s.calls.some((c) => c.url.pathname === "/v1/billing_portal/sessions")).toBe(false);
+  });
+
+  it("test mode: the same isolation (Polar Parts' test-mode traffic is ignored the same way)", async () => {
+    const TESTING = { STRIPE_SECRET_KEY: "sk_test_fake", STRIPE_WEBHOOK_SECRET_TEST: TEST_SECRET, STRIPE_WEBHOOK_SECRET: undefined, STRIPE_TEST_ACCOUNTS: "ada@example.com" };
+    const t = await shop(TESTING);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    for (const ev of polarEvents(t.account.id)) {
+      const r = await deliver(t.env, { ...ev, livemode: false }, t.s.fetch, { secret: TEST_SECRET });
+      expect(await r.json(), ev.type).toEqual({ received: true, result: "ignored" });
+    }
+    log.mockRestore();
+    expect(t.s.calls).toEqual([]);
+    // a test checkout makes a GenClass customer too, and its session carries GenClass's metadata
+    expect((await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(200);
+    expect(t.s.calls[0]!.form!.get("metadata[genclass_account]")).toBe(t.account.id);
+    expect(t.s.calls.at(-1)!.form!.get("metadata[genclass]")).toBe("1");
+    expect(t.s.customers.get(POLAR)).toEqual(polarCustomer);
   });
 });
 
@@ -773,6 +1122,7 @@ describe("Stripe test and live mode", () => {
     const a = await signedIn(t.env);
     const s = fakeStripe();
     s.subs.set("sub_mix0000001", subscription("sub_mix0000001", a.account.id, "cus_mix0000001", "genclass_pro_monthly"));
+    s.genclassCustomer("cus_mix0000001", a.account.id);
     t.sql.db.prepare("UPDATE accounts SET stripe_customer_id = 'cus_mix0000001' WHERE id = ?").run(a.account.id);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     // signed by the test endpoint while the key is live

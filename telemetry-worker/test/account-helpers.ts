@@ -129,16 +129,43 @@ export interface StripeCall {
   headers: Record<string, string>;
 }
 
+/** Stripe's form fields under a prefix as an object: metadata[genclass]=1 -> { genclass: "1" }. */
+const formObject = (form: URLSearchParams, prefix: string): Record<string, string> => {
+  const out: Record<string, string> = {};
+  for (const [k, v] of form) {
+    const m = new RegExp(`^${prefix}\\[([^\\]]+)\\]$`).exec(k);
+    if (m) out[m[1]!] = v;
+  }
+  return out;
+};
+
+/** The expand[] values of a request. */
+export const expands = (url: URL): string[] => [...url.searchParams.entries()].filter(([k]) => /^expand\[\d*\]$/.test(k)).map(([, v]) => v);
+
+/**
+ * The shared Stripe account's Billing Portal configurations: Polar Parts' default one, another of Polar Parts', and
+ * GenClass's (metadata genclass=1), as scripts/stripe-setup.mjs leaves them.
+ */
+export const PORTAL_CONFIGS = [
+  { id: "bpc_polardefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {} },
+  { id: "bpc_other00001", object: "billing_portal.configuration", is_default: false, active: true, metadata: {} },
+  { id: "bpc_genclass01", object: "billing_portal.configuration", is_default: false, active: true, metadata: { genclass: "1" } },
+];
+
 /**
  * A fake fetch for api.stripe.com (and any other URL, recorded and answered 200 unless `answer` says otherwise). It
- * keeps subscriptions (`subs`, listed by customer) and Checkout Sessions (`sessions`: created open, listed by customer
- * and status, expired on request).
+ * keeps customers (`customers`: created with their form fields; a subscription fetched with expand customer gets the
+ * stored one, or one with no metadata, like a Polar Parts customer), subscriptions (`subs`, listed by customer) and
+ * Checkout Sessions (`sessions`: created open with their metadata, listed by customer and status, expired on
+ * request), and the portal configurations (`portal`, filtered by is_default).
  */
 export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Response | undefined } = {}) {
   const calls: StripeCall[] = [];
   const other: { url: string; init: RequestInit; body: string }[] = [];
+  const customers = new Map<string, Record<string, any>>();
   const subs = new Map<string, Record<string, any>>();
   const sessions = new Map<string, Record<string, any>>();
+  const portal: Record<string, any>[] = PORTAL_CONFIGS.map((c) => ({ ...c }));
   let n = 0;
   let cs = 0;
   const ok = (j: unknown, status = 200) => new Response(JSON.stringify(j), { status, headers: { "content-type": "application/json" } });
@@ -156,19 +183,24 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
     if (custom) return custom;
     const p = url.pathname;
     if (method === "GET" && p === "/v1/prices") {
+      // GenClass's two prices, with their products expanded (the worker asks for data.product)
       const key = url.searchParams.get("lookup_keys[0]");
-      const known: Record<string, string> = { genclass_pro_monthly: "price_pro000001", genclass_custom_monthly: "price_custom0001" };
-      return ok({ data: key && known[key] ? [{ id: known[key], lookup_key: key }] : [] });
+      return ok({ data: key === "genclass_pro_monthly" || key === "genclass_custom_monthly" ? [price(key)] : [] });
     }
-    if (method === "POST" && p === "/v1/customers") return ok({ id: `cus_test${String(++n).padStart(4, "0")}` });
+    if (method === "POST" && p === "/v1/customers") {
+      const c = { id: `cus_test${String(++n).padStart(4, "0")}`, object: "customer", email: form!.get("email"), description: form!.get("description"), metadata: formObject(form!, "metadata") };
+      customers.set(c.id, c);
+      return ok(c);
+    }
     if (method === "POST" && p === "/v1/checkout/sessions") {
       const id = `cs_test_${String(++cs).padStart(6, "0")}`;
       const s = {
         id,
         object: "checkout.session",
         status: "open",
+        mode: form!.get("mode"),
         customer: form!.get("customer"),
-        metadata: { account_id: form!.get("metadata[account_id]"), plan: form!.get("metadata[plan]") },
+        metadata: formObject(form!, "metadata"),
         url: `https://checkout.stripe.com/c/pay/${id}`,
       };
       sessions.set(id, s);
@@ -189,33 +221,50 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
       const customer = url.searchParams.get("customer");
       return ok({ data: [...subs.values()].filter((s) => s.customer === customer) });
     }
-    if (method === "GET" && p === "/v1/billing_portal/configurations") return ok({ data: [{ id: "bpc_other00001", metadata: {} }, { id: "bpc_genclass01", metadata: { genclass: "portal" } }] });
+    if (method === "GET" && p === "/v1/billing_portal/configurations") {
+      const d = url.searchParams.get("is_default");
+      return ok({ data: portal.filter((c) => d === null || String(c.is_default) === d), has_more: false });
+    }
     if (method === "POST" && p === "/v1/billing_portal/sessions") return ok({ url: "https://billing.stripe.com/p/session/test_000001" });
     const sub = /^\/v1\/subscriptions\/([^/]+)$/.exec(p);
     if (sub) {
       const s = subs.get(decodeURIComponent(sub[1]!));
       if (!s) return ok({ error: { message: "No such subscription" } }, 404);
       if (method === "DELETE") s.status = "canceled";
+      if (method === "GET" && expands(url).includes("customer")) {
+        const id = String(s.customer);
+        return ok({ ...s, customer: customers.get(id) ?? { id, object: "customer", metadata: {} } });
+      }
       return ok(s);
     }
     return ok({ error: { message: `fake Stripe has no ${method} ${p}` } }, 404);
   };
-  return { fetch, calls, other, subs, sessions };
+  /** A customer GenClass made for this account (as ensureCustomer does), for tests that start from a stored id. */
+  const genclassCustomer = (id: string, accountId: string, email = "ada@example.com") => {
+    customers.set(id, { id, object: "customer", email, description: "GenClass account", metadata: { genclass: "1", genclass_account: accountId } });
+  };
+  return { fetch, calls, other, customers, subs, sessions, portal, genclassCustomer };
 }
 
-/** A subscription as Stripe API 2025-03-31 returns it (the period end on the item). */
+/** A price as a subscription fetched with its products expanded shows it: GenClass's carry product metadata genclass_plan. */
+export function price(lookupKey: string | null, o: { id?: string; plan?: string | null; product?: string } = {}) {
+  const plan = o.plan !== undefined ? o.plan : lookupKey === "genclass_custom_monthly" ? "custom" : lookupKey === "genclass_pro_monthly" ? "pro" : null;
+  const id = o.id ?? (lookupKey === "genclass_custom_monthly" ? "price_custom0001" : lookupKey === "genclass_pro_monthly" ? "price_pro000001" : "price_x000001");
+  return { id, object: "price", lookup_key: lookupKey, product: { id: o.product ?? (plan ? `genclass_${plan}` : "prod_polar00001"), object: "product", metadata: plan ? { genclass_plan: plan } : {} } };
+}
+
+/** A GenClass subscription as Stripe API 2025-03-31 returns it (the period end on the item; prices' products expanded). */
 export function subscription(id: string, accountId: string, customer: string, lookupKey: string | null, status = "active", over: Record<string, unknown> = {}) {
-  const price = lookupKey === "genclass_custom_monthly" ? "price_custom0001" : lookupKey === "genclass_pro_monthly" ? "price_pro000001" : "price_x000001";
   return {
     id,
     object: "subscription",
     customer,
     status,
     created: 1_790_000_000,
-    metadata: { account_id: accountId },
+    metadata: { genclass: "1", genclass_account: accountId },
     cancel_at_period_end: false,
     cancel_at: null,
-    items: { data: [{ id: `si_${id.slice(4)}`, current_period_end: 1_792_000_000, price: { id: price, lookup_key: lookupKey } }] },
+    items: { data: [{ id: `si_${id.slice(4)}`, current_period_end: 1_792_000_000, price: price(lookupKey) }] },
     ...over,
   };
 }
