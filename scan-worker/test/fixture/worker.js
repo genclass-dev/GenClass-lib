@@ -20,8 +20,9 @@
 // and one for the model judge, with cases the measured checks abstain on (the background is a gradient or an image):
 //   /?judge=1    a "Start free trial" link drawn as a white button with a white-to-near-white gradient, whose text is
 //                dark in the light scheme and white in the dark scheme (white on white there); grey text over a busy
-//                image that cannot be read; and, as a control, white bold text with a shadow over the same image under
-//                a dark overlay, which can
+//                image that cannot be read; and, as controls, white bold text with a shadow over the same image under
+//                a dark overlay, which can be read, and a paragraph coloured by a CSS variable defined nowhere, which the
+//                visual checks report (css-var-undefined) but which falls back to the inherited colour and reads normally
 // Every POST that does reach this worker is counted (GET /api/posts), so a run can show that none did.
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -93,10 +94,11 @@ const DEEP = `<p class="grey">This paragraph is grey on white at about 2.85 to 1
 <script>window.fixtureWidget.init();</script>`;
 const DEEP_CSS = `.grey{color:#999}.iconbtn{border:0;background:none;padding:4px}.tiny a{display:inline-block;width:16px;height:16px;font-size:10px;line-height:16px;margin:0 2px;text-align:center;background:#eef2f7}
 .small{font-size:10px}.wide{width:340px;box-sizing:border-box}`;
-const JUDGE = `<section class="dk"><p>Plans start at five dollars a month, billed yearly.</p><a class="darkbtn" href="/start">Start free trial</a></section>
+const JUDGE = `<p class="varink">This sentence's colour is a CSS variable defined nowhere, so it falls back to the text colour around it and reads normally.</p>
+<section class="dk"><p>Plans start at five dollars a month, billed yearly.</p><a class="darkbtn" href="/start">Start free trial</a></section>
 <div class="busy"><p>Free shipping on every order over fifty dollars, all week long.</p></div>
 <div class="calm"><p>Readable: white bold text over the same picture, under a dark overlay.</p></div>`;
-const JUDGE_CSS = `.dk{margin-top:16px;padding:14px 16px;background:#f4f6fa;border-radius:8px}.dk p{margin:0}
+const JUDGE_CSS = `.varink{color:var(--brand-ink)}.dk{margin-top:16px;padding:14px 16px;background:#f4f6fa;border-radius:8px}.dk p{margin:0}
 .darkbtn{display:inline-block;margin-top:10px;padding:10px 18px;border-radius:6px;font-weight:600;text-decoration:none;color:#1d2433;background-image:linear-gradient(#ffffff,#f1f3f6)}
 @media (prefers-color-scheme:dark){.dk{background:#141922;color:#e6e9ef}.darkbtn{color:#ffffff}}
 .busy,.calm{margin-top:16px;padding:28px 16px;background:url(/busy.svg) center/cover}.busy p,.calm p{margin:0}
