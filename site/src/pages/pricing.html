@@ -1,116 +1,51 @@
-<!--meta {"path":"/pricing","nav":"pricing","priority":"0.4","crumbs":[["Pricing","/pricing"]],
-"title":"GenClass Pricing: Free Runtime; Cloud and Enterprise Planned",
-"description":"The GenClass runtime is free and open source. Cloud for teams and Enterprise are planned products with no customers yet; early-access prices are listed for design partners.",
-"jsonld":[{"@type":"Product","name":"GenClass","description":"A runtime for web apps that flags, and optionally prevents, stale responses, races, duplicate requests, inconsistent state and failure storms, with a planned cloud control plane for teams.","brand":{"@type":"Brand","name":"GenClass"},"image":"https://genclass.dev/icon-512.png","url":"https://genclass.dev/pricing","offers":[
-{"@type":"Offer","name":"Community","price":"0","priceCurrency":"USD","url":"https://genclass.dev/docs","availability":"https://schema.org/InStock","description":"Open-source runtime, free forever, unlimited use."},
-{"@type":"Offer","name":"Cloud Teams","price":"99","priceCurrency":"USD","url":"https://genclass.dev/cloud","availability":"https://schema.org/PreOrder","priceSpecification":{"@type":"UnitPriceSpecification","price":"99","priceCurrency":"USD","unitText":"MONTH"},"description":"Central dashboard, release comparisons, alerts and team controls. Planned; not available yet."},
-{"@type":"Offer","name":"Enterprise","price":"15000","priceCurrency":"USD","url":"https://genclass.dev/enterprise","availability":"https://schema.org/PreOrder","priceSpecification":{"@type":"UnitPriceSpecification","price":"15000","priceCurrency":"USD","unitText":"YEAR"},"description":"SSO, audit logs, private hosting, security policies, priority support and SLAs. Planned; not available yet."}]},
-{"@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"Is the GenClass runtime really free for commercial use?","acceptedAnswer":{"@type":"Answer","text":"Yes. The runtime is Apache-2.0 open source. You can use it in commercial apps with unlimited traffic and no account."}},
-{"@type":"Question","name":"Do you charge per inference or per bug fixed?","acceptedAnswer":{"@type":"Answer","text":"No. Inference runs on your users' devices, so it costs us nothing and costs you nothing. Paid plans charge for the team control plane, not for protection."}},
-{"@type":"Question","name":"What happens if my Cloud subscription ends?","acceptedAnswer":{"@type":"Answer","text":"Your apps stay protected. The runtime keeps running locally; only the dashboard, alerts and shared controls stop."}}]}]} -->
-<div class="page-hero">
+<!--meta {"path":"/pricing","nav":"pricing","priority":"0.6","crumbs":[["Pricing","/pricing"]],
+"title":"GenClass Pricing: Free, Pro and Custom",
+"og_title":"GenClass pricing: the runtime is free; Pro adds a year of history, data export and forwarding",
+"description":"The GenClass runtime is free and open source. The dashboard is free for {{plan.free.apps}} apps; Pro ({{plan.pro.price}} a month) adds {{plan.pro.history}} of history, data export and forwarding; Custom ({{plan.custom.price}} a month) adds a model trained on your app.",
+"offers_from_plans":true,"faq_from_body":true} -->
+<div class="page-hero price-hero">
   <div class="wrap">
     <!--@crumbs-->
-    <h1>The runtime is free. <em>Team plans are planned.</em></h1>
-    <p class="lede">The runtime that finds the bugs is free, for every app. The paid plans below would add one place for a team to read and manage what GenClass reports across production. None of them exist yet.</p>
-    <!--@planned GenClass Cloud and Enterprise-->
+    <h1>Free to run. <em>Pay for history, export and forwarding.</em></h1>
+    <p class="lede">The runtime and its on-device model are free and open source, in every mode, with no usage meters. Pro keeps {{plan.pro.history}} of dashboard history, lets you download every event as JSONL or CSV, and forwards detections to Sentry, PostHog, Datadog, Slack or a signed webhook. Custom adds a model trained on your app.</p>
   </div>
 </div>
 
-<section style="padding-top: 8px">
+<section class="price-sec" aria-label="Plans">
   <div class="wrap">
-    <div class="tiers">
-      <div class="tier">
-        <h2>Community</h2>
-        <div class="price">$0 <span>forever</span></div>
-        <p class="who">The complete open-source runtime for any developer and any app.</p>
-        <a class="btn ghost" href="/docs">Install in one line</a>
-        <ul>
-          <li>Full on-device inference</li>
-          <li>Reports in observe mode; guard and heal opt-in</li>
-          <li>React, Redux and Zustand adapters</li>
-          <li>Local DevTools, explanations and undo</li>
-          <li>Works offline</li>
-          <li>Unlimited use, including commercial</li>
-        </ul>
-      </div>
-      <div class="tier pop">
-        <span class="badge tag2">Planned · early access</span>
-        <h2>Cloud · Teams</h2>
-        <div class="price">$99 <span>/ month and up</span></div>
-        <p class="who">For teams that run GenClass in production and want proof it is working.</p>
-        <a class="btn green" href="/cloud#early-access">Request early access</a>
-        <ul>
-          <li>Everything in Community</li>
-          <li>Central reliability dashboard</li>
-          <li>Intervention and undo analytics</li>
-          <li>Release-by-release comparisons</li>
-          <li>Slack and email alerts</li>
-          <li>Percentage rollouts of guard mode</li>
-          <li>Shared policies and team roles</li>
-        </ul>
-        <p class="fine2">Planned features, not available yet. Up to $299 per month depending on apps and seats.</p>
-      </div>
-      <div class="tier">
-        <span class="badge tag2">Planned</span>
-        <h2>Enterprise</h2>
-        <div class="price">$15k <span>/ year and up</span></div>
-        <p class="who">For organizations running GenClass across many apps with strict requirements.</p>
-        <a class="btn" href="/enterprise#early-access">Talk to us</a>
-        <ul>
-          <li>Everything in Cloud</li>
-          <li>Organization-wide deployment controls</li>
-          <li>SSO and SCIM</li>
-          <li>Audit logs</li>
-          <li>Private or self-hosted control plane</li>
-          <li>Security policies and data residency</li>
-          <li>Priority support and negotiated SLAs</li>
-        </ul>
-      </div>
-    </div>
-    <p class="note">Early-access prices in USD, for design partners; nothing can be bought today. Final pricing is set with design partners, and early-access teams keep their rate.</p>
+    <!--@plans-->
+    <p class="note">Prices in US dollars, billed monthly. Both paid plans need a genclass.dev account (passkey, Google or GitHub); checkout is on Stripe. The dashboard, and with it export and forwarding, fills from pages that run runtime {{dash_rt}} or later with diagnostics on.</p>
   </div>
 </section>
 
-<section id="compare">
+<section id="terms">
   <div class="wrap">
-    <div class="sh"><span class="no">Compare plans</span><h2>What each plan includes.</h2></div>
-    <div class="tbl-wrap">
-      <table class="cmp">
-        <thead><tr><th>Feature</th><th>Community</th><th>Cloud (planned)</th><th>Enterprise (planned)</th></tr></thead>
-        <tbody>
-          <tr><td>On-device inference (WebGPU / WASM)</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Observe, guard and heal modes</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Unlimited apps, sessions and interventions</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Local DevTools, explain and undo</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Central dashboard across apps</td><td class="no2">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Release comparisons</td><td class="no2">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Alerts (Slack, email, webhooks)</td><td class="no2">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Percentage rollouts and remote kill switch</td><td class="no2">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>Team roles and shared policies</td><td class="no2">–</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-          <tr><td>SSO, SCIM and audit logs</td><td class="no2">–</td><td class="no2">–</td><td class="yes">✓</td></tr>
-          <tr><td>Private hosting and data residency</td><td class="no2">–</td><td class="no2">–</td><td class="yes">✓</td></tr>
-          <tr><td>Priority support and SLA</td><td class="no2">–</td><td class="no2">–</td><td class="yes">✓</td></tr>
-        </tbody>
-      </table>
+    <div class="sh"><span class="no">Plain terms</span><h2>What stays free, and how paying works.</h2></div>
+    <div class="pnotes">
+      <div><h3>The runtime is free and open source, forever.</h3><p>Apache-2.0, with observe, guard and heal, in any app, commercial or not. It needs no account, key or plan to run.</p></div>
+      <div><h3>No usage meters.</h3><p>One flat price a month. We never bill by sessions, events, decisions or traffic.</p></div>
+      <div><h3>Cancel any time.</h3><p>On your account's billing page. The plan runs to the end of the month you paid for, then the account moves to Free.</p></div>
     </div>
   </div>
 </section>
 
 <section id="faq">
   <div class="wrap">
-    <div class="sh"><span class="no">Pricing FAQ</span><h2>Questions about plans</h2></div>
+    <div class="sh"><span class="no">Billing FAQ</span><h2>Questions about plans and billing</h2></div>
     <div class="faq">
       <div>
-        <details><summary>Is the runtime really free for commercial use?</summary><p>Yes. It is Apache-2.0 open source. Use it in commercial apps with unlimited traffic and no account.</p></details>
-        <details><summary>Do you charge per inference or per bug fixed?</summary><p>No. Inference runs on your users' devices, so it costs nothing to run. Paid plans pay for the team control plane, not for protection.</p></details>
+        <details><summary><span>What counts as an app?</span></summary><p>One app token. A token groups the diagnostics of one web app on every hostname and route it runs on, so production and staging can share a token or have one each. Free covers {{plan.free.apps}} apps. Pro and Custom set no app limit; to stop abuse an account holds at most {{plans.apps_cap}}, and we raise that if you write to us.</p></details>
+        <details><summary><span>What does the data export include?</span></summary><p>Every event GenClass received for your apps, as it arrived: page sessions with versions, mode, device class, hostname and route (ids replaced), model loads, each decision with its diagnosis, confidence and action, detections, actions, undos and the periodic counts, plus when each batch arrived and a two-letter country. It covers events that arrived while the app was in your genclass.dev account, starting from the day paid plans opened, and reaches back {{plan.pro.history}} (at most 90 days for the time before you upgraded). Download it from an app's dashboard as JSONL or CSV, or fetch it with <code>GET /api/account/projects/&lt;id&gt;/events?from=&amp;to=</code> and a bearer token. It holds no page text: GenClass does not collect page text unless your app opts in to situation text, and then only the redacted text the model read. Typed passwords and payment fields, cookies, headers, request and response bodies, IP addresses and user agents are never collected, so they are never in an export.</p></details>
+        <details><summary><span>What happens to my history if I downgrade?</span></summary><p>When a paid plan ends, the account moves to Free: dashboards show the last {{plan.free.history}}, and forwarding and export stop. GenClass keeps every app's data for at least 90 days on any plan, so upgrading again brings those days back into view. Data older than 90 days is deleted 30 days after the paid period ends, so export what you want to keep before the plan ends, or upgrade again within those 30 days. Your apps, tokens and dashboard links keep working.</p></details>
+        <details><summary><span>How does forwarding work?</span></summary><p>It is off until you turn it on for an app on its dashboard, on Pro or Custom. Then the genclass.dev collector sends that app's likely detections (not the ones marked possible) to the destinations you connect: Sentry, PostHog, Datadog, Slack, or a webhook whose requests are signed so you can check they came from GenClass. Each record has the diagnosis, confidence, page route, versions and a link to the dashboard, never page text. The same problem on the same page is sent at most once an hour, and an app sends at most 60 records an hour. Nothing is added to your app's code or bundle, data goes only to the tools you connect, and turning forwarding off, or the plan ending, stops it.</p></details>
+        <details><summary><span>What is interaction analytics?</span></summary><p>Reports on how people use your app's pages: clicks, dead clicks and rage clicks, how far they scroll, and the paths they take from page to page. It is being built now and is not in the runtime yet. Pro and Custom include it when it ships.</p></details>
       </div>
       <div>
-        <details><summary>What happens if a Cloud subscription ends?</summary><p>Your apps stay protected. The runtime keeps running locally; only the dashboard, alerts and shared controls stop.</p></details>
-        <details><summary>What data will Cloud receive?</summary><p>Only aggregate metrics from apps you connect with a publishable key: counts, categories, timings. No source code, no request bodies, no user state. Cloud is not available yet.</p></details>
+        <details><summary><span>What does the custom classifier involve?</span></summary><p>After you start Custom, a person from GenClass emails you within 1 business day. Together we pick the bugs that matter in your app, the data to train on (your app's events in GenClass and the bug reports you share with us) and when the model ships. We train a GenClass model on that data, measure its false reports on your app's normal traffic, and ship it as private model files your runtime loads with <code>model.baseUrl</code>.</p></details>
+        <details><summary><span>How do receipts and invoices work?</span></summary><p>Payments go through Stripe, which emails a receipt for each one; past receipts are under Manage billing on your account's billing page. Card details go to Stripe and never reach GenClass. For an invoice with your company's details, or a purchase order, email {{plans.contact}}.</p></details>
+        <details><summary><span>Can I get a refund?</span></summary><p>Refunds are by request: email {{plans.contact}} from the address on your billing account. Cancelling stops the next charge, and the plan stays until the end of the month you paid for.</p></details>
+        <details><summary><span>Is there a yearly price?</span></summary><p>Not yet; both paid plans are monthly. If your company needs to pay for a year at once, email {{plans.contact}}.</p></details>
       </div>
     </div>
-<!--@waitlist cloud "Lock in early-access pricing" "Join the first teams on GenClass Cloud. Early-access teams keep their price and help shape the product."-->
   </div>
 </section>

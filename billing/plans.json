@@ -1,0 +1,58 @@
+{
+  "_about": "The one place GenClass plans are defined. telemetry-worker/src/plans.ts imports this file (limits, entitlements, Stripe lookup keys, the billing page) and site/build.py reads it (the pricing page). scripts/stripe-setup.mjs creates the Stripe products and prices from it. Prices are US cents. A null yearly price means no yearly option yet. limits.apps null means no plan limit (the worker still caps an account at 200 apps against abuse). Feature lines with available false are shown as coming next.",
+  "version": 1,
+  "currency": "usd",
+  "contact": "mehar@daybot.ca",
+  "footer": "Need self-hosting, SSO or invoices? Email mehar@daybot.ca.",
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "summary": "The open-source runtime and a dashboard for a few apps.",
+      "price_usd_cents": { "monthly": 0, "yearly": null },
+      "stripe_lookup_keys": { "monthly": null, "yearly": null },
+      "limits": { "apps": 3, "history_days": 7 },
+      "entitlements": { "forwarding": false, "export": false, "analytics": false, "custom_model": false },
+      "features": [
+        { "text": "The open-source runtime with every mode: observe, guard and heal", "available": true },
+        { "text": "Reports in the browser console", "available": true },
+        { "text": "The genclass.dev page scanner", "available": false },
+        { "text": "Dashboard for up to 3 apps", "available": true },
+        { "text": "7 days of dashboard history", "available": true }
+      ]
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "summary": "Every event your apps send, kept for a year, and sent where you already look.",
+      "price_usd_cents": { "monthly": 9900, "yearly": null },
+      "stripe_lookup_keys": { "monthly": "genclass_pro_monthly", "yearly": null },
+      "limits": { "apps": null, "history_days": 365 },
+      "entitlements": { "forwarding": true, "export": true, "analytics": true, "custom_model": false },
+      "features": [
+        { "text": "Everything in Free", "available": true },
+        { "text": "Unlimited apps", "available": true },
+        { "text": "1 year of dashboard history", "available": true },
+        { "text": "Full data export: every event GenClass received for your apps, as JSONL or CSV, by download or API", "available": true },
+        { "text": "Forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook", "available": true },
+        { "text": "Interaction analytics (coming next)", "available": false },
+        { "text": "Email support from mehar@daybot.ca", "available": true }
+      ]
+    },
+    {
+      "id": "custom",
+      "name": "Custom",
+      "summary": "Pro, plus a GenClass model trained on your own app.",
+      "price_usd_cents": { "monthly": 59900, "yearly": null },
+      "stripe_lookup_keys": { "monthly": "genclass_custom_monthly", "yearly": null },
+      "limits": { "apps": null, "history_days": 365 },
+      "entitlements": { "forwarding": true, "export": true, "analytics": true, "custom_model": true },
+      "features": [
+        { "text": "Everything in Pro", "available": true },
+        { "text": "A classifier trained for your app: we train a GenClass model on your app's own traffic and bug reports and ship it as a private model your runtime loads", "available": true },
+        { "text": "A person from GenClass emails you within 1 business day of purchase to start", "available": true },
+        { "text": "Priority support", "available": true }
+      ]
+    }
+  ]
+}

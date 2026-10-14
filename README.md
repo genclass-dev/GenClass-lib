@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![website](https://img.shields.io/badge/web-genclass.dev-14B86A)](https://genclass.dev)
 
-**Website and docs: [genclass.dev](https://genclass.dev)** · [Discord](https://discord.gg/kN9kRnFtZm) · [Docs](https://genclass.dev/docs) · [Benchmarks](https://genclass.dev/benchmarks) · [Cloud](https://genclass.dev/cloud) · [Pricing](https://genclass.dev/pricing)
+**Website and docs: [genclass.dev](https://genclass.dev)** · [Discord](https://discord.gg/kN9kRnFtZm) · [Docs](https://genclass.dev/docs) · [Benchmarks](https://genclass.dev/benchmarks) · [Pricing](https://genclass.dev/pricing)
 
 **A runtime for web apps. It watches the app from the inside and uses a small local model to flag, and optionally
 prevent, stale responses, races, duplicate requests, inconsistent state and failure storms.**

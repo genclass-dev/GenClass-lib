@@ -143,6 +143,8 @@ export default {
     if (url.pathname.startsWith("/forms/")) return new Response("Not found", { status: 404 });
     if (url.pathname.startsWith("/demo-api/")) return demoApi(request, url);
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) return handleAdmin(request, env, url, ctx);
+    // /cloud described a planned product; the plans are on /pricing now (billing/plans.json).
+    if (url.pathname === "/cloud" || url.pathname === "/cloud/" || url.pathname === "/cloud.html") return Response.redirect(`${url.origin}/pricing`, 301);
 
     const res = await env.ASSETS.fetch(request);
     const out = new Response(res.body, res);
