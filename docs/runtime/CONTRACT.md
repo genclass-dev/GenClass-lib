@@ -545,12 +545,14 @@ Design, every check, threshold and exclusion: [VISUAL.md](VISUAL.md). Code: `pac
 - **Rule 1 of 0.5 (never make a correct app worse).** In observe mode they write nothing to the page. Their three
   runtime fixes (a readable text colour through an owned stylesheet rule; removing a leaked inline
   `pointer-events: none` or `overflow: hidden` on `html` or `body`) need `visual: { on: true, fix: true }` and guard or
-  heal, are re-measured and undone if they do not help, are undone on `setMode("observe")`, the breaker, `pause()`,
-  `disable()` and `destroy()`, and are dropped when the app changes the element.
-- **Defaults.** `"local"` with `GenClass.init()` in a browser (development hosts and the devtools overlay), off on
-  public hosts and in `createRuntime()`. First load grows by less than 0.5 KB gzip (measured in CI against main);
-  the checks load lazily from `dist/visual/index.js`.
+  heal, are re-measured and undone if they do not help (a colour fix also when the background it was made for
+  changes), are undone on `setMode("observe")`, the breaker, `disable()` and `destroy()` at once and on `pause()` at
+  the next 2 s read, and are dropped when the app changes the element.
+- **Defaults.** `"local"` with `GenClass.init()` in a browser (development hosts: a dev server's port on a loopback
+  name, or `*.test`; and the devtools overlay), off elsewhere and in `createRuntime()`. First load grows by about
+  0.57 KB gzip against main of 2026-10-13 (measured in CI; over the 0.5 KB target, owner to decide); the checks load
+  lazily from `dist/visual/index.js`.
 - **Determinism (section 0 rule 3).** All timing uses the injected `Clock`; idle callbacks come from the runtime's
   global; session sampling hashes the session id.
-- **Telemetry.** Counts only (per check kind, per normalised route, fixes, check time), under the owner's review
-  before release. Never selectors, element text, colours or URLs.
+- **Telemetry.** None. Counts per check kind and route are a proposal (VISUAL.md section 10) that needs the owner's
+  approval of the exact fields; selectors, element text, colours and URLs are never sent.

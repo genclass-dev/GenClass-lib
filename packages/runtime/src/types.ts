@@ -823,8 +823,9 @@ export interface InitOptions {
    * stylesheets and media that failed to load, pages that scroll sideways, layers that swallow clicks, dialogs
    * covered by other elements, "[object Object]" and similar leaks. These are deterministic measurements with fixed,
    * documented thresholds, reported as kind "check" (`rt.on("check")`, `rt.checks()`); the model is not involved and
-   * they never feed a decision. **Default: "local" with `GenClass.init()` in a browser** (on for development hosts and
-   * when the devtools overlay is mounted, off on public hosts); off in `createRuntime()`. `true` turns report-only
+   * they never feed a decision. **Default: "local" with `GenClass.init()` in a browser** (on for development hosts:
+   * http(s) on localhost, 127.0.0.1, [::1] or a *.localhost name with a port, and *.test names; and when the devtools
+   * overlay is mounted; off elsewhere); off in `createRuntime()`. Nothing about them is sent. `true` turns report-only
    * checks on everywhere. `?genclass-visual=off` turns them off; `?genclass-visual=on` turns on report-only checks on
    * any host (never fixes). Runtime fixes need `{ on: true, fix: true }` and guard or heal mode; observe never changes
    * the page. `rt.summary().visual` has the counts; `@genclass/runtime/visual` exports `checkPage()` for your tests.
@@ -894,7 +895,8 @@ export interface VisualOptions {
    * Runtime fixes (VISUAL.md section 11). Default false. true allows the three fix kinds; or a list of them. Needs
    * `on: true` (the "local" default and ?genclass-visual=on never fix) and guard or heal mode (heal alone never turns
    * fixes on); a sampled-out session never fixes. Every fix is undone on setMode("observe"), the breaker, disable(),
-   * pause() (within 2 s) and destroy(), and by `finding.fix.undo()`.
+   * pause() (within 2 s) and destroy(), and by `finding.fix.undo()`; a colour fix also when the background it was made
+   * for changes. A scroll lock held since the page loaded, with no dialog ever open, is reported but not removed.
    */
   fix?: boolean | VisualFixKind[];
   /** Selectors (and image hosts, for text-placeholder) never checked, for example third-party widgets. */

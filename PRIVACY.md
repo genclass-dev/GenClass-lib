@@ -24,10 +24,6 @@ networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2
   fields whose names look like secrets before this text is created. Other values, such as names, emails or search
   terms typed into the app, can appear in shortened form. Developers who enable it are responsible for telling
   their users.
-- **Counts from the visual checks (planned for the next release):** when a website turns on GenClass's measured
-  visual checks, which look for problems such as unreadable text or broken images, we receive how many problems of
-  each kind were found on each page path and how long the checks took. We do not receive the text, colours, images,
-  addresses or descriptions of the page elements involved.
 - **Technical details:** GenClass and model versions, settings, device type (WebGPU or WASM), load times and error
   counts, and the website's hostname.
 - **Your approximate country**, from our server provider.

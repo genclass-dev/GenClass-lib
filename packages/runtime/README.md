@@ -620,8 +620,9 @@ selector:
 ```
 
 These are measured checks with fixed thresholds. The model is not involved, does not look at pixels, and never sees
-them; they never feed a decision. They abstain when they cannot know: text over photos and gradients, filters, blend
-modes, partial opacity, forced colours and page translation are skipped, not guessed.
+them; they never feed a decision. They abstain when they cannot know: text over photos, video, canvases and gradients
+(including layers that ignore the pointer), filters, blend modes, partial opacity, forced colours and page translation
+are skipped, not guessed.
 
 | kind | what it finds |
 |---|---|
@@ -636,19 +637,26 @@ modes, partial opacity, forced colours and page translation are skipped, not gue
 | `click-blocked`, `pointer-events-leak`, `scroll-lock-stuck` | an invisible layer that took two clicks; `pointer-events: none` or a scroll lock left on `body` |
 | `control-unreachable`, `focus-obscured`, `dialog-covered` | a control under a fixed bar with no controls of its own; a focused element or anchor target under a sticky header or banner that paints over it; a dialog under other elements |
 
-**Where they run.** On by default on development hosts (`localhost`, `*.local`, `*.test`, private networks) and when
-the devtools overlay mounts, where the developer reads the console; off on public hosts. Turn them on in production
+**Where they run.** On by default on development hosts (a dev server's port on `localhost`, `127.0.0.1`, `[::1]` or a
+`*.localhost` name, and `*.test` names) and when the devtools overlay mounts, where the developer reads the console;
+off everywhere else, including hybrid apps served from `https://localhost` (Capacitor), Tauri, Electron files and
+intranet hosts. Turn them on in production
 with `GenClass.init({ visual: true })` (or `data-visual="on"`, `<meta name="genclass" content="visual=on">`) and read
 them with a sink or `rt.on("check", f => ...)`; `?genclass-visual=on` turns on report-only checks for the person who
 opened the link; `visual: false` or `?genclass-visual=off` turns them off.
 
-**Cost.** Under 0.5 KB gzip of first load. The checks are a separate file loaded 1.5 s after the page's `load` event,
-and they run in idle slices of 8 ms, at most 100 ms per pass and 1 s per 10 minutes. Low-end devices run only the
-near-free checks (failed assets, CSP, layout shifts, the interaction checks).
+**Cost.** About 0.55 KB gzip of first load. The checks are a separate file loaded 1.5 s after the page's `load` event
+in a visible tab, and all their page reads (passes, the 2 s read of `html` and `body`, the click, hover, focus and
+scroll checks) run in idle callbacks: slices of 8 ms, at most 100 ms per pass and 1 s per 10 minutes. One step can
+still take longer than a slice when the browser has to lay out a heavy page first (measured in RESULTS.md section 9).
+Low-end devices run only the near-free checks (failed assets, CSP, layout shifts, the interaction checks). Nothing
+about the checks is sent anywhere.
 
 **Runtime fixes (opt-in).** With `GenClass.init({ mode: "guard", visual: { on: true, fix: true } })`, GenClass can
 apply three narrow fixes: a readable text colour (one rule in its own stylesheet), and removing a leaked inline
-`pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did not help,
+`pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did not help;
+a colour fix is measured again every 2 s and after class changes, and undone as soon as the background it was made for
+changes. A scroll lock held since the page loaded, with no dialog ever open, is reported but never removed. Every fix
 can be undone (`rt.checks().find(c => c.id === "c3").fix.undo()` or the devtools Undo button), and is undone when the
 mode drops to observe. Observe mode never changes the page.
 
@@ -657,9 +665,11 @@ resolves with the findings, for a Playwright or Cypress test.
 
 Not covered yet: text over photos, video and gradients; canvas and WebGL content; the colour scheme, viewport or hover
 state the visitor is not using; layout shifts and failed CSS images outside Chromium; low contrast that is readable but
-below WCAG AA. Measured in CI on the demos, templates, compat apps and 40 public home pages: 0 false reports in 128
-views of the local pages, 8 findings in 96 loads of 31 public sites (5 confirmed real, 3 unconfirmed), and recall 1.00 on
-planted faults for 20 of the 23 kinds ([RESULTS.md section 9](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)). Design and thresholds:
+below WCAG AA. Measured in CI on the demos, templates, compat apps and 40 public home pages
+([RESULTS.md section 9](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)): 0 false
+reports in 128 views of the local pages, and recall 1.00 on planted faults for 20 of the 23 kinds. On the public pages
+the checks were tuned on the same sites (the first run had 44 check errors in 100 loads); there is no held-out site
+set yet, so those figures are not a false-report rate for other sites. Design and thresholds:
 [VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md).
 
 ## State it can protect

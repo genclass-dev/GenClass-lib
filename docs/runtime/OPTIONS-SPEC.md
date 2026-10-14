@@ -540,15 +540,17 @@ Design, every check and threshold: [VISUAL.md](VISUAL.md). Types: `VisualOptions
 
 **Semantics.**
 - `false` (or `?genclass-visual=off`): nothing is installed, no listener, no timer, no download.
-- `"local"`: on for development hosts (the telemetry `isLocalHost` list) and when the devtools overlay mounts or
-  `rt.checkNow()` is called; off otherwise. `?genclass-visual=on` turns it on for that page load, report-only.
+- `"local"`: on for development hosts (`devHost` in `src/visual/start.ts`: http(s) on `localhost`, `127.0.0.1`,
+  `[::1]` or a `*.localhost` name with an explicit port, or a `*.test` name; narrower than telemetry's `isLocalHost`,
+  so Capacitor, Tauri, Electron and intranet hosts are off) and when the devtools overlay mounts or `rt.checkNow()`
+  is called; off otherwise. `?genclass-visual=on` turns it on for that page load, report-only.
 - `true` / `{ on: true }`: on everywhere, report-only unless `fix` is set.
 - `fix: true` (or a list of `"text-invisible"`, `"pointer-events-leak"`, `"scroll-lock-stuck"`) needs `on: true` and an
   effective mode of guard or heal; a sampled-out session never fixes. A URL can never turn fixes on.
 - The checks are measurements reported as kind `"check"`: they never change `effectiveMode`, never feed a decision,
   the gate, the breaker, a situation, a fact or the event log. In observe mode the page is never written to.
-- `enabled` false or pending: no chunk download. A route whose mode is `"off"`: no checks there. `pause()`,
-  `disable()`, `destroy()` and `setMode("observe")` undo every fix.
+- `enabled` false or pending, a hidden tab or a prerendered page: no chunk download. A route whose mode is `"off"`:
+  no checks there. `disable()`, `destroy()` and `setMode("observe")` undo every fix at once, `pause()` within 2 s.
 
 **Precedence.** `?genclass-visual=off` > an explicit `visual: false` > `?genclass-visual=on` > the `"local"` default.
 

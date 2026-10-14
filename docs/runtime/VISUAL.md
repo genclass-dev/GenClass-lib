@@ -2,8 +2,10 @@
 
 Status: design written 2026-10-13; **v1 implemented** the same day on branch `wave2/visual`
 (`packages/runtime/src/visual/`), with the differences listed in [section 19](#19-v1-implementation-notes); **measured**
-the same day by the bench of section 15 ([RESULTS.md section 9](RESULTS.md)), which tightened four checks. The open
-owner decisions are in [section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) section 14,
+the same day by the bench of section 15 ([RESULTS.md section 9](RESULTS.md)), which tightened four checks; then a review
+of the checks (section 19, "Review of 2026-10-13") found correct pages that looked broken and costs outside the slices,
+and the code changed again (measured as run 5). The open owner decisions are in
+[section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) section 14,
 [API.md](API.md), [OPTIONS-SPEC.md](OPTIONS-SPEC.md) section 4.19 and the CHANGELOG have the matching entries.
 
 The owner asked on 2026-10-13 for GenClass to find visual and CSS bugs that never throw an error (white text on a
@@ -60,8 +62,12 @@ What follows from that:
 - **Separate from the network-boundary model.** `src/visual/` imports nothing from `situation/`, `decide/`,
   `model/`, `state/`, `trace/` or `runtime.ts` (types excepted). `situation/`, `decide/`, `model/`, `state/` and
   `trace/` never import `src/visual/`; `runtime.ts` imports only the stub `src/visual/start.ts` and hands it a narrow
-  host (section 13). A purity test enforces both directions (section 14). Checks never push `RtEvent`s, so the situation timeline is byte-identical with visual on
-  or off. Visual counts never feed a decision, the policy gate or the breaker.
+  host (section 13). A purity test enforces both directions (section 14). Checks never push `RtEvent`s, so the
+  situation timeline is byte-identical with visual on or off. Visual counts never feed a decision, the policy gate or
+  the breaker. One indirect path remains: the runtime's `perf` observer records long tasks (50 ms or more) as `perf`
+  events the model can read. Every page read of the checks runs in idle slices of 8 ms, and the stylesheet walk yields
+  every 200 rules, so a check step is a long task only when the browser must first lay out a page whose own layout
+  takes that long; the bench measures the longest slice (RESULTS.md section 9).
 - **Rule 1 still binds.** In `observe`, the visual layer writes nothing to the page: no attributes, no styles, no
   inserted elements, no scrolling, no focus changes. Its only side effect is downloading its own chunk (same origin as
   the runtime). Every runtime fix is opt-in, reversible, re-measured, and never runs in `observe` (section 11).
@@ -143,11 +149,22 @@ returns "incomplete".
    `::before` or `::after` with `content` other than `none` and a non-transparent background; or when any ancestor of
    the element has `opacity` strictly between 0 and 1.
 5. If no opaque layer is found, use the root: `html`'s background if opaque, else `body`'s (CSS background
-   propagation), else the canvas. The canvas is white unless the root's computed `color-scheme` allows dark and
-   `matchMedia("(prefers-color-scheme: dark)")` matches; then the canvas is one of the UA dark canvases (Chrome
-   `#121212`, Safari `#1e1e1e`, Firefox `#1c1c22`), and the verdict must hold for all three or the check abstains.
-   (axe assumes white here; its issue #4608 is still open. The owner's white-on-white case is the light half of this.)
+   propagation), else the canvas. The canvas follows the page's used colour scheme: the root's computed
+   `color-scheme`, or, when that is `normal`, the `<meta name="color-scheme">` content (the meta tag changes the used
+   scheme and leaves the computed value at `normal`). A list without `light` (`dark`, `only dark`) is dark for every
+   visitor; `light dark` is dark when `matchMedia("(prefers-color-scheme: dark)")` matches; anything else is light. A
+   dark canvas is one of the UA dark canvases (Chrome `#121212`, Safari `#1e1e1e`, Firefox `#1c1c22`), and the verdict
+   must hold for all three or the check abstains. When the scheme cannot be read (no computed `color-scheme` in this
+   browser and no meta tag), light text on the canvas is not judged. (axe assumes white here; its issue #4608 is
+   still open. The owner's white-on-white case is the light half of this.)
 6. All three points must resolve to the same colour (each channel within 1 of 255), or the check abstains.
+7. A low verdict is not trusted while a layer that hit testing skips paints at a sample point: an element with
+   `pointer-events: none` whose box contains the point and covers at least half of the text element's box, and that
+   paints (a background colour or image, an `img`, `video`, `canvas` or `iframe`, or a pseudo layer with a
+   background). `elementsFromPoint` never returns such a layer, so a hero video, a particles canvas or a dark overlay
+   would otherwise be invisible to the resolver. The search covers the document's replaced elements, the ancestors
+   hit testing skipped, and the subtrees under the element and its ancestors (descending only into boxes that contain
+   a point, or have no box of their own); it abstains when it has read 3,000 boxes. It runs only for low verdicts.
 
 The page is never probed by inserting an element (observe changes nothing), so the Canvas system colour is never
 read that way.
@@ -310,8 +327,12 @@ suggested developer fix, and the runtime fix if any.
   (`/^[a-z0-9_]+$/`) rendered wider than 1.6 x its font size (a loaded ligature is about one 1 em glyph; a failed one
   prints `shopping_cart`). Class names (`fa-*`, `material-icons`, `material-symbols-*`, `bi-*`) are only a prefilter to
   find candidates; the font status decides.
-- Reports when: at least one `visible` candidate in the viewport.
-- Skips: fonts still loading (the 3 s wait); `font-display: block` faces within their block period; SVG icon sets.
+- Reports when: at least one `visible` candidate in the viewport, and the face is still not loaded when
+  `FontFace.status` is read again 1 s later (5 s later for a face that was still loading: an icon in a menu opened
+  late on a slow connection).
+- Skips: fonts still loading (the 3 s wait and the re-read); `font-display: block` faces within their block period;
+  SVG icon sets; an `<i>` without an icon class whose family is not an icon font's (an italic word in a failed text
+  font is `font-failed`'s case).
 - Evidence: family, status, the code point or the leaked word, `selector`, count, whether the icon is the only label
   of a control.
 - Severity: medium; high when the icon is the only label of a button or link.
@@ -342,19 +363,22 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   the viewport, computed `font-size` of at least 6 px, at most 200 per pass. Foreground: computed `color`, or
   `-webkit-text-fill-color` when it is not `currentcolor`. Background: the resolver in section 2.4. Ratio: section 2.5.
 - Reports when: the ratio is below **1.5:1** at two measurements at least 1,000 ms apart with no running animation
-  on the element or its ancestors. A fully transparent foreground counts as 1:1.
+  on the element or its ancestors, the second one after network quiet (a loading placeholder is gone by then). A
+  fully transparent foreground counts as 1:1.
 - Skips: transparent text with `background-clip: text` or `-webkit-background-clip: text` (gradient text); any
   `-webkit-text-stroke-width` above 0; any `text-shadow` other than `none`; transparent text with another `visible`
   element of the same text stacked over the same rect (layout reservers and typewriter effects); disabled controls
-  and their labels (`:disabled`, `aria-disabled="true"`); form field values and placeholders (not text nodes; v1
-  leaves them out); text inside `svg`; single Private Use Area glyphs (icon fonts); everything the resolver abstains
-  on; everything in the page abstain list.
+  and their labels (`:disabled`, `aria-disabled="true"`); anything inside `[aria-busy="true"]` (skeletons and loading
+  placeholders); form field values and placeholders (not text nodes; v1 leaves them out); text inside `svg`; single
+  Private Use Area glyphs (icon fonts); text made only of emoji (colour glyphs ignore `color`); everything the
+  resolver abstains on; everything in the page abstain list.
 - States: passive capture listeners for `pointerover` and `focusin` on interactive elements (`a`, `button`,
   `summary`, `[role=button]`, `[tabindex]`). After the longest `transition-duration + transition-delay` for `color`
   and `background-color` (parsed from computed style, waited on the Clock), while `el.matches(":hover")` or
-  `":focus-visible"` still holds, measure twice 250 ms apart. Report only the readable-at-rest, unreadable-in-state
-  direction (hover-reveal designs go the other way on purpose). At most one state measurement per 500 ms. A touch
-  "hover" is labelled `touch`.
+  `":focus-visible"` still holds, measure twice 250 ms apart (elements with a running animation are skipped). Report
+  only the readable-at-rest, unreadable-in-state direction (hover-reveal designs go the other way on purpose). At
+  most one state measurement per 500 ms; a `tabindex="-1"` wrapper is not a control, and at most 5 text elements of
+  a control are measured. A touch "hover" is labelled `touch`.
 - Scheme: the finding records `scheme: "light" | "dark"` (from `matchMedia`, plus `html` `.dark` or `data-theme` when
   present). A visitor's browser only measures its own scheme; the CI scan covers the other one (section 15).
 - Evidence: `selector`, `target`, text excerpt (first 40 characters, local), foreground as computed and as sRGB hex,
@@ -370,7 +394,9 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   `body { color: var(--foreground) }` turns light in dark mode while components keep light backgrounds). For a state
   finding, the suggestion targets `:hover, :focus-visible` on that selector.
 - Runtime fix: yes, opt-in, rest state only (section 11): one rule in GenClass's own stylesheet setting the suggested
-  colour on that element, re-measured, removed if it does not clear 4.5:1 (3:1 large).
+  colour on that element, re-measured, removed if it does not clear 4.5:1 (3:1 large). The colour is computed for
+  one background: the fix is measured again on every periodic read, after class or style changes and when the colour
+  scheme changes, and undone when the background differs or the target is no longer met.
 
 ### 3.9 `text-template-leak`
 
@@ -514,6 +540,9 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   After the bench (section 19): a window with no attributable element left (nothing to name or fix), and a window
   that starts within 1,000 ms after a scroll event (the page answering the scroll: an infinite list pushing its
   footer down), unless its cause is an image without reserved space. Both are counted, not reported.
+- Once per session: the entries belong to the whole session, so a window is reported once, not again on each route
+  of a single-page app, and the windows a full pass has judged are dropped (only the last, possibly still open,
+  window is kept). `csp-blocked` is keyed the same way.
 - Evidence: window score, start offset from load, the top sources (`selector`, distance moved in px), cause tag.
 - Severity: medium.
 - Suggested fix: `width`/`height` attributes or `aspect-ratio: 16 / 9;` on the media selector; reserve space for
@@ -525,8 +554,12 @@ The owner's first example. One check with two dimensions: the colour scheme the 
 - Measures: after settle plus 3,000 ms, in `main`/`[role=main]` when one exists and is `visible`, else `body`: an
   early-exit walk that stops at the first `visible` text character or the first `visible` media item (an `img` with
   `naturalWidth > 0`, an `svg`, `canvas`, `video` or `iframe` of at least 16 x 16 px, or an element with a
-  `background-image` whose resource loaded).
-- Reports when: neither is found, again 2,000 ms later, with no request in flight.
+  `background-image` whose resource loaded). A custom element or a shadow host of at least 16 x 16 px counts as
+  content: web-component apps (Lit, Stencil) render inside shadow roots the walk does not enter. The walk runs in
+  idle slices of 250 nodes.
+- Reports when: neither is found, again 2,000 ms later, with no request in flight, and the tab visible for the
+  whole window (a hidden tab pauses `requestAnimationFrame`, so a fade-in route stays at opacity 0 there; the check
+  starts again once the tab is visible).
 - Skips: requests still in flight (waits up to 10 s more, then stays silent); canvas and WebGL apps (a canvas counts
   as content).
 - Evidence: region checked, element count in the region, the runtime's error count for the session (read-only), and,
@@ -566,8 +599,10 @@ The owner's first example. One check with two dimensions: the colour scheme the 
 - Reports when: the value is `none` for at least 1,000 ms (two reads) while nothing open and `visible` matches
   `[role=dialog]`, `[role=alertdialog]`, `dialog[open]`, `[aria-modal=true]`, `[role=menu]`, `[role=listbox]`,
   `[data-state=open]` or `:popover-open` (since the bench, also a visible trigger with `aria-expanded="true"` and
-  `aria-haspopup`, or one in a navigation bar whose `aria-controls` panel is visible: a mega-menu that is open), and no
-  drag is in progress. When the value comes from a stylesheet rather than an inline style, a user click in the last
+  `aria-haspopup`, or one in a navigation bar whose `aria-controls` panel is visible: a mega-menu that is open), no
+  drag is in progress, no request is in flight and nothing is `aria-busy="true"` (a busy shield during a submit is
+  intended; the lock must outlive the last request by two reads). When the value comes from a stylesheet rather than
+  an inline style, a user click in the last
   10 s that landed on `html` or `body` is also required (a page may disable pointer events on `body` on purpose and
   re-enable them on its own elements).
 - Evidence: element, source (`inline` or `stylesheet`), duration, the time since a dialog or menu was last seen
@@ -586,17 +621,24 @@ The owner's first example. One check with two dimensions: the colour scheme the 
 - Reports when: `overflow-y` is `hidden` or `clip` on `html` or `body` (or `body` is `position: fixed` with a negative
   inline `top`, the iOS scroll-lock pattern), `scrollHeight > innerHeight + 100`, nothing in the open set of check 19
   is `visible`, no `visible` fixed element covers 50% of the viewport or more (a drawer without ARIA), all for at least
-  1,000 ms, and at least one scroll attempt changed neither `scrollY` nor the DOM within 300 ms.
-- Skips: apps that scroll an inner container (their document `scrollHeight` equals `innerHeight`); slide sites that
-  answer the wheel with transforms (a DOM attribute change counts as a response).
+  1,000 ms, and at least one scroll attempt changed neither `scrollY` nor the DOM within 300 ms. An attempt counts only
+  when it is vertical (a wheel with `|deltaY| > |deltaX|`, a mostly vertical touch drag), the page could have moved
+  that way (down with page left below the viewport, up when scrolled), and the app did not consume it
+  (`defaultPrevented`: a map zoom, a slider); at most one per 300 ms.
+- Skips: apps that scroll an inner container (their document `scrollHeight` equals `innerHeight`); pages that scroll by
+  moving a layer (fullPage.js, Swiper and pagePiling full-page sliders, smooth-scroll libraries): an element under the
+  viewport's centre at least 90% of the viewport tall that is transformed or has a running animation or transition,
+  checked when the attempt is judged (a DOM attribute change counts as a response too).
 - Evidence: element, property and value, source (`inline` or `stylesheet`), `scrollHeight` and `innerHeight`,
   attempts without effect.
 - Severity: high.
 - Suggested fix: release the lock in every close path, including unmount mid-animation and route changes (cleanup in
   the effect's return); prefer lock utilities that count nested locks. A lock set through a class
   (`body.modal-open { overflow: hidden; }`) needs the class removed in the close path.
-- Runtime fix: yes, opt-in, only for an inline `overflow` or `overflow-y` on `html` or `body` (section 11). The
-  `position: fixed` variant is suggest-only, because undoing it needs a scroll write.
+- Runtime fix: yes, opt-in, only for an inline `overflow` or `overflow-y` on `html` or `body` (section 11), and only
+  when the lock appeared after the page settled or a dialog or menu was open at some point in the session: a lock
+  held since load with nothing ever open is reported but not removed, since that is more often a design than a leak.
+  The `position: fixed` variant is suggest-only, because undoing it needs a scroll write.
 
 ### 3.21 `control-unreachable`
 
@@ -646,10 +688,13 @@ The owner's first example. One check with two dimensions: the colour scheme the 
 
 - Measures: a MutationObserver (attributes and child list) notices a `[role=dialog]`, `[role=alertdialog]`,
   `[aria-modal=true]` or `dialog[open]` becoming `visible`; after its animations settle, `elementFromPoint` on a 3 x 3
-  grid inset 10% inside its rect and at the centres of its focusable children (at most 20 points in all).
+  grid inset 10% inside its rect and at the centres of its focusable children (at most 20 points in all). A child is
+  tested at the centre of the part its scroll containers (up to the dialog) and the viewport show; a child scrolled
+  out of the dialog's own scroll area is not tested (MUI `scroll="paper"`, a content area with `overflow-y: auto`).
 - Reports when: at least half the points, or the centre of any focusable child, land on an element outside the dialog
   that is not itself a dialog, at the first test and again 500 ms later. Also when a `fixed` dialog's rect extends past
-  `innerHeight`, its `overflow-y` is not `auto` or `scroll`, and a focusable child lies below `innerHeight`.
+  `innerHeight`, its `overflow-y` is not `auto` or `scroll`, and a focusable child lies below `innerHeight` outside
+  any scroll container of the dialog.
 - Skips: `el.matches(":modal")` (`showModal()` puts it in the top layer); `:popover-open`; a covering toast smaller
   than 10% of the dialog; nested dialogs.
 - Evidence: dialog `selector`, covered share of points, cover `selector`, both `z-index` values, the first ancestor
@@ -780,7 +825,7 @@ Zero-code paths use the existing merge in `cdn/config.ts`:
 
 ### 7.2 Defaults and the reasoning
 
-| entry | public host | development host (`isLocalHost`) or devtools mounted |
+| entry | public host | development host (`devHost`) or devtools mounted |
 |---|---|---|
 | `createRuntime()` | off | off |
 | `GenClass.init()` / `/auto` / script tag | off | on, report-only |
@@ -805,6 +850,12 @@ Why on for development hosts: the developer is the person who benefits, the cons
 and it is the cheapest place to catch the bug. The devtools overlay also turns it on, since mounting it means someone
 is looking.
 
+A development host (`devHost` in `src/visual/start.ts`) is http(s) on `localhost`, `127.0.0.1`, `[::1]` or a
+`*.localhost` name with an explicit port (a dev server), or any `*.test` name. It is narrower than telemetry's
+`isLocalHost` on purpose: there a false "local" sends less, here it would run the checks for a production app's
+visitors. Not development hosts: Capacitor (`https://localhost`, `capacitor://localhost`), Tauri
+(`http://tauri.localhost`), Electron loading `file:`, private addresses, bare intranet names, `.internal` and `.local`.
+
 CPU against coverage when on:
 
 - **Event-driven checks run everywhere** (images, media, stylesheets, fonts, CSP, viewport meta, layout shift,
@@ -827,7 +878,9 @@ All timers are Clock timers; idle callbacks come from the injected global (secti
 1. **Init (stub, first load)**: resolve the option. If off, nothing else happens: no listeners, no chunk. If on,
    register the `securitypolicyviolation` buffer (section 3.7).
 2. **Load**: wait for `document.readyState === "complete"` or `load`, capped at 5 s; then 1,500 ms on the Clock; then
-   an idle callback (timeout 3 s; without `requestIdleCallback`, a 0 ms Clock timer); then import the chunk.
+   an idle callback (timeout 3 s; without `requestIdleCallback`, a 0 ms Clock timer); then import the chunk. As built
+   (section 19): no idle callback in the stub, a 6.5 s cap, and no import while the tab is hidden or the page
+   prerenders (checked every 5 s).
 3. **Chunk gates**: `fonts.ready` (cap 3 s), a visible tab, not prerendering, network quiet for 500 ms (the host
    exposes the in-flight count, cap 10 s), 500 ms without DOM mutations (cap 10 s).
 4. **Pass 1**: cheap reads first (images, links, fonts, media, buffered layout shifts, the CSP buffer, viewport meta,
@@ -839,12 +892,17 @@ All timers are Clock timers; idle callbacks come from the injected global (secti
    class or style change on `html` or `body`, a dirty root larger than `maxElements`, or a route change schedules a full
    pass, at most one every 30 s. Image `load`/`error` queue that image. A `resize`, debounced 1,000 ms, queues the
    overflow check. `pageshow` with `persisted` queues one re-check. Mutations of `data-genclass-fix` and anything
-   inside `[data-genclass-ignore]` (the devtools host) are ignored.
+   inside `[data-genclass-ignore]` (the devtools host) are ignored. More than 3,000 records in a second (an animation
+   library writing inline styles on every frame) rest the observer for 5 s, then one full pass runs.
 7. **On interaction**: `click-blocked` on clicks, `focus-obscured` on keyboard focus and anchor jumps, state
    measurements of `text-invisible` on hover and focus (at most one per 500 ms), `control-unreachable` on reaching max
    scroll, `dialog-covered` when a dialog appears.
 8. **Periodic**: `pointer-events-leak` and `scroll-lock-stuck` read two computed styles every 2,000 ms while visible,
-   and stop while hidden.
+   and stop while hidden (the fix gate and the route are checked every 2 s even then). The document height and the
+   open set are read only when something is locked.
+9. **Where reads run**: every page read above (passes, re-checks, the periodic read, clicks, hover, focus, anchor
+   jumps, the end-of-page scan, dialogs, page-blank) runs in an idle callback, never in the app's event handlers or a
+   plain timer, and is timed and counted in the summary's cost and the session budget.
 
 Budgets:
 
@@ -857,13 +915,14 @@ Budgets:
 | text walk | 5,000 text nodes per pass | template, placeholder and encoding checks share one walk |
 | overflow culprit | 3,000 elements | only when the page fact holds |
 | `control-unreachable` | 50 controls | 250 hit tests at most, once per max-scroll event |
-| `css-var-undefined` | 5,000 rules | once per stylesheet set |
-| event handlers | under 1 ms each | `click-blocked` is one `elementsFromPoint` per click |
+| `css-var-undefined` | 5,000 rules | once per stylesheet set, in steps of 200 rules and one reference per step; a cross-origin sheet stops it before any walk |
+| event handlers | no page reads | an event records what it needs (the target, the point); the read runs in the next idle callback |
 
-Back-off: if one read takes more than 16 ms (a forced layout on a huge DOM), the pass ends, the settle wait doubles
-and `maxElements` halves for the session. A slice never runs long enough to be a long task (50 ms), which matters
-because `observe/perf.ts` records long tasks as `perf` events the model reads. If the runtime has seen a long task in
-the last second (a read-only counter on the host), the next slice waits for the next idle period.
+Back-off: if one step takes more than 16 ms (a forced layout on a huge DOM), the pass ends, the settle wait doubles
+and `maxElements` halves for the session. No step is exempt. A slice is meant never to run long enough to be a long
+task (50 ms), which matters because `observe/perf.ts` records long tasks as `perf` events the model reads; a step can
+still pass 50 ms when the browser must first lay out a page whose own layout takes that long (section 1). The design's
+"wait after a long task" counter on the host is not built.
 
 Estimated costs (to be measured by the bench and written to RESULTS.md with date and commit): 10 to 20 microseconds
 per candidate with clean layout on a desktop CI runner, 0.1 to 0.4 ms per `text-invisible` element on a 4x throttled
@@ -960,7 +1019,8 @@ receives every report.
 
 Nothing about visual checks is sent until the owner approves the exact fields. Rule 8 says widening what is sent
 needs the owner's OK, and the request of 2026-10-13 did not mention telemetry. Until then the telemetry client has no
-visual code at all (which also keeps its first-load bytes unchanged).
+visual code at all (which also keeps its first-load bytes unchanged). (The first implementation added a `visual`
+field to the session and summary events; the review of 2026-10-13 removed both, section 19.)
 
 Proposed fields, counts only:
 
@@ -972,9 +1032,11 @@ Proposed fields, counts only:
 | `runtime.visual` | summary event | `{ passes, ms, partial, tier }` |
 | `visual`, `fix` | session event | `"off" \| "local" \| "on"` and a boolean, so counts can be normalised by coverage |
 
-Never sent: selectors, element text, colours, URLs, sizes, per-finding events. When approved: update `TELEMETRY.md`,
-both READMEs, the CHANGELOG and the console notice check. Coverage note: telemetry is already off on local hosts and
-visual is off on public hosts by default, so counts only come from apps that set `visual: true` in production.
+Never sent: selectors, element text, colours, URLs, sizes, per-finding events. Route keys would be cut as telemetry's
+`route()` cuts other routes. When approved: update `TELEMETRY.md`, both READMEs, the CHANGELOG and the console notice
+check. Coverage note: telemetry is off on local hosts and visual is off on public hosts by default, so counts would
+come from apps that set `visual: true` in production, from visitors who open a link with `?genclass-visual=on`, and
+from pages where the devtools overlay mounted or `rt.checkNow()` ran.
 
 ## 11. Runtime fixes and undo
 
@@ -1008,7 +1070,13 @@ A fix runs only when all hold, checked when it is applied and again on every sta
 
 After applying, the check re-measures 50 ms later. If the threshold is not cleared (contrast below 4.5:1, or 3:1 for
 large text; pointer events still `none`; the page still cannot scroll), the fix is undone with the reason "did not
-clear the threshold".
+clear the threshold". The 50 ms check of a colour fix also searches for a painted layer that hit testing skips
+(section 2.4 step 7). A colour fix keeps the background it was computed for and is measured again on every periodic
+read (2 s), 300 ms after a class or style change anywhere, and when `prefers-color-scheme` changes; when the
+background differs or the colour no longer reaches its target (the item stopped being the active one, a theme
+toggle, a dark-mode switch), it is undone with the reason "the background or colour scheme changed, so the fix no
+longer fits", and a later re-check may apply it again (at most twice per finding and page). Tokens carry a prefix per
+engine (`f<prefix>-3`), so two runtimes on one page never share a rule.
 
 ### 11.3 Undo
 
@@ -1018,7 +1086,8 @@ clear the threshold".
   written it since, and undo does nothing. The kind is disabled for the session.
 - **Automatic undo of all fixes**: `setMode("observe")`, the breaker dropping to observe, a route change into a scope
   that does not allow fixes, `enabled` turning false, `disable()`, `pause()`, `destroy()`, a `style-src` CSP
-  violation during a fix (section 12).
+  violation during a fix (section 12). As built, `pause()` and a route-scoped mode change are seen by the 2 s
+  periodic gate (also while the tab is hidden); the others act at once.
 - **Never fight the app**: when the app changes a fixed element's `class` or `style`, or the element is replaced, that
   fix is dropped (an owned rule is removed; a removed inline declaration is forgotten, not restored). When a dialog or
   menu opens while a `pointer-events` or scroll-lock fix is in place, the fix is dropped, because the app now owns
@@ -1077,6 +1146,9 @@ packages/runtime/src/visual/
 - Size: `/auto` is about 98.9 KB gzip against the 100 KB limit in `test/bundle.test.ts`, the main entry about 91 KB
   against 92 KB. All message formatting, selector building and colour math stay in the chunk. The limits are raised
   by the measured stub size, with a dated comment as before. Chunk estimate: 6 to 12 KB gzip, loaded once after idle.
+  As measured on 2026-10-13 against current main (RESULTS.md section 8): the stub adds 582 B to `/auto` (101.24 KB,
+  over main's 101 KB ceiling) and 524 B to the main entry (93.70 KB of 94 KB), above the 300 to 500 B target; the
+  narrow development-host rule and the hidden-tab gate account for about 100 B of it. The owner decides the ceiling.
 
 ## 14. Test plan
 
@@ -1142,7 +1214,10 @@ Browser job (new, `visual-browser` in `.github/workflows/ci.yml`, in parallel wi
 **Status: built** (2026-10-13): [`bench/visual/`](../../bench/visual/README.md) and
 `.github/workflows/visual-measure.yml`. The numbers are in [RESULTS.md section 9](RESULTS.md); what the bench changed
 in the checks is in section 19. Where the bench differs from the plan below: the workflow is `visual-measure.yml`,
-started by hand (and by pushes to `bench/visual/` on the visual branch), not weekly; the public sites run without `bypassCSP` (Playwright's
+started by hand (and by pushes to `bench/visual/` on the visual branch), not weekly; the public sites' run logs and plain
+artifacts hold counts only (no site is named next to a finding or a kind: the repository and its runs are public), and
+their per-load results and crops are uploaded only encrypted with the `VISUAL_BENCH_KEY` secret (not at all without
+it, so their findings then count as unconfirmed); the public sites run without `bypassCSP` (Playwright's
 init scripts run under a page's policy, and the site's own policy stays in force for `csp-blocked`); phone loads send
 an Android user agent that keeps the `HeadlessChrome` token, so sites that pick their mobile layout by user agent are
 measured in it; dark loads run where the site has a dark design (a `prefers-color-scheme` rule, a `color-scheme`
@@ -1198,7 +1273,7 @@ What to say once v1 ships (README and genclass.dev), in this voice:
 > layers that swallow clicks, dialogs hidden behind other elements, and leaks such as "[object Object]" or "$NaN".
 > Each report names the element, what was measured and the threshold, and suggests a CSS change for that selector.
 > These are measured checks with fixed thresholds. The model is not involved and does not look at pixels. With
-> `visual: { fix: true }` in guard or heal mode, GenClass can apply three narrow fixes at runtime (a readable text
+> `visual: { on: true, fix: true }` in guard or heal mode, GenClass can apply three narrow fixes at runtime (a readable text
 > colour, a leaked `pointer-events: none`, a stuck scroll lock); each is reversible, and observe mode never changes
 > the page.
 
@@ -1229,15 +1304,23 @@ Owner decisions:
 2. **Fixes**: explicit `visual.fix` plus `guard` or `heal`, and the three v1 fix kinds.
 3. **Telemetry**: the fields in section 10 (counts per kind and normalised route), under rule 8.
 4. **Sinks**: `"check"` records only for sinks that list it in `kinds`.
-5. **Gates**: the numbers in section 15. Measured on 2026-10-13 (RESULTS.md section 9): the false-report, fix and
-   4x-throttling gates are met; recall is below 0.7 for `click-blocked` and `scroll-lock-stuck` (0.67, pages whose DOM
-   changes all the time); the cost gates are not met on public sites (p95 pass time 97.8 ms, p95 longest slice 57.1
-   ms). Whether kinds that miss a gate stay on by default on development hosts is open.
+5. **Gates**: the numbers in section 15. Measured on 2026-10-13 (RESULTS.md section 9): the false-report and fix gates
+   are met; the 4x-throttling gate is not reliably met (pass 1 inside 100 ms on 78.1% of clean local pages in runs 1
+   to 3 and 100% in run 4, against at least 90%, with no change to cost between runs 3 and 4); recall is below 0.7 for
+   `click-blocked` and `scroll-lock-stuck` (0.67, pages whose DOM changes all the time); the cost gates were not met on
+   public sites in runs 1 to 4 (p95 pass time 97.8 ms, p95 longest slice 57.1 ms in run 4; run 5 after the sliced
+   stylesheet walk is in RESULTS.md). Whether kinds that miss a gate stay on by default on development hosts is open.
 6. **CONTRACT.md**: the same rule 2 exception added to CONTRACT section 0 rule 1, and a new section for visual checks,
    when implementation starts.
 7. **Public-site bench**: the list of about 40 sites and loading them weekly from GitHub runners. The list is
-   `bench/visual/sites.json`; the workflow runs on manual dispatch only (no schedule) until this is decided. Four
-   runs on 2026-10-13 loaded each site up to 4 times per run; one site answered HTTP 429 in the fourth.
+   `bench/visual/sites.json`; the workflow runs on manual dispatch and on pushes that change `bench/visual/` on the
+   visual branch (runs 1 to 3 were push-triggered), with no schedule, until this is decided. Runs on 2026-10-13
+   loaded each site up to 4 times per run; one site answered HTTP 429 in the fourth. The logs of runs 38481999283,
+   38484391086, 38486735268, 38488461191, 38489994866 and 38491663715 name sites next to finding kinds (some of them
+   check errors or rate-limited loads), and their artifacts hold per-site JSON and crops for 7 days: deleting them is
+   the owner's call (it cannot be undone). Since the review, the sites' logs and plain artifacts hold counts only, and
+   the per-site results are kept only encrypted with a `VISUAL_BENCH_KEY` repository secret, which the owner adds if
+   person-reviewed verdicts on public-site findings are wanted.
 8. **v3**: a go-ahead for a new situation tag, when v1 and v2 numbers justify it.
 
 Open questions to verify in the browser job: whether `getComputedStyle` exposes Chrome's autofill background; Safari
@@ -1275,19 +1358,21 @@ What the code does where it differs from the design above (2026-10-13, branch `w
 - **Load timing.** The stub imports the chunk 1.5 s after `load` (6.5 s at most when `load` is late), without an idle
   callback of its own (every pass already runs in idle slices). While `enabled` is false or pending it re-checks every
   5 s. The devtools overlay and `rt.checkNow()` load it on demand.
-- **`pause()`** undoes fixes at the next 2 s periodic read rather than at once (no first-load code for it);
-  `setMode("observe")`, the breaker, `disable()` and `destroy()` undo them at once.
+- **`pause()`** undoes fixes at the next 2 s periodic read rather than at once (no first-load code for it), also while
+  the tab is hidden; `setMode("observe")`, the breaker, `disable()` and `destroy()` undo them at once.
 - **One summary key.** `SessionSummary.visual` holds `checks`, `checksByRoute`, `fixes` and the cost fields, instead
-  of separate `checks`, `fixes` and `visual` keys. Telemetry sends that object as `visual` in the summary event and
-  the setting (`local` or `on`) as `visual` in the session event; there is no separate `fix` field.
+  of separate `checks`, `fixes` and `visual` keys. Telemetry sends none of it (section 10).
 - **Folding** is by finding key: elements of the same kind with the same selector fold into one finding.
 - **`csp-blocked`** names the element that requested a blocked URL when the event does not.
 - **`control-unreachable`** only counts covers up to 40% of the viewport tall (a full-screen invisible layer is
   `click-blocked`'s case).
-- **Known gap.** `elementsFromPoint` skips `pointer-events: none` layers, so a background painted by such an overlay
-  is not seen by the `text-invisible` resolver.
+- **Layers hit testing skips.** `elementsFromPoint` skips `pointer-events: none` layers, so the resolver cannot see
+  their colour. Since the review, a low verdict is not trusted while such a layer paints at a sample point (section
+  2.4 step 7); a dark layer that ignores the pointer under dark text still goes unseen (a missed finding, never a
+  false one).
 - **Sizes and costs measured in CI** (GitHub runner, Chromium): first-load growth against main 486 B gzip for `/auto`
-  and 431 B for the main entry (`test/first-load-size.mjs`, limit 512 B); the chunk `dist/visual/index.js` is about
+  and 431 B for the main entry at first (`test/first-load-size.mjs`, limit 512 B), 582 B and 524 B after the review
+  against main of 2026-10-13 (limit 0.6 KB on this branch, pending the owner; section 13); the chunk `dist/visual/index.js` is about
   35 KB gzip (the estimate was 6 to 12 KB); a 10,000-element page took 2 passes, 72.9 to 127.8 ms of check time in all
   (two runs), a longest slice of 8.5 ms and no partial pass. On the fixture pages every planted fault was found and
   nothing else was reported (35 faults, 23 kinds; written by the checks' author, so this is not a precision figure).
@@ -1308,8 +1393,9 @@ reproduces the pattern, asserts that it happened, and asserts that nothing but t
   the fallback leaves text below 3:1 (3.12). `regress-css-var.html`.
 - **`focus-obscured`** (6): a transparent full-screen pop-up layer over a cookie banner; the focused links showed
   through it. The cover must paint and be at most half the viewport tall (3.22). `regress-focus-overlay.html`.
-- **`layout-shift`** (2 check errors): an infinite list pushing its footer down while the visitor scrolled, and a
-  window with no element left to name. Windows within 1 s after a scroll (unless an image without reserved space
+- **`layout-shift`** (3 check errors in run 1, from two patterns): two windows on one load of a site with an infinite
+  list that pushed its footer down while the visitor scrolled, and one window on another site with no element left
+  to name. Windows within 1 s after a scroll (unless an image without reserved space
   caused them) and windows without a moved element are counted, not reported (3.16). `regress-shift-scroll.html`.
 - **`control-unreachable`** (second run, 5): a consent banner rendered inside a shadow root, its host a fixed element
   0 px tall, so its buttons were invisible to the check and it looked like a bar without controls. Controls in open
@@ -1319,6 +1405,55 @@ reproduces the pattern, asserts that it happened, and asserts that nothing but t
   expanded popup trigger, or a navigation disclosure whose panel is visible, now counts as something open (3.19,
   3.20). `regress-menu-lock.html`.
 - **Known gaps the bench measured, not changed:** `click-blocked` and `scroll-lock-stuck` stay silent on pages whose
-  DOM changes all the time (all their misses were on the six demo pages, which update a live log); a single read
-  can take longer than the 8 ms slice on heavy pages (the longest slice is in RESULTS.md section 9), most likely the
-  stylesheet walk of `css-var-undefined`, which is exempt from the slow-read rule.
+  DOM changes all the time (all their misses were on the six demo pages, which update a live log). The long slices on
+  heavy pages (RESULTS.md section 9) were the stylesheet walk of `css-var-undefined`, then exempt from the slow-read
+  rule; the review below made it a sliced step.
+
+**Review of 2026-10-13.** A review of the checks by reading the code (precision, safety, the repository rules) found
+correct pages that looked broken, runtime fixes that could make a correct state worse, and costs outside the slices.
+Each change below has a unit test (`test/visual-*.test.ts`) or a Chromium fixture
+(`test/browser/visual/fixtures/clean-*.html`, `fix-state.html`, `scroll-load-fix.html`, `big-css.html`) that is a
+correct page and asserts that it stays clean (and, where a fault is planted next to the pattern, that the check still
+finds it). Run 5 of the bench measured the result (RESULTS.md section 9).
+
+- **`text-invisible`, the canvas.** Only the computed `color-scheme` was read, and only "light dark" with a dark
+  visitor counted as a dark canvas: a page with only `<meta name="color-scheme" content="light dark">` (computed value
+  `normal`) in dark mode, or `:root { color-scheme: dark }` for a light visitor, had every text element reported at
+  1:1 and, with fixes on, recoloured for a white canvas. Now section 2.4 step 5. `clean-scheme-meta.html`,
+  `clean-scheme-dark.html`.
+- **`text-invisible`, layers that ignore the pointer.** A hero video, a particles canvas or an overlay with
+  `pointer-events: none` behind white text on a white page gave 1:1, and the fix's 50 ms check could not see the
+  layer either. Now section 2.4 step 7, also in the fix check. `clean-layers.html` (with a planted white-on-white card
+  that is still found and fixed), `clean-particles.html`.
+- **`text-invisible`, smaller gaps.** Transparent or low-contrast loading placeholders were reported while their
+  request ran (now re-checked after network quiet and skipped inside `[aria-busy]`); emoji-only text was judged by a
+  `color` its glyphs ignore; the hover and focus measure could catch a colour transition halfway.
+- **`text-invisible` fixes that stop fitting.** A fix was verified once, 50 ms after it was applied: when the item lost
+  its white `.active` background, the dark fixed colour stayed on the dark background (about 1.3:1) and nothing undid
+  it. Fixes now keep their background and are re-measured (section 11.2). `fix-state.html`.
+- **`dialog-covered`.** A control scrolled out of a dialog's own scroll area had its centre tested outside the
+  dialog, on the backdrop, and the dialog was reported as covered (MUI `scroll="paper"`, shadcn dialogs with long
+  forms). Now clipped (3.23). `clean-dialog-scroll.html`.
+- **`page-blank`.** A web-component app (all text in shadow roots) was reported blank on every route, and a fade-in
+  route in a hidden tab (rAF paused) was too. Now 3.17. `clean-web-component.html`.
+- **`scroll-lock-stuck`.** Any wheel without an effect counted as an attempt: wheel up on the first section or down
+  on the last of a full-page slider, wheels during its transition, sideways wheels and gestures the app consumed (a
+  map zoom); with fixes on, the slider's own lock was removed. Now 3.20; a lock held since load with no dialog ever
+  open is not removed. `clean-fullpage.html`, `scroll-load-fix.html`, and `scroll-fix.html` now leaks the lock from a
+  closed dialog.
+- **`pointer-events-leak`.** An inline `pointer-events: none` on `body` during a slow request (a busy shield) was
+  reported and, with fixes on, removed mid-request, which allows double submits. Now 3.19. `clean-busy.html`.
+- **`csp-blocked`, `layout-shift`.** Session-wide events were reported again on every route of a single-page app
+  (and counted per route). Now once per session (3.16).
+- **`icon-font-failed`.** A face still loading was reported at once, and an italic `<i>` word in a failed text font
+  was reported as an icon. Now 3.6.
+- **Cost.** The `css-var-undefined` stylesheet walk ran as one exempt step (p95 31.6 ms, up to 54.6 ms on public
+  sites; any step of 50 ms or more is a long task the runtime's `perf` observer records); the periodic read, clicks,
+  hover, focus, the end-of-page scan and page-blank read the page in timers and event handlers outside the budget.
+  Now section 8 steps 6 and 9: sliced, idle, counted. A document-wide resource map kept every failed request for the
+  life of the tab; it keeps 500 good and 200 failed image, CSS and stylesheet entries. A flood of mutation records
+  rests the observer. Fix tokens are per engine. `big-css.html` and the interaction run on `big.html` assert no long
+  task once the checks run.
+- **Defaults and telemetry.** The `"local"` default used telemetry's `isLocalHost`, which also covers Capacitor,
+  Tauri, Electron and intranet hosts; it now uses the narrow `devHost` (7.2). The stub no longer loads the chunk in a
+  hidden tab or a prerendered page. The `visual` telemetry fields were removed (section 10).

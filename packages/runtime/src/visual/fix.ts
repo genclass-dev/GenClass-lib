@@ -37,6 +37,8 @@ export interface FixHost {
   quietly(fn: () => void): void;
   /** Token prefix of this engine (default none). */
   prefix?: string;
+  /** Run a re-measure `ms` from now (the engine runs it in an idle callback; default a Clock timer). */
+  defer?(fn: () => void, ms: number): void;
 }
 
 interface Applied {
@@ -154,7 +156,7 @@ export class Fixer {
       css: a.css,
       undo: () => this.undo(id, "undone by the developer", true),
     };
-    this.h.clock.setTimeout(() => {
+    const check = () => {
       if (!this.live.has(id)) return;
       let ok = false;
       try {
@@ -163,7 +165,9 @@ export class Fixer {
         ok = false;
       }
       if (!ok) this.undo(id, "did not clear the threshold", false);
-    }, 50);
+    };
+    if (this.h.defer) this.h.defer(check, 50);
+    else this.h.clock.setTimeout(check, 50);
     return out;
   }
 

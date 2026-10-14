@@ -5,9 +5,10 @@
 // Invariants:
 // - Reads only, except fix.ts behind the fix gate (guard or heal mode, visual.fix, sampled in, visible tab). In
 //   observe mode nothing on the page changes: no attributes, styles, inserted elements, scrolling or focus.
-// - Page reads never run inside the app's event handlers or in plain timers: passes, re-checks, the periodic read, the
-//   interaction checks and page-blank run in idle callbacks, timed on the Clock and counted in the summary's cost and
-//   the session budget (`idleWork`, `run`).
+// - Measurements (computed styles, layout, hit tests) never run inside the app's event handlers or in plain timers:
+//   passes, re-checks, fix checks, the periodic read, the interaction checks and page-blank run in idle callbacks,
+//   timed on the Clock and counted in the summary's cost and the session budget (`idleWork`, `run`). Event handlers
+//   record the event; while a scroll lock is held, a scroll attempt also reads the scroll position.
 // - Time comes from host.clock and idle callbacks from host.global.requestIdleCallback (AGENTS.md rule 5). Event
 //   timestamps the browser hands over (font loadingdone, layout-shift startTime) are compared only with each other.
 // - Never throws into the page: every listener and timer body runs in try/catch.
@@ -241,6 +242,7 @@ export class Visual implements VisualController {
       note: (m, f, imp) => this.host.note(m, f, imp),
       warn: (m) => this.warn(m),
       quietly: (fn) => this.quietly(fn),
+      defer: (fn, ms) => void this.later(() => void this.idleWork(fn), ms),
       prefix: `${(hash32(`${host.seed}/${++engines}`) % 1679616).toString(36)}-`,
     });
     for (const e of early) this.onCsp(e as SecurityPolicyViolationEvent);
@@ -1356,10 +1358,9 @@ export class Visual implements VisualController {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (this.lockSince === null || !["PageDown", " ", "ArrowDown", "End", "Spacebar"].includes(e.key)) return;
+    if (this.lockSince === null || this.attemptPending || !["PageDown", " ", "ArrowDown", "End", "Spacebar"].includes(e.key)) return;
     const t = e.target as Element | null;
-    if (this.attemptPending) return;
-    if (t && t.nodeType === 1 && (safeMatches(t, "input, textarea, select, [contenteditable], [contenteditable] *") || innerScroller(this.reader(), t))) return;
+    if (t && t.nodeType === 1 && safeMatches(t, "input, textarea, select, [contenteditable], [contenteditable] *")) return;
     this.attempt(1, e);
   }
 
@@ -1380,27 +1381,29 @@ export class Visual implements VisualController {
       dy = this.touch.y - p.clientY;
       if (Math.abs(this.touch.x - p.clientX) >= Math.abs(dy)) return;
     }
-    const t = e.target as Element | null;
-    if (t && t.nodeType === 1 && innerScroller(this.reader(), t)) return;
     this.attempt(dy, e);
   }
 
   /**
-   * A scroll attempt counts when the page could have moved that way (canScroll), and 300 ms later the app did not
-   * consume the event (defaultPrevented: a map zoom, a slider), scrollY and the DOM did not change, and the page does
-   * not scroll by moving a layer (scrollByTransform: full-page sliders, smooth-scroll libraries, mid-transition).
+   * A scroll attempt counts when, 300 ms later, the app did not consume the event (defaultPrevented: a map zoom, a
+   * slider), scrollY and the DOM did not change, and then, in an idle callback: the target is not in a container that
+   * scrolls on its own, the page could have moved that way (canScroll), and it does not scroll by moving a layer
+   * (scrollByTransform: full-page sliders, smooth-scroll libraries, mid-transition).
    */
   private attempt(dy: number, e: Event): void {
-    if (this.lockSince === null || this.attemptPending) return;
+    if (this.lockSince === null || this.attemptPending || !dy) return;
     const y = this.win.scrollY;
-    if (!I.canScroll(dy, y, this.win.innerHeight, this.doc.documentElement.scrollHeight)) return;
     const m = this.muts;
+    const t = e.target as Element | null;
     this.attemptPending = true;
     this.later(() => {
       this.attemptPending = false;
       if (e.defaultPrevented || this.win.scrollY !== y || this.muts !== m) return;
       void this.idleWork(() => {
-        if (!I.scrollByTransform(this.reader())) this.attempts++;
+        const r = this.reader();
+        if (t && t.nodeType === 1 && innerScroller(r, t)) return;
+        if (!I.canScroll(dy, y, this.win.innerHeight, this.doc.documentElement.scrollHeight) || I.scrollByTransform(r)) return;
+        this.attempts++;
       });
     }, 300);
   }

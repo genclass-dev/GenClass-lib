@@ -311,9 +311,12 @@ checks work as designed. Section 9 has the bench on the demos, templates, compat
 | planted faults found on the fixture pages | 35 of 35 (every planted fault, on its element, 23 kinds) | `visual.spec.ts`, 24 tests passed |
 | findings on clean fixture pages (false reports) | 0 on the clean page at 1280 x 800 and at 390 x 844 (phone), 0 on the light variant of the dark-mode page, 0 on a 10,000-element page, 0 besides the planted fault on every other page | same |
 | runtime fixes on fixture pages | text colour, `pointer-events` and scroll lock applied, verified, undone; 0 CSP violations from the owned rule under `style-src 'self'` | same |
-| first-load growth against main (minified + gzip) | `/auto` +486 B (99.649 KB), main entry +431 B (92.118 KB); limit 512 B | `test/first-load-size.mjs` in the `visual-browser` job |
+| first-load growth against main (minified + gzip) | first build, against an older main: `/auto` +486 B (99.649 KB), main entry +431 B (92.118 KB); limit 512 B. After the review, against main of 2026-10-13 (app tokens, `protect()`; CI run 38497342999): `/auto` +582 B (101.244 KB, over main's 101 KB ceiling), main entry +524 B (93.699 KB of 94 KB). The narrow development-host rule and the hidden-tab gate account for about 100 B. Ceilings raised on the branch to 101.5 KB and 0.6 KB growth, **pending the owner's OK** | `test/first-load-size.mjs` in the `visual-browser` job, `test/bundle.test.ts` |
 | lazy chunk `dist/visual/index.js` | about 35 KB gzip (97 KB minified) | esbuild, minified |
-| a 10,000-element page | 2 passes, 72.9 to 127.8 ms of check time in all (two runs), longest slice 8.5 ms (budget 8 ms per slice), no partial pass | `big.html` |
+| a 10,000-element page | 2 passes, 72.9 to 127.8 ms of check time in all (two runs), longest slice 8.5 ms (budget 8 ms per slice), no partial pass; after the review: 106.7 ms, longest slice 8.4 ms | `big.html` |
+| the same page with hover, clicks and scrolling (after the review) | 137.1 ms of check time in all, longest slice 8.7 ms, no long task (50 ms or more) on the page once the checks ran | `big.html`, CI run 38497342999 |
+| 5,000 stylesheet rules with `var()` (after the review) | 49 ms of check time, longest slice 10.9 ms, no long task | `big-css.html`, same run |
+| correct pages a review found reported as broken (after the review) | 0 findings on each: dark mode from the `color-scheme` meta tag and a dark-only page (both schemes), white text over `pointer-events: none` overlay, canvas, video and a full-screen particles canvas, a dialog that scrolls inside, a web-component app, a full-page section scroller, a busy shield during a 6 s request; a fix undone when its background changed; a scroll lock held since load reported and not removed | `visual.spec.ts`, 44 tests passed |
 
 ## 9. Visual bench: false reports, recall and cost (GitHub runners, Chromium 153, 2026-10-13, branch `wave2/visual`)
 
@@ -418,7 +421,7 @@ layouts, not on every way such a bug appears.
 | loads | count | pass time p50 / p95 / max | pass within 100 ms | longest slice p50 / p95 / max | elements read p50 / max |
 |---|---|---|---|---|---|
 | local pages, 1x CPU | 128 | 6.1 / 19.0 / 27.9 ms | 100% | 6.0 / 8.9 / 18.7 ms | 138 / 2,178 |
-| local pages, 4x CPU throttling | 32 | 28.3 / 68.8 / 90.9 ms | 100% (78% in run 2) | 13.5 / 18.4 / 25.6 ms | 138 / 2,178 |
+| local pages, 4x CPU throttling | 32 | 28.3 / 68.8 / 90.9 ms | 100% (78.1% in runs 1, 2 and 3, p95 106.9, 104.5 and 106.1 ms) | 13.5 / 18.4 / 25.6 ms | 138 / 2,178 |
 | public sites, 1x | 113 | 40.5 / 97.8 / 128.2 ms | 94% | 19.5 / 57.1 / 86.1 ms | 894 / 6,593 |
 
 The longest slice on public sites is well above the 8 ms slice budget. One stylesheet walk, as `css-var-undefined`
@@ -432,7 +435,9 @@ stub requested the chunk 1.5 s after `load` (median 1,500 ms) and the first pass
 **Proposed gates (VISUAL.md 15) on run 4.** Met: 0 false reports on the demos and templates; 0 per compat page (at most
 0.05); 0 confirmed false reports per 10 public sites for every kind (at most 1); recall 1.00 for `text-invisible` and
 `image-broken` (at least 0.9); at least 0.7 for 19 of the other 21 kinds (`click-blocked` and `scroll-lock-stuck`
-are at 0.67); pass 1 inside 100 ms at 4x throttling on 100% of clean local pages (at least 90%;
-78% in run 2); 0 false fixes. Not met: p95 pass time on public sites 97.8 ms (at most 50 ms; 19.0 ms on local pages);
-longest slice at most budget + 4 ms (12 ms): p95 8.9 ms on local pages, 57.1 ms on public sites.
+are at 0.67); 0 false fixes. Not met: p95 pass time on public sites 97.8 ms (at most 50 ms; 19.0 ms on local pages);
+longest slice at most budget + 4 ms (12 ms): p95 8.9 ms on local pages, 57.1 ms on public sites. Not reliably met: pass
+1 inside 100 ms at 4x throttling on at least 90% of clean local pages: 78.1% in runs 1, 2 and 3 and 100% in run 4; the
+code change before run 4 (popup triggers for two interaction checks) did not touch cost, so run 4 is the outlier, not
+an improvement.
 

@@ -557,20 +557,23 @@ interface CheckFinding {
 }
 ```
 
-- **Defaults.** `GenClass.init()`, `/auto` and the script tag use `"local"`: on for development hosts (`localhost`,
-  `*.local`, `*.test`, private networks, `file:`) and when the devtools overlay mounts, off on public hosts.
+- **Defaults.** `GenClass.init()`, `/auto` and the script tag use `"local"`: on for development hosts (http(s) on
+  `localhost`, `127.0.0.1`, `[::1]` or a `*.localhost` name with a port, and `*.test` names) and when the devtools
+  overlay mounts, off everywhere else (Capacitor, Tauri, Electron and intranet hosts included).
   `visual: true` turns report-only checks on everywhere. `?genclass-visual=off` turns them off; `?genclass-visual=on`
   turns on report-only checks on any host for that page load (an app's explicit `visual: false` wins). A URL never
   turns fixes on. Zero-code: `<meta name="genclass" content="visual=on">` (`off`, `local`, `fix`), `data-visual` on
   the script tag, `window.GENCLASS_CONFIG = { visual: { ... } }`.
-- **When they run.** Nothing loads until 1.5 s after `load` (6.5 s at most) or while `enabled` is false or pending,
-  and nothing is measured in a hidden tab. Then fonts, network quiet and DOM quiet (500 ms each, 10 s at most), one pass in
+- **When they run.** Nothing loads until 1.5 s after `load` (6.5 s at most), while `enabled` is false or pending, or
+  while the tab is hidden or the page prerenders, and nothing is measured in a hidden tab. Every page read runs in an
+  idle callback, never in your event handlers. Then fonts, network quiet and DOM quiet (500 ms each, 10 s at most), one pass in
   idle slices, persistence re-checks 1 to 2 s later, and incremental re-checks of the subtrees that changed (a full
   pass at most every 30 s). Interaction checks run on clicks, hover, focus, anchor jumps, scrolling and a 2 s
   computed-style read of `html` and `body`. A route whose mode is `"off"` gets no checks.
 - **Reports.** The console line starts `[GenClass] Check (measured):` and ends with the suggested CSS (or what to
   change when CSS is not the fix). `report: "silent"` prints nothing, `"interventions"` prints only applied and undone
-  fixes, a `report` function receives every `Report` of kind `"check"` (`r.check` is the finding).
+  fixes, a `report` function and `rt.on("report")` listeners receive every `Report` of kind `"check"` (`r.check` is
+  the finding) without opting in.
 - **Sinks** get `kind: "check"` records (`check: { kind, severity, fixed }`, `route`) only when their `kinds` list
   `"check"`; `evidence: true` adds `message`, `target` and `selector`.
 - **Audit.** Every fix applied, undone or dropped is an entry of kind `"fix"`: `fix: { what, checkId, kind, css, reason? }`.
@@ -579,9 +582,11 @@ interface CheckFinding {
   `unsupported` (kinds this browser cannot measure), `tier`, `stopped`.
 - **Fixes** (`visual: { on: true, fix: true }`, guard or heal only): a readable text colour through one rule in an
   adopted stylesheet GenClass owns, and removing one leaked inline `pointer-events: none` or `overflow: hidden` on
-  `html` or `body`. Re-measured 50 ms later and undone if the threshold is not cleared; `finding.fix.undo()` (or the
+  `html` or `body`. Re-measured 50 ms later and undone if the threshold is not cleared; a colour fix is measured again
+  every 2 s, after class or style changes and on a colour-scheme change, and undone when its background changes; a
+  scroll lock held since load with no dialog ever open is not removed; `finding.fix.undo()` (or the
   devtools Undo) undoes it and turns that kind off for the session (three undos turn all fixes off); undone
-  automatically on `setMode("observe")`, the breaker, `pause()` (within 2 s), `disable()` and `destroy()`; dropped,
+  automatically on `setMode("observe")`, the breaker, `pause()` (within 2 s, also in a hidden tab), `disable()` and `destroy()`; dropped,
   never fought, when the app changes the element. At most 50 fixes per page. Observe never changes the page.
 - **In your tests.** `import { checkPage } from "@genclass/runtime/visual"`; `await checkPage(options?)` runs one
   report-only pass in the current page without a runtime and resolves with the findings (interaction checks need a

@@ -284,6 +284,9 @@ test.describe("measured visual checks (VISUAL.md section 14)", () => {
     console.log(`[visual-bench] big.html with interaction: total ${v.ms} ms, max slice ${v.maxSliceMs} ms, long tasks ${JSON.stringify(long)}`);
     expect(long).toEqual([]);
     expect(v.maxSliceMs).toBeLessThan(50);
+    // and so nothing the checks did reached the runtime's event log as a "perf" event (which the model reads)
+    const perf = await page.evaluate((t0) => (window as unknown as { GenClass: { runtime: { history(): { kind: string; t: number }[] } } }).GenClass.runtime.history().filter((e) => e.kind === "perf" && e.t >= t0).length, t0);
+    expect(perf).toBe(0);
   });
 
   test("5,000 stylesheet rules with var(): the walk runs in short slices, no long task", async ({ page }) => {
@@ -306,6 +309,11 @@ test.describe("measured visual checks (VISUAL.md section 14)", () => {
     console.log(`[visual-bench] big-css.html: total ${r.v.ms} ms, max slice ${r.v.maxSliceMs} ms, long tasks ${JSON.stringify(r.long)}`);
     expect(r.long).toEqual([]);
     expect(r.v.maxSliceMs).toBeLessThan(25);
+    const perf = await page.evaluate(() => {
+      const w = window as unknown as { __t0: number; GenClass: { runtime: { history(): { kind: string; t: number }[] } } };
+      return w.GenClass.runtime.history().filter((e) => e.kind === "perf" && e.t >= w.__t0).length;
+    });
+    expect(perf).toBe(0);
   });
 });
 
