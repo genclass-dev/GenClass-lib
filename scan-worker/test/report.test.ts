@@ -210,6 +210,20 @@ describe("the deeper checks in the report", () => {
     assert.equal(r.findings.find((f) => f.kind === "image-unsized-shift")!.unscored, null, "an image without dimensions that moved content is scored");
     assert.equal(r.score.categories.find((c) => c.id === "speed")!.value, 97);
   });
+  it("judges Largest Contentful Paint on the faster of the desktop and phone loads", () => {
+    const lcp = (ms: number): RawFinding => ({ kind: "lcp-slow", selector: "h1#hero", box: null, measured: `Largest Contentful Paint at ${ms / 1000} s`, detail: { severity: ms > 4000 ? "moderate" : "minor", count: 1, ms } });
+    const at = (desk: number, phone: number | null) => {
+      const s = scan({ views: [view("desktop", [], [lcp(desk)]), view("phone", []), view("phone-dark", [])], probe: null, guard: null });
+      s.views[1].metrics.lcpMs = phone;
+      return buildReport(target, ids, s, { withGenClass: false }).findings.find((f) => f.kind === "lcp-slow");
+    };
+    assert.equal(at(2640, 2130), undefined, "the phone painted within 2.5 s: one slow load is not enough");
+    const both = at(4600, 3100)!;
+    assert.equal(both.severity, "minor", "the faster load sets the severity");
+    assert.match(both.measured, /^Largest Contentful Paint at 4\.60 s on the desktop view \(h1#hero\) and 3\.10 s on the phone view; the faster load is above 2\.5 s \(needs improvement\)\. Measured once/);
+    assert.equal(at(4600, 4300)!.severity, "moderate");
+    assert.match(at(3000, null)!.measured, /The phone view's LCP could not be read, so this is one load\.$/);
+  });
   it("adds the missing viewport meta tag from a phone view laid out wider than the phone", () => {
     const s = scan();
     s.views[1] = { ...s.views[1], width: 980, checks: { viewportMeta: false, viewport: [980, 2000] } };

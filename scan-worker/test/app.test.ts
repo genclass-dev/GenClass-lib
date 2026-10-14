@@ -477,7 +477,7 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
         { id: "color-contrast", impact: "serious", tags: ["wcag2aa", "wcag143"], help: "Elements must meet minimum color contrast ratio thresholds", description: "contrast", helpUrl: "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI", count: 1, nodes: [{ target: "p.fine", box: { x: 10, y: 40, w: 200, h: 20 }, summary: "x" }] },
       ],
     }),
-    vitals: (view) => ({ lcp: { t: view === "desktop" ? 4600 : 1200, sel: "img.hero" }, shifts: [{ t: 900, v: 0.05, input: false, sources: [] }], unsized: [] }),
+    vitals: (view) => ({ lcp: { t: view === "desktop" ? 4600 : 4300, sel: "img.hero" }, shifts: [{ t: 900, v: 0.05, input: false, sources: [] }], unsized: [] }),
     audit: (view) => ({
       viewport: "width=device-width, initial-scale=1, maximum-scale=1",
       targets: view === "phone" ? [{ sel: "nav a", lab: "One", x: 0, y: 0, w: 16, h: 16, inline: false, ua: false, p: -1 }, { sel: "nav a", lab: "Two", x: 20, y: 0, w: 16, h: 16, inline: false, ua: false, p: -1 }] : undefined,
@@ -519,7 +519,8 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     assert.equal(by("js-error").count, 1, "the scanner's own message is left out");
     assert.equal(by("lcp-slow").severity, "moderate");
     assert.deepEqual(r.notMeasured, {});
-    assert.deepEqual([r.metrics.lcpMs, r.metrics.phoneLcpMs, r.metrics.axeIncomplete, r.metrics.jsBytes], [4600, 1200, 2, 1_200_000]);
+    assert.deepEqual([r.metrics.lcpMs, r.metrics.phoneLcpMs, r.metrics.axeIncomplete, r.metrics.jsBytes], [4600, 4300, 2, 1_200_000]);
+    assert.match(by("lcp-slow").measured, /^Largest Contentful Paint at 4\.60 s on the desktop view \(img\.hero\) and 4\.30 s on the phone view; the faster load is poor \(above 4 s\)\./);
     assert.equal(r.findings.find((f: { kind: string }) => f.kind === "js-heavy").unscored.startsWith("A note, not scored"), true);
     assert.equal(r.axe, "4.13.0");
     for (const c of r.score.categories) assert.equal(c.measured, true, c.id);

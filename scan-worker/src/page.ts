@@ -1013,8 +1013,10 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     aspect-ratio (as attributes or inline style), arriving after the first paint, and a layout shift from 50 ms before to 500 ms
     after it arrived moved content below it down. An unsized
     image that moved nothing is not reported.</li>
-    <li><b>Largest Contentful Paint</b> (desktop, <a href="https://web.dev/articles/lcp">web.dev</a>): minor above ${lcpGood} s
-    (needs improvement), moderate above ${lcpPoor} s (poor).</li>
+    <li><b>Largest Contentful Paint</b> (<a href="https://web.dev/articles/lcp">web.dev</a>), judged on the faster of two loads in the
+    same browser, the desktop view and the light phone (which loads without GenClass): minor when that is above ${lcpGood} s
+    (needs improvement), moderate above ${lcpPoor} s (poor). One load can be much slower than a visitor's: in calibration a text
+    heading a desktop browser painted at 0.59 s took 2.64 s in the scanner's desktop view and 2.13 s on its phone.</li>
     <li><b>JavaScript errors</b> (Lighthouse's console errors audit): uncaught errors and unhandled rejections in the page's own
     main frame while it loads, moderate (minor when every one came from a script on another site); <code>console.error</code>,
     minor. Errors from the scanner's own code are left out.</li>

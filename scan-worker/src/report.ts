@@ -9,6 +9,7 @@
 
 import { categoryOf, describe, isAudit, isVisual, KINDS, ruleOf, severityOf, standardsOf, suggestFix, type Kind, type RawFinding, type Source } from "./catalog.ts";
 import type { ProbeResult, ScanResult, VisualFixes } from "./scan.ts";
+import { LCP_GOOD_MS, LCP_POOR_MS, TIMING_NOTE } from "./audits.ts";
 import { CATEGORIES, ruleImpact, score, SEVERITY_ORDER, type Category, type ScoreBreakdown, type Severity } from "./score.ts";
 import type { Standard } from "./standards.ts";
 import type { Target } from "./target.ts";
@@ -337,6 +338,40 @@ export function coverageOf(r: ScanResult): { measured: Record<Category, boolean>
   return { measured, notMeasured };
 }
 
+/**
+ * Largest Contentful Paint is judged on the faster of two loads in the same browser: the desktop view and the light
+ * phone, which loads without GenClass. One load in the scanner's browser can be much slower than a visitor's (measured
+ * in calibration: 2.64 s for a text heading that a desktop browser painted at 0.59 s, while the light phone measured
+ * 2.13 s). When the faster load is within web.dev's 2.5 s there is no finding; otherwise the severity follows the faster
+ * load and the finding names both. When the phone's LCP could not be read, the desktop's stands alone and says so.
+ */
+function lcpOnFasterLoad(merged: Map<string, { raw: RawFinding; severity: Severity; views: string[] }>, r: ScanResult): void {
+  const k = "audit|lcp-slow";
+  const e = merged.get(k);
+  if (!e) return;
+  const desk = typeof e.raw.detail?.ms === "number" ? (e.raw.detail.ms as number) : null;
+  const phone = r.views.find((v) => v.id === "phone" && v.ok)?.metrics?.lcpMs ?? null;
+  if (desk === null) return;
+  const s = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
+  if (phone === null) {
+    e.raw = { ...e.raw, measured: `${e.raw.measured} The phone view's LCP could not be read, so this is one load.` };
+    return;
+  }
+  const faster = Math.min(desk, phone);
+  if (faster <= LCP_GOOD_MS) {
+    merged.delete(k);
+    return;
+  }
+  const poor = faster > LCP_POOR_MS;
+  const el = e.raw.selector ? ` (${e.raw.selector})` : "";
+  e.severity = poor ? "moderate" : "minor";
+  e.raw = {
+    ...e.raw,
+    measured: `Largest Contentful Paint at ${s(desk)} on the desktop view${el} and ${s(phone)} on the phone view; the faster load is ${poor ? "poor (above 4 s)" : "above 2.5 s (needs improvement)"}. ${TIMING_NOTE}`,
+    detail: { ...e.raw.detail, severity: e.severity, phoneMs: phone },
+  };
+}
+
 const helpUrl = (v: unknown): string | null => (typeof v === "string" && /^https:\/\/dequeuniversity\.com\/rules\/axe\//.test(v) ? v : null);
 const listWords = (xs: string[]): string => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
@@ -380,6 +415,7 @@ export function buildReport(
       add({ kind: "viewport-meta-missing", selector: "head", box: null, measured: `The page has no viewport meta tag, so a phone lays it out ${wide.width} px wide and shows it zoomed out on a 390 px screen.`, detail: { severity: "high" } }, wide.id);
   }
   for (const f of probeFindings(r.probe)) add(f, "probe");
+  lcpOnFasterLoad(merged, r);
 
   const { measured, notMeasured } = coverageOf(r);
   // views whose page got stand-in answers while loading (the probe ran on the desktop page), or had files refused

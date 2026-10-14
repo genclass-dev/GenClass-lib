@@ -243,8 +243,9 @@ the reasons for each choice are in `src/audits.ts`, `src/axe.ts` and `src/cdp.ts
   are the visual checks'; 401/403/407/429 counted in `metrics.whoAsks`, not scored; `/favicon.ico` left out), mixed
   content blocked (serious) or upgraded (minor). The scanner's own code and messages are filtered out. JavaScript errors
   are listed but not scored when every view they appeared in had stand-in answers or refused files.
-- **Speed** (desktop): Largest Contentful Paint against web.dev (minor above 2.5 s, moderate above 4 s), every finding
-  saying it was measured once in a data center. More than 1 MB of JavaScript is a note, not scored.
+- **Speed**: Largest Contentful Paint against web.dev on the faster of two loads, the desktop view and the light phone
+  (minor above 2.5 s, moderate above 4 s; `lcpOnFasterLoad` in `src/report.ts`), every finding naming both and saying
+  they were measured once in a data center. More than 1 MB of JavaScript is a note, not scored.
 - **Layout shift is listed, not scored** (the scanner's CLS and the visual checks' `layout-shift`): every request in the
   scanner's browser waits for the scanner's checks, so content that scripts add after the first paint moves more than
   for most visitors. On the three public pages where the calibration measured a shift, a desktop browser measured none
