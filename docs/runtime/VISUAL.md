@@ -428,11 +428,21 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   Collect every custom property defined anywhere (declarations starting with `--`, `@property` names, inline styles
   found with `[style*="--"]`) and every `var(--x)` reference without a fallback.
 - Reports when: `--x` is defined nowhere, `getComputedStyle(...).getPropertyValue("--x")` is empty on both
-  `documentElement` and one `visible` element matching the rule (a bounded `querySelector`), and that element exists.
+  `documentElement` and one `visible` element matching the rule (a bounded `querySelector`), that element exists, and
+  (added after the bench, section 19) the fallback is visible: the property is `color`, `background-color` or
+  `background`; the declaration is in effect (the computed `color` equals the parent's, or the background is
+  transparent with no image, so no other rule won the cascade); and the text it affects (the element's own text, or
+  its first visible descendant with text) reads below **3:1** against its resolved background (section 2.4).
 - Skips: the whole check abstains if any sheet throws on `cssRules` (cross-origin without CORS) or the matched
-  element is in a shadow tree; references with a fallback; names starting with `--tw-` (Tailwind internals).
-- Evidence: variable name, property, rule `selector`, sheet href (local), matched element `selector`.
-- Severity: medium when the property is `color`, `background-color` or `background`; low otherwise.
+  element is in a shadow tree; references with a fallback; names starting with `--tw-` (Tailwind internals). After the
+  bench: declarations of custom properties (an alias such as `--a: var(--b)` only matters where `--a` is used); rules
+  with a state pseudo-class or a pseudo-element (`:hover`, `:focus-visible`, `::before`; they do not apply at rest);
+  other properties (layout tokens a script sets only when needed, such as a banner height, and optional per-token
+  variables of code highlighters had no visible effect); `html` and `body` (theme-scope rules on the root, painted
+  over by the other root element or the descendants); text that stays at 3:1 or more. Each is counted, not reported.
+- Evidence: variable name, property, rule `selector`, sheet href (local), matched element `selector`, the contrast of
+  the text it affects.
+- Severity: medium.
 - Suggested fix: define the token (`:root { --primary: oklch(0.55 0.2 260); }`), check the theme CSS is imported, or
   add a fallback (`var(--primary, #2563eb)`). After a Tailwind v4 or shadcn/ui upgrade, v3-style
   `hsl(var(--primary))` can point at tokens that no longer exist; an undefined `var()` makes the declaration invalid at
@@ -497,9 +507,12 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   to 5 with `node`, `previousRect`, `currentRect`). Cause tags where measurable: an `img` without `width`/`height`
   attributes and with `aspect-ratio: auto`; an element inserted within 500 ms before the shift above the shifted node
   (seen by the MutationObserver); a font swap (`loadingdone` within 100 ms).
-- Reports when: a window scores above **0.25** (web.dev "poor"). Windows between 0.1 and 0.25 are counted, not
-  reported.
+- Reports when: a window scores above **0.25** (web.dev "poor") and names at least one element that moved. Windows
+  between 0.1 and 0.25 are counted, not reported.
 - Skips: shifts while hidden. Safari and Firefox have no layout-shift entries: recorded as unsupported, not as zero.
+  After the bench (section 19): a window with no attributable element left (nothing to name or fix), and a window
+  that starts within 1,000 ms after a scroll event (the page answering the scroll: an infinite list pushing its
+  footer down), unless its cause is an image without reserved space. Both are counted, not reported.
 - Evidence: window score, start offset from load, the top sources (`selector`, distance moved in px), cause tag.
 - Severity: medium.
 - Suggested fix: `width`/`height` attributes or `aspect-ratio: 16 / 9;` on the media selector; reserve space for
@@ -611,9 +624,13 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   tested at 3 points along its top edge (`rect.top + 4`, at 25%, 50% and 75% of its width).
 - Reports when: every point is covered by a `fixed` or `sticky` element that does not contain the target and is not a
   dialog (WCAG 2.2 SC 2.4.11, "entirely hidden"), and the same holds 400 ms later (headers that hide on scroll get
-  time to move).
+  time to move). After the bench (section 19), the cover must paint over each point (an opacity of at least 0.5 and,
+  from the element hit up to the fixed or sticky one, a background with alpha 0.5 or more, a background image, or an
+  image or video) and be at most half the viewport tall (a header, footer or banner).
 - Skips: skip links; targets inside a closed drawer (`inert`, `aria-hidden`); targets that already have a
-  `scroll-margin-top` at least as tall as the cover.
+  `scroll-margin-top` at least as tall as the cover; transparent or translucent covers (the target shows through; a
+  transparent full-screen pop-up layer was the bench's case) and covers taller than half the viewport (a modal layer,
+  whose problem is focus leaving it, not a bar hiding the target).
 - Evidence: target `selector`, cover `selector`, cover height, overlap px, trigger (`focus` or `anchor`).
 - Severity: medium.
 - Suggested fix: `html { scroll-padding-top: calc(64px + 8px); }` (the header height plus a margin), or

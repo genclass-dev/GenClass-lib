@@ -165,16 +165,28 @@ function sameHit(r: Reader, el: Element): Element | null {
   return hit;
 }
 
+/**
+ * Whether a fixed or sticky element can be judged as the cover of a control (VISUAL.md 3.21): it has no controls of
+ * its own (consent banners and bottom navigation are left out), it is a bar or banner rather than a full-screen layer
+ * (an invisible full-screen layer is click-blocked's case), and it has a box. A box of 0 px is a shadow host whose
+ * banner renders inside a shadow root the page does not expose (bench/visual: a consent banner's buttons were in a
+ * closed shadow root, so the banner looked like a bar without controls).
+ */
+export function coverJudgeable(o: { width: number; height: number; innerHeight: number; controls: number }): "ok" | "has-controls" | "too-tall" | "no-box" {
+  if (o.controls > 0) return "has-controls";
+  if (o.width < 1 || o.height < 1) return "no-box";
+  if (o.height > o.innerHeight * 0.4) return "too-tall";
+  return "ok";
+}
+
 /** VISUAL.md 3.21: a control under a fixed or sticky element that scrolling cannot move it out from under. */
 export function unreachableRead(r: Reader, ctl: Element, atMax: boolean): { cover: Element; pinned: Element } | null {
   const hit = sameHit(r, ctl);
   if (!hit || hit === ctl || containsDeep(ctl, hit) || containsDeep(hit, ctl)) return null;
   const p = r.pinned(hit);
   if (!p || containsDeep(p, ctl) || inDialog(p) || p.tagName === "GENCLASS-DEVTOOLS") return null;
-  if (focusableInside(p).some((f) => f !== p)) return null;
   const pr = r.rect(p);
-  // a bar or banner, not a full-screen layer (an invisible full-screen layer is click-blocked's case)
-  if (pr.height > r.win.innerHeight * 0.4) return null;
+  if (coverJudgeable({ width: pr.width, height: pr.height, innerHeight: r.win.innerHeight, controls: focusableInside(p).filter((f) => f !== p).length }) !== "ok") return null;
   const bottom = pr.bottom >= r.win.innerHeight - 2;
   const top = pr.top <= 2;
   if (!((bottom && atMax) || (top && r.win.scrollY <= 1))) return null;

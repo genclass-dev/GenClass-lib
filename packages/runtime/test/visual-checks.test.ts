@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { cssVarJudgeable, judgeContrast, undefinedVarRefs, type ContrastInput } from "../src/visual/checks/text.js";
 import { brokenImageVerdict, cspReportable, familyStatus, firstFamily, iconBroken, mediaVerdict } from "../src/visual/checks/assets.js";
 import { overflowReportable, poorWindows, shiftVerdict, viewportMetaMissing } from "../src/visual/checks/layout.js";
-import { dialogReportable, paintsAt } from "../src/visual/checks/interact.js";
+import { coverJudgeable, dialogReportable, paintsAt } from "../src/visual/checks/interact.js";
 import { excerpt, placeholderHost, scanText } from "../src/visual/patterns.js";
 import { fold, toFinding } from "../src/visual/report.js";
 import { hash32, KINDS, LIGHT, resolveCfg, transitionMs } from "../src/visual/engine.js";
@@ -329,6 +329,16 @@ describe("bench regressions: exclusions measured on real pages (VISUAL.md 15, 19
     expect(paintsAt([layer("rgba(0, 0, 0, 0)")], 1)).toBe(false);
     expect(paintsAt([layer("rgba(255, 255, 255, 0.3)")], 1)).toBe(false);
     expect(paintsAt([layer("rgb(255, 255, 255)")], 0.2)).toBe(false);
+  });
+
+  it("control-unreachable: a cover needs a box of its own and no controls (including ones in a shadow root)", () => {
+    const bar = { width: 1280, height: 72, innerHeight: 800, controls: 0 };
+    expect(coverJudgeable(bar)).toBe("ok");
+    expect(coverJudgeable({ ...bar, controls: 2 })).toBe("has-controls");
+    expect(coverJudgeable({ ...bar, height: 400 })).toBe("too-tall");
+    // a consent banner rendered in a closed shadow root: its host has no box, its buttons cannot be seen
+    expect(coverJudgeable({ ...bar, height: 0 })).toBe("no-box");
+    expect(coverJudgeable({ ...bar, width: 0, height: 0 })).toBe("no-box");
   });
 
   it("layout-shift: a window needs an element that moved, and is not the page answering a scroll", () => {

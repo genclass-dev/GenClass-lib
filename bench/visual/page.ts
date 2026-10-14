@@ -10,6 +10,7 @@ import { Visual } from "../../packages/runtime/src/visual/engine.js";
 import { browserClock } from "../../packages/runtime/src/clock.js";
 import { describeElement } from "../../packages/runtime/src/observe/dom-user.js";
 import { normalizePath } from "../../packages/runtime/src/util.js";
+import { readSheets } from "../../packages/runtime/src/visual/checks/text.js";
 import type { CheckFinding, VisualSummary } from "../../packages/runtime/src/types.js";
 import type { VisualHost } from "../../packages/runtime/src/visual/host.js";
 import { earlyFault, inject, truth, type FaultResult } from "./faults.js";
@@ -76,6 +77,8 @@ interface Bench {
   rootColors(): Record<string, string>;
   quietPoint(): { x: number; y: number };
   hoverTargets(max: number): { x: number; y: number }[];
+  /** Time of one stylesheet walk as css-var-undefined does it (one step of a pass, exempt from the slow-read rule). */
+  sheetWalk(): { ms: number; rules: number; readable: boolean };
 }
 
 type W = Window & { __GC_BENCH_CFG?: BenchCfg; __gcBench?: Bench };
@@ -189,6 +192,11 @@ function boot(): void {
     rootColors,
     quietPoint,
     hoverTargets,
+    sheetWalk: () => {
+      const t = performance.now();
+      const r = readSheets(document);
+      return { ms: Math.round((performance.now() - t) * 10) / 10, rules: r ? r.decls.length : 0, readable: !!r };
+    },
   } as Bench;
   w.__gcBench = B;
 

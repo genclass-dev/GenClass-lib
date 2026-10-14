@@ -251,9 +251,13 @@ export function isInteractive(el: Element, r: Reader): boolean {
   return r.cs(el).cursor === "pointer";
 }
 
+/** Focusable elements inside `el`, including inside open shadow roots (consent banners often render in one). */
 export function focusableInside(el: Element): Element[] {
   try {
-    return [...el.querySelectorAll(FOCUSABLE_SEL)];
+    const out = [...el.querySelectorAll(FOCUSABLE_SEL)];
+    const hosts = [el, ...el.querySelectorAll("*")].filter((x) => !!(x as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot).slice(0, 20);
+    for (const h of hosts) out.push(...(h as Element & { shadowRoot: ShadowRoot }).shadowRoot.querySelectorAll(FOCUSABLE_SEL));
+    return out;
   } catch {
     return [];
   }

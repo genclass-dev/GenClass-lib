@@ -314,12 +314,19 @@ test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () 
 // False reports the bench found on real pages (bench/visual, docs/runtime/VISUAL.md section 19), reproduced with the
 // same visitor actions the bench uses (keyboard focus, then scrolling to the end): nothing but the planted fault.
 test.describe("bench regressions (VISUAL.md 19): patterns that were false reports on public sites", () => {
-  for (const name of ["regress-css-var.html", "regress-focus-overlay.html", "regress-shift-scroll.html"]) {
+  for (const name of ["regress-css-var.html", "regress-focus-overlay.html", "regress-shift-scroll.html", "regress-shadow-banner.html"]) {
     test(`${name}: only the planted faults, after keyboard focus and scrolling`, async ({ page }) => {
       await open(page, `/f/${name}`);
+      let underLayer = 0;
       for (let i = 0; i < 8; i++) {
         await page.keyboard.press("Tab");
         await page.waitForTimeout(300);
+        underLayer += await page.evaluate(() => {
+          const a = document.activeElement;
+          if (!a || a === document.body) return 0;
+          const r = a.getBoundingClientRect();
+          return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.classList.contains("survey-layer") ? 1 : 0;
+        });
       }
       await page.waitForTimeout(800);
       await page.mouse.move(640, 300);
@@ -329,6 +336,49 @@ test.describe("bench regressions (VISUAL.md 19): patterns that were false report
       }
       await page.waitForTimeout(1500);
       exact(await settle(page), await planted(page));
+      // the pattern really happened (so the exclusion, not its absence, kept the page clean)
+      if (name === "regress-focus-overlay.html") expect(underLayer).toBeGreaterThan(0);
+      if (name === "regress-shadow-banner.html") {
+        // at the end of the page both footer links sit under a banner host
+        const hits = await page.evaluate(() =>
+          ["terms", "language"].map((id) => {
+            const r = document.getElementById(id)!.getBoundingClientRect();
+            return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.id ?? "";
+          }),
+        );
+        expect(hits).toEqual(["consent-a", "consent-b"]);
+      }
+      if (name === "regress-shift-scroll.html") {
+        // layout-shift entries are only observable, not in the timeline buffer: read the buffered ones
+        const worst = await page.evaluate(
+          () =>
+            new Promise<number>((resolve) => {
+              const all: { t: number; v: number }[] = [];
+              const po = new PerformanceObserver((l) => {
+                for (const e of l.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean })[]) if (!e.hadRecentInput) all.push({ t: e.startTime, v: e.value });
+              });
+              po.observe({ type: "layout-shift", buffered: true });
+              setTimeout(() => {
+                po.disconnect();
+                let best = 0;
+                let cur = 0;
+                let start = -Infinity;
+                let last = -Infinity;
+                for (const e of all.sort((a, b) => a.t - b.t)) {
+                  if (e.t - last > 1000 || e.t - start > 5000) {
+                    cur = 0;
+                    start = e.t;
+                  }
+                  cur += e.v;
+                  last = e.t;
+                  best = Math.max(best, cur);
+                }
+                resolve(best);
+              }, 300);
+            }),
+        );
+        expect(worst).toBeGreaterThan(0.25);
+      }
     });
   }
 });

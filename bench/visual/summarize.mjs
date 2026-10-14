@@ -217,6 +217,12 @@ for (const group of ["demos", "templates", "compat"]) {
           maxSliceMs: { p50: r1(q(ls.map((l) => l.firstPass.maxSliceMs), 0.5)), p95: r1(q(ls.map((l) => l.firstPass.maxSliceMs), 0.95)), max: r1(Math.max(...ls.map((l) => l.firstPass.maxSliceMs))) },
           elements: { p50: q(ls.map((l) => l.firstPass.elements), 0.5), max: Math.max(...ls.map((l) => l.firstPass.elements)) },
           sessionMs: { p50: r1(q(ls.map((l) => l.summary?.ms ?? 0), 0.5)), p95: r1(q(ls.map((l) => l.summary?.ms ?? 0), 0.95)) },
+          ...(ls.some((l) => l.sheetWalk)
+            ? (() => {
+                const w = ls.filter((l) => l.sheetWalk?.readable).map((l) => l.sheetWalk.ms);
+                return { sheetWalkMs: { p50: r1(q(w, 0.5)), p95: r1(q(w, 0.95)), max: w.length ? r1(Math.max(...w)) : null, readable: w.length } };
+              })()
+            : {}),
         }
       : null;
   summary.cost = { local1x: stat(one), local4x: stat(four), sites1x: stat(sites) };

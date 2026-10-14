@@ -286,6 +286,7 @@ async function cleanLoadInner(browser, spec, o, holder) {
     }
     rec.measured = true;
     await collect(page, rec, !o.throttle);
+    rec.sheetWalk = await ev(page, () => window.__gcBench.sheetWalk());
     if (o.viewport === "desktop" && !o.throttle) {
       rec.dark = await ev(page, () => window.__gcBench.darkSupport());
     }
