@@ -7,9 +7,6 @@ import type { SinkObject } from "../types.js";
 import { fanout, type SinkLoader, type SinkModule } from "./sinks-fanout.js";
 
 const CHUNKS: Record<string, () => Promise<SinkModule>> = {
-  sentry: () => import("../sinks/sentry.js"),
-  posthog: () => import("../sinks/posthog.js"),
-  datadog: () => import("../sinks/datadog.js"),
   "console-json": () => import("../sinks/console-json.js"),
   webhook: () => import("../sinks/webhook.js"),
 };

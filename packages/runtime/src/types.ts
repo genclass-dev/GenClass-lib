@@ -785,12 +785,15 @@ export interface InitOptions {
   /** "report": call the hook and record its verdict but act anyway (default "enforce"). */
   vetoMode?: "enforce" | "report";
   /**
-   * Structured, redacted records for your own tools (OPTIONS-SPEC §4.11). Ready-made adapters, no dependencies:
-   * `@genclass/runtime/sinks/{sentry,posthog,datadog,console-json,webhook}`. The zero-code entries also take them by
-   * name (found as a page global; `sentry:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = { sinks:
-   * ["sentry", "webhook:/genclass"] }`, `<meta name="genclass" content="sink=sentry">`, `data-sink="sentry"` on the
-   * script tag, or `npx @genclass/runtime init --sink sentry` (which passes an npm-installed Sentry or posthog-js SDK
-   * to the adapter, since those set no global).
+   * Structured, redacted records for your own side (OPTIONS-SPEC §4.11): a function, a `{ send }` object, or a
+   * ready-made, vendor-neutral adapter with no dependencies: `@genclass/runtime/sinks/console-json` (one JSON line per
+   * record on the console) and `@genclass/runtime/sinks/webhook` (batched POSTs to a URL you configure). The zero-code
+   * entries also take them by name (`console-json:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = {
+   * sinks: ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=console-json">`, `data-sink="console-json"`
+   * on the script tag, or `npx @genclass/runtime init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
+   * Datadog is not part of the free runtime: it is a GenClass Pro feature, configured on the dashboard
+   * (https://genclass.dev/pricing), and a page config that names `sentry`, `posthog` or `datadog` gets one console
+   * warning that says so and nothing else.
    */
   sinks?: Sink[];
   /** Session id and tags stamped on records (never shown to the model). */

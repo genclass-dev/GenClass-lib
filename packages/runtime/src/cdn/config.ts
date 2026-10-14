@@ -12,9 +12,9 @@
 // deferred situations in observe; possible), devtools (bare / true, "local" = only on
 // localhost, false, or a corner such as "bottom-left"), telemetry (off/false/no: no anonymous diagnostics), autostate
 // (off/false/no: no automatic state discovery; on by default in these entries), token (the app's dashboard token,
-// gc_...), scope (app or functions), sink (sinks by name: sentry, posthog, datadog, console-json, webhook:<url>;
-// "sentry+posthog" in the meta tag since commas separate its keys, data-sink="sentry,posthog" on the tag;
-// src/cdn/sinks.ts).
+// gc_...), scope (app or functions), sink (sinks by name: console-json, webhook:<url>; "console-json+webhook:/g" in
+// the meta tag since commas separate its keys, data-sink="console-json,webhook:/g" on the tag; src/cdn/sinks.ts, which
+// warns once about the names sentry, posthog and datadog: forwarding to those tools is a GenClass Pro feature).
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model, onnxruntime-web
@@ -42,7 +42,7 @@ export type DevtoolsSetting = boolean | "local" | DevtoolsOptions;
 export interface PageConfig extends Omit<InitOptions, "sinks"> {
   /** Mount the devtools overlay (loaded on demand). Default: not mounted. */
   devtools?: DevtoolsSetting;
-  /** Sinks, or their names: "sentry", "posthog", "datadog", "console-json", "webhook:<url>" (src/cdn/sinks.ts). */
+  /** Sinks, or their names: "console-json", "webhook:<url>" (src/cdn/sinks.ts). */
   sinks?: (Sink | string)[];
 }
 

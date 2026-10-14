@@ -122,9 +122,11 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       // the sink adapters (@genclass/runtime/sinks/*) and the name table and fan-out (src/cdn/sinks-fanout.ts) are lazy
       // chunks of /auto and absent from the main entry
       expect(code, entry).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
-      expect(code, entry).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
       expect(code, entry).not.toContain("console-json"); // src/cdn/sinks-fanout.ts SINK_NAMES, src/cdn/sinks-load.ts
       expect(code, entry).not.toContain("unknown sink"); // src/cdn/sinks-fanout.ts
+      // the one warning for the names sentry / posthog / datadog (src/cdn/sinks.ts applySinks) is /auto's alone
+      if (entry === "auto.js") expect(code, entry).toContain("https://genclass.dev/pricing");
+      else expect(code, entry).not.toContain("https://genclass.dev/pricing");
       // the flow expectations (src/learn/flows.ts) are a lazy chunk, loaded only with learn.expectations
       expect(code, entry).not.toContain("Expected a follow-up on"); // src/learn/flows.ts
       expect(code, entry).not.toContain("Expected a response:"); // src/learn/flows.ts
@@ -146,8 +148,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
     console.info(`[bundle] script tag genclass.global.min.js: ${gz.toFixed(2)} KB minified + gzip (${(buf.length / 1024).toFixed(1)} KB minified)`);
     const code = buf.toString("utf8");
     expect(code).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
-    expect(code).not.toContain("GenClassDetection"); // src/sinks/datadog.ts
     expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
+    expect(code).toContain("https://genclass.dev/pricing"); // the one warning for sentry / posthog / datadog by name
     expect(gz).toBeGreaterThan(0);
   });
 });

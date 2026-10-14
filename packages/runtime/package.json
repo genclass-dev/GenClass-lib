@@ -55,9 +55,6 @@
       "devtools": ["./dist/devtools/index.d.ts"],
       "discover": ["./dist/discover.d.ts"],
       "sinks": ["./dist/sinks/index.d.ts"],
-      "sinks/sentry": ["./dist/sinks/sentry.d.ts"],
-      "sinks/posthog": ["./dist/sinks/posthog.d.ts"],
-      "sinks/datadog": ["./dist/sinks/datadog.d.ts"],
       "sinks/console-json": ["./dist/sinks/console-json.d.ts"],
       "sinks/webhook": ["./dist/sinks/webhook.d.ts"]
     }
@@ -108,18 +105,6 @@
     "./sinks": {
       "types": "./dist/sinks/index.d.ts",
       "import": "./dist/sinks/index.js"
-    },
-    "./sinks/sentry": {
-      "types": "./dist/sinks/sentry.d.ts",
-      "import": "./dist/sinks/sentry.js"
-    },
-    "./sinks/posthog": {
-      "types": "./dist/sinks/posthog.d.ts",
-      "import": "./dist/sinks/posthog.js"
-    },
-    "./sinks/datadog": {
-      "types": "./dist/sinks/datadog.d.ts",
-      "import": "./dist/sinks/datadog.js"
     },
     "./sinks/console-json": {
       "types": "./dist/sinks/console-json.d.ts",

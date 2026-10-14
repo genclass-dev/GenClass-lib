@@ -21,7 +21,6 @@ import {
   isEmptyConfig,
   lineIndexAt,
   linesOf,
-  sinkImports,
   switchMetaConfig,
   tagWithConfig,
   writtenConfig,
@@ -360,7 +359,7 @@ export function configFileFor(p, entry) {
 }
 
 /** The options file: one marked block setting window.GENCLASS_CONFIG. */
-export const configFileChange = (file, cfg) => createFile(file, [CONFIG_COMMENT, ...sinkImports(cfg), configStatement(cfg, /\.[cm]?tsx?$/.test(file))]);
+export const configFileChange = (file, cfg) => createFile(file, [CONFIG_COMMENT, configStatement(cfg, /\.[cm]?tsx?$/.test(file))]);
 
 /** { entry?, changes, notes?, manual? } for the detected project. opts.config: { telemetry?, model? } to write. */
 export function planInit(project, opts, ctx) {

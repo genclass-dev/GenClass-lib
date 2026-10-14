@@ -23,8 +23,7 @@
 // without one the next round of records, or the previous POST settling when the transport says when (fetch, or your
 // own `send` returning a promise). `flush()` (pagehide, or the tab hidden) sends one batch, the session summary first,
 // and drops what is left. At most 500 records wait. Repeats of one bug are capped at `maxPerSignature` (10) per page
-// load, as in the tool adapters, so a failure storm is a few POSTs, not one per round. Never throws; send failures
-// are dropped.
+// load, so a failure storm is a few POSTs, not one per round. Never throws; send failures are dropped.
 //
 // Imports nothing from the runtime but types (the version is a build-time constant), so loading this adapter adds no
 // shared chunk to an app's first load (test/bundle.test.ts).
@@ -76,7 +75,7 @@ export interface WebhookSinkOptions {
   maxBatch?: number;
   /**
    * At most this many records per signature (kind, trigger, diagnosis, action and the subject's shape) per page load,
-   * so a failure storm does not flood your endpoint (default 10, as the tool adapters; 0 = no cap). The session
+   * so a failure storm does not flood your endpoint (default 10; 0 = no cap). The session
    * `summary` record still counts every detection and intervention.
    */
   maxPerSignature?: number;
