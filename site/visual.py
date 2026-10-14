@@ -1,10 +1,13 @@
 """The visual-bug feature on genclass.dev: the numbers file (src/data/visual.json), the drawn bug examples, the scan box,
 and the blocks of the homepage section (src/partials/visual.html) and of /visual (src/pages/visual.html).
 
-build.py calls markers(body) on every page. A number reaches a page only from visual.json, and only when its status is
-"live" and every field the pages use is filled (src/data/README.md); "live" with a field missing stops the build. What
-the pages say about the model, the runtime and the scan box follows model.stage, checks_in_runtime and scan_live, and
-ready_by is the date shown as when the model's results are due (a date already past stops a draft build).
+build.py calls markers(body) on every page. A number reaches a page only from visual.json. The file has three blocks,
+each with its own switch: status "live" shows the measured checks (the checks block must be complete), model.status
+"live" adds the learned model's tables, crawl.status "live" adds the crawl figure (measured signals, shown as upper
+bounds). A block switched on with a field missing, or with numbers that disagree with their parts, stops the build
+(src/data/README.md). What the pages say about the model, the runtime and the scan box follows model.stage,
+checks_in_runtime, scan_live and scan_runs, and ready_by is the date shown as when the model's results are due (a date
+already past stops the build while the model is draft).
 VISUAL_DATA=<file> builds from another file, such as visual.sample.json, to preview the live layout: every figure and
 table is then stamped "Sample data, not measured", and build.py writes that build to site/.preview/, never public/.
 """
@@ -184,7 +187,7 @@ assert all(k is None or k in FAM[fid][3] for fid, *_, k in SPECIMENS), "a specim
 # ---------------------------------------------------------------- data
 UTC = datetime.timezone.utc
 NOW = datetime.datetime.now(UTC)
-STAGES = ("planned", "training")  # model.stage while draft; each renders the weakest sentence that is true for it
+STAGES = ("planned", "training")  # model.stage while the model is draft; each renders the weakest sentence that is true
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})")
 
@@ -201,6 +204,9 @@ def _moment(s):
 
 def _is_num(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+def _is_int(v):
+    return isinstance(v, int) and not isinstance(v, bool)
 
 def _places(v):
     """Decimal places of a number as written in the data (0.425 -> 3, 0.30000000000000004 -> 17)."""
@@ -225,8 +231,12 @@ def _src_href(s):
     if p and not p.startswith("/") and ".." not in p and _on_main(p): return f"{GH}/blob/main/{p}"
     return None
 
+def _status(block):
+    return ((D.get(block) or {}).get("status")) or "draft"
+
 def _check(d):
-    """(problems, missing): problems are present-but-wrong values (the build stops); missing are fields still null."""
+    """(problems, missing): problems are present-but-wrong values (the build stops); missing are fields still null.
+    The checks block is always checked; the model and crawl blocks only once their own status is "live"."""
     problems, missing = [], []
     def get(path):
         v = d
@@ -237,51 +247,142 @@ def _check(d):
         v = get(path) if where is None else v
         name = where or path
         if v is None or v == "" or v == []:
-            missing.append(name); return
+            missing.append(name); return False
         ok = {"text": isinstance(v, str) and v.strip() != "",
               "date": _moment(v) is not None,
-              "count": isinstance(v, int) and not isinstance(v, bool) and v > 0,
+              "count": _is_int(v) and v > 0,
+              "n": _is_int(v) and v >= 0,
               "share": _is_num(v) and 0 <= v <= 1,
               "positive": _is_num(v) and v > 0}[kind]
         if not ok:
             problems.append(f"{name} = {v!r} is not a {kind}" + {"share": " (a fraction from 0 to 1)",
+                            "n": " (a whole number, 0 or more)",
                             "date": ' (an ISO date, "2026-10-14", or a date-time with a zone, "2026-10-14T22:00:00Z")'}.get(kind, ""))
-        elif kind == "share" and _places(v) > 5:
+            return False
+        if kind == "share" and _places(v) > 5:
             problems.append(f"{name} = {v!r} has more decimals than anything measures: round it to at most 3 decimal places "
                             f"as a percentage (5 as a fraction)")
-        elif kind == "positive" and _digits(v) > 4:
+            return False
+        if kind == "positive" and _digits(v) > 4:
             problems.append(f"{name} = {v!r}: round it to at most 4 significant digits")
-    for p in ("model.name", "model.version", "model.input", "model.eval.data", "model.eval.split",
-              "model.eval.false_reports_per", "model.cost_measured_on", "crawl.measured_by"):
-        need(p, "text")
-    for p in ("updated", "crawl.date"):
-        need(p, "date")
-    for p in ("model.trained_on.sites_ai", "model.trained_on.sites_control", "model.trained_on.injected_faults",
-              "model.trained_on.elements", "model.natural_pages", "crawl.sites_ai", "crawl.sites_control", "crawl.clean_sites"):
-        need(p, "count")
-    need("model.natural_precision", "share"); need("crawl.false_site_share", "share")
-    need("model.size_kb", "positive"); need("model.ms_per_element", "positive")
-    def entries(path, fields):
-        rows, seen = get(path) or [], set()
-        for i, f in enumerate(rows):
-            if not isinstance(f, dict) or f.get("id") not in FAMILY_IDS:
-                problems.append(f"{path}[{i}].id must be one of {', '.join(FAMILY_IDS)}"); continue
-            if f["id"] in seen: problems.append(f"{path}[{i}].id {f['id']!r} appears twice")
-            seen.add(f["id"])
-            need("", "text", f.get("name"), f"{path}[{i}].name")
-            for k, kind in fields: need("", kind, f.get(k), f"{path}[{i}].{k}")
-        return rows
-    fams = entries("model.families", [("recall_at_fp_0_1", "share"), ("recall_at_fp_1", "share"), ("examples", "count")])
-    if not fams: missing.append("model.families")
-    for i, f in enumerate(fams):
-        lo, hi = (f.get("recall_at_fp_0_1"), f.get("recall_at_fp_1")) if isinstance(f, dict) else (None, None)
-        if _is_num(lo) and _is_num(hi) and hi < lo:
-            problems.append(f"model.families[{i}]: recall at 1% false reports ({hi}) is below recall at 0.1% ({lo}); "
-                            f"allowing more false reports cannot lower recall")
-    prev = entries("crawl.prevalence", [("share_of_ai_sites", "share"), ("share_of_control_sites", "share")])
-    if len(prev) < 5: missing.append(f"crawl.prevalence (has {len(prev)} entries, needs 5)")
+            return False
+        return True
+    def rows(path, at_least=1):
+        r = get(path)
+        if not isinstance(r, list) or len(r) < at_least:
+            missing.append(f"{path} (has {len(r) if isinstance(r, list) else 0} entries, needs {at_least})"); return []
+        out = []
+        for i, x in enumerate(r):
+            if isinstance(x, dict): out.append((f"{path}[{i}]", x))
+            else: problems.append(f"{path}[{i}] must be an object")
+        return out
+    def field(w, x, k, kind):
+        return need("", kind, x.get(k), f"{w}.{k}")
+
+    need("updated", "date")
+
+    # ---- the measured checks (docs/runtime/RESULTS.md sections 8 and 9, docs/runtime/VISUAL.md)
+    for p in ("checks.name", "checks.version", "checks.branch", "checks.measured_on"): need(p, "text")
+    need("checks.date", "date"); kinds = get("checks.kinds"); need("checks.kinds", "count")
+    fx_ok = [need(f"checks.fixtures.{k}", "count") for k in ("planted", "found", "kinds", "tests_passed")]
+    need("checks.fixtures.on", "text")
+    if all(fx_ok) and get("checks.fixtures.found") > get("checks.fixtures.planted"):
+        problems.append("checks.fixtures.found is above checks.fixtures.planted")
+    need("checks.recall.run", "count"); need("checks.recall.on", "text")
+    seen = set()
+    rr = rows("checks.recall.rows")
+    for w, r in rr:
+        if field(w, r, "kind", "text"):
+            if r["kind"] in seen: problems.append(f"{w}.kind {r['kind']!r} appears twice")
+            seen.add(r["kind"])
+        ok = [field(w, r, "planted", "count"), field(w, r, "found", "n"), field(w, r, "recall", "share")]
+        if all(ok):
+            if r["found"] > r["planted"]: problems.append(f"{w}: found {r['found']} is above planted {r['planted']}")
+            elif round(r["found"] / r["planted"], 2) != round(r["recall"], 2):
+                problems.append(f"{w}: recall {r['recall']} is not found / planted ({r['found']} / {r['planted']}) to 2 decimals")
+    if _is_int(kinds) and rr and len(rr) != kinds:
+        problems.append(f"checks.recall.rows has {len(rr)} kinds, checks.kinds says {kinds}")
+    for p in ("checks.recall.misses", "checks.clean.runs", "checks.clean.loads", "checks.clean.real", "checks.public.real",
+              "checks.cost.note"): need(p, "text")
+    tot = {k: get(f"checks.clean.{k}") for k in ("page_views", "false_reports", "fixes_applied")}
+    t_ok = [need("checks.clean.page_views", "count"), need("checks.clean.false_reports", "n"), need("checks.clean.fixes_applied", "n")]
+    sums = {k: 0 for k in tot}
+    for w, r in rows("checks.clean.rows"):
+        field(w, r, "pages", "text")
+        ok = [field(w, r, k, "count" if k == "page_views" else "n") for k in ("page_views", "findings", "confirmed_real", "false_reports", "fixes_applied")]
+        if all(ok):
+            if r["findings"] != r["confirmed_real"] + r["false_reports"]:
+                problems.append(f"{w}: findings must be confirmed_real + false_reports (an unlabelled finding counts as false)")
+            for k in sums: sums[k] += r[k]
+        else:
+            t_ok.append(False)
+    if all(t_ok):
+        for k, v in tot.items():
+            if sums[k] != v: problems.append(f"checks.clean.{k} is {v}, its rows add up to {sums[k]}")
+    need("checks.public.sites", "count"); need("checks.public.on", "text")
+    head = get("checks.public.run"); need("checks.public.run", "count")
+    runs = {}
+    for w, r in rows("checks.public.runs"):
+        ok = [field(w, r, "run", "count"), field(w, r, "sites", "count"), field(w, r, "loads", "count"),
+              field(w, r, "findings", "n"), field(w, r, "per_load", "share")]
+        looked = r.get("looked_at", True)
+        if not isinstance(looked, bool): problems.append(f"{w}.looked_at must be true or false"); continue
+        if looked:
+            ok += [field(w, r, k, "n") for k in ("confirmed_real", "check_errors", "unconfirmed")]
+        elif r.get("confirmed_real") is not None or r.get("check_errors") is not None:
+            problems.append(f"{w}: nobody looked at these findings, so confirmed_real and check_errors stay null")
+        elif field(w, r, "unconfirmed", "n") and _is_int(r.get("findings")) and r["unconfirmed"] != r["findings"]:
+            problems.append(f"{w}: with looked_at false every finding is unconfirmed")
+        if all(ok):
+            runs[r["run"]] = r
+            if _is_int(get("checks.public.sites")) and r["sites"] > get("checks.public.sites"):
+                problems.append(f"{w}: more sites measured than checks.public.sites")
+            if round(r["findings"] / r["loads"], _places(r["per_load"])) != r["per_load"]:
+                problems.append(f"{w}: per_load {r['per_load']} is not findings / loads ({r['findings']} / {r['loads']}) as written")
+            if looked and r["confirmed_real"] + r["check_errors"] + r["unconfirmed"] != r["findings"]:
+                problems.append(f"{w}: confirmed_real + check_errors + unconfirmed must equal findings")
+    if _is_int(head) and runs and (head not in runs or not runs[head].get("looked_at", True)):
+        problems.append(f"checks.public.run {head} must be a run in checks.public.runs whose findings were looked at")
+    for p in ("checks.cost.run", "checks.cost.first_load_bytes"): need(p, "count")
+    for p in ("checks.cost.chunk_kb_gzip", "checks.cost.chunk_kb_min", "checks.cost.slice_budget_ms", "checks.cost.pass_budget_ms"): need(p, "positive")
+    need("checks.cost.first_load_entry", "text")
+    for w, r in rows("checks.cost.passes"):
+        field(w, r, "on", "text"); field(w, r, "loads", "count"); field(w, r, "within_budget", "share")
+        for trio in (("p50_ms", "p95_ms", "max_ms"), ("slice_p50_ms", "slice_p95_ms", "slice_max_ms")):
+            if all([field(w, r, k, "positive") for k in trio]) and not r[trio[0]] <= r[trio[1]] <= r[trio[2]]:
+                problems.append(f"{w}: {', '.join(trio)} must not fall")
     if not any(s.get("id") == "results" and _src_href(s) for s in d.get("sources") or []):
         missing.append('sources entry "results" with a url, or a path committed on origin/main')
+
+    # ---- the learned model, only once model.status is "live"
+    if _status("model") == "live":
+        for p in ("model.name", "model.version", "model.input", "model.eval.data", "model.eval.split",
+                  "model.eval.false_reports_per", "model.cost_measured_on"):
+            need(p, "text")
+        for p in ("model.trained_on.sites_ai", "model.trained_on.sites_control", "model.trained_on.injected_faults",
+                  "model.trained_on.elements", "model.natural_pages"):
+            need(p, "count")
+        need("model.natural_precision", "share"); need("model.size_kb", "positive"); need("model.ms_per_element", "positive")
+        seen = set()
+        for w, f in rows("model.families"):
+            if f.get("id") not in FAMILY_IDS:
+                problems.append(f"{w}.id must be one of {', '.join(FAMILY_IDS)}"); continue
+            if f["id"] in seen: problems.append(f"{w}.id {f['id']!r} appears twice")
+            seen.add(f["id"])
+            field(w, f, "name", "text")
+            ok = [field(w, f, "recall_at_fp_0_1", "share"), field(w, f, "recall_at_fp_1", "share"), field(w, f, "examples", "count")]
+            if all(ok) and f["recall_at_fp_1"] < f["recall_at_fp_0_1"]:
+                problems.append(f"{w}: recall at 1% false reports ({f['recall_at_fp_1']}) is below recall at 0.1% "
+                                f"({f['recall_at_fp_0_1']}); allowing more false reports cannot lower recall")
+
+    # ---- the crawl figure, only once crawl.status is "live": measured signals, shown as upper bounds
+    if _status("crawl") == "live":
+        need("crawl.date", "date"); need("crawl.sites_ai", "count"); need("crawl.sites_control", "count"); need("crawl.basis", "text")
+        for w, s in rows("crawl.signals", 3):
+            field(w, s, "name", "text"); field(w, s, "view", "text")
+            field(w, s, "share_ai", "share"); field(w, s, "share_control", "share")
+        if not any(s.get("id") == "crawl" and _src_href(s) for s in d.get("sources") or []):
+            missing.append('sources entry "crawl" with a url, or a path committed on origin/main')
     return problems, missing
 
 def _fail(msg):
@@ -294,6 +395,11 @@ if STATUS not in ("draft", "live", "sample"):
 SAMPLE = STATUS == "sample"
 if SAMPLE and DATA.resolve() == (ROOT / "src/data/visual.json").resolve():
     _fail("status \"sample\" belongs only in visual.sample.json")
+for b in ("model", "crawl"):
+    if _status(b) not in ("draft", "live"):
+        _fail(f'{b}.status must be "draft" or "live", not {_status(b)!r}')
+    if _status(b) == "live" and STATUS == "draft":
+        _fail(f'{b}.status is "live" but status is "draft": the checks block goes live first')
 if D.get("checks_in_runtime") is not None and not isinstance(D["checks_in_runtime"], str):
     _fail("checks_in_runtime must be a runtime version string or null")
 if D.get("ready_by") is not None and _moment(D["ready_by"]) is None:
@@ -302,6 +408,9 @@ if D.get("ready_by") is not None and _moment(D["ready_by"]) is None:
 SCAN_LIVE = D.get("scan_live", False)
 if not isinstance(SCAN_LIVE, bool):
     _fail("scan_live must be true or false")
+SCAN_RUNS = D.get("scan_runs") or "subset"
+if SCAN_RUNS not in ("subset", "all"):
+    _fail('scan_runs must be "subset" (the page check\'s built-in checks) or "all" (the runtime\'s visual chunk)')
 STAGE = (D.get("model") or {}).get("stage") or "planned"
 if STAGE not in STAGES:
     _fail(f"model.stage must be one of {', '.join(STAGES)}, not {STAGE!r}")
@@ -311,14 +420,17 @@ if PROBLEMS:
 if STATUS != "draft" and MISSING:
     _fail(f'status is "{STATUS}" but the pages need these fields, which are missing:\n  ' + "\n  ".join(MISSING)
           + '\nFill them, or set status to "draft".')
-LIVE = STATUS != "draft"
+LIVE = STATUS != "draft"              # the measured checks' numbers are shown
+MODEL_LIVE = LIVE and _status("model") == "live"
+CRAWL_LIVE = LIVE and _status("crawl") == "live"
 SHIPPED = bool(D.get("checks_in_runtime"))
-READY_BY = None if LIVE else D.get("ready_by")
+C = D.get("checks") or {}
+READY_BY = None if MODEL_LIVE else D.get("ready_by")  # when the model's results are due
 if READY_BY:
     t = _moment(READY_BY)
     if (t < NOW.date()) if not isinstance(t, datetime.datetime) else (t < NOW):
-        _fail(f"ready_by {READY_BY} has passed and status is still \"draft\", so the site would show a date that was "
-              f"missed. Publish the numbers (status \"live\"), set a new date and say why, or set ready_by to null.")
+        _fail(f"ready_by {READY_BY} has passed and the model is still draft, so the site would show a date that was "
+              f"missed. Publish the model's numbers (model.status \"live\"), set a new date and say why, or set ready_by to null.")
 
 def when(s):
     """An ISO date or date-time for a reader: October 14, 2026, or October 14, 2026, 22:00 UTC (always shown in UTC)."""
@@ -337,7 +449,9 @@ def when_html(s):
     return f'<time datetime="{iso}">{text}</time>'
 
 REPORT = (f"visual: SAMPLE DATA from {DATA}, every number is made up; written to site/.preview/, not site/public/" if SAMPLE
-          else "visual: live" if LIVE else
+          else f"visual: checks live, model {'live' if MODEL_LIVE else STAGE + ' (no numbers)'}, crawl figure "
+               f"{'on' if CRAWL_LIVE else 'off'}, scan box {'on' if SCAN_LIVE else 'off'}"
+               + (f", model results due {when(READY_BY)}" if READY_BY else "") if LIVE else
           f"visual: draft, model {STAGE}, results due {when(READY_BY) if READY_BY else '(no date set)'}, scan box "
           f"{'on' if SCAN_LIVE else 'off'}; no numbers shown (missing: {', '.join(MISSING) or 'nothing'})")
 
@@ -352,42 +466,69 @@ def fixed(x):
 def count(n):
     return f"{n:,}"
 
+def dec2(x):
+    """Recall as RESULTS.md writes it: 1.00, 0.67."""
+    return f"{float(x):.2f}"
+
 STAMP = '<span class="vsample">Sample data, not measured</span>' if SAMPLE else ""
+
+# What the page check runs while scan_runs is "subset": the built-in checks of scan-worker/src/checks.ts (branch
+# wave2/scan, scan-worker/README.md "Visual checks and the visual-chunk interface"), in the site's words.
+SCAN_SUBSET = ("text under 1.5:1 contrast, broken images, stylesheets and fonts that failed to load, template leaks, "
+               "sideways scrolling on a phone, and controls covered on the first screen")
+
+def scan_runs(lead="The page check runs", which=True):
+    if SCAN_RUNS == "all": return f"{lead} the same checks on one public page"
+    return f"{lead} a built-in subset of them on one public page" + (f": {SCAN_SUBSET}" if which else "")
 
 def model_sentence():
     """What the model is, at its stage: the weakest sentence that is true. What it reads is said only from model.input."""
     if STAGE == "training":
-        s = ("A model is being trained on a crawl of AI-built and regular sites, with faults injected from outside each "
-             "page so every example has a known label.")
+        s = ("A learned model is still being trained and evaluated on a crawl of AI-built and regular sites, with faults "
+             "injected from outside each page so every example has a known label. It has no published numbers yet.")
     else:
-        s = ("A model is planned, to be trained on a crawl of AI-built and regular sites with faults injected from outside "
-             "each page, so every example has a known label.")
+        s = ("A learned model is planned, to be trained on a crawl of AI-built and regular sites with faults injected from "
+             "outside each page, so every example has a known label.")
     inp = (D.get("model") or {}).get("input")
     return s + (f" It reads {esc(inp)}." if inp else "")
 
+def model_short():
+    """The model's state in a few words, for status rows and notices."""
+    if MODEL_LIVE: return f'{esc(D["model"]["name"])} {esc(D["model"]["version"])}'
+    return "Still being trained and evaluated" if STAGE == "training" else "Planned"
+
 # ---------------------------------------------------------------- copy that depends on the data
 def vt(key):
-    """Sentences that change with checks_in_runtime, scan_live and the model stage (<!--@vt key--> in the pages)."""
+    """Sentences that change with checks_in_runtime, scan_live, the checks' status and the model (<!--@vt key--> in the
+    pages)."""
     if key == "home-eyebrow":
-        return "Visual bugs" if SHIPPED else "Visual bugs, in testing"
+        return "Visual bugs" if SHIPPED or SCAN_LIVE else "Visual bugs, in testing"
     if key == "home-intro":
-        if SCAN_LIVE: return "Paste an address and GenClass checks the page as a visitor's browser renders it."
+        model = ("" if MODEL_LIVE else " The learned model is still being evaluated, and the scan does not use it." if STAGE == "training"
+                 else " A learned model is planned; the scan does not use one.")
+        if SCAN_LIVE: return f"Paste an address and GenClass runs its measured visual checks on the page, as a visitor's browser renders it.{model}"
         if SHIPPED: return "GenClass measures them in the page, as the visitor's browser renders it."
         return "GenClass is testing checks that measure them in the page, as the visitor's browser renders it."
     if key == "lede":
-        if SHIPPED: return "GenClass measures them on the page and names the element, what was measured, and a fix."
+        if SHIPPED or LIVE:
+            s = "GenClass measures them on the page and names the element, what was measured, and a fix."
+            return s + (" Paste an address to run the checks on one public page." if SCAN_LIVE else "")
         return "GenClass is testing checks that measure them on the page and name the element, what was measured, and a fix."
     if key == "ctas":
-        if SCAN_LIVE: return '<a class="btn" href="#scan">Scan a page</a><a class="btn ghost" href="#families">What it finds</a>'
+        if SCAN_LIVE: return '<a class="btn" href="#scan">Scan a page</a><a class="btn ghost" href="#numbers">Measured results</a>'
         return '<a class="btn" href="#families">What it finds</a><a class="btn ghost" href="#numbers">Results</a>'
     if key == "how-h2":
-        model = "a trained model" if LIVE else "a model in training" if STAGE == "training" else "a planned model"
+        model = ("a trained model" if MODEL_LIVE else "a model still in evaluation" if STAGE == "training" else "a planned model")
         return f"Measured checks, {model}, and opt-in fixes."
     if key == "fix-step":
         s = ("observe mode reports and never changes the page. With visual fixes turned on in guard or heal mode, three "
              "narrow fixes can run: a readable text colour, a leaked <code>pointer-events: none</code> removed from "
              "<code>body</code>, a stuck scroll lock released. Each is measured again after it runs, and each can be undone.")
-        return ("Observe mode " + s[len("observe mode "):]) if SHIPPED else f"In testing: {s}"
+        tail = ""
+        if LIVE:
+            tail = (f" On the unmodified pages of the bench, {count(C['clean']['fixes_applied'])} fixes were applied "
+                    f"in {count(C['clean']['page_views'])} page views.")
+        return (("Observe mode " + s[len("observe mode "):]) if SHIPPED else f"In testing: {s}") + tail
     if key == "how-note":
         design = src_link("checks", "the visual checks design", bare=False)
         lead = f"Design and thresholds: {design}. " if design else ""
@@ -397,25 +538,55 @@ def vt(key):
              "Once they ship in the runtime, the checks run in your app in the colour scheme, width and hover state each "
              "visitor is using.")
         return s + (" The page check adds a phone view and dark mode." if SCAN_LIVE else "")
+    if key == "docs-h2":
+        return "Visual bugs" if SHIPPED else "Visual bugs and the page check" if SCAN_LIVE else "Visual bugs (in testing)"
     if key == "docs-scan":
-        return ", and has a box to scan one public page" if SCAN_LIVE else ""
+        if not SCAN_LIVE: return ""
+        return (f" {scan_runs()}. Paste the address into the box on the <a href=\"/#visual\">homepage</a>, or open "
+                f"<code>genclass.dev/</code> followed by the address.")
+    if key == "docs-numbers":
+        if not LIVE: return ""
+        r = _public_run()
+        return (f" Measured in CI on {when(C['date'])}: {count(C['fixtures']['found'])} of {count(C['fixtures']['planted'])} "
+                f"planted faults found on fixture pages, {count(C['clean']['false_reports'])} false reports in "
+                f"{count(C['clean']['page_views'])} page views of unmodified apps, and on public home pages "
+                f"{count(r['findings'])} findings in {count(r['loads'])} loads, {count(r['confirmed_real'])} of them confirmed real.")
     raise SystemExit(f"visual.py: unknown text key {key!r}")
 
+def _public_run():
+    return next(r for r in C["public"]["runs"] if r["run"] == C["public"]["run"])
+
 def llms_head(rt):
-    return f"Visual bug checks, from runtime {D['checks_in_runtime']}" if SHIPPED else f"In testing, not in {rt}"
+    if SHIPPED: return f"Visual bug checks, from runtime {D['checks_in_runtime']}"
+    if not LIVE: return f"In testing, not in {rt}"
+    return f"Visual bug checks: measured in CI, not in {rt} yet" + ("; the page check is open" if SCAN_LIVE else "")
 
 def llms_line():
     kinds = ('unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", '
              'stylesheets and fonts that fail, covered controls')
     if LIVE:
-        m = D["model"]
-        return (f"- Visual bug checks ({kinds}): measured checks with documented thresholds, and the model {m['name']} "
-                f"{m['version']}, numbers as of {when(D['updated'])}: https://genclass.dev/visual#numbers")
+        r = _public_run()
+        lines = [f"- Visual bug checks ({kinds}): {count(C['kinds'])} kinds of measured check with documented thresholds, "
+                 f"{esc(C['name'])} {esc(C['version'])}, not a model. Measured on {esc(C['measured_on'])}, {when(C['date'])}: "
+                 f"{count(C['fixtures']['found'])} of {count(C['fixtures']['planted'])} planted faults found on fixture pages; "
+                 f"{count(C['clean']['false_reports'])} false reports in {count(C['clean']['page_views'])} page views of unmodified "
+                 f"demo, template and compatibility apps; on public home pages, {count(r['findings'])} findings in "
+                 f"{count(r['loads'])} loads, {count(r['confirmed_real'])} confirmed real. https://genclass.dev/visual#numbers"]
+        if SCAN_LIVE:
+            what = "the same checks" if SCAN_RUNS == "all" else f"a built-in subset of the checks ({SCAN_SUBSET})"
+            lines.append(f"- Page check: https://genclass.dev/visual#scan, or genclass.dev/<address>. A cloud browser loads one public page and runs {what}.")
+        if MODEL_LIVE:
+            m = D["model"]
+            lines.append(f"- Learned visual model {m['name']} {m['version']}, numbers as of {when(D['updated'])}: https://genclass.dev/visual#numbers")
+        else:
+            lines.append("- Learned visual model: " + ("still being trained and evaluated" if STAGE == "training" else "planned")
+                         + "; no published numbers" + (f", results due by {when(READY_BY)}" if READY_BY else "") + ".")
+        return "\n".join(lines)
     model = ("A model is being trained" if STAGE == "training" else "A model is planned, to be trained") + \
         " on crawled pages with injected faults; no published numbers yet" + (f", results due by {when(READY_BY)}" if READY_BY else "")
     return f"- Visual bug checks ({kinds}): measured checks with documented thresholds. {model}. https://genclass.dev/visual"
 
-FOOTER_LABEL = "Visual bugs" if SHIPPED else "Visual bugs (in testing)"
+FOOTER_LABEL = "Visual bugs" if SHIPPED or SCAN_LIVE else "Visual bugs (in testing)"
 
 # ---------------------------------------------------------------- blocks
 def scanform(name):
@@ -431,22 +602,54 @@ def scanform(name):
     </form>'''
 
 def state():
-    """The status rows under the homepage intro: when the model's results are due (or the date of the numbers), whether
-    the checks are in the runtime, and the model's stage."""
+    """The status rows under the homepage intro: the date of the numbers (or when the model's results are due), the
+    page check, whether the checks are in the runtime, and the model."""
     rows = []
     if LIVE:
-        rows.append(("Numbers as of", when_html(D["updated"]) + STAMP, True))
+        rows.append(("Numbers as of", when_html(C["date"]) + STAMP, True))
     elif READY_BY:
         rows.append(("Model results due", when_html(READY_BY), True))
-    rows.append(("Visual checks", f"In runtime {esc(D['checks_in_runtime'])}." if SHIPPED else "In testing. Not in runtime {{rt}}.", False))
-    if LIVE:
-        model = f'{esc(D["model"]["name"])} {esc(D["model"]["version"])}. <a href="/visual#numbers">Results →</a>'
+    if SCAN_LIVE:
+        rows.append(("Page check", "Open. " + ("All of the checks" if SCAN_RUNS == "all" else "A built-in subset of the checks")
+                     + ", on one public page.", False))
+    if SHIPPED:
+        rows.append(("In the runtime", f"From runtime {esc(D['checks_in_runtime'])}.", False))
     else:
-        model = ("In training." if STAGE == "training" else "Planned.") + " No published numbers yet."
-    rows.append(("Model", model, False))
+        rows.append(("In the runtime", "Not yet. In testing for a release after {{rt}}." if LIVE or SCAN_LIVE
+                     else "In testing. Not in runtime {{rt}}.", False))
+    if MODEL_LIVE:
+        model = f'{model_short()}. <a href="/visual#numbers">Results →</a>'
+    else:
+        model = ("Being trained and evaluated." if STAGE == "training" else "Planned.") + " No published numbers."
+        if READY_BY and LIVE: model += f" Results due {when_html(READY_BY)}."
+    rows.append(("Learned model", model, False))
     due = ' class="due"'
     cells = "".join(f'<div{due if big else ""}><dt>{k}</dt><dd>{v}</dd></div>' for k, v, big in rows)
     return f'<dl class="vstate">{cells}</dl>'
+
+def checks_nums():
+    """The homepage's four measured numbers for the checks, with what each counts and where it comes from."""
+    if not LIVE: return ""
+    fx, cl, r = C["fixtures"], C["clean"], _public_run()
+    pub = C["public"]
+    cells = [
+        (count(C["kinds"]), "kinds of visual bug, each a measurement against a documented threshold",
+         f'{esc(C["name"])} {esc(C["version"])}'),
+        (f'{count(fx["found"])} of {count(fx["planted"])}', f'planted faults found on test pages, each on its element',
+         f'{esc(fx["on"])}'),
+        (count(cl["false_reports"]), f'false reports in {count(cl["page_views"])} page views of unmodified demo, template and test apps',
+         f'desktop and phone, light and dark; bench runs {esc(cl["runs"])}'),
+        (f'{count(r["confirmed_real"])} of {count(r["findings"])}',
+         f'findings on public home pages confirmed real by a person, in {count(r["loads"])} loads; {count(r["unconfirmed"])} unconfirmed, '
+         f'{count(r["check_errors"])} check errors',
+         f'{count(r["sites"])} of {count(pub["sites"])} sites measured; bench run {count(r["run"])}'),
+    ]
+    items = "".join(f'<div><b>{big}</b><p>{p}</p><small>{small}</small></div>' for big, p, small in cells)
+    scan = f" {scan_runs('The page check runs')}." if SCAN_LIVE else ""
+    return f'''<figure class="vnums-fig">
+      <div class="vnums">{items}</div>
+      <figcaption>Measured on {esc(C["measured_on"])}, {when_html(C["date"])}, on the checks built for the runtime.{scan} These are measurements of fixed checks, not of a model.{STAMP} <a href="/visual#numbers">Every number with its label →</a></figcaption>
+    </figure>'''
 
 def specimens():
     def cell(fid, t, s, cid, kind):
@@ -463,41 +666,46 @@ def specimens():
       <figcaption><b>Fig. 1</b> Six of the bugs in the GenClass catalog of visual bugs in AI-built sites, with their catalog ids.{note} Drawn for this page; none is a screenshot of a real site. <a href="/visual#families">Every family →</a></figcaption>
     </figure>'''
 
-def _prevalence_rows():
-    return sorted(D["crawl"]["prevalence"], key=lambda r: -r["share_of_ai_sites"])[:5]
-
-def home_live():
-    if not LIVE:
-        return (f'<p class="note vnote">{model_sentence()} Its results will be published on <a href="/visual#numbers">/visual</a>, '
-                f'with the data and the split behind each number.</p>')
-    m, c = D["model"], D["crawl"]
-    rows = _prevalence_rows()
+def crawl_fig():
+    """Fig. 2: measured signals on crawled pages, AI-built against regular sites. Only with crawl.status "live"; the
+    shares are measured signals, not verified bugs, and are labelled as upper bounds."""
+    if not CRAWL_LIVE: return ""
+    c = D["crawl"]
+    rows = c["signals"]
     def bar(v, cls):
         return f'<div class="vb"><div class="t"><i class="{cls}" style="width: {float(v) * 100:.2f}%"></i></div><b>{pct(v)}</b></div>'
-    plot = "".join(f'<div class="vrow"><div class="vn">{esc(r["name"])}</div><div class="vpair">{bar(r["share_of_ai_sites"], "a")}'
-                   f'{bar(r["share_of_control_sites"], "c")}</div></div>' for r in rows)
-    label = "; ".join(f'{r["name"]}: {pct(r["share_of_ai_sites"])} of AI-built sites, {pct(r["share_of_control_sites"])} of regular sites' for r in rows)
-    table = "".join(f'<tr><td>{esc(r["name"])}</td><td class="n">{pct(r["share_of_ai_sites"])}</td><td class="n">{pct(r["share_of_control_sites"])}</td></tr>' for r in rows)
+    plot = "".join(f'<div class="vrow"><div class="vn">{esc(r["name"])} <span class="vview">{esc(r["view"])}</span></div><div class="vpair">'
+                   f'{bar(r["share_ai"], "a")}{bar(r["share_control"], "c")}</div></div>' for r in rows)
+    label = "; ".join(f'{r["name"]}, {r["view"]}: {pct(r["share_ai"])} of AI-built sites, {pct(r["share_control"])} of regular sites' for r in rows)
+    table = "".join(f'<tr><td>{esc(r["name"])}</td><td>{esc(r["view"])}</td><td class="n">{pct(r["share_ai"])}</td><td class="n">{pct(r["share_control"])}</td></tr>' for r in rows)
     sub = (f'{when(c["date"])} crawl of {count(c["sites_ai"])} AI-built and {count(c["sites_control"])} regular sites. '
-           f'Measured by {esc(c["measured_by"])}. At that setting, {pct(c["false_site_share"])} of {count(c["clean_sites"])} '
-           f'sites verified clean were flagged as well.')
-    t = m["trained_on"]
-    return f'''<div class="vlive">
-      <figure>
+           f'{esc(c["basis"])}. Measured signals, not verified bugs, so each share is an upper bound.')
+    src = src_link("crawl", "Crawl results", bare=False)
+    return f'''<figure class="vcrawl">
         <div class="frame">
-          <div class="ftitle">Share of sites with at least one bug in the family{STAMP}</div>
+          <div class="ftitle">Measured signals on crawled pages: upper bounds{STAMP}</div>
           <div class="fsub">{sub}</div>
           <div class="legend"><span><span class="key" style="background: {INK}"></span>AI-built sites</span><span><span class="key" style="background: {REF}"></span>Regular sites</span></div>
-          <div class="vbars" role="img" aria-label="Paired bar chart. {esc(label)}.">{plot}</div>
-          <details class="tview"><summary>Table view</summary><div class="tbl-wrap"><table class="vtbl"><thead><tr><th>Family</th><th>AI-built sites</th><th>Regular sites</th></tr></thead><tbody>{table}</tbody></table></div></details>
+          <div class="vbars" role="img" aria-label="Paired bar chart of measured signals, upper bounds. {esc(label)}.">{plot}</div>
+          <details class="tview"><summary>Table view</summary><div class="tbl-wrap"><table class="vtbl"><thead><tr><th>Signal</th><th>View</th><th>AI-built sites</th><th>Regular sites</th></tr></thead><tbody>{table}</tbody></table></div></details>
         </div>
-        <figcaption><b>Fig. 2</b> The five bug families most common on AI-built sites in the crawl, against regular sites. A site counts once per family, however many bugs of that family it has. A share close to the clean-site rate in the subtitle says little.</figcaption>
-      </figure>
-      <div class="vmodel">
+        <figcaption><b>Fig. 2</b> Share of crawled pages showing each signal. A signal is a measurement, not a bug a person confirmed, and it can count elements a visitor never sees, such as hidden carousel slides, so the share of pages with the real bug is at most this.{f" {src}." if src else ""}</figcaption>
+      </figure>'''
+
+def home_live():
+    """Under the drawings: the crawl figure when it is live, then the model: a line with its numbers, or what it is."""
+    out = crawl_fig()
+    if not MODEL_LIVE:
+        where = '<a href="/visual#numbers">/visual</a>'
+        after = (f" If it meets its bar, its results go on {where} with the data and the split behind each number."
+                 if STAGE == "training" else f" Its results will be published on {where}, with the data and the split behind each number.")
+        lead = " Every number above is from the measured checks." if LIVE else ""
+        return out + f'<p class="note vnote">{model_sentence()}{after}{lead}</p>'
+    m = D["model"]; t = m["trained_on"]
+    return out + f'''<div class="vmodel">
         <p><b>{esc(m["name"])} {esc(m["version"])}</b> reads {esc(m["input"])}. It was trained on {count(t["sites_ai"])} AI-built and {count(t["sites_control"])} regular sites with {count(t["injected_faults"])} faults injected from outside the page, and measured on {esc(m["eval"]["split"])}.{STAMP}</p>
         <p><a href="/visual#numbers">Recall per family, false reports, size and cost →</a></p>
-      </div>
-    </div>'''
+      </div>'''
 
 # the regular-sites series in Fig. 2: a lighter navy that keeps 3:1 against the #E6EBF2 track and against white
 # (#AAB4C8, the site's usual reference grey, is 1.7:1 on the track)
@@ -506,17 +714,20 @@ REF = "#7A879F"
 def status_notice():
     if SHIPPED:
         checks = f"The visual checks ship in runtime {esc(D['checks_in_runtime'])}; earlier versions do not have them."
+    elif LIVE:
+        checks = "The visual checks are built and measured in CI. They are not in runtime {{rt}} yet: they are in testing for a later release."
     else:
         checks = "The visual checks are not in runtime {{rt}}: they are built and in testing for a later release."
-    scan = (" The page check runs its own subset of them." if SCAN_LIVE else
-            " The page check, which scans one public page, is not open yet.")
-    if LIVE:
-        model = f" Model numbers as of {when_html(D['updated'])}, from the results linked under Sources."
+    scan = (f" {scan_runs(which=False)}." if SCAN_LIVE else " The page check, which scans one public page, is not open yet.")
+    nums = f" Check numbers as of {when_html(C['date'])}, from the results linked under Sources." if LIVE else ""
+    if MODEL_LIVE:
+        model = f" Model numbers as of {when_html(D['updated'])}."
     else:
-        model = (" The model is in training" if STAGE == "training" else " The model is planned") + " and has no published numbers yet."
+        model = (" The learned model is still being trained and evaluated" if STAGE == "training" else " The learned model is planned") + \
+            " and has no published numbers; nothing on this page comes from it."
         if READY_BY: model += f" Its results are due by <b>{when_html(READY_BY)}</b>."
-    lead = "" if SHIPPED else "<b>In testing.</b> "
-    return f'<p class="notice vstatus">{lead}{checks}{scan}{model}</p>'
+    lead = "" if SHIPPED or LIVE else "<b>In testing.</b> "
+    return f'<p class="notice vstatus">{lead}{checks}{scan}{nums}{model}</p>'
 
 def families():
     cells = "".join(
@@ -530,12 +741,80 @@ def families():
     </figure>'''
 
 def model_step():
-    if not LIVE:
-        return f'<p>{model_sentence()} Its recall and false reports will be published below, with the data and the split.</p>'
+    if not MODEL_LIVE:
+        after = (" If it meets its bar, its recall and false reports will be published on this page with the data and the split."
+                 if STAGE == "training" else " Its recall and false reports will be published on this page, with the data and the split.")
+        return f'<p>{model_sentence()}{after}</p>'
     m, t = D["model"], D["model"]["trained_on"]
     return (f'<p>{esc(m["name"])} {esc(m["version"])} was trained on {count(t["sites_ai"])} AI-built and {count(t["sites_control"])} '
             f'regular sites, {count(t["elements"])} labelled elements, with {count(t["injected_faults"])} faults injected from outside '
-            f'the page. It reads {esc(m["input"])}. Its recall and false reports are in Table 1.{STAMP}</p>')
+            f'the page. It reads {esc(m["input"])}. Its recall and false reports are in Tables 5 and 6.{STAMP}</p>')
+
+def _checks_tables():
+    fx, rc, cl, pub, co = C["fixtures"], C["recall"], C["clean"], C["public"], C["cost"]
+    res = src_link("results", "the runtime results, sections 8 and 9", bare=True)
+    recall = "".join(f'<tr><td><code>{esc(r["kind"])}</code></td><td class="n">{count(r["planted"])}</td><td class="n">{count(r["found"])}</td>'
+                     f'<td class="n">{dec2(r["recall"])}</td></tr>' for r in rc["rows"])
+    clean = "".join(f'<tr><td>{esc(r["pages"])}</td><td class="n">{count(r["page_views"])}</td><td class="n">{count(r["findings"])}</td>'
+                    f'<td class="n">{count(r["confirmed_real"])}</td><td class="n">{count(r["false_reports"])}</td><td class="n">{count(r["fixes_applied"])}</td></tr>'
+                    for r in cl["rows"])
+    def opt(v): return "not looked at" if v is None else count(v)
+    HL = ' class="hl"'
+    public = "".join(f'<tr{HL if r["run"] == pub["run"] else ""}><td class="n">{count(r["run"])}</td><td class="n">{count(r["sites"])}</td><td class="n">{count(r["loads"])}</td>'
+                     f'<td class="n">{count(r["findings"])}</td><td class="n">{fixed(r["per_load"])}</td><td class="n">{opt(r.get("confirmed_real"))}</td>'
+                     f'<td class="n">{opt(r.get("check_errors"))}</td><td class="n">{count(r["unconfirmed"])}</td></tr>' for r in pub["runs"])
+    passes = "".join(f'<tr><td>{esc(p["on"])}</td><td class="n">{count(p["loads"])}</td><td class="n">{fixed(p["p50_ms"])} / {fixed(p["p95_ms"])} / {fixed(p["max_ms"])}</td>'
+                     f'<td class="n">{pct(p["within_budget"])}</td><td class="n">{fixed(p["slice_p50_ms"])} / {fixed(p["slice_p95_ms"])} / {fixed(p["slice_max_ms"])}</td></tr>'
+                     for p in co["passes"])
+    r = _public_run()
+    return f'''<div class="sh"><span class="no">Results</span><h2>What was measured, and on what.</h2></div>
+    <p class="intro">Every number below is for {esc(C["name"])} {esc(C["version"])} (branch <code>{esc(C["branch"])}</code>), measured on {esc(C["measured_on"])} on {when_html(C["date"])}, and copied with its label from {res}. These are measurements of fixed checks with documented thresholds, not of a model.{" The page check runs a built-in subset of them; these numbers are for the full set built for the runtime." if SCAN_LIVE and SCAN_RUNS == "subset" else ""}</p>
+    <ul class="vlim vkey">
+      <li><b>{count(fx["found"])} of {count(fx["planted"])} planted faults found on fixture pages</b>, each on its element, {count(fx["kinds"])} kinds, {count(fx["tests_passed"])} tests passed. These are {esc(fx["on"])}, so this shows the checks work as designed.</li>
+      <li><b>{count(cl["false_reports"])} false reports and {count(cl["fixes_applied"])} fixes applied in {count(cl["page_views"])} page views</b> of unmodified pages (Table 2).</li>
+      <li><b>{count(r["findings"])} findings in {count(r["loads"])} loads of public home pages, {count(r["confirmed_real"])} confirmed real</b> by a person from the element's crop, {count(r["unconfirmed"])} unconfirmed, {count(r["check_errors"])} check errors (Table 3, run {count(r["run"])}).</li>
+    </ul>
+    <figure class="vtfig"><figcaption><b>Table 1</b> Recall on planted faults, per kind. Bench run {count(rc["run"])}: {esc(rc["on"])}. Planted counts only faults that took effect. The planted forms are the author's, so this is recall on those forms in real app layouts, not on every way such a bug appears.{STAMP}</figcaption>
+    <div class="tbl-wrap"><table class="vtbl">
+      <thead><tr><th>Kind</th><th>Planted</th><th>Found</th><th>Recall</th></tr></thead>
+      <tbody>{recall}</tbody></table></div>
+    <p class="note">{esc(rc["misses"])}</p></figure>
+    <figure class="vtfig"><figcaption><b>Table 2</b> Findings on unmodified pages, bench runs {esc(cl["runs"])} (the same in both). {esc(cl["loads"])}. Pages run in guard mode with fixes on, so a fix on a page that is not broken would count as a false fix. An unlabelled finding counts as false.{STAMP}</figcaption>
+    <div class="tbl-wrap"><table class="vtbl">
+      <thead><tr><th>Pages</th><th>Page views</th><th>Findings</th><th>Confirmed real</th><th>False reports</th><th>Fixes applied</th></tr></thead>
+      <tbody>{clean}</tbody></table></div>
+    <p class="note">{esc(cl["real"])}</p></figure>
+    <figure class="vtfig"><figcaption><b>Table 3</b> Findings on public home pages, per bench run. {esc(pub["on"])} Each of runs 2 to 4 followed changes made because of what the previous run found, so these sites are not held out. Run 5 followed a review of the checks; its findings were not looked at, so all count as unconfirmed. Sites are not named.{STAMP}</figcaption>
+    <div class="tbl-wrap"><table class="vtbl">
+      <thead><tr><th>Run</th><th>Sites measured</th><th>Loads</th><th>Findings</th><th>Per load</th><th>Confirmed real</th><th>Check errors</th><th>Unconfirmed</th></tr></thead>
+      <tbody>{public}</tbody></table></div>
+    <p class="note">{esc(pub["real"])}</p></figure>
+    <figure class="vtfig"><figcaption><b>Table 4</b> Cost, bench run {count(co["run"])}. Time for the first automatic pass and its longest slice, p50 / p95 / max, in ms; the budget is {fixed(co["slice_budget_ms"])} ms per slice and {fixed(co["pass_budget_ms"])} ms per pass. The checks load as a separate chunk of about {fixed(co["chunk_kb_gzip"])} KB gzip ({fixed(co["chunk_kb_min"])} KB minified), and add {count(co["first_load_bytes"])} B gzip to the first load of <code>{esc(co["first_load_entry"])}</code>.{STAMP}</figcaption>
+    <div class="tbl-wrap"><table class="vtbl">
+      <thead><tr><th>Loads</th><th>Count</th><th>Pass time</th><th>Pass within budget</th><th>Longest slice</th></tr></thead>
+      <tbody>{passes}</tbody></table></div>
+    <p class="note">{esc(co["note"])}</p></figure>'''
+
+def _model_tables():
+    m, ev = D["model"], D["model"]["eval"]
+    per = esc(ev["false_reports_per"])
+    rows = "".join(
+        f'<tr><td>{esc(f["name"])}</td><td class="n">{pct(f["recall_at_fp_0_1"])}</td><td class="n">{pct(f["recall_at_fp_1"])}</td><td class="n">{count(f["examples"])}</td></tr>'
+        for f in m["families"])
+    label = f'{esc(m["name"])} {esc(m["version"])}; {esc(ev["data"])}; {esc(ev["split"])}'
+    return f'''<div class="sh vsh2"><span class="no">The learned model</span><h2>Recall and false reports of {esc(m["name"])} {esc(m["version"])}.</h2></div>
+    <p class="intro">From the results linked under Sources, as of {when_html(D["updated"])}. Recall is the share of injected faults the model reported, at the false-report rate in the column head.</p>
+    <figure class="vtfig"><figcaption><b>Table 5</b> Recall per bug family. {label}. False reports are counted per {per}.{STAMP}</figcaption>
+    <div class="tbl-wrap"><table class="vtbl">
+      <thead><tr><th>Family</th><th>Recall at 0.1% false reports</th><th>Recall at 1% false reports</th><th>Test examples</th></tr></thead>
+      <tbody>{rows}</tbody></table></div></figure>
+    <figure class="vtfig"><figcaption><b>Table 6</b> Precision on ordinary pages, size and cost. {esc(m["name"])} {esc(m["version"])}.{STAMP}</figcaption>
+    <div class="tbl-wrap"><table class="vtbl vspec-t">
+      <tbody>
+        <tr><td>Precision on pages with no injected faults</td><td class="n">{pct(m["natural_precision"])}</td><td>{count(m["natural_pages"])} pages; {esc(ev["split"])}</td></tr>
+        <tr><td>Model download</td><td class="n">{count(m["size_kb"])} KB</td><td>{esc(m["cost_measured_on"])}</td></tr>
+        <tr><td>Time per element</td><td class="n">{fixed(m["ms_per_element"])} ms</td><td>{esc(m["cost_measured_on"])}</td></tr>
+      </tbody></table></div></figure>'''
 
 def numbers():
     if not LIVE:
@@ -549,30 +828,20 @@ def numbers():
       <li><b>Size and cost</b>: the download, and the time per element on a named device.</li>
       <li><b>Where each number comes from</b>: the crawl, the data, how it was kept apart from training, and a link to the results.</li>
     </ul>'''
-    m, ev = D["model"], D["model"]["eval"]
-    per = esc(ev["false_reports_per"])
-    rows = "".join(
-        f'<tr><td>{esc(f["name"])}</td><td class="n">{pct(f["recall_at_fp_0_1"])}</td><td class="n">{pct(f["recall_at_fp_1"])}</td><td class="n">{count(f["examples"])}</td></tr>'
-        for f in m["families"])
-    label = f'{esc(m["name"])} {esc(m["version"])}; {esc(ev["data"])}; {esc(ev["split"])}'
-    return f'''<div class="sh"><span class="no">Results</span><h2>What was measured, and on what.</h2></div>
-    <p class="intro">Every number below is from the results linked under Sources, as of {when_html(D["updated"])}. Recall is the share of injected faults the model reported, at the false-report rate in the column head.</p>
-    <figure class="vtfig"><figcaption><b>Table 1</b> Recall per bug family. {label}. False reports are counted per {per}.{STAMP}</figcaption>
-    <div class="tbl-wrap"><table class="vtbl">
-      <thead><tr><th>Family</th><th>Recall at 0.1% false reports</th><th>Recall at 1% false reports</th><th>Test examples</th></tr></thead>
-      <tbody>{rows}</tbody></table></div></figure>
-    <figure class="vtfig"><figcaption><b>Table 2</b> Precision on ordinary pages, size and cost. {esc(m["name"])} {esc(m["version"])}.{STAMP}</figcaption>
-    <div class="tbl-wrap"><table class="vtbl vspec-t">
-      <tbody>
-        <tr><td>Precision on pages with no injected faults</td><td class="n">{pct(m["natural_precision"])}</td><td>{count(m["natural_pages"])} pages; {esc(ev["split"])}</td></tr>
-        <tr><td>Model download</td><td class="n">{count(m["size_kb"])} KB</td><td>{esc(m["cost_measured_on"])}</td></tr>
-        <tr><td>Time per element</td><td class="n">{fixed(m["ms_per_element"])} ms</td><td>{esc(m["cost_measured_on"])}</td></tr>
-      </tbody></table></div></figure>'''
+    if MODEL_LIVE: return _checks_tables() + _model_tables()
+    due = f" Its results are due by {when_html(READY_BY)}." if READY_BY else ""
+    stage = ("is still being trained and evaluated" if STAGE == "training" else "is planned")
+    return _checks_tables() + f'''
+    <div class="vmodel vmodel-none"><p><b>The learned model {stage}.</b> It has no published numbers, and none of the numbers above come from it. If it meets its bar, this section adds its recall per bug family at two false-report rates, its precision on pages with no injected faults, its size and its cost, with the data and the split behind each.{due}</p></div>'''
 
 def model_limit():
+    if MODEL_LIVE:
+        return "<li><b>The model's numbers hold for the data in Tables 5 and 6.</b> On kinds of sites the crawl did not cover, recall and precision may be lower.</li>"
+    s = "<li><b>The learned model has no numbers yet.</b> Nothing on this page claims a detection rate for it until one is measured and published.</li>"
     if LIVE:
-        return "<li><b>The numbers hold for the data in Tables 1 and 2.</b> On kinds of sites the crawl did not cover, recall and precision may be lower.</li>"
-    return "<li><b>The model has no numbers yet.</b> Nothing on this page claims a detection rate until one is measured and published.</li>"
+        s += ("<li><b>Measured on GenClass's own apps and 40 public home pages.</b> Recall is on faults planted in the author's own forms, "
+              "and the public sites were also used to tune the checks between runs, so they are not held out.</li>")
+    return s
 
 def sources():
     items = []
@@ -592,17 +861,18 @@ def src_link(sid, text, bare=True):
 
 def scan_section():
     if not SCAN_LIVE: return ""
-    return '''<section id="scan">
+    return f'''<section id="scan">
   <div class="wrap">
     <div class="sh"><span class="no">Page check</span><h2>Scan a page.</h2></div>
-    <p class="intro">Paste the address of a public page. A cloud browser loads it, runs the checks, and shows each problem on a screenshot with what was measured and a suggested fix.</p>
+    <p class="intro">Paste the address of a public page. A cloud browser loads it, runs {"the measured checks" if SCAN_RUNS == "all" else "a built-in subset of the measured checks (" + SCAN_SUBSET + ")"}, and shows each problem on a screenshot with what was measured and a suggested fix.</p>
     <!--@scanform visual-->
   </div>
 </section>'''
 
 BLOCKS = {"visual-specimens": specimens, "visual-home-live": home_live, "visual-state": state, "visual-status": status_notice,
           "visual-families": families, "visual-model-step": model_step, "visual-numbers": numbers,
-          "visual-model-limit": model_limit, "visual-sources": sources, "visual-scan": scan_section}
+          "visual-model-limit": model_limit, "visual-sources": sources, "visual-scan": scan_section,
+          "visual-checks-nums": checks_nums}
 
 def markers(s):
     for name, fn in BLOCKS.items():

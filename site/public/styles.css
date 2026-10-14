@@ -952,10 +952,10 @@ details.tview .tbl-wrap{margin-top:4px}
 .vsrc span::before{content:"· "}
 @media (min-width:1000px){
   .vis>.wrap{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);column-gap:64px;align-items:start}
-  .vis>.wrap>.sh{grid-column:1;grid-row:1/span 3}
+  .vis>.wrap>.sh{grid-column:1;grid-row:1}
   .vis>.wrap>.intro{grid-column:2;grid-row:1;margin-top:28px}
   .vis>.wrap>.vstate{grid-column:2;grid-row:2;margin-top:28px}
-  .vis>.wrap>.scanbox{grid-column:2;grid-row:3;margin-top:26px}
+  .vis>.wrap>.scanbox{grid-column:1;grid-row:2;margin-top:36px;align-self:start}
   .vis>.wrap>:not(.sh):not(.intro):not(.vstate):not(.scanbox){grid-column:1/-1}
   .vis .sh h2{max-width:none}
 }
@@ -980,4 +980,36 @@ details.tview .tbl-wrap{margin-top:4px}
   .vfam > div{grid-template-columns:112px minmax(0,1fr);gap:4px 14px;padding:18px 0}
   .vfam .vart{grid-row:1/span 2}
   .vfam p.chk{grid-column:1/-1;margin-top:4px}
+}
+/* the measured checks' numbers: four on the homepage (visual.py checks_nums), the tables and key lines on /visual */
+.vnums-fig{margin-top:56px}
+.vnums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)}
+.vnums>div{padding:20px 24px 22px 0;min-width:0}
+.vnums>div+div{padding-left:24px;border-left:1px solid var(--rule)}
+.vnums b{display:block;font:700 clamp(36px,3.6vw,52px)/1 var(--display);letter-spacing:-.035em;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.vnums p{font-size:15px;line-height:1.5;color:var(--ink2);margin-top:12px}
+.vnums small{display:block;font:12px/1.5 var(--mono);color:var(--ink3);margin-top:10px}
+.vnums-fig figcaption{font-size:14px;color:var(--ink2);max-width:90ch;margin-top:14px}
+.vnums-fig figcaption a{color:var(--ink);white-space:nowrap}
+.vkey{margin-top:24px}
+.vtbl tr.hl td{background:var(--panel)}
+.vtfig .note{margin-top:12px}
+.vview{font:500 11.5px var(--mono);color:var(--ink3);margin-left:4px;white-space:nowrap}
+.vcrawl{margin-top:48px}
+.vcrawl+.vmodel{margin-top:36px}
+.vmodel-none{margin-top:48px;max-width:900px}
+.vsh2{margin-top:72px}
+@media (max-width:1000px){
+  .vnums{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vnums>div:nth-child(3){padding-left:0;border-left:0}
+  .vnums>div:nth-child(n+3){border-top:1px solid var(--rule)}
+}
+@media (max-width:640px){
+  .vnums-fig{margin-top:36px}
+  .vnums{grid-template-columns:1fr}
+  .vnums{border-bottom:0}
+  .vnums>div,.vnums>div+div,.vnums>div:nth-child(n+3){padding:16px 0 18px;border-left:0;border-top:0;border-bottom:1px solid var(--rule)}
+  .vnums b{font-size:36px}
+  .vnums p{margin-top:8px;font-size:14.5px}
+  .vnums small{margin-top:6px;font-size:11.5px}
 }

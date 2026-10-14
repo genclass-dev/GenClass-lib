@@ -27,8 +27,10 @@
 - Unlimited apps means no plan limit; one account holds at most 200 apps as an abuse limit. The runtime is free in every plan.
 - Need self-hosting, SSO or invoices? Email mehar@daybot.ca. https://genclass.dev/enterprise
 
-## In testing, not in 0.2.1
-- Visual bug checks (unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", stylesheets and fonts that fail, covered controls): measured checks with documented thresholds. A model is planned, to be trained on crawled pages with injected faults; no published numbers yet, results due by October 14, 2026, 22:00 UTC. https://genclass.dev/visual
+## Visual bug checks: measured in CI, not in 0.2.1 yet; the page check is open
+- Visual bug checks (unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", stylesheets and fonts that fail, covered controls): 23 kinds of measured check with documented thresholds, GenClass visual checks v1, not a model. Measured on GitHub runners in Chromium 153, October 13, 2026: 35 of 35 planted faults found on fixture pages; 0 false reports in 128 page views of unmodified demo, template and compatibility apps; on public home pages, 8 findings in 96 loads, 5 confirmed real. https://genclass.dev/visual#numbers
+- Page check: https://genclass.dev/visual#scan, or genclass.dev/<address>. A cloud browser loads one public page and runs a built-in subset of the checks (text under 1.5:1 contrast, broken images, stylesheets and fonts that failed to load, template leaks, sideways scrolling on a phone, and controls covered on the first screen).
+- Learned visual model: still being trained and evaluated; no published numbers.
 
 ## Guides
 - How to fix race conditions in React data fetching: https://genclass.dev/guides/race-conditions-react
