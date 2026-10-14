@@ -504,6 +504,8 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     assert.deepEqual(dark.audits, [], "the dark phone runs axe-core only");
     assert.ok(desk.cdp!.sent.includes("Runtime.enable") && desk.cdp!.sent.includes("Network.enable"));
     assert.ok(desk.cdp!.detached, "the session is closed before the race probe");
+    assert.deepEqual([desk, phone, dark].map((p) => p.pointerAtAxe), [[[-1, -1]], [[-1, -1]], [[-1, -1]]], "the pointer is off the page, so no :hover style is judged");
+    assert.ok(desk.evaluated.some((s) => s.includes("document.activeElement")), "focus is cleared after the Tab presses");
 
     const by = (rule: string) => r.findings.find((f: { rule: string }) => f.rule === rule);
     assert.deepEqual(r.findings.map((f: { rule: string }) => f.rule).sort(), [

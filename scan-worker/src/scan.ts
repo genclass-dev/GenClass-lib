@@ -1010,8 +1010,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     const phone = spec.id === "phone";
     const word = spec.id === "phone-dark" ? "dark phone" : spec.id;
     const say = (e: unknown) => cutText(e instanceof Error ? e.message : String(e), 120);
-    // the visual checks pressed Tab on the desktop: whatever has focus now would be judged in its :focus style (measured
-    // in calibration: a link that loses its underline on focus, reported by axe-core as a link without styling)
+    // the visual checks pressed Tab on the desktop and scrolled with the mouse over the page: whatever has focus or sits
+    // under the pointer now would be judged in its :focus or :hover style (measured in calibration: a link that loses
+    // its underline on hover and focus, reported by axe-core as a link without styling). The pointer leaves the page.
+    await page.mouse.move(-1, -1).catch(() => undefined);
     await withTimeout(evalDom(page, BLUR_SOURCE), 1000, "clearing focus").catch(() => undefined);
 
     // Largest Contentful Paint, layout shifts and unsized images, read at network quiet (judged on the desktop only)

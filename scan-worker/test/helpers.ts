@@ -212,7 +212,7 @@ export class FakePage implements PageLike {
   mode: "none" | "observe" | "guard" = "none";
   mouse = {
     click: async (_x: number, _y: number, o?: { count?: number }) => this.click(o?.count ?? 1),
-    move: async () => undefined,
+    move: async (x: number, y: number) => void this.moves.push([x, y]),
     wheel: async () => void this.wheels++,
   };
   keyboard = { type: async (text: string) => this.typeText(text), press: async (key: string) => void this.keys.push(key) };
@@ -223,6 +223,9 @@ export class FakePage implements PageLike {
   /** The page audits the scanner ran (src/audits.ts pageSide), and the views axe-core ran in. */
   audits: { cmd: string; arg: Record<string, any> }[] = [];
   axeRuns: string[] = [];
+  /** Where the pointer was moved, in order, and where it was each time axe-core ran. */
+  moves: [number, number][] = [];
+  pointerAtAxe: ([number, number] | undefined)[] = [];
   private script: PageScript;
   private settle: () => Promise<void>;
   /** The scanner's DevTools session on this page, once it opened one. */
@@ -314,6 +317,7 @@ export class FakePage implements PageLike {
     if (src.includes('Object.getOwnPropertyDescriptor(window, "axe")')) return !!this.script.axe; // axe-core's installer
     if (src.includes("ax.run(document")) {
       this.axeRuns.push(this.view);
+      this.pointerAtAxe.push(this.moves.at(-1));
       return JSON.stringify(this.script.axe ? this.script.axe(this.view) : { ok: false, error: "axe-core is not installed" });
     }
     const side = /\)\("(vitals|audit|reflow|overflow)", (\{.*\})\)\)\)\(\)$/.exec(src);
