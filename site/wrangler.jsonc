@@ -23,6 +23,8 @@
     { "binding": "MODELS", "bucket_name": "genclass-models" }
   ],
   "triggers": { "crons": ["* * * * *"] },
+  // genclass.dev/<url> (src/scan-path.js) is answered by the page-check worker genclass-scan (scan-worker/).
+  "services": [{ "binding": "SCAN", "service": "genclass-scan" }],
   "ratelimits": [
     { "name": "LIMIT", "namespace_id": "4801", "simple": { "limit": 5, "period": 60 } }
   ],

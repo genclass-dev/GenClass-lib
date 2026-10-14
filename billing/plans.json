@@ -16,7 +16,7 @@
       "features": [
         { "text": "The open-source runtime with every mode: observe, guard and heal", "available": true },
         { "text": "Reports in the browser console", "available": true },
-        { "text": "The genclass.dev page scanner", "available": false },
+        { "text": "The genclass.dev page check", "available": true },
         { "text": "Dashboard for up to 3 apps", "available": true },
         { "text": "7 days of dashboard history", "available": true }
       ]
