@@ -82,8 +82,11 @@ export function runAxeSource(name: string): string {
     if (!(b.width > 0 && b.height > 0)) return null;
     return { x: Math.round(b.left + sx), y: Math.round(b.top + sy), w: Math.round(b.width), h: Math.round(b.height) };
   };
-  // inside an element the author marked as a picture or as decoration (WCAG 1.4.3's incidental text)
-  const picture = (t) => { const el = find(t); return !!(el && el.closest && el.closest('[role="img"], [aria-hidden="true"]')); };
+  // WCAG 1.4.3's exceptions: incidental text (inside an element the author marked as a picture or as decoration) and
+  // logotypes (text that is only the site's own name, such as a brand-name watermark)
+  const label = String(location.hostname || "").replace(/^www\\./, "").split(".")[0].replace(/[^a-z0-9]/g, "");
+  const brand = (el) => label.length >= 3 && String(el.textContent || "").toLowerCase().replace(/[^a-z0-9]/g, "") === label;
+  const picture = (t) => { const el = find(t); return !!(el && ((el.closest && el.closest('[role="img"], [aria-hidden="true"]')) || brand(el))); };
   const violations = (r.violations || []).slice(0, 80).map((v) => ({
     id: v.id, impact: v.impact, tags: v.tags, help: v.help, description: v.description, helpUrl: v.helpUrl,
     count: (v.nodes || []).length,
@@ -182,8 +185,8 @@ export function parseAxe(v: unknown): AxeView {
       const x = (n && typeof n === "object" ? n : {}) as Record<string, unknown>;
       return { target: cut(x.target, 200), box: boxOf(x.box), summary: axeSummary(cut(x.summary, 600)), picture: x.picture === true };
     });
-    // color-contrast: text inside an element marked role="img" or aria-hidden="true" is part of a picture or decoration,
-    // which WCAG 1.4.3 exempts ("incidental"); measured in calibration on a public page's product illustrations
+    // color-contrast: text WCAG 1.4.3 exempts, marked in the page: inside an element marked role="img" or aria-hidden="true"
+    // (incidental: part of a picture, or decoration) or only the site's own name (a logotype); both measured in calibration
     const pictures = rule === "color-contrast" ? all.filter((n) => n.picture).length : 0;
     const nodes = all.filter((n) => !(rule === "color-contrast" && n.picture)).map(({ target, box, summary }) => ({ target, box, summary }));
     const count = Math.max(nodes.length, Math.round(num(r.count) ?? 0) - pictures);

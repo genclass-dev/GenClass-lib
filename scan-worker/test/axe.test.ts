@@ -141,6 +141,23 @@ describe("axe-core results become findings", () => {
     assert.equal(other.count, 2, "only color-contrast has the exception");
     assert.match(runAxeSource("__x"), /closest\('\[role="img"\], \[aria-hidden="true"\]'\)/);
   });
+  it("mark, in the page, color-contrast text inside a picture and text that is only the site's own name (a logotype)", async () => {
+    const el = (text: string, inPicture = false) => ({ textContent: text, closest: (q: string) => (inPicture && /role="img"/.test(q) ? {} : null), getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 20 }) });
+    const nodes: Record<string, unknown> = { ".watermark": el("craigslist"), ".price": el("$12 a month"), ".mock span": el("Continue", true), ".nav": el("Shop") };
+    const ctx = vm.createContext({ console });
+    vm.runInContext(`var window = globalThis; window.scrollX = 0; window.scrollY = 0; var location = { hostname: "www.craigslist.org" }; var performance = { now: () => 0 };`, ctx);
+    ctx.document = { querySelector: (s: string) => nodes[s] ?? null };
+    ctx.__gcsT = {
+      version: "4.13.0",
+      configure: () => undefined,
+      run: async () => ({ violations: [{ id: "color-contrast", impact: "serious", tags: ["wcag2aa", "wcag143"], nodes: Object.keys(nodes).map((k) => ({ target: [k], failureSummary: "x" })) }, { id: "link-name", impact: "serious", tags: ["wcag2a"], nodes: [{ target: [".watermark"] }] }], incomplete: [], passes: [] }),
+    };
+    const out = JSON.parse(await vm.runInContext(runAxeSource("__gcsT"), ctx));
+    assert.deepEqual(out.violations[0].nodes.map((n: { target: string; picture: boolean }) => [n.target, n.picture]), [[".watermark", true], [".price", false], [".mock span", true], [".nav", false]]);
+    assert.equal(out.violations[1].nodes[0].picture, false, "only color-contrast has these exceptions");
+    const [cc] = parseAxe(out).rules;
+    assert.deepEqual([cc.count, cc.nodes.map((n) => n.target)], [2, [".price", ".nav"]]);
+  });
   it("count an element the visual checks found as invisible text once: in the visual finding", () => {
     const rules = parseAxe({ ok: true, violations: [violation(), violation({ id: "image-alt", impact: "critical", tags: ["wcag2a", "wcag111"] })] }).rules;
     const invisible: RawFinding = { kind: "text-invisible", selector: "p.a", box: { x: 11, y: 19, w: 101, h: 18 }, measured: "1.08:1", detail: { severity: "high" } };

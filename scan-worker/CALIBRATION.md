@@ -69,12 +69,20 @@ Two changes that are not false findings but came from the same runs:
 
 ## Timings
 
-Largest Contentful Paint from the scanner against a desktop browser on a home connection, same page, same size, once:
-site D 2.6 s against 4.3 s, site O 3.2 s against 6.2 s, site N 3.5 s against 6.7 s, site J 3.4 s against 2.4 s. The
-scanner was faster on three of four pages, so its LCP is not inflated in general; it is one load in a data center, and
-every LCP finding says so. J's 2.86 s in pass 2 ("needs improvement") was not confirmed by the 2.4 s measured in the
-desktop browser; J also renders a different layout in the scanner (row 2 above). The light phone's LCP is recorded next
-to the desktop's in each report (`metrics.phoneLcpMs`) for comparison and not scored.
+Largest Contentful Paint from the scanner's desktop view against a desktop browser on a home connection, same page,
+same size, once each: site D 2.6 s against 4.3 s, site O 3.2 s against 6.2 s, site N 3.5 s against 6.7 s, site J 3.4 s
+against 2.4 s, site B 2.64 s (pass 4) against 0.59 s. For image-led pages the scanner was faster than the home
+connection; for B, a heading painted in a web font, it was more than four times slower (it measured 1.49 s for the same
+page in pass 2). So one load in the scanner can be wrong in either direction, which led to row 10:
+
+| # | where | what the scanner reported | what the live page showed | fix |
+|---|---|---|---|---|
+| 10 | B, desktop | Largest Contentful Paint 2.64 s, needs improvement | 0.59 s in a desktop browser; the scanner's own light phone view measured 2.13 s on the same scan | LCP is judged on the faster of the two loads in the same browser (the desktop view and the light phone, which loads without GenClass); no finding when that is within 2.5 s, and the finding names both |
+
+With that rule, across passes 1, 2 and 4 the LCP findings that remain are on pages a desktop browser also measured as
+slow (N, O; K in pass 2), plus J (2.86 s and 3.01 s in pass 2, against 2.4 s in the desktop browser: not confirmed, and
+J renders a different layout in the scanner, row 2). Every LCP finding says it was measured once per view in a data
+center.
 
 ## Weights
 

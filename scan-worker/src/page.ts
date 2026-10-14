@@ -1036,6 +1036,9 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   <ul>
     <li>Text the visual checks found below 1.5:1 is a visual bug; axe-core's <code>color-contrast</code> leaves out that same
     element in that view.</li>
+    <li>axe-core's <code>color-contrast</code> leaves out the text WCAG 1.4.3 exempts that a page can show machine-readably:
+    text inside an element marked <code>role="img"</code> or <code>aria-hidden="true"</code> (part of a picture, or decoration), and
+    text that is only the site's own name (a logotype). The text-size audit leaves out the first kind too.</li>
     <li>A layout shift the visual checks reported stands for the Cumulative Layout Shift note.</li>
     <li>Sideways scrolling at 390 px stands for the 360 and 320 px reflow check.</li>
   </ul>

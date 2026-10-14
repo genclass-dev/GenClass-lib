@@ -224,7 +224,9 @@ the reasons for each choice are in `src/audits.ts`, `src/axe.ts` and `src/cdp.ts
   best-practice-only rules are one level lower. One finding per rule across views, its count the most elements any view
   found, up to 5 example selectors, the WCAG success criteria from its tags with their Understanding links, and axe's
   rule guide (`dequeuniversity.com` only). An element the visual checks reported as invisible text is removed from
-  `color-contrast` in that view (counted once).
+  `color-contrast` in that view (counted once). `color-contrast` also leaves out text WCAG 1.4.3 exempts: inside an
+  element marked `role="img"` or `aria-hidden="true"` (incidental), and text that is only the site's own name (a
+  logotype); both measured in calibration.
 - **Phone audits** (light phone, `pageSide("audit")`): WCAG 2.5.8 tap targets (links, buttons, form controls and control
   roles under 24×24 CSS px whose 24 px circle touches another target or another small target's circle; inline links in a
   sentence, checkboxes and radios at the browser's own size or with a 24×24 label, disabled, hidden, clipped and covered
