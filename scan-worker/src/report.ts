@@ -15,7 +15,7 @@ import { FIX_KINDS, visualKey } from "./visual.ts";
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 3;
+export const REPORT_VERSION = 4;
 
 export interface Finding {
   n: number;

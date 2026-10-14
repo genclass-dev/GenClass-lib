@@ -325,6 +325,9 @@ const finite = (v: unknown): number | null => (typeof v === "number" && Number.i
  * catalog knows (own properties only), strings cut to 200 characters, a numeric box, and a detail object of short
  * primitives and small arrays. Null when it is not a finding.
  */
+/** Detail fields that hold a check's suggested CSS or fix in words: kept up to 600 characters, the rest 200. */
+const LONG_DETAIL = new Set(["css", "cssNote", "fixText", "fixCss"]);
+
 export function sanitizeFinding(v: unknown): RawFinding | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
@@ -342,7 +345,7 @@ export function sanitizeFinding(v: unknown): RawFinding | null {
       if (typeof val === "number") {
         if (Number.isFinite(val)) detail[k] = val;
       } else if (typeof val === "boolean") detail[k] = val;
-      else if (typeof val === "string") detail[k] = clamp(val, 200);
+      else if (typeof val === "string") detail[k] = clamp(val, LONG_DETAIL.has(k) ? 600 : 200);
       else if (Array.isArray(val)) {
         detail[k] = val.slice(0, 8).filter((x) => (typeof x === "number" ? Number.isFinite(x) : typeof x === "string")).map((x) => (typeof x === "string" ? clamp(x, 200) : x));
       }

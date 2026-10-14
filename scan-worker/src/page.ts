@@ -437,7 +437,7 @@ function renderScore(r){
   var w = r.withGenClass, withOn = !!(w && w.shown);
   show("withbox", withOn); show("wth", withOn);
   $("sk").textContent = withOn ? "Without GenClass" : "Score";
-  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (w.fixed === 1 ? " finding" : " findings") + " fixed in the page by GenClass and gone on a re-check in the same browser. GenClass reports the rest for the developer, with the suggested fix." : "Nothing to fix on this load."); }
+  if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (n === 1 ? " finding" : " findings") + " fixed in the page by GenClass and gone on a re-check in the same browser. GenClass reports the rest for the developer, with the suggested fix." : "Nothing to fix on this load."); }
   var tb = $("breakdown"); tb.textContent = "";
   r.score.categories.forEach(function(c, i){
     var tr = el("tr"), td = el("td", "cat", c.label); td.appendChild(el("small", null, "Up to " + c.cap + " points"));
