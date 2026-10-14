@@ -8,7 +8,7 @@
 - Modes: observe (default; changes nothing), guard (opt-in: discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync).
 - Cost: +98 KB of JavaScript on first load; about 13 MB downloaded once at idle on WASM (18 MB on WebGPU), then cached; 190 to 280 MB of memory in a Web Worker while the model is loaded; no device floor by default (`model.loadIf` sets one; `model: false` installs no model and then detects nothing).
 - Telemetry: anonymous diagnostics are on by default on public hosts; from runtime 0.2.2 they are off on localhost and private hosts (0.2.1 sent from those too, by mistake); they contain no page text. Opt out: `GenClass.init({ telemetry: false })`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
-- Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging, Sentry or PostHog.
+- Reports are console lines in the end user's browser; the `sinks` option hands each report to the app's own code. Forwarding detections from the genclass.dev collector to Sentry, PostHog, Datadog, Slack or a signed webhook is part of the Pro plan.
 
 ## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
 - Model 0.2.0 at the shipped setting (balanced), held-out real apps: detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state; guard acts on 7.5% of the cases where acting would help.
@@ -22,8 +22,8 @@
 
 ## Plans (https://genclass.dev/pricing; source: billing/plans.json)
 - Free, US$0: The open-source runtime with every mode: observe, guard and heal; Reports in the browser console; The genclass.dev page scanner (coming next); Dashboard for up to 3 apps; 7 days of dashboard history.
-- Pro, US$99 per month (billed monthly through Stripe Checkout; sign in, then https://genclass.dev/account/billing?plan=pro): Everything in Free; Unlimited apps; 1 year of dashboard history; Full data export: every event GenClass received for your apps, as JSONL or CSV, by download or API; Forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook; Interaction analytics (coming next); Email support from mehar@daybot.ca.
-- Custom, US$599 per month (billed monthly through Stripe Checkout; sign in, then https://genclass.dev/account/billing?plan=custom): Everything in Pro; A classifier trained for your app: we train a GenClass model on your app's own traffic and bug reports and ship it as a private model your runtime loads; A person from GenClass emails you within 1 business day of purchase to start; Priority support.
+- Pro, US$99 per month (not on sale yet: it opens with runtime 0.3.0, the first version that sends to the dashboard): Everything in Free; Unlimited apps; 1 year of dashboard history; Full data export: every event GenClass received for your apps, as JSONL or CSV, by download or API; Forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook; Interaction analytics (coming next); Email support from mehar@daybot.ca.
+- Custom, US$599 per month (not on sale yet: it opens with runtime 0.3.0, the first version that sends to the dashboard): Everything in Pro; A classifier trained for your app: we train a GenClass model on your app's own traffic and bug reports and ship it as a private model your runtime loads; A person from GenClass emails you within 1 business day of purchase to start; Priority support.
 - Unlimited apps means no plan limit; one account holds at most 200 apps as an abuse limit. The runtime is free in every plan.
 - Need self-hosting, SSO or invoices? Email mehar@daybot.ca. https://genclass.dev/enterprise
 

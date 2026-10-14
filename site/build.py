@@ -19,13 +19,29 @@ PLANS = json.loads((ROOT.parent / "billing/plans.json").read_text())
 PLAN = {p["id"]: p for p in PLANS["plans"]}
 APPS_CAP = 200  # the abuse cap on apps per account, whatever the plan (MAX_APPS_PER_ACCOUNT in telemetry-worker/src/auth.ts)
 SOON = "(coming next)"  # shown after a feature line whose "available" is false
-# The buttons under each plan: label, link, button style, the line under it. Paid plans are bought on the account's
-# billing page (telemetry worker), which asks the visitor to sign in first.
+# Paid plans go on sale on this site only when the pinned runtime sends to the dashboard: DASH_RT is the first version
+# that sends app tokens (earlier ones ignore them, so a paid dashboard, its export and its forwarding would stay empty).
+# build.sh refuses an RT the CDN does not have, so raising RT to DASH_RT or later is what opens them. Until then the
+# paid plans show their prices with an inactive button, and the Product JSON-LD and llms.txt offer only Free.
+# Deploy order for paid plans: (1) the telemetry worker with billing deployed, migration 0004 applied and
+# scripts/stripe-setup.mjs run, so genclass.dev/account/billing sells; (2) runtime DASH_RT published to npm;
+# (3) RT raised above, then ./build.sh and deploy the site.
+DASH_RT = "0.3.0"
+
+def semver(v):
+    core, _, pre = v.partition("-")
+    return tuple(int(x) for x in core.split(".")) + ((0,) if pre else (1,))
+
+PAID_OPEN = semver(RT) >= semver(DASH_RT)
+BILLING_URL = "https://genclass.dev/account/billing"  # served by the telemetry worker; it asks the visitor to sign in
+# The buttons under each plan: label, link (None: an inactive button), button style, the line under it.
 CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed to run it. The dashboard needs a free account."),
-       "pro": ("Start Pro", "https://genclass.dev/account/billing?plan=pro", "btn green", "Sign in first, then pay on Stripe.")}
+       "pro": ("Start Pro", BILLING_URL, "btn green", "Sign in first, then pay on Stripe.")}
 
 def cta(p):
-    return CTA.get(p["id"], (f'Start {p["name"]}', f'https://genclass.dev/account/billing?plan={p["id"]}', "btn", "Sign in first, then pay on Stripe."))
+    if p["id"] != "free" and not PAID_OPEN:
+        return (f"Opens with runtime {DASH_RT}", None, "btn ghost off", f"On sale when runtime {DASH_RT}, the first version that sends to the dashboard, is on npm.")
+    return CTA.get(p["id"], (f'Start {p["name"]}', BILLING_URL, "btn", "Sign in first, then pay on Stripe."))
 
 def usd(cents):
     return f"${cents // 100:,}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
@@ -38,7 +54,7 @@ def history(days):
 
 def plan_tokens(s):
     s = s.replace("{{plans.apps_cap}}", str(APPS_CAP))
-    s = s.replace("{{plans.contact}}", PLANS["contact"])
+    s = s.replace("{{plans.contact}}", PLANS["contact"]).replace("{{dash_rt}}", DASH_RT)
     pick = {"name": lambda p: p["name"], "price": lambda p: usd(p["price_usd_cents"]["monthly"]),
             "apps": lambda p: apps(p["limits"]["apps"]), "history": lambda p: history(p["limits"]["history_days"])}
     return re.sub(r"\{\{plan\.(\w+)\.(\w+)\}\}", lambda m: pick[m.group(2)](PLAN[m.group(1)]), s)
@@ -170,7 +186,7 @@ def plans_block():
       <h3 id="plan-{p["id"]}">{p["name"]}</h3>
       <p class="plan-price"><b>{usd(cents)}</b><span>{"per month" if cents else "no card needed"}</span></p>
       <p class="plan-sum">{p["summary"]}</p>
-      <div class="plan-cta"><a class="{btn}" href="{href}">{label}</a><p>{note}</p></div>
+      <div class="plan-cta">{f'<a class="{btn}" href="{href}">{label}</a>' if href else f'<span class="{btn}" aria-disabled="true">{label}</span>'}<p>{note}</p></div>
       <ul class="plan-feat">{"".join(line(f) for f in p["features"])}</ul>
     </article>''')
     c = PLANS["contact"]
@@ -190,6 +206,7 @@ def offers_jsonld():
     offers = []
     for p in PLANS["plans"]:
         cents = p["price_usd_cents"]["monthly"]; price = f"{cents / 100:g}"
+        if cents and not PAID_OPEN: continue  # not on sale on this site yet (DASH_RT)
         o = {"@type": "Offer", "name": p["name"], "price": price, "priceCurrency": "USD", "url": f"{SITE}/pricing",
              "availability": "https://schema.org/InStock", "description": p["summary"]}
         if cents:
@@ -295,7 +312,8 @@ def llms_plans():
     out = []
     for p in PLANS["plans"]:
         cents = p["price_usd_cents"]["monthly"]
-        head = f'- {p["name"]}, ' + (f'US{usd(cents)} per month (billed monthly through Stripe Checkout; sign in, then {cta(p)[1]})' if cents else "US$0")
+        sale = f"billed monthly through Stripe Checkout; sign in, then {BILLING_URL}" if PAID_OPEN else f"not on sale yet: it opens with runtime {DASH_RT}, the first version that sends to the dashboard"
+        head = f'- {p["name"]}, ' + (f"US{usd(cents)} per month ({sale})" if cents else "US$0")
         feats = "; ".join(f["text"] if f["available"] or SOON in f["text"] else f'{f["text"]} {SOON}' for f in p["features"])
         out.append(f"{head}: {feats}.")
     out.append(f"- Unlimited apps means no plan limit; one account holds at most {APPS_CAP} apps as an abuse limit. The runtime is free in every plan.")
@@ -312,7 +330,7 @@ LLMS = f"""# GenClass
 - Modes: observe (default; changes nothing), guard (opt-in: discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync).
 - Cost: +98 KB of JavaScript on first load; about 13 MB downloaded once at idle on WASM (18 MB on WebGPU), then cached; 190 to 280 MB of memory in a Web Worker while the model is loaded; no device floor by default (`model.loadIf` sets one; `model: false` installs no model and then detects nothing).
 - Telemetry: anonymous diagnostics are on by default on public hosts; from runtime 0.2.2 they are off on localhost and private hosts (0.2.1 sent from those too, by mistake); they contain no page text. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
-- Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging, Sentry or PostHog.
+- Reports are console lines in the end user's browser; the `sinks` option hands each report to the app's own code. Forwarding detections from the genclass.dev collector to Sentry, PostHog, Datadog, Slack or a signed webhook is part of the Pro plan.
 
 ## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
 - Model {MODEL} at the shipped setting (balanced), held-out real apps: detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state; guard acts on 7.5% of the cases where acting would help.

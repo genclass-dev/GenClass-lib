@@ -825,6 +825,8 @@ kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-widt
 .plan-sum{font-size:15px;color:var(--ink2);margin-top:14px;max-width:36ch}
 .plan-cta{margin-top:22px}
 .plan-cta .btn{width:100%}
+.plan-cta .btn.off{cursor:default;color:var(--ink3);border-style:dashed}
+.plan-cta .btn.off:hover{border-color:var(--rule2)}
 .plan-cta p{font-size:13.5px;line-height:1.5;color:var(--ink3);margin-top:10px;max-width:38ch}
 .plan-feat{list-style:none;margin-top:24px;border-top:1px solid var(--ink);font-size:15px;color:var(--ink2)}
 .plan-feat li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule)}
