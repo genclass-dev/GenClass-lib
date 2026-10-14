@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=a1056390">
+<link rel="stylesheet" href="/styles.css?v=86f55fbd">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Terms", "item": "https://genclass.dev/terms"}]}]}</script>
 </head>
 <body>
@@ -41,7 +41,8 @@
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
     <nav aria-label="Main"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
     <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    <a class="gh signin" href="/login">Sign in</a>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
 </header>
@@ -57,12 +58,14 @@
   <div class="wrap">
     <div class="prose">
       <h2>What these terms cover</h2>
-      <p>The diagnostics collector at <code>genclass.dev/api/v1/events</code> (and its older address on workers.dev), the model files served from <code>genclass.dev/model/</code>, the per-app dashboards at <code>genclass.dev/dashboard/</code>, and the early-access form. The <code>@genclass/runtime</code> package itself is licensed under Apache-2.0 and these terms do not change that license.</p>
+      <p>The diagnostics collector at <code>genclass.dev/api/v1/events</code> (and its older address on workers.dev), the model files served from <code>genclass.dev/model/</code>, the per-app dashboards at <code>genclass.dev/dashboard/</code>, the optional accounts at <code>genclass.dev/account</code> (with sign-in at <code>genclass.dev/login</code> and the command line sign-in at <code>genclass.dev/login/device</code>), and the early-access form. The <code>@genclass/runtime</code> package itself is licensed under Apache-2.0 and these terms do not change that license.</p>
       <h2>The diagnostics collector</h2>
       <p>The runtime sends anonymous diagnostics by default from public hosts, as described on the <a href="/privacy">privacy page</a> and in <a href="/docs/telemetry">TELEMETRY.md</a>. If you ship GenClass in your app, you decide whether to keep diagnostics on, and you are responsible for telling your own users if your privacy policy or local law requires it. Turning them off takes one option: <code>telemetry: false</code>.</p>
       <p>Send only what the runtime sends. Do not use the collector to store anything else, do not send personal data on purpose (for example by opting in to situation text on pages that show names, emails or payment details), and do not send traffic designed to overload it. The collector may rate-limit traffic, and it drops fields it does not know.</p>
       <h2>Model files and dashboards</h2>
       <p>The model files are the published <code>@genclass/runtime-model</code> package, mirrored for faster and more reliable loading; you may also self-host them. A dashboard link is private to whoever holds it: anyone with the link can read that app's aggregate counts. Keep it like a password, and ask us to delete a project if a link leaks.</p>
+      <h2>Accounts</h2>
+      <p>An account is optional and free; you can sign in with a passkey, Google or GitHub. Keep your sign-in methods to yourself: anyone who signs in to your account can see your apps' dashboards and create apps in it, and a command line session you approved can list and create apps in it. Approve a code at <code>genclass.dev/login/device</code> only when you ran <code>npx @genclass/runtime login</code> yourself and your terminal shows that code, and revoke sessions you do not recognise on your account page. Accounts are for developers using GenClass; we may suspend one that abuses these services. You can delete yours at any time on your account page. What an account stores is on the <a href="/privacy">privacy page</a>.</p>
       <h2>Retention and deletion</h2>
       <p>Stored diagnostics are deleted 90 days after they arrive. Dashboard aggregates are kept for 90 days. To delete the data for a hostname or a dashboard project sooner, email <a href="mailto:mehar@daybot.ca?subject=GenClass%20deletion%20request">mehar@daybot.ca</a>.</p>
       <h2>No warranty</h2>
@@ -94,6 +97,6 @@
     </div>
   </div>
 </footer>
-<script src="/app.js?v=7a4fd5f9" defer></script>
+<script src="/app.js?v=7e896e7d" defer></script>
 </body>
 </html>

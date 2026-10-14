@@ -10,8 +10,9 @@
 // Keys of the meta tag and data attributes: mode, model (a model directory URL, or "off"), device, preload, ort
 // (onnxruntime-web wasm directory), worker, report, debug, triage, devtools (bare / true, "local" = only on
 // localhost, false, or a corner such as "bottom-left"), telemetry (off/false/no: no anonymous diagnostics), autostate
-// (off/false/no: no automatic state discovery; on by default in these entries), visual (measured visual checks: on,
-// off, local, or fix = on with runtime fixes, which still need guard or heal mode).
+// (off/false/no: no automatic state discovery; on by default in these entries), token (the app's dashboard token,
+// gc_...), scope (app or functions), visual (measured visual checks: on, off, local, or fix = on with runtime fixes,
+// which still need guard or heal mode).
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model and
@@ -114,6 +115,13 @@ export function fromPairs(pairs: Record<string, string>): PageConfig {
       case "state":
         // automatic state discovery (on by default in the zero-code entries): only an opt-out here
         if (isOff(lv)) c.autoState = false;
+        break;
+      case "token":
+        // the app's dashboard token (validated with a console warning by createRuntime)
+        if (v) c.token = v;
+        break;
+      case "scope":
+        if (lv === "app" || lv === "functions") c.scope = lv;
         break;
       case "telemetry":
         // anonymous diagnostics (TELEMETRY.md): only an opt-out here; on is the GenClass.init default

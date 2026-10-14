@@ -18,6 +18,8 @@ export const DEFAULT_TELEMETRY_ENDPOINT = "https://genclass.dev/api/v1/events";
 export const TELEMETRY_SCHEMA = "genclass-telemetry/1";
 export const TELEMETRY_NOTICE =
   "[GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry.";
+/** Appended to TELEMETRY_NOTICE when the app set a token (InitOptions.token). */
+export const TELEMETRY_TOKEN_NOTICE = "With this app's token they also feed its private GenClass dashboard.";
 
 /**
  * Hosts where the default-on telemetry stays off: local development and private networks. An explicit
@@ -45,6 +47,8 @@ export interface TelemetryConfig {
   situation: boolean;
   transport: TelemetryTransport;
   sessionId: string;
+  /** The app token (InitOptions.token), already validated; sent as the batch envelope's `token`. */
+  token?: string;
 }
 
 export type TelemetryResolution = { on: true; config: TelemetryConfig } | { on: false; reason: string };

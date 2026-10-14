@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=a1056390">
+<link rel="stylesheet" href="/styles.css?v=86f55fbd">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Telemetry", "item": "https://genclass.dev/docs/telemetry"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime telemetry", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-13", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md"}]}</script>
 </head>
 <body>
@@ -41,14 +41,15 @@
     <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
     <nav aria-label="Main"><a href="/docs" class="on" aria-current="page">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
     <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    <a class="gh signin" href="/login">Sign in</a>
+    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
     <a class="btn" href="/docs">Get started</a>
   </div>
 </header>
 <main id="main">
 <div class="page-hero"><div class="wrap"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><a href="/docs">Docs</a><span aria-hidden="true">/</span><span>Telemetry</span></nav><h1>GenClass Runtime telemetry</h1>
 <p class="lede">Rendered from <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md"><code>packages/runtime/TELEMETRY.md</code></a> in the GenClass repository.</p></div></div>
-<section style="padding-top: 24px"><div class="wrap doc"><nav class="toc" aria-label="Reference"><b>Reference</b><a href="/docs/api">API Reference</a><a href="/docs/options">Options Reference</a><a href="/docs/architecture">Architecture</a><a href="/docs/telemetry">Telemetry</a><a href="/docs/interception">Interception surface</a><a href="/docs/threat-model">Threat model</a><a href="/security">Security</a><a href="/docs/compatibility">Compatibility</a><b>On this page</b><a href="#when-it-is-on">When it is on</a><a href="#what-is-sent">What is sent</a><a href="#where-it-goes">Where it goes</a><a href="#options">Options</a><a href="#opting-out">Opting out</a><a href="#if-you-ship-genclass-in-your-app">If you ship GenClass in your app</a></nav><article class="prose"><p>Since <strong><code>0.1.0-beta.3</code></strong>, <code>GenClass.init()</code> in a browser sends <strong>anonymous diagnostics</strong> about GenClass's own
+<section style="padding-top: 24px"><div class="wrap doc"><nav class="toc" aria-label="Reference"><b>Reference</b><a href="/docs/api">API Reference</a><a href="/docs/options">Options Reference</a><a href="/docs/architecture">Architecture</a><a href="/docs/telemetry">Telemetry</a><a href="/docs/interception">Interception surface</a><a href="/docs/threat-model">Threat model</a><a href="/security">Security</a><a href="/docs/compatibility">Compatibility</a><b>On this page</b><a href="#when-it-is-on">When it is on</a><a href="#what-is-sent">What is sent</a><a href="#app-tokens-and-dashboards">App tokens and dashboards</a><a href="#where-it-goes">Where it goes</a><a href="#options">Options</a><a href="#opting-out">Opting out</a><a href="#if-you-ship-genclass-in-your-app">If you ship GenClass in your app</a></nav><article class="prose"><p>Since <strong><code>0.1.0-beta.3</code></strong>, <code>GenClass.init()</code> in a browser sends <strong>anonymous diagnostics</strong> about GenClass's own
 decisions to the GenClass maintainers (Daybot Solutions Inc.). We use them to measure and improve the GenClass
 model (accuracy, false interventions, latency, which situations it sees in real apps). This page lists exactly what
 is sent, where it goes, and how to turn it off.</p>
@@ -82,10 +83,13 @@ Details under <a href="#opting-out">Opting out</a>.</p>
 </tr>
 </tbody>
 </table>
+<p>In <code>0.2.1</code> the local-host row did not apply to <code>GenClass.init()</code> (and so to <code>/auto</code> and the script tag): it passed
+an explicit <code>telemetry: true</code> internally, so local and private hosts sent too. Fixed in <code>0.2.2</code>
+(<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/CHANGELOG.md">CHANGELOG</a>).</p>
 <p>When it is on, the console shows one notice per page:</p>
 <pre><code>[GenClass] Sends anonymous diagnostics (decisions and counts, no page text) to improve the model. Opt out: GenClass.init({ telemetry: false }) or ?genclass=no-telemetry.
 </code></pre>
-<p><code>runtime.telemetry</code> reports <code>{ enabled, reason?, endpoint?, sessionId?, flush() }</code>; <code>reason</code> says why it is off
+<p><code>runtime.telemetry</code> reports <code>{ enabled, reason?, endpoint?, sessionId?, token?, flush() }</code>; <code>reason</code> says why it is off
 (<code>option</code>, <code>headless</code>, <code>local</code>, <code>url</code>, <code>localStorage</code>, <code>gpc</code>, <code>sampled-out</code>, <code>no-crypto</code>, <code>no-transport</code>,
 <code>kill-switch</code>, <code>disabled</code>).</p>
 <h2 id="what-is-sent">What is sent</h2>
@@ -114,6 +118,7 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
 <p><code>POST &lt;endpoint&gt;</code> with <code>content-type: text/plain;charset=UTF-8</code> (JSON body), no credentials, no referrer:</p>
 <pre><code class="language-jsonc">{
   &quot;schema&quot;: &quot;genclass-telemetry/1&quot;,
+  &quot;token&quot;: &quot;gc_…&quot;,           // only when the app configured a valid token (InitOptions.token); see &quot;App tokens&quot;
   &quot;sid&quot;: &quot;3f9c…&quot;,            // 24 hex chars from crypto.getRandomValues, new on every page load, never stored
   &quot;sent&quot;: 12034,             // ms since this page's GenClass started (no wall-clock time is sent)
   &quot;runtime&quot;: &quot;0.2.1&quot;, // @genclass/runtime version
@@ -149,7 +154,7 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
 <tr>
 <td><code>decision</code></td>
 <td>every model decision</td>
-<td><code>id</code>, <code>trigger</code>, <code>route</code>, <code>model</code>, <code>latencyMs</code>, <code>held</code> (the subject waited for the answer; false = decided in the background), <code>situation</code> (text, see above), <code>autoState</code> (true when discovered state was recorded on the page), <code>budget</code>, <code>compact</code>, <code>questions</code> (question ids), <code>answers</code> (per question: calibrated <code>probabilities</code> per label, <code>choice</code>, <code>confidence</code>; or <code>p</code> / <code>score</code>), <code>diagnosis</code>, <code>diagnosisConfidence</code>, <code>action</code> (chosen), <code>confidence</code>, <code>tier</code>, <code>candidate</code>, <code>ran</code>, <code>executed</code>, <code>acted</code>, <code>reason</code> (why the passive action ran), <code>mass</code>, <code>gateKind</code>, <code>threshold</code> / <code>gain</code> / <code>margin</code>, <code>thresholdSource</code>, <code>gates</code> (report/guard/heal thresholds, aggressiveness, level and sources), <code>effectiveMode</code>, <code>shadow</code></td>
+<td><code>id</code>, <code>trigger</code>, <code>route</code>, <code>model</code>, <code>latencyMs</code>, <code>held</code> (the subject waited for the answer; false = decided in the background), <code>situation</code> (text, see above), <code>autoState</code> (true when discovered state was recorded on the page), <code>budget</code>, <code>compact</code>, <code>questions</code> (question ids), <code>answers</code> (per question: calibrated <code>probabilities</code> per label, <code>choice</code>, <code>confidence</code>; or <code>p</code> / <code>score</code>), <code>diagnosis</code>, <code>diagnosisConfidence</code>, <code>action</code> (chosen), <code>confidence</code>, <code>tier</code>, <code>candidate</code>, <code>ran</code>, <code>executed</code>, <code>acted</code>, <code>reason</code> (why the passive action ran), <code>mass</code>, <code>gateKind</code>, <code>threshold</code> / <code>gain</code> / <code>margin</code>, <code>thresholdSource</code>, <code>gates</code> (report/guard/heal thresholds, aggressiveness, level and sources), <code>effectiveMode</code>, <code>shadow</code>, <code>fn</code> (only on batches with a token: the name the app gave the <code>protect()</code>ed function the decision's subject ran inside, the outermost one; omitted otherwise)</td>
 </tr>
 <tr>
 <td><code>detect</code></td>
@@ -193,6 +198,42 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
 <li>At most 1,000 queued events; beyond that new events are dropped and counted. A failed request is dropped, never
   retried; after 3 failures in a row the page stops sending (<code>MAX_FAIL_STREAK</code>). Telemetry never throws into your app, never changes what the model sees, and never delays a decision.</li>
 </ul>
+<h2 id="app-tokens-and-dashboards">App tokens and dashboards</h2>
+<p>Unreleased (not in <code>0.2.2</code>, which ignores a token and sends neither <code>token</code> nor <code>fn</code>). An app can set a <strong>token</strong>
+(<code>InitOptions.token</code>, <code>data-token</code>, <code>&lt;meta name="genclass" content="token=..."&gt;</code> or <code>window.GENCLASS_CONFIG.token</code>):
+<code>gc_</code> followed by 22 letters or digits, created by <code>npx @genclass/runtime init</code> or at https://genclass.dev/start.</p>
+<ul>
+<li>The token is public (it is in the page). It is sent as the batch envelope's top-level <code>token</code> and nowhere else; it
+  lets the collector group the batches of one app. A malformed token logs one console warning and is not sent.</li>
+<li>Whoever holds the app's private dashboard link (<code>https://genclass.dev/dashboard/&lt;secret&gt;</code>, given once when the
+  token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, actions, the
+  app's hostnames, top routes and protected functions, model load, backend and latency, versions) and its recent
+  detections. Dashboard data is also deleted after 90 days.</li>
+<li>A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
+  Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
+  console says so once when a token is set; otherwise only with <code>debug: true</code>.</li>
+<li>Only batches that carry a token have <code>fn</code> on <code>decision</code> events: the name the app chose for the <code>protect()</code>ed
+  function the decision was about (at most 80 characters). A name that looks like it carries data rather than
+  naming a function (an e-mail address, a URL, 4 or more digits in a row, 12 or more hex digits) is sent as
+  <code>[redacted]</code>, so use fixed names. Without a token <code>fn</code> is never sent.</li>
+<li>With a token, the console notice ends with one more sentence: <code>With this app's token they also feed its private
+  GenClass dashboard.</code></li>
+<li><code>npx @genclass/runtime init</code> creates a token (a "project") only on a new setup and only after the developer
+  approved its changes (or passed <code>--yes</code>): it sends one request, <code>POST https://genclass.dev/api/projects</code> with
+  <code>{ "name": &lt;package.json name, at most 80 characters&gt; }</code>. The collector keeps one record per project: the token,
+  that name, the creation time, the times of the first and the last batch, a SHA-256 hash of the dashboard secret
+  (never the secret itself) and, when the app belongs to a genclass.dev account, that account. Project records have
+  no automatic expiry; the aggregated dashboard data does (90 days). To delete a project and its dashboard data,
+  write to the contact in PRIVACY.md with the token.</li>
+<li>An app can also belong to an optional <strong>genclass.dev account</strong> (passkey, Google or GitHub sign-in), which opens its
+  dashboard at <code>https://genclass.dev/account/apps/&lt;id&gt;</code> for the signed-in owner; an existing dashboard link can be
+  added to an account and keeps working until the owner turns that link off on the account page. This changes
+  nothing the runtime sends: pages send the same batches with the same token, and nothing in a batch identifies a
+  person or an account. What an account itself stores (an email as typed or as Google returned it and whether it is
+  verified, passkey public keys, the Google <code>sub</code> and the GitHub id and login if used, session records, the apps it
+  owns) is listed in PRIVACY.md. Deleting the account on its account page deletes the apps created in it with their
+  dashboard data.</li>
+</ul>
 <h2 id="where-it-goes">Where it goes</h2>
 <ul>
 <li><strong>Endpoint:</strong> <code>https://genclass.dev/api/v1/events</code> (<code>DEFAULT_TELEMETRY_ENDPOINT</code>; before 0.2.2 the same worker's
@@ -203,7 +244,8 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
   partitioned by UTC date, runtime version and model version. The collector adds only the time it received the
   batch and the visitor's coarse <strong>country</strong> (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.</li>
-<li><strong>Use:</strong> model evaluation and training by the GenClass maintainers. Not sold, not used for advertising.</li>
+<li><strong>Use:</strong> model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
+  app's dashboard. Not sold, not used for advertising.</li>
 <li><strong>Retention:</strong> 90 days. An R2 lifecycle rule (<code>expire-90d</code>, prefix <code>events/</code>) deletes every stored batch 90 days after it
   was written. The maintainers may change this later; changes are recorded in the CHANGELOG.</li>
 <li><strong>Your own endpoint:</strong> <code>telemetry: { endpoint: "https://…" }</code> sends the same batches to a collector you run
@@ -288,6 +330,6 @@ the session event names your hostname. Depending on your users and jurisdiction 
     </div>
   </div>
 </footer>
-<script src="/app.js?v=7a4fd5f9" defer></script>
+<script src="/app.js?v=7e896e7d" defer></script>
 </body>
 </html>

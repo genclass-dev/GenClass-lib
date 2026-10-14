@@ -2,6 +2,103 @@
 
 ## Unreleased
 
+### App tokens and dashboards; function-specific protection with `protect()`
+
+Each web app can have a token that groups its diagnostics under a private dashboard on genclass.dev, and GenClass can
+be pointed at a few functions instead of the whole app. No model-visible text changes (`scope: "functions"` changes
+which subjects are decided, never what the model reads about one). Without a token, telemetry sends what 0.2.2
+sends.
+
+- **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">` in `<head>`,
+  `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as
+  the telemetry batch envelope's top-level `token`; `runtime.telemetry.token` reports it. A malformed token logs one
+  console warning and is ignored; never throws. It does nothing while telemetry is off: on a local host the console
+  says so once (local hosts never feed a dashboard), otherwise only with `debug: true`. Opt-outs and Global Privacy
+  Control still win. With a token, the telemetry console notice says the diagnostics also feed the app's dashboard.
+  `token` and `scope` are fixed when GenClass starts: `GenClass.init({ token, scope })` on a runtime that `/auto` or
+  the script tag already started is ignored with one console warning that says where to set them
+  (`window.GENCLASS_CONFIG`, the meta tag, `data-token` / `data-scope`); before, only a different `mode` warned.
+- **`protect(name, fn)`** (named export, `GenClass.protect`, and `window.GenClass.protect` on the script tag): returns
+  a function with the same signature whose calls run as an operation named `name` (like `runtime.op`), so the
+  requests, state writes, timers and errors it causes are linked to it. `this`, arguments, return value and thrown
+  errors pass through; sync stays sync; an async function's promise is replaced by one that settles the same way;
+  other thenables are returned untouched. Safe to wrap at import time: without a runtime it calls `fn` directly.
+- **`InitOptions.scope`**: `"app"` (default, unchanged) or `"functions"`: the runtime raises decisions, and asks
+  standing questions (`runtime.question()`, plugin `questions`), only for activity inside protected functions;
+  everything is still recorded as context, and `runtime.ask()` / `runtime.decide()` are still answered everywhere.
+  Also `data-scope` / `scope=` in the meta tag. Test: for an async function, `protect()` and `runtime.op()` give a
+  byte-identical situation.
+- **`Decision.fn`**: the outermost protected function in the subject's cause chain (the name the app chose, at most
+  80 characters), also on a held subject's answer that arrives after the hold budget. Telemetry `decision` events
+  carry it as `fn` **only when the app set a token** (it feeds that app's dashboard); a label that looks like data
+  (an e-mail address, a URL, 4+ digits in a row, 12+ hex digits) is sent as `[redacted]`.
+- **`init` can create a project**: after you approve the diff (or with `--yes`), `npx @genclass/runtime init` calls
+  `POST https://genclass.dev/api/projects` with the `name` from `package.json`, writes the token into what it adds
+  (`genclass.config.*`, `data-token`, or the Astro meta line), prints the private dashboard link and saves both in
+  `.genclass.local` before writing anything else (git is asked whether it is ignored; if not, it goes into the
+  project's `.gitignore`, created inside a git repository when missing; `remove` keeps the file and that line). A
+  file init cannot write still leaves the link saved and printed, with how to retry. Nothing is sent when you decline,
+  when there is no terminal and no `--yes`, with `--dry-run`, `--token <gc_...>`, `--no-token` or `--no-telemetry`,
+  or when the project already has a token. A network failure or HTTP error warns, sets GenClass up without a token
+  and points to https://genclass.dev/start. Running `init` again reuses the token; on a setup made without one it
+  never creates a project as a side effect (pass `--token`).
+- **Accounts in the CLI: `login`, `connect`, `whoami`, `logout`** (no new dependencies; Node 20 or later).
+  `npx @genclass/runtime login` signs in with the device flow (RFC 8628): it asks for a code with
+  `POST /api/device/code { client_name: "genclass-runtime <version>" }` (the approval page shows that name and the
+  account page labels the session with it), prints the code and `https://genclass.dev/login/device?code=...`,
+  opens the browser when it can (not over SSH, not without a display, not with `--no-browser`; it goes on either
+  way), polls `POST /api/device/token` at the interval the server gives (5 s more after each `slow_down` or HTTP
+  429, or the longer interval a `slow_down` names), and stops on approval, denial or expiry. Ctrl-C stops it and
+  saves nothing (exit 130). The CLI session (`gcs_...`) is saved as `{ host, access_token, account, created }` in
+  `$XDG_CONFIG_HOME/genclass/credentials.json` or `~/.config/genclass/credentials.json` (Windows
+  `%APPDATA%\genclass\`), mode 600 in a directory with mode 700, and is only used for the host it was made for.
+  Inside an app's folder `login` then asks whether to connect the app; `connect` does that alone: it picks one of the
+  account's apps (`GET /api/me`; `--app <id|name>`) or a new one named after `package.json` (`--name`), created
+  with `POST /api/account/projects` only after you approve the diff, and writes the token with init's own edits
+  (a setup init made gets it in place; a new one is set up as by init; a hand-written one gets the snippet printed,
+  nothing edited). An app init created with a private link can be added to the account instead
+  (`POST /api/account/projects/claim` with the link from `.genclass.local`, and only when the link belongs to the
+  host the session is for: with `GENCLASS_HOST` set elsewhere, a genclass.dev link is not sent), keeping its token; when genclass.dev
+  refuses (the dashboard belongs to another account, or the link is unknown) `connect` says so and how to give the
+  folder a new app instead (`--name`), and changes nothing. An app in an account
+  has no secret link, so nothing goes into `.genclass.local` for it. `whoami` prints the account and its apps;
+  `logout` calls `DELETE /api/account/sessions/current` and deletes the file. `--yes` skips the questions;
+  `connect --dry-run` reads the account's app list (`GET /api/me`) and creates and writes nothing.
+- **`init` with a saved session** asks, before anything is sent, whether the new app goes into the account
+  (`--yes`: it does; no: a private link as before). Without saved credentials `init` is unchanged. A
+  `GENCLASS_HOST` environment variable (an origin; plain http only on loopback hosts) points every command at
+  another server, for tests and a local `wrangler dev` only, and every command prints it when set. Questions now
+  take answers typed ahead, and Ctrl-C at a question exits with code 130. Tests: `test/install/account.test.ts`
+  against a fake genclass.dev (`mock-account.mjs`, with the worker's own formats and error answers), and
+  `telemetry-worker/test/auth.test.ts` runs the CLI's request functions against the real worker.
+- **Accounts on genclass.dev** (the server side, `telemetry-worker/`; deployed separately from this package, see
+  `telemetry-worker/README.md`). Sign up and sign in at `https://genclass.dev/signup` and `/login` with a passkey
+  (WebAuthn, verified with WebCrypto and no dependencies), Google (OpenID Connect) or GitHub, each provider shown
+  only once its client is configured. A Google or GitHub identity joins an existing account only through "Link" on
+  `/account` while signed in, never because an email matches. `/account` lists the apps (project key, last event,
+  dashboard link, whether a private link still opens it, with Turn off), adds an existing private-link dashboard
+  (at most 200 apps an account, created or added), lists passkeys, browser sessions and CLI sessions with Revoke and
+  "Sign out everywhere else", and deletes the account. Removing a passkey signs out every other session.
+  An app's dashboard in the account (`/account/apps/<id>`) shows a Connect panel until its first event arrives: the
+  project key with a copy button, `npx @genclass/runtime login`, the `GenClass.init({ token })`, `data-token` and
+  meta snippets, and a status line that checks every 5 seconds; until this release is on npm it says first that
+  keys and `login` are not published yet. `/login/device` approves or denies a CLI sign-in; only a signed-in visitor
+  learns whether a code is live, and only the CLI's own name (`genclass-runtime <version>`) is shown as the
+  requester. A CLI session can read the account's apps, create and add apps and end itself, nothing more.
+  Private-link dashboards and `/start` keep working without an account.
+- **Not done:** a per-function mode (`protect(name, fn, { mode })`).
+- **Cost:** about +1.8 KB gzip on `/auto`: 100.68 KB (98.86 KB in 0.2.2), and the main entry 93.19 KB, minified
+  and gzipped by `test/bundle.test.ts` in CI (run 38436014497). Its ceilings are 101 KB and 94 KB.
+- **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
+  the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
+  see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
+  PRIVACY.md ("Accounts on genclass.dev") and genclass.dev/privacy list what an account stores: the email as typed
+  or as Google returned it and whether it is verified, passkey public keys, the Google `sub` and the GitHub id and
+  login when used, session records (a hash, times, the CLI's name) and the apps it owns. An account changes nothing
+  the runtime sends.
+
+### Measured visual checks
+
 - **New: measured visual checks** ([docs/runtime/VISUAL.md](../../docs/runtime/VISUAL.md)). GenClass now finds visual
   and CSS bugs that never throw an error: text you cannot read because it is nearly the colour of its background
   (below 1.5:1, including on hover, on focus and in dark mode), images, CSS background images, stylesheets, web fonts,

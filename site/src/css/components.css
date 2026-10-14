@@ -1,7 +1,7 @@
 /* ---------- app-style components ---------- */
 .nav nav a.on{color:var(--ink);font-weight:600}
 .nav .gh{font-size:14px;color:var(--ink2);text-decoration:none}
-.mnav{display:none;margin-left:auto;position:relative}
+.mnav{display:none;margin-left:auto;position:relative;border:0}
 .mnav summary{list-style:none;cursor:pointer;min-height:40px;min-width:44px;display:flex;align-items:center;justify-content:center;border:1px solid var(--rule2);border-radius:8px;font:500 14px var(--sans);padding:0 12px}
 .mnav summary::-webkit-details-marker{display:none}
 .mnav .panel{position:absolute;right:0;top:48px;background:#fff;border:1px solid var(--rule2);border-radius:12px;padding:8px;display:flex;flex-direction:column;min-width:220px;box-shadow:0 18px 40px -18px rgba(14,31,77,.35)}
@@ -255,6 +255,7 @@ summary{font-size:16px}
 .hero3 .install-line{margin-top:18px;display:flex;justify-content:center}
 .fw{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;margin-top:22px;font:500 13px var(--mono);color:var(--ink3)}
 .fw b{color:var(--ink2);font-weight:500}
+.fw .br{display:none}
 .lab{margin:44px auto 0;border:1px solid var(--rule2);border-radius:16px;background:#fff;box-shadow:0 30px 70px -40px rgba(14,31,77,.35);overflow:hidden;text-align:left}
 .lab-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px;border-bottom:1px solid var(--rule);background:var(--panel)}
 .lab-tabs [role=tab]{all:unset;cursor:pointer;font:500 14px var(--sans);color:var(--ink2);padding:9px 14px;border-radius:8px}
@@ -310,9 +311,6 @@ summary{font-size:16px}
 .insp-feed details summary::after{content:""}
 .insp-feed pre{font:11px/1.45 var(--mono);white-space:pre-wrap;background:var(--night);color:var(--ntext);border-radius:6px;padding:8px;margin-top:6px;max-height:220px;overflow:auto}
 .insp-foot{font-size:12px;color:var(--ink3)}
-.trust{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;margin-top:36px;padding:18px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);font-size:14px;color:var(--ink2)}
-.trust b{color:var(--ink);font-weight:600}
-.trust a{color:var(--ink2);text-decoration:none} .trust a:hover{color:var(--ink)}
 .trust-note{font:12.5px var(--mono);color:var(--ink3);margin:10px auto 0;max-width:80ch}
 .trust-note a{color:var(--ink2)}
 .notice{display:block;border:1px solid var(--rule2);border-left:3px solid var(--orange);background:var(--panel);border-radius:10px;padding:12px 16px;font-size:15px;color:var(--ink);margin-top:16px;max-width:70ch}
@@ -322,10 +320,12 @@ summary{font-size:16px}
 .final p{color:var(--ndim);margin:12px auto 0;max-width:56ch}
 .final .ctas{justify-content:center;margin-top:24px}
 .final .cmd{background:transparent;color:#fff;border-color:#3A4A75}.final .cmd .k{background:#fff;color:var(--ink)}
+.final .cmd .p{color:var(--ndim)}
 
 /* ---------- lab v2: double-click invoice + problem radar ---------- */
 .lab-title{font:600 14px var(--sans);color:var(--ink);padding:9px 8px}
 .lab-chip{font:500 12px var(--mono);color:var(--orange);background:var(--orange-t);border-radius:999px;padding:4px 9px;white-space:nowrap}
+.lab-chip span+span::before{content:"· "}
 .lab-chip-link{font:500 12.5px var(--mono);color:var(--ink2);padding:0 6px}
 .lab-intro{font-size:13.5px;color:var(--ink2);padding:12px 24px 0}
 .dup{padding:24px;border-bottom:1px solid var(--rule)}
@@ -402,29 +402,158 @@ summary{font-size:16px}
 .bug details summary{display:block;padding:0;border:0}
 .bug details summary::after,.bug details summary::before{content:none}
 
-/* ---------- home v4: first five minutes, monitoring, when not to use it, costs, where it has been run ---------- */
+/* ---------- home v5: short landing page ---------- */
+#catches .fcard{display:flex;flex-direction:column}
+.fcard .fnum{font:12px/1.5 var(--mono);color:var(--ink3);margin-top:auto;padding-top:12px;text-wrap:balance}
+.fcard .fnum b{color:var(--ink);font-weight:600}
+.disclose{font-size:14.5px;color:var(--ink2);margin-top:16px;max-width:76ch}
+.disclose a{color:var(--ink);white-space:nowrap}
+#faq summary>span{text-wrap:pretty}
+#how .steps{grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
 .console.first{margin-top:28px}
 .console.first div{white-space:pre-wrap;overflow-wrap:anywhere}
 .console.first div+div{margin-top:6px}
 kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:#fff;color:var(--ink)}
-.cmp2 th:not(:first-child),.cmp2 td:not(:first-child){text-align:center}
-.cmp2 td:first-child{color:var(--ink2)}
-.cmp2 td.yes{font-size:14px}
-.skip-list{list-style:none;margin-top:32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:12px}
-.skip-list li{border:1px solid var(--rule);border-radius:14px;padding:20px 22px;font-size:15px;color:var(--ink2);background:#fff}
-.skip-list li b{display:block;color:var(--ink);font:600 16px var(--sans);margin-bottom:6px}
-.costs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:12px;margin-top:16px}
-.costs>div{border:1px solid var(--rule);border-radius:14px;padding:20px 22px;background:#fff}
-.costs h3{font:600 16px var(--sans);letter-spacing:-.01em}
-.costs p{font-size:14.5px;color:var(--ink2);margin-top:6px}
-.fw.left{justify-content:flex-start;margin-top:22px;font-size:13px}
-.fw.left span{flex:0 0 100%;color:var(--ink3)}
 .stats+.tbl-wrap{margin-top:28px}
 .notice.planned{border-left-color:var(--orange);margin-top:0;margin-bottom:18px}
 
 /* self-healing mesh behind the hero (public/mend.js) */
-.hero3 .mend-stage{position:relative;overflow:hidden;margin-top:-64px;padding:64px 0 76px}
+/* the stage fills most of the first screen, with the text in its upper part so open lattice shows around and below
+   it; it stops a little short of the fold so the next section shows (61px is the header) */
+.hero3 .mend-stage{position:relative;overflow:hidden;margin-top:-64px;padding:clamp(56px,10vh,112px) 0 clamp(64px,10vh,120px);min-height:min(calc(100vh - 133px),880px);min-height:min(calc(100svh - 133px),880px)}
+.hero3+section{padding-top:40px}
 .hero3 .mend-stage>.wrap{position:relative;z-index:1}
 .hero3 .mend{position:absolute;inset:0;z-index:0;pointer-events:none;display:block}
 .hero3 .mend-cap{position:absolute;right:16px;bottom:12px;z-index:1;margin:0;font:11px/1.4 var(--mono);color:var(--ink3);pointer-events:none}
-@media (max-width:640px){.hero3 .mend-stage{padding-bottom:56px}.hero3 .mend-cap{left:16px;right:auto}}
+.hero3 .mend-cap span+span::before{content:" · "}
+.hero3 .mend-cap span:empty{display:none}
+@media (max-width:640px){.hero3 .mend-cap{left:16px;right:16px}.hero3 .mend-cap span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hero3 .mend-cap span+span::before{content:none}}
+
+/* ---------- phones: the landing page (640px and under) ---------- */
+/* The hero fills the first screen under the 61px header. The text sits high as one block, the same width edge to edge
+   (two equal buttons, then the install line), and the rest of the screen is open lattice where the breaks happen.
+   Below it, the boxed cards become ruled rows. */
+@media (max-width:640px){
+  .hero3 .mend-stage{display:flex;flex-direction:column;padding:28px 0 88px;min-height:calc(100vh - 61px);min-height:calc(100svh - 61px)}
+  /* the screen's spare height goes one part above the text and five below it, where the breaks happen */
+  .hero3 .mend-stage::before{content:"";flex:1 1 0;max-height:72px}
+  .hero3 .mend-stage::after{content:"";flex:5 1 0}
+  .hero3 .announce{font-size:12.5px;padding:4px 11px 4px 5px}
+  .hero3 h1{font-size:clamp(34px,9.8vw,42px);line-height:1.04;margin-top:20px}
+  .hero3 .lede{margin-top:16px;line-height:1.55}
+  .hero3 .ctas{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
+  .hero3 .ctas .btn{padding:0 8px}
+  .hero3 .install-line{margin-top:10px}
+  .hero3 .install-line .cmd{width:100%;justify-content:space-between}
+  .hero3 .fw{gap:4px 16px;margin-top:18px;font-size:12.5px}
+  .hero3 .fw .br{display:block;flex-basis:100%;height:0}
+  .hero3 .mend-cap{bottom:14px;text-align:center;line-height:1.5}
+  /* the announcement keeps its size; its tap area is 45px tall */
+  .hero3 .announce{position:relative}
+  .hero3 .announce::after{content:"";position:absolute;inset:-8px -4px}
+
+  .hero3~section .sh h2{font-size:clamp(25px,7.2vw,30px);line-height:1.14}
+
+  /* what it catches: a ruled list, the line icon as the mark, label, sentence, then the number with its label */
+  .hero3~#catches .fgrid{display:block;margin-top:24px;border-top:1px solid var(--ink)}
+  .hero3~#catches .fcard{display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:14px;align-content:start;border:0;border-bottom:1px solid var(--rule);border-radius:0;padding:15px 0 16px;background:none}
+  .hero3~#catches .fcard .ic{grid-row:1/span 3;width:22px;height:22px;margin:0;background:none;border-radius:0;place-items:start}
+  .hero3~#catches .fcard .ic svg{width:20px;height:20px;margin-top:1px}
+  .hero3~#catches .fcard h3{font-size:16.5px;line-height:1.3}
+  .hero3~#catches .fcard p{font-size:14.5px;line-height:1.5;margin-top:3px}
+  .hero3~#catches .fcard .fnum{margin-top:0;padding-top:7px;font-size:11.5px}
+
+  /* results: ruled rows, the number in a left column beside what it counts and where it comes from */
+  .hero3~#proof .stats{gap:0;margin-top:24px;border-top:1px solid var(--ink)}
+  .hero3~#proof .stat{display:grid;grid-template-columns:96px minmax(0,1fr);column-gap:14px;border:0;border-bottom:1px solid var(--rule);border-radius:0;padding:18px 0;background:none}
+  .hero3~#proof .stat .big{grid-row:1/span 2;font-size:28px}
+  .hero3~#proof .stat p{margin-top:0;font-size:14.5px;line-height:1.5}
+  .hero3~#proof .stat small{margin-top:8px;font-size:11.5px;line-height:1.5}
+
+  /* how it works */
+  .hero3~#how .steps{margin-top:24px}
+  .hero3~#how .step{padding:16px 0 18px;grid-template-columns:36px 1fr}
+  .hero3~#how .step .n{padding-top:4px}
+  .hero3~#how .step p{font-size:14.5px;line-height:1.55}
+
+  /* install: the tabs stay one row and scroll sideways inside the block, like the code */
+  .hero3~#install .codetabs{margin-top:24px}
+  .hero3~#install .tabs{padding:8px 8px 0;scrollbar-width:none}
+  .hero3~#install .tabs::-webkit-scrollbar{display:none}
+  .hero3~#install .tabs button{white-space:nowrap;padding:0 12px;flex:none;box-sizing:border-box;display:flex;align-items:center;min-height:44px}
+  .hero3~#install .tabs button:focus-visible{outline-offset:-2px}
+  .hero3~#install pre:focus-visible{outline-offset:-3px}
+  .hero3~#install pre{font-size:13px;padding:18px 16px}
+  .hero3~#install .disclose{font-size:14px}
+
+  /* the live demo: one 16px inset throughout, the run settings on their own lines, nothing wider than the screen */
+  .lab{margin-top:28px;border-radius:14px}
+  .lab-tabs{padding:10px 8px 12px;gap:6px 4px}
+  .lab-chip{display:flex;flex-wrap:wrap;gap:2px 14px;border-radius:8px;line-height:1.45}
+  .lab-chip span+span::before{content:none}
+  .lab-live{margin-left:0;flex-basis:100%;padding:0 8px}
+  .lab-intro{padding:14px 16px 0;font-size:14px}
+  .dup{padding:18px 16px 20px}
+  .dup-head{gap:14px;margin-bottom:16px}
+  .dup-go{width:100%}
+  .dup-lanes{gap:12px}
+  .inv{padding:12px}
+  .inv-box{min-height:118px}
+  .radar-app{padding:18px 16px 20px}
+  .radar-mini>div{gap:6px 10px}
+  .mini-k{min-width:76px}
+  .radar-feed{padding:16px}
+  .radar-feed-h{flex-wrap:wrap}
+  .radar-feed-h>span{white-space:nowrap}
+  .lab-foot{padding:14px 16px}
+  .lab button,.lab .btn{touch-action:manipulation}
+  .lab .btn.sm{min-height:44px}
+  .lab-chip-link{flex-basis:100%;display:flex;align-items:center;min-height:44px;padding:0 8px}
+
+  /* FAQ and the closing call to action */
+  .hero3~#faq .faq{margin-top:20px}
+  .hero3~#faq summary{padding:16px 0}
+  .final{margin-top:64px;border-radius:16px;padding:40px 16px}
+  .final .ctas{flex-direction:column;align-items:stretch;gap:10px}
+  .final .cmd{justify-content:space-between;gap:10px;font-size:13.5px;white-space:nowrap}
+
+  /* footer: the install line and the GitHub button full width like the hero's; two link columns, each link 44px tall */
+  .end{margin-top:72px;padding:48px 0 28px}
+  .end .lockup{width:132px;margin-bottom:22px}
+  .end .row{margin-top:24px;flex-direction:column;align-items:stretch;gap:10px}
+  .end .row .cmd{justify-content:space-between}
+  .foot-cols{grid-template-columns:1fr 1fr;gap:28px 16px;margin-top:44px;padding-top:28px}
+  .foot-cols a{display:flex;align-items:center;min-height:44px;padding:0;line-height:1.35}
+  .foot{margin-top:40px}
+
+  /* the menu opens as a sheet the width of the screen, under the header */
+  .mnav{position:static}
+  .mnav summary{min-height:44px}
+  .mnav .panel{left:0;right:0;top:100%;min-width:0;border-width:0 0 1px;border-radius:0 0 14px 14px;padding:4px 16px 16px;box-shadow:0 24px 40px -24px rgba(14,31,77,.35)}
+  .mnav .panel a{padding:13px 2px;border-bottom:1px solid var(--rule);border-radius:0;font-size:16px}
+  .mnav .panel a:hover{background:none}
+  .mnav .panel a:last-child{border:0;margin-top:14px;background:var(--ink);color:var(--paper);border-radius:8px;text-align:center;font-weight:500}
+}
+
+/* Short phones (760px tall and under: most phones once the browser's bars are counted). The text block is tighter and
+   starts just under the header, so the band under it keeps room for a break and its note: at least 140px between the
+   framework names and the caption, more where the screen has it. */
+@media (max-width:640px) and (max-height:760px){
+  .hero3 .mend-stage{padding-top:10px;padding-bottom:176px}
+  .hero3 .mend-stage::before{max-height:0;max-height:max(0px,calc(100svh - 700px))}
+  .hero3 h1{line-height:1;margin-top:12px;font-size:clamp(30px,min(9.8vw,5.2vh),42px);font-size:clamp(30px,min(9.8vw,5.2svh),42px)}
+  .hero3 .lede{margin-top:10px;font-size:16px;line-height:1.5}
+  .hero3 .ctas{margin-top:16px}
+  .hero3 .install-line{margin-top:8px}
+  .hero3 .fw{margin-top:12px;line-height:1.4}
+  .hero3 .mend-cap{bottom:6px;line-height:1.36}
+}
+
+/* under 360px: each install line stays on one line and inside its box, and the announcement on one line */
+@media (max-width:359px){
+  .cmd{font-size:13px;gap:8px;white-space:nowrap}
+  .final{padding-left:12px;padding-right:12px}
+  .final .cmd{font-size:12px;padding-left:12px}
+  .hero3 .announce{font-size:11.5px;gap:6px}
+  .hero3 .announce b{font-size:11px;padding:2px 6px}
+}

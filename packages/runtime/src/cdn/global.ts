@@ -4,7 +4,7 @@
 //
 // Runs GenClass.init() as soon as the tag executes (put it first in <head> so it sees the page's first requests),
 // with options from the tag's data attributes, <meta name="genclass"> and window.GENCLASS_CONFIG (src/cdn/config.ts),
-// and exposes window.GenClass: { init, runtime, destroy, devtools, createRuntime, version }. `data-manual` only
+// and exposes window.GenClass: { init, runtime, destroy, devtools, createRuntime, protect, version }. `data-manual` only
 // exposes window.GenClass (call GenClass.init(options) yourself; the page configuration still applies underneath); `data-devtools` mounts the overlay (bare: always,
 // "local": only on localhost); `data-base` is the URL of the package's dist/ directory when you self-host the file.
 //
@@ -15,7 +15,7 @@
 // (dist/visual/index.js, docs/runtime/VISUAL.md; `data-visual="on"` turns them on outside development hosts).
 
 import { registerDiscovery } from "../discover/index.js";
-import { GenClass, createRuntime, GenClassUnavailableError } from "../index.js";
+import { GenClass, createRuntime, GenClassUnavailableError, protect } from "../index.js";
 import type { DevtoolsHandle, DevtoolsOptions } from "../devtools/index.js";
 import type { InitOptions, ModelOptions, Runtime } from "../types.js";
 import type { VisualChunk } from "../visual/host.js";
@@ -82,6 +82,8 @@ export interface GenClassGlobal {
   /** Load and mount the devtools overlay (initialises GenClass first if needed). */
   devtools(options?: DevtoolsOptions): Promise<DevtoolsHandle | null>;
   createRuntime: typeof createRuntime;
+  /** Wrap a function so each call is tracked and protected under `name` (see protect() in the README). */
+  protect: typeof protect;
   GenClassUnavailableError: typeof GenClassUnavailableError;
   /** The dist/ directory the worker, onnxruntime-web and devtools load from. */
   readonly base: string;
@@ -160,6 +162,7 @@ function install(): void {
       return mount(GenClass.runtime ?? api.init(), options);
     },
     createRuntime,
+    protect,
     GenClassUnavailableError,
   };
   w.GenClass = api;

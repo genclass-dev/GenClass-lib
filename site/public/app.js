@@ -21,6 +21,14 @@ tabs.forEach((b, i) => {
 });
 if (tabs.length) select(0);
 
+// the Menu sheet closes on Escape, on a tap outside it, and when one of its links is followed
+const mnav = document.querySelector(".mnav");
+if (mnav) {
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && mnav.open) { mnav.open = false; mnav.querySelector("summary").focus(); } });
+  document.addEventListener("pointerdown", e => { if (mnav.open && !mnav.contains(e.target)) mnav.open = false; });
+  mnav.querySelector(".panel").addEventListener("click", e => { if (e.target.closest("a")) mnav.open = false; });
+}
+
 const CITIES = ["San Francisco","San Diego","San Jose","San Antonio","Santa Fe","Santiago","Sapporo","Salvador","Paris","Panama City","Palermo","Perth","Porto","Prague","Lisbon","London","Los Angeles","Lima","Lagos","Toronto","Tokyo","Tallinn","Taipei","Berlin","Bergen","Bern","Boston","Bogotá","Mumbai","Munich","Montreal","Madrid","Melbourne","Seoul","Seattle","Singapore","Stockholm","Sydney","Vancouver","Vienna","Venice","Waterloo"];
 const q = $("q");
 if (!q) return;

@@ -1,14 +1,21 @@
-// HTML for https://genclass.dev/start (get a token) and https://genclass.dev/dashboard/<secret> (the dashboard).
-// No external scripts, styles or fonts. Inline <script>/<style> run under a per-response CSP nonce; all dynamic text is
-// inserted with textContent, never innerHTML.
+// HTML for https://genclass.dev/start (get a token) and https://genclass.dev/dashboard/<secret> (the dashboard), and
+// the shell and dashboard the account pages (src/account-pages.ts) reuse: /account/apps/<id> is this dashboard in its
+// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API).
+// No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
+// nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
 export const CDN_SCRIPT = "https://cdn.jsdelivr.net/npm/@genclass/runtime";
 
-export function securityHeaders(nonce: string, extra: Record<string, string> = {}): Record<string, string> {
+/**
+ * Headers for every HTML page. `account: true` (the account pages) allows same-origin form posts (the sign-out form)
+ * and uses the referrer policy `same-origin`: with `no-referrer` browsers send `Origin: null` on a same-origin form
+ * post, which the CSRF check refuses; `same-origin` still sends no referrer to any other site.
+ */
+export function securityHeaders(nonce: string, extra: Record<string, string> = {}, opts: { account?: boolean } = {}): Record<string, string> {
   return {
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store",
-    "referrer-policy": "no-referrer",
+    "referrer-policy": opts.account ? "same-origin" : "no-referrer",
     "x-robots-tag": "noindex, nofollow",
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
@@ -16,14 +23,19 @@ export function securityHeaders(nonce: string, extra: Record<string, string> = {
     "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
     "content-security-policy":
       `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; ` +
-      "img-src 'self' data: https://genclass.dev; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      `img-src 'self' data: https://genclass.dev; base-uri 'none'; form-action ${opts.account ? "'self'" : "'none'"}; frame-ancestors 'none'`,
     ...extra,
   };
 }
 
-const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+/** HTML-escape text for element content and quoted attributes. */
+export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 /** JSON safe to embed in <script type="application/json">. */
-const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+export const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+
+/** The header lockup: the mark from genclass.dev beside the name set in type ("gen" ink, "class" green). */
+export const LOGO =
+  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="26" height="26"><span class="wm"><span>gen</span><span class="g">class</span></span></a>';
 
 const ICON =
   "data:image/svg+xml," +
@@ -55,8 +67,10 @@ header.top .wrap{display:flex;align-items:center;gap:12px;height:56px}
 .logo .wm{font-family:"Outfit","Helvetica Neue",Arial,sans-serif;font-weight:700;letter-spacing:-.03em}
 .logo .wm .g{color:var(--accent-f)}
 header.top nav a{font-family:"Figtree",system-ui,sans-serif}
-header.top nav{margin-left:auto;display:flex;gap:16px;font-size:14px;color:var(--ink2)}
+header.top nav{margin-left:auto;display:flex;gap:16px;font-size:14px;color:var(--ink2);align-items:center}
 header.top nav a{text-decoration:none}
+header.top nav form.so{display:contents}
+header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;font-family:"Figtree",system-ui,sans-serif}
 h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:750}
 h2{font-size:17px;letter-spacing:-.01em;font-weight:700;margin-bottom:10px}
 p.lead{color:var(--ink2);font-size:16px;max-width:62ch;margin-top:10px}
@@ -108,6 +122,9 @@ section{margin-top:22px}
 details summary{cursor:pointer;font-weight:700}
 footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
 .hidden{display:none!important}
+.skip{position:absolute;left:12px;top:-60px;z-index:20;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:8px;font-size:14px;text-decoration:none}
+.skip:focus{top:12px}
+[tabindex="-1"]:focus{outline:none}
 .field{display:grid;gap:6px;max-width:520px}
 .field label{font-size:14px;font-weight:600}
 .stack>*+*{margin-top:12px}
@@ -127,37 +144,63 @@ function snippets(tok){
      'npx @genclass/runtime init']
   ];
 }
-function copyBtn(getText){
+function gcSelect(node){
+  try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
+}
+// Copy text with the Clipboard API; when the browser refuses, select it in node so the person can copy it by hand.
+function gcCopy(b, text, node){
+  var label = b.getAttribute("data-label") || b.textContent;
+  b.setAttribute("data-label", label);
+  function say(t){ b.textContent = t; clearTimeout(b.gcT); b.gcT = setTimeout(function(){ b.textContent = label; }, 2500); }
+  function fallback(){ say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy"); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ say("Copied"); }, fallback);
+  else fallback();
+}
+function copyBtn(getText, name, getNode){
   var b = document.createElement("button"); b.type = "button"; b.className = "btn sm ghost"; b.textContent = "Copy";
-  b.addEventListener("click", function(){
-    var t = getText();
-    var done = function(){ b.textContent = "Copied"; setTimeout(function(){ b.textContent = "Copy"; }, 1500); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function(){ b.textContent = "Select and copy"; });
-    else b.textContent = "Select and copy";
-  });
+  if (name) b.setAttribute("aria-label", "Copy " + name);
+  b.addEventListener("click", function(){ gcCopy(b, getText(), getNode ? getNode() : null); });
   return b;
 }
 function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function renderSnippets(host, tok){
   host.textContent = "";
   snippets(tok).forEach(function(s){
-    var box = el("div", "snip");
+    var box = el("div", "snip"), pre = el("pre", "code", s[2]);
     var head = el("div", "row between"); var h = el("h2", null, s[0]); h.style.marginBottom = "0";
-    head.appendChild(h); head.appendChild(copyBtn(function(){ return s[2]; })); box.appendChild(head);
-    box.appendChild(el("p", "muted small", s[1])); box.appendChild(el("pre", "code", s[2]));
+    head.appendChild(h); head.appendChild(copyBtn(function(){ return s[2]; }, s[0], function(){ return pre; })); box.appendChild(head);
+    box.appendChild(el("p", "muted small", s[1])); box.appendChild(pre);
     host.appendChild(box);
   });
 }
 `;
 
-function shell(nonce: string, title: string, body: string, script: string): string {
+export interface ShellOptions {
+  /** Header links (HTML). Default: Home, Get a token, Docs, Sign in. */
+  nav?: string;
+  /** No top header: the sign-in pages put the lockup at the top of their own column. */
+  bare?: boolean;
+  /** An account page: the referrer policy `same-origin` (see securityHeaders), which the meta tag must repeat. */
+  account?: boolean;
+  /** The id the "Skip to content" link jumps to (default the <main> element; pages with a sidebar name their content). */
+  skip?: string;
+}
+
+const DEFAULT_NAV =
+  '<a href="https://genclass.dev/">Home</a><a href="/start">Get a token</a><a href="https://github.com/genclass-dev/GenClass-lib#readme">Docs</a><a href="/login">Sign in</a>';
+
+/** The page frame shared by every page this worker serves. */
+export function shell(nonce: string, title: string, body: string, script: string, opts: ShellOptions = {}): string {
+  const header = opts.bare ? "" : `<header class="top"><div class="wrap">${LOGO}
+<nav>${opts.nav ?? DEFAULT_NAV}</nav></div></header>
+`;
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="${opts.account ? "same-origin" : "no-referrer"}">
 <title>${esc(title)}</title>
 <link rel="icon" href="${ICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -166,13 +209,16 @@ function shell(nonce: string, title: string, body: string, script: string): stri
 <style nonce="${nonce}">${CSS}</style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="26" height="26"><span class="wm"><span>gen</span><span class="g">class</span></span></a>
-<nav><a href="https://genclass.dev/">Home</a><a href="/start">Get a token</a><a href="https://github.com/genclass-dev/GenClass-lib#readme">Docs</a></nav></div></header>
-<main class="wrap">${body}</main>
+<a class="skip" href="#${esc(opts.skip ?? "main")}">Skip to content</a>
+${header}<main class="wrap" id="main">${body}</main>
 <script nonce="${nonce}">${SNIPPETS_JS}${script}</script>
 </body>
 </html>`;
 }
+
+/** Header links for a signed-in page: the apps, the docs, and a sign-out form (POST /logout, same-origin). */
+export const SIGNED_IN_NAV =
+  '<a href="/account">Apps</a><a href="https://genclass.dev/docs">Docs</a><form method="post" action="/logout" class="so"><button type="submit">Sign out</button></form>';
 
 // ------------------------------------------------------------------------------------------------- /start
 
@@ -182,6 +228,7 @@ export function startPage(nonce: string): string {
   <h1>Get a token for your web app</h1>
   <p class="lead">One token per app. Add it to GenClass and every page load, detection and fix shows up on your own
   private dashboard. Free, no account.</p>
+  <p class="muted small">To keep several apps in one place, <a href="/signup">create an account</a> or <a href="/login">sign in</a>. It is optional.</p>
 </section>
 <section>
   <form id="f" class="card stack" novalidate>
@@ -220,9 +267,9 @@ See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">
         if (x.s !== 201) throw new Error(x.s === 429 ? "Too many new tokens from your network. Try again in a minute." : (x.j && x.j.error) || "Something went wrong.");
         var j = x.j;
         document.getElementById("tok").textContent = j.token;
-        document.getElementById("tokc").appendChild(copyBtn(function(){ return j.token; }));
+        document.getElementById("tokc").appendChild(copyBtn(function(){ return j.token; }, "token", function(){ return document.getElementById("tok"); }));
         var d = document.getElementById("dash"); d.textContent = j.dashboardUrl; d.href = j.dashboardUrl;
-        document.getElementById("dashc").appendChild(copyBtn(function(){ return j.dashboardUrl; }));
+        document.getElementById("dashc").appendChild(copyBtn(function(){ return j.dashboardUrl; }, "dashboard link", function(){ return d; }));
         document.getElementById("open").href = j.dashboardUrl;
         renderSnippets(document.getElementById("snips"), j.token);
         f.classList.add("hidden");
@@ -256,7 +303,7 @@ export function notFoundPage(nonce: string): string {
 // order against the light and dark page); no green, which the brand keeps for "GenClass fixed it". Five problem types
 // get a slot, the rest share "Other". Every dynamic string goes through textContent.
 
-const DASH_CSS = `
+export const DASH_CSS = `
 :root{--t1:#2a78d6;--t2:#eb6834;--t3:#4a3aa7;--t4:#eda100;--t5:#e87ba4;--t0:#8a93a8;--grid:#E6EAF1;
   --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
 @media (prefers-color-scheme:dark){:root{--t1:#3987e5;--t2:#d95926;--t3:#9085e9;--t4:#c98500;--t5:#d55181;--t0:#6f7b98;--grid:#1E2D55}}
@@ -266,6 +313,7 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
 .dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;line-height:1.05}
 .meta{font:12.5px var(--mono);color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px}
+.meta .btn.sm{min-height:28px;padding:0 10px;font:500 12.5px var(--sans)}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
 .live.on i{background:var(--accent-f)}
@@ -344,7 +392,7 @@ details.more summary{font:600 15px var(--sans);cursor:pointer}
 .dfoot a{color:var(--ink2)}
 main.wrap:has(.app){max-width:1360px}
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0 48px;align-items:start}
-.side{position:sticky;top:0;align-self:start;max-height:100vh;overflow-y:auto;padding:28px 24px 28px 0;border-right:1px solid var(--rule);min-height:calc(100vh - 57px)}
+.side{position:sticky;top:0;align-self:start;max-height:100vh;overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 0;border-right:1px solid var(--rule);min-height:calc(100vh - 57px)}
 .side .proj{font:600 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
 .side .proj small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px;font-weight:400}
 .side .live{margin-top:10px;font:12px var(--mono)}
@@ -358,11 +406,42 @@ main.wrap:has(.app){max-width:1360px}
 .side .out a{display:block;font-size:13.5px;color:var(--ink2);text-decoration:none;padding:5px 0}
 .side .out a:hover{color:var(--ink)}
 .side .btn{width:100%;margin-top:14px}
+.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:600}
+.side nav.apps a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side nav.apps a.new{color:var(--accent);font-weight:500}
+#period{display:contents}
+.side .out form{display:block}
+.side .out button.lnk{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0}
+.side .out button.lnk:hover{color:var(--ink)}
+.connect{margin-top:36px}
+.connect .keyrow{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);padding:18px 0;border-bottom:1px solid var(--rule)}
+.connect .keyrow .k{font:500 12.5px var(--mono);color:var(--ink3);padding-top:7px}
+.connect .kval{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;min-width:0}
+.connect .kval code{font:500 16px var(--mono);overflow-wrap:anywhere}
+.connect .kn{grid-column:2;font-size:13.5px;color:var(--ink2);margin-top:8px;max-width:62ch}
+.connect .ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:0 48px}
+.connect .way{padding:22px 0;border-bottom:1px solid var(--rule);min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-content:start}
+.connect .way>*{min-width:0}
+.connect .eb{font:500 12.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.connect h3{font:600 17px var(--sans);letter-spacing:-.01em}
+.connect .way p{font-size:14.5px;color:var(--ink2);max-width:62ch}
+.connect .sh{display:flex;justify-content:space-between;align-items:center;gap:10px;font:500 12px var(--mono);color:var(--ink3);margin-top:4px}
+.connect pre.code{white-space:pre-wrap;overflow-wrap:anywhere}
+.connect .cnote{margin-top:18px;padding:12px 0 12px 14px;border-left:3px solid var(--warn);font-size:14.5px;line-height:1.5;color:var(--ink2);max-width:80ch}
+.connect .cnote b{color:var(--warn);font-weight:600}
+.cstat{display:flex;align-items:center;gap:9px;padding:16px 0;font:500 13.5px var(--mono);color:var(--ink2);border-bottom:1px solid var(--ink)}
+.cstat i{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex:none;animation:gcpulse 1.6s ease-in-out infinite}
+.cstat.on{color:var(--accent)}
+.cstat.on i{background:var(--accent-f);animation:none}
+@keyframes gcpulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.cstat i{animation:none}}
+.connect .fine{font-size:13px;color:var(--ink3);margin-top:14px;max-width:90ch}
+@media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
 .mainc .dh{margin-top:32px}
 section[id]{scroll-margin-top:16px}
 @media (max-width:920px){
-  .app{grid-template-columns:1fr}
+  .app{grid-template-columns:minmax(0,1fr)}
   .side{position:sticky;top:0;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
   .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
   .side .seg{margin-top:0;width:auto}
@@ -370,6 +449,8 @@ section[id]{scroll-margin-top:16px}
   .side nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
   .side nav a{margin:0;white-space:nowrap;padding:6px 10px;font-size:13px}
   .side nav a span{display:none}
+  .side nav.apps{display:none}
+  section[id]{scroll-margin-top:64px}
 }
 `;
 
@@ -377,6 +458,7 @@ const DASH_JS = `
 (function(){
   var P = JSON.parse(document.getElementById("project").textContent);
   var secret = location.pathname.split("/").filter(Boolean)[1] || "";
+  var statsUrl = P.statsUrl || ("/api/projects/" + encodeURIComponent(secret));
   var range = "7d";
   try { var saved = localStorage.getItem("gc.dash.range"); if (saved === "24h" || saved === "7d" || saved === "30d") range = saved; } catch (e) {}
   var nf = new Intl.NumberFormat();
@@ -660,9 +742,10 @@ const DASH_JS = `
     st.classList.toggle("on", live);
     document.getElementById("statust").textContent = live ? "Last event " + ago(S.lastEvent) : "Waiting for the first event";
     document.getElementById("updated").textContent = "Updated " + new Date(S.generated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    document.getElementById("nodata").classList.toggle("hidden", live);
+    document.getElementById("nodata").classList.toggle("hidden", live || !!P.account);
     document.getElementById("content").classList.toggle("hidden", !live);
-    if (!live) { document.getElementById("install").open = true; return; }
+    var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
+    if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
     summary(S); tiles(S); trend(S); cards(S); pages(S); acted(S); health(S); recent(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
@@ -674,26 +757,36 @@ const DASH_JS = `
   document.getElementById("pname").textContent = P.name;
   document.getElementById("sname").textContent = P.name;
   (function(){
-    var links = [].slice.call(document.querySelectorAll("#snav a"));
-    links.forEach(function(a){ a.addEventListener("click", function(){ if (a.getAttribute("href") === "#setup") { var d = document.getElementById("install"); if (d) d.open = true; } }); });
+    var links = [].slice.call(document.querySelectorAll(".snav a"));
+    links.forEach(function(a){ a.addEventListener("click", function(){
+      if (a.getAttribute("href") === "#setup") { var d = document.getElementById("install"); if (d) d.open = true; }
+      if (a.getAttribute("href") === "#connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
+    }); });
     if (!("IntersectionObserver" in window)) return;
     var vis = {};
     var io = new IntersectionObserver(function(es){
       es.forEach(function(e){ vis[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0; });
       var best = null, br = 0; Object.keys(vis).forEach(function(k){ if (vis[k] > br) { br = vis[k]; best = k; } });
+      // while an app waits for its first event the section links are hidden: the heading counts as Connect
+      var per = document.getElementById("period"); if (best === "top" && per && per.classList.contains("hidden")) best = "connect";
       if (best) links.forEach(function(a){ a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + best)); });
     }, { rootMargin: "-10% 0px -55% 0px", threshold: [0, 0.2, 0.5, 1] });
-    ["top", "trend", "found", "where", "did", "health-s", "recent-s", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
+    ["connect", "top", "trend", "found", "where", "did", "health-s", "recent-s", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
   })();
   document.title = P.name + " | GenClass dashboard";
-  document.getElementById("ptok").textContent = P.token;
-  document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }));
-  renderSnippets(document.getElementById("snips"), P.token);
+  if (document.getElementById("ptok")) {
+    document.getElementById("ptok").textContent = P.token;
+    document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
+    renderSnippets(document.getElementById("snips"), P.token);
+  }
   var btn = document.getElementById("refresh");
   function load(){
     btn.disabled = true;
-    fetch("/api/projects/" + encodeURIComponent(secret) + "?range=" + range, { headers: { accept: "application/json" }, cache: "no-store" })
-      .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    fetch(statsUrl + "?range=" + range, { headers: { accept: "application/json" }, cache: "no-store", credentials: "same-origin" })
+      .then(function(r){
+        if (r.status === 401 && P.account) location.href = "/login?next=" + encodeURIComponent(location.pathname);
+        if (!r.ok) throw new Error("HTTP " + r.status); return r.json();
+      })
       .then(render)
       .catch(function(e){ document.getElementById("updated").textContent = "Could not load stats (" + e.message + "). Retrying in a minute."; })
       .then(function(){ btn.disabled = false; });
@@ -712,19 +805,148 @@ const DASH_JS = `
   load();
 })();`;
 
-export function dashboardPage(nonce: string, project: { name: string; token: string; created: string; lastEvent: string | null }): string {
-  const body = `
-<script type="application/json" id="project">${embed(project)}</script>
-<style nonce="${nonce}">${DASH_CSS}</style>
-<div class="app">
-<aside class="side" aria-label="Dashboard">
-  <div class="proj"><span id="sname"></span><small>Dashboard</small></div>
-  <div class="live" id="status"><i></i><span id="statust">Loading</span></div>
-  <div class="seg" role="group" aria-label="Time range">
+// The Connect panel (account mode): the project API key, the two ways to wire it in, and a status line that polls the
+// account's app list every 5 s until this app's first batch arrives. Shown at the top until then; afterwards it is
+// hidden and the sidebar's "Connect" link brings it back.
+const CONNECT_JS = `
+(function(){
+  var P = JSON.parse(document.getElementById("project").textContent);
+  var box = document.getElementById("connect"); if (!box) return;
+  box.querySelectorAll("[data-copy]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var at = b.getAttribute("data-target");
+      gcCopy(b, b.getAttribute("data-copy"), at ? document.getElementById(at) : null);
+    });
+  });
+  var st = document.getElementById("cstatus"), stt = document.getElementById("cstatust"), poll = document.getElementById("cpoll");
+  // "at 14:02" today; "Oct 11, 2:02 PM" on another day, so a week-old first event does not read as this afternoon
+  function when(iso){
+    var d = new Date(iso), t = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return d.toDateString() === new Date().toDateString() ? "at " + t : d.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + t;
+  }
+  function show(p){
+    if (!p || !p.last_event) { stt.textContent = "Waiting for the first event from this app"; return false; }
+    st.classList.add("on"); if (poll) poll.classList.add("hidden");
+    stt.textContent = p.first_event ? "Connected. First event " + when(p.first_event) : "Connected. Last event " + when(p.last_event);
+    return true;
+  }
+  if (show({ last_event: P.lastEvent, first_event: P.firstEvent })) return;
+  var done = false;
+  function tick(){
+    if (done || document.visibilityState !== "visible") return;
+    fetch("/api/account/projects", { headers: { accept: "application/json" }, cache: "no-store", credentials: "same-origin" })
+      .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(j){
+        var p = (j.projects || []).filter(function(x){ return x.id === P.id; })[0];
+        if (!done && show(p)) { done = true; clearInterval(timer); var rb = document.getElementById("refresh"); if (rb) rb.click(); }
+      })
+      .catch(function(){ /* keep waiting; the next tick tries again */ });
+  }
+  var timer = setInterval(tick, 5000);
+  // a hidden tab does not poll; check at once when the person comes back from their editor or terminal
+  document.addEventListener("visibilitychange", tick);
+})();`;
+
+export interface DashboardOptions {
+  /** Owned-app mode (/account/apps/<id>): the account's apps in the sidebar, the Connect panel, account stats API. */
+  account?: { apps: { id: string; name: string }[]; current: string; email: string | null };
+  /** The project's id (account mode). */
+  id?: string;
+  /** When the app's first batch arrived (account mode; null while waiting). */
+  firstEvent?: string | null;
+  /** Account mode: whether the app's private dashboard link still opens these stats (the footer says so). */
+  privateLink?: boolean;
+  /** Whether the @genclass/runtime on npm reads project keys (0.3.0 or later); until then the panel says so first. */
+  runtimeReady?: boolean;
+}
+
+/** More apps than this and the sidebar lists only the current one, with a link to all of them. */
+const SIDEBAR_APPS = 4;
+
+function connectPanel(token: string, connected: boolean, runtimeReady: boolean): string {
+  const t = esc(token);
+  const init = `import { GenClass } from "@genclass/runtime";\n\nGenClass.init({ token: "${token}" });`;
+  const tag = `<script src="${CDN_SCRIPT}" data-token="${token}"></script>`;
+  const meta = `<meta name="genclass" content="token=${token}">\n\n// in your entry file\nimport "@genclass/runtime/auto";`;
+  let n = 0;
+  const snip = (label: string, name: string, code: string) => {
+    const id = `csnip${++n}`;
+    return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
+  };
+  const notYet = runtimeReady
+    ? ""
+    : `<p class="cnote" id="cnote"><b>Not on npm yet.</b> Project keys and <code>login</code> ship in @genclass/runtime 0.3.0, the next release. Until it is published, <code>npx @genclass/runtime login</code> stops with "unknown command" and 0.2.x does not send this key, so this line keeps waiting.</p>`;
+  return `<section class="connect${connected ? " hidden" : ""}" id="connect" aria-labelledby="connect-h">
+  <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime 0.3.0 or later</span></div>
+  ${notYet}
+  <div class="keyrow">
+    <div class="k">Project API key</div>
+    <div class="kval"><code id="ckey">${t}</code><button class="btn sm ghost" type="button" data-copy="${t}" data-target="ckey" aria-label="Copy the project API key">Copy</button></div>
+    <p class="kn">Public, and safe in front-end code: it can only add telemetry to this app. It cannot open this dashboard or change anything.</p>
+  </div>
+  <p class="cstat" id="cstatus" aria-live="polite"><i></i><span id="cstatust">Waiting for the first event from this app</span></p>
+  <div class="ways">
+    <div class="way">
+      <div class="eb">1 · Run in your project</div>
+      <h3>Sign in from the terminal</h3>
+      ${snip("In the app's folder", "the login command", "npx @genclass/runtime login")}
+      <p>Signs you in and connects the app in that folder: you pick this app, it shows the change to your files, and writes the key after you agree.</p>
+    </div>
+    <div class="way">
+      <div class="eb">2 · Or add the key yourself</div>
+      <h3>Paste one of these</h3>
+      ${snip("In code", "the init code", init)}
+      ${snip("Script tag", "the script tag", tag)}
+      ${snip("Meta tag, with a bundler", "the meta tag", meta)}
+    </div>
+  </div>
+  <p class="fine">The key needs @genclass/runtime 0.3.0 or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
+  Local hosts (localhost, *.local, *.test, private networks) do not send, even with a key, so the first event comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
+</section>`;
+}
+
+export function dashboardPage(
+  nonce: string,
+  project: { name: string; token: string; created: string; lastEvent: string | null },
+  opts: DashboardOptions = {},
+): string {
+  const acct = opts.account;
+  const waiting = !!acct && !project.lastEvent;
+  const data = acct ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true } : project;
+  let appLinks = "";
+  if (acct) {
+    const many = acct.apps.length > SIDEBAR_APPS;
+    const shown = many ? acct.apps.filter((a) => a.id === acct.current) : acct.apps;
+    appLinks =
+      shown.map((a) => `<a href="/account/apps/${esc(a.id)}"${a.id === acct.current ? ' aria-current="page"' : ""}>${esc(a.name)}</a>`).join("") +
+      (many ? `<a href="/account#apps">All apps <span>${acct.apps.length}</span></a>` : "");
+  }
+  const apps = acct
+    ? `<div class="grp">Your apps</div>
+  <nav class="apps" aria-label="Your apps">${appLinks}<a class="new" href="/account#new-app">New app</a></nav>
+  <div class="grp">Account</div>
+  <div class="out"><a href="/account">Account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>`
+    : "";
+  const setup = acct
+    ? ""
+    : `<section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
+  <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
+  <div id="snips" class="stack mt-s"></div></details></section>`;
+  const report = '<a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a>';
+  const privacy = acct
+    ? `${
+        opts.privateLink
+          ? "This app also has the private dashboard link it had before it joined your account, and anyone with that link can see these stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
+          : "Only you can open this page, while signed in."
+      } <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · ${report} · <a href="/account">All apps</a>`
+    : `Keep this link private: anyone with it can see these stats. <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/start">Get another token</a>`;
+  // Account mode: Connect has its own group; while the app waits for its first event the range control and the section
+  // links (which point into the hidden stats) stay hidden, and render() shows them when data arrives.
+  const sections = `<div class="seg" role="group" aria-label="Time range">
     <button type="button" data-r="24h" aria-pressed="false">24 h</button><button type="button" data-r="7d" aria-pressed="true">7 days</button><button type="button" data-r="30d" aria-pressed="false">30 days</button>
   </div>
   <div class="grp">This period</div>
-  <nav id="snav">
+  <nav class="snav" id="snav" aria-label="Sections">
     <a href="#top">Overview</a>
     <a href="#trend">Problems found <span id="c-trend"></span></a>
     <a href="#found">What it found <span id="c-found"></span></a>
@@ -732,25 +954,41 @@ export function dashboardPage(nonce: string, project: { name: string; token: str
     <a href="#did">What GenClass did <span id="c-did"></span></a>
     <a href="#health-s">Health</a>
     <a href="#recent-s">Recent activity</a>
-    <a href="#setup">Setup</a>
-  </nav>
+    ${acct ? "" : '<a href="#setup">Setup</a>'}
+  </nav>`;
+  const side = acct
+    ? `<div class="grp">Setup</div>
+  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a></nav>
+  <div id="period"${waiting ? ' class="hidden"' : ""}>
+  ${sections}
+  </div>
+  ${apps}`
+    : `${sections}
   <div class="grp">Elsewhere</div>
   <div class="out">
     <a href="https://genclass.dev/docs">Docs</a>
     <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a>
-    <a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a>
+    ${report}
     <a href="https://discord.gg/kN9kRnFtZm">Discord</a>
-  </div>
-  <button class="btn ghost sm" id="refresh" type="button">Refresh</button>
+  </div>`;
+  const body = `
+<script type="application/json" id="project">${embed(data)}</script>
+<style nonce="${nonce}">${DASH_CSS}</style>
+<div class="app">
+<aside class="side" aria-label="Dashboard">
+  <div class="proj"><span id="sname"></span><small>Dashboard</small></div>
+  <div class="live" id="status"><i></i><span id="statust">Loading</span></div>
+  ${side}
 </aside>
-<div class="mainc">
+<div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
   <h1 id="pname"></h1>
-  <div class="meta"><span id="updated"></span></div>
+  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button></div>
   <p class="summary" id="summary"></p>
 </section>
+${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
 <section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
-Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts (localhost, *.test) only send data with an explicit token.</p></section>
+Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts (localhost, *.local, *.test, private networks) do not send, even with a token: load a page of your deployed site.</p></section>
 <div id="content" class="hidden">
 <div class="statrow" id="tiles"></div>
 <section class="blk" id="trend">
@@ -783,13 +1021,16 @@ Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts 
 </section>
 <section class="blk"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 </div>
-<section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
-  <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
-  <div id="snips" class="stack mt-s"></div></details></section>
+${setup}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
-decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept 90 days (hourly detail 48 hours). Keep this
-link private: anyone with it can see these stats. <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/start">Get another token</a></footer>
+decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept 90 days (hourly detail 48 hours). ${privacy}</footer>
 </div>
 </div>`;
-  return shell(nonce, `${project.name} | GenClass dashboard`, body, DASH_JS);
+  return shell(
+    nonce,
+    `${project.name} | GenClass dashboard`,
+    body,
+    acct ? DASH_JS + CONNECT_JS : DASH_JS,
+    acct ? { nav: SIGNED_IN_NAV, account: true, skip: "mc" } : { skip: "mc" },
+  );
 }

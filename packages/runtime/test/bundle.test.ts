@@ -60,15 +60,14 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   }, 60_000);
 
   // /auto carries automatic state discovery (autoState, beta.4: about 6.5 KB); the main entry does not. The audit trail,
-  // protect presets and the hold-budget fixes (Unreleased) added about 1.6 KB to both (README: about 98 KB for /auto,
-  // 91 KB for GenClass.init)
-  // 0.2.2: +0.35 KB for the URL/meta hardening, model download retries and the telemetry failure streak (main: 98.86 KB)
-  // 2026-10-13: +about 0.45 KB for the measured visual checks' first-load stub (src/visual/start.ts, the "check"
-  // listener set, rt.checks()/checkNow(), the "check" sink filter, telemetry's visual field); the checks themselves
-  // load lazily (dist/visual/index.js). The CI visual-browser job measures the growth against main exactly and fails
-  // at 0.5 KB (test/first-load-size.mjs).
-  const LIMIT_KB: Record<string, number> = { "auto.js": 100.5, "index.js": 92.5 };
-  it("first-load cost of /auto and the main entry, minified + gzip: under 100.5 KB / 92.5 KB (README: about 99 / 92 KB)", async () => {
+  // protect presets and the hold-budget fixes (0.2.0) added about 1.6 KB to both; 0.2.2 +0.35 KB (URL/meta hardening,
+  // model download retries, the telemetry failure streak; main: 98.86 KB); app tokens and protect() (Unreleased) about
+  // 1.8 KB more: /auto 100.68 KB, the main entry 93.19 KB (CI run 38436014497; 0.33 KB under the /auto ceiling). The
+  // measured visual checks' first-load stub (src/visual/start.ts, the "check" listener set, rt.checks()/checkNow(),
+  // the "check" sink filter) is measured against main by the CI visual-browser job (test/first-load-size.mjs, fails at
+  // 0.5 KB growth); the checks themselves load lazily (dist/visual/index.js). The measured sizes are printed below.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 101, "index.js": 94 };
+  it("first-load cost of /auto and the main entry, minified + gzip: under 101 KB / 94 KB", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
     for (const entry of ["auto.js", "index.js"]) {
@@ -96,7 +95,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       };
       walk(Object.keys(outs).find((k) => outs[k].entryPoint)!);
       const gz = [...first].reduce((n, k) => n + gzipSync(byPath.get(resolve("/", k))!, { level: 9 }).length, 0);
-      console.log(`[first-load] ${entry}: ${(gz / 1024).toFixed(3)} KB gzip`);
+      console.log(`first-load ${entry}: ${(gz / 1024).toFixed(2)} KB gzip (limit ${LIMIT_KB[entry]} KB)`);
       expect(gz / 1024, entry).toBeLessThan(LIMIT_KB[entry]);
       // the model's tokenizer, packer and engine are not in it (the worker has them; the inline path loads them lazily)
       const code = [...first].map((k) => new TextDecoder().decode(byPath.get(resolve("/", k))!)).join("\n");

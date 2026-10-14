@@ -830,6 +830,24 @@ export interface InitOptions {
    * the page. `rt.summary().visual` has the counts; `@genclass/runtime/visual` exports `checkPage()` for your tests.
    */
   visual?: boolean | "local" | VisualOptions;
+  /**
+   * Your app's GenClass token (`gc_` + 22 letters/digits; get one with `npx @genclass/runtime init` or at
+   * https://genclass.dev/start). Public: it only lets this app's telemetry batches be grouped under your private
+   * dashboard link. It does nothing while telemetry is off (opt-outs and Global Privacy Control still win). An invalid
+   * value logs one console warning and is ignored. Also `data-token`, `<meta name="genclass" content="token=...">`,
+   * `window.GENCLASS_CONFIG.token`. Fixed when GenClass starts: a later GenClass.init() on a running runtime (one
+   * started by `/auto` or the script tag) ignores it, with one console warning.
+   */
+  token?: string;
+  /**
+   * Where GenClass raises decisions. "app" (default): the whole app. "functions": only for activity inside functions
+   * wrapped with `protect()` (their fetches, state writes, timers and errors); everything else is still observed
+   * and recorded as context, but the runtime raises no decision about it and never acts on it; standing questions
+   * (`runtime.question()`, plugin `questions`) are only asked about protected activity too. Explicit questions
+   * (`runtime.ask()`, `runtime.decide()`) are still answered everywhere. Fixed when GenClass starts, like `token`
+   * (also `data-scope`, `scope=functions` in the meta tag, `window.GENCLASS_CONFIG.scope`).
+   */
+  scope?: "app" | "functions";
 }
 
 // --------------------------------------------------------------------------- measured visual checks (VISUAL.md)
@@ -1022,6 +1040,11 @@ export interface TelemetryStatus {
   readonly endpoint?: string;
   /** Random per page load (not persisted). */
   readonly sessionId?: string;
+  /**
+   * The app token sent with each batch (InitOptions.token), when one is configured and valid and telemetry is on;
+   * undefined while telemetry is off, even with a token configured.
+   */
+  readonly token?: string;
   /** Send what is queued now (resolves when the requests settle; never rejects). */
   flush(): Promise<void>;
 }
@@ -1173,6 +1196,8 @@ export interface Decision {
   answers: Record<string, Answer>;
   /** Structured reference to the subject (same as EvaluateRequest.subject). */
   subjectRef?: SubjectRef;
+  /** The protect()ed function the subject ran inside (the outermost one in its cause chain); unset otherwise. */
+  fn?: string;
 }
 
 export type Detection = Decision;
