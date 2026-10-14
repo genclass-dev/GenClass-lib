@@ -1184,7 +1184,7 @@ async function deleteAccount(c: C): Promise<Response> {
   const id = a.account.id;
   // every subscription of the account's Stripe customer is cancelled first: an account that no longer exists must
   // not be charged again (src/stripe.ts cancelForDeletion)
-  const stop = await cancelForDeletion(c.env, c.opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i)), await accountBilling(c.db, id));
+  const stop = await cancelForDeletion(c.env, c.opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i)), await accountBilling(c.db, id), id);
   if (stop) return fail(stop.status, stop.error);
   const gone = await c.db.prepare("SELECT token FROM projects WHERE account_id = ? AND private_link = 0").bind(id).all<{ token: string }>();
   const own = "SELECT token FROM projects WHERE account_id = ? AND private_link = 0";

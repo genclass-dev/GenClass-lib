@@ -1,5 +1,5 @@
 {
-  "_about": "The one place GenClass plans are defined. telemetry-worker/src/plans.ts imports this file (limits, entitlements, Stripe lookup keys, the billing page) and site/build.py reads it (the pricing page). scripts/stripe-setup.mjs creates the Stripe products and prices from it. Prices are US cents. A null yearly price means no yearly option yet. limits.apps null means no plan limit (the worker still caps an account at 200 apps against abuse). Feature lines with available false are shown as coming next.",
+  "_about": "The one place GenClass plans are defined. telemetry-worker/src/plans.ts imports this file (limits, entitlements, Stripe lookup keys, the billing page) and site/build.py reads it (the pricing page). scripts/stripe-setup.mjs creates the Stripe products and prices from it. Prices are US cents. A null yearly price means no yearly option yet. limits.apps null means no plan limit (the worker still caps an account at 200 apps against abuse). Feature lines with available false are shown as coming next. stripe_tax_code is the Stripe product tax code scripts/stripe-setup.mjs sets on the plan's product; managed_payments true sells the plan through Stripe Managed Payments (Stripe, through Link, is the merchant of record; only for fully automated digital products, so Custom, which a person trains, is false; telemetry-worker/README.md, Paid plans).",
   "version": 1,
   "currency": "usd",
   "contact": "mehar@daybot.ca",
@@ -11,6 +11,8 @@
       "summary": "The open-source runtime and a dashboard for a few apps.",
       "price_usd_cents": { "monthly": 0, "yearly": null },
       "stripe_lookup_keys": { "monthly": null, "yearly": null },
+      "stripe_tax_code": null,
+      "managed_payments": false,
       "limits": { "apps": 3, "history_days": 7 },
       "entitlements": { "forwarding": false, "export": false, "analytics": false, "custom_model": false },
       "features": [
@@ -27,6 +29,8 @@
       "summary": "Every event your apps send, kept for a year, and sent where you already look.",
       "price_usd_cents": { "monthly": 9900, "yearly": null },
       "stripe_lookup_keys": { "monthly": "genclass_pro_monthly", "yearly": null },
+      "stripe_tax_code": "txcd_10103001",
+      "managed_payments": true,
       "limits": { "apps": null, "history_days": 365 },
       "entitlements": { "forwarding": true, "export": true, "analytics": true, "custom_model": false },
       "features": [
@@ -45,6 +49,8 @@
       "summary": "Pro, plus a GenClass model trained on your own app.",
       "price_usd_cents": { "monthly": 59900, "yearly": null },
       "stripe_lookup_keys": { "monthly": "genclass_custom_monthly", "yearly": null },
+      "stripe_tax_code": "txcd_10203001",
+      "managed_payments": false,
       "limits": { "apps": null, "history_days": 365 },
       "entitlements": { "forwarding": true, "export": true, "analytics": true, "custom_model": true },
       "features": [
