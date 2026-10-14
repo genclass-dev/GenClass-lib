@@ -18,7 +18,6 @@
 // /api/{auth,device,me,account}*): passkeys, Google and GitHub sign-in, sessions, the CLI's device flow, owned apps.
 
 import { routeAuth } from "./auth.js";
-import { routeBilling } from "./billing.js";
 import {
   aggregate,
   createProject,
@@ -34,6 +33,7 @@ import {
   type D1Like,
   type Range,
 } from "./dashboard.js";
+import { routeBilling } from "./billing.js";
 import { json, readCapped } from "./http.js";
 import { afterBatch } from "./paid.js";
 import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages.js";

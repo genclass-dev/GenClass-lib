@@ -57,8 +57,9 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `src/forward.ts`, `src/paid.ts` | forwarding to Sentry, PostHog, Datadog, Slack and webhooks (encrypted settings, dedupe, hourly cap); what runs after each stored batch |
 | `src/export.ts` | the batch index, export copies, JSONL/CSV export pages and their sweep |
 | `../scripts/stripe-setup.mjs` | for the owner: Stripe products, prices, webhook endpoint and Billing Portal from `plans.json` |
+| `test/billing.test.ts`, `test/forward.test.ts`, `test/export.test.ts` | paid plans: Stripe mocked (`test/account-helpers.ts`), the rest as below |
 | `migrations/*.sql` | D1 schema |
-| `test/index.test.ts`, `test/dashboard.test.ts`, `test/auth.test.ts`, `test/billing.test.ts`, `test/forward.test.ts`, `test/export.test.ts` | unit tests (R2 mocked; D1 = `node:sqlite` running the real migrations, `test/d1.ts`; passkeys from a software authenticator, `test/authenticator.mjs`; Google and GitHub mocked) |
+| `test/index.test.ts`, `test/dashboard.test.ts`, `test/auth.test.ts` | unit tests (R2 mocked; D1 = `node:sqlite` running the real migrations, `test/d1.ts`; passkeys from a software authenticator, `test/authenticator.mjs`; Google and GitHub mocked) |
 
 ## Endpoints
 
