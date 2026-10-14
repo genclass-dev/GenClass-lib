@@ -21,8 +21,9 @@
 //   /?judge=1    a "Start free trial" link drawn as a white button with a white-to-near-white gradient, whose text is
 //                dark in the light scheme and white in the dark scheme (white on white there); grey text over a busy
 //                image that cannot be read; and, as controls, white bold text with a shadow over the same image under
-//                a dark overlay, which can be read, and a paragraph coloured by a CSS variable defined nowhere, which the
-//                visual checks report (css-var-undefined) but which falls back to the inherited colour and reads normally
+//                a dark overlay, which can be read, and a paragraph coloured by a CSS variable defined nowhere, which
+//                falls back to the inherited colour and reads normally (the visual checks report css-var-undefined only
+//                when the text it affects becomes unreadable, so they leave it out too)
 // Every POST that does reach this worker is counted (GET /api/posts), so a run can show that none did.
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -152,8 +153,10 @@ export default {
           .replace("This box is 640 px wide, wider than a phone.", "This box is 340 px wide: it fits a 390 px phone, not a 360 px one.");
       }
       if (url.searchParams.get("judge") === "1") {
-        // near the top, so each case is in the first screen of every view
-        page = page.replace("</style>", `${JUDGE_CSS}</style>`).replace("It exists to test the GenClass page check.</p>", `It exists to test the GenClass page check.</p>\n${JUDGE}`);
+        // near the top, so the cases are in the first screen, but after the faint sentence: put before it they push it
+        // down under the fixed chat bar, where the visual checks rightly leave it out (covered), and the judge's second
+        // look at a measured finding has nothing to work on
+        page = page.replace("</style>", `${JUDGE_CSS}</style>`).replace("nearly white on white.</p>", `nearly white on white.</p>\n${JUDGE}`);
       }
       return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" } });
     }
