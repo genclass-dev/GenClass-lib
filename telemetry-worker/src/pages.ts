@@ -48,57 +48,85 @@ export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.ch
 /** JSON safe to embed in <script type="application/json">. */
 export const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 
-/** The header lockup: the mark from genclass.dev beside the name set in type ("gen" ink, "class" green). */
+/**
+ * The header lockup, as on genclass.dev: in light the site's own lockup image; in dark (which the site does not have)
+ * the mark beside the name set in type, "gen" in the page ink and "class" in the brand green, so it stays readable.
+ */
 export const LOGO =
-  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="26" height="26"><span class="wm"><span>gen</span><span class="g">class</span></span></a>';
+  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img class="lk" src="https://genclass.dev/brand/lockup-h.png?v=2" alt="" width="170" height="37">' +
+  '<span class="lkd" aria-hidden="true"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="30" height="30"><span class="wm"><span>gen</span><span class="g">class</span></span></span></a>';
 
 const ICON =
   "data:image/svg+xml," +
   encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0E1F4D"/><path d="M9 21l5-10 4 7 2-3 3 6" fill="none" stroke="#14B86A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 
+// The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), light
+// values as the site has them. The site is light-only; the dark values are steps of the same hues on its night navy
+// (#0B1736, the site's code and console panels), each text colour at least 4.5:1 on --paper and --panel and each UI
+// colour (focus ring, input border, fills) at least 3:1. Light: --accent #08794A is the site's small green text,
+// --accent-x #0E9A58 its large green text, --accent-f #14B86A its green fills and buttons; --warn #C2360F the
+// red-orange for small text (the hero mesh's note colour), --warn-f #F0451C its bug fills. --line is an input border at
+// 3:1 (the site's --rule2 is 1.6:1, fine for a ghost button whose text names it, not for an empty field).
 const CSS = `
 :root{
-  --paper:#fff;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;
-  --accent:#08794A;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C42A12;--warn-t:#FDE6E0;--bar:#0E1F4D;--bar2:#14B86A;--bar3:#F0451C;
+  --paper:#FFFFFF;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;--line:#848FA6;
+  --accent:#08794A;--accent-x:#0E9A58;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C2360F;--warn-f:#F0451C;--warn-t:#FDE6E0;
+  --bar:#0E1F4D;--bar2:#14B86A;--bar3:#F0451C;--ink-h:#071331;--green-h:#0FA35D;--on-green:#0E1F4D;--head:rgba(255,255,255,.92);
   --code:#0B1736;--codeink:#E8EDF8;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(14,31,77,.16)' stroke-width='1'/%3E%3C/svg%3E");
+  --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   color-scheme:light dark;
 }
 @media (prefers-color-scheme:dark){:root{
-  --paper:#0B1736;--panel:#13224A;--ink:#E8EDF8;--ink2:#C3CCE2;--ink3:#97A3C2;--rule:#26355E;--rule2:#34467A;
-  --accent:#4FD08F;--accent-f:#14B86A;--accent-t:#123A2C;--warn:#FF8A6B;--warn-t:#3A1C1A;--bar:#9DB2E8;--bar2:#3ED68A;--bar3:#FF7A55;
+  --paper:#0B1736;--panel:#13224A;--ink:#E8EDF8;--ink2:#C3CCE2;--ink3:#97A3C2;--rule:#26355E;--rule2:#3A4A75;--line:#6E7DA6;
+  --accent:#4FD08F;--accent-x:#4FD08F;--accent-f:#14B86A;--accent-t:#153925;--warn:#FF8A6B;--warn-f:#F0451C;--warn-t:#441F16;
+  --bar:#9DB2E8;--bar2:#3ED68A;--bar3:#F0451C;--ink-h:#FFFFFF;--green-h:#2FD07F;--on-green:#0B1736;--head:rgba(11,23,54,.92);
   --code:#060E24;--codeink:#E8EDF8;
+  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(232,237,248,.10)' stroke-width='1'/%3E%3C/svg%3E");
 }}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
-a{color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
-header.top{border-bottom:1px solid var(--rule)}
-header.top .wrap{display:flex;align-items:center;gap:12px;height:56px}
-.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;text-decoration:none}
-.logo img{width:26px;height:26px}
-.logo .wm{font-family:"Outfit","Helvetica Neue",Arial,sans-serif;font-weight:700;letter-spacing:-.03em}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:inherit;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
+header.top{position:sticky;top:0;z-index:20;background:var(--head);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+header.top .wrap{display:flex;align-items:center;gap:22px;height:60px}
+body:has(.app) header.top .wrap{max-width:1360px}
+.logo{display:flex;align-items:center;flex:none;text-decoration:none}
+.logo .lk{height:37px;width:auto;display:block}
+.logo .lkd{display:none;align-items:center;gap:8px}
+.logo .lkd img{width:30px;height:30px;display:block}
+.logo .wm{font:700 27px/1 var(--display);letter-spacing:-.035em;color:var(--ink);padding-bottom:2px}
 .logo .wm .g{color:var(--accent-f)}
-header.top nav a{font-family:"Figtree",system-ui,sans-serif}
-header.top nav{margin-left:auto;display:flex;gap:16px;font-size:14px;color:var(--ink2);align-items:center}
-header.top nav a{text-decoration:none}
+@media (prefers-color-scheme:dark){.logo .lk{display:none}.logo .lkd{display:inline-flex}}
+header.top nav{margin-left:auto;display:flex;gap:22px;font-size:14px;color:var(--ink2);align-items:center}
+header.top nav a{text-decoration:none;white-space:nowrap}
+header.top nav a:not(.btn):hover,header.top nav .so button:hover{color:var(--ink)}
+header.top nav .btn{min-height:36px;font-size:14px;padding:0 14px}
 header.top nav form.so{display:contents}
-header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;font-family:"Figtree",system-ui,sans-serif}
-h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:750}
+header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}.logo .lk{height:30px}.logo .lkd img{width:26px;height:26px}.logo .wm{font-size:23px}}
+@media (max-width:420px){header.top nav .dc{display:none}}
+h1,h2,h3{font-family:var(--display);text-wrap:balance}
+h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:700}
 h2{font-size:17px;letter-spacing:-.01em;font-weight:700;margin-bottom:10px}
 p.lead{color:var(--ink2);font-size:16px;max-width:62ch;margin-top:10px}
 .muted{color:var(--ink3)}
 .small{font-size:13px}
 .mono{font-family:var(--mono)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 16px;border-radius:8px;font:600 14px/1 var(--sans);cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);text-decoration:none;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:8px;font:500 15px/1 var(--sans);cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--ink-h);border-color:var(--ink-h)}
 .btn:disabled{opacity:.6;cursor:progress}
+.btn.green{background:var(--accent-f);border-color:var(--accent-f);color:var(--on-green)}
+.btn.green:hover{background:var(--green-h);border-color:var(--green-h)}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule2)}
-.btn.ghost:hover{border-color:var(--ink)}
-.btn.sm{min-height:30px;padding:0 10px;font-size:13px}
-input[type=text]{min-height:42px;padding:0 12px;border-radius:8px;border:1px solid var(--rule2);background:var(--paper);color:var(--ink);font:15px var(--sans);width:100%}
-.card{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:16px;min-width:0}
+.btn.ghost:hover{background:transparent;border-color:var(--ink)}
+.btn.sm{min-height:34px;padding:0 12px;font-size:13.5px}
+input[type=text]{min-height:46px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans);width:100%}
+input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+::placeholder{color:var(--ink3);opacity:1}
+.card{background:var(--panel);border:1px solid var(--rule2);border-radius:16px;padding:clamp(16px,3vw,28px);min-width:0}
 .grid{display:grid;gap:12px}
 .kpis{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .cols{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
@@ -107,10 +135,10 @@ input[type=text]{min-height:42px;padding:0 12px;border-radius:8px;border:1px sol
 .kpi .v{font-size:26px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .kpi .l{font-size:13px;color:var(--ink2)}
 .kpi .s{font-size:12px;color:var(--ink3);margin-top:2px}
-pre.code{background:var(--code);color:var(--codeink);border-radius:10px;padding:12px 14px;font:13px/1.55 var(--mono);overflow-x:auto;white-space:pre}
+pre.code{background:var(--code);color:var(--codeink);border-radius:12px;padding:12px 14px;font:13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
 .snip>*+*{margin-top:6px}
 .snip .between{align-items:center}
-.note{border-left:3px solid var(--warn);background:var(--warn-t);padding:10px 12px;border-radius:6px;font-size:14px}
+.note{border:1px solid var(--rule2);border-left:3px solid var(--warn);background:var(--panel);padding:12px 16px;border-radius:10px;font-size:14px;color:var(--ink)}
 .ok{border-left-color:var(--accent-f);background:var(--accent-t)}
 .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule2);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--ink2)}
 .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ink3)}
@@ -123,8 +151,8 @@ pre.code{background:var(--code);color:var(--codeink);border-radius:10px;padding:
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:13px}
 .bars .k{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
 .bars .n{font-variant-numeric:tabular-nums;color:var(--ink2)}
-.bars .track{grid-column:1/-1;height:6px;border-radius:3px;background:var(--rule)}
-.bars .fill{height:6px;border-radius:3px;background:var(--bar)}
+.bars .track{grid-column:1/-1;height:6px;border-radius:2px;background:var(--rule)}
+.bars .fill{height:6px;border-radius:2px;background:var(--bar)}
 .empty{color:var(--ink3);font-size:13px}
 .chart svg{width:100%;height:120px;display:block}
 .chart .axis{font-size:11px;color:var(--ink3);display:flex;justify-content:space-between;margin-top:4px}
@@ -137,7 +165,7 @@ section{margin-top:22px}
 details summary{cursor:pointer;font-weight:700}
 footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
 .hidden{display:none!important}
-.skip{position:absolute;left:12px;top:-60px;z-index:20;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:8px;font-size:14px;text-decoration:none}
+.skip{position:absolute;left:12px;top:-60px;z-index:30;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:8px;font-size:14px;text-decoration:none}
 .skip:focus{top:12px}
 [tabindex="-1"]:focus{outline:none}
 .field{display:grid;gap:6px;max-width:520px}
@@ -201,8 +229,10 @@ export interface ShellOptions {
   skip?: string;
 }
 
+/** As on genclass.dev: plain links, then one compact ink button. Narrow screens drop Home (the lockup links there),
+ * then Docs. */
 const DEFAULT_NAV =
-  '<a href="https://genclass.dev/">Home</a><a href="/start">Get a token</a><a href="https://github.com/genclass-dev/GenClass-lib#readme">Docs</a><a href="/login">Sign in</a>';
+  '<a class="hm" href="https://genclass.dev/">Home</a><a class="dc" href="https://genclass.dev/docs">Docs</a><a href="/login">Sign in</a><a class="btn" href="/start">Get a token</a>';
 
 /** The page frame shared by every page this worker serves. */
 export function shell(nonce: string, title: string, body: string, script: string, opts: ShellOptions = {}): string {
@@ -250,7 +280,7 @@ export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}):
   <form id="f" class="card stack" novalidate>
     <div class="field"><label for="name">App name <span class="muted small">(optional, shown on your dashboard)</span></label>
     <input id="name" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Acme checkout"></div>
-    <div class="row"><button class="btn" id="go" type="submit">Get a token</button><span id="err" class="small" role="alert"></span></div>
+    <div class="row"><button class="btn green" id="go" type="submit">Get a token</button><span id="err" class="small" role="alert"></span></div>
   </form>
 </section>
 <section id="out" class="hidden stack" aria-live="polite">
@@ -264,7 +294,7 @@ export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}):
     <div class="note"><strong>Save this link now.</strong> It is the only way back to your dashboard; we cannot recover it.
     Anyone with the link can see your app's stats, so do not commit it to code.</div>
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
-    <div class="row"><a id="open" class="btn" href="#">Open dashboard</a></div>
+    <div class="row"><a id="open" class="btn green" href="#">Open dashboard</a></div>
   </div>
   <div class="card stack"><h2 class="h2l">Install</h2>${notYet}<p class="muted small">The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier versions ignore it. ${LOCAL_HOSTS}</p><div id="snips" class="stack"></div></div>
 </section>
@@ -315,18 +345,21 @@ export function notFoundPage(nonce: string): string {
 // ---------------------------------------------------------------------------------------------- /dashboard
 // The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
 // problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
-// Chart colours: blue, orange, violet, yellow, magenta (dataviz reference hues, light and dark steps, validated in this
-// order against the light and dark page); no green, which the brand keeps for "GenClass fixed it". Five problem types
-// get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow: outlined bars in
-// the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the confirmed counts.
+// Chart colours come from genclass.dev's own hues, stepped into the chart lightness band: ink navy, the red-orange the
+// site uses for bugs, a sky blue, amber (the site's live-bug colour) and berry, in that order; dark mode has its own
+// steps of the same hues. No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz skill's
+// validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-13: light on #FFFFFF all checks pass, worst
+// CVD ΔE 20.0, normal-vision 31.3, amber 2.2:1 so the table view and legend carry it; dark on #0B1736 all pass, worst
+// CVD 15.3, normal-vision 19.2, every slot at least 3:1 (the palette it replaces: 16.3/19.6 light, 13.2/19.3 dark).
+// Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
+// outlined bars in the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the
+// confirmed counts.
 // Every dynamic string goes through textContent.
 
 export const DASH_CSS = `
-:root{--t1:#2a78d6;--t2:#eb6834;--t3:#4a3aa7;--t4:#eda100;--t5:#e87ba4;--t0:#8a93a8;--grid:#E6EAF1;
-  --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
-@media (prefers-color-scheme:dark){:root{--t1:#3987e5;--t2:#d95926;--t3:#9085e9;--t4:#c98500;--t5:#d55181;--t0:#6f7b98;--grid:#1E2D55}}
-body{font-family:var(--sans)}
-h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
+:root{--t1:#2B4FB0;--t2:#F0451C;--t3:#0F85B2;--t4:#EE9E10;--t5:#A63C72;--t0:#8A93A8;--grid:#E6EBF2}
+@media (prefers-color-scheme:dark){:root{--t1:#5780E6;--t2:#F0451C;--t3:#179FD4;--t4:#C68206;--t5:#C75B90;--t0:#6F7B98;--grid:#1E2D55}}
+h1,h2,h3{letter-spacing:-.03em}
 .dh{margin-top:40px}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
 .dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;line-height:1.05}
@@ -340,7 +373,6 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
 .seg button{border:0;background:transparent;color:var(--ink);padding:8px 14px;font:500 13px var(--sans);cursor:pointer}
 .seg button+button{border-left:1px solid var(--ink)}
 .seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-.btn{font-family:var(--sans)}
 .summary{margin-top:24px;font-size:clamp(18px,2.1vw,21px);line-height:1.5;max-width:68ch}
 .summary b{font-weight:600}
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:1px solid var(--ink);margin-top:32px}
@@ -418,7 +450,7 @@ details.more summary{font:600 15px var(--sans);cursor:pointer}
 .dfoot a{color:var(--ink2)}
 main.wrap:has(.app){max-width:1360px}
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0 48px;align-items:start}
-.side{position:sticky;top:0;align-self:start;max-height:100vh;overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 0;border-right:1px solid var(--rule);min-height:calc(100vh - 57px)}
+.side{position:sticky;top:61px;align-self:start;max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 10px;margin-left:-10px;border-right:1px solid var(--rule);min-height:calc(100vh - 61px)}
 .side .proj{font:600 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
 .side .proj small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px;font-weight:400}
 .side .live{margin-top:10px;font:12px var(--mono)}
@@ -427,12 +459,13 @@ main.wrap:has(.app){max-width:1360px}
 .side .grp{font:500 11.5px var(--mono);color:var(--ink3);margin:26px 0 8px}
 .side nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;margin:0 -10px;border-radius:7px;font-size:14px;color:var(--ink2);text-decoration:none}
 .side nav a:hover{color:var(--ink);background:var(--panel)}
-.side nav a[aria-current=true]{color:var(--ink);background:var(--panel);font-weight:600}
+.side nav a[aria-current=true]{color:var(--accent);background:var(--accent-t);font-weight:600}
+.side nav a[aria-current=true] span{color:var(--accent)}
 .side nav a span{font:12px var(--mono);color:var(--ink3);font-weight:400}
 .side .out a{display:block;font-size:13.5px;color:var(--ink2);text-decoration:none;padding:5px 0}
 .side .out a:hover{color:var(--ink)}
 .side .btn{width:100%;margin-top:14px}
-.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:600}
+.side nav a[aria-current=page]{color:var(--accent);background:var(--accent-t);font-weight:600}
 .side nav.apps a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side nav.apps a.new{color:var(--accent);font-weight:500}
 #period{display:contents}
@@ -465,10 +498,10 @@ main.wrap:has(.app){max-width:1360px}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
 .mainc .dh{margin-top:32px}
-section[id]{scroll-margin-top:16px}
+section[id]{scroll-margin-top:77px}
 @media (max-width:920px){
   .app{grid-template-columns:minmax(0,1fr)}
-  .side{position:sticky;top:0;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+  .side{position:sticky;top:61px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
   .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
   .side .seg{margin-top:0;width:auto}
   .side .seg button{flex:none;padding:6px 10px}
@@ -476,7 +509,7 @@ section[id]{scroll-margin-top:16px}
   .side nav a{margin:0;white-space:nowrap;padding:6px 10px;font-size:13px}
   .side nav a span{display:none}
   .side nav.apps{display:none}
-  section[id]{scroll-margin-top:64px}
+  section[id]{scroll-margin-top:125px}
 }
 `;
 

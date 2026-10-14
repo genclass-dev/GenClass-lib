@@ -1,7 +1,9 @@
 // HTML for the account pages on genclass.dev: /signup, /login, /login/device, /account, the email-collision page a
 // first Google sign-in can land on, and short message pages. Same shell, fonts, rules and tokens as the dashboard
-// (src/pages.ts); no boxed cards, no gradients. Server-rendered text goes through esc(); scripts insert text with
-// textContent. Every page is served under a per-response CSP nonce with form-action 'self' (for the sign-out form).
+// (src/pages.ts, the palette and buttons of genclass.dev); no boxed cards, no gradients. The sign-in column sits on the
+// site's triangle lattice (the hero mesh's grid, as a still pattern), kept clear behind the text. Server-rendered text
+// goes through esc(); scripts insert text with textContent. Every page is served under a per-response CSP nonce with
+// form-action 'self' (for the sign-out form).
 // Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
 import { DASH_CSS, embed, esc, LOGO, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
@@ -17,18 +19,21 @@ code{font-family:var(--mono);font-size:.9em}
 .auth h2{font:600 16px var(--sans);letter-spacing:-.01em;margin:0}
 .auth .lead{font-size:16px;line-height:1.55;color:var(--ink2);margin-top:12px}
 .auth .ways{margin-top:30px;padding-top:24px;border-top:1px solid var(--ink);display:grid;gap:10px}
-.btn{min-height:44px;font:500 15px var(--sans);padding:0 18px}
-.btn.sm{min-height:32px;font-size:13.5px;padding:0 12px}
 .btn.prov{width:100%;min-height:46px;gap:10px}
 .btn.prov svg{width:18px;height:18px;flex:none}
 .btn.paper{background:var(--paper);color:var(--ink);border-color:var(--ink)}
-.btn.paper:hover{background:var(--panel)}
+.btn.paper:hover{background:var(--panel);border-color:var(--ink)}
 .btn.danger{background:transparent;color:var(--warn);border-color:var(--warn)}
+.btn.danger:hover{background:var(--warn-t);border-color:var(--warn)}
+.lat{position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--lattice) 0 0/24px 41.569px;
+  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(50% - 470px),transparent calc(50% - 270px),transparent calc(50% + 270px),#000 calc(50% + 470px));
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(50% - 470px),transparent calc(50% - 270px),transparent calc(50% + 270px),#000 calc(50% + 470px))}
+@media (max-width:720px){.lat{display:none}}
 .or{display:flex;align-items:center;gap:12px;font:500 12px var(--mono);color:var(--ink3);margin:8px 0}
 .or::before,.or::after{content:"";flex:1;border-top:1px solid var(--rule)}
 .auth label,.acct-form label{display:block;font:500 12.5px var(--mono);color:var(--ink3);margin-bottom:7px}
-.auth input,.acct-form input{min-height:44px;width:100%;padding:0 12px;border-radius:8px;border:1px solid var(--rule2);background:var(--paper);color:var(--ink);font:15px var(--sans)}
-.auth input:focus-visible,.acct-form input:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.auth input,.acct-form input{min-height:46px;width:100%;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans)}
+.auth input:focus-visible,.acct-form input:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 .auth form{display:grid;gap:10px}
 .hint{font-size:13px;line-height:1.5;color:var(--ink3)}
 .err{font-size:14px;color:var(--warn);min-height:21px;margin-top:6px}
@@ -181,8 +186,11 @@ function providerButtons(p: { google: boolean; github: boolean }, next: string |
   return out.join("\n");
 }
 
+/** The still lattice behind a sign-in column (decorative; hidden on narrow screens, where the column fills them). */
+const LATTICE = '<div class="lat" aria-hidden="true"></div>';
+
 function authPage(nonce: string, title: string, inner: string, script: string): string {
-  return shell(nonce, title, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, account: true });
+  return shell(nonce, title, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>${LATTICE}<div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, account: true });
 }
 
 export interface AuthPageOptions {
@@ -219,7 +227,7 @@ ${o.notice ? `<p class="notice" role="status">${esc(o.notice)}</p>` : ""}
 <div class="ways">
 ${providers}
 ${providers ? '<div class="or">or</div>' : ""}
-<button class="btn prov ${providers ? "ghost" : ""}" id="pk" type="button">${KEY_ICON}<span>Sign in with a passkey</span></button>
+<button class="btn prov ${providers ? "ghost" : "green"}" id="pk" type="button">${KEY_ICON}<span>Sign in with a passkey</span></button>
 <p class="hint">Touch ID, Windows Hello, your phone or a security key. No email or password.</p>
 <p class="err" id="err" role="alert"></p>
 </div>
@@ -247,7 +255,7 @@ ${providers ? '<div class="or">or with a passkey</div>' : ""}
   <div><label for="email">Email</label>
   <input id="email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required></div>
   <p class="hint">Your passkey is named after it, and we use it only for notices about your account. We do not check it, so nothing is sent to it now.</p>
-  <button class="btn prov ${providers ? "ghost" : ""}" id="go" type="submit">${KEY_ICON}<span>Create account with a passkey</span></button>
+  <button class="btn prov ${providers ? "ghost" : "green"}" id="go" type="submit">${KEY_ICON}<span>Create account with a passkey</span></button>
 </form>
 <p class="err" id="err" role="alert"></p>
 </div>
@@ -279,7 +287,7 @@ export function pendingPage(nonce: string, o: { email: string; provider: "google
 <div class="step">
   <h2>If that account is yours</h2>
   <p>Sign in to it with its passkey, then choose Link ${name} on your account page. After that, Continue with ${name} opens that account.</p>
-  <a class="btn" href="/login?next=%2Faccount">Sign in with a passkey</a>
+  <a class="btn green" href="/login?next=%2Faccount">Sign in with a passkey</a>
 </div>
 <div class="step">
   <h2>If it is not yours</h2>
@@ -302,7 +310,7 @@ export function pendingPage(nonce: string, o: { email: string; provider: "google
 
 /** A short page: a title, one plain sentence, links. `detail` is a small mono line for whoever needs the exact reason. */
 export function messagePage(nonce: string, o: { title: string; text: string; links: [string, string][]; detail?: string }): string {
-  const links = o.links.map(([label, href], i) => `<a class="btn ${i ? "ghost" : ""}" href="${esc(href)}">${esc(label)}</a>`).join(" ");
+  const links = o.links.map(([label, href], i) => `<a class="btn ${i ? "ghost" : "green"}" href="${esc(href)}">${esc(label)}</a>`).join(" ");
   const detail = o.detail ? `<p class="detail">${esc(o.detail)}</p>` : "";
   return authPage(nonce, `${o.title} | GenClass`, `<h1>${esc(o.title)}</h1><p class="lead">${esc(o.text)}</p>${links ? `<div class="acts">${links}</div>` : ""}${detail}`, "");
 }
@@ -336,7 +344,7 @@ export function devicePage(nonce: string, v: DeviceView): string {
 <form id="cf" novalidate>
   <div><label for="code">Code from your terminal</label>
   <input id="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="BCDF-GHJK"></div>
-  <button class="btn" type="submit"><span>Continue</span></button>
+  <button class="btn green" type="submit"><span>Continue</span></button>
 </form>
 <p class="err" id="err" role="alert"></p>`;
   let inner: string;
@@ -350,7 +358,7 @@ export function devicePage(nonce: string, v: DeviceView): string {
 <p class="lead">Check that your terminal shows this code, then sign in. This page then shows the request and asks you to approve or deny it.</p>
 <div class="ways">
 ${providers}
-<button class="btn prov ${providers ? "ghost" : ""}" id="pk" type="button">${KEY_ICON}<span>Sign in with a passkey</span></button>
+<button class="btn prov ${providers ? "ghost" : "green"}" id="pk" type="button">${KEY_ICON}<span>Sign in with a passkey</span></button>
 <p class="err" id="err" role="alert"></p>
 </div>
 <p class="swap"><a href="/signup${q(v.next)}">Create an account instead</a>, then come back here.</p>`;
@@ -381,7 +389,7 @@ ${providers}
 </dl>
 <p class="lead" id="scope">If you approve, the terminal that shows this code can list the apps in this account, create apps, add an app from its private dashboard link, and write a project key into your project, for 90 days or until you revoke it on your account page. It cannot read your apps' stats or change how you sign in.</p>
 <p class="caution" id="caution"><b>Approve only a sign-in you started.</b> If you did not run ${RUN} yourself just now, or someone sent you this link or code, choose Deny.</p>
-<div class="acts" id="acts"><button class="btn" id="yes" type="button"><span>Approve</span></button><button class="btn ghost" id="no" type="button"><span>Deny</span></button></div>
+<div class="acts" id="acts"><button class="btn green" id="yes" type="button"><span>Approve</span></button><button class="btn ghost" id="no" type="button"><span>Deny</span></button></div>
 <p class="err" id="err" role="alert"></p>
 <p class="done hidden" id="done" role="status"></p>
 <script type="application/json" id="cfg">${embed({ code: r.userCode, expires: r.expires })}</script>`;
@@ -424,7 +432,7 @@ ${providers}
   no.addEventListener("click", function(){ answer(false); });
 })();`;
   if (v.signedIn) {
-    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true });
+    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>${LATTICE}<div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true });
   }
   return authPage(nonce, "Command line sign-in | GenClass", inner, script);
 }
@@ -531,7 +539,7 @@ ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.k
   ${apps}
   <form class="acct-form" id="new-app" novalidate>
     <div class="f"><label for="appname">New app</label><input id="appname" type="text" maxlength="80" autocomplete="off" placeholder="App name, e.g. Acme checkout"></div>
-    <button class="btn" type="submit" id="newgo"><span>Create app</span></button>
+    <button class="btn green" type="submit" id="newgo"><span>Create app</span></button>
   </form>
   <p class="err" id="newerr" role="alert"></p>
   <p class="err" id="linkerr" role="alert"></p>

@@ -2,7 +2,8 @@
 // through packages/runtime): what a developer reads on the page, the possible-issues tier and the display fixes.
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { CDN_SCRIPT, dashboardPage, KEY_RUNTIME, RUNTIME_PKG, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
+import { CDN_SCRIPT, DASH_CSS, dashboardPage, KEY_RUNTIME, RUNTIME_PKG, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
+import { loginPage, messagePage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
 
@@ -231,5 +232,49 @@ describe("snippets: the runtime that reads the token", () => {
     expect(startPage("n")).toContain("Not on npm yet.");
     expect(startPage("n", { runtimeReady: true })).not.toContain("Not on npm yet.");
     expect(dashboardPage("n", { name: "a", token: "gc_TestToken0123456789abc", created: "", lastEvent: null }, { runtimeReady: true })).not.toContain("Not on npm yet.");
+  });
+});
+
+describe("pages: genclass.dev's palette, buttons, header and focus ring", () => {
+  const project = { name: "a", token: "gc_TestToken0123456789abc", created: "", lastEvent: null };
+  /** HSL hue of a #RRGGBB colour, in degrees. */
+  const hue = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
+    const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+    if (!d) return 0;
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  };
+
+  it("every page carries the site's tokens, its focus ring and its sticky header", () => {
+    for (const html of [startPage("n"), dashboardPage("n", project), loginPage("n", { google: false, github: false, next: null })]) {
+      // site/src/css/base.css: ink navy, the green (fills, large text, small text), the red-orange (fills; small text)
+      for (const t of ["--ink:#0E1F4D", "--accent-f:#14B86A", "--accent-x:#0E9A58", "--accent:#08794A", "--warn-f:#F0451C", "--warn:#C2360F", "--panel:#F5F8FB", "--rule:#DFE4EC", "--rule2:#C6CEDB"]) expect(html).toContain(t);
+      expect(html).toContain(":focus-visible{outline:2px solid var(--accent);outline-offset:3px}");
+      expect(html).toContain("prefers-color-scheme:dark");
+    }
+    expect(startPage("n")).toMatch(/header\.top\{position:sticky;top:0;/);
+    expect(startPage("n")).toContain('src="https://genclass.dev/brand/lockup-h.png?v=2"');
+  });
+
+  it("the main action of a page is the site's green button; the header ends in its ink button", () => {
+    expect(startPage("n")).toContain('<button class="btn green" id="go" type="submit">Get a token</button>');
+    expect(startPage("n")).toContain('<a class="btn" href="/start">Get a token</a>');
+    expect(loginPage("n", { google: false, github: false, next: null })).toContain('class="btn prov green" id="pk"');
+    // with Google or GitHub offered, the passkey button steps back to a ghost button
+    expect(loginPage("n", { google: true, github: false, next: null })).toContain('class="btn prov ghost" id="pk"');
+    const msg = messagePage("n", { title: "T", text: "x", links: [["One", "/a"], ["Two", "/b"]] });
+    expect(msg).toContain('<a class="btn green" href="/a">One</a>');
+    expect(msg).toContain('<a class="btn ghost" href="/b">Two</a>');
+  });
+
+  it("chart series: the validated slots in both modes, none of them green (green means GenClass fixed it)", () => {
+    const light = /:root\{--t1:(#\w{6});--t2:(#\w{6});--t3:(#\w{6});--t4:(#\w{6});--t5:(#\w{6});/.exec(DASH_CSS)!.slice(1);
+    const dark = /prefers-color-scheme:dark\)\{:root\{--t1:(#\w{6});--t2:(#\w{6});--t3:(#\w{6});--t4:(#\w{6});--t5:(#\w{6});/.exec(DASH_CSS)!.slice(1);
+    // validate_palette.js passes on these, in this order (pages.ts, the chart colours comment)
+    expect(light).toEqual(["#2B4FB0", "#F0451C", "#0F85B2", "#EE9E10", "#A63C72"]);
+    expect(dark).toEqual(["#5780E6", "#F0451C", "#179FD4", "#C68206", "#C75B90"]);
+    for (const c of [...light, ...dark]) expect(hue(c) < 75 || hue(c) > 170, c).toBe(true);
+    expect(hue("#14B86A")).toBeGreaterThan(75); // the check itself would catch the brand green
   });
 });
