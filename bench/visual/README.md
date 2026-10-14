@@ -44,10 +44,11 @@ observe mode, report-only.
 
 ## Results
 
-[docs/runtime/RESULTS.md section 9](../../docs/runtime/RESULTS.md) has the numbers; `results/2026-10-13-run{1,2,3,4}.json`
-are the summaries of the four runs of 2026-10-13 (`summarize.mjs` output). Each run after the first followed changes to
-the checks made because of what the previous run found (docs/runtime/VISUAL.md section 19), each with a regression
-fixture in `packages/runtime/test/browser/visual/fixtures/regress-*.html`.
+[docs/runtime/RESULTS.md section 9](../../docs/runtime/RESULTS.md) has the numbers; `results/2026-10-13-run{1,2,3,4,5}.json`
+are the summaries of the five runs of 2026-10-13 (`summarize.mjs` output). Runs 2 to 4 followed changes to the checks
+made because of what the previous run found (docs/runtime/VISUAL.md section 19), each with a regression fixture in
+`packages/runtime/test/browser/visual/fixtures/regress-*.html`; run 5 followed a review of the checks (fixtures
+`clean-*.html`), and is the first whose public-site results are counts only.
 
 To judge findings: download the artifacts of a run (for public sites, the sealed ones, decrypted as below), run
 `summarize.mjs` with `--detail detail.md`, and look at each finding's element crop (`crops/<load>-<n>.png`, and

@@ -667,7 +667,8 @@ Not covered yet: text over photos, video and gradients; canvas and WebGL content
 state the visitor is not using; layout shifts and failed CSS images outside Chromium; low contrast that is readable but
 below WCAG AA. Measured in CI on the demos, templates, compat apps and 40 public home pages
 ([RESULTS.md section 9](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)): 0 false
-reports in 128 views of the local pages, and recall 1.00 on planted faults for 20 of the 23 kinds. On the public pages
+reports in 128 views of the local pages, and recall 1.00 on planted faults for 19 of the 23 kinds (0.67 to 0.96 for
+the other four). On the public pages
 the checks were tuned on the same sites (the first run had 44 check errors in 100 loads); there is no held-out site
 set yet, so those figures are not a false-report rate for other sites. Design and thresholds:
 [VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md).

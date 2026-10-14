@@ -147,10 +147,11 @@ sends.
     below WCAG AA.
   - **Measured** by a new bench (`bench/visual`, GitHub Actions only;
     [RESULTS.md section 9](../../docs/runtime/RESULTS.md)): 0 false reports in 128 views of the demos, templates and
-    compat apps (desktop and phone, light and dark), and recall 1.00 on planted faults for 20 of the 23 kinds
-    (`click-blocked` and `scroll-lock-stuck` 0.67, `css-var-undefined` 0.96). On about 40 public home pages the checks
-    were tuned on the same sites (the first run had 44 check errors in 100 loads, the fourth none confirmed); there
-    is no held-out site set yet. Because of what the bench found, `css-var-undefined` reports a missing token only
+    compat apps (desktop and phone, light and dark), and recall 1.00 on planted faults for 19 of the 23 kinds
+    (`click-blocked` and `scroll-lock-stuck` 0.67, `pointer-events-leak` 0.94, `css-var-undefined` 0.96; run 5). On
+    about 40 public home pages the checks
+    were tuned on the same sites (the first run had 44 check errors in 100 loads; the fourth had none confirmed);
+    there is no held-out site set yet. Because of what the bench found, `css-var-undefined` reports a missing token only
     where its fallback leaves text below 3:1; `focus-obscured` needs a cover that paints and is at most half the
     viewport tall; `layout-shift` needs an element that moved and skips windows that start within 1 s after a scroll;
     `control-unreachable` sees controls inside open shadow roots and skips covers with no box; `scroll-lock-stuck` and

@@ -41,8 +41,8 @@ NODE_OPTIONS=--expose-gc npx vitest run test/review-perf.test.ts --retry=2   # t
 ```
 
 One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tests are model-parity tests that need
-`GENCLASS_MODEL_DIR`. CI also runs the `visual-browser` job: the first-load size against main (`test/first-load-size.mjs`, fails at 0.6 KB (0.5 KB before the review; the owner decides)
-growth) and `npx playwright test --config test/browser/visual/playwright.config.ts` in Chromium. The visual bench
+`GENCLASS_MODEL_DIR`. CI also runs the `visual-browser` job: the first-load size against main (`test/first-load-size.mjs`, fails at 0.6 KB
+growth on the visual branch, 0.5 KB before the review, pending the owner's OK) and `npx playwright test --config test/browser/visual/playwright.config.ts` in Chromium. The visual bench
 (`visual-measure.yml`) is a separate workflow: manual dispatch (and pushes to `bench/visual/` on the visual branch);
 it loads public sites, so it does not run on pull requests. Not in CI, ask before running: the model Playwright suite (`npm run test:browser`), `test/smoke/smoke.sh`, the
 install suite (`test/install/run-all.sh`), the sim and realapps generators, the demos' eval, training, anything on

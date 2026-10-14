@@ -1308,8 +1308,9 @@ Owner decisions:
    are met; the 4x-throttling gate is not reliably met (pass 1 inside 100 ms on 78.1% of clean local pages in runs 1
    to 3 and 100% in run 4, against at least 90%, with no change to cost between runs 3 and 4); recall is below 0.7 for
    `click-blocked` and `scroll-lock-stuck` (0.67, pages whose DOM changes all the time); the cost gates were not met on
-   public sites in runs 1 to 4 (p95 pass time 97.8 ms, p95 longest slice 57.1 ms in run 4; run 5 after the sliced
-   stylesheet walk is in RESULTS.md). Whether kinds that miss a gate stay on by default on development hosts is open.
+   public sites (p95 pass time 97.8 ms and p95 longest slice 57.1 ms in run 4; 95.2 ms and 18.9 ms in run 5, after the
+   stylesheet walk became a sliced step; 78.1% at 4x throttling in run 5). Whether kinds that miss a gate stay on by
+   default on development hosts is open.
 6. **CONTRACT.md**: the same rule 2 exception added to CONTRACT section 0 rule 1, and a new section for visual checks,
    when implementation starts.
 7. **Public-site bench**: the list of about 40 sites and loading them weekly from GitHub runners. The list is

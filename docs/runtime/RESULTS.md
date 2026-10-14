@@ -323,9 +323,10 @@ checks work as designed. Section 9 has the bench on the demos, templates, compat
 Measured checks, not model results. [`bench/visual`](../../bench/visual/README.md) runs the checks' engine
 (`packages/runtime/src/visual/engine.ts`) through a harness host added with `page.addInitScript`, so nothing is added to
 the pages (AGENTS.md rule 4), in `.github/workflows/visual-measure.yml`. Every finding on a page that is not broken is a
-candidate false report until a person has looked at it; an unlabelled finding counts as false. Four runs on the same
-day: the first measured v1 as built, and each later one followed changes made because of what the previous one found
-(VISUAL.md section 19). Summaries: `bench/visual/results/2026-10-13-run{1,2,3,4}.json`.
+candidate false report until a person has looked at it; an unlabelled finding counts as false. Five runs on the same
+day: the first measured v1 as built, each of runs 2 to 4 followed changes made because of what the previous one found,
+and run 5 followed a review of the checks (VISUAL.md section 19, "Review of 2026-10-13"). Summaries:
+`bench/visual/results/2026-10-13-run{1,2,3,4,5}.json`.
 
 | run | GitHub run | commit | what changed before it |
 |---|---|---|---|
@@ -333,12 +334,18 @@ day: the first measured v1 as built, and each later one followed changes made be
 | 2 | 38486735268 | `5612879` | `css-var-undefined`, `focus-obscured`, `layout-shift` tightened |
 | 3 | 38488461191 | `ac5832f` | `control-unreachable`: controls in open shadow roots, covers without a box |
 | 4 | 38489994866 | `5c47a71` | `scroll-lock-stuck` and `pointer-events-leak`: an expanded popup trigger counts as open |
+| 5 | 38497716085 | `47b94c1` | the review: the canvas follows the page's colour scheme, layers that ignore the pointer, scroll attempts, busy shields, dialogs that scroll inside, web components, once-per-session events, the stylesheet walk in steps of 200 rules and every read in idle callbacks, re-measured fixes; main merged in |
+
+Run 5 is at commit `47b94c1`. The commits after it on the branch move two reads into idle callbacks (a scroll
+attempt's height read, a new fix's 50 ms check) and change documents only; the Chromium suite (CI run 38498154990)
+passed on them. From run 5 on, the public sites' run log and plain artifacts hold counts only (bench/visual/README.md),
+so their findings are not looked at from crops unless the owner adds the `VISUAL_BENCH_KEY` secret.
 
 Loads: desktop 1280 x 800 and phone 390 x 844 (an Android user agent), light and dark, scripted hover over 8 controls,
 8 Tab presses, scrolling to the end, a pass at the top and one at the end. Local pages run in guard mode with fixes on,
 so a fix on a clean page would count as a false fix; public sites run report-only.
 
-**Clean local pages (run 4).** The demos are the six demo pages and their index, served as `demos/README.md` says; the
+**Clean local pages (runs 4 and 5, the same).** The demos are the six demo pages and their index, served as `demos/README.md` says; the
 templates run `npm run dev`; the compat apps are their production builds, scenarios c, d and h.
 
 | pages | page views | findings | confirmed real | false reports | per page view | fixes applied |
@@ -349,7 +356,7 @@ templates run `npm run dev`; the compat apps are their production builds, scenar
 
 The two findings are one real bug in two colour schemes: on the demos index at desktop width, the lede, code block and
 buttons under the hero headline move 59 px 0.2 s after navigation start (a layout-shift window of 0.34). It is labelled
-real in `bench/visual/labels.json` and the demo is left alone. The same zero false reports held in all four runs.
+real in `bench/visual/labels.json` and the demo is left alone. The same zero false reports held in all five runs.
 
 **Public sites.** 40 home pages (`bench/visual/sites.json`): documentation, news, government, SaaS, shops, code hosting,
 an encyclopedia, design sites. One load per site and configuration, no clicks, no forms. Dark loads count only where
@@ -362,6 +369,7 @@ here.
 | 2 | 33 | 100 | 12 | 0.12 | 5 | 5 | 2 |
 | 3 | 34 | 102 | 7 | 0.069 | 5 | 1 | 1 |
 | 4 | 31 | 96 | 8 | 0.083 | 5 | 0 | 3 |
+| 5 | 33 | 97 | 6 | 0.062 | not looked at | not looked at | 6 |
 
 | kind | run 1 (real / check error) | run 4 (real / check error / unconfirmed) |
 |---|---|---|
@@ -384,7 +392,14 @@ here.
   images on 2 loads; the checks reported exactly that (`stylesheet-failed` and `image-broken` with HTTP 429, and what
   follows from an unstyled page), and those loads are left out of the rate because visitors do not normally get them.
 
-**Recall on planted faults (run 4).** Faults are applied from the harness (`bench/visual/faults.ts`, seeded) to the 7
+- Run 5: 6 findings on 4 loads of 3 sites, `layout-shift` 4 and `page-overflow-x` 2 (run 4: `layout-shift` 3,
+  `page-overflow-x` 4, `focus-obscured` 1, 5 of them confirmed real). They are the kinds of the real bugs and the
+  unconfirmed findings of run 4, but with counts only in the artifact none was looked at, so all 6 count as
+  unconfirmed. No `text-invisible`, `dialog-covered`, `scroll-lock-stuck` or `pointer-events-leak` finding in any run.
+  Not measured in run 5: 5 bot challenges, 2 HTTP errors, 1 HTTP/2 protocol error, and 4 loads a site rate-limited
+  (HTTP 429 on its own files).
+
+**Recall on planted faults (run 4; run 5 the same except as noted below the table).** Faults are applied from the harness (`bench/visual/faults.ts`, seeded) to the 7
 demo pages, the 4 templates and the 7 compat apps (scenario h), at desktop and phone width; each fault is checked to
 have taken before it counts. The planted forms are the author's, so this is recall on those forms in real app
 layouts, not on every way such a bug appears.
@@ -413,6 +428,12 @@ layouts, not on every way such a bug appears.
   overlay on the templates' development servers (4); text faults on pages with too few text elements in view.
 - Runtime fixes on the planted faults (guard mode, fixes on): text colour 70 of 70 applied and still holding at the
   end, `pointer-events` 18 of 18, scroll lock 24 of 24 found; none undone. Fixes applied on clean pages: 0 in all runs.
+- Run 5: the same recall for every kind except `pointer-events-leak`, 17 of 18 (0.94): the miss is a compat app in
+  scenario h, whose requests were in flight during the reads; since the review a lock is not judged while a request
+  runs (a busy shield is intended), which costs recall on pages that are never quiet. Fixes in run 5: text colour 70
+  of 70 and `pointer-events` 17 of 17 applied and holding; the planted scroll locks were reported (24 of 36) but not
+  removed: the harness sets the lock before the first periodic read and no dialog ever opens, which the review's rule
+  treats as a lock held since load (VISUAL.md 3.20). 0 fixes on clean pages.
 - Other findings on fault loads: 18, of which 7 were not on the clean load of the same page (a layout shift on phone
   loads caused by the planted box of image faults pushing the content down).
 
@@ -423,14 +444,29 @@ layouts, not on every way such a bug appears.
 | local pages, 1x CPU | 128 | 6.1 / 19.0 / 27.9 ms | 100% | 6.0 / 8.9 / 18.7 ms | 138 / 2,178 |
 | local pages, 4x CPU throttling | 32 | 28.3 / 68.8 / 90.9 ms | 100% (78.1% in runs 1, 2 and 3, p95 106.9, 104.5 and 106.1 ms) | 13.5 / 18.4 / 25.6 ms | 138 / 2,178 |
 | public sites, 1x | 113 | 40.5 / 97.8 / 128.2 ms | 94% | 19.5 / 57.1 / 86.1 ms | 894 / 6,593 |
+| run 5: local pages, 1x | 128 | 6.8 / 32.1 / 53.4 ms | 100% | 6.2 / 10.5 / 12.5 ms | 137 / 2,135 |
+| run 5: local pages, 4x CPU throttling | 32 | 32.8 / 112.4 / 113.6 ms | 78.1% | 14.3 / 18.3 / 20.1 ms | 128 / 1,133 |
+| run 5: public sites, 1x | 117 | 40.3 / 95.2 / 158.4 ms | 95.7% | 8.9 / 18.9 / 51.1 ms | 897 / 6,432 |
 
-The longest slice on public sites is well above the 8 ms slice budget. One stylesheet walk, as `css-var-undefined`
-does it in a single step that is exempt from the slow-read rule, took 12.1 ms at the median and 31.6 ms at p95 (54.6
-ms at most) on the 82 public-site loads whose stylesheets were readable, against 0.1 ms and 2.3 ms on the local pages.
+The longest slice on public sites is well above the 8 ms slice budget in run 4. One stylesheet walk, as
+`css-var-undefined` did it in a single step that was exempt from the slow-read rule, took 12.1 ms at the median and
+31.6 ms at p95 (54.6 ms at most) on the 82 public-site loads whose stylesheets were readable, against 0.1 ms and 2.3 ms
+on the local pages. In run 5 the engine walks in steps of 200 rules (the whole walk, timed at once by the harness,
+still takes 11.6 / 29.9 / 71.9 ms at p50 / p95 / max on 89 readable sites): the longest slice on public sites fell to
+8.9 ms at the median and 18.9 ms at p95 (from 19.5 and 57.1 ms). One load still had a 51.1 ms slice, a single step
+that waited for the browser's layout. Long tasks on the page after the checks started (any cause, the page's own work
+included): 19 of 128 local loads (77 ms at most), 6 of 32 throttled ones and 41 of 117 public-site loads (1,297 ms at
+most); the harness cannot tell whose task it was, and the Chromium suite's heavy pages show none from the checks.
 
 **Real integration (run 4, compat apps, `window.GENCLASS_CONFIG = { visual: true }`, no harness).** On all 7 apps the
 stub requested the chunk 1.5 s after `load` (median 1,500 ms) and the first pass finished 2.07 s after `load`
 (median; 2.12 s at most). No findings.
+
+**Proposed gates (VISUAL.md 15) on run 5.** Met: 0 false reports on the demos and templates and 0 per compat page; 0
+false fixes; recall 1.00 for `text-invisible` and `image-broken`, and at least 0.7 for 19 of the other 21 kinds. Not
+known: false reports per 10 public sites (6 findings, none looked at). Not met: p95 pass time on public sites 95.2 ms
+(at most 50 ms; 32.1 ms on local pages); longest slice at most 12 ms: p95 10.5 ms on local pages, 18.9 ms on public
+sites; pass 1 inside 100 ms at 4x throttling on 78.1% of clean local pages (at least 90%).
 
 **Proposed gates (VISUAL.md 15) on run 4.** Met: 0 false reports on the demos and templates; 0 per compat page (at most
 0.05); 0 confirmed false reports per 10 public sites for every kind (at most 1); recall 1.00 for `text-invisible` and
