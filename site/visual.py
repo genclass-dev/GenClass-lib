@@ -514,7 +514,7 @@ def vt(key):
     if key == "home-intro":
         model = ("" if MODEL_LIVE else " The learned model is still being evaluated, and the scan does not use it." if STAGE == "training"
                  else " A learned model is planned; the scan does not use one.")
-        if SCAN_LIVE: return f"Paste an address and GenClass runs its measured visual checks on the page, as a visitor's browser renders it.{model}"
+        if SCAN_LIVE: return "Invisible text, broken images, layouts that break on phones. Paste a URL to find them."
         if SHIPPED: return "GenClass measures them in the page, as the visitor's browser renders it."
         return "GenClass is testing checks that measure them in the page, as the visitor's browser renders it."
     if key == "lede":
@@ -619,7 +619,7 @@ def scanform(name):
         <button class="btn" type="submit">Scan</button>
       </div>
       <p class="scanbox-msg" id="{i}-msg" data-scan-msg aria-live="polite"></p>
-      <p class="scanbox-help" id="{i}-help">A cloud browser loads that one page as a desktop and as a phone and reports each problem with its element and what was measured. No form or POST request reaches your server. <a href="/scan/about">How the scan works →</a></p>
+      <p class="scanbox-help" id="{i}-help">{"Desktop and phone. Nothing is submitted to your site." if name == "home" else "A cloud browser loads that one page as a desktop and as a phone and reports each problem with its element and what was measured. No form or POST request reaches your server."} <a href="/scan/about">How it works →</a></p>
     </form>'''
 
 def state():
@@ -689,6 +689,23 @@ def specimens():
       <div class="vspec">{cells}</div>
       <figcaption><b>Fig. 1</b> Six of the bugs in the {src_link("catalog", "GenClass catalog of visual bugs in AI-built sites")}, with their catalog ids.{note} Drawn for this page; none is a screenshot of a real site. <a href="/visual#families">Every family →</a></figcaption>
     </figure>'''
+
+def home_specimens():
+    """The homepage's drawings: only the bugs that have a measured check, a title and one line each."""
+    cells = "".join(f'<div><h3>{esc(t)}</h3>{art(fid, FAM[fid][4])}<p>{esc(s)}</p></div>'
+                    for fid, t, s, cid, kind in SPECIMENS if kind)
+    return f'''<figure class="vspec-fig">
+      <div class="vspec">{cells}</div>
+      <figcaption>Drawn examples. <a href="/visual#families">Every bug family →</a></figcaption>
+    </figure>'''
+
+def home_proof():
+    """One line of measured proof under the drawings, linking to the labelled numbers."""
+    if not LIVE: return ""
+    fx, cl = C["fixtures"], C["clean"]
+    return (f'<p class="note vnote">{count(fx["found"])} of {count(fx["planted"])} planted bugs found. '
+            f'{count(cl["false_reports"])} false alarms in {count(cl["page_views"])} views of correct pages. '
+            f'<a href="/visual#numbers">How we measured →</a></p>')
 
 def crawl_fig():
     """Fig. 2: measured signals on crawled pages, AI-built against regular sites. Only with crawl.status "live"; the
@@ -908,7 +925,7 @@ def scan_section():
 BLOCKS = {"visual-specimens": specimens, "visual-home-live": home_live, "visual-state": state, "visual-status": status_notice,
           "visual-families": families, "visual-model-step": model_step, "visual-numbers": numbers,
           "visual-model-limit": model_limit, "visual-sources": sources, "visual-scan": scan_section,
-          "visual-checks-nums": checks_nums}
+          "visual-checks-nums": checks_nums, "visual-home-specimens": home_specimens, "visual-home-proof": home_proof}
 
 def markers(s):
     for name, fn in BLOCKS.items():
