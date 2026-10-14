@@ -299,3 +299,32 @@ trained v2 model once it exists.
 | next | 150M teacher on v2 gold, teacher labels on unlabeled rows, distil R17/R32, DAgger rounds (SIM `--on-policy`), EVAL. |
 
 Compute: Azure CPU nodes (F80 and D64 sizes); the day-by-day record is kept internally.
+
+## 8. Visual-bug classifier (2026-10-14, `vision/`, branch `wave2/visual-train`)
+
+A first learned check for visual bugs, against the measured thresholds of `docs/runtime/VISUAL.md` (branch
+`wave2/visual`). Full report: `vision/results/TRAINING.md`; raw numbers: `vision/results/train/eval.json`.
+
+- Data: element rows from the 2026-10-14 crawl of 3,000 AI-builder and 600 control homepages, with 35,074 injected
+  faults in 13 families. Split by host after near-duplicate removal: train 2,804 hosts, dev 351, test 305. The
+  natural test slice is 262,293 element rows of 708 clean (not injected) test views.
+- Models: `rules` (the VISUAL.md thresholds as far as one element row expresses them), LightGBM `gbt` (671 trees)
+  and `gbt-small` (600 shallow trees), a small MLP, and `gbt-seen` (trained only on faults the pixel check saw).
+- Thresholds are chosen on dev and measured on test. False-report rate (FRR) is the share of natural test
+  elements flagged; page FRR is the share of clean test pages with any flag.
+
+| model, operating point (dev) | natural elements flagged | clean pages flagged | recall, all fault rows | recall, pixel-seen fault rows | page recall | real bugs among natural flags (hand check) |
+|---|---:|---:|---:|---:|---:|---|
+| rules, fixed | 0.53% | 26.7% | 0.071 | 0.067 | 0.124 | 3 of 40 (3 unclear) |
+| gbt, FRR matched to rules | 0.48% | 29.8% | 0.562 | 0.787 | 0.844 | |
+| gbt, FRR 0.1% | 0.11% | 10.6% | 0.460 | 0.713 | 0.787 | 1 of 99 (3 unclear) |
+| gbt, FRR 1% | 0.95% | 40.7% | 0.618 | 0.829 | 0.870 | |
+| gbt-small, FRR 0.1% | 0.12% | 10.9% | 0.420 | 0.690 | 0.744 | |
+| mlp, FRR 0.1% | 0.15% | 13.1% | 0.370 | 0.643 | 0.702 | |
+| gbt-seen, FRR 0.1% | 0.09% | 18.5% | 0.261 | 0.786 | 0.588 | 1 of 40 (1 unclear) |
+
+Does the learned model beat the measured thresholds? On injected faults, yes, by a wide margin at about the same FRR.
+On real pages, no: its flags on clean pages are almost all correct elements (1 real bug in 99 checked, against 3
+in 40 for the thresholds), because it learned where the recipes put their labels (tag, box area, device are its
+top inputs). It does not ship. `gbt-small` exports to 339 KB of JSON (95 KB gzip) and costs 25.6 us per element in
+the reference JS evaluator; that cost is not the obstacle.

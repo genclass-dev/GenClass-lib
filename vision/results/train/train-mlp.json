@@ -1,0 +1,15 @@
+{
+ "devAP": 0.5569,
+ "epochs": [
+  0.5231,
+  0.5491,
+  0.5564,
+  0.5555,
+  0.555,
+  0.5569
+ ],
+ "seconds": 44,
+ "params": 89897,
+ "predictSeconds-val": 0.1,
+ "predictSeconds-test": 0.09
+}

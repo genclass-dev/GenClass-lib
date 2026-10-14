@@ -1,0 +1,251 @@
+{
+ "inputs": [
+  "d",
+  "x",
+  "y",
+  "w",
+  "h",
+  "inv",
+  "vis",
+  "tt",
+  "tl",
+  "ln",
+  "tspill",
+  "fs",
+  "fw",
+  "lh",
+  "ia",
+  "cur",
+  "pen",
+  "dis",
+  "foc",
+  "sr",
+  "hs",
+  "ho",
+  "ha",
+  "hn",
+  "cmp",
+  "iok",
+  "nh",
+  "alt",
+  "dist",
+  "lazy",
+  "nosize",
+  "nca",
+  "cvis",
+  "eop",
+  "op",
+  "tf",
+  "flt",
+  "an",
+  "tsh",
+  "ell",
+  "lcl",
+  "bclip",
+  "clip",
+  "vu",
+  "vi",
+  "bgi",
+  "ebs",
+  "sbs",
+  "cr",
+  "scr",
+  "vb",
+  "wa",
+  "rs",
+  "verr",
+  "ftrap",
+  "nowrap",
+  "natW",
+  "zSet",
+  "z",
+  "swRatio",
+  "shRatio",
+  "swOver",
+  "shOver",
+  "area",
+  "aspect",
+  "hasParent",
+  "covered",
+  "scaSet",
+  "lkN",
+  "vpN",
+  "rwNum",
+  "tfcSet",
+  "c0",
+  "c1",
+  "c2",
+  "c3",
+  "bg0",
+  "bg1",
+  "bg2",
+  "bg3",
+  "eb0",
+  "eb1",
+  "eb2",
+  "eb3",
+  "sb0",
+  "sb1",
+  "sb2",
+  "sb3",
+  "cat_tag",
+  "cat_role",
+  "cat_disp",
+  "cat_pos",
+  "cat_ox",
+  "cat_oy",
+  "cat_fst",
+  "cat_ta",
+  "cat_why",
+  "cat_sc",
+  "cat_src",
+  "cat_bsrc",
+  "cat_of",
+  "cat_cpath",
+  "pDesktop",
+  "pAppDark",
+  "pVmeta",
+  "pVmetaDW",
+  "pSideways",
+  "pFontsLoaded",
+  "xr",
+  "rr",
+  "yr",
+  "br",
+  "wr",
+  "ar"
+ ],
+ "trainRows": 1652335,
+ "trainFaults": 54288,
+ "devRows": 309449,
+ "natSample": 800000,
+ "seed": 7,
+ "models": {
+  "gbt-small": {
+   "params": {
+    "objective": "binary",
+    "metric": "average_precision",
+    "num_threads": 80,
+    "seed": 7,
+    "verbose": -1,
+    "cat_smooth": 10,
+    "max_cat_to_onehot": 8,
+    "num_leaves": 15,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "min_data_in_leaf": 80,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "lambda_l2": 1.0
+   },
+   "trees": 600,
+   "devAP": 0.6313019915946855,
+   "seconds": 8,
+   "topGain": [
+    [
+     "cat_tag",
+     374868
+    ],
+    [
+     "pDesktop",
+     73141
+    ],
+    [
+     "area",
+     63159
+    ],
+    [
+     "lh",
+     43320
+    ],
+    [
+     "hs",
+     42573
+    ],
+    [
+     "fs",
+     41098
+    ],
+    [
+     "h",
+     37001
+    ],
+    [
+     "w",
+     31002
+    ],
+    [
+     "wr",
+     30403
+    ],
+    [
+     "cat_role",
+     29601
+    ],
+    [
+     "z",
+     28840
+    ],
+    [
+     "ar",
+     26086
+    ],
+    [
+     "tl",
+     25917
+    ],
+    [
+     "c1",
+     23982
+    ],
+    [
+     "cat_sc",
+     21309
+    ],
+    [
+     "eop",
+     21244
+    ],
+    [
+     "aspect",
+     19879
+    ],
+    [
+     "lkN",
+     17866
+    ],
+    [
+     "d",
+     17148
+    ],
+    [
+     "cat_disp",
+     16728
+    ],
+    [
+     "cr",
+     16501
+    ],
+    [
+     "c2",
+     15332
+    ],
+    [
+     "op",
+     15004
+    ],
+    [
+     "c0",
+     14184
+    ],
+    [
+     "swRatio",
+     14062
+    ]
+   ],
+   "predictSeconds-val": 0.08,
+   "predictSeconds-test": 0.07
+  }
+ }
+}

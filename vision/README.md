@@ -9,6 +9,8 @@ touched.
 The first full run (2026-10-14: 3,000 AI-builder and 600 control homepages, 35,074 injected faults in 13
 families, a 4.0M-row training set and a sanity baseline) is summarised in `results/README.md`; its raw data is on
 c20 in `~/vision-out`.
+Training and evaluation of the classifiers on that set, with a hand check of their flags on clean pages, is in
+`results/TRAINING.md`: the learned trees beat the measured thresholds on injected faults but not on real pages.
 
 Everything that loads a browser or queries Common Crawl runs on a cluster node, never on the Mac. The only thing
 meant for the Mac is the browser-free test (`npm test`).
@@ -24,6 +26,12 @@ meant for the Mac is the browser-free test (`npm test`).
 | `src/robots.mjs` | node | robots.txt rules (RFC 9309 matching) |
 | `src/build_set.mjs` | node | the training set from merged crawl shards: near-duplicate removal, host splits, feature matrices, labels, pixel verdicts, `summary.json` |
 | `train/baseline.py` | node | a sanity baseline on the training set (scikit-learn, the jev venv on the node) |
+| `train/common.py` | node | loading, model inputs, and the VISUAL.md measured thresholds as per-row rules |
+| `train/train_gbt.py`, `train/train_mlp.py` | node | LightGBM trees and a small MLP, fault against everything else |
+| `train/evaluate.py` | node | operating points chosen on dev, recall per family and per page at each false-report rate on test |
+| `train/export.py`, `train/gbt.mjs` | node | compact JSON tree export and ONNX, with a dependency-free JS evaluator and its parity and cost check |
+| `train/crops.py` | node | screenshot crops of flags on natural test pages for a hand check |
+| `results/train/gbt-small.json` | | the exported small model (not shipped) |
 | `results/` | | summaries copied from the node (no raw data) |
 | `scripts/node_setup.sh` | node | Node 22.22.0 (checksum verified), `npm ci`, Playwright Chromium and its system libraries, `~/vision-out` |
 | `scripts/cluster.sh` | Mac | `sync`, `setup`, `exec`, `crawl`, `status` over ssh, hosts from `~/.jev-local/azure_hosts` |

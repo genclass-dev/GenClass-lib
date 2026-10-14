@@ -8,6 +8,7 @@ four shards, and `~/vision-out/trainset`, 1.8 GB), on the OS disk, so it survive
 | `summary.json` | written by `src/build_set.mjs`: crawl success, views, extractor cost, faults per family and recipe, pixel verdicts, natural-signal prevalence, near-duplicate clusters, training-set counts |
 | `schema.json` | the training set's feature names (F = 112), categorical vocabularies, label and verdict definitions |
 | `baseline.json` | written by `train/baseline.py`: the sanity baseline below |
+| `TRAINING.md`, `train/` | the classifiers trained on this set (rules, LightGBM, MLP), their evaluation and hand checks |
 
 Run: branch `wave2/visual-data`; the crawl ran at 41f31c2, `build_set.mjs` and `train/baseline.py` at the commit
 that adds this file. Crawl on c20, c21, c22 and c23 (F80ads_v7, 80

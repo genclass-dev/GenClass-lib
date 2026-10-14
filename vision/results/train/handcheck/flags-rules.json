@@ -1,0 +1,1049 @@
+{
+ "stats": {
+  "model": "rules",
+  "op": "frr-0.1%",
+  "threshold": 0.5,
+  "naturalRows": 262293,
+  "flagged": 1389,
+  "flaggedInViewport": 642,
+  "withScreenshot": 642,
+  "sampled": 40,
+  "flaggedViews": 189,
+  "naturalViews": 708
+ },
+ "flags": [
+  {
+   "n": 0,
+   "sheet": 0,
+   "cell": 0,
+   "host": "site-065",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "lovable.app",
+   "v": 414,
+   "i": 45,
+   "row": 1317,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    251.5,
+    413.5,
+    231.3000030517578,
+    60.0
+   ],
+   "verdict": "unclear",
+   "why": "CTA button area empty: covered by a white layer while an animation runs"
+  },
+  {
+   "n": 1,
+   "sheet": 0,
+   "cell": 1,
+   "host": "site-066",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 3123,
+   "i": 310,
+   "row": 19053,
+   "score": 1.0,
+   "tag": "span",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    185.0,
+    784.5,
+    5.0,
+    5.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 2,
+   "sheet": 0,
+   "cell": 2,
+   "host": "site-067",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 3156,
+   "i": 722,
+   "row": 22978,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    15.0,
+    640.5999755859375,
+    360.0,
+    36.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 3,
+   "sheet": 0,
+   "cell": 3,
+   "host": "site-004",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 3295,
+   "i": 63,
+   "row": 25725,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    1159.0,
+    136.0,
+    154.0,
+    43.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 4,
+   "sheet": 1,
+   "cell": 0,
+   "host": "site-004",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 3295,
+   "i": 192,
+   "row": 25854,
+   "score": 1.0,
+   "tag": "img",
+   "rules": [
+    "image-distorted"
+   ],
+   "box": [
+    1080.800048828125,
+    607.2999877929688,
+    245.1999969482422,
+    153.1999969482422
+   ],
+   "verdict": "unclear",
+   "why": "image stretched 9% (image-distorted); not visible at this scale"
+  },
+  {
+   "n": 5,
+   "sheet": 1,
+   "cell": 1,
+   "host": "site-004",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 3297,
+   "i": 227,
+   "row": 26885,
+   "score": 1.0,
+   "tag": "img",
+   "rules": [
+    "image-distorted"
+   ],
+   "box": [
+    -167.0,
+    642.2000122070312,
+    256.5,
+    160.3000030517578
+   ],
+   "verdict": "unclear",
+   "why": "the same image on phone, mostly off screen"
+  },
+  {
+   "n": 6,
+   "sheet": 1,
+   "cell": 2,
+   "host": "site-068",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "replit.app",
+   "v": 3392,
+   "i": 2,
+   "row": 34835,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    16.0,
+    16.0,
+    44.0,
+    44.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 7,
+   "sheet": 1,
+   "cell": 3,
+   "host": "site-069",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "genspark.space",
+   "v": 3922,
+   "i": 4,
+   "row": 43623,
+   "score": 1.0,
+   "tag": "p",
+   "rules": [
+    "text-invisible"
+   ],
+   "box": [
+    123.0,
+    96.0,
+    1120.0,
+    28.0
+   ],
+   "verdict": "real",
+   "why": "paragraph of 26 characters invisible in a white card (text-invisible, 1:1 on both reads)"
+  },
+  {
+   "n": 8,
+   "sheet": 2,
+   "cell": 0,
+   "host": "site-070",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "emergent.host",
+   "v": 4055,
+   "i": 75,
+   "row": 44316,
+   "score": 1.0,
+   "tag": "span",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    1172.800048828125,
+    254.0,
+    16.0,
+    16.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 9,
+   "sheet": 2,
+   "cell": 1,
+   "host": "site-070",
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "domain": "emergent.host",
+   "v": 4059,
+   "i": 37,
+   "row": 44575,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    247.0,
+    755.0,
+    40.0,
+    40.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 10,
+   "sheet": 2,
+   "cell": 2,
+   "host": "site-070",
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "domain": "emergent.host",
+   "v": 4059,
+   "i": 92,
+   "row": 44630,
+   "score": 1.0,
+   "tag": "span",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    214.0,
+    349.0,
+    16.0,
+    16.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 11,
+   "sheet": 2,
+   "cell": 3,
+   "host": "site-071",
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "base44.app",
+   "v": 6790,
+   "i": 28,
+   "row": 63517,
+   "score": 1.0,
+   "tag": "input",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    41.0,
+    218.0,
+    308.0,
+    36.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 12,
+   "sheet": 3,
+   "cell": 0,
+   "host": "site-037",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 9026,
+   "i": 23,
+   "row": 75783,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    494.1000061035156,
+    97.5999984741211,
+    16.0,
+    16.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 13,
+   "sheet": 3,
+   "cell": 1,
+   "host": "site-037",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 9026,
+   "i": 36,
+   "row": 75796,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    893.0999755859375,
+    97.5999984741211,
+    156.0,
+    16.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 14,
+   "sheet": 3,
+   "cell": 2,
+   "host": "site-037",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 9026,
+   "i": 75,
+   "row": 75835,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    331.0,
+    482.8999938964844,
+    171.0,
+    41.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 15,
+   "sheet": 3,
+   "cell": 3,
+   "host": "site-037",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 9026,
+   "i": 102,
+   "row": 75862,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    967.0,
+    643.9000244140625,
+    233.0,
+    41.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 16,
+   "sheet": 4,
+   "cell": 0,
+   "host": "site-072",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 9955,
+   "i": 32,
+   "row": 89899,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    166.5,
+    114.0,
+    57.0,
+    14.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 17,
+   "sheet": 4,
+   "cell": 1,
+   "host": "site-073",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 10332,
+   "i": 30,
+   "row": 93187,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    16.0,
+    292.0,
+    358.0,
+    40.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 18,
+   "sheet": 4,
+   "cell": 2,
+   "host": "site-040",
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "replit.app",
+   "v": 10702,
+   "i": 42,
+   "row": 94210,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    70.30000305175781,
+    337.29998779296875,
+    172.0,
+    39.0
+   ],
+   "verdict": "real",
+   "why": "phone: floating pill links overlap the hero heading (control-unreachable)"
+  },
+  {
+   "n": 19,
+   "sheet": 4,
+   "cell": 3,
+   "host": "site-074",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 10734,
+   "i": 44,
+   "row": 96339,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    10.0,
+    168.6999969482422,
+    175.0,
+    52.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 20,
+   "sheet": 5,
+   "cell": 0,
+   "host": "site-074",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 10734,
+   "i": 94,
+   "row": 96389,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    205.0,
+    480.6000061035156,
+    175.0,
+    52.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 21,
+   "sheet": 5,
+   "cell": 1,
+   "host": "site-075",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "manus.space",
+   "v": 14273,
+   "i": 19,
+   "row": 129897,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "css-var-undefined"
+   ],
+   "box": [
+    120.0,
+    509.29998779296875,
+    273.3999938964844,
+    50.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 22,
+   "sheet": 5,
+   "cell": 2,
+   "host": "site-075",
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "manus.space",
+   "v": 14280,
+   "i": 19,
+   "row": 130395,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "css-var-undefined"
+   ],
+   "box": [
+    13.600000381469727,
+    516.9000244140625,
+    358.0,
+    50.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 23,
+   "sheet": 5,
+   "cell": 3,
+   "host": "site-076",
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "emergent.host",
+   "v": 19729,
+   "i": 46,
+   "row": 194011,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    276.5,
+    457.0,
+    24.0,
+    24.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 24,
+   "sheet": 6,
+   "cell": 0,
+   "host": "site-053",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 21466,
+   "i": 74,
+   "row": 214431,
+   "score": 1.0,
+   "tag": "li",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    648.2000122070312,
+    342.0,
+    36.0,
+    56.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 25,
+   "sheet": 6,
+   "cell": 1,
+   "host": "site-053",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 21466,
+   "i": 287,
+   "row": 214644,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    228.0,
+    398.0,
+    55.0,
+    121.5
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 26,
+   "sheet": 6,
+   "cell": 2,
+   "host": "site-053",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 21466,
+   "i": 2290,
+   "row": 216647,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    942.7000122070312,
+    678.7000122070312,
+    391.29998779296875,
+    45.599998474121094
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 27,
+   "sheet": 6,
+   "cell": 3,
+   "host": "site-053",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 21474,
+   "i": 21,
+   "row": 217298,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    82.0,
+    77.0,
+    211.8000030517578,
+    34.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 28,
+   "sheet": 7,
+   "cell": 0,
+   "host": "site-053",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 21474,
+   "i": 379,
+   "row": 217656,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    90.0,
+    630.4000244140625,
+    127.0,
+    21.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 29,
+   "sheet": 7,
+   "cell": 1,
+   "host": "site-053",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 21474,
+   "i": 380,
+   "row": 217657,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    91.0,
+    652.4000244140625,
+    167.0,
+    21.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 30,
+   "sheet": 7,
+   "cell": 2,
+   "host": "site-053",
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "domain": null,
+   "v": 21475,
+   "i": 26,
+   "row": 219768,
+   "score": 1.0,
+   "tag": "li",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    14.0,
+    122.0,
+    89.0,
+    35.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 31,
+   "sheet": 7,
+   "cell": 3,
+   "host": "site-077",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "lovable.app",
+   "v": 25934,
+   "i": 28,
+   "row": 257476,
+   "score": 1.0,
+   "tag": "img",
+   "rules": [
+    "image-broken"
+   ],
+   "box": [
+    58.29999923706055,
+    660.0,
+    79.0,
+    32.0
+   ],
+   "verdict": "real",
+   "why": "broken images showing alt text 'UPS logo' and a broken-image icon (image-broken)"
+  },
+  {
+   "n": 32,
+   "sheet": 8,
+   "cell": 0,
+   "host": "site-078",
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "lovable.app",
+   "v": 26632,
+   "i": 55,
+   "row": 268098,
+   "score": 1.0,
+   "tag": "div",
+   "rules": [
+    "page-overflow-x"
+   ],
+   "box": [
+    -8.0,
+    540.0999755859375,
+    96.0,
+    96.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 33,
+   "sheet": 8,
+   "cell": 1,
+   "host": "site-079",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "replit.app",
+   "v": 26755,
+   "i": 58,
+   "row": 269056,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    355.8999938964844,
+    484.0,
+    209.39999389648438,
+    40.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 34,
+   "sheet": 8,
+   "cell": 2,
+   "host": "site-080",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 27001,
+   "i": 39,
+   "row": 274827,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    18.0,
+    181.0,
+    264.0,
+    36.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 35,
+   "sheet": 8,
+   "cell": 3,
+   "host": "site-080",
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "domain": null,
+   "v": 27006,
+   "i": 42,
+   "row": 275704,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    18.0,
+    305.0,
+    354.0,
+    36.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 36,
+   "sheet": 9,
+   "cell": 0,
+   "host": "site-080",
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "domain": null,
+   "v": 27007,
+   "i": 44,
+   "row": 276398,
+   "score": 1.0,
+   "tag": "a",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    18.0,
+    341.0,
+    354.0,
+    36.0
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 37,
+   "sheet": 9,
+   "cell": 1,
+   "host": "site-062",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "lovable.app",
+   "v": 30989,
+   "i": 14,
+   "row": 321407,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    815.0,
+    430.1000061035156,
+    67.0,
+    36.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  },
+  {
+   "n": 38,
+   "sheet": 9,
+   "cell": 2,
+   "host": "site-081",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "manus.space",
+   "v": 32071,
+   "i": 60,
+   "row": 328245,
+   "score": 1.0,
+   "tag": "kbd",
+   "rules": [
+    "css-var-undefined"
+   ],
+   "box": [
+    950.5,
+    68.30000305175781,
+    26.0,
+    19.299999237060547
+   ],
+   "verdict": "not a bug"
+  },
+  {
+   "n": 39,
+   "sheet": 9,
+   "cell": 3,
+   "host": "site-082",
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "domain": "manus.space",
+   "v": 33279,
+   "i": 1333,
+   "row": 335858,
+   "score": 1.0,
+   "tag": "button",
+   "rules": [
+    "control-unreachable"
+   ],
+   "box": [
+    1286.0,
+    688.0,
+    64.0,
+    64.0
+   ],
+   "verdict": "not a bug",
+   "why": "under a consent or modal layer (control-unreachable)"
+  }
+ ],
+ "handCheck": {
+  "checked": 40,
+  "real": 3,
+  "unclear": 3,
+  "not a bug": 34,
+  "by": "Claude, from the saved viewport screenshots, 2026-10-14",
+  "rule": "real = a visitor would see something broken (unreadable, covered, missing, blank); unclear = cannot tell from the crop or may be intended; not a bug = renders as designed"
+ },
+ "note": "Hosts are pseudonyms (site-NNN). GenClass never publishes which crawled site had which finding; the mapping is kept off the repo."
+}

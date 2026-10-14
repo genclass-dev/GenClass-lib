@@ -1,0 +1,378 @@
+{
+ "inputs": [
+  "d",
+  "x",
+  "y",
+  "w",
+  "h",
+  "inv",
+  "vis",
+  "tt",
+  "tl",
+  "ln",
+  "tspill",
+  "fs",
+  "fw",
+  "lh",
+  "ia",
+  "cur",
+  "pen",
+  "dis",
+  "foc",
+  "sr",
+  "hs",
+  "ho",
+  "ha",
+  "hn",
+  "cmp",
+  "iok",
+  "nh",
+  "alt",
+  "dist",
+  "lazy",
+  "nosize",
+  "nca",
+  "cvis",
+  "eop",
+  "op",
+  "tf",
+  "flt",
+  "an",
+  "tsh",
+  "ell",
+  "lcl",
+  "bclip",
+  "clip",
+  "vu",
+  "vi",
+  "bgi",
+  "ebs",
+  "sbs",
+  "cr",
+  "scr",
+  "vb",
+  "wa",
+  "rs",
+  "verr",
+  "ftrap",
+  "nowrap",
+  "natW",
+  "zSet",
+  "z",
+  "swRatio",
+  "shRatio",
+  "swOver",
+  "shOver",
+  "area",
+  "aspect",
+  "hasParent",
+  "covered",
+  "scaSet",
+  "lkN",
+  "vpN",
+  "rwNum",
+  "tfcSet",
+  "c0",
+  "c1",
+  "c2",
+  "c3",
+  "bg0",
+  "bg1",
+  "bg2",
+  "bg3",
+  "eb0",
+  "eb1",
+  "eb2",
+  "eb3",
+  "sb0",
+  "sb1",
+  "sb2",
+  "sb3",
+  "cat_tag",
+  "cat_role",
+  "cat_disp",
+  "cat_pos",
+  "cat_ox",
+  "cat_oy",
+  "cat_fst",
+  "cat_ta",
+  "cat_why",
+  "cat_sc",
+  "cat_src",
+  "cat_bsrc",
+  "cat_of",
+  "cat_cpath",
+  "pDesktop",
+  "pAppDark",
+  "pVmeta",
+  "pVmetaDW",
+  "pSideways",
+  "pFontsLoaded",
+  "xr",
+  "rr",
+  "yr",
+  "br",
+  "wr",
+  "ar"
+ ],
+ "trainRows": 1652335,
+ "trainFaults": 54288,
+ "devRows": 309449,
+ "natSample": 800000,
+ "seed": 7,
+ "models": {
+  "gbt": {
+   "params": {
+    "objective": "binary",
+    "metric": "average_precision",
+    "num_threads": 80,
+    "seed": 7,
+    "verbose": -1,
+    "cat_smooth": 10,
+    "max_cat_to_onehot": 8,
+    "num_leaves": 63,
+    "learning_rate": 0.05,
+    "min_data_in_leaf": 40,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "lambda_l2": 1.0,
+    "max_bin": 255
+   },
+   "trees": 671,
+   "devAP": 0.6469368644339629,
+   "seconds": 18,
+   "topGain": [
+    [
+     "cat_tag",
+     660617
+    ],
+    [
+     "area",
+     129025
+    ],
+    [
+     "pDesktop",
+     103360
+    ],
+    [
+     "fs",
+     96012
+    ],
+    [
+     "cat_role",
+     77950
+    ],
+    [
+     "h",
+     75114
+    ],
+    [
+     "lh",
+     72584
+    ],
+    [
+     "hs",
+     71954
+    ],
+    [
+     "w",
+     71768
+    ],
+    [
+     "aspect",
+     62658
+    ],
+    [
+     "wr",
+     60618
+    ],
+    [
+     "d",
+     59867
+    ],
+    [
+     "cat_sc",
+     56717
+    ],
+    [
+     "tl",
+     56644
+    ],
+    [
+     "c1",
+     51612
+    ],
+    [
+     "c2",
+     47835
+    ],
+    [
+     "cr",
+     45526
+    ],
+    [
+     "cat_disp",
+     43670
+    ],
+    [
+     "c0",
+     42226
+    ],
+    [
+     "vb",
+     40912
+    ],
+    [
+     "eop",
+     40298
+    ],
+    [
+     "tt",
+     38663
+    ],
+    [
+     "z",
+     33670
+    ],
+    [
+     "lkN",
+     33459
+    ],
+    [
+     "x",
+     33138
+    ]
+   ],
+   "predictSeconds-val": 0.21,
+   "predictSeconds-test": 0.19
+  },
+  "gbt-small": {
+   "params": {
+    "objective": "binary",
+    "metric": "average_precision",
+    "num_threads": 80,
+    "seed": 7,
+    "verbose": -1,
+    "cat_smooth": 10,
+    "max_cat_to_onehot": 8,
+    "num_leaves": 15,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "min_data_in_leaf": 80,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "lambda_l2": 1.0,
+    "max_bin": 63
+   },
+   "trees": 299,
+   "devAP": 0.6122651471641306,
+   "seconds": 4,
+   "topGain": [
+    [
+     "cat_tag",
+     366686
+    ],
+    [
+     "area",
+     76981
+    ],
+    [
+     "pDesktop",
+     69754
+    ],
+    [
+     "fs",
+     42862
+    ],
+    [
+     "hs",
+     41830
+    ],
+    [
+     "h",
+     31465
+    ],
+    [
+     "z",
+     29500
+    ],
+    [
+     "lh",
+     29414
+    ],
+    [
+     "cat_role",
+     26557
+    ],
+    [
+     "w",
+     23858
+    ],
+    [
+     "aspect",
+     23140
+    ],
+    [
+     "eop",
+     22109
+    ],
+    [
+     "tl",
+     21190
+    ],
+    [
+     "op",
+     21146
+    ],
+    [
+     "cat_sc",
+     20522
+    ],
+    [
+     "c1",
+     19582
+    ],
+    [
+     "lkN",
+     17539
+    ],
+    [
+     "cr",
+     17404
+    ],
+    [
+     "wr",
+     17125
+    ],
+    [
+     "cat_disp",
+     15099
+    ],
+    [
+     "ar",
+     14639
+    ],
+    [
+     "d",
+     14159
+    ],
+    [
+     "cur",
+     12472
+    ],
+    [
+     "swRatio",
+     11441
+    ],
+    [
+     "hn",
+     10522
+    ]
+   ],
+   "predictSeconds-val": 0.05,
+   "predictSeconds-test": 0.05
+  }
+ }
+}

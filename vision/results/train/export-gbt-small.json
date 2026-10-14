@@ -1,0 +1,22 @@
+{
+ "model": "/home/azureuser/vision-out/models/model-gbt-small.txt",
+ "trees": 600,
+ "sampleRows": 20000,
+ "json": {
+  "path": "/home/azureuser/vision-out/export/gbt-small.json",
+  "bytes": 338693,
+  "gzipBytes": 95346,
+  "nodes": 8398,
+  "leaves": 8998,
+  "maxAbsDiffPython": 3.309543144536242e-07
+ },
+ "onnx": {
+  "path": "/home/azureuser/vision-out/export/gbt-small.onnx",
+  "bytes": 987275,
+  "maxAbsDiffLightGBM": 5.343232341026294e-07,
+  "secondsPerRowSingle": 2.1942019462585448e-05,
+  "secondsPerRowBatch": 1.0814285278320313e-05,
+  "threads": 1
+ },
+ "lightgbmSecondsPerRowBatch1Thread": 1.2304484844207764e-05
+}

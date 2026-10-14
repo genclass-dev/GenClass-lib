@@ -1,0 +1,252 @@
+{
+ "inputs": [
+  "d",
+  "x",
+  "y",
+  "w",
+  "h",
+  "inv",
+  "vis",
+  "tt",
+  "tl",
+  "ln",
+  "tspill",
+  "fs",
+  "fw",
+  "lh",
+  "ia",
+  "cur",
+  "pen",
+  "dis",
+  "foc",
+  "sr",
+  "hs",
+  "ho",
+  "ha",
+  "hn",
+  "cmp",
+  "iok",
+  "nh",
+  "alt",
+  "dist",
+  "lazy",
+  "nosize",
+  "nca",
+  "cvis",
+  "eop",
+  "op",
+  "tf",
+  "flt",
+  "an",
+  "tsh",
+  "ell",
+  "lcl",
+  "bclip",
+  "clip",
+  "vu",
+  "vi",
+  "bgi",
+  "ebs",
+  "sbs",
+  "cr",
+  "scr",
+  "vb",
+  "wa",
+  "rs",
+  "verr",
+  "ftrap",
+  "nowrap",
+  "natW",
+  "zSet",
+  "z",
+  "swRatio",
+  "shRatio",
+  "swOver",
+  "shOver",
+  "area",
+  "aspect",
+  "hasParent",
+  "covered",
+  "scaSet",
+  "lkN",
+  "vpN",
+  "rwNum",
+  "tfcSet",
+  "c0",
+  "c1",
+  "c2",
+  "c3",
+  "bg0",
+  "bg1",
+  "bg2",
+  "bg3",
+  "eb0",
+  "eb1",
+  "eb2",
+  "eb3",
+  "sb0",
+  "sb1",
+  "sb2",
+  "sb3",
+  "cat_tag",
+  "cat_role",
+  "cat_disp",
+  "cat_pos",
+  "cat_ox",
+  "cat_oy",
+  "cat_fst",
+  "cat_ta",
+  "cat_why",
+  "cat_sc",
+  "cat_src",
+  "cat_bsrc",
+  "cat_of",
+  "cat_cpath",
+  "pDesktop",
+  "pAppDark",
+  "pVmeta",
+  "pVmetaDW",
+  "pSideways",
+  "pFontsLoaded",
+  "xr",
+  "rr",
+  "yr",
+  "br",
+  "wr",
+  "ar"
+ ],
+ "trainRows": 1611280,
+ "trainFaults": 13233,
+ "devRows": 303968,
+ "natSample": 800000,
+ "seed": 7,
+ "pos": "seen",
+ "models": {
+  "gbt-seen": {
+   "params": {
+    "objective": "binary",
+    "metric": "average_precision",
+    "num_threads": 80,
+    "seed": 7,
+    "verbose": -1,
+    "cat_smooth": 10,
+    "max_cat_to_onehot": 8,
+    "num_leaves": 63,
+    "learning_rate": 0.05,
+    "min_data_in_leaf": 40,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "lambda_l2": 1.0,
+    "max_bin": 255
+   },
+   "trees": 950,
+   "devAP": 0.8359101851232982,
+   "seconds": 25,
+   "topGain": [
+    [
+     "wr",
+     167223
+    ],
+    [
+     "hs",
+     138052
+    ],
+    [
+     "y",
+     110171
+    ],
+    [
+     "cat_fst",
+     89836
+    ],
+    [
+     "cat_tag",
+     68978
+    ],
+    [
+     "area",
+     54432
+    ],
+    [
+     "yr",
+     33082
+    ],
+    [
+     "d",
+     30219
+    ],
+    [
+     "aspect",
+     23586
+    ],
+    [
+     "cur",
+     21637
+    ],
+    [
+     "lh",
+     20611
+    ],
+    [
+     "bg0",
+     20071
+    ],
+    [
+     "tspill",
+     19581
+    ],
+    [
+     "cr",
+     18978
+    ],
+    [
+     "fs",
+     18571
+    ],
+    [
+     "hn",
+     18432
+    ],
+    [
+     "inv",
+     16794
+    ],
+    [
+     "tl",
+     16471
+    ],
+    [
+     "h",
+     16254
+    ],
+    [
+     "ho",
+     15070
+    ],
+    [
+     "lkN",
+     14714
+    ],
+    [
+     "tt",
+     14706
+    ],
+    [
+     "cat_ox",
+     12343
+    ],
+    [
+     "w",
+     11947
+    ],
+    [
+     "rr",
+     11728
+    ]
+   ],
+   "predictSeconds-val": 0.37,
+   "predictSeconds-test": 0.34
+  }
+ }
+}

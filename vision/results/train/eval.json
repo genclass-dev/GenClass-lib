@@ -1,0 +1,8196 @@
+{
+ "splits": {
+  "val": {
+   "rows": 391801,
+   "natural": 282352,
+   "clean": 101978,
+   "controls": 238,
+   "faults": 7233,
+   "faultsPixelSeen": 1752,
+   "naturalViews": 808,
+   "injectedViewsWithFaultRows": 2244,
+   "hosts": 351
+  },
+  "test": {
+   "rows": 356967,
+   "natural": 262293,
+   "clean": 88468,
+   "controls": 212,
+   "faults": 5994,
+   "faultsPixelSeen": 1377,
+   "naturalViews": 708,
+   "injectedViewsWithFaultRows": 2014,
+   "hosts": 305
+  }
+ },
+ "models": {
+  "rules": {
+   "dev": {
+    "threshold": 0.5,
+    "frrNatural": 0.0052,
+    "flaggedNatural": 1479,
+    "cleanFlagged": 0.0106,
+    "controlsFlagged": 0.063,
+    "recall": 0.0565,
+    "recallPixelSeen": 0.0805,
+    "recallUnseen": 0.1233,
+    "recallOutOfViewport": 0.0322,
+    "byFamily": {
+     "blank": {
+      "rows": 224,
+      "recall": 0.0045,
+      "seenRows": 99,
+      "recallSeen": 0.0101
+     },
+     "controls": {
+      "rows": 2053,
+      "recall": 0.0399,
+      "seenRows": 270,
+      "recallSeen": 0.037
+     },
+     "dark": {
+      "rows": 187,
+      "recall": 0.0267,
+      "seenRows": 34,
+      "recallSeen": 0.0588
+     },
+     "design": {
+      "rows": 397,
+      "recall": 0.0,
+      "seenRows": 151,
+      "recallSeen": 0.0
+     },
+     "leaks": {
+      "rows": 281,
+      "recall": 0.4128,
+      "seenRows": 90,
+      "recallSeen": 0.4667
+     },
+     "media": {
+      "rows": 264,
+      "recall": 0.1288,
+      "seenRows": 109,
+      "recallSeen": 0.0642
+     },
+     "motion": {
+      "rows": 322,
+      "recall": 0.0031,
+      "seenRows": 74,
+      "recallSeen": 0.0
+     },
+     "occlusion": {
+      "rows": 274,
+      "recall": 0.0182,
+      "seenRows": 188,
+      "recallSeen": 0.016
+     },
+     "other": {
+      "rows": 952,
+      "recall": 0.0357,
+      "seenRows": 212,
+      "recallSeen": 0.1368
+     },
+     "overflow": {
+      "rows": 398,
+      "recall": 0.1759,
+      "seenRows": 132,
+      "recallSeen": 0.0985
+     },
+     "responsive": {
+      "rows": 250,
+      "recall": 0.02,
+      "seenRows": 87,
+      "recallSeen": 0.023
+     },
+     "styles": {
+      "rows": 1411,
+      "recall": 0.0312,
+      "seenRows": 232,
+      "recallSeen": 0.0862
+     },
+     "text": {
+      "rows": 249,
+      "recall": 0.0562,
+      "seenRows": 91,
+      "recallSeen": 0.1429
+     }
+    },
+    "pageFrr": 0.2525,
+    "pageFrrBy": {
+     "ai-builder/desktop-light": {
+      "pages": 281,
+      "flagged": 42,
+      "rate": 0.1495
+     },
+     "ai-builder/phone-dark": {
+      "pages": 98,
+      "flagged": 26,
+      "rate": 0.2653
+     },
+     "ai-builder/phone-light": {
+      "pages": 280,
+      "flagged": 60,
+      "rate": 0.2143
+     },
+     "control/desktop-light": {
+      "pages": 65,
+      "flagged": 32,
+      "rate": 0.4923
+     },
+     "control/phone-dark": {
+      "pages": 21,
+      "flagged": 10,
+      "rate": 0.4762
+     },
+     "control/phone-light": {
+      "pages": 63,
+      "flagged": 34,
+      "rate": 0.5397
+     }
+    },
+    "pageRecall": 0.1199,
+    "injectedPages": 2244,
+    "pageRecallByFamily": {
+     "blank": {
+      "pages": 217,
+      "recall": 0.0046
+     },
+     "controls": {
+      "pages": 281,
+      "recall": 0.1139
+     },
+     "dark": {
+      "pages": 157,
+      "recall": 0.0255
+     },
+     "design": {
+      "pages": 203,
+      "recall": 0.0
+     },
+     "leaks": {
+      "pages": 202,
+      "recall": 0.4406
+     },
+     "media": {
+      "pages": 262,
+      "recall": 0.1298
+     },
+     "motion": {
+      "pages": 175,
+      "recall": 0.0057
+     },
+     "occlusion": {
+      "pages": 271,
+      "recall": 0.0185
+     },
+     "other": {
+      "pages": 226,
+      "recall": 0.0487
+     },
+     "overflow": {
+      "pages": 336,
+      "recall": 0.2024
+     },
+     "responsive": {
+      "pages": 172,
+      "recall": 0.0291
+     },
+     "styles": {
+      "pages": 208,
+      "recall": 0.1154
+     },
+     "text": {
+      "pages": 119,
+      "recall": 0.0756
+     }
+    }
+   },
+   "test": {
+    "threshold": 0.5,
+    "frrNatural": 0.0053,
+    "flaggedNatural": 1389,
+    "cleanFlagged": 0.0083,
+    "controlsFlagged": 0.0472,
+    "recall": 0.0706,
+    "recallPixelSeen": 0.0668,
+    "recallUnseen": 0.1209,
+    "recallOutOfViewport": 0.0602,
+    "byFamily": {
+     "blank": {
+      "rows": 181,
+      "recall": 0.0,
+      "seenRows": 69,
+      "recallSeen": 0.0
+     },
+     "controls": {
+      "rows": 1704,
+      "recall": 0.0434,
+      "seenRows": 177,
+      "recallSeen": 0.0621
+     },
+     "dark": {
+      "rows": 173,
+      "recall": 0.0,
+      "seenRows": 40,
+      "recallSeen": 0.0
+     },
+     "design": {
+      "rows": 356,
+      "recall": 0.0056,
+      "seenRows": 132,
+      "recallSeen": 0.0076
+     },
+     "leaks": {
+      "rows": 223,
+      "recall": 0.3991,
+      "seenRows": 62,
+      "recallSeen": 0.5
+     },
+     "media": {
+      "rows": 242,
+      "recall": 0.1529,
+      "seenRows": 92,
+      "recallSeen": 0.0761
+     },
+     "motion": {
+      "rows": 262,
+      "recall": 0.0115,
+      "seenRows": 83,
+      "recallSeen": 0.0
+     },
+     "occlusion": {
+      "rows": 237,
+      "recall": 0.0169,
+      "seenRows": 160,
+      "recallSeen": 0.0125
+     },
+     "other": {
+      "rows": 736,
+      "recall": 0.1046,
+      "seenRows": 112,
+      "recallSeen": 0.0536
+     },
+     "overflow": {
+      "rows": 344,
+      "recall": 0.218,
+      "seenRows": 124,
+      "recallSeen": 0.0968
+     },
+     "responsive": {
+      "rows": 167,
+      "recall": 0.0419,
+      "seenRows": 66,
+      "recallSeen": 0.0303
+     },
+     "styles": {
+      "rows": 1114,
+      "recall": 0.0431,
+      "seenRows": 187,
+      "recallSeen": 0.0695
+     },
+     "text": {
+      "rows": 280,
+      "recall": 0.0357,
+      "seenRows": 88,
+      "recallSeen": 0.1023
+     }
+    },
+    "pageFrr": 0.2669,
+    "pageFrrBy": {
+     "ai-builder/desktop-light": {
+      "pages": 249,
+      "flagged": 41,
+      "rate": 0.1647
+     },
+     "ai-builder/phone-dark": {
+      "pages": 87,
+      "flagged": 26,
+      "rate": 0.2989
+     },
+     "ai-builder/phone-light": {
+      "pages": 251,
+      "flagged": 57,
+      "rate": 0.2271
+     },
+     "control/desktop-light": {
+      "pages": 51,
+      "flagged": 26,
+      "rate": 0.5098
+     },
+     "control/phone-dark": {
+      "pages": 18,
+      "flagged": 9,
+      "rate": 0.5
+     },
+     "control/phone-light": {
+      "pages": 52,
+      "flagged": 30,
+      "rate": 0.5769
+     }
+    },
+    "pageRecall": 0.1241,
+    "injectedPages": 2014,
+    "pageRecallByFamily": {
+     "blank": {
+      "pages": 179,
+      "recall": 0.0
+     },
+     "controls": {
+      "pages": 225,
+      "recall": 0.1067
+     },
+     "dark": {
+      "pages": 151,
+      "recall": 0.0
+     },
+     "design": {
+      "pages": 182,
+      "recall": 0.011
+     },
+     "leaks": {
+      "pages": 160,
+      "recall": 0.4062
+     },
+     "media": {
+      "pages": 240,
+      "recall": 0.1458
+     },
+     "motion": {
+      "pages": 177,
+      "recall": 0.0169
+     },
+     "occlusion": {
+      "pages": 237,
+      "recall": 0.0169
+     },
+     "other": {
+      "pages": 179,
+      "recall": 0.0559
+     },
+     "overflow": {
+      "pages": 318,
+      "recall": 0.2358
+     },
+     "responsive": {
+      "pages": 145,
+      "recall": 0.0483
+     },
+     "styles": {
+      "pages": 182,
+      "recall": 0.1209
+     },
+     "text": {
+      "pages": 141,
+      "recall": 0.0709
+     }
+    }
+   },
+   "perRule": {
+    "image-broken": {
+     "naturalFlagged": 274,
+     "frrNatural": 0.001,
+     "faultRowsFlagged": 102,
+     "controlsFlagged": 3,
+     "byFamily": {
+      "media": 30,
+      "other": 72
+     }
+    },
+    "media-failed": {
+     "naturalFlagged": 2,
+     "frrNatural": 0.0,
+     "faultRowsFlagged": 0,
+     "controlsFlagged": 0,
+     "byFamily": {}
+    },
+    "text-invisible": {
+     "naturalFlagged": 22,
+     "frrNatural": 0.0001,
+     "faultRowsFlagged": 18,
+     "controlsFlagged": 2,
+     "byFamily": {
+      "controls": 2,
+      "design": 1,
+      "occlusion": 3,
+      "styles": 7,
+      "text": 7
+     }
+    },
+    "text-template-leak": {
+     "naturalFlagged": 231,
+     "frrNatural": 0.0009,
+     "faultRowsFlagged": 65,
+     "controlsFlagged": 0,
+     "byFamily": {
+      "leaks": 65
+     }
+    },
+    "text-placeholder": {
+     "naturalFlagged": 0,
+     "frrNatural": 0.0,
+     "faultRowsFlagged": 0,
+     "controlsFlagged": 0,
+     "byFamily": {}
+    },
+    "css-var-undefined": {
+     "naturalFlagged": 217,
+     "frrNatural": 0.0008,
+     "faultRowsFlagged": 34,
+     "controlsFlagged": 0,
+     "byFamily": {
+      "controls": 3,
+      "leaks": 1,
+      "styles": 27,
+      "text": 3
+     }
+    },
+    "image-distorted": {
+     "naturalFlagged": 60,
+     "frrNatural": 0.0002,
+     "faultRowsFlagged": 9,
+     "controlsFlagged": 0,
+     "byFamily": {
+      "media": 7,
+      "other": 2
+     }
+    },
+    "page-overflow-x": {
+     "naturalFlagged": 79,
+     "frrNatural": 0.0003,
+     "faultRowsFlagged": 83,
+     "controlsFlagged": 5,
+     "byFamily": {
+      "motion": 3,
+      "occlusion": 1,
+      "overflow": 74,
+      "responsive": 4,
+      "styles": 2
+     }
+    },
+    "font-failed": {
+     "naturalFlagged": 0,
+     "frrNatural": 0.0,
+     "faultRowsFlagged": 0,
+     "controlsFlagged": 0,
+     "byFamily": {}
+    },
+    "pointer-events-leak": {
+     "naturalFlagged": 0,
+     "frrNatural": 0.0,
+     "faultRowsFlagged": 0,
+     "controlsFlagged": 0,
+     "byFamily": {}
+    },
+    "scroll-lock-stuck": {
+     "naturalFlagged": 0,
+     "frrNatural": 0.0,
+     "faultRowsFlagged": 0,
+     "controlsFlagged": 0,
+     "byFamily": {}
+    },
+    "click-blocked": {
+     "naturalFlagged": 4,
+     "frrNatural": 0.0,
+     "faultRowsFlagged": 1,
+     "controlsFlagged": 0,
+     "byFamily": {
+      "other": 1
+     }
+    },
+    "control-unreachable": {
+     "naturalFlagged": 502,
+     "frrNatural": 0.0019,
+     "faultRowsFlagged": 115,
+     "controlsFlagged": 0,
+     "byFamily": {
+      "controls": 69,
+      "design": 1,
+      "leaks": 23,
+      "other": 2,
+      "overflow": 1,
+      "responsive": 3,
+      "styles": 15,
+      "text": 1
+     }
+    },
+    "dialog-covered": {
+     "naturalFlagged": 0,
+     "frrNatural": 0.0,
+     "faultRowsFlagged": 0,
+     "controlsFlagged": 0,
+     "byFamily": {}
+    }
+   },
+   "pageFactsTest": {
+    "page-overflow-x (fact)": {
+     "naturalPages": 708,
+     "naturalFlagged": 48,
+     "pageLabelledInjectedPages": 756,
+     "pageLabelledFlagged": 93
+    },
+    "viewport-meta-missing": {
+     "naturalPages": 708,
+     "naturalFlagged": 0,
+     "pageLabelledInjectedPages": 756,
+     "pageLabelledFlagged": 0
+    },
+    "page-blank": {
+     "naturalPages": 708,
+     "naturalFlagged": 3,
+     "pageLabelledInjectedPages": 756,
+     "pageLabelledFlagged": 59
+    }
+   }
+  },
+  "rules-core": {
+   "dev": {
+    "threshold": 0.5,
+    "frrNatural": 0.002,
+    "flaggedNatural": 571,
+    "cleanFlagged": 0.0062,
+    "controlsFlagged": 0.0588,
+    "recall": 0.0369,
+    "recallPixelSeen": 0.0605,
+    "recallUnseen": 0.0169,
+    "recallOutOfViewport": 0.0322,
+    "byFamily": {
+     "blank": {
+      "rows": 224,
+      "recall": 0.0045,
+      "seenRows": 99,
+      "recallSeen": 0.0101
+     },
+     "controls": {
+      "rows": 2053,
+      "recall": 0.0029,
+      "seenRows": 270,
+      "recallSeen": 0.0148
+     },
+     "dark": {
+      "rows": 187,
+      "recall": 0.0,
+      "seenRows": 34,
+      "recallSeen": 0.0
+     },
+     "design": {
+      "rows": 397,
+      "recall": 0.0,
+      "seenRows": 151,
+      "recallSeen": 0.0
+     },
+     "leaks": {
+      "rows": 281,
+      "recall": 0.3167,
+      "seenRows": 90,
+      "recallSeen": 0.3889
+     },
+     "media": {
+      "rows": 264,
+      "recall": 0.1288,
+      "seenRows": 109,
+      "recallSeen": 0.0642
+     },
+     "motion": {
+      "rows": 322,
+      "recall": 0.0031,
+      "seenRows": 74,
+      "recallSeen": 0.0
+     },
+     "occlusion": {
+      "rows": 274,
+      "recall": 0.0182,
+      "seenRows": 188,
+      "recallSeen": 0.016
+     },
+     "other": {
+      "rows": 952,
+      "recall": 0.021,
+      "seenRows": 212,
+      "recallSeen": 0.0755
+     },
+     "overflow": {
+      "rows": 398,
+      "recall": 0.1734,
+      "seenRows": 132,
+      "recallSeen": 0.0985
+     },
+     "responsive": {
+      "rows": 250,
+      "recall": 0.012,
+      "seenRows": 87,
+      "recallSeen": 0.0115
+     },
+     "styles": {
+      "rows": 1411,
+      "recall": 0.0198,
+      "seenRows": 232,
+      "recallSeen": 0.0647
+     },
+     "text": {
+      "rows": 249,
+      "recall": 0.0522,
+      "seenRows": 91,
+      "recallSeen": 0.1319
+     }
+    },
+    "pageFrr": 0.146,
+    "pageFrrBy": {
+     "ai-builder/desktop-light": {
+      "pages": 281,
+      "flagged": 30,
+      "rate": 0.1068
+     },
+     "ai-builder/phone-dark": {
+      "pages": 98,
+      "flagged": 18,
+      "rate": 0.1837
+     },
+     "ai-builder/phone-light": {
+      "pages": 280,
+      "flagged": 38,
+      "rate": 0.1357
+     },
+     "control/desktop-light": {
+      "pages": 65,
+      "flagged": 11,
+      "rate": 0.1692
+     },
+     "control/phone-dark": {
+      "pages": 21,
+      "flagged": 5,
+      "rate": 0.2381
+     },
+     "control/phone-light": {
+      "pages": 63,
+      "flagged": 16,
+      "rate": 0.254
+     }
+    },
+    "pageRecall": 0.0887,
+    "injectedPages": 2244,
+    "pageRecallByFamily": {
+     "blank": {
+      "pages": 217,
+      "recall": 0.0046
+     },
+     "controls": {
+      "pages": 281,
+      "recall": 0.0107
+     },
+     "dark": {
+      "pages": 157,
+      "recall": 0.0
+     },
+     "design": {
+      "pages": 203,
+      "recall": 0.0
+     },
+     "leaks": {
+      "pages": 202,
+      "recall": 0.3119
+     },
+     "media": {
+      "pages": 262,
+      "recall": 0.1298
+     },
+     "motion": {
+      "pages": 175,
+      "recall": 0.0057
+     },
+     "occlusion": {
+      "pages": 271,
+      "recall": 0.0185
+     },
+     "other": {
+      "pages": 226,
+      "recall": 0.0221
+     },
+     "overflow": {
+      "pages": 336,
+      "recall": 0.1994
+     },
+     "responsive": {
+      "pages": 172,
+      "recall": 0.0174
+     },
+     "styles": {
+      "pages": 208,
+      "recall": 0.0817
+     },
+     "text": {
+      "pages": 119,
+      "recall": 0.0672
+     }
+    }
+   },
+   "test": {
+    "threshold": 0.5,
+    "frrNatural": 0.0034,
+    "flaggedNatural": 883,
+    "cleanFlagged": 0.0061,
+    "controlsFlagged": 0.0472,
+    "recall": 0.0512,
+    "recallPixelSeen": 0.0494,
+    "recallUnseen": 0.016,
+    "recallOutOfViewport": 0.0602,
+    "byFamily": {
+     "blank": {
+      "rows": 181,
+      "recall": 0.0,
+      "seenRows": 69,
+      "recallSeen": 0.0
+     },
+     "controls": {
+      "rows": 1704,
+      "recall": 0.0029,
+      "seenRows": 177,
+      "recallSeen": 0.0
+     },
+     "dark": {
+      "rows": 173,
+      "recall": 0.0,
+      "seenRows": 40,
+      "recallSeen": 0.0
+     },
+     "design": {
+      "rows": 356,
+      "recall": 0.0028,
+      "seenRows": 132,
+      "recallSeen": 0.0076
+     },
+     "leaks": {
+      "rows": 223,
+      "recall": 0.296,
+      "seenRows": 62,
+      "recallSeen": 0.3871
+     },
+     "media": {
+      "rows": 242,
+      "recall": 0.1529,
+      "seenRows": 92,
+      "recallSeen": 0.0761
+     },
+     "motion": {
+      "rows": 262,
+      "recall": 0.0115,
+      "seenRows": 83,
+      "recallSeen": 0.0
+     },
+     "occlusion": {
+      "rows": 237,
+      "recall": 0.0169,
+      "seenRows": 160,
+      "recallSeen": 0.0125
+     },
+     "other": {
+      "rows": 736,
+      "recall": 0.1005,
+      "seenRows": 112,
+      "recallSeen": 0.0446
+     },
+     "overflow": {
+      "rows": 344,
+      "recall": 0.2151,
+      "seenRows": 124,
+      "recallSeen": 0.0968
+     },
+     "responsive": {
+      "rows": 167,
+      "recall": 0.024,
+      "seenRows": 66,
+      "recallSeen": 0.0152
+     },
+     "styles": {
+      "rows": 1114,
+      "recall": 0.0296,
+      "seenRows": 187,
+      "recallSeen": 0.0535
+     },
+     "text": {
+      "rows": 280,
+      "recall": 0.0321,
+      "seenRows": 88,
+      "recallSeen": 0.0909
+     }
+    },
+    "pageFrr": 0.1794,
+    "pageFrrBy": {
+     "ai-builder/desktop-light": {
+      "pages": 249,
+      "flagged": 28,
+      "rate": 0.1124
+     },
+     "ai-builder/phone-dark": {
+      "pages": 87,
+      "flagged": 22,
+      "rate": 0.2529
+     },
+     "ai-builder/phone-light": {
+      "pages": 251,
+      "flagged": 41,
+      "rate": 0.1633
+     },
+     "control/desktop-light": {
+      "pages": 51,
+      "flagged": 17,
+      "rate": 0.3333
+     },
+     "control/phone-dark": {
+      "pages": 18,
+      "flagged": 5,
+      "rate": 0.2778
+     },
+     "control/phone-light": {
+      "pages": 52,
+      "flagged": 14,
+      "rate": 0.2692
+     }
+    },
+    "pageRecall": 0.0948,
+    "injectedPages": 2014,
+    "pageRecallByFamily": {
+     "blank": {
+      "pages": 179,
+      "recall": 0.0
+     },
+     "controls": {
+      "pages": 225,
+      "recall": 0.0178
+     },
+     "dark": {
+      "pages": 151,
+      "recall": 0.0
+     },
+     "design": {
+      "pages": 182,
+      "recall": 0.0055
+     },
+     "leaks": {
+      "pages": 160,
+      "recall": 0.2625
+     },
+     "media": {
+      "pages": 240,
+      "recall": 0.1458
+     },
+     "motion": {
+      "pages": 177,
+      "recall": 0.0169
+     },
+     "occlusion": {
+      "pages": 237,
+      "recall": 0.0169
+     },
+     "other": {
+      "pages": 179,
+      "recall": 0.0391
+     },
+     "overflow": {
+      "pages": 318,
+      "recall": 0.2327
+     },
+     "responsive": {
+      "pages": 145,
+      "recall": 0.0276
+     },
+     "styles": {
+      "pages": 182,
+      "recall": 0.0769
+     },
+     "text": {
+      "pages": 141,
+      "recall": 0.0638
+     }
+    }
+   }
+  },
+  "gbt": {
+   "ops": {
+    "frr-0.1%": {
+     "dev": {
+      "threshold": 0.5008957386016846,
+      "frrNatural": 0.001,
+      "flaggedNatural": 283,
+      "cleanFlagged": 0.0021,
+      "controlsFlagged": 0.0168,
+      "recall": 0.4247,
+      "recallPixelSeen": 0.6975,
+      "recallUnseen": 0.4185,
+      "recallOutOfViewport": 0.3192,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7589,
+        "seenRows": 99,
+        "recallSeen": 0.9899
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2504,
+        "seenRows": 270,
+        "recallSeen": 0.6519
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9412,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.1889,
+        "seenRows": 151,
+        "recallSeen": 0.3245
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.7509,
+        "seenRows": 90,
+        "recallSeen": 0.9556
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.7576,
+        "seenRows": 109,
+        "recallSeen": 0.8532
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9255,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8796,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1901,
+        "seenRows": 212,
+        "recallSeen": 0.3255
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8568,
+        "seenRows": 132,
+        "recallSeen": 0.9621
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.672,
+        "seenRows": 87,
+        "recallSeen": 0.908
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.2863,
+        "seenRows": 232,
+        "recallSeen": 0.5647
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.4578,
+        "seenRows": 91,
+        "recallSeen": 0.4286
+       }
+      },
+      "pageFrr": 0.0953,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 35,
+        "rate": 0.1246
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 1,
+        "rate": 0.0102
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 7,
+        "rate": 0.025
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 25,
+        "rate": 0.3846
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 8,
+        "rate": 0.127
+       }
+      },
+      "pageRecall": 0.7928,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7558
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.5765
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9427
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.2709
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.8713
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.7634
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.88
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8819
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.6195
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9167
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.7035
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.5673
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.6134
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.5008957386016846,
+      "frrNatural": 0.0011,
+      "flaggedNatural": 288,
+      "cleanFlagged": 0.0022,
+      "controlsFlagged": 0.0708,
+      "recall": 0.4598,
+      "recallPixelSeen": 0.7131,
+      "recallUnseen": 0.3979,
+      "recallOutOfViewport": 0.381,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7348,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.3157,
+        "seenRows": 177,
+        "recallSeen": 0.678
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9422,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.1994,
+        "seenRows": 132,
+        "recallSeen": 0.3106
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.7354,
+        "seenRows": 62,
+        "recallSeen": 0.9677
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.7769,
+        "seenRows": 92,
+        "recallSeen": 0.8478
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.8893,
+        "seenRows": 83,
+        "recallSeen": 0.9157
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8523,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.2514,
+        "seenRows": 112,
+        "recallSeen": 0.375
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9012,
+        "seenRows": 124,
+        "recallSeen": 0.9839
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.7246,
+        "seenRows": 66,
+        "recallSeen": 0.9242
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.2917,
+        "seenRows": 187,
+        "recallSeen": 0.4759
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.5036,
+        "seenRows": 88,
+        "recallSeen": 0.4659
+       }
+      },
+      "pageFrr": 0.1059,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 35,
+        "rate": 0.1406
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 1,
+        "rate": 0.0115
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 6,
+        "rate": 0.0239
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 26,
+        "rate": 0.5098
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 5,
+        "rate": 0.0962
+       }
+      },
+      "pageRecall": 0.787,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7374
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.5689
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.947
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2912
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.8688
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.7792
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9153
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8523
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.581
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9182
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.7655
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.5769
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.5603
+       }
+      }
+     }
+    },
+    "frr-1%": {
+     "dev": {
+      "threshold": 0.1909307986497879,
+      "frrNatural": 0.01,
+      "flaggedNatural": 2824,
+      "cleanFlagged": 0.0154,
+      "controlsFlagged": 0.105,
+      "recall": 0.5678,
+      "recallPixelSeen": 0.8174,
+      "recallUnseen": 0.5676,
+      "recallOutOfViewport": 0.47,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.8839,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.3512,
+        "seenRows": 270,
+        "recallSeen": 0.7444
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.984,
+        "seenRows": 34,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.3451,
+        "seenRows": 151,
+        "recallSeen": 0.6358
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.911,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.875,
+        "seenRows": 109,
+        "recallSeen": 0.9266
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9814,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8832,
+        "seenRows": 188,
+        "recallSeen": 0.9894
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.3687,
+        "seenRows": 212,
+        "recallSeen": 0.4717
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.9146,
+        "seenRows": 132,
+        "recallSeen": 1.0
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.844,
+        "seenRows": 87,
+        "recallSeen": 0.9425
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.5308,
+        "seenRows": 232,
+        "recallSeen": 0.8319
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.6948,
+        "seenRows": 91,
+        "recallSeen": 0.7143
+       }
+      },
+      "pageFrr": 0.4047,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 215,
+        "rate": 0.7651
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 7,
+        "rate": 0.0714
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 26,
+        "rate": 0.0929
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 58,
+        "rate": 0.8923
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 3,
+        "rate": 0.1429
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 18,
+        "rate": 0.2857
+       }
+      },
+      "pageRecall": 0.8859,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.8848
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.7367
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9809
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.4187
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.9653
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.874
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9771
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8856
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.7699
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9583
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.8605
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.774
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.8067
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.1909307986497879,
+      "frrNatural": 0.0095,
+      "flaggedNatural": 2504,
+      "cleanFlagged": 0.015,
+      "controlsFlagged": 0.1557,
+      "recall": 0.6181,
+      "recallPixelSeen": 0.8286,
+      "recallUnseen": 0.5861,
+      "recallOutOfViewport": 0.5481,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.8564,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.4302,
+        "seenRows": 177,
+        "recallSeen": 0.791
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9653,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.3343,
+        "seenRows": 132,
+        "recallSeen": 0.5379
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.9327,
+        "seenRows": 62,
+        "recallSeen": 1.0
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.8843,
+        "seenRows": 92,
+        "recallSeen": 0.8913
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.9275,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8608,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.4334,
+        "seenRows": 112,
+        "recallSeen": 0.5714
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.939,
+        "seenRows": 124,
+        "recallSeen": 0.9919
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.8503,
+        "seenRows": 66,
+        "recallSeen": 0.9697
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.6122,
+        "seenRows": 187,
+        "recallSeen": 0.7059
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.7857,
+        "seenRows": 88,
+        "recallSeen": 0.8523
+       }
+      },
+      "pageFrr": 0.4068,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 187,
+        "rate": 0.751
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 6,
+        "rate": 0.069
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 28,
+        "rate": 0.1116
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 47,
+        "rate": 0.9216
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 6,
+        "rate": 0.3333
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 14,
+        "rate": 0.2692
+       }
+      },
+      "pageRecall": 0.8699,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.8547
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.7467
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.9603
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.4231
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.975
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.8833
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9661
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8608
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.7654
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9497
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.8621
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.7637
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.7872
+       }
+      }
+     }
+    },
+    "match-rules": {
+     "dev": {
+      "threshold": 0.2622198164463043,
+      "frrNatural": 0.0052,
+      "flaggedNatural": 1479,
+      "cleanFlagged": 0.0086,
+      "controlsFlagged": 0.084,
+      "recall": 0.5194,
+      "recallPixelSeen": 0.7894,
+      "recallUnseen": 0.507,
+      "recallOutOfViewport": 0.4164,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7902,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.3025,
+        "seenRows": 270,
+        "recallSeen": 0.7148
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9679,
+        "seenRows": 34,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.3224,
+        "seenRows": 151,
+        "recallSeen": 0.6159
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.8505,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.8561,
+        "seenRows": 109,
+        "recallSeen": 0.9174
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9627,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8832,
+        "seenRows": 188,
+        "recallSeen": 0.9894
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2857,
+        "seenRows": 212,
+        "recallSeen": 0.3868
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.902,
+        "seenRows": 132,
+        "recallSeen": 1.0
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.796,
+        "seenRows": 87,
+        "recallSeen": 0.9425
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.4734,
+        "seenRows": 232,
+        "recallSeen": 0.7759
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.6345,
+        "seenRows": 91,
+        "recallSeen": 0.6374
+       }
+      },
+      "pageFrr": 0.276,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 141,
+        "rate": 0.5018
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 2,
+        "rate": 0.0204
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 12,
+        "rate": 0.0429
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 53,
+        "rate": 0.8154
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 2,
+        "rate": 0.0952
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 13,
+        "rate": 0.2063
+       }
+      },
+      "pageRecall": 0.857,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.788
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.6619
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9682
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.399
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.9554
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.855
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9486
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8856
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.7124
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9435
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.814
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.7163
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.7731
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.2622198164463043,
+      "frrNatural": 0.0048,
+      "flaggedNatural": 1250,
+      "cleanFlagged": 0.0084,
+      "controlsFlagged": 0.1321,
+      "recall": 0.5622,
+      "recallPixelSeen": 0.7865,
+      "recallUnseen": 0.5177,
+      "recallOutOfViewport": 0.4901,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.8343,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.3644,
+        "seenRows": 177,
+        "recallSeen": 0.7232
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9538,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.3034,
+        "seenRows": 132,
+        "recallSeen": 0.5076
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.8834,
+        "seenRows": 62,
+        "recallSeen": 1.0
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.8595,
+        "seenRows": 92,
+        "recallSeen": 0.8804
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.9237,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8565,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.3573,
+        "seenRows": 112,
+        "recallSeen": 0.4554
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9331,
+        "seenRows": 124,
+        "recallSeen": 0.9919
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.7904,
+        "seenRows": 66,
+        "recallSeen": 0.9242
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.5269,
+        "seenRows": 187,
+        "recallSeen": 0.6096
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.6929,
+        "seenRows": 88,
+        "recallSeen": 0.7614
+       }
+      },
+      "pageFrr": 0.298,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 131,
+        "rate": 0.5261
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 4,
+        "rate": 0.046
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 18,
+        "rate": 0.0717
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 43,
+        "rate": 0.8431
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 4,
+        "rate": 0.2222
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 11,
+        "rate": 0.2115
+       }
+      },
+      "pageRecall": 0.8436,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.8324
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.6489
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.9536
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.3956
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.9688
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.8583
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9605
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8565
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.6983
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9465
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.8138
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.6868
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.7376
+       }
+      }
+     }
+    },
+    "page-5%": {
+     "dev": {
+      "threshold": 0.6255548864603042,
+      "frrNatural": 0.0004,
+      "flaggedNatural": 107,
+      "cleanFlagged": 0.001,
+      "controlsFlagged": 0.0042,
+      "recall": 0.3803,
+      "recallPixelSeen": 0.6444,
+      "recallUnseen": 0.3608,
+      "recallOutOfViewport": 0.2812,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7545,
+        "seenRows": 99,
+        "recallSeen": 0.9899
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2299,
+        "seenRows": 270,
+        "recallSeen": 0.563
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9037,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.1511,
+        "seenRows": 151,
+        "recallSeen": 0.245
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.7295,
+        "seenRows": 90,
+        "recallSeen": 0.9222
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.7045,
+        "seenRows": 109,
+        "recallSeen": 0.8073
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.8758,
+        "seenRows": 74,
+        "recallSeen": 0.973
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8759,
+        "seenRows": 188,
+        "recallSeen": 0.9787
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1597,
+        "seenRows": 212,
+        "recallSeen": 0.2925
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8015,
+        "seenRows": 132,
+        "recallSeen": 0.9318
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.644,
+        "seenRows": 87,
+        "recallSeen": 0.8966
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.197,
+        "seenRows": 232,
+        "recallSeen": 0.4526
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.3133,
+        "seenRows": 91,
+        "recallSeen": 0.3187
+       }
+      },
+      "pageFrr": 0.0507,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 17,
+        "rate": 0.0605
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 1,
+        "rate": 0.0102
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 6,
+        "rate": 0.0214
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 10,
+        "rate": 0.1538
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 6,
+        "rate": 0.0952
+       }
+      },
+      "pageRecall": 0.7567,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7512
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.5196
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9045
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.2069
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.8663
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.7099
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.8057
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8782
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.5885
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.878
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6802
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.5192
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.4706
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.6255548864603042,
+      "frrNatural": 0.0007,
+      "flaggedNatural": 175,
+      "cleanFlagged": 0.0011,
+      "controlsFlagged": 0.033,
+      "recall": 0.4146,
+      "recallPixelSeen": 0.6834,
+      "recallUnseen": 0.3307,
+      "recallOutOfViewport": 0.3353,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7182,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.284,
+        "seenRows": 177,
+        "recallSeen": 0.5876
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9133,
+        "seenRows": 40,
+        "recallSeen": 0.975
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.1629,
+        "seenRows": 132,
+        "recallSeen": 0.2652
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.6906,
+        "seenRows": 62,
+        "recallSeen": 0.9516
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.7149,
+        "seenRows": 92,
+        "recallSeen": 0.8152
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.8435,
+        "seenRows": 83,
+        "recallSeen": 0.9036
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8523,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.1957,
+        "seenRows": 112,
+        "recallSeen": 0.375
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.8808,
+        "seenRows": 124,
+        "recallSeen": 0.9839
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6946,
+        "seenRows": 66,
+        "recallSeen": 0.9242
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.2271,
+        "seenRows": 187,
+        "recallSeen": 0.4385
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.3786,
+        "seenRows": 88,
+        "recallSeen": 0.3977
+       }
+      },
+      "pageFrr": 0.0636,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 18,
+        "rate": 0.0723
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 0,
+        "rate": 0.0
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 5,
+        "rate": 0.0199
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 16,
+        "rate": 0.3137
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 4,
+        "rate": 0.0769
+       }
+      },
+      "pageRecall": 0.7428,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7207
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.5022
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.9205
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2418
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.8125
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.7167
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.8475
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8523
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.5531
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.8962
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.7379
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.5055
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.461
+       }
+      }
+     }
+    },
+    "page-20%": {
+     "dev": {
+      "threshold": 0.34462528824806216,
+      "frrNatural": 0.0028,
+      "flaggedNatural": 799,
+      "cleanFlagged": 0.0055,
+      "controlsFlagged": 0.0798,
+      "recall": 0.4872,
+      "recallPixelSeen": 0.7666,
+      "recallUnseen": 0.4742,
+      "recallOutOfViewport": 0.3806,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7812,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2747,
+        "seenRows": 270,
+        "recallSeen": 0.7
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9679,
+        "seenRows": 34,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.2997,
+        "seenRows": 151,
+        "recallSeen": 0.6026
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.8078,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.8258,
+        "seenRows": 109,
+        "recallSeen": 0.8991
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9534,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8796,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2395,
+        "seenRows": 212,
+        "recallSeen": 0.3585
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8769,
+        "seenRows": 132,
+        "recallSeen": 0.9848
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.752,
+        "seenRows": 87,
+        "recallSeen": 0.9425
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.4323,
+        "seenRows": 232,
+        "recallSeen": 0.7198
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.5542,
+        "seenRows": 91,
+        "recallSeen": 0.5275
+       }
+      },
+      "pageFrr": 0.2005,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 92,
+        "rate": 0.3274
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 2,
+        "rate": 0.0204
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 10,
+        "rate": 0.0357
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 47,
+        "rate": 0.7231
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 10,
+        "rate": 0.1587
+       }
+      },
+      "pageRecall": 0.8373,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7788
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.6192
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9682
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.3842
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.9307
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.8244
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9314
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8819
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.6726
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9315
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.7907
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.6731
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.6975
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.34462528824806216,
+      "frrNatural": 0.0026,
+      "flaggedNatural": 690,
+      "cleanFlagged": 0.0051,
+      "controlsFlagged": 0.0991,
+      "recall": 0.522,
+      "recallPixelSeen": 0.7683,
+      "recallUnseen": 0.4686,
+      "recallOutOfViewport": 0.4439,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.779,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.341,
+        "seenRows": 177,
+        "recallSeen": 0.7062
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9538,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.2865,
+        "seenRows": 132,
+        "recallSeen": 0.5076
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.7892,
+        "seenRows": 62,
+        "recallSeen": 1.0
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.8347,
+        "seenRows": 92,
+        "recallSeen": 0.8587
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.9084,
+        "seenRows": 83,
+        "recallSeen": 0.9277
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8523,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.3003,
+        "seenRows": 112,
+        "recallSeen": 0.4286
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9215,
+        "seenRows": 124,
+        "recallSeen": 0.9839
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.7605,
+        "seenRows": 66,
+        "recallSeen": 0.9242
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.4452,
+        "seenRows": 187,
+        "recallSeen": 0.5401
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.6464,
+        "seenRows": 88,
+        "recallSeen": 0.7386
+       }
+      },
+      "pageFrr": 0.202,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 79,
+        "rate": 0.3173
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 2,
+        "rate": 0.023
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 12,
+        "rate": 0.0478
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 39,
+        "rate": 0.7647
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 9,
+        "rate": 0.1731
+       }
+      },
+      "pageRecall": 0.8237,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7765
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.6222
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.9536
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.3901
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.925
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.8375
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9435
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8523
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.648
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9403
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.7931
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.6264
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.7163
+       }
+      }
+     }
+    }
+   },
+   "valAP_faultVsNatural": 0.6722,
+   "valAUC_faultVsNatural": 0.9751,
+   "valAP_faultVsCleanControl": 0.7401,
+   "valAUC_faultVsCleanControl": 0.9631,
+   "testAP_faultVsNatural": 0.7067,
+   "testAUC_faultVsNatural": 0.9804,
+   "testAP_faultVsCleanControl": 0.7784,
+   "testAUC_faultVsCleanControl": 0.9713
+  },
+  "gbt-small": {
+   "ops": {
+    "frr-0.1%": {
+     "dev": {
+      "threshold": 0.5034689903259277,
+      "frrNatural": 0.001,
+      "flaggedNatural": 283,
+      "cleanFlagged": 0.0017,
+      "controlsFlagged": 0.0168,
+      "recall": 0.3968,
+      "recallPixelSeen": 0.6644,
+      "recallUnseen": 0.3986,
+      "recallOutOfViewport": 0.2915,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7545,
+        "seenRows": 99,
+        "recallSeen": 0.9899
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.244,
+        "seenRows": 270,
+        "recallSeen": 0.6
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9144,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.1612,
+        "seenRows": 151,
+        "recallSeen": 0.2649
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.7082,
+        "seenRows": 90,
+        "recallSeen": 0.9222
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.6856,
+        "seenRows": 109,
+        "recallSeen": 0.7982
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.8758,
+        "seenRows": 74,
+        "recallSeen": 0.9459
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8759,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1796,
+        "seenRows": 212,
+        "recallSeen": 0.3019
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8266,
+        "seenRows": 132,
+        "recallSeen": 0.9621
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.672,
+        "seenRows": 87,
+        "recallSeen": 0.8851
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.2353,
+        "seenRows": 232,
+        "recallSeen": 0.5043
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.3373,
+        "seenRows": 91,
+        "recallSeen": 0.4066
+       }
+      },
+      "pageFrr": 0.0879,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 35,
+        "rate": 0.1246
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 1,
+        "rate": 0.0102
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 6,
+        "rate": 0.0214
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 22,
+        "rate": 0.3385
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 6,
+        "rate": 0.0952
+       }
+      },
+      "pageRecall": 0.7545,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7512
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.5374
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9108
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.2167
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.8317
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.6908
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.7943
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8782
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.6062
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.8661
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6744
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.5433
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.5462
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.5034689903259277,
+      "frrNatural": 0.0012,
+      "flaggedNatural": 315,
+      "cleanFlagged": 0.0021,
+      "controlsFlagged": 0.0425,
+      "recall": 0.4199,
+      "recallPixelSeen": 0.6899,
+      "recallUnseen": 0.3637,
+      "recallOutOfViewport": 0.3337,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.6906,
+        "seenRows": 69,
+        "recallSeen": 0.9855
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.2911,
+        "seenRows": 177,
+        "recallSeen": 0.6158
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9075,
+        "seenRows": 40,
+        "recallSeen": 0.975
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.1685,
+        "seenRows": 132,
+        "recallSeen": 0.2576
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.6726,
+        "seenRows": 62,
+        "recallSeen": 0.9677
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.7066,
+        "seenRows": 92,
+        "recallSeen": 0.7826
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.8206,
+        "seenRows": 83,
+        "recallSeen": 0.9036
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8481,
+        "seenRows": 160,
+        "recallSeen": 0.9688
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.2092,
+        "seenRows": 112,
+        "recallSeen": 0.3482
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.8779,
+        "seenRows": 124,
+        "recallSeen": 0.9839
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6407,
+        "seenRows": 66,
+        "recallSeen": 0.8636
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.2352,
+        "seenRows": 187,
+        "recallSeen": 0.4225
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.4786,
+        "seenRows": 88,
+        "recallSeen": 0.6136
+       }
+      },
+      "pageFrr": 0.1088,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 32,
+        "rate": 0.1285
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 2,
+        "rate": 0.023
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 10,
+        "rate": 0.0398
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 25,
+        "rate": 0.4902
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 6,
+        "rate": 0.1154
+       }
+      },
+      "pageRecall": 0.7438,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.6927
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.5333
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.9007
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2527
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.775
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.7083
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.8136
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8481
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.5587
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.8994
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6759
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.5275
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.5603
+       }
+      }
+     }
+    },
+    "frr-1%": {
+     "dev": {
+      "threshold": 0.20802897214889526,
+      "frrNatural": 0.01,
+      "flaggedNatural": 2824,
+      "cleanFlagged": 0.0149,
+      "controlsFlagged": 0.1218,
+      "recall": 0.5512,
+      "recallPixelSeen": 0.7928,
+      "recallUnseen": 0.5527,
+      "recallOutOfViewport": 0.4562,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.8616,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.3463,
+        "seenRows": 270,
+        "recallSeen": 0.737
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.984,
+        "seenRows": 34,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.3224,
+        "seenRows": 151,
+        "recallSeen": 0.5828
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.9181,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.8371,
+        "seenRows": 109,
+        "recallSeen": 0.8716
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9658,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8796,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.4013,
+        "seenRows": 212,
+        "recallSeen": 0.4528
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.9095,
+        "seenRows": 132,
+        "recallSeen": 0.9924
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.772,
+        "seenRows": 87,
+        "recallSeen": 0.931
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.4812,
+        "seenRows": 232,
+        "recallSeen": 0.7888
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.5984,
+        "seenRows": 91,
+        "recallSeen": 0.6044
+       }
+      },
+      "pageFrr": 0.3861,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 209,
+        "rate": 0.7438
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 6,
+        "rate": 0.0612
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 19,
+        "rate": 0.0679
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 59,
+        "rate": 0.9077
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 3,
+        "rate": 0.1429
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 16,
+        "rate": 0.254
+       }
+      },
+      "pageRecall": 0.8659,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.8618
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.7189
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9873
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.3744
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.9802
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.8397
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9543
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8819
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.7611
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9554
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.7791
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.7452
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.7395
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.20802897214889526,
+      "frrNatural": 0.0095,
+      "flaggedNatural": 2504,
+      "cleanFlagged": 0.0145,
+      "controlsFlagged": 0.1557,
+      "recall": 0.6071,
+      "recallPixelSeen": 0.8126,
+      "recallUnseen": 0.5827,
+      "recallOutOfViewport": 0.5372,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.8287,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.4407,
+        "seenRows": 177,
+        "recallSeen": 0.7966
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9769,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.2921,
+        "seenRows": 132,
+        "recallSeen": 0.5152
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.9013,
+        "seenRows": 62,
+        "recallSeen": 0.9677
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.8471,
+        "seenRows": 92,
+        "recallSeen": 0.8478
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.9084,
+        "seenRows": 83,
+        "recallSeen": 0.9277
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8565,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.4239,
+        "seenRows": 112,
+        "recallSeen": 0.5804
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9215,
+        "seenRows": 124,
+        "recallSeen": 0.9919
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.7784,
+        "seenRows": 66,
+        "recallSeen": 0.9848
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.5925,
+        "seenRows": 187,
+        "recallSeen": 0.6417
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.7964,
+        "seenRows": 88,
+        "recallSeen": 0.8182
+       }
+      },
+      "pageFrr": 0.4054,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 185,
+        "rate": 0.743
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 8,
+        "rate": 0.092
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 29,
+        "rate": 0.1155
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 48,
+        "rate": 0.9412
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 4,
+        "rate": 0.2222
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 13,
+        "rate": 0.25
+       }
+      },
+      "pageRecall": 0.8496,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.8324
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.72
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.9735
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.3901
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.9563
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.85
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9379
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8565
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.7263
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9403
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.7862
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.7308
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.7589
+       }
+      }
+     }
+    },
+    "match-rules": {
+     "dev": {
+      "threshold": 0.280329167842865,
+      "frrNatural": 0.0052,
+      "flaggedNatural": 1479,
+      "cleanFlagged": 0.0077,
+      "controlsFlagged": 0.0924,
+      "recall": 0.4972,
+      "recallPixelSeen": 0.7586,
+      "recallUnseen": 0.496,
+      "recallOutOfViewport": 0.3949,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7768,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2947,
+        "seenRows": 270,
+        "recallSeen": 0.6963
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9626,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.2922,
+        "seenRows": 151,
+        "recallSeen": 0.5695
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.8327,
+        "seenRows": 90,
+        "recallSeen": 0.9444
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.803,
+        "seenRows": 109,
+        "recallSeen": 0.8624
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9596,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8796,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2794,
+        "seenRows": 212,
+        "recallSeen": 0.3679
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.892,
+        "seenRows": 132,
+        "recallSeen": 0.9924
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.74,
+        "seenRows": 87,
+        "recallSeen": 0.9195
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.4352,
+        "seenRows": 232,
+        "recallSeen": 0.7026
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.51,
+        "seenRows": 91,
+        "recallSeen": 0.5495
+       }
+      },
+      "pageFrr": 0.2537,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 121,
+        "rate": 0.4306
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 2,
+        "rate": 0.0204
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 13,
+        "rate": 0.0464
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 54,
+        "rate": 0.8308
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 2,
+        "rate": 0.0952
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 13,
+        "rate": 0.2063
+       }
+      },
+      "pageRecall": 0.8302,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7742
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.6299
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9682
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.3547
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.9554
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.8053
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9429
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8819
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.677
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9375
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.7326
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.6779
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.6975
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.280329167842865,
+      "frrNatural": 0.0047,
+      "flaggedNatural": 1232,
+      "cleanFlagged": 0.0076,
+      "controlsFlagged": 0.1179,
+      "recall": 0.5487,
+      "recallPixelSeen": 0.7705,
+      "recallUnseen": 0.5086,
+      "recallOutOfViewport": 0.4765,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7459,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.3656,
+        "seenRows": 177,
+        "recallSeen": 0.6949
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9538,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.2753,
+        "seenRows": 132,
+        "recallSeen": 0.5
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.8027,
+        "seenRows": 62,
+        "recallSeen": 0.9677
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.8264,
+        "seenRows": 92,
+        "recallSeen": 0.8478
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.8969,
+        "seenRows": 83,
+        "recallSeen": 0.9157
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8565,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.3641,
+        "seenRows": 112,
+        "recallSeen": 0.4732
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9157,
+        "seenRows": 124,
+        "recallSeen": 0.9919
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.7365,
+        "seenRows": 66,
+        "recallSeen": 0.9394
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.5045,
+        "seenRows": 187,
+        "recallSeen": 0.5615
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.7286,
+        "seenRows": 88,
+        "recallSeen": 0.7273
+       }
+      },
+      "pageFrr": 0.2782,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 120,
+        "rate": 0.4819
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 3,
+        "rate": 0.0345
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 19,
+        "rate": 0.0757
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 43,
+        "rate": 0.8431
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 3,
+        "rate": 0.1667
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 9,
+        "rate": 0.1731
+       }
+      },
+      "pageRecall": 0.8203,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7486
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.6222
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.947
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.3846
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.9187
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.8292
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9266
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8565
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.6704
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.934
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.7655
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.6429
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.695
+       }
+      }
+     }
+    },
+    "page-5%": {
+     "dev": {
+      "threshold": 0.609790727496147,
+      "frrNatural": 0.0005,
+      "flaggedNatural": 134,
+      "cleanFlagged": 0.0008,
+      "controlsFlagged": 0.0084,
+      "recall": 0.3589,
+      "recallPixelSeen": 0.6193,
+      "recallUnseen": 0.3499,
+      "recallOutOfViewport": 0.2588,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7545,
+        "seenRows": 99,
+        "recallSeen": 0.9899
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.228,
+        "seenRows": 270,
+        "recallSeen": 0.5407
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.877,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.1285,
+        "seenRows": 151,
+        "recallSeen": 0.2053
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.6762,
+        "seenRows": 90,
+        "recallSeen": 0.9222
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.6553,
+        "seenRows": 109,
+        "recallSeen": 0.7615
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.8416,
+        "seenRows": 74,
+        "recallSeen": 0.9324
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8723,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1513,
+        "seenRows": 212,
+        "recallSeen": 0.2642
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.7965,
+        "seenRows": 132,
+        "recallSeen": 0.947
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.532,
+        "seenRows": 87,
+        "recallSeen": 0.7011
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.163,
+        "seenRows": 232,
+        "recallSeen": 0.431
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.257,
+        "seenRows": 91,
+        "recallSeen": 0.3077
+       }
+      },
+      "pageFrr": 0.0507,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 17,
+        "rate": 0.0605
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 1,
+        "rate": 0.0102
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 4,
+        "rate": 0.0143
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 13,
+        "rate": 0.2
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 5,
+        "rate": 0.0794
+       }
+      },
+      "pageRecall": 0.7224,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7512
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.5125
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.8726
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.1675
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.802
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.6603
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.7486
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8745
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.5619
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.8482
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.5756
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.4856
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.4286
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.609790727496147,
+      "frrNatural": 0.0007,
+      "flaggedNatural": 174,
+      "cleanFlagged": 0.0011,
+      "controlsFlagged": 0.0283,
+      "recall": 0.3867,
+      "recallPixelSeen": 0.6601,
+      "recallUnseen": 0.3181,
+      "recallOutOfViewport": 0.3021,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.6851,
+        "seenRows": 69,
+        "recallSeen": 0.971
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.2758,
+        "seenRows": 177,
+        "recallSeen": 0.565
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.8844,
+        "seenRows": 40,
+        "recallSeen": 0.975
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.1461,
+        "seenRows": 132,
+        "recallSeen": 0.2273
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.6457,
+        "seenRows": 62,
+        "recallSeen": 0.9677
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.6694,
+        "seenRows": 92,
+        "recallSeen": 0.7826
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.7786,
+        "seenRows": 83,
+        "recallSeen": 0.8554
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8481,
+        "seenRows": 160,
+        "recallSeen": 0.9688
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.1522,
+        "seenRows": 112,
+        "recallSeen": 0.3036
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.8576,
+        "seenRows": 124,
+        "recallSeen": 0.9677
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6048,
+        "seenRows": 66,
+        "recallSeen": 0.8333
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.1948,
+        "seenRows": 187,
+        "recallSeen": 0.4064
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.3571,
+        "seenRows": 88,
+        "recallSeen": 0.4886
+       }
+      },
+      "pageFrr": 0.0579,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 13,
+        "rate": 0.0522
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 1,
+        "rate": 0.0115
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 6,
+        "rate": 0.0239
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 15,
+        "rate": 0.2941
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 4,
+        "rate": 0.0769
+       }
+      },
+      "pageRecall": 0.713,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.6872
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.5022
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.8808
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2143
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.7438
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.6708
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.7514
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8481
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.5251
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.8805
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6345
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.4725
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.4397
+       }
+      }
+     }
+    },
+    "page-20%": {
+     "dev": {
+      "threshold": 0.3393305718898773,
+      "frrNatural": 0.0033,
+      "flaggedNatural": 923,
+      "cleanFlagged": 0.0051,
+      "controlsFlagged": 0.0714,
+      "recall": 0.4637,
+      "recallPixelSeen": 0.7175,
+      "recallUnseen": 0.4702,
+      "recallOutOfViewport": 0.3628,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7634,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2669,
+        "seenRows": 270,
+        "recallSeen": 0.663
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9572,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.2065,
+        "seenRows": 151,
+        "recallSeen": 0.351
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.79,
+        "seenRows": 90,
+        "recallSeen": 0.9333
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.7803,
+        "seenRows": 109,
+        "recallSeen": 0.8532
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9472,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8796,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2363,
+        "seenRows": 212,
+        "recallSeen": 0.3208
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8769,
+        "seenRows": 132,
+        "recallSeen": 0.9924
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.728,
+        "seenRows": 87,
+        "recallSeen": 0.908
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.3948,
+        "seenRows": 232,
+        "recallSeen": 0.6552
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.4378,
+        "seenRows": 91,
+        "recallSeen": 0.4835
+       }
+      },
+      "pageFrr": 0.2005,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 87,
+        "rate": 0.3096
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 2,
+        "rate": 0.0204
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 12,
+        "rate": 0.0429
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 49,
+        "rate": 0.7538
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 11,
+        "rate": 0.1746
+       }
+      },
+      "pageRecall": 0.8084,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7604
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.5907
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9618
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.2611
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.9307
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.7824
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.92
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8819
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.6416
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9196
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.7209
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.6442
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.6723
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.3393305718898773,
+      "frrNatural": 0.0029,
+      "flaggedNatural": 760,
+      "cleanFlagged": 0.0051,
+      "controlsFlagged": 0.0991,
+      "recall": 0.5033,
+      "recallPixelSeen": 0.7371,
+      "recallUnseen": 0.4538,
+      "recallOutOfViewport": 0.4289,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7072,
+        "seenRows": 69,
+        "recallSeen": 0.9855
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.3386,
+        "seenRows": 177,
+        "recallSeen": 0.6667
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9538,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.1994,
+        "seenRows": 132,
+        "recallSeen": 0.303
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.7578,
+        "seenRows": 62,
+        "recallSeen": 0.9677
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.8099,
+        "seenRows": 92,
+        "recallSeen": 0.8261
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.8855,
+        "seenRows": 83,
+        "recallSeen": 0.9157
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8523,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.3111,
+        "seenRows": 112,
+        "recallSeen": 0.4107
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9099,
+        "seenRows": 124,
+        "recallSeen": 0.9919
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.7246,
+        "seenRows": 66,
+        "recallSeen": 0.9394
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.3977,
+        "seenRows": 187,
+        "recallSeen": 0.5348
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.6857,
+        "seenRows": 88,
+        "recallSeen": 0.7273
+       }
+      },
+      "pageFrr": 0.2147,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 84,
+        "rate": 0.3373
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 3,
+        "rate": 0.0345
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 16,
+        "rate": 0.0637
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 37,
+        "rate": 0.7255
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 3,
+        "rate": 0.1667
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 9,
+        "rate": 0.1731
+       }
+      },
+      "pageRecall": 0.7954,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7095
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.5733
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.947
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2967
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.8875
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.8125
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9096
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8523
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.6201
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9277
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.7586
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.6044
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.6809
+       }
+      }
+     }
+    }
+   },
+   "valAP_faultVsNatural": 0.6545,
+   "valAUC_faultVsNatural": 0.9739,
+   "valAP_faultVsCleanControl": 0.7322,
+   "valAUC_faultVsCleanControl": 0.9621,
+   "testAP_faultVsNatural": 0.6669,
+   "testAUC_faultVsNatural": 0.9785,
+   "testAP_faultVsCleanControl": 0.7663,
+   "testAUC_faultVsCleanControl": 0.9695
+  },
+  "mlp": {
+   "ops": {
+    "frr-0.1%": {
+     "dev": {
+      "threshold": 0.6061583757400513,
+      "frrNatural": 0.001,
+      "flaggedNatural": 283,
+      "cleanFlagged": 0.0018,
+      "controlsFlagged": 0.0168,
+      "recall": 0.3337,
+      "recallPixelSeen": 0.601,
+      "recallUnseen": 0.3469,
+      "recallOutOfViewport": 0.226,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7545,
+        "seenRows": 99,
+        "recallSeen": 0.9899
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.1642,
+        "seenRows": 270,
+        "recallSeen": 0.4852
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.7166,
+        "seenRows": 34,
+        "recallSeen": 0.8529
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.136,
+        "seenRows": 151,
+        "recallSeen": 0.2384
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.4911,
+        "seenRows": 90,
+        "recallSeen": 0.8333
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.697,
+        "seenRows": 109,
+        "recallSeen": 0.7798
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.8416,
+        "seenRows": 74,
+        "recallSeen": 0.973
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8321,
+        "seenRows": 188,
+        "recallSeen": 0.9574
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1985,
+        "seenRows": 212,
+        "recallSeen": 0.2783
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.799,
+        "seenRows": 132,
+        "recallSeen": 0.9167
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.384,
+        "seenRows": 87,
+        "recallSeen": 0.6322
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.1914,
+        "seenRows": 232,
+        "recallSeen": 0.4483
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.1687,
+        "seenRows": 91,
+        "recallSeen": 0.2308
+       }
+      },
+      "pageFrr": 0.0928,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 21,
+        "rate": 0.0747
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 4,
+        "rate": 0.0408
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 14,
+        "rate": 0.05
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 23,
+        "rate": 0.3538
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 2,
+        "rate": 0.0952
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 11,
+        "rate": 0.1746
+       }
+      },
+      "pageRecall": 0.7019,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7512
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.4484
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.7452
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.1823
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.5545
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.7023
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.8686
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8339
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.5973
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.8423
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.5407
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.5096
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.3109
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.6061583757400513,
+      "frrNatural": 0.0015,
+      "flaggedNatural": 395,
+      "cleanFlagged": 0.002,
+      "controlsFlagged": 0.0189,
+      "recall": 0.3695,
+      "recallPixelSeen": 0.6434,
+      "recallUnseen": 0.3022,
+      "recallOutOfViewport": 0.2845,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7182,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.2171,
+        "seenRows": 177,
+        "recallSeen": 0.5537
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.7572,
+        "seenRows": 40,
+        "recallSeen": 0.875
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.1433,
+        "seenRows": 132,
+        "recallSeen": 0.2727
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.4753,
+        "seenRows": 62,
+        "recallSeen": 0.871
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.7025,
+        "seenRows": 92,
+        "recallSeen": 0.7826
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.813,
+        "seenRows": 83,
+        "recallSeen": 0.9277
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8101,
+        "seenRows": 160,
+        "recallSeen": 0.9437
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.2446,
+        "seenRows": 112,
+        "recallSeen": 0.3393
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.8692,
+        "seenRows": 124,
+        "recallSeen": 0.9435
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.5928,
+        "seenRows": 66,
+        "recallSeen": 0.8485
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.2154,
+        "seenRows": 187,
+        "recallSeen": 0.3636
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.175,
+        "seenRows": 88,
+        "recallSeen": 0.2955
+       }
+      },
+      "pageFrr": 0.1314,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 34,
+        "rate": 0.1365
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 6,
+        "rate": 0.069
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 14,
+        "rate": 0.0558
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 24,
+        "rate": 0.4706
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 6,
+        "rate": 0.3333
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 9,
+        "rate": 0.1731
+       }
+      },
+      "pageRecall": 0.7021,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7207
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.44
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.7483
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2198
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.525
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.7042
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.8814
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8101
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.5642
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.8931
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6621
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.4945
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.2837
+       }
+      }
+     }
+    },
+    "frr-1%": {
+     "dev": {
+      "threshold": 0.20221950113773346,
+      "frrNatural": 0.01,
+      "flaggedNatural": 2824,
+      "cleanFlagged": 0.014,
+      "controlsFlagged": 0.1134,
+      "recall": 0.4932,
+      "recallPixelSeen": 0.7106,
+      "recallUnseen": 0.5457,
+      "recallOutOfViewport": 0.3961,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.875,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2957,
+        "seenRows": 270,
+        "recallSeen": 0.6296
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.9037,
+        "seenRows": 34,
+        "recallSeen": 0.8824
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.2065,
+        "seenRows": 151,
+        "recallSeen": 0.3113
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.7153,
+        "seenRows": 90,
+        "recallSeen": 0.8889
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.8182,
+        "seenRows": 109,
+        "recallSeen": 0.8624
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9379,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8759,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.3603,
+        "seenRows": 212,
+        "recallSeen": 0.3585
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8744,
+        "seenRows": 132,
+        "recallSeen": 0.9848
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.556,
+        "seenRows": 87,
+        "recallSeen": 0.8506
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.4699,
+        "seenRows": 232,
+        "recallSeen": 0.7112
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.3414,
+        "seenRows": 91,
+        "recallSeen": 0.4286
+       }
+      },
+      "pageFrr": 0.4307,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 205,
+        "rate": 0.7295
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 15,
+        "rate": 0.1531
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 38,
+        "rate": 0.1357
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 60,
+        "rate": 0.9231
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 5,
+        "rate": 0.2381
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 25,
+        "rate": 0.3968
+       }
+      },
+      "pageRecall": 0.8249,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.8756
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.6797
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.9172
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.2611
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.7822
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.8244
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9371
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8782
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.7257
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9107
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6802
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.7163
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.5882
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.20221950113773346,
+      "frrNatural": 0.0106,
+      "flaggedNatural": 2777,
+      "cleanFlagged": 0.0145,
+      "controlsFlagged": 0.1132,
+      "recall": 0.5325,
+      "recallPixelSeen": 0.7473,
+      "recallUnseen": 0.5051,
+      "recallOutOfViewport": 0.4599,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.8177,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.3838,
+        "seenRows": 177,
+        "recallSeen": 0.7006
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.9075,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.2022,
+        "seenRows": 132,
+        "recallSeen": 0.303
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.7399,
+        "seenRows": 62,
+        "recallSeen": 0.9032
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.843,
+        "seenRows": 92,
+        "recallSeen": 0.8696
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.8779,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8608,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.3859,
+        "seenRows": 112,
+        "recallSeen": 0.4107
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9128,
+        "seenRows": 124,
+        "recallSeen": 0.9839
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6946,
+        "seenRows": 66,
+        "recallSeen": 0.9091
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.5081,
+        "seenRows": 187,
+        "recallSeen": 0.6203
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.3429,
+        "seenRows": 88,
+        "recallSeen": 0.6136
+       }
+      },
+      "pageFrr": 0.4435,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 179,
+        "rate": 0.7189
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 15,
+        "rate": 0.1724
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 41,
+        "rate": 0.1633
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 47,
+        "rate": 0.9216
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 9,
+        "rate": 0.5
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 23,
+        "rate": 0.4423
+       }
+      },
+      "pageRecall": 0.8128,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.8156
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.6356
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.9139
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2857
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.7937
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.8417
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9379
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8608
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.6927
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9308
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.731
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.7088
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.5816
+       }
+      }
+     }
+    },
+    "match-rules": {
+     "dev": {
+      "threshold": 0.28138089179992676,
+      "frrNatural": 0.0052,
+      "flaggedNatural": 1479,
+      "cleanFlagged": 0.007,
+      "controlsFlagged": 0.0378,
+      "recall": 0.4361,
+      "recallPixelSeen": 0.6826,
+      "recallUnseen": 0.4861,
+      "recallOutOfViewport": 0.3281,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.808,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2367,
+        "seenRows": 270,
+        "recallSeen": 0.5963
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.8556,
+        "seenRows": 34,
+        "recallSeen": 0.8824
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.1814,
+        "seenRows": 151,
+        "recallSeen": 0.2715
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.5623,
+        "seenRows": 90,
+        "recallSeen": 0.8778
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.7879,
+        "seenRows": 109,
+        "recallSeen": 0.8257
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.913,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8577,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2941,
+        "seenRows": 212,
+        "recallSeen": 0.3208
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8719,
+        "seenRows": 132,
+        "recallSeen": 0.9848
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.524,
+        "seenRows": 87,
+        "recallSeen": 0.8506
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.3884,
+        "seenRows": 232,
+        "recallSeen": 0.6336
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.2972,
+        "seenRows": 91,
+        "recallSeen": 0.3736
+       }
+      },
+      "pageFrr": 0.3032,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 127,
+        "rate": 0.452
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 11,
+        "rate": 0.1122
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 28,
+        "rate": 0.1
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 54,
+        "rate": 0.8308
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 3,
+        "rate": 0.1429
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 22,
+        "rate": 0.3492
+       }
+      },
+      "pageRecall": 0.7865,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.8065
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.5836
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.8599
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.2414
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.6436
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.7939
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9257
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8598
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.677
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.9077
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.657
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.6827
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.5294
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.28138089179992676,
+      "frrNatural": 0.006,
+      "flaggedNatural": 1566,
+      "cleanFlagged": 0.008,
+      "controlsFlagged": 0.0425,
+      "recall": 0.4796,
+      "recallPixelSeen": 0.7153,
+      "recallUnseen": 0.4287,
+      "recallOutOfViewport": 0.4048,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7735,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.3327,
+        "seenRows": 177,
+        "recallSeen": 0.661
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.8555,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.177,
+        "seenRows": 132,
+        "recallSeen": 0.2955
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.6099,
+        "seenRows": 62,
+        "recallSeen": 0.8871
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.781,
+        "seenRows": 92,
+        "recallSeen": 0.837
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.855,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.827,
+        "seenRows": 160,
+        "recallSeen": 0.9625
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.3383,
+        "seenRows": 112,
+        "recallSeen": 0.3661
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.907,
+        "seenRows": 124,
+        "recallSeen": 0.9758
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6647,
+        "seenRows": 66,
+        "recallSeen": 0.8636
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.43,
+        "seenRows": 187,
+        "recallSeen": 0.5561
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.2821,
+        "seenRows": 88,
+        "recallSeen": 0.5114
+       }
+      },
+      "pageFrr": 0.322,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 122,
+        "rate": 0.49
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 10,
+        "rate": 0.1149
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 29,
+        "rate": 0.1155
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 45,
+        "rate": 0.8824
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 7,
+        "rate": 0.3889
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 15,
+        "rate": 0.2885
+       }
+      },
+      "pageRecall": 0.7756,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7709
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.5822
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.8543
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2637
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.675
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.7792
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.9153
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.827
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.6425
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9245
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.7103
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.6429
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.4894
+       }
+      }
+     }
+    },
+    "page-5%": {
+     "dev": {
+      "threshold": 0.7645195931196208,
+      "frrNatural": 0.0006,
+      "flaggedNatural": 159,
+      "cleanFlagged": 0.001,
+      "controlsFlagged": 0.0126,
+      "recall": 0.2923,
+      "recallPixelSeen": 0.5674,
+      "recallUnseen": 0.3091,
+      "recallOutOfViewport": 0.1806,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.75,
+        "seenRows": 99,
+        "recallSeen": 0.9798
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.132,
+        "seenRows": 270,
+        "recallSeen": 0.4222
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.5989,
+        "seenRows": 34,
+        "recallSeen": 0.7647
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.1209,
+        "seenRows": 151,
+        "recallSeen": 0.2053
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.452,
+        "seenRows": 90,
+        "recallSeen": 0.8111
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.6705,
+        "seenRows": 109,
+        "recallSeen": 0.7615
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.7671,
+        "seenRows": 74,
+        "recallSeen": 0.9595
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8285,
+        "seenRows": 188,
+        "recallSeen": 0.9574
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1544,
+        "seenRows": 212,
+        "recallSeen": 0.2736
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.7362,
+        "seenRows": 132,
+        "recallSeen": 0.8864
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.376,
+        "seenRows": 87,
+        "recallSeen": 0.6322
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.1432,
+        "seenRows": 232,
+        "recallSeen": 0.4052
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.0683,
+        "seenRows": 91,
+        "recallSeen": 0.0879
+       }
+      },
+      "pageFrr": 0.0507,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 9,
+        "rate": 0.032
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 0,
+        "rate": 0.0
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 7,
+        "rate": 0.025
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 14,
+        "rate": 0.2154
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 10,
+        "rate": 0.1587
+       }
+      },
+      "pageRecall": 0.6609,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7465
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.4093
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.6051
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.1626
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.505
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.6756
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.8114
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8303
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.5442
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.7887
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.5291
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.4808
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.1429
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.7645195931196208,
+      "frrNatural": 0.0007,
+      "flaggedNatural": 183,
+      "cleanFlagged": 0.0009,
+      "controlsFlagged": 0.0142,
+      "recall": 0.3252,
+      "recallPixelSeen": 0.6093,
+      "recallUnseen": 0.2737,
+      "recallOutOfViewport": 0.2326,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.6906,
+        "seenRows": 69,
+        "recallSeen": 0.971
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.179,
+        "seenRows": 177,
+        "recallSeen": 0.5254
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.6763,
+        "seenRows": 40,
+        "recallSeen": 0.825
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.132,
+        "seenRows": 132,
+        "recallSeen": 0.2576
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.4619,
+        "seenRows": 62,
+        "recallSeen": 0.871
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.6694,
+        "seenRows": 92,
+        "recallSeen": 0.7717
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.7634,
+        "seenRows": 83,
+        "recallSeen": 0.8916
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.8059,
+        "seenRows": 160,
+        "recallSeen": 0.9375
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.1916,
+        "seenRows": 112,
+        "recallSeen": 0.3036
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.7936,
+        "seenRows": 124,
+        "recallSeen": 0.879
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.5749,
+        "seenRows": 66,
+        "recallSeen": 0.8333
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.158,
+        "seenRows": 187,
+        "recallSeen": 0.3476
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.0964,
+        "seenRows": 88,
+        "recallSeen": 0.125
+       }
+      },
+      "pageFrr": 0.0678,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 12,
+        "rate": 0.0482
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 4,
+        "rate": 0.046
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 9,
+        "rate": 0.0359
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 14,
+        "rate": 0.2745
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 3,
+        "rate": 0.1667
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 6,
+        "rate": 0.1154
+       }
+      },
+      "pageRecall": 0.6589,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.6927
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.4133
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.6689
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2033
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.5188
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.6708
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.8249
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.8059
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.5307
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.8145
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6414
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.4341
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.1277
+       }
+      }
+     }
+    },
+    "page-20%": {
+     "dev": {
+      "threshold": 0.3785567164421082,
+      "frrNatural": 0.0027,
+      "flaggedNatural": 762,
+      "cleanFlagged": 0.0041,
+      "controlsFlagged": 0.021,
+      "recall": 0.3994,
+      "recallPixelSeen": 0.6575,
+      "recallUnseen": 0.4414,
+      "recallOutOfViewport": 0.2888,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7679,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.1982,
+        "seenRows": 270,
+        "recallSeen": 0.5407
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.8289,
+        "seenRows": 34,
+        "recallSeen": 0.8824
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.1587,
+        "seenRows": 151,
+        "recallSeen": 0.2583
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.5302,
+        "seenRows": 90,
+        "recallSeen": 0.8667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.7689,
+        "seenRows": 109,
+        "recallSeen": 0.8165
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.9068,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.8504,
+        "seenRows": 188,
+        "recallSeen": 0.9734
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2595,
+        "seenRows": 212,
+        "recallSeen": 0.3113
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.8543,
+        "seenRows": 132,
+        "recallSeen": 0.9621
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.492,
+        "seenRows": 87,
+        "recallSeen": 0.8161
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.3274,
+        "seenRows": 232,
+        "recallSeen": 0.5905
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.249,
+        "seenRows": 91,
+        "recallSeen": 0.3187
+       }
+      },
+      "pageFrr": 0.2005,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 69,
+        "rate": 0.2456
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 6,
+        "rate": 0.0612
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 22,
+        "rate": 0.0786
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 44,
+        "rate": 0.6769
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 2,
+        "rate": 0.0952
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 19,
+        "rate": 0.3016
+       }
+      },
+      "pageRecall": 0.7576,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.765
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.516
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.828
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.2118
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.604
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.7748
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.9143
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.8524
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.6327
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.8899
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6337
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.6394
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.4454
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.3785567164421082,
+      "frrNatural": 0.0036,
+      "flaggedNatural": 950,
+      "cleanFlagged": 0.0051,
+      "controlsFlagged": 0.0283,
+      "recall": 0.4381,
+      "recallPixelSeen": 0.6906,
+      "recallUnseen": 0.3865,
+      "recallOutOfViewport": 0.3572,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7348,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.2923,
+        "seenRows": 177,
+        "recallSeen": 0.6158
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.8208,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.1657,
+        "seenRows": 132,
+        "recallSeen": 0.2879
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.5291,
+        "seenRows": 62,
+        "recallSeen": 0.871
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.7562,
+        "seenRows": 92,
+        "recallSeen": 0.8152
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.8435,
+        "seenRows": 83,
+        "recallSeen": 0.9277
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.827,
+        "seenRows": 160,
+        "recallSeen": 0.9625
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.288,
+        "seenRows": 112,
+        "recallSeen": 0.3661
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.9041,
+        "seenRows": 124,
+        "recallSeen": 0.9758
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6527,
+        "seenRows": 66,
+        "recallSeen": 0.8636
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.3546,
+        "seenRows": 187,
+        "recallSeen": 0.4813
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.2393,
+        "seenRows": 88,
+        "recallSeen": 0.4318
+       }
+      },
+      "pageFrr": 0.2232,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 69,
+        "rate": 0.2771
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 7,
+        "rate": 0.0805
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 24,
+        "rate": 0.0956
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 36,
+        "rate": 0.7059
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 7,
+        "rate": 0.3889
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 15,
+        "rate": 0.2885
+       }
+      },
+      "pageRecall": 0.7443,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7318
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.52
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.8146
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.2473
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.5813
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.7583
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.8983
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.827
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.6034
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.9214
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6966
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.5824
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.4113
+       }
+      }
+     }
+    }
+   },
+   "valAP_faultVsNatural": 0.5818,
+   "valAUC_faultVsNatural": 0.9579,
+   "valAP_faultVsCleanControl": 0.6635,
+   "valAUC_faultVsCleanControl": 0.9397,
+   "testAP_faultVsNatural": 0.6093,
+   "testAUC_faultVsNatural": 0.9665,
+   "testAP_faultVsCleanControl": 0.7059,
+   "testAUC_faultVsCleanControl": 0.9533
+  },
+  "gbt-seen": {
+   "ops": {
+    "frr-0.1%": {
+     "dev": {
+      "threshold": 0.14160148799419403,
+      "frrNatural": 0.001,
+      "flaggedNatural": 283,
+      "cleanFlagged": 0.0034,
+      "controlsFlagged": 0.0168,
+      "recall": 0.2675,
+      "recallPixelSeen": 0.7723,
+      "recallUnseen": 0.3986,
+      "recallOutOfViewport": 0.0402,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7589,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.1242,
+        "seenRows": 270,
+        "recallSeen": 0.7074
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.2513,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.272,
+        "seenRows": 151,
+        "recallSeen": 0.5828
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.4377,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.4886,
+        "seenRows": 109,
+        "recallSeen": 0.8899
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.3975,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.7847,
+        "seenRows": 188,
+        "recallSeen": 0.9894
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1639,
+        "seenRows": 212,
+        "recallSeen": 0.3821
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.4724,
+        "seenRows": 132,
+        "recallSeen": 0.9924
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.488,
+        "seenRows": 87,
+        "recallSeen": 0.954
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.1701,
+        "seenRows": 232,
+        "recallSeen": 0.6466
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.2811,
+        "seenRows": 91,
+        "recallSeen": 0.7582
+       }
+      },
+      "pageFrr": 0.1757,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 94,
+        "rate": 0.3345
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 1,
+        "rate": 0.0102
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 8,
+        "rate": 0.0286
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 33,
+        "rate": 0.5077
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 5,
+        "rate": 0.0794
+       }
+      },
+      "pageRecall": 0.6141,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7558
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.4698
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.2611
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.3498
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.5396
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.4924
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.5143
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.786
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.6062
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.4911
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6395
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.5865
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.479
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.14160148799419403,
+      "frrNatural": 0.0009,
+      "flaggedNatural": 239,
+      "cleanFlagged": 0.0026,
+      "controlsFlagged": 0.0755,
+      "recall": 0.2611,
+      "recallPixelSeen": 0.7858,
+      "recallUnseen": 0.3637,
+      "recallOutOfViewport": 0.0439,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7017,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.1074,
+        "seenRows": 177,
+        "recallSeen": 0.7232
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.2659,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.2528,
+        "seenRows": 132,
+        "recallSeen": 0.5227
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.417,
+        "seenRows": 62,
+        "recallSeen": 1.0
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.4256,
+        "seenRows": 92,
+        "recallSeen": 0.8696
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.4389,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.7553,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.1508,
+        "seenRows": 112,
+        "recallSeen": 0.4643
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.4826,
+        "seenRows": 124,
+        "recallSeen": 0.9839
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6168,
+        "seenRows": 66,
+        "recallSeen": 0.9394
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.1679,
+        "seenRows": 187,
+        "recallSeen": 0.5508
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.2786,
+        "seenRows": 88,
+        "recallSeen": 0.8523
+       }
+      },
+      "pageFrr": 0.185,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 85,
+        "rate": 0.3414
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 4,
+        "rate": 0.046
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 7,
+        "rate": 0.0279
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 27,
+        "rate": 0.5294
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 6,
+        "rate": 0.1154
+       }
+      },
+      "pageRecall": 0.5879,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7039
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.4578
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.2583
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.3516
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.525
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.4292
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.4859
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.7553
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.5587
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.5126
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6828
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.5495
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.461
+       }
+      }
+     }
+    },
+    "frr-1%": {
+     "dev": {
+      "threshold": 0.0191251989454031,
+      "frrNatural": 0.01,
+      "flaggedNatural": 2824,
+      "cleanFlagged": 0.0253,
+      "controlsFlagged": 0.0756,
+      "recall": 0.3427,
+      "recallPixelSeen": 0.9115,
+      "recallUnseen": 0.6491,
+      "recallOutOfViewport": 0.051,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7589,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.2036,
+        "seenRows": 270,
+        "recallSeen": 0.8519
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.2674,
+        "seenRows": 34,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.3904,
+        "seenRows": 151,
+        "recallSeen": 0.8477
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.4698,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.5568,
+        "seenRows": 109,
+        "recallSeen": 0.945
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.4161,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.792,
+        "seenRows": 188,
+        "recallSeen": 0.9894
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2847,
+        "seenRows": 212,
+        "recallSeen": 0.7925
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.4899,
+        "seenRows": 132,
+        "recallSeen": 0.9924
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.536,
+        "seenRows": 87,
+        "recallSeen": 0.977
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.2721,
+        "seenRows": 232,
+        "recallSeen": 0.8793
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.3655,
+        "seenRows": 91,
+        "recallSeen": 0.9341
+       }
+      },
+      "pageFrr": 0.4889,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 263,
+        "rate": 0.9359
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 6,
+        "rate": 0.0612
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 30,
+        "rate": 0.1071
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 62,
+        "rate": 0.9538
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 6,
+        "rate": 0.2857
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 28,
+        "rate": 0.4444
+       }
+      },
+      "pageRecall": 0.6832,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7558
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.669
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.2675
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.4631
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.5743
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.5611
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.5429
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.7934
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.7876
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.5089
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.686
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.7356
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.5546
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.0191251989454031,
+      "frrNatural": 0.0087,
+      "flaggedNatural": 2280,
+      "cleanFlagged": 0.0182,
+      "controlsFlagged": 0.1604,
+      "recall": 0.3415,
+      "recallPixelSeen": 0.9136,
+      "recallUnseen": 0.6727,
+      "recallOutOfViewport": 0.0532,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7017,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.196,
+        "seenRows": 177,
+        "recallSeen": 0.8701
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.2717,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.368,
+        "seenRows": 132,
+        "recallSeen": 0.7879
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.426,
+        "seenRows": 62,
+        "recallSeen": 1.0
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.4711,
+        "seenRows": 92,
+        "recallSeen": 0.9348
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.4466,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.7637,
+        "seenRows": 160,
+        "recallSeen": 0.9812
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.2432,
+        "seenRows": 112,
+        "recallSeen": 0.8661
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.5029,
+        "seenRows": 124,
+        "recallSeen": 0.9919
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6407,
+        "seenRows": 66,
+        "recallSeen": 0.9545
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.3151,
+        "seenRows": 187,
+        "recallSeen": 0.8182
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.3857,
+        "seenRows": 88,
+        "recallSeen": 0.9886
+       }
+      },
+      "pageFrr": 0.4929,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 235,
+        "rate": 0.9438
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 10,
+        "rate": 0.1149
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 27,
+        "rate": 0.1076
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 49,
+        "rate": 0.9608
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 7,
+        "rate": 0.3889
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 21,
+        "rate": 0.4038
+       }
+      },
+      "pageRecall": 0.6574,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7039
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.6489
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.2649
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.511
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.5312
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.475
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.4915
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.7637
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.7263
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.5314
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6966
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.7473
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.5603
+       }
+      }
+     }
+    },
+    "match-rules": {
+     "dev": {
+      "threshold": 0.038585517555475235,
+      "frrNatural": 0.0052,
+      "flaggedNatural": 1479,
+      "cleanFlagged": 0.0131,
+      "controlsFlagged": 0.0672,
+      "recall": 0.3125,
+      "recallPixelSeen": 0.8545,
+      "recallUnseen": 0.5487,
+      "recallOutOfViewport": 0.0469,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7589,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.1612,
+        "seenRows": 270,
+        "recallSeen": 0.7667
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.2674,
+        "seenRows": 34,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.3501,
+        "seenRows": 151,
+        "recallSeen": 0.755
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.4626,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.5303,
+        "seenRows": 109,
+        "recallSeen": 0.9266
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.4068,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.792,
+        "seenRows": 188,
+        "recallSeen": 0.9894
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.2342,
+        "seenRows": 212,
+        "recallSeen": 0.6038
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.4824,
+        "seenRows": 132,
+        "recallSeen": 0.9924
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.52,
+        "seenRows": 87,
+        "recallSeen": 0.9655
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.2395,
+        "seenRows": 232,
+        "recallSeen": 0.7974
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.3534,
+        "seenRows": 91,
+        "recallSeen": 0.9231
+       }
+      },
+      "pageFrr": 0.4233,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 239,
+        "rate": 0.8505
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 4,
+        "rate": 0.0408
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 26,
+        "rate": 0.0929
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 54,
+        "rate": 0.8308
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 3,
+        "rate": 0.1429
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 16,
+        "rate": 0.254
+       }
+      },
+      "pageRecall": 0.6622,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7558
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.5801
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.2675
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.4236
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.5644
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.5344
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.5314
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.7934
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.7389
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.503
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6686
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.7163
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.5546
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.038585517555475235,
+      "frrNatural": 0.005,
+      "flaggedNatural": 1306,
+      "cleanFlagged": 0.0111,
+      "controlsFlagged": 0.1415,
+      "recall": 0.3143,
+      "recallPixelSeen": 0.8758,
+      "recallUnseen": 0.5519,
+      "recallOutOfViewport": 0.0519,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7017,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.1549,
+        "seenRows": 177,
+        "recallSeen": 0.8023
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.2659,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.3146,
+        "seenRows": 132,
+        "recallSeen": 0.6667
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.4215,
+        "seenRows": 62,
+        "recallSeen": 1.0
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.4587,
+        "seenRows": 92,
+        "recallSeen": 0.9239
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.4466,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.7595,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.216,
+        "seenRows": 112,
+        "recallSeen": 0.7589
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.5029,
+        "seenRows": 124,
+        "recallSeen": 0.9919
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6287,
+        "seenRows": 66,
+        "recallSeen": 0.9545
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.2774,
+        "seenRows": 187,
+        "recallSeen": 0.7807
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.3714,
+        "seenRows": 88,
+        "recallSeen": 0.9545
+       }
+      },
+      "pageFrr": 0.435,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 214,
+        "rate": 0.8594
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 8,
+        "rate": 0.092
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 23,
+        "rate": 0.0916
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 46,
+        "rate": 0.902
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 5,
+        "rate": 0.2778
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 12,
+        "rate": 0.2308
+       }
+      },
+      "pageRecall": 0.637,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7039
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.5867
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.2583
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.4396
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.525
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.4625
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.4915
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.7595
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.6704
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.5314
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6966
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.7033
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.5461
+       }
+      }
+     }
+    },
+    "page-5%": {
+     "dev": {
+      "threshold": 0.2974118769168853,
+      "frrNatural": 0.0003,
+      "flaggedNatural": 78,
+      "cleanFlagged": 0.0015,
+      "controlsFlagged": 0.0042,
+      "recall": 0.2455,
+      "recallPixelSeen": 0.7289,
+      "recallUnseen": 0.3459,
+      "recallOutOfViewport": 0.0335,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7455,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.1164,
+        "seenRows": 270,
+        "recallSeen": 0.6852
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.2406,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.2443,
+        "seenRows": 151,
+        "recallSeen": 0.5364
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.4164,
+        "seenRows": 90,
+        "recallSeen": 0.9556
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.4811,
+        "seenRows": 109,
+        "recallSeen": 0.8807
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.3882,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.7774,
+        "seenRows": 188,
+        "recallSeen": 0.984
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.125,
+        "seenRows": 212,
+        "recallSeen": 0.2877
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.4623,
+        "seenRows": 132,
+        "recallSeen": 0.9848
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.476,
+        "seenRows": 87,
+        "recallSeen": 0.9195
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.1276,
+        "seenRows": 232,
+        "recallSeen": 0.5345
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.2329,
+        "seenRows": 91,
+        "recallSeen": 0.6374
+       }
+      },
+      "pageFrr": 0.0507,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 22,
+        "rate": 0.0783
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 1,
+        "rate": 0.0102
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 4,
+        "rate": 0.0143
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 12,
+        "rate": 0.1846
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 0,
+        "rate": 0.0
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 2,
+        "rate": 0.0317
+       }
+      },
+      "pageRecall": 0.5905,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7558
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.4413
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.2484
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.3202
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.5248
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.4847
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.5086
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.7786
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.5221
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.4821
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6221
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.4712
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.4118
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.2974118769168853,
+      "frrNatural": 0.0003,
+      "flaggedNatural": 72,
+      "cleanFlagged": 0.0011,
+      "controlsFlagged": 0.0472,
+      "recall": 0.2426,
+      "recallPixelSeen": 0.7567,
+      "recallUnseen": 0.3079,
+      "recallOutOfViewport": 0.038,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.6961,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.0933,
+        "seenRows": 177,
+        "recallSeen": 0.7006
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.2601,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.2416,
+        "seenRows": 132,
+        "recallSeen": 0.5
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.3946,
+        "seenRows": 62,
+        "recallSeen": 0.9839
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.4215,
+        "seenRows": 92,
+        "recallSeen": 0.8587
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.4237,
+        "seenRows": 83,
+        "recallSeen": 0.9277
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.7553,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.1332,
+        "seenRows": 112,
+        "recallSeen": 0.3929
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.4738,
+        "seenRows": 124,
+        "recallSeen": 0.9758
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6108,
+        "seenRows": 66,
+        "recallSeen": 0.9394
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.1302,
+        "seenRows": 187,
+        "recallSeen": 0.492
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.2286,
+        "seenRows": 88,
+        "recallSeen": 0.7159
+       }
+      },
+      "pageFrr": 0.0692,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 27,
+        "rate": 0.1084
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 2,
+        "rate": 0.023
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 2,
+        "rate": 0.008
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 10,
+        "rate": 0.1961
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 6,
+        "rate": 0.1154
+       }
+      },
+      "pageRecall": 0.5636,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7039
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.4044
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.2517
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.3407
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.4938
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.425
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.4802
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.7553
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.514
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.5031
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6759
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.4286
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.4113
+       }
+      }
+     }
+    },
+    "page-20%": {
+     "dev": {
+      "threshold": 0.11805456876754761,
+      "frrNatural": 0.0013,
+      "flaggedNatural": 362,
+      "cleanFlagged": 0.004,
+      "controlsFlagged": 0.021,
+      "recall": 0.2737,
+      "recallPixelSeen": 0.7837,
+      "recallUnseen": 0.4215,
+      "recallOutOfViewport": 0.0407,
+      "byFamily": {
+       "blank": {
+        "rows": 224,
+        "recall": 0.7589,
+        "seenRows": 99,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 2053,
+        "recall": 0.1286,
+        "seenRows": 270,
+        "recallSeen": 0.7185
+       },
+       "dark": {
+        "rows": 187,
+        "recall": 0.2513,
+        "seenRows": 34,
+        "recallSeen": 0.9706
+       },
+       "design": {
+        "rows": 397,
+        "recall": 0.2746,
+        "seenRows": 151,
+        "recallSeen": 0.5894
+       },
+       "leaks": {
+        "rows": 281,
+        "recall": 0.4377,
+        "seenRows": 90,
+        "recallSeen": 0.9667
+       },
+       "media": {
+        "rows": 264,
+        "recall": 0.4962,
+        "seenRows": 109,
+        "recallSeen": 0.9083
+       },
+       "motion": {
+        "rows": 322,
+        "recall": 0.3975,
+        "seenRows": 74,
+        "recallSeen": 0.9865
+       },
+       "occlusion": {
+        "rows": 274,
+        "recall": 0.7883,
+        "seenRows": 188,
+        "recallSeen": 0.9894
+       },
+       "other": {
+        "rows": 952,
+        "recall": 0.1733,
+        "seenRows": 212,
+        "recallSeen": 0.3962
+       },
+       "overflow": {
+        "rows": 398,
+        "recall": 0.4749,
+        "seenRows": 132,
+        "recallSeen": 0.9924
+       },
+       "responsive": {
+        "rows": 250,
+        "recall": 0.488,
+        "seenRows": 87,
+        "recallSeen": 0.954
+       },
+       "styles": {
+        "rows": 1411,
+        "recall": 0.1821,
+        "seenRows": 232,
+        "recallSeen": 0.6767
+       },
+       "text": {
+        "rows": 249,
+        "recall": 0.3012,
+        "seenRows": 91,
+        "recallSeen": 0.8022
+       }
+      },
+      "pageFrr": 0.2005,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 281,
+        "flagged": 108,
+        "rate": 0.3843
+       },
+       "ai-builder/phone-dark": {
+        "pages": 98,
+        "flagged": 1,
+        "rate": 0.0102
+       },
+       "ai-builder/phone-light": {
+        "pages": 280,
+        "flagged": 10,
+        "rate": 0.0357
+       },
+       "control/desktop-light": {
+        "pages": 65,
+        "flagged": 36,
+        "rate": 0.5538
+       },
+       "control/phone-dark": {
+        "pages": 21,
+        "flagged": 1,
+        "rate": 0.0476
+       },
+       "control/phone-light": {
+        "pages": 63,
+        "flagged": 6,
+        "rate": 0.0952
+       }
+      },
+      "pageRecall": 0.6217,
+      "injectedPages": 2244,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 217,
+        "recall": 0.7558
+       },
+       "controls": {
+        "pages": 281,
+        "recall": 0.4875
+       },
+       "dark": {
+        "pages": 157,
+        "recall": 0.2611
+       },
+       "design": {
+        "pages": 203,
+        "recall": 0.3547
+       },
+       "leaks": {
+        "pages": 202,
+        "recall": 0.5396
+       },
+       "media": {
+        "pages": 262,
+        "recall": 0.5
+       },
+       "motion": {
+        "pages": 175,
+        "recall": 0.5143
+       },
+       "occlusion": {
+        "pages": 271,
+        "recall": 0.7897
+       },
+       "other": {
+        "pages": 226,
+        "recall": 0.6239
+       },
+       "overflow": {
+        "pages": 336,
+        "recall": 0.494
+       },
+       "responsive": {
+        "pages": 172,
+        "recall": 0.6395
+       },
+       "styles": {
+        "pages": 208,
+        "recall": 0.6154
+       },
+       "text": {
+        "pages": 119,
+        "recall": 0.4874
+       }
+      }
+     },
+     "test": {
+      "threshold": 0.11805456876754761,
+      "frrNatural": 0.0012,
+      "flaggedNatural": 302,
+      "cleanFlagged": 0.0032,
+      "controlsFlagged": 0.1038,
+      "recall": 0.2663,
+      "recallPixelSeen": 0.7974,
+      "recallUnseen": 0.3797,
+      "recallOutOfViewport": 0.0441,
+      "byFamily": {
+       "blank": {
+        "rows": 181,
+        "recall": 0.7017,
+        "seenRows": 69,
+        "recallSeen": 1.0
+       },
+       "controls": {
+        "rows": 1704,
+        "recall": 0.1115,
+        "seenRows": 177,
+        "recallSeen": 0.7232
+       },
+       "dark": {
+        "rows": 173,
+        "recall": 0.2659,
+        "seenRows": 40,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "rows": 356,
+        "recall": 0.2556,
+        "seenRows": 132,
+        "recallSeen": 0.5303
+       },
+       "leaks": {
+        "rows": 223,
+        "recall": 0.417,
+        "seenRows": 62,
+        "recallSeen": 1.0
+       },
+       "media": {
+        "rows": 242,
+        "recall": 0.438,
+        "seenRows": 92,
+        "recallSeen": 0.9022
+       },
+       "motion": {
+        "rows": 262,
+        "recall": 0.4389,
+        "seenRows": 83,
+        "recallSeen": 0.9398
+       },
+       "occlusion": {
+        "rows": 237,
+        "recall": 0.7553,
+        "seenRows": 160,
+        "recallSeen": 0.975
+       },
+       "other": {
+        "rows": 736,
+        "recall": 0.1617,
+        "seenRows": 112,
+        "recallSeen": 0.5179
+       },
+       "overflow": {
+        "rows": 344,
+        "recall": 0.4855,
+        "seenRows": 124,
+        "recallSeen": 0.9839
+       },
+       "responsive": {
+        "rows": 167,
+        "recall": 0.6168,
+        "seenRows": 66,
+        "recallSeen": 0.9394
+       },
+       "styles": {
+        "rows": 1114,
+        "recall": 0.1768,
+        "seenRows": 187,
+        "recallSeen": 0.5775
+       },
+       "text": {
+        "rows": 280,
+        "recall": 0.2821,
+        "seenRows": 88,
+        "recallSeen": 0.8636
+       }
+      },
+      "pageFrr": 0.2175,
+      "pageFrrBy": {
+       "ai-builder/desktop-light": {
+        "pages": 249,
+        "flagged": 102,
+        "rate": 0.4096
+       },
+       "ai-builder/phone-dark": {
+        "pages": 87,
+        "flagged": 4,
+        "rate": 0.046
+       },
+       "ai-builder/phone-light": {
+        "pages": 251,
+        "flagged": 9,
+        "rate": 0.0359
+       },
+       "control/desktop-light": {
+        "pages": 51,
+        "flagged": 31,
+        "rate": 0.6078
+       },
+       "control/phone-dark": {
+        "pages": 18,
+        "flagged": 2,
+        "rate": 0.1111
+       },
+       "control/phone-light": {
+        "pages": 52,
+        "flagged": 6,
+        "rate": 0.1154
+       }
+      },
+      "pageRecall": 0.5924,
+      "injectedPages": 2014,
+      "pageRecallByFamily": {
+       "blank": {
+        "pages": 179,
+        "recall": 0.7039
+       },
+       "controls": {
+        "pages": 225,
+        "recall": 0.4667
+       },
+       "dark": {
+        "pages": 151,
+        "recall": 0.2583
+       },
+       "design": {
+        "pages": 182,
+        "recall": 0.3571
+       },
+       "leaks": {
+        "pages": 160,
+        "recall": 0.525
+       },
+       "media": {
+        "pages": 240,
+        "recall": 0.4417
+       },
+       "motion": {
+        "pages": 177,
+        "recall": 0.4859
+       },
+       "occlusion": {
+        "pages": 237,
+        "recall": 0.7553
+       },
+       "other": {
+        "pages": 179,
+        "recall": 0.5698
+       },
+       "overflow": {
+        "pages": 318,
+        "recall": 0.5126
+       },
+       "responsive": {
+        "pages": 145,
+        "recall": 0.6828
+       },
+       "styles": {
+        "pages": 182,
+        "recall": 0.5604
+       },
+       "text": {
+        "pages": 141,
+        "recall": 0.4681
+       }
+      }
+     }
+    }
+   },
+   "valAP_faultVsNatural": 0.3891,
+   "valAUC_faultVsNatural": 0.8118,
+   "valAP_faultVsCleanControl": 0.4127,
+   "valAUC_faultVsCleanControl": 0.7233,
+   "testAP_faultVsNatural": 0.3877,
+   "testAUC_faultVsNatural": 0.8351,
+   "testAP_faultVsCleanControl": 0.4228,
+   "testAUC_faultVsCleanControl": 0.7568
+  }
+ }
+}
