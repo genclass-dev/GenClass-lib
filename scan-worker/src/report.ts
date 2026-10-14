@@ -8,7 +8,8 @@
 // is a finding in a category this scan did not measure.
 
 import { categoryOf, describe, isAudit, isVisual, KINDS, ruleOf, severityOf, standardsOf, suggestFix, type Kind, type RawFinding, type Source } from "./catalog.ts";
-import type { ProbeResult, ScanResult, VisualFixes } from "./scan.ts";
+import { FAMILY_WORDS, FIND_THRESHOLD, JUDGE_EVAL, JUDGE_LABEL, JUDGE_MODEL, JUDGE_NAME, JUDGE_PLATFORM, JUDGE_PROMPT, judgeCost, KEEP_THRESHOLD, NOT_JUDGED, VERDICT_WORDS, type JudgeResult } from "./judge.ts";
+import type { JudgeRun, ProbeResult, ScanResult, VisualFixes } from "./scan.ts";
 import { LCP_GOOD_MS, LCP_POOR_MS, TIMING_NOTE } from "./audits.ts";
 import { CATEGORIES, ruleImpact, score, SEVERITY_ORDER, type Category, type ScoreBreakdown, type Severity } from "./score.ts";
 import type { Standard } from "./standards.ts";
@@ -19,7 +20,7 @@ import { FIX_KINDS, RUNTIME_VERSION, visualKey, visualStatus } from "./visual.ts
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 6;
+export const REPORT_VERSION = 7;
 
 export interface Finding {
   n: number;
@@ -54,6 +55,40 @@ export interface Finding {
   genclass: { status: "fixed" | "not-fixed" | "reported"; text: string };
   /** Why the finding is listed but not scored (it may come from the scanner's stand-in answers); null when scored. */
   unscored: string | null;
+  /** What the model judge said about it (src/judge.ts), when it was asked; null otherwise. */
+  judge: FindingJudge | null;
+}
+
+/** The model judge on one finding: what it said in each view it was asked in, with the crop it saw. */
+export interface FindingJudge {
+  /**
+   * "kept": it agreed with a measured finding; "fine": it judged the element as probably fine in every view the
+   * finding appeared in, so the finding is listed, not scored; "unanswered": it did not answer in every view, so the
+   * finding stands as measured; "found": a finding of the model's own.
+   */
+  outcome: "kept" | "fine" | "unanswered" | "found";
+  name: string;
+  model: string;
+  /** The threshold that applied: KEEP_THRESHOLD for a measured finding, FIND_THRESHOLD for the model's own. */
+  threshold: number;
+  /** The highest score over the views it answered in. */
+  score: number | null;
+  text: string;
+  views: {
+    view: string;
+    score: number | null;
+    verdict: string;
+    verdictP: number;
+    fineP: number;
+    family: string;
+    familyP: number;
+    noneP: number;
+    /** The crop the model saw (a screenshot URL on this origin), its size, and the element's box inside it. */
+    crop: string | null;
+    cropSize: [number, number];
+    inCrop: [number, number, number, number];
+    error: string | null;
+  }[];
 }
 
 export interface Report {
@@ -92,6 +127,18 @@ export interface Report {
     /** Whether GenClass guard measurably stopped the double click's repeat, tied to its own action on that request. */
     guardClick: { acted: boolean; how: string | null };
   };
+  /** The model judge over the scan (src/judge.ts): its calls, answers, cost and what it changed. */
+  judge: {
+    on: boolean; name: string; model: string; platform: string; prompt: string;
+    calls: number; answered: number; timeouts: number; failed: number; tokens: number; usd: number;
+    msMedian: number | null; msMax: number | null; wallMs: number | null; prepMs: Record<string, number>;
+    keepThreshold: number; findThreshold: number;
+    /** Measured findings it agreed with, judged as probably fine, did not answer on; findings of its own. */
+    kept: number; fine: number; unanswered: number; found: number;
+    note: string;
+    /** Every element it was asked about, with its answer (no crop): what it was shown, and what it said. */
+    asked: { view: string; cls: string; kind: string; selector: string; score: number | null; verdict: string; family: string; error: string | null; ms: number }[];
+  };
   notes: string[];
 }
 
@@ -108,6 +155,7 @@ function identity(f: RawFinding): string {
   const d = f.detail ?? {};
   if (f.kind === "genclass-detection") return `${f.kind}|${String(d.diagnosis)}|${String(d.subject)}`;
   if (f.kind === "axe") return `axe|${String(d.rule)}`;
+  if (f.kind === "visual-judged") return `${f.kind}|${f.selector}|${String(d.at ?? "")}`;
   if (isAudit(f.kind)) return `audit|${f.kind}`;
   if (isVisual(f.kind)) return visualKey(f);
   return `${f.kind}|${f.selector}`;
@@ -274,7 +322,114 @@ export function guardSetting(aggr: string, margin: number | null, holdMs: number
 
 
 /** Kinds whose evidence can come from the scanner's stand-in answer to a POST made while the page loaded. */
-const STAND_IN_KINDS = new Set<Kind>(["text-template-leak", "text-placeholder", "image-broken", "page-blank", "js-error", "console-error"]);
+const STAND_IN_KINDS = new Set<Kind>(["text-template-leak", "text-placeholder", "image-broken", "page-blank", "js-error", "console-error", "visual-judged"]);
+
+// ------------------------------------------------------------------------------------------ the model judge
+
+/** Why a measured finding the model judged as probably fine is listed and not scored. */
+export const JUDGE_FINE_NOTE = `Listed, not scored (a model judged it as probably fine): ${JUDGE_NAME}, a model on ${JUDGE_PLATFORM}, scored a crop of the screenshot below ${KEEP_THRESHOLD} in every view this appeared in. The finding is shown as it was measured; look at the crop before deciding.`;
+
+const pct = (p: number): string => `${Math.round(p * 100)}%`;
+const s4 = (x: number): string => x.toFixed(4);
+
+/** Results the report shows a crop for: every measured finding the judge was asked about, and the model's own findings. */
+export function judgeCropsToKeep(r: ScanResult): JudgeResult[] {
+  return r.views.flatMap((v) => (v.judged ?? []).filter((j) => j.cls === "finding" || (j.answer !== null && j.answer.score >= FIND_THRESHOLD)));
+}
+
+/** How much of the smaller of two boxes the other covers (0 to 1). */
+function overlap(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): number {
+  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+  const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+  const small = Math.min(a.w * a.h, b.w * b.h);
+  return w > 0 && h > 0 && small > 0 ? (w * h) / small : 0;
+}
+
+/** A finding of the model's own: what it said, in words that never claim a measurement. */
+export function judgedFinding(j: JudgeResult): RawFinding | null {
+  const a = j.answer;
+  if (!a) return null;
+  const verdict = a.verdict ? `that ${VERDICT_WORDS[a.verdict] ?? a.verdict} (${pct(a.verdictP)})` : "that something is wrong";
+  const family = a.family ? `, a problem of ${FAMILY_WORDS[a.family] ?? a.family} (${pct(a.familyP)})` : "";
+  return {
+    kind: "visual-judged",
+    selector: j.selector,
+    box: j.box,
+    measured: `${JUDGE_LABEL}, not measured. It answered ${verdict}${family}, and gave ${pct(a.noneP)} to nothing being wrong: score ${s4(a.score)}, where the model's own findings start at ${FIND_THRESHOLD}.`,
+    detail: { verdict: a.verdict, family: a.family, score: a.score, at: `${Math.round(j.box.x)},${Math.round(j.box.y)}` },
+  };
+}
+
+/** One view's answer about a finding, for the report, with the crop's URL. */
+function judgeViewOf(j: JudgeResult, cropUrl: (id: string) => string | null): FindingJudge["views"][number] {
+  const a = j.answer;
+  return {
+    view: j.view,
+    score: a ? a.score : null,
+    verdict: a?.verdict ?? "",
+    verdictP: a?.verdictP ?? 0,
+    fineP: a?.fineP ?? 0,
+    family: a?.family ?? "",
+    familyP: a?.familyP ?? 0,
+    noneP: a?.noneP ?? 0,
+    crop: cropUrl(j.id),
+    cropSize: [j.crop.w, j.crop.h],
+    inCrop: j.crop.inCrop,
+    error: a ? null : j.error ?? "timeout",
+  };
+}
+
+/**
+ * What the model judge said about one merged finding, from its results in the views the finding appeared in. A
+ * measured finding is "fine" only when every one of those views was answered and scored below KEEP_THRESHOLD; "kept"
+ * when one reached it; otherwise "unanswered". Null when the judge was not asked about it.
+ */
+export function findingJudge(raw: RawFinding, views: readonly string[], r: ScanResult, cropUrl: (id: string) => string | null): FindingJudge | null {
+  const byView = new Map(r.views.map((v) => [v.id as string, v.judged ?? []]));
+  if (raw.kind === "visual-judged") {
+    const at = String(raw.detail?.at ?? "");
+    const res = views.map((v) => (byView.get(v) ?? []).find((j) => j.cls !== "finding" && j.selector === raw.selector && `${Math.round(j.box.x)},${Math.round(j.box.y)}` === at && j.answer)).filter((j): j is JudgeResult => !!j);
+    if (!res.length) return null;
+    const best = res.reduce((x, y) => ((y.answer?.score ?? 0) > (x.answer?.score ?? 0) ? y : x));
+    return {
+      outcome: "found", name: JUDGE_NAME, model: JUDGE_MODEL, threshold: FIND_THRESHOLD, score: best.answer?.score ?? null,
+      text: `${JUDGE_LABEL}, on ${JUDGE_PLATFORM}. Not a measured check: on the labelled crops of its evaluation, an element it scored at ${FIND_THRESHOLD} or more was a real problem ${JUDGE_EVAL.find.real} times in ${JUDGE_EVAL.find.flagged} (labels by AI labeller agents, not people).`,
+      views: res.map((j) => judgeViewOf(j, cropUrl)),
+    };
+  }
+  if (!isVisual(raw.kind) || NOT_JUDGED.has(raw.kind)) return null;
+  const key = identity(raw);
+  const per = views.map((v) => (byView.get(v) ?? []).find((j) => j.cls === "finding" && j.key === key) ?? null);
+  const asked = per.filter((j): j is JudgeResult => j !== null);
+  if (!asked.length) return null;
+  const scores = per.map((j) => j?.answer?.score ?? null);
+  const answered = scores.filter((s): s is number => s !== null);
+  const top = answered.length ? Math.max(...answered) : null;
+  const outcome: FindingJudge["outcome"] = top !== null && top >= KEEP_THRESHOLD ? "kept" : scores.every((s) => s !== null && s < KEEP_THRESHOLD) ? "fine" : "unanswered";
+  const best = asked.reduce((x, y) => ((y.answer?.score ?? -1) > (x.answer?.score ?? -1) ? y : x));
+  const a = best.answer;
+  const said = a ? (outcome === "fine" ? `${VERDICT_WORDS.fine} (${pct(a.fineP)})` : `${a.verdict ? VERDICT_WORDS[a.verdict] ?? a.verdict : "something is wrong"} (${pct(a.verdictP)})`) : "";
+  const text =
+    outcome === "kept"
+      ? `${JUDGE_NAME}, a model on ${JUDGE_PLATFORM}, looked at a crop of the screenshot and agreed something is wrong: score ${s4(top as number)}; a measured finding stays scored from ${KEEP_THRESHOLD}. It answered that ${said}.`
+      : outcome === "fine"
+        ? `${JUDGE_NAME}, a model on ${JUDGE_PLATFORM}, judged it as probably fine from a crop of the screenshot: score ${s4(top as number)}${asked.length > 1 ? " at most" : ""}, below the ${KEEP_THRESHOLD} a measured finding needs to stay scored. It answered that ${said}.`
+        : `${JUDGE_NAME}, a model on ${JUDGE_PLATFORM}, was asked about this element but did not answer in every view it appeared in, so it stands as measured.`;
+  return { outcome, name: JUDGE_NAME, model: JUDGE_MODEL, threshold: KEEP_THRESHOLD, score: top, text, views: asked.map((j) => judgeViewOf(j, cropUrl)) };
+}
+
+/** The judge's line under the findings: what it was asked, what it changed, and how it was measured. */
+export function judgeNote(run: JudgeRun | undefined, list: readonly Finding[]): string {
+  if (!run || !run.on) return "The model judge is off in this copy of the scanner, so every finding comes from the measured checks.";
+  if (!run.calls) return "The model judge was on but asked about nothing on this load (no element it could crop, or no time left), so every finding comes from the measured checks.";
+  const n = (o: FindingJudge["outcome"]) => list.filter((f) => f.judge?.outcome === o).length;
+  const parts = [
+    `A model, ${JUDGE_NAME} on ${JUDGE_PLATFORM}, was asked about ${run.calls} ${run.calls === 1 ? "element" : "elements"} from crops of the screenshots and answered ${run.answered}${run.timeouts ? ` (${run.timeouts} not in time)` : ""}${run.failed ? `, ${run.failed} failed` : ""}.`,
+    `Of the measured findings it saw, it agreed with ${n("kept")} and judged ${n("fine")} as probably fine (listed, not scored); it made ${n("found")} ${n("found") === 1 ? "finding" : "findings"} of its own, each labelled "${JUDGE_LABEL}".`,
+    "Every other finding comes from the measured checks.",
+  ];
+  return parts.join(" ");
+}
 export const STAND_IN_NOTE =
   "The page sent requests other than GET while loading and the scanner answered them itself, so this may come from that stand-in answer rather than from the site.";
 /** Kinds whose evidence can come from files the scanner refused to load (a lookup that failed, a private answer). */
@@ -377,7 +532,11 @@ const listWords = (xs: string[]): string => (xs.length <= 1 ? xs.join("") : `${x
 
 export function buildReport(
   target: Target,
-  ids: { id: string; key: string; at: Date; runtime: string; axe?: string; shotUrl: (view: string) => string | null; guardHoldMs: number | null; guardAggressiveness?: string; guardMargin?: number | null },
+  ids: {
+    id: string; key: string; at: Date; runtime: string; axe?: string; shotUrl: (view: string) => string | null; guardHoldMs: number | null; guardAggressiveness?: string; guardMargin?: number | null;
+    /** The URL of a judged element's crop ("<view>-j<n>"), when it was saved. */
+    cropUrl?: (id: string) => string | null;
+  },
   r: ScanResult,
   flags: { withGenClass: boolean },
 ): Report {
@@ -408,6 +567,17 @@ export function buildReport(
     for (const f of v.findings) if (Object.hasOwn(KINDS, f.kind)) add(f, v.id);
     for (const f of v.audits ?? []) if (Object.hasOwn(KINDS, f.kind)) add(f, v.id);
   }
+  // the model judge's own findings: elements the measured checks abstain on that it scored at FIND_THRESHOLD or more,
+  // unless a measured finding in that view is about the same place
+  for (const v of r.views) {
+    for (const j of v.judged ?? []) {
+      if (j.cls === "finding" || !j.answer || j.answer.score < FIND_THRESHOLD) continue;
+      if ([...v.findings, ...(v.audits ?? [])].some((f) => f.box && overlap(f.box, j.box) >= 0.6)) continue;
+      const f = judgedFinding(j);
+      if (f) add(f, v.id);
+    }
+  }
+  const cropUrl = ids.cropUrl ?? (() => null);
   // a phone view laid out wider than the phone because there is no viewport meta tag, when the visual checks did not say so
   if (![...merged.values()].some((e) => e.raw.kind === "viewport-meta-missing")) {
     const wide = r.views.find((v) => v.ok && (v.id === "phone" || v.id === "phone-dark") && v.checks?.viewportMeta === false && v.width > 390);
@@ -450,7 +620,15 @@ export function buildReport(
     const fromStandIn = (STAND_IN_KINDS.has(raw.kind) || (raw.kind === "genclass-detection" && String(raw.detail?.diagnosis) !== "duplicate")) && sorted.every((v) => standIn.has(v));
     const fromRefused = !fromStandIn && REFUSED_KINDS.has(raw.kind) && sorted.every((v) => refused.has(v) || standIn.has(v));
     const label = CATEGORIES.find((c) => c.id === category)!.label;
-    const unscored = raw.kind === "js-heavy" ? JS_NOTE : SHIFT_KINDS.has(raw.kind) ? SHIFT_NOTE : fromStandIn ? STAND_IN_NOTE : fromRefused ? REFUSED_NOTE : !measured[category] ? notMeasuredNote(label) : null;
+    const judge = findingJudge(raw, sorted, r, cropUrl);
+    const unscored =
+      raw.kind === "js-heavy" ? JS_NOTE
+      : SHIFT_KINDS.has(raw.kind) ? SHIFT_NOTE
+      : fromStandIn ? STAND_IN_NOTE
+      : fromRefused ? REFUSED_NOTE
+      : !measured[category] ? notMeasuredNote(label)
+      : judge?.outcome === "fine" ? JUDGE_FINE_NOTE
+      : null;
     let text = raw.measured;
     if (raw.kind === "axe") {
       const per = sorted.filter((v) => counts[v]).map((v) => `${counts[v]} on the ${VIEW_WORDS[v] ?? v}`);
@@ -482,6 +660,7 @@ export function buildReport(
         ? { status: "fixed", text: `Fixed. ${fixed.how}` }
         : { status: FIX_KINDS.has(raw.kind) || raw.kind === "duplicate-submit" || raw.kind === "genclass-detection" ? "not-fixed" : "reported", text: notFixedText(raw.kind, why) },
       unscored,
+      judge,
     } satisfies Finding;
   });
 
@@ -577,6 +756,23 @@ export function buildReport(
         return { acted: g !== null, how: g ? g.how : null };
       })(),
     },
+    judge: (() => {
+      const run = r.judge;
+      const n = (o: FindingJudge["outcome"]) => list.filter((f) => f.judge?.outcome === o).length;
+      const tokens = run?.tokens ?? 0;
+      return {
+        on: !!run?.on, name: JUDGE_NAME, model: JUDGE_MODEL, platform: JUDGE_PLATFORM, prompt: JUDGE_PROMPT,
+        calls: run?.calls ?? 0, answered: run?.answered ?? 0, timeouts: run?.timeouts ?? 0, failed: run?.failed ?? 0,
+        tokens, usd: Math.round(judgeCost(tokens) * 1e6) / 1e6,
+        msMedian: run?.msMedian ?? null, msMax: run?.msMax ?? null, wallMs: run?.wallMs ?? null, prepMs: run?.prepMs ?? {},
+        keepThreshold: KEEP_THRESHOLD, findThreshold: FIND_THRESHOLD,
+        kept: n("kept"), fine: n("fine"), unanswered: n("unanswered"), found: n("found"),
+        note: judgeNote(run, list),
+        asked: r.views.flatMap((v) =>
+          (v.judged ?? []).map((j) => ({ view: j.view, cls: j.cls, kind: j.kind, selector: j.selector, score: j.answer?.score ?? null, verdict: j.answer?.verdict ?? "", family: j.answer?.family ?? "", error: j.answer ? null : j.error ?? "timeout", ms: j.ms })),
+        ),
+      };
+    })(),
     notes: [...r.notes],
   };
 }

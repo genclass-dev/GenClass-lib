@@ -4,6 +4,7 @@
 // textContent, never innerHTML; data travels in a <script type="application/json"> block escaped by embed().
 
 import { CLS_GOOD, CLS_POOR, FONT_MIN, JUDGE_DPR, LCP_GOOD_MS, LCP_POOR_MS, OVERSIZE_BYTES, OVERSIZE_RATIO, TARGET_MIN } from "./audits.ts";
+import { CROP_PAD, FAMILY_WORDS, FIND_THRESHOLD, JUDGE_EVAL, JUDGE_LABEL, JUDGE_MAX_CALLS, JUDGE_MODEL, JUDGE_NAME, JUDGE_PLATFORM, JUDGE_SHARE, JUDGE_TIMEOUT_MS, KEEP_THRESHOLD, VERDICT_WORDS } from "./judge.ts";
 import { AXE_OFF, AXE_TAGS } from "./axe.ts";
 import { AXE_BUILD } from "./axe-source.ts";
 import { KINDS, NOT_RUN_HERE, VISUAL_KINDS, type Kind } from "./catalog.ts";
@@ -203,6 +204,13 @@ ol.top .p{font:600 13.5px var(--mono);color:var(--bug);font-variant-numeric:tabu
 .find .show{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
 @media (max-width:560px){.find{grid-template-columns:1fr}.find dl{grid-template-columns:1fr}.find dt{border-top:0;padding-bottom:0}}
 .quiet{padding:28px 0;color:var(--ink2)}
+/* the model judge: the crops it saw, the element's box outlined */
+.crops{display:flex;flex-wrap:wrap;gap:12px 16px;margin-top:10px}
+.crop{margin:0;min-width:0;max-width:100%}
+.cropbox{position:relative;display:inline-block;max-width:min(100%,360px);line-height:0}
+.crop img{display:block;width:100%;height:auto;border:1px solid var(--rule2);border-radius:2px;background:var(--panel)}
+.cropbox i{position:absolute;border:2px solid var(--bug-f);border-radius:2px;pointer-events:none}
+.crop figcaption{margin-top:6px}
 /* race probe */
 dl.rows{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr)}
 dl.rows dt,dl.rows dd{padding:16px 0;border-bottom:1px solid var(--rule)}
@@ -299,7 +307,8 @@ const LIMITS = [
   ["One page, one load.", "Problems that need a second page, a signed-in user or a slow network do not show up here."],
   ["No real users.", "The probe types three letters and double-clicks one button. Real visitors do far more, on slower networks. GenClass in production watches the requests their actions make."],
   ["Nothing that changes data is sent.", "POST, PUT, PATCH and DELETE requests get a stand-in reply from the scanner instead. If the page loads content that way, that content is missing or wrong here, and findings that may come from it are listed but not scored."],
-  ["Some checks need a known background.", "Text over images, gradients or video is skipped by the contrast check rather than guessed at."],
+  ["Some checks need a known background.", `Text over images, gradients or video is skipped by the measured contrast check rather than guessed at. A model (${JUDGE_NAME}) looks at crops of some of these; what it finds is labelled as judged by a model, not measured.`],
+  ["A model's judgement is not a measurement.", `Findings labelled "${JUDGE_LABEL}" come from a crop of the screenshot. On its evaluation ${JUDGE_EVAL.find.real} of ${JUDGE_EVAL.find.flagged} such findings were real problems, by labels that AI agents made; look at the crop before acting on one.`],
   ["No clicks on the page.", "The scanner presses Tab and scrolls, but clicks only the probe's submit button, so checks that need a visitor's clicks (an invisible layer that swallows them) do not run here."],
   ["Six seconds per view.", "Problems that appear later, after a timer or a second interaction, are not seen."],
   ["Timings from a data center.", "Largest Contentful Paint and layout shift are measured once, in Cloudflare's browser with a fast network, three views loading at once and GenClass loading in the desktop view. A visitor's numbers can be better or worse; field data (Chrome's CrUX) is the reference."],
@@ -307,13 +316,19 @@ const LIMITS = [
   ["Bot protection.", "Some sites show a challenge page to automated browsers. The report then describes that page, not the site."],
 ];
 
+/** What the "listed, not scored (a model judged it as probably fine)" list is, in words. */
+export const JUDGE_FINE_INTRO = `These are measured findings. A model (${JUDGE_NAME}, on ${JUDGE_PLATFORM}) looked at a crop of the screenshot and judged each as probably fine in every view it appeared in, so they are not scored. Each is shown as it was measured, with the crop the model saw: look before deciding.`;
+
+/** A crop's URL from stored data: only this origin's screenshot path for a judged element. */
+export const CROP_URL = /^\/api\/scan\/shot\/[0-9a-f]{32}\/[0-9a-z]{6,40}-(?:desktop|phone|phone-dark)-j[1-9]\d?\.jpg$/;
+
 export function scanPage(n: string, data: ScanPageData): string {
   const t = data.target;
   const st = visualStatus();
   const report = data.report && typeof data.report === "object" ? (data.report as Record<string, unknown>) : null;
   const errorDetail = data.error && (data.error.code === "robots" || data.error.code === "opted-out") ? "Site owners can opt out of the page check; this site has." : "";
   const body = `
-<script type="application/json" id="data">${embed({ ...data, status: { withLabel: withLabel(), fixes: st.fixes, shipped: st.shipped, runtime: RUNTIME_VERSION } })}</script>
+<script type="application/json" id="data">${embed({ ...data, status: { withLabel: withLabel(), fixes: st.fixes, shipped: st.shipped, runtime: RUNTIME_VERSION, judge: { label: JUDGE_LABEL, verdicts: VERDICT_WORDS, families: FAMILY_WORDS } } })}</script>
 <section class="hero">
   <p class="eyebrow">Page check</p>
   <h1 id="title">${t ? esc(t.display) : "What breaks on one page load."}</h1>
@@ -327,7 +342,9 @@ export function scanPage(n: string, data: ScanPageData): string {
   checks it six ways: visual bugs (${esc(st.checks)}), accessibility (axe-core's WCAG 2.2 A and AA rules), the phone layout
   (tap targets, zoom, text size, sideways scrolling at 320 px), errors and failed requests, speed (Largest Contentful Paint and
   layout shift), and races: it types into the search box and double-clicks a submit button with GenClass ${esc(RUNTIME_VERSION)}
-  watching. Requests that could change something on the site are answered inside the browser and never sent.</p>
+  watching. Requests that could change something on the site are answered inside the browser and never sent. A model
+  (${esc(JUDGE_NAME)}, on ${esc(JUDGE_PLATFORM)}) takes a second look at crops of the screenshots; what it finds is labelled as judged,
+  not measured.</p>
 </section>
 ${t && !report && !data.error ? `<noscript><section class="callout"><p><b>The page check runs in your browser with JavaScript.</b></p><p class="muted">Turn JavaScript on to check this page, or read <a href="/scan/about">how the page check works</a>.</p></section></noscript>` : ""}
 ${report ? staticReport(report) : ""}
@@ -367,6 +384,12 @@ ${report ? staticReport(report) : ""}
     <div class="blk-h"><h2>Findings</h2><span class="aside" id="listn"></span></div>
     <ol class="finds" id="finds"></ol>
     <p class="quiet hidden" id="none">No findings from these checks on this load. That is a good sign for these checks only; see what one load cannot show, below.</p>
+    <p class="measures" id="judgenote"></p>
+  </section>
+  <section class="blk hidden" id="judgedfine">
+    <div class="blk-h"><h2>Listed, not scored (a model judged it as probably fine)</h2><span class="aside" id="finen"></span></div>
+    <p class="intro">${esc(JUDGE_FINE_INTRO)}</p>
+    <ol class="finds" id="finefinds"></ol>
   </section>
   <section class="blk" id="race">
     <div class="blk-h"><h2>Race probe</h2><span class="aside">What was tried, and what GenClass saw</span></div>
@@ -403,7 +426,8 @@ ${report ? staticReport(report) : ""}
 </section>
 <footer class="dfoot">The page check loads one public page in a Cloudflare browser with the user agent token <code class="mono">${esc(UA_TOKEN)}</code>.
 It never sends forms or other non-GET requests to the site and never follows links. Results are cached for 6 hours; screenshots are
-deleted after 24 hours. Site owners can opt out: <a href="/scan/about#opt-out">how</a>. <a href="/scan/about">How the score works</a>.</footer>`;
+deleted after 24 hours. Crops of the screenshots go to ${esc(JUDGE_PLATFORM)} for the model judge (<a href="/scan/about#judge">what is sent</a>).
+Site owners can opt out: <a href="/scan/about#opt-out">how</a>. <a href="/scan/about">How the score works</a>.</footer>`;
   return shell(n, t ? `${t.display} | GenClass page check` : "Page check | GenClass", "scan", body, CLIENT_JS);
 }
 
@@ -450,7 +474,10 @@ export function staticReport(r: Record<string, unknown>): string {
   const score = obj(r.score);
   const w = obj(r.withGenClass);
   const withOn = w.shown === true && int(w.value) !== null;
-  const findings = arr(r.findings).map(obj);
+  const everything = arr(r.findings).map(obj);
+  const isFine = (f: Record<string, unknown>) => str(obj(f.judge).outcome) === "fine";
+  const findings = everything.filter((f) => !isFine(f));
+  const fine = everything.filter(isFine);
   const withCats = arr(obj(w.breakdown).categories).map(obj);
   const notMeasured = obj(r.notMeasured);
   const cats = arr(score.categories).map(obj);
@@ -478,12 +505,7 @@ export function staticReport(r: Record<string, unknown>): string {
   let lastRule = "";
   const items = findings
     .map((f) => {
-      const sev = str(f.severity);
       const cat = str(f.category);
-      const views = arr(f.views).map((v) => VIEW_WORDS[str(v)] ?? str(v)).filter(Boolean).join(" · ");
-      const gc = obj(f.genclass);
-      const fixed = obj(f.fixed);
-      const row = (k: string, v: string) => (v ? `<dt>${esc(k)}</dt><dd>${v}</dd>` : "");
       let head = "";
       if (cat !== lastCat) {
         const c = cats.find((x) => str(x.id) === cat);
@@ -494,14 +516,41 @@ export function staticReport(r: Record<string, unknown>): string {
       const rk = `${cat}|${str(f.rule)}`;
       if ((ruleCount.get(rk) ?? 0) > 1 && str(f.rule) !== lastRule) head += `<li class="ruleg">${esc(str(f.what))}: ${esc(String(ruleCount.get(rk)))} findings</li>`;
       lastRule = str(f.rule);
-      const count = int(f.count) ?? 1;
-      const examples = arr(f.examples).map(str).filter((x) => x && x !== str(f.selector));
-      const guide = typeof f.guide === "string" && /^https:\/\/dequeuniversity\.com\/rules\/axe\//.test(f.guide) ? f.guide : "";
-      return `${head}<li class="find${withOn && str(fixed.how) ? " fixed" : ""}" id="sf-${esc(str(f.n))}"><div class="no">${esc(str(f.n))}</div><div><h3>${esc(str(f.what))}</h3>
-<div class="tags"><span class="sev-${esc(sev)}">${esc(SEV_WORDS[sev] ?? "")}</span>${count > 1 ? `<span>${esc(String(count))} instances</span>` : ""}<span>${esc(views)}</span>${str(f.unscored) ? "<span>Not scored</span>" : ""}</div>
-<dl>${row("Measured", esc(str(f.measured)))}${row("Standard", standardLinks(f.standards))}${row("Where", str(f.selector) ? `<code>${esc(str(f.selector))}</code>${examples.length ? `<span class="ex">Also: ${examples.map(esc).join(", ")}</span>` : ""}` : "")}${row("Not scored", esc(str(f.unscored)))}${row("Why it matters", esc(str(f.why)))}${row("Suggested fix", str(f.fix) ? `<pre>${esc(str(f.fix))}</pre>` : "")}${row("Rule guide", guide ? `<a href="${esc(guide)}">${esc(guide.replace(/^https:\/\//, "").replace(/\?.*$/, ""))}</a>` : "")}${withOn ? row("With GenClass", esc(str(fixed.how) ? `Fixed. ${str(fixed.how)}` : str(gc.text))) : ""}</dl></div></li>`;
+      return head + item(f);
     })
     .join("");
+  function item(f: Record<string, unknown>): string {
+    const sev = str(f.severity);
+    const views = arr(f.views).map((v) => VIEW_WORDS[str(v)] ?? str(v)).filter(Boolean).join(" · ");
+    const gc = obj(f.genclass);
+    const fixed = obj(f.fixed);
+    const row = (k: string, v: string) => (v ? `<dt>${esc(k)}</dt><dd>${v}</dd>` : "");
+    const count = int(f.count) ?? 1;
+    const byModel = str(f.source) === "judge";
+    const j = obj(f.judge);
+    // what the model judge said, with the crops it saw (only this origin's crop URLs)
+    const crops = arr(j.views)
+      .map(obj)
+      .map((v) => {
+        const url = str(v.crop);
+        const size = arr(v.cropSize).map((x) => int(x) ?? 0);
+        const said = typeof v.score === "number" && Number.isFinite(v.score) ? `score ${v.score.toFixed(4)}` : "no answer in time";
+        const cap = `${VIEW_WORDS[str(v.view)] ?? str(v.view)}: ${said}`;
+        return `<figure class="crop">${CROP_URL.test(url) ? `<img src="${esc(url)}" alt="What the model saw, ${esc(cap)}" width="${size[0] || 1}" height="${size[1] || 1}" loading="lazy">` : ""}<figcaption>${esc(cap)}</figcaption></figure>`;
+      })
+      .join("");
+    const judgeRow = str(j.text) ? row(byModel ? "The model" : "Model check", `${esc(str(j.text))}${crops ? `<span class="crops">${crops}</span>` : ""}`) : "";
+    const examples = arr(f.examples).map(str).filter((x) => x && x !== str(f.selector));
+    const guide = typeof f.guide === "string" && /^https:\/\/dequeuniversity\.com\/rules\/axe\//.test(f.guide) ? f.guide : "";
+    const source = byModel ? `<span>${esc(JUDGE_LABEL)}</span>` : "";
+    return `<li class="find${withOn && str(fixed.how) ? " fixed" : ""}" id="sf-${esc(str(f.n))}"><div class="no">${esc(str(f.n))}</div><div><h3>${esc(str(f.what))}</h3>
+<div class="tags"><span class="sev-${esc(sev)}">${esc(SEV_WORDS[sev] ?? "")}</span>${count > 1 ? `<span>${esc(String(count))} instances</span>` : ""}<span>${esc(views)}</span>${source}${str(f.unscored) ? "<span>Not scored</span>" : ""}</div>
+<dl>${row(byModel ? "What the model saw" : "Measured", esc(str(f.measured)))}${judgeRow}${row("Standard", standardLinks(f.standards))}${row("Where", str(f.selector) ? `<code>${esc(str(f.selector))}</code>${examples.length ? `<span class="ex">Also: ${examples.map(esc).join(", ")}</span>` : ""}` : "")}${row("Not scored", esc(str(f.unscored)))}${row("Why it matters", esc(str(f.why)))}${row("Suggested fix", str(f.fix) ? `<pre>${esc(str(f.fix))}</pre>` : "")}${row("Rule guide", guide ? `<a href="${esc(guide)}">${esc(guide.replace(/^https:\/\//, "").replace(/\?.*$/, ""))}</a>` : "")}${withOn ? row("With GenClass", esc(str(fixed.how) ? `Fixed. ${str(fixed.how)}` : str(gc.text))) : ""}</dl></div></li>`;
+  }
+  const judgeNote = str(obj(r.judge).note);
+  const fineBlock = fine.length
+    ? `<section class="blk"><div class="blk-h"><h2>Listed, not scored (a model judged it as probably fine)</h2><span class="aside">${fine.length} ${fine.length === 1 ? "finding" : "findings"}</span></div><p class="intro">${esc(JUDGE_FINE_INTRO)}</p><ol class="finds">${fine.map(item).join("")}</ol></section>`
+    : "";
   const n = findings.filter((f) => !str(f.unscored)).length;
   const overall = int(score.value);
   return `<div id="ssr">
@@ -518,7 +567,8 @@ export function staticReport(r: Record<string, unknown>): string {
 ${top ? `<section class="blk"><div class="blk-h"><h2>Top issues</h2><span class="aside">The rules that cost the most points</span></div><ol class="top">${top}</ol></section>` : ""}
 ${withOn ? `<p class="measures">${esc(str(w.note))}</p>` : ""}
 <section class="blk"><div class="blk-h"><h2>Findings</h2><span class="aside">Table 1. ${findings.length} ${findings.length === 1 ? "finding" : "findings"}, by category and rule</span></div>
-${findings.length ? `<ol class="finds">${items}</ol>` : `<p class="quiet">No findings from these checks on this load.</p>`}</section>
+${findings.length ? `<ol class="finds">${items}</ol>` : `<p class="quiet">No findings from these checks on this load.</p>`}${judgeNote ? `<p class="measures">${esc(judgeNote)}</p>` : ""}</section>
+${fineBlock}
 </div>`;
 }
 
@@ -533,7 +583,7 @@ function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.cla
 function show(id, on){ $(id).classList.toggle("hidden", !on); }
 var nf = new Intl.NumberFormat("en-US");
 function secs(ms){ return (Math.round(ms / 100) / 10).toFixed(1) + " s"; }
-var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks", (ST.shipped ? "Running the GenClass visual checks" : "Running the visual checks (in testing)") + ", axe-core and the phone audits, and taking screenshots"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
+var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks", (ST.shipped ? "Running the GenClass visual checks" : "Running the visual checks (in testing)") + ", axe-core and the phone audits, taking screenshots, and asking a model (Clef) about crops of them"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
 var t0 = 0, timer = null;
 
 function problem(title, detail){
@@ -617,7 +667,7 @@ function render(r){
 
 var CATNAME = { visual: "Visual bugs", accessibility: "Accessibility", phone: "Phone", reliability: "Reliability", speed: "Speed", races: "Races" };
 var SEVNAME = { critical: "Critical", serious: "Serious", moderate: "Moderate", minor: "Minor" };
-var SOURCENAME = { visual: ST.shipped ? "GenClass visual check" : "GenClass visual check (in testing)", axe: "axe-core", audit: "Scanner audit", probe: "Race probe" };
+var SOURCENAME = { visual: ST.shipped ? "GenClass visual check" : "GenClass visual check (in testing)", axe: "axe-core", audit: "Scanner audit", probe: "Race probe", judge: (ST.judge && ST.judge.label) || "Judged by a model" };
 var STD_HOSTS = /^https:\\/\\/(?:www\\.w3\\.org|web\\.dev|developer\\.chrome\\.com|www\\.rfc-editor\\.org|github\\.com\\/dequelabs|dequeuniversity\\.com)\\//;
 function catIn(b, id){ var cs = (b && b.categories) || []; for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i]; return null; }
 function renderScore(r){
@@ -708,15 +758,22 @@ var resizeTimer = null;
 window.addEventListener("resize", function(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(unstackAll, 150); });
 
 var VIEWNAMES = { desktop: "Desktop", phone: "Phone", "phone-dark": "Phone, dark", probe: "Race probe" };
+var JW = ST.judge || { label: "", verdicts: {}, families: {} };
+var CROP_URL = /^\\/api\\/scan\\/shot\\/[0-9a-f]{32}\\/[0-9a-z]{6,40}-(?:desktop|phone|phone-dark)-j[1-9]\\d?\\.jpg$/;
+function pct(p){ return Math.round(Number(p) * 100) + "%"; }
+function isFine(f){ return !!(f.judge && f.judge.outcome === "fine"); }
 function renderFindings(r){
   var host = $("finds"); host.textContent = "";
-  show("none", !r.findings.length);
+  var fineHost = $("finefinds"); fineHost.textContent = "";
+  var list = r.findings.filter(function(f){ return !isFine(f); }), fine = r.findings.filter(isFine);
+  show("none", !list.length);
   var withOn = !!(r.withGenClass && r.withGenClass.shown);
-  var nfix = r.findings.filter(function(f){ return f.fixed; }).length;
-  $("listn").textContent = r.findings.length ? "Table 1. " + r.findings.length + (r.findings.length === 1 ? " finding" : " findings") + ", by category and rule" + (withOn ? ". " + nfix + " fixed in this scan, " + (r.findings.length - nfix) + " not fixed" : "") : "Table 1. No findings";
-  var ruleN = {}; r.findings.forEach(function(f){ var k = f.category + "|" + f.rule; ruleN[k] = (ruleN[k] || 0) + 1; });
+  var nfix = list.filter(function(f){ return f.fixed; }).length;
+  $("listn").textContent = list.length ? "Table 1. " + list.length + (list.length === 1 ? " finding" : " findings") + ", by category and rule" + (withOn ? ". " + nfix + " fixed in this scan, " + (list.length - nfix) + " not fixed" : "") : "Table 1. No findings";
+  $("judgenote").textContent = (r.judge && r.judge.note) || "";
+  var ruleN = {}; list.forEach(function(f){ var k = f.category + "|" + f.rule; ruleN[k] = (ruleN[k] || 0) + 1; });
   var lastCat = null, lastRule = null;
-  r.findings.forEach(function(f){
+  list.forEach(function(f){
     if (f.category !== lastCat) {
       lastCat = f.category; lastRule = null;
       var c = catIn(r.score, f.category), h = el("li", "catg");
@@ -727,6 +784,39 @@ function renderFindings(r){
     var rk = f.category + "|" + f.rule;
     if (ruleN[rk] > 1 && f.rule !== lastRule) host.appendChild(el("li", "ruleg", f.what + ": " + ruleN[rk] + " findings"));
     lastRule = f.rule;
+    host.appendChild(findItem(r, f, withOn));
+  });
+  fine.forEach(function(f){ fineHost.appendChild(findItem(r, f, withOn)); });
+  show("judgedfine", fine.length > 0);
+  $("finen").textContent = fine.length + (fine.length === 1 ? " finding" : " findings");
+}
+// what the model judge said about a finding, and the crops it saw (the element's box outlined in each)
+function judgeBlock(f){
+  var j = f.judge, out = el("div");
+  out.appendChild(el("span", null, j.text));
+  var crops = el("div", "crops");
+  (j.views || []).forEach(function(v){
+    var fig = el("figure", "crop");
+    var cw = (v.cropSize && v.cropSize[0]) || 1, ch = (v.cropSize && v.cropSize[1]) || 1, b = v.inCrop || [0, 0, 0, 0];
+    if (v.crop && CROP_URL.test(v.crop)) {
+      var box = el("div", "cropbox");
+      var img = el("img"); img.src = v.crop; img.width = cw; img.height = ch; img.loading = "lazy";
+      img.alt = "What the model saw: the " + (VIEWNAMES[v.view] || v.view).toLowerCase() + " view around " + (f.selector || "the element");
+      box.appendChild(img);
+      var m = el("i"), x = Math.max(0, b[0]), y = Math.max(0, b[1]);
+      m.style.left = (100 * x / cw) + "%"; m.style.top = (100 * y / ch) + "%";
+      m.style.width = (100 * Math.max(0, Math.min(b[2] - (x - b[0]), cw - x)) / cw) + "%"; m.style.height = (100 * Math.max(0, Math.min(b[3] - (y - b[1]), ch - y)) / ch) + "%";
+      box.appendChild(m); fig.appendChild(box);
+    }
+    var said = v.score === null || v.score === undefined ? "no answer in time"
+      : "score " + Number(v.score).toFixed(4) + " · " + (j.outcome === "fine" ? "looks fine " + pct(v.fineP) : (v.verdict ? (JW.verdicts[v.verdict] || v.verdict) + " " + pct(v.verdictP) : "something is wrong")) + " · nothing wrong " + pct(v.noneP);
+    fig.appendChild(el("figcaption", null, (VIEWNAMES[v.view] || v.view) + ": " + said));
+    crops.appendChild(fig);
+  });
+  out.appendChild(crops);
+  return out;
+}
+function findItem(r, f, withOn){
     var li = el("li", "find" + (withOn && f.fixed ? " fixed" : "")); li.id = "f-" + f.n;
     li.appendChild(el("div", "no", String(f.n)));
     var main = el("div");
@@ -736,12 +826,14 @@ function renderFindings(r){
     if (f.count > 1) tags.appendChild(el("span", null, nf.format(f.count) + " instances"));
     tags.appendChild(el("span", null, f.views.map(function(v){ return VIEWNAMES[v] || v; }).join(" · ")));
     tags.appendChild(el("span", null, f.source === "axe" && r.axe ? "axe-core " + r.axe : (SOURCENAME[f.source] || "")));
+    if (f.judge && f.source !== "judge") tags.appendChild(el("span", null, f.judge.outcome === "kept" ? "A model agreed" : f.judge.outcome === "fine" ? "A model: probably fine" : "A model: no answer"));
     if (f.unscored) tags.appendChild(el("span", null, "Not scored"));
     main.appendChild(tags);
     var dl = el("dl");
     function row(k, node){ dl.appendChild(el("dt", null, k)); var dd = el("dd"); if (typeof node === "string") dd.textContent = node; else dd.appendChild(node); dl.appendChild(dd); return dd; }
     function link(href, text){ var a = el("a", null, text); a.href = href; return a; }
-    row("Measured", f.measured);
+    row(f.source === "judge" ? "What the model saw" : "Measured", f.measured);
+    if (f.judge) row(f.source === "judge" ? "The model" : "Model check", judgeBlock(f));
     var stds = (f.standards || []).filter(function(s){ return s && s.label; });
     if (stds.length) { var sd = el("span"); stds.forEach(function(s, i){ if (i) sd.appendChild(el("br")); sd.appendChild(STD_HOSTS.test(String(s.url || "")) ? link(s.url, s.label) : el("span", null, s.label)); }); row("Standard", sd); }
     if (f.selector) {
@@ -761,8 +853,8 @@ function renderFindings(r){
       shown.forEach(function(v){ var b = el("button", "btn ghost sm", "Show on " + (VIEWNAMES[v] || v).toLowerCase()); b.type = "button"; b.addEventListener("click", function(){ reveal(v, f); }); bar.appendChild(b); });
       row("Screenshot", bar);
     }
-    main.appendChild(dl); li.appendChild(main); host.appendChild(li);
-  });
+    main.appendChild(dl); li.appendChild(main);
+    return li;
 }
 function reveal(view, f){
   var frame = $("frame-" + view), m = MARKS[view + ":" + f.n]; if (!frame || !m) return;
@@ -855,10 +947,16 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   const st = visualStatus();
   const run = VISUAL_KINDS.length - NOT_RUN_HERE.size;
   const commit = VISUAL_BUILD.commit.slice(0, 7);
-  const SOURCE_WORDS: Record<string, string> = { visual: "GenClass visual check", axe: "axe-core", audit: "Scanner audit", probe: "Race probe" };
+  const SOURCE_WORDS: Record<string, string> = { visual: "GenClass visual check", axe: "axe-core", audit: "Scanner audit", probe: "Race probe", judge: `Model judge (${JUDGE_NAME}), not measured` };
   const kinds = (Object.entries(KINDS) as [Kind, (typeof KINDS)[Kind]][])
     .map(([k, v]) => {
-      const std = v.standard ? `<a href="${esc(v.standard.url)}">${esc(v.standard.label)}</a>` : k === "axe" ? "The WCAG success criteria in the rule's tags, or axe-core best practice" : "The measurement itself";
+      const std = v.standard
+        ? `<a href="${esc(v.standard.url)}">${esc(v.standard.label)}</a>`
+        : k === "axe"
+          ? "The WCAG success criteria in the rule's tags, or axe-core best practice"
+          : v.source === "judge"
+            ? `None: a model's judgement from a crop of the screenshot (<a href="#judge">the model judge</a>)`
+            : "The measurement itself";
       const sev = k === "axe" ? "the rule's impact" : esc(v.severity);
       return `<tr><td>${esc(v.what)}<br><code class="kind">${esc(k === "axe" ? "axe:<rule id>" : k)}</code>${NOT_RUN_HERE.has(k as never) ? `<span class="notrun">Not run in the page check: it needs a visitor's clicks</span>` : ""}</td><td>${esc(CATEGORIES.find((c) => c.id === v.category)!.label)}<span class="notrun">${esc(SOURCE_WORDS[v.source])}</span></td><td>${sev}</td><td>${std}</td></tr>`;
     })
@@ -897,6 +995,10 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     The page's fetch and XHR requests in flight are counted and handed to the checks, which do not judge a blank page or a
     page that ignores clicks while a request runs.</li>
     <li>Takes a screenshot of the top of the page in each view and records the box of every finding.</li>
+    <li>Asks a model, ${esc(JUDGE_NAME)} on ${esc(JUDGE_PLATFORM)}, about up to ${JUDGE_MAX_CALLS} single elements across the three views,
+    from a crop of a viewport screenshot and the element's measured facts: the visual checks' findings, for a second look, and
+    elements the measured checks cannot judge (text over images, covered controls, buttons and links in the dark view). What it
+    finds is labelled as judged by a model, never as measured (<a href="#judge">the model judge</a>, below).</li>
     <li>Runs axe-core ${esc(AXE_BUILD.version)} in each view, unmodified, in the same isolated part of the browser: its WCAG 2.2
     A and AA rules (tags ${AXE_TAGS.filter((t) => t !== "best-practice").map((t) => `<code>${esc(t)}</code>`).join(", ")}) and its best
     practices (<code>best-practice</code>). Only violations become findings; rules axe-core cannot decide by itself ("needs
@@ -990,6 +1092,7 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     <li>axe-core rules keep axe-core's impact (critical, serious, moderate, minor). A rule that is only a best practice, with no
     WCAG A or AA tag, is one level lower, since it is advice rather than a requirement.</li>
     <li>The scanner's audits set theirs from the thresholds below.</li>
+    <li>A finding the model judge made is always moderate: it is a judgement, not a measured severity.</li>
   </ul>
   <h3 class="h3" id="audits">The audits and their thresholds</h3>
   <ul>
@@ -1048,6 +1151,9 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     (template text, broken images, a blank main region, JavaScript errors, GenClass diagnoses other than a duplicate), when every
     view they appeared in had such answers or refusals.</li>
     <li>Findings in a category this scan did not measure, and the JavaScript size note.</li>
+    <li>Visual findings a model (${esc(JUDGE_NAME)}) judged as probably fine from a crop of the screenshot, in every view they
+    appeared in: they are listed on their own, under "Listed, not scored (a model judged it as probably fine)", with the crop
+    and the measurement as it was made (<a href="#judge">the model judge</a>).</li>
     <li>Layout shift: Cumulative Layout Shift on the desktop while the page loads (<a href="https://web.dev/articles/cls">web.dev</a>,
     session windows with gaps of at most 1 s and 5 s at most; above ${CLS_GOOD} needs improvement, above ${CLS_POOR} poor) and the
     visual checks' layout shift above 0.25. Both are listed with what was measured and not scored. In the scanner's browser every
@@ -1095,6 +1201,7 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   When guard flags a problem but its expected gain does not clear the safety margin, the report says it held back.</p>
   </div>
 </section>
+${judgeSection()}
 <section class="blk prose" id="opt-out">
   <div class="blk-h"><h2>Opting out</h2></div>
   <p>Site owners can stop the page check from loading their pages in two ways:</p>
@@ -1113,6 +1220,11 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   <ul>
     <li>The report (findings, timings and the address) is cached for 6 hours, so a shared link shows the same result without a new scan.</li>
     <li>Screenshots and reports are deleted 24 hours after the scan by an hourly sweep.</li>
+    <li>For the model judge, crops of the screenshots (an element and 24 px around it) and the element's measured facts are sent
+    to ${esc(JUDGE_PLATFORM)}, inside Cloudflare's network, with no account or visitor data. Cloudflare's
+    <a href="${esc(WORKERS_AI_DATA_URL)}">Workers AI data-usage page</a> says it does not use what is sent to train models, and stores it
+    only when the account adds a storage service to it; this scanner does not. The crops a report shows are kept with its
+    screenshots and deleted with them.</li>
     <li>The visitor's IP address is used only for the per-minute rate limit, as a hash, and is not stored.</li>
     <li>The browser starts empty for every scan and is closed afterwards. No cookies or storage carry over between scans.</li>
   </ul>
@@ -1120,6 +1232,57 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
 <footer class="dfoot">The page check is part of <a href="https://genclass.dev/">GenClass</a>, an open-source runtime for web apps
 (<a href="https://github.com/genclass-dev/GenClass-lib">source</a>). Questions: <a href="mailto:${OPT_OUT_EMAIL}">${OPT_OUT_EMAIL}</a>.</footer>`;
   return shell(n, "How the page check works | GenClass", "about", body, "");
+}
+
+/** Cloudflare's statement of what Workers AI does with what it is sent (read 2026-10-14). */
+export const WORKERS_AI_DATA_URL = "https://developers.cloudflare.com/workers-ai/platform/data-usage/";
+
+/** /scan/about#judge: which findings come from the model, how it was measured, what it is sent, what it costs. */
+export function judgeSection(): string {
+  const e = JUDGE_EVAL;
+  const share = Object.values(JUDGE_SHARE);
+  const tokens = 1300;
+  return `<section class="blk prose" id="judge">
+  <div class="blk-h"><h2>The model judge (${esc(JUDGE_NAME)})</h2><span class="aside">judged, not measured</span></div>
+  <p>Every other finding comes from a measured check: a number against a threshold the finding names. The page check also asks a
+  model, <b>${esc(JUDGE_NAME)}</b> (<code>${esc(JUDGE_MODEL)}</code>, Cloudflare's open decision model, which reads images), running on
+  <b>${esc(JUDGE_PLATFORM)}</b>, about single elements. It is given a crop of a viewport screenshot (the element's box and
+  ${CROP_PAD} px around it) and the element's measured facts in words: its box, colours and contrast, what is behind it, what the
+  hit test found on top of it, how much of it is clipped, text lengths but never the text, with the instruction to judge by what
+  the screenshot shows and to treat the facts as hints. It answers whether a visitor can see and use the element as intended,
+  and if not, what kind of problem it is. Its score is 1 minus its probability that nothing is wrong.</p>
+  <ul>
+    <li><b>A second look at measured findings.</b> The visual checks' findings go to the model, except sideways scrolling, images
+    that failed to load and template text, which stay as measured, as the evaluation recommends (at its threshold the model
+    dropped 13 of 34 real sideways-scrolling findings, which a crop cannot show, and 4 of 15 real broken images; template text was
+    already real 5 times in 6), findings with no element to crop (a failed stylesheet or font, a missing
+    viewport tag, a lock on the whole page) and layout shift (already listed, not scored). A finding the model scores below
+    ${KEEP_THRESHOLD} in every view it appeared in moves to "Listed, not scored (a model judged it as probably fine)", with the
+    crop; it is never dropped. On the evaluation, the rules followed by the model at that threshold had precision
+    ${e.keep.precision.toFixed(2)} where the rules alone had ${e.keep.rulesPrecision}, and found ${e.keep.recall.toFixed(2)} of the real
+    problems where the rules alone found ${e.keep.rulesRecall.toFixed(2)}.</li>
+    <li><b>Findings of its own, where the measured checks abstain:</b> controls another element covers or that are partly clipped,
+    every visible button and link in the dark view, and text over images, gradients or backgrounds the checks cannot know, in
+    that order and the top of the page first. An element it scores at ${FIND_THRESHOLD} or more becomes a Visual bugs finding,
+    moderate, labelled "${esc(JUDGE_LABEL)}", with the crop and what it answered. That threshold was the lowest with precision at
+    least 0.8 on the part of the evaluation used to choose it (${e.find.devReal} of ${e.find.devFlagged}); on the rest,
+    ${e.find.real} of the ${e.find.flagged} elements it scored that high were real problems (precision ${e.find.precision.toFixed(2)}).</li>
+    <li><b>How it was measured</b> (<code>${esc(e.ref)}</code>): ${e.crops.toLocaleString("en-US")} crops of elements on public
+    pages, ${e.real} of them real problems, labelled by ${esc(e.labellers)} (${e.doubleLabelled} crops labelled by two agents agreed with
+    Cohen's kappa ${e.kappa}). Split by site: ${e.dev.crops} crops (${e.dev.real} real) to choose the prompt and thresholds,
+    ${e.report.crops.toLocaleString("en-US")} (${e.report.real} real) to measure them once. The labels come from models too, so these
+    numbers say how often ${esc(JUDGE_NAME)} agreed with the labelling agents, on crops cut the way the page check cuts them.</li>
+    <li><b>Bounds.</b> At most ${JUDGE_MAX_CALLS} elements per scan (${share.join(", ")} in the desktop, light phone and dark phone
+    views), all asked at once while the rest of the scan runs; an answer counts only if it comes within
+    ${JUDGE_TIMEOUT_MS / 1000} seconds. When ${esc(JUDGE_PLATFORM)} does not answer, or answers late, the findings stay as measured.
+    About ${tokens.toLocaleString("en-US")} input tokens per element at $${e.usdPerMillionInput} per million (Workers AI pricing,
+    ${esc(e.pricingDate)}): about $${((tokens * JUDGE_MAX_CALLS * e.usdPerMillionInput) / 1e6).toFixed(4)} for ${JUDGE_MAX_CALLS} elements.</li>
+    <li><b>What is sent.</b> The crop and the facts in words go to ${esc(JUDGE_PLATFORM)}, inside Cloudflare's network, with no
+    account or visitor data. Cloudflare's <a href="${esc(WORKERS_AI_DATA_URL)}">Workers AI data-usage page</a> says it does not use
+    what is sent to train models, and stores it only when the account adds a storage service; this scanner does not. The crops a
+    report shows are kept with its screenshots and deleted with them after 24 hours.</li>
+  </ul>
+</section>`;
 }
 
 // ------------------------------------------------------------------------------------------ errors

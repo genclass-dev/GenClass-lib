@@ -14,7 +14,8 @@
 // DNS and robots.txt checks (navigationAllowed).
 
 import { classifyIp, parseIPv6 } from "./ip.ts";
-import { buildReport, guardSetting, REPORT_VERSION } from "./report.ts";
+import { JUDGE_MODEL, JUDGE_PROMPT, type JudgeClient } from "./judge.ts";
+import { buildReport, guardSetting, judgeCropsToKeep, REPORT_VERSION } from "./report.ts";
 import { runScan, ScanError, UA_TOKEN, type BrowserLike, type NavVerdict, type ScanResult } from "./scan.ts";
 import { aboutPage, nonce, notFoundPage, scanPage, securityHeaders, type ScanPageData } from "./page.ts";
 import { acquireSlot, cachedReport, cacheKey, optedOut, releaseSlot, saveReport, SHOT_PATH, shotKey, type Bucket } from "./store.ts";
@@ -53,6 +54,10 @@ export interface Env {
    * /scan-box.js). Unset: those paths are 404 here.
    */
   SITE?: { fetch(request: Request): Promise<Response> };
+  /** Workers AI, for the model judge (Clef, src/judge.ts). Unset: the judge is off and every finding is measured. */
+  AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
+  /** "off" turns the model judge off even with the AI binding (default on). */
+  JUDGE?: string;
 }
 
 export interface Ctx {
@@ -147,7 +152,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps
       const r = await cachedReport(env.BUCKET, await cacheKey(t.url), deps.now(), REPORT_VERSION);
       return r ? json({ ok: true, report: r }) : json({ ok: false, code: "none", message: "No recent scan for that page." }, 404);
     }
-    if (path === "/api/scan/health") return json({ ok: true, ua: UA_TOKEN, runtime: RUNTIME_VERSION });
+    if (path === "/api/scan/health") return json({ ok: true, ua: UA_TOKEN, runtime: RUNTIME_VERSION, report: REPORT_VERSION, judge: judgeClient(env) ? JUDGE_MODEL : null, prompt: JUDGE_PROMPT });
     if (path.startsWith("/api/scan/shot/")) {
       const m = SHOT_PATH.exec(path);
       if (!m || request.method !== "GET") return new Response("Not found", { status: 404 });
@@ -332,6 +337,13 @@ export function navigationCheck(target: Target, env: Env, deps: AppDeps, targetR
   };
 }
 
+/** The model judge over the AI binding, unless it is missing or switched off (JUDGE=off). */
+export function judgeClient(env: Env): JudgeClient | null {
+  const ai = env.AI;
+  if (!ai || env.JUDGE === "off") return null;
+  return { ask: (input) => ai.run(JUDGE_MODEL, input) };
+}
+
 async function runAndSave(
   target: Target,
   key: string,
@@ -362,6 +374,7 @@ async function runAndSave(
     guardHoldMs,
     guardAggressiveness: aggr,
     guardMargin: margin,
+    judge: judgeClient(env),
     progress: (step, detail) => send({ type: "progress", step, ...(detail || {}) }),
   });
   if (signal.aborted) throw new ScanError("cancelled", "The scan was stopped because the page that asked for it closed.");
@@ -379,14 +392,31 @@ async function runAndSave(
       }
     }),
   );
+  // the crops the report shows: what the model judge saw for each measured finding it was asked about and for each of
+  // its own findings (kept like the screenshots: the host in the metadata, deleted by the same 24-hour sweep)
+  await Promise.all(
+    judgeCropsToKeep(result).map(async (j) => {
+      try {
+        await env.BUCKET.put(shotKey(key, id, j.id), Uint8Array.from(atob(j.image), (c) => c.charCodeAt(0)), { httpMetadata: { contentType: "image/jpeg" }, customMetadata: { host: target.host } });
+        saved.add(j.id);
+      } catch {
+        /* the report says there is no crop */
+      }
+    }),
+  );
+  const shotUrl = (view: string) => (saved.has(view) ? `/api/scan/shot/${key}/${id}-${view}.jpg` : null);
   const report = buildReport(
     target,
-    { id, key, at, runtime: RUNTIME_VERSION, axe: deps.axe?.version ?? "", guardHoldMs, guardAggressiveness: aggr, guardMargin: margin, shotUrl: (view) => (saved.has(view) ? `/api/scan/shot/${key}/${id}-${view}.jpg` : null) },
+    { id, key, at, runtime: RUNTIME_VERSION, axe: deps.axe?.version ?? "", guardHoldMs, guardAggressiveness: aggr, guardMargin: margin, shotUrl, cropUrl: shotUrl },
     result,
     { withGenClass: env.WITH_GENCLASS === "on" },
   );
   await saveReport(env.BUCKET, key, report as unknown as Record<string, unknown>);
-  console.log(`scan ${id}: ${result.ms.total} ms (launch ${result.ms.launch}, views ${result.ms.views}, probe ${result.ms.probe}, guard ${result.ms.guard}), ${report.findings.length} findings, score ${report.score.value}`);
+  const j = report.judge;
+  console.log(
+    `scan ${id}: ${result.ms.total} ms (launch ${result.ms.launch}, views ${result.ms.views}, probe ${result.ms.probe}, guard ${result.ms.guard}), ${report.findings.length} findings, score ${report.score.value}` +
+      (j.on ? `; judge ${j.answered}/${j.calls} answered, ${j.timeouts} late, ${j.tokens} tokens, call ms median ${j.msMedian} max ${j.msMax}, wall ${j.wallMs}, kept ${j.kept} fine ${j.fine} found ${j.found}` : ""),
+  );
   send({ type: "done", report });
 }
 

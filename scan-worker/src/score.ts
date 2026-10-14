@@ -23,7 +23,7 @@ export const CATEGORIES: { id: Category; label: string; weight: number; covers: 
     id: "visual",
     label: "Visual bugs",
     weight: 25,
-    covers: "Text that cannot be read, template or placeholder text, garbled characters, images, stylesheets, fonts and media that failed, stretched images, a blank page, a page that ignores clicks or cannot scroll, controls under fixed bars, covered dialogs (the GenClass visual checks)",
+    covers: "Text that cannot be read, template or placeholder text, garbled characters, images, stylesheets, fonts and media that failed, stretched images, a blank page, a page that ignores clicks or cannot scroll, controls under fixed bars, covered dialogs (the GenClass visual checks); and elements a model (Clef) judged from the screenshot as visibly broken where the measured checks cannot judge, labelled as judged by a model",
   },
   {
     id: "accessibility",
