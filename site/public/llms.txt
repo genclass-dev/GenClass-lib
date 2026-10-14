@@ -21,11 +21,16 @@
 - Training data: about 17.6M labelled runtime situations, including 837,623 real-browser rows from 158 apps.
 
 ## Plans (https://genclass.dev/pricing; source: billing/plans.json)
-- Free, US$0: The open-source runtime with every mode: observe, guard and heal; Reports in the browser console; The genclass.dev page scanner (coming next); Dashboard for up to 3 apps; 7 days of dashboard history.
+- Free, US$0: The open-source runtime with every mode: observe, guard and heal; Reports in the browser console; The genclass.dev page check; Dashboard for up to 3 apps; 7 days of dashboard history.
 - Pro, US$99 per month (not on sale yet: it opens with runtime 0.3.0, the first version that sends to the dashboard): Everything in Free; Unlimited apps; 1 year of dashboard history; Full data export: every event GenClass received for your apps, as JSONL or CSV, by download or API; Forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook; Interaction analytics (coming next); Email support from mehar@daybot.ca.
 - Custom, US$599 per month (not on sale yet: it opens with runtime 0.3.0, the first version that sends to the dashboard): Everything in Pro; A classifier trained for your app: we train a GenClass model on your app's own traffic and bug reports and ship it as a private model your runtime loads; A person from GenClass emails you within 1 business day of purchase to start; Priority support.
 - Unlimited apps means no plan limit; one account holds at most 200 apps as an abuse limit. The runtime is free in every plan.
 - Need self-hosting, SSO or invoices? Email mehar@daybot.ca. https://genclass.dev/enterprise
+
+## Visual bug checks: measured in CI, not in 0.2.1 yet; the page check is open
+- Visual bug checks (unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", stylesheets and fonts that fail, covered controls): 23 kinds of measured check with documented thresholds, GenClass visual checks v1, not a model. Measured on GitHub runners in Chromium 153, October 13, 2026: 35 of 35 planted faults found on fixture pages; 0 false reports in 128 page views of unmodified demo, template and compatibility apps; on public home pages (bench run 4, 31 of 40 sites), 8 findings in 96 loads, 5 confirmed real, 3 unconfirmed. https://genclass.dev/visual#numbers
+- Page check: https://genclass.dev/visual#scan, or genclass.dev/<address>. A cloud browser loads one public page and runs the same checks except click-blocked, which needs a visitor's clicks.
+- Learned visual model: still being trained and evaluated; no published numbers.
 
 ## Guides
 - How to fix race conditions in React data fetching: https://genclass.dev/guides/race-conditions-react

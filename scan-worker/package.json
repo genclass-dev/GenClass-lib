@@ -1,0 +1,24 @@
+{
+  "name": "genclass-scan-worker",
+  "private": true,
+  "type": "module",
+  "description": "genclass.dev/scan: loads one public page in a Cloudflare browser, runs the GenClass visual checks and a side-effect-free race probe, and scores the result.",
+  "scripts": {
+    "test": "node --test --test-reporter=spec test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "deploy:test": "npx --yes wrangler@4 deploy",
+    "dry-run": "npx --yes wrangler@4 deploy --dry-run --outdir .wrangler/dry"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "1.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260915.1",
+    "@types/node": "22.20.4",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "license": "Apache-2.0"
+}

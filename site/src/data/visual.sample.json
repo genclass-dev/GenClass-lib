@@ -1,0 +1,254 @@
+{
+  "$comment": "SHAPE ONLY. Every number in this file is made up to show the format and to preview the layout; none was measured. The build never reads this file unless VISUAL_DATA points at it, and then it stamps every figure and table 'Sample data, not measured' and writes to site/.preview/. Copy the shape into visual.json, never the numbers.",
+  "status": "sample",
+  "updated": "2026-10-14",
+  "ready_by": null,
+  "scan_live": true,
+  "scan_runs": "chunk",
+  "checks_in_runtime": null,
+  "checks": {
+    "name": "Sample checks",
+    "version": "v0-sample",
+    "branch": "sample-branch",
+    "measured_on": "a sample runner",
+    "date": "2026-10-14",
+    "kinds": 3,
+    "fixtures": {
+      "planted": 9,
+      "found": 8,
+      "kinds": 3,
+      "tests_passed": 7,
+      "on": "sample fixture pages"
+    },
+    "recall": {
+      "run": 2,
+      "on": "sample faults planted in sample pages",
+      "misses": "Sample note on the misses.",
+      "rows": [
+        {
+          "kind": "text-invisible",
+          "planted": 10,
+          "found": 9,
+          "recall": 0.9
+        },
+        {
+          "kind": "image-broken",
+          "planted": 20,
+          "found": 20,
+          "recall": 1
+        },
+        {
+          "kind": "page-overflow-x",
+          "planted": 30,
+          "found": 21,
+          "recall": 0.7
+        }
+      ]
+    },
+    "clean": {
+      "runs": "1 and 2",
+      "loads": "Sample loads",
+      "page_views": 60,
+      "false_reports": 1,
+      "fixes_applied": 0,
+      "real": "Sample note on the clean pages.",
+      "rows": [
+        {
+          "pages": "Sample pages A",
+          "page_views": 40,
+          "findings": 3,
+          "confirmed_real": 2,
+          "false_reports": 1,
+          "fixes_applied": 0
+        },
+        {
+          "pages": "Sample pages B",
+          "page_views": 20,
+          "findings": 0,
+          "confirmed_real": 0,
+          "false_reports": 0,
+          "fixes_applied": 0
+        }
+      ]
+    },
+    "public": {
+      "sites": 11,
+      "run": 1,
+      "on": "Sample public pages.",
+      "real": "Sample note on the public pages.",
+      "runs": [
+        {
+          "run": 1,
+          "sites": 10,
+          "loads": 50,
+          "findings": 5,
+          "per_load": 0.1,
+          "confirmed_real": 2,
+          "check_errors": 1,
+          "unconfirmed": 2
+        },
+        {
+          "run": 2,
+          "sites": 9,
+          "loads": 40,
+          "findings": 4,
+          "per_load": 0.1,
+          "looked_at": false,
+          "confirmed_real": null,
+          "check_errors": null,
+          "unconfirmed": 4
+        }
+      ]
+    },
+    "cost": {
+      "run": 2,
+      "chunk_kb_gzip": 11,
+      "chunk_kb_min": 22,
+      "first_load_bytes": 333,
+      "first_load_entry": "sample/entry",
+      "slice_budget_ms": 8,
+      "pass_budget_ms": 100,
+      "note": "Sample note on cost.",
+      "passes": [
+        {
+          "on": "Sample loads",
+          "loads": 12,
+          "p50_ms": 1.1,
+          "p95_ms": 2.2,
+          "max_ms": 3.3,
+          "within_budget": 0.5,
+          "slice_p50_ms": 1,
+          "slice_p95_ms": 2,
+          "slice_max_ms": 3
+        }
+      ]
+    }
+  },
+  "model": {
+    "status": "live",
+    "stage": "training",
+    "name": "GenClass visual model",
+    "version": "0.0.0-sample",
+    "input": "each element's computed styles, layout box and a few hit tests, never pixels",
+    "trained_on": {
+      "sites_ai": 1111,
+      "sites_control": 222,
+      "injected_faults": 33333,
+      "elements": 4444444
+    },
+    "eval": {
+      "data": "sample crawl, faults injected from outside the page",
+      "split": "sample split: sites held out from training",
+      "false_reports_per": "clean element"
+    },
+    "families": [
+      {
+        "id": "text",
+        "name": "Unreadable text",
+        "recall_at_fp_0_1": 0.61,
+        "recall_at_fp_1": 0.82,
+        "examples": 1200
+      },
+      {
+        "id": "media",
+        "name": "Missing or broken media",
+        "recall_at_fp_0_1": 0.74,
+        "recall_at_fp_1": 0.9,
+        "examples": 1500
+      },
+      {
+        "id": "styles",
+        "name": "Missing styles or fonts",
+        "recall_at_fp_0_1": 0.38,
+        "recall_at_fp_1": 0.57,
+        "examples": 2100
+      },
+      {
+        "id": "overflow",
+        "name": "Layout overflow and clipping",
+        "recall_at_fp_0_1": 0.52,
+        "recall_at_fp_1": 0.71,
+        "examples": 1700
+      },
+      {
+        "id": "occlusion",
+        "name": "Overlap and occlusion",
+        "recall_at_fp_0_1": 0.29,
+        "recall_at_fp_1": 0.48,
+        "examples": 1300
+      },
+      {
+        "id": "controls",
+        "name": "Hidden or unreachable controls",
+        "recall_at_fp_0_1": 0.33,
+        "recall_at_fp_1": 0.55,
+        "examples": 2300
+      },
+      {
+        "id": "leaks",
+        "name": "Template and data leaks",
+        "recall_at_fp_0_1": 0.8,
+        "recall_at_fp_1": 0.93,
+        "examples": 800
+      }
+    ],
+    "natural_precision": 0.9,
+    "natural_pages": 555,
+    "size_kb": 666,
+    "ms_per_element": 0.07,
+    "cost_measured_on": "sample device, one WASM thread"
+  },
+  "crawl": {
+    "status": "live",
+    "date": "2026-10-13",
+    "sites_ai": 1111,
+    "sites_control": 222,
+    "basis": "Share of sample page views with at least one element showing the signal",
+    "signals": [
+      {
+        "name": "Sample signal one",
+        "view": "desktop",
+        "share_ai": 0.11,
+        "share_control": 0.22
+      },
+      {
+        "name": "Sample signal two",
+        "view": "desktop",
+        "share_ai": 0.033,
+        "share_control": 0.044
+      },
+      {
+        "name": "Sample signal three",
+        "view": "phone",
+        "share_ai": 0.15,
+        "share_control": 0.05
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "catalog",
+      "title": "Visual and CSS bugs in AI-generated web apps: catalog",
+      "path": "research/visual/CATALOG.md",
+      "used_for": "the bug families and their order"
+    },
+    {
+      "id": "checks",
+      "title": "GenClass visual checks: design",
+      "path": "docs/runtime/VISUAL.md",
+      "used_for": "the measured checks, their thresholds and the opt-in fixes"
+    },
+    {
+      "id": "results",
+      "title": "Sample results file",
+      "url": "https://example.com/sample-results",
+      "used_for": "every number on the page (sample only)"
+    },
+    {
+      "id": "crawl",
+      "title": "Sample crawl results",
+      "url": "https://example.com/sample-crawl",
+      "used_for": "Fig. 2 (sample only)"
+    }
+  ]
+}
