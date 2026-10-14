@@ -3,9 +3,14 @@
 // and one inline style per response, each under a fresh CSP nonce. Every dynamic string reaches the page through
 // textContent, never innerHTML; data travels in a <script type="application/json"> block escaped by embed().
 
-import { KINDS, NOT_RUN_HERE, VISUAL_KINDS } from "./catalog.ts";
-import { UA_TOKEN, userAgent, VIEWS } from "./scan.ts";
-import { CATEGORIES, SCORE_VERSION, SEVERITY_POINTS } from "./score.ts";
+import { CLS_GOOD, CLS_POOR, FONT_MIN, JUDGE_DPR, LCP_GOOD_MS, LCP_POOR_MS, OVERSIZE_BYTES, OVERSIZE_RATIO, TARGET_MIN } from "./audits.ts";
+import { AXE_OFF, AXE_TAGS } from "./axe.ts";
+import { AXE_BUILD } from "./axe-source.ts";
+import { KINDS, NOT_RUN_HERE, VISUAL_KINDS, type Kind } from "./catalog.ts";
+import { JS_NOTE_BYTES } from "./cdp.ts";
+import { SCAN_BUDGET_MS, UA_TOKEN, userAgent, VIEWS } from "./scan.ts";
+import { categoryValue, CATEGORIES, INSTANCE_CAP, rulePoints, SCORE_VERSION, SEVERITY_ORDER, SEVERITY_POINTS, type Severity } from "./score.ts";
+import { safeStandardUrl } from "./standards.ts";
 import { RUNTIME_VERSION, visualStatus } from "./visual.ts";
 import { VISUAL_BUILD } from "./visual-source.ts";
 
@@ -16,6 +21,11 @@ export function withLabel(): string {
   return visualStatus().shipped ? "With GenClass on" : "With GenClass (in testing)";
 }
 export const OPT_OUT_EMAIL = "mehar@daybot.ca";
+
+/** "Visual bugs 25, Accessibility 25, Phone 20, Reliability 15, Speed 10, Races 5", from the score's own constants. */
+export function weightsWords(): string {
+  return `weights: ${CATEGORIES.map((c) => `${c.label} ${c.weight}`).join(", ")}`;
+}
 
 export function securityHeaders(nonce: string, extra: Record<string, string> = {}): Record<string, string> {
   return {
@@ -158,7 +168,32 @@ ol.finds{list-style:none;margin-top:8px}
 .find.fixed .no{background:var(--green-f)}
 .find h3{font:600 18px/1.35 var(--sans);letter-spacing:-.01em}
 .find .tags{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font:12px var(--mono);color:var(--ink3)}
-.find .tags .sev-high{color:var(--bug)}
+.find .tags .sev-critical,.find .tags .sev-serious{color:var(--bug)}
+.find .tags .sev-critical{font-weight:600}
+.find dd a{color:var(--ink);text-decoration:underline}
+.find dd .ex{display:block;margin-top:4px;font:12.5px var(--mono);color:var(--ink3)}
+ol.finds li.catg{display:flex;flex-wrap:wrap;gap:4px 16px;justify-content:space-between;align-items:baseline;padding:36px 0 10px;border-bottom:1px solid var(--ink)}
+ol.finds li.catg:first-child{padding-top:16px}
+ol.finds li.catg h3{font:700 21px/1.2 var(--display);letter-spacing:-.02em}
+ol.finds li.catg span{font:12.5px var(--mono);color:var(--ink3)}
+ol.finds li.ruleg{font:500 12.5px var(--mono);color:var(--ink3);padding:16px 0 0}
+/* the six categories and the top issues */
+.cats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0 24px;margin-top:28px;border-top:1px solid var(--ink)}
+.cats .cat{padding:14px 0;border-bottom:1px solid var(--rule);min-width:0}
+.cats .k{font:500 11.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
+.cats .v{font:700 36px/1.1 var(--display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:6px}
+.cats .v small{font:500 13px var(--mono);letter-spacing:0;color:var(--ink3);margin-left:3px}
+.cats .s{font-size:12.5px;line-height:1.45;color:var(--ink3);margin-top:4px}
+.cats .off .v{font-size:17px;line-height:1.5;color:var(--ink3);letter-spacing:0}
+@media (max-width:900px){.cats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:480px){.cats{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}.cats .v{font-size:30px}}
+ol.top{list-style:none;margin-top:4px;max-width:900px}
+ol.top li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:4px 16px;padding:12px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+ol.top .no{font:600 13px/26px var(--mono);color:#0B1736;background:var(--bug-f);border-radius:2px;width:30px;height:26px;text-align:center;text-decoration:none}
+ol.top b{font-weight:600}
+ol.top .m{display:block;font:12.5px var(--mono);color:var(--ink3);margin-top:2px}
+ol.top .p{font:600 13.5px var(--mono);color:var(--bug);font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:560px){ol.top li{grid-template-columns:40px minmax(0,1fr)}ol.top .p{grid-column:2}}
 .find dl{display:grid;grid-template-columns:minmax(110px,150px) minmax(0,1fr);margin-top:12px;font-size:15px}
 .find dt{font:500 12px/1.9 var(--mono);color:var(--ink3);padding:6px 12px 6px 0;border-top:1px solid var(--rule)}
 .find dd{padding:6px 0;border-top:1px solid var(--rule);color:var(--ink2);min-width:0;overflow-wrap:anywhere}
@@ -216,6 +251,7 @@ code.kind{font:12.5px var(--mono);color:var(--ink3)}
 .prose h3.h3{margin-top:28px;font-size:19px;color:var(--ink)}
 .formula{font:15px/1.7 var(--mono);color:var(--ink);border-top:1px solid var(--ink);border-bottom:1px solid var(--rule);padding:16px 0;margin-top:18px;overflow-wrap:anywhere}
 .notrun{display:block;font:12px var(--mono);color:var(--ink3);margin-top:2px}
+.mt{margin-top:28px}
 /* narrow screens: a visible gap between the number columns, and number tags beside their boxes, not over the text */
 @media (max-width:560px){
   table.dt th.r,table.dt td.r{padding-left:10px}
@@ -233,7 +269,7 @@ function shell(n: string, title: string, current: "scan" | "about", body: string
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>${esc(title)}</title>
-<meta name="description" content="Check one public page for unreadable text, broken images, layout overflow, covered controls and double-submit races. Requests that could change something on the site are never sent.">
+<meta name="description" content="Check one public page for visual bugs, accessibility (axe-core, WCAG 2.2 A and AA), phone layout, errors, speed and double-submit races. Requests that could change something on the site are never sent.">
 <link rel="icon" href="${ICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -266,6 +302,8 @@ const LIMITS = [
   ["Some checks need a known background.", "Text over images, gradients or video is skipped by the contrast check rather than guessed at."],
   ["No clicks on the page.", "The scanner presses Tab and scrolls, but clicks only the probe's submit button, so checks that need a visitor's clicks (an invisible layer that swallows them) do not run here."],
   ["Six seconds per view.", "Problems that appear later, after a timer or a second interaction, are not seen."],
+  ["Timings from a data center.", "Largest Contentful Paint and layout shift are measured once, in Cloudflare's browser with a fast network, three views loading at once and GenClass loading in the desktop view. A visitor's numbers can be better or worse; field data (Chrome's CrUX) is the reference."],
+  ["Automated accessibility checks find some problems, not all.", "axe-core reports what it can decide by itself. Whether alt text is meaningful, whether the page works with a screen reader or the keyboard alone, still needs a person."],
   ["Bot protection.", "Some sites show a challenge page to automated browsers. The report then describes that page, not the site."],
 ];
 
@@ -285,11 +323,11 @@ export function scanPage(n: string, data: ScanPageData): string {
     <input id="u" name="url" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="2048" placeholder="example.com/pricing" value="${esc(data.input)}">
     <button class="btn" id="go" type="submit">Check page</button>
   </form>
-  <p class="lead" id="lead"${t ? ' hidden' : ""}>Paste an address. A browser loads the page on a desktop and on a phone, light and dark, and checks
-  for text you cannot read, images and stylesheets that failed, sideways scrolling, a page that ignores clicks or cannot scroll,
-  and controls hidden under fixed bars, with ${esc(st.checks)}. Then it types into the search box and double-clicks a
-  submit button to look for races, with GenClass ${esc(RUNTIME_VERSION)} watching. Requests that could change something on
-  the site are answered inside the browser and never sent.</p>
+  <p class="lead" id="lead"${t ? ' hidden' : ""}>Paste an address. A browser loads the page on a desktop and on a phone, light and dark, and
+  checks it six ways: visual bugs (${esc(st.checks)}), accessibility (axe-core's WCAG 2.2 A and AA rules), the phone layout
+  (tap targets, zoom, text size, sideways scrolling at 320 px), errors and failed requests, speed (Largest Contentful Paint and
+  layout shift), and races: it types into the search box and double-clicks a submit button with GenClass ${esc(RUNTIME_VERSION)}
+  watching. Requests that could change something on the site are answered inside the browser and never sent.</p>
 </section>
 ${t && !report && !data.error ? `<noscript><section class="callout"><p><b>The page check runs in your browser with JavaScript.</b></p><p class="muted">Turn JavaScript on to check this page, or read <a href="/scan/about">how the page check works</a>.</p></section></noscript>` : ""}
 ${report ? staticReport(report) : ""}
@@ -308,12 +346,17 @@ ${report ? staticReport(report) : ""}
       </div>
     </div>
     <div>
-      <table class="dt"><thead><tr><th>Category</th><th class="r">Findings</th><th class="r">Deducted</th><th class="r hidden" id="wth">${esc(withLabel())}</th></tr></thead><tbody id="breakdown"></tbody></table>
-      <p class="measures" id="measures"><b>What the score measures:</b> this page, this one load, in three views, against the checks listed on
-      <a href="/scan/about#score">How it works</a>. Each finding takes 10, 5 or 2 points by severity, and no category can take more than 25.
-      <b>What it does not measure:</b> speed, SEO, accessibility beyond contrast, or anything that needs a signed-in user or a second page.</p>
+      <p class="measures" id="measures"><b>What the score measures:</b> this page, this one load, in three views. Each of the six
+      categories is scored from 100 by its own findings, and the score is their weighted mean (${esc(weightsWords())}).
+      A category that was not measured is left out, never counted as 100. <a href="/scan/about#score">How the score works</a>.
+      <b>What it does not measure:</b> SEO, anything that needs a signed-in user or a second page, and what only a person can judge.</p>
       <div class="share" id="share"></div>
     </div>
+  </section>
+  <div class="cats" id="cats" role="list" aria-label="Category scores"></div>
+  <section class="blk hidden" id="topbox">
+    <div class="blk-h"><h2>Top issues</h2><span class="aside">The rules that cost the most points</span></div>
+    <ol class="top" id="top"></ol>
   </section>
   <section class="blk" id="where">
     <div class="blk-h"><h2>Where the findings are</h2><span class="aside" id="figs"></span></div>
@@ -371,15 +414,35 @@ const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const str = (v: unknown): string => (typeof v === "string" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : "");
 const int = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null);
 const VIEW_WORDS: Record<string, string> = { desktop: "Desktop", phone: "Phone", "phone-dark": "Phone, dark", probe: "Race probe" };
-const CAT_WORDS: Record<string, string> = { readability: "Readability", media: "Images and media", layout: "Layout", interaction: "Interaction and races" };
+const CAT_WORDS: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
+const SEV_WORDS: Record<string, string> = { critical: "Critical", serious: "Serious", moderate: "Moderate", minor: "Minor" };
 
 function staticMeta(r: Record<string, unknown>): string {
   const at = Date.parse(str(r.scannedAt));
   const total = int(obj(r.ms).total);
-  return [str(r.url), Number.isFinite(at) ? `Scanned ${new Date(at).toISOString().slice(0, 16).replace("T", " ")} UTC` : "", total !== null ? `${(total / 1000).toFixed(1)} s in total` : "", str(r.runtime) ? `@genclass/runtime ${str(r.runtime)}` : ""]
+  return [
+    str(r.url),
+    Number.isFinite(at) ? `Scanned ${new Date(at).toISOString().slice(0, 16).replace("T", " ")} UTC` : "",
+    total !== null ? `${(total / 1000).toFixed(1)} s in total` : "",
+    str(r.runtime) ? `@genclass/runtime ${str(r.runtime)}` : "",
+    str(r.axe) ? `axe-core ${str(r.axe)}` : "",
+  ]
     .filter(Boolean)
     .map((x) => `<span>${esc(x)}</span>`)
     .join("");
+}
+
+/** A standard's link from stored data: only to the standards' own sites (standards.ts safeStandardUrl). */
+function standardLinks(v: unknown): string {
+  return arr(v)
+    .map(obj)
+    .map((s) => {
+      const url = safeStandardUrl(s.url);
+      const label = str(s.label);
+      return label ? (url ? `<a href="${esc(url)}">${esc(label)}</a>` : esc(label)) : "";
+    })
+    .filter(Boolean)
+    .join("<br>");
 }
 
 export function staticReport(r: Record<string, unknown>): string {
@@ -388,39 +451,69 @@ export function staticReport(r: Record<string, unknown>): string {
   const withOn = w.shown === true && int(w.value) !== null;
   const findings = arr(r.findings).map(obj);
   const withCats = arr(obj(w.breakdown).categories).map(obj);
-  const rows = arr(score.categories)
-    .map(obj)
-    .map((c, i) => {
-      const d = int(c.deducted) ?? 0;
-      const wd = int(withCats[i]?.deducted) ?? 0;
-      return `<tr><td class="cat">${esc(str(c.label))}<small>Up to ${esc(str(c.cap))} points</small></td><td class="r">${esc(str(c.count))}</td><td class="r">${d ? `-${d}` : "0"}</td>${withOn ? `<td class="r">${wd ? `-${wd}` : "0"}</td>` : ""}</tr>`;
+  const notMeasured = obj(r.notMeasured);
+  const cats = arr(score.categories).map(obj);
+  const cells = cats
+    .map((c) => {
+      const on = c.measured === true && int(c.value) !== null;
+      const wc = withCats.find((x) => str(x.id) === str(c.id));
+      const withDiff = withOn && wc && int(wc.value) !== null && int(wc.value) !== int(c.value) ? ` · ${esc(withLabel())} ${esc(str(wc.value))}` : "";
+      const sub = on ? `weight ${esc(str(c.weight))} · ${int(c.count) ? `${esc(str(c.count))} ${int(c.count) === 1 ? "finding" : "findings"}` : "nothing found"}${withDiff}` : esc(str(notMeasured[str(c.id)]) || "Not measured on this scan.");
+      return `<div class="cat${on ? "" : " off"}" role="listitem"><div class="k">${esc(str(c.label))}</div><div class="v">${on ? `${esc(str(c.value))}<small>/ 100</small>` : "not measured"}</div><div class="s">${sub}</div></div>`;
     })
     .join("");
+  const top = arr(r.top)
+    .map(obj)
+    .map(
+      (t) =>
+        `<li><a class="no" href="#sf-${esc(str(t.n))}">${esc(str(t.n))}</a><div><b>${esc(str(t.what))}</b><span class="m">${esc(CAT_WORDS[str(t.category)] ?? "")} · ${esc(SEV_WORDS[str(t.severity)] ?? "")}${(int(t.count) ?? 0) > 1 ? ` · ${esc(str(t.count))} instances` : ""}</span></div><span class="p">-${esc(((typeof t.points === "number" ? t.points : 0) as number).toFixed(1))}</span></li>`,
+    )
+    .join("");
+  const ruleCount = new Map<string, number>();
+  for (const f of findings) ruleCount.set(`${str(f.category)}|${str(f.rule)}`, (ruleCount.get(`${str(f.category)}|${str(f.rule)}`) ?? 0) + 1);
+  let lastCat = "";
+  let lastRule = "";
   const items = findings
     .map((f) => {
       const sev = str(f.severity);
+      const cat = str(f.category);
       const views = arr(f.views).map((v) => VIEW_WORDS[str(v)] ?? str(v)).filter(Boolean).join(" · ");
       const gc = obj(f.genclass);
       const fixed = obj(f.fixed);
       const row = (k: string, v: string) => (v ? `<dt>${esc(k)}</dt><dd>${v}</dd>` : "");
-      return `<li class="find${withOn && str(fixed.how) ? " fixed" : ""}" id="sf-${esc(str(f.n))}"><div class="no">${esc(str(f.n))}</div><div><h3>${esc(str(f.what))}</h3>
-<div class="tags"><span class="sev-${sev === "high" ? "high" : "x"}">${sev === "high" ? "Serious" : sev === "medium" ? "Moderate" : sev === "low" ? "Minor" : ""}</span><span>${esc(CAT_WORDS[str(f.category)] ?? "")}</span><span>${esc(views)}</span>${str(f.unscored) ? "<span>Not scored</span>" : ""}</div>
-<dl>${row("Where", str(f.selector) ? `<code>${esc(str(f.selector))}</code>` : "")}${row("Measured", esc(str(f.measured)))}${row("Not scored", esc(str(f.unscored)))}${row("Why it matters", esc(str(f.why)))}${row("Suggested fix", str(f.fix) ? `<pre>${esc(str(f.fix))}</pre>` : "")}${withOn ? row("With GenClass", esc(str(fixed.how) ? `Fixed. ${str(fixed.how)}` : str(gc.text))) : ""}</dl></div></li>`;
+      let head = "";
+      if (cat !== lastCat) {
+        const c = cats.find((x) => str(x.id) === cat);
+        head += `<li class="catg"><h3>${esc(CAT_WORDS[cat] ?? cat)}</h3><span>${c && c.measured === true ? `${esc(str(c.value))} / 100` : "not measured"}</span></li>`;
+        lastCat = cat;
+        lastRule = "";
+      }
+      const rk = `${cat}|${str(f.rule)}`;
+      if ((ruleCount.get(rk) ?? 0) > 1 && str(f.rule) !== lastRule) head += `<li class="ruleg">${esc(str(f.what))}: ${esc(String(ruleCount.get(rk)))} findings</li>`;
+      lastRule = str(f.rule);
+      const count = int(f.count) ?? 1;
+      const examples = arr(f.examples).map(str).filter((x) => x && x !== str(f.selector));
+      const guide = typeof f.guide === "string" && /^https:\/\/dequeuniversity\.com\/rules\/axe\//.test(f.guide) ? f.guide : "";
+      return `${head}<li class="find${withOn && str(fixed.how) ? " fixed" : ""}" id="sf-${esc(str(f.n))}"><div class="no">${esc(str(f.n))}</div><div><h3>${esc(str(f.what))}</h3>
+<div class="tags"><span class="sev-${esc(sev)}">${esc(SEV_WORDS[sev] ?? "")}</span>${count > 1 ? `<span>${esc(String(count))} instances</span>` : ""}<span>${esc(views)}</span>${str(f.unscored) ? "<span>Not scored</span>" : ""}</div>
+<dl>${row("Measured", esc(str(f.measured)))}${row("Standard", standardLinks(f.standards))}${row("Where", str(f.selector) ? `<code>${esc(str(f.selector))}</code>${examples.length ? `<span class="ex">Also: ${examples.map(esc).join(", ")}</span>` : ""}` : "")}${row("Not scored", esc(str(f.unscored)))}${row("Why it matters", esc(str(f.why)))}${row("Suggested fix", str(f.fix) ? `<pre>${esc(str(f.fix))}</pre>` : "")}${row("Rule guide", guide ? `<a href="${esc(guide)}">${esc(guide.replace(/^https:\/\//, "").replace(/\?.*$/, ""))}</a>` : "")}${withOn ? row("With GenClass", esc(str(fixed.how) ? `Fixed. ${str(fixed.how)}` : str(gc.text))) : ""}</dl></div></li>`;
     })
     .join("");
   const n = findings.filter((f) => !str(f.unscored)).length;
+  const overall = int(score.value);
   return `<div id="ssr">
 <section class="scoregrid" aria-label="Score">
   <div><div class="nums">
-    <div class="num"><div class="k">${withOn ? "Without GenClass" : "Score"}</div><div class="v">${esc(str(score.value))}<small>/ 100</small></div><div class="s">${n ? `${n} scored ${n === 1 ? "finding" : "findings"}.` : "No scored findings from these checks."}</div></div>
+    <div class="num"><div class="k">${withOn ? "Without GenClass" : "Score"}</div><div class="v">${overall !== null ? esc(String(overall)) : "n/a"}<small>/ 100</small></div><div class="s">${n ? `${n} scored ${n === 1 ? "finding" : "findings"}.` : "No scored findings from these checks."}</div></div>
     ${withOn ? `<div class="num with"><div class="k">${esc(withLabel())}</div><div class="v">${esc(str(w.value))}<small>/ 100</small></div><div class="s">${esc(str(w.fixed))} fixed in the page and gone on a re-check in the same browser.</div></div>` : ""}
   </div></div>
   <div>
-    <table class="dt"><thead><tr><th>Category</th><th class="r">Findings</th><th class="r">Deducted</th>${withOn ? `<th class="r">${esc(withLabel())}</th>` : ""}</tr></thead><tbody>${rows}</tbody></table>
-    <p class="measures">${withOn ? esc(str(w.note)) : ""} Screenshots and the race probe show with JavaScript on. <a href="/scan/about#score">How the score works</a>.</p>
+    <p class="measures">The weighted mean of six categories (${esc(weightsWords())}). ${withOn ? esc(str(w.note)) : ""} Screenshots and the race probe show with JavaScript on. <a href="/scan/about#score">How the score works</a>.</p>
   </div>
 </section>
-<section class="blk"><div class="blk-h"><h2>Findings</h2><span class="aside">Table 1. ${findings.length} ${findings.length === 1 ? "finding" : "findings"}, most serious first</span></div>
+<div class="cats" role="list" aria-label="Category scores">${cells}</div>
+${top ? `<section class="blk"><div class="blk-h"><h2>Top issues</h2><span class="aside">The rules that cost the most points</span></div><ol class="top">${top}</ol></section>` : ""}
+<section class="blk"><div class="blk-h"><h2>Findings</h2><span class="aside">Table 1. ${findings.length} ${findings.length === 1 ? "finding" : "findings"}, by category and rule</span></div>
 ${findings.length ? `<ol class="finds">${items}</ol>` : `<p class="quiet">No findings from these checks on this load.</p>`}</section>
 </div>`;
 }
@@ -436,7 +529,7 @@ function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.cla
 function show(id, on){ $(id).classList.toggle("hidden", !on); }
 var nf = new Intl.NumberFormat("en-US");
 function secs(ms){ return (Math.round(ms / 100) / 10).toFixed(1) + " s"; }
-var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks", ST.shipped ? "Running the GenClass visual checks, with and without their fixes, and taking screenshots" : "Running the visual checks (in testing), with and without their fixes, and taking screenshots"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
+var STEPS = [["check","Checking the address and robots.txt"],["browser","Starting a browser"],["views","Loading the page: desktop, phone, phone dark"],["checks", (ST.shipped ? "Running the GenClass visual checks" : "Running the visual checks (in testing)") + ", axe-core and the phone audits, and taking screenshots"],["probe","Race probe: typing and a double click, GenClass in observe mode"],["guard","The same probe with GenClass in guard mode"],["save","Scoring and saving the report"]];
 var t0 = 0, timer = null;
 
 function problem(title, detail){
@@ -458,7 +551,7 @@ function progress(step){
 function start(){
   show("progress", true); show("problem", false); $("go").disabled = true;
   t0 = Date.now(); progress("check");
-  timer = setInterval(function(){ $("elapsed").textContent = secs(Date.now() - t0) + " elapsed. A scan usually takes 15 to 35 seconds."; }, 200);
+  timer = setInterval(function(){ $("elapsed").textContent = secs(Date.now() - t0) + " elapsed. A scan usually takes 20 to 45 seconds."; }, 200);
   fetch("/api/scan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: D.target.url }) }).then(function(res){
     var ct = res.headers.get("content-type") || "";
     if (ct.indexOf("ndjson") < 0) return res.json().then(function(j){ refused(res.status, j); }, function(){ problem("The scanner did not answer.", "HTTP " + res.status + ". Try again in a minute."); });
@@ -512,29 +605,48 @@ function render(r){
   show("result", true);
   $("title").textContent = r.display;
   var meta = $("meta"); meta.textContent = "";
-  [r.url, "Scanned " + new Date(r.scannedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), secs(r.ms.total) + " in total", "@genclass/runtime " + r.runtime].forEach(function(t){ meta.appendChild(el("span", null, t)); });
+  [r.url, "Scanned " + new Date(r.scannedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), secs(r.ms.total) + " in total", "@genclass/runtime " + r.runtime, r.axe ? "axe-core " + r.axe : ""].forEach(function(t){ if (t) meta.appendChild(el("span", null, t)); });
   renderScore(r); renderShots(r); renderFindings(r); renderProbe(r); renderShare(r);
   show("ctaprobe", true);
   if (history.replaceState && D.target) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
 }
 
+var CATNAME = { visual: "Visual bugs", accessibility: "Accessibility", phone: "Phone", reliability: "Reliability", speed: "Speed", races: "Races" };
+var SEVNAME = { critical: "Critical", serious: "Serious", moderate: "Moderate", minor: "Minor" };
+var SOURCENAME = { visual: ST.shipped ? "GenClass visual check" : "GenClass visual check (in testing)", axe: "axe-core", audit: "Scanner audit", probe: "Race probe" };
+var STD_HOSTS = /^https:\\/\\/(?:www\\.w3\\.org|web\\.dev|developer\\.chrome\\.com|www\\.rfc-editor\\.org|github\\.com\\/dequelabs|dequeuniversity\\.com)\\//;
+function catIn(b, id){ var cs = (b && b.categories) || []; for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i]; return null; }
 function renderScore(r){
-  $("sv").textContent = String(r.score.value);
-  var scored = r.findings.filter(function(f){ return !f.unscored; }), n = scored.length, extra = r.findings.length - n, high = scored.filter(function(f){ return f.severity === "high"; }).length;
-  $("ss").textContent = (n ? nf.format(n) + (n === 1 ? " finding" : " findings") + (high ? ", " + high + " serious" : "") + ". The table shows where the points went." : "No scored findings from these checks.")
+  var s = r.score;
+  $("sv").textContent = s.value === null || s.value === undefined ? "n/a" : String(s.value);
+  var scored = r.findings.filter(function(f){ return !f.unscored; }), n = scored.length, extra = r.findings.length - n;
+  var rules = {}; scored.forEach(function(f){ rules[f.category + "|" + f.rule] = 1; });
+  var nr = Object.keys(rules).length;
+  $("ss").textContent = (n ? nf.format(n) + (n === 1 ? " scored finding" : " scored findings") + " in " + nr + (nr === 1 ? " rule" : " rules") + ". The categories below show where the points went." : "No scored findings from these checks.")
     + (extra ? " " + extra + (extra === 1 ? " more is" : " more are") + " listed but not scored." : "");
   var w = r.withGenClass, withOn = !!(w && w.shown);
-  show("withbox", withOn); show("wth", withOn);
+  show("withbox", withOn);
   $("sk").textContent = withOn ? "Without GenClass" : "Score";
   if (withOn) { $("wv").textContent = String(w.value); $("ws").textContent = (n ? w.fixed + " of " + n + (n === 1 ? " finding" : " findings") + " fixed in the page and gone on a re-check in the same browser, with " + (ST.fixes || "the GenClass visual fixes") + " and guard mode. The rest are listed with a suggested fix." : "Nothing to fix on this load."); }
-  var tb = $("breakdown"); tb.textContent = "";
-  r.score.categories.forEach(function(c, i){
-    var tr = el("tr"), td = el("td", "cat", c.label); td.appendChild(el("small", null, "Up to " + c.cap + " points"));
-    var bar = el("div", "bar"), fill = el("i"); fill.style.width = Math.round(100 * c.deducted / c.cap) + "%"; bar.appendChild(fill); td.appendChild(bar);
-    tr.appendChild(td); tr.appendChild(el("td", "r", String(c.count))); tr.appendChild(el("td", "r", c.deducted ? "-" + c.deducted : "0"));
-    if (withOn) { var wc = w.breakdown.categories[i]; tr.appendChild(el("td", "r", wc.deducted ? "-" + wc.deducted : "0")); }
-    tb.appendChild(tr);
+  var row = $("cats"); row.textContent = "";
+  s.categories.forEach(function(c){
+    var on = c.measured && c.value !== null;
+    var cell = el("div", "cat" + (on ? "" : " off")); cell.setAttribute("role", "listitem");
+    cell.appendChild(el("div", "k", c.label));
+    var v = el("div", "v", on ? String(c.value) : "not measured"); if (on) v.appendChild(el("small", null, "/ 100")); cell.appendChild(v);
+    var wc = withOn ? catIn(w.breakdown, c.id) : null;
+    cell.appendChild(el("div", "s", on ? "weight " + c.weight + " · " + (c.count ? c.count + (c.count === 1 ? " finding" : " findings") : "nothing found") + (wc && wc.value !== null && wc.value !== c.value ? " · " + ST.withLabel + " " + wc.value : "") : ((r.notMeasured && r.notMeasured[c.id]) || "Not measured on this scan.")));
+    row.appendChild(cell);
   });
+  var top = $("top"); top.textContent = "";
+  (r.top || []).forEach(function(t){
+    var li = el("li"), a = el("a", "no", String(t.n)); a.href = "#f-" + t.n; li.appendChild(a);
+    var d = el("div"); d.appendChild(el("b", null, t.what));
+    d.appendChild(el("span", "m", (CATNAME[t.category] || t.category) + " · " + (SEVNAME[t.severity] || t.severity) + (t.count > 1 ? " · " + nf.format(t.count) + " instances" : "")));
+    li.appendChild(d); li.appendChild(el("span", "p", "-" + Number(t.points).toFixed(1)));
+    top.appendChild(li);
+  });
+  show("topbox", (r.top || []).length > 0);
   if (withOn) $("measures").appendChild(el("span", null, " " + w.note));
 }
 
@@ -597,25 +709,47 @@ function renderFindings(r){
   show("none", !r.findings.length);
   var withOn = !!(r.withGenClass && r.withGenClass.shown);
   var nfix = r.findings.filter(function(f){ return f.fixed; }).length;
-  $("listn").textContent = r.findings.length ? "Table 1. " + r.findings.length + (r.findings.length === 1 ? " finding" : " findings") + ", most serious first" + (withOn ? ". " + nfix + " fixed in this scan, " + (r.findings.length - nfix) + " not fixed" : "") : "Table 1. No findings";
+  $("listn").textContent = r.findings.length ? "Table 1. " + r.findings.length + (r.findings.length === 1 ? " finding" : " findings") + ", by category and rule" + (withOn ? ". " + nfix + " fixed in this scan, " + (r.findings.length - nfix) + " not fixed" : "") : "Table 1. No findings";
+  var ruleN = {}; r.findings.forEach(function(f){ var k = f.category + "|" + f.rule; ruleN[k] = (ruleN[k] || 0) + 1; });
+  var lastCat = null, lastRule = null;
   r.findings.forEach(function(f){
+    if (f.category !== lastCat) {
+      lastCat = f.category; lastRule = null;
+      var c = catIn(r.score, f.category), h = el("li", "catg");
+      h.appendChild(el("h3", null, CATNAME[f.category] || f.category));
+      h.appendChild(el("span", null, c && c.measured ? c.value + " / 100" : "not measured"));
+      host.appendChild(h);
+    }
+    var rk = f.category + "|" + f.rule;
+    if (ruleN[rk] > 1 && f.rule !== lastRule) host.appendChild(el("li", "ruleg", f.what + ": " + ruleN[rk] + " findings"));
+    lastRule = f.rule;
     var li = el("li", "find" + (withOn && f.fixed ? " fixed" : "")); li.id = "f-" + f.n;
     li.appendChild(el("div", "no", String(f.n)));
     var main = el("div");
     main.appendChild(el("h3", null, f.what));
     var tags = el("div", "tags");
-    tags.appendChild(el("span", "sev-" + f.severity, f.severity === "high" ? "Serious" : f.severity === "medium" ? "Moderate" : "Minor"));
-    tags.appendChild(el("span", null, ({ readability: "Readability", media: "Images and media", layout: "Layout", interaction: "Interaction and races" })[f.category]));
+    tags.appendChild(el("span", "sev-" + f.severity, SEVNAME[f.severity] || f.severity));
+    if (f.count > 1) tags.appendChild(el("span", null, nf.format(f.count) + " instances"));
     tags.appendChild(el("span", null, f.views.map(function(v){ return VIEWNAMES[v] || v; }).join(" · ")));
+    tags.appendChild(el("span", null, f.source === "axe" && r.axe ? "axe-core " + r.axe : (SOURCENAME[f.source] || "")));
     if (f.unscored) tags.appendChild(el("span", null, "Not scored"));
     main.appendChild(tags);
     var dl = el("dl");
     function row(k, node){ dl.appendChild(el("dt", null, k)); var dd = el("dd"); if (typeof node === "string") dd.textContent = node; else dd.appendChild(node); dl.appendChild(dd); return dd; }
-    if (f.selector) { var c = el("code", null, f.selector); row("Where", c); }
+    function link(href, text){ var a = el("a", null, text); a.href = href; return a; }
     row("Measured", f.measured);
+    var stds = (f.standards || []).filter(function(s){ return s && s.label; });
+    if (stds.length) { var sd = el("span"); stds.forEach(function(s, i){ if (i) sd.appendChild(el("br")); sd.appendChild(STD_HOSTS.test(String(s.url || "")) ? link(s.url, s.label) : el("span", null, s.label)); }); row("Standard", sd); }
+    if (f.selector) {
+      var where = el("span"); where.appendChild(el("code", null, f.selector));
+      var more = (f.examples || []).filter(function(x){ return x && x !== f.selector; });
+      if (more.length) where.appendChild(el("span", "ex", "Also: " + more.join(", ")));
+      row("Where", where);
+    }
     if (f.unscored) row("Not scored", f.unscored);
     row("Why it matters", f.why);
     var pre = el("pre", null, f.fix); row("Suggested fix", pre);
+    if (f.guide && /^https:\\/\\/dequeuniversity\\.com\\/rules\\/axe\\//.test(f.guide)) row("Rule guide", link(f.guide, f.guide.replace(/^https:\\/\\//, "").replace(/\\?.*$/, "")));
     if (withOn) row("With GenClass", f.fixed ? el("span", "gc-yes", "Fixed. " + f.fixed.how) : el("span", null, f.genclass ? f.genclass.text : "Not fixed in this run. The suggested fix above removes it."));
     var shown = Object.keys(f.boxes || {});
     if (shown.length) {
@@ -717,10 +851,26 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   const st = visualStatus();
   const run = VISUAL_KINDS.length - NOT_RUN_HERE.size;
   const commit = VISUAL_BUILD.commit.slice(0, 7);
-  const kinds = Object.entries(KINDS)
-    .map(([k, v]) => `<tr><td>${esc(v.what)}<br><code class="kind">${esc(k)}</code>${NOT_RUN_HERE.has(k as never) ? `<span class="notrun">Not run in the page check: it needs a visitor's clicks</span>` : ""}</td><td>${esc(CATEGORIES.find((c) => c.id === v.category)!.label)}</td><td>${esc(v.severity)}</td><td class="r">${SEVERITY_POINTS[v.severity]}</td></tr>`)
+  const SOURCE_WORDS: Record<string, string> = { visual: "GenClass visual check", axe: "axe-core", audit: "Scanner audit", probe: "Race probe" };
+  const kinds = (Object.entries(KINDS) as [Kind, (typeof KINDS)[Kind]][])
+    .map(([k, v]) => {
+      const std = v.standard ? `<a href="${esc(v.standard.url)}">${esc(v.standard.label)}</a>` : k === "axe" ? "The WCAG success criteria in the rule's tags, or axe-core best practice" : "The measurement itself";
+      const sev = k === "axe" ? "the rule's impact" : esc(v.severity);
+      return `<tr><td>${esc(v.what)}<br><code class="kind">${esc(k === "axe" ? "axe:<rule id>" : k)}</code>${NOT_RUN_HERE.has(k as never) ? `<span class="notrun">Not run in the page check: it needs a visitor's clicks</span>` : ""}</td><td>${esc(CATEGORIES.find((c) => c.id === v.category)!.label)}<span class="notrun">${esc(SOURCE_WORDS[v.source])}</span></td><td>${sev}</td><td>${std}</td></tr>`;
+    })
     .join("");
-  const cats = CATEGORIES.map((c) => `<tr><td class="cat">${esc(c.label)}<small>${esc(c.covers)}</small></td><td class="r">${c.cap}</td></tr>`).join("");
+  const cats = CATEGORIES.map((c) => `<tr><td class="cat">${esc(c.label)}<small>${esc(c.covers)}</small></td><td class="r">${c.weight}</td></tr>`).join("");
+  const sevRows = (SEVERITY_ORDER as Severity[])
+    .map((s) => `<tr><td class="cat">${esc(s)}</td><td class="r">${SEVERITY_POINTS[s]}</td><td class="r">${rulePoints(s, 3).toFixed(1)}</td><td class="r">${rulePoints(s, 1000).toFixed(0)}</td></tr>`)
+    .join("");
+  // a worked example from the same functions the score uses
+  const ex = [
+    { rule: "axe:color-contrast", severity: "serious" as Severity, instances: 30, findings: 1, points: rulePoints("serious", 30) },
+    { rule: "axe:image-alt", severity: "critical" as Severity, instances: 2, findings: 1, points: rulePoints("critical", 2) },
+  ];
+  const exValue = categoryValue(ex);
+  const lcpGood = (LCP_GOOD_MS / 1000).toFixed(1);
+  const lcpPoor = (LCP_POOR_MS / 1000).toFixed(0);
   const body = `
 <section class="hero">
   <p class="eyebrow">Page check</p>
@@ -734,7 +884,7 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     addresses, local names, genclass.dev itself and hostnames that resolve to private, loopback, link-local, carrier-grade NAT or
     cloud metadata addresses. It reads the site's <code>robots.txt</code> for a <code>GenClassScan</code> group.</li>
     <li>Starts a fresh browser (Cloudflare Browser Rendering) with no cookies or storage, and loads the page three times in
-    parallel: ${VIEWS.map((v) => esc(v.label.toLowerCase())).join("; ")}. Each load has 20 seconds, then up to 4 more for the network to go quiet.</li>
+    parallel: ${VIEWS.map((v) => esc(v.label.toLowerCase())).join("; ")}. Each load has 16 seconds, then up to 4 more for the network to go quiet (half a second when the page had not finished loading).</li>
     <li>Runs the visual checks in each view for about 6 seconds: ${esc(st.checks)}, the runtime's visual chunk from
     commit <code>${esc(commit)}</code>, in an isolated part of the browser the page's scripts cannot reach. It presses
     Tab a few times on the desktop and scrolls with the mouse wheel, which some checks need (focus under a sticky header, a
@@ -743,14 +893,27 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     The page's fetch and XHR requests in flight are counted and handed to the checks, which do not judge a blank page or a
     page that ignores clicks while a request runs.</li>
     <li>Takes a screenshot of the top of the page in each view and records the box of every finding.</li>
+    <li>Runs axe-core ${esc(AXE_BUILD.version)} in each view, unmodified, in the same isolated part of the browser: its WCAG 2.2
+    A and AA rules (tags ${AXE_TAGS.filter((t) => t !== "best-practice").map((t) => `<code>${esc(t)}</code>`).join(", ")}) and its best
+    practices (<code>best-practice</code>). Only violations become findings; rules axe-core cannot decide by itself ("needs
+    review") are counted and shown as a number, never scored. Three of its rules are turned off because the scanner measures
+    the same thing itself and would otherwise count it twice: ${AXE_OFF.map((r) => `<code>${esc(r)}</code>`).join(", ")}. It does
+    not look inside iframes and fetches nothing.</li>
+    <li>Audits the light phone view: tap targets, the viewport meta tag and text sizes; then narrows the same page to 360 and
+    320 px wide, without a reload, and measures whether it scrolls sideways. On the desktop and the light phone it compares each
+    image's file with the size it is shown at.</li>
+    <li>Reads what the browser itself reports (a DevTools protocol session of the scanner's own) while each view loads and its
+    checks run: uncaught errors, <code>console.error</code>, the status and size of every response, and mixed content. On the
+    desktop it reads Largest Contentful Paint and layout shifts once the network is quiet, before the scanner presses a key or
+    scrolls.</li>
     <li>On the desktop page, with GenClass ${esc(RUNTIME_VERSION)} loaded in observe mode (telemetry off, model from
     <code>genclass.dev/model/</code>), types <code>a</code>, <code>ab</code>, <code>abc</code> into the first search box, 80 ms apart,
     and double-clicks the most prominent submit button of a same-origin form that would POST. Forms with a password or card
     field are skipped, and so are forms and buttons that would submit into another window. GET responses during the probe get 0 to 1,500 ms of extra latency, so they can arrive out of order.</li>
     <li>Opens the page once more with GenClass in guard mode and repeats the probe, to measure what guard changes.</li>
-    <li>Scores the findings and keeps the report for 6 hours. The whole scan has a hard budget of 45 seconds. When the page sent
+    <li>Scores the findings and keeps the report for 6 hours. The whole scan has a hard budget of ${Math.round(SCAN_BUDGET_MS / 1000)} seconds; a step that does not fit is skipped and the report says so. When the page sent
     requests other than GET while loading, findings that may come from the scanner's stand-in replies (template text, broken
-    images, and GenClass diagnoses other than a duplicate) are listed but not scored.</li>
+    images, JavaScript errors, and GenClass diagnoses other than a duplicate) are listed but not scored.</li>
   </ol>
 </section>
 <section class="blk prose" id="never">
@@ -791,17 +954,100 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
 </section>
 <section class="blk" id="score">
   <div class="blk-h"><h2>How the score works</h2><span class="aside">${esc(SCORE_VERSION)}</span></div>
-  <p class="intro">The score starts at 100. Each finding takes points by its severity; each category can lose at most its cap, so one noisy
-  category cannot take the page to zero. The same page with the same findings always gets the same score.</p>
-  <div class="formula">score = 100 &minus; &Sigma;<sub>category</sub> min(cap, &Sigma;<sub>findings in it</sub> points(severity))<br>
-  points: high ${SEVERITY_POINTS.high}, medium ${SEVERITY_POINTS.medium}, low ${SEVERITY_POINTS.low} &middot; cap: 25 per category &middot; four categories</div>
+  <p class="intro">Six categories are each scored from 100 by their own findings, and the score is their weighted mean. Inside a
+  category the findings are grouped by rule (one visual check, one axe-core rule, one audit). A rule takes points by its
+  severity, a little more when it found many elements, and never more than ${INSTANCE_CAP} times its base, so a page with 200
+  instances of one rule loses a bounded amount. Rules combine by multiplication, so each further rule takes a share of what is
+  left and a category never goes below 0. A category this scan did not measure (axe-core did not finish, the race probe found
+  nothing to try) is left out of the mean and shown as not measured, never as 100. The same findings always give the same score.</p>
+  <div class="formula">points(rule) = base(severity) &times; min(${INSTANCE_CAP}, 1 + log<sub>10</sub>(instances))<br>
+  category = 100 &times; &Pi;<sub>rules</sub> (1 &minus; points(rule) / 100)<br>
+  score = &Sigma; weight &times; category / &Sigma; weight, over the categories measured on this scan<br>
+  base: ${(SEVERITY_ORDER as Severity[]).map((s) => `${s} ${SEVERITY_POINTS[s]}`).join(", ")} &middot; ${esc(weightsWords())}</div>
+  <p class="intro">For example, 30 elements failing axe-core's <code>color-contrast</code> (serious) take ${ex[0].points.toFixed(1)} points and 2
+  images failing <code>image-alt</code> (critical) take ${ex[1].points.toFixed(2)}, so accessibility is 100 &times;
+  (1 &minus; ${(ex[0].points / 100).toFixed(2)}) &times; (1 &minus; ${(ex[1].points / 100).toFixed(4)}) = ${exValue.toFixed(1)}, shown as
+  ${Math.round(exValue)}. With every other category at 100 the score is ${Math.round((exValue * 25 + 75 * 100) / 100)}.</p>
   <div class="two">
-    <div><table class="dt"><thead><tr><th>Category</th><th class="r">Cap</th></tr></thead><tbody>${cats}</tbody></table>
-    <figcaption>Table 1. Categories and the most each can take.</figcaption></div>
-    <div><table class="dt"><thead><tr><th>Finding</th><th>Category</th><th>Severity</th><th class="r">Points</th></tr></thead><tbody>${kinds}</tbody></table>
-    <figcaption>Table 2. Every kind of finding, its category and weight. The same element with the same problem in two views counts once.</figcaption></div>
+    <div><table class="dt"><thead><tr><th>Category</th><th class="r">Weight</th></tr></thead><tbody>${cats}</tbody></table>
+    <figcaption>Table 1. The six categories, what each covers and its weight in the score.</figcaption>
+    <table class="dt mt"><thead><tr><th>Severity</th><th class="r">Base</th><th class="r">3 instances</th><th class="r">10 or more</th></tr></thead><tbody>${sevRows}</tbody></table>
+    <figcaption>Table 2. The points one rule takes from its category, by severity and instances.</figcaption></div>
+    <div><table class="dt"><thead><tr><th>Finding</th><th>Category</th><th>Severity</th><th>Standard</th></tr></thead><tbody>${kinds}</tbody></table>
+    <figcaption>Table 3. Every kind of finding, its category, default severity and the standard it is judged by. The same
+    element with the same problem in two views counts once; an axe-core rule or an audit counts the most elements it found in
+    any one view.</figcaption></div>
   </div>
   <div class="prose">
+  <h3 class="h3" id="severity">Where severities come from</h3>
+  <ul>
+    <li>The visual checks measure their own severity (high, medium, low), read as serious, moderate and minor. A blank page, a
+    page that ignores clicks and a page that cannot scroll are critical.</li>
+    <li>axe-core rules keep axe-core's impact (critical, serious, moderate, minor). A rule that is only a best practice, with no
+    WCAG A or AA tag, is one level lower, since it is advice rather than a requirement.</li>
+    <li>The scanner's audits set theirs from the thresholds below.</li>
+  </ul>
+  <h3 class="h3" id="audits">The audits and their thresholds</h3>
+  <ul>
+    <li><b>Tap targets</b> (light phone, <a href="https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html">WCAG 2.2 SC 2.5.8</a>, serious):
+    a visible link, button, form control or element with a control role smaller than ${TARGET_MIN} by ${TARGET_MIN} CSS px, when a
+    ${TARGET_MIN} px circle on its centre touches another target or another small target's circle. Links inside a sentence,
+    checkboxes and radios at the browser's own size or with a label of at least ${TARGET_MIN} by ${TARGET_MIN} px, disabled
+    controls, and targets hidden, clipped or off the page are left out.</li>
+    <li><b>Zoom</b> (<a href="https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html">WCAG 2.2 SC 1.4.4</a>, serious): the
+    viewport meta tag has <code>user-scalable=no</code> or <code>maximum-scale</code> below 2.</li>
+    <li><b>Viewport meta tag</b> (Lighthouse's viewport audit, serious): none on the page, so a phone lays it out 980 px wide.</li>
+    <li><b>Text size</b> (light phone, Lighthouse's legible font size, ${FONT_MIN} px): a block of at least 40 characters of text
+    under ${FONT_MIN} px is minor; more than 40% of the page's text under ${FONT_MIN} px (Lighthouse's audit fails) is moderate.</li>
+    <li><b>Reflow</b> (<a href="https://www.w3.org/WAI/WCAG22/Understanding/reflow.html">WCAG 2.2 SC 1.4.10</a>): the light phone
+    narrowed to 360 and 320 px; the page is wider than the viewport and can scroll sideways. Serious at 360 px, moderate at 320
+    px only, minor when only tables or preformatted text stick out. Not judged when it already scrolls sideways at 390 px.</li>
+    <li><b>Oversized images</b> (Lighthouse's "Properly size images", minor; moderate above 1 MB in all): more than
+    ${OVERSIZE_RATIO} times the pixels the image covers on a ${JUDGE_DPR.desktop}x screen (desktop) or ${JUDGE_DPR.phone}x screen
+    (phone), and more than ${Math.round(OVERSIZE_BYTES / 1024)} KB transferred. SVG is left out.</li>
+    <li><b>Images without dimensions</b> (web.dev, minor; moderate above ${CLS_GOOD} in all): no width and height and no
+    aspect-ratio, and a layout shift from 50 ms before to 1.5 s after the image loaded moved content below it down. An unsized
+    image that moved nothing is not reported.</li>
+    <li><b>Largest Contentful Paint</b> (desktop, <a href="https://web.dev/articles/lcp">web.dev</a>): minor above ${lcpGood} s
+    (needs improvement), moderate above ${lcpPoor} s (poor).</li>
+    <li><b>Cumulative Layout Shift</b> (desktop, while the page loads, <a href="https://web.dev/articles/cls">web.dev</a>, session
+    windows of 1 s gaps and 5 s at most): minor above ${CLS_GOOD}, moderate above ${CLS_POOR}. When the visual checks already
+    reported a layout shift above 0.25 with its element, that finding stands for it.</li>
+    <li><b>JavaScript errors</b> (Lighthouse's console errors audit): uncaught errors and unhandled rejections in the page's own
+    main frame while it loads, moderate (minor when every one came from a script on another site); <code>console.error</code>,
+    minor. Errors from the scanner's own code are left out.</li>
+    <li><b>Failed requests</b> (<a href="https://www.rfc-editor.org/rfc/rfc9110#section-15.5">RFC 9110</a>): same-site scripts,
+    data requests, frames and other files answered with 4xx or 5xx. A script that answers 404, 410 or 5xx is serious, any other 5xx
+    or a frame moderate, the rest minor. Images, stylesheets, fonts and media belong to the visual checks; 401, 403, 407 and 429
+    depend on who is asking and are counted, not scored; <code>/favicon.ico</code> is the browser's own request.</li>
+    <li><b>Mixed content</b> (<a href="https://www.w3.org/TR/mixed-content/">W3C Mixed Content</a>): on an https page, a request the
+    browser blocked for being http is serious; a file referenced over http that the browser upgraded or allowed is minor.</li>
+    <li><b>JavaScript transferred</b>: more than ${(JS_NOTE_BYTES / 1_000_000).toFixed(0)} MB compressed on the desktop (the
+    scanner's own GenClass runtime left out) is listed as a note and not scored.</li>
+  </ul>
+  <p>Timings are measured once, in Cloudflare's browser in a data center: a fast network, three views loading at the same time in
+  one browser, and GenClass loading in the desktop view for the race probe. They are indicative; field data such as Chrome's
+  CrUX report is the reference for what visitors see.</p>
+  <h3 class="h3" id="once">Counted once</h3>
+  <ul>
+    <li>Text the visual checks found below 1.5:1 is a visual bug; axe-core's <code>color-contrast</code> leaves out that same
+    element in that view.</li>
+    <li>A layout shift the visual checks reported stands for the Cumulative Layout Shift finding.</li>
+    <li>Sideways scrolling at 390 px stands for the 360 and 320 px reflow check.</li>
+  </ul>
+  <h3 class="h3" id="unscored">Listed, not scored</h3>
+  <ul>
+    <li>Findings that may come from the scanner's stand-in answers to the page's POST requests, or from files it refused to load
+    (template text, broken images, a blank main region, JavaScript errors, GenClass diagnoses other than a duplicate), when every
+    view they appeared in had such answers or refusals.</li>
+    <li>Findings in a category this scan did not measure, and the JavaScript size note.</li>
+  </ul>
+  <h3 class="h3" id="axe">axe-core</h3>
+  <p>axe-core ${esc(AXE_BUILD.version)} is Copyright (c) 2015 to 2026 Deque Systems, Inc. and licensed under the
+  <a href="https://www.mozilla.org/en-US/MPL/2.0/">Mozilla Public License 2.0</a>. The scanner runs it unmodified; its source code
+  is at <a href="https://github.com/dequelabs/axe-core">github.com/dequelabs/axe-core</a>. axe-core's own guide for each rule is
+  linked from the finding.</p>
+  <h3 class="h3" id="visual">The visual checks</h3>
   <p>The checks are the measured visual checks built for the GenClass runtime (${esc(st.short)}), 23 kinds with fixed
   thresholds (Table 2), ${run} of which run in the page check (<code>click-blocked</code> needs a visitor's clicks, and the
   scanner clicks only the race probe's button): text under 1.5:1

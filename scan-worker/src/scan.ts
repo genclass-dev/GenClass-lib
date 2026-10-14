@@ -14,7 +14,10 @@
 // one: in Browser Rendering it connects through a local proxy, so it reports the proxy), when a WebSocket host
 // resolves privately, when the page ended up on a site that opted out, or when the person who asked went away.
 
+import { clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, judgeTapTargets, judgeUnsized, judgeZoom, JUDGE_DPR, pageSideSource, parseShifts, viewportOk } from "./audits.ts";
+import { axeFindings, installAxeSource, parseAxe, runAxeSource, withoutVisualDuplicates } from "./axe.ts";
 import { KINDS, sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
+import { jsNote, judgeReliability, PageLog, type CdpLike } from "./cdp.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
 import { blockedAddress, type Target } from "./target.ts";
@@ -58,6 +61,8 @@ export interface PageLike {
   screenshot(o: Record<string, unknown>): Promise<Uint8Array>;
   /** Puppeteer's frame; its isolatedRealm() (when present) runs the scanner's DOM code apart from the page's scripts. */
   mainFrame(): unknown;
+  /** A DevTools protocol session of the scanner's own for this page (Runtime, Network and Log events). */
+  createCDPSession?(): Promise<CdpLike>;
   url(): string;
   mouse: {
     click(x: number, y: number, o?: { count?: number; delay?: number }): Promise<void>;
@@ -97,6 +102,10 @@ const RESERVE_AFTER_VIEWS = 18_000;
  * scroll-lock-stuck) means anything: the chunk reports those only after two periodic reads 2 s apart, judged over 1 s.
  */
 const PERIODIC_RECHECK_MS = 4500;
+/** The whole scan's hard budget, in ms (scans/slots.json leases last 60 s: store.ts LEASE_MS). */
+export const SCAN_BUDGET_MS = 50_000;
+/** At most this long for axe-core in one view. */
+const AXE_MS = 9000;
 /** Findings kept per view in the report. */
 const MAX_VIEW_FINDINGS = 40;
 
@@ -173,6 +182,8 @@ export interface ScanDeps {
   runtimeSource: Promise<string | null>;
   /** The GenClass visual checks (src/visual-source.ts, built from wave2/visual on CI), or null when not built in. */
   visualSource: string | null;
+  /** axe-core (src/axe-source.ts), or null when not built in. */
+  axeSource?: string | null;
   /** Run the visual checks in guard mode with the chunk's opt-in fixes, then re-check (WITH_GENCLASS on). */
   visualFixes?: boolean;
   modelBaseUrl: string;
@@ -312,7 +323,26 @@ export interface ViewResult {
   error?: string;
   /** Requests other than GET the page sent while loading, which the scanner answered itself with a stand-in reply. */
   standIns: { count: number; requests: string[] };
+  /** axe-core rules and the scanner's own audits in this view (src/axe.ts, src/audits.ts, src/cdp.ts). */
+  audits: RawFinding[];
+  /** What this view measured, so a category that was not measured is never scored as clean. */
+  coverage: ViewCoverage;
+  /** Timings and sizes measured in this view (the desktop's LCP, CLS and JavaScript bytes; failed requests not scored). */
+  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; whoAsks: number; skippedHosts?: number };
 }
+
+export interface ViewCoverage {
+  /** axe-core finished in this view. */
+  axe: { ran: boolean; ms: number | null; rules: number; incomplete: number; passes: number; error: string | null };
+  /** The phone audits (tap targets, zoom, text size, reflow) ran. */
+  phone: boolean;
+  /** The browser's own record (errors, requests) was collected. */
+  reliability: boolean;
+  /** Largest Contentful Paint or layout shifts were read. */
+  vitals: boolean;
+}
+
+export const emptyCoverage = (): ViewCoverage => ({ axe: { ran: false, ms: null, rules: 0, incomplete: 0, passes: 0, error: null }, phone: false, reliability: false, vitals: false });
 
 /** The with-GenClass pass of one view: what the chunk's fixes did, measured by a report-only re-check. */
 export interface VisualFixes {
@@ -461,7 +491,7 @@ const numOrNull = (v: unknown): number | null => (typeof v === "number" && Numbe
 
 export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResult> {
   const t0 = deps.now();
-  const budget = deps.budgetMs ?? 45_000;
+  const budget = deps.budgetMs ?? SCAN_BUDGET_MS;
   const deadline = t0 + budget;
   const left = () => deadline - deps.now();
   const result: ScanResult = {
@@ -475,7 +505,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   };
   // the scanner's page-side functions live under names the page cannot guess
   const name = deps.pageName ?? `__gcs${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const N = { checks: `${name}c`, safety: `${name}s`, state: `${name}r` };
+  const N = { checks: `${name}c`, safety: `${name}s`, state: `${name}r`, axe: `${name}x` };
   const dnsCache = new Map<string, Promise<HostAnswer>>();
   dnsCache.set(target.host, Promise.resolve("ok")); // checked before the browser started
   const dns = (host: string): Promise<HostAnswer> => {
@@ -629,6 +659,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     return {
       id: spec.id, label: spec.label, width: spec.width, height: spec.height, ok: false, status: null, finalUrl: target.url,
       ms: 0, notes: [], findings: [], checks: null, fixes: null, shot: null, shotHeight: 0, error, standIns: { count: 0, requests: [] },
+      audits: [], coverage: emptyCoverage(), metrics: { lcpMs: null, cls: null, jsBytes: null, whoAsks: 0 },
     };
   }
 
@@ -705,6 +736,19 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     }
     page.on("dialog", (d: { dismiss(): Promise<void> }) => void d.dismiss().catch(() => undefined));
     page.on("popup", (p: { close(): Promise<void> } | null) => void p?.close().catch(() => undefined));
+    // the browser's own record of this view (errors, responses, bytes), from a DevTools session of the scanner's own
+    let log: PageLog | null = null;
+    let cdp: CdpLike | null = null;
+    if (!skipChecks && page.createCDPSession) {
+      try {
+        cdp = await withTimeout(page.createCDPSession(), Math.min(4000, left()), "opening a DevTools session");
+        const l = new PageLog();
+        await withTimeout(l.attach(cdp), Math.min(4000, left()), "turning on the DevTools domains");
+        log = l;
+      } catch (e) {
+        view.notes.push(`The browser's own record of errors and requests could not be read in this view (${cutText(e instanceof Error ? e.message : String(e), 100)}), so reliability was not measured here.`);
+      }
+    }
     await page.setRequestInterception(true);
     page.on("request", (req: RequestLike) => {
       void (async () => {
@@ -799,7 +843,9 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
 
     // navigate: 20 s cap, then wait for the network to go quiet (4 s cap)
     const reserve = runtime && runtime.mode === "observe" ? 16_000 : 6_000;
-    const navMs = Math.min(20_000, left() - reserve);
+    // 16 s for the load event: what a slower page has not loaded by then is left out, so the checks after it keep their time
+    const navMs = Math.min(16_000, left() - reserve);
+    let loadTimedOut = false;
     let res: ResponseLike | null = null;
     try {
       res = await page.goto(target.url, { waitUntil: "load", timeout: Math.max(3000, navMs) });
@@ -822,6 +868,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         if (!keepOpen) await page.close().catch(() => undefined);
         return { view, page: keepOpen ? page : null, ctx, net };
       }
+      loadTimedOut = true;
       view.notes.push(`The page had not finished loading after ${Math.round(navMs / 1000)} s; the checks ran on what had loaded.`);
     }
     view.status = res ? res.status() : null;
@@ -842,11 +889,12 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       /* about:blank or unparseable: nothing loaded */
     }
     if (view.status !== null && view.status >= 400) view.notes.push(`The page answered HTTP ${view.status}.`);
-    // network quiet: no page request in flight for 500 ms (the scanner's own runtime and model downloads do not count)
+    // network quiet: no page request in flight for 500 ms (the scanner's own runtime and model downloads do not count);
+    // after a load that timed out the page is still requesting, so it gets half a second, not 4
     {
-      const quietBy = deps.now() + Math.max(500, Math.min(4000, left() - reserve));
+      const quietBy = deps.now() + (loadTimedOut ? 500 : Math.max(500, Math.min(4000, left() - reserve)));
       while (!(net.inflight.size === 0 && deps.now() - net.lastActivity >= 500) && deps.now() < quietBy) await deps.sleep(100);
-      if (net.inflight.size > 0) view.notes.push("The network did not go quiet within 4 s (the page keeps requesting); the checks ran anyway.");
+      if (net.inflight.size > 0 && !loadTimedOut) view.notes.push("The network did not go quiet within 4 s (the page keeps requesting); the checks ran anyway.");
     }
     view.ok = true;
     if (unchecked) view.notes.push(`${unchecked} ${unchecked === 1 ? "request was" : "requests were"} not loaded because the scanner could not look up ${unchecked === 1 ? "its hostname" : "their hostnames"}; the checks ran without them.`);
@@ -859,6 +907,16 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       );
     }
     await checkSockets(page);
+    if (log && cdp) await log.frame(cdp);
+    // timings at network quiet, before the scanner presses a key or scrolls (a page stops reporting LCP at the first
+    // input): the desktop's are judged, the light phone's are kept for comparison only
+    let vitals: Record<string, unknown> | null = null;
+    if (!skipChecks && !discard && (spec.id === "desktop" || spec.id === "phone")) {
+      vitals = await withTimeout(evalDom(page, pageSideSource("vitals")), Math.min(3000, Math.max(500, left() - reserve)), "reading the page's timings").then(
+        (v) => parseJson<Record<string, unknown> | null>(v, null),
+        () => null,
+      );
+    }
 
     if (!skipChecks && !discard) {
       deps.progress("checks", { view: spec.id });
@@ -888,13 +946,122 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       } catch (e) {
         view.notes.push(`No screenshot: ${e instanceof Error ? e.message : String(e)}.`);
       }
+      await deeperChecks(page, view, spec, vitals, log, net);
     }
+    log?.stop();
+    if (cdp?.detach) await cdp.detach().catch(() => undefined);
     view.ms = deps.now() - tv;
     if (!keepOpen) {
       await page.close().catch(() => undefined);
       return { view, page: null, ctx: null, net: null };
     }
     return { view, page, ctx, net };
+  }
+
+  /**
+   * axe-core and the scanner's own audits in one view, after the visual checks and the screenshot (src/axe.ts,
+   * src/audits.ts, src/cdp.ts). Each step runs only when the time left before the race probe allows it and says so when
+   * it does not; a step that did not run leaves its category unmeasured in this view (ViewCoverage). On the light phone
+   * the viewport is then narrowed to 360 and 320 px (no reload) for the reflow check, after everything else.
+   */
+  async function deeperChecks(page: PageLike, view: ViewResult, spec: ViewSpec, vitals: Record<string, unknown> | null, log: PageLog | null, net: NetLog): Promise<void> {
+    const room = () => left() - RESERVE_AFTER_VIEWS;
+    const out: RawFinding[] = [];
+    const phone = spec.id === "phone";
+    const word = spec.id === "phone-dark" ? "dark phone" : spec.id;
+    const say = (e: unknown) => cutText(e instanceof Error ? e.message : String(e), 120);
+
+    // Largest Contentful Paint, layout shifts and unsized images, read at network quiet (judged on the desktop only)
+    if (vitals) {
+      const lcp = vitals.lcp && typeof vitals.lcp === "object" ? numOrNull((vitals.lcp as Record<string, unknown>).t) : null;
+      view.metrics.lcpMs = lcp;
+      view.metrics.cls = clsOf(parseShifts(vitals.shifts)).value;
+      if (spec.id === "desktop") {
+        view.coverage.vitals = true;
+        const slow = judgeLcp(vitals.lcp);
+        if (slow) out.push(slow);
+        // the visual checks' own layout-shift finding (above 0.25, with the element) stands for the same shifts
+        const cls = view.findings.some((f) => f.kind === "layout-shift") ? null : judgeCls(vitals.shifts);
+        if (cls) out.push(cls);
+        const unsized = judgeUnsized(vitals.unsized, vitals.shifts);
+        if (unsized) out.push(unsized);
+      }
+    } else if (spec.id === "desktop") view.notes.push("The page's timings (Largest Contentful Paint, layout shifts) could not be read in this view, so speed was not measured.");
+
+    // axe-core: WCAG 2.2 A and AA rules and best practices
+    if (deps.axeSource) {
+      const budget = Math.min(AXE_MS, room() - 1500);
+      if (budget < 2500) {
+        view.coverage.axe.error = "not enough time left";
+        view.notes.push("axe-core was skipped in this view: not enough of the scan's time was left.");
+      } else {
+        try {
+          const installed = await withTimeout(evalDom(page, installAxeSource(N.axe, deps.axeSource)), Math.min(5000, budget), "installing axe-core");
+          if (installed !== true) throw new Error("axe-core did not install");
+          const res = parseAxe(parseJson(await withTimeout(evalDom(page, runAxeSource(N.axe)), budget, "axe-core"), {}));
+          if (!res.ok) throw new Error(res.error ?? "axe-core did not run");
+          const rules = withoutVisualDuplicates(res.rules, view.findings);
+          out.push(...axeFindings(rules));
+          view.coverage.axe = { ran: true, ms: res.ms, rules: rules.length, incomplete: res.incomplete, passes: res.passes, error: null };
+        } catch (e) {
+          view.coverage.axe.error = say(e);
+          view.notes.push(`axe-core did not finish in this view (${say(e)}), so its results are left out here.`);
+        }
+      }
+    }
+
+    // the page audits: tap targets, zoom and text size on the light phone; image sizes on the desktop and the light phone
+    if (spec.id !== "phone-dark") {
+      if (room() < 1500) {
+        if (phone) view.notes.push("The phone audits were skipped: not enough of the scan's time was left.");
+      } else {
+        try {
+          const a = parseJson<Record<string, unknown> | null>(await withTimeout(evalDom(page, pageSideSource("audit", { targets: phone, text: phone, images: true })), Math.min(5000, room() - 500), "the page audits"), null);
+          if (!a || typeof a !== "object") throw new Error("they returned nothing");
+          const vp = typeof a.viewport === "string" ? a.viewport : null;
+          if (phone) {
+            for (const f of [judgeTapTargets(a.targets), judgeZoom(vp), judgeFontSize(a.text, vp)]) if (f) out.push(f);
+            // sideways scrolling at 360 and 320 px: the same page, narrowed (no reload), after every other check
+            const overflow390 = view.findings.some((f) => f.kind === "page-overflow-x");
+            if (!overflow390 && viewportOk(vp) && room() > 3000) {
+              const at = async (w: number): Promise<unknown> => {
+                await page.setViewport({ width: w, height: spec.height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+                await deps.sleep(450);
+                return parseJson<unknown>(await withTimeout(evalDom(page, pageSideSource("reflow")), 3000, "the reflow check"), null);
+              };
+              const r360 = await at(360);
+              const r320 = room() > 1200 ? await at(320) : null;
+              const reflow = judgeReflow(r360, r320, vp, overflow390);
+              if (reflow) out.push(reflow);
+            }
+            view.coverage.phone = true;
+          }
+          if (log) {
+            const img = judgeImages(a.images, (u) => log.bytesOf(u), spec.mobile ? JUDGE_DPR.phone : JUDGE_DPR.desktop, word);
+            if (img) out.push(img);
+          }
+        } catch (e) {
+          view.notes.push(`The page audits did not finish in this view (${say(e)}).`);
+        }
+      }
+    }
+
+    // the browser's own record: uncaught errors, console.error, failed same-site requests, mixed content, JavaScript
+    if (log) {
+      log.stop();
+      const rel = judgeReliability(log, view.finalUrl, word);
+      out.push(...rel.findings);
+      view.coverage.reliability = true;
+      view.metrics.whoAsks = rel.whoAsks;
+      if (spec.id === "desktop") {
+        view.metrics.jsBytes = rel.jsBytes;
+        const js = jsNote(rel.jsBytes);
+        if (js) out.push(js);
+      }
+      const skipped = scannerSkipped(net).length;
+      if (skipped) view.metrics.skippedHosts = skipped;
+    }
+    view.audits = out.map(sanitizeFinding).filter((f): f is RawFinding => f !== null);
   }
 
   function standInsOf(net: NetLog): ViewResult["standIns"] {

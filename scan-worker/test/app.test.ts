@@ -7,6 +7,9 @@ import { clientOf, handle, targetFromPath, type AppDeps, type Env } from "../src
 import { REPORT_VERSION } from "../src/report.ts";
 import { acquireSlot, cachedReport, cacheKey, CACHE_MS, reportKey, sweep } from "../src/store.ts";
 import { FakeBrowser, fakeFetch, Limiter, MemBucket, ndjson, type PageScript } from "./helpers.ts";
+import { buildReport } from "../src/report.ts";
+import { runScan, SCAN_BUDGET_MS } from "../src/scan.ts";
+import { normaliseTarget, type Target } from "../src/target.ts";
 
 const DNS = {
   "shop.example.com": ["93.184.215.14"], "evil.example.com": ["10.0.0.7"], "robots.example.com": ["93.184.215.15"], "a.example.com": ["93.184.215.16"], "b.example.com": ["93.184.215.17"],
@@ -36,6 +39,7 @@ function setup(script: PageScript = {}, envExtra: Partial<Env> = {}) {
     },
     runtimeSource: async () => "window.__rt = 1;",
     visualSource: "window.__genclassScanVisual = function () {};",
+    axe: script.axe ? { source: "/* axe-core */", version: "4.13.0" } : null,
     scanId: () => `scan${String(++n).padStart(4, "0")}`,
   };
   const env: Env = { BROWSER: { fetch }, BUCKET: bucket, SCAN_LIMIT: limiter, MAX_CONCURRENT: "2", ...envExtra };
@@ -198,7 +202,10 @@ describe("a full scan with the browser mocked", () => {
 
     // the findings: contrast (desktop), overflow (phone), and the double click that sent two identical POSTs
     assert.deepEqual(r.findings.map((f: { kind: string }) => f.kind).sort(), ["duplicate-submit", "page-overflow-x", "text-invisible"]);
-    assert.equal(r.score.value, 70);
+    // visual 85 (the 1.08:1 text) and races 85 (the double submit); this fake has no axe-core, no page audits and no
+    // timings, so accessibility, phone and speed are left out (the sideways scrolling is listed, not scored)
+    assert.equal(r.score.value, 90);
+    assert.deepEqual(Object.keys(r.notMeasured).sort(), ["accessibility", "phone", "speed"]);
     assert.equal(r.withGenClass.shown, false, "the column is behind the flag by default");
     const dup = r.findings.find((f: { kind: string }) => f.kind === "duplicate-submit");
     assert.match(dup.fixed.how, /coalesced/);
@@ -289,7 +296,7 @@ describe("a full scan with the browser mocked", () => {
     await Promise.all(t.waits);
     const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
     assert.equal(r.probe.observe.model.state, "loading");
-    assert.ok(r.ms.total <= 45_000 + 2000, `budget respected: ${r.ms.total}`);
+    assert.ok(r.ms.total <= SCAN_BUDGET_MS + 2000, `budget respected: ${r.ms.total}`);
   });
 
   it("does not load a subresource whose name resolves privately, and leaves out visual findings about files it refused", async () => {
@@ -450,6 +457,107 @@ describe("a full scan with the browser mocked", () => {
   });
 });
 
+describe("the deeper checks in a full scan (scan-score/3)", () => {
+  const DEEP: PageScript = {
+    load: [
+      { url: "https://shop.example.com/static/chunk.js", type: "script" },
+      { url: "https://shop.example.com/app.js", type: "script" },
+    ],
+    statuses: { "https://shop.example.com/static/chunk.js": 404 },
+    cdpEvents: [
+      ["Runtime.exceptionThrown", { exceptionDetails: { exception: { description: "TypeError: widget is undefined" }, url: "https://shop.example.com/app.js", lineNumber: 9, executionContextId: 1 } }],
+      ["Runtime.exceptionThrown", { exceptionDetails: { exception: { description: "Error: Service workers are off while GenClassScan loads this page" }, executionContextId: 1 } }],
+    ],
+    findings: (view) => (view === "desktop" ? [{ kind: "text-invisible", selector: "p.fine", box: { x: 10, y: 40, w: 200, h: 20 }, measured: "1.08:1", detail: { severity: "high" } }] : []),
+    axe: (view) => ({
+      ok: true, ms: 80, version: "4.13.0", incomplete: 2, passes: 41,
+      violations: [
+        { id: "image-alt", impact: "critical", tags: ["wcag2a", "wcag111"], help: "Images must have alternative text", description: "Ensure img elements have alternative text", helpUrl: "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=axeAPI", count: view === "desktop" ? 2 : 1, nodes: [{ target: "img.logo", box: { x: 0, y: 0, w: 40, h: 40 }, summary: "Fix any of the following:\n  Element does not have an alt attribute" }] },
+        // the same element as the visual checks' invisible text: counted once, in the visual finding
+        { id: "color-contrast", impact: "serious", tags: ["wcag2aa", "wcag143"], help: "Elements must meet minimum color contrast ratio thresholds", description: "contrast", helpUrl: "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI", count: 1, nodes: [{ target: "p.fine", box: { x: 10, y: 40, w: 200, h: 20 }, summary: "x" }] },
+      ],
+    }),
+    vitals: (view) => ({ lcp: { t: view === "desktop" ? 4600 : 1200, sel: "img.hero" }, shifts: [{ t: 900, v: 0.05, input: false, sources: [] }], unsized: [] }),
+    audit: (view) => ({
+      viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+      targets: view === "phone" ? [{ sel: "nav a", lab: "One", x: 0, y: 0, w: 16, h: 16, inline: false, ua: false, p: -1 }, { sel: "nav a", lab: "Two", x: 20, y: 0, w: 16, h: 16, inline: false, ua: false, p: -1 }] : undefined,
+      text: view === "phone" ? { total: 1000, small: 100, blocks: [{ sel: "footer p", px: 10, chars: 100, x: 0, y: 900, w: 300, h: 30 }] } : undefined,
+      images: [],
+    }),
+    reflow: (width) => ({ width, sw: 376, scrollable: true, culprits: [{ sel: "div.promo", right: 376, w: 340, tag: "div" }] }),
+    search: true,
+    button: true,
+    postsOnDoubleClick: { observe: 2, guard: 2 },
+  };
+
+  it("runs axe-core in every view, the phone audits and the narrow widths on the light phone, and reads the browser's own record", async () => {
+    const t = setup(DEEP);
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    const [desk, phone, dark] = t.browsers[0].pages;
+    assert.deepEqual([desk.axeRuns, phone.axeRuns, dark.axeRuns], [["desktop"], ["phone"], ["phone-dark"]]);
+    assert.deepEqual(phone.widths, [390, 360, 320], "the phone is narrowed after everything else, without a reload");
+    assert.deepEqual(desk.widths, [1366]);
+    assert.deepEqual(phone.audits.map((a) => a.cmd), ["vitals", "audit", "reflow", "reflow"]);
+    assert.deepEqual(desk.audits.map((a) => [a.cmd, a.arg.targets]), [["vitals", undefined], ["audit", false]]);
+    assert.deepEqual(dark.audits, [], "the dark phone runs axe-core only");
+    assert.ok(desk.cdp!.sent.includes("Runtime.enable") && desk.cdp!.sent.includes("Network.enable"));
+    assert.ok(desk.cdp!.detached, "the session is closed before the race probe");
+
+    const by = (rule: string) => r.findings.find((f: { rule: string }) => f.rule === rule);
+    assert.deepEqual(r.findings.map((f: { rule: string }) => f.rule).sort(), [
+      "axe:color-contrast", "axe:image-alt", "duplicate-submit", "font-size-small", "js-error", "js-heavy", "lcp-slow", "reflow-overflow", "request-failed", "tap-target-small", "text-invisible", "zoom-disabled",
+    ]);
+    assert.equal(by("axe:image-alt").count, 2);
+    assert.equal(by("axe:image-alt").measured, "Elements: 2 on the desktop, 1 on the phone and 1 on the dark phone. First: Element does not have an alt attribute.");
+    assert.deepEqual(by("axe:color-contrast").views, ["phone", "phone-dark"], "on the desktop p.fine is the visual finding's; the phones' visual checks did not report it");
+    assert.match(by("reflow-overflow").measured, /^At 360 px the page is 376 px wide \(16 px too wide\); at 320 px the page is 376 px wide/);
+    assert.match(by("request-failed").measured, /script shop\.example\.com\/static\/chunk\.js answered 404/);
+    assert.equal(by("js-error").count, 1, "the scanner's own message is left out");
+    assert.equal(by("lcp-slow").severity, "moderate");
+    assert.deepEqual(r.notMeasured, {});
+    assert.deepEqual([r.metrics.lcpMs, r.metrics.phoneLcpMs, r.metrics.axeIncomplete, r.metrics.jsBytes], [4600, 1200, 2, 1_200_000]);
+    assert.equal(r.findings.find((f: { kind: string }) => f.kind === "js-heavy").unscored.startsWith("A note, not scored"), true);
+    assert.equal(r.axe, "4.13.0");
+    for (const c of r.score.categories) assert.equal(c.measured, true, c.id);
+    assert.ok(r.top.length === 5 && r.top[0].points >= r.top[4].points);
+    // the six categories and the top issues in the report without JavaScript
+    const cached = await (await t.call("/scan?url=shop.example.com")).text();
+    assert.match(cached, /<h2>Top issues<\/h2>/);
+    assert.match(cached, /<a href="https:\/\/www\.w3\.org\/WAI\/WCAG22\/Understanding\/target-size-minimum\.html">WCAG 2\.2 SC 2\.5\.8 Target Size \(Minimum\), level AA<\/a>/);
+    assert.equal((cached.match(/<div class="cat" role="listitem">/g) || []).length, 6);
+  });
+
+  it("leaves accessibility and the phone unmeasured, and says why, when the views leave no time for them", async () => {
+    // a 26 s budget: the race probe keeps its 18 s, so the views must end by 8 s, and the visual checks take 6
+    let clock = 0;
+    const browser = new FakeBrowser(DEEP);
+    const result = await runScan(normaliseTarget("shop.example.com") as Target, {
+      launch: async () => browser, now: () => clock, sleep: async (ms) => { clock += ms; await new Promise((r) => setTimeout(r, 0)); },
+      resolveHost: async () => "ok", navigationAllowed: async () => ({ ok: true }), runtimeSource: Promise.resolve("window.__rt = 1;"),
+      visualSource: "window.__genclassScanVisual = function () {};", axeSource: "/* axe-core */", modelBaseUrl: "https://genclass.dev/model/x/", runtimeVersion: "0.2.1",
+      progress: () => undefined, budgetMs: 26_000,
+    });
+    const r = buildReport(normaliseTarget("shop.example.com") as Target, { id: "x", key: "0".repeat(32), at: new Date(0), runtime: "0.2.1", axe: "4.13.0", shotUrl: () => null, guardHoldMs: 900 }, result, { withGenClass: false });
+    assert.equal(r.notMeasured.accessibility, "axe-core did not finish in any view (not enough time left).");
+    assert.equal(r.notMeasured.phone, "The phone audits did not run on the phone view.");
+    assert.equal(r.score.categories.find((c) => c.id === "accessibility")!.value, null);
+    assert.ok(result.views.every((v) => v.notes.includes("axe-core was skipped in this view: not enough of the scan's time was left.")));
+    assert.ok(result.views[1].notes.includes("The phone audits were skipped: not enough of the scan's time was left."));
+    assert.ok(browser.pages.every((p) => p.axeRuns.length === 0), "axe-core never ran");
+  });
+
+  it("leaves reliability unmeasured when the browser offers no DevTools session", async () => {
+    const t = setup({ ...DEEP, noCdp: true });
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    assert.equal(r.notMeasured.reliability, "The browser's own record of errors and requests could not be read.");
+    assert.ok(!r.findings.some((f: { category: string }) => f.category === "reliability"));
+  });
+});
+
 describe("pages", () => {
   it("GET /scan and /scan/about carry a nonce CSP, noindex, and no inline style attributes", async () => {
     const t = setup(SCRIPT);
@@ -603,7 +711,8 @@ describe("review fixes for the launch", () => {
     const cached = await (await t.call("/scan?url=shop.example.com")).text();
     assert.match(cached, /<div id="ssr">/);
     assert.match(cached, /Text that is almost invisible on its background/);
-    assert.match(cached, /<td class="cat">Layout<small>Up to 25 points<\/small><\/td><td class="r">1<\/td><td class="r">-10<\/td>/);
+    assert.match(cached, /<div class="cat" role="listitem"><div class="k">Visual bugs<\/div><div class="v">85<small>\/ 100<\/small><\/div><div class="s">weight 25 · 1 finding<\/div><\/div>/);
+    assert.match(cached, /<div class="cat off" role="listitem"><div class="k">Accessibility<\/div><div class="v">not measured<\/div><div class="s">axe-core did not finish in any view\.<\/div>/);
     assert.doesNotMatch(cached, /<noscript>/);
     assert.doesNotMatch(cached, /id="ctaprobe" class="hidden"/, "the race probe sentence shows with a report");
     const fresh = await (await t.call("/scan?url=a.example.com")).text();

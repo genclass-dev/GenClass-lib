@@ -46,6 +46,8 @@ export interface Env {
   GUARD_MARGIN?: string;
   /** Base of share links (default https://genclass.dev). */
   PUBLIC_ORIGIN?: string;
+  /** A test copy's key prefix in the bucket ("scan-test/"); unset in production. The opt-out list is shared. */
+  STORE_PREFIX?: string;
   /**
    * The site worker (genclass-site), for paths under the /scan* route that are the site's, not this worker's (its
    * /scan-box.js). Unset: those paths are 404 here.
@@ -65,6 +67,8 @@ export interface AppDeps {
   runtimeSource(): Promise<string | null>;
   /** The built GenClass visual-checks chunk (src/visual-source.ts), or null. */
   visualSource?: string | null;
+  /** axe-core (src/axe-source.ts) and its version, or null. */
+  axe?: { source: string; version: string } | null;
   scanId(): string;
 }
 
@@ -351,6 +355,7 @@ async function runAndSave(
     signal,
     runtimeSource: deps.runtimeSource(),
     visualSource: deps.visualSource ?? null,
+    axeSource: deps.axe?.source ?? null,
     visualFixes: env.WITH_GENCLASS === "on",
     modelBaseUrl: env.MODEL_BASE_URL || DEFAULT_MODEL_BASE,
     runtimeVersion: RUNTIME_VERSION,
@@ -376,7 +381,7 @@ async function runAndSave(
   );
   const report = buildReport(
     target,
-    { id, key, at, runtime: RUNTIME_VERSION, guardHoldMs, guardAggressiveness: aggr, guardMargin: margin, shotUrl: (view) => (saved.has(view) ? `/api/scan/shot/${key}/${id}-${view}.jpg` : null) },
+    { id, key, at, runtime: RUNTIME_VERSION, axe: deps.axe?.version ?? "", guardHoldMs, guardAggressiveness: aggr, guardMargin: margin, shotUrl: (view) => (saved.has(view) ? `/api/scan/shot/${key}/${id}-${view}.jpg` : null) },
     result,
     { withGenClass: env.WITH_GENCLASS === "on" },
   );

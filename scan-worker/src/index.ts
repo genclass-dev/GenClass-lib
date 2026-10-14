@@ -8,6 +8,8 @@ import type { BrowserLike } from "./scan.ts";
 import { sweep } from "./store.ts";
 import { runtimeSourceLoader } from "./runtime-source.ts";
 import { VISUAL_SOURCE } from "./visual-source.ts";
+import { AXE_BUILD, AXE_SOURCE } from "./axe-source.ts";
+import { prefixed } from "./prefix.ts";
 
 const loadRuntime = runtimeSourceLoader(RUNTIME_VERSION, (u, i) => fetch(u, i));
 
@@ -29,8 +31,12 @@ async function newWindowPage(b: Browser): Promise<Page> {
   }
 }
 
+/** A test copy (STORE_PREFIX set) keeps its reports, screenshots and leases under its own prefix in the bucket. */
+const scoped = (env: Env): Env => (env.STORE_PREFIX ? { ...env, BUCKET: prefixed(env.BUCKET, env.STORE_PREFIX) } : env);
+
 export default {
-  async fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
+  async fetch(request: Request, rawEnv: Env, ctx: Ctx): Promise<Response> {
+    const env = scoped(rawEnv);
     return handle(request, env, ctx, {
       launch: async (e) => {
         const b = await puppeteer.launch(e.BROWSER as never, { keep_alive: 60_000 });
@@ -41,11 +47,13 @@ export default {
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
       runtimeSource: () => loadRuntime(),
       visualSource: VISUAL_SOURCE,
+      axe: { source: AXE_SOURCE, version: AXE_BUILD.version },
       scanId: () => `${Date.now().toString(36)}${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`,
     });
   },
   // Hourly: delete scan reports and screenshots older than 24 hours.
-  async scheduled(_event: unknown, env: Env, ctx: Ctx): Promise<void> {
+  async scheduled(_event: unknown, rawEnv: Env, ctx: Ctx): Promise<void> {
+    const env = scoped(rawEnv);
     ctx.waitUntil(
       sweep(env.BUCKET, Date.now()).then(
         (n) => console.log(`scan sweep: deleted ${n} objects`),
