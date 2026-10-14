@@ -950,16 +950,8 @@ details.tview .tbl-wrap{margin-top:4px}
 .vsrc a{color:var(--ink)}
 .vsrc span{color:var(--ink3)}
 .vsrc span::before{content:"· "}
-@media (min-width:1000px){
-  .vis>.wrap{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);column-gap:64px;align-items:start}
-  .vis>.wrap>.sh{grid-column:1;grid-row:1}
-  .vis>.wrap>.intro{grid-column:2;grid-row:1;margin-top:28px}
-  .vis>.wrap>.vstate{grid-column:2;grid-row:2;margin-top:28px}
-  .vis>.wrap>.scanbox{grid-column:1;grid-row:2;margin-top:36px;align-self:start}
-  .vis>.wrap>:not(.sh):not(.intro):not(.vstate):not(.scanbox){grid-column:1/-1}
-  .vis .sh h2{max-width:none}
-}
-@media (max-width:1100px){.vspec{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#visual .vspec{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1100px){.vspec,#visual .vspec{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:900px){.vlive{grid-template-columns:1fr}}
 @media (max-width:640px){
   #visual .sh h2{font-size:clamp(28px,8.2vw,34px);line-height:1.1}
@@ -970,7 +962,7 @@ details.tview .tbl-wrap{margin-top:4px}
   .scanbox input{font-size:17px;min-height:54px;padding:0 14px}
   .scanbox .btn{min-height:54px;padding:0 20px;font-size:16px}
   .vspec-fig{margin-top:40px}
-  .vspec{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 14px;padding-top:18px}
+  .vspec,#visual .vspec{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 14px;padding-top:18px}
   .vspec h3{font-size:14.5px}
   .vspec p{font-size:13.5px}
   .vrow{grid-template-columns:1fr}
