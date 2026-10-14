@@ -1,0 +1,333 @@
+// Routes for the paid plans. Checked before the account routes (src/auth.ts); null for any other path.
+//
+//   POST /api/billing/checkout {plan: "pro" | "custom"}  browser session + Origin; {url} of Stripe Checkout (or of the
+//                                                       Billing Portal's plan change when a plan is already paid)
+//   POST /api/billing/portal                           browser session + Origin; {url} of the Billing Portal
+//   POST /api/billing/webhook                          Stripe only: signature, no session (src/stripe.ts)
+//   GET  /api/billing                                  browser session; the plan and subscription state
+//   GET  /account/billing                              the plan page (src/billing-pages.ts)
+//   GET|PUT|PATCH|DELETE /api/account/projects/<id>/integrations[/<kind>]   forwarding destinations (paid plans)
+//   POST /api/account/projects/<id>/integrations/<kind>/test               one test record to that destination
+//   GET  /api/account/projects/<id>/events?from&to&format&cursor&limit      export (paid plans): an export key as a
+//                                                       bearer token, or the browser session
+//   GET|POST /api/account/export-keys, DELETE /api/account/export-keys/<id> export keys (browser session)
+//
+// A command line session (the CLI's bearer token) is refused on every route here: the approval page promises it
+// cannot read stats, and billing and settings belong to the browser.
+
+import { accountContext, accountProjects, authenticate, csrfFail, fail, originOk, ownedProject, page, readJson, redirect, webSession, type Auth, type C } from "./auth.js";
+import { billingPage } from "./billing-pages.js";
+import type { Env, HandleOptions } from "./collector.js";
+import { randomBase62, sha256Hex, type Project } from "./dashboard.js";
+import { decodeCursor, exportResponse, PAGE_MAX, parseTime } from "./export.js";
+import { checkConfig, deliver, integrationRows, integrationsKey, isKind, maskConfig, openConfig, sealConfig, testRecord, type Kind } from "./forward.js";
+import { json, readCapped } from "./http.js";
+import { forgetOwner } from "./paid.js";
+import { accountBilling, billingLive, entitled, LIVE_STATUSES, PAID_PLANS, planById, type Plan } from "./plans.js";
+import { checkoutSession, ensureCustomer, portalSession, StripeError, stripeWebhook } from "./stripe.js";
+import { b64url } from "./webauthn.js";
+
+type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+
+const EXPORT_KEY_RE = /^gce_[A-Za-z0-9_-]{43}$/;
+const MAX_EXPORT_KEYS = 10;
+const DAY = 86_400_000;
+
+const method = (): Response => fail(405, "method not allowed");
+const upgrade = (c: C, what: string): Response =>
+  json(403, { ok: false, error: `${what} is part of the Pro and Custom plans; see ${c.cfg.origin}/account/billing`, upgrade_url: `${c.cfg.origin}/account/billing` });
+
+function stripeFail(e: unknown): Response {
+  if (e instanceof StripeError) return fail(e.status === 503 ? 503 : 502, `Stripe: ${e.message}`);
+  throw e;
+}
+
+/** A browser-only write: a cookie session with our Origin. */
+async function browserWrite(c: C, what: string): Promise<Auth | Response> {
+  const a = await authenticate(c);
+  if (!a) return fail(401, "not signed in");
+  if (a.via !== "cookie") return fail(403, `${what} only in the browser, on genclass.dev`);
+  if (!originOk(c)) return csrfFail();
+  return a;
+}
+
+async function browserRead(c: C): Promise<Auth | Response> {
+  const a = await authenticate(c);
+  if (!a) return fail(401, "not signed in");
+  if (a.via !== "cookie") return fail(403, "only in the browser, on genclass.dev");
+  return a;
+}
+
+export async function routeBilling(request: Request, url: URL, path: string, env: Env, opts: HandleOptions): Promise<Response | null> {
+  const integ = /^\/api\/account\/projects\/([^/]+)\/integrations(?:\/([^/]+)(\/test)?)?$/.exec(path);
+  const events = /^\/api\/account\/projects\/([^/]+)\/events$/.exec(path);
+  const keys = /^\/api\/account\/export-keys(?:\/([^/]+))?$/.exec(path);
+  const billing = path === "/api/billing" || path.startsWith("/api/billing/") || path === "/account/billing";
+  if (!integ && !events && !keys && !billing) return null;
+  const c = accountContext(request, url, env, opts);
+  if (!c) return null; // the account routes answer "unavailable"
+  const f: Fetch = opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i));
+  const m = request.method;
+  const get = m === "GET" || m === "HEAD";
+
+  switch (path) {
+    case "/api/billing/webhook": {
+      if (m !== "POST") return method();
+      const raw = await readCapped(request, 512 * 1024);
+      if (raw === null) return fail(413, "body too large");
+      return stripeWebhook({ env, db: c.db, fetch: f, now: c.now }, raw, request.headers.get("stripe-signature"));
+    }
+    case "/api/billing/checkout":
+      return m === "POST" ? checkout(c, f) : method();
+    case "/api/billing/portal":
+      return m === "POST" ? portal(c, f) : method();
+    case "/api/billing": {
+      if (!get) return method();
+      const a = await browserRead(c);
+      if (a instanceof Response) return a;
+      const b = await accountBilling(c.db, a.account.id);
+      return json(200, {
+        plan: planById(b.plan).id,
+        subscription_status: b.subscription_status,
+        current_period_end: b.current_period_end,
+        cancel_at_period_end: !!b.cancel_at_period_end,
+        on_sale: billingLive(env),
+      });
+    }
+    case "/account/billing": {
+      if (!get) return method();
+      const a = await webSession(c);
+      if (!a) return redirect("/login?next=%2Faccount%2Fbilling");
+      const apps = (await accountProjects(c, a.account.id)).map((p) => ({ id: p.id!, name: p.name }));
+      const b = await accountBilling(c.db, a.account.id);
+      return page(200, (n) =>
+        billingPage(n, {
+          account: { id: a.account.id, email: a.account.email, githubLogin: a.account.github_login },
+          apps,
+          billing: b,
+          live: billingLive(env),
+          done: url.searchParams.get("done") === "1",
+          now: c.now,
+        }),
+      );
+    }
+  }
+  if (integ) return integrations(c, f, integ[1]!, integ[2] ?? null, !!integ[3]);
+  if (events) return exportEvents(c, events[1]!);
+  if (keys) return exportKeys(c, keys[1] ?? null);
+  return fail(404, "not found");
+}
+
+// --------------------------------------------------------------------------------------------- Checkout, portal
+
+async function checkout(c: C, f: Fetch): Promise<Response> {
+  const a = await browserWrite(c, "plans can be bought");
+  if (a instanceof Response) return a;
+  const body = await readJson(c, 1024);
+  if (body instanceof Response) return body;
+  if (!billingLive(c.env)) return fail(503, "paid plans are not on sale yet");
+  const plan = PAID_PLANS.find((p) => p.id === body.plan);
+  if (!plan) return fail(400, `choose a plan: ${PAID_PLANS.map((p) => p.id).join(" or ")}`);
+  const b = await accountBilling(c.db, a.account.id);
+  try {
+    if (b.subscription_id && LIVE_STATUSES.has(b.subscription_status ?? "") && b.plan !== "free") {
+      if (b.plan === plan.id) return fail(409, `you are already on the ${plan.name} plan`);
+      if (!b.stripe_customer_id) return fail(409, "this account's subscription has no Stripe customer; email us");
+      // already paying: change the plan on the existing subscription, never a second one
+      const url = await portalSession(c.env, f, { customer: b.stripe_customer_id, origin: c.cfg.origin, subscription: b.subscription_id, now: c.now });
+      return json(200, { url, portal: true });
+    }
+    const account = { id: a.account.id, email: a.account.email, ...b };
+    const customer = await ensureCustomer(c.env, f, c.db, account);
+    const url = await checkoutSession(c.env, f, { account, customer, plan, origin: c.cfg.origin, now: c.now });
+    return json(200, { url });
+  } catch (e) {
+    return stripeFail(e);
+  }
+}
+
+async function portal(c: C, f: Fetch): Promise<Response> {
+  const a = await browserWrite(c, "billing can be managed");
+  if (a instanceof Response) return a;
+  const body = await readJson(c, 1024);
+  if (body instanceof Response) return body;
+  if (!billingLive(c.env)) return fail(503, "paid plans are not on sale yet");
+  const b = await accountBilling(c.db, a.account.id);
+  if (!b.stripe_customer_id) return fail(409, "there is nothing to manage yet: this account has never bought a plan");
+  try {
+    return json(200, { url: await portalSession(c.env, f, { customer: b.stripe_customer_id, origin: c.cfg.origin, now: c.now }) });
+  } catch (e) {
+    return stripeFail(e);
+  }
+}
+
+// --------------------------------------------------------------------------------------------- forwarding settings
+
+async function integrations(c: C, f: Fetch, projectId: string, kindRaw: string | null, test: boolean): Promise<Response> {
+  const m = c.req.method;
+  const write = m !== "GET" && m !== "HEAD";
+  const a = write ? await browserWrite(c, "forwarding can be changed") : await browserRead(c);
+  if (a instanceof Response) return a;
+  const p = await ownedProject(c, a.account.id, projectId);
+  if (!p || !p.id) return fail(404, "not found");
+  const plan = planById((await accountBilling(c.db, a.account.id)).plan);
+
+  if (kindRaw === null) {
+    if (write) return method();
+    const rows = await integrationRows(c.db, p.id);
+    const out = [];
+    for (const r of rows) out.push({ kind: r.kind, enabled: !!r.enabled, summary: maskConfig(r.kind, await openConfig(c.env, p.id, r.kind, r.config)), last_sent: r.last_sent, last_error: r.last_error });
+    return json(200, { forwarding: entitled(plan, "forwarding"), integrations: out });
+  }
+  if (!isKind(kindRaw)) return fail(404, "not found");
+  const kind: Kind = kindRaw;
+  const row = (await integrationRows(c.db, p.id)).find((r) => r.kind === kind) ?? null;
+  const done = (res: Response): Response => {
+    forgetOwner(p.token);
+    return res;
+  };
+
+  if (test) {
+    if (m !== "POST") return method();
+    if (!entitled(plan, "forwarding")) return upgrade(c, "forwarding");
+    if (!row) return fail(404, `${kind} is not set up for this app`);
+    const err = await deliver(c.env, c.db, p.id, row, testRecord(appOf(c, p), c.now), c.now, f);
+    return err ? fail(502, err) : json(200, { ok: true });
+  }
+  if (m === "PUT") {
+    if (!entitled(plan, "forwarding")) return upgrade(c, "forwarding");
+    if (!(await integrationsKey(c.env))) return fail(503, "forwarding cannot be set up on this server yet: it has no encryption key for the settings");
+    const body = await readJson(c, 4096);
+    if (body instanceof Response) return body;
+    const keep = row ? await openConfig(c.env, p.id, kind, row.config) : null;
+    const checked = checkConfig(kind, body, keep);
+    if ("error" in checked) return fail(400, checked.error);
+    const sealed = await sealConfig(c.env, p.id, kind, checked.config);
+    await c.db
+      .prepare(
+        "INSERT INTO integrations (project_id, kind, config, enabled, created) VALUES (?, ?, ?, 1, ?) " +
+          "ON CONFLICT (project_id, kind) DO UPDATE SET config = excluded.config, enabled = 1, last_error = NULL",
+      )
+      .bind(p.id, kind, sealed, c.now.toISOString())
+      .run();
+    const fresh = kind === "webhook" && checked.config.secret !== keep?.secret;
+    return done(json(200, { ok: true, kind, summary: maskConfig(kind, checked.config), ...(fresh ? { secret: checked.config.secret } : {}) }));
+  }
+  if (m === "PATCH") {
+    const body = await readJson(c, 1024);
+    if (body instanceof Response) return body;
+    if (typeof body.enabled !== "boolean") return fail(400, 'send { "enabled": true } or { "enabled": false }');
+    if (!row) return fail(404, `${kind} is not set up for this app`);
+    if (body.enabled && !entitled(plan, "forwarding")) return upgrade(c, "forwarding");
+    await c.db.prepare("UPDATE integrations SET enabled = ? WHERE project_id = ? AND kind = ?").bind(body.enabled ? 1 : 0, p.id, kind).run();
+    return done(json(200, { ok: true, kind, enabled: body.enabled }));
+  }
+  if (m === "DELETE") {
+    if (!row) return fail(404, `${kind} is not set up for this app`);
+    await c.db.prepare("DELETE FROM integrations WHERE project_id = ? AND kind = ?").bind(p.id, kind).run();
+    return done(new Response(null, { status: 204, headers: { "cache-control": "no-store" } }));
+  }
+  return method();
+}
+
+function appOf(c: C, p: Project): { id: string; name: string; dashboard: string } {
+  return { id: p.id!, name: p.name, dashboard: `${c.cfg.origin}/account/apps/${p.id}` };
+}
+
+// --------------------------------------------------------------------------------------------- export
+
+/** The account behind an export request: an export key (bearer) or the browser session. */
+async function exportAuth(c: C): Promise<{ accountId: string } | Response> {
+  const h = c.req.headers.get("authorization");
+  if (h !== null) {
+    const m = /^Bearer\s+(\S+)$/i.exec(h.trim());
+    if (m && EXPORT_KEY_RE.test(m[1]!)) {
+      const row = await c.db
+        .prepare("SELECT k.id, k.account_id, k.last_used FROM export_keys k JOIN accounts a ON a.id = k.account_id WHERE k.hash = ?")
+        .bind(await sha256Hex(m[1]!))
+        .first<{ id: string; account_id: string; last_used: string | null }>();
+      if (!row) return fail(401, "this export key is not valid (revoked, or never created)");
+      if (!row.last_used || Date.parse(row.last_used) < c.now.getTime() - 10 * 60_000) {
+        await c.db.prepare("UPDATE export_keys SET last_used = ? WHERE id = ?").bind(c.now.toISOString(), row.id).run();
+      }
+      return { accountId: row.account_id };
+    }
+    if (m && m[1]!.startsWith("gcs_")) return fail(403, "a command line session cannot read the export; create an export key on the app's dashboard");
+    return fail(401, "send an export key: Authorization: Bearer gce_...");
+  }
+  const a = await webSession(c);
+  return a ? { accountId: a.account.id } : fail(401, "not signed in");
+}
+
+async function exportEvents(c: C, projectId: string): Promise<Response> {
+  const m = c.req.method;
+  if (m !== "GET" && m !== "HEAD") return method();
+  const who = await exportAuth(c);
+  if (who instanceof Response) return who;
+  const p = await ownedProject(c, who.accountId, projectId);
+  if (!p) return fail(404, "not found");
+  const plan: Plan = planById((await accountBilling(c.db, who.accountId)).plan);
+  if (!entitled(plan, "export")) return upgrade(c, "export");
+  const q = c.url.searchParams;
+  const earliest = new Date(c.now.getTime() - plan.limits.history_days * DAY);
+  // by default up to now, the batch received this millisecond included
+  const to = q.has("to") ? parseTime(q.get("to")) : new Date(c.now.getTime() + 1);
+  let from = q.has("from") ? parseTime(q.get("from")) : new Date(c.now.getTime() - 7 * DAY);
+  if (!to || !from) return fail(400, "from and to take a date (2026-10-01) or an ISO time");
+  if (from < earliest) from = earliest; // the plan's history
+  if (from >= to) return fail(400, "from must be before to");
+  const format = q.get("format") ?? "jsonl";
+  if (format !== "jsonl" && format !== "csv") return fail(400, "format is jsonl or csv");
+  const limitRaw = q.get("limit");
+  const limit = limitRaw === null ? PAGE_MAX : Number(limitRaw);
+  if (!Number.isInteger(limit) || limit < 1 || limit > PAGE_MAX) return fail(400, `limit is 1 to ${PAGE_MAX} batches`);
+  const cursor = decodeCursor(q.get("cursor"));
+  if (cursor === "bad") return fail(400, "this cursor is not valid; use the x-genclass-next-cursor header of the previous page");
+  const base = new URL(c.url.toString());
+  base.searchParams.delete("cursor");
+  return exportResponse(c.db, c.env.BUCKET, {
+    token: p.token,
+    from,
+    to,
+    cursor,
+    limit,
+    format,
+    filename: `genclass-${p.id}-${from.toISOString().slice(0, 10)}-${to.toISOString().slice(0, 10)}.${format}`,
+    url: base,
+  });
+}
+
+async function exportKeys(c: C, id: string | null): Promise<Response> {
+  const m = c.req.method;
+  if (id === null && (m === "GET" || m === "HEAD")) {
+    const a = await browserRead(c);
+    if (a instanceof Response) return a;
+    const r = await c.db.prepare("SELECT id, label, created, last_used FROM export_keys WHERE account_id = ? ORDER BY created").bind(a.account.id).all();
+    return json(200, { keys: r.results ?? [] });
+  }
+  if (id === null && m === "POST") {
+    const a = await browserWrite(c, "export keys can be created");
+    if (a instanceof Response) return a;
+    const body = await readJson(c, 1024);
+    if (body instanceof Response) return body;
+    if (!entitled(planById((await accountBilling(c.db, a.account.id)).plan), "export")) return upgrade(c, "export");
+    const n = await c.db.prepare("SELECT COUNT(*) AS n FROM export_keys WHERE account_id = ?").bind(a.account.id).first<{ n: number }>();
+    if (Number(n?.n ?? 0) >= MAX_EXPORT_KEYS) return fail(409, `an account can have at most ${MAX_EXPORT_KEYS} export keys; revoke one first`);
+    // eslint-disable-next-line no-control-regex
+    const label = typeof body.label === "string" ? body.label.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 60) || null : null;
+    const key = `gce_${b64url(crypto.getRandomValues(new Uint8Array(32)))}`;
+    const keyId = randomBase62(16);
+    await c.db
+      .prepare("INSERT INTO export_keys (id, hash, account_id, label, created) VALUES (?, ?, ?, ?, ?)")
+      .bind(keyId, await sha256Hex(key), a.account.id, label, c.now.toISOString())
+      .run();
+    return json(201, { id: keyId, key, label, created: c.now.toISOString() });
+  }
+  if (id !== null && m === "DELETE") {
+    const a = await browserWrite(c, "export keys can be revoked");
+    if (a instanceof Response) return a;
+    const r = await c.db.prepare("DELETE FROM export_keys WHERE id = ? AND account_id = ? RETURNING id").bind(id, a.account.id).first();
+    return r ? new Response(null, { status: 204, headers: { "cache-control": "no-store" } }) : fail(404, "no such export key");
+  }
+  return method();
+}

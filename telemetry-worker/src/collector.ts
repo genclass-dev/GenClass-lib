@@ -18,6 +18,7 @@
 // /api/{auth,device,me,account}*): passkeys, Google and GitHub sign-in, sessions, the CLI's device flow, owned apps.
 
 import { routeAuth } from "./auth.js";
+import { routeBilling } from "./billing.js";
 import {
   aggregate,
   createProject,
@@ -34,6 +35,7 @@ import {
   type Range,
 } from "./dashboard.js";
 import { json, readCapped } from "./http.js";
+import { afterBatch } from "./paid.js";
 import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages.js";
 import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
 
@@ -44,6 +46,9 @@ export const MAX_EVENTS = 500;
 /** The subset of the R2 binding this worker uses (avoids a dependency on @cloudflare/workers-types). */
 export interface BucketLike {
   put(key: string, value: ArrayBuffer | Uint8Array, options?: { httpMetadata?: Record<string, string> }): Promise<unknown>;
+  /** The export (src/export.ts) reads stored batches back and the sweep deletes export copies. */
+  get?(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null>;
+  delete?(keys: string | string[]): Promise<unknown>;
 }
 
 export interface RateLimiterLike {
@@ -79,6 +84,14 @@ export interface Env {
   /** GitHub sign-in (Worker secrets). The GitHub button is shown only when both are set. */
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
+  /** Paid plans (src/stripe.ts, Worker secrets). Without STRIPE_SECRET_KEY nothing is on sale and the Free plan's
+   * limits do not apply; without STRIPE_WEBHOOK_SECRET the webhook answers 503. */
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  /** 32 bytes, base64: encrypts forwarding settings at rest (src/forward.ts). Without it they cannot be saved. */
+  INTEGRATIONS_KEY?: string;
+  /** Optional https URL that gets a short JSON notice when someone buys the Custom plan. */
+  NOTIFY_WEBHOOK?: string;
 }
 
 const CORS: Record<string, string> = {
@@ -169,6 +182,8 @@ export async function handle(request: Request, env: Env, opts: HandleOptions = {
     return reply(200, { ok: true, schema: SCHEMA });
   }
   if (path === "/v1/events" || path === "/api/v1/events") return ingest(request, env, opts);
+  const billing = await routeBilling(request, url, path, env, opts);
+  if (billing) return billing;
   const account = await routeAuth(request, url, path, env, opts);
   if (account) return account;
   const site = await routeSite(request, url, path, env, opts);
@@ -238,8 +253,9 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
   const id = (opts.uuid ?? (() => crypto.randomUUID()))();
   const key = `events/dt=${dt}/rt=${rt}/model=${model}/${id}.jsonl.gz`;
 
+  const gz = await gzip(lines);
   try {
-    await env.BUCKET.put(key, await gzip(lines), {
+    await env.BUCKET.put(key, gz, {
       httpMetadata: { contentType: "application/gzip" },
     });
   } catch {
@@ -251,7 +267,11 @@ async function ingest(request: Request, env: Env, opts: HandleOptions): Promise<
   if (batch.token && db) {
     const token = batch.token;
     const task = (async () => {
-      if (await knownToken(db, token, now.getTime())) await aggregate(db, token, batch, now);
+      if (!(await knownToken(db, token, now.getTime()))) return;
+      await aggregate(db, token, batch, now).catch(() => undefined);
+      // export index, and forwarding for apps on a paid plan (src/paid.ts)
+      const f = opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i));
+      await afterBatch(env, db, { token, runtime: batch.runtime, model: batch.model, events: batch.events, key, gz, received: receivedAt, id }, now, f);
     })().catch(() => undefined);
     if (opts.waitUntil) opts.waitUntil(task);
     else await task;

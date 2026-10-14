@@ -42,17 +42,19 @@ import {
   projectBySecret,
   projectsCreatedSince,
   randomBase62,
-  RANGES,
   sanitizeName,
   SECRET_RE,
   sha256Hex,
   stats,
   type D1Like,
   type Project,
-  type Range,
 } from "./dashboard.js";
+import { appExtrasData, appExtrasHtml } from "./billing-pages.js";
+import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
 import { dashboardPage, securityHeaders } from "./pages.js";
+import { accountBilling, accountPlan, appLimit, appLimitBody, LIVE_STATUSES, pickRange, viewRanges } from "./plans.js";
+import { cancelNow } from "./stripe.js";
 import {
   b64url,
   equalStrings,
@@ -152,7 +154,8 @@ export function runtimeHasTokens(env: Env): boolean {
   return maj > 0 || min >= 3;
 }
 
-interface C {
+/** The per-request context of the account routes (also used by src/billing.ts through accountContext). */
+export interface C {
   req: Request;
   url: URL;
   env: Env;
@@ -203,7 +206,7 @@ export function safeNext(v: string | null | undefined): string | null {
   return /^\/(account(\/[A-Za-z0-9/]*)?([?#].*)?|login\/device(\?code=[A-Za-z-]{0,12})?)$/.test(v) ? v : null;
 }
 
-function fail(status: number, error: string, headers: Record<string, string> = {}): Response {
+export function fail(status: number, error: string, headers: Record<string, string> = {}): Response {
   return json(status, { ok: false, error }, headers);
 }
 
@@ -212,11 +215,11 @@ function withCookies(res: Response, cookies: string[]): Response {
   return res;
 }
 
-function redirect(location: string, cookies: string[] = [], status = 302): Response {
+export function redirect(location: string, cookies: string[] = [], status = 302): Response {
   return withCookies(new Response(null, { status, headers: { location, "cache-control": "no-store", "referrer-policy": "no-referrer" } }), cookies);
 }
 
-function page(status: number, render: (nonce: string) => string, cookies: string[] = []): Response {
+export function page(status: number, render: (nonce: string) => string, cookies: string[] = []): Response {
   const nonce = randomBase62(22);
   return withCookies(new Response(render(nonce), { status, headers: securityHeaders(nonce, {}, { account: true }) }), cookies);
 }
@@ -236,11 +239,11 @@ export function getCookie(req: Request, name: string): string | null {
   return null;
 }
 
-const originOk = (c: C): boolean => c.req.headers.get("origin") === c.cfg.origin;
-const csrfFail = (): Response => fail(403, "cross-origin request refused");
+export const originOk = (c: C): boolean => c.req.headers.get("origin") === c.cfg.origin;
+export const csrfFail = (): Response => fail(403, "cross-origin request refused");
 
 /** Parse a JSON object body (Content-Type application/json, at most `cap` bytes; empty means {}). */
-async function readJson(c: C, cap = 16 * 1024): Promise<Record<string, unknown> | Response> {
+export async function readJson(c: C, cap = 16 * 1024): Promise<Record<string, unknown> | Response> {
   if (mediaType(c.req) !== "application/json") return fail(415, "content-type must be application/json");
   const raw = await readCapped(c.req, cap);
   if (raw === null) return fail(413, "body too large");
@@ -286,7 +289,7 @@ export interface Account {
   created: string;
 }
 
-interface Auth {
+export interface Auth {
   account: Account;
   sessionId: string;
   via: "cookie" | "bearer";
@@ -295,7 +298,7 @@ interface Auth {
 const ACCOUNT_COLUMNS = "a.id, a.email, a.email_verified, a.google_sub, a.github_id, a.github_login, a.created";
 
 /** The signed-in account: a CLI bearer token when an Authorization header is present, else the web session cookie. */
-async function authenticate(c: C): Promise<Auth | null> {
+export async function authenticate(c: C): Promise<Auth | null> {
   if (c.auth !== undefined) return c.auth;
   c.auth = null;
   const h = c.req.headers.get("authorization");
@@ -332,7 +335,7 @@ async function authenticate(c: C): Promise<Auth | null> {
   return c.auth;
 }
 
-async function webSession(c: C): Promise<Auth | null> {
+export async function webSession(c: C): Promise<Auth | null> {
   const a = await authenticate(c);
   return a && a.via === "cookie" ? a : null;
 }
@@ -383,7 +386,7 @@ function projectJson(c: C, p: Project): ProjectJson {
   };
 }
 
-async function accountProjects(c: C, accountId: string): Promise<Project[]> {
+export async function accountProjects(c: C, accountId: string): Promise<Project[]> {
   const r = await c.db
     .prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE account_id = ? AND id IS NOT NULL ORDER BY name COLLATE NOCASE, created`)
     .bind(accountId)
@@ -391,7 +394,7 @@ async function accountProjects(c: C, accountId: string): Promise<Project[]> {
   return r.results ?? [];
 }
 
-async function ownedProject(c: C, accountId: string, id: string): Promise<Project | null> {
+export async function ownedProject(c: C, accountId: string, id: string): Promise<Project | null> {
   if (!PROJECT_ID_RE.test(id)) return null;
   return c.db.prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = ? AND account_id = ?`).bind(id, accountId).first<Project>();
 }
@@ -1045,12 +1048,22 @@ const appCount = async (c: C, accountId: string): Promise<number> =>
   Number((await c.db.prepare("SELECT COUNT(*) AS n FROM projects WHERE account_id = ?").bind(accountId).first<{ n: number }>())?.n ?? 0);
 const tooManyApps = (): Response => fail(409, `an account can hold at most ${MAX_APPS_PER_ACCOUNT} apps`);
 
+/** The 409 when one more app would pass the plan's limit (src/plans.ts) or the abuse cap, else null. */
+async function overAppLimit(c: C, accountId: string): Promise<Response | null> {
+  const n = await appCount(c, accountId);
+  if (n >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
+  const lim = await appLimit(c.db, c.env, accountId);
+  if (lim.max !== null && n >= lim.max) return json(409, appLimitBody(lim, c.cfg.origin));
+  return null;
+}
+
 async function createAccountProject(c: C): Promise<Response> {
   const a = await writer(c);
   if (a instanceof Response) return a;
   const body = await readJson(c, 4096);
   if (body instanceof Response) return body;
-  if ((await appCount(c, a.account.id)) >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
+  const over = await overAppLimit(c, a.account.id);
+  if (over) return over;
   if (c.env.CREATE_LIMITER) {
     const { success } = await c.env.CREATE_LIMITER.limit({ key: (await sha256Hex(`create:account:${a.account.id}`)).slice(0, 32) });
     if (!success) return fail(429, "too many apps created; try again in a minute", { "retry-after": "60" });
@@ -1075,7 +1088,10 @@ async function claimProject(c: C): Promise<Response> {
   if (!p) return fail(404, "no dashboard matches this link");
   if (p.account_id && p.account_id !== a.account.id) return fail(409, "this app already belongs to another account");
   if (!p.account_id || !p.id) {
-    if (!p.account_id && (await appCount(c, a.account.id)) >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
+    if (!p.account_id) {
+      const over = await overAppLimit(c, a.account.id);
+      if (over) return over;
+    }
     await c.db
       .prepare("UPDATE projects SET account_id = ?, id = COALESCE(id, ?) WHERE token = ? AND (account_id IS NULL OR account_id = ?)")
       .bind(a.account.id, newProjectId(), p.token, a.account.id)
@@ -1166,9 +1182,24 @@ async function deleteAccount(c: C): Promise<Response> {
   if (body instanceof Response) return body;
   if (body.confirm !== "delete") return fail(400, 'send { "confirm": "delete" } to delete this account');
   const id = a.account.id;
+  // a paid plan is cancelled with Stripe first: an account that no longer exists must not be charged again
+  const bill = await accountBilling(c.db, id);
+  if (bill.subscription_id && LIVE_STATUSES.has(bill.subscription_status ?? "") && c.env.STRIPE_SECRET_KEY) {
+    try {
+      await cancelNow(c.env, c.opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i)), bill.subscription_id);
+    } catch {
+      return fail(502, "your paid plan could not be cancelled with Stripe, so the account was not deleted; try again in a minute");
+    }
+  }
   const gone = await c.db.prepare("SELECT token FROM projects WHERE account_id = ? AND private_link = 0").bind(id).all<{ token: string }>();
   const own = "SELECT token FROM projects WHERE account_id = ? AND private_link = 0";
+  const owned = "SELECT id FROM projects WHERE account_id = ?";
   await c.db.batch([
+    // paid features of every app in the account (apps that keep a private link leave without them)
+    c.db.prepare(`DELETE FROM integrations WHERE project_id IN (${owned})`).bind(id),
+    c.db.prepare(`DELETE FROM forward_log WHERE project_id IN (${owned})`).bind(id),
+    c.db.prepare("DELETE FROM export_keys WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM custom_requests WHERE account_id = ?").bind(id),
     ...["daily", "hourly", "recent", "sessions"].map((t) => c.db.prepare(`DELETE FROM ${t} WHERE token IN (${own})`).bind(id)),
     c.db.prepare("DELETE FROM projects WHERE account_id = ? AND private_link = 0").bind(id),
     c.db.prepare("UPDATE projects SET account_id = NULL WHERE account_id = ?").bind(id),
@@ -1179,6 +1210,7 @@ async function deleteAccount(c: C): Promise<Response> {
     c.db.prepare("DELETE FROM accounts WHERE id = ?").bind(id),
   ]);
   for (const p of gone.results ?? []) forgetToken(p.token);
+  await forgetExports(c.db, c.env.BUCKET, (gone.results ?? []).map((p) => p.token)).catch(() => undefined);
   return withCookies(noContent(), [clearCookie(c, c.cfg.session)]);
 }
 
@@ -1225,6 +1257,12 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
 }
 
 // --------------------------------------------------------------------------------------------- routes
+
+/** The context the account routes use, for src/billing.ts (null without a database). */
+export function accountContext(request: Request, url: URL, env: Env, opts: HandleOptions): C | null {
+  if (!env.DB) return null;
+  return { req: request, url, env, db: env.DB, opts, now: (opts.now ?? (() => new Date()))(), cfg: authConfig(env) };
+}
 
 const PREFIXES = ["/auth/", "/api/auth/", "/api/device/", "/api/account/", "/account/"];
 const EXACT = new Set(["/signup", "/login", "/login/device", "/logout", "/account", "/api/me", "/api/account"]);
@@ -1349,8 +1387,9 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     if (a.via !== "cookie") return fail(403, "a command line session cannot read stats; open the dashboard in the browser");
     const p = await ownedProject(c, a.account.id, stat[1]!);
     if (!p) return fail(404, "not found");
-    const r = url.searchParams.get("range") as Range | null;
-    return json(200, await stats(c.db, p, r && RANGES.includes(r) ? r : "7d", c.now));
+    // the ranges this account's plan shows (src/plans.ts); a longer one is answered with the longest it shows
+    const range = pickRange(url.searchParams.get("range"), viewRanges(env, await accountPlan(c.db, a.account.id)));
+    return json(200, await stats(c.db, p, range, c.now));
   }
   const link = /^\/api\/account\/projects\/([^/]+)\/link$/.exec(path);
   if (link) return m === "DELETE" ? turnOffLink(c, link[1]!) : method();
@@ -1367,6 +1406,8 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     const p = await ownedProject(c, a.account.id, app[1]!);
     if (!p) return page(404, (n) => appNotFoundPage(n));
     const apps = (await accountProjects(c, a.account.id)).map((x) => ({ id: x.id!, name: x.name }));
+    // plan-dependent parts: ranges, retention, forwarding and export (src/billing-pages.ts)
+    const extras = await appExtrasData(c.db, env, a.account.id, p);
     return page(200, (n) =>
       dashboardPage(
         n,
@@ -1377,6 +1418,9 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
           firstEvent: p.first_event,
           privateLink: !!p.private_link,
           runtimeReady: runtimeHasTokens(env),
+          ranges: extras.ranges,
+          keepDays: extras.keep,
+          extra: appExtrasHtml(n, extras),
         },
       ),
     );
