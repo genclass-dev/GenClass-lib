@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { RawFinding } from "../src/catalog.ts";
 import { categoryOf, describe as words, KINDS, sanitizeFinding, sanitizeStats, severityOf, suggestFix, VISUAL_KINDS } from "../src/catalog.ts";
-import { buildReport, guardSetting, heldBack, JS_NOTE, probeFindings, raceFix, REFUSED_NOTE, subjectNames } from "../src/report.ts";
+import { buildReport, guardSetting, heldBack, JS_NOTE, probeFindings, raceFix, REFUSED_NOTE, SHIFT_NOTE, subjectNames } from "../src/report.ts";
 import { emptyCoverage, type ProbeResult, type ScanResult, type ViewResult, type VisualFixes } from "../src/scan.ts";
 import { categoryValue, rulesOf } from "../src/score.ts";
 import { normaliseTarget, type Target } from "../src/target.ts";
@@ -200,6 +200,15 @@ describe("the deeper checks in the report", () => {
     assert.equal(r.findings.find((f) => f.kind === "js-heavy")!.unscored, JS_NOTE);
     assert.equal(r.findings.find((f) => f.kind === "js-error")!.unscored, REFUSED_NOTE);
     assert.equal(r.score.value, mean({ races: 85 }), "only the double submit is scored");
+  });
+  it("lists layout shift, from the scanner's CLS and from the visual checks, without scoring it", () => {
+    const cls: RawFinding = { kind: "cls-high", selector: "header > div", box: null, measured: "Cumulative Layout Shift 0.24", detail: { severity: "minor", count: 1, cls: 0.24 } };
+    const shift: RawFinding = { kind: "layout-shift", selector: "#bodyContent", box: null, measured: "the layout shifted by 0.63", detail: { severity: "medium" } };
+    const unsized: RawFinding = { kind: "image-unsized-shift", selector: "img.banner", box: null, measured: "1 image without width and height", detail: { severity: "minor", count: 1 } };
+    const r = buildReport(target, ids, scan({ views: [view("desktop", [], [cls, unsized]), view("phone", [shift]), view("phone-dark", [])], probe: null, guard: null }), { withGenClass: false });
+    for (const kind of ["cls-high", "layout-shift"]) assert.equal(r.findings.find((f) => f.kind === kind)!.unscored, SHIFT_NOTE, kind);
+    assert.equal(r.findings.find((f) => f.kind === "image-unsized-shift")!.unscored, null, "an image without dimensions that moved content is scored");
+    assert.equal(r.score.categories.find((c) => c.id === "speed")!.value, 97);
   });
   it("adds the missing viewport meta tag from a phone view laid out wider than the phone", () => {
     const s = scan();

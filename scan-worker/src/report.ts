@@ -72,6 +72,8 @@ export interface Report {
   views: {
     id: string; label: string; width: number; height: number; ok: boolean; status: number | null; ms: number; notes: string[]; shot: string | null; shotHeight: number; error?: string; checks: unknown; standIns: number;
     coverage: ScanResult["views"][number]["coverage"];
+    /** What the page could read about its window: innerWidth, innerHeight, outerWidth, outerHeight, screen.width, screen.height, clientWidth. */
+    env?: number[];
   }[];
   findings: Finding[];
   score: ScoreBreakdown;
@@ -80,7 +82,7 @@ export interface Report {
   /** Why a category was not measured on this scan (absent when it was). */
   notMeasured: Partial<Record<Category, string>>;
   /** Measured once on this load: the desktop's Largest Contentful Paint and layout shift, its JavaScript, and the light phone's LCP for comparison. */
-  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; phoneLcpMs: number | null; axeIncomplete: number; axePasses: number; whoAsks: number };
+  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; phoneLcpMs: number | null; phoneCls: number | null; axeIncomplete: number; axePasses: number; whoAsks: number };
   withGenClass: { shown: boolean; value: number | null; breakdown: ScoreBreakdown | null; fixed: number; note: string };
   probe: {
     observe: ProbeResult | null; guard: ProbeResult | null; guardHoldMs: number | null; guardAggressiveness: string; guardMargin: number | null;
@@ -279,7 +281,16 @@ const REFUSED_KINDS = new Set<Kind>(["js-error", "console-error"]);
 export const REFUSED_NOTE =
   "The scanner did not load some of this page's files (their hostnames could not be looked up, or pointed to private addresses), so this may come from those missing files rather than from the site.";
 export const JS_NOTE =
-  "A note, not scored: the transferred size alone does not make a page slow, and the Speed score already measures when the content shows (LCP) and how much it moves (CLS).";
+  "A note, not scored: the transferred size alone does not make a page slow, and the Speed score already measures when the main content shows (LCP).";
+/**
+ * Layout shift measured in the scanner's browser is listed, never scored. Every request there waits for the scanner's
+ * own checks before it continues, so content that scripts add after the first paint (a cookie banner, a fundraising
+ * banner) moves the page more than it does for most visitors: on the three public pages of the calibration where the
+ * scanner measured a shift, a desktop browser loading the same page measured none (scan-worker/CALIBRATION.md).
+ */
+const SHIFT_KINDS = new Set<Kind>(["cls-high", "layout-shift"]);
+export const SHIFT_NOTE =
+  "Listed, not scored: in the scanner's browser every request waits for the scanner's own checks, so content that scripts add after the first paint moves the page more than it does for most visitors. Compare with Chrome's field data (CrUX) or a Lighthouse run before acting on it.";
 const notMeasuredNote = (label: string): string => `Listed, not scored: ${label} was not measured on this scan.`;
 
 /** The with-GenClass note, from what this scan measured: only the steps that ran are named. */
@@ -403,7 +414,7 @@ export function buildReport(
     const fromStandIn = (STAND_IN_KINDS.has(raw.kind) || (raw.kind === "genclass-detection" && String(raw.detail?.diagnosis) !== "duplicate")) && sorted.every((v) => standIn.has(v));
     const fromRefused = !fromStandIn && REFUSED_KINDS.has(raw.kind) && sorted.every((v) => refused.has(v) || standIn.has(v));
     const label = CATEGORIES.find((c) => c.id === category)!.label;
-    const unscored = raw.kind === "js-heavy" ? JS_NOTE : fromStandIn ? STAND_IN_NOTE : fromRefused ? REFUSED_NOTE : !measured[category] ? notMeasuredNote(label) : null;
+    const unscored = raw.kind === "js-heavy" ? JS_NOTE : SHIFT_KINDS.has(raw.kind) ? SHIFT_NOTE : fromStandIn ? STAND_IN_NOTE : fromRefused ? REFUSED_NOTE : !measured[category] ? notMeasuredNote(label) : null;
     let text = raw.measured;
     if (raw.kind === "axe") {
       const per = sorted.filter((v) => counts[v]).map((v) => `${counts[v]} on the ${VIEW_WORDS[v] ?? v}`);
@@ -495,6 +506,7 @@ export function buildReport(
       id: v.id, label: v.label, width: v.width, height: v.height, ok: v.ok, status: v.status, ms: v.ms, notes: v.notes,
       shot: v.shot ? ids.shotUrl(v.id) : null, shotHeight: v.shotHeight, ...(v.error ? { error: v.error } : {}), checks: v.checks, standIns: v.standIns?.count ?? 0,
       coverage: v.coverage,
+      ...(v.metrics?.env ? { env: v.metrics.env } : {}),
     })),
     findings: list,
     score: without,
@@ -505,6 +517,7 @@ export function buildReport(
       cls: desk?.metrics?.cls ?? null,
       jsBytes: desk?.metrics?.jsBytes ?? null,
       phoneLcpMs: phone?.metrics?.lcpMs ?? null,
+      phoneCls: phone?.metrics?.cls ?? null,
       axeIncomplete: Math.max(0, ...axeViews.map((v) => v.coverage.axe.incomplete)),
       axePasses: Math.max(0, ...axeViews.map((v) => v.coverage.axe.passes)),
       whoAsks: Math.max(0, ...r.views.map((v) => v.metrics?.whoAsks ?? 0)),

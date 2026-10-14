@@ -328,7 +328,7 @@ export interface ViewResult {
   /** What this view measured, so a category that was not measured is never scored as clean. */
   coverage: ViewCoverage;
   /** Timings and sizes measured in this view (the desktop's LCP, CLS and JavaScript bytes; failed requests not scored). */
-  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; whoAsks: number; skippedHosts?: number };
+  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; whoAsks: number; skippedHosts?: number; env?: number[] };
 }
 
 export interface ViewCoverage {
@@ -739,14 +739,17 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     // the browser's own record of this view (errors, responses, bytes), from a DevTools session of the scanner's own
     let log: PageLog | null = null;
     let cdp: CdpLike | null = null;
-    if (!skipChecks && page.createCDPSession) {
+    if (page.createCDPSession) {
       try {
         cdp = await withTimeout(page.createCDPSession(), Math.min(4000, left()), "opening a DevTools session");
-        const l = new PageLog();
-        await withTimeout(l.attach(cdp), Math.min(4000, left()), "turning on the DevTools domains");
-        log = l;
+        if (!spec.mobile) await fitDesktopWindow(cdp, spec);
+        if (!skipChecks) {
+          const l = new PageLog();
+          await withTimeout(l.attach(cdp), Math.min(4000, left()), "turning on the DevTools domains");
+          log = l;
+        }
       } catch (e) {
-        view.notes.push(`The browser's own record of errors and requests could not be read in this view (${cutText(e instanceof Error ? e.message : String(e), 100)}), so reliability was not measured here.`);
+        if (!skipChecks) view.notes.push(`The browser's own record of errors and requests could not be read in this view (${cutText(e instanceof Error ? e.message : String(e), 100)}), so reliability was not measured here.`);
       }
     }
     await page.setRequestInterception(true);
@@ -959,6 +962,32 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   }
 
   /**
+   * The desktop view's window and screen, the size of its viewport. A new headless window is about 780 by 580 px on an
+   * 800 by 600 screen, and the viewport emulation does not change what the page reads from window.outerWidth or
+   * screen.width; a page that lays itself out from those (measured on a public page: a narrow column inside the 1366 px
+   * viewport, then a layout shift of 1.0) would be judged in a layout no visitor gets. Phone emulation already reports
+   * the phone's size everywhere. Best effort: when the browser refuses, the view runs as before.
+   */
+  async function fitDesktopWindow(cdp: CdpLike, spec: ViewSpec): Promise<void> {
+    try {
+      const w = await withTimeout(cdp.send("Browser.getWindowForTarget"), 2000, "reading the window");
+      const windowId = (w as { windowId?: unknown } | null)?.windowId;
+      if (typeof windowId === "number") await withTimeout(cdp.send("Browser.setWindowBounds", { windowId, bounds: { width: spec.width, height: spec.height } }), 2000, "sizing the window");
+    } catch {
+      /* the window keeps its size */
+    }
+    try {
+      await withTimeout(
+        cdp.send("Emulation.setDeviceMetricsOverride", { width: spec.width, height: spec.height, deviceScaleFactor: 1, mobile: false, screenWidth: spec.width, screenHeight: spec.height }),
+        2000,
+        "sizing the screen",
+      );
+    } catch {
+      /* the screen keeps its size */
+    }
+  }
+
+  /**
    * axe-core and the scanner's own audits in one view, after the visual checks and the screenshot (src/axe.ts,
    * src/audits.ts, src/cdp.ts). Each step runs only when the time left before the race probe allows it and says so when
    * it does not; a step that did not run leaves its category unmeasured in this view (ViewCoverage). On the light phone
@@ -976,6 +1005,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       const lcp = vitals.lcp && typeof vitals.lcp === "object" ? numOrNull((vitals.lcp as Record<string, unknown>).t) : null;
       view.metrics.lcpMs = lcp;
       view.metrics.cls = clsOf(parseShifts(vitals.shifts)).value;
+      if (Array.isArray(vitals.env)) view.metrics.env = vitals.env.slice(0, 7).map((x) => Math.round(Number(x) || 0));
       if (spec.id === "desktop") {
         view.coverage.vitals = true;
         const slow = judgeLcp(vitals.lcp);

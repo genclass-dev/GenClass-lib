@@ -164,7 +164,7 @@ describe("Largest Contentful Paint and Cumulative Layout Shift: web.dev threshol
     const moved = (t: number, prevY: number, curY: number, x = 0) => [{ t, v: 0.12, input: false, sources: [{ sel: "main > h1", prev: { x, y: prevY, w: 600, h: 40 }, cur: { x, y: curY, w: 600, h: 40 } }] }];
     const f = judgeUnsized(image, moved(1240, 100, 300))!;
     assert.equal(f.kind, "image-unsized-shift");
-    assert.equal(f.detail!.severity, "moderate");
+    assert.equal(f.detail!.severity, "minor", "always minor: the shift size in the scanner's browser is not used");
     assert.match(f.measured, /img\.banner finished loading at 1\.20 s; a shift of 0\.120 at 1\.24 s moved main > h1 down/);
     assert.equal(judgeUnsized(image, moved(900, 100, 300)), null, "a shift before the image arrived");
     assert.equal(judgeUnsized(image, moved(3000, 100, 300)), null, "a shift long after it arrived");

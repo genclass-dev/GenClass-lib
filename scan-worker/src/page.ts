@@ -1005,14 +1005,11 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     <li><b>Oversized images</b> (Lighthouse's "Properly size images", minor; moderate above 1 MB in all): more than
     ${OVERSIZE_RATIO} times the pixels the image covers on a ${JUDGE_DPR.desktop}x screen (desktop) or ${JUDGE_DPR.phone}x screen
     (phone), and more than ${Math.round(OVERSIZE_BYTES / 1024)} KB transferred. SVG is left out.</li>
-    <li><b>Images without dimensions</b> (web.dev, minor; moderate above ${CLS_GOOD} in all): no width and height and no
+    <li><b>Images without dimensions</b> (web.dev, minor): no width and height and no
     aspect-ratio, and a layout shift from 50 ms before to 1.5 s after the image loaded moved content below it down. An unsized
     image that moved nothing is not reported.</li>
     <li><b>Largest Contentful Paint</b> (desktop, <a href="https://web.dev/articles/lcp">web.dev</a>): minor above ${lcpGood} s
     (needs improvement), moderate above ${lcpPoor} s (poor).</li>
-    <li><b>Cumulative Layout Shift</b> (desktop, while the page loads, <a href="https://web.dev/articles/cls">web.dev</a>, session
-    windows of 1 s gaps and 5 s at most): minor above ${CLS_GOOD}, moderate above ${CLS_POOR}. When the visual checks already
-    reported a layout shift above 0.25 with its element, that finding stands for it.</li>
     <li><b>JavaScript errors</b> (Lighthouse's console errors audit): uncaught errors and unhandled rejections in the page's own
     main frame while it loads, moderate (minor when every one came from a script on another site); <code>console.error</code>,
     minor. Errors from the scanner's own code are left out.</li>
@@ -1032,7 +1029,7 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   <ul>
     <li>Text the visual checks found below 1.5:1 is a visual bug; axe-core's <code>color-contrast</code> leaves out that same
     element in that view.</li>
-    <li>A layout shift the visual checks reported stands for the Cumulative Layout Shift finding.</li>
+    <li>A layout shift the visual checks reported stands for the Cumulative Layout Shift note.</li>
     <li>Sideways scrolling at 390 px stands for the 360 and 320 px reflow check.</li>
   </ul>
   <h3 class="h3" id="unscored">Listed, not scored</h3>
@@ -1041,6 +1038,12 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     (template text, broken images, a blank main region, JavaScript errors, GenClass diagnoses other than a duplicate), when every
     view they appeared in had such answers or refusals.</li>
     <li>Findings in a category this scan did not measure, and the JavaScript size note.</li>
+    <li>Layout shift: Cumulative Layout Shift on the desktop while the page loads (<a href="https://web.dev/articles/cls">web.dev</a>,
+    session windows with gaps of at most 1 s and 5 s at most; above ${CLS_GOOD} needs improvement, above ${CLS_POOR} poor) and the
+    visual checks' layout shift above 0.25. Both are listed with what was measured and not scored. In the scanner's browser every
+    request waits for the scanner's own checks before it continues, so content that scripts add after the first paint moves the
+    page more than it does for most visitors: on the three public pages in the calibration where the scanner measured a shift, a
+    desktop browser loading the same page measured none.</li>
   </ul>
   <h3 class="h3" id="axe">axe-core</h3>
   <p>axe-core ${esc(AXE_BUILD.version)} is Copyright (c) 2015 to 2026 Deque Systems, Inc. and licensed under the

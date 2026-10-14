@@ -121,7 +121,10 @@ export function pageSide(cmd: string, options?: any): any {
         unsized.push({ sel: sel(img), x: Math.round(r.left + sx), y: Math.round(r.top + sy), w: Math.round(r.width), h: Math.round(r.height), end: e ? Math.round(e.responseEnd) : null });
         if (unsized.length >= 40) break;
       }
-      return { lcp, shifts: sh, unsized, visibility: String(doc.visibilityState || "") };
+      // what the page can read about its window and screen (a page that lays itself out from these sees what a
+      // visitor's browser would report only when they agree with the viewport)
+      const env = [g.innerWidth, g.innerHeight, g.outerWidth, g.outerHeight, g.screen ? g.screen.width : 0, g.screen ? g.screen.height : 0, de.clientWidth].map((x: any) => Math.round(Number(x) || 0));
+      return { lcp, shifts: sh, unsized, visibility: String(doc.visibilityState || ""), env };
     });
   }
 
@@ -725,7 +728,8 @@ export function judgeCls(raw: unknown): RawFinding | null {
  * Images without width and height (or aspect-ratio) whose box follows the file's shape, tied to a layout shift they
  * caused: a shift without input, from 50 ms before to 1.5 s after the image finished loading, that moved down an
  * element that was at or below the image's top and overlaps it horizontally. Images that shifted nothing are not
- * reported. Moderate when the shifts tied to them add up to more than 0.1 (web.dev's good CLS), minor otherwise.
+ * reported. Always minor: the defect is the missing dimensions; how far the page moved in the scanner's browser is listed,
+ * not used, since shifts there run larger than for most visitors (report.ts SHIFT_NOTE).
  */
 export function judgeUnsized(rawImages: unknown, rawShifts: unknown): RawFinding | null {
   const shifts = parseShifts(rawShifts).filter((s) => !s.input);
@@ -752,6 +756,6 @@ export function judgeUnsized(rawImages: unknown, rawShifts: unknown): RawFinding
     selector: h.sel,
     box: h.box,
     measured: `${plural(hits.length, "image")} without width and height or aspect-ratio moved content when ${hits.length === 1 ? "it" : "they"} loaded (layout shift ${total.toFixed(3)} in all). First: ${h.sel} finished loading at ${secs(h.end)}; a shift of ${h.shift.v.toFixed(3)} at ${secs(h.shift.t)} moved ${h.moved || "the content below it"} down.`,
-    detail: { severity: (total > CLS_GOOD ? "moderate" : "minor") satisfies Severity, count: hits.length, shift: Math.round(total * 10000) / 10000, examples: hits.slice(0, 5).map((x) => x.sel) },
+    detail: { severity: "minor" satisfies Severity, count: hits.length, shift: Math.round(total * 10000) / 10000, examples: hits.slice(0, 5).map((x) => x.sel) },
   };
 }

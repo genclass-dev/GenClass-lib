@@ -47,7 +47,7 @@ export const CATEGORIES: { id: Category; label: string; weight: number; covers: 
     id: "speed",
     label: "Speed",
     weight: 10,
-    covers: "Largest Contentful Paint and Cumulative Layout Shift against the web.dev thresholds, images far bigger than they are shown, images without dimensions that shifted the layout",
+    covers: "Largest Contentful Paint against the web.dev thresholds, images far bigger than they are shown, images without dimensions that moved the content below them (layout shift itself is listed, not scored)",
   },
   {
     id: "races",
