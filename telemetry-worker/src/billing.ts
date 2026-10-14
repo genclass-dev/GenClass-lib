@@ -222,9 +222,10 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
         // the Custom price, and Pro must not move onto a Custom subscription outside it (src/stripe.ts header)
         if (holding.length > 1) return fail(409, `a plan change is already going through; reload this page in a minute, or email ${PLANS_FILE.contact}`);
         if (held.status !== "active" && held.status !== "trialing") return fail(409, `your ${planById(st.priced).name} plan is ${held.status}; email ${PLANS_FILE.contact} to change it`);
-        // nothing but GenClass's billing on the customer: the credit for the old plan goes to its balance
+        // nothing but GenClass's billing on the customer, as before a portal session
         if (await foreignInvoice(c.env, f, customer.id, subs)) return refuseShared(c, f, account.id, customer.id, SHARED_INVOICE);
-        // the webhook cancels `held`, with a prorated credit, once the new subscription is active; until then it stays
+        // once the new subscription's first payment clears, the webhook refunds `held`'s unused time to its card and
+        // cancels it; until then it stays
         const url = await checkoutSession(c.env, f, { account, customer: customer.id, plan, origin: c.cfg.origin, now: c.now, switchFrom: held.id });
         return json(200, { url, switch: true });
       }
