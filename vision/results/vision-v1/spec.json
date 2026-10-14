@@ -1,0 +1,202 @@
+{
+ "name": "genclass-vision-v1",
+ "arch": "mnv3s",
+ "epoch": 11,
+ "inputs": {
+  "image": {
+   "shape": [
+    "n",
+    3,
+    128,
+    224
+   ],
+   "dtype": "float32",
+   "range": "RGB 0..255, no normalisation (the model normalises)",
+   "crop": "the element's border box plus 24 CSS px on each side, clipped to the viewport, at CSS-pixel resolution",
+   "letterbox": {
+    "width": 224,
+    "height": 128,
+    "scale": "min(W / w, H / h, 2.0)",
+    "resample": "bicubic when scaling up, bilinear when scaling down",
+    "fill": [
+     128,
+     128,
+     128
+    ],
+    "placement": "centred, offsets floor((W - w') / 2), floor((H - h') / 2)"
+   }
+  },
+  "facts": {
+   "shape": [
+    "n",
+    64
+   ],
+   "dtype": "float32",
+   "names": [
+    "phone",
+    "dark",
+    "pageSideways",
+    "pageSidewaysPx",
+    "appDark",
+    "pageFailedLoads",
+    "x/vw",
+    "right/vw",
+    "y/vh",
+    "bottom/vh",
+    "logW",
+    "logH",
+    "inv",
+    "inCropX",
+    "inCropY",
+    "inCropW",
+    "inCropH",
+    "interactive",
+    "pointer",
+    "pointerEventsNone",
+    "disabled",
+    "fixedOrSticky",
+    "absolute",
+    "hasOwnText",
+    "logOwnText",
+    "logAllText",
+    "fontSize",
+    "contrast",
+    "contrastMissing",
+    "bgKnown",
+    "paintContrast",
+    "paintContrastMissing",
+    "effOpacity",
+    "hitSelf",
+    "hitOther",
+    "hitAncestor",
+    "hitNone",
+    "tagImg",
+    "tagSvg",
+    "tagMedia",
+    "tagButton",
+    "tagA",
+    "tagField",
+    "tagText",
+    "tagOther",
+    "imgBroken",
+    "imgDistortion",
+    "imgNoNaturalSize",
+    "imgNoAlt",
+    "scrollsX",
+    "scrollsY",
+    "overflowHidden",
+    "clipAncestors",
+    "clipVisible",
+    "textSpill",
+    "leakPattern",
+    "undefinedVar",
+    "zIndex",
+    "transform",
+    "filter",
+    "animation",
+    "bgImage",
+    "logKids",
+    "clipPath"
+   ],
+   "reference": "portable/score_onnx.py facts() (identical to vision/vision_v1/common.py facts())",
+   "source": "one element row of vision/src/extract.js, its view's page record and the crop geometry",
+   "tagGroups": {
+    "tagImg": [
+     "img"
+    ],
+    "tagSvg": [
+     "svg",
+     "path",
+     "use",
+     "g"
+    ],
+    "tagMedia": [
+     "video",
+     "canvas",
+     "iframe",
+     "picture",
+     "object",
+     "embed"
+    ],
+    "tagButton": [
+     "button"
+    ],
+    "tagA": [
+     "a"
+    ],
+    "tagField": [
+     "input",
+     "select",
+     "textarea"
+    ],
+    "tagText": [
+     "b",
+     "blockquote",
+     "code",
+     "dd",
+     "dt",
+     "em",
+     "figcaption",
+     "h1",
+     "h2",
+     "h3",
+     "h4",
+     "h5",
+     "h6",
+     "i",
+     "label",
+     "li",
+     "p",
+     "pre",
+     "small",
+     "span",
+     "strong",
+     "td",
+     "th"
+    ],
+    "tagOther": "none of the above"
+   },
+   "clip": [
+    -3,
+    3
+   ]
+  }
+ },
+ "outputs": {
+  "family": {
+   "classes": [
+    "none",
+    "text",
+    "dark",
+    "overflow",
+    "responsive",
+    "occlusion",
+    "media",
+    "leaks",
+    "blank",
+    "controls",
+    "other"
+   ],
+   "what": "mean of the two heads' family probabilities (Clef's family question under its two prompts)"
+  },
+  "any": {
+   "what": "sigmoid of the mean over the two heads of logit(1 - P(none))"
+  }
+ },
+ "verdictClasses": [
+  "fine",
+  "unreadable_text",
+  "hidden_control",
+  "broken_image",
+  "cut_off",
+  "overlap",
+  "leak",
+  "blank"
+ ],
+ "thresholdsFromDev": {
+  "student:any": 0.9770037531852722,
+  "student:overflow": 0.6352276802062988,
+  "student:media": 0.3503243923187256
+ },
+ "labels": "distilled from Clef answers; evaluated against AI-agent labels (not people)"
+}

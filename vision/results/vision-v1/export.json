@@ -1,0 +1,30 @@
+{
+ "sizeBytes": {
+  "onnxFp32": 4773529,
+  "onnxInt8": 1371009,
+  "params": 1196102
+ },
+ "parity": {
+  "fp32MaxAbsAny": 1.3709068298339844e-06,
+  "fp32MaxAbsFamily": 2.175569534301758e-06,
+  "int8MaxAbsAny": 0.5595356225967407,
+  "int8MeanAbsAny": 0.1461975872516632
+ },
+ "latencyOneThreadBatch1": {
+  "onnxFp32": {
+   "medianMs": 0.54,
+   "p95Ms": 0.55
+  },
+  "onnxInt8": {
+   "medianMs": 6.53,
+   "p95Ms": 6.55
+  },
+  "torchEager": {
+   "medianMs": 1.81,
+   "p95Ms": 1.83
+  }
+ },
+ "cpu": "AMD EPYC 9V45 96-Core Processor",
+ "onnxruntime": "1.31.0",
+ "torch": "2.14.1+cpu"
+}

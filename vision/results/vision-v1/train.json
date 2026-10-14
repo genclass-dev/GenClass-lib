@@ -1,0 +1,368 @@
+{
+ "config": {
+  "arch": "mnv3s",
+  "epochs": 12,
+  "bs": 256,
+  "lr": 0.005,
+  "lr_backbone": 0.002,
+  "wd": 0.0001,
+  "w_inj": 0.0,
+  "w_ver": 0.5,
+  "p_degrade": 0.5,
+  "bf16": true,
+  "threads": 19,
+  "limit": 0,
+  "no_pretrained": false,
+  "any_head": false,
+  "w_any": 1.0,
+  "seed": 1,
+  "out": "/home/azureuser/vision-out/vision-v1/models/f-s-lr5"
+ },
+ "trainNatural": 81062,
+ "trainInjected": 0,
+ "distillVal": 4710,
+ "heldOutNaturalExcluded": 14228,
+ "teacherCoverage": {
+  "A": 100000,
+  "B": 100000
+ },
+ "epochs": [
+  {
+   "epoch": 0,
+   "trainLoss": 5.2409,
+   "seconds": 138,
+   "imgPerS": 588,
+   "distillVal": {
+    "klA": 0.1714,
+    "corrAnyA": 0.8348,
+    "apTop10A": 0.7153,
+    "klB": 0.2027,
+    "corrAnyB": 0.7082,
+    "apTop10B": 0.3691
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.4412,
+    "anyB": 0.3072,
+    "any": 0.4511
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.448,
+    "anyB": 0.336,
+    "any": 0.4789
+   }
+  },
+  {
+   "epoch": 1,
+   "trainLoss": 4.8813,
+   "seconds": 142,
+   "imgPerS": 569,
+   "distillVal": {
+    "klA": 0.1104,
+    "corrAnyA": 0.8963,
+    "apTop10A": 0.8114,
+    "klB": 0.1318,
+    "corrAnyB": 0.7959,
+    "apTop10B": 0.5884
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.4459,
+    "anyB": 0.4294,
+    "any": 0.5284
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.437,
+    "anyB": 0.3744,
+    "any": 0.4878
+   }
+  },
+  {
+   "epoch": 2,
+   "trainLoss": 4.8332,
+   "seconds": 144,
+   "imgPerS": 561,
+   "distillVal": {
+    "klA": 0.1044,
+    "corrAnyA": 0.8979,
+    "apTop10A": 0.802,
+    "klB": 0.1221,
+    "corrAnyB": 0.801,
+    "apTop10B": 0.6044
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.505,
+    "anyB": 0.4775,
+    "any": 0.591
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.4862,
+    "anyB": 0.4287,
+    "any": 0.5371
+   }
+  },
+  {
+   "epoch": 3,
+   "trainLoss": 4.8074,
+   "seconds": 141,
+   "imgPerS": 575,
+   "distillVal": {
+    "klA": 0.1025,
+    "corrAnyA": 0.9015,
+    "apTop10A": 0.8313,
+    "klB": 0.1201,
+    "corrAnyB": 0.8171,
+    "apTop10B": 0.6206
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5505,
+    "anyB": 0.5071,
+    "any": 0.6265
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5267,
+    "anyB": 0.4759,
+    "any": 0.5785
+   }
+  },
+  {
+   "epoch": 4,
+   "trainLoss": 4.7855,
+   "seconds": 142,
+   "imgPerS": 571,
+   "distillVal": {
+    "klA": 0.0952,
+    "corrAnyA": 0.91,
+    "apTop10A": 0.8272,
+    "klB": 0.1158,
+    "corrAnyB": 0.8241,
+    "apTop10B": 0.6364
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.583,
+    "anyB": 0.5728,
+    "any": 0.6574
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5727,
+    "anyB": 0.5365,
+    "any": 0.628
+   }
+  },
+  {
+   "epoch": 5,
+   "trainLoss": 4.7673,
+   "seconds": 144,
+   "imgPerS": 563,
+   "distillVal": {
+    "klA": 0.094,
+    "corrAnyA": 0.9057,
+    "apTop10A": 0.8307,
+    "klB": 0.1173,
+    "corrAnyB": 0.8182,
+    "apTop10B": 0.5769
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.4937,
+    "anyB": 0.5057,
+    "any": 0.6088
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.4858,
+    "anyB": 0.4899,
+    "any": 0.5847
+   }
+  },
+  {
+   "epoch": 6,
+   "trainLoss": 4.749,
+   "seconds": 147,
+   "imgPerS": 552,
+   "distillVal": {
+    "klA": 0.088,
+    "corrAnyA": 0.9117,
+    "apTop10A": 0.8227,
+    "klB": 0.106,
+    "corrAnyB": 0.8348,
+    "apTop10B": 0.656
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5644,
+    "anyB": 0.556,
+    "any": 0.6293
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5528,
+    "anyB": 0.5261,
+    "any": 0.5966
+   }
+  },
+  {
+   "epoch": 7,
+   "trainLoss": 4.7311,
+   "seconds": 145,
+   "imgPerS": 561,
+   "distillVal": {
+    "klA": 0.088,
+    "corrAnyA": 0.9156,
+    "apTop10A": 0.8345,
+    "klB": 0.1015,
+    "corrAnyB": 0.8401,
+    "apTop10B": 0.6456
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5699,
+    "anyB": 0.5399,
+    "any": 0.6427
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5678,
+    "anyB": 0.5175,
+    "any": 0.6206
+   }
+  },
+  {
+   "epoch": 8,
+   "trainLoss": 4.7154,
+   "seconds": 140,
+   "imgPerS": 579,
+   "distillVal": {
+    "klA": 0.0847,
+    "corrAnyA": 0.9164,
+    "apTop10A": 0.843,
+    "klB": 0.1003,
+    "corrAnyB": 0.8413,
+    "apTop10B": 0.6636
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5662,
+    "anyB": 0.5201,
+    "any": 0.6421
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5615,
+    "anyB": 0.5054,
+    "any": 0.6222
+   }
+  },
+  {
+   "epoch": 9,
+   "trainLoss": 4.7026,
+   "seconds": 135,
+   "imgPerS": 598,
+   "distillVal": {
+    "klA": 0.0843,
+    "corrAnyA": 0.9177,
+    "apTop10A": 0.84,
+    "klB": 0.0991,
+    "corrAnyB": 0.8448,
+    "apTop10B": 0.6708
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.571,
+    "anyB": 0.54,
+    "any": 0.648
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5706,
+    "anyB": 0.5153,
+    "any": 0.6265
+   }
+  },
+  {
+   "epoch": 10,
+   "trainLoss": 4.693,
+   "seconds": 133,
+   "imgPerS": 611,
+   "distillVal": {
+    "klA": 0.0842,
+    "corrAnyA": 0.9174,
+    "apTop10A": 0.8365,
+    "klB": 0.0999,
+    "corrAnyB": 0.8431,
+    "apTop10B": 0.6673
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5695,
+    "anyB": 0.5436,
+    "any": 0.6525
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5713,
+    "anyB": 0.5211,
+    "any": 0.6353
+   }
+  },
+  {
+   "epoch": 11,
+   "trainLoss": 4.6892,
+   "seconds": 128,
+   "imgPerS": 634,
+   "distillVal": {
+    "klA": 0.0843,
+    "corrAnyA": 0.9169,
+    "apTop10A": 0.8346,
+    "klB": 0.0997,
+    "corrAnyB": 0.8435,
+    "apTop10B": 0.6657
+   },
+   "dev": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.5665,
+    "anyB": 0.5436,
+    "any": 0.6525
+   },
+   "devDegraded": {
+    "n": 1856,
+    "real": 139,
+    "anyA": 0.57,
+    "anyB": 0.5255,
+    "any": 0.6381
+   }
+  }
+ ],
+ "trainSeconds": 1680
+}

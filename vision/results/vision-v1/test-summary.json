@@ -1,0 +1,35 @@
+{
+ "built": "2026-10-14T06:47:20Z",
+ "heldOutHosts": 815,
+ "hostsInPool": 810,
+ "pool": 9206,
+ "poolRules": 603,
+ "poolRandomSource": 4206,
+ "poolRest": 8253,
+ "strata": {
+  "random": 350,
+  "clef-high": 350,
+  "clef-low": 100,
+  "rules": 500
+ },
+ "hostsInTest": 507,
+ "byDevice": {
+  "desktop": 609,
+  "phone": 691
+ },
+ "byScheme": {
+  "light": 963,
+  "dark": 337
+ },
+ "byGroup": {
+  "control": 385,
+  "ai-builder": 915
+ },
+ "quota": {
+  "rules": 500,
+  "random": 350,
+  "clef-high": 350,
+  "clef-low": 100
+ },
+ "seed": 11
+}

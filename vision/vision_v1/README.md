@@ -2,8 +2,9 @@
 
 Vision v1 judges one page element from its screenshot crop and a few measured facts, the way Cloudflare's Clef
 does in `vision/clef` (branch `wave2/clef-eval`), but small enough to run on a CPU next to the page check: a
-pretrained ImageNet MobileNetV3 over a 224 x 128 letterboxed crop, 64 measured facts joined before the head, and
-heads that copy Clef's answers. Results: [`../results/vision-v1/RESULTS.md`](../results/vision-v1/RESULTS.md). The
+pretrained ImageNet MobileNetV3-small over a 224 x 128 letterboxed crop, 64 measured facts joined before the head,
+and heads that copy Clef's answers under its two prompts (4.8 MB ONNX, 0.54 ms per crop on one CPU thread). Labels
+for evaluation come from AI agents, not people. Results: [`../results/vision-v1/RESULTS.md`](../results/vision-v1/RESULTS.md). The
 test set and the ship rule were fixed before training: [`../results/vision-v1/TEST-FROZEN.md`](../results/vision-v1/TEST-FROZEN.md).
 
 Everything heavy runs on a cluster node (c20 holds the v2 crawl under `~/vision-out/v2`; this package writes under
@@ -26,8 +27,12 @@ aggregates only.
 | `train.py` | the student: backbone, facts, four heads (family and verdict under Clef's two prompts), distillation and injected-fault targets |
 | `evaluate.py` | dev numbers and thresholds; the one test evaluation (refuses to run twice) |
 | `export.py`, `portable/score_onnx.py` | ONNX fp32 and int8, `spec.json`, a self-contained scorer; size, latency and parity |
+| `select_model.py` | the model choice on dev: mean dev AP of each run's last three epochs |
+| `dryrun.py` | a stand-in test set of training-host crops with random labels, to exercise `evaluate.py final` |
+| `port_check.py` | the export scored in a clean environment against PyTorch |
+| `report.py` | markdown tables from the evaluation JSONs |
 | `bench.py`, `profile_loader.py` | CPU throughput checks |
-| `bg.sh`, `run_quarter.sh` | detached runs on the node; one training run per quarter of an 80-vCPU node |
+| `bg.sh`, `run_quarter.sh`, `run_half.sh` | detached runs on the node; one training run per quarter (19 threads) or NUMA half (38) of an 80-vCPU node |
 
 ## Run (on the data node)
 
@@ -46,8 +51,16 @@ python clef_label.py run --items ~/vision-out/vision-v1/index/nat.jsonl --varian
 python freshtest.py build && python freshtest.py digest   # then commit TEST-FROZEN.md
 python label_chunks.py --pass A && python label_chunks.py --pass B   # sheets to the labellers
 python freshtest.py adjudicate && python freshtest.py resolve
-bash run_quarter.sh 0 NAME --arch mnv3s --epochs 10       # one of four runs on the node
-python evaluate.py dev --model ~/vision-out/vision-v1/models/NAME
-python evaluate.py final --model ~/vision-out/vision-v1/models/NAME --input full   # once
-python export.py --model ~/vision-out/vision-v1/models/NAME --thresholds .../eval-dev-full.json
+bash run_quarter.sh 0 f-s-lr5 --arch mnv3s --epochs 12 --w-inj 0 --lr 5e-3 --lr-backbone 2e-3   # the chosen run
+python select_model.py                                     # dev only
+M=~/vision-out/vision-v1/models/f-s-lr5
+python evaluate.py dev --model $M                          # thresholds, dev numbers
+python dryrun.py --dir /tmp/vv1-dry && VV1_TEST_DIR=/tmp/vv1-dry python evaluate.py final --model $M
+python evaluate.py final --model $M --input full --score any     # once
+python export.py --model $M --thresholds $M/eval-dev-full-any.json
+python port_check.py prepare --model $M --dir /tmp/vv1-port      # then score_onnx.py in a clean venv
+python port_check.py compare --model $M --dir /tmp/vv1-port
 ```
+
+Other input sizes: `VV1_INPUT=320x192 python pack.py --sets lab,nat` and the same variable for training, evaluation
+and export (each size has its own pack directory; checkpoints record their size).

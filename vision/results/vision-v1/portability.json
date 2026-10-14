@@ -1,0 +1,9 @@
+{
+ "out.jsonl": {
+  "n": 300,
+  "maxAbsAny": 1.1324882507324219e-06,
+  "meanAbsAny": 1.7404556274414062e-07,
+  "maxAbsFamily": 1.2293457984924316e-06,
+  "rankCorrAny": 1.0
+ }
+}
