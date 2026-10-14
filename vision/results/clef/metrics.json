@@ -1,0 +1,4287 @@
+{
+ "split": {
+  "dev": {
+   "n": 412,
+   "real": 25,
+   "hosts": 215
+  },
+  "report": {
+   "n": 1444,
+   "real": 114,
+   "hosts": 767
+  }
+ },
+ "reportRealByFamily": {
+  "responsive": 6,
+  "overflow": 35,
+  "text": 6,
+  "dark": 17,
+  "media": 27,
+  "leaks": 7,
+  "occlusion": 16
+ },
+ "familiesReported": [
+  "overflow",
+  "media",
+  "dark",
+  "occlusion"
+ ],
+ "primaryScore": "anyProblem",
+ "baselines": {
+  "rulesV1": {
+   "dev": {
+    "flagged": 152,
+    "tp": 19,
+    "precision": 0.125,
+    "recall": 0.76,
+    "byStratum": {
+     "rules": {
+      "n": 152,
+      "real": 19,
+      "flagged": 152,
+      "tp": 19
+     },
+     "gbt": {
+      "n": 142,
+      "real": 4,
+      "flagged": 0,
+      "tp": 0
+     },
+     "random": {
+      "n": 118,
+      "real": 2,
+      "flagged": 0,
+      "tp": 0
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "flagged": 139,
+      "tp": 6,
+      "precision": 0.043,
+      "recall": 0.857
+     },
+     "media": {
+      "flagged": 139,
+      "tp": 6,
+      "precision": 0.043,
+      "recall": 1.0
+     },
+     "dark": {
+      "flagged": 133,
+      "tp": 0,
+      "precision": 0.0,
+      "recall": 0.0
+     },
+     "occlusion": {
+      "flagged": 135,
+      "tp": 2,
+      "precision": 0.015,
+      "recall": 0.5
+     }
+    }
+   },
+   "report": {
+    "flagged": 408,
+    "tp": 92,
+    "precision": 0.225,
+    "recall": 0.807,
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "flagged": 408,
+      "tp": 92
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "flagged": 0,
+      "tp": 0
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "flagged": 0,
+      "tp": 0
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "flagged": 345,
+      "tp": 29,
+      "precision": 0.084,
+      "recall": 0.829
+     },
+     "media": {
+      "flagged": 340,
+      "tp": 24,
+      "precision": 0.071,
+      "recall": 0.889
+     },
+     "dark": {
+      "flagged": 333,
+      "tp": 17,
+      "precision": 0.051,
+      "recall": 1.0
+     },
+     "occlusion": {
+      "flagged": 324,
+      "tp": 8,
+      "precision": 0.025,
+      "recall": 0.5
+     }
+    }
+   }
+  },
+  "rulesV1OwnFamily": {
+   "report": {
+    "overflow": {
+     "rules": [
+      "page-overflow-x"
+     ],
+     "flagged": 54,
+     "tp": 28,
+     "precision": 0.519,
+     "recall": 0.8
+    },
+    "media": {
+     "rules": [
+      "image-broken",
+      "image-distorted",
+      "media-failed",
+      "text-placeholder"
+     ],
+     "flagged": 48,
+     "tp": 24,
+     "precision": 0.5,
+     "recall": 0.889
+    },
+    "dark": {
+     "rules": [
+      "css-var-undefined",
+      "text-invisible"
+     ],
+     "flagged": 81,
+     "tp": 8,
+     "precision": 0.099,
+     "recall": 0.471
+    },
+    "occlusion": {
+     "rules": [
+      "click-blocked",
+      "control-unreachable"
+     ],
+     "flagged": 188,
+     "tp": 7,
+     "precision": 0.037,
+     "recall": 0.438
+    }
+   }
+  },
+  "gbtSmallV1": {
+   "report": {
+    "all": {
+     "n": 1444,
+     "real": 114,
+     "ap": 0.087,
+     "rocAuc": 0.462,
+     "precisionAtRecall0.5": 0.08,
+     "recallAtPrecision0.6": 0.018,
+     "recallAtPrecision0.8": 0.009,
+     "apCI": [
+      0.061,
+      0.128
+     ],
+     "pAtR05CI": [
+      0.065,
+      0.106
+     ]
+    },
+    "curve": {
+     "0.1": 0.08,
+     "0.2": 0.08,
+     "0.3": 0.08,
+     "0.4": 0.08,
+     "0.5": 0.08,
+     "0.6": 0.08,
+     "0.7": 0.08,
+     "0.8": 0.08,
+     "0.9": 0.08
+    },
+    "lowEnd": {
+     "0.5": {
+      "crops": 722,
+      "real": 60,
+      "realShareOfAllReal": 0.526
+     },
+     "0.7": {
+      "crops": 1010,
+      "real": 87,
+      "realShareOfAllReal": 0.763
+     },
+     "0.8": {
+      "crops": 1155,
+      "real": 98,
+      "realShareOfAllReal": 0.86
+     },
+     "0.9": {
+      "crops": 1299,
+      "real": 103,
+      "realShareOfAllReal": 0.904
+     }
+    },
+    "byFamily": {
+     "overflow": {
+      "n": 1365,
+      "real": 35,
+      "ap": 0.035,
+      "rocAuc": 0.343,
+      "precisionAtRecall0.5": 0.026,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     },
+     "media": {
+      "n": 1357,
+      "real": 27,
+      "ap": 0.02,
+      "rocAuc": 0.487,
+      "precisionAtRecall0.5": 0.033,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     },
+     "dark": {
+      "n": 1347,
+      "real": 17,
+      "ap": 0.018,
+      "rocAuc": 0.622,
+      "precisionAtRecall0.5": 0.022,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     },
+     "occlusion": {
+      "n": 1346,
+      "real": 16,
+      "ap": 0.014,
+      "rocAuc": 0.475,
+      "precisionAtRecall0.5": 0.014,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     }
+    },
+    "byStratum": {
+     "rules": {
+      "n": 408,
+      "real": 92,
+      "ap": 0.211,
+      "rocAuc": 0.422,
+      "precisionAtRecall0.5": 0.225,
+      "recallAtPrecision0.6": 0.022,
+      "recallAtPrecision0.8": 0.011
+     },
+     "gbt": {
+      "n": 523,
+      "real": 9,
+      "ap": 0.042,
+      "rocAuc": 0.537,
+      "precisionAtRecall0.5": 0.019,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     },
+     "random": {
+      "n": 513,
+      "real": 13,
+      "ap": 0.027,
+      "rocAuc": 0.442,
+      "precisionAtRecall0.5": 0.026,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     }
+    },
+    "devThresholds": {
+     "recall0.5OnDev": {
+      "threshold": 0.0821,
+      "flagged": 446,
+      "tp": 29,
+      "fp": 417,
+      "precision": 0.065,
+      "recall": 0.254,
+      "onRuleFlagged": {
+       "flagged": 126,
+       "tp": 24,
+       "fp": 102,
+       "precision": 0.19,
+       "recall": 0.211
+      },
+      "byRule": {
+       "image-distorted": {
+        "flagged": 31,
+        "real": 9,
+        "kept": 7,
+        "keptReal": 0
+       },
+       "css-var-undefined": {
+        "flagged": 47,
+        "real": 0,
+        "kept": 17,
+        "keptReal": 0
+       },
+       "control-unreachable": {
+        "flagged": 195,
+        "real": 18,
+        "kept": 78,
+        "keptReal": 9
+       },
+       "page-overflow-x": {
+        "flagged": 60,
+        "real": 34,
+        "kept": 0,
+        "keptReal": 0
+       },
+       "text-invisible": {
+        "flagged": 38,
+        "real": 11,
+        "kept": 9,
+        "keptReal": 4
+       },
+       "font-failed": {
+        "flagged": 12,
+        "real": 0,
+        "kept": 2,
+        "keptReal": 0
+       },
+       "click-blocked": {
+        "flagged": 4,
+        "real": 0,
+        "kept": 1,
+        "keptReal": 0
+       },
+       "text-template-leak": {
+        "flagged": 6,
+        "real": 5,
+        "kept": 4,
+        "keptReal": 3
+       },
+       "image-broken": {
+        "flagged": 17,
+        "real": 15,
+        "kept": 9,
+        "keptReal": 8
+       }
+      }
+     },
+     "bestF1OnDev": {
+      "threshold": 0.194,
+      "flagged": 244,
+      "tp": 13,
+      "fp": 231,
+      "precision": 0.053,
+      "recall": 0.114,
+      "onRuleFlagged": {
+       "flagged": 61,
+       "tp": 9,
+       "fp": 52,
+       "precision": 0.148,
+       "recall": 0.079
+      },
+      "byRule": {
+       "image-distorted": {
+        "flagged": 31,
+        "real": 9,
+        "kept": 2,
+        "keptReal": 0
+       },
+       "css-var-undefined": {
+        "flagged": 47,
+        "real": 0,
+        "kept": 13,
+        "keptReal": 0
+       },
+       "control-unreachable": {
+        "flagged": 195,
+        "real": 18,
+        "kept": 38,
+        "keptReal": 4
+       },
+       "page-overflow-x": {
+        "flagged": 60,
+        "real": 34,
+        "kept": 0,
+        "keptReal": 0
+       },
+       "text-invisible": {
+        "flagged": 38,
+        "real": 11,
+        "kept": 3,
+        "keptReal": 1
+       },
+       "font-failed": {
+        "flagged": 12,
+        "real": 0,
+        "kept": 1,
+        "keptReal": 0
+       },
+       "click-blocked": {
+        "flagged": 4,
+        "real": 0,
+        "kept": 0,
+        "keptReal": 0
+       },
+       "text-template-leak": {
+        "flagged": 6,
+        "real": 5,
+        "kept": 3,
+        "keptReal": 2
+       },
+       "image-broken": {
+        "flagged": 17,
+        "real": 15,
+        "kept": 2,
+        "keptReal": 2
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "variants": {
+  "clef-img-p1": {
+   "config": {
+    "model": "clef",
+    "facts": true,
+    "image": "plain",
+    "prompt": "p1"
+   },
+   "answered": {
+    "dev": 412,
+    "report": 0
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.376,
+      "rocAuc": 0.851,
+      "precisionAtRecall0.5": 0.289,
+      "recallAtPrecision0.6": 0.24,
+      "recallAtPrecision0.8": 0.12
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.235,
+      "rocAuc": 0.8,
+      "precisionAtRecall0.5": 0.148,
+      "recallAtPrecision0.6": 0.08,
+      "recallAtPrecision0.8": 0.04
+     }
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 247,
+     "serverMsP95": 402,
+     "wallMsMedian": 514,
+     "wallMsP95": 923,
+     "inputTokensMedian": 1057,
+     "inputTokensMean": 1075.4,
+     "inputTokensP95": 1264,
+     "usdPer1000": 0.2581,
+     "usdPerScan40": 0.01032
+    }
+   }
+  },
+  "clef-img-p2": {
+   "config": {
+    "model": "clef",
+    "facts": true,
+    "image": "plain",
+    "prompt": "p2"
+   },
+   "answered": {
+    "dev": 412,
+    "report": 0
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.353,
+      "rocAuc": 0.864,
+      "precisionAtRecall0.5": 0.32,
+      "recallAtPrecision0.6": 0.08,
+      "recallAtPrecision0.8": 0.08
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.253,
+      "rocAuc": 0.821,
+      "precisionAtRecall0.5": 0.15,
+      "recallAtPrecision0.6": 0.12,
+      "recallAtPrecision0.8": 0.04
+     }
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 263,
+     "serverMsP95": 438,
+     "wallMsMedian": 508,
+     "wallMsP95": 815,
+     "inputTokensMedian": 1210,
+     "inputTokensMean": 1228.4,
+     "inputTokensP95": 1417,
+     "usdPer1000": 0.2948,
+     "usdPerScan40": 0.01179
+    }
+   }
+  },
+  "clef-box-p2": {
+   "config": {
+    "model": "clef",
+    "facts": true,
+    "image": "outline",
+    "prompt": "p2"
+   },
+   "answered": {
+    "dev": 412,
+    "report": 0
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.394,
+      "rocAuc": 0.86,
+      "precisionAtRecall0.5": 0.361,
+      "recallAtPrecision0.6": 0.24,
+      "recallAtPrecision0.8": 0.16
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.257,
+      "rocAuc": 0.813,
+      "precisionAtRecall0.5": 0.146,
+      "recallAtPrecision0.6": 0.12,
+      "recallAtPrecision0.8": 0.08
+     }
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 262,
+     "serverMsP95": 409,
+     "wallMsMedian": 494,
+     "wallMsP95": 866,
+     "inputTokensMedian": 1210,
+     "inputTokensMean": 1228.4,
+     "inputTokensP95": 1417,
+     "usdPer1000": 0.2948,
+     "usdPerScan40": 0.01179
+    }
+   }
+  },
+  "clef-text-p2": {
+   "config": {
+    "model": "clef",
+    "facts": true,
+    "image": null,
+    "prompt": "p2"
+   },
+   "answered": {
+    "dev": 412,
+    "report": 0
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.247,
+      "rocAuc": 0.78,
+      "precisionAtRecall0.5": 0.25,
+      "recallAtPrecision0.6": 0.04,
+      "recallAtPrecision0.8": 0.04
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.147,
+      "rocAuc": 0.753,
+      "precisionAtRecall0.5": 0.129,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     }
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 210,
+     "serverMsP95": 333,
+     "wallMsMedian": 409,
+     "wallMsP95": 572,
+     "inputTokensMedian": 1057,
+     "inputTokensMean": 1055.9,
+     "inputTokensP95": 1135,
+     "usdPer1000": 0.2534,
+     "usdPerScan40": 0.01014
+    }
+   }
+  },
+  "clef-imgonly-p2": {
+   "config": {
+    "model": "clef",
+    "facts": false,
+    "image": "plain",
+    "prompt": "p2"
+   },
+   "answered": {
+    "dev": 412,
+    "report": 1444
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.413,
+      "rocAuc": 0.853,
+      "precisionAtRecall0.5": 0.295,
+      "recallAtPrecision0.6": 0.24,
+      "recallAtPrecision0.8": 0.16
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.668,
+       "rocAuc": 0.922,
+       "precisionAtRecall0.5": 0.769,
+       "recallAtPrecision0.6": 0.632,
+       "recallAtPrecision0.8": 0.395,
+       "apCI": [
+        0.555,
+        0.763
+       ],
+       "pAtR05CI": [
+        0.553,
+        0.885
+       ]
+      },
+      "curve": {
+       "0.1": 0.96,
+       "0.2": 0.96,
+       "0.3": 0.907,
+       "0.4": 0.785,
+       "0.5": 0.769,
+       "0.6": 0.645,
+       "0.7": 0.533,
+       "0.8": 0.382,
+       "0.9": 0.245
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 6,
+        "realShareOfAllReal": 0.053
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 9,
+        "realShareOfAllReal": 0.079
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 21,
+        "realShareOfAllReal": 0.184
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 38,
+        "realShareOfAllReal": 0.333
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.245,
+        "rocAuc": 0.893,
+        "precisionAtRecall0.5": 0.222,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.834,
+        "rocAuc": 0.981,
+        "precisionAtRecall0.5": 0.944,
+        "recallAtPrecision0.6": 0.889,
+        "recallAtPrecision0.8": 0.852
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.261,
+        "rocAuc": 0.948,
+        "precisionAtRecall0.5": 0.31,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.083,
+        "rocAuc": 0.794,
+        "precisionAtRecall0.5": 0.081,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.768,
+        "rocAuc": 0.903,
+        "precisionAtRecall0.5": 0.836,
+        "recallAtPrecision0.6": 0.793,
+        "recallAtPrecision0.8": 0.576
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.429,
+        "rocAuc": 0.869,
+        "precisionAtRecall0.5": 0.238,
+        "recallAtPrecision0.6": 0.444,
+        "recallAtPrecision0.8": 0.222
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.476,
+        "rocAuc": 0.863,
+        "precisionAtRecall0.5": 0.235,
+        "recallAtPrecision0.6": 0.462,
+        "recallAtPrecision0.8": 0.308
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.9376,
+        "flagged": 160,
+        "tp": 80,
+        "fp": 80,
+        "precision": 0.5,
+        "recall": 0.702,
+        "onRuleFlagged": {
+         "flagged": 107,
+         "tp": 69,
+         "fp": 38,
+         "precision": 0.645,
+         "recall": 0.605
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 10,
+          "keptReal": 9
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 41,
+          "keptReal": 15
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 26,
+          "keptReal": 20
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 11,
+          "keptReal": 7
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 13,
+          "keptReal": 13
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9494,
+        "flagged": 124,
+        "tp": 72,
+        "fp": 52,
+        "precision": 0.581,
+        "recall": 0.632,
+        "onRuleFlagged": {
+         "flagged": 88,
+         "tp": 62,
+         "fp": 26,
+         "precision": 0.705,
+         "recall": 0.544
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 10,
+          "keptReal": 9
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 30,
+          "keptReal": 13
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 20,
+          "keptReal": 16
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 10,
+          "keptReal": 7
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 12,
+          "keptReal": 12
+         }
+        }
+       }
+      }
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.307,
+      "rocAuc": 0.821,
+      "precisionAtRecall0.5": 0.227,
+      "recallAtPrecision0.6": 0.12,
+      "recallAtPrecision0.8": 0.12
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.632,
+       "rocAuc": 0.91,
+       "precisionAtRecall0.5": 0.679,
+       "recallAtPrecision0.6": 0.526,
+       "recallAtPrecision0.8": 0.395,
+       "apCI": [
+        0.51,
+        0.73
+       ],
+       "pAtR05CI": [
+        0.405,
+        0.882
+       ]
+      },
+      "curve": {
+       "0.1": 1.0,
+       "0.2": 0.958,
+       "0.3": 0.897,
+       "0.4": 0.793,
+       "0.5": 0.679,
+       "0.6": 0.48,
+       "0.7": 0.435,
+       "0.8": 0.326,
+       "0.9": 0.202
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 5,
+        "realShareOfAllReal": 0.044
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 14,
+        "realShareOfAllReal": 0.123
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 21,
+        "realShareOfAllReal": 0.184
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 45,
+        "realShareOfAllReal": 0.395
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.177,
+        "rocAuc": 0.864,
+        "precisionAtRecall0.5": 0.176,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.913,
+        "rocAuc": 0.983,
+        "precisionAtRecall0.5": 1.0,
+        "recallAtPrecision0.6": 0.926,
+        "recallAtPrecision0.8": 0.926
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.273,
+        "rocAuc": 0.951,
+        "precisionAtRecall0.5": 0.27,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.084,
+        "rocAuc": 0.855,
+        "precisionAtRecall0.5": 0.071,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.739,
+        "rocAuc": 0.876,
+        "precisionAtRecall0.5": 0.754,
+        "recallAtPrecision0.6": 0.63,
+        "recallAtPrecision0.8": 0.457
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.136,
+        "rocAuc": 0.856,
+        "precisionAtRecall0.5": 0.106,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.382,
+        "rocAuc": 0.882,
+        "precisionAtRecall0.5": 0.146,
+        "recallAtPrecision0.6": 0.308,
+        "recallAtPrecision0.8": 0.308
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.9127,
+        "flagged": 142,
+        "tp": 67,
+        "fp": 75,
+        "precision": 0.472,
+        "recall": 0.588,
+        "onRuleFlagged": {
+         "flagged": 108,
+         "tp": 61,
+         "fp": 47,
+         "precision": 0.565,
+         "recall": 0.535
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 9,
+          "keptReal": 9
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 55,
+          "keptReal": 14
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 15,
+          "keptReal": 13
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 9,
+          "keptReal": 7
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 13,
+          "keptReal": 13
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.905,
+        "flagged": 163,
+        "tp": 74,
+        "fp": 89,
+        "precision": 0.454,
+        "recall": 0.649,
+        "onRuleFlagged": {
+         "flagged": 120,
+         "tp": 67,
+         "fp": 53,
+         "precision": 0.558,
+         "recall": 0.588
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 9,
+          "keptReal": 9
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 2,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 58,
+          "keptReal": 15
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 20,
+          "keptReal": 18
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 12,
+          "keptReal": 7
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 13,
+          "keptReal": 13
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "familyTop1OnReal": {
+    "n": 114,
+    "correct": 77,
+    "accuracy": 0.675
+   },
+   "byFamilyOwnProbability": {
+    "overflow": {
+     "n": 1365,
+     "real": 35,
+     "ap": 0.385,
+     "rocAuc": 0.882,
+     "precisionAtRecall0.5": 0.25,
+     "recallAtPrecision0.6": 0.257,
+     "recallAtPrecision0.8": 0.143,
+     "atOwnRulesRecall": {
+      "recall": 0.8,
+      "precisionOwnProbability": 0.131,
+      "precisionAnyProblem": 0.089
+     }
+    },
+    "media": {
+     "n": 1357,
+     "real": 27,
+     "ap": 0.952,
+     "rocAuc": 0.998,
+     "precisionAtRecall0.5": 1.0,
+     "recallAtPrecision0.6": 0.963,
+     "recallAtPrecision0.8": 0.889,
+     "atOwnRulesRecall": {
+      "recall": 0.889,
+      "precisionOwnProbability": 0.735,
+      "precisionAnyProblem": 0.316
+     }
+    },
+    "dark": {
+     "n": 1347,
+     "real": 17,
+     "ap": 0.025,
+     "rocAuc": 0.746,
+     "precisionAtRecall0.5": 0.035,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.471,
+      "precisionOwnProbability": 0.035,
+      "precisionAnyProblem": 0.31
+     }
+    },
+    "occlusion": {
+     "n": 1346,
+     "real": 16,
+     "ap": 0.34,
+     "rocAuc": 0.947,
+     "precisionAtRecall0.5": 0.367,
+     "recallAtPrecision0.6": 0.25,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.438,
+      "precisionOwnProbability": 0.367,
+      "precisionAnyProblem": 0.081
+     }
+    }
+   },
+   "atRulesRecall": {
+    "recall": 0.807,
+    "precisionAnyProblem": 0.382
+   },
+   "topVerdictChoice": {
+    "not": {
+     "leak": 8,
+     "cut_off": 519,
+     "fine": 609,
+     "broken_image": 82,
+     "unreadable_text": 57,
+     "overlap": 10,
+     "blank": 32,
+     "hidden_control": 13
+    },
+    "real": {
+     "cut_off": 48,
+     "unreadable_text": 20,
+     "broken_image": 27,
+     "leak": 7,
+     "overlap": 5,
+     "fine": 3,
+     "blank": 1,
+     "hidden_control": 3
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 238,
+     "serverMsP95": 403,
+     "wallMsMedian": 450,
+     "wallMsP95": 669,
+     "inputTokensMedian": 960,
+     "inputTokensMean": 995.7,
+     "inputTokensP95": 1198,
+     "usdPer1000": 0.239,
+     "usdPerScan40": 0.00956
+    },
+    "report": {
+     "calls": 1444,
+     "serverMsMedian": 233,
+     "serverMsP95": 413,
+     "wallMsMedian": 520,
+     "wallMsP95": 908,
+     "inputTokensMedian": 961,
+     "inputTokensMean": 999.0,
+     "inputTokensP95": 1198,
+     "usdPer1000": 0.2398,
+     "usdPerScan40": 0.00959
+    }
+   }
+  },
+  "flash-text-p2": {
+   "config": {
+    "model": "clef-flash",
+    "facts": true,
+    "image": null,
+    "prompt": "p2"
+   },
+   "answered": {
+    "dev": 412,
+    "report": 0
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.136,
+      "rocAuc": 0.72,
+      "precisionAtRecall0.5": 0.165,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.206,
+      "rocAuc": 0.702,
+      "precisionAtRecall0.5": 0.112,
+      "recallAtPrecision0.6": 0.04,
+      "recallAtPrecision0.8": 0.04
+     }
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 330,
+     "serverMsP95": 664,
+     "wallMsMedian": 525,
+     "wallMsP95": 963,
+     "inputTokensMedian": 1057,
+     "inputTokensMean": 1055.9,
+     "inputTokensP95": 1135,
+     "usdPer1000": 0.0401,
+     "usdPerScan40": 0.0016
+    }
+   }
+  },
+  "clef-img-p3": {
+   "config": {
+    "model": "clef",
+    "facts": true,
+    "image": "plain",
+    "prompt": "p2",
+    "guide": true
+   },
+   "answered": {
+    "dev": 412,
+    "report": 1444
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.488,
+      "rocAuc": 0.883,
+      "precisionAtRecall0.5": 0.542,
+      "recallAtPrecision0.6": 0.44,
+      "recallAtPrecision0.8": 0.2
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.576,
+       "rocAuc": 0.909,
+       "precisionAtRecall0.5": 0.574,
+       "recallAtPrecision0.6": 0.412,
+       "recallAtPrecision0.8": 0.254,
+       "apCI": [
+        0.451,
+        0.69
+       ],
+       "pAtR05CI": [
+        0.423,
+        0.731
+       ]
+      },
+      "curve": {
+       "0.1": 0.938,
+       "0.2": 0.806,
+       "0.3": 0.729,
+       "0.4": 0.648,
+       "0.5": 0.574,
+       "0.6": 0.523,
+       "0.7": 0.449,
+       "0.8": 0.39,
+       "0.9": 0.242
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 5,
+        "realShareOfAllReal": 0.044
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 11,
+        "realShareOfAllReal": 0.096
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 20,
+        "realShareOfAllReal": 0.175
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 44,
+        "realShareOfAllReal": 0.386
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.27,
+        "rocAuc": 0.918,
+        "precisionAtRecall0.5": 0.265,
+        "recallAtPrecision0.6": 0.057,
+        "recallAtPrecision0.8": 0.029
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.482,
+        "rocAuc": 0.969,
+        "precisionAtRecall0.5": 0.424,
+        "recallAtPrecision0.6": 0.37,
+        "recallAtPrecision0.8": 0.296
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.231,
+        "rocAuc": 0.95,
+        "precisionAtRecall0.5": 0.204,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.038,
+        "rocAuc": 0.684,
+        "precisionAtRecall0.5": 0.053,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.655,
+        "rocAuc": 0.841,
+        "precisionAtRecall0.5": 0.63,
+        "recallAtPrecision0.6": 0.554,
+        "recallAtPrecision0.8": 0.315
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.06,
+        "rocAuc": 0.791,
+        "precisionAtRecall0.5": 0.075,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.514,
+        "rocAuc": 0.822,
+        "precisionAtRecall0.5": 0.667,
+        "recallAtPrecision0.6": 0.615,
+        "recallAtPrecision0.8": 0.462
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.9777,
+        "flagged": 120,
+        "tp": 65,
+        "fp": 55,
+        "precision": 0.542,
+        "recall": 0.57,
+        "onRuleFlagged": {
+         "flagged": 109,
+         "tp": 61,
+         "fp": 48,
+         "precision": 0.56,
+         "recall": 0.535
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 4,
+          "keptReal": 4
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 9,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 22,
+          "keptReal": 9
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 33,
+          "keptReal": 21
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 23,
+          "keptReal": 11
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 13,
+          "keptReal": 11
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9796,
+        "flagged": 93,
+        "tp": 53,
+        "fp": 40,
+        "precision": 0.57,
+        "recall": 0.465,
+        "onRuleFlagged": {
+         "flagged": 85,
+         "tp": 51,
+         "fp": 34,
+         "precision": 0.6,
+         "recall": 0.447
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 3,
+          "keptReal": 3
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 3,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 14,
+          "keptReal": 5
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 29,
+          "keptReal": 17
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 19,
+          "keptReal": 10
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 12,
+          "keptReal": 11
+         }
+        }
+       }
+      }
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.422,
+      "rocAuc": 0.851,
+      "precisionAtRecall0.5": 0.189,
+      "recallAtPrecision0.6": 0.32,
+      "recallAtPrecision0.8": 0.24
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.347,
+       "rocAuc": 0.867,
+       "precisionAtRecall0.5": 0.296,
+       "recallAtPrecision0.6": 0.14,
+       "recallAtPrecision0.8": 0.096,
+       "apCI": [
+        0.242,
+        0.475
+       ],
+       "pAtR05CI": [
+        0.236,
+        0.397
+       ]
+      },
+      "curve": {
+       "0.1": 0.722,
+       "0.2": 0.383,
+       "0.3": 0.327,
+       "0.4": 0.301,
+       "0.5": 0.296,
+       "0.6": 0.295,
+       "0.7": 0.283,
+       "0.8": 0.26,
+       "0.9": 0.224
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 6,
+        "realShareOfAllReal": 0.053
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 14,
+        "realShareOfAllReal": 0.123
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 35,
+        "realShareOfAllReal": 0.307
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 71,
+        "realShareOfAllReal": 0.623
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.078,
+        "rocAuc": 0.852,
+        "precisionAtRecall0.5": 0.098,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.33,
+        "rocAuc": 0.915,
+        "precisionAtRecall0.5": 0.104,
+        "recallAtPrecision0.6": 0.333,
+        "recallAtPrecision0.8": 0.333
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.176,
+        "rocAuc": 0.952,
+        "precisionAtRecall0.5": 0.133,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.042,
+        "rocAuc": 0.718,
+        "precisionAtRecall0.5": 0.025,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.39,
+        "rocAuc": 0.663,
+        "precisionAtRecall0.5": 0.318,
+        "recallAtPrecision0.6": 0.174,
+        "recallAtPrecision0.8": 0.12
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.055,
+        "rocAuc": 0.78,
+        "precisionAtRecall0.5": 0.045,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.207,
+        "rocAuc": 0.871,
+        "precisionAtRecall0.5": 0.276,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.947,
+        "flagged": 231,
+        "tp": 67,
+        "fp": 164,
+        "precision": 0.29,
+        "recall": 0.588,
+        "onRuleFlagged": {
+         "flagged": 211,
+         "tp": 64,
+         "fp": 147,
+         "precision": 0.303,
+         "recall": 0.561
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 1,
+          "keptReal": 1
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 10,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 136,
+          "keptReal": 17
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 20,
+          "keptReal": 15
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 21,
+          "keptReal": 11
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 17,
+          "keptReal": 15
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9814,
+        "flagged": 42,
+        "tp": 19,
+        "fp": 23,
+        "precision": 0.452,
+        "recall": 0.167,
+        "onRuleFlagged": {
+         "flagged": 41,
+         "tp": 19,
+         "fp": 22,
+         "precision": 0.463,
+         "recall": 0.167
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 18,
+          "keptReal": 2
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 10,
+          "keptReal": 6
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 2,
+          "keptReal": 1
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 11,
+          "keptReal": 10
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "familyTop1OnReal": {
+    "n": 114,
+    "correct": 79,
+    "accuracy": 0.693
+   },
+   "byFamilyOwnProbability": {
+    "overflow": {
+     "n": 1365,
+     "real": 35,
+     "ap": 0.571,
+     "rocAuc": 0.972,
+     "precisionAtRecall0.5": 0.606,
+     "recallAtPrecision0.6": 0.6,
+     "recallAtPrecision0.8": 0.229,
+     "atOwnRulesRecall": {
+      "recall": 0.8,
+      "precisionOwnProbability": 0.406,
+      "precisionAnyProblem": 0.115
+     }
+    },
+    "media": {
+     "n": 1357,
+     "real": 27,
+     "ap": 0.951,
+     "rocAuc": 0.999,
+     "precisionAtRecall0.5": 0.955,
+     "recallAtPrecision0.6": 1.0,
+     "recallAtPrecision0.8": 1.0,
+     "atOwnRulesRecall": {
+      "recall": 0.889,
+      "precisionOwnProbability": 0.9,
+      "precisionAnyProblem": 0.205
+     }
+    },
+    "dark": {
+     "n": 1347,
+     "real": 17,
+     "ap": 0.025,
+     "rocAuc": 0.704,
+     "precisionAtRecall0.5": 0.034,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.471,
+      "precisionOwnProbability": 0.034,
+      "precisionAnyProblem": 0.204
+     }
+    },
+    "occlusion": {
+     "n": 1346,
+     "real": 16,
+     "ap": 0.213,
+     "rocAuc": 0.876,
+     "precisionAtRecall0.5": 0.068,
+     "recallAtPrecision0.6": 0.188,
+     "recallAtPrecision0.8": 0.062,
+     "atOwnRulesRecall": {
+      "recall": 0.438,
+      "precisionOwnProbability": 0.068,
+      "precisionAnyProblem": 0.053
+     }
+    }
+   },
+   "atRulesRecall": {
+    "recall": 0.807,
+    "precisionAnyProblem": 0.39
+   },
+   "topVerdictChoice": {
+    "not": {
+     "fine": 771,
+     "unreadable_text": 176,
+     "hidden_control": 194,
+     "broken_image": 47,
+     "cut_off": 105,
+     "leak": 8,
+     "blank": 28,
+     "overlap": 1
+    },
+    "real": {
+     "cut_off": 43,
+     "unreadable_text": 11,
+     "broken_image": 27,
+     "leak": 7,
+     "hidden_control": 17,
+     "fine": 9
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 271,
+     "serverMsP95": 492,
+     "wallMsMedian": 535,
+     "wallMsP95": 1133,
+     "inputTokensMedian": 1284,
+     "inputTokensMean": 1302.4,
+     "inputTokensP95": 1491,
+     "usdPer1000": 0.3126,
+     "usdPerScan40": 0.0125
+    },
+    "report": {
+     "calls": 1444,
+     "serverMsMedian": 267,
+     "serverMsP95": 481,
+     "wallMsMedian": 521,
+     "wallMsP95": 848,
+     "inputTokensMedian": 1285,
+     "inputTokensMean": 1305.8,
+     "inputTokensP95": 1478,
+     "usdPer1000": 0.3134,
+     "usdPerScan40": 0.01254
+    }
+   }
+  },
+  "clef-box-p3": {
+   "config": {
+    "model": "clef",
+    "facts": true,
+    "image": "outline",
+    "prompt": "p2",
+    "guide": true
+   },
+   "answered": {
+    "dev": 412,
+    "report": 0
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.464,
+      "rocAuc": 0.877,
+      "precisionAtRecall0.5": 0.433,
+      "recallAtPrecision0.6": 0.24,
+      "recallAtPrecision0.8": 0.16
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.396,
+      "rocAuc": 0.847,
+      "precisionAtRecall0.5": 0.213,
+      "recallAtPrecision0.6": 0.28,
+      "recallAtPrecision0.8": 0.24
+     }
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 278,
+     "serverMsP95": 531,
+     "wallMsMedian": 520,
+     "wallMsP95": 895,
+     "inputTokensMedian": 1284,
+     "inputTokensMean": 1302.4,
+     "inputTokensP95": 1491,
+     "usdPer1000": 0.3126,
+     "usdPerScan40": 0.0125
+    }
+   }
+  },
+  "clef-boxonly-p2": {
+   "config": {
+    "model": "clef",
+    "facts": false,
+    "image": "outline",
+    "prompt": "p2"
+   },
+   "answered": {
+    "dev": 412,
+    "report": 0
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.39,
+      "rocAuc": 0.849,
+      "precisionAtRecall0.5": 0.31,
+      "recallAtPrecision0.6": 0.12,
+      "recallAtPrecision0.8": 0.12
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.303,
+      "rocAuc": 0.812,
+      "precisionAtRecall0.5": 0.286,
+      "recallAtPrecision0.6": 0.12,
+      "recallAtPrecision0.8": 0.04
+     }
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 240,
+     "serverMsP95": 404,
+     "wallMsMedian": 495,
+     "wallMsP95": 756,
+     "inputTokensMedian": 960,
+     "inputTokensMean": 995.7,
+     "inputTokensP95": 1198,
+     "usdPer1000": 0.239,
+     "usdPerScan40": 0.00956
+    }
+   }
+  },
+  "clef-text-p3": {
+   "config": {
+    "model": "clef",
+    "facts": true,
+    "image": null,
+    "prompt": "p2",
+    "guide": true
+   },
+   "answered": {
+    "dev": 412,
+    "report": 1444
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.267,
+      "rocAuc": 0.795,
+      "precisionAtRecall0.5": 0.26,
+      "recallAtPrecision0.6": 0.04,
+      "recallAtPrecision0.8": 0.04
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.267,
+       "rocAuc": 0.804,
+       "precisionAtRecall0.5": 0.286,
+       "recallAtPrecision0.6": 0.026,
+       "recallAtPrecision0.8": 0.026,
+       "apCI": [
+        0.187,
+        0.374
+       ],
+       "pAtR05CI": [
+        0.203,
+        0.389
+       ]
+      },
+      "curve": {
+       "0.1": 0.34,
+       "0.2": 0.299,
+       "0.3": 0.299,
+       "0.4": 0.299,
+       "0.5": 0.286,
+       "0.6": 0.262,
+       "0.7": 0.204,
+       "0.8": 0.149,
+       "0.9": 0.146
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 10,
+        "realShareOfAllReal": 0.088
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 31,
+        "realShareOfAllReal": 0.272
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 42,
+        "realShareOfAllReal": 0.368
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 73,
+        "realShareOfAllReal": 0.64
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.083,
+        "rocAuc": 0.846,
+        "precisionAtRecall0.5": 0.116,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.116,
+        "rocAuc": 0.79,
+        "precisionAtRecall0.5": 0.131,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.066,
+        "rocAuc": 0.884,
+        "precisionAtRecall0.5": 0.07,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.019,
+        "rocAuc": 0.622,
+        "precisionAtRecall0.5": 0.033,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.377,
+        "rocAuc": 0.671,
+        "precisionAtRecall0.5": 0.42,
+        "recallAtPrecision0.6": 0.033,
+        "recallAtPrecision0.8": 0.033
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.024,
+        "rocAuc": 0.621,
+        "precisionAtRecall0.5": 0.03,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.064,
+        "rocAuc": 0.66,
+        "precisionAtRecall0.5": 0.051,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.9804,
+        "flagged": 235,
+        "tp": 62,
+        "fp": 173,
+        "precision": 0.264,
+        "recall": 0.544,
+        "onRuleFlagged": {
+         "flagged": 166,
+         "tp": 60,
+         "fp": 106,
+         "precision": 0.361,
+         "recall": 0.526
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 38,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 34,
+          "keptReal": 5
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 35,
+          "keptReal": 24
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 36,
+          "keptReal": 11
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 17,
+          "keptReal": 15
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9804,
+        "flagged": 235,
+        "tp": 62,
+        "fp": 173,
+        "precision": 0.264,
+        "recall": 0.544,
+        "onRuleFlagged": {
+         "flagged": 166,
+         "tp": 60,
+         "fp": 106,
+         "precision": 0.361,
+         "recall": 0.526
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 38,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 34,
+          "keptReal": 5
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 35,
+          "keptReal": 24
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 36,
+          "keptReal": 11
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 17,
+          "keptReal": 15
+         }
+        }
+       }
+      }
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.13,
+      "rocAuc": 0.747,
+      "precisionAtRecall0.5": 0.142,
+      "recallAtPrecision0.6": 0.0,
+      "recallAtPrecision0.8": 0.0
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.157,
+       "rocAuc": 0.744,
+       "precisionAtRecall0.5": 0.189,
+       "recallAtPrecision0.6": 0.0,
+       "recallAtPrecision0.8": 0.0,
+       "apCI": [
+        0.115,
+        0.228
+       ],
+       "pAtR05CI": [
+        0.146,
+        0.254
+       ]
+      },
+      "curve": {
+       "0.1": 0.197,
+       "0.2": 0.197,
+       "0.3": 0.189,
+       "0.4": 0.189,
+       "0.5": 0.189,
+       "0.6": 0.189,
+       "0.7": 0.184,
+       "0.8": 0.129,
+       "0.9": 0.117
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 22,
+        "realShareOfAllReal": 0.193
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 35,
+        "realShareOfAllReal": 0.307
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 66,
+        "realShareOfAllReal": 0.579
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 86,
+        "realShareOfAllReal": 0.754
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.048,
+        "rocAuc": 0.749,
+        "precisionAtRecall0.5": 0.073,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.047,
+        "rocAuc": 0.686,
+        "precisionAtRecall0.5": 0.067,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.081,
+        "rocAuc": 0.917,
+        "precisionAtRecall0.5": 0.096,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.023,
+        "rocAuc": 0.657,
+        "precisionAtRecall0.5": 0.027,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.208,
+        "rocAuc": 0.463,
+        "precisionAtRecall0.5": 0.239,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.023,
+        "rocAuc": 0.587,
+        "precisionAtRecall0.5": 0.029,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.053,
+        "rocAuc": 0.665,
+        "precisionAtRecall0.5": 0.044,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.9732,
+        "flagged": 333,
+        "tp": 56,
+        "fp": 277,
+        "precision": 0.168,
+        "recall": 0.491,
+        "onRuleFlagged": {
+         "flagged": 283,
+         "tp": 56,
+         "fp": 227,
+         "precision": 0.198,
+         "recall": 0.491
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 29,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 186,
+          "keptReal": 17
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 12,
+          "keptReal": 9
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 34,
+          "keptReal": 10
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 17,
+          "keptReal": 15
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9491,
+        "flagged": 426,
+        "tp": 77,
+        "fp": 349,
+        "precision": 0.181,
+        "recall": 0.675,
+        "onRuleFlagged": {
+         "flagged": 333,
+         "tp": 75,
+         "fp": 258,
+         "precision": 0.225,
+         "recall": 0.658
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 38,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 194,
+          "keptReal": 18
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 39,
+          "keptReal": 26
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 38,
+          "keptReal": 11
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 2,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 17,
+          "keptReal": 15
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "familyTop1OnReal": {
+    "n": 114,
+    "correct": 71,
+    "accuracy": 0.623
+   },
+   "byFamilyOwnProbability": {
+    "overflow": {
+     "n": 1365,
+     "real": 35,
+     "ap": 0.365,
+     "rocAuc": 0.967,
+     "precisionAtRecall0.5": 0.419,
+     "recallAtPrecision0.6": 0.086,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.8,
+      "precisionOwnProbability": 0.311,
+      "precisionAnyProblem": 0.082
+     }
+    },
+    "media": {
+     "n": 1357,
+     "real": 27,
+     "ap": 0.826,
+     "rocAuc": 0.995,
+     "precisionAtRecall0.5": 0.882,
+     "recallAtPrecision0.6": 0.889,
+     "recallAtPrecision0.8": 0.556,
+     "atOwnRulesRecall": {
+      "recall": 0.889,
+      "precisionOwnProbability": 0.578,
+      "precisionAnyProblem": 0.041
+     }
+    },
+    "dark": {
+     "n": 1347,
+     "real": 17,
+     "ap": 0.016,
+     "rocAuc": 0.586,
+     "precisionAtRecall0.5": 0.022,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.471,
+      "precisionOwnProbability": 0.022,
+      "precisionAnyProblem": 0.07
+     }
+    },
+    "occlusion": {
+     "n": 1346,
+     "real": 16,
+     "ap": 0.044,
+     "rocAuc": 0.803,
+     "precisionAtRecall0.5": 0.059,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.438,
+      "precisionOwnProbability": 0.059,
+      "precisionAnyProblem": 0.033
+     }
+    }
+   },
+   "atRulesRecall": {
+    "recall": 0.807,
+    "precisionAnyProblem": 0.149
+   },
+   "topVerdictChoice": {
+    "not": {
+     "fine": 588,
+     "unreadable_text": 301,
+     "hidden_control": 202,
+     "cut_off": 103,
+     "blank": 52,
+     "broken_image": 82,
+     "leak": 2
+    },
+    "real": {
+     "cut_off": 41,
+     "hidden_control": 21,
+     "unreadable_text": 13,
+     "broken_image": 25,
+     "leak": 5,
+     "overlap": 1,
+     "fine": 8
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 221,
+     "serverMsP95": 410,
+     "wallMsMedian": 418,
+     "wallMsP95": 700,
+     "inputTokensMedian": 1124,
+     "inputTokensMean": 1122.9,
+     "inputTokensP95": 1202,
+     "usdPer1000": 0.2695,
+     "usdPerScan40": 0.01078
+    },
+    "report": {
+     "calls": 1444,
+     "serverMsMedian": 212,
+     "serverMsP95": 343,
+     "wallMsMedian": 510,
+     "wallMsP95": 760,
+     "inputTokensMedian": 1122,
+     "inputTokensMean": 1122.7,
+     "inputTokensP95": 1202,
+     "usdPer1000": 0.2695,
+     "usdPerScan40": 0.01078
+    }
+   }
+  },
+  "flash-text-p3": {
+   "config": {
+    "model": "clef-flash",
+    "facts": true,
+    "image": null,
+    "prompt": "p2",
+    "guide": true
+   },
+   "answered": {
+    "dev": 412,
+    "report": 1444
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.192,
+      "rocAuc": 0.719,
+      "precisionAtRecall0.5": 0.16,
+      "recallAtPrecision0.6": 0.04,
+      "recallAtPrecision0.8": 0.04
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.151,
+       "rocAuc": 0.704,
+       "precisionAtRecall0.5": 0.183,
+       "recallAtPrecision0.6": 0.009,
+       "recallAtPrecision0.8": 0.009,
+       "apCI": [
+        0.105,
+        0.242
+       ],
+       "pAtR05CI": [
+        0.139,
+        0.252
+       ]
+      },
+      "curve": {
+       "0.1": 0.184,
+       "0.2": 0.184,
+       "0.3": 0.184,
+       "0.4": 0.184,
+       "0.5": 0.183,
+       "0.6": 0.183,
+       "0.7": 0.167,
+       "0.8": 0.117,
+       "0.9": 0.092
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 24,
+        "realShareOfAllReal": 0.211
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 38,
+        "realShareOfAllReal": 0.333
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 64,
+        "realShareOfAllReal": 0.561
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 96,
+        "realShareOfAllReal": 0.842
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.045,
+        "rocAuc": 0.723,
+        "precisionAtRecall0.5": 0.066,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.032,
+        "rocAuc": 0.6,
+        "precisionAtRecall0.5": 0.055,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.149,
+        "rocAuc": 0.879,
+        "precisionAtRecall0.5": 0.065,
+        "recallAtPrecision0.6": 0.059,
+        "recallAtPrecision0.8": 0.059
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.018,
+        "rocAuc": 0.589,
+        "precisionAtRecall0.5": 0.025,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.231,
+        "rocAuc": 0.513,
+        "precisionAtRecall0.5": 0.263,
+        "recallAtPrecision0.6": 0.011,
+        "recallAtPrecision0.8": 0.011
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.021,
+        "rocAuc": 0.548,
+        "precisionAtRecall0.5": 0.022,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.046,
+        "rocAuc": 0.544,
+        "precisionAtRecall0.5": 0.031,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.972,
+        "flagged": 337,
+        "tp": 60,
+        "fp": 277,
+        "precision": 0.178,
+        "recall": 0.526,
+        "onRuleFlagged": {
+         "flagged": 225,
+         "tp": 57,
+         "fp": 168,
+         "precision": 0.253,
+         "recall": 0.5
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 43,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 103,
+          "keptReal": 15
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 22,
+          "keptReal": 15
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 37,
+          "keptReal": 10
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 2,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 4,
+          "keptReal": 3
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 16,
+          "keptReal": 14
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9796,
+        "flagged": 245,
+        "tp": 39,
+        "fp": 206,
+        "precision": 0.159,
+        "recall": 0.342,
+        "onRuleFlagged": {
+         "flagged": 161,
+         "tp": 36,
+         "fp": 125,
+         "precision": 0.224,
+         "recall": 0.316
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 37,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 69,
+          "keptReal": 11
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 7,
+          "keptReal": 6
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 36,
+          "keptReal": 10
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 2,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 11,
+          "keptReal": 9
+         }
+        }
+       }
+      }
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.223,
+      "rocAuc": 0.695,
+      "precisionAtRecall0.5": 0.163,
+      "recallAtPrecision0.6": 0.2,
+      "recallAtPrecision0.8": 0.0
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.231,
+       "rocAuc": 0.705,
+       "precisionAtRecall0.5": 0.174,
+       "recallAtPrecision0.6": 0.096,
+       "recallAtPrecision0.8": 0.035,
+       "apCI": [
+        0.143,
+        0.359
+       ],
+       "pAtR05CI": [
+        0.125,
+        0.245
+       ]
+      },
+      "curve": {
+       "0.1": 0.56,
+       "0.2": 0.293,
+       "0.3": 0.184,
+       "0.4": 0.176,
+       "0.5": 0.174,
+       "0.6": 0.16,
+       "0.7": 0.151,
+       "0.8": 0.124,
+       "0.9": 0.088
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 24,
+        "realShareOfAllReal": 0.211
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 46,
+        "realShareOfAllReal": 0.404
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 64,
+        "realShareOfAllReal": 0.561
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 85,
+        "realShareOfAllReal": 0.746
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.046,
+        "rocAuc": 0.726,
+        "precisionAtRecall0.5": 0.064,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.244,
+        "rocAuc": 0.624,
+        "precisionAtRecall0.5": 0.311,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.166,
+        "rocAuc": 0.847,
+        "precisionAtRecall0.5": 0.04,
+        "recallAtPrecision0.6": 0.176,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.051,
+        "rocAuc": 0.642,
+        "precisionAtRecall0.5": 0.031,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.331,
+        "rocAuc": 0.527,
+        "precisionAtRecall0.5": 0.231,
+        "recallAtPrecision0.6": 0.174,
+        "recallAtPrecision0.8": 0.043
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.024,
+        "rocAuc": 0.616,
+        "precisionAtRecall0.5": 0.034,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.043,
+        "rocAuc": 0.538,
+        "precisionAtRecall0.5": 0.035,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.9607,
+        "flagged": 236,
+        "tp": 41,
+        "fp": 195,
+        "precision": 0.174,
+        "recall": 0.36,
+        "onRuleFlagged": {
+         "flagged": 178,
+         "tp": 40,
+         "fp": 138,
+         "precision": 0.225,
+         "recall": 0.351
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 28,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 102,
+          "keptReal": 10
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 10,
+          "keptReal": 9
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 22,
+          "keptReal": 6
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 17,
+          "keptReal": 15
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9779,
+        "flagged": 64,
+        "tp": 20,
+        "fp": 44,
+        "precision": 0.312,
+        "recall": 0.175,
+        "onRuleFlagged": {
+         "flagged": 45,
+         "tp": 20,
+         "fp": 25,
+         "precision": 0.444,
+         "recall": 0.175
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 7,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 9,
+          "keptReal": 1
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 1,
+          "keptReal": 1
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 12,
+          "keptReal": 4
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 16,
+          "keptReal": 14
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "familyTop1OnReal": {
+    "n": 114,
+    "correct": 50,
+    "accuracy": 0.439
+   },
+   "byFamilyOwnProbability": {
+    "overflow": {
+     "n": 1365,
+     "real": 35,
+     "ap": 0.173,
+     "rocAuc": 0.92,
+     "precisionAtRecall0.5": 0.187,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.8,
+      "precisionOwnProbability": 0.177,
+      "precisionAnyProblem": 0.062
+     }
+    },
+    "media": {
+     "n": 1357,
+     "real": 27,
+     "ap": 0.734,
+     "rocAuc": 0.982,
+     "precisionAtRecall0.5": 0.833,
+     "recallAtPrecision0.6": 0.815,
+     "recallAtPrecision0.8": 0.556,
+     "atOwnRulesRecall": {
+      "recall": 0.889,
+      "precisionOwnProbability": 0.294,
+      "precisionAnyProblem": 0.023
+     }
+    },
+    "dark": {
+     "n": 1347,
+     "real": 17,
+     "ap": 0.009,
+     "rocAuc": 0.322,
+     "precisionAtRecall0.5": 0.013,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.471,
+      "precisionOwnProbability": 0.013,
+      "precisionAnyProblem": 0.065
+     }
+    },
+    "occlusion": {
+     "n": 1346,
+     "real": 16,
+     "ap": 0.054,
+     "rocAuc": 0.787,
+     "precisionAtRecall0.5": 0.077,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.438,
+      "precisionOwnProbability": 0.077,
+      "precisionAnyProblem": 0.025
+     }
+    }
+   },
+   "atRulesRecall": {
+    "recall": 0.807,
+    "precisionAnyProblem": 0.117
+   },
+   "topVerdictChoice": {
+    "not": {
+     "blank": 100,
+     "fine": 298,
+     "unreadable_text": 636,
+     "cut_off": 113,
+     "hidden_control": 155,
+     "broken_image": 7,
+     "overlap": 19,
+     "leak": 2
+    },
+    "real": {
+     "cut_off": 41,
+     "unreadable_text": 26,
+     "fine": 13,
+     "leak": 4,
+     "hidden_control": 14,
+     "broken_image": 15,
+     "overlap": 1
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 515,
+     "serverMsP95": 1409,
+     "wallMsMedian": 694,
+     "wallMsP95": 1599,
+     "inputTokensMedian": 1124,
+     "inputTokensMean": 1122.9,
+     "inputTokensP95": 1202,
+     "usdPer1000": 0.0427,
+     "usdPerScan40": 0.00171
+    },
+    "report": {
+     "calls": 1444,
+     "serverMsMedian": 511,
+     "serverMsP95": 1546,
+     "wallMsMedian": 823,
+     "wallMsP95": 2092,
+     "inputTokensMedian": 1122,
+     "inputTokensMean": 1122.7,
+     "inputTokensP95": 1202,
+     "usdPer1000": 0.0427,
+     "usdPerScan40": 0.00171
+    }
+   }
+  },
+  "flash-img-p3": {
+   "config": {
+    "model": "clef-flash",
+    "facts": true,
+    "image": "plain",
+    "prompt": "p2",
+    "guide": true
+   },
+   "answered": {
+    "dev": 412,
+    "report": 1444
+   },
+   "scores": {
+    "anyProblem": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.26,
+      "rocAuc": 0.853,
+      "precisionAtRecall0.5": 0.255,
+      "recallAtPrecision0.6": 0.04,
+      "recallAtPrecision0.8": 0.04
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.328,
+       "rocAuc": 0.816,
+       "precisionAtRecall0.5": 0.286,
+       "recallAtPrecision0.6": 0.114,
+       "recallAtPrecision0.8": 0.079,
+       "apCI": [
+        0.222,
+        0.454
+       ],
+       "pAtR05CI": [
+        0.189,
+        0.419
+       ]
+      },
+      "curve": {
+       "0.1": 0.632,
+       "0.2": 0.364,
+       "0.3": 0.35,
+       "0.4": 0.323,
+       "0.5": 0.286,
+       "0.6": 0.246,
+       "0.7": 0.219,
+       "0.8": 0.2,
+       "0.9": 0.125
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 12,
+        "realShareOfAllReal": 0.105
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 25,
+        "realShareOfAllReal": 0.219
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 44,
+        "realShareOfAllReal": 0.386
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 69,
+        "realShareOfAllReal": 0.605
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.047,
+        "rocAuc": 0.694,
+        "precisionAtRecall0.5": 0.061,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.157,
+        "rocAuc": 0.908,
+        "precisionAtRecall0.5": 0.179,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.268,
+        "rocAuc": 0.932,
+        "precisionAtRecall0.5": 0.108,
+        "recallAtPrecision0.6": 0.176,
+        "recallAtPrecision0.8": 0.118
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.028,
+        "rocAuc": 0.701,
+        "precisionAtRecall0.5": 0.029,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.424,
+        "rocAuc": 0.661,
+        "precisionAtRecall0.5": 0.383,
+        "recallAtPrecision0.6": 0.163,
+        "recallAtPrecision0.8": 0.109
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.034,
+        "rocAuc": 0.698,
+        "precisionAtRecall0.5": 0.048,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.172,
+        "rocAuc": 0.819,
+        "precisionAtRecall0.5": 0.233,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.965,
+        "flagged": 169,
+        "tp": 50,
+        "fp": 119,
+        "precision": 0.296,
+        "recall": 0.439,
+        "onRuleFlagged": {
+         "flagged": 127,
+         "tp": 46,
+         "fp": 81,
+         "precision": 0.362,
+         "recall": 0.404
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 2,
+          "keptReal": 2
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 28,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 43,
+          "keptReal": 10
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 26,
+          "keptReal": 9
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 16,
+          "keptReal": 15
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9641,
+        "flagged": 174,
+        "tp": 51,
+        "fp": 123,
+        "precision": 0.293,
+        "recall": 0.447,
+        "onRuleFlagged": {
+         "flagged": 129,
+         "tp": 47,
+         "fp": 82,
+         "precision": 0.364,
+         "recall": 0.412
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 2,
+          "keptReal": 2
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 28,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 44,
+          "keptReal": 10
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 7,
+          "keptReal": 6
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 26,
+          "keptReal": 9
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 6,
+          "keptReal": 5
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 16,
+          "keptReal": 15
+         }
+        }
+       }
+      }
+     }
+    },
+    "notFine": {
+     "dev": {
+      "n": 412,
+      "real": 25,
+      "ap": 0.287,
+      "rocAuc": 0.843,
+      "precisionAtRecall0.5": 0.224,
+      "recallAtPrecision0.6": 0.04,
+      "recallAtPrecision0.8": 0.04
+     },
+     "report": {
+      "all": {
+       "n": 1444,
+       "real": 114,
+       "ap": 0.32,
+       "rocAuc": 0.797,
+       "precisionAtRecall0.5": 0.222,
+       "recallAtPrecision0.6": 0.175,
+       "recallAtPrecision0.8": 0.158,
+       "apCI": [
+        0.21,
+        0.44
+       ],
+       "pAtR05CI": [
+        0.166,
+        0.316
+       ]
+      },
+      "curve": {
+       "0.1": 0.923,
+       "0.2": 0.46,
+       "0.3": 0.253,
+       "0.4": 0.241,
+       "0.5": 0.222,
+       "0.6": 0.222,
+       "0.7": 0.188,
+       "0.8": 0.158,
+       "0.9": 0.142
+      },
+      "lowEnd": {
+       "0.5": {
+        "crops": 722,
+        "real": 12,
+        "realShareOfAllReal": 0.105
+       },
+       "0.7": {
+        "crops": 1010,
+        "real": 34,
+        "realShareOfAllReal": 0.298
+       },
+       "0.8": {
+        "crops": 1155,
+        "real": 53,
+        "realShareOfAllReal": 0.465
+       },
+       "0.9": {
+        "crops": 1299,
+        "real": 79,
+        "realShareOfAllReal": 0.693
+       }
+      },
+      "byFamily": {
+       "overflow": {
+        "n": 1365,
+        "real": 35,
+        "ap": 0.046,
+        "rocAuc": 0.719,
+        "precisionAtRecall0.5": 0.058,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "media": {
+        "n": 1357,
+        "real": 27,
+        "ap": 0.439,
+        "rocAuc": 0.838,
+        "precisionAtRecall0.5": 0.538,
+        "recallAtPrecision0.6": 0.481,
+        "recallAtPrecision0.8": 0.481
+       },
+       "dark": {
+        "n": 1347,
+        "real": 17,
+        "ap": 0.149,
+        "rocAuc": 0.908,
+        "precisionAtRecall0.5": 0.083,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "occlusion": {
+        "n": 1346,
+        "real": 16,
+        "ap": 0.049,
+        "rocAuc": 0.724,
+        "precisionAtRecall0.5": 0.035,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "byStratum": {
+       "rules": {
+        "n": 408,
+        "real": 92,
+        "ap": 0.409,
+        "rocAuc": 0.608,
+        "precisionAtRecall0.5": 0.299,
+        "recallAtPrecision0.6": 0.228,
+        "recallAtPrecision0.8": 0.196
+       },
+       "gbt": {
+        "n": 523,
+        "real": 9,
+        "ap": 0.038,
+        "rocAuc": 0.711,
+        "precisionAtRecall0.5": 0.045,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       },
+       "random": {
+        "n": 513,
+        "real": 13,
+        "ap": 0.072,
+        "rocAuc": 0.774,
+        "precisionAtRecall0.5": 0.076,
+        "recallAtPrecision0.6": 0.0,
+        "recallAtPrecision0.8": 0.0
+       }
+      },
+      "devThresholds": {
+       "recall0.5OnDev": {
+        "threshold": 0.9475,
+        "flagged": 195,
+        "tp": 46,
+        "fp": 149,
+        "precision": 0.236,
+        "recall": 0.404,
+        "onRuleFlagged": {
+         "flagged": 150,
+         "tp": 44,
+         "fp": 106,
+         "precision": 0.293,
+         "recall": 0.386
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 10,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 86,
+          "keptReal": 14
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 11,
+          "keptReal": 6
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 24,
+          "keptReal": 7
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 2,
+          "keptReal": 2
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 17,
+          "keptReal": 15
+         }
+        }
+       },
+       "bestF1OnDev": {
+        "threshold": 0.9709,
+        "flagged": 67,
+        "tp": 24,
+        "fp": 43,
+        "precision": 0.358,
+        "recall": 0.211,
+        "onRuleFlagged": {
+         "flagged": 59,
+         "tp": 24,
+         "fp": 35,
+         "precision": 0.407,
+         "recall": 0.211
+        },
+        "byRule": {
+         "image-distorted": {
+          "flagged": 31,
+          "real": 9,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "css-var-undefined": {
+          "flagged": 47,
+          "real": 0,
+          "kept": 2,
+          "keptReal": 0
+         },
+         "control-unreachable": {
+          "flagged": 195,
+          "real": 18,
+          "kept": 31,
+          "keptReal": 5
+         },
+         "page-overflow-x": {
+          "flagged": 60,
+          "real": 34,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-invisible": {
+          "flagged": 38,
+          "real": 11,
+          "kept": 10,
+          "keptReal": 5
+         },
+         "font-failed": {
+          "flagged": 12,
+          "real": 0,
+          "kept": 1,
+          "keptReal": 0
+         },
+         "click-blocked": {
+          "flagged": 4,
+          "real": 0,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "text-template-leak": {
+          "flagged": 6,
+          "real": 5,
+          "kept": 0,
+          "keptReal": 0
+         },
+         "image-broken": {
+          "flagged": 17,
+          "real": 15,
+          "kept": 16,
+          "keptReal": 14
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "familyTop1OnReal": {
+    "n": 114,
+    "correct": 63,
+    "accuracy": 0.553
+   },
+   "byFamilyOwnProbability": {
+    "overflow": {
+     "n": 1365,
+     "real": 35,
+     "ap": 0.17,
+     "rocAuc": 0.872,
+     "precisionAtRecall0.5": 0.154,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.8,
+      "precisionOwnProbability": 0.11,
+      "precisionAnyProblem": 0.038
+     }
+    },
+    "media": {
+     "n": 1357,
+     "real": 27,
+     "ap": 0.958,
+     "rocAuc": 0.999,
+     "precisionAtRecall0.5": 1.0,
+     "recallAtPrecision0.6": 1.0,
+     "recallAtPrecision0.8": 0.963,
+     "atOwnRulesRecall": {
+      "recall": 0.889,
+      "precisionOwnProbability": 0.893,
+      "precisionAnyProblem": 0.072
+     }
+    },
+    "dark": {
+     "n": 1347,
+     "real": 17,
+     "ap": 0.109,
+     "rocAuc": 0.681,
+     "precisionAtRecall0.5": 0.024,
+     "recallAtPrecision0.6": 0.059,
+     "recallAtPrecision0.8": 0.059,
+     "atOwnRulesRecall": {
+      "recall": 0.471,
+      "precisionOwnProbability": 0.024,
+      "precisionAnyProblem": 0.108
+     }
+    },
+    "occlusion": {
+     "n": 1346,
+     "real": 16,
+     "ap": 0.081,
+     "rocAuc": 0.872,
+     "precisionAtRecall0.5": 0.111,
+     "recallAtPrecision0.6": 0.0,
+     "recallAtPrecision0.8": 0.0,
+     "atOwnRulesRecall": {
+      "recall": 0.438,
+      "precisionOwnProbability": 0.111,
+      "precisionAnyProblem": 0.029
+     }
+    }
+   },
+   "atRulesRecall": {
+    "recall": 0.807,
+    "precisionAnyProblem": 0.2
+   },
+   "topVerdictChoice": {
+    "not": {
+     "blank": 142,
+     "fine": 618,
+     "unreadable_text": 228,
+     "cut_off": 176,
+     "hidden_control": 133,
+     "overlap": 17,
+     "broken_image": 8,
+     "leak": 8
+    },
+    "real": {
+     "cut_off": 41,
+     "fine": 5,
+     "unreadable_text": 17,
+     "broken_image": 24,
+     "leak": 7,
+     "hidden_control": 15,
+     "blank": 4,
+     "overlap": 1
+    }
+   },
+   "latencyTokens": {
+    "dev": {
+     "calls": 412,
+     "serverMsMedian": 626,
+     "serverMsP95": 1515,
+     "wallMsMedian": 809,
+     "wallMsP95": 1716,
+     "inputTokensMedian": 1284,
+     "inputTokensMean": 1302.4,
+     "inputTokensP95": 1491,
+     "usdPer1000": 0.0495,
+     "usdPerScan40": 0.00198
+    },
+    "report": {
+     "calls": 1444,
+     "serverMsMedian": 712,
+     "serverMsP95": 2099,
+     "wallMsMedian": 944,
+     "wallMsP95": 2432,
+     "inputTokensMedian": 1285,
+     "inputTokensMean": 1305.8,
+     "inputTokensP95": 1478,
+     "usdPer1000": 0.0496,
+     "usdPerScan40": 0.00198
+    }
+   }
+  }
+ },
+ "pairedApDifferences": {
+  "clef-imgonly-p2 minus clef-img-p3": {
+   "diff": 0.092,
+   "ci95": [
+    -0.007,
+    0.193
+   ]
+  },
+  "clef-img-p3 minus clef-text-p3": {
+   "diff": 0.309,
+   "ci95": [
+    0.231,
+    0.376
+   ]
+  },
+  "flash-img-p3 minus flash-text-p3": {
+   "diff": 0.177,
+   "ci95": [
+    0.104,
+    0.254
+   ]
+  },
+  "clef-img-p3 minus flash-img-p3": {
+   "diff": 0.248,
+   "ci95": [
+    0.151,
+    0.339
+   ]
+  }
+ },
+ "latencyRuns": {
+  "clef-img-p3": {
+   "variant": "clef-img-p3",
+   "sequentialCalls": 100,
+   "serverMsMedian": 262,
+   "serverMsP95": 372,
+   "wallMsMedian": 427,
+   "wallMsP95": 659,
+   "scans40": [
+    {
+     "wallMs": 4425,
+     "errors": 0,
+     "serverMsMax": 428
+    },
+    {
+     "wallMs": 1972,
+     "errors": 0,
+     "serverMsMax": 552
+    },
+    {
+     "wallMs": 1806,
+     "errors": 0,
+     "serverMsMax": 660
+    },
+    {
+     "wallMs": 1660,
+     "errors": 0,
+     "serverMsMax": 412
+    },
+    {
+     "wallMs": 2449,
+     "errors": 0,
+     "serverMsMax": 1136
+    }
+   ]
+  },
+  "flash-img-p3": {
+   "variant": "flash-img-p3",
+   "sequentialCalls": 100,
+   "serverMsMedian": 613,
+   "serverMsP95": 1673,
+   "wallMsMedian": 764,
+   "wallMsP95": 1792,
+   "scans40": [
+    {
+     "wallMs": 6348,
+     "errors": 0,
+     "serverMsMax": 3650
+    },
+    {
+     "wallMs": 4916,
+     "errors": 0,
+     "serverMsMax": 2783
+    },
+    {
+     "wallMs": 8929,
+     "errors": 0,
+     "serverMsMax": 3630
+    },
+    {
+     "wallMs": 5126,
+     "errors": 0,
+     "serverMsMax": 3800
+    },
+    {
+     "wallMs": 5518,
+     "errors": 0,
+     "serverMsMax": 4246
+    }
+   ]
+  }
+ }
+}

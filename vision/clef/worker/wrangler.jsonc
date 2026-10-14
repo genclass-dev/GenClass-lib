@@ -1,0 +1,16 @@
+// genclass-clef-eval: a private evaluation endpoint that runs Cloudflare's Clef decision models on one page-element
+// crop plus its measured facts. Used only by vision/clef/eval.py; not part of the product.
+// Deploy (workers.dev only, no routes): npx --yes wrangler@4 deploy   (from this directory)
+// Key: openssl rand -hex 24 | npx --yes wrangler@4 secret put EVAL_KEY   (kept out of git; every request needs the
+// x-eval-key header equal to it).
+{
+  "name": "genclass-clef-eval",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "account_id": "144bd5f5270b51dbe7faf46227a154f0",
+  "workers_dev": true,
+  "preview_urls": false,
+  "ai": { "binding": "AI" },
+  // No request or console logs: payloads are page crops and the answers about them.
+  "observability": { "enabled": false }
+}
