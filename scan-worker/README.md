@@ -287,15 +287,16 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   `image-broken` and `text-template-leak` (left as measured, as the evaluation recommends: at its threshold the model
   dropped 13 of 34 real sideways-scrolling findings and 4 of 15 broken images; template text was right 5 times in 6) and
   `layout-shift` (listed, not scored already); a finding is matched to its element by selector and box. Then elements the
-  measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five points
-  (the first screen only), controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible
-  link, button or field with text or an icon, and text whose background along its ancestors or under its centre is an
-  image, a gradient, media or a filter; on the first screen only (further down they would be cropped after scrolling, where pages that fade content in show it blank: calibration below), top to bottom; nothing inside `aria-hidden`,
-  `role="img"`, `inert` or a closed `details`, and nothing inside or around an element already chosen.
+  measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five points,
+  controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible link, button or field with
+  text or an icon, and text whose background along its ancestors or under its centre is an image, a gradient, media or a
+  filter; covered controls and text on the first screen before the rest, top to bottom (a crop further down is taken
+  after scrolling to it, so only what the screenshot covers); nothing inside `aria-hidden`, `role="img"`, `inert` or a
+  closed `details`, and nothing inside or around an element already chosen.
 - **The cap.** At most 40 calls a scan (`JUDGE_MAX_CALLS`), the findings first. Each view is guaranteed its share, 14 for
   the desktop and 13 for each phone view (`JUDGE_SHARE`), and may also take what the views that asked before it left
-  (`JudgeBudget`; in calibration the light views used 0 to 3 of theirs, the dark phone always all 13). All of a view's
-  calls are sent at once; each answer counts only when it comes within
+  (`JudgeBudget`: in calibration the light views mostly had few elements to ask about, the dark phone always more than
+  its 13). All of a view's calls are sent at once; each answer counts only when it comes within
   4 s (`JUDGE_TIMEOUT_MS`) of being sent; the scan waits for the stragglers only as long as its budget allows. A call that
   throws, answers late or answers malformed data (only the questions' own options, probabilities in [0, 1]) leaves the
   finding as measured, and the report counts it.
@@ -566,9 +567,11 @@ npx --yes wrangler@4 deploy                                      # production (g
 ```
 
 The production worker has had its genclass.dev routes since 2026-10-14 (`wrangler.jsonc`), so a plain `wrangler deploy`
-from this directory deploys to them. scan-score/3 has been deployed to the test env only. Before production: review
-`CALIBRATION.md` and the wording on the test copy's `/scan` and `/scan/about`; `REPORT_VERSION` 6 makes every cached
-version-5 report a miss, so pages rescan on their first view. After a production deploy, check that
+from this directory deploys to them. The model judge (report version 7) has been deployed to the test env only. Before
+production: review `CALIBRATION.md` (the judge's section) and the wording on the test copy's `/scan` and `/scan/about`;
+production's config has the `AI` binding and `JUDGE` on, and must not get `JUDGE_CROPS`; `REPORT_VERSION` 7 makes every
+cached version-6 report a miss, so pages rescan on their first view. After a production deploy, check that
+`genclass.dev/api/scan/health` names the judge model, and that
 `genclass.dev/scan-box.js` (or the name the site gives it)
 answers 200 with `text/javascript`, and that `genclass.dev/scan?url=…` and `genclass.dev/api/scan/health` reach this
 worker.

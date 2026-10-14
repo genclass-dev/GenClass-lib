@@ -295,6 +295,7 @@ describe("the judge in a scan", () => {
     const cdp = t.browsers[0].pages[0].cdp!;
     assert.ok(cdp.clips.length > 0);
     assert.ok(cdp.clips.every((c) => (c.x as number) >= 0 && (c.width as number) > 0));
+    assert.equal(cdp.maxCapturing, 1, "one crop at a time: Chrome swaps the clips of concurrent captures");
   });
   it("lists a measured finding it judged as probably fine in every view, with the crop, and does not score it", async () => {
     const t = setup({ findings: FINDING, judge: judgeSide(0) }, { run: async () => answer(0.5, "fine") });

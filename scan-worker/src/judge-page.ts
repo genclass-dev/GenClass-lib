@@ -4,7 +4,7 @@
 //   "find"     the elements to judge in this view, at the current scroll (the top of the page): the visual checks'
 //              findings, matched to their element by selector and box, and the elements the measured checks abstain
 //              on, in priority order (covered or partly clipped controls; in the dark view every visible button and
-//              link; text whose background is an image, a gradient, media or a filter; on the first screen only). The
+//              link; text whose background is an image, a gradient, media or a filter; the first screen first). The
 //              elements are kept in the isolated world under options.name for "facts"; only plain data is returned.
 //   "facts"    scrolls so the chosen elements are in the viewport (not at all for those already in it; to the end of
 //              the page for a control a fixed bar covers there; by focusing it for a focused element under a sticky
@@ -934,10 +934,7 @@ export function judgePage(cmd: string, options?: any): any {
         if (el.closest('[aria-hidden="true"], [role="img"], [inert]')) continue;
         const dt = el.closest("details");
         if (dt && !dt.open && !el.closest("summary")) continue;
-        // the first screen only: content further down is cropped only after scrolling to it, and a page that fades content
-        // in as it scrolls shows it blank there (calibration, pass 1: 3 of 3 such findings were blank crops of readable text)
         const inFold = r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0;
-        if (!inFold) continue;
         let cls = "";
         let rank = 9;
         if (interactive(el) && (el.textContent.trim() || el.querySelector("img, svg") || el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA")) {

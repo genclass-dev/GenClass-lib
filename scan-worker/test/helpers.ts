@@ -183,12 +183,19 @@ export class FakeCdp {
   sent: string[] = [];
   /** The clips of the crops the scanner took (Page.captureScreenshot). */
   clips: Record<string, unknown>[] = [];
+  /** Captures in flight now, and the most there ever were at once (Chrome mixes up the clips of concurrent ones). */
+  capturing = 0;
+  maxCapturing = 0;
   detached = false;
   private handlers = new Map<string, ((p: unknown) => void)[]>();
   async send(method: string, params?: Record<string, unknown>): Promise<unknown> {
     this.sent.push(method);
     if (method === "Page.captureScreenshot") {
       this.clips.push((params?.clip ?? {}) as Record<string, unknown>);
+      this.capturing++;
+      this.maxCapturing = Math.max(this.maxCapturing, this.capturing);
+      await new Promise((r) => setTimeout(r, 1));
+      this.capturing--;
       return { data: "/9j/4AAQSkZJRgABAQ==" };
     }
     if (method === "Runtime.enable") this.emit("Runtime.executionContextCreated", { context: { id: 1, auxData: { isDefault: true, frameId: "MAIN" } } });

@@ -1205,10 +1205,12 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           if (!crop) continue;
           jobs.push({ it, crop, facts: { device: spec.mobile ? "phone" : "desktop", scheme: spec.scheme, page: pageRow, el, anc: sanitizeRow(raw.anc), kids: Math.max(0, Math.round(numOrNull(raw.kids) ?? 0)) } });
         }
-        const shots = await Promise.all(jobs.map((j) => withTimeout(cropShot(page, cdp, j.crop), Math.min(2500, Math.max(400, timeLeft())), "a crop").catch(() => null)));
-        jobs.forEach((j, k) => {
-          const image = shots[k];
-          if (!image) return;
+        // one crop at a time: Chrome applies the clip of concurrent captures to each other's images (calibration: two
+        // crops of one group came back swapped), and each call goes out as soon as its crop is taken
+        for (const j of jobs) {
+          if (timeLeft() < 150) break;
+          const image = await withTimeout(cropShot(page, cdp, j.crop), Math.min(2000, Math.max(400, timeLeft())), "a crop").catch(() => null);
+          if (!image) continue;
           const state = judgeText(j.it.cls === "finding", j.facts, j.crop);
           const res: JudgeResult = { id: `${spec.id}-j${judged.length + 1}`, view: spec.id, cls: j.it.cls, key: j.it.key, kind: j.it.kind, selector: j.it.sel, box: j.it.box, crop: j.crop, state, image, answer: null, error: null, ms: 0 };
           judged.push(res);
@@ -1222,7 +1224,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
               judgeLast = deps.now();
             }),
           );
-        });
+        }
       }
       if (sent < chosen) view.notes.push(`The model judge (Clef) ran out of its time in this view: ${sent} of the ${chosen} elements chosen were sent to it.`);
     } catch (e) {
