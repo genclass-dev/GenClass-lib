@@ -1005,3 +1005,161 @@ details.tview .tbl-wrap{margin-top:4px}
   .vnums p{margin-top:8px;font-size:14.5px}
   .vnums small{margin-top:6px;font-size:11.5px}
 }
+/* ---------- before and after: the homepage section under "Check any page." (partials/before-after.html, dragged by
+   public/before-after.js). One made-up page, Acme Cloud, drawn twice in one frame: the broken build under the fixed
+   one, which is clipped to the right of the divider (--pos, 0 to 100; the line moves by transform, so dragging and the
+   first-view sway are not layout shifts). The page is laid out in its own unit, --u: 1/72.5 of the frame's width
+   (1/22.5 on phones, where it switches to a phone layout), so it scales without a script. ---------- */
+.ba .sh h2{font-size:clamp(30px,4.3vw,54px);line-height:1.06;letter-spacing:-.03em}
+.ba-fig{margin-top:32px}
+.ba-frame{border:1px solid var(--rule2);border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 32px 64px -40px rgba(14,31,77,.45)}
+.ba-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--rule);font:500 12px var(--mono)}
+.ba-bar b{display:flex;align-items:center;gap:7px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.ba-bar b::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.ba-lb{color:var(--orange)}
+.ba-la{color:var(--blue)}
+.ba-url{min-width:0;overflow:hidden;white-space:nowrap;color:var(--ink3);background:#fff;border:1px solid var(--rule);border-radius:99px;padding:3px 16px}
+.ba-view{--pos:50;position:relative;container-type:inline-size;aspect-ratio:72.5/38.5;overflow:hidden;touch-action:pan-y pinch-zoom;cursor:ew-resize;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.ba-pg{--u:calc(100cqw / 72.5);position:absolute;inset:0;overflow:hidden;font-size:var(--u);line-height:1.4}
+.ba-pg>*{position:absolute}
+.ba-a{clip-path:inset(0 0 0 calc(var(--pos) * 1%))}
+.ba-nav{left:0;right:0;top:0;height:3.3em;padding:0 3em;display:flex;align-items:center;gap:2.4em}
+.ba-logo{display:flex;align-items:center;gap:.5em;font-size:1.1em;font-weight:700;white-space:nowrap}
+.ba-links{display:flex;gap:1.7em;font-size:.88em}
+.ba-in{position:relative;margin-left:auto;font-size:.85em;line-height:1;padding:.62em 1.3em;border-radius:.5em;white-space:nowrap}
+.ba-h1{left:calc(var(--u)*3);top:calc(var(--u)*5.3);width:calc(var(--u)*33);font-size:calc(var(--u)*3.2);line-height:1.04}
+.ba-sub{left:calc(var(--u)*3);top:calc(var(--u)*13.5);width:calc(var(--u)*29);font-size:calc(var(--u)*1.12);line-height:1.5}
+.ba-cta{left:3em;top:18em;display:flex;gap:.8em}
+.ba-cta span{display:flex;align-items:center;height:2.9em;padding:0 1.5em;font-size:.95em;white-space:nowrap}
+.ba-img{left:37.5em;top:5.2em;width:32em;height:15.6em}
+.ba-img svg{display:block;width:100%;height:100%}
+.ba-h2{left:calc(var(--u)*3);top:calc(var(--u)*22.8);font-size:calc(var(--u)*1.5);line-height:1.3;white-space:nowrap}
+.ba-cards{left:3em;top:25.6em;width:44em;height:8.4em;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.2em}
+.ba-card{display:flex;flex-direction:column;gap:.3em;padding:1.1em 1.2em}
+.ba-card i{display:grid;place-items:center;width:2em;height:2em;margin-bottom:.35em}
+.ba-card b{font-size:1em;line-height:1.2}
+.ba-card span{font-size:.8em;line-height:1.35}
+.ba-price{left:50em;top:22.8em;width:19.5em;height:11.2em;display:flex;flex-direction:column;align-items:flex-start;gap:.3em;padding:1.3em 1.5em}
+.ba-price b{font-size:2.6em;line-height:1.05;white-space:nowrap}
+.ba-price small{font-size:.36em;font-weight:500}
+.ba-li{font-size:.82em}
+.ba-buy{align-self:stretch;margin-top:auto;display:flex;align-items:center;justify-content:center;height:2.9em;font-size:.86em}
+.ba-cookie{display:flex;align-items:center}
+/* before: the build as it shipped */
+.ba-b{background:linear-gradient(180deg,#6A11CB 3.3em,#2575FC 10em,#C9D6FF 12.6em,#E2E9FF 14em,#EDF1FF 17em,#fff 21em);font-family:"Times New Roman",Times,serif;color:#222}
+.ba-b .ba-nav{background:#111;color:#fff}
+.ba-b .ba-logo i{width:1.1em;height:1.1em;border-radius:50%;background:linear-gradient(135deg,#6A11CB,#2575FC)}
+.ba-b .ba-links span{color:#8AB4F8;text-decoration:underline}
+.ba-b .ba-in{background:#fff;color:#FAFAFA;border-radius:2em}
+.ba-b .ba-h1{font-weight:700;color:#fff;text-shadow:0 .06em .12em rgba(0,0,0,.35)}
+.ba-b .ba-sub{color:#fff}
+.ba-b .ba-cta span{background:linear-gradient(90deg,#6A11CB,#2575FC);color:#fff;border-radius:2em}
+.ba-b .ba-img{border:1px solid #A9A9A9}
+.ba-broken{display:flex;align-items:center;gap:.3em;padding:.2em;font-size:.85em;color:#fff}
+.ba-broken svg{width:1.15em;height:1.15em}
+.ba-b .ba-h2{left:calc(var(--u)*2.2);font-weight:700;color:#222}
+.ba-b .ba-card{background:#fff;border:1px solid #DDD;border-radius:1.4em;box-shadow:0 .6em 1.6em rgba(106,17,203,.35)}
+.ba-b .ba-card i{border-radius:50%;background:linear-gradient(135deg,#6A11CB,#2575FC)}
+.ba-b .ba-card:nth-child(2){margin-top:1.3em;align-items:center;text-align:center;border-radius:.3em}
+.ba-b .ba-card:nth-child(3){width:84%;margin-left:.6em}
+.ba-b .ba-card:nth-child(3) b{font-size:1.12em;white-space:nowrap}
+.ba-b .ba-price{left:49.4em;top:23.6em;border:2px solid #6A11CB;border-radius:1.4em;background:#fff;align-items:center}
+.ba-b .ba-price b{font-size:2.2em;color:#6A11CB}
+.ba-b .ba-buy{background:linear-gradient(90deg,#6A11CB,#2575FC);color:#fff;border-radius:2em}
+.ba-b .ba-cookie{left:calc(var(--u)*7);top:calc(var(--u)*17);width:calc(var(--u)*28);flex-wrap:wrap;gap:.55em .6em;padding:.9em 1em;background:#fff;border:1px solid #CCC;box-shadow:0 .4em 1.6em rgba(0,0,0,.3);font:.8em/1.35 Arial,Helvetica,sans-serif;color:#333}
+.ba-b .ba-cookie span:first-child{flex-basis:100%}
+.ba-b .ba-cookie i{font-style:normal}
+.ba-b .ba-cookie span+span{padding:.45em 1em;background:#E4E4E4}
+.ba-b .ba-cookie .ba-ok{background:#2563EB;color:#fff}
+/* after: the same page with the fixes in */
+.ba-a{background:radial-gradient(30em 13em at 54em 13em,rgba(167,139,250,.5),rgba(167,139,250,0) 70%),linear-gradient(180deg,#120D38 3.3em,#2B2391 7em,#4B3BC9 11em,#8F82F3 12.5em,#DAD5FF 13.4em,#F6F4FF 14.8em,#fff 20em);font-family:var(--sans);color:#14123A}
+.ba-a .ba-nav{background:#0D0B26;color:#fff}
+.ba-a .ba-logo{font-family:var(--display);font-weight:600;letter-spacing:-.01em}
+.ba-a .ba-logo svg{width:1.3em;height:1.3em}
+.ba-a .ba-links span{color:#B7B4E0}
+.ba-a .ba-in{border:1px solid rgba(255,255,255,.32);color:#fff;font-weight:600}
+.ba-a .ba-h1{font-family:var(--display);font-weight:700;letter-spacing:-.035em;color:#fff}
+.ba-a .ba-h1 span{background:linear-gradient(90deg,#C7D2FE,#F5D0FE);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ba-a .ba-sub{color:#2B2672}
+.ba-a .ba-cta span{font-weight:600;border-radius:.6em;background:#fff;color:#2B2672;border:1px solid #DAD6F5}
+.ba-a .ba-cta .ba-go{background:#4F46E5;color:#fff;border-color:#4F46E5;box-shadow:0 .6em 1.2em -.5em rgba(79,70,229,.8)}
+.ba-a .ba-img{border-radius:.9em;box-shadow:0 0 0 1px rgba(255,255,255,.6),0 1.8em 3.4em -1.2em rgba(20,10,80,.55)}
+.ba-a .ba-img svg{border-radius:.9em;font-family:var(--display)}
+.ba-a .ba-h2{font-family:var(--display);font-weight:600;letter-spacing:-.02em}
+.ba-a .ba-card{background:#fff;border:1px solid #E8E6F6;border-radius:.9em;box-shadow:0 .3em .9em rgba(20,10,80,.05)}
+.ba-a .ba-card i{border-radius:.55em;background:#EEF0FF}
+.ba-a .ba-card svg{width:1.15em;height:1.15em;fill:none;stroke:#4F46E5;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ba-a .ba-card b{font-family:var(--display);font-weight:600}
+.ba-a .ba-card span{color:#5B5880}
+.ba-a .ba-price{background:#fff;border:1px solid #E8E6F6;border-radius:1em;box-shadow:0 1em 2.4em -.8em rgba(20,10,80,.22)}
+.ba-a .ba-plan{font-size:.72em;font-weight:600;color:#4338CA;background:#EEF0FF;border-radius:2em;padding:.2em .7em}
+.ba-a .ba-price b{font-family:var(--display);letter-spacing:-.03em}
+.ba-a .ba-price small{color:#6B6890;letter-spacing:0}
+.ba-a .ba-li{color:#4A4770}
+.ba-a .ba-buy{background:#4F46E5;color:#fff;border-radius:.55em;font-weight:600}
+.ba-a .ba-cookie{left:calc(var(--u)*3);bottom:calc(var(--u)*.9);gap:.8em;padding:.4em .45em .4em 1.1em;background:#14123A;color:#E9E7FF;border-radius:2em;font-size:.8em;white-space:nowrap}
+.ba-a .ba-ok{background:#fff;color:#14123A;font-weight:600;border-radius:2em;padding:.3em .9em}
+/* the tags: green for what GenClass fixes in the visitor's browser, outlined for what the developer fixed from its report */
+.ba-tag{display:inline-flex;align-items:center;gap:.45em;font:600 12.5px/1 var(--sans);font-style:normal;letter-spacing:0;color:var(--ink);background:#fff;border:1.5px solid var(--blue-f);border-radius:99px;padding:.34em .72em;white-space:nowrap;vertical-align:.12em;text-shadow:none;-webkit-text-fill-color:currentColor}
+.ba-tag.ba-live{background:var(--blue-f)}
+.ba-tag.ba-live::before{content:"";width:.5em;height:.5em;border-radius:50%;background:var(--ink)}
+.ba-pg .ba-tag{position:absolute;z-index:2;font-size:max(8.5px,.88cqw);box-shadow:0 1px 3px rgba(14,31,77,.18)}
+.ba-pg .ba-sub .ba-tag,.ba-pg .ba-h2 .ba-tag{position:static;margin-left:.3em}
+.ba-in .ba-tag{right:calc(100% + .7em);top:50%;transform:translateY(-50%)}
+.ba-h1 .ba-tag{left:0;bottom:100%;margin-bottom:.6em}
+.ba-img .ba-tag,.ba-price .ba-tag,.ba-cards>.ba-tag{top:-1em;right:1.2em}
+.ba-cookie .ba-tag{left:calc(100% + .7em);top:50%;transform:translateY(-50%)}
+/* the divider: a line with a handle; the range input under it is what keyboards and screen readers use */
+.ba-line{position:absolute;top:0;bottom:0;left:0;width:0;z-index:3;pointer-events:none;transform:translateX(calc(var(--pos) * 1cqw))}
+.ba-line::before{content:"";position:absolute;top:0;bottom:0;left:-1.5px;width:3px;background:#fff;box-shadow:0 0 0 1px rgba(14,31,77,.3),0 0 14px rgba(14,31,77,.3)}
+.ba-knob{position:absolute;top:50%;left:0;width:46px;height:46px;margin:-23px 0 0 -23px;display:grid;place-items:center;border-radius:50%;background:#fff;color:var(--ink);border:1px solid rgba(14,31,77,.18);box-shadow:0 8px 22px -6px rgba(14,31,77,.5)}
+.ba-knob svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ba-range{position:absolute;left:0;top:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
+.ba-range:focus-visible~.ba-line .ba-knob{outline:3px solid var(--blue-f);outline-offset:3px}
+.ba-view.is-drag .ba-knob{background:var(--panel)}
+.ba-key{display:flex;flex-wrap:wrap;align-items:center;gap:10px;max-width:none;margin-top:16px}
+.ba-key a{margin-left:auto;font-size:14.5px;color:var(--ink);white-space:nowrap}
+@media (max-width:640px){
+  #before-after .sh h2{font-size:clamp(28px,8.2vw,34px);line-height:1.1}
+  .ba-fig{margin-top:22px}
+  .ba-frame{border-radius:12px}
+  .ba-bar{height:36px;padding:0 12px;font-size:11px}
+  .ba-view{aspect-ratio:22.5/42}
+  .ba-pg{--u:calc(100cqw / 22.5)}
+  .ba-nav{height:3em;padding:0 1.25em}
+  .ba-links{display:none}
+  .ba-logo{font-size:1em}
+  .ba-in{font-size:.8em}
+  .ba-h1{left:calc(var(--u)*1.25);top:calc(var(--u)*4.6);width:calc(var(--u)*20);font-size:calc(var(--u)*1.85);line-height:1.06}
+  .ba-sub{left:calc(var(--u)*1.25);top:calc(var(--u)*9.6);width:calc(var(--u)*20);font-size:calc(var(--u)*.92);line-height:1.45}
+  .ba-cta{left:1.25em;top:13.3em;gap:.6em}
+  .ba-cta span{height:2.6em;padding:0 1.2em;font-size:.9em}
+  .ba-img{left:1.25em;top:16.8em;width:20em;height:8em}
+  .ba-h2{left:calc(var(--u)*1.25);top:calc(var(--u)*26);font-size:calc(var(--u)*1.05)}
+  .ba-b .ba-h2{left:calc(var(--u)*.8)}
+  .ba-cards{left:1.25em;top:28.3em;width:20em;height:5.6em;gap:.6em}
+  .ba-card{padding:.75em .7em}
+  .ba-card i{width:1.6em;height:1.6em;margin-bottom:.25em}
+  .ba-card b{font-size:.85em}
+  .ba-b .ba-card:nth-child(3) b{font-size:.9em}
+  .ba-card span,.ba-li{display:none}
+  .ba-b .ba-card:nth-child(2){margin-top:.8em}
+  .ba-b .ba-card:nth-child(3){margin-left:.3em}
+  .ba-price{left:1.25em;top:34.9em;width:20em;height:3.6em;flex-direction:row;align-items:center;gap:.7em;padding:0 .7em 0 1em}
+  .ba-b .ba-price{left:.9em;top:35.3em}
+  .ba-price b{font-size:1.7em}
+  .ba-b .ba-price b{font-size:1.5em}
+  .ba-buy{align-self:auto;margin:0 0 0 auto;height:2.3em;padding:0 .9em}
+  .ba-b{background:linear-gradient(180deg,#6A11CB 3em,#2575FC 7.4em,#C9D6FF 9em,#E2E9FF 10em,#EDF1FF 12.5em,#fff 15em)}
+  .ba-a{background:radial-gradient(18em 8em at 15em 9.5em,rgba(167,139,250,.5),rgba(167,139,250,0) 70%),linear-gradient(180deg,#120D38 3em,#2B2391 5.4em,#4B3BC9 8em,#8F82F3 8.8em,#DAD5FF 9.5em,#F6F4FF 10.6em,#fff 14em)}
+  .ba-b .ba-cookie{left:calc(var(--u)*3.4);top:calc(var(--u)*12.7);width:calc(var(--u)*18.6);padding:.65em .8em}
+  .ba-b .ba-cookie i{display:none}
+  .ba-broken{color:#444}
+  .ba-a .ba-cookie{left:calc(var(--u)*1.25);bottom:calc(var(--u)*.7)}
+  .ba-pg .ba-tag{font-size:max(8.5px,2.65cqw)}
+  .ba-cards>.ba-tag{right:auto;left:50%;transform:translateX(-50%)}
+  .ba-key{gap:8px}
+  .ba-key .ba-tag{font-size:12px}
+  .ba-key a{margin-left:0;flex-basis:100%;margin-top:4px}
+}
+@media (max-width:420px){.ba-url{display:none}}
