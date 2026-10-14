@@ -174,15 +174,30 @@ export interface PageScript {
   cdpEvents?: [string, unknown][];
   /** The page has no DevTools session for the scanner (reliability is then not measured). */
   noCdp?: boolean;
+  /** What the model judge's page side (src/judge-page.ts) answers per view: "find", "facts" and "restore". */
+  judge?: (view: string, cmd: string, arg: Record<string, any>) => unknown;
 }
 
 /** A DevTools session the scanner opens on a fake page: it records what was turned on; the page emits events into it. */
 export class FakeCdp {
   sent: string[] = [];
+  /** The clips of the crops the scanner took (Page.captureScreenshot). */
+  clips: Record<string, unknown>[] = [];
+  /** Captures in flight now, and the most there ever were at once (Chrome mixes up the clips of concurrent ones). */
+  capturing = 0;
+  maxCapturing = 0;
   detached = false;
   private handlers = new Map<string, ((p: unknown) => void)[]>();
-  async send(method: string): Promise<unknown> {
+  async send(method: string, params?: Record<string, unknown>): Promise<unknown> {
     this.sent.push(method);
+    if (method === "Page.captureScreenshot") {
+      this.clips.push((params?.clip ?? {}) as Record<string, unknown>);
+      this.capturing++;
+      this.maxCapturing = Math.max(this.maxCapturing, this.capturing);
+      await new Promise((r) => setTimeout(r, 1));
+      this.capturing--;
+      return { data: "/9j/4AAQSkZJRgABAQ==" };
+    }
     if (method === "Runtime.enable") this.emit("Runtime.executionContextCreated", { context: { id: 1, auxData: { isDefault: true, frameId: "MAIN" } } });
     if (method === "Page.getFrameTree") return { frameTree: { frame: { id: "MAIN" } } };
     return {};
@@ -220,6 +235,8 @@ export class FakePage implements PageLike {
   keys: string[] = [];
   /** Commands the scanner sent to the visual checks, in order. */
   visual: { cmd: string; arg: Record<string, any> }[] = [];
+  /** Commands the scanner sent to the model judge's page side, in order. */
+  judgeCmds: { cmd: string; arg: Record<string, any> }[] = [];
   /** The page audits the scanner ran (src/audits.ts pageSide), and the views axe-core ran in. */
   audits: { cmd: string; arg: Record<string, any> }[] = [];
   axeRuns: string[] = [];
@@ -325,6 +342,11 @@ export class FakePage implements PageLike {
       this.audits.push({ cmd: side[1], arg: JSON.parse(side[2]) });
       const v = side[1] === "vitals" ? this.script.vitals?.(this.view) : side[1] === "audit" ? this.script.audit?.(this.view) : side[1] === "overflow" ? this.script.overflow?.(this.view) : this.script.reflow?.(this.viewport?.width ?? 0);
       return JSON.stringify(v ?? null);
+    }
+    const jd = /\)\("(find|facts|restore)", (\{.*\})\)\)\)\(\)$/.exec(src);
+    if (jd) {
+      this.judgeCmds.push({ cmd: jd[1], arg: JSON.parse(jd[2]) });
+      return JSON.stringify(this.script.judge ? this.script.judge(this.view, jd[1], JSON.parse(jd[2])) : { ok: false });
     }
     const vc = /await f\("(\w+)", (\{.*\})\)\); \}\)\(\)$/.exec(src);
     if (vc) return JSON.stringify(this.visualCommand(vc[1], JSON.parse(vc[2])));

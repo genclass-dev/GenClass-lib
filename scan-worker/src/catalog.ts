@@ -2,6 +2,7 @@
 // or measurement it is judged by, and a suggested fix built from what was measured. The page shows these strings with
 // textContent only.
 
+import { JUDGE_FIX, JUDGE_WHAT, JUDGE_WHY } from "./judge.ts";
 import type { Category, Severity } from "./score.ts";
 import { isWcagRule, scFromTags, STANDARDS, wcag, type Standard } from "./standards.ts";
 
@@ -53,7 +54,7 @@ export const AUDIT_KINDS = [
 ] as const;
 export type AuditKind = (typeof AUDIT_KINDS)[number];
 /** "axe" is one axe-core rule's violations in one view; the rule id is detail.rule. */
-export type Kind = VisualKind | AuditKind | "axe" | "duplicate-submit" | "genclass-detection";
+export type Kind = VisualKind | AuditKind | "axe" | "duplicate-submit" | "genclass-detection" | "visual-judged";
 
 export interface RawFinding {
   kind: Kind;
@@ -66,8 +67,11 @@ export interface RawFinding {
   detail?: Record<string, unknown>;
 }
 
-/** Which part of the scanner measured a kind: the GenClass visual checks, axe-core, the scanner's audits, the race probe. */
-export type Source = "visual" | "axe" | "audit" | "probe";
+/**
+ * Which part of the scanner found a kind: the GenClass visual checks, axe-core, the scanner's audits, the race probe
+ * (all measured), or the model judge (src/judge.ts: judged from the screenshot by a model, never measured).
+ */
+export type Source = "visual" | "axe" | "audit" | "probe" | "judge";
 
 /**
  * Every kind: its score category, its default severity, what it is, why it matters, the standard it is judged by (when
@@ -367,6 +371,13 @@ export const KINDS: Record<Kind, { category: Category; severity: Severity; what:
     why: "The page acted on a response in a way that GenClass's model diagnosed as a bug.",
     source: "probe",
   },
+  "visual-judged": {
+    category: "visual",
+    severity: "moderate",
+    what: "An element that looks broken in the screenshot",
+    why: JUDGE_WHY,
+    source: "judge",
+  },
 };
 
 const SEVERITIES = new Set<string>(["critical", "serious", "moderate", "minor"]);
@@ -465,7 +476,7 @@ const DIAGNOSIS_WORDS: Record<string, { what: string; why: string; fix: string }
 };
 
 /** What to do when a check gave no CSS and no fix of its own. */
-const GENERIC_FIX: Record<Exclude<Kind, "axe" | "duplicate-submit" | "genclass-detection">, string> = {
+const GENERIC_FIX: Record<Exclude<Kind, "axe" | "duplicate-submit" | "genclass-detection" | "visual-judged">, string> = {
   "image-broken": "Fix the image URL, or remove the image.",
   "image-css-broken": "Fix the background-image URL.",
   "media-failed": "Serve a source the browser can play (an MP4 with H.264 is the safe choice) and check its URL.",
@@ -555,6 +566,7 @@ export function suggestFix(f: RawFinding): string {
   if (f.kind === "duplicate-submit")
     return "Disable the button while the request is in flight: form.addEventListener(\"submit\", (e) => { e.submitter && (e.submitter.disabled = true); }); and send an idempotency key so the server can drop a repeat.";
   if (f.kind === "genclass-detection") return (DIAGNOSIS_WORDS[diagnosisKey(f)] ?? DIAGNOSIS_WORDS.stale).fix;
+  if (f.kind === "visual-judged") return JUDGE_FIX[judgedVerdict(f)];
   if (f.kind === "axe") {
     const rule = String(d.rule ?? "");
     return Object.hasOwn(AXE_FIX, rule) ? AXE_FIX[rule] : "Follow the rule's guide, linked above: it shows passing and failing examples for this rule.";
@@ -564,6 +576,12 @@ export function suggestFix(f: RawFinding): string {
   const text = typeof d.fixText === "string" ? sentence(d.fixText) : "";
   const parts = [css, note ? sentence(note) : "", text].filter(Boolean);
   return parts.length ? parts.join("\n") : GENERIC_FIX[f.kind];
+}
+
+/** The problem a model-judged finding names (one of the judge's verdict options), or "" when none of them. */
+function judgedVerdict(f: RawFinding): string {
+  const v = String(f.detail?.verdict ?? "");
+  return Object.hasOwn(JUDGE_WHAT, v) ? v : "";
 }
 
 /** The words to use for a GenClass detection: its diagnosis, with a duplicate GET kept apart from a duplicate write. */
@@ -577,6 +595,10 @@ export function describe(f: RawFinding): { what: string; why: string } {
   if (f.kind === "genclass-detection") {
     const w = Object.hasOwn(DIAGNOSIS_WORDS, diagnosisKey(f)) ? DIAGNOSIS_WORDS[diagnosisKey(f)] : null;
     if (w) return { what: w.what, why: w.why };
+  }
+  if (f.kind === "visual-judged") {
+    const v = judgedVerdict(f);
+    return { what: v ? JUDGE_WHAT[v] : KINDS["visual-judged"].what, why: JUDGE_WHY };
   }
   if (f.kind === "axe") {
     const help = typeof f.detail?.help === "string" ? f.detail.help.trim() : "";

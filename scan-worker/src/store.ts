@@ -25,7 +25,8 @@ export async function cacheKey(url: string): Promise<string> {
 
 export const reportKey = (key: string): string => `scans/reports/${key}.json`;
 export const shotKey = (key: string, id: string, view: string): string => `scans/shots/${key}/${id}-${view}.jpg`;
-export const SHOT_PATH = /^\/api\/scan\/shot\/([0-9a-f]{32})\/([0-9a-z]{6,40})-(desktop|phone|phone-dark)\.jpg$/;
+/** A view's screenshot (<id>-<view>.jpg), or the crop of one element the model judge saw in it (<id>-<view>-j<n>.jpg). */
+export const SHOT_PATH = /^\/api\/scan\/shot\/([0-9a-f]{32})\/([0-9a-z]{6,40})-((?:desktop|phone|phone-dark)(?:-j[1-9]\d?)?)\.jpg$/;
 
 /**
  * A cached report younger than 6 hours made by this version of the scanner, or null. A report from an older build is a

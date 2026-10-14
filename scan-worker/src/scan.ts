@@ -18,6 +18,8 @@ import { clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, jud
 import { axeFindings, installAxeSource, parseAxe, runAxeSource, withoutVisualDuplicates } from "./axe.ts";
 import { KINDS, sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { jsNote, judgeReliability, PageLog, type CdpLike } from "./cdp.ts";
+import { askJudge, cropOf, JUDGE_MAX_CALLS, JUDGE_TIMEOUT_MS, JudgeBudget, judgeInput, judgeText, NOT_JUDGED, sanitizePage, sanitizeRow, toBase64, type CandidateClass, type Crop, type JudgeClient, type JudgeFacts, type JudgeResult } from "./judge.ts";
+import { judgePageSource } from "./judge-page.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
 import { blockedAddress, siteOf, type Target } from "./target.ts";
@@ -110,6 +112,14 @@ export const SCAN_BUDGET_MS = 50_000;
 const AXE_MS = 9000;
 /** Findings kept per view in the report. */
 const MAX_VIEW_FINDINGS = 40;
+/**
+ * At most this long per view to find, measure and crop the elements the model judge is asked about. It runs after
+ * the deeper checks, in what they left before the race probe's reserve (RESERVE_AFTER_VIEWS), so it never takes time
+ * from axe-core, the audits, the probe or the guard pass; on a slow page it gets less, or nothing.
+ */
+const JUDGE_PREP_MS = 3500;
+/** Below this much time the judge does not start in a view. */
+const JUDGE_MIN_MS = 800;
 
 /** What the visual checks' collect command returns (visual/scan-entry.js). */
 interface Collected {
@@ -161,6 +171,69 @@ export function phoneOverflow(f: RawFinding, phoneWidth: number, layoutWidth: nu
   };
 }
 
+/** An element the model judge may be asked about, as the page's "find" returned it (src/judge-page.ts), checked. */
+export interface JudgeItem {
+  i: number;
+  cls: CandidateClass;
+  key: string;
+  kind: string;
+  sel: string;
+  box: { x: number; y: number; w: number; h: number };
+}
+
+const CLASSES = new Set<string>(["finding", "covered", "clipped", "dark-control", "text-bg"]);
+
+/** The page's list of elements to judge, validated, in its order (the measured findings first, then by priority). */
+export function judgeItems(v: unknown): JudgeItem[] {
+  if (!Array.isArray(v)) return [];
+  const out: JudgeItem[] = [];
+  for (const x of v.slice(0, 60)) {
+    if (!x || typeof x !== "object") continue;
+    const o = x as Record<string, unknown>;
+    const b = (o.box && typeof o.box === "object" ? o.box : {}) as Record<string, unknown>;
+    const box = { x: numOrNull(b.x), y: numOrNull(b.y), w: numOrNull(b.w), h: numOrNull(b.h) };
+    if (!Number.isInteger(o.i) || (o.i as number) < 0 || typeof o.cls !== "string" || !CLASSES.has(o.cls)) continue;
+    if (box.x === null || box.y === null || box.w === null || box.h === null || box.w < 0 || box.h < 0) continue;
+    if (o.cls === "finding" && (typeof o.key !== "string" || !o.key)) continue;
+    out.push({
+      i: o.i as number,
+      cls: o.cls as CandidateClass,
+      key: o.cls === "finding" ? cutText(o.key, 600) : "",
+      kind: o.cls === "finding" && typeof o.kind === "string" && Object.hasOwn(KINDS, o.kind) ? o.kind : "",
+      sel: sanitizeFinding({ kind: "image-broken", selector: o.sel, measured: "" })?.selector ?? "",
+      box: box as JudgeItem["box"],
+    });
+  }
+  return out;
+}
+
+/**
+ * Where each chosen element has to be in view to be measured and cropped: at the top of the page (no scroll) when it
+ * is in the first viewport; at the end of the page for a control a fixed bar covers there (control-unreachable says
+ * "even at the end of the page"); focused, one at a time, for a focused element under a sticky bar; otherwise scrolled
+ * so that the element starts a quarter of the way down the viewport, with the elements below it that fit in the same
+ * viewport. Groups come in that order; the elements keep their priority order inside each.
+ */
+export function scrollGroups(items: readonly JudgeItem[], vh: number): { mode: "top" | "end" | "focus" | "at"; y: number; items: JudgeItem[] }[] {
+  const out: { mode: "top" | "end" | "focus" | "at"; y: number; items: JudgeItem[] }[] = [];
+  const end = items.filter((x) => x.kind === "control-unreachable");
+  const focus = items.filter((x) => x.kind === "focus-obscured");
+  const rest = items.filter((x) => x.kind !== "control-unreachable" && x.kind !== "focus-obscured");
+  const top = rest.filter((x) => x.box.y < vh && x.box.y + x.box.h > 0);
+  if (top.length) out.push({ mode: "top", y: 0, items: top });
+  if (end.length) out.push({ mode: "end", y: 0, items: end });
+  for (const f of focus) out.push({ mode: "focus", y: 0, items: [f] });
+  const below = rest.filter((x) => !top.includes(x)).sort((a, b) => a.box.y - b.box.y);
+  while (below.length) {
+    const first = below.shift()!;
+    const y = Math.max(0, Math.round(first.box.y - vh * 0.25));
+    const group = [first];
+    while (below.length && below[0].box.y + Math.min(below[0].box.h, vh / 2) <= y + vh) group.push(below.shift()!);
+    out.push({ mode: "at", y, items: group });
+  }
+  return out;
+}
+
 /** The answer to a navigation check: allowed, or refused with the code and message the person sees. */
 export type NavVerdict = { ok: true } | { ok: false; code: string; message: string };
 
@@ -198,6 +271,10 @@ export interface ScanDeps {
   guardAggressiveness?: "cautious" | "balanced" | "eager";
   /** policy.thresholds.guard for the guard pass (a gain margin); unset means the model's shipped gates. */
   guardMargin?: number | null;
+  /** The model judge (Clef on Workers AI, src/judge.ts), or null when it is off or the binding is missing. */
+  judge?: JudgeClient | null;
+  /** How long one judge call may take (JUDGE_TIMEOUT_MS; tests shorten it). */
+  judgeTimeoutMs?: number;
 }
 
 // ------------------------------------------------------------------------------------------ the views
@@ -331,6 +408,10 @@ export interface ViewResult {
   coverage: ViewCoverage;
   /** Timings and sizes measured in this view (the desktop's LCP, CLS and JavaScript bytes; failed requests not scored). */
   metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; whoAsks: number; skippedHosts?: number; env?: number[] };
+  /** The elements the model judge was asked about in this view, with its answers (src/judge.ts). */
+  judged?: JudgeResult[];
+  /** How long finding, measuring and cropping them took in this view (null: the judge did not run here). */
+  judgeMs?: number | null;
 }
 
 export interface ViewCoverage {
@@ -389,6 +470,25 @@ export interface ProbeResult {
   ms: number;
 }
 
+/** The model judge over the whole scan: calls, answers, tokens and timings. */
+export interface JudgeRun {
+  /** The judge was available to this scan (WITH a binding and not switched off). */
+  on: boolean;
+  calls: number;
+  answered: number;
+  timeouts: number;
+  /** Calls that threw (the model was unavailable) or answered malformed data. */
+  failed: number;
+  /** Input tokens the answers reported. */
+  tokens: number;
+  /** Per call, from sending to its answer: median and slowest; and from the first call sent to the last answer. */
+  msMedian: number | null;
+  msMax: number | null;
+  wallMs: number | null;
+  /** The time each view spent finding, measuring and cropping. */
+  prepMs: Record<string, number>;
+}
+
 export interface ScanResult {
   views: ViewResult[];
   probe: ProbeResult | null;
@@ -397,6 +497,7 @@ export interface ScanResult {
   ms: { total: number; launch: number; views: number; probe: number; guard: number };
   chrome: string;
   timedOut: boolean;
+  judge?: JudgeRun;
 }
 
 // ------------------------------------------------------------------------------------------ utilities
@@ -513,10 +614,16 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     ms: { total: 0, launch: 0, views: 0, probe: 0, guard: 0 },
     chrome: "",
     timedOut: false,
+    judge: { on: !!deps.judge, calls: 0, answered: 0, timeouts: 0, failed: 0, tokens: 0, msMedian: null, msMax: null, wallMs: null, prepMs: {} },
   };
   // the scanner's page-side functions live under names the page cannot guess
   const name = deps.pageName ?? `__gcs${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const N = { checks: `${name}c`, safety: `${name}s`, state: `${name}r`, axe: `${name}x` };
+  const N = { checks: `${name}c`, safety: `${name}s`, state: `${name}r`, axe: `${name}x`, judge: `${name}j` };
+  // the model judge: one budget of calls for the three views, sent as each view finds its elements; answered later
+  const judgeBudget = new JudgeBudget();
+  const judgeCalls: Promise<void>[] = [];
+  let judgeFirst = 0;
+  let judgeLast = 0;
   const dnsCache = new Map<string, Promise<HostAnswer>>();
   dnsCache.set(target.host, Promise.resolve("ok")); // checked before the browser started
   const dns = (host: string): Promise<HostAnswer> => {
@@ -635,6 +742,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         result.ms.guard = deps.now() - tGuard;
       }
     }
+
+    // ------------------------------------------------------------------ the model judge's answers
+    // sent while the views ran, so usually all in by now; each call has its own timeout from when it was sent
+    if (judgeCalls.length) await withTimeout(Promise.allSettled(judgeCalls), Math.max(0, left() - 300), "the model judge").catch(() => undefined);
   })();
 
   let outcome: "done" | Stop;
@@ -662,6 +773,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     result.notes.push(`The scan hit its ${Math.round(budget / 1000)} s budget; steps that had not finished are left out.`);
   }
   for (const v of result.views) if (!v.ok) v.shot = null;
+  result.judge = judgeRun();
   return result;
 
   // ======================================================================================== helpers
@@ -670,7 +782,28 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     return {
       id: spec.id, label: spec.label, width: spec.width, height: spec.height, ok: false, status: null, finalUrl: target.url,
       ms: 0, notes: [], findings: [], checks: null, fixes: null, shot: null, shotHeight: 0, error, standIns: { count: 0, requests: [] },
-      audits: [], coverage: emptyCoverage(), metrics: { lcpMs: null, cls: null, jsBytes: null, whoAsks: 0 },
+      audits: [], coverage: emptyCoverage(), metrics: { lcpMs: null, cls: null, jsBytes: null, whoAsks: 0 }, judged: [], judgeMs: null,
+    };
+  }
+
+  /** The judge's run over the scan, from every view's results (answers that came after the scan ended do not count). */
+  function judgeRun(): JudgeRun {
+    const all = result.views.flatMap((v) => v.judged ?? []);
+    const done = all.filter((j) => j.answer || j.error);
+    const ms = done.map((j) => j.ms).sort((a, b) => a - b);
+    const prepMs: Record<string, number> = {};
+    for (const v of result.views) if (v.judgeMs !== null && v.judgeMs !== undefined) prepMs[v.id] = v.judgeMs;
+    return {
+      on: !!deps.judge,
+      calls: all.length,
+      answered: all.filter((j) => j.answer).length,
+      timeouts: all.filter((j) => j.error === "timeout" || (!j.answer && !j.error)).length,
+      failed: all.filter((j) => j.error === "unavailable" || j.error === "malformed").length,
+      tokens: all.reduce((t, j) => t + (j.answer?.tokens ?? 0), 0),
+      msMedian: ms.length ? ms[Math.floor((ms.length - 1) / 2)] : null,
+      msMax: ms.length ? ms[ms.length - 1] : null,
+      wallMs: judgeFirst && judgeLast ? judgeLast - judgeFirst : null,
+      prepMs,
     };
   }
 
@@ -960,7 +1093,9 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       } catch (e) {
         view.notes.push(`No screenshot: ${e instanceof Error ? e.message : String(e)}.`);
       }
-      await deeperChecks(page, view, spec, vitals, log, net);
+      const narrowed = await deeperChecks(page, view, spec, vitals, log, net);
+      // the model judge last, in the time the checks above left before the race probe's reserve
+      if (deps.judge && view.shot && !discard) await judgeView(page, view, spec, cdp, narrowed);
     }
     log?.stop();
     if (cdp?.detach) await cdp.detach().catch(() => undefined);
@@ -999,12 +1134,128 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   }
 
   /**
+   * The model judge in one view (src/judge.ts), after the screenshot and before the deeper checks: the visual checks'
+   * findings it may judge and the elements the measured checks abstain on (src/judge-page.ts "find"), findings first,
+   * as many as this view's share of the scan's calls allows. Each element is measured and cropped from a viewport
+   * screenshot with it in view (no scrolling for those at the top of the page), and its call is sent at once, so the
+   * answers come in while the rest of the scan runs. It takes at most JUDGE_PREP_MS, and only time the deeper checks
+   * after it do not need. Anything that goes wrong leaves this view's findings as measured and says so in its notes.
+   */
+  async function judgeView(page: PageLike, view: ViewResult, spec: ViewSpec, cdp: CdpLike | null, narrowed: boolean): Promise<void> {
+    const client = deps.judge;
+    if (!client) return;
+    const t0 = deps.now();
+    const prep = Math.min(JUDGE_PREP_MS, left() - RESERVE_AFTER_VIEWS - 300);
+    if (prep < JUDGE_MIN_MS) {
+      judgeBudget.take(spec.id, 0); // its share goes to the views after it
+      view.notes.push("The model judge (Clef) was skipped in this view: not enough of the scan's time was left.");
+      return;
+    }
+    const timeLeft = () => t0 + prep - deps.now();
+    let chosen = 0;
+    let sent = 0;
+    const judged = (view.judged ??= []);
+    try {
+      // the reflow check left the light phone at 320 px: back to the phone's width, as in the screenshot
+      if (narrowed) {
+        await page.setViewport({ width: spec.width, height: spec.height, deviceScaleFactor: 1, isMobile: spec.mobile, hasTouch: spec.mobile });
+        await deps.sleep(450);
+      }
+      await page.mouse.move(-1, -1).catch(() => undefined);
+      await withTimeout(evalDom(page, BLUR_SOURCE), 1000, "clearing focus").catch(() => undefined);
+      const targets = view.findings
+        .filter((f) => !NOT_JUDGED.has(f.kind) && f.box && f.box.w >= 4 && f.box.h >= 4)
+        .slice(0, 20)
+        .map((f) => ({ key: visualKey(f), kind: f.kind, selector: f.selector, box: f.box }));
+
+      const found = parseJson<{ ok?: unknown; vh?: unknown; items?: unknown } | null>(
+        await withTimeout(
+          evalDom(page, judgePageSource("find", { name: N.judge, targets, find: true, dark: spec.scheme === "dark", max: JUDGE_MAX_CALLS - 10, shotW: view.width, shotH: view.shotHeight })),
+          Math.min(3000, timeLeft()),
+          "finding the elements to judge",
+        ),
+        null,
+      );
+      if (!found || found.ok !== true) throw new Error("the page did not answer");
+      const items = judgeItems(found.items);
+      const take = judgeBudget.take(spec.id, items.length);
+      chosen = take;
+      for (const g of scrollGroups(items.slice(0, take), numOrNull(found.vh) ?? spec.height)) {
+        if (timeLeft() < 400) break;
+        const facts = parseJson<{ ok?: unknown; vw?: unknown; vh?: unknown; sx?: unknown; sy?: unknown; page?: unknown; items?: unknown } | null>(
+          await withTimeout(
+            evalDom(page, judgePageSource("facts", { name: N.judge, idx: g.items.map((x) => x.i), mode: g.mode, y: g.y, vars: g.items.filter((x) => x.kind === "css-var-undefined").map((x) => x.i) })),
+            Math.min(2500, timeLeft()),
+            "measuring the elements to judge",
+          ).catch(() => null),
+          null,
+        );
+        if (!facts || facts.ok !== true || !Array.isArray(facts.items)) continue;
+        const vw = numOrNull(facts.vw) ?? spec.width;
+        const vh = numOrNull(facts.vh) ?? spec.height;
+        const sx = numOrNull(facts.sx) ?? 0;
+        const sy = numOrNull(facts.sy) ?? 0;
+        const pageRow = sanitizePage(facts.page);
+        const jobs: { it: JudgeItem; facts: JudgeFacts; crop: Crop }[] = [];
+        for (const raw of facts.items.slice(0, 60) as Record<string, unknown>[]) {
+          const it = g.items.find((x) => x.i === raw?.i);
+          const el = it ? sanitizeRow(raw.el) : null;
+          if (!it || !el) continue;
+          const crop = cropOf({ x: Number(el.x), y: Number(el.y), w: Number(el.w), h: Number(el.h) }, vw, vh, sx, sy);
+          if (!crop) continue;
+          jobs.push({ it, crop, facts: { device: spec.mobile ? "phone" : "desktop", scheme: spec.scheme, page: pageRow, el, anc: sanitizeRow(raw.anc), kids: Math.max(0, Math.round(numOrNull(raw.kids) ?? 0)) } });
+        }
+        // one crop at a time: Chrome applies the clip of concurrent captures to each other's images (calibration: two
+        // crops of one group came back swapped), and each call goes out as soon as its crop is taken
+        for (const j of jobs) {
+          if (timeLeft() < 150) break;
+          const image = await withTimeout(cropShot(page, cdp, j.crop), Math.min(2000, Math.max(400, timeLeft())), "a crop").catch(() => null);
+          if (!image) continue;
+          const state = judgeText(j.it.cls === "finding", j.facts, j.crop);
+          const res: JudgeResult = { id: `${spec.id}-j${judged.length + 1}`, view: spec.id, cls: j.it.cls, key: j.it.key, kind: j.it.kind, selector: j.it.sel, box: j.it.box, crop: j.crop, state, image, answer: null, error: null, ms: 0 };
+          judged.push(res);
+          sent++;
+          if (!judgeFirst) judgeFirst = deps.now();
+          judgeCalls.push(
+            askJudge(client, judgeInput(state, image), deps.judgeTimeoutMs ?? JUDGE_TIMEOUT_MS, deps.now).then((r) => {
+              res.answer = r.answer;
+              res.error = r.error;
+              res.ms = r.ms;
+              judgeLast = deps.now();
+            }),
+          );
+        }
+      }
+      if (sent < chosen) view.notes.push(`The model judge (Clef) ran out of its time in this view: ${sent} of the ${chosen} elements chosen ${sent === 1 ? "was" : "were"} sent to it; what it did not see stands as measured.`);
+    } catch (e) {
+      view.notes.push(`The model judge (Clef) did not run in this view (${cutText(e instanceof Error ? e.message : String(e), 100)}), so the findings here stand as measured.`);
+    } finally {
+      judgeBudget.take(spec.id, 0); // when it stopped before taking any, its share goes to the views after it
+      await withTimeout(evalDom(page, judgePageSource("restore", { name: N.judge })), 1500, "restoring the page").catch(() => undefined);
+      view.judgeMs = deps.now() - t0;
+    }
+  }
+
+  /** One crop as base64 JPEG: a viewport screenshot of the clip, over the view's own DevTools session when there is one. */
+  async function cropShot(page: PageLike, cdp: CdpLike | null, c: Crop): Promise<string | null> {
+    const clip = { x: c.x, y: c.y, width: c.w, height: c.h, scale: 1 };
+    let data: unknown;
+    if (cdp) data = ((await cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 90, clip, captureBeyondViewport: false, optimizeForSpeed: true })) as { data?: unknown } | null)?.data;
+    else {
+      const b = await page.screenshot({ type: "jpeg", quality: 90, clip: { x: c.x, y: c.y, width: c.w, height: c.h }, captureBeyondViewport: false, encoding: "base64" });
+      data = typeof b === "string" ? b : b instanceof Uint8Array ? toBase64(b) : null;
+    }
+    return typeof data === "string" && data.length > 8 && data.length < 5_600_000 && /^[A-Za-z0-9+/]+=*$/.test(data.slice(-64)) ? data : null;
+  }
+
+  /**
    * axe-core and the scanner's own audits in one view, after the visual checks and the screenshot (src/axe.ts,
    * src/audits.ts, src/cdp.ts). Each step runs only when the time left before the race probe allows it and says so when
    * it does not; a step that did not run leaves its category unmeasured in this view (ViewCoverage). On the light phone
    * the viewport is then narrowed to 360 and 320 px (no reload) for the reflow check, after everything else.
    */
-  async function deeperChecks(page: PageLike, view: ViewResult, spec: ViewSpec, vitals: Record<string, unknown> | null, log: PageLog | null, net: NetLog): Promise<void> {
+  async function deeperChecks(page: PageLike, view: ViewResult, spec: ViewSpec, vitals: Record<string, unknown> | null, log: PageLog | null, net: NetLog): Promise<boolean> {
+    let narrowed = false;
     const room = () => left() - RESERVE_AFTER_VIEWS;
     const out: RawFinding[] = [];
     const phone = spec.id === "phone";
@@ -1071,6 +1322,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
             const overflow390 = view.findings.some((f) => f.kind === "page-overflow-x");
             if (!overflow390 && viewportOk(vp) && room() > 3000) {
               const at = async (w: number): Promise<unknown> => {
+                narrowed = true;
                 await page.setViewport({ width: w, height: spec.height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
                 await deps.sleep(450);
                 return parseJson<unknown>(await withTimeout(evalDom(page, pageSideSource("reflow")), 3000, "the reflow check"), null);
@@ -1108,6 +1360,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       if (skipped) view.metrics.skippedHosts = skipped;
     }
     view.audits = out.map(sanitizeFinding).filter((f): f is RawFinding => f !== null);
+    return narrowed;
   }
 
   function standInsOf(net: NetLog): ViewResult["standIns"] {

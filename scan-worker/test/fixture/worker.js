@@ -17,6 +17,13 @@
 //                pushes the page down, an uncaught TypeError, a console.error, a 404 script, and a script and an image
 //                asked for over http
 //   /?deep=1&slow=1  the late image arrives after 4.5 s instead (Largest Contentful Paint above 4 s)
+// and one for the model judge, with cases the measured checks abstain on (the background is a gradient or an image):
+//   /?judge=1    a "Start free trial" link drawn as a white button with a white-to-near-white gradient, whose text is
+//                dark in the light scheme and white in the dark scheme (white on white there); grey text over a busy
+//                image that cannot be read; and, as controls, white bold text with a shadow over the same image under
+//                a dark overlay, which can be read, and a paragraph coloured by a CSS variable defined nowhere, which
+//                falls back to the inherited colour and reads normally (the visual checks report css-var-undefined only
+//                when the text it affects becomes unreadable, so they leave it out too)
 // Every POST that does reach this worker is counted (GET /api/posts), so a run can show that none did.
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -88,6 +95,28 @@ const DEEP = `<p class="grey">This paragraph is grey on white at about 2.85 to 1
 <script>window.fixtureWidget.init();</script>`;
 const DEEP_CSS = `.grey{color:#999}.iconbtn{border:0;background:none;padding:4px}.tiny a{display:inline-block;width:16px;height:16px;font-size:10px;line-height:16px;margin:0 2px;text-align:center;background:#eef2f7}
 .small{font-size:10px}.wide{width:340px;box-sizing:border-box}`;
+const JUDGE = `<p class="varink">This sentence's colour is a CSS variable defined nowhere, so it falls back to the text colour around it and reads normally.</p>
+<section class="dk"><p>Plans start at five dollars a month, billed yearly.</p><a class="darkbtn" href="/start">Start free trial</a></section>
+<div class="busy"><p>Free shipping on every order over fifty dollars, all week long.</p></div>
+<div class="calm"><p>Readable: white bold text over the same picture, under a dark overlay.</p></div>`;
+const JUDGE_CSS = `.varink{color:var(--brand-ink)}.dk{margin-top:16px;padding:14px 16px;background:#f4f6fa;border-radius:8px}.dk p{margin:0}
+.darkbtn{display:inline-block;margin-top:10px;padding:10px 18px;border-radius:6px;font-weight:600;text-decoration:none;color:#1d2433;background-image:linear-gradient(#ffffff,#f1f3f6)}
+@media (prefers-color-scheme:dark){.dk{background:#141922;color:#e6e9ef}.darkbtn{color:#ffffff}}
+.busy,.calm{margin-top:16px;padding:28px 16px;background:url(/busy.svg) center/cover}.busy p,.calm p{margin:0}
+.busy p{color:#8a8a8a;font-size:15px}
+.calm{background:linear-gradient(rgba(10,12,18,.62),rgba(10,12,18,.62)),url(/busy.svg) center/cover}.calm p{color:#fff;font-weight:700;font-size:17px;text-shadow:0 1px 2px #000}`;
+/** A busy picture: seeded rectangles and circles in every hue, mid-light, so grey text over it cannot be read. */
+function busySvg() {
+  let s = 12345;
+  const r = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const parts = [];
+  for (let i = 0; i < 260; i++) {
+    const fill = `hsl(${Math.round(r() * 360)},${Math.round(30 + r() * 50)}%,${Math.round(35 + r() * 40)}%)`;
+    if (r() < 0.5) parts.push(`<rect x="${Math.round(r() * 800)}" y="${Math.round(r() * 300)}" width="${Math.round(10 + r() * 90)}" height="${Math.round(6 + r() * 50)}" fill="${fill}"/>`);
+    else parts.push(`<circle cx="${Math.round(r() * 800)}" cy="${Math.round(r() * 300)}" r="${Math.round(4 + r() * 30)}" fill="${fill}"/>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="300" viewBox="0 0 800 300"><rect width="800" height="300" fill="#9a9a9a"/>${parts.join("")}</svg>`;
+}
 const PIXEL = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="), (c) => c.charCodeAt(0));
 /** A 24-bit BMP of seeded noise: it does not compress, so its transferred size is its real size. */
 function bmp(w, h, seed) {
@@ -123,8 +152,15 @@ export default {
           .replace("<h1>Scanner test page</h1>", `${DEEP_TOP.replace("SLOW", url.searchParams.get("slow") === "1" ? "slow=1" : "")}<h1>Scanner test page</h1>`)
           .replace("This box is 640 px wide, wider than a phone.", "This box is 340 px wide: it fits a 390 px phone, not a 360 px one.");
       }
+      if (url.searchParams.get("judge") === "1") {
+        // near the top, so the cases are in the first screen, but after the faint sentence: put before it they push it
+        // down under the fixed chat bar, where the visual checks rightly leave it out (covered), and the judge's second
+        // look at a measured finding has nothing to work on
+        page = page.replace("</style>", `${JUDGE_CSS}</style>`).replace("nearly white on white.</p>", `nearly white on white.</p>\n${JUDGE}`);
+      }
       return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" } });
     }
+    if (url.pathname === "/busy.svg") return new Response(busySvg(), { headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" } });
     if (url.pathname === "/big.bmp") return new Response(bmp(800, 600, 7), { headers: { "content-type": "image/bmp", "cache-control": "no-store" } });
     if (url.pathname === "/late.bmp") {
       await new Promise((r) => setTimeout(r, url.searchParams.get("slow") === "1" ? 4500 : 1500));

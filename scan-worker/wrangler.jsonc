@@ -22,6 +22,10 @@
   // would end up inside them and is not defined in the scanned page.
   "keep_names": false,
   "browser": { "binding": "BROWSER" },
+  // Workers AI, for the model judge (src/judge.ts): Clef (@cf/cloudflare/clef) reads a crop of the screenshot (and, for
+  // a measured finding, the element's measured facts). At most 40 calls a scan, at most about $0.0125 at list price;
+  // JUDGE "off" turns it off.
+  "ai": { "binding": "AI" },
   // The site worker, for paths under the /scan* route that are the site's files (its /scan-box.js), read-only GETs.
   "services": [{ "binding": "SITE", "service": "genclass-site" }],
   // Existing bucket, scans/ prefix only: reports (6 h cache), screenshots (deleted after 24 h), slots, blocklist.
@@ -43,7 +47,9 @@
     // The visual fixes are in testing (no released runtime has them); every page and report says so until
     // VISUAL_IN_RUNTIME in src/visual.ts names a published runtime. "off" runs the visual checks report-only.
     "WITH_GENCLASS": "on",
-    "GUARD_HOLD_MS": "900"
+    "GUARD_HOLD_MS": "900",
+    // The model judge on the AI binding: "on", or "off" for measured checks only.
+    "JUDGE": "on"
   },
   // Hourly retention sweep: scan reports and screenshots older than 24 hours.
   "triggers": { "crons": ["23 * * * *"] },
@@ -60,6 +66,7 @@
       "routes": [],
       "workers_dev": true,
       "browser": { "binding": "BROWSER" },
+      "ai": { "binding": "AI" },
       "services": [{ "binding": "SITE", "service": "genclass-site" }],
       "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
       "ratelimits": [
@@ -70,6 +77,9 @@
         "MAX_CONCURRENT": "3",
         "WITH_GENCLASS": "on",
         "GUARD_HOLD_MS": "900",
+        "JUDGE": "on",
+        // calibration: keep the crop of every element the judge was asked about (deleted after 24 hours like the rest)
+        "JUDGE_CROPS": "all",
         "STORE_PREFIX": "scan-test/"
       },
       // the same hourly sweep, over the test prefix: the test copy keeps reports and screenshots 24 hours at most too
