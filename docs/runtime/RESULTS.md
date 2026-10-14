@@ -396,12 +396,13 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | **release candidate**: + main (accounts and the CLI commands: no browser code) and wave2/dash-detect (the worker only) (`18e89f0`, run 38485063587) | **107.56 KB** (101.59 + 3.05 + 2.74 + 0.19) | **99.59 KB** (93.62 + 3.05 + 2.74 + 0.19) | **127.89 KB** (374.9 KB minified) |
 | + release review: telemetry masks path segments holding an `@` and URLs in model error text (`9d567a0`, run 38488753971) | **107.61 KB** (101.63 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **127.92 KB** (375.0 KB minified) |
 | + no vendor sink adapters: the Sentry, PostHog and Datadog adapters removed (never shipped), one console warning for those names in a page config (wave2/no-vendor-sinks `31ddc98`, run 38491077597) | **107.73 KB** (101.75 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **128.01 KB** (375.2 KB minified) |
-| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; not re-set: the release candidate was 0.13 / 0.10 KB under it, and with the vendor-name warning `/auto` is 0.01 KB under it) | 107.74 KB | 99.71 KB | none |
+| + that warning reworded to claim no paid feature: "Sentry, PostHog and Datadog forwarding is not in the free runtime" (`eea042b`, run 38494904699) | **107.71 KB** (101.74 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **128.00 KB** (375.1 KB minified) |
+| limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; not re-set: the release candidate was 0.13 / 0.10 KB under it, and with the vendor-name warning `/auto` is 0.03 KB under it) | 107.74 KB | 99.71 KB | none |
 
 Removing the vendor adapters changes no first load (they were lazy chunks of `/auto` and files the script tag loaded
 from the CDN). The one warning for the names `sentry`, `posthog` and `datadog` (`src/cdn/sinks.ts` `applySinks`: the
-name check and the text with the pricing link) adds 0.12 KB to `/auto` and 0.09 KB to the script tag; the main entry,
-which has no sink names, is unchanged. That leaves 0.01 KB under the `/auto` limit: the next change that adds to
+name check and the text with the pricing link, as reworded in `2fea265`) adds 0.10 KB to `/auto` and 0.08 KB to the
+script tag; the main entry, which has no sink names, is unchanged. That leaves 0.03 KB under the `/auto` limit: the next change that adds to
 `/auto`'s first load needs a smaller first load or a new limit.
 
 The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's

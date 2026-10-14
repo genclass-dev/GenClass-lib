@@ -76,7 +76,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // flow chunk, 107.56 / 99.59 KB (CI run 38482297879). The Sentry, PostHog and Datadog adapters were removed (never
   // shipped: forwarding to those tools is not in the free runtime); the one warning for those names in /auto's page
   // config (src/cdn/sinks.ts applySinks) brings /auto to 107.73 KB, the main entry unchanged at 99.61 KB (CI run
-  // 38491077597, wave2/no-vendor-sinks 31ddc98). Both sizes are printed before either is asserted.
+  // 38491077597, wave2/no-vendor-sinks 31ddc98); reworded so it names no paid feature, 107.71 KB (CI run 38494904699).
+  // Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 107.74, "index.js": 99.71 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");

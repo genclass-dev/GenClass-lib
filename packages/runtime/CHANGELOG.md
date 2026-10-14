@@ -454,8 +454,8 @@ code, and the dashboard's counting, which is the worker's) measures the same: 10
 `@` and URLs in model error text masked): **107.61 KB** and **99.61 KB**, script tag 127.92 KB (CI run 38488753971),
 0.13 / 0.10 KB under the limits, which are not re-set. Removing the Sentry, PostHog and Datadog adapters changes no
 first load (they were lazy chunks and CDN files); the one console warning for those names in a page config adds
-0.12 KB to `/auto` and 0.09 KB to the script tag, and nothing to the main entry: **107.73 KB** and **99.61 KB**, script
-tag 128.01 KB (CI run 38491077597, RESULTS.md §10), 0.01 / 0.10 KB under the limits, which are not re-set.
+0.10 KB to `/auto` and 0.08 KB to the script tag, and nothing to the main entry: **107.71 KB** and **99.61 KB**, script
+tag 128.00 KB (CI run 38494904699, RESULTS.md §10), 0.03 / 0.10 KB under the limits, which are not re-set.
 
 ## 0.2.2 (2026-10-13)
 
