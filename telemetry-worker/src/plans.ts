@@ -4,9 +4,11 @@
 // - The plans live in billing/plans.json at the repo root (the site's pricing page reads the same file). Change a
 //   price or a limit there, not here.
 // - A plan comes from accounts.plan, which src/stripe.ts derives from the Stripe subscription. Entitlements follow the
-//   plan whatever the server's configuration.
-// - The Free plan's limits (3 apps, 7 days in view) apply only once paid plans are on sale (STRIPE_SECRET_KEY is
-//   set): before that nobody could upgrade, so accounts keep the limits they had (200 apps, 30 days in view).
+//   plan whatever the server's configuration, except that a plan bought in Stripe's test mode counts only while the
+//   key is a test key (inMode): a test purchase never carries over to live. A live plan always counts.
+// - The Free plan's limits (3 apps, 7 days in view) apply only once paid plans are on sale to everyone (a live
+//   STRIPE_SECRET_KEY): before that nobody could upgrade, so accounts keep the limits they had (200 apps, 30 days in
+//   view). With a test key only the accounts in STRIPE_TEST_ACCOUNTS can buy (canBuy), and no limits change.
 // - Retention never deletes data newer than the plan allows, and never shortens what existing projects had: daily
 //   counters, recent rows and stored batches are kept RETENTION_DAYS (90) for every project, and longer for the apps
 //   of accounts on a plan with more history (and for GRACE_DAYS after such a plan ends, so a lapsed card does not
@@ -57,10 +59,49 @@ export function planByLookupKey(key: unknown): Plan | null {
   return PLANS.find((p) => p.stripe_lookup_keys.monthly === key || p.stripe_lookup_keys.yearly === key) ?? null;
 }
 
+/** The paid plan named by a Stripe price's or product's metadata.genclass_plan (scripts/stripe-setup.mjs sets it). */
+export function planByMetadata(meta: unknown): Plan | null {
+  const id = meta && typeof meta === "object" ? (meta as Record<string, unknown>).genclass_plan : null;
+  return PAID_PLANS.find((p) => p.id === id) ?? null;
+}
+
+/**
+ * The plan a Stripe price sells: by its lookup_key, else by the genclass_plan metadata on the price or on its
+ * product (when expanded). A price the setup script replaced keeps its metadata but loses its lookup_key, and its
+ * subscribers stay on it, so the metadata keeps their plan.
+ */
+export function planForPrice(price: unknown): Plan | null {
+  if (!price || typeof price !== "object") return null;
+  const p = price as Record<string, unknown>;
+  const product = p.product && typeof p.product === "object" ? (p.product as Record<string, unknown>) : null;
+  return planByLookupKey(p.lookup_key) ?? planByMetadata(p.metadata) ?? planByMetadata(product?.metadata);
+}
+
 export const entitled = (plan: Plan, e: Entitlement): boolean => plan.entitlements[e] === true;
 
-/** Paid plans are on sale: the Stripe secret key is set. */
-export const billingLive = (env: Env): boolean => !!env.STRIPE_SECRET_KEY;
+export type StripeMode = "test" | "live";
+
+/** The mode of STRIPE_SECRET_KEY (sk_ or rk_, live_ or test_), or null when it is unset or not a Stripe key. */
+export function stripeMode(env: Env): StripeMode | null {
+  const k = (env.STRIPE_SECRET_KEY ?? "").trim();
+  return /^[sr]k_live_/.test(k) ? "live" : /^[sr]k_test_/.test(k) ? "test" : null;
+}
+
+/** Paid plans are on sale to everyone (a live key), so the Free plan's limits apply. */
+export const billingLive = (env: Env): boolean => stripeMode(env) === "live";
+
+/**
+ * This account can buy a plan: any account with a live key; with a test key only the accounts listed in
+ * STRIPE_TEST_ACCOUNTS (emails or account ids), so a test pass on the production worker sells nothing to anyone else.
+ */
+export function canBuy(env: Env, account: { id: string; email: string | null }): boolean {
+  const mode = stripeMode(env);
+  if (mode === "live") return true;
+  if (mode !== "test") return false;
+  const list = (env.STRIPE_TEST_ACCOUNTS ?? "").split(/[\s,]+/).filter(Boolean);
+  const email = account.email?.toLowerCase();
+  return list.some((x) => x === account.id || (!!email && x.toLowerCase() === email));
+}
 
 /** "$99 / month", or "$0". */
 export function priceText(plan: Plan): string {
@@ -81,20 +122,39 @@ export interface Billing {
   subscription_status: string | null;
   current_period_end: string | null;
   cancel_at_period_end: number;
+  /** The Stripe mode the ids belong to ('test' or 'live'), null when there are none. */
+  stripe_mode: string | null;
 }
 
-const NO_BILLING: Billing = { plan: "free", stripe_customer_id: null, subscription_id: null, subscription_status: null, current_period_end: null, cancel_at_period_end: 0 };
+const NO_BILLING: Billing = { plan: "free", stripe_customer_id: null, subscription_id: null, subscription_status: null, current_period_end: null, cancel_at_period_end: 0, stripe_mode: null };
 
-export async function accountBilling(db: D1Like, accountId: string): Promise<Billing> {
+/** The SQL test for "this account's plan counts under the current key" (`?` binds the key's mode, or ''). */
+export const MODE_OK_SQL = "(a.stripe_mode IS NULL OR a.stripe_mode <> 'test' OR ? = 'test')";
+
+/** A plan recorded in this Stripe mode counts under a key of `mode`: test-mode records only under a test key. */
+export const modeCounts = (recorded: string | null | undefined, mode: StripeMode | null): boolean => recorded !== "test" || mode === "test";
+
+/**
+ * The billing as the current Stripe key sees it: ids and a plan bought in test mode count as none unless the key is a
+ * test key (a test purchase after the key went live). Live records always count, so changing or removing the key
+ * never downgrades someone Stripe still charges.
+ */
+export function inMode(b: Billing, env: Env): Billing {
+  return modeCounts(b.stripe_mode, stripeMode(env)) ? b : NO_BILLING;
+}
+
+/** The account's billing row; with `env`, as the current Stripe key sees it (inMode). Without, as stored. */
+export async function accountBilling(db: D1Like, accountId: string, env?: Env): Promise<Billing> {
   const row = await db
-    .prepare("SELECT plan, stripe_customer_id, subscription_id, subscription_status, current_period_end, cancel_at_period_end FROM accounts WHERE id = ?")
+    .prepare("SELECT plan, stripe_customer_id, subscription_id, subscription_status, current_period_end, cancel_at_period_end, stripe_mode FROM accounts WHERE id = ?")
     .bind(accountId)
     .first<Billing>();
-  return row ?? NO_BILLING;
+  if (!row) return NO_BILLING;
+  return env ? inMode(row, env) : row;
 }
 
-export async function accountPlan(db: D1Like, accountId: string): Promise<Plan> {
-  return planById((await accountBilling(db, accountId)).plan);
+export async function accountPlan(db: D1Like, accountId: string, env?: Env): Promise<Plan> {
+  return planById((await accountBilling(db, accountId, env)).plan);
 }
 
 // --------------------------------------------------------------------------------------------- apps
@@ -107,7 +167,7 @@ export interface AppLimit {
 
 /** The plan's app limit (null: none; the caller's abuse cap still applies). */
 export async function appLimit(db: D1Like, env: Env, accountId: string): Promise<AppLimit> {
-  const plan = await accountPlan(db, accountId);
+  const plan = await accountPlan(db, accountId, env);
   const applies = billingLive(env) || plan.id !== "free";
   return { plan, max: applies ? plan.limits.apps : null };
 }
@@ -152,17 +212,19 @@ export const keepDays = (plan: Plan): number => Math.max(RETENTION_DAYS, plan.li
 
 /**
  * The apps kept longer than RETENTION_DAYS: those of accounts on a plan with more history, and of accounts whose paid
- * period ended less than GRACE_DAYS ago. `days` is the longest such plan's history.
+ * period ended less than GRACE_DAYS ago. `days` is the longest such plan's history. With `mode` (the current key's,
+ * null without one), a plan bought in test mode counts only under a test key.
  */
-export function longRetention(now: Date): { tokens: string; params: unknown[]; days: number } | undefined {
+export function longRetention(now: Date, mode?: StripeMode | null): { tokens: string; params: unknown[]; days: number } | undefined {
   const long = PLANS.filter((p) => p.limits.history_days > RETENTION_DAYS);
   if (!long.length) return undefined;
   const grace = new Date(now.getTime() - GRACE_DAYS * DAY).toISOString();
   return {
     tokens:
       "SELECT p.token FROM projects p JOIN accounts a ON a.id = p.account_id WHERE " +
-      `a.plan IN (${long.map(() => "?").join(", ")}) OR (a.subscription_id IS NOT NULL AND a.current_period_end > ?)`,
-    params: [...long.map((p) => p.id), grace],
+      `(a.plan IN (${long.map(() => "?").join(", ")}) OR (a.subscription_id IS NOT NULL AND a.current_period_end > ?))` +
+      (mode !== undefined ? ` AND ${MODE_OK_SQL}` : ""),
+    params: [...long.map((p) => p.id), grace, ...(mode !== undefined ? [mode ?? ""] : [])],
     days: Math.max(...long.map((p) => p.limits.history_days)),
   };
 }
@@ -171,14 +233,15 @@ export function longRetention(now: Date): { tokens: string; params: unknown[]; d
  * The daily sweep (index.ts): dashboard rows by plan, stored-batch index and export copies by plan, forwarding
  * dedupe rows older than 2 hours, handled Stripe event ids older than 30 days.
  */
-export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps): Promise<void> {
-  const long = longRetention(now);
+export async function planRetention(db: D1Like, now: Date, bucket?: BucketOps, mode?: StripeMode | null): Promise<void> {
+  const long = longRetention(now, mode);
   await retention(db, now, long);
-  await Promise.allSettled([
-    exportSweep(db, bucket, now, long),
-    db.batch([
+  // one after the other (each D1 batch is a transaction); a failure in one does not stop the next
+  await exportSweep(db, bucket, now, long).catch(() => undefined);
+  await db
+    .batch([
       db.prepare("DELETE FROM forward_log WHERE hour < ?").bind(new Date(now.getTime() - 2 * 3_600_000).toISOString().slice(0, 13)),
       db.prepare("DELETE FROM billing_events WHERE received < ?").bind(new Date(now.getTime() - 30 * DAY).toISOString()),
-    ]),
-  ]);
+    ])
+    .catch(() => undefined);
 }

@@ -53,8 +53,8 @@ import { appExtrasData, appExtrasHtml } from "./billing-pages.js";
 import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
 import { dashboardPage, securityHeaders } from "./pages.js";
-import { accountBilling, accountPlan, appLimit, appLimitBody, LIVE_STATUSES, pickRange, viewRanges } from "./plans.js";
-import { cancelNow } from "./stripe.js";
+import { accountBilling, accountPlan, appLimit, appLimitBody, pickRange, viewRanges } from "./plans.js";
+import { cancelForDeletion } from "./stripe.js";
 import {
   b64url,
   equalStrings,
@@ -1182,15 +1182,10 @@ async function deleteAccount(c: C): Promise<Response> {
   if (body instanceof Response) return body;
   if (body.confirm !== "delete") return fail(400, 'send { "confirm": "delete" } to delete this account');
   const id = a.account.id;
-  // a paid plan is cancelled with Stripe first: an account that no longer exists must not be charged again
-  const bill = await accountBilling(c.db, id);
-  if (bill.subscription_id && LIVE_STATUSES.has(bill.subscription_status ?? "") && c.env.STRIPE_SECRET_KEY) {
-    try {
-      await cancelNow(c.env, c.opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i)), bill.subscription_id);
-    } catch {
-      return fail(502, "your paid plan could not be cancelled with Stripe, so the account was not deleted; try again in a minute");
-    }
-  }
+  // every subscription of the account's Stripe customer is cancelled first: an account that no longer exists must
+  // not be charged again (src/stripe.ts cancelForDeletion)
+  const stop = await cancelForDeletion(c.env, c.opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i)), await accountBilling(c.db, id));
+  if (stop) return fail(stop.status, stop.error);
   const gone = await c.db.prepare("SELECT token FROM projects WHERE account_id = ? AND private_link = 0").bind(id).all<{ token: string }>();
   const own = "SELECT token FROM projects WHERE account_id = ? AND private_link = 0";
   const owned = "SELECT id FROM projects WHERE account_id = ?";
@@ -1388,7 +1383,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     const p = await ownedProject(c, a.account.id, stat[1]!);
     if (!p) return fail(404, "not found");
     // the ranges this account's plan shows (src/plans.ts); a longer one is answered with the longest it shows
-    const range = pickRange(url.searchParams.get("range"), viewRanges(env, await accountPlan(c.db, a.account.id)));
+    const range = pickRange(url.searchParams.get("range"), viewRanges(env, await accountPlan(c.db, a.account.id, env)));
     return json(200, await stats(c.db, p, range, c.now));
   }
   const link = /^\/api\/account\/projects\/([^/]+)\/link$/.exec(path);

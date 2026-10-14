@@ -84,10 +84,16 @@ export interface Env {
   /** GitHub sign-in (Worker secrets). The GitHub button is shown only when both are set. */
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
-  /** Paid plans (src/stripe.ts, Worker secrets). Without STRIPE_SECRET_KEY nothing is on sale and the Free plan's
-   * limits do not apply; without STRIPE_WEBHOOK_SECRET the webhook answers 503. */
+  /** Paid plans (src/plans.ts, src/stripe.ts; Worker secrets). A live key (sk_live_) puts them on sale and the Free
+   * plan's limits apply; a test key (sk_test_) lets only the accounts in STRIPE_TEST_ACCOUNTS (emails or account ids,
+   * comma-separated) buy, with no limits for anyone. The webhook checks STRIPE_WEBHOOK_SECRET with a live key and
+   * STRIPE_WEBHOOK_SECRET_TEST with a test key (503 without it). */
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_WEBHOOK_SECRET_TEST?: string;
+  STRIPE_TEST_ACCOUNTS?: string;
+  /** Export pages per account per minute (src/billing.ts); without it the export is not rate-limited. */
+  EXPORT_LIMIT?: RateLimiterLike;
   /** 32 bytes, base64: encrypts forwarding settings at rest (src/forward.ts). Without it they cannot be saved. */
   INTEGRATIONS_KEY?: string;
   /** Optional https URL that gets a short JSON notice when someone buys the Custom plan. */

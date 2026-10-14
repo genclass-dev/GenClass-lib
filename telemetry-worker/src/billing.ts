@@ -13,18 +13,30 @@
 //   GET|POST /api/account/export-keys, DELETE /api/account/export-keys/<id> export keys (browser session)
 //
 // A command line session (the CLI's bearer token) is refused on every route here: the approval page promises it
-// cannot read stats, and billing and settings belong to the browser.
+// cannot read stats, and billing and settings belong to the browser. The routes that call Stripe or send to another
+// server (checkout, portal, Send test, new export keys) take AUTH_LIMIT's budget per account, and the export
+// EXPORT_LIMIT's.
 
 import { accountContext, accountProjects, authenticate, csrfFail, fail, originOk, ownedProject, page, readJson, redirect, webSession, type Auth, type C } from "./auth.js";
 import { billingPage } from "./billing-pages.js";
-import type { Env, HandleOptions } from "./collector.js";
+import type { Env, HandleOptions, RateLimiterLike } from "./collector.js";
 import { randomBase62, sha256Hex, type Project } from "./dashboard.js";
 import { decodeCursor, exportResponse, PAGE_MAX, parseTime } from "./export.js";
-import { checkConfig, deliver, integrationRows, integrationsKey, isKind, maskConfig, openConfig, sealConfig, testRecord, type Kind } from "./forward.js";
+import { checkConfig, claimTestSend, deliver, integrationRows, integrationsKey, isKind, maskConfig, openConfig, sealConfig, testRecord, type Kind } from "./forward.js";
 import { json, readCapped } from "./http.js";
 import { forgetOwner } from "./paid.js";
-import { accountBilling, billingLive, entitled, LIVE_STATUSES, PAID_PLANS, planById, type Plan } from "./plans.js";
-import { checkoutSession, ensureCustomer, portalSession, StripeError, stripeWebhook } from "./stripe.js";
+import { accountBilling, billingLive, canBuy, entitled, PAID_PLANS, planById, stripeMode, type Plan } from "./plans.js";
+import {
+  checkoutSession,
+  customerSubscriptions,
+  ensureCustomer,
+  HOLDING_STATUSES,
+  missingCustomer,
+  portalSession,
+  StripeError,
+  stripeWebhook,
+  subscriptionState,
+} from "./stripe.js";
 import { b64url } from "./webauthn.js";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -38,9 +50,23 @@ const upgrade = (c: C, what: string): Response =>
   json(403, { ok: false, error: `${what} is part of the Pro and Custom plans; see ${c.cfg.origin}/account/billing`, upgrade_url: `${c.cfg.origin}/account/billing` });
 
 function stripeFail(e: unknown): Response {
-  if (e instanceof StripeError) return fail(e.status === 503 ? 503 : 502, `Stripe: ${e.message}`);
+  if (e instanceof StripeError) return fail(e.status === 503 ? 503 : e.status === 409 ? 409 : 502, `Stripe: ${e.message}`);
   throw e;
 }
+
+/** True when this account is over its per-minute budget for `bucket` (keyed by a hash of bucket + account id). */
+async function overBudget(lim: RateLimiterLike | undefined, bucket: string, accountId: string): Promise<boolean> {
+  if (!lim) return false;
+  try {
+    return !(await lim.limit({ key: (await sha256Hex(`billing:${bucket}:${accountId}`)).slice(0, 32) })).success;
+  } catch {
+    return false; // the limiter is best effort
+  }
+}
+const tooMany = (): Response => fail(429, "too many requests from this account; try again in a minute", { "retry-after": "60" });
+
+/** The plan a link names (?plan=pro, from the pricing page), if it is a paid plan. */
+const pickedPlan = (v: string | null): Plan | null => PAID_PLANS.find((p) => p.id === v) ?? null;
 
 /** A browser-only write: a cookie session with our Origin. */
 async function browserWrite(c: C, what: string): Promise<Auth | Response> {
@@ -85,28 +111,33 @@ export async function routeBilling(request: Request, url: URL, path: string, env
       if (!get) return method();
       const a = await browserRead(c);
       if (a instanceof Response) return a;
-      const b = await accountBilling(c.db, a.account.id);
+      const b = await accountBilling(c.db, a.account.id, env);
       return json(200, {
         plan: planById(b.plan).id,
         subscription_status: b.subscription_status,
         current_period_end: b.current_period_end,
         cancel_at_period_end: !!b.cancel_at_period_end,
-        on_sale: billingLive(env),
+        on_sale: canBuy(env, a.account),
       });
     }
     case "/account/billing": {
       if (!get) return method();
+      const picked = pickedPlan(url.searchParams.get("plan"));
       const a = await webSession(c);
-      if (!a) return redirect("/login?next=%2Faccount%2Fbilling");
+      // the plan picked on the pricing page survives the sign-in
+      if (!a) return redirect(`/login?next=${encodeURIComponent(`/account/billing${picked ? `?plan=${picked.id}` : ""}`)}`);
       const apps = (await accountProjects(c, a.account.id)).map((p) => ({ id: p.id!, name: p.name }));
-      const b = await accountBilling(c.db, a.account.id);
+      const b = await accountBilling(c.db, a.account.id, env);
       return page(200, (n) =>
         billingPage(n, {
           account: { id: a.account.id, email: a.account.email, githubLogin: a.account.github_login },
           apps,
           billing: b,
-          live: billingLive(env),
+          live: canBuy(env, a.account),
+          limits: billingLive(env),
+          testMode: stripeMode(env) === "test",
           done: url.searchParams.get("done") === "1",
+          picked: picked?.id ?? null,
           now: c.now,
         }),
       );
@@ -125,21 +156,35 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
   if (a instanceof Response) return a;
   const body = await readJson(c, 1024);
   if (body instanceof Response) return body;
-  if (!billingLive(c.env)) return fail(503, "paid plans are not on sale yet");
+  if (!canBuy(c.env, a.account)) return fail(503, "paid plans are not on sale yet");
   const plan = PAID_PLANS.find((p) => p.id === body.plan);
   if (!plan) return fail(400, `choose a plan: ${PAID_PLANS.map((p) => p.id).join(" or ")}`);
-  const b = await accountBilling(c.db, a.account.id);
+  if (await overBudget(c.env.AUTH_LIMIT, "checkout", a.account.id)) return tooMany();
+  // as stored: ensureCustomer decides what to do with a customer from the other Stripe mode
+  const account = { id: a.account.id, email: a.account.email, ...(await accountBilling(c.db, a.account.id)) };
   try {
-    if (b.subscription_id && LIVE_STATUSES.has(b.subscription_status ?? "") && b.plan !== "free") {
-      if (b.plan === plan.id) return fail(409, `you are already on the ${plan.name} plan`);
-      if (!b.stripe_customer_id) return fail(409, "this account's subscription has no Stripe customer; email us");
-      // already paying: change the plan on the existing subscription, never a second one
-      const url = await portalSession(c.env, f, { customer: b.stripe_customer_id, origin: c.cfg.origin, subscription: b.subscription_id, now: c.now });
-      return json(200, { url, portal: true });
+    let customer = await ensureCustomer(c.env, f, c.db, account);
+    if (!customer.fresh) {
+      // what Stripe has now (a webhook can lag behind a payment): an account that pays changes its subscription in the
+      // Billing Portal, never gets a second one
+      let subs: Awaited<ReturnType<typeof customerSubscriptions>> = [];
+      try {
+        subs = await customerSubscriptions(c.env, f, customer.id);
+      } catch (e) {
+        if (!missingCustomer(e)) throw e;
+        customer = await ensureCustomer(c.env, f, c.db, { ...account, stripe_customer_id: customer.id, stripe_mode: stripeMode(c.env) }, customer.id);
+      }
+      const held = subs.find((s) => HOLDING_STATUSES.has(s.status));
+      if (held) {
+        const st = subscriptionState(held);
+        if (st.priced === plan.id) {
+          return fail(409, `you are already on the ${plan.name} plan${st.cancelAtPeriodEnd ? "; to keep it after this period, resume it in Manage billing" : ""}`);
+        }
+        const url = await portalSession(c.env, f, { customer: customer.id, origin: c.cfg.origin, subscription: held.id, now: c.now });
+        return json(200, { url, portal: true });
+      }
     }
-    const account = { id: a.account.id, email: a.account.email, ...b };
-    const customer = await ensureCustomer(c.env, f, c.db, account);
-    const url = await checkoutSession(c.env, f, { account, customer, plan, origin: c.cfg.origin, now: c.now });
+    const url = await checkoutSession(c.env, f, { account, customer: customer.id, plan, origin: c.cfg.origin, now: c.now, fresh: customer.fresh });
     return json(200, { url });
   } catch (e) {
     return stripeFail(e);
@@ -151,12 +196,25 @@ async function portal(c: C, f: Fetch): Promise<Response> {
   if (a instanceof Response) return a;
   const body = await readJson(c, 1024);
   if (body instanceof Response) return body;
-  if (!billingLive(c.env)) return fail(503, "paid plans are not on sale yet");
-  const b = await accountBilling(c.db, a.account.id);
+  if (!canBuy(c.env, a.account)) return fail(503, "paid plans are not on sale yet");
+  const b = await accountBilling(c.db, a.account.id, c.env);
   if (!b.stripe_customer_id) return fail(409, "there is nothing to manage yet: this account has never bought a plan");
+  if (await overBudget(c.env.AUTH_LIMIT, "portal", a.account.id)) return tooMany();
   try {
     return json(200, { url: await portalSession(c.env, f, { customer: b.stripe_customer_id, origin: c.cfg.origin, now: c.now }) });
   } catch (e) {
+    if (missingCustomer(e) && (b.stripe_mode ?? stripeMode(c.env)) === stripeMode(c.env)) {
+      // Stripe no longer has this customer (deleted in Stripe): forget it, so the next purchase starts clean. Never for
+      // a customer of the other mode (a live customer while the key is a test key is simply not visible to it)
+      await c.db
+        .prepare(
+          "UPDATE accounts SET stripe_customer_id = NULL, stripe_mode = NULL, plan = 'free', subscription_id = NULL, subscription_status = NULL, " +
+            "current_period_end = NULL, cancel_at_period_end = 0 WHERE id = ? AND stripe_customer_id = ?",
+        )
+        .bind(a.account.id, b.stripe_customer_id)
+        .run();
+      return fail(409, "Stripe no longer has billing records for this account; buy a plan again on this page");
+    }
     return stripeFail(e);
   }
 }
@@ -170,7 +228,7 @@ async function integrations(c: C, f: Fetch, projectId: string, kindRaw: string |
   if (a instanceof Response) return a;
   const p = await ownedProject(c, a.account.id, projectId);
   if (!p || !p.id) return fail(404, "not found");
-  const plan = planById((await accountBilling(c.db, a.account.id)).plan);
+  const plan = planById((await accountBilling(c.db, a.account.id, c.env)).plan);
 
   if (kindRaw === null) {
     if (write) return method();
@@ -191,6 +249,9 @@ async function integrations(c: C, f: Fetch, projectId: string, kindRaw: string |
     if (m !== "POST") return method();
     if (!entitled(plan, "forwarding")) return upgrade(c, "forwarding");
     if (!row) return fail(404, `${kind} is not set up for this app`);
+    if (await overBudget(c.env.AUTH_LIMIT, "test-send", a.account.id)) return tooMany();
+    // a test record counts against the app's hourly forwarding cap like any other
+    if (!(await claimTestSend(c.db, p.id, c.now))) return fail(429, "this app has sent its forwarding records for this hour; try again next hour", { "retry-after": "600" });
     const err = await deliver(c.env, c.db, p.id, row, testRecord(appOf(c, p), c.now), c.now, f);
     return err ? fail(502, err) : json(200, { ok: true });
   }
@@ -200,7 +261,15 @@ async function integrations(c: C, f: Fetch, projectId: string, kindRaw: string |
     const body = await readJson(c, 4096);
     if (body instanceof Response) return body;
     const keep = row ? await openConfig(c.env, p.id, kind, row.config) : null;
-    const checked = checkConfig(kind, body, keep);
+    // never this server itself: a destination on genclass.dev would turn forwarding into requests to our own routes
+    const own = [c.cfg.origin, c.env.DASHBOARD_ORIGIN, c.env.AUTH_ORIGIN].flatMap((o) => {
+      try {
+        return o ? [new URL(o).hostname] : [];
+      } catch {
+        return [];
+      }
+    });
+    const checked = checkConfig(kind, body, keep, own);
     if ("error" in checked) return fail(400, checked.error);
     const sealed = await sealConfig(c.env, p.id, kind, checked.config);
     await c.db
@@ -266,8 +335,9 @@ async function exportEvents(c: C, projectId: string): Promise<Response> {
   if (who instanceof Response) return who;
   const p = await ownedProject(c, who.accountId, projectId);
   if (!p) return fail(404, "not found");
-  const plan: Plan = planById((await accountBilling(c.db, who.accountId)).plan);
+  const plan: Plan = planById((await accountBilling(c.db, who.accountId, c.env)).plan);
   if (!entitled(plan, "export")) return upgrade(c, "export");
+  if (await overBudget(c.env.EXPORT_LIMIT, "export", who.accountId)) return tooMany();
   const q = c.url.searchParams;
   const earliest = new Date(c.now.getTime() - plan.limits.history_days * DAY);
   // by default up to now, the batch received this millisecond included
@@ -310,7 +380,8 @@ async function exportKeys(c: C, id: string | null): Promise<Response> {
     if (a instanceof Response) return a;
     const body = await readJson(c, 1024);
     if (body instanceof Response) return body;
-    if (!entitled(planById((await accountBilling(c.db, a.account.id)).plan), "export")) return upgrade(c, "export");
+    if (!entitled(planById((await accountBilling(c.db, a.account.id, c.env)).plan), "export")) return upgrade(c, "export");
+    if (await overBudget(c.env.AUTH_LIMIT, "export-key", a.account.id)) return tooMany();
     const n = await c.db.prepare("SELECT COUNT(*) AS n FROM export_keys WHERE account_id = ?").bind(a.account.id).first<{ n: number }>();
     if (Number(n?.n ?? 0) >= MAX_EXPORT_KEYS) return fail(409, `an account can have at most ${MAX_EXPORT_KEYS} export keys; revoke one first`);
     // eslint-disable-next-line no-control-regex

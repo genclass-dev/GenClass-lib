@@ -87,8 +87,15 @@ export async function openConfig(env: Env, projectId: string, kind: Kind, sealed
 
 const str = (v: unknown, max = 2048): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
-/** An https URL on a public host name (no credentials, no IP literal, no localhost), else null. */
-export function publicHttpsUrl(v: unknown): URL | null {
+/** Hosts forwarding never sends to: GenClass's own (the collector would be posting to itself) and Workers' default domain. */
+const OWN_HOSTS = ["genclass.dev", "workers.dev"];
+const under = (h: string, base: string): boolean => h === base || h.endsWith(`.${base}`);
+
+/**
+ * An https URL on a public host name on the default port, else null: no credentials, no IP literal, no localhost or
+ * internal names, no trailing dot, and not GenClass itself (genclass.dev, *.workers.dev, or the `own` hosts).
+ */
+export function publicHttpsUrl(v: unknown, own: string[] = []): URL | null {
   const s = str(v);
   if (!s) return null;
   let u: URL;
@@ -98,8 +105,9 @@ export function publicHttpsUrl(v: unknown): URL | null {
     return null;
   }
   const h = u.hostname.toLowerCase();
-  if (u.protocol !== "https:" || u.username || u.password || !h.includes(".")) return null;
+  if (u.protocol !== "https:" || u.username || u.password || u.port || !h.includes(".") || h.endsWith(".")) return null;
   if (/^[\d.]+$/.test(h) || h.startsWith("[") || h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return null;
+  if ([...OWN_HOSTS, ...own].some((b) => b && under(h, b.toLowerCase()))) return null;
   return u;
 }
 
@@ -108,7 +116,10 @@ export interface SentryDsn {
   envelope: string;
 }
 
-/** https://<public key>@<host>[/<path>]/<project id> -> the envelope endpoint, or null. */
+/**
+ * https://<public key>@<host>[/<path>]/<project id> -> the envelope endpoint, or null. The host must be Sentry's
+ * (sentry.io or a name under it, such as o1.ingest.us.sentry.io) on the default port.
+ */
 export function parseSentryDsn(v: unknown): SentryDsn | null {
   const s = str(v);
   let u: URL;
@@ -117,7 +128,7 @@ export function parseSentryDsn(v: unknown): SentryDsn | null {
   } catch {
     return null;
   }
-  if (u.protocol !== "https:" || !/^[A-Za-z0-9]{8,64}$/.test(u.username)) return null;
+  if (u.protocol !== "https:" || !/^[A-Za-z0-9]{8,64}$/.test(u.username) || u.password || u.port || !under(u.hostname.toLowerCase(), "sentry.io")) return null;
   const parts = u.pathname.split("/").filter(Boolean);
   const project = parts.pop();
   if (!project || !/^\d{1,20}$/.test(project)) return null;
@@ -127,20 +138,21 @@ export function parseSentryDsn(v: unknown): SentryDsn | null {
 
 /**
  * Check and normalise the settings typed for a destination. Returns the settings to store, or an error for the person.
- * A webhook gets a new signing secret unless `keep` holds the current one (re-saving the URL keeps the secret).
+ * A webhook gets a new signing secret unless `keep` holds the current one (re-saving the URL keeps the secret). `own`:
+ * this server's host names, never accepted as a destination.
  */
-export function checkConfig(kind: Kind, body: Record<string, unknown>, keep?: Record<string, unknown> | null): { config: Record<string, unknown> } | { error: string } {
+export function checkConfig(kind: Kind, body: Record<string, unknown>, keep?: Record<string, unknown> | null, own: string[] = []): { config: Record<string, unknown> } | { error: string } {
   switch (kind) {
     case "sentry": {
       const dsn = str(body.dsn);
-      if (!parseSentryDsn(dsn)) return { error: "paste the DSN from Sentry's Client Keys page, like https://abc123@o1.ingest.sentry.io/456" };
+      if (!parseSentryDsn(dsn)) return { error: "paste the DSN from Sentry's Client Keys page, like https://abc123@o1.ingest.sentry.io/456 (a sentry.io address)" };
       return { config: { dsn } };
     }
     case "posthog": {
       const key = str(body.key, 200);
       if (!/^[A-Za-z0-9_-]{10,100}$/.test(key)) return { error: "paste the project API key from PostHog's project settings (it starts with phc_)" };
       const host = str(body.host) || POSTHOG_HOSTS[0]!;
-      const u = POSTHOG_HOSTS.includes(host) ? new URL(host) : publicHttpsUrl(host);
+      const u = POSTHOG_HOSTS.includes(host) ? new URL(host) : publicHttpsUrl(host, own);
       if (!u) return { error: "the PostHog host must be https://us.i.posthog.com, https://eu.i.posthog.com or your own https address" };
       return { config: { key, host: u.origin } };
     }
@@ -159,8 +171,8 @@ export function checkConfig(kind: Kind, body: Record<string, unknown>, keep?: Re
       return { config: { url: u.toString() } };
     }
     case "webhook": {
-      const u = publicHttpsUrl(body.url);
-      if (!u) return { error: "the webhook URL must be https on a public host name" };
+      const u = publicHttpsUrl(body.url, own);
+      if (!u) return { error: "the webhook URL must be https on a public host name, on the default port, and not on genclass.dev" };
       const secret = typeof keep?.secret === "string" && body.rotate !== true ? keep.secret : `gcw_${b64url(crypto.getRandomValues(new Uint8Array(32)))}`;
       return { config: { url: u.toString(), secret } };
     }
@@ -439,6 +451,21 @@ export async function forwardBatch(
   }
   for (const r of picked) await Promise.allSettled(rows.map((row) => deliver(env, db, app.id, row, r, now, f)));
   return picked.length;
+}
+
+/**
+ * Claim one record of the app's hourly forwarding cap for a "Send test" (false: the cap is used up this hour), so test
+ * sends cannot be used to post to an address faster than forwarding itself would.
+ */
+export async function claimTestSend(db: D1Like, projectId: string, now: Date): Promise<boolean> {
+  const got = await db
+    .prepare(
+      "INSERT INTO forward_log (project_id, signature, hour) SELECT ?1, ?2, ?3 " +
+        "WHERE (SELECT COUNT(*) FROM forward_log WHERE project_id = ?1 AND hour = ?3) < ?4 ON CONFLICT DO NOTHING RETURNING signature",
+    )
+    .bind(projectId, `test\t${b64url(crypto.getRandomValues(new Uint8Array(9)))}`, now.toISOString().slice(0, 13), HOURLY_CAP)
+    .first();
+  return !!got;
 }
 
 /** The record "Send test" sends. */

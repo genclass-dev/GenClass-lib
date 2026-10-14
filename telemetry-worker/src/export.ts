@@ -1,10 +1,10 @@
 // Export (a paid feature): every event GenClass received for an owned app, as JSON Lines or CSV, read back from the
 // gzip batches in R2.
 //
-// - R2 keys are by day, runtime and model, not by app, so every batch from an app in an account gets a row in
-//   event_batches (token, time, key). For an app whose owner's plan keeps more than 90 days, the batch is also written under
-//   export/<token>/ (an R2 lifecycle rule on that prefix keeps it a year; events/ expires after 90 days) and the row
-//   points at that copy.
+// - R2 keys are by day, runtime and model, not by app, so every batch from an app whose account's plan includes export
+//   gets a row in event_batches (token, time, key) (src/paid.ts). For an app whose owner's plan keeps more than 90
+//   days, the batch is also written under export/<token>/ (an R2 lifecycle rule on that prefix keeps it a year;
+//   events/ expires after 90 days) and the row points at that copy.
 // - A page is at most PAGE_MAX batches, streamed one object at a time; the next page's cursor is in the
 //   x-genclass-next-cursor header (and a Link rel="next" header).
 // - Every line is checked against the app's token before it is written, so a wrong index row can never put another
@@ -18,9 +18,15 @@ import { b64url, fromB64url } from "./webauthn.js";
 const DAY = 86_400_000;
 export const EXPORT_PREFIX = "export/";
 export const PAGE_MAX = 200;
-/** Keys per round (D1 binds at most 100 parameters per statement) and rounds per pass of the daily sweep. */
-const SWEEP_CHUNK = 90;
+/**
+ * The daily sweep deletes up to SWEEP_KEYS keys per round (R2 deletes at most 1000 keys per call) in D1 statements of
+ * SQL_CHUNK keys (D1 binds at most 100 parameters per statement), SWEEP_ROUNDS rounds per pass.
+ */
+const SWEEP_KEYS = 1000;
+const SQL_CHUNK = 90;
 const SWEEP_ROUNDS = 40;
+/** Index rows older than this are deleted in one statement: R2's lifecycle rule (366 days) has removed their objects. */
+const BACKSTOP_DAYS = 367;
 
 export type BucketOps = BucketLike;
 
@@ -183,39 +189,53 @@ export async function exportResponse(db: D1Like, bucket: BucketLike, q: ExportQu
 
 // --------------------------------------------------------------------------------------------- sweep
 
+/** Delete these export copies from R2 and their index rows from D1 (one D1 batch). */
+async function dropKeys(db: D1Like, bucket: BucketLike | undefined, keys: string[]): Promise<void> {
+  if (bucket?.delete) await bucket.delete(keys);
+  const stmts = [];
+  for (let i = 0; i < keys.length; i += SQL_CHUNK) {
+    const part = keys.slice(i, i + SQL_CHUNK);
+    stmts.push(db.prepare(`DELETE FROM event_batches WHERE key IN (${part.map(() => "?").join(", ")})`).bind(...part));
+  }
+  if (stmts.length) await db.batch(stmts);
+}
+
 /**
  * Delete index rows (and export copies) past retention: rows of events/ batches after RETENTION_DAYS (R2's lifecycle
  * rule removes those objects), export copies of apps no longer kept long after RETENTION_DAYS, and every export copy
- * after the longest plan's history. Bounded per run; the rest goes the next day.
+ * after the longest plan's history. Up to SWEEP_ROUNDS x SWEEP_KEYS keys per pass per day; index rows past
+ * BACKSTOP_DAYS go in one statement whatever the passes reached, so the index cannot outgrow the sweep.
  */
 export async function exportSweep(db: D1Like, bucket: BucketLike | undefined, now: Date, long?: { tokens: string; params: unknown[]; days: number }): Promise<void> {
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * DAY).toISOString();
   const far = new Date(now.getTime() - Math.max(long?.days ?? RETENTION_DAYS, RETENTION_DAYS) * DAY).toISOString();
   const keep = long ? ` AND token NOT IN (${long.tokens})` : "";
   const passes: [string, unknown[]][] = [
-    [`SELECT key FROM event_batches WHERE received < ? AND key LIKE 'export/%'${keep} LIMIT ${SWEEP_CHUNK}`, [cutoff, ...(long?.params ?? [])]],
-    [`SELECT key FROM event_batches WHERE received < ? AND key LIKE 'export/%' LIMIT ${SWEEP_CHUNK}`, [far]],
+    [`SELECT key FROM event_batches WHERE received < ? AND key LIKE 'export/%'${keep} LIMIT ${SWEEP_KEYS}`, [cutoff, ...(long?.params ?? [])]],
+    [`SELECT key FROM event_batches WHERE received < ? AND key LIKE 'export/%' LIMIT ${SWEEP_KEYS}`, [far]],
   ];
   for (const [sql, params] of passes) {
     for (let round = 0; round < SWEEP_ROUNDS; round++) {
       const keys = ((await db.prepare(sql).bind(...params).all<{ key: string }>()).results ?? []).map((x) => x.key);
       if (!keys.length) break;
-      if (bucket?.delete) await bucket.delete(keys);
-      await db.prepare(`DELETE FROM event_batches WHERE key IN (${keys.map(() => "?").join(", ")})`).bind(...keys).run();
-      if (keys.length < SWEEP_CHUNK) break;
+      await dropKeys(db, bucket, keys);
+      if (keys.length < SWEEP_KEYS) break;
     }
   }
-  await db.prepare("DELETE FROM event_batches WHERE received < ? AND key NOT LIKE 'export/%'").bind(cutoff).run();
+  await db.batch([
+    db.prepare("DELETE FROM event_batches WHERE received < ? AND key NOT LIKE 'export/%'").bind(cutoff),
+    db.prepare("DELETE FROM event_batches WHERE received < ?").bind(new Date(now.getTime() - BACKSTOP_DAYS * DAY).toISOString()),
+  ]);
 }
 
 /** Delete an app's export copies and index rows at once (the app or its account was deleted). */
 export async function forgetExports(db: D1Like, bucket: BucketLike | undefined, tokens: string[]): Promise<void> {
   for (const token of tokens) {
     for (let round = 0; round < SWEEP_ROUNDS; round++) {
-      const keys = ((await db.prepare(`SELECT key FROM event_batches WHERE token = ? AND key LIKE 'export/%' LIMIT ${SWEEP_CHUNK}`).bind(token).all<{ key: string }>()).results ?? []).map((x) => x.key);
+      const keys = ((await db.prepare(`SELECT key FROM event_batches WHERE token = ? AND key LIKE 'export/%' LIMIT ${SWEEP_KEYS}`).bind(token).all<{ key: string }>()).results ?? []).map((x) => x.key);
       if (!keys.length) break;
-      if (bucket?.delete) await bucket.delete(keys);
-      await db.prepare(`DELETE FROM event_batches WHERE token = ? AND key IN (${keys.map(() => "?").join(", ")})`).bind(token, ...keys).run();
+      await dropKeys(db, bucket, keys);
+      if (keys.length < SWEEP_KEYS) break;
     }
     await db.prepare("DELETE FROM event_batches WHERE token = ?").bind(token).run();
   }

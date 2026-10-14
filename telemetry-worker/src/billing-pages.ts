@@ -1,7 +1,8 @@
 // HTML for the paid plans: /account/billing (the plan, its renewal or end, the plans side by side, Upgrade and Manage
 // billing buttons) and the plan-dependent sections of an owned app's dashboard (forwarding and export, and the note
 // on the time ranges). Same shell, tokens and rules as the account pages; server-rendered text goes through esc(),
-// scripts insert text with textContent. Buttons that need Stripe are shown only when STRIPE_SECRET_KEY is set.
+// scripts insert text with textContent. Buttons that need Stripe are shown only to an account that can buy (a live
+// STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS).
 
 import { ACCOUNT_CSS, CLIENT_JS, time } from "./account-pages.js";
 import type { Env } from "./collector.js";
@@ -33,17 +34,23 @@ export interface BillingView {
   account: { id: string; email: string | null; githubLogin: string | null };
   apps: { id: string; name: string }[];
   billing: Billing;
-  /** Paid plans are on sale (STRIPE_SECRET_KEY is set). */
+  /** This account can buy (src/plans.ts canBuy). */
   live: boolean;
+  /** The Free plan's limits apply (a live key). */
+  limits: boolean;
+  /** The key is a Stripe test key: no real money moves. */
+  testMode: boolean;
   /** Back from Stripe Checkout (?done=1). */
   done: boolean;
+  /** The plan chosen on the pricing page (?plan=pro|custom). */
+  picked: string | null;
   now: Date;
 }
 
 const BILLING_CSS = `
 .plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:22px}
 .plan{border-top:2px solid var(--ink);padding-top:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.plan.cur{border-top-color:var(--accent)}
+.plan.cur,.plan.pick{border-top-color:var(--accent)}
 .plan h3{font:700 22px/1.1 var(--display);letter-spacing:-.02em;margin:0}
 .plan .price{font:500 15px var(--mono)}
 .plan .sum{font-size:14.5px;color:var(--ink2);line-height:1.5}
@@ -62,7 +69,7 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   const b = v.billing;
   const name = `<b>${esc(plan.name)}</b>`;
   if (plan.id === "free") {
-    const limits = v.live ? `up to ${plan.limits.apps ?? "any number of"} apps (you have ${apps}) and ${plan.limits.history_days} days of dashboard history` : `your apps' dashboards (you have ${apps} apps)`;
+    const limits = v.limits ? `up to ${plan.limits.apps ?? "any number of"} apps (you have ${apps}) and ${plan.limits.history_days} days of dashboard history` : `your apps' dashboards (you have ${apps} apps)`;
     const ended =
       b.subscription_id && b.current_period_end && (b.subscription_status === "canceled" || b.subscription_status === "unpaid") && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
         ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
@@ -83,14 +90,18 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
 function planColumn(v: BillingView, p: Plan, current: Plan): string {
   const cur = p.id === current.id;
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && current.id !== "free";
+  // back from Checkout and still waiting for Stripe's word: no buttons, so a second purchase cannot start
+  const waiting = v.done && current.id === "free";
+  const pick = !cur && v.picked === p.id && v.live && !waiting;
   let act = "";
   if (cur) act = '<span class="tag">Your plan</span>';
   else if (p.id === "free") act = subscribed && v.live ? '<span class="muted">To go back to Free, cancel in Manage billing.</span>' : "";
-  else if (v.live) act = `<button class="btn${p.id === "custom" ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
+  else if (v.live && !waiting)
+    act = `<button class="btn${p.id === "custom" && !pick ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"${pick ? " data-pick" : ""}><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
   const features = p.features
     .map((f) => `<li${f.available ? "" : ' class="soon"'}>${esc(f.text)}${f.available || /coming next/i.test(f.text) ? "" : " (coming next)"}</li>`)
     .join("");
-  return `<div class="plan${cur ? " cur" : ""}"><h3>${esc(p.name)}</h3><p class="price">${esc(priceText(p))}</p><p class="sum">${esc(p.summary)}</p><ul>${features}</ul><div class="act">${act}</div></div>`;
+  return `<div class="plan${cur ? " cur" : pick ? " pick" : ""}"><h3>${esc(p.name)}</h3><p class="price">${esc(priceText(p))}</p><p class="sum">${esc(p.summary)}</p><ul>${features}</ul><div class="act">${act}</div></div>`;
 }
 
 export function billingPage(nonce: string, v: BillingView): string {
@@ -110,6 +121,10 @@ export function billingPage(nonce: string, v: BillingView): string {
     plan.id === "custom"
       ? `<p class="status">A person from GenClass emails ${a.email ? esc(a.email) : "you"} within 1 business day of your purchase to start training your classifier. You can also write to <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.</p>`
       : "";
+  const test =
+    v.testMode && v.live
+      ? '<p class="notice" role="note"><b>Stripe test mode.</b> Only accounts listed in STRIPE_TEST_ACCOUNTS can buy, and no real money moves. Pay with card 4242 4242 4242 4242, any future date and any CVC.</p>'
+      : "";
   const body = `
 <style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}${BILLING_CSS}</style>
 <div class="app">
@@ -127,7 +142,7 @@ export function billingPage(nonce: string, v: BillingView): string {
   <p class="status" id="status">${statusLine(v, plan, v.apps.length)}</p>
   ${custom}
 </section>
-${notice}
+${notice}${test}
 <section class="blk" id="plans">
   <div class="blk-h"><h2>Plans</h2><span class="aside">US dollars, billed monthly</span></div>
   <div class="plans">${PLANS.map((p) => planColumn(v, p, plan)).join("")}</div>
@@ -161,6 +176,8 @@ status and renewal date, and your plan; never card details. <a href="https://gen
       gcPost("/api/billing/checkout", { plan: b.getAttribute("data-plan") }).then(function(j){ location.href = j.url; }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
     });
   });
+  var pick = document.querySelector("[data-pick]");
+  if (pick) pick.focus();
   var portal = document.getElementById("portal");
   if (portal) portal.addEventListener("click", function(){
     var err = document.getElementById("portalerr"); err.textContent = "";
@@ -198,7 +215,7 @@ export interface AppExtras {
 
 /** Everything the app page's plan-dependent sections show, read for one owned app. */
 export async function appExtrasData(db: D1Like, env: Env, accountId: string, p: Project): Promise<AppExtras> {
-  const plan = planById((await accountBilling(db, accountId)).plan);
+  const plan = planById((await accountBilling(db, accountId, env)).plan);
   const projectId = p.id ?? "";
   const destinations: AppExtras["destinations"] = [];
   if (entitled(plan, "forwarding") && projectId) {
@@ -322,7 +339,7 @@ ${rows}
 
   let exportHtml: string;
   if (!ex) {
-    exportHtml = `<p class="intro">On Pro and Custom you can download every event GenClass received for this app, as JSON Lines or CSV, or read it with an API key, for up to a year back. ${SEE_PLANS}</p>`;
+    exportHtml = `<p class="intro">On Pro and Custom you can download every event GenClass receives for this app from the day you upgrade, kept a year, as JSON Lines or CSV, or read it with an API key. ${SEE_PLANS}</p>`;
   } else {
     const keys = d.exportKeys.length
       ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Export key</th><th>Created</th><th>Last used</th><th></th></tr></thead><tbody>${d.exportKeys
@@ -330,7 +347,7 @@ ${rows}
           .join("")}</tbody></table></div>`
       : '<p class="intro">No export keys yet.</p>';
     const curl = `curl -H "Authorization: Bearer gce_..." \\\n  "https://genclass.dev/api/account/projects/${d.projectId}/events?from=2026-10-01&to=2026-10-14&format=jsonl"`;
-    exportHtml = `<p class="intro">Every event GenClass received for this app since export began, kept ${d.keep >= 365 ? "1 year" : `${d.keep} days`}: one JSON object per line as the collector stored it (the batch's session id, versions, time received, country and the event), or one CSV row per event.</p>
+    exportHtml = `<p class="intro">Every event GenClass received for this app while this account was on Pro or Custom, kept ${d.keep >= 365 ? "1 year" : `${d.keep} days`}: one JSON object per line as the collector stored it (the batch's session id, versions, time received, country and the event), or one CSV row per event.</p>
   <form class="xf" id="exf" novalidate>
     <div class="f sm"><label for="exfrom">From</label><input id="exfrom" type="date"></div>
     <div class="f sm"><label for="exto">To (inclusive)</label><input id="exto" type="date"></div>

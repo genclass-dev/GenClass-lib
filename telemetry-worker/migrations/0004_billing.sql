@@ -3,14 +3,18 @@
 -- Apply: npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote
 
 -- The plan and the Stripe ids. Never card data: Stripe holds that. `plan` is derived from the subscription's price
--- lookup_key and status on every Stripe event (src/stripe.ts); `current_period_end` is when the paid period ends
--- (renewal, or the end of a cancelled plan).
+-- (its lookup_key, else its genclass_plan metadata) and status on every Stripe event (src/stripe.ts);
+-- `current_period_end` is when the paid period ends (renewal, or the end of a cancelled plan).
 ALTER TABLE accounts ADD COLUMN plan TEXT NOT NULL DEFAULT 'free';
 ALTER TABLE accounts ADD COLUMN stripe_customer_id TEXT;
 ALTER TABLE accounts ADD COLUMN subscription_id TEXT;
 ALTER TABLE accounts ADD COLUMN subscription_status TEXT;
 ALTER TABLE accounts ADD COLUMN current_period_end TEXT;
 ALTER TABLE accounts ADD COLUMN cancel_at_period_end INTEGER NOT NULL DEFAULT 0;
+-- 'test' or 'live': the Stripe mode the customer and subscription ids above belong to. Ids and a plan from the other
+-- mode than the worker's STRIPE_SECRET_KEY do not count (src/plans.ts inMode), so a test purchase never carries over
+-- to live.
+ALTER TABLE accounts ADD COLUMN stripe_mode TEXT;
 CREATE UNIQUE INDEX accounts_stripe_customer ON accounts (stripe_customer_id);
 CREATE INDEX accounts_subscription ON accounts (subscription_id);
 
@@ -22,14 +26,16 @@ CREATE TABLE billing_events (
 );
 CREATE INDEX billing_events_received ON billing_events (received);
 
--- A Custom plan purchase, so the owner can start the training work: one row per subscription.
+-- A paid Custom plan purchase (written when Stripe reports the Custom price paid), so the owner can start the training
+-- work: one row per subscription.
 CREATE TABLE custom_requests (
   id              TEXT PRIMARY KEY,
   account_id      TEXT NOT NULL,
   email           TEXT,
   subscription_id TEXT NOT NULL UNIQUE,
   created         TEXT NOT NULL,
-  notified        TEXT                        -- when NOTIFY_WEBHOOK accepted the notice
+  notified        TEXT,                       -- when NOTIFY_WEBHOOK accepted the notice
+  mode            TEXT NOT NULL DEFAULT 'live' -- 'test' for a Stripe test-mode purchase (no real money)
 );
 
 -- Where an owned app's detections are forwarded (paid plans). `config` is AES-GCM ciphertext (INTEGRATIONS_KEY) of
@@ -55,8 +61,8 @@ CREATE TABLE forward_log (
 ) WITHOUT ROWID;
 
 -- Which stored batches belong to which app, for the export (R2 keys are by day, not by app). One row per batch from
--- an app in an account; the key is the batch under events/ (90 days) or, for an app on a paid plan, its copy under
--- export/<token>/ (kept as long as the plan's history). Swept with the dashboard data.
+-- an app whose account is on a plan with export; the key is the batch's copy under export/<token>/ (kept as long as
+-- the plan's history), or the batch under events/ (90 days) when the copy failed. Swept with the dashboard data.
 CREATE TABLE event_batches (
   token    TEXT NOT NULL,
   received TEXT NOT NULL,                     -- ISO time the batch was received

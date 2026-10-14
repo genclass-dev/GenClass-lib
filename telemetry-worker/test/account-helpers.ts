@@ -129,12 +129,18 @@ export interface StripeCall {
   headers: Record<string, string>;
 }
 
-/** A fake fetch for api.stripe.com (and any other URL, recorded and answered 200 unless `answer` says otherwise). */
+/**
+ * A fake fetch for api.stripe.com (and any other URL, recorded and answered 200 unless `answer` says otherwise). It
+ * keeps subscriptions (`subs`, listed by customer) and Checkout Sessions (`sessions`: created open, listed by customer
+ * and status, expired on request).
+ */
 export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Response | undefined } = {}) {
   const calls: StripeCall[] = [];
   const other: { url: string; init: RequestInit; body: string }[] = [];
   const subs = new Map<string, Record<string, any>>();
+  const sessions = new Map<string, Record<string, any>>();
   let n = 0;
+  let cs = 0;
   const ok = (j: unknown, status = 200) => new Response(JSON.stringify(j), { status, headers: { "content-type": "application/json" } });
   const fetch: Fetch = async (input, init = {}) => {
     const url = new URL(input);
@@ -155,7 +161,34 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
       return ok({ data: key && known[key] ? [{ id: known[key], lookup_key: key }] : [] });
     }
     if (method === "POST" && p === "/v1/customers") return ok({ id: `cus_test${String(++n).padStart(4, "0")}` });
-    if (method === "POST" && p === "/v1/checkout/sessions") return ok({ id: "cs_test_000001", url: "https://checkout.stripe.com/c/pay/cs_test_000001" });
+    if (method === "POST" && p === "/v1/checkout/sessions") {
+      const id = `cs_test_${String(++cs).padStart(6, "0")}`;
+      const s = {
+        id,
+        object: "checkout.session",
+        status: "open",
+        customer: form!.get("customer"),
+        metadata: { account_id: form!.get("metadata[account_id]"), plan: form!.get("metadata[plan]") },
+        url: `https://checkout.stripe.com/c/pay/${id}`,
+      };
+      sessions.set(id, s);
+      return ok(s);
+    }
+    if (method === "GET" && p === "/v1/checkout/sessions") {
+      const q = url.searchParams;
+      return ok({ data: [...sessions.values()].filter((s) => s.customer === q.get("customer") && (!q.get("status") || s.status === q.get("status"))).reverse() });
+    }
+    const exp = /^\/v1\/checkout\/sessions\/([^/]+)\/expire$/.exec(p);
+    if (method === "POST" && exp) {
+      const s = sessions.get(decodeURIComponent(exp[1]!));
+      if (!s) return ok({ error: { message: "No such checkout.session" } }, 404);
+      s.status = "expired";
+      return ok(s);
+    }
+    if (method === "GET" && p === "/v1/subscriptions") {
+      const customer = url.searchParams.get("customer");
+      return ok({ data: [...subs.values()].filter((s) => s.customer === customer) });
+    }
     if (method === "GET" && p === "/v1/billing_portal/configurations") return ok({ data: [{ id: "bpc_other00001", metadata: {} }, { id: "bpc_genclass01", metadata: { genclass: "portal" } }] });
     if (method === "POST" && p === "/v1/billing_portal/sessions") return ok({ url: "https://billing.stripe.com/p/session/test_000001" });
     const sub = /^\/v1\/subscriptions\/([^/]+)$/.exec(p);
@@ -167,20 +200,22 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
     }
     return ok({ error: { message: `fake Stripe has no ${method} ${p}` } }, 404);
   };
-  return { fetch, calls, other, subs };
+  return { fetch, calls, other, subs, sessions };
 }
 
 /** A subscription as Stripe API 2025-03-31 returns it (the period end on the item). */
-export function subscription(id: string, accountId: string, customer: string, lookupKey: string, status = "active", over: Record<string, unknown> = {}) {
+export function subscription(id: string, accountId: string, customer: string, lookupKey: string | null, status = "active", over: Record<string, unknown> = {}) {
+  const price = lookupKey === "genclass_custom_monthly" ? "price_custom0001" : lookupKey === "genclass_pro_monthly" ? "price_pro000001" : "price_x000001";
   return {
     id,
     object: "subscription",
     customer,
     status,
+    created: 1_790_000_000,
     metadata: { account_id: accountId },
     cancel_at_period_end: false,
     cancel_at: null,
-    items: { data: [{ id: `si_${id.slice(4)}`, current_period_end: 1_792_000_000, price: { id: "price_x000001", lookup_key: lookupKey } }] },
+    items: { data: [{ id: `si_${id.slice(4)}`, current_period_end: 1_792_000_000, price: { id: price, lookup_key: lookupKey } }] },
     ...over,
   };
 }
@@ -198,9 +233,12 @@ export async function stripeHeader(body: string, o: { secret?: string; t?: numbe
 }
 
 let evt = 0;
-export function stripeEvent(type: string, object: Record<string, unknown>, id = `evt_test${String(++evt).padStart(6, "0")}`) {
-  return { id, object: "event", type, created: Math.floor(clock.getTime() / 1000), data: { object } };
+export function stripeEvent(type: string, object: Record<string, unknown>, id = `evt_test${String(++evt).padStart(6, "0")}`, extra: Record<string, unknown> = {}) {
+  return { id, object: "event", type, created: Math.floor(clock.getTime() / 1000), data: { object }, ...extra };
 }
+
+/** A rate limiter that refuses everything (to test the 429s). */
+export const refusingLimiter = { async limit() { return { success: false }; } };
 
 /** Deliver an event to /api/billing/webhook as Stripe does (no Origin, no cookie, signed). */
 export async function deliver(env: Env, event: unknown, f: Fetch, o: { secret?: string; t?: number; header?: string } = {}): Promise<Response> {

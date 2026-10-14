@@ -319,10 +319,17 @@ month), with their limits (`apps`, `history_days`), entitlements (`forwarding`, 
 and Stripe lookup keys (`genclass_pro_monthly`, `genclass_custom_monthly`; a yearly price can be added later). Change
 a price or a limit there; `src/plans.ts` imports the file and `scripts/stripe-setup.mjs` makes Stripe match it.
 
-An account's plan is `accounts.plan`, written only by the Stripe webhook from the subscription as Stripe has it (the
-price's lookup key names the plan; `active` and `trialing` give it, `past_due` keeps it while Stripe retries the card,
-anything else is Free). Entitlements follow the plan. The Free plan's limits apply only once paid plans are on sale
-(`STRIPE_SECRET_KEY` set); before that every account keeps what it had.
+An account's plan is `accounts.plan`, written only by the Stripe webhook from the subscription as Stripe has it. The
+price names the plan: its lookup key, else the `genclass_plan` metadata the setup script puts on every price and
+product. After a price change the lookup key moves to the new price while current subscribers stay on the old one, and
+the metadata keeps them on their plan. `active` and `trialing` give the plan, `past_due` keeps it while Stripe retries
+the card, anything else is Free. Entitlements follow the plan.
+
+The key's prefix sets the mode. With a live key (`sk_live_`) paid plans are on sale and the Free plan's limits apply.
+With a test key (`sk_test_`) only the accounts listed in `STRIPE_TEST_ACCOUNTS` can buy, nobody else sees a button, and
+no limits change, so a test pass can run on the production worker. `accounts.stripe_mode` records which mode the
+Stripe ids belong to: a plan bought in test mode counts only while the key is a test key (it is Free once the key is
+live, and that account's next purchase gets a new live customer). A live plan always counts, whatever the key.
 
 | | Free | Pro, Custom |
 |---|---|---|
@@ -332,30 +339,37 @@ anything else is Free). Entitlements follow the plan. The Free plan's limits app
 | forwarding, export | no | yes |
 | `custom_model` | no | Custom only |
 
-Apps without an account (private links) keep the current behaviour: 30-day views and 90 days of data.
+Apps without an account (private links) keep the current behaviour: 30-day views and 90 days of data. A private link
+to an app that belongs to an account also still shows 24 hours, 7 and 30 days whatever the account's plan, because
+anyone can make a link-only app with the same 30-day view at `/start`; the owner decides whether link dashboards should
+follow the Free plan's 7 days.
 
 ### Routes
 
 | route | behaviour |
 |---|---|
-| `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's Stripe customer once (email, `metadata.account_id`), then a Checkout Session in subscription mode for the plan's lookup key, `client_reference_id` = account id, success `https://genclass.dev/account/billing?done=1`. `{ url }`. An account that already pays gets `{ url, portal: true }`: the Billing Portal's plan change, never a second subscription. 503 when `STRIPE_SECRET_KEY` is unset. |
-| `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, switch plans, card, invoices). 409 before a first purchase. |
-| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body` under `STRIPE_WEBHOOK_SECRET`, any `v1`, within 5 minutes; else 400). Handles `checkout.session.completed`, `customer.subscription.created`/`updated`/`deleted`, `invoice.paid`, `invoice.payment_failed`: each one fetches the subscription and writes the plan, status, period end and cancel flag. Event ids are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. Events for customers GenClass does not know are logged by type and id and ignored. |
+| `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's Stripe customer once (email, `metadata.account_id`). Then it asks Stripe, not the database, whether that customer already has a subscription: one on this plan is a 409, one on the other plan gets `{ url, portal: true }` (the Billing Portal's plan change), so an account never gets a second subscription. Otherwise a Checkout Session in subscription mode for the plan's lookup key (`client_reference_id` = account id, success `https://genclass.dev/account/billing?done=1`), `{ url }`: an open Checkout page of the account for the same plan is reused, one for the other plan is closed first. 503 unless the account can buy (above). |
+| `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, switch plans, card, invoices). 409 before a first purchase, and when Stripe no longer has the customer (the stored ids are then cleared). |
+| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `checkout.session.completed`, `customer.subscription.created`/`updated`/`deleted`, `invoice.paid`, `invoice.payment_failed`: each one fetches the subscription (its prices' products expanded) and writes the plan, status, period end (when it ended, for one cancelled at once), cancel flag and mode. A subscription of another Stripe customer than the account's is ignored. After a Checkout, if the customer has two subscriptions that bill (two tabs paid), the newest is kept and the others are cancelled at once with the unused time credited to the customer's balance; `NOTIFY_WEBHOOK` gets a `duplicate_subscription` notice. A Custom purchase is recorded (`custom_requests`, `NOTIFY_WEBHOOK`) only when Stripe reports the Custom price paid: a paid Checkout, or a paid invoice with a positive Custom line (a switch from Pro is invoiced at once). Event ids are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. Events for customers GenClass does not know are logged by type and id and ignored. |
 | `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale }` |
-| `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade and Switch buttons and Manage billing (only when `STRIPE_SECRET_KEY` is set) |
+| `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade and Switch buttons and Manage billing (only to an account that can buy). `?plan=pro\|custom` (the pricing page's buttons) survives the sign-in redirect and highlights and focuses that plan's button. Back from Checkout (`?done=1`) while the plan still reads Free, it shows no buttons and waits for the webhook. |
 | `GET /api/account/projects/<id>/integrations` | browser session: the app's forwarding destinations, masked |
-| `PUT /api/account/projects/<id>/integrations/<kind>` | browser session and `Origin`, paid plan, `INTEGRATIONS_KEY` set (503 otherwise). `kind` is `sentry` `{dsn}`, `posthog` `{key, host}`, `datadog` `{api_key, site}`, `slack` `{url}` or `webhook` `{url}`; a new webhook gets a signing secret, returned once as `secret` |
-| `PATCH`, `DELETE` same path; `POST .../<kind>/test` | turn a destination on or off (`{enabled}`), remove it, or send it one test record (502 with the reason when it fails) |
-| `GET /api/account/projects/<id>/events?from&to&format&limit&cursor` | export, paid plans: an export key (`Authorization: Bearer gce_...`) or the browser session; a CLI token is refused. `from`/`to` take a date or an ISO time (default the last 7 days; `from` is moved up to the plan's history), `format` `jsonl` (default) or `csv`, `limit` 1 to 200 batches. The next page's cursor is in `x-genclass-next-cursor` and `Link: rel="next"` |
+| `PUT /api/account/projects/<id>/integrations/<kind>` | browser session and `Origin`, paid plan, `INTEGRATIONS_KEY` set (503 otherwise). `kind` is `sentry` `{dsn}` (a `sentry.io` host), `posthog` `{key, host}`, `datadog` `{api_key, site}`, `slack` `{url}` or `webhook` `{url}` (https, public host name, default port, not genclass.dev or workers.dev); a new webhook gets a signing secret, returned once as `secret` |
+| `PATCH`, `DELETE` same path; `POST .../<kind>/test` | turn a destination on or off (`{enabled}`), remove it, or send it one test record (502 with the reason when it fails). A test record counts against the app's 60 records an hour (429 when they are used up) |
+| `GET /api/account/projects/<id>/events?from&to&format&limit&cursor` | export, paid plans: an export key (`Authorization: Bearer gce_...`) or the browser session; a CLI token is refused. `from`/`to` take a date or an ISO time (default the last 7 days; `from` is moved up to the plan's history), `format` `jsonl` (default) or `csv`, `limit` 1 to 200 batches. The next page's cursor is in `x-genclass-next-cursor` and `Link: rel="next"`. 120 pages a minute per account (`EXPORT_LIMIT`; 429 with `retry-after: 60`) |
 | `GET`, `POST /api/account/export-keys`; `DELETE .../<id>` | browser session: list, create (paid plans, at most 10; the key is shown once, only its SHA-256 is stored) and revoke export keys |
+
+Checkout, the portal, Send test and new export keys share `AUTH_LIMIT`'s 20 a minute per account and route (keyed by a
+hash of the route and the account id), so one account cannot use up GenClass's Stripe API budget or post through Send
+test at request rate.
 
 ### Migration 0004 (`migrations/0004_billing.sql`)
 
 Additive. `accounts` gains `plan` (default `'free'`), `stripe_customer_id`, `subscription_id`, `subscription_status`,
-`current_period_end`, `cancel_at_period_end`. New tables: `billing_events` (handled Stripe event ids),
-`custom_requests` (one row per Custom subscription: the owner starts the training work from it), `integrations`
-(forwarding destinations, AES-GCM ciphertext only), `forward_log` (dedupe and the hourly cap, kept 2 hours),
-`event_batches` (which stored batch belongs to which app, for the export) and `export_keys` (hashes only).
+`current_period_end`, `cancel_at_period_end` and `stripe_mode`. New tables: `billing_events` (handled Stripe event ids),
+`custom_requests` (one row per paid Custom subscription, with its mode: the owner starts the training work from it),
+`integrations` (forwarding destinations, AES-GCM ciphertext only), `forward_log` (dedupe and the hourly cap, kept 2
+hours), `event_batches` (which stored batch belongs to which paid app, for the export) and `export_keys` (hashes only).
 
 ### Forwarding
 
@@ -365,47 +379,67 @@ runtime and model versions, the time and a link to the app's dashboard. Never pa
 the envelope endpoint of the DSN, PostHog a `genclass detection` capture (no person profiles), Datadog a log through
 `http-intake.logs.<site>/api/v2/logs`, Slack one message, a webhook a JSON POST with
 `x-genclass-signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">`. The same diagnosis on the same route is sent once
-per UTC hour, at most 60 records per app per hour and 20 per batch. It all runs in `waitUntil`; a failure is written
-to the destination's `last_error` and the collector still answers 202. Settings are encrypted with `INTEGRATIONS_KEY`
-(AES-GCM, the app id and kind as additional data); without that secret nothing can be saved or sent.
+per UTC hour, at most 60 records per app per hour (test records included) and 20 per batch. It all runs in
+`waitUntil`; a failure is written to the destination's `last_error` and the collector still answers 202. Settings are
+encrypted with `INTEGRATIONS_KEY` (AES-GCM, the app id and kind as additional data); without that secret nothing can be
+saved or sent.
 
 ### Export
 
-Every batch from an app in an account gets an `event_batches` row (apps known only by a private link cannot export,
-so theirs get none). For an app on a paid plan the batch is also written to
-`export/<token>/dt=<day>/<uuid>.jsonl.gz` and the row points there; that prefix needs its own R2 lifecycle rule of a
-year (owner step 2 below), since `events/` expires after 90 days. The export streams the stored lines of the app's
-batches (each line is checked against the app's token), so it covers batches received after this version was deployed.
-The daily sweep deletes index rows and export copies past each plan's retention (in chunks of 90 keys).
+Every batch from an app whose account's plan includes export gets an `event_batches` row (Free apps and apps known
+only by a private link get none, so they cost no D1 row), and is written to `export/<token>/dt=<day>/<uuid>.jsonl.gz`;
+the row points there. That prefix needs its own R2 lifecycle rule of 366 days (owner step 2 below), since `events/`
+expires after 90 days. The export streams the stored lines of the app's batches (each line is checked against the
+app's token), so it covers the batches received while the account was on Pro or Custom. The daily sweep deletes the
+export copies of apps no longer on a paid plan once they pass 90 days, and every copy past the longest plan's history,
+in rounds of 1,000 keys (40 rounds a pass), and any index row older than 367 days in one statement (R2's rule has
+removed its object by then).
 
 ### Settings
 
 | name | kind | what |
 |---|---|---|
-| `STRIPE_SECRET_KEY` | secret | puts paid plans on sale (`sk_test_...` or `sk_live_...`); without it the buttons are hidden, checkout answers 503, and the Free plan's limits do not apply |
-| `STRIPE_WEBHOOK_SECRET` | secret | the webhook endpoint's signing secret (`whsec_...`); `scripts/stripe-setup.mjs` stores it |
+| `STRIPE_SECRET_KEY` | secret | `sk_live_...`: paid plans on sale, the Free plan's limits on. `sk_test_...`: only `STRIPE_TEST_ACCOUNTS` can buy, no limits. Without it the buttons are hidden, checkout answers 503, and the Free plan's limits do not apply |
+| `STRIPE_WEBHOOK_SECRET` | secret | the live webhook endpoint's signing secret (`whsec_...`); `scripts/stripe-setup.mjs` with a live key stores it |
+| `STRIPE_WEBHOOK_SECRET_TEST` | secret | the test endpoint's signing secret; the script with a test key stores it, so a test run never replaces the live one |
+| `STRIPE_TEST_ACCOUNTS` | secret | emails or account ids, comma-separated, that can buy while the key is a test key |
 | `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
-| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event: "custom_purchase", account_id, email, subscription_id }` when someone buys Custom (`text` suits Slack, `content` Discord) |
+| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a Custom plan is paid, `duplicate_subscription` when a second subscription was cancelled. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
+| `EXPORT_LIMIT` | rate limit binding | export pages per account per minute (120) |
+
+A Custom buyer's email, for the notice above:
+`npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "SELECT email, created, mode FROM custom_requests WHERE id = '<request_id>'"`.
 
 ### Owner steps, in order
 
-1. In test mode first: `STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs` from the repo root (signed in
-   to wrangler). It creates GenClass Pro and GenClass Custom with their monthly prices under the lookup keys, the
-   webhook endpoint `https://genclass.dev/api/billing/webhook` (its signing secret goes straight into
-   `wrangler secret put STRIPE_WEBHOOK_SECRET`, never printed) and the Billing Portal, then prints the next steps.
-   `--dry-run` only reads; running it again changes only what differs.
-2. In `telemetry-worker/`: `npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`, then the export
+1. In `telemetry-worker/`: `npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`, then the export
    copies' lifecycle rule:
    `npx --yes wrangler@4 r2 bucket lifecycle add genclass-telemetry expire-export-366d export/ --expire-days 366`.
-3. `openssl rand -base64 32 | npx --yes wrangler@4 secret put INTEGRATIONS_KEY` (once), and optionally
-   `npx --yes wrangler@4 secret put NOTIFY_WEBHOOK`.
-4. `npx --yes wrangler@4 deploy`.
-5. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Paid plans are now on sale in test mode.
+2. `openssl rand -base64 32 | npx --yes wrangler@4 secret put INTEGRATIONS_KEY` (once), and optionally
+   `npx --yes wrangler@4 secret put NOTIFY_WEBHOOK` (a Slack or Discord incoming webhook URL).
+3. `npx --yes wrangler@4 deploy`. Nothing is on sale yet and nothing changes for anyone.
+4. Test mode, on the production worker: `npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS` with your own account's
+   email, then from the repo root `STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs` (signed in to wrangler).
+   It creates GenClass Pro and GenClass Custom with their monthly prices, the test webhook endpoint
+   `https://genclass.dev/api/billing/webhook` (its secret goes straight into `STRIPE_WEBHOOK_SECRET_TEST`, never
+   printed) and the Billing Portal (plan switches charged at once). `--dry-run` only reads; running it again changes
+   only what differs.
+5. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Only your account can buy; everyone else
+   sees no change.
 6. Test a checkout: on `https://genclass.dev/account/billing` choose Upgrade to Pro and pay with Stripe's test card
-   `4242 4242 4242 4242`, any future expiry date and any CVC. The page shows Pro within a minute. Then try Manage
-   billing, switch to Custom (a `custom_requests` row and the `NOTIFY_WEBHOOK` notice), and cancel.
-7. Live: `STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs` (live products, prices, webhook and its
-   secret), then step 5 again with the live key.
+   `4242 4242 4242 4242`, any future expiry date and any CVC. The page shows Pro within a minute. Then Manage billing:
+   switch to Custom (charged at once; a `custom_requests` row with mode `test` and a test-mode notice), and cancel.
+7. Before going live, clear the test records (once the key is live they no longer count, but this keeps the tables
+   clean):
+   `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"`
+8. Live: `STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs` (live products, prices, webhook endpoint and
+   `STRIPE_WEBHOOK_SECRET`, portal).
+9. In the Stripe dashboard, live mode: Billing, Revenue recovery, Retries: set "If all retries for a payment fail" to
+   "Cancel the subscription". A plan stays paid while its subscription is `past_due`, so without this a card that keeps
+   failing would keep Pro or Custom.
+10. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the live key. Paid plans are on sale and the Free plan's
+    limits apply. Optionally remove `STRIPE_TEST_ACCOUNTS` (`npx --yes wrangler@4 secret delete STRIPE_TEST_ACCOUNTS`);
+    events from the test endpoint are answered 200 and ignored, or delete that endpoint in Stripe's test mode.
 
 ## Develop / deploy
 

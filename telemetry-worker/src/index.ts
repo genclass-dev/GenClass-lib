@@ -2,7 +2,7 @@
 // module as an entrypoint, so the collector and dashboard code (and their constants) live in collector.ts.
 import { authRetention } from "./auth.js";
 import { handle, reply, type Env } from "./collector.js";
-import { planRetention } from "./plans.js";
+import { planRetention, stripeMode } from "./plans.js";
 
 interface Ctx {
   waitUntil(p: Promise<unknown>): void;
@@ -27,6 +27,6 @@ export default {
     const db = env.DB;
     if (!db) return;
     const now = new Date();
-    ctx.waitUntil(Promise.all([planRetention(db, now, env.BUCKET), authRetention(db, now).catch(() => undefined)]));
+    ctx.waitUntil(Promise.all([planRetention(db, now, env.BUCKET, stripeMode(env)), authRetention(db, now).catch(() => undefined)]));
   },
 };

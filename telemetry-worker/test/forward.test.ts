@@ -91,16 +91,48 @@ describe("forwarding settings: encrypted at rest, masked on the way out", () => 
 
   it("checks what is typed for each kind", () => {
     expect(parseSentryDsn(DSN)).toEqual({ key: "0123456789abcdef0123456789abcdef", envelope: "https://o12345.ingest.us.sentry.io/api/4504000000000001/envelope/" });
-    expect(parseSentryDsn("https://key12345@sentry.example.com/prefix/42")?.envelope).toBe("https://sentry.example.com/prefix/api/42/envelope/");
-    expect(parseSentryDsn("http://key12345@sentry.example.com/42")).toBeNull();
-    expect(parseSentryDsn("https://sentry.example.com/42")).toBeNull();
+    expect(parseSentryDsn("https://key12345@sentry.io/prefix/42")?.envelope).toBe("https://sentry.io/prefix/api/42/envelope/");
+    expect(parseSentryDsn("https://key12345@o1.ingest.de.sentry.io/42")?.envelope).toBe("https://o1.ingest.de.sentry.io/api/42/envelope/");
+    // only Sentry's own hosts, on the default port
+    for (const bad of [
+      "http://key12345@sentry.io/42",
+      "https://sentry.io/42",
+      "https://key12345@sentry.example.com/42",
+      "https://abcdefgh@127.0.0.1:8443/1",
+      "https://abcdefgh@genclass.dev/1",
+      "https://abcdefgh@o1.ingest.sentry.io:8443/1",
+      "https://abcdefgh@sentry.io.evil.example/1",
+      "https://abcdefgh@notsentry.io/1",
+    ]) {
+      expect(parseSentryDsn(bad), bad).toBeNull();
+    }
     expect("error" in checkConfig("datadog", { api_key: "x", site: "datadoghq.com" })).toBe(true);
     expect("error" in checkConfig("datadog", { api_key: "0123456789abcdef0123456789abcdef", site: "evil.com" })).toBe(true);
     expect("error" in checkConfig("slack", { url: "https://evil.example/services/x" })).toBe(true);
     expect("error" in checkConfig("posthog", { key: "phc_abcdefghijklmnop1234", host: "http://posthog.example" })).toBe(true);
-    for (const bad of ["http://example.com/x", "https://127.0.0.1/x", "https://localhost/x", "https://user:pw@example.com/x", "https://[::1]/x", "https://intranet/x", "https://x.internal/y"]) {
+    for (const bad of [
+      "http://example.com/x",
+      "https://127.0.0.1/x",
+      "https://localhost/x",
+      "https://localhost./x",
+      "https://example.com./x",
+      "https://example.com:8443/x",
+      "https://user:pw@example.com/x",
+      "https://[::1]/x",
+      "https://intranet/x",
+      "https://x.internal/y",
+      // GenClass itself: a destination there would post to the collector's own routes
+      "https://genclass.dev/api/projects",
+      "https://www.genclass.dev/x",
+      "https://genclass-telemetry.someone.workers.dev/v1/events",
+    ]) {
       expect(publicHttpsUrl(bad), bad).toBeNull();
     }
+    expect(publicHttpsUrl("https://example.com:443/x")?.toString()).toBe("https://example.com/x");
+    expect(publicHttpsUrl("https://hooks.dev.example/x", ["dev.example"])).toBeNull();
+    expect("error" in checkConfig("webhook", { url: "https://genclass.dev/api/projects" })).toBe(true);
+    expect("error" in checkConfig("webhook", { url: "https://collector.example.org/x" }, null, ["collector.example.org"])).toBe(true);
+    expect("error" in checkConfig("posthog", { key: "phc_abcdefghijklmnop1234", host: "https://genclass.dev" })).toBe(true);
     const w = checkConfig("webhook", { url: "https://example.com/h" }) as { config: Record<string, unknown> };
     expect(w.config.secret).toMatch(/^gcw_[A-Za-z0-9_-]{43}$/);
     // saving the URL again keeps the secret unless asked to rotate it
@@ -294,5 +326,24 @@ describe("forwarding: one compact record per new detection, to each destination"
     expect((await call(t.env, "POST", `/api/account/projects/${t.app.id}/integrations/slack/test`, { body: {}, cookie: t.cookie, fetch: ok.f })).status).toBe(404);
     expect((await call(t.env, "DELETE", `/api/account/projects/${t.app.id}/integrations/webhook`, { cookie: t.cookie })).status).toBe(204);
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM integrations")[0]!.n).toBe(0);
+  });
+
+  it(`Send test counts against the app's ${HOURLY_CAP} records an hour, so it cannot post faster than forwarding`, async () => {
+    const t = await paidApp();
+    await t.put("webhook");
+    const ok = recorder();
+    const test = () => call(t.env, "POST", `/api/account/projects/${t.app.id}/integrations/webhook/test`, { body: {}, cookie: t.cookie, fetch: ok.f });
+    expect((await test()).status).toBe(200);
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM forward_log WHERE project_id = ?", t.app.id)[0]!.n).toBe(1);
+    const hour = now().toISOString().slice(0, 13);
+    const ins = t.sql.db.prepare("INSERT INTO forward_log (project_id, signature, hour) VALUES (?, ?, ?)");
+    for (let i = 1; i < HOURLY_CAP; i++) ins.run(t.app.id, `filler\t${i}`, hour);
+    const r = await test();
+    expect(r.status).toBe(429);
+    expect(((await r.json()) as any).error).toBe("this app has sent its forwarding records for this hour; try again next hour");
+    expect(ok.sent).toHaveLength(1);
+    // the next hour it works again
+    advance(3_600_000);
+    expect((await test()).status).toBe(200);
   });
 });

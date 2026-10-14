@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { resetTokenCache } from "../src/dashboard.js";
 import { csvCell, decodeCursor, encodeCursor } from "../src/export.js";
 import { resetOwnerCache } from "../src/paid.js";
-import { planRetention } from "../src/plans.js";
+import { longRetention, planRetention } from "../src/plans.js";
 import { call, cliToken, createApp, detection, now, resetClock, sendBatch, setPlan, setup, signedIn } from "./account-helpers.js";
 
 // Export (src/export.ts) and plan-aware retention (src/plans.ts): every event of an owned app as JSONL or CSV from the
@@ -141,16 +141,31 @@ describe("export: GET /api/account/projects/<id>/events", () => {
     expect(html).toContain(`https://genclass.dev/api/account/projects/${t.app.id}/events?from=2026-10-01&#38;to=2026-10-14&#38;format=jsonl`);
   });
 
-  it("an app of a Free account is indexed under events/ only (no copy); an app without an account is not indexed", async () => {
+  it("only apps whose plan includes export are indexed: a Free app and an app without an account cost no D1 row", async () => {
     const t = await proApp("free");
     await sendBatch(t.env, t.app.token, [{ t: "session", seq: 0 }]);
     const anon = (await (await call(t.env, "POST", "/api/projects", { body: { name: "Anon" }, origin: null })).json()) as any;
     await sendBatch(t.env, anon.token, [{ t: "session", seq: 0 }]);
-    const keys = t.sql.rows("SELECT key FROM event_batches").map((r) => String(r.key));
-    expect(keys).toHaveLength(1);
-    expect(t.sql.rows("SELECT token FROM event_batches")).toEqual([{ token: t.app.token }]);
-    for (const k of keys) expect(k).toMatch(/^events\/dt=2026-10-13\//);
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM event_batches")[0]!.n).toBe(0);
     expect([...t.r2.objects.keys()].some((k) => k.startsWith("export/"))).toBe(false);
+    // the export covers what arrives after the upgrade
+    setPlan(t.sql, t.account.id, "pro");
+    resetOwnerCache();
+    await sendBatch(t.env, t.app.token, [{ t: "session", seq: 0 }]);
+    expect(t.sql.rows("SELECT token FROM event_batches")).toEqual([{ token: t.app.token }]);
+    expect(String(t.sql.rows("SELECT key FROM event_batches")[0]!.key)).toMatch(new RegExp(`^export/${t.app.token}/`));
+    const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
+    expect(html).toContain("Every event GenClass received for this app while this account was on Pro or Custom");
+  });
+
+  it("a plan bought in Stripe's test mode does not export once the key is live", async () => {
+    const t = setup({ STRIPE_SECRET_KEY: "sk_live_fake" });
+    const a = await signedIn(t.env);
+    setPlan(t.sql, a.account.id, "pro", { stripe_mode: "test" });
+    const app = await createApp(t.env, a.cookie);
+    await sendBatch(t.env, app.token, [{ t: "session", seq: 0 }]);
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM event_batches")[0]!.n).toBe(0);
+    expect((await call(t.env, "GET", `/api/account/projects/${app.id}/events`, { cookie: a.cookie })).status).toBe(403);
   });
 });
 
@@ -211,6 +226,39 @@ describe("retention by plan (the daily sweep)", () => {
     expect(sql.rows("SELECT key FROM event_batches ORDER BY key").map((r) => r.key)).toEqual([freeNew, proCopy].sort());
     expect(sql.rows("SELECT COUNT(*) AS n FROM forward_log")[0]!.n).toBe(1);
     expect(sql.rows("SELECT id FROM billing_events")).toEqual([{ id: "evt_new" }]);
+  });
+
+  it("a test-mode plan keeps data longer only while the key is a test key", () => {
+    const at = now();
+    for (const mode of ["live", null] as const) {
+      const l = longRetention(at, mode)!;
+      expect(l.tokens).toContain("(a.stripe_mode IS NULL OR a.stripe_mode <> 'test' OR ? = 'test')");
+      expect(l.params[l.params.length - 1]).toBe(mode ?? "");
+    }
+    expect(longRetention(at)!.tokens).not.toContain("stripe_mode");
+  });
+
+  it("export copies of a lapsed app go in rounds of 1000, and index rows past 367 days in one statement", async () => {
+    const { env, sql, r2 } = setup(LIVE);
+    const lapsed = await signedIn(env, "lapsed@example.com");
+    setPlan(sql, lapsed.account.id, "free", { subscription_id: "sub_lapsed0002", subscription_status: "canceled", current_period_end: new Date(now().getTime() - 60 * DAY).toISOString() });
+    const tok = (await createApp(env, lapsed.cookie, "Lapsed")).token;
+    const ins = sql.db.prepare("INSERT INTO event_batches (token, received, key, events) VALUES (?, ?, ?, 1)");
+    const keys: string[] = [];
+    for (let i = 0; i < 1500; i++) {
+      const key = `export/${tok}/dt=2026-05-01/k${String(i).padStart(4, "0")}.jsonl.gz`;
+      r2.objects.set(key, gzipSync("{}\n"));
+      ins.run(tok, new Date(now().getTime() - 150 * DAY + i).toISOString(), key);
+      keys.push(key);
+    }
+    // and an index row of an events/ batch past 90 days (R2's own lifecycle rule removes that object)
+    ins.run(`gc_${"Q".repeat(22)}`, new Date(now().getTime() - 400 * DAY).toISOString(), "events/dt=2025-09-08/x.jsonl.gz");
+    const before = sql.batches();
+    await planRetention(sql.api, now(), r2);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM event_batches")[0]!.n).toBe(0);
+    expect(r2.deleted.sort()).toEqual(keys.sort());
+    // two rounds (1000 + 500 keys), each one D1 batch, plus the retention batches
+    expect(sql.batches() - before).toBeLessThanOrEqual(6);
   });
 
   it("deleting an account removes its apps' export copies, forwarding settings and export keys", async () => {

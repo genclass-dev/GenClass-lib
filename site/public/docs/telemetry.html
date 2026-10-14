@@ -245,9 +245,15 @@ latency and counts, plus the app's hostname and the id-normalised route (no quer
   batch and the visitor's coarse <strong>country</strong> (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.</li>
 <li><strong>Use:</strong> model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
-  app's dashboard. Not sold, not used for advertising.</li>
+  app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
+  turns on: an export of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
+  trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
+  advertising.</li>
 <li><strong>Retention:</strong> 90 days. An R2 lifecycle rule (<code>expire-90d</code>, prefix <code>events/</code>) deletes every stored batch 90 days after it
-  was written. The maintainers may change this later; changes are recorded in the CHANGELOG.</li>
+  was written. For an app on a paid plan, a copy of each batch is kept for its export under <code>export/&lt;token&gt;/</code> for up to
+  1 year (another lifecycle rule, 366 days), and its dashboard data for 1 year; both are deleted 30 days after the paid
+  plan ends, and at once when the app or its account is deleted. The maintainers may change this later; changes are
+  recorded in the CHANGELOG.</li>
 <li><strong>Your own endpoint:</strong> <code>telemetry: { endpoint: "https://…" }</code> sends the same batches to a collector you run
   instead (the worker in <code>telemetry-worker/</code> deploys to any Cloudflare account).</li>
 </ul>
