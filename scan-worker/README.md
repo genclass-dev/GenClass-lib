@@ -280,7 +280,7 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
 - **Where the elements are.** At the top of the page, as they are after the checks; a measured finding further down is
   scrolled into the viewport first (a quarter of the way down; to the end of the page for `control-unreachable`, which is
   covered "even at the end of the page"; focused for `focus-obscured`). Each group is measured and cropped once no finite
-  animation runs on its elements or their ancestors (at most 1 s: pages that fade content in as it scrolls into view),
+  animation runs on its elements or their ancestors (at most 0.6 s: pages that fade content in as it scrolls into view),
   then the page is scrolled back and focus cleared (`judgePage("restore")`). On the light phone the width the reflow check
   left (320 px) is set back to 390 px first.
 - **Which elements.** First the visual checks' findings with an element to crop, except `page-overflow-x`,
@@ -288,11 +288,12 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   dropped 13 of 34 real sideways-scrolling findings and 4 of 15 broken images; template text was right 5 times in 6) and
   `layout-shift` (listed, not scored already); a finding is matched to its element by selector and box. Then elements the
   measured checks abstain on, in this order (`judgePage("find")`): controls another element covers at one of five points,
-  controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible link, button or field with
-  text or an icon, and text whose background along its ancestors or under its centre is an image, a gradient, media or a
+  controls partly clipped by an ancestor (under 90% inside it), in the dark view every visible link and button with
+  text or an icon (not fields: the model takes a placeholder for leaked example text), and text whose background along its ancestors or under its centre is an image, a gradient, media or a
   filter; covered controls and text on the first screen before the rest, top to bottom (a crop further down is taken
   after scrolling to it, so only what the screenshot covers); nothing inside `aria-hidden`, `role="img"`, `inert` or a
-  closed `details`, and nothing inside or around an element already chosen.
+  closed `details`, nothing that is only the site's own name (a logotype, which WCAG 1.4.3 exempts, the same rule as
+  axe-core's `color-contrast` here), and nothing inside or around an element already chosen.
 - **The cap.** At most 40 calls a scan (`JUDGE_MAX_CALLS`), the findings first. Each view is guaranteed its share, 14 for
   the desktop and 13 for each phone view (`JUDGE_SHARE`), and may also take what the views that asked before it left
   (`JudgeBudget`: in calibration the light views mostly had few elements to ask about, the dark phone always more than

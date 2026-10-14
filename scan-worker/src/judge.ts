@@ -28,7 +28,7 @@ export const JUDGE_PLATFORM = "Cloudflare Workers AI";
  * The prompt and candidate rules, by name: the evaluation's variant, and a suffix for each change calibration made
  * (CALIBRATION.md). Reports and /api/scan/health carry it, so a report says which prompt judged it.
  */
-export const JUDGE_PROMPT = "clef-img-p3";
+export const JUDGE_PROMPT = "clef-img-p3 r2";
 /** Calls per scan, at most, across the three views; each view's share (desktop, light phone, dark phone). */
 export const JUDGE_MAX_CALLS = 40;
 export const JUDGE_SHARE: Record<string, number> = { desktop: 14, phone: 13, "phone-dark": 13 };

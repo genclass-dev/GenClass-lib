@@ -914,6 +914,17 @@ export function judgePage(cmd: string, options?: any): any {
         }
         return insideShare({ l: r.left, t: r.top, r: r.right, b: r.bottom }, c);
       };
+      // WCAG 1.4.3 exempts logotypes: an element whose text (or, with none, its image's alt or label) is only the site's
+      // own name, as src/axe.ts leaves it out of color-contrast (calibration: a faint name image in a header link)
+      const label = String(g.location.hostname || "").replace(/^www\./, "").split(".")[0].replace(/[^a-z0-9]/g, "");
+      const norm = (s: any) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const brand = (el: any): boolean => {
+        if (label.length < 3) return false;
+        const t = norm(el.textContent);
+        if (t) return t === label;
+        const named = Array.prototype.slice.call(el.querySelectorAll("img[alt], [aria-label]"), 0, 4).map((x: any) => x.getAttribute("alt") || x.getAttribute("aria-label")).join("");
+        return norm(named || el.getAttribute("aria-label") || el.getAttribute("alt")) === label;
+      };
       const all = body.getElementsByTagName("*");
       for (let i = 0; i < all.length && i < 6000; i++) {
         const el = all[i];
@@ -931,7 +942,7 @@ export function judgePage(cmd: string, options?: any): any {
         }
         if (!shown) continue;
         // decoration and pictures (WCAG 1.4.3's incidental text), inert and closed parts: not what a visitor reads or uses
-        if (el.closest('[aria-hidden="true"], [role="img"], [inert]')) continue;
+        if (el.closest('[aria-hidden="true"], [role="img"], [inert]') || brand(el)) continue;
         const dt = el.closest("details");
         if (dt && !dt.open && !el.closest("summary")) continue;
         const inFold = r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0;
@@ -946,7 +957,8 @@ export function judgePage(cmd: string, options?: any): any {
             if (share > 0 && share < 0.9) {
               cls = "clipped";
               rank = inFold ? 1 : 4;
-            } else if (o.dark) {
+            } else if (o.dark && /^(button|link)$/.test(String(el.getAttribute("role") || implicitRole(el)))) {
+              // buttons and links only: a field shows its placeholder, which the model takes for leaked example text
               cls = "dark-control";
               rank = inFold ? 2 : 4;
             }
@@ -1005,7 +1017,7 @@ export function judgePage(cmd: string, options?: any): any {
     } else if (typeof o.y === "number") go(Math.max(0, o.y));
     const frame = () => new Promise((resolve) => g.requestAnimationFrame(() => resolve(true)));
     // a page that fades content in as it scrolls into view (or again after the audits scrolled past it) shows it only
-    // when its animation ends: wait, at most 1 s, until no finite animation runs on the elements or their ancestors
+    // when its animation ends: wait, at most 0.6 s, until no finite animation runs on the elements or their ancestors
     const moving = () =>
       idx.some((i: number) => {
         for (let e = s.els[i]; e && e !== html; e = e.parentElement) {
@@ -1026,7 +1038,7 @@ export function judgePage(cmd: string, options?: any): any {
     const still = () =>
       new Promise((resolve) => {
         const t0 = g.performance.now();
-        const tick = () => (!moving() || g.performance.now() - t0 > 1000 ? resolve(true) : g.setTimeout(tick, 80));
+        const tick = () => (!moving() || g.performance.now() - t0 > 600 ? resolve(true) : g.setTimeout(tick, 80));
         tick();
       });
     const settle = Promise.race([frame().then(frame), new Promise((resolve) => g.setTimeout(resolve, 250))]).then(still);

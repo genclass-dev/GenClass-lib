@@ -1240,7 +1240,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   async function cropShot(page: PageLike, cdp: CdpLike | null, c: Crop): Promise<string | null> {
     const clip = { x: c.x, y: c.y, width: c.w, height: c.h, scale: 1 };
     let data: unknown;
-    if (cdp) data = ((await cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 90, clip, captureBeyondViewport: false })) as { data?: unknown } | null)?.data;
+    if (cdp) data = ((await cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 90, clip, captureBeyondViewport: false, optimizeForSpeed: true })) as { data?: unknown } | null)?.data;
     else {
       const b = await page.screenshot({ type: "jpeg", quality: 90, clip: { x: c.x, y: c.y, width: c.w, height: c.h }, captureBeyondViewport: false, encoding: "base64" });
       data = typeof b === "string" ? b : b instanceof Uint8Array ? toBase64(b) : null;
