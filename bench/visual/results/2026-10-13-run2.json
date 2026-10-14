@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-14T00:06:23.933Z",
+  "at": "2026-10-14T00:24:05.609Z",
   "commits": [
     "5612879fe039a9374c832675d8ffdc1671c9d9be"
   ],
@@ -153,14 +153,14 @@
     },
     "verdicts": {
       "real": 5,
-      "checkError": 0,
-      "unconfirmed": 7
+      "checkError": 5,
+      "unconfirmed": 2
     },
     "verdictsByKind": {
       "control-unreachable": {
         "real": 0,
-        "checkError": 0,
-        "unconfirmed": 5
+        "checkError": 5,
+        "unconfirmed": 0
       },
       "focus-obscured": {
         "real": 1,

@@ -314,7 +314,7 @@ test.describe("runtime fixes (guard mode, visual: { on: true, fix: true })", () 
 // False reports the bench found on real pages (bench/visual, docs/runtime/VISUAL.md section 19), reproduced with the
 // same visitor actions the bench uses (keyboard focus, then scrolling to the end): nothing but the planted fault.
 test.describe("bench regressions (VISUAL.md 19): patterns that were false reports on public sites", () => {
-  for (const name of ["regress-css-var.html", "regress-focus-overlay.html", "regress-shift-scroll.html", "regress-shadow-banner.html"]) {
+  for (const name of ["regress-css-var.html", "regress-focus-overlay.html", "regress-shift-scroll.html", "regress-shadow-banner.html", "regress-menu-lock.html"]) {
     test(`${name}: only the planted faults, after keyboard focus and scrolling`, async ({ page }) => {
       await open(page, `/f/${name}`);
       let underLayer = 0;
@@ -338,6 +338,10 @@ test.describe("bench regressions (VISUAL.md 19): patterns that were false report
       exact(await settle(page), await planted(page));
       // the pattern really happened (so the exclusion, not its absence, kept the page clean)
       if (name === "regress-focus-overlay.html") expect(underLayer).toBeGreaterThan(0);
+      if (name === "regress-menu-lock.html") {
+        // the menu stayed open and its lock held while the wheel tried to scroll
+        expect(await page.evaluate(() => [document.body.style.overflow, document.getElementById("platform")!.getAttribute("aria-expanded"), scrollY])).toEqual(["hidden", "true", 0]);
+      }
       if (name === "regress-shadow-banner.html") {
         // at the end of the page both footer links sit under a banner host
         const hits = await page.evaluate(() =>

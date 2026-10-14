@@ -20,6 +20,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
 | `training/` | vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's situation renderer), Azure training, ONNX export, `EVAL.md` |
 | `demos/` | six demo apps with a chaos backend and Playwright trials; `bench/heal/` runs them per mode |
+| `bench/visual/` | the visual checks' bench (GitHub Actions only, `.github/workflows/visual-measure.yml`): false reports on the demos, templates, compat apps and about 40 public sites, recall on faults planted from the harness, cost; public sites are counted per check kind only, never named in the repo |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
 | `site/`, `telemetry-worker/` | genclass.dev and the diagnostics collector (Cloudflare Workers) |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
@@ -41,8 +42,9 @@ NODE_OPTIONS=--expose-gc npx vitest run test/review-perf.test.ts --retry=2   # t
 
 One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tests are model-parity tests that need
 `GENCLASS_MODEL_DIR`. CI also runs the `visual-browser` job: the first-load size against main (`test/first-load-size.mjs`, fails at 0.5 KB
-growth) and `npx playwright test --config test/browser/visual/playwright.config.ts` in Chromium. Not in CI, ask before
-running: the model Playwright suite (`npm run test:browser`), `test/smoke/smoke.sh`, the
+growth) and `npx playwright test --config test/browser/visual/playwright.config.ts` in Chromium. The visual bench
+(`visual-measure.yml`) is a separate workflow: manual dispatch (and pushes to `bench/visual/` on the visual branch);
+it loads public sites, so it does not run on pull requests. Not in CI, ask before running: the model Playwright suite (`npm run test:browser`), `test/smoke/smoke.sh`, the
 install suite (`test/install/run-all.sh`), the sim and realapps generators, the demos' eval, training, anything on
 Azure, `git push`, `npm publish`.
 

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { cssVarJudgeable, judgeContrast, undefinedVarRefs, type ContrastInput } from "../src/visual/checks/text.js";
 import { brokenImageVerdict, cspReportable, familyStatus, firstFamily, iconBroken, mediaVerdict } from "../src/visual/checks/assets.js";
 import { overflowReportable, poorWindows, shiftVerdict, viewportMetaMissing } from "../src/visual/checks/layout.js";
-import { coverJudgeable, dialogReportable, paintsAt } from "../src/visual/checks/interact.js";
+import { coverJudgeable, dialogReportable, paintsAt, triggerOpens } from "../src/visual/checks/interact.js";
 import { excerpt, placeholderHost, scanText } from "../src/visual/patterns.js";
 import { fold, toFinding } from "../src/visual/report.js";
 import { hash32, KINDS, LIGHT, resolveCfg, transitionMs } from "../src/visual/engine.js";
@@ -339,6 +339,17 @@ describe("bench regressions: exclusions measured on real pages (VISUAL.md 15, 19
     // a consent banner rendered in a closed shadow root: its host has no box, its buttons cannot be seen
     expect(coverJudgeable({ ...bar, height: 0 })).toBe("no-box");
     expect(coverJudgeable({ ...bar, width: 0, height: 0 })).toBe("no-box");
+  });
+
+  it("scroll-lock-stuck and pointer-events-leak: an expanded popup trigger means something is open", () => {
+    // a mega-menu trigger: aria-expanded="true" aria-haspopup="true", its panel not marked as a menu
+    expect(triggerOpens({ haspopup: "true", inNav: true, controlsVisible: false })).toBe(true);
+    expect(triggerOpens({ haspopup: "menu", inNav: false, controlsVisible: false })).toBe(true);
+    // a disclosure menu in the navigation bar whose panel is visible
+    expect(triggerOpens({ haspopup: null, inNav: true, controlsVisible: true })).toBe(true);
+    // an expanded accordion in the content does not own the page's scroll
+    expect(triggerOpens({ haspopup: null, inNav: false, controlsVisible: true })).toBe(false);
+    expect(triggerOpens({ haspopup: "false", inNav: false, controlsVisible: true })).toBe(false);
   });
 
   it("layout-shift: a window needs an element that moved, and is not the page answering a scroll", () => {

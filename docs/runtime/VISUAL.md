@@ -1,7 +1,8 @@
 # GenClass visual checks: design (v1, with v2 and v3 outlined)
 
 Status: design written 2026-10-13; **v1 implemented** the same day on branch `wave2/visual`
-(`packages/runtime/src/visual/`), with the differences listed in [section 19](#19-v1-implementation-notes). The open
+(`packages/runtime/src/visual/`), with the differences listed in [section 19](#19-v1-implementation-notes); **measured**
+the same day by the bench of section 15 ([RESULTS.md section 9](RESULTS.md)), which tightened four checks. The open
 owner decisions are in [section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) section 14,
 [API.md](API.md), [OPTIONS-SPEC.md](OPTIONS-SPEC.md) section 4.19 and the CHANGELOG have the matching entries.
 
@@ -1133,6 +1134,18 @@ Browser job (new, `visual-browser` in `.github/workflows/ci.yml`, in parallel wi
   fixtures.
 
 ## 15. Measurement plan in CI
+
+**Status: built** (2026-10-13): [`bench/visual/`](../../bench/visual/README.md) and
+`.github/workflows/visual-measure.yml`. The numbers are in [RESULTS.md section 9](RESULTS.md); what the bench changed
+in the checks is in section 19. Where the bench differs from the plan below: the workflow is `visual-measure.yml`,
+started by hand (and by pushes to `bench/visual/` on the visual branch, because a `workflow_dispatch` workflow can only
+be dispatched once it is on the default branch), not weekly; the public sites run without `bypassCSP` (Playwright's
+init scripts run under a page's policy, and the site's own policy stays in force for `csp-blocked`); phone loads send
+an Android user agent that keeps the `HeadlessChrome` token, so sites that pick their mobile layout by user agent are
+measured in it; dark loads run where the site has a dark design (a `prefers-color-scheme` rule, a `color-scheme`
+value, or colours that change in the dark load); scripted interaction is hover over 8 controls, 8 Tab presses and
+scrolling to the end, with a pass at the top and one at the end; the compat apps run scenarios c, d and h (faults on
+h). The plan as written:
 
 A workflow `visual-bench.yml` (manual dispatch and weekly, not on pull requests) with `bench/visual/` (like
 `bench/heal/`). It runs on GitHub runners only.

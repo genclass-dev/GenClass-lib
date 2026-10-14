@@ -66,6 +66,31 @@ export function clickBlockedDraft(ctx: Ctx, c: ClickRead): Draft {
 
 // ------------------------------------------------------------------------------- pointer-events, scroll lock
 
+/**
+ * A trigger announces an open popup: `aria-expanded="true"` with `aria-haspopup` (a menu, listbox or dialog), or in a
+ * navigation bar with `aria-controls` naming a visible element (a disclosure menu). An expanded accordion elsewhere
+ * on the page does not count. bench/visual: a site's mega-menu, opened by keyboard focus, locked the body's scroll
+ * while its panel (not marked as a menu) was open.
+ */
+export function triggerOpens(o: { haspopup: string | null; inNav: boolean; controlsVisible: boolean }): boolean {
+  if (o.haspopup && o.haspopup !== "false") return true;
+  return o.inNav && o.controlsVisible;
+}
+
+function openByTrigger(r: Reader): boolean {
+  for (const t of [...r.doc.querySelectorAll('[aria-expanded="true"]')].slice(0, 50)) {
+    if (!r.visible(t)) continue;
+    const ids = (t.getAttribute("aria-controls") ?? "").split(/\s+/).filter(Boolean);
+    const controlsVisible = ids.some((id) => {
+      const c = r.doc.getElementById(id);
+      return !!c && r.visible(c);
+    });
+    const inNav = !!t.closest('nav, header, [role="navigation"], [role="menubar"], [role="banner"]');
+    if (triggerOpens({ haspopup: t.getAttribute("aria-haspopup"), inNav, controlsVisible })) return true;
+  }
+  return false;
+}
+
 /** Something open and visible owns the page's pointer-events or scroll lock (dialogs, menus, popovers, a drawer). */
 export function openOverlay(r: Reader, drawers: boolean): boolean {
   let list: Element[] = [];
@@ -75,6 +100,7 @@ export function openOverlay(r: Reader, drawers: boolean): boolean {
     list = [...r.doc.querySelectorAll(OPEN_SEL)].slice(0, 50);
   }
   if (list.some((el) => r.visible(el))) return true;
+  if (openByTrigger(r)) return true;
   if (!drawers) return false;
   for (const el of r.stack(Math.floor(r.win.innerWidth / 2), Math.floor(r.win.innerHeight / 2))) {
     const p = r.pinned(el);

@@ -1,0 +1,692 @@
+{
+  "at": "2026-10-14T00:24:05.531Z",
+  "commits": [
+    "ac5832fb727a4fa4192cbb142801659218b4fded"
+  ],
+  "runs": [
+    "38488461191"
+  ],
+  "chromium": [
+    "153.0.8010.12"
+  ],
+  "clean": {
+    "demos": {
+      "pages": 7,
+      "loads": 28,
+      "measured": 28,
+      "notMeasured": {},
+      "findings": 2,
+      "byKind": {
+        "layout-shift": 2
+      },
+      "real": 2,
+      "falseReports": 0,
+      "unlabelled": 0,
+      "falseByKind": {},
+      "fixesApplied": 0,
+      "falseFixes": 0,
+      "perConfig": {
+        "desktop light": {
+          "loads": 7,
+          "findings": 1
+        },
+        "desktop dark": {
+          "loads": 7,
+          "findings": 1
+        },
+        "phone light": {
+          "loads": 7,
+          "findings": 0
+        },
+        "phone dark": {
+          "loads": 7,
+          "findings": 0
+        }
+      },
+      "falsePerPageView": 0
+    },
+    "templates": {
+      "pages": 4,
+      "loads": 16,
+      "measured": 16,
+      "notMeasured": {},
+      "findings": 0,
+      "byKind": {},
+      "real": 0,
+      "falseReports": 0,
+      "unlabelled": 0,
+      "falseByKind": {},
+      "fixesApplied": 0,
+      "falseFixes": 0,
+      "perConfig": {
+        "desktop light": {
+          "loads": 4,
+          "findings": 0
+        },
+        "desktop dark": {
+          "loads": 4,
+          "findings": 0
+        },
+        "phone light": {
+          "loads": 4,
+          "findings": 0
+        },
+        "phone dark": {
+          "loads": 4,
+          "findings": 0
+        }
+      },
+      "falsePerPageView": 0
+    },
+    "compat": {
+      "pages": 21,
+      "loads": 84,
+      "measured": 83,
+      "notMeasured": {
+        "error: page.waitForSelector: Timeout 45000ms exceeded.": 1
+      },
+      "findings": 0,
+      "byKind": {},
+      "real": 0,
+      "falseReports": 0,
+      "unlabelled": 0,
+      "falseByKind": {},
+      "fixesApplied": 0,
+      "falseFixes": 0,
+      "perConfig": {
+        "desktop light": {
+          "loads": 20,
+          "findings": 0
+        },
+        "desktop dark": {
+          "loads": 21,
+          "findings": 0
+        },
+        "phone light": {
+          "loads": 21,
+          "findings": 0
+        },
+        "phone dark": {
+          "loads": 21,
+          "findings": 0
+        }
+      },
+      "falsePerPageView": 0
+    }
+  },
+  "sites": {
+    "sites": 40,
+    "sitesMeasured": 34,
+    "loads": 125,
+    "loadsCounted": 102,
+    "notMeasured": {
+      "HTTP error": 2,
+      "bot challenge after load": 1,
+      "bot challenge": 2,
+      "error: page.goto: net::ERR_HTTP2_PROTOCOL_ERROR": 1
+    },
+    "darkDropped": 17,
+    "perConfig": {
+      "desktop light": {
+        "loads": 34,
+        "findings": 1
+      },
+      "phone light": {
+        "loads": 34,
+        "findings": 3
+      },
+      "desktop dark": {
+        "loads": 17,
+        "findings": 1
+      },
+      "phone dark": {
+        "loads": 17,
+        "findings": 2
+      }
+    },
+    "findings": 7,
+    "loadsWithFindings": 5,
+    "sitesWithFindings": 4,
+    "byKind": {
+      "layout-shift": 3,
+      "focus-obscured": 1,
+      "scroll-lock-stuck": 1,
+      "page-overflow-x": 2
+    },
+    "verdicts": {
+      "real": 5,
+      "checkError": 1,
+      "unconfirmed": 1
+    },
+    "verdictsByKind": {
+      "layout-shift": {
+        "real": 2,
+        "checkError": 0,
+        "unconfirmed": 1
+      },
+      "focus-obscured": {
+        "real": 1,
+        "checkError": 0,
+        "unconfirmed": 0
+      },
+      "scroll-lock-stuck": {
+        "real": 0,
+        "checkError": 1,
+        "unconfirmed": 0
+      },
+      "page-overflow-x": {
+        "real": 2,
+        "checkError": 0,
+        "unconfirmed": 0
+      }
+    },
+    "findingsPerLoad": 0.069,
+    "findingsPer10Sites": 2.1
+  },
+  "recall": {
+    "loads": 306,
+    "measured": 306,
+    "byKind": {
+      "text-invisible": {
+        "planted": 72,
+        "took": 70,
+        "found": 70,
+        "desktop": {
+          "took": 36,
+          "found": 36
+        },
+        "phone": {
+          "took": 34,
+          "found": 34
+        },
+        "fix": {
+          "held": 70,
+          "undone": 0,
+          "notApplied": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "font-failed": {
+        "planted": 36,
+        "took": 28,
+        "found": 28,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "css-var-undefined": {
+        "planted": 36,
+        "took": 28,
+        "found": 27,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 13
+        },
+        "missed": [
+          "demos/status phone"
+        ],
+        "recall": 0.964
+      },
+      "text-template-leak": {
+        "planted": 72,
+        "took": 54,
+        "found": 54,
+        "desktop": {
+          "took": 26,
+          "found": 26
+        },
+        "phone": {
+          "took": 28,
+          "found": 28
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "text-encoding": {
+        "planted": 36,
+        "took": 28,
+        "found": 28,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "text-placeholder": {
+        "planted": 36,
+        "took": 28,
+        "found": 28,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "image-broken": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "image-distorted": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "image-css-broken": {
+        "planted": 36,
+        "took": 32,
+        "found": 32,
+        "desktop": {
+          "took": 16,
+          "found": 16
+        },
+        "phone": {
+          "took": 16,
+          "found": 16
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "media-failed": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "icon-font-failed": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "stylesheet-failed": {
+        "planted": 36,
+        "took": 32,
+        "found": 32,
+        "desktop": {
+          "took": 16,
+          "found": 16
+        },
+        "phone": {
+          "took": 16,
+          "found": 16
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "csp-blocked": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "page-overflow-x": {
+        "planted": 36,
+        "took": 22,
+        "found": 22,
+        "desktop": {
+          "took": 11,
+          "found": 11
+        },
+        "phone": {
+          "took": 11,
+          "found": 11
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "pointer-events-leak": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "fix": {
+          "held": 18,
+          "undone": 0,
+          "notApplied": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "scroll-lock-stuck": {
+        "planted": 36,
+        "took": 36,
+        "found": 24,
+        "desktop": {
+          "took": 18,
+          "found": 12
+        },
+        "phone": {
+          "took": 18,
+          "found": 12
+        },
+        "fix": {
+          "held": 24,
+          "undone": 0,
+          "notApplied": 0
+        },
+        "missed": [
+          "demos/board desktop",
+          "demos/board phone",
+          "demos/checkout desktop",
+          "demos/checkout phone",
+          "demos/decisions desktop",
+          "demos/decisions phone",
+          "demos/editor desktop",
+          "demos/editor phone",
+          "demos/search desktop",
+          "demos/search phone",
+          "demos/status desktop",
+          "demos/status phone"
+        ],
+        "recall": 0.667
+      },
+      "click-blocked": {
+        "planted": 18,
+        "took": 18,
+        "found": 12,
+        "desktop": {
+          "took": 18,
+          "found": 12
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [
+          "demos/board desktop",
+          "demos/checkout desktop",
+          "demos/decisions desktop",
+          "demos/editor desktop",
+          "demos/search desktop",
+          "demos/status desktop"
+        ],
+        "recall": 0.667
+      },
+      "control-unreachable": {
+        "planted": 36,
+        "took": 32,
+        "found": 32,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "focus-obscured": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "dialog-covered": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "layout-shift": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "page-blank": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "viewport-meta-missing": {
+        "planted": 18,
+        "took": 11,
+        "found": 11,
+        "desktop": {
+          "took": 0,
+          "found": 0
+        },
+        "phone": {
+          "took": 11,
+          "found": 11
+        },
+        "missed": [],
+        "recall": 1
+      }
+    },
+    "notApplicable": {
+      "viewport-meta-missing: layout 390 px on a 390 px screen": 7,
+      "page-overflow-x: the viewport clips overflow (overflow-x: clip)": 14,
+      "text-invisible: no visible text over a known solid background in the viewport": 2,
+      "text-template-leak: the element is gone or hidden": 2,
+      "font-failed: no visible text element in the viewport": 8,
+      "css-var-undefined: no visible text element in the viewport": 8,
+      "text-template-leak: no visible text element in the viewport": 16,
+      "text-encoding: no visible text element in the viewport": 8,
+      "text-placeholder: no visible text element in the viewport": 8,
+      "image-css-broken: status 200": 4,
+      "stylesheet-failed: the stylesheet loaded (status 200, the server answers missing files with a page)": 4,
+      "control-unreachable: the cover does not hide all 5 points of the button (button at 32,786, planted at {\"top\":786,\"left\":32,\"h\":72,\"scrollH\":1184}, scrollHeight 1184, a point hits genclass-devtools)": 3,
+      "control-unreachable: the cover does not hide all 5 points of the button (button at 32,786, planted at {\"top\":786,\"left\":32,\"h\":72,\"scrollH\":1222}, scrollHeight 1222, a point hits genclass-devtools)": 1
+    },
+    "otherFindings": 16,
+    "otherFindingsNotOnCleanPage": 7
+  },
+  "cost": {
+    "local1x": {
+      "loads": 127,
+      "firstPassMs": {
+        "p50": 4.1,
+        "p95": 32.1,
+        "max": 47.4
+      },
+      "firstPassWithinBudget": 100,
+      "maxSliceMs": {
+        "p50": 4,
+        "p95": 12.3,
+        "max": 17
+      },
+      "elements": {
+        "p50": 138,
+        "max": 2178
+      },
+      "sessionMs": {
+        "p50": 6.7,
+        "p95": 56.5
+      },
+      "sheetWalkMs": {
+        "p50": 0.1,
+        "p95": 4,
+        "max": 4.4,
+        "readable": 127
+      }
+    },
+    "local4x": {
+      "loads": 32,
+      "firstPassMs": {
+        "p50": 21.8,
+        "p95": 106.1,
+        "max": 108.6
+      },
+      "firstPassWithinBudget": 78.1,
+      "maxSliceMs": {
+        "p50": 12.3,
+        "p95": 41,
+        "max": 42.2
+      },
+      "elements": {
+        "p50": 138,
+        "max": 810
+      },
+      "sessionMs": {
+        "p50": 27.7,
+        "p95": 201.8
+      },
+      "sheetWalkMs": {
+        "p50": 0,
+        "p95": 15.4,
+        "max": 16.6,
+        "readable": 32
+      }
+    },
+    "sites1x": {
+      "loads": 119,
+      "firstPassMs": {
+        "p50": 32.1,
+        "p95": 85.9,
+        "max": 105.3
+      },
+      "firstPassWithinBudget": 95.8,
+      "maxSliceMs": {
+        "p50": 17.7,
+        "p95": 53.8,
+        "max": 72.1
+      },
+      "elements": {
+        "p50": 903,
+        "max": 6593
+      },
+      "sessionMs": {
+        "p50": 60.4,
+        "p95": 154.4
+      },
+      "sheetWalkMs": {
+        "p50": 10.7,
+        "p95": 30.4,
+        "max": 37.3,
+        "readable": 88
+      }
+    }
+  },
+  "integration": {
+    "loads": 7,
+    "measured": 7,
+    "afterLoadMs": {
+      "p50": 2051,
+      "max": 2085
+    },
+    "chunkAfterLoadMs": {
+      "p50": 1500
+    },
+    "chunkBytes": null,
+    "findings": 0,
+    "byKind": {},
+    "notMeasured": []
+  }
+}
