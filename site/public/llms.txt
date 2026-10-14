@@ -27,6 +27,9 @@
 - Unlimited apps means no plan limit; one account holds at most 200 apps as an abuse limit. The runtime is free in every plan.
 - Need self-hosting, SSO or invoices? Email mehar@daybot.ca. https://genclass.dev/enterprise
 
+## In testing, not in 0.2.1
+- Visual bug checks (unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", stylesheets and fonts that fail, covered controls): measured checks with documented thresholds. A model is planned, to be trained on crawled pages with injected faults; no published numbers yet, results due by October 14, 2026, 22:00 UTC. https://genclass.dev/visual
+
 ## Guides
 - How to fix race conditions in React data fetching: https://genclass.dev/guides/race-conditions-react
 - Out-of-order responses and stale search results: https://genclass.dev/guides/stale-responses-out-of-order

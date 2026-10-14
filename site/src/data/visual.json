@@ -1,0 +1,54 @@
+{
+  "$comment": "Numbers for the visual-bug feature on genclass.dev (/ and /visual). How to fill it: README.md in this folder. The build shows numbers only when status is \"live\" and every field the pages use is filled; until then it shows the catalog content, the status and the date in ready_by, with no numbers.",
+  "status": "draft",
+  "updated": null,
+  "ready_by": "2026-10-14T22:00:00Z",
+  "scan_live": false,
+  "checks_in_runtime": null,
+  "model": {
+    "stage": "planned",
+    "name": null,
+    "version": null,
+    "input": null,
+    "trained_on": {
+      "sites_ai": null,
+      "sites_control": null,
+      "injected_faults": null,
+      "elements": null
+    },
+    "eval": {
+      "data": null,
+      "split": null,
+      "false_reports_per": null
+    },
+    "families": [],
+    "natural_precision": null,
+    "natural_pages": null,
+    "size_kb": null,
+    "ms_per_element": null,
+    "cost_measured_on": null
+  },
+  "crawl": {
+    "date": null,
+    "sites_ai": null,
+    "sites_control": null,
+    "measured_by": null,
+    "false_site_share": null,
+    "clean_sites": null,
+    "prevalence": []
+  },
+  "sources": [
+    {
+      "id": "catalog",
+      "title": "Visual and CSS bugs in AI-generated web apps: catalog",
+      "path": "research/visual/CATALOG.md",
+      "used_for": "the bug families and their order"
+    },
+    {
+      "id": "checks",
+      "title": "GenClass visual checks: design",
+      "path": "docs/runtime/VISUAL.md",
+      "used_for": "the measured checks, their thresholds and the opt-in fixes"
+    }
+  ]
+}
