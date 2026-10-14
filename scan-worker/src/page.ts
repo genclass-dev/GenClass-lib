@@ -219,9 +219,8 @@ code.kind{font:12.5px var(--mono);color:var(--ink3)}
 /* narrow screens: a visible gap between the number columns, and number tags beside their boxes, not over the text */
 @media (max-width:560px){
   table.dt th.r,table.dt td.r{padding-left:10px}
-  table.dt th{font-size:10.5px;letter-spacing:.02em}
-  .frame .mark.in a{left:0;top:auto;bottom:100%;margin:0 0 2px}
-  .frame .mark.in.low a{bottom:auto;top:100%;margin:2px 0 0}
+  table.dt th,table.dt th.r{font-size:10.5px;letter-spacing:.02em;white-space:normal}
+  .frame .mark.in:not(.low) a{left:0;top:auto;bottom:100%;margin:0 0 2px}
 }
 `;
 

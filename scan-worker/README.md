@@ -290,6 +290,21 @@ as a menu that closed without releasing it does.
 while the page loads (the report must say so and not score what follows from it). Non-GET requests that reach the
 fixture are logged (`wrangler tail genclass-scan-fixture`).
 
+## Re-run after the launch review's fixes (2026-10-14, test copy, report version 5)
+
+The test copy redeployed from this branch (`WITH_GENCLASS=on`, shipped guard gates), the fixture only. Times in ms:
+launch / three views in parallel / observe probe / guard pass.
+
+| page | total | launch / views / probe / guard | score | with GenClass (in testing) | findings | what it showed |
+|---|---|---|---|---|---|---|
+| Fixture | 27.9 s | 1,135 / 13,815 / 5,408 / 7,446 | 25 | 35 | 8 | the 1.08:1 text fixed in all three views (re-check: gone); the double submit flagged at 99% in observe and held back in guard (expected gain 2.86, margin 4): "the page sent 2 identical requests (the scanner answered them; none reached the site)"; sideways scrolling on the phones now reads "ends at 696 px (306 px too wide)" with the kind's own fix, no 100vw cause; the desktop view notes its CSP was bypassed |
+| Fixture `?standin=1` | 30.8 s | 1,006 / 15,491 / 5,595 / 8,601 | 45 | 55 | 8 (2 not scored) | each view noted the POST answered while loading; the faint text was found and fixed on the light phone only, and both phone views noted that their passes ran out of time budget |
+| Fixture `?leak=1`, three runs | 14.4 / 22.1 / 23.5 s | 492 / 10,720 / 105 / 3,030 in the first | 45, 35, 35 | 45, 45, 45 | 6, 7, 7 | runs 2 and 3: the leaked `pointer-events: none` on body found and removed in all three views (re-check: gone); run 1: it was not reported in any view, so nothing was fixed (the fixture makes no fetch or XHR requests, so the new in-flight count was 0 throughout; the cause is not known) |
+
+The page at 1440 and 375 px wide, with and without JavaScript: the score, the table and the findings render from the
+cached report without JavaScript, an uncached address shows the `<noscript>` notice, nothing scrolls sideways at 375 px
+(the "With GenClass (in testing)" header wraps), and number tags sit above their boxes on the phone figures.
+
 ## End-to-end runs with the GenClass visual chunk (2026-10-14, test copy, Chrome 128 in Browser Rendering)
 
 These runs predate commit `a71d3d6` (score text `scan-score/2`) and the launch review's fixes (report version 5); the
