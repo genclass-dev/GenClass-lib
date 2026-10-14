@@ -1,0 +1,9427 @@
+{
+ "labelled": {
+  "labelEntries": 2408,
+  "crops": 2200,
+  "doubleLabelled": 208,
+  "agreements": 184,
+  "agreementRate": 0.8846,
+  "cohenKappa": 0.705,
+  "votePairs": {
+   "not/not": 149,
+   "not/real": 3,
+   "not/unclear": 7,
+   "real/not": 1,
+   "real/real": 12,
+   "real/unclear": 4,
+   "unclear/not": 7,
+   "unclear/real": 2,
+   "unclear/unclear": 23
+  },
+  "realNotDisagreements": 4,
+  "resolved": {
+   "not": 1717,
+   "unclear": 344,
+   "real": 139
+  },
+  "bySplit": {
+   "val": {
+    "not": 878,
+    "unclear": 142,
+    "real": 66
+   },
+   "test": {
+    "not": 839,
+    "unclear": 202,
+    "real": 73
+   }
+  },
+  "realByFamily": {
+   "val": {
+    "text": 9,
+    "overflow": 17,
+    "occlusion": 9,
+    "media": 12,
+    "leaks": 6,
+    "dark": 11,
+    "responsive": 2
+   },
+   "test": {
+    "responsive": 5,
+    "overflow": 25,
+    "text": 3,
+    "dark": 6,
+    "occlusion": 11,
+    "media": 21,
+    "leaks": 2
+   }
+  },
+  "unclearByFamily": {
+   "occlusion": 64,
+   "blank": 148,
+   "media": 6,
+   "overflow": 37,
+   "leaks": 9,
+   "text": 18,
+   "motion": 15,
+   "other": 22,
+   "dark": 17,
+   "styles": 3,
+   "responsive": 3,
+   "controls": 2
+  },
+  "byStratum": {
+   "rules": {
+    "unclear": 240,
+    "not": 449,
+    "real": 111
+   },
+   "gbt": {
+    "not": 652,
+    "unclear": 35,
+    "real": 13
+   },
+   "random": {
+    "not": 616,
+    "unclear": 69,
+    "real": 15
+   }
+  },
+  "hosts": {
+   "val": 519,
+   "test": 522
+  },
+  "rowsFound": 2200
+ },
+ "shipCriterion": {
+  "precision": 0.6,
+  "minDevFlags": 5,
+  "minTestFlags": 10
+ },
+ "splits": {
+  "val": {
+   "rows": 806522,
+   "natural": 657424,
+   "naturalViews": 1877,
+   "faults": 15019,
+   "faultsSeen": 3174,
+   "hosts": 700,
+   "labelled": {
+    "real": 66,
+    "unclear": 142,
+    "not": 878
+   }
+  },
+  "test": {
+   "rows": 845255,
+   "natural": 698865,
+   "naturalViews": 1850,
+   "faults": 14052,
+   "faultsSeen": 3066,
+   "hosts": 699,
+   "labelled": {
+    "real": 73,
+    "unclear": 202,
+    "not": 839
+   }
+  }
+ },
+ "rules": {
+  "rules": {
+   "test": {
+    "injected": {
+     "frrNatural": 0.005,
+     "flaggedNatural": 3484,
+     "recallSeen": 0.1008,
+     "seenRows": 3066,
+     "recallAll": 0.0664,
+     "faultRows": 14052,
+     "controlsFlagged": 0.0336,
+     "cleanFlagged": 0.0063,
+     "pageFrr": 0.2708,
+     "naturalPages": 1850
+    },
+    "injectedByFamily": {
+     "blank": {
+      "seenRows": 85,
+      "recallSeen": 0.0
+     },
+     "controls": {
+      "seenRows": 477,
+      "recallSeen": 0.0587
+     },
+     "dark": {
+      "seenRows": 22,
+      "recallSeen": 0.0
+     },
+     "design": {
+      "seenRows": 294,
+      "recallSeen": 0.0034
+     },
+     "leaks": {
+      "seenRows": 128,
+      "recallSeen": 0.8203
+     },
+     "media": {
+      "seenRows": 208,
+      "recallSeen": 0.0337
+     },
+     "motion": {
+      "seenRows": 151,
+      "recallSeen": 0.0
+     },
+     "occlusion": {
+      "seenRows": 376,
+      "recallSeen": 0.0053
+     },
+     "other": {
+      "seenRows": 207,
+      "recallSeen": 0.0145
+     },
+     "overflow": {
+      "seenRows": 314,
+      "recallSeen": 0.2229
+     },
+     "responsive": {
+      "seenRows": 262,
+      "recallSeen": 0.0191
+     },
+     "styles": {
+      "seenRows": 414,
+      "recallSeen": 0.1594
+     },
+     "text": {
+      "seenRows": 150,
+      "recallSeen": 0.1467
+     }
+    },
+    "labelled": {
+     "flags": 424,
+     "real": 58,
+     "unclear": 142,
+     "not": 224,
+     "precision": 0.1368,
+     "precisionCI95": [
+      0.1073,
+      0.1728
+     ],
+     "precisionDecided": 0.2057,
+     "realOfGroup": 58,
+     "precisionGroup": 0.1368,
+     "groupRealBugs": 73,
+     "recallGroup": 0.7945,
+     "allRealBugs": 73,
+     "recallAnyReal": 0.7945,
+     "byStratum": {
+      "rules": {
+       "flags": 424,
+       "real": 58
+      },
+      "gbt": {
+       "flags": 0,
+       "real": 0
+      },
+      "random": {
+       "flags": 0,
+       "real": 0
+      }
+     }
+    }
+   }
+  },
+  "rules-core": {
+   "test": {
+    "injected": {
+     "frrNatural": 0.0025,
+     "flaggedNatural": 1740,
+     "recallSeen": 0.0783,
+     "seenRows": 3066,
+     "recallAll": 0.0518,
+     "faultRows": 14052,
+     "controlsFlagged": 0.0277,
+     "cleanFlagged": 0.0039,
+     "pageFrr": 0.1778,
+     "naturalPages": 1850
+    },
+    "injectedByFamily": {
+     "blank": {
+      "seenRows": 85,
+      "recallSeen": 0.0
+     },
+     "controls": {
+      "seenRows": 477,
+      "recallSeen": 0.0063
+     },
+     "dark": {
+      "seenRows": 22,
+      "recallSeen": 0.0
+     },
+     "design": {
+      "seenRows": 294,
+      "recallSeen": 0.0034
+     },
+     "leaks": {
+      "seenRows": 128,
+      "recallSeen": 0.8203
+     },
+     "media": {
+      "seenRows": 208,
+      "recallSeen": 0.0337
+     },
+     "motion": {
+      "seenRows": 151,
+      "recallSeen": 0.0
+     },
+     "occlusion": {
+      "seenRows": 376,
+      "recallSeen": 0.0053
+     },
+     "other": {
+      "seenRows": 207,
+      "recallSeen": 0.0048
+     },
+     "overflow": {
+      "seenRows": 314,
+      "recallSeen": 0.2134
+     },
+     "responsive": {
+      "seenRows": 262,
+      "recallSeen": 0.0153
+     },
+     "styles": {
+      "seenRows": 414,
+      "recallSeen": 0.07
+     },
+     "text": {
+      "seenRows": 150,
+      "recallSeen": 0.14
+     }
+    },
+    "labelled": {
+     "flags": 176,
+     "real": 49,
+     "unclear": 40,
+     "not": 87,
+     "precision": 0.2784,
+     "precisionCI95": [
+      0.2175,
+      0.3488
+     ],
+     "precisionDecided": 0.3603,
+     "realOfGroup": 49,
+     "precisionGroup": 0.2784,
+     "groupRealBugs": 73,
+     "recallGroup": 0.6712,
+     "allRealBugs": 73,
+     "recallAnyReal": 0.6712,
+     "byStratum": {
+      "rules": {
+       "flags": 176,
+       "real": 49
+      },
+      "gbt": {
+       "flags": 0,
+       "real": 0
+      },
+      "random": {
+       "flags": 0,
+       "real": 0
+      }
+     }
+    }
+   }
+  },
+  "byFamily": {
+   "controls": {
+    "val": {
+     "injected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 4,
+      "recallSeen": 0.0,
+      "seenRows": 599,
+      "recallAll": 0.0,
+      "faultRows": 3900,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0021,
+      "naturalPages": 1877
+     },
+     "labelled": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "pointer-events-leak"
+     ]
+    },
+    "test": {
+     "injected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 3,
+      "recallSeen": 0.0,
+      "seenRows": 477,
+      "recallAll": 0.0,
+      "faultRows": 3422,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0016,
+      "naturalPages": 1850
+     },
+     "labelled": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "pointer-events-leak"
+     ]
+    }
+   },
+   "leaks": {
+    "val": {
+     "injected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 33,
+      "recallSeen": 0.7008,
+      "seenRows": 127,
+      "recallAll": 0.4814,
+      "faultRows": 511,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0002,
+      "pageFrr": 0.0133,
+      "naturalPages": 1877
+     },
+     "labelled": {
+      "flags": 10,
+      "real": 4,
+      "unclear": 5,
+      "not": 1,
+      "precision": 0.4,
+      "precisionCI95": [
+       0.1682,
+       0.6873
+      ],
+      "precisionDecided": 0.8,
+      "realOfGroup": 4,
+      "precisionGroup": 0.4,
+      "groupRealBugs": 6,
+      "recallGroup": 0.6667,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0606,
+      "byStratum": {
+       "rules": {
+        "flags": 10,
+        "real": 4
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "text-template-leak"
+     ]
+    },
+    "test": {
+     "injected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 40,
+      "recallSeen": 0.8125,
+      "seenRows": 128,
+      "recallAll": 0.4748,
+      "faultRows": 535,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0054,
+      "naturalPages": 1850
+     },
+     "labelled": {
+      "flags": 2,
+      "real": 1,
+      "unclear": 1,
+      "not": 0,
+      "precision": 0.5,
+      "precisionCI95": [
+       0.0945,
+       0.9055
+      ],
+      "precisionDecided": 1.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 2,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0137,
+      "byStratum": {
+       "rules": {
+        "flags": 2,
+        "real": 1
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "text-template-leak"
+     ]
+    }
+   },
+   "media": {
+    "val": {
+     "injected": {
+      "frrNatural": 0.0016,
+      "flaggedNatural": 1048,
+      "recallSeen": 0.0269,
+      "seenRows": 186,
+      "recallAll": 0.0382,
+      "faultRows": 523,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0011,
+      "pageFrr": 0.0655,
+      "naturalPages": 1877
+     },
+     "labelled": {
+      "flags": 37,
+      "real": 11,
+      "unclear": 6,
+      "not": 20,
+      "precision": 0.2973,
+      "precisionCI95": [
+       0.1749,
+       0.4578
+      ],
+      "precisionDecided": 0.3548,
+      "realOfGroup": 11,
+      "precisionGroup": 0.2973,
+      "groupRealBugs": 12,
+      "recallGroup": 0.9167,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1667,
+      "byStratum": {
+       "rules": {
+        "flags": 37,
+        "real": 11
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "image-broken",
+      "media-failed",
+      "text-placeholder",
+      "image-distorted"
+     ]
+    },
+    "test": {
+     "injected": {
+      "frrNatural": 0.0013,
+      "flaggedNatural": 933,
+      "recallSeen": 0.0337,
+      "seenRows": 208,
+      "recallAll": 0.0596,
+      "faultRows": 537,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0012,
+      "pageFrr": 0.0676,
+      "naturalPages": 1850
+     },
+     "labelled": {
+      "flags": 44,
+      "real": 19,
+      "unclear": 5,
+      "not": 20,
+      "precision": 0.4318,
+      "precisionCI95": [
+       0.2968,
+       0.5778
+      ],
+      "precisionDecided": 0.4872,
+      "realOfGroup": 19,
+      "precisionGroup": 0.4318,
+      "groupRealBugs": 21,
+      "recallGroup": 0.9048,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.2603,
+      "byStratum": {
+       "rules": {
+        "flags": 44,
+        "real": 19
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "image-broken",
+      "media-failed",
+      "text-placeholder",
+      "image-distorted"
+     ]
+    }
+   },
+   "occlusion": {
+    "val": {
+     "injected": {
+      "frrNatural": 0.0023,
+      "flaggedNatural": 1514,
+      "recallSeen": 0.0,
+      "seenRows": 390,
+      "recallAll": 0.0,
+      "faultRows": 647,
+      "controlsFlagged": 0.0065,
+      "cleanFlagged": 0.003,
+      "pageFrr": 0.1103,
+      "naturalPages": 1877
+     },
+     "labelled": {
+      "flags": 218,
+      "real": 14,
+      "unclear": 72,
+      "not": 132,
+      "precision": 0.0642,
+      "precisionCI95": [
+       0.0386,
+       0.1049
+      ],
+      "precisionDecided": 0.0959,
+      "realOfGroup": 4,
+      "precisionGroup": 0.0183,
+      "groupRealBugs": 9,
+      "recallGroup": 0.4444,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.2121,
+      "byStratum": {
+       "rules": {
+        "flags": 218,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "click-blocked",
+      "control-unreachable",
+      "dialog-covered"
+     ]
+    },
+    "test": {
+     "injected": {
+      "frrNatural": 0.0025,
+      "flaggedNatural": 1744,
+      "recallSeen": 0.0,
+      "seenRows": 376,
+      "recallAll": 0.0016,
+      "faultRows": 607,
+      "controlsFlagged": 0.0059,
+      "cleanFlagged": 0.0023,
+      "pageFrr": 0.1259,
+      "naturalPages": 1850
+     },
+     "labelled": {
+      "flags": 248,
+      "real": 9,
+      "unclear": 102,
+      "not": 137,
+      "precision": 0.0363,
+      "precisionCI95": [
+       0.0192,
+       0.0675
+      ],
+      "precisionDecided": 0.0616,
+      "realOfGroup": 5,
+      "precisionGroup": 0.0202,
+      "groupRealBugs": 11,
+      "recallGroup": 0.4545,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.1233,
+      "byStratum": {
+       "rules": {
+        "flags": 248,
+        "real": 9
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "click-blocked",
+      "control-unreachable",
+      "dialog-covered"
+     ]
+    }
+   },
+   "overflow": {
+    "val": {
+     "injected": {
+      "frrNatural": 0.0005,
+      "flaggedNatural": 296,
+      "recallSeen": 0.2315,
+      "seenRows": 311,
+      "recallAll": 0.2743,
+      "faultRows": 1090,
+      "controlsFlagged": 0.0323,
+      "cleanFlagged": 0.0013,
+      "pageFrr": 0.0639,
+      "naturalPages": 1877
+     },
+     "labelled": {
+      "flags": 46,
+      "real": 14,
+      "unclear": 11,
+      "not": 21,
+      "precision": 0.3043,
+      "precisionCI95": [
+       0.1908,
+       0.4481
+      ],
+      "precisionDecided": 0.4,
+      "realOfGroup": 14,
+      "precisionGroup": 0.3043,
+      "groupRealBugs": 19,
+      "recallGroup": 0.7368,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.2121,
+      "byStratum": {
+       "rules": {
+        "flags": 46,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "page-overflow-x",
+      "scroll-lock-stuck"
+     ]
+    },
+    "test": {
+     "injected": {
+      "frrNatural": 0.0004,
+      "flaggedNatural": 314,
+      "recallSeen": 0.2102,
+      "seenRows": 314,
+      "recallAll": 0.2704,
+      "faultRows": 1117,
+      "controlsFlagged": 0.0138,
+      "cleanFlagged": 0.0014,
+      "pageFrr": 0.0665,
+      "naturalPages": 1850
+     },
+     "labelled": {
+      "flags": 56,
+      "real": 25,
+      "unclear": 18,
+      "not": 13,
+      "precision": 0.4464,
+      "precisionCI95": [
+       0.3239,
+       0.5759
+      ],
+      "precisionDecided": 0.6579,
+      "realOfGroup": 24,
+      "precisionGroup": 0.4286,
+      "groupRealBugs": 30,
+      "recallGroup": 0.8,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.3425,
+      "byStratum": {
+       "rules": {
+        "flags": 56,
+        "real": 25
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "page-overflow-x",
+      "scroll-lock-stuck"
+     ]
+    }
+   },
+   "styles": {
+    "val": {
+     "injected": {
+      "frrNatural": 0.0003,
+      "flaggedNatural": 200,
+      "recallSeen": 0.0581,
+      "seenRows": 344,
+      "recallAll": 0.0103,
+      "faultRows": 3018,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0003,
+      "pageFrr": 0.0165,
+      "naturalPages": 1877
+     },
+     "labelled": {
+      "flags": 20,
+      "real": 0,
+      "unclear": 0,
+      "not": 20,
+      "precision": 0.0,
+      "precisionCI95": [
+       -0.0,
+       0.1611
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 20,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "css-var-undefined"
+     ]
+    },
+    "test": {
+     "injected": {
+      "frrNatural": 0.0005,
+      "flaggedNatural": 356,
+      "recallSeen": 0.058,
+      "seenRows": 414,
+      "recallAll": 0.0223,
+      "faultRows": 1975,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0008,
+      "pageFrr": 0.0259,
+      "naturalPages": 1850
+     },
+     "labelled": {
+      "flags": 35,
+      "real": 0,
+      "unclear": 0,
+      "not": 35,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.0989
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 35,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "css-var-undefined"
+     ]
+    }
+   },
+   "text": {
+    "val": {
+     "injected": {
+      "frrNatural": 0.0005,
+      "flaggedNatural": 314,
+      "recallSeen": 0.1034,
+      "seenRows": 145,
+      "recallAll": 0.025,
+      "faultRows": 599,
+      "controlsFlagged": 0.0022,
+      "cleanFlagged": 0.001,
+      "pageFrr": 0.0288,
+      "naturalPages": 1877
+     },
+     "labelled": {
+      "flags": 46,
+      "real": 10,
+      "unclear": 4,
+      "not": 32,
+      "precision": 0.2174,
+      "precisionCI95": [
+       0.1226,
+       0.3557
+      ],
+      "precisionDecided": 0.2381,
+      "realOfGroup": 9,
+      "precisionGroup": 0.1957,
+      "groupRealBugs": 20,
+      "recallGroup": 0.45,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1515,
+      "byStratum": {
+       "rules": {
+        "flags": 46,
+        "real": 10
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "text-invisible",
+      "font-failed"
+     ]
+    },
+    "test": {
+     "injected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 96,
+      "recallSeen": 0.1333,
+      "seenRows": 150,
+      "recallAll": 0.0362,
+      "faultRows": 553,
+      "controlsFlagged": 0.0099,
+      "cleanFlagged": 0.0006,
+      "pageFrr": 0.0249,
+      "naturalPages": 1850
+     },
+     "labelled": {
+      "flags": 40,
+      "real": 4,
+      "unclear": 16,
+      "not": 20,
+      "precision": 0.1,
+      "precisionCI95": [
+       0.0396,
+       0.2305
+      ],
+      "precisionDecided": 0.1667,
+      "realOfGroup": 4,
+      "precisionGroup": 0.1,
+      "groupRealBugs": 9,
+      "recallGroup": 0.4444,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0548,
+      "byStratum": {
+       "rules": {
+        "flags": 40,
+        "real": 4
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "rules": [
+      "text-invisible",
+      "font-failed"
+     ]
+    }
+   }
+  },
+  "perRuleLabelledTest": {
+   "image-broken": {
+    "flags": 18,
+    "real": 14,
+    "unclear": 2,
+    "not": 2,
+    "precision": 0.7778,
+    "precisionCI95": [
+     0.5478,
+     0.91
+    ],
+    "precisionDecided": 0.875,
+    "realOfGroup": 14,
+    "precisionGroup": 0.7778,
+    "groupRealBugs": 21,
+    "recallGroup": 0.6667,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.1918,
+    "byStratum": {
+     "rules": {
+      "flags": 18,
+      "real": 14
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "media-failed": {
+    "flags": 0,
+    "real": 0,
+    "unclear": 0,
+    "not": 0,
+    "precision": null,
+    "precisionCI95": [
+     null,
+     null
+    ],
+    "precisionDecided": null,
+    "realOfGroup": 0,
+    "precisionGroup": null,
+    "groupRealBugs": 21,
+    "recallGroup": 0.0,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 0,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "text-invisible": {
+    "flags": 37,
+    "real": 4,
+    "unclear": 16,
+    "not": 17,
+    "precision": 0.1081,
+    "precisionCI95": [
+     0.0429,
+     0.2471
+    ],
+    "precisionDecided": 0.1905,
+    "realOfGroup": 4,
+    "precisionGroup": 0.1081,
+    "groupRealBugs": 9,
+    "recallGroup": 0.4444,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0548,
+    "byStratum": {
+     "rules": {
+      "flags": 37,
+      "real": 4
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "text-template-leak": {
+    "flags": 2,
+    "real": 1,
+    "unclear": 1,
+    "not": 0,
+    "precision": 0.5,
+    "precisionCI95": [
+     0.0945,
+     0.9055
+    ],
+    "precisionDecided": 1.0,
+    "realOfGroup": 0,
+    "precisionGroup": 0.0,
+    "groupRealBugs": 2,
+    "recallGroup": 0.0,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0137,
+    "byStratum": {
+     "rules": {
+      "flags": 2,
+      "real": 1
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "text-placeholder": {
+    "flags": 0,
+    "real": 0,
+    "unclear": 0,
+    "not": 0,
+    "precision": null,
+    "precisionCI95": [
+     null,
+     null
+    ],
+    "precisionDecided": null,
+    "realOfGroup": 0,
+    "precisionGroup": null,
+    "groupRealBugs": 21,
+    "recallGroup": 0.0,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 0,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "css-var-undefined": {
+    "flags": 35,
+    "real": 0,
+    "unclear": 0,
+    "not": 35,
+    "precision": 0.0,
+    "precisionCI95": [
+     0.0,
+     0.0989
+    ],
+    "precisionDecided": 0.0,
+    "realOfGroup": 0,
+    "precisionGroup": 0.0,
+    "groupRealBugs": 0,
+    "recallGroup": null,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 35,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "image-distorted": {
+    "flags": 26,
+    "real": 5,
+    "unclear": 3,
+    "not": 18,
+    "precision": 0.1923,
+    "precisionCI95": [
+     0.0851,
+     0.3788
+    ],
+    "precisionDecided": 0.2174,
+    "realOfGroup": 5,
+    "precisionGroup": 0.1923,
+    "groupRealBugs": 21,
+    "recallGroup": 0.2381,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0685,
+    "byStratum": {
+     "rules": {
+      "flags": 26,
+      "real": 5
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "page-overflow-x": {
+    "flags": 56,
+    "real": 25,
+    "unclear": 18,
+    "not": 13,
+    "precision": 0.4464,
+    "precisionCI95": [
+     0.3239,
+     0.5759
+    ],
+    "precisionDecided": 0.6579,
+    "realOfGroup": 24,
+    "precisionGroup": 0.4286,
+    "groupRealBugs": 30,
+    "recallGroup": 0.8,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.3425,
+    "byStratum": {
+     "rules": {
+      "flags": 56,
+      "real": 25
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "font-failed": {
+    "flags": 3,
+    "real": 0,
+    "unclear": 0,
+    "not": 3,
+    "precision": 0.0,
+    "precisionCI95": [
+     0.0,
+     0.5615
+    ],
+    "precisionDecided": 0.0,
+    "realOfGroup": 0,
+    "precisionGroup": 0.0,
+    "groupRealBugs": 9,
+    "recallGroup": 0.0,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 3,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "pointer-events-leak": {
+    "flags": 0,
+    "real": 0,
+    "unclear": 0,
+    "not": 0,
+    "precision": null,
+    "precisionCI95": [
+     null,
+     null
+    ],
+    "precisionDecided": null,
+    "realOfGroup": 0,
+    "precisionGroup": null,
+    "groupRealBugs": 0,
+    "recallGroup": null,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 0,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "scroll-lock-stuck": {
+    "flags": 0,
+    "real": 0,
+    "unclear": 0,
+    "not": 0,
+    "precision": null,
+    "precisionCI95": [
+     null,
+     null
+    ],
+    "precisionDecided": null,
+    "realOfGroup": 0,
+    "precisionGroup": null,
+    "groupRealBugs": 30,
+    "recallGroup": 0.0,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 0,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "click-blocked": {
+    "flags": 5,
+    "real": 0,
+    "unclear": 0,
+    "not": 5,
+    "precision": 0.0,
+    "precisionCI95": [
+     -0.0,
+     0.4345
+    ],
+    "precisionDecided": 0.0,
+    "realOfGroup": 0,
+    "precisionGroup": 0.0,
+    "groupRealBugs": 11,
+    "recallGroup": 0.0,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 5,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "control-unreachable": {
+    "flags": 243,
+    "real": 9,
+    "unclear": 102,
+    "not": 132,
+    "precision": 0.037,
+    "precisionCI95": [
+     0.0196,
+     0.0689
+    ],
+    "precisionDecided": 0.0638,
+    "realOfGroup": 5,
+    "precisionGroup": 0.0206,
+    "groupRealBugs": 11,
+    "recallGroup": 0.4545,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.1233,
+    "byStratum": {
+     "rules": {
+      "flags": 243,
+      "real": 9
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   },
+   "dialog-covered": {
+    "flags": 0,
+    "real": 0,
+    "unclear": 0,
+    "not": 0,
+    "precision": null,
+    "precisionCI95": [
+     null,
+     null
+    ],
+    "precisionDecided": null,
+    "realOfGroup": 0,
+    "precisionGroup": null,
+    "groupRealBugs": 11,
+    "recallGroup": 0.0,
+    "allRealBugs": 73,
+    "recallAnyReal": 0.0,
+    "byStratum": {
+     "rules": {
+      "flags": 0,
+      "real": 0
+     },
+     "gbt": {
+      "flags": 0,
+      "real": 0
+     },
+     "random": {
+      "flags": 0,
+      "real": 0
+     }
+    }
+   }
+  }
+ },
+ "models": {
+  "any": {
+   "families": [
+    "blank",
+    "controls",
+    "dark",
+    "design",
+    "leaks",
+    "media",
+    "motion",
+    "occlusion",
+    "other",
+    "overflow",
+    "responsive",
+    "styles",
+    "text"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.5940591096878052,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.5088,
+       "seenRows": 3174,
+       "recallAll": 0.1469,
+       "faultRows": 15019,
+       "controlsFlagged": 0.0065,
+       "cleanFlagged": 0.002,
+       "pageFrr": 0.154,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 36,
+       "real": 11,
+       "unclear": 15,
+       "not": 10,
+       "precision": 0.3056,
+       "precisionCI95": [
+        0.18,
+        0.4686
+       ],
+       "precisionDecided": 0.5238,
+       "realOfGroup": 11,
+       "precisionGroup": 0.3056,
+       "groupRealBugs": 66,
+       "recallGroup": 0.1667,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1667,
+       "byStratum": {
+        "rules": {
+         "flags": 33,
+         "real": 10
+        },
+        "gbt": {
+         "flags": 2,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 1
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0009,
+       "flaggedNatural": 615,
+       "recallSeen": 0.5222,
+       "seenRows": 3066,
+       "recallAll": 0.1534,
+       "faultRows": 14052,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0016,
+       "pageFrr": 0.153,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 51,
+       "real": 17,
+       "unclear": 9,
+       "not": 25,
+       "precision": 0.3333,
+       "precisionCI95": [
+        0.2197,
+        0.4703
+       ],
+       "precisionDecided": 0.4048,
+       "realOfGroup": 17,
+       "precisionGroup": 0.3333,
+       "groupRealBugs": 73,
+       "recallGroup": 0.2329,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.2329,
+       "byStratum": {
+        "rules": {
+         "flags": 36,
+         "real": 15
+        },
+        "gbt": {
+         "flags": 12,
+         "real": 0
+        },
+        "random": {
+         "flags": 3,
+         "real": 2
+        }
+       }
+      },
+      "labelledCoverage": 0.0829,
+      "injectedByFamily": {
+       "blank": {
+        "seenRows": 85,
+        "recallSeen": 0.0824
+       },
+       "controls": {
+        "seenRows": 477,
+        "recallSeen": 0.7338
+       },
+       "dark": {
+        "seenRows": 22,
+        "recallSeen": 0.4545
+       },
+       "design": {
+        "seenRows": 294,
+        "recallSeen": 0.2041
+       },
+       "leaks": {
+        "seenRows": 128,
+        "recallSeen": 0.9141
+       },
+       "media": {
+        "seenRows": 208,
+        "recallSeen": 0.649
+       },
+       "motion": {
+        "seenRows": 151,
+        "recallSeen": 0.4503
+       },
+       "occlusion": {
+        "seenRows": 376,
+        "recallSeen": 0.9202
+       },
+       "other": {
+        "seenRows": 207,
+        "recallSeen": 0.0628
+       },
+       "overflow": {
+        "seenRows": 314,
+        "recallSeen": 0.914
+       },
+       "responsive": {
+        "seenRows": 262,
+        "recallSeen": 0.5
+       },
+       "styles": {
+        "seenRows": 414,
+        "recallSeen": 0.1208
+       },
+       "text": {
+        "seenRows": 150,
+        "recallSeen": 0.2867
+       }
+      }
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.1468856930732727,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6576,
+       "recallSeen": 0.7382,
+       "seenRows": 3174,
+       "recallAll": 0.2298,
+       "faultRows": 15019,
+       "controlsFlagged": 0.0301,
+       "cleanFlagged": 0.0247,
+       "pageFrr": 0.7139,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 231,
+       "real": 43,
+       "unclear": 44,
+       "not": 144,
+       "precision": 0.1861,
+       "precisionCI95": [
+        0.1412,
+        0.2413
+       ],
+       "precisionDecided": 0.2299,
+       "realOfGroup": 43,
+       "precisionGroup": 0.1861,
+       "groupRealBugs": 66,
+       "recallGroup": 0.6515,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.6515,
+       "byStratum": {
+        "rules": {
+         "flags": 155,
+         "real": 38
+        },
+        "gbt": {
+         "flags": 59,
+         "real": 3
+        },
+        "random": {
+         "flags": 17,
+         "real": 2
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0091,
+       "flaggedNatural": 6374,
+       "recallSeen": 0.7524,
+       "seenRows": 3066,
+       "recallAll": 0.2425,
+       "faultRows": 14052,
+       "controlsFlagged": 0.0277,
+       "cleanFlagged": 0.0224,
+       "pageFrr": 0.7038,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 211,
+       "real": 33,
+       "unclear": 55,
+       "not": 123,
+       "precision": 0.1564,
+       "precisionCI95": [
+        0.1136,
+        0.2115
+       ],
+       "precisionDecided": 0.2115,
+       "realOfGroup": 33,
+       "precisionGroup": 0.1564,
+       "groupRealBugs": 73,
+       "recallGroup": 0.4521,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.4521,
+       "byStratum": {
+        "rules": {
+         "flags": 143,
+         "real": 31
+        },
+        "gbt": {
+         "flags": 50,
+         "real": 0
+        },
+        "random": {
+         "flags": 18,
+         "real": 2
+        }
+       }
+      },
+      "labelledCoverage": 0.0331,
+      "injectedByFamily": {
+       "blank": {
+        "seenRows": 85,
+        "recallSeen": 0.5059
+       },
+       "controls": {
+        "seenRows": 477,
+        "recallSeen": 0.9036
+       },
+       "dark": {
+        "seenRows": 22,
+        "recallSeen": 1.0
+       },
+       "design": {
+        "seenRows": 294,
+        "recallSeen": 0.5068
+       },
+       "leaks": {
+        "seenRows": 128,
+        "recallSeen": 0.9453
+       },
+       "media": {
+        "seenRows": 208,
+        "recallSeen": 0.8654
+       },
+       "motion": {
+        "seenRows": 151,
+        "recallSeen": 0.8808
+       },
+       "occlusion": {
+        "seenRows": 376,
+        "recallSeen": 0.9362
+       },
+       "other": {
+        "seenRows": 207,
+        "recallSeen": 0.4058
+       },
+       "overflow": {
+        "seenRows": 314,
+        "recallSeen": 0.9841
+       },
+       "responsive": {
+        "seenRows": 262,
+        "recallSeen": 0.8282
+       },
+       "styles": {
+        "seenRows": 414,
+        "recallSeen": 0.4203
+       },
+       "text": {
+        "seenRows": 150,
+        "recallSeen": 0.7467
+       }
+      }
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.2154,
+    "aucReal": 0.7777
+   },
+   "platt": [
+    0.4899518036652147,
+    -1.6645050348792783
+   ],
+   "labelledTest": {
+    "apReal": 0.2024,
+    "aucReal": 0.7112,
+    "apGroup": 0.2024,
+    "aucGroup": 0.7112,
+    "brierCalibrated": 0.0575,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "blank": {
+   "families": [
+    "blank"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.037128694355487823,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.8312,
+       "seenRows": 77,
+       "recallAll": 0.3759,
+       "faultRows": 266,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0033,
+       "pageFrr": 0.2158,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 7,
+       "real": 0,
+       "unclear": 2,
+       "not": 5,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.3543
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 0,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 7,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0009,
+       "flaggedNatural": 655,
+       "recallSeen": 0.9176,
+       "seenRows": 85,
+       "recallAll": 0.4184,
+       "faultRows": 282,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0038,
+       "pageFrr": 0.2103,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 2,
+       "real": 0,
+       "unclear": 2,
+       "not": 0,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.6576
+       ],
+       "precisionDecided": null,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 0,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 2,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0031
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.000447885220637545,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6576,
+       "recallSeen": 1.0,
+       "seenRows": 77,
+       "recallAll": 0.5075,
+       "faultRows": 266,
+       "controlsFlagged": 0.0258,
+       "cleanFlagged": 0.032,
+       "pageFrr": 0.609,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 53,
+       "real": 4,
+       "unclear": 6,
+       "not": 43,
+       "precision": 0.0755,
+       "precisionCI95": [
+        0.0297,
+        0.1786
+       ],
+       "precisionDecided": 0.0851,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0606,
+       "byStratum": {
+        "rules": {
+         "flags": 6,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 14,
+         "real": 1
+        },
+        "random": {
+         "flags": 33,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0084,
+       "flaggedNatural": 5841,
+       "recallSeen": 0.9647,
+       "seenRows": 85,
+       "recallAll": 0.5035,
+       "faultRows": 282,
+       "controlsFlagged": 0.0138,
+       "cleanFlagged": 0.0294,
+       "pageFrr": 0.5984,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 34,
+       "real": 2,
+       "unclear": 5,
+       "not": 27,
+       "precision": 0.0588,
+       "precisionCI95": [
+        0.0163,
+        0.1909
+       ],
+       "precisionDecided": 0.069,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0274,
+       "byStratum": {
+        "rules": {
+         "flags": 7,
+         "real": 2
+        },
+        "gbt": {
+         "flags": 8,
+         "real": 0
+        },
+        "random": {
+         "flags": 19,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0058
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.07,
+    "aucReal": 0.5259
+   },
+   "platt": [
+    0.04145126003495385,
+    -2.2442383100992815
+   ],
+   "labelledTest": {
+    "apReal": 0.0677,
+    "aucReal": 0.4819,
+    "brierCalibrated": 0.0613,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "controls": {
+   "families": [
+    "controls"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.2152630239725113,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 659,
+       "recallSeen": 0.7379,
+       "seenRows": 599,
+       "recallAll": 0.1926,
+       "faultRows": 3900,
+       "controlsFlagged": 0.0065,
+       "cleanFlagged": 0.0014,
+       "pageFrr": 0.1284,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 7,
+       "real": 0,
+       "unclear": 5,
+       "not": 2,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.3543
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 7,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0011,
+       "flaggedNatural": 755,
+       "recallSeen": 0.8553,
+       "seenRows": 477,
+       "recallAll": 0.1841,
+       "faultRows": 3422,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0014,
+       "pageFrr": 0.1308,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 9,
+       "real": 0,
+       "unclear": 2,
+       "not": 7,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.2992
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 5,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0119
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.03971872478723526,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9082,
+       "seenRows": 599,
+       "recallAll": 0.2936,
+       "faultRows": 3900,
+       "controlsFlagged": 0.028,
+       "cleanFlagged": 0.02,
+       "pageFrr": 0.5418,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 206,
+       "real": 12,
+       "unclear": 38,
+       "not": 156,
+       "precision": 0.0583,
+       "precisionCI95": [
+        0.0336,
+        0.099
+       ],
+       "precisionDecided": 0.0714,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1818,
+       "byStratum": {
+        "rules": {
+         "flags": 101,
+         "real": 9
+        },
+        "gbt": {
+         "flags": 97,
+         "real": 3
+        },
+        "random": {
+         "flags": 8,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0097,
+       "flaggedNatural": 6773,
+       "recallSeen": 0.9476,
+       "seenRows": 477,
+       "recallAll": 0.2726,
+       "faultRows": 3422,
+       "controlsFlagged": 0.0375,
+       "cleanFlagged": 0.0202,
+       "pageFrr": 0.5519,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 195,
+       "real": 5,
+       "unclear": 48,
+       "not": 142,
+       "precision": 0.0256,
+       "precisionCI95": [
+        0.011,
+        0.0586
+       ],
+       "precisionDecided": 0.034,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0685,
+       "byStratum": {
+        "rules": {
+         "flags": 95,
+         "real": 4
+        },
+        "gbt": {
+         "flags": 93,
+         "real": 0
+        },
+        "random": {
+         "flags": 7,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0288
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.0627,
+    "aucReal": 0.462
+   },
+   "platt": [
+    -0.06368261484475642,
+    -3.0622000406649645
+   ],
+   "labelledTest": {
+    "apReal": 0.0494,
+    "aucReal": 0.3713,
+    "brierCalibrated": 0.0609,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "dark": {
+   "families": [
+    "dark"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.22401265799999237,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 659,
+       "recallSeen": 1.0,
+       "seenRows": 24,
+       "recallAll": 0.9167,
+       "faultRows": 252,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0016,
+       "pageFrr": 0.1369,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 32,
+       "real": 5,
+       "unclear": 12,
+       "not": 15,
+       "precision": 0.1562,
+       "precisionCI95": [
+        0.0686,
+        0.3175
+       ],
+       "precisionDecided": 0.25,
+       "realOfGroup": 4,
+       "precisionGroup": 0.125,
+       "groupRealBugs": 20,
+       "recallGroup": 0.2,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0758,
+       "byStratum": {
+        "rules": {
+         "flags": 32,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0012,
+       "flaggedNatural": 869,
+       "recallSeen": 0.9091,
+       "seenRows": 22,
+       "recallAll": 0.8715,
+       "faultRows": 288,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0014,
+       "pageFrr": 0.1595,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 61,
+       "real": 2,
+       "unclear": 16,
+       "not": 43,
+       "precision": 0.0328,
+       "precisionCI95": [
+        0.009,
+        0.1119
+       ],
+       "precisionDecided": 0.0444,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0274,
+       "byStratum": {
+        "rules": {
+         "flags": 51,
+         "real": 2
+        },
+        "gbt": {
+         "flags": 9,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0702
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.035293035209178925,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6576,
+       "recallSeen": 1.0,
+       "seenRows": 24,
+       "recallAll": 0.9167,
+       "faultRows": 252,
+       "controlsFlagged": 0.0043,
+       "cleanFlagged": 0.0173,
+       "pageFrr": 0.6995,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 111,
+       "real": 7,
+       "unclear": 29,
+       "not": 75,
+       "precision": 0.0631,
+       "precisionCI95": [
+        0.0309,
+        0.1245
+       ],
+       "precisionDecided": 0.0854,
+       "realOfGroup": 6,
+       "precisionGroup": 0.0541,
+       "groupRealBugs": 20,
+       "recallGroup": 0.3,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1061,
+       "byStratum": {
+        "rules": {
+         "flags": 76,
+         "real": 7
+        },
+        "gbt": {
+         "flags": 28,
+         "real": 0
+        },
+        "random": {
+         "flags": 7,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0097,
+       "flaggedNatural": 6761,
+       "recallSeen": 1.0,
+       "seenRows": 22,
+       "recallAll": 0.8819,
+       "faultRows": 288,
+       "controlsFlagged": 0.0059,
+       "cleanFlagged": 0.0167,
+       "pageFrr": 0.693,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 187,
+       "real": 5,
+       "unclear": 54,
+       "not": 128,
+       "precision": 0.0267,
+       "precisionCI95": [
+        0.0115,
+        0.0611
+       ],
+       "precisionDecided": 0.0376,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0685,
+       "byStratum": {
+        "rules": {
+         "flags": 121,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 47,
+         "real": 2
+        },
+        "random": {
+         "flags": 19,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0277
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.0696,
+    "aucReal": 0.4954
+   },
+   "platt": [
+    0.011912466130000878,
+    -2.6823710785848953
+   ],
+   "labelledTest": {
+    "apReal": 0.0564,
+    "aucReal": 0.4461,
+    "apGroup": 0.0077,
+    "aucGroup": 0.3651,
+    "brierCalibrated": 0.0613,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "design": {
+   "families": [
+    "design"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.501618504524231,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.4072,
+       "seenRows": 307,
+       "recallAll": 0.1574,
+       "faultRows": 902,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0028,
+       "pageFrr": 0.1513,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 4,
+       "real": 0,
+       "unclear": 0,
+       "not": 4,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.4899
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 0,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0007,
+       "flaggedNatural": 520,
+       "recallSeen": 0.3741,
+       "seenRows": 294,
+       "recallAll": 0.1435,
+       "faultRows": 843,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0026,
+       "pageFrr": 0.1378,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 4,
+       "real": 0,
+       "unclear": 1,
+       "not": 3,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.4899
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 1,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 3,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0077
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.12747220695018768,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.772,
+       "seenRows": 307,
+       "recallAll": 0.3093,
+       "faultRows": 902,
+       "controlsFlagged": 0.0065,
+       "cleanFlagged": 0.0303,
+       "pageFrr": 0.4582,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 27,
+       "real": 0,
+       "unclear": 3,
+       "not": 24,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.1246
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 3,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 12,
+         "real": 0
+        },
+        "random": {
+         "flags": 12,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0089,
+       "flaggedNatural": 6254,
+       "recallSeen": 0.7177,
+       "seenRows": 294,
+       "recallAll": 0.2894,
+       "faultRows": 843,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0289,
+       "pageFrr": 0.4551,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 30,
+       "real": 0,
+       "unclear": 4,
+       "not": 26,
+       "precision": 0.0,
+       "precisionCI95": [
+        -0.0,
+        0.1135
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 5,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 9,
+         "real": 0
+        },
+        "random": {
+         "flags": 16,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0048
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.0514,
+    "aucReal": 0.4232
+   },
+   "platt": [
+    -0.16520757430345775,
+    -3.6469687538922746
+   ],
+   "labelledTest": {
+    "apReal": 0.0499,
+    "aucReal": 0.3923,
+    "brierCalibrated": 0.0607,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "leaks": {
+   "families": [
+    "leaks"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.007602936588227749,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.9213,
+       "seenRows": 127,
+       "recallAll": 0.589,
+       "faultRows": 511,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0026,
+       "pageFrr": 0.22,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 18,
+       "real": 4,
+       "unclear": 8,
+       "not": 6,
+       "precision": 0.2222,
+       "precisionCI95": [
+        0.09,
+        0.4522
+       ],
+       "precisionDecided": 0.4,
+       "realOfGroup": 4,
+       "precisionGroup": 0.2222,
+       "groupRealBugs": 6,
+       "recallGroup": 0.6667,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0606,
+       "byStratum": {
+        "rules": {
+         "flags": 10,
+         "real": 4
+        },
+        "gbt": {
+         "flags": 4,
+         "real": 0
+        },
+        "random": {
+         "flags": 4,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0015,
+       "flaggedNatural": 1019,
+       "recallSeen": 0.9766,
+       "seenRows": 128,
+       "recallAll": 0.5589,
+       "faultRows": 535,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0024,
+       "pageFrr": 0.2173,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 5,
+       "real": 1,
+       "unclear": 2,
+       "not": 2,
+       "precision": 0.2,
+       "precisionCI95": [
+        0.0362,
+        0.6245
+       ],
+       "precisionDecided": 0.3333,
+       "realOfGroup": 1,
+       "precisionGroup": 0.2,
+       "groupRealBugs": 2,
+       "recallGroup": 0.5,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0137,
+       "byStratum": {
+        "rules": {
+         "flags": 1,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 3,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0049
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.0011137023102492094,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9843,
+       "seenRows": 127,
+       "recallAll": 0.683,
+       "faultRows": 511,
+       "controlsFlagged": 0.0172,
+       "cleanFlagged": 0.0326,
+       "pageFrr": 0.7635,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 49,
+       "real": 7,
+       "unclear": 12,
+       "not": 30,
+       "precision": 0.1429,
+       "precisionCI95": [
+        0.071,
+        0.2667
+       ],
+       "precisionDecided": 0.1892,
+       "realOfGroup": 4,
+       "precisionGroup": 0.0816,
+       "groupRealBugs": 6,
+       "recallGroup": 0.6667,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1061,
+       "byStratum": {
+        "rules": {
+         "flags": 17,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 12,
+         "real": 0
+        },
+        "random": {
+         "flags": 20,
+         "real": 2
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0106,
+       "flaggedNatural": 7375,
+       "recallSeen": 1.0,
+       "seenRows": 128,
+       "recallAll": 0.6579,
+       "faultRows": 535,
+       "controlsFlagged": 0.0237,
+       "cleanFlagged": 0.0319,
+       "pageFrr": 0.7595,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 42,
+       "real": 4,
+       "unclear": 12,
+       "not": 26,
+       "precision": 0.0952,
+       "precisionCI95": [
+        0.0377,
+        0.2207
+       ],
+       "precisionDecided": 0.1333,
+       "realOfGroup": 1,
+       "precisionGroup": 0.0238,
+       "groupRealBugs": 2,
+       "recallGroup": 0.5,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0548,
+       "byStratum": {
+        "rules": {
+         "flags": 9,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 30,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0057
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1153,
+    "aucReal": 0.6659
+   },
+   "platt": [
+    0.17573226705948847,
+    -1.105910545867738
+   ],
+   "labelledTest": {
+    "apReal": 0.0852,
+    "aucReal": 0.5833,
+    "apGroup": 0.1293,
+    "aucGroup": 0.8939,
+    "brierCalibrated": 0.0611,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "media": {
+   "families": [
+    "media"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.6659967303276062,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.8441,
+       "seenRows": 186,
+       "recallAll": 0.4474,
+       "faultRows": 523,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0008,
+       "pageFrr": 0.0677,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 7,
+       "real": 1,
+       "unclear": 0,
+       "not": 6,
+       "precision": 0.1429,
+       "precisionCI95": [
+        0.0257,
+        0.5131
+       ],
+       "precisionDecided": 0.1429,
+       "realOfGroup": 1,
+       "precisionGroup": 0.1429,
+       "groupRealBugs": 12,
+       "recallGroup": 0.0833,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0152,
+       "byStratum": {
+        "rules": {
+         "flags": 3,
+         "real": 1
+        },
+        "gbt": {
+         "flags": 4,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0007,
+       "flaggedNatural": 466,
+       "recallSeen": 0.8558,
+       "seenRows": 208,
+       "recallAll": 0.4581,
+       "faultRows": 537,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0006,
+       "pageFrr": 0.0638,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 8,
+       "real": 4,
+       "unclear": 0,
+       "not": 4,
+       "precision": 0.5,
+       "precisionCI95": [
+        0.2152,
+        0.7848
+       ],
+       "precisionDecided": 0.5,
+       "realOfGroup": 4,
+       "precisionGroup": 0.5,
+       "groupRealBugs": 21,
+       "recallGroup": 0.1905,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0548,
+       "byStratum": {
+        "rules": {
+         "flags": 7,
+         "real": 4
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0172
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.0152130713686347,
+     "val": {
+      "injected": {
+       "frrNatural": 0.0101,
+       "flaggedNatural": 6643,
+       "recallSeen": 0.9839,
+       "seenRows": 186,
+       "recallAll": 0.5985,
+       "faultRows": 523,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0177,
+       "pageFrr": 0.8482,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 56,
+       "real": 11,
+       "unclear": 3,
+       "not": 42,
+       "precision": 0.1964,
+       "precisionCI95": [
+        0.1134,
+        0.3184
+       ],
+       "precisionDecided": 0.2075,
+       "realOfGroup": 10,
+       "precisionGroup": 0.1786,
+       "groupRealBugs": 12,
+       "recallGroup": 0.8333,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1667,
+       "byStratum": {
+        "rules": {
+         "flags": 26,
+         "real": 11
+        },
+        "gbt": {
+         "flags": 18,
+         "real": 0
+        },
+        "random": {
+         "flags": 12,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0091,
+       "flaggedNatural": 6331,
+       "recallSeen": 0.9952,
+       "seenRows": 208,
+       "recallAll": 0.6052,
+       "faultRows": 537,
+       "controlsFlagged": 0.0138,
+       "cleanFlagged": 0.0167,
+       "pageFrr": 0.8519,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 71,
+       "real": 20,
+       "unclear": 9,
+       "not": 42,
+       "precision": 0.2817,
+       "precisionCI95": [
+        0.1904,
+        0.3954
+       ],
+       "precisionDecided": 0.3226,
+       "realOfGroup": 20,
+       "precisionGroup": 0.2817,
+       "groupRealBugs": 21,
+       "recallGroup": 0.9524,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.274,
+       "byStratum": {
+        "rules": {
+         "flags": 43,
+         "real": 19
+        },
+        "gbt": {
+         "flags": 13,
+         "real": 0
+        },
+        "random": {
+         "flags": 15,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0112
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1257,
+    "aucReal": 0.6079
+   },
+   "platt": [
+    0.134364855480912,
+    -1.5726588092159661
+   ],
+   "labelledTest": {
+    "apReal": 0.2041,
+    "aucReal": 0.5588,
+    "apGroup": 0.5123,
+    "aucGroup": 0.9591,
+    "brierCalibrated": 0.0593,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "motion": {
+   "families": [
+    "motion"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.11679401248693466,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.9091,
+       "seenRows": 132,
+       "recallAll": 0.6468,
+       "faultRows": 620,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0017,
+       "pageFrr": 0.1598,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 5,
+       "real": 0,
+       "unclear": 1,
+       "not": 4,
+       "precision": 0.0,
+       "precisionCI95": [
+        -0.0,
+        0.4345
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 0,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 4,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0009,
+       "flaggedNatural": 610,
+       "recallSeen": 0.9139,
+       "seenRows": 151,
+       "recallAll": 0.6848,
+       "faultRows": 679,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.002,
+       "pageFrr": 0.1557,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 12,
+       "real": 0,
+       "unclear": 2,
+       "not": 10,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.2425
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 7,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 5,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0197
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.0058486443012952805,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9848,
+       "seenRows": 132,
+       "recallAll": 0.7726,
+       "faultRows": 620,
+       "controlsFlagged": 0.0065,
+       "cleanFlagged": 0.0202,
+       "pageFrr": 0.8007,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 45,
+       "real": 2,
+       "unclear": 3,
+       "not": 40,
+       "precision": 0.0444,
+       "precisionCI95": [
+        0.0123,
+        0.1483
+       ],
+       "precisionDecided": 0.0476,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0303,
+       "byStratum": {
+        "rules": {
+         "flags": 14,
+         "real": 2
+        },
+        "gbt": {
+         "flags": 9,
+         "real": 0
+        },
+        "random": {
+         "flags": 22,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6973,
+       "recallSeen": 0.9801,
+       "seenRows": 151,
+       "recallAll": 0.782,
+       "faultRows": 679,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0209,
+       "pageFrr": 0.8189,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 61,
+       "real": 1,
+       "unclear": 8,
+       "not": 52,
+       "precision": 0.0164,
+       "precisionCI95": [
+        0.0029,
+        0.0872
+       ],
+       "precisionDecided": 0.0189,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0137,
+       "byStratum": {
+        "rules": {
+         "flags": 21,
+         "real": 1
+        },
+        "gbt": {
+         "flags": 8,
+         "real": 0
+        },
+        "random": {
+         "flags": 32,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0087
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.0534,
+    "aucReal": 0.4512
+   },
+   "platt": [
+    -0.06450185416852568,
+    -3.283433173482547
+   ],
+   "labelledTest": {
+    "apReal": 0.053,
+    "aucReal": 0.3713,
+    "brierCalibrated": 0.0612,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "occlusion": {
+   "families": [
+    "occlusion"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.1629520058631897,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.9615,
+       "seenRows": 390,
+       "recallAll": 0.7295,
+       "faultRows": 647,
+       "controlsFlagged": 0.0043,
+       "cleanFlagged": 0.0021,
+       "pageFrr": 0.2381,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 5,
+       "real": 0,
+       "unclear": 0,
+       "not": 5,
+       "precision": 0.0,
+       "precisionCI95": [
+        -0.0,
+        0.4345
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 3,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 2,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0009,
+       "flaggedNatural": 630,
+       "recallSeen": 0.9628,
+       "seenRows": 376,
+       "recallAll": 0.7397,
+       "faultRows": 607,
+       "controlsFlagged": 0.004,
+       "cleanFlagged": 0.0019,
+       "pageFrr": 0.2346,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 23,
+       "real": 1,
+       "unclear": 9,
+       "not": 13,
+       "precision": 0.0435,
+       "precisionCI95": [
+        0.0077,
+        0.2099
+       ],
+       "precisionDecided": 0.0714,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 11,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0137,
+       "byStratum": {
+        "rules": {
+         "flags": 16,
+         "real": 1
+        },
+        "gbt": {
+         "flags": 6,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0365
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.014652829617261887,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6576,
+       "recallSeen": 0.9974,
+       "seenRows": 390,
+       "recallAll": 0.8223,
+       "faultRows": 647,
+       "controlsFlagged": 0.0129,
+       "cleanFlagged": 0.0207,
+       "pageFrr": 0.886,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 43,
+       "real": 4,
+       "unclear": 8,
+       "not": 31,
+       "precision": 0.093,
+       "precisionCI95": [
+        0.0368,
+        0.216
+       ],
+       "precisionDecided": 0.1143,
+       "realOfGroup": 1,
+       "precisionGroup": 0.0233,
+       "groupRealBugs": 9,
+       "recallGroup": 0.1111,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0606,
+       "byStratum": {
+        "rules": {
+         "flags": 24,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 10,
+         "real": 1
+        },
+        "random": {
+         "flags": 9,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0098,
+       "flaggedNatural": 6814,
+       "recallSeen": 0.9973,
+       "seenRows": 376,
+       "recallAll": 0.8369,
+       "faultRows": 607,
+       "controlsFlagged": 0.0178,
+       "cleanFlagged": 0.0197,
+       "pageFrr": 0.8881,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 142,
+       "real": 13,
+       "unclear": 45,
+       "not": 84,
+       "precision": 0.0915,
+       "precisionCI95": [
+        0.0543,
+        0.1503
+       ],
+       "precisionDecided": 0.134,
+       "realOfGroup": 5,
+       "precisionGroup": 0.0352,
+       "groupRealBugs": 11,
+       "recallGroup": 0.4545,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.1781,
+       "byStratum": {
+        "rules": {
+         "flags": 86,
+         "real": 9
+        },
+        "gbt": {
+         "flags": 36,
+         "real": 2
+        },
+        "random": {
+         "flags": 20,
+         "real": 2
+        }
+       }
+      },
+      "labelledCoverage": 0.0208
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.0924,
+    "aucReal": 0.6091
+   },
+   "platt": [
+    0.1464313211859536,
+    -1.4882361961526118
+   ],
+   "labelledTest": {
+    "apReal": 0.0737,
+    "aucReal": 0.4954,
+    "apGroup": 0.0291,
+    "aucGroup": 0.7037,
+    "brierCalibrated": 0.0622,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "other": {
+   "families": [
+    "other"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.37895670533180237,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.36,
+       "seenRows": 275,
+       "recallAll": 0.0745,
+       "faultRows": 1947,
+       "controlsFlagged": 0.0043,
+       "cleanFlagged": 0.0023,
+       "pageFrr": 0.1694,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 6,
+       "real": 2,
+       "unclear": 0,
+       "not": 4,
+       "precision": 0.3333,
+       "precisionCI95": [
+        0.0968,
+        0.7
+       ],
+       "precisionDecided": 0.3333,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0303,
+       "byStratum": {
+        "rules": {
+         "flags": 5,
+         "real": 2
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0008,
+       "flaggedNatural": 577,
+       "recallSeen": 0.2995,
+       "seenRows": 207,
+       "recallAll": 0.0569,
+       "faultRows": 2515,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0021,
+       "pageFrr": 0.1676,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 9,
+       "real": 1,
+       "unclear": 0,
+       "not": 8,
+       "precision": 0.1111,
+       "precisionCI95": [
+        0.0199,
+        0.435
+       ],
+       "precisionDecided": 0.1111,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0137,
+       "byStratum": {
+        "rules": {
+         "flags": 1,
+         "real": 1
+        },
+        "gbt": {
+         "flags": 7,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0156
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.050719764083623886,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6585,
+       "recallSeen": 0.92,
+       "seenRows": 275,
+       "recallAll": 0.2522,
+       "faultRows": 1947,
+       "controlsFlagged": 0.0108,
+       "cleanFlagged": 0.0232,
+       "pageFrr": 0.5466,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 118,
+       "real": 14,
+       "unclear": 9,
+       "not": 95,
+       "precision": 0.1186,
+       "precisionCI95": [
+        0.072,
+        0.1893
+       ],
+       "precisionDecided": 0.1284,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.2121,
+       "byStratum": {
+        "rules": {
+         "flags": 49,
+         "real": 12
+        },
+        "gbt": {
+         "flags": 52,
+         "real": 1
+        },
+        "random": {
+         "flags": 17,
+         "real": 1
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0096,
+       "flaggedNatural": 6703,
+       "recallSeen": 0.9614,
+       "seenRows": 207,
+       "recallAll": 0.2171,
+       "faultRows": 2515,
+       "controlsFlagged": 0.0158,
+       "cleanFlagged": 0.0221,
+       "pageFrr": 0.5265,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 138,
+       "real": 18,
+       "unclear": 21,
+       "not": 99,
+       "precision": 0.1304,
+       "precisionCI95": [
+        0.0841,
+        0.1968
+       ],
+       "precisionDecided": 0.1538,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.2466,
+       "byStratum": {
+        "rules": {
+         "flags": 58,
+         "real": 17
+        },
+        "gbt": {
+         "flags": 64,
+         "real": 0
+        },
+        "random": {
+         "flags": 16,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0206
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.0839,
+    "aucReal": 0.5274
+   },
+   "platt": [
+    0.06061755277306738,
+    -2.357353000385256
+   ],
+   "labelledTest": {
+    "apReal": 0.0905,
+    "aucReal": 0.5123,
+    "brierCalibrated": 0.0611,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "overflow": {
+   "families": [
+    "overflow"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.3318434953689575,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 678,
+       "recallSeen": 0.9807,
+       "seenRows": 311,
+       "recallAll": 0.3936,
+       "faultRows": 1090,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0013,
+       "pageFrr": 0.0863,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 11,
+       "real": 5,
+       "unclear": 3,
+       "not": 3,
+       "precision": 0.4545,
+       "precisionCI95": [
+        0.2127,
+        0.7199
+       ],
+       "precisionDecided": 0.625,
+       "realOfGroup": 5,
+       "precisionGroup": 0.4545,
+       "groupRealBugs": 19,
+       "recallGroup": 0.2632,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0758,
+       "byStratum": {
+        "rules": {
+         "flags": 9,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 2,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0011,
+       "flaggedNatural": 739,
+       "recallSeen": 0.9745,
+       "seenRows": 314,
+       "recallAll": 0.3975,
+       "faultRows": 1117,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.001,
+       "pageFrr": 0.0919,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 23,
+       "real": 9,
+       "unclear": 7,
+       "not": 7,
+       "precision": 0.3913,
+       "precisionCI95": [
+        0.2216,
+        0.5921
+       ],
+       "precisionDecided": 0.5625,
+       "realOfGroup": 8,
+       "precisionGroup": 0.3478,
+       "groupRealBugs": 30,
+       "recallGroup": 0.2667,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.1233,
+       "byStratum": {
+        "rules": {
+         "flags": 19,
+         "real": 9
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0311
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.013791682198643684,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9968,
+       "seenRows": 311,
+       "recallAll": 0.4284,
+       "faultRows": 1090,
+       "controlsFlagged": 0.0151,
+       "cleanFlagged": 0.0132,
+       "pageFrr": 0.6201,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 38,
+       "real": 9,
+       "unclear": 12,
+       "not": 17,
+       "precision": 0.2368,
+       "precisionCI95": [
+        0.1299,
+        0.3921
+       ],
+       "precisionDecided": 0.3462,
+       "realOfGroup": 9,
+       "precisionGroup": 0.2368,
+       "groupRealBugs": 19,
+       "recallGroup": 0.4737,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1364,
+       "byStratum": {
+        "rules": {
+         "flags": 27,
+         "real": 8
+        },
+        "gbt": {
+         "flags": 5,
+         "real": 0
+        },
+        "random": {
+         "flags": 6,
+         "real": 1
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0103,
+       "flaggedNatural": 7168,
+       "recallSeen": 0.9968,
+       "seenRows": 314,
+       "recallAll": 0.4244,
+       "faultRows": 1117,
+       "controlsFlagged": 0.0138,
+       "cleanFlagged": 0.0129,
+       "pageFrr": 0.6086,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 101,
+       "real": 29,
+       "unclear": 29,
+       "not": 43,
+       "precision": 0.2871,
+       "precisionCI95": [
+        0.208,
+        0.3819
+       ],
+       "precisionDecided": 0.4028,
+       "realOfGroup": 27,
+       "precisionGroup": 0.2673,
+       "groupRealBugs": 30,
+       "recallGroup": 0.9,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.3973,
+       "byStratum": {
+        "rules": {
+         "flags": 69,
+         "real": 27
+        },
+        "gbt": {
+         "flags": 16,
+         "real": 1
+        },
+        "random": {
+         "flags": 16,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0141
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1603,
+    "aucReal": 0.6964
+   },
+   "platt": [
+    0.2072060766151279,
+    -0.8829603045708281
+   ],
+   "labelledTest": {
+    "apReal": 0.2482,
+    "aucReal": 0.7857,
+    "apGroup": 0.321,
+    "aucGroup": 0.9472,
+    "brierCalibrated": 0.0591,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "responsive": {
+   "families": [
+    "responsive"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.4495668411254883,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.8865,
+       "seenRows": 282,
+       "recallAll": 0.4036,
+       "faultRows": 788,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0015,
+       "pageFrr": 0.1822,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 17,
+       "real": 6,
+       "unclear": 7,
+       "not": 4,
+       "precision": 0.3529,
+       "precisionCI95": [
+        0.1731,
+        0.587
+       ],
+       "precisionDecided": 0.6,
+       "realOfGroup": 6,
+       "precisionGroup": 0.3529,
+       "groupRealBugs": 19,
+       "recallGroup": 0.3158,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0909,
+       "byStratum": {
+        "rules": {
+         "flags": 13,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 1
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0009,
+       "flaggedNatural": 618,
+       "recallSeen": 0.8359,
+       "seenRows": 262,
+       "recallAll": 0.3997,
+       "faultRows": 743,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0012,
+       "pageFrr": 0.1778,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 21,
+       "real": 8,
+       "unclear": 6,
+       "not": 7,
+       "precision": 0.381,
+       "precisionCI95": [
+        0.2075,
+        0.5912
+       ],
+       "precisionDecided": 0.5333,
+       "realOfGroup": 6,
+       "precisionGroup": 0.2857,
+       "groupRealBugs": 30,
+       "recallGroup": 0.2,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.1096,
+       "byStratum": {
+        "rules": {
+         "flags": 19,
+         "real": 8
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.034
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.023639285936951637,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9894,
+       "seenRows": 282,
+       "recallAll": 0.514,
+       "faultRows": 788,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0125,
+       "pageFrr": 0.5157,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 96,
+       "real": 18,
+       "unclear": 21,
+       "not": 57,
+       "precision": 0.1875,
+       "precisionCI95": [
+        0.122,
+        0.277
+       ],
+       "precisionDecided": 0.24,
+       "realOfGroup": 16,
+       "precisionGroup": 0.1667,
+       "groupRealBugs": 19,
+       "recallGroup": 0.8421,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.2727,
+       "byStratum": {
+        "rules": {
+         "flags": 56,
+         "real": 16
+        },
+        "gbt": {
+         "flags": 24,
+         "real": 1
+        },
+        "random": {
+         "flags": 16,
+         "real": 1
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0106,
+       "flaggedNatural": 7378,
+       "recallSeen": 0.9809,
+       "seenRows": 262,
+       "recallAll": 0.5262,
+       "faultRows": 743,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0113,
+       "pageFrr": 0.4989,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 114,
+       "real": 26,
+       "unclear": 26,
+       "not": 62,
+       "precision": 0.2281,
+       "precisionCI95": [
+        0.1607,
+        0.3132
+       ],
+       "precisionDecided": 0.2955,
+       "realOfGroup": 21,
+       "precisionGroup": 0.1842,
+       "groupRealBugs": 30,
+       "recallGroup": 0.7,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.3562,
+       "byStratum": {
+        "rules": {
+         "flags": 70,
+         "real": 22
+        },
+        "gbt": {
+         "flags": 20,
+         "real": 2
+        },
+        "random": {
+         "flags": 24,
+         "real": 2
+        }
+       }
+      },
+      "labelledCoverage": 0.0155
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1402,
+    "aucReal": 0.5546
+   },
+   "platt": [
+    0.11037783845160444,
+    -2.0061863404242715
+   ],
+   "labelledTest": {
+    "apReal": 0.1892,
+    "aucReal": 0.6302,
+    "apGroup": 0.2273,
+    "aucGroup": 0.8988,
+    "brierCalibrated": 0.0597,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "styles": {
+   "families": [
+    "styles"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.5461035370826721,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 659,
+       "recallSeen": 0.3081,
+       "seenRows": 344,
+       "recallAll": 0.0494,
+       "faultRows": 3018,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0024,
+       "pageFrr": 0.1231,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 11,
+       "real": 1,
+       "unclear": 0,
+       "not": 10,
+       "precision": 0.0909,
+       "precisionCI95": [
+        0.0162,
+        0.3774
+       ],
+       "precisionDecided": 0.0909,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0152,
+       "byStratum": {
+        "rules": {
+         "flags": 7,
+         "real": 1
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0007,
+       "flaggedNatural": 497,
+       "recallSeen": 0.3261,
+       "seenRows": 414,
+       "recallAll": 0.0957,
+       "faultRows": 1975,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0028,
+       "pageFrr": 0.1146,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 9,
+       "real": 0,
+       "unclear": 1,
+       "not": 8,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.2992
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 1,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 7,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0181
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.10215429961681366,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6576,
+       "recallSeen": 0.7297,
+       "seenRows": 344,
+       "recallAll": 0.1673,
+       "faultRows": 3018,
+       "controlsFlagged": 0.0151,
+       "cleanFlagged": 0.0287,
+       "pageFrr": 0.4742,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 97,
+       "real": 5,
+       "unclear": 6,
+       "not": 86,
+       "precision": 0.0515,
+       "precisionCI95": [
+        0.0222,
+        0.115
+       ],
+       "precisionDecided": 0.0549,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0758,
+       "byStratum": {
+        "rules": {
+         "flags": 35,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 42,
+         "real": 0
+        },
+        "random": {
+         "flags": 20,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0092,
+       "flaggedNatural": 6447,
+       "recallSeen": 0.6449,
+       "seenRows": 414,
+       "recallAll": 0.2719,
+       "faultRows": 1975,
+       "controlsFlagged": 0.0059,
+       "cleanFlagged": 0.0291,
+       "pageFrr": 0.4686,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 101,
+       "real": 3,
+       "unclear": 9,
+       "not": 89,
+       "precision": 0.0297,
+       "precisionCI95": [
+        0.0102,
+        0.0837
+       ],
+       "precisionDecided": 0.0326,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 0,
+       "recallGroup": null,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0411,
+       "byStratum": {
+        "rules": {
+         "flags": 39,
+         "real": 2
+        },
+        "gbt": {
+         "flags": 48,
+         "real": 1
+        },
+        "random": {
+         "flags": 14,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0157
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.0593,
+    "aucReal": 0.4488
+   },
+   "platt": [
+    -0.06241354919663282,
+    -3.1185737434638976
+   ],
+   "labelledTest": {
+    "apReal": 0.0482,
+    "aucReal": 0.3588,
+    "brierCalibrated": 0.0609,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "text": {
+   "families": [
+    "text"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.13837648928165436,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.9379,
+       "seenRows": 145,
+       "recallAll": 0.3356,
+       "faultRows": 599,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0032,
+       "pageFrr": 0.1763,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 28,
+       "real": 8,
+       "unclear": 7,
+       "not": 13,
+       "precision": 0.2857,
+       "precisionCI95": [
+        0.1525,
+        0.4706
+       ],
+       "precisionDecided": 0.381,
+       "realOfGroup": 7,
+       "precisionGroup": 0.25,
+       "groupRealBugs": 20,
+       "recallGroup": 0.35,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1212,
+       "byStratum": {
+        "rules": {
+         "flags": 20,
+         "real": 7
+        },
+        "gbt": {
+         "flags": 8,
+         "real": 1
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0008,
+       "flaggedNatural": 594,
+       "recallSeen": 0.8667,
+       "seenRows": 150,
+       "recallAll": 0.3635,
+       "faultRows": 553,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0024,
+       "pageFrr": 0.1805,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 25,
+       "real": 0,
+       "unclear": 6,
+       "not": 19,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.1332
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 22,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 2,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0421
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.003773400094360113,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9862,
+       "seenRows": 145,
+       "recallAll": 0.5342,
+       "faultRows": 599,
+       "controlsFlagged": 0.0172,
+       "cleanFlagged": 0.0223,
+       "pageFrr": 0.6516,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 167,
+       "real": 14,
+       "unclear": 38,
+       "not": 115,
+       "precision": 0.0838,
+       "precisionCI95": [
+        0.0506,
+        0.1358
+       ],
+       "precisionDecided": 0.1085,
+       "realOfGroup": 11,
+       "precisionGroup": 0.0659,
+       "groupRealBugs": 20,
+       "recallGroup": 0.55,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.2121,
+       "byStratum": {
+        "rules": {
+         "flags": 110,
+         "real": 13
+        },
+        "gbt": {
+         "flags": 40,
+         "real": 1
+        },
+        "random": {
+         "flags": 17,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0099,
+       "flaggedNatural": 6904,
+       "recallSeen": 0.9733,
+       "seenRows": 150,
+       "recallAll": 0.5208,
+       "faultRows": 553,
+       "controlsFlagged": 0.0178,
+       "cleanFlagged": 0.0203,
+       "pageFrr": 0.6405,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 183,
+       "real": 5,
+       "unclear": 47,
+       "not": 131,
+       "precision": 0.0273,
+       "precisionCI95": [
+        0.0117,
+        0.0624
+       ],
+       "precisionDecided": 0.0368,
+       "realOfGroup": 4,
+       "precisionGroup": 0.0219,
+       "groupRealBugs": 9,
+       "recallGroup": 0.4444,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0685,
+       "byStratum": {
+        "rules": {
+         "flags": 131,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 33,
+         "real": 0
+        },
+        "random": {
+         "flags": 19,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0265
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1301,
+    "aucReal": 0.6152
+   },
+   "platt": [
+    0.1375294320142866,
+    -1.6147871358681147
+   ],
+   "labelledTest": {
+    "apReal": 0.0607,
+    "aucReal": 0.496,
+    "apGroup": 0.018,
+    "aucGroup": 0.6522,
+    "brierCalibrated": 0.0626,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "lab": {
+   "families": [
+    "blank",
+    "controls",
+    "dark",
+    "design",
+    "leaks",
+    "media",
+    "motion",
+    "occlusion",
+    "other",
+    "overflow",
+    "responsive",
+    "styles",
+    "text"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.6837368011474609,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 660,
+       "recallSeen": 0.0072,
+       "seenRows": 3174,
+       "recallAll": 0.0036,
+       "faultRows": 15019,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0011,
+       "pageFrr": 0.0677,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 7,
+       "real": 3,
+       "unclear": 2,
+       "not": 2,
+       "precision": 0.4286,
+       "precisionCI95": [
+        0.1582,
+        0.7495
+       ],
+       "precisionDecided": 0.6,
+       "realOfGroup": 3,
+       "precisionGroup": 0.4286,
+       "groupRealBugs": 66,
+       "recallGroup": 0.0455,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0455,
+       "byStratum": {
+        "rules": {
+         "flags": 6,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0011,
+       "flaggedNatural": 743,
+       "recallSeen": 0.0055,
+       "seenRows": 3066,
+       "recallAll": 0.0036,
+       "faultRows": 14052,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0008,
+       "pageFrr": 0.0573,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 2,
+       "real": 0,
+       "unclear": 1,
+       "not": 1,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.6576
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 73,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 2,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0027
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.4623844027519226,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.0221,
+       "seenRows": 3174,
+       "recallAll": 0.0188,
+       "faultRows": 15019,
+       "controlsFlagged": 0.0043,
+       "cleanFlagged": 0.0057,
+       "pageFrr": 0.2099,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 27,
+       "real": 8,
+       "unclear": 10,
+       "not": 9,
+       "precision": 0.2963,
+       "precisionCI95": [
+        0.1585,
+        0.4848
+       ],
+       "precisionDecided": 0.4706,
+       "realOfGroup": 8,
+       "precisionGroup": 0.2963,
+       "groupRealBugs": 66,
+       "recallGroup": 0.1212,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1212,
+       "byStratum": {
+        "rules": {
+         "flags": 21,
+         "real": 8
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 3,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.016,
+       "flaggedNatural": 11158,
+       "recallSeen": 0.0163,
+       "seenRows": 3066,
+       "recallAll": 0.0242,
+       "faultRows": 14052,
+       "controlsFlagged": 0.0079,
+       "cleanFlagged": 0.0075,
+       "pageFrr": 0.1951,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 18,
+       "real": 4,
+       "unclear": 9,
+       "not": 5,
+       "precision": 0.2222,
+       "precisionCI95": [
+        0.09,
+        0.4522
+       ],
+       "precisionDecided": 0.4444,
+       "realOfGroup": 4,
+       "precisionGroup": 0.2222,
+       "groupRealBugs": 73,
+       "recallGroup": 0.0548,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0548,
+       "byStratum": {
+        "rules": {
+         "flags": 15,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 2,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0016
+     }
+    },
+    "ship": {
+     "threshold": 0.7171357870101929,
+     "val": {
+      "injected": {
+       "frrNatural": 0.0006,
+       "flaggedNatural": 407,
+       "recallSeen": 0.0054,
+       "seenRows": 3174,
+       "recallAll": 0.0026,
+       "faultRows": 15019,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0008,
+       "pageFrr": 0.0501,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 5,
+       "real": 3,
+       "unclear": 1,
+       "not": 1,
+       "precision": 0.6,
+       "precisionCI95": [
+        0.2307,
+        0.8824
+       ],
+       "precisionDecided": 0.75,
+       "realOfGroup": 3,
+       "precisionGroup": 0.6,
+       "groupRealBugs": 66,
+       "recallGroup": 0.0455,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0455,
+       "byStratum": {
+        "rules": {
+         "flags": 4,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0006,
+       "flaggedNatural": 422,
+       "recallSeen": 0.0039,
+       "seenRows": 3066,
+       "recallAll": 0.0028,
+       "faultRows": 14052,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0005,
+       "pageFrr": 0.0378,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 2,
+       "real": 0,
+       "unclear": 1,
+       "not": 1,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.6576
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 73,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 2,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0047
+     }
+    }
+   },
+   "shipDev": {
+    "threshold": 0.7171357870101929,
+    "flags": 5,
+    "real": 3
+   },
+   "oofLabelledVal": {
+    "apReal": 0.2328,
+    "aucReal": 0.7957
+   },
+   "platt": [
+    0.6724026641730605,
+    -0.6737319441685143
+   ],
+   "labelledTest": {
+    "apReal": 0.2259,
+    "aucReal": 0.8333,
+    "apGroup": 0.2259,
+    "aucGroup": 0.8333,
+    "brierCalibrated": 0.056,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "any+lab": {
+   "families": [
+    "blank",
+    "controls",
+    "dark",
+    "design",
+    "leaks",
+    "media",
+    "motion",
+    "occlusion",
+    "other",
+    "overflow",
+    "responsive",
+    "styles",
+    "text"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.24205382168293,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.1812,
+       "seenRows": 3174,
+       "recallAll": 0.0529,
+       "faultRows": 15019,
+       "controlsFlagged": 0.0065,
+       "cleanFlagged": 0.0023,
+       "pageFrr": 0.1401,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 42,
+       "real": 16,
+       "unclear": 14,
+       "not": 12,
+       "precision": 0.381,
+       "precisionCI95": [
+        0.25,
+        0.5319
+       ],
+       "precisionDecided": 0.5714,
+       "realOfGroup": 16,
+       "precisionGroup": 0.381,
+       "groupRealBugs": 66,
+       "recallGroup": 0.2424,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.2424,
+       "byStratum": {
+        "rules": {
+         "flags": 34,
+         "real": 14
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 5,
+         "real": 2
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 693,
+       "recallSeen": 0.1833,
+       "seenRows": 3066,
+       "recallAll": 0.0544,
+       "faultRows": 14052,
+       "controlsFlagged": 0.0059,
+       "cleanFlagged": 0.0014,
+       "pageFrr": 0.1443,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 48,
+       "real": 16,
+       "unclear": 17,
+       "not": 15,
+       "precision": 0.3333,
+       "precisionCI95": [
+        0.2168,
+        0.4746
+       ],
+       "precisionDecided": 0.5161,
+       "realOfGroup": 16,
+       "precisionGroup": 0.3333,
+       "groupRealBugs": 73,
+       "recallGroup": 0.2192,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.2192,
+       "byStratum": {
+        "rules": {
+         "flags": 42,
+         "real": 15
+        },
+        "gbt": {
+         "flags": 4,
+         "real": 0
+        },
+        "random": {
+         "flags": 2,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0693
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.07619079202413559,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.4953,
+       "seenRows": 3174,
+       "recallAll": 0.1603,
+       "faultRows": 15019,
+       "controlsFlagged": 0.0452,
+       "cleanFlagged": 0.0177,
+       "pageFrr": 0.634,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 214,
+       "real": 46,
+       "unclear": 61,
+       "not": 107,
+       "precision": 0.215,
+       "precisionCI95": [
+        0.1652,
+        0.2748
+       ],
+       "precisionDecided": 0.3007,
+       "realOfGroup": 46,
+       "precisionGroup": 0.215,
+       "groupRealBugs": 66,
+       "recallGroup": 0.697,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.697,
+       "byStratum": {
+        "rules": {
+         "flags": 162,
+         "real": 40
+        },
+        "gbt": {
+         "flags": 28,
+         "real": 2
+        },
+        "random": {
+         "flags": 24,
+         "real": 4
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0112,
+       "flaggedNatural": 7799,
+       "recallSeen": 0.5007,
+       "seenRows": 3066,
+       "recallAll": 0.1704,
+       "faultRows": 14052,
+       "controlsFlagged": 0.0494,
+       "cleanFlagged": 0.0157,
+       "pageFrr": 0.6162,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 219,
+       "real": 46,
+       "unclear": 70,
+       "not": 103,
+       "precision": 0.21,
+       "precisionCI95": [
+        0.1613,
+        0.2688
+       ],
+       "precisionDecided": 0.3087,
+       "realOfGroup": 46,
+       "precisionGroup": 0.21,
+       "groupRealBugs": 73,
+       "recallGroup": 0.6301,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.6301,
+       "byStratum": {
+        "rules": {
+         "flags": 174,
+         "real": 43
+        },
+        "gbt": {
+         "flags": 31,
+         "real": 1
+        },
+        "random": {
+         "flags": 14,
+         "real": 2
+        }
+       }
+      },
+      "labelledCoverage": 0.0281
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.238,
+    "aucReal": 0.7988
+   },
+   "platt": [
+    0.8835370594445746,
+    -0.25112161903236824
+   ],
+   "labelledTest": {
+    "apReal": 0.245,
+    "aucReal": 0.8194,
+    "apGroup": 0.245,
+    "aucGroup": 0.8194,
+    "brierCalibrated": 0.0554,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "dark+lab": {
+   "families": [
+    "dark"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.0480261854827404,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 659,
+       "recallSeen": 1.0,
+       "seenRows": 24,
+       "recallAll": 0.9167,
+       "faultRows": 252,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0018,
+       "pageFrr": 0.1545,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 53,
+       "real": 7,
+       "unclear": 20,
+       "not": 26,
+       "precision": 0.1321,
+       "precisionCI95": [
+        0.0655,
+        0.2484
+       ],
+       "precisionDecided": 0.2121,
+       "realOfGroup": 4,
+       "precisionGroup": 0.0755,
+       "groupRealBugs": 20,
+       "recallGroup": 0.2,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1061,
+       "byStratum": {
+        "rules": {
+         "flags": 50,
+         "real": 7
+        },
+        "gbt": {
+         "flags": 2,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0013,
+       "flaggedNatural": 924,
+       "recallSeen": 0.9091,
+       "seenRows": 22,
+       "recallAll": 0.875,
+       "faultRows": 288,
+       "controlsFlagged": 0.0059,
+       "cleanFlagged": 0.0016,
+       "pageFrr": 0.1654,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 64,
+       "real": 2,
+       "unclear": 17,
+       "not": 45,
+       "precision": 0.0312,
+       "precisionCI95": [
+        0.0086,
+        0.107
+       ],
+       "precisionDecided": 0.0426,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0274,
+       "byStratum": {
+        "rules": {
+         "flags": 53,
+         "real": 2
+        },
+        "gbt": {
+         "flags": 10,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0693
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.032740406692028046,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 1.0,
+       "seenRows": 24,
+       "recallAll": 0.9167,
+       "faultRows": 252,
+       "controlsFlagged": 0.0043,
+       "cleanFlagged": 0.0082,
+       "pageFrr": 0.3671,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 114,
+       "real": 15,
+       "unclear": 38,
+       "not": 61,
+       "precision": 0.1316,
+       "precisionCI95": [
+        0.0814,
+        0.2058
+       ],
+       "precisionDecided": 0.1974,
+       "realOfGroup": 6,
+       "precisionGroup": 0.0526,
+       "groupRealBugs": 20,
+       "recallGroup": 0.3,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.2273,
+       "byStratum": {
+        "rules": {
+         "flags": 89,
+         "real": 12
+        },
+        "gbt": {
+         "flags": 14,
+         "real": 1
+        },
+        "random": {
+         "flags": 11,
+         "real": 2
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0153,
+       "flaggedNatural": 10727,
+       "recallSeen": 0.9545,
+       "seenRows": 22,
+       "recallAll": 0.8785,
+       "faultRows": 288,
+       "controlsFlagged": 0.0178,
+       "cleanFlagged": 0.0092,
+       "pageFrr": 0.3589,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 116,
+       "real": 9,
+       "unclear": 45,
+       "not": 62,
+       "precision": 0.0776,
+       "precisionCI95": [
+        0.0414,
+        0.1409
+       ],
+       "precisionDecided": 0.1268,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.1233,
+       "byStratum": {
+        "rules": {
+         "flags": 97,
+         "real": 7
+        },
+        "gbt": {
+         "flags": 16,
+         "real": 1
+        },
+        "random": {
+         "flags": 3,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0108
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.086,
+    "aucReal": 0.5833
+   },
+   "platt": [
+    0.3258332463424928,
+    -1.3529463194182747
+   ],
+   "labelledTest": {
+    "apReal": 0.1168,
+    "aucReal": 0.7421,
+    "apGroup": 0.015,
+    "aucGroup": 0.6893,
+    "brierCalibrated": 0.0609,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "leaks+lab": {
+   "families": [
+    "leaks"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.011321458034217358,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.9055,
+       "seenRows": 127,
+       "recallAll": 0.591,
+       "faultRows": 511,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0028,
+       "pageFrr": 0.2168,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 20,
+       "real": 5,
+       "unclear": 10,
+       "not": 5,
+       "precision": 0.25,
+       "precisionCI95": [
+        0.1119,
+        0.4687
+       ],
+       "precisionDecided": 0.5,
+       "realOfGroup": 4,
+       "precisionGroup": 0.2,
+       "groupRealBugs": 6,
+       "recallGroup": 0.6667,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0758,
+       "byStratum": {
+        "rules": {
+         "flags": 12,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 5,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0014,
+       "flaggedNatural": 977,
+       "recallSeen": 0.9766,
+       "seenRows": 128,
+       "recallAll": 0.5607,
+       "faultRows": 535,
+       "controlsFlagged": 0.004,
+       "cleanFlagged": 0.0024,
+       "pageFrr": 0.2238,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 6,
+       "real": 1,
+       "unclear": 2,
+       "not": 3,
+       "precision": 0.1667,
+       "precisionCI95": [
+        0.0301,
+        0.5635
+       ],
+       "precisionDecided": 0.25,
+       "realOfGroup": 1,
+       "precisionGroup": 0.1667,
+       "groupRealBugs": 2,
+       "recallGroup": 0.5,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0137,
+       "byStratum": {
+        "rules": {
+         "flags": 2,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 3,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0061
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.005250981077551842,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9843,
+       "seenRows": 127,
+       "recallAll": 0.7123,
+       "faultRows": 511,
+       "controlsFlagged": 0.0237,
+       "cleanFlagged": 0.0315,
+       "pageFrr": 0.7778,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 70,
+       "real": 12,
+       "unclear": 18,
+       "not": 40,
+       "precision": 0.1714,
+       "precisionCI95": [
+        0.1009,
+        0.2762
+       ],
+       "precisionDecided": 0.2308,
+       "realOfGroup": 4,
+       "precisionGroup": 0.0571,
+       "groupRealBugs": 6,
+       "recallGroup": 0.6667,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1818,
+       "byStratum": {
+        "rules": {
+         "flags": 34,
+         "real": 11
+        },
+        "gbt": {
+         "flags": 16,
+         "real": 0
+        },
+        "random": {
+         "flags": 20,
+         "real": 1
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0107,
+       "flaggedNatural": 7482,
+       "recallSeen": 1.0,
+       "seenRows": 128,
+       "recallAll": 0.6804,
+       "faultRows": 535,
+       "controlsFlagged": 0.0237,
+       "cleanFlagged": 0.0303,
+       "pageFrr": 0.7697,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 53,
+       "real": 6,
+       "unclear": 16,
+       "not": 31,
+       "precision": 0.1132,
+       "precisionCI95": [
+        0.0529,
+        0.2258
+       ],
+       "precisionDecided": 0.1622,
+       "realOfGroup": 1,
+       "precisionGroup": 0.0189,
+       "groupRealBugs": 2,
+       "recallGroup": 0.5,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0822,
+       "byStratum": {
+        "rules": {
+         "flags": 16,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 8,
+         "real": 0
+        },
+        "random": {
+         "flags": 29,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0071
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1305,
+    "aucReal": 0.6412
+   },
+   "platt": [
+    0.40071892291750566,
+    -0.20898941439001892
+   ],
+   "labelledTest": {
+    "apReal": 0.1218,
+    "aucReal": 0.6922,
+    "apGroup": 0.1705,
+    "aucGroup": 0.8813,
+    "brierCalibrated": 0.0604,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "media+lab": {
+   "families": [
+    "media"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.30410969257354736,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.457,
+       "seenRows": 186,
+       "recallAll": 0.2294,
+       "faultRows": 523,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.001,
+       "pageFrr": 0.0842,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 9,
+       "real": 2,
+       "unclear": 0,
+       "not": 7,
+       "precision": 0.2222,
+       "precisionCI95": [
+        0.0632,
+        0.5474
+       ],
+       "precisionDecided": 0.2222,
+       "realOfGroup": 2,
+       "precisionGroup": 0.2222,
+       "groupRealBugs": 12,
+       "recallGroup": 0.1667,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0303,
+       "byStratum": {
+        "rules": {
+         "flags": 6,
+         "real": 2
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 2,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0006,
+       "flaggedNatural": 424,
+       "recallSeen": 0.5865,
+       "seenRows": 208,
+       "recallAll": 0.2924,
+       "faultRows": 537,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0005,
+       "pageFrr": 0.0789,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 15,
+       "real": 10,
+       "unclear": 1,
+       "not": 4,
+       "precision": 0.6667,
+       "precisionCI95": [
+        0.4171,
+        0.8482
+       ],
+       "precisionDecided": 0.7143,
+       "realOfGroup": 10,
+       "precisionGroup": 0.6667,
+       "groupRealBugs": 21,
+       "recallGroup": 0.4762,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.137,
+       "byStratum": {
+        "rules": {
+         "flags": 13,
+         "real": 9
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0354
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.024570457637310028,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6576,
+       "recallSeen": 0.9731,
+       "seenRows": 186,
+       "recallAll": 0.5813,
+       "faultRows": 523,
+       "controlsFlagged": 0.0086,
+       "cleanFlagged": 0.0104,
+       "pageFrr": 0.6159,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 86,
+       "real": 20,
+       "unclear": 14,
+       "not": 52,
+       "precision": 0.2326,
+       "precisionCI95": [
+        0.1559,
+        0.3321
+       ],
+       "precisionDecided": 0.2778,
+       "realOfGroup": 10,
+       "precisionGroup": 0.1163,
+       "groupRealBugs": 12,
+       "recallGroup": 0.8333,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.303,
+       "byStratum": {
+        "rules": {
+         "flags": 48,
+         "real": 20
+        },
+        "gbt": {
+         "flags": 21,
+         "real": 0
+        },
+        "random": {
+         "flags": 17,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0105,
+       "flaggedNatural": 7351,
+       "recallSeen": 0.9952,
+       "seenRows": 208,
+       "recallAll": 0.5885,
+       "faultRows": 537,
+       "controlsFlagged": 0.0178,
+       "cleanFlagged": 0.0099,
+       "pageFrr": 0.587,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 84,
+       "real": 22,
+       "unclear": 20,
+       "not": 42,
+       "precision": 0.2619,
+       "precisionCI95": [
+        0.1798,
+        0.3649
+       ],
+       "precisionDecided": 0.3438,
+       "realOfGroup": 18,
+       "precisionGroup": 0.2143,
+       "groupRealBugs": 21,
+       "recallGroup": 0.8571,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.3014,
+       "byStratum": {
+        "rules": {
+         "flags": 61,
+         "real": 21
+        },
+        "gbt": {
+         "flags": 14,
+         "real": 0
+        },
+        "random": {
+         "flags": 9,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0114
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1634,
+    "aucReal": 0.7106
+   },
+   "platt": [
+    0.30324526069608093,
+    -0.8756092893147868
+   ],
+   "labelledTest": {
+    "apReal": 0.3167,
+    "aucReal": 0.8257,
+    "apGroup": 0.6093,
+    "aucGroup": 0.962,
+    "brierCalibrated": 0.056,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "occlusion+lab": {
+   "families": [
+    "occlusion"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.07300961017608643,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.9615,
+       "seenRows": 390,
+       "recallAll": 0.7264,
+       "faultRows": 647,
+       "controlsFlagged": 0.0043,
+       "cleanFlagged": 0.0021,
+       "pageFrr": 0.2344,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 4,
+       "real": 0,
+       "unclear": 0,
+       "not": 4,
+       "precision": 0.0,
+       "precisionCI95": [
+        0.0,
+        0.4899
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 2,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 0,
+         "real": 0
+        },
+        "random": {
+         "flags": 2,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0009,
+       "flaggedNatural": 634,
+       "recallSeen": 0.9628,
+       "seenRows": 376,
+       "recallAll": 0.7364,
+       "faultRows": 607,
+       "controlsFlagged": 0.004,
+       "cleanFlagged": 0.002,
+       "pageFrr": 0.2351,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 23,
+       "real": 1,
+       "unclear": 10,
+       "not": 12,
+       "precision": 0.0435,
+       "precisionCI95": [
+        0.0077,
+        0.2099
+       ],
+       "precisionDecided": 0.0769,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 11,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0137,
+       "byStratum": {
+        "rules": {
+         "flags": 16,
+         "real": 1
+        },
+        "gbt": {
+         "flags": 6,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0363
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.029852548614144325,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9974,
+       "seenRows": 390,
+       "recallAll": 0.8223,
+       "faultRows": 647,
+       "controlsFlagged": 0.0151,
+       "cleanFlagged": 0.0207,
+       "pageFrr": 0.8833,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 45,
+       "real": 5,
+       "unclear": 6,
+       "not": 34,
+       "precision": 0.1111,
+       "precisionCI95": [
+        0.0484,
+        0.235
+       ],
+       "precisionDecided": 0.1282,
+       "realOfGroup": 1,
+       "precisionGroup": 0.0222,
+       "groupRealBugs": 9,
+       "recallGroup": 0.1111,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0758,
+       "byStratum": {
+        "rules": {
+         "flags": 24,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 12,
+         "real": 2
+        },
+        "random": {
+         "flags": 9,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0099,
+       "flaggedNatural": 6919,
+       "recallSeen": 0.9973,
+       "seenRows": 376,
+       "recallAll": 0.8369,
+       "faultRows": 607,
+       "controlsFlagged": 0.0158,
+       "cleanFlagged": 0.02,
+       "pageFrr": 0.8849,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 148,
+       "real": 13,
+       "unclear": 51,
+       "not": 84,
+       "precision": 0.0878,
+       "precisionCI95": [
+        0.0521,
+        0.1445
+       ],
+       "precisionDecided": 0.134,
+       "realOfGroup": 5,
+       "precisionGroup": 0.0338,
+       "groupRealBugs": 11,
+       "recallGroup": 0.4545,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.1781,
+       "byStratum": {
+        "rules": {
+         "flags": 91,
+         "real": 9
+        },
+        "gbt": {
+         "flags": 37,
+         "real": 2
+        },
+        "random": {
+         "flags": 20,
+         "real": 2
+        }
+       }
+      },
+      "labelledCoverage": 0.0214
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.093,
+    "aucReal": 0.6323
+   },
+   "platt": [
+    0.3849777767130367,
+    -0.7668190623922326
+   ],
+   "labelledTest": {
+    "apReal": 0.0806,
+    "aucReal": 0.5544,
+    "apGroup": 0.03,
+    "aucGroup": 0.7171,
+    "brierCalibrated": 0.062,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "overflow+lab": {
+   "families": [
+    "overflow"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.3775041997432709,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.135,
+       "seenRows": 311,
+       "recallAll": 0.0587,
+       "faultRows": 1090,
+       "controlsFlagged": 0.0022,
+       "cleanFlagged": 0.0012,
+       "pageFrr": 0.0719,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 11,
+       "real": 3,
+       "unclear": 6,
+       "not": 2,
+       "precision": 0.2727,
+       "precisionCI95": [
+        0.0975,
+        0.5657
+       ],
+       "precisionDecided": 0.6,
+       "realOfGroup": 3,
+       "precisionGroup": 0.2727,
+       "groupRealBugs": 19,
+       "recallGroup": 0.1579,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0455,
+       "byStratum": {
+        "rules": {
+         "flags": 9,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 694,
+       "recallSeen": 0.1115,
+       "seenRows": 314,
+       "recallAll": 0.0501,
+       "faultRows": 1117,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0008,
+       "pageFrr": 0.0589,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 9,
+       "real": 3,
+       "unclear": 5,
+       "not": 1,
+       "precision": 0.3333,
+       "precisionCI95": [
+        0.1206,
+        0.6458
+       ],
+       "precisionDecided": 0.75,
+       "realOfGroup": 2,
+       "precisionGroup": 0.2222,
+       "groupRealBugs": 30,
+       "recallGroup": 0.0667,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0411,
+       "byStratum": {
+        "rules": {
+         "flags": 8,
+         "real": 3
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.013
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.16325049102306366,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6576,
+       "recallSeen": 0.3248,
+       "seenRows": 311,
+       "recallAll": 0.2248,
+       "faultRows": 1090,
+       "controlsFlagged": 0.0065,
+       "cleanFlagged": 0.0061,
+       "pageFrr": 0.2296,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 24,
+       "real": 9,
+       "unclear": 8,
+       "not": 7,
+       "precision": 0.375,
+       "precisionCI95": [
+        0.2116,
+        0.5729
+       ],
+       "precisionDecided": 0.5625,
+       "realOfGroup": 9,
+       "precisionGroup": 0.375,
+       "groupRealBugs": 19,
+       "recallGroup": 0.4737,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1364,
+       "byStratum": {
+        "rules": {
+         "flags": 20,
+         "real": 9
+        },
+        "gbt": {
+         "flags": 3,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0162,
+       "flaggedNatural": 11293,
+       "recallSeen": 0.2739,
+       "seenRows": 314,
+       "recallAll": 0.2068,
+       "faultRows": 1117,
+       "controlsFlagged": 0.0099,
+       "cleanFlagged": 0.0082,
+       "pageFrr": 0.2189,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 28,
+       "real": 8,
+       "unclear": 12,
+       "not": 8,
+       "precision": 0.2857,
+       "precisionCI95": [
+        0.1525,
+        0.4706
+       ],
+       "precisionDecided": 0.5,
+       "realOfGroup": 5,
+       "precisionGroup": 0.1786,
+       "groupRealBugs": 30,
+       "recallGroup": 0.1667,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.1096,
+       "byStratum": {
+        "rules": {
+         "flags": 22,
+         "real": 7
+        },
+        "gbt": {
+         "flags": 4,
+         "real": 0
+        },
+        "random": {
+         "flags": 2,
+         "real": 1
+        }
+       }
+      },
+      "labelledCoverage": 0.0025
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.2217,
+    "aucReal": 0.816
+   },
+   "platt": [
+    0.555401294126309,
+    0.12801482740372655
+   ],
+   "labelledTest": {
+    "apReal": 0.2482,
+    "aucReal": 0.8449,
+    "apGroup": 0.1421,
+    "aucGroup": 0.8866,
+    "brierCalibrated": 0.0551,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "responsive+lab": {
+   "families": [
+    "responsive"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.19338439404964447,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 658,
+       "recallSeen": 0.3511,
+       "seenRows": 282,
+       "recallAll": 0.1383,
+       "faultRows": 788,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0011,
+       "pageFrr": 0.0682,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 19,
+       "real": 9,
+       "unclear": 7,
+       "not": 3,
+       "precision": 0.4737,
+       "precisionCI95": [
+        0.2733,
+        0.6829
+       ],
+       "precisionDecided": 0.75,
+       "realOfGroup": 9,
+       "precisionGroup": 0.4737,
+       "groupRealBugs": 19,
+       "recallGroup": 0.4737,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.1364,
+       "byStratum": {
+        "rules": {
+         "flags": 17,
+         "real": 9
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0011,
+       "flaggedNatural": 779,
+       "recallSeen": 0.2634,
+       "seenRows": 262,
+       "recallAll": 0.1131,
+       "faultRows": 743,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0009,
+       "pageFrr": 0.0611,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 20,
+       "real": 7,
+       "unclear": 7,
+       "not": 6,
+       "precision": 0.35,
+       "precisionCI95": [
+        0.1812,
+        0.5671
+       ],
+       "precisionDecided": 0.5385,
+       "realOfGroup": 6,
+       "precisionGroup": 0.3,
+       "groupRealBugs": 30,
+       "recallGroup": 0.2,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0959,
+       "byStratum": {
+        "rules": {
+         "flags": 17,
+         "real": 7
+        },
+        "gbt": {
+         "flags": 2,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0257
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.036833569407463074,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6591,
+       "recallSeen": 0.6312,
+       "seenRows": 282,
+       "recallAll": 0.2893,
+       "faultRows": 788,
+       "controlsFlagged": 0.0151,
+       "cleanFlagged": 0.0073,
+       "pageFrr": 0.2925,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 67,
+       "real": 20,
+       "unclear": 17,
+       "not": 30,
+       "precision": 0.2985,
+       "precisionCI95": [
+        0.2023,
+        0.4166
+       ],
+       "precisionDecided": 0.4,
+       "realOfGroup": 18,
+       "precisionGroup": 0.2687,
+       "groupRealBugs": 19,
+       "recallGroup": 0.9474,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.303,
+       "byStratum": {
+        "rules": {
+         "flags": 50,
+         "real": 17
+        },
+        "gbt": {
+         "flags": 7,
+         "real": 1
+        },
+        "random": {
+         "flags": 10,
+         "real": 2
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0131,
+       "flaggedNatural": 9165,
+       "recallSeen": 0.6107,
+       "seenRows": 262,
+       "recallAll": 0.3015,
+       "faultRows": 743,
+       "controlsFlagged": 0.0059,
+       "cleanFlagged": 0.0086,
+       "pageFrr": 0.2762,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 80,
+       "real": 20,
+       "unclear": 26,
+       "not": 34,
+       "precision": 0.25,
+       "precisionCI95": [
+        0.1681,
+        0.3548
+       ],
+       "precisionDecided": 0.3704,
+       "realOfGroup": 15,
+       "precisionGroup": 0.1875,
+       "groupRealBugs": 30,
+       "recallGroup": 0.5,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.274,
+       "byStratum": {
+        "rules": {
+         "flags": 64,
+         "real": 17
+        },
+        "gbt": {
+         "flags": 9,
+         "real": 1
+        },
+        "random": {
+         "flags": 7,
+         "real": 2
+        }
+       }
+      },
+      "labelledCoverage": 0.0087
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.2052,
+    "aucReal": 0.7186
+   },
+   "platt": [
+    0.4263705314811303,
+    -0.42533678099999367
+   ],
+   "labelledTest": {
+    "apReal": 0.2507,
+    "aucReal": 0.8365,
+    "apGroup": 0.2226,
+    "aucGroup": 0.9172,
+    "brierCalibrated": 0.0558,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  },
+  "text+lab": {
+   "families": [
+    "text"
+   ],
+   "ops": {
+    "frr-0.1%": {
+     "threshold": 0.08181380480527878,
+     "val": {
+      "injected": {
+       "frrNatural": 0.001,
+       "flaggedNatural": 659,
+       "recallSeen": 0.9448,
+       "seenRows": 145,
+       "recallAll": 0.3406,
+       "faultRows": 599,
+       "controlsFlagged": 0.0,
+       "cleanFlagged": 0.0032,
+       "pageFrr": 0.1742,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 38,
+       "real": 6,
+       "unclear": 13,
+       "not": 19,
+       "precision": 0.1579,
+       "precisionCI95": [
+        0.0744,
+        0.3042
+       ],
+       "precisionDecided": 0.24,
+       "realOfGroup": 5,
+       "precisionGroup": 0.1316,
+       "groupRealBugs": 20,
+       "recallGroup": 0.25,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.0909,
+       "byStratum": {
+        "rules": {
+         "flags": 30,
+         "real": 5
+        },
+        "gbt": {
+         "flags": 8,
+         "real": 1
+        },
+        "random": {
+         "flags": 0,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.0008,
+       "flaggedNatural": 574,
+       "recallSeen": 0.8733,
+       "seenRows": 150,
+       "recallAll": 0.358,
+       "faultRows": 553,
+       "controlsFlagged": 0.002,
+       "cleanFlagged": 0.0021,
+       "pageFrr": 0.1762,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 30,
+       "real": 0,
+       "unclear": 9,
+       "not": 21,
+       "precision": 0.0,
+       "precisionCI95": [
+        -0.0,
+        0.1135
+       ],
+       "precisionDecided": 0.0,
+       "realOfGroup": 0,
+       "precisionGroup": 0.0,
+       "groupRealBugs": 9,
+       "recallGroup": 0.0,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.0,
+       "byStratum": {
+        "rules": {
+         "flags": 28,
+         "real": 0
+        },
+        "gbt": {
+         "flags": 1,
+         "real": 0
+        },
+        "random": {
+         "flags": 1,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0523
+     }
+    },
+    "frr-1%": {
+     "threshold": 0.026450956240296364,
+     "val": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6575,
+       "recallSeen": 0.9862,
+       "seenRows": 145,
+       "recallAll": 0.5376,
+       "faultRows": 599,
+       "controlsFlagged": 0.0172,
+       "cleanFlagged": 0.0221,
+       "pageFrr": 0.6569,
+       "naturalPages": 1877
+      },
+      "labelledOOF": {
+       "flags": 194,
+       "real": 17,
+       "unclear": 46,
+       "not": 131,
+       "precision": 0.0876,
+       "precisionCI95": [
+        0.0554,
+        0.1358
+       ],
+       "precisionDecided": 0.1149,
+       "realOfGroup": 10,
+       "precisionGroup": 0.0515,
+       "groupRealBugs": 20,
+       "recallGroup": 0.5,
+       "allRealBugs": 66,
+       "recallAnyReal": 0.2576,
+       "byStratum": {
+        "rules": {
+         "flags": 128,
+         "real": 16
+        },
+        "gbt": {
+         "flags": 44,
+         "real": 1
+        },
+        "random": {
+         "flags": 22,
+         "real": 0
+        }
+       }
+      }
+     },
+     "test": {
+      "injected": {
+       "frrNatural": 0.01,
+       "flaggedNatural": 6998,
+       "recallSeen": 0.9667,
+       "seenRows": 150,
+       "recallAll": 0.519,
+       "faultRows": 553,
+       "controlsFlagged": 0.0237,
+       "cleanFlagged": 0.0199,
+       "pageFrr": 0.6427,
+       "naturalPages": 1850
+      },
+      "labelled": {
+       "flags": 197,
+       "real": 8,
+       "unclear": 56,
+       "not": 133,
+       "precision": 0.0406,
+       "precisionCI95": [
+        0.0207,
+        0.0781
+       ],
+       "precisionDecided": 0.0567,
+       "realOfGroup": 5,
+       "precisionGroup": 0.0254,
+       "groupRealBugs": 9,
+       "recallGroup": 0.5556,
+       "allRealBugs": 73,
+       "recallAnyReal": 0.1096,
+       "byStratum": {
+        "rules": {
+         "flags": 149,
+         "real": 8
+        },
+        "gbt": {
+         "flags": 33,
+         "real": 0
+        },
+        "random": {
+         "flags": 15,
+         "real": 0
+        }
+       }
+      },
+      "labelledCoverage": 0.0282
+     }
+    }
+   },
+   "shipDev": null,
+   "oofLabelledVal": {
+    "apReal": 0.1166,
+    "aucReal": 0.6272
+   },
+   "platt": [
+    0.38276761551482164,
+    -1.0437572283411796
+   ],
+   "labelledTest": {
+    "apReal": 0.07,
+    "aucReal": 0.5584,
+    "apGroup": 0.0217,
+    "aucGroup": 0.6881,
+    "brierCalibrated": 0.0619,
+    "brierBase": 0.0612
+   },
+   "ships": false
+  }
+ },
+ "hybrid": {
+  "families": {
+   "controls": {
+    "rule": {
+     "val": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 3,
+      "recallSeen": 0.0,
+      "seenRows": 477,
+      "recallAll": 0.0,
+      "faultRows": 3422,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0016,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {},
+    "chosen": null,
+    "ships": false
+   },
+   "leaks": {
+    "rule": {
+     "val": {
+      "flags": 10,
+      "real": 4,
+      "unclear": 5,
+      "not": 1,
+      "precision": 0.4,
+      "precisionCI95": [
+       0.1682,
+       0.6873
+      ],
+      "precisionDecided": 0.8,
+      "realOfGroup": 4,
+      "precisionGroup": 0.4,
+      "groupRealBugs": 6,
+      "recallGroup": 0.6667,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0606,
+      "byStratum": {
+       "rules": {
+        "flags": 10,
+        "real": 4
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 2,
+      "real": 1,
+      "unclear": 1,
+      "not": 0,
+      "precision": 0.5,
+      "precisionCI95": [
+       0.0945,
+       0.9055
+      ],
+      "precisionDecided": 1.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 2,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0137,
+      "byStratum": {
+       "rules": {
+        "flags": 2,
+        "real": 1
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 40,
+      "recallSeen": 0.8125,
+      "seenRows": 128,
+      "recallAll": 0.4748,
+      "faultRows": 535,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0054,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "leaks": null,
+     "leaks+lab": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": null,
+    "ships": false
+   },
+   "media": {
+    "rule": {
+     "val": {
+      "flags": 37,
+      "real": 11,
+      "unclear": 6,
+      "not": 20,
+      "precision": 0.2973,
+      "precisionCI95": [
+       0.1749,
+       0.4578
+      ],
+      "precisionDecided": 0.3548,
+      "realOfGroup": 11,
+      "precisionGroup": 0.2973,
+      "groupRealBugs": 12,
+      "recallGroup": 0.9167,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1667,
+      "byStratum": {
+       "rules": {
+        "flags": 37,
+        "real": 11
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 44,
+      "real": 19,
+      "unclear": 5,
+      "not": 20,
+      "precision": 0.4318,
+      "precisionCI95": [
+       0.2968,
+       0.5778
+      ],
+      "precisionDecided": 0.4872,
+      "realOfGroup": 19,
+      "precisionGroup": 0.4318,
+      "groupRealBugs": 21,
+      "recallGroup": 0.9048,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.2603,
+      "byStratum": {
+       "rules": {
+        "flags": 44,
+        "real": 19
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0013,
+      "flaggedNatural": 933,
+      "recallSeen": 0.0337,
+      "seenRows": 208,
+      "recallAll": 0.0596,
+      "faultRows": 537,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0012,
+      "pageFrr": 0.0676,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "media": {
+      "threshold": 0.13717766106128693,
+      "devFlags": 15,
+      "devReal": 10
+     },
+     "media+lab": null,
+     "lab": null,
+     "any": {
+      "threshold": 0.22227153182029724,
+      "devFlags": 16,
+      "devReal": 10
+     },
+     "any+lab": null
+    },
+    "chosen": {
+     "score": "media",
+     "threshold": 0.13717766106128693,
+     "devOOF": {
+      "flags": 15,
+      "real": 10,
+      "unclear": 0,
+      "not": 5,
+      "precision": 0.6667,
+      "precisionCI95": [
+       0.4171,
+       0.8482
+      ],
+      "precisionDecided": 0.6667,
+      "realOfGroup": 10,
+      "precisionGroup": 0.6667,
+      "groupRealBugs": 12,
+      "recallGroup": 0.8333,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1515,
+      "byStratum": {
+       "rules": {
+        "flags": 15,
+        "real": 10
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 24,
+      "real": 14,
+      "unclear": 1,
+      "not": 9,
+      "precision": 0.5833,
+      "precisionCI95": [
+       0.3883,
+       0.7553
+      ],
+      "precisionDecided": 0.6087,
+      "realOfGroup": 14,
+      "precisionGroup": 0.5833,
+      "groupRealBugs": 21,
+      "recallGroup": 0.6667,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.1918,
+      "byStratum": {
+       "rules": {
+        "flags": 24,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 57,
+      "recallSeen": 0.0337,
+      "seenRows": 208,
+      "recallAll": 0.0186,
+      "faultRows": 537,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0002,
+      "pageFrr": 0.0173,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 35,
+      "recallSeen": 0.0269,
+      "seenRows": 186,
+      "recallAll": 0.0153,
+      "faultRows": 523,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0002,
+      "pageFrr": 0.016,
+      "naturalPages": 1877
+     }
+    },
+    "ships": false
+   },
+   "occlusion": {
+    "rule": {
+     "val": {
+      "flags": 218,
+      "real": 14,
+      "unclear": 72,
+      "not": 132,
+      "precision": 0.0642,
+      "precisionCI95": [
+       0.0386,
+       0.1049
+      ],
+      "precisionDecided": 0.0959,
+      "realOfGroup": 4,
+      "precisionGroup": 0.0183,
+      "groupRealBugs": 9,
+      "recallGroup": 0.4444,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.2121,
+      "byStratum": {
+       "rules": {
+        "flags": 218,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 248,
+      "real": 9,
+      "unclear": 102,
+      "not": 137,
+      "precision": 0.0363,
+      "precisionCI95": [
+       0.0192,
+       0.0675
+      ],
+      "precisionDecided": 0.0616,
+      "realOfGroup": 5,
+      "precisionGroup": 0.0202,
+      "groupRealBugs": 11,
+      "recallGroup": 0.4545,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.1233,
+      "byStratum": {
+       "rules": {
+        "flags": 248,
+        "real": 9
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0025,
+      "flaggedNatural": 1744,
+      "recallSeen": 0.0,
+      "seenRows": 376,
+      "recallAll": 0.0016,
+      "faultRows": 607,
+      "controlsFlagged": 0.0059,
+      "cleanFlagged": 0.0023,
+      "pageFrr": 0.1259,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "occlusion": null,
+     "occlusion+lab": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": null,
+    "ships": false
+   },
+   "overflow": {
+    "rule": {
+     "val": {
+      "flags": 46,
+      "real": 14,
+      "unclear": 11,
+      "not": 21,
+      "precision": 0.3043,
+      "precisionCI95": [
+       0.1908,
+       0.4481
+      ],
+      "precisionDecided": 0.4,
+      "realOfGroup": 14,
+      "precisionGroup": 0.3043,
+      "groupRealBugs": 19,
+      "recallGroup": 0.7368,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.2121,
+      "byStratum": {
+       "rules": {
+        "flags": 46,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 56,
+      "real": 25,
+      "unclear": 18,
+      "not": 13,
+      "precision": 0.4464,
+      "precisionCI95": [
+       0.3239,
+       0.5759
+      ],
+      "precisionDecided": 0.6579,
+      "realOfGroup": 24,
+      "precisionGroup": 0.4286,
+      "groupRealBugs": 30,
+      "recallGroup": 0.8,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.3425,
+      "byStratum": {
+       "rules": {
+        "flags": 56,
+        "real": 25
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0004,
+      "flaggedNatural": 314,
+      "recallSeen": 0.2102,
+      "seenRows": 314,
+      "recallAll": 0.2704,
+      "faultRows": 1117,
+      "controlsFlagged": 0.0138,
+      "cleanFlagged": 0.0014,
+      "pageFrr": 0.0665,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "overflow": null,
+     "overflow+lab": null,
+     "lab": {
+      "threshold": 0.691245973110199,
+      "devFlags": 5,
+      "devReal": 3
+     },
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": {
+     "score": "lab",
+     "threshold": 0.691245973110199,
+     "devOOF": {
+      "flags": 5,
+      "real": 3,
+      "unclear": 1,
+      "not": 1,
+      "precision": 0.6,
+      "precisionCI95": [
+       0.2307,
+       0.8824
+      ],
+      "precisionDecided": 0.75,
+      "realOfGroup": 3,
+      "precisionGroup": 0.6,
+      "groupRealBugs": 19,
+      "recallGroup": 0.1579,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0455,
+      "byStratum": {
+       "rules": {
+        "flags": 5,
+        "real": 3
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 1,
+      "real": 0,
+      "unclear": 1,
+      "not": 0,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.7935
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 30,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 1,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 4,
+      "recallSeen": 0.0382,
+      "seenRows": 314,
+      "recallAll": 0.0233,
+      "faultRows": 1117,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0022,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 32,
+      "recallSeen": 0.0257,
+      "seenRows": 311,
+      "recallAll": 0.0156,
+      "faultRows": 1090,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0001,
+      "pageFrr": 0.0101,
+      "naturalPages": 1877
+     }
+    },
+    "ships": false
+   },
+   "styles": {
+    "rule": {
+     "val": {
+      "flags": 20,
+      "real": 0,
+      "unclear": 0,
+      "not": 20,
+      "precision": 0.0,
+      "precisionCI95": [
+       -0.0,
+       0.1611
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 20,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 35,
+      "real": 0,
+      "unclear": 0,
+      "not": 35,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.0989
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 35,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0005,
+      "flaggedNatural": 356,
+      "recallSeen": 0.058,
+      "seenRows": 414,
+      "recallAll": 0.0223,
+      "faultRows": 1975,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0008,
+      "pageFrr": 0.0259,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "styles": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": null,
+    "ships": false
+   },
+   "text": {
+    "rule": {
+     "val": {
+      "flags": 46,
+      "real": 10,
+      "unclear": 4,
+      "not": 32,
+      "precision": 0.2174,
+      "precisionCI95": [
+       0.1226,
+       0.3557
+      ],
+      "precisionDecided": 0.2381,
+      "realOfGroup": 9,
+      "precisionGroup": 0.1957,
+      "groupRealBugs": 20,
+      "recallGroup": 0.45,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1515,
+      "byStratum": {
+       "rules": {
+        "flags": 46,
+        "real": 10
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 40,
+      "real": 4,
+      "unclear": 16,
+      "not": 20,
+      "precision": 0.1,
+      "precisionCI95": [
+       0.0396,
+       0.2305
+      ],
+      "precisionDecided": 0.1667,
+      "realOfGroup": 4,
+      "precisionGroup": 0.1,
+      "groupRealBugs": 9,
+      "recallGroup": 0.4444,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0548,
+      "byStratum": {
+       "rules": {
+        "flags": 40,
+        "real": 4
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 96,
+      "recallSeen": 0.1333,
+      "seenRows": 150,
+      "recallAll": 0.0362,
+      "faultRows": 553,
+      "controlsFlagged": 0.0099,
+      "cleanFlagged": 0.0006,
+      "pageFrr": 0.0249,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "text": {
+      "threshold": 0.05091232433915138,
+      "devFlags": 13,
+      "devReal": 8
+     },
+     "text+lab": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": {
+     "score": "text",
+     "threshold": 0.05091232433915138,
+     "devOOF": {
+      "flags": 13,
+      "real": 8,
+      "unclear": 3,
+      "not": 2,
+      "precision": 0.6154,
+      "precisionCI95": [
+       0.3552,
+       0.8229
+      ],
+      "precisionDecided": 0.8,
+      "realOfGroup": 8,
+      "precisionGroup": 0.6154,
+      "groupRealBugs": 20,
+      "recallGroup": 0.4,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1212,
+      "byStratum": {
+       "rules": {
+        "flags": 13,
+        "real": 8
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 15,
+      "real": 1,
+      "unclear": 7,
+      "not": 7,
+      "precision": 0.0667,
+      "precisionCI95": [
+       0.0119,
+       0.2982
+      ],
+      "precisionDecided": 0.125,
+      "realOfGroup": 1,
+      "precisionGroup": 0.0667,
+      "groupRealBugs": 9,
+      "recallGroup": 0.1111,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0137,
+      "byStratum": {
+       "rules": {
+        "flags": 15,
+        "real": 1
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 25,
+      "recallSeen": 0.1333,
+      "seenRows": 150,
+      "recallAll": 0.0362,
+      "faultRows": 553,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0002,
+      "pageFrr": 0.0108,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 33,
+      "recallSeen": 0.0966,
+      "seenRows": 145,
+      "recallAll": 0.0234,
+      "faultRows": 599,
+      "controlsFlagged": 0.0022,
+      "cleanFlagged": 0.0002,
+      "pageFrr": 0.0112,
+      "naturalPages": 1877
+     }
+    },
+    "ships": false
+   },
+   "any": {
+    "rule": {
+     "val": {
+      "flags": 376,
+      "real": 53,
+      "unclear": 98,
+      "not": 225,
+      "precision": 0.141,
+      "precisionCI95": [
+       0.1094,
+       0.1798
+      ],
+      "precisionDecided": 0.1906,
+      "realOfGroup": 53,
+      "precisionGroup": 0.141,
+      "groupRealBugs": 66,
+      "recallGroup": 0.803,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.803,
+      "byStratum": {
+       "rules": {
+        "flags": 376,
+        "real": 53
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 424,
+      "real": 58,
+      "unclear": 142,
+      "not": 224,
+      "precision": 0.1368,
+      "precisionCI95": [
+       0.1073,
+       0.1728
+      ],
+      "precisionDecided": 0.2057,
+      "realOfGroup": 58,
+      "precisionGroup": 0.1368,
+      "groupRealBugs": 73,
+      "recallGroup": 0.7945,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.7945,
+      "byStratum": {
+       "rules": {
+        "flags": 424,
+        "real": 58
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.005,
+      "flaggedNatural": 3484,
+      "recallSeen": 0.1008,
+      "seenRows": 3066,
+      "recallAll": 0.0664,
+      "faultRows": 14052,
+      "controlsFlagged": 0.0336,
+      "cleanFlagged": 0.0063,
+      "pageFrr": 0.2708,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "any": null,
+     "any+lab": null,
+     "lab": {
+      "threshold": 0.691245973110199,
+      "devFlags": 5,
+      "devReal": 3
+     }
+    },
+    "chosen": {
+     "score": "lab",
+     "threshold": 0.691245973110199,
+     "devOOF": {
+      "flags": 5,
+      "real": 3,
+      "unclear": 1,
+      "not": 1,
+      "precision": 0.6,
+      "precisionCI95": [
+       0.2307,
+       0.8824
+      ],
+      "precisionDecided": 0.75,
+      "realOfGroup": 3,
+      "precisionGroup": 0.6,
+      "groupRealBugs": 66,
+      "recallGroup": 0.0455,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0455,
+      "byStratum": {
+       "rules": {
+        "flags": 5,
+        "real": 3
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 2,
+      "real": 0,
+      "unclear": 1,
+      "not": 1,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.6576
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 73,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 2,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 12,
+      "recallSeen": 0.0049,
+      "seenRows": 3066,
+      "recallAll": 0.0021,
+      "faultRows": 14052,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0001,
+      "pageFrr": 0.0054,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0002,
+      "flaggedNatural": 164,
+      "recallSeen": 0.0054,
+      "seenRows": 3174,
+      "recallAll": 0.0023,
+      "faultRows": 15019,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0006,
+      "pageFrr": 0.0288,
+      "naturalPages": 1877
+     }
+    },
+    "ships": false
+   }
+  },
+  "rules": {
+   "image-broken": {
+    "rule": {
+     "val": {
+      "flags": 5,
+      "real": 5,
+      "unclear": 0,
+      "not": 0,
+      "precision": 1.0,
+      "precisionCI95": [
+       0.5655,
+       1.0
+      ],
+      "precisionDecided": 1.0,
+      "realOfGroup": 5,
+      "precisionGroup": 1.0,
+      "groupRealBugs": 12,
+      "recallGroup": 0.4167,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0758,
+      "byStratum": {
+       "rules": {
+        "flags": 5,
+        "real": 5
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 18,
+      "real": 14,
+      "unclear": 2,
+      "not": 2,
+      "precision": 0.7778,
+      "precisionCI95": [
+       0.5478,
+       0.91
+      ],
+      "precisionDecided": 0.875,
+      "realOfGroup": 14,
+      "precisionGroup": 0.7778,
+      "groupRealBugs": 21,
+      "recallGroup": 0.6667,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.1918,
+      "byStratum": {
+       "rules": {
+        "flags": 18,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.001,
+      "flaggedNatural": 677,
+      "recallSeen": 0.0,
+      "seenRows": 208,
+      "recallAll": 0.0019,
+      "faultRows": 537,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0009,
+      "pageFrr": 0.0308,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "media": {
+      "threshold": 0.0034511678386479616,
+      "devFlags": 5,
+      "devReal": 5
+     },
+     "media+lab": {
+      "threshold": 0.00740343751385808,
+      "devFlags": 5,
+      "devReal": 5
+     },
+     "lab": {
+      "threshold": 0.05440171808004379,
+      "devFlags": 5,
+      "devReal": 5
+     },
+     "any": {
+      "threshold": 0.18067000806331635,
+      "devFlags": 5,
+      "devReal": 5
+     },
+     "any+lab": {
+      "threshold": 0.0744655504822731,
+      "devFlags": 5,
+      "devReal": 5
+     }
+    },
+    "chosen": {
+     "score": "media",
+     "threshold": 0.0034511678386479616,
+     "devOOF": {
+      "flags": 5,
+      "real": 5,
+      "unclear": 0,
+      "not": 0,
+      "precision": 1.0,
+      "precisionCI95": [
+       0.5655,
+       1.0
+      ],
+      "precisionDecided": 1.0,
+      "realOfGroup": 5,
+      "precisionGroup": 1.0,
+      "groupRealBugs": 12,
+      "recallGroup": 0.4167,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0758,
+      "byStratum": {
+       "rules": {
+        "flags": 5,
+        "real": 5
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 17,
+      "real": 14,
+      "unclear": 2,
+      "not": 1,
+      "precision": 0.8235,
+      "precisionCI95": [
+       0.5897,
+       0.9381
+      ],
+      "precisionDecided": 0.9333,
+      "realOfGroup": 14,
+      "precisionGroup": 0.8235,
+      "groupRealBugs": 21,
+      "recallGroup": 0.6667,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.1918,
+      "byStratum": {
+       "rules": {
+        "flags": 17,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0002,
+      "flaggedNatural": 109,
+      "recallSeen": 0.0,
+      "seenRows": 208,
+      "recallAll": 0.0,
+      "faultRows": 537,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0003,
+      "pageFrr": 0.0173,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 45,
+      "recallSeen": 0.0,
+      "seenRows": 186,
+      "recallAll": 0.0,
+      "faultRows": 523,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0002,
+      "pageFrr": 0.0101,
+      "naturalPages": 1877
+     }
+    },
+    "ships": true
+   },
+   "media-failed": {
+    "rule": {
+     "val": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 12,
+      "recallGroup": 0.0,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 21,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 8,
+      "recallSeen": 0.0,
+      "seenRows": 208,
+      "recallAll": 0.0,
+      "faultRows": 537,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0032,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {},
+    "chosen": null,
+    "ships": false
+   },
+   "text-invisible": {
+    "rule": {
+     "val": {
+      "flags": 28,
+      "real": 10,
+      "unclear": 4,
+      "not": 14,
+      "precision": 0.3571,
+      "precisionCI95": [
+       0.2071,
+       0.5417
+      ],
+      "precisionDecided": 0.4167,
+      "realOfGroup": 9,
+      "precisionGroup": 0.3214,
+      "groupRealBugs": 20,
+      "recallGroup": 0.45,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1515,
+      "byStratum": {
+       "rules": {
+        "flags": 28,
+        "real": 10
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 37,
+      "real": 4,
+      "unclear": 16,
+      "not": 17,
+      "precision": 0.1081,
+      "precisionCI95": [
+       0.0429,
+       0.2471
+      ],
+      "precisionDecided": 0.1905,
+      "realOfGroup": 4,
+      "precisionGroup": 0.1081,
+      "groupRealBugs": 9,
+      "recallGroup": 0.4444,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0548,
+      "byStratum": {
+       "rules": {
+        "flags": 37,
+        "real": 4
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 87,
+      "recallSeen": 0.1333,
+      "seenRows": 150,
+      "recallAll": 0.0362,
+      "faultRows": 553,
+      "controlsFlagged": 0.0099,
+      "cleanFlagged": 0.0005,
+      "pageFrr": 0.0238,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "text": {
+      "threshold": 0.04757349193096161,
+      "devFlags": 13,
+      "devReal": 8
+     },
+     "text+lab": null,
+     "lab": null,
+     "any": {
+      "threshold": 0.28686776757240295,
+      "devFlags": 10,
+      "devReal": 6
+     },
+     "any+lab": null
+    },
+    "chosen": {
+     "score": "text",
+     "threshold": 0.04757349193096161,
+     "devOOF": {
+      "flags": 13,
+      "real": 8,
+      "unclear": 4,
+      "not": 1,
+      "precision": 0.6154,
+      "precisionCI95": [
+       0.3552,
+       0.8229
+      ],
+      "precisionDecided": 0.8889,
+      "realOfGroup": 8,
+      "precisionGroup": 0.6154,
+      "groupRealBugs": 20,
+      "recallGroup": 0.4,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.1212,
+      "byStratum": {
+       "rules": {
+        "flags": 13,
+        "real": 8
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 15,
+      "real": 1,
+      "unclear": 7,
+      "not": 7,
+      "precision": 0.0667,
+      "precisionCI95": [
+       0.0119,
+       0.2982
+      ],
+      "precisionDecided": 0.125,
+      "realOfGroup": 1,
+      "precisionGroup": 0.0667,
+      "groupRealBugs": 9,
+      "recallGroup": 0.1111,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0137,
+      "byStratum": {
+       "rules": {
+        "flags": 15,
+        "real": 1
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 25,
+      "recallSeen": 0.1333,
+      "seenRows": 150,
+      "recallAll": 0.0362,
+      "faultRows": 553,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0002,
+      "pageFrr": 0.0108,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 22,
+      "recallSeen": 0.0966,
+      "seenRows": 145,
+      "recallAll": 0.0234,
+      "faultRows": 599,
+      "controlsFlagged": 0.0022,
+      "cleanFlagged": 0.0001,
+      "pageFrr": 0.0096,
+      "naturalPages": 1877
+     }
+    },
+    "ships": false
+   },
+   "text-template-leak": {
+    "rule": {
+     "val": {
+      "flags": 10,
+      "real": 4,
+      "unclear": 5,
+      "not": 1,
+      "precision": 0.4,
+      "precisionCI95": [
+       0.1682,
+       0.6873
+      ],
+      "precisionDecided": 0.8,
+      "realOfGroup": 4,
+      "precisionGroup": 0.4,
+      "groupRealBugs": 6,
+      "recallGroup": 0.6667,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0606,
+      "byStratum": {
+       "rules": {
+        "flags": 10,
+        "real": 4
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 2,
+      "real": 1,
+      "unclear": 1,
+      "not": 0,
+      "precision": 0.5,
+      "precisionCI95": [
+       0.0945,
+       0.9055
+      ],
+      "precisionDecided": 1.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 2,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0137,
+      "byStratum": {
+       "rules": {
+        "flags": 2,
+        "real": 1
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0001,
+      "flaggedNatural": 40,
+      "recallSeen": 0.8125,
+      "seenRows": 128,
+      "recallAll": 0.4748,
+      "faultRows": 535,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0054,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "leaks": null,
+     "leaks+lab": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": null,
+    "ships": false
+   },
+   "text-placeholder": {
+    "rule": {
+     "val": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 12,
+      "recallGroup": 0.0,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 21,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 7,
+      "recallSeen": 0.0,
+      "seenRows": 208,
+      "recallAll": 0.0,
+      "faultRows": 537,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0011,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {},
+    "chosen": null,
+    "ships": false
+   },
+   "css-var-undefined": {
+    "rule": {
+     "val": {
+      "flags": 20,
+      "real": 0,
+      "unclear": 0,
+      "not": 20,
+      "precision": 0.0,
+      "precisionCI95": [
+       -0.0,
+       0.1611
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 20,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 35,
+      "real": 0,
+      "unclear": 0,
+      "not": 35,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.0989
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 35,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0005,
+      "flaggedNatural": 356,
+      "recallSeen": 0.058,
+      "seenRows": 414,
+      "recallAll": 0.0223,
+      "faultRows": 1975,
+      "controlsFlagged": 0.002,
+      "cleanFlagged": 0.0008,
+      "pageFrr": 0.0259,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "styles": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": null,
+    "ships": false
+   },
+   "image-distorted": {
+    "rule": {
+     "val": {
+      "flags": 32,
+      "real": 6,
+      "unclear": 6,
+      "not": 20,
+      "precision": 0.1875,
+      "precisionCI95": [
+       0.0889,
+       0.3531
+      ],
+      "precisionDecided": 0.2308,
+      "realOfGroup": 6,
+      "precisionGroup": 0.1875,
+      "groupRealBugs": 12,
+      "recallGroup": 0.5,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0909,
+      "byStratum": {
+       "rules": {
+        "flags": 32,
+        "real": 6
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 26,
+      "real": 5,
+      "unclear": 3,
+      "not": 18,
+      "precision": 0.1923,
+      "precisionCI95": [
+       0.0851,
+       0.3788
+      ],
+      "precisionDecided": 0.2174,
+      "realOfGroup": 5,
+      "precisionGroup": 0.1923,
+      "groupRealBugs": 21,
+      "recallGroup": 0.2381,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0685,
+      "byStratum": {
+       "rules": {
+        "flags": 26,
+        "real": 5
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0003,
+      "flaggedNatural": 241,
+      "recallSeen": 0.0337,
+      "seenRows": 208,
+      "recallAll": 0.0577,
+      "faultRows": 537,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0003,
+      "pageFrr": 0.0368,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "media": null,
+     "media+lab": null,
+     "lab": null,
+     "any": {
+      "threshold": 0.28853121399879456,
+      "devFlags": 10,
+      "devReal": 6
+     },
+     "any+lab": null
+    },
+    "chosen": {
+     "score": "any",
+     "threshold": 0.28853121399879456,
+     "devOOF": {
+      "flags": 10,
+      "real": 6,
+      "unclear": 0,
+      "not": 4,
+      "precision": 0.6,
+      "precisionCI95": [
+       0.3127,
+       0.8318
+      ],
+      "precisionDecided": 0.6,
+      "realOfGroup": 6,
+      "precisionGroup": 0.6,
+      "groupRealBugs": 12,
+      "recallGroup": 0.5,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0909,
+      "byStratum": {
+       "rules": {
+        "flags": 10,
+        "real": 6
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 9,
+      "real": 5,
+      "unclear": 0,
+      "not": 4,
+      "precision": 0.5556,
+      "precisionCI95": [
+       0.2666,
+       0.8112
+      ],
+      "precisionDecided": 0.5556,
+      "realOfGroup": 5,
+      "precisionGroup": 0.5556,
+      "groupRealBugs": 21,
+      "recallGroup": 0.2381,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0685,
+      "byStratum": {
+       "rules": {
+        "flags": 9,
+        "real": 5
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 15,
+      "recallSeen": 0.0192,
+      "seenRows": 208,
+      "recallAll": 0.0093,
+      "faultRows": 537,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0001,
+      "pageFrr": 0.0059,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 11,
+      "recallSeen": 0.0215,
+      "seenRows": 186,
+      "recallAll": 0.0115,
+      "faultRows": 523,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0001,
+      "pageFrr": 0.0048,
+      "naturalPages": 1877
+     }
+    },
+    "ships": false
+   },
+   "page-overflow-x": {
+    "rule": {
+     "val": {
+      "flags": 46,
+      "real": 14,
+      "unclear": 11,
+      "not": 21,
+      "precision": 0.3043,
+      "precisionCI95": [
+       0.1908,
+       0.4481
+      ],
+      "precisionDecided": 0.4,
+      "realOfGroup": 14,
+      "precisionGroup": 0.3043,
+      "groupRealBugs": 19,
+      "recallGroup": 0.7368,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.2121,
+      "byStratum": {
+       "rules": {
+        "flags": 46,
+        "real": 14
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 56,
+      "real": 25,
+      "unclear": 18,
+      "not": 13,
+      "precision": 0.4464,
+      "precisionCI95": [
+       0.3239,
+       0.5759
+      ],
+      "precisionDecided": 0.6579,
+      "realOfGroup": 24,
+      "precisionGroup": 0.4286,
+      "groupRealBugs": 30,
+      "recallGroup": 0.8,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.3425,
+      "byStratum": {
+       "rules": {
+        "flags": 56,
+        "real": 25
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0004,
+      "flaggedNatural": 308,
+      "recallSeen": 0.2102,
+      "seenRows": 314,
+      "recallAll": 0.2704,
+      "faultRows": 1117,
+      "controlsFlagged": 0.0138,
+      "cleanFlagged": 0.0014,
+      "pageFrr": 0.0632,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "overflow": null,
+     "overflow+lab": null,
+     "lab": {
+      "threshold": 0.691245973110199,
+      "devFlags": 5,
+      "devReal": 3
+     },
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": {
+     "score": "lab",
+     "threshold": 0.691245973110199,
+     "devOOF": {
+      "flags": 5,
+      "real": 3,
+      "unclear": 1,
+      "not": 1,
+      "precision": 0.6,
+      "precisionCI95": [
+       0.2307,
+       0.8824
+      ],
+      "precisionDecided": 0.75,
+      "realOfGroup": 3,
+      "precisionGroup": 0.6,
+      "groupRealBugs": 19,
+      "recallGroup": 0.1579,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0455,
+      "byStratum": {
+       "rules": {
+        "flags": 5,
+        "real": 3
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 1,
+      "real": 0,
+      "unclear": 1,
+      "not": 0,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.7935
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 30,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 1,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 4,
+      "recallSeen": 0.0382,
+      "seenRows": 314,
+      "recallAll": 0.0233,
+      "faultRows": 1117,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0022,
+      "naturalPages": 1850
+     },
+     "devInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 32,
+      "recallSeen": 0.0257,
+      "seenRows": 311,
+      "recallAll": 0.0156,
+      "faultRows": 1090,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0001,
+      "pageFrr": 0.0101,
+      "naturalPages": 1877
+     }
+    },
+    "ships": false
+   },
+   "font-failed": {
+    "rule": {
+     "val": {
+      "flags": 18,
+      "real": 0,
+      "unclear": 0,
+      "not": 18,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.1759
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 20,
+      "recallGroup": 0.0,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 18,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 3,
+      "real": 0,
+      "unclear": 0,
+      "not": 3,
+      "precision": 0.0,
+      "precisionCI95": [
+       0.0,
+       0.5615
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 9,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 3,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 9,
+      "recallSeen": 0.0,
+      "seenRows": 150,
+      "recallAll": 0.0,
+      "faultRows": 553,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0011,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "text": null,
+     "text+lab": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": null,
+    "ships": false
+   },
+   "pointer-events-leak": {
+    "rule": {
+     "val": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 0,
+      "recallGroup": null,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 3,
+      "recallSeen": 0.0,
+      "seenRows": 477,
+      "recallAll": 0.0,
+      "faultRows": 3422,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0016,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {},
+    "chosen": null,
+    "ships": false
+   },
+   "scroll-lock-stuck": {
+    "rule": {
+     "val": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 19,
+      "recallGroup": 0.0,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 30,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 6,
+      "recallSeen": 0.0,
+      "seenRows": 314,
+      "recallAll": 0.0,
+      "faultRows": 1117,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0032,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {},
+    "chosen": null,
+    "ships": false
+   },
+   "click-blocked": {
+    "rule": {
+     "val": {
+      "flags": 2,
+      "real": 1,
+      "unclear": 0,
+      "not": 1,
+      "precision": 0.5,
+      "precisionCI95": [
+       0.0945,
+       0.9055
+      ],
+      "precisionDecided": 0.5,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 9,
+      "recallGroup": 0.0,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0152,
+      "byStratum": {
+       "rules": {
+        "flags": 2,
+        "real": 1
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 5,
+      "real": 0,
+      "unclear": 0,
+      "not": 5,
+      "precision": 0.0,
+      "precisionCI95": [
+       -0.0,
+       0.4345
+      ],
+      "precisionDecided": 0.0,
+      "realOfGroup": 0,
+      "precisionGroup": 0.0,
+      "groupRealBugs": 11,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 5,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 6,
+      "recallSeen": 0.0,
+      "seenRows": 376,
+      "recallAll": 0.0,
+      "faultRows": 607,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0032,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {},
+    "chosen": null,
+    "ships": false
+   },
+   "control-unreachable": {
+    "rule": {
+     "val": {
+      "flags": 216,
+      "real": 13,
+      "unclear": 72,
+      "not": 131,
+      "precision": 0.0602,
+      "precisionCI95": [
+       0.0355,
+       0.1002
+      ],
+      "precisionDecided": 0.0903,
+      "realOfGroup": 4,
+      "precisionGroup": 0.0185,
+      "groupRealBugs": 9,
+      "recallGroup": 0.4444,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.197,
+      "byStratum": {
+       "rules": {
+        "flags": 216,
+        "real": 13
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 243,
+      "real": 9,
+      "unclear": 102,
+      "not": 132,
+      "precision": 0.037,
+      "precisionCI95": [
+       0.0196,
+       0.0689
+      ],
+      "precisionDecided": 0.0638,
+      "realOfGroup": 5,
+      "precisionGroup": 0.0206,
+      "groupRealBugs": 11,
+      "recallGroup": 0.4545,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.1233,
+      "byStratum": {
+       "rules": {
+        "flags": 243,
+        "real": 9
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0025,
+      "flaggedNatural": 1738,
+      "recallSeen": 0.0,
+      "seenRows": 376,
+      "recallAll": 0.0016,
+      "faultRows": 607,
+      "controlsFlagged": 0.0059,
+      "cleanFlagged": 0.0023,
+      "pageFrr": 0.1227,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {
+     "occlusion": null,
+     "occlusion+lab": null,
+     "lab": null,
+     "any": null,
+     "any+lab": null
+    },
+    "chosen": null,
+    "ships": false
+   },
+   "dialog-covered": {
+    "rule": {
+     "val": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 9,
+      "recallGroup": 0.0,
+      "allRealBugs": 66,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "test": {
+      "flags": 0,
+      "real": 0,
+      "unclear": 0,
+      "not": 0,
+      "precision": null,
+      "precisionCI95": [
+       null,
+       null
+      ],
+      "precisionDecided": null,
+      "realOfGroup": 0,
+      "precisionGroup": null,
+      "groupRealBugs": 11,
+      "recallGroup": 0.0,
+      "allRealBugs": 73,
+      "recallAnyReal": 0.0,
+      "byStratum": {
+       "rules": {
+        "flags": 0,
+        "real": 0
+       },
+       "gbt": {
+        "flags": 0,
+        "real": 0
+       },
+       "random": {
+        "flags": 0,
+        "real": 0
+       }
+      }
+     },
+     "testInjected": {
+      "frrNatural": 0.0,
+      "flaggedNatural": 0,
+      "recallSeen": 0.0,
+      "seenRows": 376,
+      "recallAll": 0.0,
+      "faultRows": 607,
+      "controlsFlagged": 0.0,
+      "cleanFlagged": 0.0,
+      "pageFrr": 0.0,
+      "naturalPages": 1850
+     }
+    },
+    "candidates": {},
+    "chosen": null,
+    "ships": false
+   }
+  }
+ }
+}

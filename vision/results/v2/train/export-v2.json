@@ -1,0 +1,81 @@
+{
+ "detectors": [
+  {
+   "family": "media",
+   "kind": "check-filter",
+   "score": "media+lab",
+   "checks": [
+    "image-broken",
+    "media-failed",
+    "text-placeholder",
+    "image-distorted"
+   ],
+   "models": [
+    "media",
+    "lab"
+   ],
+   "coef": [
+    1.0146277112334987,
+    1.2615449510261587
+   ],
+   "intercept": -0.4580149531745424,
+   "threshold": 0.02587447687983513,
+   "sampleFlags": 186,
+   "maxAbsDiffEval": 8.137129736685011e-08
+  },
+  {
+   "family": "responsive",
+   "kind": "model",
+   "score": "responsive+lab",
+   "models": [
+    "responsive",
+    "lab"
+   ],
+   "coef": [
+    0.4257170428308689,
+    0.5233043955486497
+   ],
+   "intercept": -2.1514217073320316,
+   "threshold": 0.5611275434494019,
+   "sampleFlags": 3,
+   "maxAbsDiffEval": 9.281478763889517e-07
+  }
+ ],
+ "models": {
+  "media": {
+   "trees": 36,
+   "inputs": 113,
+   "ruleInputs": false,
+   "jsonBytes": 20252,
+   "gzipBytes": 6344,
+   "nodes": 504,
+   "maxAbsDiffPython": 3.962503647425564e-08,
+   "lightgbmSecondsPerRow1Thread": 7.037885305082859e-07
+  },
+  "lab": {
+   "trees": 150,
+   "inputs": 127,
+   "ruleInputs": true,
+   "jsonBytes": 33099,
+   "gzipBytes": 8926,
+   "nodes": 780,
+   "maxAbsDiffPython": 1.9255568189935346e-07,
+   "lightgbmSecondsPerRow1Thread": 2.6621075431362874e-06
+  },
+  "responsive": {
+   "trees": 264,
+   "inputs": 113,
+   "ruleInputs": false,
+   "jsonBytes": 143728,
+   "gzipBytes": 41504,
+   "nodes": 3696,
+   "maxAbsDiffPython": 2.0783885762432064e-07,
+   "lightgbmSecondsPerRow1Thread": 6.156761387581402e-06
+  }
+ },
+ "sampleRows": 21124,
+ "bundle": {
+  "bytes": 199053,
+  "gzipBytes": 56850
+ }
+}

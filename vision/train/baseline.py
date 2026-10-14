@@ -23,7 +23,7 @@ import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import average_precision_score, roc_auc_score, precision_recall_curve
 
-DROP = {"pRound", "pVw", "pVh", "pDark"}
+DROP = {"pRound", "pFontsLoaded", "pVw", "pVh", "pDark"}
 
 
 def load(set_dir, split, F):

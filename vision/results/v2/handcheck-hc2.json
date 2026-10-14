@@ -1,0 +1,23 @@
+{
+ "bySource": {
+  "model:any": {
+   "checked": 24,
+   "real": 11,
+   "unclear": 8,
+   "not": 5,
+   "precision": 0.4583,
+   "threshold": 0.6389793157577515,
+   "flaggedNatural": 636,
+   "eligible": 387,
+   "sampled": 24
+  }
+ },
+ "stats": {
+  "model:any": {
+   "threshold": 0.6389793157577515,
+   "flaggedNatural": 636,
+   "eligible": 387,
+   "sampled": 24
+  }
+ }
+}

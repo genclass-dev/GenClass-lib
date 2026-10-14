@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixture</title>
+<!-- A self-contained page (no network) with a target for most injection recipes: Tailwind-like utility classes
+     backed by real rules, cards, a hero, nav, forms, a table, a prose block, scrollers, an icon font class, a
+     canvas and images from data URLs. Used by test/browser/traceless.mjs on a node. -->
+<style>
+  :root { --primary: #2563eb; --background: #ffffff; --foreground: #111827; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: var(--foreground); background: var(--background); }
+  @media (prefers-color-scheme: dark) {
+    :root { --background: #0b0b0f; --foreground: #e5e7eb; }
+    .card, article { background: #18181b; }
+  }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: var(--background); }
+  header nav ul { display: flex; gap: 16px; list-style: none; margin: 0; padding: 0; }
+  header nav a { color: inherit; text-decoration: none; }
+  .container { max-width: 1100px; margin-inline: auto; padding-inline: 16px; }
+  .bg-primary { background-color: var(--primary); color: #fff; }
+  .text-primary { color: var(--primary); }
+  .border-primary { border-color: var(--primary); }
+  .bg-blue-500 { background-color: #3b82f6; color: #fff; }
+  .bg-gray-100 { background-color: #f3f4f6; }
+  .bg-gradient-to-r { background-image: linear-gradient(to right, #7c3aed, #2563eb); color: #fff; }
+  .z-\[50\] { z-index: 50; position: relative; }
+  .border { border: 1px solid #e5e7eb; }
+  .grid { display: grid; }
+  .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 767px) { .grid-cols-3 { grid-template-columns: 1fr; } }
+  .gap-4 { gap: 16px; }
+  .flex { display: flex; }
+  .flex-wrap { flex-wrap: wrap; }
+  .p-4 { padding: 16px; }
+  .rounded { border-radius: 8px; }
+  .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #fff; }
+  .card img { width: 100%; height: 120px; object-fit: cover; }
+  .text-4xl { font-size: 36px; font-weight: 700; }
+  .price { font-weight: 600; }
+  .prose { color: #374151; max-width: 65ch; }
+  .prose h2 { color: #111827; }
+  .animate-spin { animation: spin 2s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .material-icons { font-family: monospace; font-size: 20px; }
+  .overflow-x-auto { overflow-x: auto; }
+  .overflow-y-auto { overflow-y: auto; height: 120px; border: 1px solid #ddd; }
+  .stat { font-size: 28px; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 0; cursor: pointer; background: #111827; color: #fff; }
+  button svg, a svg, li svg { width: 16px; height: 16px; vertical-align: middle; }
+  footer { padding: 24px; border-top: 1px solid #e5e7eb; }
+  aside { width: 220px; padding: 12px; }
+  .hero { position: relative; padding: 64px 24px; background: #0f172a; color: #fff; }
+  .hero .overlay { position: absolute; inset: 0; background: rgba(0,0,0,.4); pointer-events: none; }
+  .fill-wrap { position: relative; width: 300px; height: 160px; }
+  .fill-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  table { border-collapse: collapse; }
+  td { border: 1px solid #e5e7eb; padding: 6px 10px; }
+</style>
+</head>
+<body>
+<div id="root">
+  <header>
+    <strong>Fixture</strong>
+    <nav aria-label="Main"><ul><li><a href="#features">Features</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li><li><a href="#contact">Contact</a></li></ul></nav>
+    <button aria-expanded="false" aria-controls="menu" aria-label="Open menu"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor"/></svg></button>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="overlay"></div>
+      <h1>Ship faster with the fixture</h1>
+      <p>A page with something for every recipe to break, and nothing it needs to fetch.</p>
+      <a class="bg-primary rounded p-4" href="#start">Get started</a>
+      <button class="bg-blue-500">Book a demo</button>
+    </section>
+    <section id="features" class="container">
+      <h2>Features</h2>
+      <p>Paragraph one has a sentence that is long enough to wrap on a phone, with a <a href="#x">plain link</a> inside it.</p>
+      <ul class="flex flex-wrap gap-4">
+        <li><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/></svg> Fast builds</li>
+        <li><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="currentColor"/></svg> Typed APIs</li>
+        <li><svg viewBox="0 0 24 24"><path d="M2 12l10 10L22 2" stroke="currentColor" fill="none"/></svg> Previews <button aria-label="More"><svg viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor"/></svg></button></li>
+      </ul>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="card"><img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Crect width='320' height='180' fill='%2394a3b8'/%3E%3C/svg%3E"><h3>Card one</h3><p>Card text one.</p><button class="bg-primary">Open</button></div>
+        <div class="card"><img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Crect width='320' height='180' fill='%2364748b'/%3E%3C/svg%3E"><h3>Card two</h3><p>Card text two.</p><button>Open</button></div>
+        <div class="card"><img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Crect width='320' height='180' fill='%23475569'/%3E%3C/svg%3E"><h3>Card three</h3><p>Card text three.</p><button>Open</button></div>
+        <div class="card"><h3>Plain card</h3><p>No link and no button in this one.</p></div>
+      </div>
+    </section>
+    <section id="pricing" class="container bg-gray-100">
+      <h2>Pricing</h2>
+      <dl><dt>Teams</dt><dd class="stat">1200+</dd><dt>Uptime</dt><dd class="stat">99.9%</dd><dt>Regions</dt><dd class="stat">14</dd></dl>
+      <p class="text-4xl">42 builds</p>
+      <table><tbody><tr><td>Starter</td><td class="price">$9</td></tr><tr><td>Pro</td><td class="price">$29</td></tr></tbody></table>
+      <div class="overflow-x-auto flex" role="tablist"><button>Monthly</button><button>Yearly</button><button>Lifetime</button><button>Teams</button><button>Enterprise</button></div>
+      <article><h3>Article</h3><p>An article with a <a href="#y">link</a> and an image.</p><img alt="Chart" width="200" height="100" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='100'%3E%3Crect width='200' height='100' fill='%23cbd5e1'/%3E%3C/svg%3E"></article>
+    </section>
+    <section id="faq" class="container">
+      <h2>Questions</h2>
+      <div class="prose"><h2>Notes</h2><p>Prose block text.</p><ul><li>Item</li></ul></div>
+      <blockquote class="testimonial"><p>It works.</p><cite>Ada Lovelace</cite></blockquote>
+      <span class="animate-spin">*</span> <span class="material-icons">shopping_cart</span>
+      <div class="fill-wrap"><img data-nimg="fill" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='160'%3E%3Crect width='300' height='160' fill='%23a5b4fc'/%3E%3C/svg%3E"></div>
+      <div class="overflow-y-auto"><div>Message a</div><div>Message b</div></div>
+      <canvas width="1200" height="500" style="width:100%;height:240px"></canvas>
+      <div class="bg-gradient-to-r z-[50] p-4">Gradient banner</div>
+    </section>
+    <section id="contact" class="container">
+      <h2>Contact</h2>
+      <form><label for="n">Name</label><input id="n" placeholder="Your name"><label for="e">Email</label><input id="e" type="email"><label for="m">Message</label><textarea id="m"></textarea><select><option>One</option></select><button type="submit" class="bg-primary">Send</button></form>
+      <p class="text-primary border border-primary">Primary text with a border.</p>
+    </section>
+  </main>
+  <aside><p>Sidebar</p></aside>
+  <footer><p>&copy; Fixture</p><a href="#privacy">Privacy</a> <a href="#terms">Terms</a></footer>
+</div>
+</body>
+</html>

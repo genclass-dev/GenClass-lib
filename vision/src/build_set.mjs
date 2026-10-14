@@ -22,7 +22,16 @@
 // Splits are by host (a page never sits in two splits), after near-duplicate removal: hosts whose clean desktop
 // light view has the same layout fingerprint (tag and 16 px quantized box of the first 150 visible rows) form a
 // cluster; only the cluster's representative host goes into the matrices, the rest are listed in views.jsonl.gz
-// with `dup` set. Views whose injection was partial (a recipe changed the page and then threw) are dropped.
+// with `dup` set. Views whose injection was partial (a recipe changed the page and then threw, or left a trace the
+// scrubber could not remove) are dropped.
+//
+// v2 (provenance): no column may encode how a view was made. Dropped from v1: pRound (the injection round) and
+// pFontsLoaded (font loading finishes with time, and injected views are always later than natural ones). Rows of
+// elements a recipe created and did not label (`made`, the inside of an injected overlay or card row) are not clean
+// rows: they exist only because of the injection. The extractor no longer gives labelled elements extra rows, hit
+// tests or a place under the row cap (extract.js), and the injection leaves no inline style, data-* or class marker
+// (inject.mjs). train/provenance.py checks what is left. Injected views that applied a recipe in inject.mjs SPREAD
+// (a page-wide effect such as the root font size or a sideways page) keep their labelled rows and give no clean rows.
 
 import { createReadStream, createWriteStream, readdirSync, readFileSync, existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -33,6 +42,7 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "./discover.mjs";
+import { DROPPED, SPREAD } from "./inject.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const sha1 = (s) => createHash("sha1").update(s).digest("hex");
@@ -79,7 +89,9 @@ const NUM = [
   ["vb", -1], ["wa", -1], ["rs", -1], ["verr", 0], ["ftrap", 0],
 ];
 const CAT = ["tag", "role", "disp", "pos", "ox", "oy", "fst", "ta", "why", "sc", "src", "bsrc", "of", "cpath"];
-const PAGE_F = ["pDesktop", "pDark", "pVw", "pVh", "pAppDark", "pVmeta", "pVmetaDW", "pSideways", "pFontsLoaded", "pRound"];
+const PAGE_F = ["pDesktop", "pDark", "pVw", "pVh", "pAppDark", "pVmeta", "pVmetaDW", "pSideways"];
+/** v1 columns removed because they record how a view was made (README, "Provenance"). */
+const REMOVED_V1 = ["pRound", "pFontsLoaded"];
 const DERIVED = [
   "nowrap", "natW", "zSet", "z", "swRatio", "shRatio", "swOver", "shOver", "area", "aspect", "hasParent", "covered", "scaSet",
   "lkN", "vpN", "rwNum", "tfcSet",
@@ -159,8 +171,6 @@ function pageFeatures(view) {
     vm.present ? 1 : 0,
     vm.deviceWidth ? 1 : 0,
     (p.scrollW || 0) > (p.clientW || 0) + 1 ? 1 : 0,
-    p.fontsStatus === "loaded" ? 1 : 0,
-    view.round || 0,
   ];
 }
 
@@ -346,8 +356,15 @@ async function main() {
     const verdict = !best.a ? "out" : best.n >= Math.max(16, 0.01 * best.a) ? "seen" : "unseen";
     return { pv: verdict, pa: best.a, pn: best.n, noisy: churn > 0.05 ? 1 : 0 };
   };
+  // injected views that applied a SPREAD recipe give no clean rows
+  const spreadOf = (v) => {
+    if (v._sp === undefined) v._sp = [...appliedOf(v).keys()].some((id) => SPREAD[id]);
+    return v._sp;
+  };
+  let spreadSkipped = 0;
   const SKIP_TAGS = new Set(["style", "script", "link", "meta", "head", "title", "noscript", "template"]);
   let written = 0;
+  let madeSkipped = 0;
   for (const f of elementFiles) {
     for await (const l of gzLines(f)) {
       const row = JSON.parse(l);
@@ -356,6 +373,11 @@ async function main() {
       if (repOf.has(v.host) && repOf.get(v.host) !== v.host) continue;
       if (v.injected && v.injected.partial) continue;
       if (SKIP_TAGS.has(row.tag)) continue;
+      if (typeof row.w !== "number") continue; // no box (v1 kept labelled display:none targets as box-less rows)
+      if (v.round && row.made && !row.lab) {
+        madeSkipped++;
+        continue; // created by a recipe and not labelled: exists only because of the injection
+      }
       const s = splitOf(v.host);
       let meta;
       if (!v.round) {
@@ -379,6 +401,10 @@ async function main() {
           }
         } else meta = { v: v.v, i: row.i, y: "control", r: ids };
       } else {
+        if (spreadOf(v)) {
+          spreadSkipped++;
+          continue; // a page-wide fault changed this unlabelled element (inject.mjs SPREAD): not a negative
+        }
         const rin = rowsIn.get(row.vid) || 1;
         const keep = cleanPerView >= rin || parseInt(sha1(`${seed}|${row.vid}|${row.i}`).slice(0, 8), 16) / 4294967296 < cleanPerView / rin;
         if (!keep) continue;
@@ -427,7 +453,7 @@ async function main() {
     join(OUT, "schema.json"),
     JSON.stringify(
       {
-        version: "vision-trainset-1",
+        version: "vision-trainset-2",
         built: new Date().toISOString(),
         F,
         features: FEATURES,
@@ -438,6 +464,10 @@ async function main() {
         pixel: "pv: seen (changed pixels >= max(16, 1% of the box) between the screenshot before injection and after), unseen (in the viewport, no visible change: a NOI candidate), out (box outside the viewport or empty); noisy: more than 5% of the viewport outside the labelled boxes changed (page animation)",
         splits: "by host after near-duplicate removal: sha1(seed|representative host) first byte < 205 train, < 230 val, else test",
         cleanPerView,
+        removedV1: REMOVED_V1,
+        madeRowsSkipped: madeSkipped,
+        spreadCleanRowsSkipped: spreadSkipped,
+        spreadRecipes: Object.keys(SPREAD),
         counts: countsOut,
       },
       null,
@@ -543,11 +573,21 @@ async function main() {
     injection: {
       injectedViews: inj.length,
       partialViews: inj.filter((v) => v.injected && v.injected.partial).length,
+      tracedViews: inj.filter((v) => v.injected && v.injected.traced).length,
+      tracedRecipes: inj.flatMap((v) => ((v.injected && v.injected.recipes) || []).filter((r) => r.trace).map((r) => r.id)).reduce((m, id) => ((m[id] = (m[id] || 0) + 1), m), {}),
+      mechanismAttributes: inj.flatMap((v) => ((v.injected && v.injected.recipes) || []).filter((r) => r.applied && r.attrs).flatMap((r) => r.attrs.map((a) => `${r.id}:${a}`))).reduce((m, k) => ((m[k] = (m[k] || 0) + 1), m), {}),
+      roundRequests: inj.reduce((s, v) => s + ((v.injected && v.injected.requests && v.injected.requests.n) || 0), 0),
+      roundRequestsOffHost: inj.reduce((s, v) => s + ((v.injected && v.injected.requests && v.injected.requests.offHost) || 0), 0),
+      madeRowsSkipped: madeSkipped,
+      spreadCleanRowsSkipped: spreadSkipped,
+      spreadViews: inj.filter((v) => !(v.injected && v.injected.partial) && spreadOf(v)).length,
+      recipesSpread: SPREAD,
       faultsApplied: Object.values(fam).reduce((s, x) => s + x.faults, 0),
       controlsApplied: Object.values(rec).filter((x) => x.kind === "control").reduce((s, x) => s + x.applied, 0),
       byFamily: fam,
       byRecipe: rec,
-      recipesNeverApplied: [...recipes.values()].filter((r) => r.phase === "after-load" && !(rec[r.id] && rec[r.id].applied)).map((r) => r.id),
+      recipesNeverApplied: [...recipes.values()].filter((r) => r.phase === "after-load" && !DROPPED[r.id] && !(rec[r.id] && rec[r.id].applied)).map((r) => r.id),
+      recipesDropped: DROPPED,
       layoutSameAfterUndo: { p10: pct(pre, 0.1), p50: pct(pre, 0.5) },
     },
     naturalSignals: { byGroupDeviceScheme: natSummary, desktopLightByDomain: natByBuilder },
@@ -559,7 +599,7 @@ async function main() {
   log(`done: ${written} matrix rows (${F} features); ${JSON.stringify(countsOut)}`);
 }
 
-export { encode, FEATURES, F, NUM, CAT, pageFeatures, natRow, newNat, freezeVocab, makeVocab, countCats };
+export { encode, FEATURES, F, NUM, CAT, PAGE_F, REMOVED_V1, pageFeatures, natRow, newNat, freezeVocab, makeVocab, countCats };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((e) => {

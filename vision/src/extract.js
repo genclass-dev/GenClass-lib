@@ -10,9 +10,14 @@
 // Invariants:
 // - Read-only: it changes nothing in the page (no inserted probes, no scrolling, no focus, no events).
 // - No page text leaves the page: rows carry text lengths, leak-pattern ids and the matched characters of a leak
-//   (at most 24 per match), never the text itself. No attribute values except data-bench-fault labels, role and
-//   tag names, colour values, font family names and the class of an image URL (same-origin, cross-origin, data,
-//   placeholder host), never the URL.
+//   (at most 24 per match), never the text itself. No attribute values except role and tag names, colour values,
+//   font family names and the class of an image URL (same-origin, cross-origin, data, placeholder host), never the
+//   URL.
+// - Labels never change what is extracted (v2): an injected view's labels come from the injection runtime's WeakMap
+//   (globalThis.__visionLabels, element -> recipe ids), not from the DOM; a labelled element gets the same row, the
+//   same hit tests and the same place under the row cap as any other element. Elements a recipe created carry
+//   `made` (bookkeeping for the training-set builder, never a feature), and the runtime's injected stylesheet
+//   (globalThis.__visionOwnSheet) is left out of the stylesheet counts (its rules are still read by the var() pass).
 // - Bounded: rows are capped (opts.maxRows), hit tests and paint-stack reads are capped per page, and the CSS
 //   variable pass checks at most opts.maxVarRules rules that use var().
 // - Approximations, stated so the training side can weigh them: the clip rect treats absolutely positioned
@@ -23,7 +28,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "vision-extract-1";
+  const VERSION = "vision-extract-2";
 
   // ---------------------------------------------------------------- colour (CSS Color 4, as VISUAL.md 2.5)
 
@@ -518,9 +523,8 @@
   const rgbOut = (c) => (c ? [Math.round(c[0]), Math.round(c[1]), Math.round(c[2])] : null);
   const rgbaOut = (c) => (c ? [Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), r2(c[3])] : null);
 
-  /** Rows ranked for the cap: labelled first, then visible in the viewport, then visible, then the rest. */
+  /** Rows ranked for the cap: visible in the viewport, then visible, then the rest (labels play no part). */
   function rankForCap(c) {
-    if (c.lab) return 0;
     if (c.vis && c.inv > 0) return 1;
     if (c.vis) return 2;
     return 3;
@@ -534,7 +538,11 @@
     const maxHit = opts.maxHit || 900;
     const maxStack = opts.maxStack || 500;
     const maxVarRules = opts.maxVarRules || 2500;
-    const labelAttr = opts.labelAttr || "data-bench-fault";
+    // labels and created elements of an injected view (inject.mjs); absent on natural views
+    const labels = root.__visionLabels && typeof root.__visionLabels.get === "function" ? root.__visionLabels : null;
+    const created = root.__visionCreated && typeof root.__visionCreated.has === "function" ? root.__visionCreated : null;
+    const ownSheet = root.__visionOwnSheet || null;
+    const labOf = (el) => (labels ? labels.get(el) || null : null);
     const now = () => performance.now();
     const t0 = now();
     const cost = {};
@@ -579,7 +587,7 @@
     page.bodyPointerEvents = bodyCs ? bodyCs.pointerEvents : "";
     page.bodyOverflowY = bodyCs ? OVF[bodyCs.overflowY] || bodyCs.overflowY : "";
     page.htmlOverflowY = OVF[htmlCs.overflowY] || htmlCs.overflowY;
-    page.lab = html.getAttribute(labelAttr) || null;
+    page.lab = labOf(html);
     // canvas colour when nothing is opaque (VISUAL.md 2.4 step 5; Chrome's dark canvas)
     const darkCanvas = prefersDark && /dark/.test(htmlCs.colorScheme || "");
     const canvas = darkCanvas ? [18, 18, 18, 1] : [255, 255, 255, 1];
@@ -633,8 +641,9 @@
     try {
       // constructed sheets (CSS-in-JS libraries, and the injector's fallback under a strict CSP)
       for (const s of Array.from(doc.adoptedStyleSheets || [])) {
-        sheets.adopted = (sheets.adopted || 0) + 1;
         readable.push(s);
+        if (s === ownSheet) continue; // the injection runtime's sheet: read for var(), not counted
+        sheets.adopted = (sheets.adopted || 0) + 1;
       }
     } catch (e) {
       // no adoptedStyleSheets
@@ -727,14 +736,12 @@
       const parent = el.parentElement;
       const ps = (parent && state.get(parent)) || rootState;
       if (ps.none) {
-        // inside a display: none subtree: nothing renders; keep a labelled target as a box-less row
+        // inside a display: none subtree: nothing renders, no row (labelled or not)
         state.set(el, ps);
-        if (el.hasAttribute(labelAttr)) cands.push({ el, cs: null, rect: null, ps, st: null, lab: el.getAttribute(labelAttr), vis: 0, why: "display-none", inv: 0 });
         continue;
       }
       const cs = getComputedStyle(el);
       if (cs.display === "none") {
-        if (el.hasAttribute(labelAttr)) cands.push({ el, cs, rect: null, ps, st: null, lab: el.getAttribute(labelAttr), vis: 0, why: "display-none", inv: 0 });
         state.set(el, { ...ps, none: 1 });
         continue;
       }
@@ -787,8 +794,8 @@
       };
       state.set(el, st);
       const area = rect.width * rect.height;
-      const lab = el.getAttribute(labelAttr);
-      if (area <= 0 && !lab) continue;
+      const lab = labOf(el);
+      if (area <= 0) continue;
       // VISUAL.md 2.1 visible(), plus the reason when not
       let vis = 1;
       let why = "";
@@ -847,6 +854,7 @@
       const cs = c.cs;
       const row = { i, tag: el.tagName.toLowerCase() };
       if (c.lab) row.lab = c.lab;
+      if (created && created.has(el)) row.made = 1;
       if (!c.rect) {
         row.vis = 0;
         row.why = c.why;
@@ -1067,7 +1075,7 @@
       const c = chosen[i];
       const row = rows[i];
       if (!c.rect || !c.vis || c.inv <= 0) continue;
-      const target = row.tl || row.ia || row.tag === "img" || row.tag === "svg" || row.tag === "input" || row.lab || row.tag === "video" || row.tag === "canvas";
+      const target = row.tl || row.ia || row.tag === "img" || row.tag === "svg" || row.tag === "input" || row.tag === "video" || row.tag === "canvas";
       if (!target) continue;
       hits++;
       const rect = c.rect;

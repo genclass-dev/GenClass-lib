@@ -1,0 +1,192 @@
+{
+ "discovery": {
+  "crawls": [
+   "CC-MAIN-2026-39",
+   "CC-MAIN-2026-34",
+   "CC-MAIN-2026-30",
+   "CC-MAIN-2026-25",
+   "CC-MAIN-2026-21",
+   "CC-MAIN-2026-17",
+   "CC-MAIN-2026-12",
+   "CC-MAIN-2026-08",
+   "CC-MAIN-2026-04"
+  ],
+  "hostsByGroupDomain": {
+   "ai-builder base44.app": 3429,
+   "ai-builder created.app": 1183,
+   "ai-builder emergent.host": 118,
+   "ai-builder genspark.space": 24,
+   "ai-builder lovable.app": 15425,
+   "ai-builder manus.space": 1966,
+   "ai-builder mocha.app": 84,
+   "ai-builder replit.app": 2647,
+   "ai-builder vusercontent.net": 103,
+   "ai-builder windsurf.build": 14,
+   "control tranco": 4334,
+   "mixed-host (4 general hosting domains and hosted.app, sampled; not crawled in v2)": 6298
+  }
+ },
+ "crawlStats": {
+  "hosts": 9158,
+  "ok": 7211,
+  "skipped": 797,
+  "robotsFinal": 36,
+  "failed": 1105,
+  "views": 83982,
+  "rows": 31864620,
+  "crops": 83402,
+  "injected": 64786,
+  "rounds": 99472,
+  "faults": 88214,
+  "controls": 5508,
+  "notApplied": 102425,
+  "recipeErrors": 1066,
+  "traced": 6,
+  "undoDrift": 161,
+  "roundErrors": 1,
+  "pixChecked": 64783,
+  "roundRequests": 131556,
+  "roundOffHost": 117905,
+  "recipesTrainable": 118,
+  "family": {
+   "responsive": 12383,
+   "text": 9559,
+   "overflow": 11668,
+   "media": 7550,
+   "controls": 7642,
+   "occlusion": 6403,
+   "blank": 5474,
+   "leaks": 5392,
+   "styles": 4935,
+   "other": 4667,
+   "design": 5148,
+   "dark": 2812,
+   "motion": 4581
+  },
+  "processes": 5,
+  "secondsPerProcess": [
+   77,
+   1766,
+   1969,
+   1923,
+   1878
+  ]
+ },
+ "hostStatusByGroup": {
+  "ai-builder": {
+   "not-html-or-error": 857,
+   "ok": 6003,
+   "robots-disallow": 85,
+   "robots-unreachable": 125,
+   "robots-final": 23,
+   "partial": 8,
+   "failed": 3
+  },
+  "control": {
+   "robots-disallow": 39,
+   "robots-unreachable": 545,
+   "ok": 1208,
+   "not-html-or-error": 230,
+   "failed": 15,
+   "robots-final": 13,
+   "robots-5xx": 3,
+   "partial": 1
+  }
+ },
+ "hostMsOk": {
+  "p50": 48050,
+  "p90": 74985
+ },
+ "crops": {
+  "total": 83402,
+  "views": 19009,
+  "bySources": {
+   "gbt": 38565,
+   "random": 37446,
+   "rules": 4893,
+   "gbt+rules": 2173,
+   "random+rules": 216,
+   "gbt+random": 108,
+   "gbt+random+rules": 1
+  },
+  "device": {
+   "desktop": 42454,
+   "phone": 40948
+  },
+  "scheme": {
+   "light": 62656,
+   "dark": 20746
+  },
+  "group": {
+   "ai-builder": 67520,
+   "control": 15882
+  },
+  "family": {
+   "controls": 29926,
+   "text": 13828,
+   "none": 23925,
+   "media": 6962,
+   "occlusion": 5447,
+   "styles": 440,
+   "overflow": 2771,
+   "leaks": 103
+  }
+ },
+ "traceless": {
+  "recipes": 118,
+  "applied": 116,
+  "notApplicable": 2,
+  "failed": 0
+ },
+ "schemaCounts": {
+  "train": {
+   "nat": 5249035,
+   "clean": 1058187,
+   "fault": 121521,
+   "control": 3928,
+   "views": 56836,
+   "hosts": 5575
+  },
+  "val": {
+   "nat": 657424,
+   "clean": 133614,
+   "fault": 15019,
+   "control": 465,
+   "views": 7097,
+   "hosts": 700
+  },
+  "test": {
+   "nat": 698865,
+   "clean": 131832,
+   "fault": 14052,
+   "control": 506,
+   "views": 7099,
+   "hosts": 699
+  }
+ },
+ "madeRowsSkipped": 171346,
+ "spreadCleanRowsSkipped": 9771121,
+ "F": 110,
+ "sheets": {
+  "crops": 2200,
+  "found": 83402,
+  "splits": "val,test",
+  "bySplit": {
+   "val": 1086,
+   "test": 1114
+  },
+  "quota": {
+   "rules": 800,
+   "gbt": 700,
+   "random": 700
+  },
+  "perView": 2,
+  "strata": {
+   "gbt": 700,
+   "random": 700,
+   "rules": 800
+  },
+  "sheets": 184,
+  "perSheet": 12
+ }
+}

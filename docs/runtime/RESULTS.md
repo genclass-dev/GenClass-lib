@@ -328,3 +328,39 @@ On real pages, no: its flags on clean pages are almost all correct elements (1 r
 in 40 for the thresholds), because it learned where the recipes put their labels (tag, box area, device are its
 top inputs). It does not ship. `gbt-small` exports to 339 KB of JSON (95 KB gzip) and costs 25.6 us per element in
 the reference JS evaluator; that cost is not the obstacle.
+
+### v2 (2026-10-14, branch `wave2/visual-v2`): judged on labelled real pages
+
+Full report: `vision/results/v2/TRAINING.md`; raw numbers: `vision/results/v2/train/eval-v2.json`; shipping bundle:
+`vision/results/v2/train/visual-v2.json`.
+
+- Data: the v2 crawl, with one load per host and traceless injection (provenance audit ROC AUC 0.528). Training split:
+  5,575 hosts with 25,536 injected faults that changed pixels at rest. Real-page test: 1,114 element crops from 522
+  held-out sites, labelled by 6 labellers: 73 real, 202 unclear, 839 not. Verdict agreement on the 208 crops labelled
+  twice: 88.5% (kappa 0.705). The models also trained on 420 crops of training sites, labelled by the training agent
+  (120 real). Those labels never choose a threshold or evaluate.
+- Models: one LightGBM per family and a pooled one. Positives are pixel-seen faults and labelled real bugs (weighted
+  up); negatives are clean elements matched on tag, role, area band and device, plus labelled not-bugs. A small
+  labelled-crop model and stacks complete the set, with a 16-trial random search, 5-fold host cross-fitting on dev,
+  and every threshold chosen on dev.
+- Ship criterion: a family ships only if, at a threshold chosen on dev, at least 60% of its flags on held-out real
+  pages are real bugs. That means at least 10 labelled test flags (unclear counts against) and agreement from a blind
+  hand check of its other flags.
+
+| detector (test, labelled crops of held-out sites) | flags | real | precision (95% CI) | labelled real bugs found | blind hand check of other flags |
+|---|---:|---:|---|---|---|
+| measured checks, all | 424 | 58 | 0.14 (0.11 to 0.17) | 58 of 73 | |
+| v2 pooled model, 0.1% of clean elements flagged | 79 | 33 | 0.42 (0.32 to 0.53) | 33 of 73 | 11 of 24 real (22 sites) |
+| v2 pooled stack with the labelled-crop model, 0.1% | 68 | 38 | 0.56 (0.44 to 0.67) | 38 of 73 | |
+| measured media checks | 44 | 19 | 0.43 (0.30 to 0.58) | 19 of 21 | 18 of 30 |
+| **media: measured checks filtered by the v2 media score (ships)** | 27 | 19 | **0.70 (0.52 to 0.84)** | 19 of 21 | 25 of 30 (9 sites) |
+| measured page-overflow-x | 56 | 25 | 0.45 (0.32 to 0.58) | 24 of 30 | |
+| **responsive: v2 responsive stack (ships, thin evidence)** | 10 | 7 | **0.70 (0.40 to 0.89)** | 6 of 30 | 10 of 11 (4 sites) |
+
+Does v2 beat the measured checks on real pages? Overall, yes on precision: 4 times the checks' precision at about
+two-thirds of their recall. v1's model had 1 real bug in 99 flags. For media, yes: the same 19 bugs with 17 fewer
+false reports. For responsive layouts it is a precise complement to page-overflow-x, not a replacement. For overflow
+as a family, contrast (text, dark), occlusion, leaks and the other families, no v2 detector reached 60% on dev, and
+those stay on the measured checks. On injected faults the family models reach 0.30 to 1.00 recall at 0.1% false
+reports, while the checks of a family reach 0.00 to 0.81. Those numbers measure how well a model recognises the
+recipes, not real bugs. The bundle is 199 KB (57 KB gzip) and costs 12.8 µs per element in the reference JS evaluator.

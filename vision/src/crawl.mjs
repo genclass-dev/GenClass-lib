@@ -1,26 +1,34 @@
-// The visual crawl: Playwright Chromium (headless shell), many contexts in parallel, one homepage per host. Runs on
-// a cluster node, never on the Mac. Per host:
-//   1. robots.txt for our user agent ("genclass-vision") and "*"; a disallowed "/" or a 5xx or timeout skips it.
-//   2. Two loads of the homepage, one per device profile (desktop 1366x768 at DPR 1; phone 390x844, isMobile,
-//      touch, DPR 3), because the viewport meta, hover and pointer media only apply to a mobile context. Nothing
-//      else is ever requested from the host: no links followed, no reloads; the colour scheme is switched in place.
-//   3. In each load, after the settle gates (load event, fonts, 500 ms without DOM mutations, all inside the 15 s
-//      cap): the light view, then the dark view (emulated prefers-color-scheme), each extracted by extract.js
-//      with a downscaled JPEG of the viewport. Then, on a seeded fraction of loads, 1 to 3 after-load fault recipes
-//      from research/visual/injectors.json (inject.mjs) and one more extracted view with the labels.
+// The visual crawl (v2): Playwright Chromium (headless shell), many contexts in parallel, one homepage per host, one
+// page load per host. Runs on a cluster node, never on the Mac. Per host:
+//   1. robots.txt for our user agent token ("genclass-vision") and "*"; a disallowed path, a 5xx or a timeout skips
+//      the host.
+//   2. One load of the homepage in a desktop context (1366x768, DPR 1). After the redirects, robots.txt of the final
+//      host is checked for the final path too; a disallow there discards the load before anything is extracted.
+//   3. Natural views, each extracted by extract.js with a downscaled JPEG of the viewport: desktop light; desktop dark
+//      (prefers-color-scheme emulated in place) on a seeded share of hosts; then the same page resized to the phone
+//      viewport (page.setViewportSize, 390x844) for phone light and, on the same hosts, phone dark. Nothing is
+//      reloaded. On each natural view, up to 6 candidates for labelling are cropped (candidates.mjs).
+//   4. On a seeded share of hosts, injection rounds in place (inject.mjs): phone rounds at the phone size, then the
+//      desktop size again for desktop rounds; each round's labelled view is extracted and the round undone.
+// Nothing else is requested from the host by the crawler: no links followed, no reloads, no second load. The
+// injection recipes that would make the page request anything are dropped (inject.mjs DROPPED); requests the page
+// makes on its own during the rounds are counted per round (injected.requests) for the audit.
 // Safety: downloads refused, service workers blocked, popups closed, form submission cancelled in the page, no
-// typing, no clicks, no logins. Contexts are fresh per load and closed after it; cookies and storage are never
-// saved. Rows hold lengths and pattern ids, never page text (extract.js invariants).
+// typing, no clicks, no logins. A fresh context per host, closed after it; cookies and storage are never saved.
+// Rows hold lengths and pattern ids, never page text (extract.js invariants).
 //
 //   node src/crawl.mjs --urls ~/vision-out/discover/urls.jsonl [--out ~/vision-out/crawl] [--shard 0/4]
 //                      [--workers 48] [--per-browser 8] [--limit 0] [--inject 0.35] [--seed 11]
 //                      [--timeout 15000] [--max-rows 2500] [--groups ai-builder,mixed-host,control]
+//                      [--crops true] [--crops-per-view 6]
 //
 // Output under OUT/shard-I (I = the shard index), one set per process start (T = start time):
-//   views-T.jsonl.gz     one line per extracted view: {vid, host, group, builder, device, scheme, inj, page,
+//   views-T.jsonl.gz     one line per extracted view: {vid, host, group, builder, device, scheme, inj, round, page,
 //                        cost, nav, injected}
 //   elements-T.jsonl.gz  one line per element row: {vid, ...row} (schema in vision/README.md)
-//   shots/<host>/<device>-<scheme>[-inj].jpg   downscaled viewport screenshots
+//   shots/<host>/<device>-<scheme>[-rN].jpg   downscaled viewport screenshots (stay on the node)
+//   crops/<id>.jpg, crops/<id>.json   labelling candidates of natural views: a crop with 24 px of context and its
+//                        sidecar (no host in the id, the file name or the sidecar; vid + i join it to its row)
 //   done-T.jsonl         one line per host: {host, status, ms, views, error}; a rerun skips hosts already done
 
 import { chromium } from "playwright";
@@ -32,44 +40,40 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { parseArgs, rng } from "./discover.mjs";
-import { loadRecipes, runnable, chooseRound, envOf, injectionScript, PAGE_RUNTIME } from "./inject.mjs";
+import { loadRecipes, trainable, chooseRound, envOf, injectionScript, PAGE_RUNTIME } from "./inject.mjs";
 import { robotsAllows } from "./robots.mjs";
+import { loadV1, v1PageFeatures, chooseCandidates, cropRect, cropId, guessFamily } from "./candidates.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const EXTRACT_SRC = readFileSync(join(HERE, "extract.js"), "utf8");
-const UA_TOKEN = "genclass-vision";
+export const UA_TOKEN = "genclass-vision";
+export const UA_PRODUCT = "genclass-vision/0.2 (+https://genclass.dev/security)";
+export const BROWSER_UA = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 ${UA_PRODUCT}`;
 
+/** The two views of the one desktop context: the viewport size and the screenshot scale. */
 export const DEVICES = {
-  desktop: {
-    viewport: { width: 1366, height: 768 },
-    deviceScaleFactor: 1,
-    isMobile: false,
-    hasTouch: false,
-    shotScale: 0.5,
-    userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 genclass-vision/0.1",
-  },
-  phone: {
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 3,
-    isMobile: true,
-    hasTouch: true,
-    shotScale: 0.75,
-    userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36 genclass-vision/0.1",
-  },
+  desktop: { viewport: { width: 1366, height: 768 }, shotScale: 0.5 },
+  phone: { viewport: { width: 390, height: 844 }, shotScale: 0.75 },
 };
 
-/** robots.txt for a host: { ok, status, reason }. 4xx means no rules; 5xx, timeouts and network errors skip. */
-async function robots(host) {
+/** robots.txt of a host: { status, text, reason }. 4xx means no rules (text ""); 5xx, timeouts and errors set reason. */
+async function fetchRobots(host) {
   try {
-    const res = await fetch(`https://${host}/robots.txt`, { headers: { "user-agent": `${UA_TOKEN}/0.1` }, redirect: "follow", signal: AbortSignal.timeout(6000) });
-    if (res.status >= 500) return { ok: false, status: res.status, reason: "robots-5xx" };
-    if (res.status >= 400) return { ok: true, status: res.status };
+    const res = await fetch(`https://${host}/robots.txt`, { headers: { "user-agent": UA_PRODUCT }, redirect: "follow", signal: AbortSignal.timeout(6000) });
+    if (res.status >= 500) return { status: res.status, text: null, reason: "robots-5xx" };
+    if (res.status >= 400) return { status: res.status, text: "" };
     const type = res.headers.get("content-type") || "";
     const text = /text\/plain/.test(type) || !/html/.test(type) ? (await res.text()).slice(0, 500000) : "";
-    return robotsAllows(text, UA_TOKEN, "/") ? { ok: true, status: res.status } : { ok: false, status: res.status, reason: "robots-disallow" };
+    return { status: res.status, text };
   } catch (e) {
-    return { ok: false, status: 0, reason: "robots-unreachable" };
+    return { status: 0, text: null, reason: "robots-unreachable" };
   }
+}
+
+/** The verdict for one path: { ok, reason }. */
+export function robotsVerdict(r, path) {
+  if (!r || r.text === null || r.text === undefined) return { ok: false, reason: (r && r.reason) || "robots-unreachable" };
+  return robotsAllows(r.text, UA_TOKEN, path || "/") ? { ok: true } : { ok: false, reason: "robots-disallow" };
 }
 
 /** In-page settle: fonts (3 s cap), then 500 ms without DOM mutations (cap `ms`), then two frames. */
@@ -98,6 +102,7 @@ const GUARD = `(() => {
 })();`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sha1 = (s) => createHash("sha1").update(s).digest("hex");
 
 /** A gzip JSONL writer that flushes on close. */
 function gzWriter(path) {
@@ -113,13 +118,14 @@ function gzWriter(path) {
   };
 }
 
-async function screenshot(page, dev, { scale = dev.shotScale, quality = 55, raw = false } = {}) {
+/** A viewport screenshot: JPEG (or PNG) of the viewport at `scale` (CSS px times scale; DPR 1 here). */
+async function screenshot(page, scale, { quality = 55, raw = false, format = "jpeg" } = {}) {
   const cdp = await page.context().newCDPSession(page);
   try {
     const vp = page.viewportSize();
-    // clip is in CSS px and the output is clip size times scale (the DPR does not multiply it; checked on c20:
-    // 1366x768 at 0.5 gives 683x384, 390x844 at 0.25 gave 98x211)
-    const r = await cdp.send("Page.captureScreenshot", { format: "jpeg", quality, clip: { x: 0, y: 0, width: vp.width, height: vp.height, scale }, captureBeyondViewport: false });
+    const q = { format, clip: { x: 0, y: 0, width: vp.width, height: vp.height, scale }, captureBeyondViewport: false };
+    if (format === "jpeg") q.quality = quality;
+    const r = await cdp.send("Page.captureScreenshot", q);
     return raw ? r.data : Buffer.from(r.data, "base64");
   } finally {
     await cdp.detach().catch(() => {});
@@ -166,6 +172,31 @@ const PIXDIFF = `async (q) => {
 }`;
 
 /**
+ * Crops for labelling, cut in the blank comparator page (never the crawled page): a PNG of the viewport (base64)
+ * and rectangles [x0, y0, x1, y1] in CSS px; returns one base64 JPEG (quality 0.9) per rectangle.
+ */
+const CROPS = `async (q) => {
+  const bin = atob(q.img);
+  const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  const im = await createImageBitmap(new Blob([u], { type: "image/png" }));
+  const k = im.width / q.vw;
+  const out = [];
+  for (const r of q.rects) {
+    const sx = Math.round(r[0] * k), sy = Math.round(r[1] * k);
+    const w = Math.max(1, Math.round((r[2] - r[0]) * k)), h = Math.max(1, Math.round((r[3] - r[1]) * k));
+    const c = new OffscreenCanvas(w, h);
+    c.getContext("2d").drawImage(im, sx, sy, w, h, 0, 0, w, h);
+    const b = await c.convertToBlob({ type: "image/jpeg", quality: 0.9 });
+    const a = new Uint8Array(await b.arrayBuffer());
+    let s = "";
+    for (let i = 0; i < a.length; i += 32768) s += String.fromCharCode.apply(null, a.subarray(i, i + 32768));
+    out.push(btoa(s));
+  }
+  return out;
+}`;
+
+/**
  * Compare layout signatures from __visionSig: {count: element counts within 2%, same: share of the first boxes that
  * are equal}. Pages move on their own (reveal-on-scroll, carousels, resize handlers), so only the count gates more
  * rounds; `same` is stored on the next injected view (injected.pre) for the training side to filter on.
@@ -206,13 +237,18 @@ async function main() {
     shots: a.shots === "false" ? false : true,
     // per-group targets of hosts with views, across all shards (each shard takes its share); none = no cap
     targets: kv(a.targets || ""),
-    // share of hosts whose phone load also gets a dark view (desktop and phone always get light)
+    // share of hosts that also get dark views (desktop and phone; light views always)
     darkShare: a["dark-share"] ?? 1 / 3,
-    // injection rounds per load (each round: 1 to 3 recipes, one labelled view, then the undo journal)
+    // injection rounds per device size (each round: 1 to 3 recipes, one labelled view, then the undo)
     rounds: { desktop: 8, phone: 6, ...kv(a.rounds || "") },
     pixel: a.pixel === "false" ? false : true,
+    crops: a.crops === "false" ? false : true,
+    cropsPerView: a["crops-per-view"] || 6,
+    v1Model: a["v1-model"] || join(HERE, "..", "results", "train", "gbt-small.json"),
+    v1Schema: a["v1-schema"] || join(HERE, "..", "results", "schema.json"),
   };
   await mkdir(join(opts.out, "shots"), { recursive: true });
+  if (opts.crops) await mkdir(join(opts.out, "crops"), { recursive: true });
   const T = new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
   // resume: hosts finished by any earlier run of this shard
   const done = new Set();
@@ -228,7 +264,7 @@ async function main() {
   list = list.filter((r) => r.shard % sn === si && !done.has(r.host) && (!opts.groups || opts.groups.includes(r.group)));
   // within a group: hosts in seeded hash order, domains drawn with weight sqrt(hosts in the domain), so a capped
   // run is not almost all lovable.app; then the groups are interleaved so a partial run still has every group
-  const hkey = (h) => createHash("sha1").update(`${opts.seed}|${h}`).digest("hex");
+  const hkey = (h) => sha1(`${opts.seed}|${h}`);
   const orderRand = rng(opts.seed * 7 + si);
   const byG = {};
   for (const r of list) (byG[r.group] = byG[r.group] || []).push(r);
@@ -271,15 +307,23 @@ async function main() {
       await sleep(1000);
     }
   }
-  const recipes = runnable(await loadRecipes(opts.recipes));
+  const recipes = trainable(await loadRecipes(opts.recipes));
+  const v1 = opts.crops ? loadV1(opts.v1Model, opts.v1Schema) : null;
   const views = gzWriter(join(opts.out, `views-${T}.jsonl.gz`));
   const elements = gzWriter(join(opts.out, `elements-${T}.jsonl.gz`));
   const doneOut = createWriteStream(join(opts.out, `done-${T}.jsonl`), { flags: "a" });
   const t0 = Date.now();
-  const stats = { hosts: 0, ok: 0, skipped: 0, failed: 0, views: 0, rows: 0, injected: 0, rounds: 0, faults: 0, controls: 0, notApplied: 0, recipeErrors: 0, undoDrift: 0, roundErrors: 0, pixChecked: 0, okBy, family: {} };
+  const stats = { hosts: 0, ok: 0, skipped: 0, robotsFinal: 0, failed: 0, views: 0, rows: 0, crops: 0, injected: 0, rounds: 0, faults: 0, controls: 0, notApplied: 0, recipeErrors: 0, traced: 0, undoDrift: 0, roundErrors: 0, pixChecked: 0, roundRequests: 0, roundOffHost: 0, okBy, family: {} };
   const recipeById = new Map(recipes.map((r) => [r.id, r]));
   const log = (m) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0)}s] ${m}`);
-  log(`shard ${si}/${sn}: ${list.length} hosts in the list (${done.size} done before), quota ${JSON.stringify(quota)}, ${opts.workers} workers, ${recipes.length} runnable recipes, rounds ${JSON.stringify(opts.rounds)}`);
+  log(`shard ${si}/${sn}: ${list.length} hosts in the list (${done.size} done before), quota ${JSON.stringify(quota)}, ${opts.workers} workers, ${recipes.length} trainable recipes, rounds ${JSON.stringify(opts.rounds)}, crops ${opts.crops ? (v1 ? "with the v1 model" : "rules and random only (no v1 model)") : "off"}`);
+
+  // robots.txt per host, fetched once per process
+  const robotsCache = new Map();
+  const robotsFor = (host) => {
+    if (!robotsCache.has(host)) robotsCache.set(host, fetchRobots(host));
+    return robotsCache.get(host);
+  };
 
   // browsers: one per `perBrowser` workers, relaunched when one dies
   const nb = Math.ceil(opts.workers / opts.perBrowser);
@@ -297,7 +341,7 @@ async function main() {
     return launching[k];
   }
 
-  // one blank comparator page per browser for the pixel check (no network, never a crawled page)
+  // one blank comparator page per browser for the pixel check and the crops (no network, never a crawled page)
   const comparators = new Array(nb).fill(null);
   async function comparatorFor(w) {
     const k = w % nb;
@@ -308,25 +352,59 @@ async function main() {
     comparators[k] = { browser: b, page };
     return page;
   }
-  async function pixDiff(w, a, b, boxes) {
+  async function inComparator(w, fn, arg) {
     try {
       const page = await comparatorFor(w);
-      return await page.evaluate(`(${PIXDIFF})(${JSON.stringify({ a, b, boxes, thr: 32 })})`);
+      return await page.evaluate(`(${fn})(${JSON.stringify(arg)})`);
     } catch (e) {
       comparators[w % nb] = null;
       return null;
     }
   }
 
-  async function oneLoad(w, item, device, rand, out, holder, dark) {
-    const dev = DEVICES[device];
+  /** Labelling candidates of one natural view: choose, crop, write crops/<id>.jpg and crops/<id>.json. */
+  async function saveCandidates(w, page, item, view, rows) {
+    const vp = page.viewportSize();
+    const pageF = v1PageFeatures(view.page, view.device, view.scheme);
+    const score = v1 ? (row) => v1(row, pageF) : null;
+    const crand = rng(createHash("sha1").update(`${opts.seed}|cand|${view.vid}`).digest().readUInt32LE(0));
+    const picks = chooseCandidates(rows, view.page, { score, rand: crand, max: opts.cropsPerView }).map((p) => ({ ...p, rect: cropRect(rows[p.k], vp.width, vp.height, 24) })).filter((p) => p.rect);
+    if (!picks.length) return 0;
+    const img = await screenshot(page, 1, { raw: true, format: "png" }).catch(() => null);
+    if (!img) return 0;
+    const jpgs = await inComparator(w, CROPS, { img, vw: vp.width, rects: picks.map((p) => p.rect) });
+    if (!jpgs) return 0;
+    let n = 0;
+    for (let j = 0; j < picks.length; j++) {
+      const p = picks[j];
+      const row = rows[p.k];
+      const id = cropId(view.vid, row.i);
+      const [x0, y0, x1, y1] = p.rect;
+      const side = {
+        id, file: `${id}.jpg`, vid: view.vid, i: row.i, device: view.device, scheme: view.scheme, group: item.group, domain: item.domain || null,
+        sources: p.sources, family: guessFamily(row, view.page, p.rules), rules: p.rules, score: p.score, model: v1 ? "v1 gbt-small" : null,
+        tag: row.tag, role: row.role || null, box: [row.x, row.y, row.w, row.h], crop: p.rect, inCrop: [Math.round((row.x - x0) * 10) / 10, Math.round((row.y - y0) * 10) / 10, row.w, row.h],
+        cropSize: [x1 - x0, y1 - y0], viewport: [vp.width, vp.height], extractor: view.page && view.page.v, crawl: T,
+      };
+      try {
+        await writeFile(join(opts.out, "crops", side.file), Buffer.from(jpgs[j], "base64"));
+        await writeFile(join(opts.out, "crops", `${id}.json`), JSON.stringify(side));
+        n++;
+      } catch {
+        // disk trouble: skip this crop
+      }
+    }
+    return n;
+  }
+
+  async function oneHost(w, item, rand, out, holder, { dark, inject }) {
     const browser = await browserFor(w);
     const ctx = await browser.newContext({
-      viewport: dev.viewport,
-      deviceScaleFactor: dev.deviceScaleFactor,
-      isMobile: dev.isMobile,
-      hasTouch: dev.hasTouch,
-      userAgent: dev.userAgent,
+      viewport: DEVICES.desktop.viewport,
+      deviceScaleFactor: 1,
+      isMobile: false,
+      hasTouch: false,
+      userAgent: BROWSER_UA,
       colorScheme: "light",
       reducedMotion: "no-preference",
       acceptDownloads: false,
@@ -336,7 +414,9 @@ async function main() {
       javaScriptEnabled: true,
     });
     holder.ctx = ctx;
-    const nav = { device, status: 0, ok: false, finalHost: "", type: "", consoleErrors: 0, pageErrors: 0, failedRequests: 0, requests: 0, settleMs: 0, loadMs: 0 };
+    const nav = { status: 0, ok: false, finalHost: "", type: "", consoleErrors: 0, pageErrors: 0, failedRequests: 0, requests: 0, roundRequests: 0, roundOffHost: 0, settleMs: 0, loadMs: 0 };
+    out.nav = nav;
+    let phase = "load";
     let page = null;
     try {
       // popups and new tabs are closed at once
@@ -349,7 +429,16 @@ async function main() {
         if (m.type() === "error") nav.consoleErrors++;
       });
       page.on("pageerror", () => nav.pageErrors++);
-      page.on("request", () => nav.requests++);
+      page.on("request", (r) => {
+        nav.requests++;
+        if (phase !== "rounds") return;
+        nav.roundRequests++;
+        try {
+          if (new URL(r.url()).hostname !== nav.finalHost) nav.roundOffHost++;
+        } catch {
+          // data: and other URLs without a host
+        }
+      });
       page.on("requestfailed", () => nav.failedRequests++);
       page.on("dialog", (d) => d.dismiss().catch(() => {}));
       page.on("download", (d) => d.cancel().catch(() => {}));
@@ -367,169 +456,224 @@ async function main() {
         nav.status = resp.status();
         nav.type = (resp.headers()["content-type"] || "").split(";")[0].slice(0, 40);
       }
+      let finalUrl = null;
       try {
-        nav.finalHost = new URL(page.url()).hostname;
+        finalUrl = new URL(page.url());
+        nav.finalHost = finalUrl.hostname;
       } catch {
         nav.finalHost = "";
       }
       nav.redirectedOff = nav.finalHost && nav.finalHost !== item.host ? 1 : 0;
+      // robots.txt of the host the redirects ended on, for the final path, before anything is extracted
+      if (!finalUrl) {
+        nav.skip = "no-final-url";
+        return nav;
+      }
+      const rv = robotsVerdict(await robotsFor(finalUrl.hostname), finalUrl.pathname || "/");
+      if (!rv.ok) {
+        nav.skip = "robots-final:" + rv.reason;
+        return nav;
+      }
       if ((resp && nav.status >= 400) || (nav.type && !/html/.test(nav.type))) {
         nav.skip = "not-html-or-error";
         return nav;
       }
-      const left = Math.max(1000, opts.timeout - nav.loadMs);
-      nav.settleMs = await page.evaluate(`${SETTLE}(${Math.min(left, 5000)})`).catch(() => -1);
+      const settle = (ms) => page.evaluate(`${SETTLE}(${ms})`).catch(() => -1);
+      // a client-side navigation (a redirect script, pushState) after the load: robots.txt again for the new URL
+      let checked = finalUrl.href;
+      const checkUrl = async () => {
+        let u;
+        try {
+          u = new URL(page.url());
+        } catch {
+          return;
+        }
+        if (u.href === checked) return;
+        const v = robotsVerdict(await robotsFor(u.hostname), u.pathname || "/");
+        if (!v.ok) throw new Error(`robots-final:${v.reason} after a client-side navigation`);
+        checked = u.href;
+        nav.finalHost = u.hostname;
+        nav.clientNav = (nav.clientNav || 0) + 1;
+      };
+      nav.settleMs = await settle(Math.min(Math.max(1000, opts.timeout - nav.loadMs), 5000));
       nav.ok = true;
-      const vidBase = createHash("sha1").update(`${item.host}|${device}|${T}`).digest("hex").slice(0, 12);
-      const extract = async (scheme, inj, injected) => {
-        // inj: 0 for a clean view, else the injection round (1, 2, ...)
-        const vid = `${vidBase}-${scheme}${inj ? "-r" + inj : ""}`;
+      phase = "natural";
+      const vidBase = { desktop: sha1(`${item.host}|desktop|${T}`).slice(0, 12), phone: sha1(`${item.host}|phone|${T}`).slice(0, 12) };
+      const extract = async (device, scheme, round, injected) => {
+        // round: 0 for a natural view, else the injection round (1, 2, ...) of this device size
+        const vid = `${vidBase[device]}-${scheme}${round ? "-r" + round : ""}`;
         const expr = `${EXTRACT_SRC}\n;globalThis.__visionExtract(${JSON.stringify({ maxRows: opts.maxRows })})`;
         let r;
+        await checkUrl();
         try {
           r = await page.evaluate(expr);
         } catch (e) {
-          // a client-side redirect replaced the document: settle once more and retry
+          // a client-side redirect replaced the document: settle once more, check robots.txt for it, retry
           if (!/context was destroyed|navigat/i.test(String(e.message))) throw e;
           nav.clientRedirect = 1;
           await page.waitForLoadState("load", { timeout: 5000 }).catch(() => {});
-          await page.evaluate(`${SETTLE}(2000)`).catch(() => {});
+          await settle(2000);
+          await checkUrl();
           r = await page.evaluate(expr);
         }
         let shot = null;
         if (opts.shots) {
           try {
-            shot = await screenshot(page, dev);
+            shot = await screenshot(page, DEVICES[device].shotScale);
             const dir = join(opts.out, "shots", item.host);
             await mkdir(dir, { recursive: true });
-            await writeFile(join(dir, `${device}-${scheme}${inj ? "-r" + inj : ""}.jpg`), shot);
+            await writeFile(join(dir, `${device}-${scheme}${round ? "-r" + round : ""}.jpg`), shot);
           } catch {
             shot = null;
           }
         }
-        const view = { vid, host: item.host, group: item.group, builder: item.builder, domain: item.domain, device, scheme, inj: !!inj, round: inj || 0, page: r.page, cost: r.cost, nav: { ...nav }, injected: injected || null, shot: shot ? shot.length : 0 };
+        const view = { vid, host: item.host, group: item.group, builder: item.builder, domain: item.domain, device, scheme, inj: !!round, round: round || 0, page: r.page, cost: r.cost, nav: { ...nav }, injected: injected || null, shot: shot ? shot.length : 0 };
         out.views.push(view);
         out.rows.push([vid, r.rows]);
-        return view;
+        return { view, rows: r.rows };
       };
-      await extract("light", 0);
-      let curScheme = "light";
-      if (dark) {
-        await page.emulateMedia({ colorScheme: "dark" });
-        await page.evaluate(`${SETTLE}(1500)`).catch(() => {});
-        await extract("dark", 0);
-        curScheme = "dark";
-      }
-      const nRounds = rand() < opts.inject ? opts.rounds[device] || 0 : 0;
-      if (nRounds) {
-        const settle = (ms) => page.evaluate(`${SETTLE}(${ms})`).catch(() => {});
-        await page.evaluate(PAGE_RUNTIME);
-        if (curScheme !== "light") {
-          await page.emulateMedia({ colorScheme: "light" });
+
+      // ---- natural views: desktop, then the same page at the phone size; dark in place on dark hosts
+      const schemes = dark ? ["light", "dark"] : ["light"];
+      for (const device of ["desktop", "phone"]) {
+        if (device === "phone") {
+          await page.setViewportSize(DEVICES.phone.viewport);
           await settle(1500);
-          curScheme = "light";
         }
         await page.evaluate("scrollTo(0, 0)").catch(() => {});
-        const base = await page.evaluate("__visionSig()").catch(() => null);
-        let pre = { same: 1, undoOk: true };
-        const used = new Set();
-        const seed0 = parseInt(vidBase.slice(0, 8), 16);
-        for (let round = 1; round <= nRounds; round++) {
-          const final = round === nRounds;
-          const chosen = chooseRound(recipes, device, rand, stats.family, { final, used });
-          if (!chosen.length) break;
-          for (const c of chosen) used.add(c.id);
-          const env = envOf(chosen);
-          const scheme = env.colorScheme === "dark" ? "dark" : "light";
-          const envChanged = scheme !== "light" || !!env.viewport || !!env.reducedMotion;
-          try {
-            // a client-side redirect or reload replaced the document since round 1: its runtime and baseline are gone
-            if (!(await page.evaluate("typeof globalThis.__visionInject === 'function' && typeof globalThis.__visionLib === 'object'").catch(() => false))) {
-              nav.docReplaced = round;
-              break;
-            }
-            if (envChanged) {
-              await page.emulateMedia({ colorScheme: scheme, reducedMotion: env.reducedMotion || "no-preference" });
-              if (env.viewport) await page.setViewportSize({ width: env.viewport[0], height: env.viewport[1] });
-              await settle(1500);
-            }
-            const before = opts.pixel ? await screenshot(page, dev, { scale: 1, quality: 90, raw: true }).catch(() => null) : null;
-            const results = await page
-              .evaluate(injectionScript(chosen, (seed0 ^ Math.imul(round, 2654435761) ^ opts.seed) >>> 0, { classicScrollbars: !!env.classicScrollbars }))
-              .catch((e) => chosen.map((c) => ({ id: c.id, kind: c.kind, applied: false, reason: "error: " + String(e.message).slice(0, 100) })));
-            stats.rounds++;
+        for (const scheme of schemes) {
+          if (scheme === "dark") {
+            await page.emulateMedia({ colorScheme: "dark" });
             await settle(1500);
-            for (const x of results) {
-              if (x.applied) {
-                if (x.kind === "fault") {
-                  stats.faults++;
-                  const fam = (recipeById.get(x.id) || {}).family || "?";
-                  stats.family[fam] = (stats.family[fam] || 0) + 1;
-                } else stats.controls++;
-              } else if (/^error/.test(x.reason || "")) stats.recipeErrors++;
-              else stats.notApplied++;
-            }
-            const applied = results.some((x) => x.applied);
-            let view = null;
-            let after = null;
-            let shotAfter = null;
-            if (applied) {
-              stats.injected++;
-              // partial: some recipe changed the page and then failed; its labels were removed, so the view's
-              // labels may miss a real change. Training should drop views with partial set.
-              view = await extract(scheme, round, { env, round, final, recipes: results, partial: results.some((x) => x.partial), pre });
-              if (opts.pixel) {
-                after = await page.evaluate("__visionMarkedBoxes()").catch(() => null);
-                shotAfter = await screenshot(page, dev, { scale: 1, quality: 90, raw: true }).catch(() => null);
+          }
+          const { view, rows } = await extract(device, scheme, 0);
+          if (opts.crops) out.crops += await saveCandidates(w, page, item, view, rows).catch(() => 0);
+        }
+        if (dark) {
+          await page.emulateMedia({ colorScheme: "light" });
+          await settle(1000);
+        }
+      }
+
+      // ---- injection rounds, in place: phone rounds at the phone size, then desktop rounds
+      if (inject) {
+        phase = "rounds";
+        await page.evaluate(PAGE_RUNTIME);
+        const devs = ["phone", "desktop"].filter((d) => (opts.rounds[d] || 0) > 0);
+        const total = devs.reduce((s, d) => s + opts.rounds[d], 0);
+        const used = new Set();
+        let k = 0;
+        let stop = false;
+        for (const device of devs) {
+          if (stop) break;
+          if (device === "desktop") {
+            await page.setViewportSize(DEVICES.desktop.viewport);
+            await settle(1500);
+          }
+          await page.evaluate("scrollTo(0, 0)").catch(() => {});
+          const base = await page.evaluate("__visionSig()").catch(() => null);
+          let pre = { same: 1, undoOk: true };
+          const seed0 = parseInt(vidBase[device].slice(0, 8), 16);
+          for (let round = 1; round <= opts.rounds[device] && !stop; round++) {
+            k++;
+            const final = k === total; // only the load's very last round is left in place
+            const chosen = chooseRound(recipes, device, rand, stats.family, { final, used, schemes });
+            if (!chosen.length) break;
+            for (const c of chosen) used.add(c.id);
+            const scheme = envOf(chosen).colorScheme;
+            try {
+              // a client-side redirect or reload replaced the document: its runtime and baseline are gone
+              if (!(await page.evaluate("typeof globalThis.__visionInject === 'function' && typeof globalThis.__visionLib === 'object'").catch(() => false))) {
+                nav.docReplaced = `${device}-${round}`;
+                stop = true;
+                break;
               }
-            } else out.notApplied.push(results);
-            let beforeBoxes = null;
-            if (!final) {
-              const u = await page.evaluate("__visionUndo()").catch((e) => ({ ok: false, err: String(e.message).slice(0, 80) }));
-              await settle(1000);
-              if (view) view.injected.undo = u;
-              if (after) beforeBoxes = await page.evaluate("__visionMarkedBoxes()").catch(() => null);
-            }
-            if (view && after && before && shotAfter) {
-              // per marked element: the union of its box before (after the undo) and after injection, in the viewport
-              const vp = page.viewportSize();
-              const boxes = after.map((b, k) => {
-                if (b.page) return [0, 0, vp.width, vp.height];
-                const bb = beforeBoxes && beforeBoxes[k];
-                const xs = [], ys = [], xe = [], ye = [];
-                for (const q of [b, bb]) if (q && q.w > 0 && q.h > 0) xs.push(q.x), ys.push(q.y), xe.push(q.x + q.w), ye.push(q.y + q.h);
-                return xs.length ? [Math.min(...xs), Math.min(...ys), Math.max(...xe), Math.max(...ye)] : [0, 0, 0, 0];
-              });
-              const d = await pixDiff(w, before, shotAfter, boxes);
-              if (d) {
-                stats.pixChecked++;
-                // per marked element: lab, page flag, box after injection, union box, [area in viewport, changed px]
-                view.injected.pix = { W: d.W, H: d.H, total: d.total, els: after.map((b, k) => ({ lab: b.lab, page: b.page, x: b.x, y: b.y, w: b.w, h: b.h, u: boxes[k].map((v) => Math.round(v)), a: d.out[k][0], n: d.out[k][1] })) };
+              if (scheme !== "light") {
+                await page.emulateMedia({ colorScheme: scheme });
+                await settle(1500);
               }
+              const rq0 = { n: nav.roundRequests, off: nav.roundOffHost };
+              const before = opts.pixel ? await screenshot(page, 1, { quality: 90, raw: true }).catch(() => null) : null;
+              const results = await page
+                .evaluate(injectionScript(chosen, (seed0 ^ Math.imul(round, 2654435761) ^ opts.seed) >>> 0))
+                .catch((e) => chosen.map((c) => ({ id: c.id, kind: c.kind, applied: false, reason: "error: " + String(e.message).slice(0, 100) })));
+              stats.rounds++;
+              await settle(1500);
+              for (const x of results) {
+                if (x.trace) stats.traced++;
+                if (x.applied) {
+                  if (x.kind === "fault") {
+                    stats.faults++;
+                    const fam = (recipeById.get(x.id) || {}).family || "?";
+                    stats.family[fam] = (stats.family[fam] || 0) + 1;
+                  } else stats.controls++;
+                } else if (/^error/.test(x.reason || "")) stats.recipeErrors++;
+                else stats.notApplied++;
+              }
+              const applied = results.some((x) => x.applied);
+              let view = null;
+              let after = null;
+              let shotAfter = null;
+              if (applied) {
+                stats.injected++;
+                // partial: a recipe changed the page and then failed, or left a trace the scrubber could not remove;
+                // its labels were removed, so the view may hold an unlabelled change. Training drops these views.
+                const injected = { env: { colorScheme: scheme }, round, final, recipes: results, partial: results.some((x) => x.partial), traced: results.some((x) => x.trace), pre };
+                ({ view } = await extract(device, scheme, round, injected));
+                view.injected.requests = { n: nav.roundRequests - rq0.n, offHost: nav.roundOffHost - rq0.off };
+                if (opts.pixel) {
+                  after = await page.evaluate("__visionMarkedBoxes()").catch(() => null);
+                  shotAfter = await screenshot(page, 1, { quality: 90, raw: true }).catch(() => null);
+                }
+              } else out.notApplied.push(results);
+              let beforeBoxes = null;
+              if (!final) {
+                const u = await page.evaluate("__visionUndo()").catch((e) => ({ ok: false, err: String(e.message).slice(0, 80) }));
+                await settle(1000);
+                if (view) view.injected.undo = u;
+                if (after) beforeBoxes = await page.evaluate("__visionMarkedBoxes()").catch(() => null);
+              }
+              if (view && after && before && shotAfter) {
+                // per marked element: the union of its box before (after the undo) and after injection, in the viewport
+                const vp = page.viewportSize();
+                const boxes = after.map((b, j) => {
+                  if (b.page) return [0, 0, vp.width, vp.height];
+                  const bb = beforeBoxes && beforeBoxes[j];
+                  const xs = [], ys = [], xe = [], ye = [];
+                  for (const q of [b, bb]) if (q && q.w > 0 && q.h > 0) xs.push(q.x), ys.push(q.y), xe.push(q.x + q.w), ye.push(q.y + q.h);
+                  return xs.length ? [Math.min(...xs), Math.min(...ys), Math.max(...xe), Math.max(...ye)] : [0, 0, 0, 0];
+                });
+                const d = await inComparator(w, PIXDIFF, { a: before, b: shotAfter, boxes, thr: 32 });
+                if (d) {
+                  stats.pixChecked++;
+                  // per marked element: lab, page flag, box after injection, union box, [area in viewport, changed px]
+                  view.injected.pix = { W: d.W, H: d.H, total: d.total, els: after.map((b, j) => ({ lab: b.lab, page: b.page, x: b.x, y: b.y, w: b.w, h: b.h, u: boxes[j].map((v) => Math.round(v)), a: d.out[j][0], n: d.out[j][1] })) };
+                }
+              }
+              if (final) break;
+              if (scheme !== "light") {
+                await page.emulateMedia({ colorScheme: "light" });
+                await settle(1000);
+              }
+              await page.evaluate("scrollTo(0, 0)").catch(() => {});
+              const now = await page.evaluate("__visionSig()").catch(() => null);
+              const residue = await page.evaluate("__visionResidue()").catch(() => ({ sheet: -1, open: -1 }));
+              const left = residue.sheet || residue.open ? 1 : 0;
+              const cmp = sigCompare(base, now);
+              const undoOk = !view || !view.injected.undo || view.injected.undo.ok;
+              pre = { same: cmp.same, undoOk };
+              if (!cmp.count || left !== 0 || !undoOk) {
+                // the page did not come back to its natural state: stop injecting into this load
+                stats.undoDrift++;
+                nav.undoDrift = `${device}-${round}`;
+                out.drift.push({ device, round, recipes: chosen.map((c) => c.id), n0: base && base.n, n1: now && now.n, same: cmp.same, left, undoOk });
+                stop = true;
+              }
+            } catch (e) {
+              stats.roundErrors++;
+              nav.roundError = String(e.message || e).split("\n")[0].slice(0, 120);
+              stop = true;
             }
-            if (final) break;
-            if (envChanged) {
-              if (env.viewport) await page.setViewportSize(dev.viewport);
-              await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
-              await settle(1000);
-            }
-            await page.evaluate("scrollTo(0, 0)").catch(() => {});
-            const now = await page.evaluate("__visionSig()").catch(() => null);
-            const left = await page.evaluate(`document.querySelectorAll("[data-bench-fault]").length`).catch(() => -1);
-            const cmp = sigCompare(base, now);
-            const undoOk = !view || !view.injected.undo || view.injected.undo.ok;
-            pre = { same: cmp.same, undoOk };
-            if (!cmp.count || left !== 0 || !undoOk) {
-              // the page did not come back to its clean state: stop injecting into this load
-              stats.undoDrift++;
-              nav.undoDrift = round;
-              out.drift.push({ device, round, recipes: chosen.map((c) => c.id), n0: base && base.n, n1: now && now.n, same: cmp.same, left, undoOk });
-              break;
-            }
-          } catch (e) {
-            stats.roundErrors++;
-            nav.roundError = String(e.message || e).split("\n")[0].slice(0, 120);
-            break;
           }
         }
       }
@@ -547,42 +691,54 @@ async function main() {
       const t = Date.now();
       stats.hosts++;
       const rec = { host: item.host, group: item.group, status: "", ms: 0, views: 0, error: "" };
-      const rb = await robots(item.host);
-      if (!rb.ok) {
-        rec.status = rb.reason;
+      let path = "/";
+      try {
+        path = new URL(item.url).pathname || "/";
+      } catch {
+        // keep "/"
+      }
+      const rv = robotsVerdict(await robotsFor(item.host), path);
+      if (!rv.ok) {
+        rec.status = rv.reason;
         stats.skipped++;
       } else {
         const rand = rng(createHash("sha1").update(`${opts.seed}|${item.host}`).digest().readUInt32LE(0));
         const dark = rand() < opts.darkShare;
-        const out = { views: [], rows: [], notApplied: [], drift: [] };
+        const inject = rand() < opts.inject;
+        const out = { views: [], rows: [], notApplied: [], drift: [], crops: 0, nav: null };
+        const holder = {};
+        let timer;
+        const capMs = opts.timeout + 40000 + ((opts.rounds.desktop || 0) + (opts.rounds.phone || 0)) * 7000;
+        const hard = new Promise((_, rej) => (timer = setTimeout(() => rej(new Error("host hard timeout")), capMs)));
         try {
-          for (const device of ["desktop", "phone"]) {
-            const holder = {};
-            let timer;
-            const capMs = opts.timeout + 30000 + (opts.rounds[device] || 0) * 7000;
-            const hard = new Promise((_, rej) => (timer = setTimeout(() => rej(new Error("load hard timeout")), capMs)));
-            try {
-              await Promise.race([oneLoad(w, item, device, rand, out, holder, device === "phone" && dark), hard]);
-            } finally {
-              clearTimeout(timer);
-              if (holder.ctx) await holder.ctx.close().catch(() => {});
-            }
-          }
-          rec.status = out.views.length ? "ok" : "no-views";
+          await Promise.race([oneHost(w, item, rand, out, holder, { dark, inject }), hard]);
+          const skip = out.nav && out.nav.skip;
+          if (skip && /^robots-final/.test(skip)) stats.robotsFinal++;
+          rec.status = out.views.length ? "ok" : skip ? skip : "no-views";
           if (out.views.length) stats.ok++;
-          else stats.failed++;
+          else if (!(skip && /^robots-final/.test(skip))) stats.failed++;
         } catch (e) {
           rec.status = out.views.length ? "partial" : "failed";
           rec.error = String(e.message || e).split("\n")[0].slice(0, 160);
           if (!out.views.length) stats.failed++;
+        } finally {
+          clearTimeout(timer);
+          if (holder.ctx) await holder.ctx.close().catch(() => {});
         }
         for (const v of out.views) views.write(v);
         for (const [vid, rows] of out.rows) for (const r of rows) elements.write({ vid, ...r });
         rec.views = out.views.length;
         rec.dark = dark ? 1 : 0;
+        rec.inject = inject ? 1 : 0;
         rec.rounds = out.views.filter((v) => v.round).length;
+        rec.crops = out.crops;
+        if (out.nav) {
+          stats.roundRequests += out.nav.roundRequests || 0;
+          stats.roundOffHost += out.nav.roundOffHost || 0;
+        }
         if (out.views.length) okBy[item.group] = (okBy[item.group] || 0) + 1;
         stats.views += out.views.length;
+        stats.crops += out.crops;
         stats.rows += out.rows.reduce((n, x) => n + x[1].length, 0);
         if (out.drift.length) rec.drift = out.drift;
         if (out.notApplied.length) rec.notApplied = out.notApplied.flat().map((x) => `${x.id}:${x.reason}`).slice(0, 6);
@@ -602,7 +758,7 @@ async function main() {
     await elements.close();
     await new Promise((r) => doneOut.end(r));
     for (const b of browsers) if (b) await b.close().catch(() => {});
-    stats.recipesRunnable = recipes.length;
+    stats.recipesTrainable = recipes.length;
     await writeFile(join(opts.out, `stats-${T}.json`), JSON.stringify({ ...stats, seconds: Math.round((Date.now() - t0) / 1000), opts }, null, 2));
     log(`finished: ${JSON.stringify(stats)}`);
   };

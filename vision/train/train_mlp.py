@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from common import Cols, Split, Y_CODES, load_schema, log, model_inputs, pick
+from common import Cols, Split, Y_CODES, load_schema, log, model_inputs, pick, require_provenance
 
 
 def ap_score(y, p):
@@ -46,7 +46,9 @@ def main():
     ap.add_argument("--nat", type=int, default=800000)
     ap.add_argument("--epochs", type=int, default=6)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--skip-provenance-gate", action="store_true", help="debug only: results do not count")
     a = ap.parse_args()
+    require_provenance(a.out, a.skip_provenance_gate)
     torch.manual_seed(a.seed)
     torch.set_num_threads(os.cpu_count())
     schema = load_schema(a.set)

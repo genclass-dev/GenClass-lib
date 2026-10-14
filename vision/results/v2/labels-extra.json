@@ -1,0 +1,10096 @@
+{
+ "summary": {
+  "labelEntries": 420,
+  "crops": 420,
+  "doubleLabelled": 0,
+  "agreements": 0,
+  "agreementRate": 0,
+  "cohenKappa": null,
+  "votePairs": {},
+  "realNotDisagreements": 0,
+  "resolved": {
+   "not": 191,
+   "unclear": 109,
+   "real": 120
+  },
+  "bySplit": {
+   "val": {},
+   "test": {}
+  },
+  "realByFamily": {
+   "val": {},
+   "test": {}
+  },
+  "unclearByFamily": {
+   "overflow": 37,
+   "blank": 19,
+   "motion": 5,
+   "other": 19,
+   "leaks": 8,
+   "dark": 1,
+   "media": 3,
+   "occlusion": 7,
+   "text": 10
+  },
+  "byStratum": {
+   "rules": {
+    "not": 127,
+    "unclear": 102,
+    "real": 119
+   },
+   "gbt": {
+    "not": 32,
+    "unclear": 3,
+    "real": 1
+   },
+   "random": {
+    "not": 32,
+    "unclear": 4
+   }
+  },
+  "hosts": {
+   "val": 0,
+   "test": 0
+  },
+  "rowsFound": 420
+ },
+ "labels": [
+  {
+   "id": "xaf4d83a23d9f",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x525d592105c4",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "x9931fb1ab2de",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xc59dc7f5436a",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x628c06ccab68",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x09df21b890fb",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xe65501465858",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x63edb35a1de3",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "motion",
+   "votes": [
+    [
+     "unclear",
+     "motion"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x46a00c6fbf45",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x59e82905202b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xed28601505fc",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "x8e8e6e2a859e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "table"
+  },
+  {
+   "id": "xb09f70112821",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x0f08ce54b372",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x36c85ea07ab0",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "ul"
+  },
+  {
+   "id": "xd5b84b2bfbea",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xa5687c90b525",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x0320055a288f",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xd3e3e04e5062",
+   "split": "train",
+   "verdict": "real",
+   "family": "dark",
+   "votes": [
+    [
+     "real",
+     "dark"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x86005194febd",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xc3ad3f9085ed",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x900cab3c2585",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x65183ef946a3",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "xe6c43df6e3b9",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "polygon"
+  },
+  {
+   "id": "xffee7d524bbe",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x569376d2e414",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "xd9cb367bfeb0",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "input"
+  },
+  {
+   "id": "x4888fdfface3",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "svg"
+  },
+  {
+   "id": "xb7741c058eb5",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x569ab721e7fe",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xf69cb1d7d482",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x5526ce47a870",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "font-failed"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x54059f377ebc",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x176e9e46ba31",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xdfe803567419",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "xcc1ae60907dd",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x684c8b2e246b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x1aba7d927217",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xdc2d6a347507",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xf36e35044c64",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x018d2ddce4e3",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x88b6e054cf8d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x93541da26f52",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "img"
+  },
+  {
+   "id": "xc0feabd968ab",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "random",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x029ae88b342a",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xa2a0a4a96c29",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "x474c7dd3fa89",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xae385a1e9e0e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xdecc80cbd2c0",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x15ef7f0bf81e",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "dark",
+   "votes": [
+    [
+     "unclear",
+     "dark"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xeacddaf6d977",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xb4ed86a5ab8c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xfe90ce31d47e",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "random",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x36534a88fc77",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xb6fdd2f5669c",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x92b70e75c527",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xcf2fff858078",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "main"
+  },
+  {
+   "id": "xa4324dc64424",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xd005fe7f549e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "header"
+  },
+  {
+   "id": "x68cb51251fca",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xce5edf9a2818",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xc5695c469211",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x6225fc3fff6e",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xa495ee24c6d7",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xc67fd93473b6",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x1e17cb5c386a",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x0fe16b9b57c5",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xf93b4cb2db0f",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xaafc11e4968a",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xa5d01b913a5b",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xfbd0a1387e4c",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x40f866d098c8",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x835155a7ab45",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "iframe"
+  },
+  {
+   "id": "xf6f9b07025e8",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "table"
+  },
+  {
+   "id": "xbad8801ad936",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x6eebdeea9a0b",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x3861c63e94a8",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x034919a90362",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xd0e0d7c33b5f",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xc1d486cce773",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x56be4dfa8d28",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x1dc80fab66fe",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "xd3b8915bcbee",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xfcc233a49f5a",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x1f170e4d2006",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x846bff82d872",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x7a4e223433de",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xd9c662d7df34",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "ol"
+  },
+  {
+   "id": "xf1092bea0671",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x5aaeb1b6f090",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x5e055d9ccbc9",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xc3f12548aca7",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xd03f6d247994",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "input"
+  },
+  {
+   "id": "x88ad6723cb43",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x016e0f2b551d",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "media",
+   "votes": [
+    [
+     "unclear",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak",
+    "text-placeholder"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xbda88067e6c2",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "nav"
+  },
+  {
+   "id": "x2b02978824cf",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x653fec7e2b56",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xf108884a8837",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x191ac4e56a6c",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "img"
+  },
+  {
+   "id": "xf0a5df290de0",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "b"
+  },
+  {
+   "id": "x3dbdd6a214a3",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xdc8cdf148dba",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x8c1d24cd9444",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xb113f8681a22",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xefe71977c4ba",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x11043e26790e",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x81a6a1f6e236",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xfbdfc18f40aa",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x6cd0bb550a68",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x339c840369e5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "li"
+  },
+  {
+   "id": "x2787c8aa3760",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "path"
+  },
+  {
+   "id": "x294db75ae0d0",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x815627bd0694",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "occlusion",
+   "votes": [
+    [
+     "unclear",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "click-blocked"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xd8f287b62861",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xd62959ae1a28",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "media",
+   "votes": [
+    [
+     "unclear",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xa9037aaba5bf",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xa454593006c1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x1a56b3e40d1b",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xb31579a49479",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x41439ab1c38f",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "main"
+  },
+  {
+   "id": "x047136b3eca3",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x7d68ee87bb98",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x85e4b7c6adc6",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x77ed292f12f4",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x2137a5711db5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x4c7a42c73d18",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "h1"
+  },
+  {
+   "id": "xeb124183bf20",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "td"
+  },
+  {
+   "id": "x304d70b20af8",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xe83f89ce89e5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x30ec1faeeb20",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x4c434e76ae42",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x539e82c78d68",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "click-blocked"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x2e40fdfa7a4e",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xd8c4355ccdb5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x06a1f0118394",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "iframe"
+  },
+  {
+   "id": "xc7c1ad09e1ed",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x4cc4f12a5f22",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x500164ac1c44",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xe195ac805330",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x197a81f0c64f",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x2661e0fcb1d5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xcc5620dcc173",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "occlusion",
+   "votes": [
+    [
+     "unclear",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "p"
+  },
+  {
+   "id": "x7e487b54f8da",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xec55766258a4",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x8f8c9cc30da6",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x6933a867bc97",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x8fabed089798",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "tbody"
+  },
+  {
+   "id": "x916fd5e9accd",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xbb6eea54c1c7",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "nav"
+  },
+  {
+   "id": "xd102ba4219b1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "span"
+  },
+  {
+   "id": "xaa303c24322f",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "xdd70d7ebf019",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xa83fe95b5f33",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x64298df4f6fa",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x8434e37fc704",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x457eacd0a845",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xec9dad5dc4e1",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "motion",
+   "votes": [
+    [
+     "unclear",
+     "motion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x0ebc449e018d",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "occlusion",
+   "votes": [
+    [
+     "unclear",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xf16c65325d26",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x0aade6f0ebe2",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "ul"
+  },
+  {
+   "id": "xc7975eebface",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "tbody"
+  },
+  {
+   "id": "x369889c794af",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xf2e9c2191951",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x92fa46551147",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "header"
+  },
+  {
+   "id": "xadab7ce291a1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "header"
+  },
+  {
+   "id": "xbf7f143b1abf",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x759899721dc7",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "occlusion",
+   "votes": [
+    [
+     "unclear",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xeae98f98e9f1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x13e8632387d1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x15c663c2ab40",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "ul"
+  },
+  {
+   "id": "xaac1ae8612ed",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "random",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x94e80fafcb4d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "xf743cad0a26a",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x5534a548e35b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "h2"
+  },
+  {
+   "id": "xc0075e304e04",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x4d18afaf7399",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x27225db65d7d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x7990a697c7cb",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xc89fcc1b6491",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x615a15225050",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x54e23678fe05",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xc97d272fd148",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xac8ae6b5d92e",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xeca28f4557c0",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xa9f38ca22523",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xb17af3b08e65",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x23e3915dd235",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x22f6137a14e3",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x05a892621988",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xf5694bc5480b",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "motion",
+   "votes": [
+    [
+     "unclear",
+     "motion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xcd9a47f2eb32",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x648877f07b43",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xc7ea64fdd95d",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x0007e7be84b8",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xd5317ed1aa8c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x414335a50136",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xc23676a28309",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x7c8360b3f423",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "ul"
+  },
+  {
+   "id": "xb0d0d1ed016b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "font-failed"
+   ],
+   "tag": "h1"
+  },
+  {
+   "id": "x0b71f8f6a3ea",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible",
+    "css-var-undefined"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x0658b5932dbe",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "click-blocked"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xe2d0cba99d36",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "p"
+  },
+  {
+   "id": "xd1a8b84beb80",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x30e336f0287c",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x2165f2a3dcd1",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xf61e19f61eb5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x883f1d8f3282",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x89a94424d580",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x47a0d707778f",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x345822810339",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "occlusion",
+   "votes": [
+    [
+     "unclear",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x168f0022028d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x75e270d89e56",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "xab1be9655498",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xc0c81ab520d4",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x6fbaa066096e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "input"
+  },
+  {
+   "id": "xf81da07a1628",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x5517005dc4b8",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xfe2b7a247b41",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x0ad15dad75b7",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x1b137d0c9e73",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xf2dfc653010f",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x99c5eeefef97",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xef863a0823d7",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "thead"
+  },
+  {
+   "id": "xed8c9e4ff0a5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x92bb1deaae4d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "click-blocked"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x5274c1a8976b",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "random",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x7fb75c804218",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "occlusion",
+   "votes": [
+    [
+     "unclear",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xbb2a7dda8883",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xe0fac6372073",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x054192ae9686",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xb48b0364196c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "xe2763162a0ec",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x6d4d44a22b12",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x3d491f2c825d",
+   "split": "train",
+   "verdict": "real",
+   "family": "dark",
+   "votes": [
+    [
+     "real",
+     "dark"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "h1"
+  },
+  {
+   "id": "xb7270b4bb96f",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible",
+    "css-var-undefined"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xb418d0c57681",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x2c108533fea2",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xdd958e837592",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "h2"
+  },
+  {
+   "id": "x37ca740d5c60",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x76f887fea2d0",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xa74716709755",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x1c242bae564d",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "media",
+   "votes": [
+    [
+     "unclear",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x778ee71fdd66",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x92fae8f73907",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x636138559331",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xb03c2da62997",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x3380e987f911",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x93221d404dad",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xdcc0aaaadebf",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "p"
+  },
+  {
+   "id": "xdfd9b06fc702",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x3b00c3c6618e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x6584c7404b41",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x680f1224fc0e",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xcaf292c48292",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x03df57acaf19",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x86085108380a",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x714d96a628e3",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xdfab0d8cc800",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x2e4b1ef26d19",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "label"
+  },
+  {
+   "id": "x99641ec73820",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x13c6b21779f1",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "font-failed"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x26b647c87209",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "header"
+  },
+  {
+   "id": "x29dacf024ed8",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "table"
+  },
+  {
+   "id": "xff3f3d461cf4",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x2feb830abba6",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x68c9e363502e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x40c40ce1b7a8",
+   "split": "train",
+   "verdict": "real",
+   "family": "occlusion",
+   "votes": [
+    [
+     "real",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x5b6f915e9514",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "img"
+  },
+  {
+   "id": "xe3b77d8b6f22",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x181d610491dc",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xa2df669689f7",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x395516d4c4c5",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "table"
+  },
+  {
+   "id": "xecf0de493570",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x1d1de7dd07fe",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x207d57fd8964",
+   "split": "train",
+   "verdict": "real",
+   "family": "occlusion",
+   "votes": [
+    [
+     "real",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x34e41b714157",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xed33613ab193",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x216a054a8335",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "svg"
+  },
+  {
+   "id": "x36ee5d0559c6",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x6172cf58c640",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xe4a2ac76c0cc",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x499aaccd5379",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xc8ba0365a00d",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x56946b2b5a5c",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xdede8619d27d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x0a41acb03d0c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "img"
+  },
+  {
+   "id": "x4be74befcec1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "random",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xc7a1c832107b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x4b9b61c4564c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "random",
+    "rules"
+   ],
+   "rules": [
+    "font-failed"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xe53b9073c93f",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xf59f96a8be1f",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "xd3ea5d815753",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "font-failed"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x827abd3544d9",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x81c1a599c8d0",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "table"
+  },
+  {
+   "id": "xab9b9753e01c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x31c8cc36211e",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "iframe"
+  },
+  {
+   "id": "x7f32e7e38fcc",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "input"
+  },
+  {
+   "id": "x8a0e82cc9b26",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xe88a57b88bbe",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x8fb39fd39604",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "label"
+  },
+  {
+   "id": "x73fb3ae9899d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "b"
+  },
+  {
+   "id": "x54ba2a95c6f1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x793f29f1ff42",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x407542f8e142",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xd7639784206f",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "input"
+  },
+  {
+   "id": "x1d6ab8e88d84",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xc39833bdebb5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x4708c29e662b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xebc0fa0fe534",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible",
+    "css-var-undefined"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x31cd560f6179",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xfad488c49877",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "svg"
+  },
+  {
+   "id": "x81c6873dd173",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x73b2fe5f1d06",
+   "split": "train",
+   "verdict": "real",
+   "family": "occlusion",
+   "votes": [
+    [
+     "real",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x4ae3d7d0fdf7",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "x655e15c82ed8",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x6b852598556a",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x979d8d7cc096",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x5ceb97dc3f11",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "xad7a9bd87431",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x4322b5871a29",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xabe3c09263b8",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xf6d16d7fe201",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x96a3a32bba69",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "xb4911586a50d",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "motion",
+   "votes": [
+    [
+     "unclear",
+     "motion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x2de068ec77dc",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "leaks",
+   "votes": [
+    [
+     "unclear",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xfb9995b932e5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "span"
+  },
+  {
+   "id": "xd6fc7fef762b",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xc855c695c622",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x8a38a3d4330d",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x8db76caf818a",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x39ea2f5dfed5",
+   "split": "train",
+   "verdict": "real",
+   "family": "text",
+   "votes": [
+    [
+     "real",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x4ed88a5d991b",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "font-failed"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xf3957aebed20",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x78a754fb1bc3",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x934fbda60bdb",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xf478ec6ac66a",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xb7acf6621451",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "h1"
+  },
+  {
+   "id": "xf40c0d7194e1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "xeeccfe1e9af9",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x52cb2b57a8da",
+   "split": "train",
+   "verdict": "real",
+   "family": "dark",
+   "votes": [
+    [
+     "real",
+     "dark"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "xd79fd574ecf3",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "h3"
+  },
+  {
+   "id": "xe07131a2fb34",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x01c85d9a82b6",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "click-blocked"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xad8e9a853b8f",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xb96981cc55aa",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "img"
+  },
+  {
+   "id": "x4cd8c5bdbef3",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x9d7d4d60aa27",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xc182acae6ccd",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x2b375730e570",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "input"
+  },
+  {
+   "id": "x9600f5ac2792",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x2f4b7c8dd19e",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "occlusion",
+   "votes": [
+    [
+     "unclear",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "input"
+  },
+  {
+   "id": "x648049066b94",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x492ae63ebfd5",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x00e9ac78650d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xcdd14dc8b26d",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak",
+    "text-placeholder"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x06140b4ae79b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x1d49a3b1c59e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "xfd8f94802f1a",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "x6d7a69f4082c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "click-blocked"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xca82f8601c5c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible",
+    "css-var-undefined"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xafea45e3d447",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "h3"
+  },
+  {
+   "id": "x1f8336be5ae4",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "svg"
+  },
+  {
+   "id": "x7da097e9396f",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x3f6342930f41",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x089b88d21000",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xf01238b3f5fd",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "xf13d2e8f6e6d",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "input"
+  },
+  {
+   "id": "x43a4e6424259",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xd6edca3e7591",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xe8b9d922a597",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xc4090078dca9",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x9bb5ae5953fa",
+   "split": "train",
+   "verdict": "real",
+   "family": "occlusion",
+   "votes": [
+    [
+     "real",
+     "occlusion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x85ed1c4abb30",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xdb9f303b74f9",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x10af5a4b29f5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "xc538c328e0f9",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x817688aef133",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x60347bd6ef16",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "path"
+  },
+  {
+   "id": "x9baa3823545e",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x17ecfcca15ae",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xfb54ad96e705",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xe139fe2e8bbf",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x5f17d0243f74",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "h1"
+  },
+  {
+   "id": "xd7a27d28bf12",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x03d8a2f4e277",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "table"
+  },
+  {
+   "id": "x7f86e178b33b",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "xb983c49e0a98",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-broken"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xc7240e37c385",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "xc6410ee49b92",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "section"
+  },
+  {
+   "id": "x9449017b129c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible",
+    "css-var-undefined"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x5b994189866c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x2f2bc829c799",
+   "split": "train",
+   "verdict": "real",
+   "family": "responsive",
+   "votes": [
+    [
+     "real",
+     "responsive"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x7b5e58b6d898",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "text",
+   "votes": [
+    [
+     "unclear",
+     "text"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "span"
+  },
+  {
+   "id": "xffa7737a94cb",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x53ff00bc2195",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xa9453c3482e5",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x1923cb73a614",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "nav"
+  },
+  {
+   "id": "xe6dc3c21d801",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x32fed5466f1c",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x6035eb0b6da2",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x1e0ac6f76ba3",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "motion",
+   "votes": [
+    [
+     "unclear",
+     "motion"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "random",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xe928bb191cf9",
+   "split": "train",
+   "verdict": "real",
+   "family": "media",
+   "votes": [
+    [
+     "real",
+     "media"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "x2793ea2edb1d",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "circle"
+  },
+  {
+   "id": "xd8803ca22466",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "blank",
+   "votes": [
+    [
+     "unclear",
+     "blank"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x9e4c070456d0",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "input"
+  },
+  {
+   "id": "xa51f2bb1adc3",
+   "split": "train",
+   "verdict": "real",
+   "family": "leaks",
+   "votes": [
+    [
+     "real",
+     "leaks"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-template-leak"
+   ],
+   "tag": "p"
+  },
+  {
+   "id": "x99c88429e351",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "other",
+   "votes": [
+    [
+     "unclear",
+     "other"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "xbb3e9c53ddeb",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "css-var-undefined"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "x83bfaa4c4ec4",
+   "split": "train",
+   "verdict": "real",
+   "family": "overflow",
+   "votes": [
+    [
+     "real",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "a"
+  },
+  {
+   "id": "x4a235be70316",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "text-invisible"
+   ],
+   "tag": "button"
+  },
+  {
+   "id": "x5e64eb8b003f",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "x0ba2c73758d7",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "svg"
+  },
+  {
+   "id": "xa0fb0695e27e",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x70a853f73585",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "dark",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "image-distorted"
+   ],
+   "tag": "img"
+  },
+  {
+   "id": "xb8722d0a1085",
+   "split": "train",
+   "verdict": "unclear",
+   "family": "overflow",
+   "votes": [
+    [
+     "unclear",
+     "overflow"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "rules",
+   "sources": [
+    "rules"
+   ],
+   "rules": [
+    "page-overflow-x"
+   ],
+   "tag": "div"
+  },
+  {
+   "id": "xf92f4f65dcc1",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "div"
+  },
+  {
+   "id": "x8ada71ed5a40",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "random",
+   "sources": [
+    "random"
+   ],
+   "rules": [],
+   "tag": "button"
+  },
+  {
+   "id": "xcc36342640df",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "desktop",
+   "scheme": "light",
+   "group": "ai-builder",
+   "stratum": "gbt",
+   "sources": [
+    "gbt"
+   ],
+   "rules": [],
+   "tag": "a"
+  },
+  {
+   "id": "x3975de3e233a",
+   "split": "train",
+   "verdict": "not",
+   "family": "none",
+   "votes": [
+    [
+     "not",
+     "none"
+    ]
+   ],
+   "agree": null,
+   "device": "phone",
+   "scheme": "light",
+   "group": "control",
+   "stratum": "rules",
+   "sources": [
+    "gbt",
+    "rules"
+   ],
+   "rules": [
+    "control-unreachable"
+   ],
+   "tag": "button"
+  }
+ ],
+ "note": "Crop ids are random pseudonyms; they cannot be traced to a site. The mapping stays off the repo."
+}

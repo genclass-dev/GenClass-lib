@@ -25,7 +25,7 @@ const near = (a, b, tol) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
 
 test("extract.js loads as a classic script and exposes the extractor", () => {
   assert.equal(typeof ctx.__visionExtract, "function");
-  assert.equal(lib.VERSION, "vision-extract-1");
+  assert.equal(lib.VERSION, "vision-extract-2");
 });
 
 test("parseColor: the computed forms Chromium returns", () => {

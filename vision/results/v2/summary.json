@@ -1,0 +1,1693 @@
+{
+ "built": "2026-10-14T02:43:14.769Z",
+ "crawl": {
+  "hosts": 9158,
+  "byGroup": {
+   "ai-builder": {
+    "attempted": 7104,
+    "ok": 6003,
+    "partial": 8,
+    "skipped": {
+     "robots-disallow": 85,
+     "robots-unreachable": 125,
+     "robots-final:robots-disallow": 23
+    },
+    "failed": 860
+   },
+   "control": {
+    "attempted": 2054,
+    "ok": 1208,
+    "partial": 1,
+    "skipped": {
+     "robots-disallow": 39,
+     "robots-unreachable": 545,
+     "robots-final:robots-unreachable": 5,
+     "robots-final:robots-disallow": 8,
+     "robots-5xx": 3
+    },
+    "failed": 245
+   }
+  },
+  "hostsWithViewsByDomain": {
+   "lovable.app": 2634,
+   "created.app": 705,
+   "control": 1209,
+   "manus.space": 627,
+   "replit.app": 723,
+   "base44.app": 1105,
+   "emergent.host": 77,
+   "vusercontent.net": 103,
+   "genspark.space": 24,
+   "windsurf.build": 13
+  },
+  "views": {
+   "total": 83982,
+   "clean": 19198,
+   "injected": 64784,
+   "byDeviceScheme": {
+    "desktop-light": 7220,
+    "phone-light": 7220,
+    "desktop-dark": 2379,
+    "phone-dark": 2379
+   }
+  },
+  "elementRows": 31864620,
+  "hostMs": {
+   "p50": 48050,
+   "p90": 74985
+  }
+ },
+ "extractorCostMs": {
+  "perView": {
+   "p50": 18.6,
+   "p90": 62.5,
+   "p99": 234,
+   "max": 4597.9
+  },
+  "perCleanLoad": {
+   "p50": 25.8,
+   "p90": 84.5
+  },
+  "rowsPerView": {
+   "p50": 229,
+   "p90": 926
+  },
+  "truncatedViews": 1522
+ },
+ "injection": {
+  "injectedViews": 64784,
+  "partialViews": 1160,
+  "tracedViews": 6,
+  "tracedRecipes": {
+   "tw-config-tokens-missing": 4,
+   "class-subtree-unbacked": 2
+  },
+  "mechanismAttributes": {
+   "error-colour-only:aria-invalid": 414,
+   "disabled-looks-enabled:disabled": 516,
+   "control-line-clamp-with-title:title": 295,
+   "svg-viewbox-removed:viewBox": 876,
+   "svg-unsized:width": 732,
+   "svg-unsized:height": 731,
+   "icon-button-emptied:aria-label": 173,
+   "labels-to-placeholders:placeholder": 148,
+   "blank-root-emptied:src": 1,
+   "layout-fixed-sidebar:breakpointsm": 1,
+   "layout-fixed-sidebar:aria-haspopup": 1,
+   "clip-over-truncate:title": 6
+  },
+  "roundRequests": 58919,
+  "roundRequestsOffHost": 52844,
+  "madeRowsSkipped": 171346,
+  "spreadCleanRowsSkipped": 9771121,
+  "spreadViews": 28136,
+  "recipesSpread": {
+   "stylesheets-disabled": "every stylesheet disabled (0.977)",
+   "text-scale-200": "root font size 200% and global spacing (0.952)",
+   "overflow-nowrap-row": "the page scrolls sideways (0.923)",
+   "overflow-wide-pre": "the page scrolls sideways (0.919)",
+   "layout-fixed-sidebar": "a section moved into a fixed-width row: the page scrolls sideways (0.916)",
+   "text-tiny-mobile": "body, p and li font size 11px on the phone (0.889)",
+   "overflow-iframe-fixed": "the page scrolls sideways (0.874)",
+   "overflow-fixed-width": "the page scrolls sideways (0.850)",
+   "blowout-grid-1fr": "a blown-out grid: the page scrolls sideways (0.826)",
+   "overflow-decorative-blob": "the page scrolls sideways (0.822)",
+   "blowout-long-string": "a nowrap string in a flex row: the page scrolls sideways (0.779)",
+   "blank-root-emptied": "the app root emptied: the rest of the page reflows (0.702)",
+   "layout-grid-fixed-columns": "a section forced into 3 columns: the page scrolls sideways (0.676)",
+   "blank-root-hidden": "the app root hidden: the rest of the page reflows (0.646)",
+   "icon-shrink": "a long label appended to a flex row: the content below moves (0.635)",
+   "vite-template-centering": "body made a centring flex box: every element moves (0.616)",
+   "class-subtree-unbacked": "every class in a subtree renamed: the whole subtree restyled, only its root labelled (0.600)",
+   "jank-blur-stack": "a fixed full-viewport layer and backdrop filters (0.586)",
+   "overlap-clone-offset": "an absolutely positioned clone appended to body (0.579)",
+   "popup-no-focus": "a fixed overlay over every element (0.577)"
+  },
+  "faultsApplied": 86801,
+  "controlsApplied": 5444,
+  "byFamily": {
+   "responsive": {
+    "faults": 12242,
+    "recipes": 8,
+    "markedElements": 14755,
+    "matrixRows": 8162,
+    "pixel": {
+     "seen": 3399,
+     "unseen": 473,
+     "out": 4290,
+     "none": 0,
+     "noisy": 1108
+    }
+   },
+   "text": {
+    "faults": 9469,
+    "recipes": 10,
+    "markedElements": 12847,
+    "matrixRows": 5591,
+    "pixel": {
+     "seen": 1961,
+     "unseen": 225,
+     "out": 3405,
+     "none": 0,
+     "noisy": 1029
+    }
+   },
+   "styles": {
+    "faults": 4813,
+    "recipes": 12,
+    "markedElements": 41969,
+    "matrixRows": 25869,
+    "pixel": {
+     "seen": 4536,
+     "unseen": 4408,
+     "out": 16924,
+     "none": 1,
+     "noisy": 1362
+    }
+   },
+   "dark": {
+    "faults": 2743,
+    "recipes": 4,
+    "markedElements": 2824,
+    "matrixRows": 2707,
+    "pixel": {
+     "seen": 352,
+     "unseen": 53,
+     "out": 2302,
+     "none": 0,
+     "noisy": 285
+    }
+   },
+   "blank": {
+    "faults": 5330,
+    "recipes": 6,
+    "markedElements": 5329,
+    "matrixRows": 2766,
+    "pixel": {
+     "seen": 1208,
+     "unseen": 170,
+     "out": 1388,
+     "none": 0,
+     "noisy": 583
+    }
+   },
+   "overflow": {
+    "faults": 11569,
+    "recipes": 11,
+    "markedElements": 11569,
+    "matrixRows": 11340,
+    "pixel": {
+     "seen": 4216,
+     "unseen": 324,
+     "out": 6800,
+     "none": 0,
+     "noisy": 1789
+    }
+   },
+   "media": {
+    "faults": 7475,
+    "recipes": 6,
+    "markedElements": 7475,
+    "matrixRows": 5166,
+    "pixel": {
+     "seen": 2566,
+     "unseen": 436,
+     "out": 2164,
+     "none": 0,
+     "noisy": 772
+    }
+   },
+   "design": {
+    "faults": 5045,
+    "recipes": 5,
+    "markedElements": 9397,
+    "matrixRows": 9010,
+    "pixel": {
+     "seen": 3327,
+     "unseen": 501,
+     "out": 5182,
+     "none": 0,
+     "noisy": 731
+    }
+   },
+   "other": {
+    "faults": 4535,
+    "recipes": 9,
+    "markedElements": 21813,
+    "matrixRows": 19696,
+    "pixel": {
+     "seen": 2705,
+     "unseen": 2485,
+     "out": 14506,
+     "none": 0,
+     "noisy": 1275
+    }
+   },
+   "occlusion": {
+    "faults": 6315,
+    "recipes": 7,
+    "markedElements": 6315,
+    "matrixRows": 6250,
+    "pixel": {
+     "seen": 4340,
+     "unseen": 659,
+     "out": 1251,
+     "none": 0,
+     "noisy": 843
+    }
+   },
+   "controls": {
+    "faults": 7557,
+    "recipes": 14,
+    "markedElements": 46052,
+    "matrixRows": 42547,
+    "pixel": {
+     "seen": 5983,
+     "unseen": 7217,
+     "out": 29347,
+     "none": 0,
+     "noisy": 4111
+    }
+   },
+   "leaks": {
+    "faults": 5247,
+    "recipes": 5,
+    "markedElements": 7300,
+    "matrixRows": 5322,
+    "pixel": {
+     "seen": 1471,
+     "unseen": 55,
+     "out": 3796,
+     "none": 0,
+     "noisy": 607
+    }
+   },
+   "motion": {
+    "faults": 4461,
+    "recipes": 5,
+    "markedElements": 6906,
+    "matrixRows": 6682,
+    "pixel": {
+     "seen": 1588,
+     "unseen": 660,
+     "out": 4434,
+     "none": 0,
+     "noisy": 454
+    }
+   }
+  },
+  "byRecipe": {
+   "pseudo-localize": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 2553,
+    "na": 16,
+    "error": 0,
+    "marked": 2552
+   },
+   "mobile-section-hidden": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 772,
+    "na": 829,
+    "error": 0,
+    "marked": 772
+   },
+   "icon-shrink": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 5408,
+    "na": 676,
+    "error": 0,
+    "marked": 5408
+   },
+   "fixed-footer-over-cta": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 3813,
+    "na": 1383,
+    "error": 0,
+    "marked": 3813
+   },
+   "tap-target-shrink": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 2407,
+    "na": 1327,
+    "error": 0,
+    "marked": 13704
+   },
+   "text-tiny-mobile": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 6709,
+    "na": 0,
+    "error": 0,
+    "marked": 6706
+   },
+   "control-overflow-in-scroller": {
+    "family": "overflow",
+    "kind": "control",
+    "applied": 1927,
+    "na": 902,
+    "error": 0,
+    "marked": 1927
+   },
+   "text-scale-200": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 2938,
+    "na": 0,
+    "error": 0,
+    "marked": 2937
+   },
+   "chart-parent-zero": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 53,
+    "na": 700,
+    "error": 0,
+    "marked": 53
+   },
+   "token-undefined": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 726,
+    "na": 36,
+    "error": 0,
+    "marked": 726
+   },
+   "prose-dark-uninverted": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 2502,
+    "na": 1511,
+    "error": 0,
+    "marked": 2502
+   },
+   "blank-root-hidden": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 1438,
+    "na": 60,
+    "error": 0,
+    "marked": 1438
+   },
+   "drift-padding-colour": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 645,
+    "na": 628,
+    "error": 0,
+    "marked": 2570
+   },
+   "button-long-label": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 2479,
+    "na": 117,
+    "error": 0,
+    "marked": 2479
+   },
+   "layout-fixed-sidebar": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 1091,
+    "na": 605,
+    "error": 0,
+    "marked": 1091
+   },
+   "overflow-decorative-blob": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 1115,
+    "na": 389,
+    "error": 0,
+    "marked": 1115
+   },
+   "blowout-long-string": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 1360,
+    "na": 646,
+    "error": 0,
+    "marked": 1360
+   },
+   "bg-repeat": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 678,
+    "na": 216,
+    "error": 0,
+    "marked": 678
+   },
+   "clip-fixed-height": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 801,
+    "na": 216,
+    "error": 0,
+    "marked": 801
+   },
+   "control-markdown-rendered": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 305,
+    "na": 133,
+    "error": 0,
+    "marked": 305
+   },
+   "align-icon-baseline": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 1553,
+    "na": 176,
+    "error": 0,
+    "marked": 3042
+   },
+   "error-colour-only": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 402,
+    "na": 400,
+    "error": 0,
+    "marked": 402
+   },
+   "mobile-nav-no-toggle": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 287,
+    "na": 2831,
+    "error": 0,
+    "marked": 301
+   },
+   "input-font-14": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 971,
+    "na": 858,
+    "error": 0,
+    "marked": 3486
+   },
+   "layout-grid-fixed-columns": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 1377,
+    "na": 491,
+    "error": 0,
+    "marked": 1377
+   },
+   "vh-hero-cta-bottom": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 1115,
+    "na": 518,
+    "error": 0,
+    "marked": 1115
+   },
+   "svg-viewbox-removed": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 853,
+    "na": 172,
+    "error": 0,
+    "marked": 853
+   },
+   "chrome-header-cloned": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 594,
+    "na": 436,
+    "error": 0,
+    "marked": 594
+   },
+   "jank-layout-animation": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 620,
+    "na": 712,
+    "error": 0,
+    "marked": 620
+   },
+   "stylesheets-disabled": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 901,
+    "na": 0,
+    "error": 0,
+    "marked": 901
+   },
+   "crowd-zero-gap": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 1825,
+    "na": 88,
+    "error": 0,
+    "marked": 1825
+   },
+   "vite-template-centering": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 1785,
+    "na": 0,
+    "error": 0,
+    "marked": 1785
+   },
+   "fake-clickable-card": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 216,
+    "na": 200,
+    "error": 0,
+    "marked": 620
+   },
+   "scroll-snap-trap": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 2154,
+    "na": 0,
+    "error": 0,
+    "marked": 4249
+   },
+   "block-deleted": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 618,
+    "na": 353,
+    "error": 0,
+    "marked": 618
+   },
+   "decoration-over-text": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 589,
+    "na": 275,
+    "error": 0,
+    "marked": 589
+   },
+   "overflow-iframe-fixed": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 926,
+    "na": 541,
+    "error": 0,
+    "marked": 926
+   },
+   "overflow-fixed-width": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 847,
+    "na": 572,
+    "error": 0,
+    "marked": 847
+   },
+   "mobile-nav-dead-toggle": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 418,
+    "na": 2687,
+    "error": 0,
+    "marked": 418
+   },
+   "hover-only-actions": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 863,
+    "na": 2430,
+    "error": 0,
+    "marked": 6305
+   },
+   "icon-ligature-typo": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 2,
+    "na": 727,
+    "error": 0,
+    "marked": 2
+   },
+   "tw4-container-uncentered": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 241,
+    "na": 267,
+    "error": 0,
+    "marked": 1428
+   },
+   "placeholder-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 952,
+    "na": 388,
+    "error": 0,
+    "marked": 1900
+   },
+   "align-card-cta": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 312,
+    "na": 865,
+    "error": 0,
+    "marked": 1250
+   },
+   "reveal-never-fires": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 613,
+    "na": 654,
+    "error": 0,
+    "marked": 613
+   },
+   "tw4-cursor-default": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 761,
+    "na": 54,
+    "error": 0,
+    "marked": 19801
+   },
+   "template-leak-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 1105,
+    "na": 331,
+    "error": 0,
+    "marked": 2210
+   },
+   "important-blocks-hover": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 514,
+    "na": 35,
+    "error": 0,
+    "marked": 514
+   },
+   "markdown-raw-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 700,
+    "na": 417,
+    "error": 0,
+    "marked": 700
+   },
+   "clip-over-truncate": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 1566,
+    "na": 560,
+    "error": 0,
+    "marked": 1566
+   },
+   "overflow-nowrap-row": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 897,
+    "na": 534,
+    "error": 0,
+    "marked": 897
+   },
+   "overflow-wide-pre": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 933,
+    "na": 497,
+    "error": 0,
+    "marked": 933
+   },
+   "whitespace-band": {
+    "family": "responsive",
+    "kind": "fault",
+    "applied": 1425,
+    "na": 475,
+    "error": 0,
+    "marked": 1425
+   },
+   "control-ghost-transparent": {
+    "family": "styles",
+    "kind": "control",
+    "applied": 588,
+    "na": 34,
+    "error": 0,
+    "marked": 588
+   },
+   "blowout-grid-1fr": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 565,
+    "na": 324,
+    "error": 0,
+    "marked": 565
+   },
+   "disabled-looks-enabled": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 527,
+    "na": 50,
+    "error": 0,
+    "marked": 527
+   },
+   "header-fixed-no-offset": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 551,
+    "na": 285,
+    "error": 0,
+    "marked": 551
+   },
+   "image-stretch": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 372,
+    "na": 447,
+    "error": 0,
+    "marked": 372
+   },
+   "jank-blur-stack": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 788,
+    "na": 0,
+    "error": 0,
+    "marked": 788
+   },
+   "class-subtree-unbacked": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 248,
+    "na": 286,
+    "error": 0,
+    "marked": 248
+   },
+   "token-double-wrap": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 357,
+    "na": 242,
+    "error": 0,
+    "marked": 4062
+   },
+   "mojibake-text": {
+    "family": "leaks",
+    "kind": "fault",
+    "applied": 705,
+    "na": 490,
+    "error": 0,
+    "marked": 705
+   },
+   "tw-v4-name-in-v3": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 520,
+    "na": 184,
+    "error": 0,
+    "marked": 520
+   },
+   "regression-token-swap": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 1187,
+    "na": 0,
+    "error": 0,
+    "marked": 1187
+   },
+   "emoji-nav-icons": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 626,
+    "na": 229,
+    "error": 0,
+    "marked": 3192
+   },
+   "align-nudge": {
+    "family": "design",
+    "kind": "fault",
+    "applied": 710,
+    "na": 557,
+    "error": 0,
+    "marked": 710
+   },
+   "control-line-clamp-with-title": {
+    "family": "overflow",
+    "kind": "control",
+    "applied": 291,
+    "na": 145,
+    "error": 0,
+    "marked": 291
+   },
+   "prose-rules-removed": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 4,
+    "na": 480,
+    "error": 0,
+    "marked": 26
+   },
+   "control-markdown-in-code": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 293,
+    "na": 135,
+    "error": 0,
+    "marked": 293
+   },
+   "labels-to-placeholders": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 154,
+    "na": 458,
+    "error": 0,
+    "marked": 640
+   },
+   "control-sr-only-text": {
+    "family": "text",
+    "kind": "control",
+    "applied": 312,
+    "na": 140,
+    "error": 0,
+    "marked": 312
+   },
+   "control-embed-id-in-code": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 202,
+    "na": 184,
+    "error": 0,
+    "marked": 202
+   },
+   "gradient-text-descender": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 495,
+    "na": 26,
+    "error": 0,
+    "marked": 495
+   },
+   "overlap-negative-margin": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 239,
+    "na": 442,
+    "error": 0,
+    "marked": 239
+   },
+   "control-logo-marquee": {
+    "family": "blank",
+    "kind": "control",
+    "applied": 301,
+    "na": 127,
+    "error": 0,
+    "marked": 301
+   },
+   "svg-unsized": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 787,
+    "na": 210,
+    "error": 0,
+    "marked": 787
+   },
+   "vendor-grouped": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 315,
+    "na": 451,
+    "error": 0,
+    "marked": 741
+   },
+   "img-inline": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 741,
+    "na": 171,
+    "error": 0,
+    "marked": 9172
+   },
+   "text-color-equals-bg": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 390,
+    "na": 72,
+    "error": 0,
+    "marked": 390
+   },
+   "chrome-footer-cloned": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 648,
+    "na": 349,
+    "error": 0,
+    "marked": 648
+   },
+   "sidebar-zero-width": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 154,
+    "na": 224,
+    "error": 0,
+    "marked": 154
+   },
+   "transparent-overlay-cta": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 345,
+    "na": 106,
+    "error": 0,
+    "marked": 345
+   },
+   "icon-button-emptied": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 357,
+    "na": 127,
+    "error": 0,
+    "marked": 357
+   },
+   "image-outline-removed": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 189,
+    "na": 460,
+    "error": 0,
+    "marked": 1973
+   },
+   "contrast-button-500": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 467,
+    "na": 33,
+    "error": 0,
+    "marked": 467
+   },
+   "control-dark-brand-section": {
+    "family": "dark",
+    "kind": "control",
+    "applied": 24,
+    "na": 4,
+    "error": 0,
+    "marked": 24
+   },
+   "color-scheme-light-on-dark": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 107,
+    "na": 40,
+    "error": 0,
+    "marked": 107
+   },
+   "hero-scrim-removed": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 236,
+    "na": 78,
+    "error": 0,
+    "marked": 1139
+   },
+   "control-pointer-none-decoration": {
+    "family": "controls",
+    "kind": "control",
+    "applied": 372,
+    "na": 119,
+    "error": 0,
+    "marked": 372
+   },
+   "nav-items-hidden": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 205,
+    "na": 172,
+    "error": 0,
+    "marked": 751
+   },
+   "pane-min-height-removed": {
+    "family": "overflow",
+    "kind": "fault",
+    "applied": 80,
+    "na": 718,
+    "error": 0,
+    "marked": 80
+   },
+   "chrome-section-repeated": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 640,
+    "na": 339,
+    "error": 0,
+    "marked": 640
+   },
+   "scroller-scrollbar-hidden": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 98,
+    "na": 232,
+    "error": 0,
+    "marked": 98
+   },
+   "stat-zero": {
+    "family": "motion",
+    "kind": "fault",
+    "applied": 286,
+    "na": 933,
+    "error": 0,
+    "marked": 636
+   },
+   "tw-config-tokens-missing": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 243,
+    "na": 220,
+    "error": 17,
+    "marked": 4282
+   },
+   "webgl-context-lost": {
+    "family": "media",
+    "kind": "fault",
+    "applied": 0,
+    "na": 117,
+    "error": 0,
+    "marked": 0
+   },
+   "blank-root-emptied": {
+    "family": "blank",
+    "kind": "fault",
+    "applied": 1392,
+    "na": 52,
+    "error": 0,
+    "marked": 1391
+   },
+   "gradient-text-no-bg": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 493,
+    "na": 31,
+    "error": 0,
+    "marked": 493
+   },
+   "control-webgl-fallback-shown": {
+    "family": "media",
+    "kind": "control",
+    "applied": 1,
+    "na": 19,
+    "error": 0,
+    "marked": 1
+   },
+   "inline-links-plain": {
+    "family": "other",
+    "kind": "fault",
+    "applied": 243,
+    "na": 476,
+    "error": 0,
+    "marked": 3828
+   },
+   "popup-no-focus": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 600,
+    "na": 0,
+    "error": 0,
+    "marked": 600
+   },
+   "tw4-border-currentcolor": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 553,
+    "na": 138,
+    "error": 0,
+    "marked": 8649
+   },
+   "contrast-muted-light": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 201,
+    "na": 184,
+    "error": 0,
+    "marked": 1220
+   },
+   "contrast-muted-dark": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 268,
+    "na": 108,
+    "error": 0,
+    "marked": 1641
+   },
+   "keyframes-removed": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 207,
+    "na": 342,
+    "error": 0,
+    "marked": 1274
+   },
+   "control-object-cover": {
+    "family": "media",
+    "kind": "control",
+    "applied": 185,
+    "na": 183,
+    "error": 0,
+    "marked": 185
+   },
+   "overlap-fixed-height": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 642,
+    "na": 234,
+    "error": 0,
+    "marked": 642
+   },
+   "focus-ring-removed": {
+    "family": "controls",
+    "kind": "fault",
+    "applied": 566,
+    "na": 10,
+    "error": 0,
+    "marked": 21358
+   },
+   "control-code-block-null": {
+    "family": "leaks",
+    "kind": "control",
+    "applied": 318,
+    "na": 129,
+    "error": 0,
+    "marked": 318
+   },
+   "control-nav-mobile-hidden": {
+    "family": "blank",
+    "kind": "control",
+    "applied": 317,
+    "na": 132,
+    "error": 0,
+    "marked": 317
+   },
+   "overlap-clone-offset": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 467,
+    "na": 313,
+    "error": 0,
+    "marked": 467
+   },
+   "fill-image-parent-static": {
+    "family": "occlusion",
+    "kind": "fault",
+    "applied": 14,
+    "na": 703,
+    "error": 0,
+    "marked": 14
+   },
+   "glass-over-light": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 43,
+    "na": 114,
+    "error": 0,
+    "marked": 129
+   },
+   "dark-card-hardcoded-white": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 83,
+    "na": 19,
+    "error": 0,
+    "marked": 83
+   },
+   "class-unbacked-token": {
+    "family": "styles",
+    "kind": "fault",
+    "applied": 52,
+    "na": 74,
+    "error": 352,
+    "marked": 52
+   },
+   "text-white-on-white-card": {
+    "family": "text",
+    "kind": "fault",
+    "applied": 167,
+    "na": 186,
+    "error": 0,
+    "marked": 167
+   },
+   "control-scroller-with-arrows": {
+    "family": "controls",
+    "kind": "control",
+    "applied": 8,
+    "na": 28,
+    "error": 0,
+    "marked": 8
+   },
+   "dark-input-low": {
+    "family": "dark",
+    "kind": "fault",
+    "applied": 51,
+    "na": 23,
+    "error": 0,
+    "marked": 132
+   }
+  },
+  "recipesNeverApplied": [
+   "video-no-playsinline-ios",
+   "webgl-context-lost",
+   "engine-gated-shift",
+   "radius-transform-safari",
+   "bg-fixed-hero"
+  ],
+  "recipesDropped": {
+   "image-invented-unsplash": "request: points an img at images.unsplash.com (third-party)",
+   "image-dead-placeholder-host": "request: points an img at source.unsplash.com (third-party)",
+   "image-css-background-404": "request: a CSS background URL on the crawled host (an extra request to the site)",
+   "control-image-lazy-offscreen": "request: an img URL on the crawled host (an extra request to the site)",
+   "embed-youtube-dead-id": "request: a YouTube embed (third-party)",
+   "embed-maps-placeholder-key": "request: a Google static-maps image (third-party)",
+   "control-embed-live-video": "request: a YouTube embed (third-party)",
+   "control-maps-query-embed": "request: a Google Maps embed (third-party)",
+   "video-autoplay-unmuted": "request: video.load() fetches the media again; playback state cannot be undone",
+   "video-source-dead-sample": "request: a video on commondatastorage.googleapis.com (third-party)",
+   "control-video-muted-autoplay": "request: play() fetches media; playback state cannot be undone",
+   "control-video-controls": "request: seeking (currentTime) fetches media",
+   "embed-rickroll-placeholder": "request: a YouTube embed (third-party)",
+   "control-embed-real-video": "request: a YouTube embed (third-party)",
+   "builder-badge-and-title": "request: a favicon link to /vite.svg on the crawled host; also edits the document title",
+   "bootstrap4-attrs-on-5": "trace: the fault is a data-* attribute rename with no effect at rest",
+   "control-bootstrap-both-attrs": "trace: the control is a data-* attribute with no effect at rest",
+   "shift-late-banner": "trace: a timer inserts and styles the banner after the scrubber ran; the undo cannot see it",
+   "reveal-threshold-unreachable": "trace: an IntersectionObserver callback can write an inline style after the scrubber ran",
+   "control-reveal-completes": "trace: its IntersectionObserver callback writes an inline style after the scrubber ran",
+   "wheel-hijack": "trace: a wheel listener on window; nothing changes at rest and the listener cannot be removed",
+   "dark-variant-media-only": "trace: the fault needs the app's dark class on the root element; nothing changes at rest in a light view",
+   "rtl-flip": "trace: sets the dir attribute on the root element (page-level label only)",
+   "sticky-broken-wrapper": "trace: reparents every body child into a new wrapper (depth and structure of the whole page change); the fault only shows when scrolling",
+   "overflow-100vw-classic": "emulation: needs classic scrollbars; the crawl's Chromium hides scrollbars in every view",
+   "scrollbar-double": "emulation: needs classic scrollbars; also reparents every body child",
+   "control-scroller-scrollbar-visible": "emulation: differs from its fault only by a classic scrollbar, which no view shows",
+   "breakpoint-small-range": "emulation: the fault exists only at 992 to 995 px wide; no view has that width",
+   "sticky-stack": "emulation: a landscape phone (568x320); the phone view is portrait",
+   "motion-infinite-decoration": "emulation: the fault is ignoring prefers-reduced-motion: reduce, which no view emulates"
+  },
+  "layoutSameAfterUndo": {
+   "p10": 0.97,
+   "p50": 1
+  }
+ },
+ "naturalSignals": {
+  "byGroupDeviceScheme": {
+   "ai-builder|desktop|light": {
+    "views": 6011,
+    "brokenImg": 117,
+    "leak": 46,
+    "invisibleText": 1069,
+    "invisibleTextStrict": 501,
+    "placeholderImg": 8,
+    "varUndefined": 2192,
+    "sideways": 53,
+    "noViewportMeta": 0,
+    "fontError": 144,
+    "cssFailed": 706,
+    "consoleErrors": 2412,
+    "leakIds": {
+     "alt:mustache": 1,
+     "mustache": 1,
+     "placeholder-contact": 27,
+     "template-literal": 3,
+     "lorem": 13,
+     "double-escaped": 3,
+     "alt:double-escaped": 1,
+     "weak-NaN": 1,
+     "currency-nan": 1,
+     "replacement-char": 1,
+     "alt:placeholder-contact": 1,
+     "alt:template-literal": 1
+    },
+    "brokenImgShare": 0.019,
+    "leakShare": 0.008,
+    "invisibleTextShare": 0.178,
+    "invisibleTextStrictShare": 0.083,
+    "placeholderImgShare": 0.001,
+    "varUndefinedShare": 0.365,
+    "sidewaysShare": 0.009,
+    "noViewportMetaShare": 0,
+    "fontErrorShare": 0.024,
+    "cssFailedShare": 0.117,
+    "consoleErrorsShare": 0.401
+   },
+   "ai-builder|phone|light": {
+    "views": 6011,
+    "brokenImg": 115,
+    "leak": 45,
+    "invisibleText": 1018,
+    "invisibleTextStrict": 494,
+    "placeholderImg": 8,
+    "varUndefined": 2267,
+    "sideways": 597,
+    "noViewportMeta": 7,
+    "fontError": 474,
+    "cssFailed": 706,
+    "consoleErrors": 2432,
+    "leakIds": {
+     "alt:mustache": 1,
+     "mustache": 1,
+     "placeholder-contact": 26,
+     "template-literal": 3,
+     "lorem": 13,
+     "double-escaped": 4,
+     "alt:double-escaped": 1,
+     "currency-nan": 1,
+     "replacement-char": 1,
+     "alt:placeholder-contact": 1,
+     "alt:template-literal": 1
+    },
+    "brokenImgShare": 0.019,
+    "leakShare": 0.007,
+    "invisibleTextShare": 0.169,
+    "invisibleTextStrictShare": 0.082,
+    "placeholderImgShare": 0.001,
+    "varUndefinedShare": 0.377,
+    "sidewaysShare": 0.099,
+    "noViewportMetaShare": 0.001,
+    "fontErrorShare": 0.079,
+    "cssFailedShare": 0.117,
+    "consoleErrorsShare": 0.405
+   },
+   "control|desktop|light": {
+    "views": 1209,
+    "brokenImg": 70,
+    "leak": 17,
+    "invisibleText": 319,
+    "invisibleTextStrict": 201,
+    "placeholderImg": 0,
+    "varUndefined": 307,
+    "sideways": 36,
+    "noViewportMeta": 0,
+    "fontError": 72,
+    "cssFailed": 4,
+    "consoleErrors": 536,
+    "leakIds": {
+     "double-escaped": 2,
+     "template-literal": 1,
+     "weak-null": 2,
+     "weak-NaN": 1,
+     "alt:double-escaped": 7,
+     "alt:weak-undefined": 1,
+     "alt:replacement-char": 1,
+     "alt:template-literal": 1,
+     "mojibake": 1,
+     "lorem": 1
+    },
+    "brokenImgShare": 0.058,
+    "leakShare": 0.014,
+    "invisibleTextShare": 0.264,
+    "invisibleTextStrictShare": 0.166,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.254,
+    "sidewaysShare": 0.03,
+    "noViewportMetaShare": 0,
+    "fontErrorShare": 0.06,
+    "cssFailedShare": 0.003,
+    "consoleErrorsShare": 0.443
+   },
+   "control|desktop|dark": {
+    "views": 405,
+    "brokenImg": 23,
+    "leak": 6,
+    "invisibleText": 104,
+    "invisibleTextStrict": 63,
+    "placeholderImg": 0,
+    "varUndefined": 91,
+    "sideways": 13,
+    "noViewportMeta": 0,
+    "fontError": 25,
+    "cssFailed": 0,
+    "consoleErrors": 182,
+    "leakIds": {
+     "double-escaped": 1,
+     "weak-null": 1,
+     "alt:weak-undefined": 1,
+     "alt:replacement-char": 1,
+     "alt:double-escaped": 2
+    },
+    "brokenImgShare": 0.057,
+    "leakShare": 0.015,
+    "invisibleTextShare": 0.257,
+    "invisibleTextStrictShare": 0.156,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.225,
+    "sidewaysShare": 0.032,
+    "noViewportMetaShare": 0,
+    "fontErrorShare": 0.062,
+    "cssFailedShare": 0,
+    "consoleErrorsShare": 0.449
+   },
+   "control|phone|light": {
+    "views": 1209,
+    "brokenImg": 69,
+    "leak": 13,
+    "invisibleText": 288,
+    "invisibleTextStrict": 200,
+    "placeholderImg": 0,
+    "varUndefined": 306,
+    "sideways": 209,
+    "noViewportMeta": 75,
+    "fontError": 54,
+    "cssFailed": 4,
+    "consoleErrors": 558,
+    "leakIds": {
+     "template-literal": 1,
+     "weak-null": 2,
+     "alt:double-escaped": 7,
+     "alt:replacement-char": 1,
+     "double-escaped": 1,
+     "mojibake": 1,
+     "lorem": 1
+    },
+    "brokenImgShare": 0.057,
+    "leakShare": 0.011,
+    "invisibleTextShare": 0.238,
+    "invisibleTextStrictShare": 0.165,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.253,
+    "sidewaysShare": 0.173,
+    "noViewportMetaShare": 0.062,
+    "fontErrorShare": 0.045,
+    "cssFailedShare": 0.003,
+    "consoleErrorsShare": 0.462
+   },
+   "control|phone|dark": {
+    "views": 405,
+    "brokenImg": 24,
+    "leak": 4,
+    "invisibleText": 89,
+    "invisibleTextStrict": 59,
+    "placeholderImg": 0,
+    "varUndefined": 90,
+    "sideways": 76,
+    "noViewportMeta": 23,
+    "fontError": 17,
+    "cssFailed": 0,
+    "consoleErrors": 188,
+    "leakIds": {
+     "weak-null": 1,
+     "alt:replacement-char": 1,
+     "alt:double-escaped": 2
+    },
+    "brokenImgShare": 0.059,
+    "leakShare": 0.01,
+    "invisibleTextShare": 0.22,
+    "invisibleTextStrictShare": 0.146,
+    "placeholderImgShare": 0,
+    "varUndefinedShare": 0.222,
+    "sidewaysShare": 0.188,
+    "noViewportMetaShare": 0.057,
+    "fontErrorShare": 0.042,
+    "cssFailedShare": 0,
+    "consoleErrorsShare": 0.464
+   },
+   "ai-builder|desktop|dark": {
+    "views": 1974,
+    "brokenImg": 38,
+    "leak": 11,
+    "invisibleText": 363,
+    "invisibleTextStrict": 168,
+    "placeholderImg": 1,
+    "varUndefined": 750,
+    "sideways": 18,
+    "noViewportMeta": 0,
+    "fontError": 45,
+    "cssFailed": 230,
+    "consoleErrors": 784,
+    "leakIds": {
+     "alt:mustache": 1,
+     "mustache": 1,
+     "placeholder-contact": 7,
+     "lorem": 3,
+     "replacement-char": 1
+    },
+    "brokenImgShare": 0.019,
+    "leakShare": 0.006,
+    "invisibleTextShare": 0.184,
+    "invisibleTextStrictShare": 0.085,
+    "placeholderImgShare": 0.001,
+    "varUndefinedShare": 0.38,
+    "sidewaysShare": 0.009,
+    "noViewportMetaShare": 0,
+    "fontErrorShare": 0.023,
+    "cssFailedShare": 0.117,
+    "consoleErrorsShare": 0.397
+   },
+   "ai-builder|phone|dark": {
+    "views": 1974,
+    "brokenImg": 37,
+    "leak": 11,
+    "invisibleText": 348,
+    "invisibleTextStrict": 166,
+    "placeholderImg": 1,
+    "varUndefined": 751,
+    "sideways": 206,
+    "noViewportMeta": 5,
+    "fontError": 151,
+    "cssFailed": 230,
+    "consoleErrors": 786,
+    "leakIds": {
+     "alt:mustache": 1,
+     "mustache": 1,
+     "placeholder-contact": 7,
+     "lorem": 3,
+     "replacement-char": 1
+    },
+    "brokenImgShare": 0.019,
+    "leakShare": 0.006,
+    "invisibleTextShare": 0.176,
+    "invisibleTextStrictShare": 0.084,
+    "placeholderImgShare": 0.001,
+    "varUndefinedShare": 0.38,
+    "sidewaysShare": 0.104,
+    "noViewportMetaShare": 0.003,
+    "fontErrorShare": 0.076,
+    "cssFailedShare": 0.117,
+    "consoleErrorsShare": 0.398
+   }
+  },
+  "desktopLightByDomain": {
+   "lovable.app": {
+    "pages": 2634,
+    "brokenImg": 28,
+    "leak": 20,
+    "invisibleText": 561,
+    "invisibleTextStrict": 242,
+    "sidewaysPhone": 251
+   },
+   "created.app": {
+    "pages": 705,
+    "brokenImg": 23,
+    "leak": 20,
+    "invisibleText": 19,
+    "invisibleTextStrict": 13,
+    "sidewaysPhone": 70
+   },
+   "control (Tranco)": {
+    "pages": 1209,
+    "brokenImg": 70,
+    "leak": 17,
+    "invisibleText": 319,
+    "invisibleTextStrict": 201,
+    "sidewaysPhone": 209
+   },
+   "manus.space": {
+    "pages": 627,
+    "brokenImg": 21,
+    "leak": 0,
+    "invisibleText": 156,
+    "invisibleTextStrict": 86,
+    "sidewaysPhone": 82
+   },
+   "replit.app": {
+    "pages": 723,
+    "brokenImg": 11,
+    "leak": 0,
+    "invisibleText": 98,
+    "invisibleTextStrict": 49,
+    "sidewaysPhone": 57
+   },
+   "base44.app": {
+    "pages": 1105,
+    "brokenImg": 27,
+    "leak": 3,
+    "invisibleText": 215,
+    "invisibleTextStrict": 103,
+    "sidewaysPhone": 126
+   },
+   "emergent.host": {
+    "pages": 77,
+    "brokenImg": 2,
+    "leak": 0,
+    "invisibleText": 19,
+    "invisibleTextStrict": 7,
+    "sidewaysPhone": 6
+   },
+   "vusercontent.net": {
+    "pages": 103,
+    "brokenImg": 0,
+    "leak": 0,
+    "invisibleText": 0,
+    "invisibleTextStrict": 0,
+    "sidewaysPhone": 0
+   },
+   "genspark.space": {
+    "pages": 24,
+    "brokenImg": 5,
+    "leak": 2,
+    "invisibleText": 1,
+    "invisibleTextStrict": 1,
+    "sidewaysPhone": 4
+   },
+   "windsurf.build": {
+    "pages": 13,
+    "brokenImg": 0,
+    "leak": 1,
+    "invisibleText": 0,
+    "invisibleTextStrict": 0,
+    "sidewaysPhone": 1
+   }
+  }
+ },
+ "dedupe": {
+  "clusters": 6971,
+  "hostsFingerprinted": 7177,
+  "nearDuplicateHosts": 206,
+  "largestClusters": [
+   67,
+   16,
+   9,
+   9,
+   7,
+   7,
+   6,
+   5,
+   5,
+   5
+  ]
+ },
+ "trainset": {
+  "train": {
+   "nat": 5249035,
+   "clean": 1058187,
+   "fault": 121521,
+   "control": 3928,
+   "views": 56836,
+   "hosts": 5575
+  },
+  "val": {
+   "nat": 657424,
+   "clean": 133614,
+   "fault": 15019,
+   "control": 465,
+   "views": 7097,
+   "hosts": 700
+  },
+  "test": {
+   "nat": 698865,
+   "clean": 131832,
+   "fault": 14052,
+   "control": 506,
+   "views": 7099,
+   "hosts": 699
+  }
+ },
+ "F": 110
+}

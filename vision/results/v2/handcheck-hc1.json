@@ -1,0 +1,129 @@
+{
+ "bySource": {
+  "model:media": {
+   "checked": 30,
+   "real": 10,
+   "unclear": 1,
+   "not": 19,
+   "precision": 0.3333,
+   "threshold": 0.7036195993423462,
+   "flaggedNatural": 117,
+   "eligible": 91,
+   "sampled": 30
+  },
+  "hybrid:media": {
+   "checked": 30,
+   "real": 30,
+   "unclear": 0,
+   "not": 0,
+   "precision": 1.0,
+   "threshold": 0.5369206666946411,
+   "score": "media",
+   "flaggedNatural": 70,
+   "eligible": 46,
+   "sampled": 30
+  },
+  "model:responsive": {
+   "checked": 15,
+   "real": 13,
+   "unclear": 1,
+   "not": 1,
+   "precision": 0.8667,
+   "threshold": 0.9792752265930176,
+   "flaggedNatural": 125,
+   "eligible": 15,
+   "sampled": 15
+  },
+  "model:responsive+lab": {
+   "checked": 11,
+   "real": 10,
+   "unclear": 1,
+   "not": 0,
+   "precision": 0.9091,
+   "threshold": 0.5611275434494019,
+   "flaggedNatural": 114,
+   "eligible": 11,
+   "sampled": 11
+  },
+  "rejected:media": {
+   "checked": 30,
+   "real": 2,
+   "unclear": 13,
+   "not": 15,
+   "precision": 0.0667,
+   "threshold": 0.5369206666946411,
+   "score": "media",
+   "flaggedNatural": 863,
+   "eligible": 37,
+   "sampled": 30
+  },
+  "rules:media": {
+   "checked": 30,
+   "real": 18,
+   "unclear": 2,
+   "not": 10,
+   "precision": 0.6,
+   "threshold": null,
+   "flaggedNatural": 933,
+   "eligible": 83,
+   "sampled": 30
+  },
+  "model:media+lab": {
+   "checked": 30,
+   "real": 8,
+   "unclear": 1,
+   "not": 21,
+   "precision": 0.2667,
+   "threshold": 0.029811283573508263,
+   "flaggedNatural": 512,
+   "eligible": 248,
+   "sampled": 30
+  }
+ },
+ "stats": {
+  "hybrid:media": {
+   "threshold": 0.5369206666946411,
+   "score": "media",
+   "flaggedNatural": 70,
+   "eligible": 46,
+   "sampled": 30
+  },
+  "rejected:media": {
+   "threshold": 0.5369206666946411,
+   "score": "media",
+   "flaggedNatural": 863,
+   "eligible": 37,
+   "sampled": 30
+  },
+  "model:media": {
+   "threshold": 0.7036195993423462,
+   "flaggedNatural": 117,
+   "eligible": 91,
+   "sampled": 30
+  },
+  "rules:media": {
+   "threshold": null,
+   "flaggedNatural": 933,
+   "eligible": 83,
+   "sampled": 30
+  },
+  "model:media+lab": {
+   "threshold": 0.029811283573508263,
+   "flaggedNatural": 512,
+   "eligible": 248,
+   "sampled": 30
+  },
+  "model:responsive": {
+   "threshold": 0.9792752265930176,
+   "flaggedNatural": 125,
+   "eligible": 15,
+   "sampled": 15
+  },
+  "model:responsive+lab": {
+   "threshold": 0.5611275434494019,
+   "flaggedNatural": 114,
+   "eligible": 11,
+   "sampled": 11
+  }
+ }
+}

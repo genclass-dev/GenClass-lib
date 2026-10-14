@@ -3,26 +3,28 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadRecipes, runnable, chooseRound, finalOnly, deviceOf } from "../src/inject.mjs";
+import { loadRecipes, runnable, trainable, chooseRound, finalOnly, deviceOf, schemeOf } from "../src/inject.mjs";
 import { rng } from "../src/discover.mjs";
-import { encode, F, FEATURES, makeVocab, countCats, freezeVocab, natRow, newNat } from "../src/build_set.mjs";
+import { encode, F, FEATURES, PAGE_F, REMOVED_V1, makeVocab, countCats, freezeVocab, natRow, newNat } from "../src/build_set.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RECIPES = join(HERE, "..", "..", "research", "visual", "injectors.json");
 
-test("chooseRound: same env, distinct catalog ids, no reuse, finalOnly only in the last round", async () => {
-  const recipes = runnable(await loadRecipes(RECIPES));
+test("chooseRound: same scheme, distinct catalog ids, no reuse, finalOnly only in the last round", async () => {
+  const recipes = trainable(await loadRecipes(RECIPES));
   const rand = rng(3);
   const counts = {};
   for (let i = 0; i < 400; i++) {
     const device = i % 2 ? "phone" : "desktop";
     const used = new Set(["contrast-muted-light"]);
     const final = i % 4 === 0;
-    const out = chooseRound(recipes, device, rand, counts, { final, used });
+    const schemes = i % 3 ? ["light"] : ["light", "dark"];
+    const out = chooseRound(recipes, device, rand, counts, { final, used, schemes });
     assert.ok(out.length >= 1 && out.length <= 3);
-    const env = JSON.stringify(out[0].env || {});
+    const scheme = schemeOf(out[0]);
     for (const r of out) {
-      assert.equal(JSON.stringify(r.env || {}), env);
+      assert.equal(schemeOf(r), scheme);
+      assert.ok(schemes.includes(scheme));
       assert.equal(deviceOf(r), device);
       assert.ok(!used.has(r.id));
       if (!final) assert.ok(!finalOnly(r), r.id);
@@ -35,11 +37,14 @@ test("chooseRound: same env, distinct catalog ids, no reuse, finalOnly only in t
   assert.ok(Math.min(...fams) > 0);
 });
 
-test("finalOnly marks recipes the undo journal cannot reverse", async () => {
+test("finalOnly marks recipes the undo cannot reverse", async () => {
   const recipes = runnable(await loadRecipes(RECIPES));
   const ids = recipes.filter(finalOnly).map((r) => r.id);
-  assert.ok(ids.includes("stylesheets-disabled"));
+  assert.ok(ids.includes("webgl-context-lost"));
   assert.ok(ids.includes("shift-late-banner"));
+  // v2 journals stylesheet.disabled and the CSSOM helpers
+  assert.ok(!ids.includes("stylesheets-disabled"));
+  assert.ok(!ids.includes("keyframes-removed"));
   assert.ok(!ids.includes("contrast-muted-light"));
 });
 
@@ -52,9 +57,11 @@ test("encode: fixed width, defaults for absent keys, categorical codes", () => {
   for (const r of rows) countCats(vc, r);
   const codes = freezeVocab(vc);
   const buf = new Float32Array(F * 2);
-  const end = encode(rows[0], codes, new Array(10).fill(0), buf, 0);
+  const end = encode(rows[0], codes, new Array(PAGE_F.length).fill(0), buf, 0);
   assert.equal(end, F);
-  encode(rows[1], codes, new Array(10).fill(0), buf, F);
+  encode(rows[1], codes, new Array(PAGE_F.length).fill(0), buf, F);
+  // v2: no column records the injection round or the time since load
+  for (const n of REMOVED_V1) assert.ok(!FEATURES.includes(n), n);
   assert.equal(buf[FEATURES.indexOf("fw")], 400);
   assert.equal(buf[FEATURES.indexOf("cr")], Math.fround(1.2));
   assert.equal(buf[F + FEATURES.indexOf("natW")], 0);

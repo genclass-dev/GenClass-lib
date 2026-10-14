@@ -1,0 +1,2577 @@
+{
+ "configs": {
+  "best": {
+   "leaves": 15,
+   "lr": 0.1,
+   "minleaf": 20,
+   "ff": 0.6,
+   "l2": 0.0,
+   "m": 20,
+   "bg": 400000,
+   "alpha": 2.0,
+   "beta": 0.25,
+   "rounds": 2000
+  }
+ },
+ "models": {
+  "any": {
+   "families": [
+    "blank",
+    "controls",
+    "dark",
+    "design",
+    "leaks",
+    "media",
+    "motion",
+    "occlusion",
+    "other",
+    "overflow",
+    "responsive",
+    "styles",
+    "text"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 25536,
+      "matched": 510580,
+      "unmatchedPositives": 7,
+      "background": 400000,
+      "backgroundWeight": 1.2765,
+      "controls": 3928,
+      "labelledReal": 47,
+      "labelledNot": 687,
+      "realWeight": 1086.638,
+      "notWeight": 9.293
+     },
+     {
+      "positives": 25536,
+      "matched": 510580,
+      "unmatchedPositives": 7,
+      "background": 400000,
+      "backgroundWeight": 1.2765,
+      "controls": 3928,
+      "labelledReal": 57,
+      "labelledNot": 698,
+      "realWeight": 896.0,
+      "notWeight": 9.146
+     },
+     {
+      "positives": 25536,
+      "matched": 510580,
+      "unmatchedPositives": 7,
+      "background": 400000,
+      "backgroundWeight": 1.2765,
+      "controls": 3928,
+      "labelledReal": 62,
+      "labelledNot": 715,
+      "realWeight": 823.742,
+      "notWeight": 8.929
+     },
+     {
+      "positives": 25536,
+      "matched": 510580,
+      "unmatchedPositives": 7,
+      "background": 400000,
+      "backgroundWeight": 1.2765,
+      "controls": 3928,
+      "labelledReal": 46,
+      "labelledNot": 684,
+      "realWeight": 1110.261,
+      "notWeight": 9.333
+     },
+     {
+      "positives": 25536,
+      "matched": 510580,
+      "unmatchedPositives": 7,
+      "background": 400000,
+      "backgroundWeight": 1.2765,
+      "controls": 3928,
+      "labelledReal": 52,
+      "labelledNot": 728,
+      "realWeight": 982.154,
+      "notWeight": 8.769
+     },
+     {
+      "positives": 25536,
+      "matched": 510580,
+      "unmatchedPositives": 7,
+      "background": 400000,
+      "backgroundWeight": 1.2765,
+      "controls": 3928,
+      "labelledReal": 66,
+      "labelledNot": 878,
+      "realWeight": 773.818,
+      "notWeight": 7.271
+     }
+    ],
+    "trees": [
+     208,
+     203,
+     212,
+     171,
+     266,
+     347
+    ],
+    "dev": {
+     "positives": 3174,
+     "matched": 63120,
+     "unmatchedPositives": 18,
+     "background": 50000,
+     "backgroundWeight": 1.2624,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.2154,
+    "aucReal": 0.7777,
+    "apGroup": 0.2154
+   },
+   "seconds": 27,
+   "topGainShare": [
+    [
+     "aspect",
+     0.9448
+    ],
+    [
+     "d",
+     0.0095
+    ],
+    [
+     "rr",
+     0.0077
+    ],
+    [
+     "ar",
+     0.0065
+    ],
+    [
+     "h",
+     0.0058
+    ],
+    [
+     "yr",
+     0.0045
+    ],
+    [
+     "eop",
+     0.0044
+    ],
+    [
+     "wr",
+     0.0024
+    ],
+    [
+     "xr",
+     0.0018
+    ],
+    [
+     "c2",
+     0.0018
+    ],
+    [
+     "fs",
+     0.0017
+    ],
+    [
+     "w",
+     0.0016
+    ],
+    [
+     "x",
+     0.0015
+    ],
+    [
+     "pDesktop",
+     0.0011
+    ],
+    [
+     "lh",
+     0.0011
+    ]
+   ]
+  },
+  "blank": {
+   "families": [
+    "blank"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 661,
+      "matched": 13160,
+      "unmatchedPositives": 3,
+      "background": 400000,
+      "backgroundWeight": 0.0329,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 687,
+      "realWeight": 1322.0,
+      "notWeight": 0.241
+     },
+     {
+      "positives": 661,
+      "matched": 13160,
+      "unmatchedPositives": 3,
+      "background": 400000,
+      "backgroundWeight": 0.0329,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 698,
+      "realWeight": 1322.0,
+      "notWeight": 0.237
+     },
+     {
+      "positives": 661,
+      "matched": 13160,
+      "unmatchedPositives": 3,
+      "background": 400000,
+      "backgroundWeight": 0.0329,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 715,
+      "realWeight": 1322.0,
+      "notWeight": 0.231
+     },
+     {
+      "positives": 661,
+      "matched": 13160,
+      "unmatchedPositives": 3,
+      "background": 400000,
+      "backgroundWeight": 0.0329,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 684,
+      "realWeight": 1322.0,
+      "notWeight": 0.242
+     },
+     {
+      "positives": 661,
+      "matched": 13160,
+      "unmatchedPositives": 3,
+      "background": 400000,
+      "backgroundWeight": 0.0329,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 728,
+      "realWeight": 1322.0,
+      "notWeight": 0.227
+     },
+     {
+      "positives": 661,
+      "matched": 13160,
+      "unmatchedPositives": 3,
+      "background": 400000,
+      "backgroundWeight": 0.0329,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 878,
+      "realWeight": 1322.0,
+      "notWeight": 0.188
+     }
+    ],
+    "trees": [
+     283,
+     255,
+     245,
+     288,
+     320,
+     339
+    ],
+    "dev": {
+     "positives": 77,
+     "matched": 1540,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.0308,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.07,
+    "aucReal": 0.5259
+   },
+   "seconds": 175,
+   "topGainShare": [
+    [
+     "h",
+     0.2093
+    ],
+    [
+     "cat_pos",
+     0.1362
+    ],
+    [
+     "tt",
+     0.0728
+    ],
+    [
+     "z",
+     0.0726
+    ],
+    [
+     "inv",
+     0.0692
+    ],
+    [
+     "d",
+     0.0597
+    ],
+    [
+     "br",
+     0.0441
+    ],
+    [
+     "yr",
+     0.0409
+    ],
+    [
+     "cat_ox",
+     0.036
+    ],
+    [
+     "y",
+     0.0336
+    ],
+    [
+     "scaSet",
+     0.016
+    ],
+    [
+     "aspect",
+     0.0137
+    ],
+    [
+     "c1",
+     0.0134
+    ],
+    [
+     "cat_tag",
+     0.0127
+    ],
+    [
+     "ar",
+     0.0121
+    ]
+   ]
+  },
+  "controls": {
+   "families": [
+    "controls"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 4101,
+      "matched": 82020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.2051,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 687,
+      "realWeight": 8202.0,
+      "notWeight": 1.492
+     },
+     {
+      "positives": 4101,
+      "matched": 82020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.2051,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 698,
+      "realWeight": 8202.0,
+      "notWeight": 1.469
+     },
+     {
+      "positives": 4101,
+      "matched": 82020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.2051,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 715,
+      "realWeight": 8202.0,
+      "notWeight": 1.434
+     },
+     {
+      "positives": 4101,
+      "matched": 82020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.2051,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 684,
+      "realWeight": 8202.0,
+      "notWeight": 1.499
+     },
+     {
+      "positives": 4101,
+      "matched": 82020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.2051,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 728,
+      "realWeight": 8202.0,
+      "notWeight": 1.408
+     },
+     {
+      "positives": 4101,
+      "matched": 82020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.2051,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 878,
+      "realWeight": 8202.0,
+      "notWeight": 1.168
+     }
+    ],
+    "trees": [
+     70,
+     26,
+     83,
+     57,
+     26,
+     61
+    ],
+    "dev": {
+     "positives": 599,
+     "matched": 11960,
+     "unmatchedPositives": 1,
+     "background": 50000,
+     "backgroundWeight": 0.2392,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.0627,
+    "aucReal": 0.462
+   },
+   "seconds": 50,
+   "topGainShare": [
+    [
+     "lh",
+     0.2599
+    ],
+    [
+     "inv",
+     0.0916
+    ],
+    [
+     "br",
+     0.0808
+    ],
+    [
+     "cat_why",
+     0.0746
+    ],
+    [
+     "yr",
+     0.0493
+    ],
+    [
+     "cat_disp",
+     0.046
+    ],
+    [
+     "fs",
+     0.043
+    ],
+    [
+     "z",
+     0.0397
+    ],
+    [
+     "x",
+     0.0297
+    ],
+    [
+     "foc",
+     0.026
+    ],
+    [
+     "y",
+     0.0234
+    ],
+    [
+     "cat_tag",
+     0.0222
+    ],
+    [
+     "pDesktop",
+     0.0184
+    ],
+    [
+     "op",
+     0.0142
+    ],
+    [
+     "vu",
+     0.0124
+    ]
+   ]
+  },
+  "dark": {
+   "families": [
+    "dark"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 234,
+      "matched": 4680,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0117,
+      "controls": 3928,
+      "labelledReal": 8,
+      "labelledNot": 687,
+      "realWeight": 58.5,
+      "notWeight": 0.085
+     },
+     {
+      "positives": 234,
+      "matched": 4680,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0117,
+      "controls": 3928,
+      "labelledReal": 20,
+      "labelledNot": 698,
+      "realWeight": 23.4,
+      "notWeight": 0.084
+     },
+     {
+      "positives": 234,
+      "matched": 4680,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0117,
+      "controls": 3928,
+      "labelledReal": 18,
+      "labelledNot": 715,
+      "realWeight": 26.0,
+      "notWeight": 0.082
+     },
+     {
+      "positives": 234,
+      "matched": 4680,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0117,
+      "controls": 3928,
+      "labelledReal": 16,
+      "labelledNot": 684,
+      "realWeight": 29.25,
+      "notWeight": 0.086
+     },
+     {
+      "positives": 234,
+      "matched": 4680,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0117,
+      "controls": 3928,
+      "labelledReal": 18,
+      "labelledNot": 728,
+      "realWeight": 26.0,
+      "notWeight": 0.08
+     },
+     {
+      "positives": 234,
+      "matched": 4680,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0117,
+      "controls": 3928,
+      "labelledReal": 20,
+      "labelledNot": 878,
+      "realWeight": 23.4,
+      "notWeight": 0.067
+     }
+    ],
+    "trees": [
+     11,
+     10,
+     22,
+     53,
+     24,
+     9
+    ],
+    "dev": {
+     "positives": 24,
+     "matched": 480,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.0096,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.0696,
+    "aucReal": 0.4954,
+    "apGroup": 0.0616
+   },
+   "seconds": 145,
+   "topGainShare": [
+    [
+     "c0",
+     0.1987
+    ],
+    [
+     "bg2",
+     0.1809
+    ],
+    [
+     "ho",
+     0.1311
+    ],
+    [
+     "sb1",
+     0.084
+    ],
+    [
+     "inv",
+     0.0695
+    ],
+    [
+     "ia",
+     0.0583
+    ],
+    [
+     "x",
+     0.0419
+    ],
+    [
+     "c1",
+     0.0345
+    ],
+    [
+     "bgi",
+     0.0304
+    ],
+    [
+     "y",
+     0.0242
+    ],
+    [
+     "eb1",
+     0.0191
+    ],
+    [
+     "c2",
+     0.0153
+    ],
+    [
+     "w",
+     0.0127
+    ],
+    [
+     "cr",
+     0.0108
+    ],
+    [
+     "br",
+     0.0103
+    ]
+   ]
+  },
+  "design": {
+   "families": [
+    "design"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 2486,
+      "matched": 49720,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1243,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 687,
+      "realWeight": 4972.0,
+      "notWeight": 0.905
+     },
+     {
+      "positives": 2486,
+      "matched": 49720,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1243,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 698,
+      "realWeight": 4972.0,
+      "notWeight": 0.89
+     },
+     {
+      "positives": 2486,
+      "matched": 49720,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1243,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 715,
+      "realWeight": 4972.0,
+      "notWeight": 0.869
+     },
+     {
+      "positives": 2486,
+      "matched": 49720,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1243,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 684,
+      "realWeight": 4972.0,
+      "notWeight": 0.909
+     },
+     {
+      "positives": 2486,
+      "matched": 49720,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1243,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 728,
+      "realWeight": 4972.0,
+      "notWeight": 0.854
+     },
+     {
+      "positives": 2486,
+      "matched": 49720,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1243,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 878,
+      "realWeight": 4972.0,
+      "notWeight": 0.708
+     }
+    ],
+    "trees": [
+     53,
+     65,
+     28,
+     45,
+     42,
+     61
+    ],
+    "dev": {
+     "positives": 307,
+     "matched": 6140,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.1228,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.0514,
+    "aucReal": 0.4232
+   },
+   "seconds": 191,
+   "topGainShare": [
+    [
+     "c2",
+     0.3266
+    ],
+    [
+     "w",
+     0.2965
+    ],
+    [
+     "c1",
+     0.0781
+    ],
+    [
+     "inv",
+     0.0459
+    ],
+    [
+     "yr",
+     0.0367
+    ],
+    [
+     "x",
+     0.0317
+    ],
+    [
+     "bg2",
+     0.0312
+    ],
+    [
+     "y",
+     0.0172
+    ],
+    [
+     "br",
+     0.0161
+    ],
+    [
+     "wr",
+     0.0142
+    ],
+    [
+     "rr",
+     0.011
+    ],
+    [
+     "c0",
+     0.01
+    ],
+    [
+     "tt",
+     0.0096
+    ],
+    [
+     "d",
+     0.0093
+    ],
+    [
+     "cat_tag",
+     0.0068
+    ]
+   ]
+  },
+  "leaks": {
+   "families": [
+    "leaks"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 1001,
+      "matched": 20020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.05,
+      "controls": 3928,
+      "labelledReal": 6,
+      "labelledNot": 687,
+      "realWeight": 333.667,
+      "notWeight": 0.364
+     },
+     {
+      "positives": 1001,
+      "matched": 20020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.05,
+      "controls": 3928,
+      "labelledReal": 5,
+      "labelledNot": 698,
+      "realWeight": 400.4,
+      "notWeight": 0.359
+     },
+     {
+      "positives": 1001,
+      "matched": 20020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.05,
+      "controls": 3928,
+      "labelledReal": 6,
+      "labelledNot": 715,
+      "realWeight": 333.667,
+      "notWeight": 0.35
+     },
+     {
+      "positives": 1001,
+      "matched": 20020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.05,
+      "controls": 3928,
+      "labelledReal": 4,
+      "labelledNot": 684,
+      "realWeight": 500.5,
+      "notWeight": 0.366
+     },
+     {
+      "positives": 1001,
+      "matched": 20020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.05,
+      "controls": 3928,
+      "labelledReal": 3,
+      "labelledNot": 728,
+      "realWeight": 667.333,
+      "notWeight": 0.344
+     },
+     {
+      "positives": 1001,
+      "matched": 20020,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.05,
+      "controls": 3928,
+      "labelledReal": 6,
+      "labelledNot": 878,
+      "realWeight": 333.667,
+      "notWeight": 0.285
+     }
+    ],
+    "trees": [
+     144,
+     180,
+     194,
+     129,
+     106,
+     122
+    ],
+    "dev": {
+     "positives": 127,
+     "matched": 2480,
+     "unmatchedPositives": 3,
+     "background": 50000,
+     "backgroundWeight": 0.0496,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.1153,
+    "aucReal": 0.6659,
+    "apGroup": 0.2438
+   },
+   "seconds": 220,
+   "topGainShare": [
+    [
+     "lkN",
+     0.474
+    ],
+    [
+     "sb2",
+     0.0734
+    ],
+    [
+     "ar",
+     0.0509
+    ],
+    [
+     "hn",
+     0.0479
+    ],
+    [
+     "ln",
+     0.0398
+    ],
+    [
+     "scr",
+     0.0388
+    ],
+    [
+     "sb0",
+     0.0353
+    ],
+    [
+     "cat_tag",
+     0.0288
+    ],
+    [
+     "rr",
+     0.0252
+    ],
+    [
+     "h",
+     0.0218
+    ],
+    [
+     "sb1",
+     0.0218
+    ],
+    [
+     "tt",
+     0.0197
+    ],
+    [
+     "tl",
+     0.0181
+    ],
+    [
+     "br",
+     0.0121
+    ],
+    [
+     "cr",
+     0.0114
+    ]
+   ]
+  },
+  "media": {
+   "families": [
+    "media"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 1623,
+      "matched": 32460,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0811,
+      "controls": 3928,
+      "labelledReal": 11,
+      "labelledNot": 687,
+      "realWeight": 295.091,
+      "notWeight": 0.591
+     },
+     {
+      "positives": 1623,
+      "matched": 32460,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0811,
+      "controls": 3928,
+      "labelledReal": 11,
+      "labelledNot": 698,
+      "realWeight": 295.091,
+      "notWeight": 0.581
+     },
+     {
+      "positives": 1623,
+      "matched": 32460,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0811,
+      "controls": 3928,
+      "labelledReal": 12,
+      "labelledNot": 715,
+      "realWeight": 270.5,
+      "notWeight": 0.567
+     },
+     {
+      "positives": 1623,
+      "matched": 32460,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0811,
+      "controls": 3928,
+      "labelledReal": 5,
+      "labelledNot": 684,
+      "realWeight": 649.2,
+      "notWeight": 0.593
+     },
+     {
+      "positives": 1623,
+      "matched": 32460,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0811,
+      "controls": 3928,
+      "labelledReal": 9,
+      "labelledNot": 728,
+      "realWeight": 360.667,
+      "notWeight": 0.557
+     },
+     {
+      "positives": 1623,
+      "matched": 32460,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0811,
+      "controls": 3928,
+      "labelledReal": 12,
+      "labelledNot": 878,
+      "realWeight": 270.5,
+      "notWeight": 0.462
+     }
+    ],
+    "trees": [
+     38,
+     714,
+     81,
+     250,
+     155,
+     58
+    ],
+    "dev": {
+     "positives": 186,
+     "matched": 3720,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.0744,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.1257,
+    "aucReal": 0.6079,
+    "apGroup": 0.2735
+   },
+   "seconds": 170,
+   "topGainShare": [
+    [
+     "cmp",
+     0.1806
+    ],
+    [
+     "inv",
+     0.1725
+    ],
+    [
+     "br",
+     0.1145
+    ],
+    [
+     "alt",
+     0.0633
+    ],
+    [
+     "aspect",
+     0.0628
+    ],
+    [
+     "vb",
+     0.0412
+    ],
+    [
+     "x",
+     0.0346
+    ],
+    [
+     "cat_tag",
+     0.0322
+    ],
+    [
+     "yr",
+     0.0301
+    ],
+    [
+     "d",
+     0.0267
+    ],
+    [
+     "hs",
+     0.0261
+    ],
+    [
+     "natW",
+     0.0256
+    ],
+    [
+     "y",
+     0.0196
+    ],
+    [
+     "w",
+     0.0167
+    ],
+    [
+     "wr",
+     0.0162
+    ]
+   ]
+  },
+  "motion": {
+   "families": [
+    "motion"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 1162,
+      "matched": 23240,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0581,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 687,
+      "realWeight": 2324.0,
+      "notWeight": 0.423
+     },
+     {
+      "positives": 1162,
+      "matched": 23240,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0581,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 698,
+      "realWeight": 2324.0,
+      "notWeight": 0.416
+     },
+     {
+      "positives": 1162,
+      "matched": 23240,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0581,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 715,
+      "realWeight": 2324.0,
+      "notWeight": 0.406
+     },
+     {
+      "positives": 1162,
+      "matched": 23240,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0581,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 684,
+      "realWeight": 2324.0,
+      "notWeight": 0.425
+     },
+     {
+      "positives": 1162,
+      "matched": 23240,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0581,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 728,
+      "realWeight": 2324.0,
+      "notWeight": 0.399
+     },
+     {
+      "positives": 1162,
+      "matched": 23240,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0581,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 878,
+      "realWeight": 2324.0,
+      "notWeight": 0.331
+     }
+    ],
+    "trees": [
+     141,
+     21,
+     61,
+     40,
+     100,
+     42
+    ],
+    "dev": {
+     "positives": 132,
+     "matched": 2640,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.0528,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.0534,
+    "aucReal": 0.4512
+   },
+   "seconds": 61,
+   "topGainShare": [
+    [
+     "z",
+     0.1944
+    ],
+    [
+     "h",
+     0.1382
+    ],
+    [
+     "cat_pos",
+     0.0724
+    ],
+    [
+     "an",
+     0.0625
+    ],
+    [
+     "y",
+     0.0516
+    ],
+    [
+     "inv",
+     0.0482
+    ],
+    [
+     "br",
+     0.0406
+    ],
+    [
+     "shOver",
+     0.033
+    ],
+    [
+     "cat_tag",
+     0.0327
+    ],
+    [
+     "tt",
+     0.0304
+    ],
+    [
+     "tl",
+     0.0266
+    ],
+    [
+     "cat_oy",
+     0.0242
+    ],
+    [
+     "area",
+     0.023
+    ],
+    [
+     "cat_ox",
+     0.0217
+    ],
+    [
+     "swRatio",
+     0.0216
+    ]
+   ]
+  },
+  "occlusion": {
+   "families": [
+    "occlusion"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 3069,
+      "matched": 61360,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1534,
+      "controls": 3928,
+      "labelledReal": 7,
+      "labelledNot": 687,
+      "realWeight": 876.857,
+      "notWeight": 1.117
+     },
+     {
+      "positives": 3069,
+      "matched": 61360,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1534,
+      "controls": 3928,
+      "labelledReal": 7,
+      "labelledNot": 698,
+      "realWeight": 876.857,
+      "notWeight": 1.099
+     },
+     {
+      "positives": 3069,
+      "matched": 61360,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1534,
+      "controls": 3928,
+      "labelledReal": 9,
+      "labelledNot": 715,
+      "realWeight": 682.0,
+      "notWeight": 1.073
+     },
+     {
+      "positives": 3069,
+      "matched": 61360,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1534,
+      "controls": 3928,
+      "labelledReal": 9,
+      "labelledNot": 684,
+      "realWeight": 682.0,
+      "notWeight": 1.122
+     },
+     {
+      "positives": 3069,
+      "matched": 61360,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1534,
+      "controls": 3928,
+      "labelledReal": 4,
+      "labelledNot": 728,
+      "realWeight": 1534.5,
+      "notWeight": 1.054
+     },
+     {
+      "positives": 3069,
+      "matched": 61360,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1534,
+      "controls": 3928,
+      "labelledReal": 9,
+      "labelledNot": 878,
+      "realWeight": 682.0,
+      "notWeight": 0.874
+     }
+    ],
+    "trees": [
+     104,
+     229,
+     188,
+     135,
+     90,
+     44
+    ],
+    "dev": {
+     "positives": 390,
+     "matched": 7800,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.156,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.0924,
+    "aucReal": 0.6091,
+    "apGroup": 0.0401
+   },
+   "seconds": 122,
+   "topGainShare": [
+    [
+     "inv",
+     0.1901
+    ],
+    [
+     "br",
+     0.1633
+    ],
+    [
+     "z",
+     0.1178
+    ],
+    [
+     "y",
+     0.1149
+    ],
+    [
+     "yr",
+     0.0641
+    ],
+    [
+     "sb0",
+     0.062
+    ],
+    [
+     "rwNum",
+     0.0358
+    ],
+    [
+     "cat_tag",
+     0.0268
+    ],
+    [
+     "aspect",
+     0.0265
+    ],
+    [
+     "sbs",
+     0.0262
+    ],
+    [
+     "xr",
+     0.0256
+    ],
+    [
+     "scr",
+     0.0161
+    ],
+    [
+     "eb1",
+     0.0149
+    ],
+    [
+     "cat_pos",
+     0.0119
+    ],
+    [
+     "d",
+     0.0098
+    ]
+   ]
+  },
+  "other": {
+   "families": [
+    "other"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 1946,
+      "matched": 38920,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0973,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 687,
+      "realWeight": 3892.0,
+      "notWeight": 0.708
+     },
+     {
+      "positives": 1946,
+      "matched": 38920,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0973,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 698,
+      "realWeight": 3892.0,
+      "notWeight": 0.697
+     },
+     {
+      "positives": 1946,
+      "matched": 38920,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0973,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 715,
+      "realWeight": 3892.0,
+      "notWeight": 0.68
+     },
+     {
+      "positives": 1946,
+      "matched": 38920,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0973,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 684,
+      "realWeight": 3892.0,
+      "notWeight": 0.711
+     },
+     {
+      "positives": 1946,
+      "matched": 38920,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0973,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 728,
+      "realWeight": 3892.0,
+      "notWeight": 0.668
+     },
+     {
+      "positives": 1946,
+      "matched": 38920,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.0973,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 878,
+      "realWeight": 3892.0,
+      "notWeight": 0.554
+     }
+    ],
+    "trees": [
+     160,
+     37,
+     220,
+     73,
+     174,
+     36
+    ],
+    "dev": {
+     "positives": 275,
+     "matched": 5500,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.11,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.0839,
+    "aucReal": 0.5274
+   },
+   "seconds": 101,
+   "topGainShare": [
+    [
+     "scr",
+     0.1091
+    ],
+    [
+     "hs",
+     0.1047
+    ],
+    [
+     "y",
+     0.0989
+    ],
+    [
+     "inv",
+     0.0842
+    ],
+    [
+     "cat_tag",
+     0.0726
+    ],
+    [
+     "tt",
+     0.0613
+    ],
+    [
+     "tl",
+     0.0584
+    ],
+    [
+     "yr",
+     0.0405
+    ],
+    [
+     "br",
+     0.0394
+    ],
+    [
+     "fs",
+     0.0252
+    ],
+    [
+     "wr",
+     0.022
+    ],
+    [
+     "cat_oy",
+     0.0199
+    ],
+    [
+     "cat_role",
+     0.0187
+    ],
+    [
+     "natW",
+     0.0185
+    ],
+    [
+     "lh",
+     0.0147
+    ]
+   ]
+  },
+  "overflow": {
+   "families": [
+    "overflow"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 2533,
+      "matched": 50620,
+      "unmatchedPositives": 2,
+      "background": 400000,
+      "backgroundWeight": 0.1265,
+      "controls": 3928,
+      "labelledReal": 15,
+      "labelledNot": 687,
+      "realWeight": 337.733,
+      "notWeight": 0.922
+     },
+     {
+      "positives": 2533,
+      "matched": 50620,
+      "unmatchedPositives": 2,
+      "background": 400000,
+      "backgroundWeight": 0.1265,
+      "controls": 3928,
+      "labelledReal": 14,
+      "labelledNot": 698,
+      "realWeight": 361.857,
+      "notWeight": 0.907
+     },
+     {
+      "positives": 2533,
+      "matched": 50620,
+      "unmatchedPositives": 2,
+      "background": 400000,
+      "backgroundWeight": 0.1265,
+      "controls": 3928,
+      "labelledReal": 17,
+      "labelledNot": 715,
+      "realWeight": 298.0,
+      "notWeight": 0.886
+     },
+     {
+      "positives": 2533,
+      "matched": 50620,
+      "unmatchedPositives": 2,
+      "background": 400000,
+      "backgroundWeight": 0.1265,
+      "controls": 3928,
+      "labelledReal": 12,
+      "labelledNot": 684,
+      "realWeight": 422.167,
+      "notWeight": 0.926
+     },
+     {
+      "positives": 2533,
+      "matched": 50620,
+      "unmatchedPositives": 2,
+      "background": 400000,
+      "backgroundWeight": 0.1265,
+      "controls": 3928,
+      "labelledReal": 18,
+      "labelledNot": 728,
+      "realWeight": 281.444,
+      "notWeight": 0.87
+     },
+     {
+      "positives": 2533,
+      "matched": 50620,
+      "unmatchedPositives": 2,
+      "background": 400000,
+      "backgroundWeight": 0.1265,
+      "controls": 3928,
+      "labelledReal": 19,
+      "labelledNot": 878,
+      "realWeight": 266.632,
+      "notWeight": 0.721
+     }
+    ],
+    "trees": [
+     65,
+     275,
+     178,
+     335,
+     71,
+     44
+    ],
+    "dev": {
+     "positives": 311,
+     "matched": 5980,
+     "unmatchedPositives": 12,
+     "background": 50000,
+     "backgroundWeight": 0.1196,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.1603,
+    "aucReal": 0.6964,
+    "apGroup": 0.223
+   },
+   "seconds": 73,
+   "topGainShare": [
+    [
+     "inv",
+     0.3431
+    ],
+    [
+     "rr",
+     0.1839
+    ],
+    [
+     "pSideways",
+     0.1213
+    ],
+    [
+     "tspill",
+     0.0569
+    ],
+    [
+     "swOver",
+     0.037
+    ],
+    [
+     "y",
+     0.0286
+    ],
+    [
+     "cat_ox",
+     0.0246
+    ],
+    [
+     "swRatio",
+     0.0221
+    ],
+    [
+     "br",
+     0.0201
+    ],
+    [
+     "yr",
+     0.0174
+    ],
+    [
+     "tt",
+     0.015
+    ],
+    [
+     "shRatio",
+     0.0138
+    ],
+    [
+     "ln",
+     0.0134
+    ],
+    [
+     "wr",
+     0.0128
+    ],
+    [
+     "w",
+     0.0115
+    ]
+   ]
+  },
+  "responsive": {
+   "families": [
+    "responsive"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 2168,
+      "matched": 43340,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1084,
+      "controls": 3928,
+      "labelledReal": 15,
+      "labelledNot": 687,
+      "realWeight": 289.067,
+      "notWeight": 0.789
+     },
+     {
+      "positives": 2168,
+      "matched": 43340,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1084,
+      "controls": 3928,
+      "labelledReal": 14,
+      "labelledNot": 698,
+      "realWeight": 309.714,
+      "notWeight": 0.777
+     },
+     {
+      "positives": 2168,
+      "matched": 43340,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1084,
+      "controls": 3928,
+      "labelledReal": 17,
+      "labelledNot": 715,
+      "realWeight": 255.059,
+      "notWeight": 0.758
+     },
+     {
+      "positives": 2168,
+      "matched": 43340,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1084,
+      "controls": 3928,
+      "labelledReal": 12,
+      "labelledNot": 684,
+      "realWeight": 361.333,
+      "notWeight": 0.792
+     },
+     {
+      "positives": 2168,
+      "matched": 43340,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1084,
+      "controls": 3928,
+      "labelledReal": 18,
+      "labelledNot": 728,
+      "realWeight": 240.889,
+      "notWeight": 0.745
+     },
+     {
+      "positives": 2168,
+      "matched": 43340,
+      "unmatchedPositives": 1,
+      "background": 400000,
+      "backgroundWeight": 0.1084,
+      "controls": 3928,
+      "labelledReal": 19,
+      "labelledNot": 878,
+      "realWeight": 228.211,
+      "notWeight": 0.617
+     }
+    ],
+    "trees": [
+     75,
+     77,
+     48,
+     107,
+     365,
+     90
+    ],
+    "dev": {
+     "positives": 282,
+     "matched": 5640,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.1128,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.1402,
+    "aucReal": 0.5546,
+    "apGroup": 0.2772
+   },
+   "seconds": 94,
+   "topGainShare": [
+    [
+     "eb0",
+     0.2414
+    ],
+    [
+     "d",
+     0.2065
+    ],
+    [
+     "c1",
+     0.2037
+    ],
+    [
+     "ar",
+     0.0741
+    ],
+    [
+     "inv",
+     0.054
+    ],
+    [
+     "yr",
+     0.0336
+    ],
+    [
+     "rr",
+     0.033
+    ],
+    [
+     "pSideways",
+     0.0311
+    ],
+    [
+     "bg2",
+     0.0138
+    ],
+    [
+     "y",
+     0.0133
+    ],
+    [
+     "tt",
+     0.0093
+    ],
+    [
+     "cat_disp",
+     0.0093
+    ],
+    [
+     "swOver",
+     0.0089
+    ],
+    [
+     "fs",
+     0.0071
+    ],
+    [
+     "br",
+     0.006
+    ]
+   ]
+  },
+  "styles": {
+   "families": [
+    "styles"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 3576,
+      "matched": 71520,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1788,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 687,
+      "realWeight": 7152.0,
+      "notWeight": 1.301
+     },
+     {
+      "positives": 3576,
+      "matched": 71520,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1788,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 698,
+      "realWeight": 7152.0,
+      "notWeight": 1.281
+     },
+     {
+      "positives": 3576,
+      "matched": 71520,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1788,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 715,
+      "realWeight": 7152.0,
+      "notWeight": 1.25
+     },
+     {
+      "positives": 3576,
+      "matched": 71520,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1788,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 684,
+      "realWeight": 7152.0,
+      "notWeight": 1.307
+     },
+     {
+      "positives": 3576,
+      "matched": 71520,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1788,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 728,
+      "realWeight": 7152.0,
+      "notWeight": 1.228
+     },
+     {
+      "positives": 3576,
+      "matched": 71520,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.1788,
+      "controls": 3928,
+      "labelledReal": 0,
+      "labelledNot": 878,
+      "realWeight": 7152.0,
+      "notWeight": 1.018
+     }
+    ],
+    "trees": [
+     144,
+     207,
+     272,
+     103,
+     314,
+     111
+    ],
+    "dev": {
+     "positives": 344,
+     "matched": 6880,
+     "unmatchedPositives": 0,
+     "background": 50000,
+     "backgroundWeight": 0.1376,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.0593,
+    "aucReal": 0.4488
+   },
+   "seconds": 96,
+   "topGainShare": [
+    [
+     "inv",
+     0.1821
+    ],
+    [
+     "vpN",
+     0.0838
+    ],
+    [
+     "y",
+     0.07
+    ],
+    [
+     "c1",
+     0.0629
+    ],
+    [
+     "w",
+     0.0393
+    ],
+    [
+     "br",
+     0.0359
+    ],
+    [
+     "pDesktop",
+     0.0351
+    ],
+    [
+     "wr",
+     0.0299
+    ],
+    [
+     "cat_tag",
+     0.028
+    ],
+    [
+     "fs",
+     0.0266
+    ],
+    [
+     "bg2",
+     0.0248
+    ],
+    [
+     "lh",
+     0.023
+    ],
+    [
+     "h",
+     0.0211
+    ],
+    [
+     "x",
+     0.0178
+    ],
+    [
+     "vis",
+     0.0155
+    ]
+   ]
+  },
+  "text": {
+   "families": [
+    "text"
+   ],
+   "config": "best",
+   "info": {
+    "folds": [
+     {
+      "positives": 1199,
+      "matched": 23980,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.06,
+      "controls": 3928,
+      "labelledReal": 8,
+      "labelledNot": 687,
+      "realWeight": 299.75,
+      "notWeight": 0.436
+     },
+     {
+      "positives": 1199,
+      "matched": 23980,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.06,
+      "controls": 3928,
+      "labelledReal": 20,
+      "labelledNot": 698,
+      "realWeight": 119.9,
+      "notWeight": 0.429
+     },
+     {
+      "positives": 1199,
+      "matched": 23980,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.06,
+      "controls": 3928,
+      "labelledReal": 18,
+      "labelledNot": 715,
+      "realWeight": 133.222,
+      "notWeight": 0.419
+     },
+     {
+      "positives": 1199,
+      "matched": 23980,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.06,
+      "controls": 3928,
+      "labelledReal": 16,
+      "labelledNot": 684,
+      "realWeight": 149.875,
+      "notWeight": 0.438
+     },
+     {
+      "positives": 1199,
+      "matched": 23980,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.06,
+      "controls": 3928,
+      "labelledReal": 18,
+      "labelledNot": 728,
+      "realWeight": 133.222,
+      "notWeight": 0.412
+     },
+     {
+      "positives": 1199,
+      "matched": 23980,
+      "unmatchedPositives": 0,
+      "background": 400000,
+      "backgroundWeight": 0.06,
+      "controls": 3928,
+      "labelledReal": 20,
+      "labelledNot": 878,
+      "realWeight": 119.9,
+      "notWeight": 0.341
+     }
+    ],
+    "trees": [
+     357,
+     413,
+     419,
+     265,
+     158,
+     333
+    ],
+    "dev": {
+     "positives": 145,
+     "matched": 2860,
+     "unmatchedPositives": 2,
+     "background": 50000,
+     "backgroundWeight": 0.0572,
+     "controls": 465
+    }
+   },
+   "oofLabelled": {
+    "apReal": 0.1301,
+    "aucReal": 0.6152,
+    "apGroup": 0.1828
+   },
+   "seconds": 106,
+   "topGainShare": [
+    [
+     "scr",
+     0.1044
+    ],
+    [
+     "inv",
+     0.0868
+    ],
+    [
+     "covered",
+     0.0851
+    ],
+    [
+     "y",
+     0.0551
+    ],
+    [
+     "cat_tag",
+     0.0521
+    ],
+    [
+     "sb0",
+     0.0498
+    ],
+    [
+     "cr",
+     0.0481
+    ],
+    [
+     "ho",
+     0.0449
+    ],
+    [
+     "sbs",
+     0.0358
+    ],
+    [
+     "bg1",
+     0.0281
+    ],
+    [
+     "c0",
+     0.0277
+    ],
+    [
+     "br",
+     0.0251
+    ],
+    [
+     "c3",
+     0.0216
+    ],
+    [
+     "d",
+     0.0199
+    ],
+    [
+     "h",
+     0.0193
+    ]
+   ]
+  },
+  "lab": {
+   "families": [
+    "blank",
+    "controls",
+    "dark",
+    "design",
+    "leaks",
+    "media",
+    "motion",
+    "occlusion",
+    "other",
+    "overflow",
+    "responsive",
+    "styles",
+    "text"
+   ],
+   "config": "lab",
+   "info": {
+    "rows": 944,
+    "real": 66
+   },
+   "oofLabelled": {
+    "apReal": 0.2328,
+    "aucReal": 0.7957,
+    "apGroup": 0.2328
+   },
+   "topGainShare": [
+    [
+     "rr",
+     0.1096
+    ],
+    [
+     "rule_text_invisible",
+     0.0855
+    ],
+    [
+     "alt",
+     0.0557
+    ],
+    [
+     "c2",
+     0.0437
+    ],
+    [
+     "pSideways",
+     0.0435
+    ],
+    [
+     "area",
+     0.0397
+    ],
+    [
+     "ho",
+     0.0334
+    ],
+    [
+     "inv",
+     0.0315
+    ],
+    [
+     "tt",
+     0.026
+    ],
+    [
+     "w",
+     0.0206
+    ],
+    [
+     "c0",
+     0.02
+    ],
+    [
+     "nosize",
+     0.02
+    ],
+    [
+     "d",
+     0.0199
+    ],
+    [
+     "cr",
+     0.0187
+    ],
+    [
+     "nh",
+     0.0187
+    ]
+   ]
+  },
+  "any+lab": {
+   "families": [
+    "blank",
+    "controls",
+    "dark",
+    "design",
+    "leaks",
+    "media",
+    "motion",
+    "occlusion",
+    "other",
+    "overflow",
+    "responsive",
+    "styles",
+    "text"
+   ],
+   "config": "stack",
+   "coef": [
+    0.28680877884779743,
+    0.49216815418113125
+   ],
+   "intercept": -0.5922296300050872,
+   "oofLabelled": {
+    "apReal": 0.238,
+    "aucReal": 0.7988,
+    "apGroup": 0.238
+   }
+  },
+  "dark+lab": {
+   "families": [
+    "dark"
+   ],
+   "config": "stack",
+   "coef": [
+    0.43019635966502917,
+    0.20156015927146892
+   ],
+   "intercept": -1.5301681382580146,
+   "oofLabelled": {
+    "apReal": 0.086,
+    "aucReal": 0.5833,
+    "apGroup": 0.0356
+   }
+  },
+  "leaks+lab": {
+   "families": [
+    "leaks"
+   ],
+   "config": "stack",
+   "coef": [
+    0.3588461121666225,
+    0.13408035372860533
+   ],
+   "intercept": -2.30237172151055,
+   "oofLabelled": {
+    "apReal": 0.1305,
+    "aucReal": 0.6412,
+    "apGroup": 0.2227
+   }
+  },
+  "media+lab": {
+   "families": [
+    "media"
+   ],
+   "config": "stack",
+   "coef": [
+    0.5471810705811743,
+    0.5215594561765432
+   ],
+   "intercept": 0.35167995310494266,
+   "oofLabelled": {
+    "apReal": 0.1634,
+    "aucReal": 0.7106,
+    "apGroup": 0.1626
+   }
+  },
+  "occlusion+lab": {
+   "families": [
+    "occlusion"
+   ],
+   "config": "stack",
+   "coef": [
+    0.3630165657443989,
+    0.03202438491635408
+   ],
+   "intercept": -1.8384325870982285,
+   "oofLabelled": {
+    "apReal": 0.093,
+    "aucReal": 0.6323,
+    "apGroup": 0.0212
+   }
+  },
+  "overflow+lab": {
+   "families": [
+    "overflow"
+   ],
+   "config": "stack",
+   "coef": [
+    0.1334277278129687,
+    1.0512416974479921
+   ],
+   "intercept": -0.6115930974810829,
+   "oofLabelled": {
+    "apReal": 0.2217,
+    "aucReal": 0.816,
+    "apGroup": 0.2686
+   }
+  },
+  "responsive+lab": {
+   "families": [
+    "responsive"
+   ],
+   "config": "stack",
+   "coef": [
+    0.3526989482807055,
+    0.8662808287760162
+   ],
+   "intercept": -0.3639268301173042,
+   "oofLabelled": {
+    "apReal": 0.2052,
+    "aucReal": 0.7186,
+    "apGroup": 0.3752
+   }
+  },
+  "text+lab": {
+   "families": [
+    "text"
+   ],
+   "config": "stack",
+   "coef": [
+    0.31120064074497805,
+    0.10939121258416284
+   ],
+   "intercept": -1.441054626012867,
+   "oofLabelled": {
+    "apReal": 0.1166,
+    "aucReal": 0.6272,
+    "apGroup": 0.1066
+   }
+  }
+ }
+}

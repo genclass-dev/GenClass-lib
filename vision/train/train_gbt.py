@@ -21,7 +21,7 @@ import time
 import lightgbm as lgb
 import numpy as np
 
-from common import Cols, Split, load_schema, load_views, log, model_inputs, pick, rules, Y_CODES
+from common import Cols, Split, load_schema, load_views, log, model_inputs, pick, require_provenance, rules, Y_CODES
 
 CONFIGS = {
     # the accuracy model
@@ -42,8 +42,10 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--pos", default="all", choices=["all", "seen"],
                     help="seen: train only on fault rows the pixel check saw change (others left out of training)")
+    ap.add_argument("--skip-provenance-gate", action="store_true", help="debug only: results do not count")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
+    require_provenance(a.out, a.skip_provenance_gate)
     schema = load_schema(a.set)
     cols = Cols(schema)
     views = load_views(a.set)

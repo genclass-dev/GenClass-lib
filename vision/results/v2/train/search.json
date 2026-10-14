@@ -1,0 +1,200 @@
+{
+ "trials": [
+  {
+   "trial": 0,
+   "cfg": {
+    "leaves": 15,
+    "lr": 0.1,
+    "minleaf": 20,
+    "ff": 0.6,
+    "l2": 0.0,
+    "m": 20,
+    "bg": 400000,
+    "alpha": 2.0,
+    "beta": 0.25,
+    "rounds": 2000
+   },
+   "metrics": {
+    "apReal": 0.358,
+    "aucReal": 0.8178,
+    "apGroup": 0.358
+   },
+   "trees": [
+    308,
+    289,
+    371,
+    294,
+    180
+   ],
+   "seconds": 28
+  },
+  {
+   "trial": 1,
+   "cfg": {
+    "leaves": 31,
+    "lr": 0.1,
+    "minleaf": 50,
+    "ff": 0.8,
+    "l2": 1.0,
+    "m": 20,
+    "bg": 400000,
+    "alpha": 4.0,
+    "beta": 0.25,
+    "rounds": 2000
+   },
+   "metrics": {
+    "apReal": 0.3204,
+    "aucReal": 0.7766,
+    "apGroup": 0.3204
+   },
+   "trees": [
+    1044,
+    1142,
+    1054,
+    943,
+    757
+   ],
+   "seconds": 69
+  },
+  {
+   "trial": 2,
+   "cfg": {
+    "leaves": 15,
+    "lr": 0.05,
+    "minleaf": 20,
+    "ff": 0.8,
+    "l2": 1.0,
+    "m": 10,
+    "bg": 400000,
+    "alpha": 2.0,
+    "beta": 1.0,
+    "rounds": 2000
+   },
+   "metrics": {
+    "apReal": 0.3422,
+    "aucReal": 0.7813,
+    "apGroup": 0.3422
+   },
+   "trees": [
+    1999,
+    1986,
+    1984,
+    1989,
+    1995
+   ],
+   "seconds": 73
+  },
+  {
+   "trial": 3,
+   "cfg": {
+    "leaves": 15,
+    "lr": 0.1,
+    "minleaf": 20,
+    "ff": 0.6,
+    "l2": 1.0,
+    "m": 10,
+    "bg": 400000,
+    "alpha": 2.0,
+    "beta": 0.25,
+    "rounds": 2000
+   },
+   "metrics": {
+    "apReal": 0.3233,
+    "aucReal": 0.7834,
+    "apGroup": 0.3233
+   },
+   "trees": [
+    1785,
+    1930,
+    1901,
+    1630,
+    1932
+   ],
+   "seconds": 76
+  },
+  {
+   "trial": 4,
+   "cfg": {
+    "leaves": 31,
+    "lr": 0.05,
+    "minleaf": 50,
+    "ff": 0.6,
+    "l2": 0.0,
+    "m": 20,
+    "bg": 400000,
+    "alpha": 2.0,
+    "beta": 0.5,
+    "rounds": 2000
+   },
+   "metrics": {
+    "apReal": 0.358,
+    "aucReal": 0.8205,
+    "apGroup": 0.358
+   },
+   "trees": [
+    314,
+    339,
+    1694,
+    383,
+    510
+   ],
+   "seconds": 49
+  },
+  {
+   "trial": 5,
+   "cfg": {
+    "leaves": 31,
+    "lr": 0.1,
+    "minleaf": 50,
+    "ff": 0.8,
+    "l2": 1.0,
+    "m": 20,
+    "bg": 400000,
+    "alpha": 2.0,
+    "beta": 1.0,
+    "rounds": 2000
+   },
+   "metrics": {
+    "apReal": 0.3297,
+    "aucReal": 0.7805,
+    "apGroup": 0.3297
+   },
+   "trees": [
+    942,
+    830,
+    1044,
+    736,
+    992
+   ],
+   "seconds": 81
+  }
+ ],
+ "best": {
+  "trial": 0,
+  "cfg": {
+   "leaves": 15,
+   "lr": 0.1,
+   "minleaf": 20,
+   "ff": 0.6,
+   "l2": 0.0,
+   "m": 20,
+   "bg": 400000,
+   "alpha": 2.0,
+   "beta": 0.25,
+   "rounds": 2000
+  },
+  "metrics": {
+   "apReal": 0.358,
+   "aucReal": 0.8178,
+   "apGroup": 0.358
+  },
+  "trees": [
+   308,
+   289,
+   371,
+   294,
+   180
+  ],
+  "seconds": 28
+ }
+}

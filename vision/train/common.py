@@ -11,8 +11,13 @@ import time
 
 import numpy as np
 
-# columns that record how a view was made rather than what it shows (baseline.py drops the same ones)
-DROP = {"pRound", "pVw", "pVh", "pDark"}
+# columns that record how a view was made rather than what it shows. pRound and pFontsLoaded are no longer in the v2
+# matrices (build_set.mjs REMOVED_V1); pVw and pVh stay in the matrix for the rules and the relative box below, and
+# pDark (the emulated scheme) stays out of the inputs as in v1. Names missing from a schema are ignored.
+DROP = {"pRound", "pFontsLoaded", "pVw", "pVh", "pDark"}
+# provenance gate (train/provenance.py): no model is trained unless a classifier cannot tell clean elements of injected
+# views from elements of natural views better than this ROC AUC
+PROVENANCE_MAX_AUC = 0.55
 Y_CODES = {"nat": 0, "clean": 1, "control": 2, "fault": 3}
 FAMILIES = ["blank", "controls", "dark", "design", "leaks", "media", "motion", "occlusion", "other", "overflow",
             "responsive", "styles", "text"]
@@ -104,6 +109,22 @@ def model_inputs(X, cols):
 
 def input_names(schema):
     return [n for n in schema["features"] if n not in DROP] + DERIVED
+
+
+def require_provenance(out_dir, skip=False):
+    """Stop unless train/provenance.py passed on this training set (provenance.json in OUT with pass true)."""
+    path = os.path.join(out_dir, "provenance.json")
+    if skip:
+        log("provenance gate skipped on request (--skip-provenance-gate); the results do not count")
+        return None
+    if not os.path.exists(path):
+        raise SystemExit(f"provenance gate: {path} is missing; run train/provenance.py first")
+    rep = json.load(open(path))
+    auc = rep.get("auc")
+    if not rep.get("pass") or auc is None or auc >= PROVENANCE_MAX_AUC:
+        raise SystemExit(f"provenance gate: ROC AUC {auc} is not below {PROVENANCE_MAX_AUC}; see {path} (top inputs)")
+    log(f"provenance gate passed: ROC AUC {auc:.4f} < {PROVENANCE_MAX_AUC}")
+    return rep
 
 
 def pick(S, rng, nat_n, natural_ok_only=True):

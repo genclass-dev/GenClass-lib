@@ -1,0 +1,56 @@
+{
+  "$comment": "DRAFT model block for site/src/data/visual.json (branch wave2/site-launch), from vision/results/v2/TRAINING.md and train/eval-v2.json on branch wave2/visual-v2. Measured numbers only. Families that did not meet the ship criterion are listed under measured_checks_families and are not model families. The launch session decides whether model.status becomes live and whether the scanner runs train/visual-v2.json; until the scanner runs it, keep model.status draft.",
+  "model": {
+    "status": "draft",
+    "stage": "training",
+    "name": "GenClass visual model",
+    "version": "v2 (2026-10-14)",
+    "input": "the measurements GenClass takes of each element on the page (box, text, colours, image load state, hit tests); no pixels",
+    "trained_on": {
+      "sites_ai": 4656,
+      "sites_control": 919,
+      "injected_faults": 121521,
+      "elements": 1255,
+      "$note": "sites: hosts of the training split. injected_faults: fault rows in the training split; 25,536 of them changed pixels at rest and were the positives. elements: hand-labelled crops (real or not) the models trained on (944 of val hosts, 311 of training hosts); the models also trained on about 440,000 injected-fault and clean element rows each."
+    },
+    "eval": {
+      "data": "1,114 labelled element crops from 871 page views of 522 sites, plus a blind hand check of other flags on the same held-out sites",
+      "split": "sites held out from training (split by host after near-duplicate removal)",
+      "false_reports_per": "clean element"
+    },
+    "families": [
+      {
+        "id": "media",
+        "name": "Broken and placeholder images",
+        "recall_at_fp_0_1": 0.567,
+        "recall_at_fp_1": 0.837,
+        "examples": 208,
+        "$note": "recall of the media score (media+lab) on injected media faults that changed pixels at rest, at 0.1% and 1% of clean test elements flagged. In the scanner the score only filters the measured media checks (image-broken, media-failed, text-placeholder, image-distorted) at 0.026: on labelled test crops 27 flags, 19 real bugs (0.70), 19 of 21 labelled media bugs found; the checks alone 44 flags, 19 real (0.43)."
+      },
+      {
+        "id": "responsive",
+        "name": "Layouts wider than the screen",
+        "recall_at_fp_0_1": 0.721,
+        "recall_at_fp_1": 0.962,
+        "examples": 262,
+        "$note": "recall of the responsive score (responsive+lab) on injected responsive faults that changed pixels at rest. Shipped at 0.561: on labelled test crops 10 flags, 7 real bugs (0.70, 95% CI 0.40 to 0.89), 6 of 30 labelled overflow and responsive bugs found; blind hand check 10 of 11 other flags real (4 sites)."
+      }
+    ],
+    "natural_precision": 0.703,
+    "natural_pages": 871,
+    "$natural_precision_note": "26 real of 37 flags of the two shipped detectors on labelled crops of held-out pages (media 19 of 27, responsive 7 of 10); unclear counts as not real. Blind hand check of other flags: media 25 of 30, responsive 10 of 11.",
+    "size_kb": 56.9,
+    "ms_per_element": 0.0128,
+    "cost_measured_on": "the reference JS evaluator (detect_v2.mjs), Node 22.22.0, one thread on an Azure F80ads_v7 vCPU, 21,124 test elements; 199 KB uncompressed",
+    "measured_checks_families": ["overflow", "text", "dark", "occlusion", "leaks", "styles", "controls", "blank", "motion", "design", "other"],
+    "$measured_checks_note": "No v2 detector for these families reached at least 60% real bugs among its flags on held-out real pages at a threshold chosen on dev; they stay on the measured checks of docs/runtime/VISUAL.md."
+  },
+  "sources": [
+    {
+      "id": "model",
+      "title": "Visual-bug classifier v2: training and evaluation on real pages",
+      "path": "vision/results/v2/TRAINING.md",
+      "used_for": "every number in the model block"
+    }
+  ]
+}

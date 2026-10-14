@@ -1,0 +1,44 @@
+{
+ "bySource": {
+  "hybrid:media": {
+   "checked": 30,
+   "real": 25,
+   "unclear": 2,
+   "not": 3,
+   "precision": 0.8333,
+   "threshold": 0.02587447687983513,
+   "score": "media+lab",
+   "flaggedNatural": 125,
+   "eligible": 54,
+   "sampled": 30
+  },
+  "rejected:media": {
+   "checked": 29,
+   "real": 1,
+   "unclear": 11,
+   "not": 17,
+   "precision": 0.0345,
+   "threshold": 0.02587447687983513,
+   "score": "media+lab",
+   "flaggedNatural": 808,
+   "eligible": 29,
+   "sampled": 29
+  }
+ },
+ "stats": {
+  "hybrid:media": {
+   "threshold": 0.02587447687983513,
+   "score": "media+lab",
+   "flaggedNatural": 125,
+   "eligible": 54,
+   "sampled": 30
+  },
+  "rejected:media": {
+   "threshold": 0.02587447687983513,
+   "score": "media+lab",
+   "flaggedNatural": 808,
+   "eligible": 29,
+   "sampled": 29
+  }
+ }
+}
