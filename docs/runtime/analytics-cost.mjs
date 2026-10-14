@@ -1,5 +1,6 @@
-// Byte cost of the genclass-analytics/1 batches proposed in docs/runtime/ANALYTICS.md §6: a deterministic synthetic
-// workload serialised in the proposed schema. It does not run the runtime; the v1 test (test/analytics.test.ts, "an
+// Byte cost of the genclass-analytics/1 batches proposed in docs/runtime/ANALYTICS.md §6 (the schema as revised after
+// the 2026-10-13 review: mode, sample, cand and late added, no `to`): a deterministic synthetic workload serialised in
+// the proposed schema. It does not run the runtime; the v1 test (test/analytics.test.ts, "an
 // hour of actions") replaces these estimates with measured numbers. Bodies are uncompressed JSON, as the transport
 // sends them (text/plain, no gzip). Run: node docs/runtime/analytics-cost.mjs
 let seed = 42;
@@ -26,7 +27,9 @@ const SIGS = {
   "button#qty-inc@main": "PATCH /api/cart/:id",
   "button#qty-dec@main": "PATCH /api/cart/:id",
 };
-const env = (seq, sent) => ({ schema: "genclass-analytics/1", token: "gc_" + "a".repeat(22), pid: "f".repeat(24), seq, sent, runtime: "0.4.0", consent: "granted", text: false });
+const env = (seq, sent) => ({ schema: "genclass-analytics/1", token: "gc_" + "a".repeat(22), pid: "f".repeat(24), seq, sent, runtime: "0.4.0", mode: "observe", sample: 1, consent: "granted", text: false });
+// candidate roles for dead clicks (§2.1): every key here whose role is button, link, tab, menuitem, option, switch
+const CANDIDATE = (key) => /^(button|link|tab|menuitem|option|switch)\b/.test(key);
 
 /** One tab open for an hour: `perMin` clicks a minute, a route change every `viewEveryMin` minutes, a batch a minute. */
 function hour(perMin, viewEveryMin) {
@@ -48,6 +51,7 @@ function hour(perMin, viewEveryMin) {
       const el = pick(ELS[route]);
       const e = (els[el] ??= { n: 0 });
       e.n++;
+      if (CANDIDATE(el)) e.cand = (e.cand ?? 0) + 1;
       if (!tfiSent) {
         page.tfi = Math.floor(rnd() * 4);
         tfiSent = true;
@@ -60,8 +64,9 @@ function hour(perMin, viewEveryMin) {
         const r = ((e.reqs ??= {})[sig] ??= [0, 0, 0, 0, 0]);
         r[0]++;
         r[rnd() < 0.95 ? 1 : 3]++;
-      } else if (rnd() < 0.03) e.dead = (e.dead ?? 0) + 1;
-      if (rnd() < 0.01) e.rage = (e.rage ?? 0) + 1;
+      } else if (CANDIDATE(el) && rnd() < 0.03) e.dead = (e.dead ?? 0) + 1;
+      else if (CANDIDATE(el) && rnd() < 0.02) e.late = (e.late ?? 0) + 1;
+      if (CANDIDATE(el) && rnd() < 0.01) e.rage = (e.rage ?? 0) + 1;
     }
     if (Object.keys(els).length) page.els = els;
     const reach = Math.min(4, marks + (rnd() < 0.5 ? 1 : 0));
@@ -71,7 +76,6 @@ function hour(perMin, viewEveryMin) {
     }
     if ((min + 1) % viewEveryMin === 0 && min < 59) {
       const next = pick(ROUTES.filter((r) => r !== route));
-      page.to = next;
       from = route;
       route = next;
       v++;
@@ -79,7 +83,6 @@ function hour(perMin, viewEveryMin) {
       tfiSent = false;
       marks = 0;
     }
-    if (min === 59) page.to = "(exit)";
     batches.push(JSON.stringify({ ...env(min, (min + 1) * 60_000), pages: [page] }));
   }
   return batches;
@@ -104,10 +107,9 @@ const short = JSON.stringify({
       from: "(entry)",
       tfi: 1,
       scroll: [1, 2],
-      to: "(exit)",
       els: {
-        "button#add-to-cart@main": { n: 1, req: 1, settle: [0, 0, 1, 0, 0, 0], reqs: { "POST /api/cart": [1, 1, 0, 0, 0] } },
-        "tab#reviews@main": { n: 2 },
+        "button#add-to-cart@main": { n: 1, cand: 1, req: 1, settle: [0, 0, 1, 0, 0, 0], reqs: { "POST /api/cart": [1, 1, 0, 0, 0] } },
+        "tab#reviews@main": { n: 2, cand: 2 },
         "img@main~11aa02": { n: 1 },
         "link[/cart]@header": { n: 1 },
       },
@@ -116,4 +118,6 @@ const short = JSON.stringify({
 });
 console.log(`a short page view (45 s, 5 clicks, one batch on pagehide): ${short.length} B`);
 console.log(`the envelope alone: ${JSON.stringify({ ...env(0, 0), pages: [] }).length} B`);
-console.log(`ceiling: 60 batches an hour at the 4 KB batch cap = ${((60 * 4096) / 1024).toFixed(0)} KB`);
+console.log(`ceiling from the timer at flushMs 60 s: 60 batches an hour at the 4 KB batch cap = ${((60 * 4096) / 1024).toFixed(0)} KB, plus 4 KB per hide, pagehide or flush() batch`);
+const cfg = "GET /api/v1/analytics/config?token=gc_" + "a".repeat(22);
+console.log(`config request line: ${cfg.length} B; its reply body: ${JSON.stringify({ on: true, consent: "required" }).length} B`);
