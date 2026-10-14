@@ -27,13 +27,17 @@ import { json, readCapped } from "./http.js";
 import { forgetOwner } from "./paid.js";
 import { accountBilling, billingLive, canBuy, entitled, PAID_PLANS, PLANS_FILE, planById, stripeMode, type Plan } from "./plans.js";
 import {
+  checkCustomer,
   checkoutSession,
-  customerSubscriptions,
   ensureCustomer,
+  foreignInvoice,
   HOLDING_STATUSES,
   isGenClassSubscription,
   missingCustomer,
+  modeNote,
+  notifyOwner,
   portalSession,
+  sharedCustomer,
   StripeError,
   stripeWebhook,
   subscriptionState,
@@ -152,6 +156,30 @@ export async function routeBilling(request: Request, url: URL, path: string, env
 
 // --------------------------------------------------------------------------------------------- Checkout, portal
 
+/**
+ * The Stripe account is shared (daybot.ca's, also Polar Parts'): GenClass opens no Stripe page for, and starts no
+ * Checkout on, a stored customer that is not provably its own or that holds anything else (src/stripe.ts
+ * checkCustomer, sharedCustomer, foreignInvoice). The buyer gets a 409 with the contact address, nothing is opened,
+ * and the owner gets a shared_customer notice with the ids (NOTIFY_WEBHOOK; worker logs are not kept).
+ */
+async function refuseShared(c: C, f: Fetch, accountId: string, customer: string, why: string): Promise<Response> {
+  console.log(`billing: account ${accountId}: Stripe customer ${customer} ${why}; no Stripe page opened`);
+  await notifyOwner(
+    { env: c.env, fetch: f, now: c.now },
+    {
+      event: "shared_customer",
+      text: `${modeNote(c.env)}GenClass account ${accountId}: its Stripe customer ${customer} ${why}, so GenClass opened no Stripe page for it. Move the other business's objects to a customer of its own (telemetry-worker/README.md, "Shared Stripe account").`,
+      account_id: accountId,
+      customer,
+    },
+  );
+  return fail(409, `this account's Stripe billing record holds something that is not GenClass's, so GenClass does not open it; email ${PLANS_FILE.contact} and we will sort it out`);
+}
+
+const NOT_GENCLASS = "is not a customer GenClass made for this account";
+const SHARED_SUBSCRIPTION = "also has a subscription that is not GenClass's";
+const SHARED_INVOICE = "also has an invoice that is not for a GenClass subscription";
+
 async function checkout(c: C, f: Fetch): Promise<Response> {
   const a = await browserWrite(c, "plans can be bought");
   if (a instanceof Response) return a;
@@ -166,13 +194,14 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
   try {
     let customer = await ensureCustomer(c.env, f, c.db, account);
     if (!customer.fresh) {
-      // what Stripe has now (a webhook can lag behind a payment): an account that pays changes its subscription in the
-      // Billing Portal, never gets a second one. Only GenClass subscriptions count (the Stripe account is shared)
-      let subs: Awaited<ReturnType<typeof customerSubscriptions>> = [];
-      try {
-        subs = await customerSubscriptions(c.env, f, customer.id);
-      } catch (e) {
-        if (!missingCustomer(e)) throw e;
+      // the stored customer must be the account's own GenClass customer, holding nothing else (the Stripe account is
+      // shared); then what Stripe has now (a webhook can lag behind a payment): an account that pays changes its
+      // subscription in the Billing Portal, never gets a second one
+      const own = await checkCustomer(c.env, f, account.id, customer.id);
+      if (own.state === "not_genclass") return refuseShared(c, f, account.id, customer.id, NOT_GENCLASS);
+      if (own.state === "ok" && sharedCustomer(own.subs)) return refuseShared(c, f, account.id, customer.id, SHARED_SUBSCRIPTION);
+      const subs = own.state === "ok" ? own.subs : [];
+      if (own.state === "missing") {
         customer = await ensureCustomer(c.env, f, c.db, { ...account, stripe_customer_id: customer.id, stripe_mode: stripeMode(c.env) }, customer.id);
       }
       const held = subs.find((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s));
@@ -185,6 +214,8 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
         if (st.priced === plan.id) {
           return fail(409, `you are already on the ${plan.name} plan${st.cancelAtPeriodEnd ? "; to keep it after this period, resume it in Manage billing" : ""}`);
         }
+        // the portal shows everything on the customer: its invoices must be GenClass's too
+        if (await foreignInvoice(c.env, f, customer.id, subs)) return refuseShared(c, f, account.id, customer.id, SHARED_INVOICE);
         const url = await portalSession(c.env, f, { customer: customer.id, origin: c.cfg.origin, subscription: held.id, now: c.now });
         return json(200, { url, portal: true });
       }
@@ -205,20 +236,33 @@ async function portal(c: C, f: Fetch): Promise<Response> {
   const b = await accountBilling(c.db, a.account.id, c.env);
   if (!b.stripe_customer_id) return fail(409, "there is nothing to manage yet: this account has never bought a plan");
   if (await overBudget(c.env.AUTH_LIMIT, "portal", a.account.id)) return tooMany();
+  const customer = b.stripe_customer_id;
+  // Stripe no longer has this customer (deleted in Stripe): forget it, so the next purchase starts clean. Never for a
+  // customer of the other mode (a live customer while the key is a test key is simply not visible to it)
+  const forget = async (): Promise<Response | null> => {
+    if ((b.stripe_mode ?? stripeMode(c.env)) !== stripeMode(c.env)) return null;
+    await c.db
+      .prepare(
+        "UPDATE accounts SET stripe_customer_id = NULL, stripe_mode = NULL, plan = 'free', subscription_id = NULL, subscription_status = NULL, " +
+          "current_period_end = NULL, cancel_at_period_end = 0 WHERE id = ? AND stripe_customer_id = ?",
+      )
+      .bind(a.account.id, customer)
+      .run();
+    return fail(409, "Stripe no longer has billing records for this account; buy a plan again on this page");
+  };
   try {
-    return json(200, { url: await portalSession(c.env, f, { customer: b.stripe_customer_id, origin: c.cfg.origin, now: c.now }) });
+    // the portal lets the buyer cancel any subscription on the customer, change the card that pays it and read every
+    // invoice on it: only the account's own GenClass customer, holding nothing but GenClass's billing, gets one
+    const own = await checkCustomer(c.env, f, a.account.id, customer);
+    if (own.state === "missing") return (await forget()) ?? fail(502, "Stripe: this account's billing records are not visible with the current key");
+    if (own.state === "not_genclass") return refuseShared(c, f, a.account.id, customer, NOT_GENCLASS);
+    if (sharedCustomer(own.subs)) return refuseShared(c, f, a.account.id, customer, SHARED_SUBSCRIPTION);
+    if (await foreignInvoice(c.env, f, customer, own.subs)) return refuseShared(c, f, a.account.id, customer, SHARED_INVOICE);
+    return json(200, { url: await portalSession(c.env, f, { customer, origin: c.cfg.origin, now: c.now }) });
   } catch (e) {
-    if (missingCustomer(e) && (b.stripe_mode ?? stripeMode(c.env)) === stripeMode(c.env)) {
-      // Stripe no longer has this customer (deleted in Stripe): forget it, so the next purchase starts clean. Never for
-      // a customer of the other mode (a live customer while the key is a test key is simply not visible to it)
-      await c.db
-        .prepare(
-          "UPDATE accounts SET stripe_customer_id = NULL, stripe_mode = NULL, plan = 'free', subscription_id = NULL, subscription_status = NULL, " +
-            "current_period_end = NULL, cancel_at_period_end = 0 WHERE id = ? AND stripe_customer_id = ?",
-        )
-        .bind(a.account.id, b.stripe_customer_id)
-        .run();
-      return fail(409, "Stripe no longer has billing records for this account; buy a plan again on this page");
+    if (missingCustomer(e)) {
+      const r = await forget();
+      if (r) return r;
     }
     return stripeFail(e);
   }

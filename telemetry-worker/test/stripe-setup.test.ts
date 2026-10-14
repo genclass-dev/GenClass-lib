@@ -3,8 +3,9 @@ import { planForPrice } from "../src/plans.js";
 import { STRIPE_VERSION, WEBHOOK_EVENTS } from "../src/stripe.js";
 
 // scripts/stripe-setup.mjs against a fake of daybot.ca's Stripe account, which also holds Polar Parts' products,
-// prices, webhook endpoint and default Billing Portal configuration. The script must create, find and edit only
-// GenClass's own objects, never list or change anything of Polar Parts', and never touch account-wide settings.
+// prices, webhook endpoint, default Billing Portal configuration and another (non-default) one of its own. The script
+// must create, find and edit only GenClass's own objects, never change anything of Polar Parts', and never touch
+// account-wide settings.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let setup: any;
@@ -35,11 +36,16 @@ function account() {
   const endpoints = new Map<string, Obj>([
     ["we_polar0000001", { id: "we_polar0000001", object: "webhook_endpoint", url: "https://polarparts.ca/api/stripe/webhook", description: "Polar Parts orders", enabled_events: ["*"], status: "enabled", metadata: {} }],
   ]);
-  const portal = new Map<string, Obj>([["bpc_polardefault1", { id: "bpc_polardefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {}, business_profile: { headline: "Polar Parts" } }]]);
+  const portal = new Map<string, Obj>([
+    ["bpc_polardefault1", { id: "bpc_polardefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {}, business_profile: { headline: "Polar Parts" } }],
+    // Polar Parts' own API-made configuration (one per storefront, say): not the default, and not GenClass's
+    ["bpc_polarstore01", { id: "bpc_polarstore01", object: "billing_portal.configuration", is_default: false, active: true, metadata: { storefront: "winter" }, business_profile: { headline: "Polar Parts winter store" } }],
+  ]);
   const customers = new Map<string, Obj>([["cus_polar0000001", { id: "cus_polar0000001", email: "ada@example.com", metadata: {} }]]);
   const calls: { method: string; url: URL; body: Obj }[] = [];
   let n = 0;
-  const snapshot = () => JSON.stringify({ p: products.get("prod_polar0000001"), pr: prices.get("price_polar0000001"), w: endpoints.get("we_polar0000001"), c: portal.get("bpc_polardefault1"), cu: [...customers.values()] });
+  const snapshot = () =>
+    JSON.stringify({ p: products.get("prod_polar0000001"), pr: prices.get("price_polar0000001"), w: endpoints.get("we_polar0000001"), c: portal.get("bpc_polardefault1"), s: portal.get("bpc_polarstore01"), cu: [...customers.values()] });
   const ok = (j: unknown, status = 200) => new Response(JSON.stringify(j), { status, headers: { "content-type": "application/json" } });
   const missing = (what: string) => ok({ error: { code: "resource_missing", message: `No such ${what}` } }, 404);
   const fetch = async (input: string, init: RequestInit = {}) => {
@@ -152,7 +158,7 @@ async function run(a: ReturnType<typeof account>, o: { key?: string; argv?: stri
 function onlyGenClass(calls: { method: string; url: URL; body: Obj }[]) {
   for (const c of calls) {
     const text = `${c.method} ${c.url} ${JSON.stringify(c.body)}`;
-    for (const x of ["polar", "Polar", "PP-", "bpc_polardefault1", "cus_"]) expect(text, text).not.toContain(x);
+    for (const x of ["polar", "Polar", "PP-", "bpc_polardefault1", "bpc_polarstore01", "winter", "cus_"]) expect(text, text).not.toContain(x);
     expect(c.url.pathname.startsWith("/v1/customers"), text).toBe(false);
     if (c.method === "GET" && c.url.pathname === "/v1/products") throw new Error(`listed every product: ${text}`);
     if (c.method === "GET" && c.url.pathname === "/v1/prices") expect(c.url.searchParams.get("lookup_keys[0]")!.startsWith("genclass_"), text).toBe(true);
@@ -187,12 +193,8 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     expect(ours).toHaveLength(1);
     expect(ours[0]).toMatchObject({ url: setup.WEBHOOK_URL, description: "GenClass billing", enabled_events: WEBHOOK_EVENTS, api_version: STRIPE_VERSION, metadata: { genclass: "1" } });
     expect(setup.WEBHOOK_URL).toBe("https://genclass.dev/api/billing/webhook");
-    // its secret went to wrangler under the test-mode name, and was never printed
-    expect(r.secrets).toEqual([["STRIPE_WEBHOOK_SECRET_TEST", expect.stringMatching(/^whsec_fresh_secret_/)]]);
-    expect(r.out).not.toContain(r.secrets[0]![1]);
-
-    // one portal configuration of GenClass's own: metadata, headline, GenClass's products only; the default untouched
-    const configs = [...a.portal.values()].filter((c) => c.id !== "bpc_polardefault1");
+    // one portal configuration of GenClass's own: metadata, headline, GenClass's products only; Polar Parts' untouched
+    const configs = [...a.portal.values()].filter((c) => !c.id.startsWith("bpc_polar"));
     expect(configs).toHaveLength(1);
     const f = configs[0]!.form as Obj;
     expect(configs[0]).toMatchObject({ is_default: false, metadata: { genclass: "1" } });
@@ -200,25 +202,49 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     const listed = Object.entries(f).filter(([k]) => /^features\[subscription_update\]\[products\]\[\d+\]\[product\]$/.test(k)).map(([, v]) => v);
     expect(listed).toEqual(["genclass_pro", "genclass_custom"]);
     expect(Object.keys(f).some((k) => /is_default/.test(k))).toBe(false);
+    // a buyer may change the email and tax id of their GenClass customer, never an address (GenClass needs none)
+    const updates = Object.entries(f).filter(([k]) => /^features\[customer_update\]\[allowed_updates\]\[\d+\]$/.test(k)).map(([, v]) => v);
+    expect(updates).toEqual(["email", "tax_id"]);
+    // Polar Parts' configurations were listed (to find GenClass's) but never written
+    expect(r.calls.filter((c) => c.method === "POST" && c.url.pathname.startsWith("/v1/billing_portal/configurations/")).map((c) => c.url.pathname)).toEqual([]);
 
-    // no account-wide setting is asked for; the ones that touch Polar Parts are named as the owner's call
+    // the webhook secret went to wrangler under the test-mode name and was never printed; the configuration's id
+    // under its test-mode name, for the worker to fetch it by id
+    expect(r.secrets).toEqual([
+      ["STRIPE_WEBHOOK_SECRET_TEST", expect.stringMatching(/^whsec_fresh_secret_/)],
+      ["STRIPE_PORTAL_CONFIGURATION_TEST", configs[0]!.id],
+    ]);
+    expect(r.out).not.toContain(r.secrets[0]![1]);
+
+    // no account-wide setting is asked for; the ones that touch Polar Parts are named as the owner's call, with the
+    // checks only the owner can make on Polar Parts' side
     expect(r.out).not.toMatch(/Cancel the subscription/);
     expect(r.out).toMatch(/shared with Polar Parts/);
     expect(r.out).toMatch(/past due for 14 days/);
+    expect(r.out).toMatch(/never finds or reuses a customer by email \(customers.list with email,\s+customers.search/);
+    expect(r.out).toMatch(/leaves out products with metadata genclass_plan/);
+    expect(r.out).toMatch(/answer 2xx and do nothing/);
+    expect(r.out).toMatch(/invoice\.created holds\s+GenClass's invoices/);
+    expect(r.out).toMatch(/no-code login link/);
+    expect(r.out).toMatch(/SELECT COUNT\(\*\) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL/);
   });
 
   it("a second run changes nothing but rewriting its own portal configuration; --dry-run only reads", async () => {
     const a = account();
     await run(a);
-    const config = [...a.portal.keys()].find((id) => id !== "bpc_polardefault1");
+    const config = [...a.portal.keys()].find((id) => !id.startsWith("bpc_polar"));
     const again = await run(a);
     expect(again.writes.map((c) => `${c.method} ${c.url.pathname}`)).toEqual([`POST /v1/billing_portal/configurations/${config}`]);
+    // its id is stored again (the worker may have lost it); no new webhook secret
+    expect(again.secrets).toEqual([["STRIPE_PORTAL_CONFIGURATION_TEST", config]]);
     expect(again.out).toMatch(/product GenClass Pro: genclass_pro, unchanged/);
     expect(again.out).toMatch(/webhook endpoint we_gc\d+: unchanged/);
     const fresh = account();
     const dry = await run(fresh, { argv: ["--dry-run"] });
     expect(dry.writes).toEqual([]);
+    expect(dry.secrets).toEqual([]);
     onlyGenClass(dry.calls);
+    expect(dry.out).toMatch(/would store its id as STRIPE_PORTAL_CONFIGURATION_TEST/);
     expect(dry.out).toMatch(/would create product GenClass Pro \(genclass_pro, statement descriptor GENCLASS\)/);
     expect(dry.out).toMatch(/would create GenClass's Billing Portal configuration/);
   });
@@ -247,7 +273,7 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     expect(r.calls.filter((c) => c.method === "DELETE").map((c) => c.url.pathname)).toEqual([`/v1/webhook_endpoints/${first}`]);
     expect(a.endpoints.has("we_polar0000001")).toBe(true);
     expect([...a.endpoints.values()].filter((w) => w.url === setup.WEBHOOK_URL)).toHaveLength(1);
-    expect(r.secrets.map(([name]) => name)).toEqual(["STRIPE_WEBHOOK_SECRET"]);
+    expect(r.secrets.map(([name]) => name)).toEqual(["STRIPE_WEBHOOK_SECRET", "STRIPE_PORTAL_CONFIGURATION"]);
     expect(r.out).not.toMatch(/Revenue recovery, Retries: set/);
   });
 
@@ -286,6 +312,24 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (daybot.ca, also
     expect([...a.prices.values()].find((x) => x.lookup_key === "genclass_pro_monthly")!.product).toBe("prod_earlier00001");
     expect(JSON.stringify(a.portal.get("bpc_polardefault1"))).toBe(before);
     expect(r.calls.some((c) => c.url.pathname.includes("bpc_polardefault1"))).toBe(false);
-    expect([...a.portal.values()].filter((c) => !c.is_default)).toHaveLength(1);
+    expect([...a.portal.values()].filter((c) => !c.is_default && !c.id.startsWith("bpc_polar"))).toHaveLength(1);
+  });
+
+  it("a Polar Parts configuration that is not the default is read in the list but never adopted or written", async () => {
+    const a = account();
+    const before = JSON.stringify(a.portal.get("bpc_polarstore01"));
+    await run(a);
+    const r = await run(a);
+    expect(JSON.stringify(a.portal.get("bpc_polarstore01"))).toBe(before);
+    expect(r.calls.some((c) => c.method !== "GET" && c.url.pathname.includes("bpc_polarstore01"))).toBe(false);
+    expect(r.secrets.map(([, v]) => v)).not.toContain("bpc_polarstore01");
+  });
+
+  it("when wrangler cannot store the configuration's id, the script stops and prints the command to set it", async () => {
+    const a = account();
+    const out: string[] = [];
+    await expect(
+      setup.main({ argv: [], env: { STRIPE_SECRET_KEY: "sk_test_fake" }, fetch: a.fetch, log: (s: string) => out.push(s), putSecret: async (name: string) => name !== "STRIPE_PORTAL_CONFIGURATION_TEST" }),
+    ).rejects.toThrow(/wrangler did not store STRIPE_PORTAL_CONFIGURATION_TEST .* echo bpc_gc\d+ \| npx --yes wrangler@4 secret put STRIPE_PORTAL_CONFIGURATION_TEST/);
   });
 });

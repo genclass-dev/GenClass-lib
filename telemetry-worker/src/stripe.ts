@@ -7,35 +7,46 @@
 //   products, prices, customers, Checkout Sessions, subscriptions, invoices, webhooks and Billing Portal). GenClass
 //   touches only objects it can prove are its own (README "Shared Stripe account"):
 //   - customers it created itself (description "GenClass account", metadata genclass=1 and genclass_account). They
-//     are never looked up by email, and accounts.stripe_customer_id is written only by ensureCustomer;
+//     are never looked up by email, and accounts.stripe_customer_id is written only by ensureCustomer. Before
+//     GenClass opens a Stripe page for a stored customer, starts a Checkout on it or cancels anything on it, the
+//     customer itself is checked (checkCustomer): its metadata must name the account. A Billing Portal session also
+//     needs every subscription and invoice on the customer to be GenClass's (sharedCustomer, foreignInvoice): the
+//     portal would otherwise let the buyer cancel, re-card or read another business's billing on that customer;
 //   - Checkout Sessions it created (mode subscription, metadata genclass=1 and genclass_account) for those customers;
 //   - subscriptions whose every price has a genclass_ lookup key and a product with metadata genclass_plan
 //     (src/plans.ts planForPrice), of those customers (fetched with the customer expanded, whose metadata
 //     genclass_account must name the account);
-//   - its own Billing Portal configuration (metadata genclass=1, never the account's default one).
-//   Every other webhook event is answered 200, recorded by event id and type only, logged by type and id only, and
-//   nothing about it is fetched from Stripe: the checks before any Stripe call use the event itself and our database.
+//   - its own Billing Portal configuration (metadata genclass=1, never the account's default one), by the id
+//     scripts/stripe-setup.mjs stores in STRIPE_PORTAL_CONFIGURATION (live) or STRIPE_PORTAL_CONFIGURATION_TEST.
+//   The webhook endpoint subscribes to the subscription events only (WEBHOOK_EVENTS): they carry ids, prices and
+//   statuses, not a buyer's name, email or address, and they are all the worker needs. An event for a customer the
+//   accounts table does not name is answered 200, logged by type and id only, not stored, and nothing about it is
+//   fetched from Stripe: the check before any Stripe call uses the event itself and our database.
 // - GenClass stores the Stripe customer id, subscription id, status, period end, plan and the Stripe mode (test or
 //   live) those ids belong to. Never card data: payment details are typed into Stripe's own pages.
 // - One subscription per account. Checkout asks Stripe (not the database, which a late webhook leaves behind) whether
 //   the customer already has one, and sends a paying account to the Billing Portal to change it instead; an account's
 //   older unpaid Checkout pages are closed when it opens another plan's. If two subscriptions still end up live (two
-//   tabs paid at once), the newest is kept and the others are cancelled at once with a prorated credit.
+//   tabs paid at once), the newest is kept and the others are cancelled at once, with a prorated credit to the
+//   customer's balance only when nothing but GenClass subscriptions is on that customer (a balance pays the
+//   customer's next invoice, whoever it is from).
 // - A webhook is accepted only with a valid Stripe-Signature (HMAC-SHA256 of "t.payload" under the webhook secret of
 //   the key's mode, any v1 matching, compared in constant time, timestamp within 5 minutes). Events from the other
-//   mode (a test endpoint left over after going live) are acknowledged and ignored. Each event id is handled once
-//   (billing_events); a failure answers 500 so Stripe delivers it again.
+//   mode (a test endpoint left over after going live) are acknowledged and ignored. Each event about a GenClass
+//   customer is handled once (billing_events); a failure answers 500 so Stripe delivers it again.
 // - The plan always comes from the subscription as Stripe has it now (fetched when an event arrives, so events that
 //   arrive out of order cannot leave a stale plan): the price names the plan (src/plans.ts planForPrice), and the
 //   status decides whether it applies (active or trialing: yes; past_due: for 14 days from when GenClass first saw it
 //   past due, whatever the shared account's retry settings; anything else: free).
-// - A Custom purchase is recorded (custom_requests, NOTIFY_WEBHOOK) only once Stripe reports the Custom price paid: a
-//   paid Checkout, or a paid invoice with a Custom line (a switch from Pro is invoiced at once).
+// - A Custom purchase is recorded (custom_requests, NOTIFY_WEBHOOK) only once Stripe reports the Custom price paid:
+//   the subscription's latest invoice (fetched with it) is paid and has a positive Custom line (a first Custom
+//   invoice, or a switch from Pro, which is invoiced at once). Stripe sends customer.subscription.updated when a
+//   subscription becomes active, renews or changes price, so the paid invoice is seen without invoice events.
 
 import type { Env } from "./collector.js";
 import { randomBase62, sha256Hex, type D1Like } from "./dashboard.js";
 import { json } from "./http.js";
-import { LIVE_STATUSES, pastDueLapsed, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
+import { LIVE_STATUSES, LOOKUP_PREFIX, pastDueLapsed, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
 import { equalStrings } from "./webauthn.js";
 
 export const STRIPE_API = "https://api.stripe.com";
@@ -44,16 +55,12 @@ export const STRIPE_VERSION = "2025-03-31.basil";
 export const WEBHOOK_TOLERANCE_S = 300;
 /**
  * The events GenClass's endpoint subscribes to, and no more: the endpoint receives these for the whole shared account
- * (Polar Parts' too). A failed payment needs no invoice event: the subscription's move to past_due or unpaid arrives
- * as customer.subscription.updated.
+ * (Polar Parts' subscriptions too). Subscription events carry ids, prices, statuses and dates, never a buyer's name,
+ * email or address (Checkout, invoice, charge and customer events do, so GenClass takes none of them). A paid first
+ * invoice, a renewal, a plan switch and a failed payment all change the subscription, so each arrives as
+ * customer.subscription.created or .updated; the worker then reads the subscription's latest invoice itself.
  */
-export const WEBHOOK_EVENTS = [
-  "checkout.session.completed",
-  "customer.subscription.created",
-  "customer.subscription.updated",
-  "customer.subscription.deleted",
-  "invoice.paid",
-];
+export const WEBHOOK_EVENTS = ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"];
 /** metadata.genclass on every Stripe object GenClass creates (customers, Checkout Sessions, subscriptions, products, prices, portal configuration, webhook endpoint). */
 export const GENCLASS_MARK = "1";
 /** The description of every customer GenClass creates. */
@@ -64,7 +71,6 @@ type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Obj = Record<string, any>;
 
-const ID22_RE = /^[A-Za-z0-9]{22}$/;
 const STRIPE_ID_RE = /^[a-z]{2,8}_[A-Za-z0-9]{6,255}$/;
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]{6,255}$/;
 
@@ -145,34 +151,38 @@ export async function priceId(env: Env, f: Fetch, lookupKey: string, nowMs: numb
   return p.id;
 }
 
-/** GenClass's Billing Portal configuration id per Stripe mode (configurations differ between test and live). */
-const portalConfigs = new Map<string, { id: string | null; exp: number }>();
+/** Billing Portal configuration ids checked to be GenClass's, until when (configurations differ between modes). */
+const portalConfigs = new Map<string, number>();
+
+/** The setting that holds GenClass's Billing Portal configuration id for the key's mode. */
+export const portalSetting = (env: Env): "STRIPE_PORTAL_CONFIGURATION" | "STRIPE_PORTAL_CONFIGURATION_TEST" =>
+  stripeMode(env) === "test" ? "STRIPE_PORTAL_CONFIGURATION_TEST" : "STRIPE_PORTAL_CONFIGURATION";
 
 /**
- * The Billing Portal configuration scripts/stripe-setup.mjs made: metadata genclass=1, never the account's default
- * one (Polar Parts may use that). Looked up once and cached (10 minutes; a miss 1 minute). Without it no portal
- * session is made: the default configuration would show Polar Parts' settings to GenClass customers.
+ * The Billing Portal configuration scripts/stripe-setup.mjs made, by the id it stored (STRIPE_PORTAL_CONFIGURATION,
+ * or STRIPE_PORTAL_CONFIGURATION_TEST with a test key). Fetched by that id alone, so no other configuration in the
+ * shared account is read, and it must be GenClass's: metadata genclass=1, active, never the account's default one
+ * (Polar Parts may use that). Checked once and cached 10 minutes. Without it no portal session is made: the default
+ * configuration would show Polar Parts' settings to GenClass customers.
  */
 async function portalConfiguration(env: Env, f: Fetch, nowMs: number): Promise<string> {
-  const mode = stripeMode(env) ?? "";
-  let c = portalConfigs.get(mode);
-  if (!c || c.exp <= nowMs) {
-    let id: string | null = null;
-    let after: string | undefined;
-    for (let page = 0; page < 5 && !id; page++) {
-      const r = await stripe(env, f, "GET", "/v1/billing_portal/configurations", { is_default: false, active: true, limit: 100, starting_after: after });
-      const data: Obj[] = Array.isArray(r?.data) ? r.data : [];
-      const hit = data.find((x) => x?.metadata?.genclass === GENCLASS_MARK && x?.is_default !== true && typeof x?.id === "string" && /^bpc_[A-Za-z0-9]+$/.test(x.id));
-      id = hit ? (hit.id as string) : null;
-      if (!r?.has_more || !data.length) break;
-      after = typeof data[data.length - 1]?.id === "string" ? data[data.length - 1]!.id : undefined;
-      if (!after) break;
-    }
-    c = { id, exp: nowMs + (id ? 10 : 1) * 60_000 };
-    portalConfigs.set(mode, c);
+  const setting = portalSetting(env);
+  const id = (env[setting] ?? "").trim();
+  if (!/^bpc_[A-Za-z0-9]{6,255}$/.test(id)) throw new StripeError(`GenClass's Billing Portal configuration is not set (${setting}); run scripts/stripe-setup.mjs`, 503);
+  const key = `${stripeMode(env)}:${id}`;
+  if ((portalConfigs.get(key) ?? 0) > nowMs) return id;
+  let c: Obj;
+  try {
+    c = await stripe(env, f, "GET", `/v1/billing_portal/configurations/${encodeURIComponent(id)}`);
+  } catch (e) {
+    if (e instanceof StripeError && e.status === 404) throw new StripeError(`Stripe has no Billing Portal configuration ${id} (${setting}) in this mode; run scripts/stripe-setup.mjs`, 503);
+    throw e;
   }
-  if (!c.id) throw new StripeError("GenClass's Billing Portal configuration (metadata genclass=1) is missing; run scripts/stripe-setup.mjs", 503);
-  return c.id;
+  if (c?.metadata?.genclass !== GENCLASS_MARK || c?.is_default !== false || c?.active !== true) {
+    throw new StripeError(`${id} (${setting}) is not GenClass's Billing Portal configuration (metadata genclass=1, active, not the default); run scripts/stripe-setup.mjs`, 503);
+  }
+  portalConfigs.set(key, nowMs + 10 * 60_000);
+  return id;
 }
 
 // --------------------------------------------------------------------------------------------- Checkout, portal
@@ -194,9 +204,10 @@ export interface BillingAccount {
  * The account's Stripe customer in the current key's mode, created the first time it is needed: always a new customer
  * of GenClass's own (the account's email, description "GenClass account", metadata genclass=1 and genclass_account).
  * Never found by email: the shared account may have a Polar Parts customer with the same email, which GenClass must
- * not reuse or change. This is the only place accounts.stripe_customer_id is written with a customer id, so a
- * customer the database names is one GenClass made for that account. `fresh`: created by this call, so it has no
- * subscriptions or Checkout pages yet.
+ * not reuse or change (and Polar Parts' code must not pick GenClass's customer by that email either: README "Shared
+ * Stripe account", owner check 1). This is the only place accounts.stripe_customer_id is written with a customer id;
+ * a stored customer is still checked (checkCustomer) before anything is done on it. `fresh`: created by this call,
+ * so it has no subscriptions or Checkout pages yet.
  * - A stored customer from test mode while the key is live is replaced (the test plan is cleared with it).
  * - A stored customer from live mode while the key is a test key is refused: testing must not touch a paying account.
  * - `gone`: the stored customer Stripe reported missing; it is replaced the same way.
@@ -252,6 +263,46 @@ export async function customerSubscriptions(env: Env, f: Fetch, customer: string
 export function isGenClassSubscription(sub: Obj): boolean {
   const items: Obj[] = Array.isArray(sub?.items?.data) ? sub.items.data : [];
   return items.length > 0 && items.every((it) => planForPrice(it?.price) !== null);
+}
+
+/** A stored customer as Stripe has it: GenClass's for this account (with its subscriptions), gone, or not GenClass's. */
+export type CustomerCheck = { state: "ok"; subs: Obj[] } | { state: "missing" } | { state: "not_genclass" };
+
+/**
+ * Check the customer accounts.stripe_customer_id names before GenClass opens a Stripe page for it, starts a Checkout
+ * on it or cancels anything on it: it must be a customer GenClass made for this account (metadata genclass=1 and
+ * genclass_account naming the account). A row written before customers were marked, or by hand, may name someone
+ * else's customer, which is then left alone. "missing": Stripe no longer has it (deleted, or from the other mode).
+ */
+export async function checkCustomer(env: Env, f: Fetch, accountId: string, customer: string): Promise<CustomerCheck> {
+  let c: Obj;
+  try {
+    c = await stripe(env, f, "GET", `/v1/customers/${encodeURIComponent(customer)}`);
+  } catch (e) {
+    if (missingCustomer(e)) return { state: "missing" };
+    throw e;
+  }
+  if (c?.deleted === true) return { state: "missing" };
+  if (c?.metadata?.genclass !== GENCLASS_MARK || c?.metadata?.genclass_account !== accountId) return { state: "not_genclass" };
+  return { state: "ok", subs: await customerSubscriptions(env, f, customer) };
+}
+
+/**
+ * Something that is not GenClass's is on its customer: a subscription (any status) with a price that is not provably
+ * GenClass's, for instance a Polar Parts subscription attached to the customer by an email lookup on Polar Parts' side.
+ * GenClass then opens no Stripe page for that customer, and puts no credit on its balance.
+ */
+export const sharedCustomer = (subs: Obj[]): boolean => subs.some((s) => !isGenClassSubscription(s));
+
+/**
+ * An invoice on the customer that is not for one of its GenClass subscriptions (`subs`, from checkCustomer): a Billing
+ * Portal session would list it under GenClass's headline. Reads the customer's latest 100 invoices; only called for a
+ * customer checkCustomer found to be GenClass's.
+ */
+export async function foreignInvoice(env: Env, f: Fetch, customer: string, subs: Obj[]): Promise<boolean> {
+  const mine = new Set(subs.filter(isGenClassSubscription).map((s) => s.id as string));
+  const r = await stripe(env, f, "GET", "/v1/invoices", { customer, limit: 100 });
+  return (Array.isArray(r?.data) ? (r.data as Obj[]) : []).some((inv) => !mine.has(invoiceSubscription(inv) ?? ""));
 }
 
 /** A Checkout Session GenClass created for this account (metadata genclass=1 and genclass_account). */
@@ -311,7 +362,8 @@ export async function checkoutSession(env: Env, f: Fetch, o: { account: BillingA
 
 /**
  * A Billing Portal session on GenClass's own portal configuration (never the account's default); with
- * `subscription`, it opens straight on changing that subscription's plan.
+ * `subscription`, it opens straight on changing that subscription's plan. The portal shows and acts on everything on
+ * the customer, so the caller first checks that it all is GenClass's (src/billing.ts checkout and portal).
  */
 export async function portalSession(env: Env, f: Fetch, o: { customer: string; origin: string; subscription?: string | null; now: Date }): Promise<string> {
   const configuration = await portalConfiguration(env, f, o.now.getTime());
@@ -341,11 +393,14 @@ export async function cancelNow(env: Env, f: Fetch, subscriptionId: string, cred
 
 /**
  * Before an account is deleted: cancel at once every GenClass subscription of its Stripe customer that could still
- * charge it, not only the one GenClass recorded (a second one, or one whose webhook has not arrived yet). A
- * subscription that is not provably GenClass's is left alone. Returns null when nothing GenClass sold can charge the
- * account any more, else why the deletion has to wait.
+ * charge it, not only the one GenClass recorded (a second one, or one whose webhook has not arrived yet). Only what
+ * Stripe lists on the account's own GenClass customer (checkCustomer) and is provably GenClass's is cancelled: never a
+ * subscription by its recorded id alone, which a price swapped in by hand could have made another business's. With no
+ * customer on record, a recorded subscription is fetched and cancelled only when it is GenClass's and its customer
+ * names the account. Returns null when nothing GenClass sold can charge the account any more, else why the deletion
+ * has to wait.
  */
-export async function cancelForDeletion(env: Env, f: Fetch, b: Billing): Promise<{ status: number; error: string } | null> {
+export async function cancelForDeletion(env: Env, f: Fetch, b: Billing, accountId: string): Promise<{ status: number; error: string } | null> {
   if (!b.stripe_customer_id && !b.subscription_id) return null;
   const mode = stripeMode(env);
   const recordedLive = !!b.subscription_id && HOLDING_STATUSES.has(b.subscription_status ?? "");
@@ -359,13 +414,24 @@ export async function cancelForDeletion(env: Env, f: Fetch, b: Billing): Promise
   try {
     const ids = new Set<string>();
     if (b.stripe_customer_id) {
-      try {
-        for (const s of await customerSubscriptions(env, f, b.stripe_customer_id)) if (!ENDED_STATUSES.has(s.status) && isGenClassSubscription(s)) ids.add(s.id);
-      } catch (e) {
-        if (!missingCustomer(e)) throw e; // a deleted customer's subscriptions were cancelled with it
+      const own = await checkCustomer(env, f, accountId, b.stripe_customer_id);
+      if (own.state === "not_genclass") {
+        // someone else's customer on record: nothing on it is GenClass's to cancel; a recorded plan needs a person
+        if (!recordedLive) return null;
+        console.log(`account deletion: account ${accountId}: Stripe customer ${b.stripe_customer_id} is not GenClass's; nothing cancelled`);
+        return { status: 409, error: `your paid plan could not be cancelled automatically, so the account was not deleted; email ${PLANS_FILE.contact}` };
       }
+      // missing: a deleted customer's subscriptions were cancelled with it
+      if (own.state === "ok") for (const s of own.subs) if (!ENDED_STATUSES.has(s.status) && isGenClassSubscription(s)) ids.add(s.id);
+    } else if (b.subscription_id && recordedLive) {
+      let s: Obj | null = null;
+      try {
+        s = await stripe(env, f, "GET", `/v1/subscriptions/${encodeURIComponent(b.subscription_id)}`, { expand: ["items.data.price.product", "customer"] });
+      } catch (e) {
+        if (!(e instanceof StripeError && e.status === 404)) throw e;
+      }
+      if (s && idOf(s.id) && !ENDED_STATUSES.has(s.status) && isGenClassSubscription(s) && s.customer?.metadata?.genclass_account === accountId) ids.add(s.id);
     }
-    if (b.subscription_id && recordedLive) ids.add(b.subscription_id);
     for (const id of ids) await cancelNow(env, f, id);
     return null;
   } catch (e) {
@@ -463,6 +529,8 @@ export function subscriptionState(sub: Obj, o: { pastDueSince?: string | null; n
 
 export interface EventResult {
   status: "applied" | "ignored";
+  /** The event is about a GenClass customer (it passed the checks that need no Stripe call): it is recorded. */
+  ours: boolean;
   reason?: string;
   account?: string;
   plan?: PlanId;
@@ -474,11 +542,6 @@ const idOf = (v: unknown): string | null => {
 };
 
 const ACCOUNT_BILLING_COLUMNS = "id, email, plan, stripe_customer_id, subscription_id, subscription_status, stripe_mode, past_due_since";
-
-async function accountById(db: D1Like, id: unknown): Promise<BillingAccount | null> {
-  if (typeof id !== "string" || !ID22_RE.test(id)) return null;
-  return db.prepare(`SELECT ${ACCOUNT_BILLING_COLUMNS} FROM accounts WHERE id = ?`).bind(id).first<BillingAccount>();
-}
 
 /** The account whose GenClass customer this is (only ensureCustomer writes stripe_customer_id), or null. */
 async function accountByCustomer(db: D1Like, customer: string | null): Promise<BillingAccount | null> {
@@ -500,14 +563,28 @@ function accountsSubscription(account: BillingAccount, sub: Obj): boolean {
   return named === undefined || named === null || named === account.id;
 }
 
+/**
+ * From the event alone, the subscription could be GenClass's: the one recorded for the account, or one with GenClass's
+ * metadata (every subscription GenClass's Checkout starts has it) or a genclass_ lookup key on a price. Anything else
+ * on a GenClass customer (another business's subscription put on it) is neither fetched nor stored.
+ */
+function maybeGenClass(obj: Obj, account: BillingAccount): boolean {
+  const id = idOf(obj?.id);
+  if (id && id === account.subscription_id) return true;
+  if (obj?.metadata?.genclass === GENCLASS_MARK) return true;
+  const items: Obj[] = Array.isArray(obj?.items?.data) ? obj.items.data : [];
+  return items.some((it) => typeof it?.price?.lookup_key === "string" && it.price.lookup_key.startsWith(LOOKUP_PREFIX));
+}
+
 /** The subscription an invoice is for (the field moved in API version 2025-03-31), or null for a one-off invoice. */
 export function invoiceSubscription(inv: Obj): string | null {
   return idOf(inv?.subscription) ?? idOf(inv?.parent?.subscription_details?.subscription) ?? idOf(inv?.lines?.data?.[0]?.subscription) ?? idOf(inv?.lines?.data?.[0]?.parent?.subscription_item_details?.subscription);
 }
 
-const ignored = (reason: string, event: Obj): EventResult => {
+/** An event left alone; `ours`: about a GenClass customer (recorded in billing_events), else not stored at all. */
+const ignored = (reason: string, event: Obj, ours = false): EventResult => {
   console.log(`stripe webhook: ${String(event?.type)} ${String(event?.id)} ignored: ${reason}`);
-  return { status: "ignored", reason };
+  return { status: "ignored", ours, reason };
 };
 
 export interface EventContext {
@@ -537,97 +614,88 @@ export function invoicePaysCustom(inv: Obj, sub: Obj): boolean {
 }
 
 /**
- * GET a subscription of a GenClass customer with its prices' products (whose metadata says the plan) and its customer
- * (whose metadata says the account). Only called once the event has passed the checks that need no Stripe call.
+ * Stripe reports the subscription's Custom price paid: its latest invoice (expanded by fetchSubscription) is paid,
+ * is the subscription's own, and charges a Custom price (invoicePaysCustom). Exported for tests.
+ */
+export function latestInvoicePaysCustom(sub: Obj): boolean {
+  const inv = sub?.latest_invoice;
+  if (!inv || typeof inv !== "object" || inv.status !== "paid") return false;
+  return invoiceSubscription(inv) === idOf(sub?.id) && invoicePaysCustom(inv, sub);
+}
+
+/**
+ * GET a subscription of a GenClass customer with its prices' products (whose metadata says the plan), its customer
+ * (whose metadata says the account) and its latest invoice (whether the Custom price is paid). Only called once the
+ * event has passed the check that needs no Stripe call.
  */
 const fetchSubscription = (x: EventContext, id: string): Promise<Obj> =>
-  stripe(x.env, x.fetch, "GET", `/v1/subscriptions/${encodeURIComponent(id)}`, { expand: ["items.data.price.product", "customer"] });
+  stripe(x.env, x.fetch, "GET", `/v1/subscriptions/${encodeURIComponent(id)}`, { expand: ["items.data.price.product", "customer", "latest_invoice"] });
 
 /**
  * Apply one verified Stripe event. Throws on a Stripe or database error (the webhook then answers 500).
  *
- * The endpoint gets these event types for the whole shared Stripe account, Polar Parts' too. Before any Stripe call
- * the event itself must point at GenClass: a Checkout Session GenClass created (mode subscription, metadata genclass=1,
- * genclass_account naming an account, the account's own customer), or a subscription or invoice of a customer the
- * accounts table names. Anything else is ignored with no Stripe call (ignored() logs its type and id only). Then the
+ * The endpoint gets the subscription events (WEBHOOK_EVENTS) for the whole shared Stripe account, Polar Parts' too.
+ * Before any Stripe call the event must be about a customer the accounts table names (only ensureCustomer writes
+ * one), and its subscription must look like GenClass's (maybeGenClass). Anything else is ignored with no Stripe call
+ * and is not stored (ignored() logs its type and id only). Then the
  * subscription is fetched and must be provably GenClass's (isGenClassSubscription, or the one already recorded for
  * the account) and the account's (accountsSubscription) before anything is written.
  */
 export async function handleEvent(x: EventContext, event: Obj): Promise<EventResult> {
   const obj: Obj = event?.data?.object ?? {};
-  let account: BillingAccount | null = null;
-  let subId: string | null = null;
-  let checkout = false;
-  switch (event?.type) {
-    case "checkout.session.completed": {
-      // a Polar Parts order (mode payment) or a Polar Parts subscription checkout ends here. client_reference_id says
-      // nothing: anyone's Checkout can carry a string that looks like an account id
-      if (obj.mode !== "subscription") return ignored("not a subscription checkout", event);
-      if (obj.metadata?.genclass !== GENCLASS_MARK) return ignored("not a GenClass checkout", event);
-      account = await accountById(x.db, obj.metadata?.genclass_account);
-      if (!account) return ignored("no GenClass account for this checkout", event);
-      const customer = idOf(obj.customer);
-      if (!customer || customer !== account.stripe_customer_id) return ignored("the checkout's customer is not the account's GenClass customer", event);
-      subId = idOf(obj.subscription);
-      if (!subId) return ignored("the checkout has no subscription", event);
-      checkout = true;
-      break;
-    }
-    case "customer.subscription.created":
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted":
-      account = await accountByCustomer(x.db, idOf(obj.customer));
-      if (!account) return ignored("not a GenClass customer", event);
-      subId = idOf(obj.id);
-      break;
-    case "invoice.paid":
-      account = await accountByCustomer(x.db, idOf(obj.customer));
-      if (!account) return ignored("not a GenClass customer", event);
-      subId = invoiceSubscription(obj);
-      if (!subId) return ignored("not a subscription invoice", event);
-      break;
-    default:
-      return ignored("event type not handled", event);
-  }
-  if (!account || !subId) return ignored("no subscription", event);
+  if (!WEBHOOK_EVENTS.includes(event?.type)) return ignored("event type not handled", event);
+  const account = await accountByCustomer(x.db, idOf(obj.customer));
+  if (!account) return ignored("not a GenClass customer", event);
+  if (!maybeGenClass(obj, account)) return ignored("not a GenClass subscription", event);
+  // from here on the event is about a GenClass customer and maybe GenClass's subscription
+  const subId = idOf(obj.id);
+  if (!subId) return ignored("no subscription", event, true);
   // the subscription as it is now, so the order events arrive in does not matter
   let sub = await fetchSubscription(x, subId);
-  if (!accountsSubscription(account, sub)) return ignored("the subscription is not the account's", event);
+  if (!accountsSubscription(account, sub)) return ignored("the subscription is not the account's", event, true);
   // the subscription already recorded for the account stays readable whatever its price now says (it then counts as
   // Free); any other must be provably GenClass's
-  if (!isGenClassSubscription(sub) && idOf(sub?.id) !== account.subscription_id) return ignored("not a GenClass subscription", event);
-  if (checkout) sub = await oneSubscription(x, account, sub);
+  if (!isGenClassSubscription(sub) && idOf(sub?.id) !== account.subscription_id) return ignored("not a GenClass subscription", event, true);
+  // a subscription that starts billing (created, or its status changed: paid after Checkout, trial over, paid again)
+  const prev = event?.data?.previous_attributes;
+  const started = event.type === "customer.subscription.created" || (event.type === "customer.subscription.updated" && !!prev && typeof prev === "object" && "status" in prev);
+  if (started) sub = await oneSubscription(x, account, sub);
   const result = await applySubscription(x, account, sub, event);
   // a Custom purchase counts once Stripe reports it paid
-  const paid =
-    (checkout && idOf(sub?.id) === subId && obj.payment_status === "paid") ||
-    (event.type === "invoice.paid" && invoiceSubscription(obj) === idOf(sub?.id) && invoicePaysCustom(obj, sub));
-  if (result.status === "applied" && result.plan === "custom" && paid) await recordCustom(x, account, idOf(sub.id)!);
+  if (result.status === "applied" && result.plan === "custom" && latestInvoicePaysCustom(sub)) await recordCustom(x, account, idOf(sub.id)!);
   return result;
 }
 
 /**
- * After a Checkout: if the account's GenClass customer now has more than one GenClass subscription that bills (two
- * tabs paid, or an old Checkout page completed after a purchase), keep the newest and cancel the others at once, with
- * the unused time credited to the customer's balance; the owner is told at NOTIFY_WEBHOOK. Only GenClass
- * subscriptions are counted or cancelled. Returns the subscription to apply.
+ * When a subscription starts billing: if the account's GenClass customer now has more than one GenClass subscription
+ * that bills (two tabs paid, or an old Checkout page completed after a purchase), keep the newest and cancel the
+ * others at once; the owner is told at NOTIFY_WEBHOOK. Only GenClass subscriptions are counted or cancelled. The
+ * unused time is credited to the customer's balance only when every subscription on the customer is GenClass's: a
+ * balance pays the customer's next invoice whoever sends it, so with anything else on the customer there is no credit
+ * and the notice asks for a refund by hand. Returns the subscription to apply.
  */
 async function oneSubscription(x: EventContext, account: BillingAccount, sub: Obj): Promise<Obj> {
   const customer = idOf(sub?.customer);
   if (!customer || customer !== account.stripe_customer_id || !LIVE_STATUSES.has(sub?.status) || !isGenClassSubscription(sub)) return sub;
-  const holding = (await customerSubscriptions(x.env, x.fetch, customer)).filter((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s));
+  const all = await customerSubscriptions(x.env, x.fetch, customer);
+  const holding = all.filter((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s));
   if (holding.length < 2) return sub;
+  const credit = !sharedCustomer(all);
   holding.sort((a, b) => (Number(b.created) || 0) - (Number(a.created) || 0) || String(b.id).localeCompare(String(a.id)));
   const [keep, ...extra] = holding;
-  for (const s of extra) await cancelNow(x.env, x.fetch, s.id, true);
+  for (const s of extra) await cancelNow(x.env, x.fetch, s.id, credit);
   const ids = extra.map((s) => s.id).join(", ");
-  console.log(`stripe webhook: account ${account.id} had ${holding.length} subscriptions; kept ${keep!.id}, cancelled ${ids} with a prorated credit`);
+  console.log(`stripe webhook: account ${account.id} had ${holding.length} subscriptions; kept ${keep!.id}, cancelled ${ids} ${credit ? "with a prorated credit" : "without a credit"}`);
+  const how = credit
+    ? "with the unused time credited to the customer's balance in Stripe. Refund it instead if they ask."
+    : `without a credit, because the Stripe customer ${customer} also holds a subscription that is not GenClass's (a balance credit would pay that one). Refund the unused time in the Stripe dashboard, and move the other subscription to a customer of its own business.`;
   await notifyOwner(x, {
     event: "duplicate_subscription",
-    text: `${modeNote(x.env)}GenClass account ${account.id} paid for a second subscription. Kept ${keep!.id}; cancelled ${ids} with the unused time credited to the customer's balance in Stripe. Refund it instead if they ask.`,
+    text: `${modeNote(x.env)}GenClass account ${account.id} paid for a second subscription. Kept ${keep!.id}; cancelled ${ids} ${how}`,
     account_id: account.id,
     kept: keep!.id,
     cancelled: extra.map((s) => s.id),
+    credited: credit,
   });
   return keep!.id === idOf(sub.id) ? sub : fetchSubscription(x, keep!.id);
 }
@@ -639,9 +707,9 @@ async function oneSubscription(x: EventContext, account: BillingAccount, sub: Ob
  */
 export async function applySubscription(x: EventContext, account: BillingAccount, sub: Obj, event: Obj = {}): Promise<EventResult> {
   const subId = idOf(sub?.id);
-  if (!subId) return ignored("the subscription has no id", event);
+  if (!subId) return ignored("the subscription has no id", event, true);
   const customer = idOf(sub?.customer);
-  if (!customer || customer !== account.stripe_customer_id) return ignored("the subscription belongs to another Stripe customer than the account's", event);
+  if (!customer || customer !== account.stripe_customer_id) return ignored("the subscription belongs to another Stripe customer than the account's", event, true);
   const status = typeof sub?.status === "string" ? sub.status : "";
   const pastDueSince =
     status !== "past_due"
@@ -652,7 +720,7 @@ export async function applySubscription(x: EventContext, account: BillingAccount
   const s = subscriptionState(sub, { pastDueSince, now: x.now });
   if (account.subscription_id && account.subscription_id !== subId && !LIVE_STATUSES.has(s.status)) {
     // an older subscription ending while the account has another one
-    return ignored("not the account's current subscription", event);
+    return ignored("not the account's current subscription", event, true);
   }
   if (s.priced === null) console.log(`stripe webhook: ${String(event?.type)} ${String(event?.id)}: subscription ${subId} no longer has a GenClass price; plan set to free`);
   await x.db
@@ -662,13 +730,13 @@ export async function applySubscription(x: EventContext, account: BillingAccount
     )
     .bind(s.plan, subId, s.status, pastDueSince, s.periodEnd, s.cancelAtPeriodEnd ? 1 : 0, stripeMode(x.env), account.id, customer)
     .run();
-  return { status: "applied", account: account.id, plan: s.plan };
+  return { status: "applied", ours: true, account: account.id, plan: s.plan };
 }
 
-const modeNote = (env: Env): string => (stripeMode(env) === "test" ? "[Stripe test mode, no real money] " : "");
+export const modeNote = (env: Env): string => (stripeMode(env) === "test" ? "[Stripe test mode, no real money] " : "");
 
 /** POST a short JSON notice to NOTIFY_WEBHOOK (`text` suits Slack, `content` Discord). True when it was accepted. */
-async function notifyOwner(x: EventContext, body: Record<string, unknown> & { text: string }): Promise<boolean> {
+export async function notifyOwner(x: Pick<EventContext, "env" | "fetch" | "now">, body: Record<string, unknown> & { text: string }): Promise<boolean> {
   const hook = x.env.NOTIFY_WEBHOOK;
   if (!hook || !/^https:\/\//.test(hook)) return false;
   try {
@@ -709,7 +777,9 @@ async function recordCustom(x: EventContext, account: BillingAccount, subId: str
 
 /**
  * POST /api/billing/webhook: signature, mode, idempotency, then the event. `raw` is the body exactly as received.
- * Every verified event, GenClass's or not, is recorded in billing_events by its id and type only.
+ * Only an event about a GenClass customer is recorded in billing_events (its id and type, so a redelivery changes
+ * nothing). Any other event (Polar Parts' subscriptions) is answered 200 and not stored: handling it again does
+ * nothing, and a table of them would be a record of another business's sales.
  */
 export async function stripeWebhook(x: EventContext, raw: Uint8Array, signature: string | null): Promise<Response> {
   const mode = stripeMode(x.env);
@@ -745,6 +815,8 @@ export async function stripeWebhook(x: EventContext, raw: Uint8Array, signature:
       return json(500, { ok: false, error: "the event could not be applied; Stripe will send it again" });
     }
   }
-  await x.db.prepare("INSERT OR IGNORE INTO billing_events (id, type, received) VALUES (?, ?, ?)").bind(event.id, event.type.slice(0, 80), x.now.toISOString()).run();
+  if (result.ours) {
+    await x.db.prepare("INSERT OR IGNORE INTO billing_events (id, type, received) VALUES (?, ?, ?)").bind(event.id, event.type.slice(0, 80), x.now.toISOString()).run();
+  }
   return json(200, { received: true, result: result.status });
 }

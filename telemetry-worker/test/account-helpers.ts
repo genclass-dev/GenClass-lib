@@ -144,20 +144,24 @@ export const expands = (url: URL): string[] => [...url.searchParams.entries()].f
 
 /**
  * The shared Stripe account's Billing Portal configurations: Polar Parts' default one, another of Polar Parts', and
- * GenClass's (metadata genclass=1), as scripts/stripe-setup.mjs leaves them.
+ * GenClass's (metadata genclass=1), as scripts/stripe-setup.mjs leaves them. The worker reads GenClass's by the id in
+ * STRIPE_PORTAL_CONFIGURATION (GENCLASS_PORTAL) and lists none.
  */
 export const PORTAL_CONFIGS = [
   { id: "bpc_polardefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {} },
   { id: "bpc_other00001", object: "billing_portal.configuration", is_default: false, active: true, metadata: {} },
   { id: "bpc_genclass01", object: "billing_portal.configuration", is_default: false, active: true, metadata: { genclass: "1" } },
 ];
+export const GENCLASS_PORTAL = "bpc_genclass01";
 
 /**
  * A fake fetch for api.stripe.com (and any other URL, recorded and answered 200 unless `answer` says otherwise). It
- * keeps customers (`customers`: created with their form fields; a subscription fetched with expand customer gets the
- * stored one, or one with no metadata, like a Polar Parts customer), subscriptions (`subs`, listed by customer) and
- * Checkout Sessions (`sessions`: created open with their metadata, listed by customer and status, expired on
- * request), and the portal configurations (`portal`, filtered by is_default).
+ * keeps customers (`customers`: created with their form fields, fetched by id, 404 resource_missing for any other id;
+ * a subscription fetched with expand customer gets the stored one, or one with no metadata, like a Polar Parts
+ * customer), subscriptions (`subs`, listed by customer; expand latest_invoice swaps in the stored invoice), invoices
+ * (`invoices`, listed by customer), Checkout Sessions (`sessions`: created open with their metadata, listed by
+ * customer and status, expired on request), and the portal configurations (`portal`, listed by is_default or fetched
+ * by id).
  */
 export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Response | undefined } = {}) {
   const calls: StripeCall[] = [];
@@ -165,7 +169,8 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   const customers = new Map<string, Record<string, any>>();
   const subs = new Map<string, Record<string, any>>();
   const sessions = new Map<string, Record<string, any>>();
-  const portal: Record<string, any>[] = PORTAL_CONFIGS.map((c) => ({ ...c }));
+  const invoices = new Map<string, Record<string, any>>();
+  const portal: Record<string, any>[] = PORTAL_CONFIGS.map((c) => ({ ...c, metadata: { ...c.metadata } }));
   let n = 0;
   let cs = 0;
   const ok = (j: unknown, status = 200) => new Response(JSON.stringify(j), { status, headers: { "content-type": "application/json" } });
@@ -186,6 +191,16 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
       // GenClass's two prices, with their products expanded (the worker asks for data.product)
       const key = url.searchParams.get("lookup_keys[0]");
       return ok({ data: key === "genclass_pro_monthly" || key === "genclass_custom_monthly" ? [price(key)] : [] });
+    }
+    const cus = /^\/v1\/customers\/([^/]+)$/.exec(p);
+    if (method === "GET" && cus) {
+      const id = decodeURIComponent(cus[1]!);
+      const c = customers.get(id);
+      return c ? ok(c) : ok({ error: { code: "resource_missing", param: "id", message: `No such customer: '${id}'` } }, 404);
+    }
+    if (method === "GET" && p === "/v1/invoices") {
+      const customer = url.searchParams.get("customer");
+      return ok({ data: [...invoices.values()].filter((i) => i.customer === customer).reverse(), has_more: false });
     }
     if (method === "POST" && p === "/v1/customers") {
       const c = { id: `cus_test${String(++n).padStart(4, "0")}`, object: "customer", email: form!.get("email"), description: form!.get("description"), metadata: formObject(form!, "metadata") };
@@ -225,15 +240,25 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
       const d = url.searchParams.get("is_default");
       return ok({ data: portal.filter((c) => d === null || String(c.is_default) === d), has_more: false });
     }
+    const bpc = /^\/v1\/billing_portal\/configurations\/([^/]+)$/.exec(p);
+    if (method === "GET" && bpc) {
+      const c = portal.find((x) => x.id === decodeURIComponent(bpc[1]!));
+      return c ? ok(c) : ok({ error: { code: "resource_missing", message: "No such configuration" } }, 404);
+    }
     if (method === "POST" && p === "/v1/billing_portal/sessions") return ok({ url: "https://billing.stripe.com/p/session/test_000001" });
     const sub = /^\/v1\/subscriptions\/([^/]+)$/.exec(p);
     if (sub) {
       const s = subs.get(decodeURIComponent(sub[1]!));
       if (!s) return ok({ error: { message: "No such subscription" } }, 404);
       if (method === "DELETE") s.status = "canceled";
-      if (method === "GET" && expands(url).includes("customer")) {
-        const id = String(s.customer);
-        return ok({ ...s, customer: customers.get(id) ?? { id, object: "customer", metadata: {} } });
+      if (method === "GET") {
+        const out: Record<string, any> = { ...s };
+        if (expands(url).includes("customer")) {
+          const id = String(s.customer);
+          out.customer = customers.get(id) ?? { id, object: "customer", metadata: {} };
+        }
+        if (expands(url).includes("latest_invoice") && typeof s.latest_invoice === "string") out.latest_invoice = invoices.get(s.latest_invoice) ?? s.latest_invoice;
+        return ok(out);
       }
       return ok(s);
     }
@@ -243,7 +268,7 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   const genclassCustomer = (id: string, accountId: string, email = "ada@example.com") => {
     customers.set(id, { id, object: "customer", email, description: "GenClass account", metadata: { genclass: "1", genclass_account: accountId } });
   };
-  return { fetch, calls, other, customers, subs, sessions, portal, genclassCustomer };
+  return { fetch, calls, other, customers, subs, sessions, invoices, portal, genclassCustomer };
 }
 
 /** A price as a subscription fetched with its products expanded shows it: GenClass's carry product metadata genclass_plan. */
@@ -266,6 +291,21 @@ export function subscription(id: string, accountId: string, customer: string, lo
     cancel_at: null,
     items: { data: [{ id: `si_${id.slice(4)}`, current_period_end: 1_792_000_000, price: price(lookupKey) }] },
     ...over,
+  };
+}
+
+/**
+ * A subscription invoice as Stripe API 2025-03-31 returns it (the subscription under parent.subscription_details, the
+ * price under pricing.price_details), with one line per [price id, amount].
+ */
+export function invoice(id: string, customer: string, sub: string, lines: [string, number][], status = "paid") {
+  return {
+    id,
+    object: "invoice",
+    customer,
+    status,
+    parent: { type: "subscription_details", subscription_details: { subscription: sub, metadata: { genclass: "1" } } },
+    lines: { data: lines.map(([p, amount]) => ({ amount, pricing: { price_details: { price: p } } })) },
   };
 }
 

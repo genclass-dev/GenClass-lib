@@ -351,9 +351,9 @@ follow the Free plan's 7 days.
 
 | route | behaviour |
 |---|---|
-| `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's own Stripe customer once (email, description `GenClass account`, metadata `genclass=1` and `genclass_account`); never looks one up by email. Then it asks Stripe, not the database, whether that customer already has a GenClass subscription: one on this plan is a 409, one whose last payment failed (`past_due`, `unpaid`) is a 409 pointing to Manage billing, one on the other plan gets `{ url, portal: true }` (the Billing Portal's plan change), so an account never gets a second subscription. Otherwise a Checkout Session in subscription mode for that customer and the plan's lookup key (metadata `genclass=1`, `genclass_account`, `genclass_plan`; the subscription gets `genclass` and `genclass_account`; `client_reference_id` = account id; success `https://genclass.dev/account/billing?done=1`), `{ url }`: GenClass's open Checkout page of the account for the same plan is reused, its page for the other plan is closed first, and any other open page is left alone. 503 unless the account can buy (above). |
-| `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, switch plans, card, invoices) on GenClass's own portal configuration (metadata `genclass=1`, looked up with `is_default=false` and cached 10 minutes), never the account's default one: without it, 503 ("run scripts/stripe-setup.mjs"). 409 before a first purchase, and when Stripe no longer has the customer (the stored ids are then cleared). |
-| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `checkout.session.completed`, `customer.subscription.created`/`updated`/`deleted` and `invoice.paid`, for the whole shared account, so first, with no Stripe call, the event must point at GenClass: a Checkout Session in subscription mode with metadata `genclass=1` whose `genclass_account` is an account and whose customer is that account's GenClass customer (`client_reference_id` counts for nothing), or a subscription or invoice of a customer in `accounts.stripe_customer_id`. Then it fetches the subscription (its prices' products and its customer expanded), which must be provably GenClass's (every price a `genclass_` lookup key on a `genclass_plan` product, or the subscription already recorded for the account) and the account's (its customer's `genclass_account` names the account), and writes the plan, status, `past_due_since`, period end (when it ended, for one cancelled at once), cancel flag and mode. After a Checkout, if the customer has two GenClass subscriptions that bill (two tabs paid), the newest is kept and the others are cancelled at once with the unused time credited to the customer's balance; `NOTIFY_WEBHOOK` gets a `duplicate_subscription` notice. A Custom purchase is recorded (`custom_requests`, `NOTIFY_WEBHOOK`) only when Stripe reports the Custom price paid: a paid Checkout, or a paid invoice with a positive Custom line (a switch from Pro is invoiced at once). Every other event (Polar Parts' orders, subscriptions and invoices among them) is answered 200, kept as its event id and type only, logged as `stripe webhook: <type> <id> ignored: <reason>`, and nothing about it is fetched. Event ids are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. |
+| `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's own Stripe customer once (email, description `GenClass account`, metadata `genclass=1` and `genclass_account`); never looks one up by email. A stored customer is checked first (`GET /v1/customers/<id>`): its metadata must name the account, and every subscription on it must be GenClass's, else 409 with the contact address, nothing opened, and a `shared_customer` notice ("Shared Stripe account" below). Then it asks Stripe, not the database, whether that customer already has a GenClass subscription: one on this plan is a 409, one whose last payment failed (`past_due`, `unpaid`) is a 409 pointing to Manage billing, one on the other plan gets `{ url, portal: true }` (the Billing Portal's plan change, after the same invoice check as Manage billing), so an account never gets a second subscription. Otherwise a Checkout Session in subscription mode for that customer and the plan's lookup key (metadata `genclass=1`, `genclass_account`, `genclass_plan`; the subscription gets `genclass` and `genclass_account`; `client_reference_id` = account id; success `https://genclass.dev/account/billing?done=1`), `{ url }`: GenClass's open Checkout page of the account for the same plan is reused, its page for the other plan is closed first, and any other open page is left alone. 503 unless the account can buy (above). |
+| `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, switch plans, card, email and tax id, invoices) on GenClass's own portal configuration: the one whose id `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` (test) names, fetched by that id and checked (metadata `genclass=1`, active, not the default; cached 10 minutes), never the account's default one: without it, 503 ("run scripts/stripe-setup.mjs"). The portal acts on everything on the customer, so first the customer must be the account's (metadata), every subscription on it GenClass's, and each of its latest 100 invoices for a GenClass subscription; otherwise 409 with the contact address, no session, and a `shared_customer` notice. 409 before a first purchase, and when Stripe no longer has the customer (the stored ids are then cleared). |
+| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `customer.subscription.created`, `.updated` and `.deleted`, and subscribes to nothing else: they arrive for the whole shared account, so first, with no Stripe call, the subscription's customer must be in `accounts.stripe_customer_id`, and the subscription in the event must look like GenClass's (the one recorded for the account, metadata `genclass=1`, or a `genclass_` lookup key on a price). Then it fetches the subscription (its prices' products, its customer and its latest invoice expanded), which must be provably GenClass's (every price a `genclass_` lookup key on a `genclass_plan` product, or the subscription already recorded for the account) and the account's (its customer's `genclass_account` names the account), and writes the plan, status, `past_due_since`, period end (when it ended, for one cancelled at once), cancel flag and mode. When a subscription starts billing (`created`, or `updated` with a status change), if the customer has two GenClass subscriptions that bill (two tabs paid), the newest is kept and the others are cancelled at once, with the unused time credited to the customer's balance only when every subscription on the customer is GenClass's (else no credit, and the notice says to refund by hand); `NOTIFY_WEBHOOK` gets a `duplicate_subscription` notice. A Custom purchase is recorded (`custom_requests`, `NOTIFY_WEBHOOK`) only when Stripe reports the Custom price paid: the subscription's latest invoice is paid and has a positive Custom line (a first Custom invoice, or a switch from Pro, which is invoiced at once; Stripe sends `customer.subscription.updated` when a subscription becomes active, renews or changes price). Every other event (Polar Parts' subscriptions among them) is answered 200, logged as `stripe webhook: <type> <id> ignored: <reason>`, not stored, and nothing about it is fetched. The ids of events about GenClass customers are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. |
 | `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale }` |
 | `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade and Switch buttons and Manage billing (only to an account that can buy). `?plan=pro\|custom` (the pricing page's buttons) survives the sign-in redirect and highlights and focuses that plan's button. Back from Checkout (`?done=1`) while the plan still reads Free, it shows no buttons and waits for the webhook. |
 | `GET /api/account/projects/<id>/integrations` | browser session: the app's forwarding destinations, masked |
@@ -369,7 +369,7 @@ test at request rate.
 ### Migrations 0004 and 0005 (`migrations/0004_billing.sql`, `migrations/0005_billing_past_due.sql`)
 
 Additive. `accounts` gains `plan` (default `'free'`), `stripe_customer_id`, `subscription_id`, `subscription_status`,
-`current_period_end`, `cancel_at_period_end` and `stripe_mode`. New tables: `billing_events` (handled Stripe event ids),
+`current_period_end`, `cancel_at_period_end` and `stripe_mode`. New tables: `billing_events` (ids of the Stripe events handled for GenClass customers),
 `custom_requests` (one row per paid Custom subscription, with its mode: the owner starts the training work from it),
 `integrations` (forwarding destinations, AES-GCM ciphertext only), `forward_log` (dedupe and the hourly cap, kept 2
 hours), `event_batches` (which stored batch belongs to which paid app, for the export) and `export_keys` (hashes only).
@@ -382,61 +382,141 @@ days ago, or when the subscription is `unpaid`.
 GenClass bills through daybot.ca's Stripe account, which also runs Polar Parts, an online store with its own products,
 prices, customers, Checkout Sessions, subscriptions, invoices, webhook endpoints and customer portal. GenClass never
 changes anything of Polar Parts', never reads more of it than it has to, and never acts on it. The same holds in test
-mode (Polar Parts' test data is in the same account too); `STRIPE_TEST_ACCOUNTS` works as before.
+mode (Polar Parts' test data is in the same account too); `STRIPE_TEST_ACCOUNTS` works as before. Some of this needs
+Polar Parts' side to hold up its end: the owner checks below.
 
 What GenClass creates in the account, in each mode, and nothing else:
 
 | object | how GenClass recognises it | made by |
 |---|---|---|
-| 2 products: GenClass Pro (id `genclass_pro`) and GenClass Custom (id `genclass_custom`) | metadata `genclass_plan` (`pro`, `custom`) and `genclass=1`; statement descriptor `GENCLASS` | `scripts/stripe-setup.mjs` |
-| their prices: `genclass_pro_monthly` (US$99 a month) and `genclass_custom_monthly` (US$599 a month); after a price change, the archived old price keeps `genclass_<plan>_monthly_retired_<price id>` | a lookup key starting with `genclass_`, on a product with `genclass_plan` | the script |
-| 1 webhook endpoint, `https://genclass.dev/api/billing/webhook` | that URL and the description `GenClass billing` (metadata `genclass=1`); only the 5 events above | the script |
-| 1 Billing Portal configuration | metadata `genclass=1`; never the default; headline "Manage your GenClass plan"; the two GenClass products only | the script |
+| 2 products: GenClass Pro (id `genclass_pro`) and GenClass Custom (id `genclass_custom`), active | metadata `genclass_plan` (`pro`, `custom`) and `genclass=1`; statement descriptor `GENCLASS` | `scripts/stripe-setup.mjs` |
+| their prices, active: `genclass_pro_monthly` (US$99 a month) and `genclass_custom_monthly` (US$599 a month); after a price change, the archived old price keeps `genclass_<plan>_monthly_retired_<price id>` | a lookup key starting with `genclass_`, on a product with `genclass_plan`; metadata `genclass=1`, `genclass_plan` | the script |
+| 1 webhook endpoint, `https://genclass.dev/api/billing/webhook` | that URL and the description `GenClass billing` (metadata `genclass=1`); only `customer.subscription.created`, `.updated`, `.deleted` | the script |
+| 1 Billing Portal configuration | metadata `genclass=1`; never the default; headline "Manage your GenClass plan"; the two GenClass products only; its id in `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` | the script |
 | customers, one per GenClass account that buys | description `GenClass account`, metadata `genclass=1` and `genclass_account=<account id>`; the id in `accounts.stripe_customer_id`, which nothing else writes | the worker (checkout) |
 | Checkout Sessions, Billing Portal sessions | Checkout: subscription mode, a GenClass customer, metadata `genclass=1`, `genclass_account`, `genclass_plan`; portal: GenClass's configuration | the worker |
-| subscriptions and their invoices | started by GenClass's Checkout (metadata `genclass=1`, `genclass_account`), on GenClass prices, for GenClass customers | Stripe, from that Checkout |
+| subscriptions, and their invoices, payments and charges | subscriptions: metadata `genclass=1`, `genclass_account`, GenClass prices, a GenClass customer; the rest: that customer (owner check 3) | Stripe, from GenClass's Checkout and portal |
+
+What reaches GenClass, and what it reads:
+
+- The webhook endpoint subscribes to `customer.subscription.created`, `.updated` and `.deleted` only, and Stripe sends
+  them for the whole account, so Polar Parts' subscription events arrive too. A subscription carries ids (customer,
+  prices, products, payment method), its status, dates and amounts, and whatever description and metadata Polar Parts
+  sets on it; no name, email or address, unless Polar Parts puts one in that metadata. The worker parses it, looks the
+  customer id up in `accounts.stripe_customer_id`, and drops it: no Stripe call, nothing stored, one log line with the
+  event type and id (worker logs are not kept: observability is off, so only a live `wrangler tail` shows them).
+  GenClass takes no Checkout, invoice, charge or customer event, which would bring Polar Parts' order details (names,
+  emails, phone numbers, addresses).
+- The worker reads from Stripe: its prices by `genclass_` lookup key; its portal configuration by id; and, for a
+  customer in `accounts.stripe_customer_id` only, that customer, its subscriptions, its open Checkout pages, its
+  latest 100 invoices (before a portal session) and a subscription it got an event for that looks like GenClass's,
+  with the subscription's latest invoice. If Polar Parts objects were put on a GenClass customer, the customer's
+  subscription and invoice lists show them when the buyer opens checkout or Manage billing; the worker then opens
+  nothing (below). Their own events are not fetched or stored.
+- The setup script reads products by id (or a search on `metadata['genclass_plan']`), prices by `genclass_` lookup
+  key, the list of webhook endpoints and the list of non-default portal configurations (Stripe has no search for
+  either; it uses only its own, and changes no other). It lists no customers, products or prices.
 
 What GenClass never does there:
 
-- List products or prices. The script reads products by their ids, or (a product an earlier run made under an id
-  Stripe chose) by a search on `metadata['genclass_plan']`, and prices by GenClass lookup keys. It edits or archives
-  only those, and stops, changing nothing, at a product with a GenClass id but no `genclass_plan`, or a GenClass
-  lookup key on another product's price. The worker reads a price only by a GenClass lookup key, and sells it only
-  when its product is GenClass's (otherwise checkout answers 503).
-- Look up, reuse, read or change a customer it did not create. No search by email (a Polar Parts customer with the
-  same email stays a separate customer, untouched), no Checkout with `customer_email`. The only customer data the
-  worker reads is its own customer's, expanded on its own subscription to check `genclass_account`.
-- Act on another Checkout Session, subscription or invoice. The webhook checks the event itself and GenClass's
-  database before any Stripe call; the rest is answered 200, stored as event id and type only, and logged as type and
-  id only. Cancellations (account deletion, a duplicate subscription) touch only GenClass subscriptions of GenClass
-  customers, and only GenClass's own open Checkout pages are closed.
-- Edit or delete another webhook endpoint. Stripe has no search for endpoints, so the script reads the list to find
-  its own (exact URL and description), and stops if any other endpoint uses GenClass's URL. `--new-webhook` deletes
-  only GenClass's endpoint.
-- Read or change the default portal configuration, which Polar Parts may use: the script and the worker list
-  configurations with `is_default=false`, GenClass's is never made the default, and without it the worker answers 503
-  instead of falling back to the default.
+- List products or prices. The script edits or archives only GenClass's own products and prices, and stops, changing
+  nothing, at a product with a GenClass id but no `genclass_plan`, or a GenClass lookup key on another product's
+  price. The worker sells a price only when its product is GenClass's (otherwise checkout answers 503).
+- Look up or reuse a customer by email, or start a Checkout with `customer_email`. Each GenClass customer is new, with
+  the buyer's email (Stripe sends the receipts there). That email may also be a Polar Parts customer's: the two stay
+  apart only while Polar Parts' code never picks a customer by email (owner check 1).
+- Open a Stripe page for, or start a Checkout on, a customer that is not provably its own, or that holds anything
+  else. Before a Billing Portal session (Manage billing, or a plan switch from checkout) the stored customer must have
+  metadata `genclass=1` and `genclass_account` naming the account, every subscription on it (any status) must be
+  GenClass's, and each of its latest 100 invoices must be for one of them; checkout checks the customer and its
+  subscriptions. Otherwise the route answers 409 with the contact address, opens nothing, and `NOTIFY_WEBHOOK` gets a
+  `shared_customer` notice with the account and customer ids. The portal would otherwise let the buyer cancel the
+  other subscription, change the card that pays it, and read its invoices under GenClass's headline. The portal
+  configuration lets a buyer change only the email and tax id of their GenClass customer, never an address.
+- Put money on a shared balance. A duplicate subscription is cancelled with a prorated credit to the customer's
+  balance (which pays that customer's next invoice, whoever sends it) only when every subscription on the customer is
+  GenClass's; otherwise it is cancelled without a credit, and the notice says to refund by hand.
+- Act on another Checkout Session, subscription or invoice. The webhook checks the event's customer against GenClass's
+  database before any Stripe call. Account deletion cancels only GenClass subscriptions that Stripe lists on the
+  account's checked GenClass customer, never a subscription by its recorded id alone; if the stored customer is not
+  GenClass's while a plan is recorded, deletion stops with a 409 and the contact address. Only GenClass's own open
+  Checkout pages are closed.
+- Edit or delete another webhook endpoint. The script finds its own by exact URL and description, and stops if any
+  other endpoint uses GenClass's URL. `--new-webhook` deletes only GenClass's endpoint.
+- Read or change the default portal configuration, which Polar Parts may use. The worker fetches only the
+  configuration its setting names, and refuses it (503) unless it carries `genclass=1`, is active and is not the
+  default; it never falls back to the default. The script never makes its configuration the default.
 - Change an account-wide setting.
 
-Account-wide settings, each the owner's call because it changes Polar Parts too (GenClass needs none of them changed):
+Owner checks on Polar Parts' side, before the worker gets its first test key and again before the live key (GenClass
+cannot make them; the setup script prints them too):
 
-- **Public business name and statement descriptor** (Settings, Business, Public details). The Checkout page header,
-  the portal, Stripe's emails and card statements show the account's public business name, Daybot or Polar Parts,
-  whatever the owner set. GenClass's products carry the statement descriptor `GENCLASS`, which Stripe uses for their
-  subscription charges where it uses a product's descriptor; elsewhere statements show the account's.
-- **Branding** (Settings, Branding): the logo, icon and colours on Checkout, the portal, receipts and invoices.
-- **Customer emails** (Settings, Customer emails; Billing, Revenue recovery, Emails): receipts and failed-payment
-  emails. The pricing page says Stripe emails a receipt for each payment, which holds only while successful-payment
-  emails are on for the account.
-- **Tax** (Stripe Tax and tax settings): GenClass turns on no automatic tax; its portal configuration lets a customer
-  add a tax id to their own GenClass customer.
-- **Revenue recovery, Retries** (Billing): how Stripe retries a failed renewal and what happens when every retry
-  fails. GenClass does not depend on it: the worker ends a plan that stays `past_due` for 14 days, or goes `unpaid`
-  (above), whatever the setting.
+1. **Customers.** Polar Parts' code must never find or reuse a customer by email (`customers.list({ email })`,
+   `customers.search`, any "find or create"), and should skip customers with description `GenClass account` or
+   metadata `genclass=1` wherever it lists customers. Otherwise a GenClass buyer who also shops at Polar Parts gets
+   their next order or subscription attached to the GenClass customer (the newest one with that email). GenClass then
+   refuses to open billing for that buyer (above), but Stripe would still mix the two on that customer: one default
+   card, one balance, and pending invoice items swept into either business's next invoice. Polar Parts' support
+   staff will see two customers for such an email; the one described `GenClass account` is GenClass's.
+2. **Catalog.** If Polar Parts' storefront or a sync job lists products or prices from Stripe (`products.list`,
+   `prices.list`, product search, or `product.*`, `price.*`, `plan.*` webhooks), it must leave out products with
+   metadata `genclass_plan` (or list only its own), or GenClass Pro (US$99 a month) and GenClass Custom (US$599 a month)
+   show up for sale in the store, in test mode first. A GenClass plan bought through Polar Parts' Checkout would be a
+   subscription of a Polar Parts customer, which GenClass ignores: that shopper would pay for nothing.
+3. **Webhooks.** Polar Parts' endpoints receive GenClass's events of every type they subscribe to, and most carry no
+   GenClass mark. Its handlers must answer 2xx and do nothing for them. An endpoint that keeps failing is retried for
+   3 days, Stripe emails the account and then disables it, so Polar Parts' own orders would stop arriving too; and a
+   failed `invoice.created` on any endpoint of the account holds GenClass's invoices up to 72 hours before they are
+   charged. The simplest rule for a Polar Parts handler: act only when the object's customer is one of Polar Parts'
+   own (in its database) or the object carries Polar Parts' own metadata; answer 200 to everything else. GenClass's
+   activity produces:
 
-Polar Parts' own webhook endpoints, if they subscribe to these event types, also receive GenClass's events (its
-Checkout Sessions, subscriptions and invoices, marked `genclass=1`); whether Polar Parts' code ignores them is for its
-owner to check. The balance, payouts and reports are shared too.
+   | events | how to recognise GenClass's |
+   |---|---|
+   | `customer.created`, `customer.updated` (email or tax id changed in the portal, balance credited), `customer.tax_id.*` | the customer: description `GenClass account`, metadata `genclass=1` (a tax id: its `customer`) |
+   | `checkout.session.completed`, `.expired` and the other `checkout.session.*` | metadata `genclass=1`, `genclass_account`, `genclass_plan`; mode `subscription` |
+   | `customer.subscription.*` | metadata `genclass=1`, `genclass_account`; prices with `genclass_` lookup keys |
+   | `invoice.*` (created, finalized, paid, payment_succeeded, payment_failed, upcoming, updated, voided, ...), `invoiceitem.*` | no metadata on the invoice itself: `parent.subscription_details.metadata.genclass` is `1`, or the customer is GenClass's |
+   | `invoice_payment.*`, `credit_note.*` | their invoice (above) |
+   | `payment_intent.*`, `charge.*` (succeeded, refunded, dispute, ...), `refund.*`, `radar.early_fraud_warning.*`, `payment_method.*`, `setup_intent.*`, `mandate.*` | no GenClass mark: the `customer` is GenClass's (a refund, dispute or warning: its charge's or payment intent's) |
+   | `billing_portal.session.created` | the configuration is GenClass's (metadata `genclass=1`) |
+   | `product.*`, `price.*`, `plan.*` (the setup script) | product ids `genclass_pro`, `genclass_custom` and metadata `genclass_plan`; price lookup keys starting `genclass_` |
+   | `billing_portal.configuration.*` (the setup script) | metadata `genclass=1` |
+
+4. **Account-wide settings**, each the owner's call because it changes Polar Parts too (GenClass needs none of them
+   changed):
+   - **Public business name and statement descriptor** (Settings, Business, Public details). The Checkout page header,
+     the portal, Stripe's emails and card statements show the account's public business name, Daybot or Polar Parts,
+     whatever the owner set. GenClass's products carry the statement descriptor `GENCLASS`, which Stripe uses for
+     their subscription charges where it uses a product's descriptor; elsewhere statements show the account's.
+   - **Branding** (Settings, Branding): the logo, icon and colours on Checkout, the portal, receipts and invoices.
+   - **Customer emails** (Settings, Customer emails; Billing, Revenue recovery, Emails): receipts and failed-payment
+     emails. The pricing page says Stripe emails a receipt for each payment, which holds only while successful-payment
+     emails are on for the account.
+   - **Revenue recovery email links** (Billing, Revenue recovery, Emails): a failed-payment or expiring-card email that
+     links to the customer portal opens the account's default configuration (Polar Parts'), not GenClass's. If that
+     configuration lets customers switch plans, a GenClass buyer could move their GenClass subscription onto a Polar
+     Parts price (GenClass then counts it as Free and refuses to open billing). The Stripe-hosted page link avoids it.
+   - **The customer portal's no-code login link** (Settings, Billing, Customer portal): a GenClass buyer who signs in
+     there with their email gets the default configuration, where the GenClass subscription shows with Polar Parts'
+     cancel and switch settings.
+   - **Invoices** (Settings, Billing, Invoices): numbering (one sequence for the account, or per customer), the default
+     footer and memo, account tax ids and the template are on GenClass's invoices too.
+   - **Payment methods** (Settings, Payment methods): GenClass's Checkout and portal offer what the account turns on.
+   - **Tax** (Stripe Tax and tax settings): GenClass turns on no automatic tax; its portal configuration lets a buyer
+     add a tax id to their own GenClass customer.
+   - **Revenue recovery, Retries** (Billing): how Stripe retries a failed renewal and what happens when every retry
+     fails. GenClass does not depend on it: the worker ends a plan that stays `past_due` for 14 days, or goes `unpaid`
+     (above), whatever the setting.
+   The balance, payouts, reports and Radar rules are shared too.
+5. **GenClass's database.** Rows written by the code before these checks (which took a customer from any Checkout's
+   `client_reference_id`) could name a Polar Parts customer. Nothing was ever on sale, so before the worker gets its
+   first Stripe key on this account
+   `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "SELECT COUNT(*) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL"`
+   must print 0. If not, clear those ids first (still before any key):
+   `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL"`.
+6. **Privacy notes.** PRIVACY.md and the site's privacy page say GenClass's payments go through Stripe; they do not say
+   that the Stripe account is daybot.ca's, shared with Polar Parts. Whether to say so is the owner's call.
 
 ### Forwarding
 
@@ -469,9 +549,11 @@ removed its object by then).
 | `STRIPE_SECRET_KEY` | secret | `sk_live_...`: paid plans on sale, the Free plan's limits on. `sk_test_...`: only `STRIPE_TEST_ACCOUNTS` can buy, no limits. Without it the buttons are hidden, checkout answers 503, and the Free plan's limits do not apply |
 | `STRIPE_WEBHOOK_SECRET` | secret | the live webhook endpoint's signing secret (`whsec_...`); `scripts/stripe-setup.mjs` with a live key stores it |
 | `STRIPE_WEBHOOK_SECRET_TEST` | secret | the test endpoint's signing secret; the script with a test key stores it, so a test run never replaces the live one |
+| `STRIPE_PORTAL_CONFIGURATION` | secret (an id, not secret) | GenClass's live Billing Portal configuration (`bpc_...`); the script with a live key stores it. The portal answers 503 without it, or when it does not name a configuration with metadata `genclass=1` that is active and not the default |
+| `STRIPE_PORTAL_CONFIGURATION_TEST` | secret (an id) | the same for test mode; the script with a test key stores it |
 | `STRIPE_TEST_ACCOUNTS` | secret | emails or account ids, comma-separated, that can buy while the key is a test key |
 | `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
-| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a Custom plan is paid, `duplicate_subscription` when a second subscription was cancelled. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
+| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a Custom plan is paid, `duplicate_subscription` when a second subscription was cancelled (`credited` says whether the unused time went to the customer's balance), `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
 | `EXPORT_LIMIT` | rate limit binding | export pages per account per minute (120) |
 
 A Custom buyer's email, for the notice above:
@@ -483,30 +565,40 @@ A Custom buyer's email, for the notice above:
    copies' lifecycle rule:
    `npx --yes wrangler@4 r2 bucket lifecycle add genclass-telemetry expire-export-366d export/ --expire-days 366`.
 2. `openssl rand -base64 32 | npx --yes wrangler@4 secret put INTEGRATIONS_KEY` (once), and optionally
-   `npx --yes wrangler@4 secret put NOTIFY_WEBHOOK` (a Slack or Discord incoming webhook URL).
+   `npx --yes wrangler@4 secret put NOTIFY_WEBHOOK` (a Slack or Discord incoming webhook URL; it also gets the
+   `shared_customer` notices, the only sign of a mixed-up Stripe customer, since worker logs are not kept).
 3. `npx --yes wrangler@4 deploy`. Nothing is on sale yet and nothing changes for anyone.
-4. Test mode, on the production worker: `npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS` with your own account's
+4. Before any Stripe key: the database check ("Shared Stripe account", owner check 5) must print 0.
+5. Polar Parts' side, in test mode: owner checks 1 to 3 under "Shared Stripe account" (customers never picked by
+   email, GenClass's products left out of the store's catalog, Polar Parts' webhook handlers answering 2xx to
+   GenClass's events), and a look at the account-wide settings in check 4.
+6. Test mode, on the production worker: `npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS` with your own account's
    email, then from the repo root `STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs` (signed in to wrangler;
    the key is daybot.ca's account). It creates GenClass Pro and GenClass Custom with their monthly prices, the test
    webhook endpoint `https://genclass.dev/api/billing/webhook` "GenClass billing" (its secret goes straight into
    `STRIPE_WEBHOOK_SECRET_TEST`, never printed) and GenClass's own Billing Portal configuration (plan switches charged
-   at once), and touches nothing of Polar Parts' ("Shared Stripe account" above). Run `--dry-run` first: it only
-   reads and says what it would create. Running it again changes only what differs.
-5. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Only your account can buy; everyone else
+   at once; its id goes into `STRIPE_PORTAL_CONFIGURATION_TEST`), and touches nothing of Polar Parts' ("Shared Stripe
+   account" above). Run `--dry-run` first: it only reads and says what it would create. Running it again changes only
+   what differs.
+7. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Only your account can buy; everyone else
    sees no change.
-6. Test a checkout: on `https://genclass.dev/account/billing` choose Upgrade to Pro and pay with Stripe's test card
+8. Test a checkout: on `https://genclass.dev/account/billing` choose Upgrade to Pro and pay with Stripe's test card
    `4242 4242 4242 4242`, any future expiry date and any CVC. The page shows Pro within a minute. Then Manage billing:
    switch to Custom (charged at once; a `custom_requests` row with mode `test` and a test-mode notice), and cancel.
-7. Before going live, clear the test records (once the key is live they no longer count, but this keeps the tables
+   Check that Polar Parts' test-mode store did not list GenClass's products, did not act on GenClass's events, and
+   that its endpoints show no failed deliveries for them (Developers, Webhooks, in test mode).
+9. Before going live, clear the test records (once the key is live they no longer count, but this keeps the tables
    clean):
    `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"`
-8. Live: `STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs` (live products, prices, webhook endpoint and
-   `STRIPE_WEBHOOK_SECRET`, portal configuration; `--dry-run` first). No account-wide Stripe setting needs changing:
-   the ones that would also change Polar Parts are listed under "Shared Stripe account" as the owner's call.
-9. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the live key. Paid plans are on sale and the Free plan's
-   limits apply. Optionally remove `STRIPE_TEST_ACCOUNTS` (`npx --yes wrangler@4 secret delete STRIPE_TEST_ACCOUNTS`);
-   events from the test endpoint are answered 200 and ignored, or delete GenClass's endpoint ("GenClass billing") in
-   Stripe's test mode.
+10. Polar Parts' side again, live this time: owner checks 1 to 3 (live code, live catalog, live endpoints).
+11. Live: `STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs` (live products, prices, webhook endpoint and
+    `STRIPE_WEBHOOK_SECRET`, portal configuration and `STRIPE_PORTAL_CONFIGURATION`; `--dry-run` first). No
+    account-wide Stripe setting needs changing: the ones that would also change Polar Parts are listed under "Shared
+    Stripe account" as the owner's call.
+12. `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the live key. Paid plans are on sale and the Free plan's
+    limits apply. Optionally remove `STRIPE_TEST_ACCOUNTS` (`npx --yes wrangler@4 secret delete STRIPE_TEST_ACCOUNTS`);
+    events from the test endpoint are answered 200 and ignored, or delete GenClass's endpoint ("GenClass billing") in
+    Stripe's test mode.
 
 ## Develop / deploy
 

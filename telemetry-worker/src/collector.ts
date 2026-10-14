@@ -92,6 +92,10 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_WEBHOOK_SECRET_TEST?: string;
   STRIPE_TEST_ACCOUNTS?: string;
+  /** GenClass's own Billing Portal configuration (bpc_...) in the shared Stripe account, for a live key and for a test
+   * key; scripts/stripe-setup.mjs stores the one for its key's mode. Without it the portal answers 503. */
+  STRIPE_PORTAL_CONFIGURATION?: string;
+  STRIPE_PORTAL_CONFIGURATION_TEST?: string;
   /** Export pages per account per minute (src/billing.ts); without it the export is not rate-limited. */
   EXPORT_LIMIT?: RateLimiterLike;
   /** 32 bytes, base64: encrypts forwarding settings at rest (src/forward.ts). Without it they cannot be saved. */

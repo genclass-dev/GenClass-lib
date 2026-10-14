@@ -16,21 +16,27 @@
 //    price: the old one is archived and keeps a genclass_..._retired_<price id> lookup key, so its subscribers stay
 //    on it and on their plan (the worker reads a plan from a genclass_ lookup key and the product's metadata);
 // 3. its webhook endpoint https://genclass.dev/api/billing/webhook with the description "GenClass billing", for the
-//    events the worker handles and no others. Stripe has no search for endpoints, so the list is read to find that
-//    one; no other endpoint is ever edited or deleted, and an endpoint for the same URL with another description
-//    stops the script. The new endpoint's signing secret is piped straight into `npx wrangler secret put` (never
+//    events the worker handles and no others (the customer.subscription events: they reach GenClass for the whole
+//    account, Polar Parts' too, and carry no buyer's name, email or address). Stripe has no search for endpoints, so
+//    the list is read to find that one; no other endpoint is ever edited or deleted, and an endpoint for the same URL
+//    with another description stops the script. The new endpoint's signing secret is piped straight into `npx wrangler secret put` (never
 //    printed): STRIPE_WEBHOOK_SECRET in live mode, STRIPE_WEBHOOK_SECRET_TEST in test mode, so a test run can never
 //    replace the live secret. An existing endpoint keeps its secret, since Stripe shows a secret only once
 //    (--new-webhook deletes GenClass's endpoint, the one with that exact URL and description, and makes a new one);
 // 4. its own Billing Portal configuration (metadata genclass=1, a headline naming GenClass, GenClass's products only):
 //    cancel at the end of the period, switch between Pro and Custom (charged at once, prorated), update the card,
-//    invoices. Only non-default configurations are read (is_default=false): the account's default configuration,
-//    which Polar Parts may use, is never read or changed, and GenClass's is never made the default.
+//    invoices, and change the email or tax id on the GenClass customer (no address: GenClass has no use for one).
+//    To find it the script lists the non-default configurations (is_default=false), reading their settings and
+//    changing none but its own: the account's default configuration, which Polar Parts may use, is never read or
+//    changed, and GenClass's is never made the default. Its id goes to the worker with `npx wrangler secret put`
+//    (STRIPE_PORTAL_CONFIGURATION in live mode, STRIPE_PORTAL_CONFIGURATION_TEST in test mode): the worker fetches
+//    that one configuration by id, and lists none.
 // Everything is read and checked first; changes start only when every check passed. Then it prints the remaining
-// steps. Running it again changes only what differs (its portal configuration is written again with the same
-// settings). Account-wide settings (public business name, statement
-// descriptor, branding, customer emails, tax, revenue recovery) are never changed: they apply to Polar Parts too, and
-// the README lists them as the owner's call.
+// steps and the checks on Polar Parts' side that only the owner can make. Running it again changes only what differs
+// (its portal configuration is written again with the same settings, and its id stored again). Account-wide settings
+// (public business name, statement descriptor, branding, customer emails, payment methods, invoices, tax, the
+// customer portal's login link and default configuration, revenue recovery) are never changed: they apply to Polar
+// Parts too, and the README lists them as the owner's call.
 //
 // Flags: --dry-run (read only: say what would change), --new-webhook (replace GenClass's endpoint and its secret).
 
@@ -98,6 +104,8 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
   if (!mode) fail("set STRIPE_SECRET_KEY to a Stripe secret key (sk_test_... or sk_live_...) in your environment");
   // the worker reads the webhook secret of its key's mode (telemetry-worker/src/stripe.ts stripeWebhook)
   const SECRET_NAME = mode === "live" ? "STRIPE_WEBHOOK_SECRET" : "STRIPE_WEBHOOK_SECRET_TEST";
+  // ... and its Billing Portal configuration by this id (telemetry-worker/src/stripe.ts portalConfiguration)
+  const PORTAL_NAME = mode === "live" ? "STRIPE_PORTAL_CONFIGURATION" : "STRIPE_PORTAL_CONFIGURATION_TEST";
   const say = (s) => log(s);
   const would = (s) => say(`${DRY ? "would " : ""}${s}`);
 
@@ -292,7 +300,8 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
       business_profile: { headline: PORTAL_HEADLINE, privacy_policy_url: `${SITE}/privacy`, terms_of_service_url: `${SITE}/terms` },
       default_return_url: `${SITE}/account/billing`,
       features: {
-        customer_update: { enabled: true, allowed_updates: ["email", "address", "tax_id"] },
+        // the GenClass customer's own email (receipts) and tax id; never an address, which GenClass does not need
+        customer_update: { enabled: true, allowed_updates: ["email", "tax_id"] },
         invoice_history: { enabled: true },
         payment_method_update: { enabled: true },
         subscription_cancel: {
@@ -310,13 +319,21 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
       },
       metadata: { genclass: MARK },
     };
+    let id = existing?.id;
     if (existing) {
       would(`update GenClass's Billing Portal configuration ${existing.id}`);
       if (!DRY) await stripe("POST", `/v1/billing_portal/configurations/${existing.id}`, { ...params, active: true });
     } else {
-      would("create GenClass's Billing Portal configuration (metadata genclass=1, not the default; the worker finds it by that metadata)");
-      if (!DRY) await stripe("POST", "/v1/billing_portal/configurations", params);
+      would("create GenClass's Billing Portal configuration (metadata genclass=1, not the default)");
+      if (!DRY) id = (await stripe("POST", "/v1/billing_portal/configurations", params)).id;
     }
+    would(`store its id as ${PORTAL_NAME} with wrangler (the worker opens the portal on that configuration only)`);
+    if (DRY) return;
+    if (typeof id !== "string" || !/^bpc_[A-Za-z0-9]+$/.test(id)) fail("Stripe did not return the Billing Portal configuration's id");
+    // an id, not a secret: printed so it can be set by hand if wrangler fails
+    const ok = await putSecret(PORTAL_NAME, id);
+    if (!ok) fail(`wrangler did not store ${PORTAL_NAME} (signed in? \`npx wrangler login\`). Set it from telemetry-worker/: echo ${id} | npx --yes wrangler@4 secret put ${PORTAL_NAME}`);
+    say(`${PORTAL_NAME} (${id}) stored on the worker.`);
   }
 
   // ------------------------------------------------------------------------------------------- run
@@ -329,33 +346,56 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
   await webhook(endpoints);
   await portal(existingPortal, ids);
   const shared = `
-The Stripe account is shared with Polar Parts. This script changed none of its account-wide settings, which also apply
-to Polar Parts and stay the owner's call (telemetry-worker/README.md, "Shared Stripe account"): the public business
-name and statement descriptor (they head the Checkout page and card statements; GenClass's products add GENCLASS where
-Stripe uses a product's descriptor), branding, customer emails (receipts, failed payments), tax, and Billing, Revenue
-recovery (retries). The worker ends a plan that stays past due for 14 days, or goes unpaid, whatever the retry settings.`;
+The Stripe account is shared with Polar Parts. Check Polar Parts' side before the worker gets this mode's key, in
+test mode and again live (telemetry-worker/README.md, "Shared Stripe account", has the details and the event table):
+a. Customers: Polar Parts' code never finds or reuses a customer by email (customers.list with email,
+   customers.search, "find or create") and skips customers described "GenClass account" (metadata genclass=1).
+   Otherwise a GenClass buyer's next Polar Parts order lands on the GenClass customer, mixing the two businesses'
+   cards, balances and invoices; GenClass then refuses to open Stripe billing for that buyer.
+b. Catalog: whatever lists or syncs products or prices from Stripe (the storefront, product, price or plan webhooks)
+   leaves out products with metadata genclass_plan, or GenClass Pro and GenClass Custom show up for sale in the store.
+c. Webhooks: Polar Parts' endpoints receive GenClass's events of every type they subscribe to (customer,
+   checkout.session, customer.subscription, invoice, invoiceitem, invoice_payment, payment_intent, charge,
+   payment_method, setup_intent, billing_portal; product, price and plan from this script). Most carry no GenClass
+   mark: the handlers must answer 2xx and do nothing for objects whose customer is not one of Polar Parts' own. A
+   failing endpoint is retried for 3 days and then disabled, and a failed invoice.created holds GenClass's invoices
+   for up to 72 hours.
+This script changed no account-wide setting. These apply to both businesses and stay the owner's call: the public
+business name and statement descriptor (they head the Checkout page and card statements; GenClass's products add
+GENCLASS where Stripe uses a product's descriptor), branding, customer emails (receipts, failed payments), payment
+methods, invoice numbering, footer and account tax ids, tax, the customer portal's no-code login link and default
+configuration, and Billing, Revenue recovery: retries, and its email links (pointed at the customer portal, they
+open the default configuration, not GenClass's). The worker ends a plan that stays past due for 14 days, or goes
+unpaid, whatever the retry settings.`;
+  // before the worker's first key: rows written by code older than these checks must not name a Stripe object
+  const clean = `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "SELECT COUNT(*) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL"`;
   say(
     mode === "test"
       ? `
 Done in test mode. Next (from telemetry-worker/; the full list is in telemetry-worker/README.md, "Owner steps"):
-1. If not done yet: the migrations, the export lifecycle rule, INTEGRATIONS_KEY, NOTIFY_WEBHOOK and a deploy.
-2. Only the accounts you list can buy while the key is a test key (your email or account id, comma-separated):
+1. If not done yet: the migrations, the export lifecycle rule, INTEGRATIONS_KEY, NOTIFY_WEBHOOK and a deploy. Before
+   the worker's first Stripe key, this must print n = 0 (nothing was ever on sale; if not, see the README):
+     ${clean}
+2. The Polar Parts checks below (a to c), in test mode.
+3. Only the accounts you list can buy while the key is a test key (your email or account id, comma-separated):
      npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS
-3. The test key (paste it when asked). Nothing changes for anyone else: no limits, no buttons.
+4. The test key (paste it when asked). Nothing changes for anyone else: no limits, no buttons.
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
-4. Test: on ${SITE}/account/billing choose Upgrade to Pro and pay with card 4242 4242 4242 4242, any future
+5. Test: on ${SITE}/account/billing choose Upgrade to Pro and pay with card 4242 4242 4242 4242, any future
    date and any CVC. The page shows Pro within a minute. Then Manage billing: switch to Custom (charged at once;
    a custom_requests row and a test-mode notice), and cancel.
-5. Then live: the reset in the README, this script with STRIPE_SECRET_KEY=sk_live_..., and step 3 with the live key.
+6. Then live: the reset in the README, this script with STRIPE_SECRET_KEY=sk_live_..., and step 4 with the live key.
 ${shared}`
       : `
 Done in live mode. Next (from telemetry-worker/; the full list is in telemetry-worker/README.md, "Owner steps"):
 1. If you tested in test mode on this worker, clear the test records first (they no longer count once the key is
    live, but this keeps the tables clean):
      npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"
-2. Put paid plans on sale (paste the live key when asked). From then on the Free plan's limits apply.
+   With no test pass before, this must print n = 0 instead: ${clean}
+2. The Polar Parts checks below (a to c), live this time.
+3. Put paid plans on sale (paste the live key when asked). From then on the Free plan's limits apply.
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
-3. Check ${SITE}/account/billing while signed in.
+4. Check ${SITE}/account/billing while signed in.
 ${shared}`,
   );
 }

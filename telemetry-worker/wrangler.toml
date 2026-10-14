@@ -32,8 +32,9 @@ routes = [
 [vars]
 RUNTIME_ON_NPM = "0.2.2"
 
-# Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET and
-# STRIPE_WEBHOOK_SECRET_TEST (scripts/stripe-setup.mjs stores the one for its key's mode), STRIPE_TEST_ACCOUNTS (who
+# Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+# STRIPE_WEBHOOK_SECRET_TEST, STRIPE_PORTAL_CONFIGURATION and STRIPE_PORTAL_CONFIGURATION_TEST (GenClass's Billing
+# Portal configuration id; scripts/stripe-setup.mjs stores the ones for its key's mode), STRIPE_TEST_ACCOUNTS (who
 # can buy while the key is a test key), INTEGRATIONS_KEY (32 random bytes, base64) and, optionally, NOTIFY_WEBHOOK.
 # Without a live STRIPE_SECRET_KEY nothing is on sale to the public and the Free plan's limits do not apply.
 # The key is for daybot.ca's Stripe account, shared with Polar Parts: the worker and the setup script touch only
