@@ -621,6 +621,14 @@ describe("a page the scanner could not see (a bot check answered 202, blank)", (
 });
 
 describe("pages", () => {
+  it("use the light palette only, like genclass.dev, whatever the visitor's colour scheme", async () => {
+    const t = setup(SCRIPT);
+    for (const p of ["/scan", "/scan/about", "/scan?url=shop.example.com"]) {
+      const body = await (await t.call(p)).text();
+      assert.doesNotMatch(body, /prefers-color-scheme/, p);
+      assert.match(body, /color-scheme:light;/, p);
+    }
+  });
   it("GET /scan and /scan/about carry a nonce CSP, noindex, and no inline style attributes", async () => {
     const t = setup(SCRIPT);
     for (const p of ["/scan", "/scan/about", "/scan?url=shop.example.com"]) {
@@ -727,7 +735,7 @@ describe("review fixes for the launch", () => {
       const f = r.findings.find((x: { kind: string }) => x.kind === "pointer-events-leak");
       assert.equal(!!f.fixed, fixed, `elapsed ${elapsed}`);
       if (!fixed) assert.match(f.genclass.text, /did not run long enough/);
-      else assert.match(f.fixed.how, /visual fixes in testing \(not in runtime 0\.2\.1\) changed the page/);
+      else assert.match(f.fixed.how, /^The GenClass visual fixes \(runtime 0\.3\.0-beta\.0\) changed the page/);
     }
   });
 
@@ -752,7 +760,8 @@ describe("review fixes for the launch", () => {
     await Promise.all(t.waits);
     assert.match(r.withGenClass.note, /re-check also found 1 problem the first pass did not report \(text-invisible\)/);
     assert.ok(!r.findings.some((x: { kind: string }) => x.kind === "text-invisible"));
-    assert.match(r.withGenClass.note, /in testing \(not in runtime 0\.2\.1\)/);
+    assert.match(r.withGenClass.note, /^The with-GenClass score uses the GenClass visual fixes \(runtime 0\.3\.0-beta\.0\) and, for the race probe, runtime 0\.2\.2 in guard mode\./);
+    assert.doesNotMatch(r.withGenClass.note, /in testing/);
   });
 
   it("drops the chunk's 100vw cause and CSS for sideways scrolling on a phone, and keeps the measured excess", async () => {
@@ -784,13 +793,15 @@ describe("review fixes for the launch", () => {
     assert.match(refused, /<section id="problem" class="callout bad" role="alert"><p><b id="problemt">[^<]+<\/b>/, "a refusal reads without JavaScript");
   });
 
-  it("says where the visual checks come from: in testing, not in the runtime the install line loads", async () => {
+  it("says where the visual checks come from: the beta runtime that ships them, which the install line loads, and says it is a beta", async () => {
     const t = setup(SCRIPT, { GUARD_MARGIN: "0", GUARD_AGGRESSIVENESS: "eager" });
     const scanPage = await (await t.call("/scan")).text();
-    assert.doesNotMatch(scanPage, /runtime ships|ships in runtime/);
-    assert.match(scanPage, /built for the GenClass runtime \(in testing; not in runtime 0\.2\.1\)/);
-    assert.match(scanPage, /in testing for a release after 0\.2\.1; runtime 0\.2\.1 does not have them yet/);
-    assert.match(scanPage, /With GenClass \(in testing\)/);
+    assert.doesNotMatch(scanPage, /With GenClass \(in testing\)|\(in testing; not in runtime|in testing for a release after/, "the page's own words (the client script keeps both wordings)");
+    assert.match(scanPage, /the measured checks the GenClass runtime ships from version 0\.3\.0-beta\.0/);
+    assert.match(scanPage, /The visual checks ship in runtime 0\.3\.0-beta\.0 \(a beta release\)/);
+    assert.match(scanPage, /With GenClass on/);
+    assert.match(scanPage, /https:\/\/cdn\.jsdelivr\.net\/npm\/@genclass\/runtime@0\.3\.0-beta\.0/, "the install line loads the runtime with the visual checks");
+    assert.match(scanPage, /Beta, for the visual checks; the stable 0\.2\.2 has everything else\. Or <code>npm i @genclass\/runtime@beta<\/code>/);
     const about = await (await t.call("/scan/about")).text();
     assert.match(about, /31 of 40 sites measured, 96 loads/);
     assert.match(about, /22 of which run in the page check/);

@@ -5,6 +5,8 @@
 /** sha256 of dist/genclass.global.min.js per published version (from the npm tarball's file). */
 export const RUNTIME_SHA256: Record<string, string> = {
   "0.2.1": "1eec30fbf9fac551390fbb947b3b50f6b34af167fc7e12a53329593b86f51209",
+  "0.2.2": "0096ad0bbc15a9d288be3b7ebbc4e2c3b391f10aee0d4fbf2dd2e21a5a25516b",
+  "0.3.0-beta.0": "8595f916dda9782c941c716837ba29ce9d0ecbb587a536d69c6dc0217c6d3ea1",
 };
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;

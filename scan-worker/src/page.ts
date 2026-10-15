@@ -13,10 +13,10 @@ import { JS_NOTE_BYTES } from "./cdp.ts";
 import { SCAN_BUDGET_MS, UA_TOKEN, userAgent, VIEWS } from "./scan.ts";
 import { categoryValue, CATEGORIES, INSTANCE_CAP, rulePoints, SCORE_VERSION, SEVERITY_ORDER, SEVERITY_POINTS, type Severity } from "./score.ts";
 import { safeStandardUrl } from "./standards.ts";
-import { RUNTIME_VERSION, visualStatus } from "./visual.ts";
+import { INSTALL_IS_BETA, INSTALL_VERSION, RUNTIME_VERSION, VISUAL_IN_RUNTIME, visualStatus } from "./visual.ts";
 import { VISUAL_BUILD } from "./visual-source.ts";
 
-export const INSTALL_LINE = `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@${RUNTIME_VERSION}" data-mode="guard"></script>`;
+export const INSTALL_LINE = `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@${INSTALL_VERSION}" data-mode="guard"></script>`;
 
 /** The with-GenClass column's label: it says the visual fixes are in testing until a released runtime has them. */
 export function withLabel(): string {
@@ -67,13 +67,8 @@ const CSS = `
   --green:#08794A;--green-f:#14B86A;--green-t:#DCF5E8;--bug:#C42A12;--bug-f:#F0451C;--bug-t:#FDE6E0;
   --code:#0B1736;--codeink:#E8EDF8;--track:#E6EBF2;
   --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  color-scheme:light dark;
+  color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
-  --paper:#0B1736;--panel:#13224A;--ink:#E8EDF8;--ink2:#C3CCE2;--ink3:#97A3C2;--rule:#26355E;--rule2:#34467A;
-  --green:#4FD08F;--green-f:#14B86A;--green-t:#123A2C;--bug:#FF8A6B;--bug-f:#FF7A55;--bug-t:#3A1C1A;
-  --code:#060E24;--codeink:#E8EDF8;--track:#26355E;
-}}
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
 body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
@@ -107,7 +102,6 @@ h2{font-size:clamp(22px,2.6vw,26px);font-weight:700;line-height:1.15}
 .urlbox input::placeholder{color:var(--ink3)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font:600 15px var(--sans);cursor:pointer;text-decoration:none;white-space:nowrap}
 .btn:hover{background:#071331}
-@media (prefers-color-scheme:dark){.btn:hover{background:#fff}}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule2)}
 .btn.ghost:hover{border-color:var(--ink);background:transparent}
 .btn.sm{min-height:32px;padding:0 12px;font-size:13px}
@@ -238,7 +232,6 @@ ul.limits li b{color:var(--ink);font-weight:600}
 /* call to action (the one dark block) */
 .cta{margin-top:72px;background:#0B1736;color:#E8EDF8;border-radius:14px;padding:clamp(24px,4vw,44px);display:grid;gap:18px 40px;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start}
 @media (max-width:820px){.cta{grid-template-columns:1fr}}
-@media (prefers-color-scheme:dark){.cta{background:#060E24;border:1px solid var(--rule)}}
 .cta h2{color:#fff}
 .cta p{color:#C3CCE2;margin-top:10px;max-width:56ch}
 .cta pre{background:#060E24;border:1px solid #26355E;border-radius:10px;padding:12px 14px;font:13.5px/1.6 var(--mono);color:#7EE2AE;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -429,7 +422,7 @@ ${report ? staticReport(report) : ""}
     response when the expected gain clears its safety margin.<span id="ctaprobe"${report ? "" : ' class="hidden"'}> The race probe above shows whether it did on this page.</span>
     ${
       st.shipped
-        ? `The visual checks ship in runtime ${esc(String(RUNTIME_VERSION))}: <code>visual: { on: true }</code> runs them, and with <code>fix: true</code> in guard mode it also fixes invisible text, a leaked <code>pointer-events: none</code> and a leaked scroll lock.`
+        ? `The visual checks ship in runtime ${esc(String(VISUAL_IN_RUNTIME))}${INSTALL_IS_BETA ? " (a beta release)" : ""}: <code>visual: { on: true }</code> runs them, and with <code>fix: true</code> in guard mode it also fixes invisible text, a leaked <code>pointer-events: none</code> and a leaked scroll lock.`
         : `The visual checks on this page are built for the runtime and in testing for a release after ${esc(RUNTIME_VERSION)}; runtime ${esc(RUNTIME_VERSION)} does not have them yet.`
     }</p>
     <div class="row"><a class="btn" href="https://genclass.dev/start">Get a token and a dashboard</a><a class="btn ghost" href="https://genclass.dev/docs">Read the docs</a></div>
@@ -437,7 +430,7 @@ ${report ? staticReport(report) : ""}
   <div>
     <p class="cta-k">Install in one line, first thing in &lt;head&gt;</p>
     <pre id="install">${esc(INSTALL_LINE)}</pre>
-    <p class="cta-s">Or <code>npm i @genclass/runtime</code>. Free and open source (Apache-2.0).</p>
+    <p class="cta-s">${INSTALL_IS_BETA ? `Beta, for the visual checks; the stable ${esc(RUNTIME_VERSION)} has everything else. Or <code>npm i @genclass/runtime@beta</code>.` : `Or <code>npm i @genclass/runtime</code>.`} Free and open source (Apache-2.0).</p>
   </div>
 </section>
 <footer class="dfoot">The page check loads one public page in a Cloudflare browser with the user agent token <code class="mono">${esc(UA_TOKEN)}</code>.

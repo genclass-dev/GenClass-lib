@@ -21,7 +21,7 @@ import { VISION_EVAL, VISION_LINE, VISION_MODEL, VISION_NAME, VISION_ORT, VISION
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 9;
+export const REPORT_VERSION = 10;
 
 export interface Finding {
   n: number;
@@ -502,7 +502,7 @@ const notMeasuredNote = (label: string): string => `Listed, not scored: ${label}
 /** The with-GenClass note, from what this scan measured: only the steps that ran are named. */
 export function withNote(r: ScanResult, aggr: string, margin: number | null, holdMs: number | null): string {
   const st = visualStatus();
-  const parts: string[] = [`The with-GenClass score uses ${st.fixes} and runtime ${RUNTIME_VERSION} in guard mode.`];
+  const parts: string[] = [`The with-GenClass score uses ${st.fixes} and, for the race probe, runtime ${RUNTIME_VERSION} in guard mode.`];
   const views = r.views.filter((v) => v.ok && v.checks !== null);
   const rechecked = views.some((v) => v.fixes?.rechecked);
   const applied = views.some((v) => (v.fixes?.applied ?? 0) > 0);

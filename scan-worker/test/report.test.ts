@@ -389,7 +389,7 @@ describe("review fixes for the launch: race words", () => {
     assert.match(none.withGenClass.note, /no re-check ran/);
     const rechecked = buildReport(target, ids, scan({ views: scan().views.map((v) => (v.id === "desktop" ? { ...v, fixes: fixedIn("text-invisible|p.note|") } : v)) }), { withGenClass: true });
     assert.match(rechecked.withGenClass.note, /second set of the same checks re-measured the page/);
-    assert.match(rechecked.withGenClass.note, /runtime 0\.2\.1 in guard mode/);
+    assert.match(rechecked.withGenClass.note, /for the race probe, runtime 0\.2\.2 in guard mode/);
   });
 });
 
