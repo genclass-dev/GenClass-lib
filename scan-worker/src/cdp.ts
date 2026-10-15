@@ -10,8 +10,11 @@
 //     scored; /favicon.ico is the browser's own request;
 //   - mixed content: requests an https page made over http (Network.requestWillBeSent mixedContentType, and
 //     Network.loadingFailed blockedReason "mixed-content" for what Chrome blocked);
-//   - the bytes transferred per URL (Network.loadingFinished encodedDataLength), for the image audit and the JavaScript
-//     total.
+//   - the bytes transferred per URL (Network.loadingFinished encodedDataLength), for the image audits, the JavaScript
+//     total and the page weight (snapshot() at network quiet);
+//   - the main document's response headers and the Set-Cookie headers of every response (Network.responseReceived and
+//     Network.responseReceivedExtraInfo), for the security checks (src/site.ts);
+//   - deprecated APIs Chrome reported in its Issues (Audits.issueAdded, DeprecationIssue).
 // Collection stops when the view's checks end (stop()), so nothing the race probe causes is counted.
 
 import type { RawFinding } from "./catalog.ts";
@@ -28,6 +31,8 @@ export interface CdpLike {
 /** The scanner's own downloads and code: never the page's. */
 const OURS_URL = /^https:\/\/(genclass\.dev\/model\/|cdn\.jsdelivr\.net\/npm\/(@genclass\/runtime@|onnxruntime-web@)|unpkg\.com\/@genclass\/runtime@)|^pptr:|__puppeteer_evaluation_script__/;
 const OURS_TEXT = /GenClassScan|\[GenClass\]|__gcs[0-9a-f]{6}/;
+/** Deprecations the scanner's own stand-in answers (src/policy.ts, access-control-allow-headers: *) can cause. */
+const SCANNER_DEPRECATIONS = new Set(["AuthorizationCoveredByWildcard"]);
 
 const cut = (v: unknown, n: number): string => {
   const s = typeof v === "string" ? v : v == null ? "" : String(v);
@@ -59,6 +64,16 @@ export class PageLog {
   bytes = new Map<string, number>();
   mixedBlocked: string[] = [];
   mixedSeen: string[] = [];
+  /** Document responses: their URL, status, frame and headers (names in lower case, values cut to 1,000 characters). */
+  documents = new Map<string, { url: string; status: number; frameId: string; headers: Record<string, string> }>();
+  /** Set-Cookie header values by request (from the raw headers Chrome reports separately), values left out. */
+  cookies = new Map<string, string[]>();
+  /** The raw headers of document requests as received (Network.responseReceivedExtraInfo), lower-case names. */
+  rawHeaders = new Map<string, Record<string, string>>();
+  /** Deprecated APIs Chrome reported: the deprecation's type and the script that used it. */
+  deprecations: { type: string; url: string }[] = [];
+  /** Bytes and requests at network quiet (snapshot()). */
+  quiet: { bytes: number; requests: number } | null = null;
 
   /** Turns on the domains on `cdp` and starts recording. Throws when the session cannot be used. */
   async attach(cdp: CdpLike): Promise<void> {
@@ -94,6 +109,32 @@ export class PageLog {
     cdp.on("Network.responseReceived", (p) => {
       if (!this.collecting || !p?.requestId || this.responses.size >= 3000) return;
       this.responses.set(String(p.requestId), { url: String(p.response?.url ?? ""), status: Number(p.response?.status) || 0, type: String(p.type ?? ""), mime: String(p.response?.mimeType ?? "") });
+      if (p.type === "Document" && this.documents.size < 20 && p.response?.headers && typeof p.response.headers === "object") {
+        const headers = headersOf(p.response.headers);
+        this.documents.set(String(p.requestId), { url: String(p.response?.url ?? ""), status: Number(p.response?.status) || 0, frameId: String(p.frameId ?? ""), headers });
+        const sc = headers["set-cookie"];
+        if (sc && !this.cookies.has(String(p.requestId))) this.cookies.set(String(p.requestId), splitCookies(sc));
+      }
+    });
+    cdp.on("Network.responseReceivedExtraInfo", (p) => {
+      if (!this.collecting || !p?.requestId || !p.headers || typeof p.headers !== "object") return;
+      const id = String(p.requestId);
+      // the raw headers: the response the renderer sees can leave some out (Set-Cookie, and on some pages HSTS); kept
+      // whole for documents only (a navigation's requestId is its loaderId)
+      const h = headersOf(p.headers);
+      if (h["set-cookie"] && this.cookies.size < 200) this.cookies.set(id, splitCookies(h["set-cookie"]));
+      if ((this.requests.get(id)?.type === "Document" || p.requestId === p.loaderId) && this.rawHeaders.size < 20) this.rawHeaders.set(id, h);
+    });
+    cdp.on("Audits.issueAdded", (p) => {
+      const issue = p?.issue;
+      if (!this.collecting || issue?.code !== "DeprecationIssue" || this.deprecations.length >= 50) return;
+      const d = issue.details?.deprecationIssueDetails ?? {};
+      const url = String(d.sourceCodeLocation?.url ?? "");
+      // only the page's own scripts (an http(s) source), never the scanner's code, and never a deprecation the
+      // scanner's stand-in answers cause: they allow every request header with "*", which Chrome flags as
+      // AuthorizationCoveredByWildcard for any request that sends Authorization
+      if (!/^https?:/.test(url) || OURS_URL.test(url) || SCANNER_DEPRECATIONS.has(String(d.type ?? ""))) return;
+      this.deprecations.push({ type: cut(d.type ?? "", 80), url: cut(url, 300) });
     });
     cdp.on("Network.loadingFinished", (p) => {
       if (!this.collecting || !p?.requestId) return;
@@ -106,6 +147,38 @@ export class PageLog {
     });
     await cdp.send("Runtime.enable");
     await cdp.send("Network.enable", { maxTotalBufferSize: 0, maxResourceBufferSize: 0 }).catch(() => cdp.send("Network.enable"));
+    // Chrome's Issues (deprecations); a browser without the domain only loses that check
+    await cdp.send("Audits.enable").catch(() => undefined);
+  }
+
+  /** Records the bytes transferred and the requests answered so far (at network quiet, before any scrolling). */
+  snapshot(): void {
+    let bytes = 0;
+    let requests = 0;
+    for (const [id, r] of this.responses) {
+      if (OURS_URL.test(r.url)) continue;
+      requests++;
+      bytes += this.bytes.get(id) ?? 0;
+    }
+    this.quiet = { bytes, requests };
+  }
+
+  /**
+   * The main document as the browser received it: the first main-frame document response of the load (redirect hops
+   * have none of their own), with the Set-Cookie headers of that response. Not the last: a page can later fetch other
+   * documents for the main frame (a prefetch of the next route, which a single-page app then shows with pushState), and
+   * those are not what the visitor's browser loaded. `pageUrl` is kept for callers; null when none was seen.
+   */
+  mainDocument(_pageUrl: string): { url: string; status: number; headers: Record<string, string>; cookies: string[]; raw: boolean } | null {
+    let best: [string, { url: string; status: number; frameId: string; headers: Record<string, string> }] | null = null;
+    for (const e of this.documents) {
+      if (this.mainFrame && e[1].frameId && e[1].frameId !== this.mainFrame) continue;
+      best = e;
+      break;
+    }
+    if (!best) return null;
+    const raw = this.rawHeaders.get(best[0]);
+    return { url: best[1].url, status: best[1].status, headers: raw ? { ...best[1].headers, ...raw } : best[1].headers, cookies: this.cookies.get(best[0]) ?? [], raw: !!raw };
   }
 
   /** The main frame's id, once the page has loaded (so main-world errors can be told from iframes' and the scanner's). */
@@ -151,6 +224,43 @@ export class PageLog {
     return best;
   }
 }
+
+/**
+ * Response headers with lower-case names, at most 80, values cut to 4,000 characters (Set-Cookie: every cookie is
+ * kept, its value replaced, so a long cookie value cannot push its attributes out).
+ */
+function headersOf(h: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(h).slice(0, 80)) {
+    const name = k.toLowerCase();
+    if (!/^[a-z0-9-]{1,60}$/.test(name)) continue;
+    const val = name === "set-cookie" ? compactCookies(typeof v === "string" ? v : String(v ?? "")) : cut(v, 4000);
+    out[name] = out[name] ? `${out[name]}\n${val}`.slice(0, 8000) : val;
+  }
+  return out;
+}
+/**
+ * Set-Cookie lines (Chrome joins repeated headers with a newline), each as its name, a stand-in value and its
+ * attributes: the value is never kept ("" and "deleted" stay as they are, they mark a deletion). At most 30.
+ */
+function compactCookies(v: string): string {
+  return v
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 30)
+    .map((line) => {
+      const semi = line.indexOf(";");
+      const pair = semi >= 0 ? line.slice(0, semi) : line;
+      const attrs = semi >= 0 ? line.slice(semi) : "";
+      const eq = pair.indexOf("=");
+      const name = (eq >= 0 ? pair.slice(0, eq) : pair).trim().slice(0, 80);
+      const value = eq >= 0 ? pair.slice(eq + 1).trim() : "";
+      return `${name}=${value === "" || value === "deleted" ? value : "x"}${cut(attrs, 300)}`;
+    })
+    .join("\n");
+}
+const splitCookies = (v: string): string[] => v.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 30);
 
 const hostOf = (u: string): string => {
   try {
@@ -275,6 +385,21 @@ export function judgeReliability(log: PageLog, pageUrl: string, view: string): R
         detail: { severity: (blocked.length ? "serious" : "minor") satisfies Severity, count: blocked.length + seen.length, examples: [...blocked, ...seen].slice(0, 5).map(pathOf) },
       });
     }
+  }
+
+  // deprecated APIs Chrome reported (its Issues panel): one finding, every distinct deprecation an instance
+  const deps = new Map<string, { type: string; url: string }>();
+  for (const d of log.deprecations) if (d.type && !deps.has(d.type)) deps.set(d.type, d);
+  if (deps.size) {
+    const list = [...deps.values()];
+    const own = list.filter((d) => !d.url || sameSite(d.url, pageHost));
+    findings.push({
+      kind: "deprecated-api",
+      selector: "",
+      box: null,
+      measured: `Chrome reported ${list.length} deprecated ${list.length === 1 ? "API" : "APIs"} on the ${view} view${own.length < list.length ? ` (${list.length - own.length} from scripts on other sites)` : ""}: ${list.slice(0, 3).map((d) => `${d.type}${d.url ? ` (${pathOf(d.url)})` : ""}`).join("; ")}${list.length > 3 ? "; and more" : ""}.`,
+      detail: { severity: "minor" satisfies Severity, count: list.length, examples: list.slice(0, 5).map((d) => d.type) },
+    });
   }
 
   const jsBytes = log.answered().filter((r) => r.type === "Script" && !OURS_URL.test(r.url)).reduce((s, r) => s + r.bytes, 0);

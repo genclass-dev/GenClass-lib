@@ -1,13 +1,15 @@
 # genclass-scan: the genclass.dev page check
 
-Type an address, and a Cloudflare browser loads that one page as a desktop and a phone, light and dark, and checks it six
+Type an address, and a Cloudflare browser loads that one page as a desktop and a phone, light and dark, and checks it eight
 ways: the measured visual checks of the GenClass runtime (23 kinds, 22 of them run here; released in 0.3.0-beta.0, npm
 dist-tag `beta`), axe-core 4.13.0's
-WCAG 2.2 A and AA rules and best practices in every view, phone audits (WCAG 2.5.8 tap targets, WCAG 1.4.4 zoom, the
-viewport meta tag, 12 px text, WCAG 1.4.10 reflow at 360 and 320 px), the browser's own record of errors and failed
-requests, speed (Largest Contentful Paint, oversized and unsized images), and races: it types into the search box and
-double-clicks a submit button with GenClass 0.2.2 watching. The page shows an overall score, six category scores and the
-top issues, then screenshots with numbered boxes and every finding grouped by category and rule, with what was measured,
+WCAG 2.2 A and AA rules and best practices in every view plus keyboard focus (WCAG 2.4.7) and the skip link, phone and
+tablet audits (WCAG 2.5.8 tap targets, WCAG 1.4.4 zoom, the viewport meta tag, 12 px text, WCAG 1.4.10 reflow at 360 and
+320 px, sideways scrolling at 768 px), the browser's own record of errors, failed requests and deprecated APIs, speed
+(Largest Contentful Paint, page weight, oversized, unsized and old-format images, web fonts), security (HTTPS, the main
+document's headers and cookies), search and sharing (description, noindex, link previews, favicon, link text), and races:
+it types into the search box and double-clicks a submit button with GenClass 0.2.2 watching. The score is strict
+(scan-score/4, below). The page shows an overall score, eight category scores and the top issues, then screenshots with numbered boxes and every finding grouped by category and rule, with what was measured,
 the standard it is judged by (with its link), the element, the suggested fix, and whether GenClass fixed it in the page
 (measured by a re-check) or reports it for the developer. A model, Cloudflare's Clef on Workers AI, takes a second look
 at crops of the screenshots (below, "The model judge"): what it decides is labelled as judged by a model, never as
@@ -281,6 +283,43 @@ the reasons for each choice are in `src/audits.ts`, `src/axe.ts` and `src/cdp.ts
   scrolls). Measured on a public page in calibration; the root cause belongs in the runtime's check, like the phone
   overflow cause above.
 
+## The deeper checks added with scan-score/4
+
+Each reports real, reproducible facts only; thresholds in `src/audits.ts` and `src/site.ts`, published on
+`/scan/about#audits`. Below the fold was already covered: axe-core runs on the whole document, the visual checks pass over
+the whole page, and the tap-target, text-size and image audits read every element, not just the first screen.
+
+- **Keyboard focus** (desktop, WCAG 2.4.7, serious): the first 40 keyboard stops are focused by script and the computed
+  styles of each, its pseudo-elements, five ancestors and eight descendants compared with and without focus (an outline,
+  border or underline counts only when drawn). For up to 6 stops whose styles did not change, the scanner focuses the stop
+  before, presses a real Tab, and compares lossless PNGs of the area around the stop focused and not; only identical images
+  count. Text fields are left out (the caret), and so is any stop the Tab did not reach.
+- **Skip link** (desktop, WCAG technique G1, minor): 15 or more keyboard stops before the main content and none of the
+  first three focusable elements (any size or opacity: skip links hide until focused) links to it or says it skips to
+  the content.
+- **Tablet** (moderate): the light phone widened to 768 px, no reload, scrolls sideways.
+- **Deprecated APIs** (Chrome's Issues, Lighthouse, minor) and **quirks mode** (no `<!doctype html>`, minor).
+- **Page weight** (Lighthouse total-byte-weight): what the light phone downloaded by network quiet, minor above 2,667 KiB,
+  moderate above 4,000 KiB. **Image formats** (minor): JPEG, PNG, GIF or BMP images over 100 KB. **Web fonts** (minor):
+  loaded with `font-display` auto or block, icon fonts left out.
+- **Security** (light phone; the main document as Chrome received it, its raw headers from
+  `Network.responseReceivedExtraInfo`, 2xx only): not HTTPS (serious); no HSTS, no CSP that limits scripts (minor when a CSP
+  exists but does not), no X-Frame-Options or frame-ancestors, cookies without Secure or session cookies without HttpOnly
+  (moderate); no `nosniff` (minor). Cookie values are never kept. The worker also asks for the page's http:// address
+  (`http-no-redirect`, moderate; not reported when hstspreload.org says the host is preloaded) and `/favicon.ico`.
+  Referrer-Policy and SameSite are not checked: browsers default to safe values.
+- **Search and sharing** (light phone): robots `noindex` in a meta tag or X-Robots-Tag (serious), no meta description
+  (moderate), no og:title or og:image, no favicon (no `link rel=icon` and `/favicon.ico` answering 404, 410 or HTML), links
+  whose whole text is "learn more", "click here" and the like (minor). A missing canonical and several h1s are not reported:
+  neither is a defect by itself.
+
+Left out, and why: render-blocking resources (tried and dropped: the scanner's request interception inflates when they
+arrive, and a desktop browser showed 0.16 s where the scanner measured 2.56 s on a calibration page), Total Blocking Time
+and unused JavaScript (three views share one browser's CPU, and V8 coverage of a large page is too big for the Worker),
+keyboard traps (a modal that keeps focus on purpose cannot be told from a trap without pressing Escape), a 768 px tablet
+view and a dark desktop view as views of their own (no time left in the 50 s budget; the tablet is checked by widening the
+light phone instead).
+
 ## The model judge (Clef on Workers AI)
 
 `src/judge.ts` (prompt, calls, answers, the cap, thresholds), `src/judge-page.ts` (the page side), `judgeView` in
@@ -374,25 +413,29 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
 
 ## The score and the with-GenClass column
 
-`src/score.ts`, published on `/scan/about#score` from the same constants:
+`src/score.ts`, published on `/scan/about#score` from the same constants (scan-score/4, strict):
 
 ```
-points(rule) = base(severity) × min(2, 1 + log10(instances))      base: critical 30, serious 15, moderate 7, minor 3
+points(rule) = base(severity) × min(3, 1 + log10(instances))   base: critical 50, serious 25, moderate 15, minor 8
 category     = 100 × Π over the category's rules (1 − points / 100)
-score        = Σ weight × category / Σ weight, over the categories measured on this scan
-weights      : Visual bugs 25, Accessibility 25, Phone 20, Reliability 15, Speed 10, Races 5
+mean         = Π over measured categories (max(category, 10) / 100) ^ (weight / Σ weight)
+score        = 100 × mean², then capped: one critical rule 59, two critical rules 35, three serious-or-critical rules 69
+weights      : Visual bugs 20, Accessibility 22, Phone 14, Reliability 12, Speed 12, Security 10, Search and sharing 5, Races 5
 ```
 
 A rule is one visual kind, one axe-core rule or one audit; its severity is the most severe instance. A rule's points stop
-at twice its base, so 200 instances of one rule take what 10 do. Rules multiply, so each further rule takes a share of
-what is left and a category stays above 0. A category this scan did not measure (axe-core did not finish, no phone
-audit, no DevTools record, no desktop timings, nothing for the race probe to try) is left out of the mean, shown as "not
-measured" with the reason (`notMeasured`), and its findings are listed but not scored. The top issues are the five rules
-that cost the overall score the most (`ruleImpact`: the score without the rule minus the score with it). The same
-element with the same problem in several views counts once. A GenClass "duplicate" on a GET is minor. Findings marked
-`unscored` are listed only. Deterministic: the same findings give the same score. Severities: the visual checks' high,
-medium and low read as serious, moderate and minor (a blank page, a page that ignores clicks or cannot scroll:
-critical); axe-core's impact; the audits' own. The weights were set before calibration and not changed by it.
+at three times its base (100 instances). Rules multiply inside a category. The geometric mean makes one failing category
+pull the whole score down, and squaring it (the strict curve: a mean of 90 gives 81, 70 gives 49, 50 gives 25) makes every
+finding cost more; a category counts as at least 10 so one empty category does not zero the page. When a cap lowers the
+score the report says so and names the findings that set it (`scoreNote`). A category this scan did not measure is left
+out, shown as "not measured" with the reason (`notMeasured`), and its findings are listed but not scored. The top issues
+are the five rules that cost the most before the cap (`ruleImpact`: the score without the rule minus the score with it).
+The same element with the same problem in several views counts once. A GenClass "duplicate" on a GET is minor. Findings
+marked `unscored` are listed only. Deterministic: the same findings give the same score. Severities: the visual checks'
+high, medium and low read as serious, moderate and minor (a blank page, a page that ignores clicks or cannot scroll:
+critical); axe-core's impact; the audits' own. The constants were set for the owner's targets on the calibration pages
+(CALIBRATION.md, scan-score/4: min / median / max 26 / 51 / 96 over 20 public pages, the fixture 9); every point lost
+still traces to a listed finding.
 
 With `WITH_GENCLASS=on` (the default now):
 
@@ -476,19 +519,23 @@ and site, one scan per client, IPv6 /64, automated clients, cache and its versio
 interception outcome of every request and the visual commands per view, the with-GenClass flow with a re-check, files
 the scanner refused, private names and addresses, redirects to opted-out or robots-disallowed sites, WebSocket hosts,
 stand-in answers, cancellation, screenshots and opt-outs, report escaping, the path form, the sweep),
-`test/tlds.test.ts` (the two TLD copies and path rules agree), and the launch review's fixes in `test/app.test.ts`
+`test/tlds.test.ts` (the two TLD copies and path rules agree), `test/site.test.ts` (scan-score/4: each security header and
+cookie rule, the worker's http:// and favicon requests, the HSTS preload exception, search and sharing), and the launch review's fixes in `test/app.test.ts`
 and `test/report.test.ts` (the in-flight count reaches the checks before they start, periodic fixes need a long enough
 re-check, the re-check is compared with every key, uncovered findings are named and not scored, the phone overflow
 cause, the report without JavaScript, the "in testing" wording, `/scan…` paths handed to the site, contention and
-launch pacing, race fixes tied to the same request, the held-back words). For scan-score/3: `test/score.test.ts`
-(rule points and their cap, diminishing deductions, the weighted mean, unmeasured categories left out, rule impact),
+launch pacing, race fixes tied to the same request, the held-back words). For scan-score/4: `test/score.test.ts`
+(rule points and their cap of three times the base, stricter than scan-score/3 everywhere, diminishing deductions, the
+geometric mean and the curve, the category floor, the caps, unmeasured categories left out, rule impact),
 `test/axe.test.ts` (the embedded axe-core is the pinned package byte for byte with its MPL-2.0 notice, the installer,
 the run's options, impact to severity, best practices one level lower, rules off and misshapen data dropped, the
 invisible-text duplicate, hostile rule text escaped and links only to the standards' own sites), `test/audits.test.ts`
 (each audit's threshold with fixtures: tap targets and the spacing exception, zoom, text size, reflow, oversized and
-unsized images, LCP and CLS session windows, overflow propagation), `test/cdp.test.ts` (errors from the main frame only,
+unsized images, LCP and CLS session windows, overflow propagation; for scan-score/4 keyboard focus and the skip link,
+the tablet width, page weight, image formats and web fonts), `test/cdp.test.ts` (errors from the main frame only,
 the scanner's own left out, failed same-site requests by type and status, who-asks statuses, mixed content, JavaScript
-bytes, the test copy's bucket prefix), and in `test/app.test.ts` a full deep scan through the mocked browser (axe-core
+bytes, the test copy's bucket prefix; the main document's raw headers and cookies without their values, deprecations,
+the page weight at network quiet), and in `test/app.test.ts` a full deep scan through the mocked browser (axe-core
 in every view, the phone narrowed to 360 and 320, the DevTools record, the static report's six categories and top
 issues), categories left unmeasured when time runs out or there is no DevTools session, and the scroll-lock
 correction. `test/vision.test.ts` (GenClass Vision: the letterbox byte for byte and the 64 facts value for value against
@@ -515,7 +562,10 @@ while the page loads (the report must say so and not score what follows from it)
 per deeper check (zoom off, text at 2.85:1, an image without alt, a button with no name, 16 px tap targets side by side,
 10 px body text, a 340 px box that fits 390 px but not 360 or 320, an 800×600 image of 1.4 MB shown at 80×60, an image
 without dimensions that arrives after 1.5 s and pushes the page down, an uncaught TypeError, a console.error, a 404
-script, a script and an image asked for over http); `?deep=1&slow=1` delays the late image to 4.5 s. The default page is
+script, a script and an image asked for over http; for scan-score/4, 16 header links and no skip link, two links with
+`outline: none`, one of them "click here", a box 800 px wide from 700 px up, a 2.1 MB image, a stylesheet that answers
+after 2 s, a Google font without font-display, an unload handler, a session cookie without Secure or HttpOnly, and no
+security headers, description, preview tags or favicon); `?deep=1&slow=1` delays the late image to 4.5 s. The default page is
 unchanged. Non-GET requests that reach the fixture are logged (`wrangler tail genclass-scan-fixture`). Calibration on
 public pages: `CALIBRATION.md`.
 

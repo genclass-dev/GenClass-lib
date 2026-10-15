@@ -3,7 +3,7 @@
 // and one inline style per response, each under a fresh CSP nonce. Every dynamic string reaches the page through
 // textContent, never innerHTML; data travels in a <script type="application/json"> block escaped by embed().
 
-import { CLS_GOOD, CLS_POOR, FONT_MIN, JUDGE_DPR, LCP_GOOD_MS, LCP_POOR_MS, OVERSIZE_BYTES, OVERSIZE_RATIO, TARGET_MIN } from "./audits.ts";
+import { CLS_GOOD, CLS_POOR, FOCUS_CHECKED, FOCUS_CONFIRM, FONT_MIN, FORMAT_BYTES, JUDGE_DPR, LCP_GOOD_MS, LCP_POOR_MS, OVERSIZE_BYTES, OVERSIZE_RATIO, SKIP_LINK_MIN, TABLET_WIDTH, TARGET_MIN } from "./audits.ts";
 import { VISION_EVAL, VISION_LINE, VISION_NAME, VISION_THRESHOLD } from "./vision.ts";
 import { CROP_PAD, FAMILY_WORDS, FIND_THRESHOLD, JUDGE_EVAL, JUDGE_LABEL, JUDGE_MAX_CALLS, JUDGE_MODEL, JUDGE_NAME, JUDGE_PLATFORM, JUDGE_SHARE, JUDGE_TIMEOUT_MS, KEEP_THRESHOLD, VERDICT_WORDS } from "./judge.ts";
 import { AXE_OFF, AXE_TAGS } from "./axe.ts";
@@ -11,7 +11,7 @@ import { AXE_BUILD } from "./axe-source.ts";
 import { KINDS, NOT_RUN_HERE, VISUAL_KINDS, type Kind } from "./catalog.ts";
 import { JS_NOTE_BYTES } from "./cdp.ts";
 import { SCAN_BUDGET_MS, UA_TOKEN, userAgent, VIEWS } from "./scan.ts";
-import { categoryValue, CATEGORIES, INSTANCE_CAP, rulePoints, SCORE_VERSION, SEVERITY_ORDER, SEVERITY_POINTS, type Severity } from "./score.ts";
+import { CAPS, CATEGORIES, CATEGORY_FLOOR, categoryValue, CURVE, curved, geometricMean, INSTANCE_CAP, rulePoints, SCORE_VERSION, SEVERITY_ORDER, SEVERITY_POINTS, type Severity } from "./score.ts";
 import { safeStandardUrl } from "./standards.ts";
 import { INSTALL_IS_BETA, INSTALL_VERSION, RUNTIME_VERSION, VISUAL_IN_RUNTIME, visualStatus } from "./visual.ts";
 import { VISUAL_BUILD } from "./visual-source.ts";
@@ -24,9 +24,23 @@ export function withLabel(): string {
 }
 export const OPT_OUT_EMAIL = "mehar@daybot.ca";
 
-/** "Visual bugs 25, Accessibility 25, Phone 20, Reliability 15, Speed 10, Races 5", from the score's own constants. */
+/** "weights: Visual bugs 20, Accessibility 22, ...", from the score's own constants. */
 export function weightsWords(): string {
   return `weights: ${CATEGORIES.map((c) => `${c.label} ${c.weight}`).join(", ")}`;
+}
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+/** How many categories the score has, in words ("eight"). */
+export const categoryCount = (): string => NUMBER_WORDS[CATEGORIES.length] ?? String(CATEGORIES.length);
+/** The caps in words: "a critical finding caps it at 49, two critical rules at 35, three serious rules at 69". */
+export function capsWords(): string {
+  return [...CAPS]
+    .sort((a, b) => b.cap - a.cap)
+    .map((c) => `${c.rules === 1 ? `a ${c.severity} finding` : `${NUMBER_WORDS[c.rules] ?? c.rules} ${c.severity} rules`} at ${c.cap}`)
+    .join(", ");
+}
+/** The line under the score: how it is made. */
+export function scoreLine(): string {
+  return `Strict: the weighted geometric mean of ${categoryCount()} category scores (${weightsWords()}), squared, then capped: ${capsWords()}. A category that was not measured is left out.`;
 }
 
 export function securityHeaders(nonce: string, extra: Record<string, string> = {}): Record<string, string> {
@@ -174,15 +188,15 @@ ol.finds li.catg:first-child{padding-top:16px}
 ol.finds li.catg h3{font:700 21px/1.2 var(--display);letter-spacing:-.02em}
 ol.finds li.catg span{font:12.5px var(--mono);color:var(--ink3)}
 ol.finds li.ruleg{font:500 12.5px var(--mono);color:var(--ink3);padding:16px 0 0}
-/* the six categories and the top issues */
-.cats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0 24px;margin-top:28px;border-top:1px solid var(--ink)}
+/* the categories and the top issues */
+.cats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 24px;margin-top:28px;border-top:1px solid var(--ink)}
 .cats .cat{padding:14px 0;border-bottom:1px solid var(--rule);min-width:0}
 .cats .k{font:500 11.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
 .cats .v{font:700 36px/1.1 var(--display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:6px}
 .cats .v small{font:500 13px var(--mono);letter-spacing:0;color:var(--ink3);margin-left:3px}
 .cats .s{font-size:12.5px;line-height:1.45;color:var(--ink3);margin-top:4px}
 .cats .off .v{font-size:17px;line-height:1.5;color:var(--ink3);letter-spacing:0}
-@media (max-width:900px){.cats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:900px){.cats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:480px){.cats{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}.cats .v{font-size:30px}}
 ol.top{list-style:none;margin-top:4px;max-width:900px}
 ol.top li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:4px 16px;padding:12px 0;border-bottom:1px solid var(--rule);align-items:baseline}
@@ -278,7 +292,7 @@ function shell(n: string, title: string, current: "scan" | "about", body: string
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>${esc(title)}</title>
-<meta name="description" content="Check one public page for visual bugs, accessibility (axe-core, WCAG 2.2 A and AA), phone layout, errors, speed and double-submit races. Requests that could change something on the site are never sent.">
+<meta name="description" content="Check one public page for visual bugs, accessibility (axe-core, WCAG 2.2 A and AA, keyboard focus), phone layout, errors, speed, security headers, search and sharing, and double-submit races. Requests that could change something on the site are never sent.">
 <link rel="icon" href="${ICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -342,10 +356,10 @@ export function scanPage(n: string, data: ScanPageData): string {
     <button class="btn" id="go" type="submit">Check page</button>
   </form>
   <p class="lead" id="lead"${t ? ' hidden' : ""}>Paste an address. A browser loads the page on a desktop and on a phone, light and dark, and
-  checks it six ways: visual bugs (${esc(st.checks)}), accessibility (axe-core's WCAG 2.2 A and AA rules), the phone layout
-  (tap targets, zoom, text size, sideways scrolling at 320 px), errors and failed requests, speed (Largest Contentful Paint and
-  layout shift), and races: it types into the search box and double-clicks a submit button with GenClass ${esc(RUNTIME_VERSION)}
-  watching. Requests that could change something on the site are answered inside the browser and never sent. A model
+  checks it ${categoryCount()} ways: visual bugs (${esc(st.checks)}), accessibility (axe-core's WCAG 2.2 A and AA rules, keyboard
+  focus), the phone and tablet layout (tap targets, zoom, text size, sideways scrolling), errors and failed requests, speed
+  (Largest Contentful Paint, page weight, image sizes and formats, fonts), security headers, search and sharing,
+  and races: it types into the search box and double-clicks a submit button with GenClass ${esc(RUNTIME_VERSION)} watching. Requests that could change something on the site are answered inside the browser and never sent. A model
   (${esc(JUDGE_NAME)}, on ${esc(JUDGE_PLATFORM)}) takes a second look at crops of the screenshots; what it finds is labelled as judged,
   not measured.</p>
 </section>
@@ -367,8 +381,7 @@ ${report ? staticReport(report) : ""}
       </div>
     </div>
     <div>
-      <p class="measures">The weighted mean of six category scores (${esc(weightsWords())}); a category that was not measured is left
-      out. <a href="/scan/about#score">How the score works</a>.</p>
+      <p class="measures">${esc(scoreLine())} <a href="/scan/about#score">How the score works</a>.</p>
       <div class="share" id="share"></div>
     </div>
   </section>
@@ -378,8 +391,8 @@ ${report ? staticReport(report) : ""}
     <ol class="top" id="top"></ol>
   </section>
   <p class="measures" id="measures"><b>What the score measures:</b> this page, this one load, in three views, each category from 100
-  by its own findings. <b>What it does not measure:</b> SEO, anything that needs a signed-in user or a second page, and what only a
-  person can judge.</p>
+  by its own findings. <b>What it does not measure:</b> search rankings or content quality, anything that needs a signed-in user or
+  a second page, and what only a person can judge.</p>
   <section class="blk" id="where">
     <div class="blk-h"><h2>Where the findings are</h2><span class="aside" id="figs"></span></div>
     <div class="shots" id="shots"></div>
@@ -572,11 +585,11 @@ export function staticReport(r: Record<string, unknown>): string {
   return `<div id="ssr">
 <section class="scoregrid" aria-label="Score">
   <div><div class="nums">
-    <div class="num"><div class="k">${withOn ? "Without GenClass" : "Score"}</div><div class="v">${overall !== null ? esc(String(overall)) : "n/a"}<small>/ 100</small></div><div class="s">${n ? `${n} scored ${n === 1 ? "finding" : "findings"}.` : "No scored findings from these checks."}</div></div>
+    <div class="num"><div class="k">${withOn ? "Without GenClass" : "Score"}</div><div class="v">${overall !== null ? esc(String(overall)) : "n/a"}<small>/ 100</small></div><div class="s">${n ? `${n} scored ${n === 1 ? "finding" : "findings"}.` : "No scored findings from these checks."}${str(r.scoreNote) ? ` ${esc(str(r.scoreNote))}` : ""}</div></div>
     ${withOn ? `<div class="num with"><div class="k">${esc(withLabel())}</div><div class="v">${esc(str(w.value))}<small>/ 100</small></div><div class="s">${esc(str(w.fixed))} fixed in the page and gone on a re-check in the same browser.</div></div>` : ""}
   </div></div>
   <div>
-    <p class="measures">The weighted mean of six category scores (${esc(weightsWords())}); a category that was not measured is left out. Screenshots and the race probe show with JavaScript on. <a href="/scan/about#score">How the score works</a>.</p>
+    <p class="measures">${esc(scoreLine())} Screenshots and the race probe show with JavaScript on. <a href="/scan/about#score">How the score works</a>.</p>
   </div>
 </section>
 <div class="cats" role="list" aria-label="Category scores">${cells}</div>
@@ -699,7 +712,7 @@ function render(r){
   var meta = $("meta"); meta.textContent = "";
   [r.url, "Scanned " + new Date(r.scannedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), secs(r.ms.total) + " in total", "@genclass/runtime " + r.runtime, r.axe ? "axe-core " + r.axe : ""].forEach(function(t){ if (t) meta.appendChild(el("span", null, t)); });
   var wall = !!r.blocked;
-  ["scorebox", "cats", "measures", "where", "list", "race"].forEach(function(id){ show(id, !wall); });
+  ["scorebox", "cats", "measures", "where", "list", "race", "limits"].forEach(function(id){ show(id, !wall); });
   show("blockedbox", wall);
   if (wall) { renderBlocked(r); show("topbox", false); show("judgedfine", false); show("visionbeta", false); renderShare(r); }
   else { renderScore(r); renderShots(r); renderFindings(r); renderProbe(r); renderShare(r); }
@@ -707,10 +720,10 @@ function render(r){
   if (history.replaceState && D.target) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
 }
 
-var CATNAME = { visual: "Visual bugs", accessibility: "Accessibility", phone: "Phone", reliability: "Reliability", speed: "Speed", races: "Races" };
+var CATNAME = ${JSON.stringify(Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label])))};
 var SEVNAME = { critical: "Critical", serious: "Serious", moderate: "Moderate", minor: "Minor" };
 var SOURCENAME = { visual: ST.shipped ? "GenClass visual check" : "GenClass visual check (in testing)", axe: "axe-core", audit: "Scanner audit", probe: "Race probe", judge: (ST.judge && ST.judge.label) || "Judged by a model" };
-var STD_HOSTS = /^https:\\/\\/(?:www\\.w3\\.org|web\\.dev|developer\\.chrome\\.com|www\\.rfc-editor\\.org|github\\.com\\/dequelabs|dequeuniversity\\.com)\\//;
+var STD_HOSTS = /^https:\\/\\/(?:www\\.w3\\.org|web\\.dev|developer\\.chrome\\.com|www\\.rfc-editor\\.org|github\\.com\\/dequelabs|dequeuniversity\\.com|cheatsheetseries\\.owasp\\.org|ogp\\.me|developers\\.google\\.com)\\//;
 function catIn(b, id){ var cs = (b && b.categories) || []; for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i]; return null; }
 function renderScore(r){
   var s = r.score;
@@ -719,7 +732,8 @@ function renderScore(r){
   var rules = {}; scored.forEach(function(f){ rules[f.category + "|" + f.rule] = 1; });
   var nr = Object.keys(rules).length;
   $("ss").textContent = (n ? nf.format(n) + (n === 1 ? " scored finding" : " scored findings") + " in " + nr + (nr === 1 ? " rule" : " rules") + ". The categories below show where the points went." : "No scored findings from these checks.")
-    + (extra ? " " + extra + (extra === 1 ? " more is" : " more are") + " listed but not scored." : "");
+    + (extra ? " " + extra + (extra === 1 ? " more is" : " more are") + " listed but not scored." : "")
+    + (r.scoreNote ? " " + r.scoreNote : "");
   var w = r.withGenClass, withOn = !!(w && w.shown);
   show("withbox", withOn);
   $("sk").textContent = withOn ? "Without GenClass" : "Score";
@@ -1035,6 +1049,8 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     { rule: "axe:image-alt", severity: "critical" as Severity, instances: 2, findings: 1, points: rulePoints("critical", 2) },
   ];
   const exValue = categoryValue(ex);
+  const exMean = curved(geometricMean(CATEGORIES.map((c) => ({ weight: c.weight, value: c.id === "accessibility" ? exValue : 100 }))) ?? 100);
+  const exCap = Math.min(Math.round(exMean), ...CAPS.filter((c) => c.severity === "critical" && c.rules === 1).map((c) => c.cap));
   const lcpGood = (LCP_GOOD_MS / 1000).toFixed(1);
   const lcpPoor = (LCP_POOR_MS / 1000).toFixed(0);
   const body = `
@@ -1048,7 +1064,9 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   <ol>
     <li>Normalises the address (https:// is added when missing; only http and https on the standard ports) and refuses IP
     addresses, local names, genclass.dev itself and hostnames that resolve to private, loopback, link-local, carrier-grade NAT or
-    cloud metadata addresses. It reads the site's <code>robots.txt</code> for a <code>GenClassScan</code> group.</li>
+    cloud metadata addresses. It reads the site's <code>robots.txt</code> for a <code>GenClassScan</code> group. From our server it
+    also asks for the page's http:// address (to see whether it redirects to https://; only the first 16 KB are read) and
+    <code>/favicon.ico</code>, and asks hstspreload.org whether the hostname is on the browsers' HSTS preload list.</li>
     <li>Starts a fresh browser (Cloudflare Browser Rendering) with no cookies or storage, and loads the page three times in
     parallel: ${VIEWS.map((v) => esc(v.label.toLowerCase())).join("; ")}. Each load has 16 seconds, then up to 4 more for the network to go quiet (half a second when the page had not finished loading).</li>
     <li>Runs the visual checks in each view for about 6 seconds: ${esc(st.checks)}, the runtime's visual chunk from
@@ -1069,9 +1087,12 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     review") are counted and shown as a number, never scored. Three of its rules are turned off because the scanner measures
     the same thing itself and would otherwise count it twice: ${AXE_OFF.map((r) => `<code>${esc(r)}</code>`).join(", ")}. It does
     not look inside iframes and fetches nothing.</li>
-    <li>Audits the light phone view: tap targets, the viewport meta tag and text sizes; then narrows the same page to 360 and
-    320 px wide, without a reload, and measures whether it scrolls sideways. On the desktop and the light phone it compares each
-    image's file with the size it is shown at.</li>
+    <li>Audits the light phone view: tap targets, the viewport meta tag, text sizes, the page's head (description, robots,
+    link preview tags, icon) and the main document's security headers and cookies; then narrows the same page to 360 and 320 px
+    wide and widens it to 768 px, without a reload, and measures whether it scrolls sideways. On the desktop and the light phone
+    it compares each image's file with the size it is shown at, and reads its format and the web fonts' font-display. On the
+    desktop, last, it focuses the first keyboard stops and presses Tab to those whose styles did not change, comparing
+    screenshots with and without focus.</li>
     <li>Reads what the browser itself reports (a DevTools protocol session of the scanner's own) while each view loads and its
     checks run: uncaught errors, <code>console.error</code>, the status and size of every response, and mixed content. On the
     desktop it reads Largest Contentful Paint and layout shifts once the network is quiet, before the scanner presses a key or
@@ -1124,24 +1145,26 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
 </section>
 <section class="blk" id="score">
   <div class="blk-h"><h2>How the score works</h2><span class="aside">${esc(SCORE_VERSION)}</span></div>
-  <p class="intro">Six categories are each scored from 100 by their own findings, and the score is their weighted mean. Inside a
-  category the findings are grouped by rule (one visual check, one axe-core rule, one audit). A rule takes points by its
-  severity, a little more when it found many elements, and never more than ${INSTANCE_CAP} times its base, so a page with 200
-  instances of one rule loses a bounded amount. Rules combine by multiplication, so each further rule takes a share of what is
-  left and a category never goes below 0. A category this scan did not measure (axe-core did not finish, the race probe found
-  nothing to try) is left out of the mean and shown as not measured, never as 100. The same findings always give the same score.</p>
+  <p class="intro">Strict on purpose, like Lighthouse: every point lost comes from a finding listed in the report. ${esc(categoryCount().charAt(0).toUpperCase() + categoryCount().slice(1))} categories
+  are each scored from 100 by their own findings, grouped by rule (one visual check, one axe-core rule, one audit). A rule
+  takes points by its severity, more when it found many elements (up to ${INSTANCE_CAP} times its base at 100), and rules multiply,
+  so each further rule takes a share of what is left. The score is the weighted geometric mean of the categories, so one
+  failing category pulls the whole score down instead of being averaged away, squared on a 0 to 1 scale (a mean of 90
+  gives 81, 70 gives 49), and then capped: ${esc(capsWords())}.
+  A category this scan did not measure is left out, never counted as 100. The same findings always give the same score.</p>
   <div class="formula">points(rule) = base(severity) &times; min(${INSTANCE_CAP}, 1 + log<sub>10</sub>(instances))<br>
   category = 100 &times; &Pi;<sub>rules</sub> (1 &minus; points(rule) / 100)<br>
-  score = &Sigma; weight &times; category / &Sigma; weight, over the categories measured on this scan<br>
-  base: ${(SEVERITY_ORDER as Severity[]).map((s) => `${s} ${SEVERITY_POINTS[s]}`).join(", ")} &middot; ${esc(weightsWords())}</div>
+  mean = &Pi;<sub>measured categories</sub> (max(category, ${CATEGORY_FLOOR}) / 100)<sup>weight / &Sigma; weight</sup><br>
+  score = 100 &times; mean<sup>${CURVE}</sup>, then the lowest cap that applies<br>
+  base: ${(SEVERITY_ORDER as Severity[]).map((s) => `${s} ${SEVERITY_POINTS[s]}`).join(", ")} &middot; caps: ${esc(capsWords())} &middot; ${esc(weightsWords())}</div>
   <p class="intro">For example, 30 elements failing axe-core's <code>color-contrast</code> (serious) take ${ex[0].points.toFixed(1)} points and 2
-  images failing <code>image-alt</code> (critical) take ${ex[1].points.toFixed(2)}, so accessibility is 100 &times;
-  (1 &minus; ${(ex[0].points / 100).toFixed(2)}) &times; (1 &minus; ${(ex[1].points / 100).toFixed(4)}) = ${exValue.toFixed(1)}, shown as
-  ${Math.round(exValue)}. With every other category at 100 the score is ${Math.round((exValue * 25 + 75 * 100) / 100)}.</p>
+  images failing <code>image-alt</code> (critical) take ${ex[1].points.toFixed(2)}, so accessibility is ${exValue.toFixed(1)}. With every
+  other category at 100 the curved mean is ${exMean.toFixed(1)}, and the critical finding caps the score at ${exCap}.
+  Each top issue says what it costs: the score without that rule minus the score with it.</p>
   <div class="two">
     <div><table class="dt"><thead><tr><th>Category</th><th class="r">Weight</th></tr></thead><tbody>${cats}</tbody></table>
-    <figcaption>Table 1. The six categories, what each covers and its weight in the score.</figcaption>
-    <table class="dt mt"><thead><tr><th>Severity</th><th class="r">Base</th><th class="r">3 instances</th><th class="r">10 or more</th></tr></thead><tbody>${sevRows}</tbody></table>
+    <figcaption>Table 1. The categories, what each covers and its weight in the score.</figcaption>
+    <table class="dt mt"><thead><tr><th>Severity</th><th class="r">Base</th><th class="r">3 instances</th><th class="r">100 or more</th></tr></thead><tbody>${sevRows}</tbody></table>
     <figcaption>Table 2. The points one rule takes from its category, by severity and instances.</figcaption></div>
     <div><table class="dt"><thead><tr><th>Finding</th><th>Category</th><th>Severity</th><th>Standard</th></tr></thead><tbody>${kinds}</tbody></table>
     <figcaption>Table 3. Every kind of finding, its category, default severity and the standard it is judged by. The same
@@ -1195,6 +1218,26 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     browser blocked for being http is serious; a file referenced over http that the browser upgraded or allowed is minor.</li>
     <li><b>JavaScript transferred</b>: more than ${(JS_NOTE_BYTES / 1_000_000).toFixed(0)} MB compressed on the desktop (the
     scanner's own GenClass runtime left out) is listed as a note and not scored.</li>
+    <li><b>Keyboard focus</b> (desktop, <a href="https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html">WCAG 2.2 SC 2.4.7</a>,
+    serious): the first ${FOCUS_CHECKED} keyboard stops (text fields left out) are focused by script; for up to ${FOCUS_CONFIRM} whose styles
+    did not change at all, the scanner presses Tab to reach each one and compares lossless screenshots of the area around it,
+    focused and not. Only identical screenshots count.</li>
+    <li><b>Skip link</b> (WCAG technique G1, minor, a best practice): ${SKIP_LINK_MIN} or more keyboard stops before the main content,
+    and none of the first three (hidden-until-focused ones included) links to it or says it skips to the content.</li>
+    <li><b>Tablet</b> (moderate): the light phone widened to ${TABLET_WIDTH} px without a reload scrolls sideways.</li>
+    <li><b>Page weight</b> (Lighthouse's total byte weight): what the phone downloaded by network quiet, minor above 2,667 KiB,
+    moderate above 4,000 KiB.</li>
+    <li><b>Image formats</b> (Lighthouse, minor): JPEG, PNG, GIF or BMP images over ${Math.round(FORMAT_BYTES / 1024)} KB, although the
+    browser accepts AVIF and WebP.</li>
+    <li><b>Web fonts</b> (Lighthouse, minor): fonts loaded with font-display auto or block (icon fonts left out).</li>
+    <li><b>Deprecated APIs</b> and <b>quirks mode</b> (Lighthouse, minor): what Chrome's Issues report as deprecated, and a page
+    without <code>&lt;!doctype html&gt;</code>.</li>
+    <li><b>Security</b> (the main document as the browser received it, 2xx only): not HTTPS (serious); http:// that does not redirect
+    to https:// (moderate, one request from our server; not reported for a host on the HSTS preload list); no Strict-Transport-Security, no Content-Security-Policy that limits
+    scripts, no protection against framing, cookies without Secure or session cookies without HttpOnly (moderate); no
+    X-Content-Type-Options: nosniff (minor). Referrer-Policy and SameSite are not checked: browsers already default to safe values.</li>
+    <li><b>Search and sharing</b>: a robots noindex (serious), no meta description (moderate), no og:title or og:image, no favicon
+    (no <code>link rel="icon"</code> and no image at /favicon.ico), links whose whole text is "learn more" or "click here" (minor).</li>
   </ul>
   <p>Timings are measured once, in Cloudflare's browser in a data center: a fast network, three views loading at the same time in
   one browser, and GenClass loading in the desktop view for the race probe. They are indicative; field data such as Chrome's

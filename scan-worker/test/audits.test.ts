@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, judgeTapTargets, judgeUnsized, judgeZoom, pageSide, pageSideSource, parseShifts, viewportOk, viewportPairs, windowScrolls,
+  clsOf, judgeCls, judgeFocus, judgeFontDisplay, judgeFontSize, judgeImageFormat, judgeImages, judgeLcp, judgePageWeight, judgeReflow, judgeSkipLink, judgeTablet, judgeTapTargets, judgeUnsized,
+  judgeZoom, pageSide, pageSideSource, parseFocusScan, parseShifts, viewportOk, viewportPairs, windowScrolls,
 } from "../src/audits.ts";
 import { sanitizeFinding } from "../src/catalog.ts";
 
@@ -194,5 +195,79 @@ describe("the page side", () => {
   it("is valid JavaScript that uses nothing from outside itself", () => {
     for (const cmd of ["vitals", "audit", "reflow"] as const) assert.doesNotThrow(() => new Function(`return ${pageSideSource(cmd, { targets: true })}`), cmd);
     assert.doesNotMatch(pageSide.toString(), /__name\(|\bimport\(|require\(/);
+  });
+});
+
+describe("scan-score/4 audits: keyboard focus (WCAG 2.2 SC 2.4.7) and the skip link", () => {
+  const scan = (o: Record<string, unknown> = {}) => parseFocusScan({ stops: 30, beforeMain: 18, main: "main#content", skip: "", checked: 20, changed: 18, notVisibleMode: 0, candidates: [], diffs: [], ...o })!;
+  const cand = (i: number, lab = "") => ({ i, sel: `a.n${i}`, lab, x: 10 * i, y: 20, w: 60, h: 18 });
+  it("reports only stops the screenshots confirmed (identical with and without focus), counted and named", () => {
+    assert.equal(judgeFocus(scan({ candidates: [cand(3)] }), []), null, "a candidate whose pixels changed is not a finding");
+    const f = judgeFocus(scan(), [cand(3, "Pricing"), cand(5)])!;
+    assert.equal(f.kind, "focus-invisible");
+    assert.equal(f.detail!.severity, "serious");
+    assert.equal(f.detail!.count, 2);
+    assert.equal(f.measured, '2 keyboard stops of the first 20 on the desktop show no visible change when reached with Tab: the screenshot with focus is identical to the one without. First: a.n3 ("Pricing").');
+    assert.deepEqual(f.box, { x: 30, y: 20, w: 60, h: 18 });
+    assert.equal(judgeFocus(null, [cand(1)]), null);
+  });
+  it("asks for a skip link only after 15 or more stops before the main content, and finds one among the first three", () => {
+    assert.equal(judgeSkipLink(scan({ beforeMain: 14 })), null);
+    assert.equal(judgeSkipLink(scan({ skip: "a.skip" })), null);
+    assert.equal(judgeSkipLink(scan({ beforeMain: null })), null, "no main landmark and no h1: not judged");
+    const f = judgeSkipLink(scan())!;
+    assert.deepEqual([f.kind, f.detail!.severity], ["skip-link-missing", "minor"]);
+    assert.match(f.measured, /^18 keyboard stops come before the main content \(main#content\)/);
+  });
+  it("reads the page side's answer and refuses anything else", () => {
+    assert.equal(parseFocusScan(null), null);
+    assert.equal(parseFocusScan({ checked: 3 }), null);
+    assert.deepEqual(parseFocusScan({ stops: 2.6, beforeMain: "x", candidates: [{ i: 1.2, sel: 5 }] })!.candidates, [{ i: 1, sel: "", lab: "", x: 0, y: 0, w: 0, h: 0 }]);
+  });
+  it("the page side's focus commands are self-contained", () => {
+    for (const cmd of ["focus", "focusOne", "focusBlur", "focusDone"] as const) assert.doesNotThrow(() => new Function(pageSideSource(cmd, { name: "x", i: 0 })), cmd);
+  });
+});
+
+describe("scan-score/4 audits: the tablet width, page weight, image formats, web fonts", () => {
+  it("reports sideways scrolling at 768 px, moderate (minor for tables), not without a viewport meta tag", () => {
+    const vp = "width=device-width, initial-scale=1";
+    assert.equal(judgeTablet({ width: 768, sw: 768, scrollable: true, culprits: [] }, vp), null);
+    assert.equal(judgeTablet({ width: 768, sw: 900, scrollable: false, culprits: [] }, vp), null, "overflow-x hidden clips instead");
+    const f = judgeTablet({ width: 768, sw: 832, scrollable: true, culprits: [{ sel: "div.wide", right: 832, w: 800, tag: "div" }] }, vp)!;
+    assert.deepEqual([f.kind, f.detail!.severity], ["tablet-overflow", "moderate"]);
+    assert.equal(f.measured, "At 768 px the page is 832 px wide (64 px too wide). Sticking out: div.wide (ends at 832 px).");
+    assert.equal(judgeTablet({ width: 768, sw: 900, scrollable: true, culprits: [{ sel: "table", right: 900, w: 880, tag: "table" }] }, vp)!.detail!.severity, "minor");
+    assert.equal(judgeTablet({ width: 768, sw: 900, scrollable: true, culprits: [] }, null), null);
+  });
+  it("judges page weight on Lighthouse's curve: minor above 2,667 KiB, moderate above 4,000 KiB", () => {
+    assert.equal(judgePageWeight(2667 * 1024, 80), null);
+    assert.equal(judgePageWeight(2667 * 1024 + 1, 80)!.detail!.severity, "minor");
+    const f = judgePageWeight(5_000_000, 120)!;
+    assert.equal(f.detail!.severity, "moderate");
+    assert.equal(f.measured, "The phone view downloaded 5.0 MB in 120 requests before its network went quiet (compressed, as transferred): above Lighthouse's 4,000 KiB (a score of 50).");
+  });
+  it("reports JPEG, PNG, GIF or BMP images over 100 KB, never SVG, WebP or AVIF, once per file", () => {
+    const imgs = [
+      { sel: "img.hero", src: "https://cdn.example.net/hero.jpg", x: 0, y: 0, w: 600, h: 300 },
+      { sel: "img.dup", src: "https://cdn.example.net/hero.jpg", x: 0, y: 400, w: 600, h: 300 },
+      { sel: "img.ok", src: "https://cdn.example.net/a.webp", x: 0, y: 0, w: 600, h: 300 },
+      { sel: "img.small", src: "https://cdn.example.net/b.png", x: 0, y: 0, w: 60, h: 30 },
+    ];
+    const bytes: Record<string, { bytes: number; mime: string }> = {
+      "https://cdn.example.net/hero.jpg": { bytes: 340_000, mime: "image/jpeg" },
+      "https://cdn.example.net/a.webp": { bytes: 900_000, mime: "image/webp" },
+      "https://cdn.example.net/b.png": { bytes: 90_000, mime: "image/png" },
+    };
+    const f = judgeImageFormat(imgs, (u) => bytes[u] ?? null, "desktop")!;
+    assert.deepEqual([f.kind, f.detail!.count, f.detail!.severity], ["image-format", 1, "minor"]);
+    assert.equal(f.measured, "1 image on the desktop view is JPEG, PNG, GIF or BMP over 100 KB (340 KB in all). Largest: cdn.example.net/hero.jpg (JPEG, 340 KB), shown by img.hero.");
+    assert.equal(judgeImageFormat([imgs[2]], (u) => bytes[u] ?? null, "desktop"), null);
+  });
+  it("reports web fonts with font-display auto or block, leaving icon fonts out", () => {
+    assert.equal(judgeFontDisplay([{ family: "Inter", display: "swap" }, { family: "Font Awesome 6 Free", display: "block" }, { family: "Material Symbols Outlined", display: "auto" }], "desktop"), null);
+    const f = judgeFontDisplay([{ family: "Lora", display: "auto" }, { family: "Lora", display: "auto" }, { family: "Brand Sans", display: "block" }], "phone")!;
+    assert.deepEqual([f.kind, f.detail!.count], ["font-display", 2]);
+    assert.equal(f.measured, "2 web font families on the phone view loaded with font-display auto (not set): Lora (auto), Brand Sans (block).");
   });
 });
