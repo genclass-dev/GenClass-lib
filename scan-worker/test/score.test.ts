@@ -17,6 +17,8 @@ const oneAt = (id: Category, v: number) => 100 * Math.pow(Math.pow(v / 100, w(id
 describe("scan-score/4: rule points", () => {
   it("are the severity's base for one instance, grow with log10 of the instances, and stop at three times the base", () => {
     assert.equal(SCORE_VERSION, "scan-score/4");
+    // the owner's decision after calibration: minor 12 (was 8), so three minor findings land a page at 85
+    assert.deepEqual(SEVERITY_POINTS, { critical: 50, serious: 25, moderate: 15, minor: 12 });
     assert.ok(SEVERITY_POINTS.critical > SEVERITY_POINTS.serious && SEVERITY_POINTS.serious > SEVERITY_POINTS.moderate && SEVERITY_POINTS.moderate > SEVERITY_POINTS.minor);
     assert.equal(INSTANCE_CAP, 3);
     assert.equal(instanceFactor(1), 1);
@@ -38,6 +40,13 @@ describe("scan-score/4: rule points", () => {
     const rules = rulesOf([f("visual", "image-broken", "moderate"), f("visual", "image-broken", "serious"), f("visual", "image-broken", "moderate", 3), f("visual", "font-failed", "minor")]);
     assert.deepEqual(rules.map((r) => [r.rule, r.severity, r.instances, r.findings]), [["image-broken", "serious", 5, 3], ["font-failed", "minor", 1, 1]]);
     assert.equal(rules[0].points, rulePoints("serious", 5));
+  });
+});
+
+describe("scan-score/4: what a few minor findings cost", () => {
+  it("takes a page with one minor finding to 95, and one with three (two elements of one, two categories) to 85", () => {
+    assert.equal(score([f("accessibility", "axe:region", "minor")], ALL).value, 95);
+    assert.equal(score([f("accessibility", "axe:empty-heading", "minor"), f("accessibility", "axe:region", "minor", 2), f("speed", "font-display", "minor")], ALL).value, 85);
   });
 });
 

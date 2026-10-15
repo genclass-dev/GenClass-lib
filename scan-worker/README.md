@@ -416,7 +416,7 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
 `src/score.ts`, published on `/scan/about#score` from the same constants (scan-score/4, strict):
 
 ```
-points(rule) = base(severity) × min(3, 1 + log10(instances))   base: critical 50, serious 25, moderate 15, minor 8
+points(rule) = base(severity) × min(3, 1 + log10(instances))   base: critical 50, serious 25, moderate 15, minor 12
 category     = 100 × Π over the category's rules (1 − points / 100)
 mean         = Π over measured categories (max(category, 10) / 100) ^ (weight / Σ weight)
 score        = 100 × mean², then capped: one critical rule 59, two critical rules 35, three serious-or-critical rules 69
@@ -434,7 +434,7 @@ The same element with the same problem in several views counts once. A GenClass 
 marked `unscored` are listed only. Deterministic: the same findings give the same score. Severities: the visual checks'
 high, medium and low read as serious, moderate and minor (a blank page, a page that ignores clicks or cannot scroll:
 critical); axe-core's impact; the audits' own. The constants were set for the owner's targets on the calibration pages
-(CALIBRATION.md, scan-score/4: min / median / max 26 / 51 / 96 over 20 public pages, the fixture 9); every point lost
+(CALIBRATION.md, scan-score/4: min / median / max 25 / 49.5 / 94 over 20 public pages, the fixture 8); every point lost
 still traces to a listed finding.
 
 With `WITH_GENCLASS=on` (the default now):

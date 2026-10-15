@@ -21,7 +21,7 @@ import { VISION_EVAL, VISION_LINE, VISION_MODEL, VISION_NAME, VISION_ORT, VISION
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 15;
+export const REPORT_VERSION = 16;
 
 export interface Finding {
   n: number;
