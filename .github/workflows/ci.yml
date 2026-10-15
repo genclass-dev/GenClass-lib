@@ -1,193 +1,78 @@
+# Experiment branch only (never merged): confirms the device-flow test race fixed on fix/device-poll-race.
 name: CI
 
 on:
-  push:
-    branches: [main, runtime, mvp, mvp-v2]
-  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  runtime:
-    name: "@genclass/runtime: typecheck, build, unit tests"
+  delay:
+    name: "delay: ${{ matrix.settle }} settle, browser click +${{ matrix.ms }} ms real"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      # onnxruntime-node (dev-only, for the model parity tests) would otherwise download CUDA binaries on Linux.
-      ONNXRUNTIME_NODE_INSTALL: skip
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install
-        run: npm ci --no-audit --no-fund
-
-      - name: Typecheck
-        run: npm run typecheck -w @genclass/runtime
-
-      - name: Build
-        run: npm run build -w @genclass/runtime
-
-      # Browser (Playwright) tests are excluded. Model parity tests skip without a model directory (GENCLASS_MODEL_DIR).
-      # The perf budgets run in their own step: they time a 5,000-item store and are noisy next to parallel test files.
-      - name: Unit tests
-        working-directory: packages/runtime
-        env:
-          NODE_OPTIONS: --expose-gc
-        run: npx vitest run --exclude "test/browser/**" --exclude test/review-perf.test.ts
-
-      # Reported, not blocking: shared GitHub runners are ~10% slower than the machines these budgets were set on
-      # (redux-style dispatch measured 1.08-1.10 ms vs its 1 ms bound on 2026-10-09). Run them on a quiet machine
-      # before a release.
-      - name: Perf budgets
-        continue-on-error: true
-        working-directory: packages/runtime
-        env:
-          NODE_OPTIONS: --expose-gc
-        run: npx vitest run test/review-perf.test.ts --retry=2
-
-  # Measured visual checks (docs/runtime/VISUAL.md section 14) in real Chromium, and the first-load size of /auto and
-  # the main entry against the release line this branch builds on (FIRST_LOAD_BASE, the merge base with it). Chromium
-  # is installed here only, never on a developer machine.
-  visual-browser:
-    name: "@genclass/runtime: visual checks in Chromium, first-load size"
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      ONNXRUNTIME_NODE_INSTALL: skip
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        settle: [old, fixed]
+        ms: [0, 3, 10, 100, 1000]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-
-      - name: Install
-        run: npm ci --no-audit --no-fund
-
-      - name: Build
-        run: npm run build -w @genclass/runtime
-
-      # The visual stub's budget was 0.5 KB; with the narrow development-host rule and the hidden-tab gate it measures
-      # about 0.55 KB; 0.6 KB here was approved with the 0.3.0-beta.0 size limits (docs/runtime/RESULTS.md section 13).
-      # The base is main (0.3.0 is merged there).
-      - name: First-load size against the release line (fails at 0.6 KB gzip growth)
-        env:
-          FIRST_LOAD_BASE: origin/main
-        run: |
-          base=$(git merge-base HEAD "$FIRST_LOAD_BASE")
-          echo "merge base with $FIRST_LOAD_BASE: $base"
-          git worktree add ../genclass-base "$base"
-          (cd ../genclass-base && npm ci --no-audit --no-fund && npm run build -w @genclass/runtime)
-          node packages/runtime/test/first-load-size.mjs packages/runtime/dist ../genclass-base/packages/runtime/dist --max-growth-kb 0.6
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-1.63.0
-
-      - name: Install Chromium
-        working-directory: packages/runtime
-        run: npx playwright install --with-deps chromium
-
-      - name: Visual checks (Playwright, Chromium)
-        working-directory: packages/runtime
-        run: npx playwright test --config test/browser/visual/playwright.config.ts
-
-      - name: Upload results on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-browser-results
-          path: packages/runtime/test-results/visual
-          retention-days: 7
-
-  telemetry-worker:
-    name: "telemetry-worker: unit tests (collector, dashboard)"
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install (root lockfile; vitest is hoisted)
-        run: ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
-      - name: Unit tests
+      - run: ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
+      - name: Use main's auth.test.ts (the old settle)
+        if: matrix.settle == 'old'
+        run: git show 4378fc1:telemetry-worker/test/auth.test.ts > telemetry-worker/test/auth.test.ts
+      - name: Delay the browser's click
+        run: node exp/inject-delay.mjs telemetry-worker/test/auth.test.ts ${{ matrix.ms }}
+      - name: CLI device-flow tests
         working-directory: telemetry-worker
-        run: npx vitest run
+        run: |
+          set +e
+          npx vitest run test/auth.test.ts -t "CLI's own requests" > out.txt 2>&1
+          code=$?
+          cat out.txt
+          { echo "### ${{ matrix.settle }} settle, +${{ matrix.ms }} ms: vitest exit $code"; echo '```'; grep -E "POLLS|✓|×|Tests " out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
-  scan-worker:
-    name: "scan-worker: typecheck, unit tests (URL rules, SSRF, request policy, score, report, HTTP) and the site's genclass.dev/<url> rule"
+  loop:
+    name: "loop: ${{ matrix.settle }} settle, full suite x40, 3 at once"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        settle: [old, fixed]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: scan-worker/package-lock.json
-      # scan-worker has its own lockfile (it is not a root workspace): @cloudflare/puppeteer stays out of the runtime.
-      - name: Install
-        working-directory: scan-worker
-        run: npm ci --no-audit --no-fund
-      - name: Typecheck
-        working-directory: scan-worker
-        run: npm run typecheck
-      - name: Unit tests (node:test, browser binding mocked)
-        working-directory: scan-worker
-        run: npm test
-      - name: Site worker path rule
-        run: node --test site/check/scan-path.test.mjs
-
-  # The scanner's visual checks are the runtime's own lazy visual chunk (packages/runtime/dist/visual/index.js) from
-  # branch wave2/visual at VISUAL_REF, bundled with scan-worker/visual/scan-entry.js into src/visual-source.ts by
-  # scan-worker/scripts/build-visual.sh. This job builds it from source, uploads it (artifact scan-visual), and fails
-  # when the committed copy is not exactly that build.
-  scan-visual:
-    name: "scan-worker: build the visual chunk from wave2/visual and check the embedded copy"
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      ONNXRUNTIME_NODE_INSTALL: skip
-      VISUAL_REF: 6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.VISUAL_REF }}
-          path: visual-src
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install (wave2/visual)
-        working-directory: visual-src
-        run: npm ci --no-audit --no-fund
-      - name: Build the runtime (wave2/visual)
-        working-directory: visual-src
-        run: npm run build -w @genclass/runtime
-      - name: Bundle the scanner's visual source
-        run: sh scan-worker/scripts/build-visual.sh "$GITHUB_WORKSPACE/visual-src" "$RUNNER_TEMP/visual-source.ts"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: scan-visual
-          path: |
-            ${{ runner.temp }}/visual-source.ts
-            visual-src/packages/runtime/dist/visual/index.js
-      - name: The committed src/visual-source.ts is this build
-        run: cmp scan-worker/src/visual-source.ts "$RUNNER_TEMP/visual-source.ts"
+      - run: ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
+      - name: Use main's auth.test.ts (the old settle)
+        if: matrix.settle == 'old'
+        run: git show 4378fc1:telemetry-worker/test/auth.test.ts > telemetry-worker/test/auth.test.ts
+      - name: 40 rounds of 3 concurrent full runs
+        working-directory: telemetry-worker
+        run: |
+          set +e
+          runs=0; bad=0
+          for i in $(seq 1 40); do
+            for j in 1 2 3; do npx vitest run > "out-$i-$j.txt" 2>&1 & done
+            for j in 1 2 3; do
+              wait -n; runs=$((runs+1))
+            done
+            for j in 1 2 3; do
+              if grep -q "Tests .*failed" "out-$i-$j.txt"; then
+                bad=$((bad+1)); echo "round $i run $j failed:"; grep -E "FAIL |^\s+[+-] " "out-$i-$j.txt" | head -20
+              fi
+            done
+          done
+          echo "failed runs: $bad / $runs"
+          { echo "### ${{ matrix.settle }} settle: failed runs $bad / $runs"; echo '```'; grep -h "FAIL " out-*.txt | sed 's/\x1b\[[0-9;]*m//g' | sort | uniq -c; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
