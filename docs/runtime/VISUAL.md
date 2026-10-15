@@ -1151,7 +1151,7 @@ packages/runtime/src/visual/
   narrow development-host rule and the hidden-tab gate account for about 100 B of it. The owner decides the ceiling.
   Merged into 0.3.0-beta.0 (`release/0.3.0-visual`, CI run 38676978903, RESULTS.md sections 10 and 13): the stub adds
   550 B to `/auto` (108.25 KB) and 524 B to the main entry (100.13 KB) against `release/0.3.0`, over its 107.74 /
-  99.71 KB limits; `bundle.test.ts` carries 108.30 / 100.20 KB there, pending the owner's decision.
+  99.71 KB limits; the owner approved 108.30 / 100.20 KB for 0.3.0-beta.0 (2026-10-15), which `bundle.test.ts` carries.
 
 ## 14. Test plan
 
@@ -1376,7 +1376,7 @@ What the code does where it differs from the design above (2026-10-13, branch `w
   false one).
 - **Sizes and costs measured in CI** (GitHub runner, Chromium): first-load growth against main 486 B gzip for `/auto`
   and 431 B for the main entry at first (`test/first-load-size.mjs`, limit 512 B), 582 B and 524 B after the review
-  against main of 2026-10-13 (limit 0.6 KB on this branch, pending the owner; section 13); the chunk `dist/visual/index.js` is about
+  against main of 2026-10-13 (limit 0.6 KB, approved with the 0.3.0-beta.0 size limits on 2026-10-15; section 13); the chunk `dist/visual/index.js` is about
   35 KB gzip (the estimate was 6 to 12 KB); a 10,000-element page took 2 passes, 72.9 to 127.8 ms of check time in all
   (two runs), a longest slice of 8.5 ms and no partial pass. On the fixture pages every planted fault was found and
   nothing else was reported (35 faults, 23 kinds; written by the checks' author, so this is not a precision figure).

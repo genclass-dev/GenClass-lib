@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Threat model", "item": "https://genclass.dev/docs/threat-model"}]}, {"@type": "TechArticle", "headline": "Threat model", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-14", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/THREAT-MODEL.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Threat model", "item": "https://genclass.dev/docs/threat-model"}]}, {"@type": "TechArticle", "headline": "Threat model", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-15", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/THREAT-MODEL.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -115,6 +115,11 @@ response contents), the app's availability and latency, and the integrity of the
 <td>trusted</td>
 <td>but parts of it can come from the URL, <code>localStorage</code> or meta tags (T8)</td>
 </tr>
+<tr>
+<td>learned state in storage (<code>genclass:learn</code>; the learned flows when <code>learn.expectations</code> is on (opt-in), transition profiles only with <code>learn.persist</code>, EXPECTATIONS.md §4)</td>
+<td>data, checked field by field and against the learner's bounds on load, discarded on a format or runtime-version change</td>
+<td>holds request signatures, routes and field names (id-like segments and keys normalised; other path segments and map keys, such as <code>/u/jane.doe@example.com</code> or a store keyed by email, as they are), counts and hashes of action labels, no element text or values; a script that rewrites the flows can make expectation reports wrong or silent, and, when profiles are stored, change which <code>transition</code> situations reach the model, which any same-origin script could already do (T1)</td>
+</tr>
 </tbody>
 </table>
 <h2 id="t1-other-scripts-on-the-page">T1. Other scripts on the page</h2>
@@ -196,15 +201,17 @@ model; beyond it decisions fail open: <a href="https://github.com/genclass-dev/G
 bounded (32) and stale items are dropped; each evaluation times out (10 s, <code>model.timeoutMs</code>); while the model is not
 answering, nothing is held (<code>expectedLatency</code> is infinite). A hold never exceeds the hold budget (at most 800 ms with
 "auto"; <code>test/invariants/*</code> "the hold budget caps"), and only guard and heal hold at all. Hidden tabs skip
-background evaluations. Inference runs off the main thread. React discovery stops after 1 ms per commit. The model
-downloads lazily on Save-Data connections and can be skipped (<code>model.loadIf</code>) or unloaded when idle
+background evaluations in guard and heal; in observe (0.3.0) at most 32 situations raised while the tab is hidden
+(or the model loads) wait, and are decided within the same per-minute budget once the tab is visible; a hidden tab
+never loads or reloads the model. Inference runs off the main thread. React discovery stops after 1 ms per commit. The model
+is not loaded on devices reporting 2 GB or less nor on Save-Data connections (<code>model.loadIf</code> default), can be skipped or unloaded when idle
 (<code>model.unloadAfterIdleMs</code>).</p>
 <p><strong>Residual.</strong> Up to 30 evaluations a minute of worker CPU, and in guard/heal up to one hold budget of added latency per
 salient request, response or failure. <code>policy.holdBudgetMs</code> lowers it; <code>observe</code> removes holds entirely.</p>
 <h2 id="t5-telemetry-and-redaction-leaks">T5. Telemetry and redaction leaks</h2>
 <p><strong>Threat.</strong> Diagnostics, sink records, reports or the audit trail carry personal data.</p>
-<p><strong>Mitigations.</strong> Telemetry (on by default for <code>GenClass.init</code> in a browser on a public host, never on localhost or
-private networks) sends only what <a href="/docs/telemetry">TELEMETRY.md</a> lists: decisions, action
+<p><strong>Mitigations.</strong> Telemetry (on by default for <code>GenClass.init</code> in a browser on a public host; off by default on localhost
+and private networks, where only an explicit <code>telemetry: true</code> or options object sends) sends only what <a href="/docs/telemetry">TELEMETRY.md</a> lists: decisions, action
 outcomes and counts, the hostname and id-normalised route; no page text unless the app opts in with
 <code>telemetry: { include: { situation: true } }</code>, and never input values of sensitive fields, cookies, headers, bodies
 or the sentences describing changes. With situation text opted in, it can carry request names with query strings,
@@ -219,6 +226,16 @@ name (an email in <code>profile.contact</code>, a search term, an address) can a
 when situation text is opted in,
 <code>rt.explain()</code>, the devtools overlay and sinks with <code>evidence: true</code>. Add a <code>redact</code> function for such fields, set
 <code>telemetry: { include: { situation: false } }</code>, or turn telemetry off.</p>
+<p>Page paths are sent by default: the telemetry <code>route</code> (session and decision events) and <code>SinkRecord.route</code> replace
+id-like segments and, from 0.3.0, any segment holding an <code>@</code> (an e-mail address, a handle) with <code>:id</code>, but personal
+data in other segments (a username or a name in <code>/u/jane-doe</code>, a search term in the path) is sent as it is, kept 90
+days by the collector and shown among an app's top routes on its dashboard. Apps with such paths should set
+<code>telemetry: false</code> or route those pages under an id.</p>
+<p>App tokens (0.3.0) are public: anyone who reads one from a page can post batches under it to the collector, within
+its per-address limits, and so inflate or pollute that app's dashboard counts, routes, function names and recent
+rows with values of their choosing. The dashboard inserts every such string as text (<code>textContent</code>, escaped HTML),
+never as markup, and a token grants no read access (the dashboard needs the private link or the owning account). A
+dashboard is therefore a diagnostic view, not an audit record.</p>
 <h2 id="t6-state-discovery-reading-application-state">T6. State discovery reading application state</h2>
 <p><strong>Threat.</strong> <code>autoState</code> hooks React's DevTools interface and the Redux DevTools globals and so sees component and store
 state the app never handed to GenClass, including personal data; the hooks could also disturb the framework.</p>
@@ -313,11 +330,19 @@ sampling unless the app sets <code>debug: true</code>; <code>?genclass=off</code
 <code>observe</code> when it sets none: a crafted link can no longer raise a production site to guard or heal. Raising from the
 URL needs <code>debug: true</code> or a development host (<code>localhost</code>, <code>*.local</code>, <code>*.test</code>, private networks). With the zero-code
 entries (<code>/auto</code>, the script tag), only <code>&lt;meta name="genclass"&gt;</code> tags inside <code>&lt;head&gt;</code> are read, so markup injected into
-the body cannot configure GenClass, and the model and onnxruntime-web URLs a meta tag names must be same-origin
-(cross-origin ones are ignored with a warning; <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/config.ts">cdn/config.ts</a>).</p>
-<p><strong>Residual.</strong> Markup injected into <code>&lt;head&gt;</code> can still set the mode (not a cross-origin model): pages that let
-untrusted HTML into <code>&lt;head&gt;</code> should configure through <code>window.GENCLASS_CONFIG</code> (it wins) or <code>GenClass.init(options)</code>.
-An app that sets <code>debug: true</code> in production lets the URL raise its mode.</p>
+the body cannot configure GenClass, and the model, onnxruntime-web and webhook sink URLs a meta tag names must be
+same-origin (cross-origin ones are ignored with a warning; <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/config.ts">cdn/config.ts</a>
+<code>sameOriginUrl</code>). The check resolves each URL as the browser does, with the WHATWG URL parser, against both the page
+location and <code>document.baseURI</code>: a backslash (<code>/\evil.example/c</code>), a tab inside <code>//</code>, a scheme in another case or an
+injected <code>&lt;base href&gt;</code> that moves a relative path off the origin all count as cross-origin. A webhook URL is then made
+absolute once, at init (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/cdn/sinks.ts">cdn/sinks.ts</a>), so a <code>&lt;base&gt;</code> injected later cannot
+move it. An injected <code>sink=webhook:&lt;url&gt;</code> therefore cannot send the sink records (and their evidence text) to another
+origin. The other sink name, <code>console-json</code>, only prints to the page's own console. The runtime has no Sentry,
+PostHog or Datadog adapter, so an injected <code>sink=sentry</code> loads and sends nothing: it only prints one console warning.</p>
+<p><strong>Residual.</strong> Markup injected into <code>&lt;head&gt;</code> can still set the mode and same-origin sinks (not a cross-origin model or
+webhook): pages that let untrusted HTML into <code>&lt;head&gt;</code> should configure through <code>window.GENCLASS_CONFIG</code> (it wins) or
+<code>GenClass.init(options)</code>. A same-origin endpoint that forwards elsewhere is the site's own. An app that sets
+<code>debug: true</code> in production lets the URL raise its mode.</p>
 <h2 id="t9-cached-and-shared-responses">T9. Cached and shared responses</h2>
 <p><strong>Threat.</strong> A response cached or shared by GenClass reaches a request it was not meant for.</p>
 <p><strong>Mitigations.</strong> <code>serve_cached</code> (heal) answers only an identical GET (same method, URL, headers and body), from memory
@@ -341,6 +366,8 @@ account and sign-in endpoints (<code>protectPreset("auth")</code>), <code>policy
    late revert may make a loop resend (bounded).</li>
 <li>Meta tags in <code>&lt;head&gt;</code> configure the zero-code entries (mode, same-origin model URLs); <code>debug: true</code> lets the URL raise the mode.</li>
 <li><code>serve_cached</code> ignores cookies (cross-user responses in a long-lived SPA session, heal only).</li>
+<li>Telemetry and sink routes keep path segments that are neither id-like nor hold an <code>@</code> (usernames, names, search
+    terms in the path); app tokens are public, so anyone can post forged batches to an app's dashboard (T5).</li>
 </ol>
 <h2 id="recommended-production-setup">Recommended production setup</h2>
 <pre><code class="language-js">import { GenClass, protectPreset } from &quot;@genclass/runtime&quot;;
