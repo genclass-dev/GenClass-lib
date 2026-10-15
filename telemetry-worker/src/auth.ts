@@ -1,27 +1,34 @@
 // Accounts on genclass.dev: sign-up and sign-in with Google (OpenID Connect, authorization code flow with PKCE,
-// confidential client) or GitHub (OAuth web flow), passkeys (WebAuthn, src/webauthn.ts) as optional extra security;
-// web and CLI sessions; the device flow (RFC 8628) behind `npx @genclass/runtime login`; apps (projects) owned by an
-// account.
+// confidential client), an email and a password (src/password.ts) or GitHub (OAuth web flow), passkeys (WebAuthn,
+// src/webauthn.ts) as optional extra security; web and CLI sessions; the device flow (RFC 8628) behind
+// `npx @genclass/runtime login`; apps (projects) owned by an account.
 //
 // Invariants:
-// - Creating an account never needs a passkey: Google or GitHub. Passkey sign-up exists only as the fallback when this
-//   server has no OAuth provider configured, so the site is never left without a way in.
-// - An account with a passkey requires one at sign-in: after Google or GitHub vouched for it, no session is granted
-//   until a passkey assertion of that account succeeds (a pending step of MFA_MS, a single-use row named by the
+// - Creating an account never needs a passkey: an email and a password (always offered, so the site always has a way
+//   in), Google or GitHub. There is no passkey sign-up: a passkey is added to an account that exists.
+// - An account with a passkey requires one at sign-in: after its password, Google or GitHub vouched for it, no session is
+//   granted until a passkey assertion of that account succeeds (a pending step of MFA_MS, a single-use row named by the
 //   __Host-gc_mfa cookie; Origin checked; the WebAuthn challenge single-use). A passkey alone also signs in. Adding a
-//   passkey to an account that has one, and removing one (the last one turns the requirement off), need a passkey
-//   assertion in this session within FRESH_MS. The device flow rides on the web session, so it gets the same step.
-// - Secrets are stored only as SHA-256 hashes: session cookies, CLI bearer tokens and device codes. Passkeys store a
-//   public key. Google and GitHub access tokens are used once during sign-in and never stored.
+//   passkey to an account that has one, removing one (the last one turns the requirement off), and adding a password
+//   to an account with a passkey need a passkey assertion in this session within FRESH_MS; changing a password needs
+//   the current one or that assertion. The device flow rides on the web session, so it gets the same step.
+// - Passwords are stored only as PBKDF2-HMAC-SHA256 strings (src/password.ts), keyed by the email as the username
+//   (trimmed, lowercased, UNIQUE, never verified: there is no email sender yet). Wrong passwords for one account are
+//   spaced out by a growing delay (src/password.ts delayAfter), never a lockout: a browser where that account's
+//   password was right before (the __Host-gc_device cookie, a hash in password_devices) skips the delay for a few
+//   tries, so a stranger guessing cannot keep the owner out. A sign-in for an email without a password does the same
+//   work and gives the same answer as a wrong password.
+// - Secrets are stored only as SHA-256 hashes: session cookies, CLI bearer tokens, device codes and device cookies.
+//   Passkeys store a public key. Google and GitHub access tokens are used once during sign-in and never stored.
 // - A Google or GitHub identity is attached to an existing account only through "Link" from a signed-in session,
-//   never because an email matches: passkey sign-up emails are unverified, so matching on them would let someone
+//   never because an email matches: emails typed at sign-up are unverified, so matching on them would let someone
 //   register a victim's address first and later receive the victim's sign-in.
 // - Every state-changing request authenticated by a cookie must carry an Origin equal to the expected origin (else
-//   403). The JSON endpoints the pages call also require Content-Type application/json. Bearer requests (the CLI)
-//   carry no ambient credentials and need no Origin.
+//   403); so must sign-in and sign-up, with or without a session. The JSON endpoints the pages call also require
+//   Content-Type application/json. Bearer requests (the CLI) carry no ambient credentials and need no Origin.
 // - A CLI bearer session can do what the CLI needs and the approval page says: read the account and its apps, create
-//   apps, add an app from its private link, and end itself. Stats, other sessions, passkeys, private links and the
-//   account itself need the browser session.
+//   apps, add an app from its private link, and end itself. Stats, other sessions, passkeys, passwords, private links
+//   and the account itself need the browser session.
 // - OAuth state (state, nonce, PKCE verifier, where to go next, which account and session a Link started from) is
 //   kept server-side in `challenges`; the cookie holds only that row's random id, so a planted cookie cannot name an
 //   account to link to. Session cookies use the __Host- prefix (no Domain, Path=/, Secure), except on plain-HTTP
@@ -34,6 +41,7 @@ import {
   accountPage,
   appNotFoundPage,
   devicePage,
+  forgotPage,
   loginPage,
   messagePage,
   passkeyStepPage,
@@ -62,7 +70,8 @@ import { appExtrasData, appExtrasHtml } from "./billing-pages.js";
 import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
 import { dashboardPage, securityHeaders } from "./pages.js";
-import { accountAccess, accountBilling, appLimit, appLimitBody, hasDashboard, pickRange, trialDaysLeft, viewRanges } from "./plans.js";
+import { DEVICE_FAILURES, DEVICE_MS, DUMMY_HASH, FAILURE_WINDOW_MS, FREE_FAILURES, MAX_DELAY_MS, PASSWORD_MAX, delayAfter, hashPassword, needsRehash, passwordProblem, verifyPassword, waitText } from "./password.js";
+import { accountAccess, accountBilling, appLimit, appLimitBody, hasDashboard, pickRange, trialDays, trialDaysLeft, viewRanges } from "./plans.js";
 import { cancelForDeletion } from "./stripe.js";
 import {
   b64url,
@@ -91,7 +100,7 @@ export const MAX_APPS_PER_ACCOUNT = 200;
 export const MFA_MS = 5 * MINUTE;
 /** How recent a passkey assertion must be to add or remove a passkey. */
 export const FRESH_MS = 5 * MINUTE;
-/** Where to write about an account whose passkeys are all lost. */
+/** Where to write about an account whose passkeys are all lost, or whose password is forgotten (no email reset yet). */
 export const RECOVERY_CONTACT = "mehar@daybot.ca";
 /** Global ceiling on apps created in accounts per minute (anonymous creation has its own, collector.ts). */
 const MAX_ACCOUNT_PROJECTS_PER_MINUTE = 60;
@@ -105,6 +114,9 @@ export const DEV_PENDING_COOKIE = "gc_pending";
 /** The passkey step a Google or GitHub sign-in waits on (a challenges row id, kind `mfa`). */
 export const MFA_COOKIE = "__Host-gc_mfa";
 export const DEV_MFA_COOKIE = "gc_mfa";
+/** A browser where an account's password was right: it skips that account's delay after wrong passwords (a few tries). */
+export const DEVICE_COOKIE = "__Host-gc_device";
+export const DEV_DEVICE_COOKIE = "gc_device";
 export const GOOGLE_COOKIE = "gc_oauth_google";
 export const GITHUB_COOKIE = "gc_oauth_github";
 /**
@@ -144,6 +156,7 @@ export interface AuthConfig {
   session: string;
   pending: string;
   mfa: string;
+  device: string;
   google: boolean;
   github: boolean;
 }
@@ -158,6 +171,7 @@ export function authConfig(env: Env): AuthConfig {
     session: secure ? SESSION_COOKIE : DEV_SESSION_COOKIE,
     pending: secure ? PENDING_COOKIE : DEV_PENDING_COOKIE,
     mfa: secure ? MFA_COOKIE : DEV_MFA_COOKIE,
+    device: secure ? DEVICE_COOKIE : DEV_DEVICE_COOKIE,
     google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
   };
@@ -399,7 +413,7 @@ function allowCredentials(creds: { id: string; transports: string | null }[]): {
 /** This session proved a passkey within FRESH_MS. */
 const fresh = (c: C, a: Auth): boolean => !!a.passkeyAt && Date.parse(a.passkeyAt) > c.now.getTime() - FRESH_MS;
 const confirmFirst = (): Response => json(403, { ok: false, error: "confirm with one of your passkeys first", confirm: true });
-const oauthOnly = (): Response => fail(403, "create an account with Google or GitHub; you can add a passkey for extra security afterwards");
+const noPasskeySignup = (): Response => fail(403, "create an account with your email and a password, Google or GitHub; you can add a passkey for extra security afterwards");
 
 const sessionCookie = (c: C, secret: string): string => setCookie(c, c.cfg.session, secret, WEB_SESSION_MS / 1000);
 
@@ -497,30 +511,16 @@ async function passkeyRegisterOptions(c: C): Promise<Response> {
   if (!originOk(c)) return csrfFail();
   const body = await readJson(c);
   if (body instanceof Response) return body;
+  // a signed-in account adds a passkey (there is no passkey sign-up: an account starts with a password, Google or
+  // GitHub); to one that already has a passkey, only after one of them was just used (a stolen session must not be able
+  // to add its own passkey and then remove the owner's)
   const session = await webSession(c);
-  let accountId: string;
-  let name: string;
-  let data: Record<string, unknown>;
-  let exclude: string[] = [];
-  if (session) {
-    // a signed-in account adds a passkey; to one that already has a passkey, only after one of them was just used
-    // (a stolen session must not be able to add its own passkey and then remove the owner's)
-    accountId = session.account.id;
-    name = userName(session.account);
-    data = { add: true };
-    exclude = (await passkeysOf(c, accountId)).map((x) => x.id);
-    if (exclude.length && !fresh(c, session)) return confirmFirst();
-  } else {
-    // passkey sign-up is only the fallback for a server with no OAuth provider
-    if (c.cfg.google || c.cfg.github) return oauthOnly();
-    if (await overLimit(c, "signup")) return tooMany();
-    const email = cleanEmail(body.email);
-    if (!email) return fail(400, "enter a valid email address");
-    accountId = randomBase62(22);
-    name = email;
-    data = { email };
-  }
-  const ch = await putChallenge(c, "register", accountId, data, CHALLENGE_MS);
+  if (!session) return noPasskeySignup();
+  const accountId = session.account.id;
+  const name = userName(session.account);
+  const exclude = (await passkeysOf(c, accountId)).map((x) => x.id);
+  if (exclude.length && !fresh(c, session)) return confirmFirst();
+  const ch = await putChallenge(c, "register", accountId, { add: true }, CHALLENGE_MS);
   return json(200, {
     id: ch.id,
     publicKey: {
@@ -570,20 +570,12 @@ async function passkeyRegisterVerify(c: C): Promise<Response> {
   if (await c.db.prepare("SELECT 1 AS x FROM credentials WHERE id = ?").bind(v.credentialId).first()) {
     return fail(409, "this passkey is already registered; sign in with it instead");
   }
-  if (ch.data.add === true) {
-    const session = await webSession(c);
-    if (!session || session.account.id !== ch.account_id) return fail(403, "sign in again to add a passkey");
-    await insertCred.run();
-    return json(200, { ok: true, account: accountJson(session.account) });
-  }
-  if (c.cfg.google || c.cfg.github) return oauthOnly();
-  const email = cleanEmail(ch.data.email);
-  await c.db.batch([
-    c.db.prepare("INSERT INTO accounts (id, email, email_verified, created) VALUES (?, ?, 0, ?)").bind(ch.account_id, email, iso),
-    insertCred,
-  ]);
-  const s = await createSession(c, ch.account_id, "web", null, true);
-  return withCookies(json(200, { ok: true, account: { id: ch.account_id, email, github_login: null } }), [sessionCookie(c, s.secret)]);
+  // only an add (a sign-up challenge from before passkey sign-up was removed cannot finish)
+  if (ch.data.add !== true) return noPasskeySignup();
+  const session = await webSession(c);
+  if (!session || session.account.id !== ch.account_id) return fail(403, "sign in again to add a passkey");
+  await insertCred.run();
+  return json(200, { ok: true, account: accountJson(session.account) });
 }
 
 async function passkeyLoginOptions(c: C): Promise<Response> {
@@ -673,14 +665,14 @@ async function mfaPending(c: C, take: boolean): Promise<{ id: string; account_id
   } catch {
     /* none */
   }
-  return { id, account_id: row.account_id, next: safeNext(typeof d.next === "string" ? d.next : null), via: d.via === "google" || d.via === "github" ? d.via : null };
+  return { id, account_id: row.account_id, next: safeNext(typeof d.next === "string" ? d.next : null), via: d.via === "google" || d.via === "github" || d.via === "password" ? d.via : null };
 }
 
 /**
- * After Google or GitHub vouched for an existing account: a session at once, or, for an account with a passkey, the
- * passkey step first (no session until it succeeds). For a page (redirect) or for a JSON answer (`json`).
+ * After its password, Google or GitHub vouched for an existing account: a session at once, or, for an account with a
+ * passkey, the passkey step first (no session until it succeeds). For a page (redirect) or for a JSON answer (`json`).
  */
-async function signInTo(c: C, accountId: string, next: string | null, via: Provider, asJson = false): Promise<Response> {
+async function signInTo(c: C, accountId: string, next: string | null, via: Provider | "password", asJson = false): Promise<Response> {
   if ((await passkeysOf(c, accountId)).length) {
     const p = await putChallenge(c, "mfa", accountId, { next, via }, MFA_MS);
     const cookie = setCookie(c, c.cfg.mfa, p.id, MFA_MS / 1000);
@@ -819,7 +811,7 @@ async function oauthStart(c: C): Promise<{ next: string | null; link: string | n
 }
 
 async function googleStart(c: C): Promise<Response> {
-  if (!c.cfg.google) return page(404, (n) => messagePage(n, { title: "Google sign-in is not set up", text: "This GenClass server has no Google client configured. Sign in with a passkey instead.", links: [["Sign in", "/login"]] }));
+  if (!c.cfg.google) return page(404, (n) => messagePage(n, { title: "Google sign-in is not set up", text: "This GenClass server has no Google client configured. Sign in with your email and password instead.", links: [["Sign in", "/login"]] }));
   const st = await oauthStart(c);
   if (st instanceof Response) return st;
   const nonce = randomSecret(32);
@@ -920,7 +912,7 @@ async function googleCallback(c: C): Promise<Response> {
 }
 
 async function githubStart(c: C): Promise<Response> {
-  if (!c.cfg.github) return page(404, (n) => messagePage(n, { title: "GitHub sign-in is not set up", text: "This GenClass server has no GitHub app configured. Sign in with a passkey instead.", links: [["Sign in", "/login"]] }));
+  if (!c.cfg.github) return page(404, (n) => messagePage(n, { title: "GitHub sign-in is not set up", text: "This GenClass server has no GitHub app configured. Sign in with your email and password instead.", links: [["Sign in", "/login"]] }));
   const st = await oauthStart(c);
   if (st instanceof Response) return st;
   const { state, cookie } = await saveOAuth(c, "github", st);
@@ -1037,6 +1029,257 @@ async function confirmPending(c: C): Promise<Response> {
   const id = await createProviderAccount(c, ident);
   const s = await createSession(c, id, "web", null);
   return withCookies(json(200, { ok: true, next: next ?? "/account?welcome=1" }), [clear, sessionCookie(c, s.secret)]);
+}
+
+// --------------------------------------------------------------------------------------------- email and password
+
+/** The username of a password: the email as typed, trimmed and lowercased; null when it is not a plausible address. */
+export function loginEmail(v: unknown): string | null {
+  const e = cleanEmail(v);
+  return e ? e.toLowerCase() : null;
+}
+
+/** The one answer for an unknown email and for a wrong password (no hint which it was). */
+const WRONG_PASSWORD = "that email and password do not match an account; if you made your account with Google or GitHub, continue with it instead";
+const tooManyWrong = (wait: number): string => `too many wrong passwords, so wait ${waitText(wait)} before the next try`;
+
+function throttled(waitMs: number): Response {
+  const s = Math.max(1, Math.ceil(waitMs / 1000));
+  return json(
+    429,
+    { ok: false, error: `too many wrong passwords for this account; try again in ${waitText(waitMs)}, or sign in another way (Google, GitHub or a passkey) if the account has one`, retry_after: s },
+    { "retry-after": String(s) },
+  );
+}
+
+/** How long the account's delay still runs (0 when it is over). */
+async function waitLeft(c: C, accountId: string): Promise<number> {
+  const r = await c.db.prepare("SELECT next_try FROM passwords WHERE account_id = ?").bind(accountId).first<{ next_try: string | null }>();
+  return r?.next_try ? Math.max(0, Date.parse(r.next_try) - c.now.getTime()) : 0;
+}
+
+/**
+ * Count one password check against the account before it is made, so parallel guesses cannot all slip in before the
+ * first wrong one is written, unless the account's delay is still running. One UPDATE: the new count (restarted after
+ * a day without a wrong password) and the time the next check may happen (delayAfter of that count). Returns the new
+ * count, or null while the delay runs. A correct password then clears both (passwordLogin, setPassword).
+ */
+async function accountAttempt(c: C, accountId: string): Promise<{ failed: number } | null> {
+  const nowMs = c.now.getTime();
+  const iso = c.now.toISOString();
+  const stale = new Date(nowMs - FAILURE_WINDOW_MS).toISOString();
+  const n = "(CASE WHEN failed_at IS NULL OR failed_at <= ? THEN 1 ELSE failed + 1 END)";
+  const steps: [number, string][] = [];
+  for (let k = FREE_FAILURES; delayAfter(k) < MAX_DELAY_MS; k++) steps.push([k, new Date(nowMs + delayAfter(k)).toISOString()]);
+  const next = `CASE WHEN ${n} < ? THEN NULL ${steps.map(() => `WHEN ${n} = ? THEN ?`).join(" ")} ELSE ? END`;
+  const r = await c.db
+    .prepare(`UPDATE passwords SET failed = ${n}, failed_at = ?, next_try = ${next} WHERE account_id = ? AND (next_try IS NULL OR next_try <= ?) RETURNING failed`)
+    .bind(
+      stale,
+      iso,
+      stale,
+      FREE_FAILURES,
+      ...steps.flatMap(([k, at]) => [stale, k, at]),
+      new Date(nowMs + MAX_DELAY_MS).toISOString(),
+      accountId,
+      iso,
+    )
+    .first<{ failed: number }>();
+  return r ? { failed: Number(r.failed) } : null;
+}
+
+/** This browser's device cookie, hashed, when it holds a well-formed one. */
+async function deviceHash(c: C): Promise<string | null> {
+  const v = getCookie(c.req, c.cfg.device);
+  return v && SECRET43_RE.test(v) ? sha256Hex(v) : null;
+}
+
+/**
+ * A browser where this account's password was right before: count this try against the browser's own budget
+ * (DEVICE_FAILURES wrong ones in a row) instead of the account's delay. Null when the browser is not trusted for the
+ * account, or used up its budget (then the account's delay applies to it like to anyone).
+ */
+async function deviceAttempt(c: C, accountId: string): Promise<string | null> {
+  const h = await deviceHash(c);
+  if (!h) return null;
+  const r = await c.db
+    .prepare("UPDATE password_devices SET failed = failed + 1 WHERE hash = ? AND account_id = ? AND failed < ? RETURNING hash")
+    .bind(h, accountId, DEVICE_FAILURES)
+    .first();
+  return r ? h : null;
+}
+
+/**
+ * Trust this browser for the account (its password was right here): a new device cookie (rotated on every correct
+ * password; the accounts this browser was trusted for move to the new value) and the account's row. The Set-Cookie.
+ */
+async function trustDevice(c: C, accountId: string): Promise<string> {
+  const secret = randomSecret(32);
+  const hash = await sha256Hex(secret);
+  const old = await deviceHash(c);
+  const iso = c.now.toISOString();
+  const stmts = old ? [c.db.prepare("UPDATE password_devices SET hash = ? WHERE hash = ?").bind(hash, old)] : [];
+  stmts.push(
+    c.db
+      .prepare("INSERT INTO password_devices (hash, account_id, created, last_used, failed) VALUES (?, ?, ?, ?, 0) ON CONFLICT (hash, account_id) DO UPDATE SET last_used = excluded.last_used, failed = 0")
+      .bind(hash, accountId, iso, iso),
+  );
+  await c.db.batch(stmts);
+  return setCookie(c, c.cfg.device, secret, DEVICE_MS / 1000);
+}
+
+/**
+ * Store a new password for an account that has one, and end what the old one may have opened: every other session
+ * (browsers and terminals) and every trusted browser. `keep`: the session making the change stays. Also what a future
+ * emailed reset calls (resetSender).
+ */
+export async function storeNewPassword(c: C, accountId: string, password: string, keep: string | null): Promise<void> {
+  const hash = await hashPassword(password);
+  const iso = c.now.toISOString();
+  await c.db.batch([
+    c.db.prepare("UPDATE passwords SET hash = ?, updated = ?, failed = 0, failed_at = NULL, next_try = NULL WHERE account_id = ?").bind(hash, iso, accountId),
+    c.db.prepare("DELETE FROM password_devices WHERE account_id = ?").bind(accountId),
+    c.db.prepare("UPDATE auth_sessions SET revoked = ? WHERE account_id = ? AND id != ? AND revoked IS NULL").bind(iso, accountId, keep ?? ""),
+  ]);
+}
+
+/**
+ * The hook for a future emailed reset. GenClass has no email sender yet, so this is null and /login/forgot asks the
+ * person to write to RECOVERY_CONTACT from the address they sign in with. Once a sender exists, return it here, then
+ * add POST /api/auth/password/forgot (AUTH_LIMIT; the same answer whether or not the email has a password; a `reset`
+ * challenges row of 30 minutes holding the account id and the hash of a secret mailed as /login/reset?id=...&t=...)
+ * and a /login/reset page that calls storeNewPassword(c, id, password, null).
+ */
+export function resetSender(_env: Env): { send(to: string, link: string): Promise<void> } | null {
+  return null;
+}
+
+/** POST /api/auth/password/signup: a new account with an email and a password, and its session. */
+async function passwordSignup(c: C): Promise<Response> {
+  if (!originOk(c)) return csrfFail();
+  const body = await readJson(c, 4096);
+  if (body instanceof Response) return body;
+  if (await overLimit(c, "signup")) return tooMany();
+  const email = loginEmail(body.email);
+  if (!email) return fail(400, "enter a valid email address");
+  const problem = passwordProblem(body.password, email);
+  if (problem) return fail(400, problem);
+  const next = safeNext(typeof body.next === "string" ? body.next : null);
+  // Unavoidable: an email signs in to one account only, so a taken one is refused (no email exists to tell its owner
+  // instead). Nothing says how that account signs in.
+  const taken = (): Response => fail(409, "an account already signs in with this email; sign in instead, or use Forgot your password on the sign-in page");
+  const has = async (): Promise<boolean> => !!(await c.db.prepare("SELECT 1 AS x FROM passwords WHERE email = ?").bind(email).first());
+  if (await has()) return taken();
+  const hash = await hashPassword(body.password as string);
+  const id = randomBase62(22);
+  const iso = c.now.toISOString();
+  try {
+    await c.db.batch([
+      c.db.prepare("INSERT INTO accounts (id, email, email_verified, created) VALUES (?, ?, 0, ?)").bind(id, email, iso),
+      c.db.prepare("INSERT INTO passwords (account_id, email, hash, created, updated, last_used) VALUES (?, ?, ?, ?, ?, ?)").bind(id, email, hash, iso, iso, iso),
+    ]);
+  } catch (e) {
+    if (await has()) return taken(); // the same email at the same moment
+    throw e;
+  }
+  const s = await createSession(c, id, "web", null);
+  const trust = await trustDevice(c, id);
+  return withCookies(json(200, { ok: true, account: { id, email, github_login: null }, next: next ?? "/account?welcome=1" }), [sessionCookie(c, s.secret), trust]);
+}
+
+/**
+ * POST /api/auth/password/login: `{ email, password, next? }`. A session at once, or the passkey step for an account
+ * with a passkey (`{ ok, next: "/login/passkey" }`). Wrong passwords: the account's delay (accountAttempt), unless this
+ * browser is trusted for the account (deviceAttempt).
+ */
+async function passwordLogin(c: C): Promise<Response> {
+  if (!originOk(c)) return csrfFail();
+  const body = await readJson(c, 4096);
+  if (body instanceof Response) return body;
+  if (await overLimit(c, "password")) return tooMany();
+  const email = loginEmail(body.email);
+  const pw = typeof body.password === "string" ? body.password : "";
+  if (!email || !pw || pw.length > PASSWORD_MAX * 4) return fail(400, "enter your email and your password");
+  const next = safeNext(typeof body.next === "string" ? body.next : null);
+  const row = await c.db.prepare("SELECT account_id, hash FROM passwords WHERE email = ?").bind(email).first<{ account_id: string; hash: string }>();
+  if (!row) {
+    await verifyPassword(pw, DUMMY_HASH); // as long as a wrong password for a real account
+    return fail(400, WRONG_PASSWORD);
+  }
+  const device = await deviceAttempt(c, row.account_id);
+  let failed = 0;
+  if (!device) {
+    const t = await accountAttempt(c, row.account_id);
+    if (!t) return throttled(await waitLeft(c, row.account_id));
+    failed = t.failed;
+  }
+  if (!(await verifyPassword(pw, row.hash))) {
+    const wait = device ? 0 : delayAfter(failed);
+    return fail(400, wait ? `${WRONG_PASSWORD}; ${tooManyWrong(wait)}` : WRONG_PASSWORD);
+  }
+  const iso = c.now.toISOString();
+  const done = [c.db.prepare("UPDATE passwords SET failed = 0, failed_at = NULL, next_try = NULL, last_used = ? WHERE account_id = ?").bind(iso, row.account_id)];
+  // a hash made with less work than today's is replaced now that the password is at hand
+  if (needsRehash(row.hash)) done.push(c.db.prepare("UPDATE passwords SET hash = ? WHERE account_id = ? AND hash = ?").bind(await hashPassword(pw), row.account_id, row.hash));
+  await c.db.batch(done);
+  const trust = await trustDevice(c, row.account_id);
+  return withCookies(await signInTo(c, row.account_id, next, "password", true), [trust]);
+}
+
+/**
+ * POST /api/auth/password (browser session and our Origin): change the password, with `{ current, password }` or after
+ * a passkey in this session within FRESH_MS (`{ password }`; else 403 `{ confirm: true }`), which ends every other
+ * session and trusted browser; or add one to an account that signs in with Google, GitHub or a passkey
+ * (`{ email, password }`; the email defaults to the account's; a fresh passkey first when the account has one).
+ */
+async function setPassword(c: C): Promise<Response> {
+  const a = await browserWriter(c, "a password can be set");
+  if (a instanceof Response) return a;
+  const body = await readJson(c, 4096);
+  if (body instanceof Response) return body;
+  const row = await c.db.prepare("SELECT email, hash FROM passwords WHERE account_id = ?").bind(a.account.id).first<{ email: string; hash: string }>();
+  const passkeys = (await passkeysOf(c, a.account.id)).length;
+  if (row) {
+    const problem = passwordProblem(body.password, row.email);
+    if (problem) return fail(400, problem);
+    const current = typeof body.current === "string" ? body.current : "";
+    if (current) {
+      // a stolen session must not guess the current password any faster than a sign-in could
+      if (await overLimit(c, "password")) return tooMany();
+      const t = await accountAttempt(c, a.account.id);
+      if (!t) return throttled(await waitLeft(c, a.account.id));
+      if (current.length > PASSWORD_MAX * 4 || !(await verifyPassword(current, row.hash))) {
+        const wait = delayAfter(t.failed);
+        return fail(400, `your current password is not right${wait ? `; ${tooManyWrong(wait)}` : ""}`);
+      }
+    } else if (!fresh(c, a)) {
+      return passkeys ? confirmFirst() : fail(400, "enter your current password");
+    }
+    await storeNewPassword(c, a.account.id, body.password as string, a.sessionId);
+    return withCookies(json(200, { ok: true, changed: true }), [await trustDevice(c, a.account.id)]);
+  }
+  const email = loginEmail(body.email ?? a.account.email);
+  if (!email) return fail(400, "enter the email address you will sign in with");
+  const problem = passwordProblem(body.password, email);
+  if (problem) return fail(400, problem);
+  // like adding a second passkey: a stolen session must not add its own way in to an account with a passkey
+  if (passkeys && !fresh(c, a)) return confirmFirst();
+  const inUse = (): Response => fail(409, "another GenClass account already signs in with this email; use another address");
+  const has = async (): Promise<boolean> => !!(await c.db.prepare("SELECT 1 AS x FROM passwords WHERE email = ?").bind(email).first());
+  if (await has()) return inUse();
+  const hash = await hashPassword(body.password as string);
+  const iso = c.now.toISOString();
+  try {
+    await c.db.batch([
+      c.db.prepare("INSERT INTO passwords (account_id, email, hash, created, updated) VALUES (?, ?, ?, ?, ?)").bind(a.account.id, email, hash, iso, iso),
+      // a GitHub account had no email: this one becomes the account's (as typed, unverified, like any sign-up email)
+      c.db.prepare("UPDATE accounts SET email = ? WHERE id = ? AND email IS NULL").bind(email, a.account.id),
+    ]);
+  } catch (e) {
+    if (await has()) return inUse();
+    throw e;
+  }
+  return withCookies(json(200, { ok: true, added: true }), [await trustDevice(c, a.account.id)]);
 }
 
 // --------------------------------------------------------------------------------------------- device flow
@@ -1215,7 +1458,7 @@ async function overAppLimit(c: C, accountId: string): Promise<Response | null> {
   const n = await appCount(c, accountId);
   if (n >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
   const lim = await appLimit(c.db, c.env, accountId, c.now);
-  if (lim.max !== null && n >= lim.max) return json(409, appLimitBody(lim, c.cfg.origin));
+  if (lim.max !== null && n >= lim.max) return json(409, appLimitBody(lim, c.cfg.origin, trialDays(c.env)));
   return null;
 }
 
@@ -1319,17 +1562,19 @@ async function revokeOthers(c: C, a: Auth): Promise<void> {
 
 /**
  * Remove a passkey, after a passkey assertion in this session within FRESH_MS (removing the last one turns off the
- * passkey step at sign-in); every other session ends too, since one of them may be where that passkey was used.
+ * passkey step at sign-in); every other session ends too, since one of them may be where that passkey was used. The
+ * account's last way in (a passkey, a password, Google, GitHub) stays.
  */
 async function removeCredential(c: C, id: string): Promise<Response> {
   const a = await browserWriter(c, "passkeys can be removed");
   if (a instanceof Response) return a;
   if (!CREDENTIAL_ID_RE.test(id)) return fail(404, "no such passkey");
   const n = await c.db.prepare("SELECT COUNT(*) AS n FROM credentials WHERE account_id = ?").bind(a.account.id).first<{ n: number }>();
-  const methods = Number(n?.n ?? 0) + (a.account.google_sub ? 1 : 0) + (a.account.github_id ? 1 : 0);
+  const pw = await c.db.prepare("SELECT 1 AS x FROM passwords WHERE account_id = ?").bind(a.account.id).first();
+  const methods = Number(n?.n ?? 0) + (a.account.google_sub ? 1 : 0) + (a.account.github_id ? 1 : 0) + (pw ? 1 : 0);
   const mine = await c.db.prepare("SELECT 1 AS x FROM credentials WHERE id = ? AND account_id = ?").bind(id, a.account.id).first();
   if (!mine) return fail(404, "no such passkey");
-  if (methods <= 1) return fail(409, "this is your only way to sign in; add another passkey or link Google or GitHub first");
+  if (methods <= 1) return fail(409, "this is your only way to sign in; add another passkey or a password, or link Google or GitHub first");
   if (!fresh(c, a)) return confirmFirst();
   await c.db.prepare("DELETE FROM credentials WHERE id = ? AND account_id = ?").bind(id, a.account.id).run();
   await revokeOthers(c, a);
@@ -1337,8 +1582,8 @@ async function removeCredential(c: C, id: string): Promise<Response> {
 }
 
 /**
- * DELETE /api/account { confirm: "delete" }: delete the signed-in account. Its passkeys, sessions, pending sign-in
- * codes and the account row go. Apps created in the account (no private link) are deleted with their stats; apps
+ * DELETE /api/account { confirm: "delete" }: delete the signed-in account. Its passkeys, password, trusted browsers,
+ * sessions, pending sign-in codes and the account row go. Apps created in the account (no private link) are deleted with their stats; apps
  * that still have a private link leave the account and keep working through that link, as before they were added.
  */
 async function deleteAccount(c: C): Promise<Response> {
@@ -1365,6 +1610,8 @@ async function deleteAccount(c: C): Promise<Response> {
     c.db.prepare("DELETE FROM projects WHERE account_id = ? AND private_link = 0").bind(id),
     c.db.prepare("UPDATE projects SET account_id = NULL WHERE account_id = ?").bind(id),
     c.db.prepare("DELETE FROM credentials WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM passwords WHERE account_id = ?").bind(id),
+    c.db.prepare("DELETE FROM password_devices WHERE account_id = ?").bind(id),
     c.db.prepare("DELETE FROM auth_sessions WHERE account_id = ?").bind(id),
     c.db.prepare("DELETE FROM device_codes WHERE account_id = ?").bind(id),
     c.db.prepare("DELETE FROM challenges WHERE account_id = ?").bind(id),
@@ -1378,11 +1625,12 @@ async function deleteAccount(c: C): Promise<Response> {
 async function accountView(c: C, a: Auth): Promise<AccountView> {
   const iso = c.now.toISOString();
   const access = await accountAccess(c.db, a.account.id, c.env, c.now);
-  const [creds, sessions] = await c.db.batch([
+  const [creds, sessions, pw] = await c.db.batch([
     c.db.prepare("SELECT id, created, last_used, transports FROM credentials WHERE account_id = ? ORDER BY created").bind(a.account.id),
     c.db
       .prepare("SELECT id, kind, label, created, expires, last_used FROM auth_sessions WHERE account_id = ? AND revoked IS NULL AND expires > ? ORDER BY created DESC")
       .bind(a.account.id, iso),
+    c.db.prepare("SELECT email, created, updated, last_used FROM passwords WHERE account_id = ?").bind(a.account.id),
   ]);
   const rows = (r: unknown) => ((r as { results?: Record<string, unknown>[] })?.results ?? []) as Record<string, unknown>[];
   const session = (r: Record<string, unknown>) => ({
@@ -1414,11 +1662,13 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
     }),
     web: rows(sessions).filter((r) => r.kind === "web").map(session),
     cli: rows(sessions).filter((r) => r.kind === "cli").map(session),
+    password: rows(pw).map((r) => ({ email: String(r.email), created: String(r.created), updated: String(r.updated), lastUsed: (r.last_used as string | null) ?? null }))[0] ?? null,
     providers: { google: c.cfg.google, github: c.cfg.github },
     // dashboards: open (a plan, GenClass's grant, or the trial), or locked with a trial still to start, or after it
     dashboards: hasDashboard(access) ? "open" : access.trialUsed ? "ended" : "trial",
     pick: { trial: c.url.searchParams.get("trial") === "1", claim: c.url.searchParams.get("claim") === "1" },
     recovery: RECOVERY_CONTACT,
+    trialDays: trialDays(c.env),
   };
 }
 
@@ -1431,7 +1681,7 @@ export function accountContext(request: Request, url: URL, env: Env, opts: Handl
 }
 
 const PREFIXES = ["/auth/", "/api/auth/", "/api/device/", "/api/account/", "/account/"];
-const EXACT = new Set(["/signup", "/login", "/login/device", "/login/passkey", "/logout", "/account", "/api/me", "/api/account"]);
+const EXACT = new Set(["/signup", "/login", "/login/device", "/login/passkey", "/login/forgot", "/logout", "/account", "/api/me", "/api/account"]);
 
 /** Account routes. Returns null for paths this module does not own (the caller continues routing). */
 export async function routeAuth(request: Request, url: URL, path: string, env: Env, opts: HandleOptions): Promise<Response | null> {
@@ -1453,9 +1703,12 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       const next = safeNext(url.searchParams.get("next"));
       if (await webSession(c)) return redirect(next ?? "/account");
       const notice = path === "/login" ? loginNotice(url) : null;
-      const o = { google: c.cfg.google, github: c.cfg.github, next, notice };
+      const o = { google: c.cfg.google, github: c.cfg.github, next, notice, trialDays: trialDays(env) };
       return page(200, (n) => (path === "/login" ? loginPage(n, o) : signupPage(n, o)));
     }
+    case "/login/forgot":
+      // no email sender yet (resetSender): the page says whom to write to
+      return get ? page(200, (n) => forgotPage(n, { contact: RECOVERY_CONTACT })) : method();
     case "/login/passkey": {
       // the passkey step after Google or GitHub, for an account with a passkey (no session until it succeeds)
       if (!get) return method();
@@ -1534,6 +1787,12 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       return post ? passkeyConfirmVerify(c) : method();
     case "/api/auth/pending":
       return post ? confirmPending(c) : method();
+    case "/api/auth/password/signup":
+      return post ? passwordSignup(c) : method();
+    case "/api/auth/password/login":
+      return post ? passwordLogin(c) : method();
+    case "/api/auth/password":
+      return post ? setPassword(c) : method();
     case "/api/device/code":
       return post ? deviceCode(c) : method();
     case "/api/device/token":
@@ -1601,7 +1860,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     };
     const project = { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event };
     // locked: the app's key and Connect panel, and a way to Pro (the trial, or the plans); no stats
-    if (!hasDashboard(access)) return page(200, (n) => dashboardPage(n, project, { ...base, locked: { trialUsed: access.trialUsed } }));
+    if (!hasDashboard(access)) return page(200, (n) => dashboardPage(n, project, { ...base, locked: { trialUsed: access.trialUsed, trialDays: trialDays(env) } }));
     // plan-dependent parts: ranges, retention, forwarding and export (src/billing-pages.ts)
     const extras = await appExtrasData(c.db, env, a.account.id, p, c.now);
     return page(200, (n) =>
@@ -1621,17 +1880,20 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
 }
 
 /** The answer to a stats request for an app whose account has no dashboard (no plan, grant or trial). */
-export function lockedJson(c: { cfg: AuthConfig }): Response {
+export function lockedJson(c: { cfg: AuthConfig; env: Env }): Response {
   const url = `${c.cfg.origin}/account/billing`;
-  return json(402, { ok: false, error: "dashboards come with Pro (trials available)", locked: true, upgrade_url: url });
+  return json(402, { ok: false, error: lockedError(c.env), locked: true, upgrade_url: url });
 }
+
+/** Why a dashboard's stats are locked, with the trial's length (TRIAL_DAYS). */
+export const lockedError = (env: Env): string => `dashboards come with Pro (get a ${trialDays(env)}-day free trial for analytics)`;
 
 function loginNotice(url: URL): string | null {
   if (url.searchParams.get("signed_out") === "1") return "You are signed out.";
   if (url.searchParams.get("deleted") === "1") return "Your account is deleted.";
   const e = url.searchParams.get("error");
-  if (e === "google") return "Google sign-in was cancelled or refused. You can try again, or use a passkey.";
-  if (e === "github") return "GitHub sign-in was cancelled or refused. You can try again, or use a passkey.";
+  if (e === "google") return "Google sign-in was cancelled or refused. You can try again, or use your email and password.";
+  if (e === "github") return "GitHub sign-in was cancelled or refused. You can try again, or use your email and password.";
   return null;
 }
 
@@ -1641,6 +1903,8 @@ function accountNotice(url: URL): AccountView["notice"] {
   if (q.get("started") === "1") return { kind: "ok", text: "Your Pro trial has started." };
   if (q.get("linked") === "google") return { kind: "ok", text: "Google is linked. You can now sign in with it." };
   if (q.get("linked") === "github") return { kind: "ok", text: "GitHub is linked. You can now sign in with it." };
+  if (q.get("password") === "changed") return { kind: "ok", text: "Your password is changed. Every other browser and terminal is signed out." };
+  if (q.get("password") === "added") return { kind: "ok", text: "Your password is set. You can now sign in with your email and password." };
   if (q.get("error") === "google_taken") return { kind: "bad", text: "That Google account is already linked to another GenClass account, so it was not linked here." };
   if (q.get("error") === "github_taken") return { kind: "bad", text: "That GitHub account is already linked to another GenClass account, so it was not linked here." };
   return undefined;
@@ -1648,12 +1912,13 @@ function accountNotice(url: URL): AccountView["notice"] {
 
 // --------------------------------------------------------------------------------------------- retention
 
-/** Daily: expired challenges and device codes, and expired or revoked sessions. */
+/** Daily: expired challenges and device codes, expired or revoked sessions, and browsers not trusted any more. */
 export async function authRetention(db: D1Like, now: Date): Promise<void> {
   const iso = now.toISOString();
   await db.batch([
     db.prepare("DELETE FROM challenges WHERE expires < ?").bind(iso),
     db.prepare("DELETE FROM device_codes WHERE expires < ?").bind(iso),
     db.prepare("DELETE FROM auth_sessions WHERE expires < ? OR revoked IS NOT NULL").bind(iso),
+    db.prepare("DELETE FROM password_devices WHERE last_used < ?").bind(new Date(now.getTime() - DEVICE_MS).toISOString()),
   ]);
 }

@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-14._
+_Last updated: 2026-10-15._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -68,10 +68,16 @@ An account is optional: GenClass, its diagnostics and the private dashboard link
 creates one (at genclass.dev/signup, or with `npx @genclass/runtime login`, runtime 0.3.0-beta.0 and later) can keep
 their apps in one place. An account stores:
 
-- **An email address:** as Google returned it when you sign in with Google, or as you typed it when signing up with a
-  passkey (offered only when Google and GitHub sign-in are not available; we do not verify it), together with whether
-  it is verified (only Google can mark it verified). We use
-  it only for notices about your account. A GitHub sign-in stores no email.
+- **An email address:** as Google returned it when you sign in with Google, or as you typed it (trimmed and
+  lowercased) when you sign up with an email and a password or add a password to your account, together with whether
+  it is verified (only Google can mark it verified; we do not verify a typed address). A typed address is also your
+  username. We use it only for notices about your account. A GitHub sign-in stores no email.
+- **Your password, if you set one,** only as a salted one-way hash (PBKDF2-HMAC-SHA256, 600,000 iterations; the
+  password itself is never stored or logged), with when it was set and last used, and how many wrong passwords were
+  entered for the account in a row and when (to slow down guessing).
+- **Browsers where your password was right:** a one-way hash of a random cookie value, when it was first and last
+  used, and its wrong passwords in a row, so that browser can still sign in while someone elsewhere enters wrong
+  passwords. Forgotten when you change your password, when you delete your account, or after 400 days unused.
 - **Your passkeys' public keys** and, for each, when it was added and last used and how the browser said it connects
   (for example "this device"). The private key never leaves your device.
 - **Your Google account id** (the OpenID `sub`) if you sign in with Google, and **your GitHub user id and login** if
@@ -83,14 +89,16 @@ their apps in one place. An account stores:
 - **The apps you own:** which of the records above (token, name, times) belong to your account, and whether an
   app's private dashboard link still opens it.
 
-Nothing else: no password, no IP address, no browser fingerprint, no tracking cookies. The only cookies are the
-session cookie, set when you sign in, and short-lived cookies (10 minutes at most) that keep a Google or GitHub
-sign-in, and the passkey step after it, tied to your browser. Sessions end after 30 days in the browser and 90 days for the CLI, or when you sign out
+Nothing else: no readable password, no IP address, no browser fingerprint, no tracking cookies. The only cookies are
+the session cookie, set when you sign in, the device cookie (`__Host-gc_device`, 400 days), set when your password is
+right, and short-lived cookies (10 minutes at most) that keep a Google or GitHub sign-in, and the passkey step after
+a password, Google or GitHub, tied to your browser. Sessions end after 30 days in the browser and 90 days for the CLI, or when you sign out
 or revoke them on your account page. To delete your account, choose Delete account on your account page while
-signed in: the account, its passkeys and its sessions are deleted at once, apps created in the account are deleted
+signed in: the account, its password, its passkeys and its sessions are deleted at once, apps created in the account are deleted
 with their stats, and apps that still have a private dashboard link leave the account and keep working through that
 link. If you cannot sign in any more, write to the contact below from an address Google has verified for that
-account; an account id or an unverified email alone is not enough, because both can be known to others.
+account, or, if you forgot your password, from the address you sign in with (GenClass cannot email a reset link
+yet); an account id alone is not enough, because it can be known to others.
 
 ## Paid plans, payments and Stripe
 

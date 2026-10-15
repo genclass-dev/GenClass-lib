@@ -1,7 +1,9 @@
-// HTML for the account pages on genclass.dev: /signup, /login, /login/passkey (the passkey step after Google or GitHub
-// for an account with a passkey), /login/device, /account, the email-collision page a first Google sign-in can land on,
-// and short message pages. Sign-in leads with Google, then GitHub; a passkey is extra security, added on /account. Same shell, fonts, rules and tokens as the dashboard
-// (src/pages.ts, the palette and buttons of genclass.dev); no boxed cards, no gradients. The sign-in column sits on the
+// HTML for the account pages on genclass.dev: /signup, /login, /login/forgot, /login/passkey (the passkey step after a
+// password, Google or GitHub for an account with a passkey), /login/device, /account, the email-collision page a first
+// Google sign-in can land on, and short message pages. Sign-in leads with Continue with Google, then an email and a
+// password (always there), then a small Continue with GitHub and Use a passkey; a passkey is extra security, added on
+// /account. Same shell, fonts, rules and tokens as the dashboard (src/pages.ts, the light palette and buttons of
+// genclass.dev, whatever the visitor's system theme); no boxed cards, no gradients. The sign-in column sits on the
 // site's triangle lattice (the hero mesh's grid, as a still pattern), kept clear behind the text. Server-rendered text
 // goes through esc(); scripts insert text with textContent. Every page is served under a per-response CSP nonce with
 // form-action 'self' (for the sign-out form).
@@ -31,8 +33,11 @@ code{font-family:var(--mono);font-size:.9em}
   mask-image:linear-gradient(90deg,#000 0,#000 calc(50% - 470px),transparent calc(50% - 270px),transparent calc(50% + 270px),#000 calc(50% + 470px))}
 @media (max-width:720px){.lat{display:none}}
 .or{display:flex;align-items:center;gap:12px;font:500 12px var(--mono);color:var(--ink3);margin:8px 0}
-.alt{font-size:14.5px;color:var(--ink2);margin-top:4px}
-.alt button.lnk,.lnk.ul{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.alt{font-size:14.5px;color:var(--ink2);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 22px;align-items:center}
+.alt a,.alt button.lnk,.lnk.ul{color:var(--ink);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center;gap:7px}
+.alt svg{width:16px;height:16px;flex:none}
+.pwf .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.pwf .row a{font-size:13px;color:var(--ink2)}
 .or::before,.or::after{content:"";flex:1;border-top:1px solid var(--rule)}
 .auth label,.acct-form label{display:block;font:500 12.5px var(--mono);color:var(--ink3);margin-bottom:7px}
 .auth input,.acct-form input{min-height:46px;width:100%;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans)}
@@ -109,8 +114,9 @@ function gcPost(url, body, method){
 function b2u(buf){ var b = new Uint8Array(buf), s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, ""); }
 function u2b(s){ s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; var bin = atob(s), out = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out.buffer; }
 function gcPasskeys(){ return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create); }
-function gcRegister(email){
-  return gcPost("/api/auth/passkey/register/options", email ? { email: email } : {}).then(function(o){
+/** Add a passkey to the signed-in account (there is no passkey sign-up). */
+function gcRegister(){
+  return gcPost("/api/auth/passkey/register/options", {}).then(function(o){
     var pk = o.publicKey; pk.challenge = u2b(pk.challenge); pk.user.id = u2b(pk.user.id);
     (pk.excludeCredentials || []).forEach(function(c){ c.id = u2b(c.id); });
     return navigator.credentials.create({ publicKey: pk }).then(function(cred){
@@ -141,7 +147,7 @@ function gcWhy(e){
   if (e && e.name === "NotAllowedError") return "The passkey prompt was closed or timed out. Try again when you are ready.";
   if (e && e.name === "InvalidStateError") return "This device already holds a passkey for this account.";
   if (e && e.name === "SecurityError") return "Passkeys only work on " + location.hostname + " over HTTPS.";
-  if (e && e.status === 429) return "Too many attempts from your network. Try again in a minute.";
+  if (e && e.status === 429 && /^HTTP /.test(e.message || "")) return "Too many attempts from your network. Try again in a minute.";
   var m = (e && e.message) || "Something went wrong. Try again.";
   return m.charAt(0).toUpperCase() + m.slice(1) + (/[.]$/.test(m) ? "" : ".");
 }
@@ -167,6 +173,23 @@ function gcDropQuery(keep){
     if (s !== q.toString()) history.replaceState(null, "", location.pathname + (s ? "?" + s : "") + location.hash);
   } catch (e) {}
 }
+/**
+ * The email and password form (sign-in, sign-up, the device page): JSON to url with next, then on to the next the
+ * server answers (the passkey step for an account with a passkey). min: the shortest new password (sign-up).
+ */
+function gcPassword(f, url, next, min){
+  if (!f) return;
+  var b = f.querySelector("button[type=submit]"), err = document.getElementById(f.getAttribute("data-err"));
+  f.addEventListener("submit", function(ev){
+    ev.preventDefault(); err.textContent = "";
+    var email = f.querySelector("[name=email]").value.trim(), pw = f.querySelector("[name=password]").value;
+    if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s.]+$/.test(email)) { err.textContent = "Enter a valid email address."; return; }
+    if (!pw) { err.textContent = "Enter your password."; return; }
+    if (min && Array.from(pw.normalize ? pw.normalize("NFC") : pw).length < min) { err.textContent = "Use at least " + min + " characters."; return; }
+    gcBusy(b, true, min ? "Creating..." : "Signing in...");
+    gcPost(url, { email: email, password: pw, next: next || null }).then(function(j){ location.href = j.next || "/account"; }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
+  });
+}
 /** Two clicks for a destructive button: the first asks, the second (within 6 s) does it. */
 function gcArm(b, label){
   if (b.getAttribute("data-armed") === "1") return true;
@@ -188,11 +211,36 @@ export function time(iso: string | null, f: "ago" | "date" | "time" = "date", em
 
 const q = (next: string | null): string => (next ? `?next=${encodeURIComponent(next)}` : "");
 
-function providerButtons(p: { google: boolean; github: boolean }, next: string | null): string {
-  const out: string[] = [];
-  if (p.google) out.push(`<a class="btn prov paper" href="/auth/google${q(next)}">${GOOGLE_G}<span>Continue with Google</span></a>`);
-  if (p.github) out.push(`<a class="btn prov ghost" href="/auth/github${q(next)}">${GITHUB_MARK}<span>Continue with GitHub</span></a>`);
-  return out.join("\n");
+const googleButton = (p: { google: boolean }, next: string | null): string =>
+  p.google ? `<a class="btn prov paper" href="/auth/google${q(next)}">${GOOGLE_G}<span>Continue with Google</span></a>` : "";
+
+/** Every way in, in the owner's order: Google, an email and a password, then a small GitHub link and Use a passkey. */
+function signInWays(o: { google: boolean; github: boolean; next: string | null; signup?: boolean }): string {
+  const google = googleButton(o, o.next);
+  const form = o.signup
+    ? `<form class="pwf" id="pwf" data-err="err" novalidate>
+  <div><label for="email">Email</label>
+  <input id="email" name="email" type="email" autocomplete="username" maxlength="254" placeholder="you@example.com" required></div>
+  <div><label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" maxlength="256" required aria-describedby="pwhint"></div>
+  <p class="hint" id="pwhint">At least 10 characters. A few unrelated words are easy to remember and hard to guess. Your email is your username; we do not check it, so use one you read: it is how we can tell the account is yours if you forget your password.</p>
+  <button class="btn prov green" type="submit"><span>Create account</span></button>
+</form>`
+    : `<form class="pwf" id="pwf" data-err="err" novalidate>
+  <div><label for="email">Email</label>
+  <input id="email" name="email" type="email" autocomplete="username" maxlength="254" placeholder="you@example.com" required></div>
+  <div><div class="row"><label for="password">Password</label><a href="/login/forgot">Forgot your password?</a></div>
+  <input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required></div>
+  <button class="btn prov green" type="submit"><span>Sign in</span></button>
+</form>`;
+  const small = [
+    o.github ? `<a href="/auth/github${q(o.next)}">${GITHUB_MARK}<span>Continue with GitHub</span></a>` : "",
+    '<button class="lnk" id="pk" type="button"><span>Use a passkey</span></button>',
+  ].filter(Boolean);
+  return `${google}${google ? '\n<div class="or">or</div>' : ""}
+${form}
+<p class="err" id="err" role="alert"></p>
+<p class="alt">${small.join("")}</p>`;
 }
 
 /** The still lattice behind a sign-in column (decorative; hidden on narrow screens, where the column fills them). */
@@ -209,26 +257,17 @@ export interface AuthPageOptions {
   next: string | null;
   /** A fixed message to show above the options (never text from the request). */
   notice?: string | null;
+  /** How long a trial of Pro lasts (TRIAL_DAYS). */
+  trialDays?: number;
 }
 
-const OPTIONAL = '<p class="opt">The runtime needs no account. Dashboards come with Pro. Trials available.</p>';
-
-/**
- * The passkey way in on /login and the device page: with Google or GitHub offered, a plain "Use a passkey" link
- * under them; without (passkeys are then the only way in), the main green button.
- */
-function passkeyWay(providers: string): string {
-  return providers
-    ? '<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>'
-    : `<button class="btn prov green" id="pk" type="button">${KEY_ICON}<span>Sign in with a passkey</span></button>
-<p class="hint">Touch ID, Windows Hello, your phone or a security key. No email or password.</p>`;
-}
+const optional = (days = 7): string => `<p class="opt">The runtime needs no account. Dashboards come with Pro. Get a ${days}-day free trial for analytics.</p>`;
 
 /** The passkey sign-in button's script: sign in, then go to `next` (or reload, on the device page). */
 const PASSKEY_LOGIN_JS = `
 function gcPasskeyButton(b, err, then){
   if (!b) return;
-  if (!gcPasskeys()) { b.disabled = true; err.textContent = "This browser does not support passkeys." + (document.querySelector(".prov[href]") ? " Use Google or GitHub instead." : ""); return; }
+  if (!gcPasskeys()) { b.disabled = true; b.title = "This browser does not support passkeys."; return; }
   b.addEventListener("click", function(){
     err.textContent = ""; gcBusy(b, true, "Waiting for your passkey...");
     gcLogin().then(then, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
@@ -237,73 +276,52 @@ function gcPasskeyButton(b, err, then){
 
 // --------------------------------------------------------------------------------------------- /login, /signup
 
+/** The scripts of a page with signInWays: the password form, and Use a passkey (signs in, then goes to `next`). */
+const waysJs = (url: string, min: number): string => `${PASSKEY_LOGIN_JS}
+(function(){
+  var cfg = JSON.parse(document.getElementById("cfg").textContent);
+  gcDropQuery(["next"]);
+  gcPassword(document.getElementById("pwf"), "${url}", cfg.next, ${min});
+  gcPasskeyButton(document.getElementById("pk"), document.getElementById("err"), function(){ location.href = cfg.next || "/account"; });
+})();`;
+
 export function loginPage(nonce: string, o: AuthPageOptions): string {
-  const providers = providerButtons(o, o.next);
   const inner = `
 <h1>Sign in to GenClass</h1>
 <p class="lead">Your account keeps your apps' dashboards in one place: what GenClass detected, on which pages, and what it did.</p>
 ${o.notice ? `<p class="notice" role="status">${esc(o.notice)}</p>` : ""}
 <div class="ways">
-${providers}
-${passkeyWay(providers)}
-<p class="err" id="err" role="alert"></p>
+${signInWays(o)}
 </div>
 <p class="swap"><a href="/signup${q(o.next)}">Create an account instead</a></p>
-${OPTIONAL}
+${optional(o.trialDays)}
 <script type="application/json" id="cfg">${embed({ next: o.next })}</script>`;
-  const script = `${PASSKEY_LOGIN_JS}
-(function(){
-  var cfg = JSON.parse(document.getElementById("cfg").textContent);
-  gcDropQuery(["next"]);
-  gcPasskeyButton(document.getElementById("pk"), document.getElementById("err"), function(){ location.href = cfg.next || "/account"; });
-})();`;
-  return authPage(nonce, "Sign in | GenClass", inner, script);
+  return authPage(nonce, "Sign in | GenClass", inner, waysJs("/api/auth/password/login", 0));
 }
 
 export function signupPage(nonce: string, o: AuthPageOptions): string {
-  const providers = providerButtons(o, o.next);
-  const lead = `<h1>Create your GenClass account</h1>
-<p class="lead">Your account keeps your apps' dashboards in one place, and lets <code>npx ${RUNTIME_PKG} login</code> connect an app for you.</p>`;
-  if (providers) {
-    // Google or GitHub: no passkey is needed to create an account; one can be added afterwards for extra security
-    const inner = `
-${lead}
-<div class="ways">
-${providers}
-<p class="hint">Want extra security? Add a passkey on your account page once you are in.</p>
-</div>
-<p class="swap"><a href="/login${q(o.next)}">Sign in instead</a></p>
-${OPTIONAL}`;
-    return authPage(nonce, "Create an account | GenClass", inner, "");
-  }
-  // the fallback for a server with no OAuth provider: an email and a passkey
   const inner = `
-${lead}
+<h1>Create your GenClass account</h1>
+<p class="lead">Your account keeps your apps' dashboards in one place, and lets <code>npx ${RUNTIME_PKG} login</code> connect an app for you.</p>
 <div class="ways">
-<form id="f" novalidate>
-  <div><label for="email">Email</label>
-  <input id="email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required></div>
-  <p class="hint">Your passkey is named after it, and we use it only for notices about your account. We do not check it, so nothing is sent to it now.</p>
-  <button class="btn prov green" id="go" type="submit">${KEY_ICON}<span>Create account with a passkey</span></button>
-</form>
-<p class="err" id="err" role="alert"></p>
+${signInWays({ ...o, signup: true })}
+<p class="hint">Want extra security? Add a passkey on your account page once you are in. Use a passkey signs in to an account that already has one.</p>
 </div>
 <p class="swap"><a href="/login${q(o.next)}">Sign in instead</a></p>
-${OPTIONAL}
+${optional(o.trialDays)}
 <script type="application/json" id="cfg">${embed({ next: o.next })}</script>`;
-  const script = `
-(function(){
-  var cfg = JSON.parse(document.getElementById("cfg").textContent), f = document.getElementById("f"), b = document.getElementById("go"), err = document.getElementById("err");
-  if (!gcPasskeys()) { b.disabled = true; err.textContent = "This browser does not support passkeys."; return; }
-  f.addEventListener("submit", function(ev){
-    ev.preventDefault(); err.textContent = "";
-    var email = document.getElementById("email").value.trim();
-    if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s.]+$/.test(email)) { err.textContent = "Enter a valid email address."; return; }
-    gcBusy(b, true, "Waiting for your passkey...");
-    gcRegister(email).then(function(){ location.href = cfg.next || "/account?welcome=1"; }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
-  });
-})();`;
-  return authPage(nonce, "Create an account | GenClass", inner, script);
+  return authPage(nonce, "Create an account | GenClass", inner, waysJs("/api/auth/password/signup", 10));
+}
+
+/** /login/forgot: no email reset exists yet (auth.ts resetSender), so the page says whom to write to. */
+export function forgotPage(nonce: string, o: { contact: string }): string {
+  const mail = `mailto:${o.contact}?subject=${encodeURIComponent("GenClass password")}`;
+  const inner = `
+<h1>Forgot your password?</h1>
+<p class="lead">GenClass cannot email you a reset link yet. Write to <a href="${esc(mail)}">${esc(o.contact)}</a> from the address you sign in with, and we will reset it once we have checked that the account is yours.</p>
+<p class="lead">If your account also signs in with Google, GitHub or a passkey, use that now, then choose a new password on your account page under Security.</p>
+<div class="acts"><a class="btn green" href="${esc(mail)}">Email ${esc(o.contact)}</a><a class="btn ghost" href="/login">Back to sign in</a></div>`;
+  return authPage(nonce, "Forgot your password | GenClass", inner, "");
 }
 
 // --------------------------------------------------------------------------------------------- email collision
@@ -312,11 +330,11 @@ export function pendingPage(nonce: string, o: { email: string; provider: "google
   const name = o.provider === "google" ? "Google" : "GitHub";
   const inner = `
 <h1>This email already has a GenClass account</h1>
-<p class="lead">${name} signed you in as <b>${esc(o.email)}</b>. A GenClass account with that address already exists. We never join accounts because their emails match: an email typed at passkey sign-up is not verified, so anyone could have typed it.</p>
+<p class="lead">${name} signed you in as <b>${esc(o.email)}</b>. A GenClass account with that address already exists. We never join accounts because their emails match: an email typed at sign-up is not verified, so anyone could have typed it.</p>
 <div class="step">
   <h2>If that account is yours</h2>
-  <p>Sign in to it with its passkey, then choose Link ${name} on your account page. After that, Continue with ${name} opens that account.</p>
-  <a class="btn green" href="/login?next=%2Faccount">Sign in with a passkey</a>
+  <p>Sign in to it the way you made it (its password or its passkey), then choose Link ${name} on your account page. After that, Continue with ${name} opens that account.</p>
+  <a class="btn green" href="/login?next=%2Faccount">Sign in to that account</a>
 </div>
 <div class="step">
   <h2>If it is not yours</h2>
@@ -337,13 +355,17 @@ export function pendingPage(nonce: string, o: { email: string; provider: "google
 
 // --------------------------------------------------------------------------------------------- the passkey step
 
-/** /login/passkey: Google or GitHub vouched for an account that has a passkey; no session until the passkey answers. */
+/** /login/passkey: a password, Google or GitHub vouched for an account that has a passkey; no session until it answers. */
 export function passkeyStepPage(nonce: string, o: { via: string | null; who: string | null; recovery: string }): string {
-  const via = o.via === "github" ? "GitHub" : o.via === "google" ? "Google" : "Google or GitHub";
+  const who = o.who ? ` as <b>${esc(o.who)}</b>` : "";
+  const lead =
+    o.via === "password"
+      ? `Your password signed you in${who}.`
+      : `${o.via === "github" ? "GitHub" : o.via === "google" ? "Google" : "Google or GitHub"} signed you in${who}.`;
   const inner = `
 <div class="eb">Extra security</div>
 <h1>Use your passkey</h1>
-<p class="lead">${esc(via)} signed you in${o.who ? ` as <b>${esc(o.who)}</b>` : ""}. This account also asks for one of its passkeys.</p>
+<p class="lead">${lead} This account also asks for one of its passkeys.</p>
 <div class="ways">
 <button class="btn prov green" id="pk" type="button">${KEY_ICON}<span>Use your passkey</span></button>
 <p class="err" id="err" role="alert"></p>
@@ -406,18 +428,16 @@ export function devicePage(nonce: string, v: DeviceView): string {
   let inner: string;
   if (!v.signedIn && v.code) {
     // Signed out: the same page for every well-formed code, live or not. Whether it is live shows after sign-in.
-    const providers = providerButtons(v.providers, v.next);
     inner = `
 <div class="eb">Command line sign-in</div>
 <h1>Sign in to continue</h1>
 <div class="ucode" aria-label="Code">${esc(v.code)}</div>
 <p class="lead">Check that your terminal shows this code, then sign in. This page then shows the request and asks you to approve or deny it.</p>
 <div class="ways">
-${providers}
-${passkeyWay(providers)}
-<p class="err" id="err" role="alert"></p>
+${signInWays({ ...v.providers, next: v.next })}
 </div>
-<p class="swap"><a href="/signup${q(v.next)}">Create an account instead</a>, then come back here.</p>`;
+<p class="swap"><a href="/signup${q(v.next)}">Create an account instead</a>, then come back here.</p>
+<script type="application/json" id="dcfg">${embed({ next: v.next })}</script>`;
   } else if (!v.request) {
     const bad = v.typed && (!v.code || !!v.signedIn);
     inner = `
@@ -459,7 +479,10 @@ ${passkeyWay(providers)}
     if (s.length !== 8) { document.getElementById("err").textContent = "The code has 8 letters, like BCDF-GHJK."; return; }
     location.href = "/login/device?code=" + s.slice(0, 4) + "-" + s.slice(4);
   });
-  // signed out: sign in here and come back to this page, which then shows the request
+  // signed out: sign in here (a password goes on to this page, or to the passkey step and then here) and come back to
+  // this page, which then shows the request
+  var dcfg = document.getElementById("dcfg");
+  if (dcfg) gcPassword(document.getElementById("pwf"), "/api/auth/password/login", JSON.parse(dcfg.textContent).next, 0);
   gcPasskeyButton(document.getElementById("pk"), document.getElementById("err"), function(){ location.reload(); });
   var yes = document.getElementById("yes"), no = document.getElementById("no");
   if (!yes) return;
@@ -512,6 +535,8 @@ export interface AccountView {
   /** Browser sessions, then terminal (CLI) sessions, newest first. */
   web: SessionRow[];
   cli: SessionRow[];
+  /** The account's password: the email it signs in with and when it was set, changed and last used; null when none. */
+  password?: { email: string; created: string; updated: string; lastUsed: string | null } | null;
   providers: { google: boolean; github: boolean };
   notice?: { kind: "ok" | "bad"; text: string };
   /** Dashboards: open (a plan, GenClass's grant or the trial), or locked with the trial still to start, or after it. */
@@ -520,6 +545,8 @@ export interface AccountView {
   pick?: { trial: boolean; claim: boolean };
   /** Where to write when every passkey is lost. */
   recovery?: string;
+  /** How long a trial of Pro lasts (TRIAL_DAYS). */
+  trialDays?: number;
 }
 
 const TRANSPORT_WORDS: Record<string, string> = {
@@ -562,17 +589,37 @@ ${v.projects
   const recovery = esc(v.recovery ?? "mehar@daybot.ca");
   const required = v.passkeys.length > 0;
   const passkeyRule = required
-    ? "<b>Require a passkey at sign-in: on.</b> After Google or GitHub, GenClass asks for one of your passkeys. Removing the last one turns this off."
-    : "<b>Require a passkey at sign-in: off.</b> Add a passkey and GenClass asks for it after Google or GitHub.";
+    ? "<b>Require a passkey at sign-in: on.</b> After your password, Google or GitHub, GenClass asks for one of your passkeys. Removing the last one turns this off."
+    : "<b>Require a passkey at sign-in: off.</b> Add a passkey and GenClass asks for it after your password, Google or GitHub.";
+  const days = v.trialDays ?? 7;
   const dash = v.dashboards ?? "open";
   const planBlock =
     dash === "open"
       ? ""
       : `<section class="blk" id="plan">
-  <div class="blk-h"><h2>Dashboards come with Pro</h2><span class="aside">${dash === "trial" ? "Trials available" : "Your trial has ended"}</span></div>
-  <div class="acct-form">${dash === "trial" ? '<button class="btn green" type="button" id="trial"><span>Start a trial</span></button>' : ""}<a class="btn ${dash === "trial" ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
+  <div class="blk-h"><h2>Dashboards come with Pro</h2><span class="aside">${dash === "trial" ? `Get a ${days}-day free trial for analytics` : "Your trial has ended"}</span></div>
+  <div class="acct-form">${dash === "trial" ? `<button class="btn green" type="button" id="trial"><span>Start your ${days}-day free trial</span></button>` : ""}<a class="btn ${dash === "trial" ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
   <p class="err" id="trialerr" role="alert"></p>
 </section>`;
+  // the password: the email it signs in with; below the table, Change password (or Add a password)
+  const pw = v.password ?? null;
+  const pwRow = `<tr><td>Password</td><td>${pw ? `Signs in as ${esc(pw.email)}` : '<span class="muted">Not set</span>'}</td><td data-l="Set">${pw ? time(pw.updated) : ""}</td><td data-l="Last used">${pw ? time(pw.lastUsed, "ago") : ""}</td><td class="act"></td></tr>`;
+  const pwForm = pw
+    ? `<form class="acct-form" id="pwform" novalidate>
+    <input type="email" name="username" autocomplete="username" value="${esc(pw.email)}" hidden>
+    <div class="f"><label for="pwcur">Current password</label><input id="pwcur" type="password" autocomplete="current-password" maxlength="256"></div>
+    <div class="f"><label for="pwnew">New password</label><input id="pwnew" type="password" autocomplete="new-password" minlength="10" maxlength="256"></div>
+    <button class="btn ghost" type="submit" id="pwgo"><span>Change password</span></button>
+  </form>
+  <p class="err" id="pwerr" role="alert"></p>
+  <p class="intro">At least 10 characters. Changing it signs out every other browser and terminal.${required ? " Forgot the current one? Leave it empty: GenClass asks for one of your passkeys instead." : ' Forgot the current one? See <a href="/login/forgot">what to do</a>.'}</p>`
+    : `<form class="acct-form" id="pwform" novalidate>
+    <div class="f"><label for="pwemail">Email to sign in with</label><input id="pwemail" type="email" autocomplete="username" maxlength="254" value="${esc(a.email ?? "")}" placeholder="you@example.com"></div>
+    <div class="f"><label for="pwnew">Password</label><input id="pwnew" type="password" autocomplete="new-password" minlength="10" maxlength="256"></div>
+    <button class="btn ghost" type="submit" id="pwgo"><span>Add a password</span></button>
+  </form>
+  <p class="err" id="pwerr" role="alert"></p>
+  <p class="intro">Sign in with this email and a password as well as ${a.google || a.githubLogin ? "Google or GitHub" : "your passkey"}. At least 10 characters.${required ? " GenClass asks for one of your passkeys first." : ""}</p>`;
   const github = v.providers.github || a.githubLogin
     ? `<tr><td>GitHub</td><td>${a.githubLogin ? `Linked as @${esc(a.githubLogin)}` : '<span class="muted">Not linked</span>'}</td><td></td><td></td><td class="act">${a.githubLogin ? "" : '<a class="btn sm ghost" href="/auth/github?link=1">Link GitHub</a>'}</td></tr>`
     : "";
@@ -633,10 +680,14 @@ ${planBlock}
 <section class="blk" id="security">
   <div class="blk-h"><h2>Security</h2><span class="aside">Table 2. Ways into this account</span></div>
   <div class="tablewrap"><table class="dt rows"><thead><tr><th>Method</th><th>Details</th><th>Added</th><th>Last used</th><th></th></tr></thead><tbody>
+  ${pwRow}
   ${google}
   ${github}
   ${keyRows}
   </tbody></table></div>
+  <div class="blk-h mt-l" id="password"><h2>${pw ? "Change password" : "Add a password"}</h2></div>
+  ${pwForm}
+  <div class="blk-h mt-l" id="passkeys"><h2>Passkeys</h2></div>
   <p class="intro" id="pkrule">${passkeyRule}</p>
   <div class="acct-form"><button class="btn ghost" type="button" id="addpk"><span>Add a passkey</span></button></div>
   <p class="err" id="pkerr" role="alert"></p>
@@ -656,9 +707,9 @@ ${planBlock}
   <div class="acct-form"><button class="btn danger" type="button" id="del"><span>Delete account</span></button></div>
   <p class="err" id="delerr" role="alert"></p>
 </section>
-<footer class="dfoot">Your account stores your email (as you typed it, or as Google returned it) and whether it is verified, your passkeys'
-public keys, your Google account id and your GitHub id and login if you link them, your sign-in sessions, your trial's dates, and the apps
-you own. Nothing else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
+<footer class="dfoot">Your account stores your email (as you typed it, or as Google returned it) and whether it is verified, a salted
+hash of your password if you set one (never the password), your passkeys' public keys, your Google account id and your GitHub id and login if
+you link them, your sign-in sessions and the browsers where your password was right, your trial's dates, and the apps you own. Nothing else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
 </div>
 <script type="application/json" id="acfg">${embed({ trial: !!v.pick?.trial, claim: !!v.pick?.claim })}</script>`;
@@ -712,6 +763,19 @@ you own. Nothing else. <a href="https://genclass.dev/privacy">Privacy</a> · <a 
     delb.disabled = true;
     gcPost("/api/account", { confirm: "delete" }, "DELETE").then(function(){ location.href = "/login?deleted=1"; }, function(e){ document.getElementById("delerr").textContent = gcWhy(e); delb.disabled = false; });
   });
+  // change the password (the current one, or a passkey when it is left empty) or add one
+  var pwf = document.getElementById("pwform");
+  if (pwf) pwf.addEventListener("submit", function(ev){
+    ev.preventDefault();
+    var err = document.getElementById("pwerr"), b = document.getElementById("pwgo"), cur = document.getElementById("pwcur"), em = document.getElementById("pwemail");
+    var nw = document.getElementById("pwnew").value; err.textContent = "";
+    if (Array.from(nw.normalize ? nw.normalize("NFC") : nw).length < 10) { err.textContent = "Use at least 10 characters."; return; }
+    var body = { password: nw };
+    if (cur && cur.value) body.current = cur.value;
+    if (em) body.email = em.value.trim();
+    gcBusy(b, true, "Saving...");
+    gcFresh(function(){ return gcPost("/api/auth/password", body); }).then(function(){ location.href = "/account?password=" + (cur ? "changed" : "added"); }, function(e){ err.textContent = gcWhy(e); gcBusy(b, false); });
+  });
   var add = document.getElementById("addpk"), pkerr = document.getElementById("pkerr");
   add.addEventListener("click", function(){
     pkerr.textContent = "";
@@ -751,47 +815,45 @@ export interface LockedLinkView {
   /** Where the app is: in no account yet, in the visitor's account, or in another one. */
   owner: "none" | "mine" | "other";
   providers: { google: boolean; github: boolean };
+  /** How long a trial of Pro lasts (TRIAL_DAYS). */
+  trialDays?: number;
 }
 
 /**
  * /dashboard/<secret> while the app has no Pro (no account, or an account without a plan, grant or trial):
- * "Dashboards come with Pro. Trials available." Signed out: Google, then GitHub (or, with neither configured, sign in
- * and sign up with a passkey); the link is kept in this tab's sessionStorage only, and /account?claim=1 brings the
+ * "Dashboards come with Pro. Get a 7-day free trial for analytics." Signed out: Continue with Google (when configured),
+ * then Sign in and Create an account (every other way in is there); the link is kept in this tab's sessionStorage only, and /account?claim=1 brings the
  * visitor back here once signed in. Signed in: add the app to the account (POST /api/account/projects/claim, as on
  * /account) and start the trial in one click, or start the trial, or see the plans. Served with the private link's own
  * headers (no referrer); the page's fetch() calls still carry our Origin.
  */
 export function lockedLinkPage(nonce: string, v: LockedLinkView): string {
   const back = "/account?claim=1";
+  const days = v.trialDays ?? 7;
   const s = v.signedIn;
   let acts: string;
   if (!s) {
-    const providers = providerButtons(v.providers, back);
     acts = `<div class="ways">
-${providers}
-${
-  providers
-    ? `<p class="alt"><a href="/login${q(back)}">Other ways to sign in</a></p>`
-    : `<a class="btn prov green" href="/login${q(back)}"><span>Sign in</span></a><a class="btn prov ghost" href="/signup${q(back)}"><span>Create an account</span></a>`
-}
+${googleButton(v.providers, back)}
+<a class="btn prov green" href="/login${q(back)}"><span>Sign in</span></a><a class="btn prov ghost" href="/signup${q(back)}"><span>Create an account</span></a>
 </div>
 <p class="opt">Then add this app to your account. It keeps its key and its data.</p>`;
   } else if (v.owner === "other") {
     acts = `<p class="lead">This app is in another GenClass account.</p><div class="acts"><a class="btn ghost" href="/account">Your apps</a></div>`;
   } else if (v.owner === "none") {
-    const label = s.canTrial ? "Add to my account and start a trial" : "Add to my account";
+    const label = s.canTrial ? `Add to my account and start your ${days}-day free trial` : "Add to my account";
     acts = `<div class="ways"><button class="btn prov green" id="claim" type="button" data-trial="${s.canTrial ? "1" : "0"}"><span>${label}</span></button>
 <p class="err" id="err" role="alert"></p></div>
 ${!s.pro && !s.canTrial ? '<p class="opt">Your trial has ended. <a href="/account/billing">See plans</a></p>' : '<p class="opt">The app keeps its key and its data.</p>'}`;
   } else {
     acts = s.canTrial
-      ? `<div class="ways"><button class="btn prov green" id="trial" type="button"><span>Start a trial</span></button><p class="err" id="err" role="alert"></p></div>`
+      ? `<div class="ways"><button class="btn prov green" id="trial" type="button"><span>Start your ${days}-day free trial</span></button><p class="err" id="err" role="alert"></p></div>`
       : `<p class="lead">Your trial has ended.</p><div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>`;
   }
   const inner = `
 <div class="eb">${esc(v.name)}</div>
 <h1>Dashboards come with Pro.</h1>
-<p class="lead">Trials available.</p>
+<p class="lead">Get a ${days}-day free trial for analytics.</p>
 ${acts}
 <p class="swap">Keep this link private: it is the only way back to this app without an account.</p>
 <script type="application/json" id="cfg">${embed({ signedIn: !!s })}</script>`;

@@ -25,8 +25,8 @@ routes = [
 # Account settings. Production uses the defaults in src/auth.ts (AUTH_ORIGIN https://genclass.dev, AUTH_RP_ID
 # genclass.dev); local development overrides them in .dev.vars (see .dev.vars.example and the README).
 # Secrets, set with `npx wrangler secret put` and never committed: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-# GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET. Without a pair, that provider's button is not shown; with neither pair,
-# passkey sign-up is offered instead, so the site always has a way in.
+# GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET. Without a pair, that provider's button is not shown; an email and a password
+# are always offered, so the site always has a way in.
 
 # The newest @genclass/runtime on npm, on any dist-tag. Below 0.3.0-beta.0 the Connect panel, /start and private
 # dashboards say first that project keys and `login` are not published yet. Set it to "0.3.0-beta.0" (then deploy) once
@@ -41,8 +41,9 @@ RUNTIME_ON_NPM = "0.3.0-beta.0"
 # test-mode Pro checkout with it "on" went through (Stripe's changelog lists the parameter under a newer API version
 # than the pinned one; README "Owner steps"). Then set "on" and deploy.
 MANAGED_PAYMENTS = "off"
-# How many days a trial of Pro lasts (one per account, no card, no Stripe; src/trial.ts). Public copy never says the
-# length: it says "Trials available". 1 to 60; anything else counts as 7.
+# How many days a trial of Pro lasts (one per account, no card, no Stripe; src/trial.ts). The pages say it ("Get a
+# 7-day free trial for analytics"). 1 to 60; anything else counts as 7. The site says the same number from
+# billing/plans.json trial_days: change both together (test/trial.test.ts checks that they agree).
 TRIAL_DAYS = "7"
 
 # Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
@@ -86,8 +87,8 @@ name = "SESSION_LIMIT"
 namespace_id = "4803"
 simple = { limit = 30, period = 60 }
 
-# Sign-up, sign-in options and the CLI's device flow: 20 per 60 s per client IP and route (the key is a hash of the
-# route and the IP; the IP is never stored).
+# Sign-up, sign-in (passwords too) and the CLI's device flow: 20 per 60 s per client IP and route (the key is a hash of
+# the route and the IP; the IP is never stored). Wrong passwords also slow down per account (src/password.ts).
 [[ratelimits]]
 name = "AUTH_LIMIT"
 namespace_id = "7302"

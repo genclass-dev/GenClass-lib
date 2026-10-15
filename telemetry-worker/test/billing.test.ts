@@ -76,7 +76,8 @@ describe("billing/plans.json: the one source of plans", () => {
     const text = JSON.stringify(PLANS_JSON);
     expect(text).not.toMatch(/\u2014|!/);
     expect(text).not.toMatch(/\bseats?\b|\bteams?\b/i);
-    // public copy never says how long a trial lasts (TRIAL_DAYS is a worker var)
+    // the trial is not a plan's feature line: its length is plans.json trial_days for the site and TRIAL_DAYS for the
+    // worker (test/trial.test.ts checks that they agree), and the pages say it
     const lines = JSON.stringify((PLANS_JSON as any).plans);
     expect(lines).not.toMatch(/\btrial\b/i);
   });
@@ -1529,7 +1530,7 @@ describe("plans: the Free plan's limits (apps, dashboard ranges)", () => {
     expect(r.status).toBe(409);
     expect(await r.json()).toEqual({
       ok: false,
-      error: "the Free plan holds 3 apps; Pro has no app limit (trials available) at https://genclass.dev/account/billing",
+      error: "the Free plan holds 3 apps; Pro has no app limit (get a 7-day free trial for analytics) at https://genclass.dev/account/billing",
       upgrade_url: "https://genclass.dev/account/billing",
     });
     const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old" }, origin: null })).json()) as any;
@@ -1602,8 +1603,8 @@ describe("GET /account/billing", () => {
     const page = await (await call(on.env, "GET", "/account/billing", { cookie: b.cookie })).text();
     expect(page).toContain('data-plan="pro"><span>Upgrade to Pro</span>');
     expect(page).toContain('data-plan="custom"><span>Upgrade to Custom</span>');
-    expect(page).toContain("the runtime and its on-device model, without the dashboard (you have 0 apps). Trials available.");
-    expect(page).toContain('<button class="btn green" type="button" id="trial"><span>Start a trial</span></button>');
+    expect(page).toContain("the runtime and its on-device model, without the dashboard (you have 0 apps). Get a 7-day free trial for analytics.");
+    expect(page).toContain('<button class="btn green" type="button" id="trial"><span>Start your 7-day free trial</span></button>');
     const visible = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!doctype html>/gi, "");
     expect(visible).not.toMatch(/\u2014|!/);
 

@@ -1,9 +1,8 @@
-// Shared by the paid-plan tests (billing, forward, export): an env over node:sqlite with an R2 stand-in that keeps the
-// bytes, signed-in accounts made through the real passkey routes, apps, batches through the real collector, a fake
-// Stripe API, and Stripe-signed webhook deliveries.
+// Shared by the paid-plan tests (billing, forward, export, trial): an env over node:sqlite with an R2 stand-in that keeps
+// the bytes, signed-in accounts made through the real email and password sign-up, apps, batches through the real
+// collector, a fake Stripe API, and Stripe-signed webhook deliveries.
 import { expect } from "vitest";
 import { handle, type Env, type HandleOptions } from "../src/collector.js";
-import { makeAuthenticator } from "./authenticator.mjs";
 import { d1 } from "./d1.js";
 
 export const ORIGIN = "https://genclass.dev";
@@ -66,13 +65,12 @@ export async function call(env: Env, method: string, path: string, o: CallOpts =
   return handle(new Request(`${ORIGIN}${path}`, { method, headers, body }), env, { now: () => clock, fetch: o.fetch });
 }
 
-/** A new account signed in with a passkey: its session cookie and id. */
+/** The password the helper accounts sign up with. */
+export const PASSWORD = "correct horse battery staple";
+
+/** A new account, signed up with an email and a password (no passkey): its session cookie and id. */
 export async function signedIn(env: Env, email = "ada@example.com") {
-  const auth = await makeAuthenticator(-7);
-  const o = await call(env, "POST", "/api/auth/passkey/register/options", { body: { email } });
-  const opts = (await o.json()) as any;
-  const credential = await auth.register(opts.publicKey);
-  const res = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: opts.id, credential } });
+  const res = await call(env, "POST", "/api/auth/password/signup", { body: { email, password: PASSWORD } });
   expect(res.status).toBe(200);
   const v = res.headers.getSetCookie().find((c) => c.startsWith("__Host-gc_session="))!.split(";")[0]!;
   const account = ((await res.json()) as any).account as { id: string; email: string };

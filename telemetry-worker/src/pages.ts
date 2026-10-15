@@ -50,22 +50,19 @@ export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.ch
 /** JSON safe to embed in <script type="application/json">. */
 export const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 
-/**
- * The header lockup, as on genclass.dev: in light the site's own lockup image; in dark (which the site does not have)
- * the mark beside the name set in type, "gen" in the page ink and "class" in the brand green, so it stays readable.
- */
+/** The header lockup, as on genclass.dev: the site's own lockup image (the pages are light only, like the site). */
 export const LOGO =
-  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img class="lk" src="https://genclass.dev/brand/lockup-h.png?v=2" alt="" width="170" height="37">' +
-  '<span class="lkd" aria-hidden="true"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="30" height="30"><span class="wm"><span>gen</span><span class="g">class</span></span></span></a>';
+  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img class="lk" src="https://genclass.dev/brand/lockup-h.png?v=2" alt="" width="170" height="37"></a>';
 
 const ICON =
   "data:image/svg+xml," +
   encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0E1F4D"/><path d="M9 21l5-10 4 7 2-3 3 6" fill="none" stroke="#14B86A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 
-// The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), light
-// values as the site has them. The site is light-only; the dark values are steps of the same hues on its night navy
-// (#0B1736, the site's code and console panels), each text colour at least 4.5:1 on --paper and --panel and each UI
-// colour (focus ring, input border, fills) at least 3:1. Light: --accent #08794A is the site's small green text,
+// The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), with
+// the site's values. Like the site, every page here is light only, whatever the visitor's system theme: no
+// prefers-color-scheme rules and `color-scheme: light`, so form controls and scrollbars stay light too. Text colours
+// are at least 4.5:1 on --paper and --panel, UI colours (focus ring, input border, fills) at least 3:1
+// (test/pages.test.ts measures them). --accent #08794A is the site's small green text,
 // --accent-x #0E9A58 its large green text, --accent-f #14B86A its green fills and buttons; --warn #C42A12 the
 // red-orange for small text (the site's --orange), --warn-f #F0451C its bug fills. --line is an input border at
 // 3:1 (the site's --rule2 is 1.6:1, fine for a ghost button whose text names it, not for an empty field).
@@ -78,15 +75,8 @@ const CSS = `
   --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(14,31,77,.16)' stroke-width='1'/%3E%3C/svg%3E");
   --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;
   --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  color-scheme:light dark;
+  color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
-  --paper:#0B1736;--panel:#13224A;--ink:#E8EDF8;--ink2:#C3CCE2;--ink3:#97A3C2;--rule:#26355E;--rule2:#3A4A75;--line:#6E7DA6;
-  --accent:#4FD08F;--accent-x:#4FD08F;--accent-f:#14B86A;--accent-t:#153925;--warn:#FF8A6B;--warn-f:#F0451C;--warn-t:#441F16;
-  --bar:#9DB2E8;--bar2:#3ED68A;--bar3:#F0451C;--ink-h:#FFFFFF;--green-h:#2FD07F;--on-green:#0B1736;--head:rgba(11,23,54,.92);
-  --code:#060E24;--codeink:#E8EDF8;
-  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(232,237,248,.10)' stroke-width='1'/%3E%3C/svg%3E");
-}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 html:has(header.top){scroll-padding-top:72px}
@@ -98,18 +88,13 @@ header.top .wrap{display:flex;align-items:center;gap:22px;height:60px}
 body:has(.app) header.top .wrap{max-width:1360px}
 .logo{display:flex;align-items:center;flex:none;text-decoration:none}
 .logo .lk{height:37px;width:auto;display:block}
-.logo .lkd{display:none;align-items:center;gap:8px}
-.logo .lkd img{width:30px;height:30px;display:block}
-.logo .wm{font:700 27px/1 var(--display);letter-spacing:-.035em;color:var(--ink);padding-bottom:2px}
-.logo .wm .g{color:var(--accent-f)}
-@media (prefers-color-scheme:dark){.logo .lk{display:none}.logo .lkd{display:inline-flex}}
 header.top nav{margin-left:auto;display:flex;gap:22px;font-size:14px;color:var(--ink2);align-items:center}
 header.top nav a{text-decoration:none;white-space:nowrap}
 header.top nav a:not(.btn):hover,header.top nav .so button:hover{color:var(--ink)}
 header.top nav .btn{min-height:36px;font-size:14px;padding:0 14px}
 header.top nav form.so{display:contents}
 header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
-@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}.logo .lk{height:30px}.logo .lkd img{width:26px;height:26px}.logo .wm{font-size:23px}}
+@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}.logo .lk{height:30px}}
 @media (max-width:420px){header.top nav .dc{display:none}}
 @media (max-width:360px){header.top .wrap{gap:10px}.logo .lk{height:26px}}
 h1,h2,h3{font-family:var(--display);text-wrap:balance}
@@ -272,13 +257,14 @@ export const SIGNED_IN_NAV =
 
 // ------------------------------------------------------------------------------------------------- /start
 
-export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}): string {
+export function startPage(nonce: string, opts: { runtimeReady?: boolean; trialDays?: number } = {}): string {
+  const days = opts.trialDays ?? 7;
   const notYet = opts.runtimeReady === true ? "" : `<p class="note small" id="notyet">${NOT_ON_NPM}</p>`;
   const body = `
 <section class="stack mt-xl">
   <h1>Get a token for your web app</h1>
   <p class="lead">One token per app. Add it to GenClass and every page load, detection and fix is collected for the
-  app's private dashboard. Dashboards come with Pro. Trials available.</p>
+  app's private dashboard. Dashboards come with Pro. Get a ${days}-day free trial for analytics.</p>
   <p class="muted small">To keep several apps in one place, <a href="/signup">create an account</a> or <a href="/login">sign in</a>.</p>
 </section>
 <section>
@@ -297,7 +283,7 @@ export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}):
   <div class="card stack">
     <h2>Your private dashboard link</h2>
     <div class="note"><strong>Save this link now.</strong> It is the only way back to your dashboard; we cannot recover it.
-    It opens the dashboard with Pro, and until then lets you add the app to your account and start a trial. Do not
+    It opens the dashboard with Pro, and until then lets you add the app to your account and start your ${days}-day free trial. Do not
     commit it to code.</div>
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
     <div class="row"><a id="open" class="btn green" href="#">Open dashboard</a></div>
@@ -352,14 +338,12 @@ export function notFoundPage(nonce: string): string {
 // The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
 // problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
 // Chart colours come from genclass.dev's own hues, stepped into the chart lightness band: ink navy, the red-orange the
-// site uses for bugs, a sky blue, amber (the site's live-bug colour) and berry, in that order; dark mode has its own
-// steps of the same hues. No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz skill's
-// validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-13: light on #FFFFFF all checks pass, worst
-// CVD ΔE 20.0, normal-vision 31.3, amber 2.2:1 so the table view and legend carry it; dark on #0B1736 all pass, worst
-// CVD 15.3, normal-vision 19.2, every slot at least 3:1 (the palette it replaces: 16.3/19.6 light, 13.2/19.3 dark).
-// A bar draws only the types it has, so slots that are not palette neighbours can touch: in dark, t2 on t4 (stale on
-// slow, when failing endpoints is absent) is deutan ΔE 1.8 and normal-vision 13.7, and t1 on t3 normal-vision 9.7.
-// The 2px paper gap between segments, the legend, the hover breakdown and the table view carry identity there.
+// site uses for bugs, a sky blue, amber (the site's live-bug colour) and berry, in that order (light only, like the
+// rest of the page). No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz skill's
+// validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-13: on #FFFFFF all checks pass, worst CVD
+// ΔE 20.0, normal-vision 31.3, amber 2.2:1 so the table view and legend carry it (the palette it replaces: 16.3/19.6).
+// A bar draws only the types it has, so slots that are not palette neighbours can touch; the 2px paper gap between
+// segments, the legend, the hover breakdown and the table view carry identity there.
 // Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
 // outlined bars in the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the
 // confirmed counts.
@@ -367,7 +351,6 @@ export function notFoundPage(nonce: string): string {
 
 export const DASH_CSS = `
 :root{--t1:#2B4FB0;--t2:#F0451C;--t3:#0F85B2;--t4:#EE9E10;--t5:#A63C72;--t0:#8A93A8;--grid:#E6EBF2}
-@media (prefers-color-scheme:dark){:root{--t1:#5780E6;--t2:#F0451C;--t3:#179FD4;--t4:#C68206;--t5:#C75B90;--t0:#6F7B98;--grid:#1E2D55}}
 h1,h2,h3{letter-spacing:-.03em}
 .dh{margin-top:40px}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
@@ -1014,12 +997,12 @@ const CONNECT_JS = `
 const LOCK_JS = `
 (function(){
   var b = document.getElementById("trial"); if (!b) return;
-  var err = document.getElementById("lockerr");
+  var err = document.getElementById("lockerr"), label = b.textContent;
   b.addEventListener("click", function(){
     err.textContent = ""; b.disabled = true; b.textContent = "Starting...";
     fetch("/api/billing/trial", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json" }, body: "{}" })
       .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status)); }); })
-      .then(function(){ location.reload(); }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = "Start a trial"; });
+      .then(function(){ location.reload(); }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = label; });
   });
 })();`;
 
@@ -1047,7 +1030,7 @@ export interface DashboardOptions {
    * Account mode, locked: the account has no plan, grant or trial (dashboards come with Pro). The page keeps the app's
    * key and the Connect panel and offers the trial (until it was used) or the plans; no stats are loaded.
    */
-  locked?: { trialUsed: boolean };
+  locked?: { trialUsed: boolean; trialDays: number };
   /** Account mode, on the trial: whole days left, said here and nowhere else. */
   trialDaysLeft?: number;
 }
@@ -1263,7 +1246,7 @@ function accountApps(acct: NonNullable<DashboardOptions["account"]>): string {
 function lockedDashboardPage(
   nonce: string,
   project: { name: string; token: string; created: string; lastEvent: string | null },
-  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: { trialUsed: boolean } },
+  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: { trialUsed: boolean; trialDays: number } },
 ): string {
   const data = { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, account: true, locked: true };
   const used = opts.locked.trialUsed;
@@ -1286,8 +1269,8 @@ function lockedDashboardPage(
 </section>
 <section class="lock" id="lock" aria-labelledby="lock-h">
   <h2 id="lock-h">Dashboards come with Pro.</h2>
-  <p>${used ? "Your trial has ended." : "Trials available."}</p>
-  <div class="acts">${used ? "" : '<button class="btn green" type="button" id="trial">Start a trial</button>'}<a class="btn ${used ? "green" : "ghost"}" href="/account/billing">See plans</a></div>
+  <p>${used ? "Your trial has ended." : `Get a ${opts.locked.trialDays}-day free trial for analytics.`}</p>
+  <div class="acts">${used ? "" : `<button class="btn green" type="button" id="trial">Start your ${opts.locked.trialDays}-day free trial</button>`}<a class="btn ${used ? "green" : "ghost"}" href="/account/billing">See plans</a></div>
   <p class="err" id="lockerr" role="alert"></p>
 </section>
 ${connectPanel(project.token, false, opts.runtimeReady === true)}

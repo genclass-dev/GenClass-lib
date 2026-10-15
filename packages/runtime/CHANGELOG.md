@@ -2,10 +2,13 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
-- **CLI copy: the dashboard needs Pro (trials available).** genclass.dev's dashboards now come with Pro; `init`'s
-  dashboard notice and help, the top-level help and the README say so next to the private dashboard link (a link
-  made by 0.3.0-beta.0's `init` opens a page that leads to a trial). No runtime code and no model-visible text
-  changed.
+- **CLI copy: the dashboard needs Pro (get a 7-day free trial for analytics).** genclass.dev's dashboards now come
+  with Pro; `init`'s dashboard notice and help, the top-level help and the README say so next to the private
+  dashboard link, with the trial's length (7 days, the same as `trial_days` in `billing/plans.json`). A link made by
+  0.3.0-beta.0's `init` opens a page that leads to the trial. No runtime code and no model-visible text changed.
+- **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
+  password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
+  GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).
 
 ## 0.3.0-beta.0 (unreleased)
 
