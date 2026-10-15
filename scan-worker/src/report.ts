@@ -21,7 +21,7 @@ import { VISION_EVAL, VISION_LINE, VISION_MODEL, VISION_NAME, VISION_ORT, VISION
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 10;
+export const REPORT_VERSION = 11;
 
 export interface Finding {
   n: number;
@@ -536,7 +536,9 @@ export function viewBlocked(v: ScanResult["views"][number]): { status: number | 
   const small = !!w && w.text >= 0 && w.text < WALL_MAX_TEXT && w.elements < WALL_MAX_ELEMENTS;
   const marks = small && w ? w.marks : [];
   const blank = v.findings.some((f) => f.kind === "page-blank") || (!!w && w.text >= 0 && w.text < WALL_BLANK_TEXT);
-  const odd = v.status !== null && !REAL_STATUS.has(v.status);
+  // 204 is the scanner's own answer to a form navigation (src/policy.ts): page.goto() can hand it back when the page
+  // submitted a form while it loaded, and a 204 never replaces the page, so it is not the page's status
+  const odd = v.status !== null && !REAL_STATUS.has(v.status) && v.status !== 204;
   return marks.length || (odd && blank) ? { status: v.status, marks } : null;
 }
 

@@ -429,6 +429,9 @@ describe("a page the scanner could not see: a bot check or a blank error page ge
     assert.equal(blockedOf(seen(200, [], wall(9000, 1400, ["captcha", "AWS WAF challenge"])), "x"), null);
     // a 404 or 403 page with real content is the site's own page
     assert.equal(blockedOf(seen(404, [], wall(2400, 300)), "x"), null);
+    // 204 is the scanner's own answer to a form the page submitted while loading: never the page's status (seen on a
+    // retail home page whose document answered 200)
+    assert.equal(blockedOf(seen(204, [blank], wall(0, 4)), "x"), null);
   });
   it("needs every view that loaded to be blocked: one view with the real page keeps the score", () => {
     const s = seen(202, [blank], wall(0, 4));
