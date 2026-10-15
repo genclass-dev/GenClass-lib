@@ -150,6 +150,7 @@ to `https://genclass.dev/api/projects`, writes the token it gets back into what 
 ```
   Your dashboard  https://genclass.dev/dashboard/...
   Keep this link private; it is the only way to open your dashboard.
+  The dashboard needs Pro (trials available); the link shows how to start one.
   Saved in .genclass.local (added to .gitignore).
 ```
 
@@ -337,7 +338,8 @@ where GenClass acts.
 **New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
-a GenClass account, or use one private link per app without an account.
+a GenClass account, or use one private link per app without an account. The dashboard needs Pro (trials available):
+until the app's account has Pro or a trial, its data is collected and the dashboard stays locked.
 
 **With an account:**
 
@@ -348,8 +350,8 @@ npx @genclass/runtime@beta whoami    # your account and its apps
 npx @genclass/runtime@beta logout    # end the CLI session
 ```
 
-`login` prints a code and opens `https://genclass.dev/login/device`, where you sign in (Google, GitHub or a
-passkey) and approve that code. It waits until you do (Ctrl-C stops it and saves nothing), then saves the CLI
+`login` prints a code and opens `https://genclass.dev/login/device`, where you sign in (Google or GitHub, plus your
+passkey if your account has one) and approve that code. It waits until you do (Ctrl-C stops it and saves nothing), then saves the CLI
 session in `~/.config/genclass/credentials.json` (`$XDG_CONFIG_HOME/genclass/`; Windows `%APPDATA%\genclass\`),
 readable only by you. `--no-browser` prints the link without opening a browser (it works from any device).
 Inside an app's folder, `login` then asks whether to connect that app; `connect` does that step alone:

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0-beta.1 (unreleased)
+
+- **CLI copy: the dashboard needs Pro (trials available).** genclass.dev's dashboards now come with Pro; `init`'s
+  dashboard notice and help, the top-level help and the README say so next to the private dashboard link (a link
+  made by 0.3.0-beta.0's `init` opens a page that leads to a trial). No runtime code and no model-visible text
+  changed.
+
 ## 0.3.0-beta.0 (unreleased)
 
 The first 0.3.0 prerelease, for the `beta` dist-tag (release.yml publishes a prerelease version to the dist-tag
