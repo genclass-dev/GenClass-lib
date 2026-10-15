@@ -148,8 +148,9 @@ describe("forwarding: paid plans only", () => {
     const r = await t.put("slack");
     expect(r.status).toBe(403);
     expect(await r.json()).toMatchObject({ upgrade_url: "https://genclass.dev/account/billing" });
+    // Free has no dashboard: the app's page is locked, with no forwarding settings
     const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
-    expect(html).toContain("On Pro and Custom, GenClass sends each new detection");
+    expect(html).toContain("Dashboards come with Pro.");
     expect(html).not.toContain('data-kind="slack"');
   });
 

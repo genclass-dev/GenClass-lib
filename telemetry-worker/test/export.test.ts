@@ -40,8 +40,9 @@ describe("export: GET /api/account/projects/<id>/events", () => {
     const cli = await call(t.env, "GET", `/api/account/projects/${t.app.id}/events`, { bearer, origin: null });
     expect(cli.status).toBe(403);
     expect(((await cli.json()) as any).error).toMatch(/command line session cannot read the export/);
+    // Free has no dashboard: the app's page is locked, with no export form
     const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
-    expect(html).toContain("On Pro and Custom you can download every event");
+    expect(html).toContain("Dashboards come with Pro.");
     expect(html).not.toContain('id="exf"');
   });
 

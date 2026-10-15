@@ -56,9 +56,13 @@ describe("billing/plans.json: the one source of plans", () => {
     expect(custom!.stripe_lookup_keys).toEqual({ monthly: "genclass_custom_monthly", yearly: null });
     expect(free!.limits).toEqual({ apps: 3, history_days: 7 });
     expect(pro!.limits).toEqual({ apps: null, history_days: 365 });
-    expect(free!.entitlements).toEqual({ forwarding: false, export: false, analytics: false, custom_model: false });
-    expect(pro!.entitlements).toEqual({ forwarding: true, export: true, analytics: true, custom_model: false });
-    expect(custom!.entitlements.custom_model).toBe(true);
+    // Free is the runtime and its on-device model, without the dashboard; the dashboard comes with Pro
+    expect(free!.entitlements).toEqual({ dashboard: false, forwarding: false, export: false, analytics: false, custom_model: false });
+    expect(pro!.entitlements).toEqual({ dashboard: true, forwarding: true, export: true, analytics: true, custom_model: false });
+    expect(custom!.entitlements).toMatchObject({ dashboard: true, custom_model: true });
+    expect(free!.features.map((f) => f.text).join(" ")).not.toMatch(/dashboard/i);
+    // P0/P1 email alerts are listed, as not available yet (no email sender exists)
+    expect(pro!.features.find((f) => /Email alerts/.test(f.text))).toEqual({ text: "Email alerts for P0/P1 issues", available: false });
     expect(priceText(pro!)).toBe("$99 / month");
     expect(priceText(custom!)).toBe("$599 / month");
     expect(planByLookupKey("genclass_custom_monthly")?.id).toBe("custom");
@@ -72,6 +76,9 @@ describe("billing/plans.json: the one source of plans", () => {
     const text = JSON.stringify(PLANS_JSON);
     expect(text).not.toMatch(/\u2014|!/);
     expect(text).not.toMatch(/\bseats?\b|\bteams?\b/i);
+    // public copy never says how long a trial lasts (TRIAL_DAYS is a worker var)
+    const lines = JSON.stringify((PLANS_JSON as any).plans);
+    expect(lines).not.toMatch(/\btrial\b/i);
   });
 });
 
@@ -1522,7 +1529,7 @@ describe("plans: the Free plan's limits (apps, dashboard ranges)", () => {
     expect(r.status).toBe(409);
     expect(await r.json()).toEqual({
       ok: false,
-      error: "the Free plan holds 3 apps; upgrade to Pro for more apps at https://genclass.dev/account/billing",
+      error: "the Free plan holds 3 apps; Pro has no app limit (trials available) at https://genclass.dev/account/billing",
       upgrade_url: "https://genclass.dev/account/billing",
     });
     const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old" }, origin: null })).json()) as any;
@@ -1532,20 +1539,20 @@ describe("plans: the Free plan's limits (apps, dashboard ranges)", () => {
     expect((await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie })).status).toBe(200);
   });
 
-  it("before paid plans are on sale (no STRIPE_SECRET_KEY) accounts keep the limits they had", async () => {
+  it("without any Stripe key the Free plan's app limit applies too (a trial needs no Stripe and lifts it)", async () => {
     const { env } = setup();
     const { cookie } = await signedIn(env);
-    for (const n of ["a", "b", "c", "d", "e"]) await createApp(env, cookie, n);
+    for (const n of ["a", "b", "c"]) await createApp(env, cookie, n);
+    expect((await call(env, "POST", "/api/account/projects", { body: { name: "d" }, cookie })).status).toBe(409);
+    expect((await call(env, "POST", "/api/billing/trial", { body: {}, cookie })).status).toBe(200);
+    for (const n of ["d", "e"]) await createApp(env, cookie, n);
   });
 
-  it("ranges: Free shows 24 h and 7 days once on sale; Pro and Custom reach a year; a longer ask gets the longest shown", async () => {
+  it("ranges: Free has no dashboard (its stats answer 402); Pro and Custom reach a year; a longer ask gets the longest shown", async () => {
     const free = PLANS[0]!;
     const pro = PLANS[1]!;
-    const on = { BUCKET: { async put() {} }, ...LIVE };
-    const off = { BUCKET: { async put() {} } };
-    expect(viewRanges(on, free)).toEqual(["24h", "7d"]);
-    expect(viewRanges(off, free)).toEqual(["24h", "7d", "30d"]);
-    expect(viewRanges(on, pro)).toEqual(ACCOUNT_RANGES);
+    expect(viewRanges(free)).toEqual(["24h", "7d"]);
+    expect(viewRanges(pro)).toEqual(ACCOUNT_RANGES);
     expect(pickRange("30d", ["24h", "7d"])).toBe("7d");
     expect(pickRange("1y", ["24h", "7d", "30d"])).toBe("30d");
     expect(pickRange(null, ACCOUNT_RANGES)).toBe("7d");
@@ -1555,11 +1562,13 @@ describe("plans: the Free plan's limits (apps, dashboard ranges)", () => {
     const { cookie, account } = await signedIn(env);
     const app = await createApp(env, cookie);
     const range = async (r: string) => ((await (await call(env, "GET", `/api/account/projects/${app.id}/stats?range=${r}`, { cookie })).json()) as any);
-    expect((await range("30d")).range).toBe("7d");
+    const locked = await call(env, "GET", `/api/account/projects/${app.id}/stats?range=30d`, { cookie });
+    expect(locked.status).toBe(402);
+    expect(await locked.json()).toMatchObject({ ok: false, locked: true, upgrade_url: "https://genclass.dev/account/billing" });
     const page = await (await call(env, "GET", `/account/apps/${app.id}`, { cookie })).text();
-    expect(page).toContain('data-r="7d"');
-    expect(page).not.toContain('data-r="30d"');
-    expect(page).toContain("The Free plan shows 7 days.");
+    expect(page).toContain("Dashboards come with Pro.");
+    expect(page).not.toContain('data-r="7d"');
+    expect(page).not.toContain("/stats");
     setPlan(sql, account.id, "pro");
     const year = await range("1y");
     expect(year.range).toBe("1y");
@@ -1593,7 +1602,8 @@ describe("GET /account/billing", () => {
     const page = await (await call(on.env, "GET", "/account/billing", { cookie: b.cookie })).text();
     expect(page).toContain('data-plan="pro"><span>Upgrade to Pro</span>');
     expect(page).toContain('data-plan="custom"><span>Upgrade to Custom</span>');
-    expect(page).toContain("up to 3 apps (you have 0) and 7 days of dashboard history");
+    expect(page).toContain("the runtime and its on-device model, without the dashboard (you have 0 apps). Trials available.");
+    expect(page).toContain('<button class="btn green" type="button" id="trial"><span>Start a trial</span></button>');
     const visible = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!doctype html>/gi, "");
     expect(visible).not.toMatch(/\u2014|!/);
 
@@ -1635,7 +1645,16 @@ describe("GET /account/billing", () => {
   it("GET /api/billing gives the browser its plan; a Custom page says who emails and when", async () => {
     const { env, sql } = setup(LIVE);
     const a = await signedIn(env);
-    expect(await (await call(env, "GET", "/api/billing", { cookie: a.cookie })).json()).toEqual({ plan: "free", subscription_status: null, current_period_end: null, cancel_at_period_end: false, on_sale: true });
+    expect(await (await call(env, "GET", "/api/billing", { cookie: a.cookie })).json()).toEqual({
+      plan: "free",
+      subscription_status: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+      on_sale: true,
+      access: null,
+      trial_ends_at: null,
+      can_trial: true,
+    });
     setPlan(sql, a.account.id, "custom", { subscription_id: "sub_c000000001", subscription_status: "active", current_period_end: "2026-11-13T12:00:00.000Z" });
     const html = await (await call(env, "GET", "/account/billing", { cookie: a.cookie })).text();
     expect(html).toContain("emails ada@example.com within 1 business day of your purchase");
@@ -1774,8 +1793,9 @@ describe("Stripe test and live mode", () => {
     expect(page).not.toContain("data-plan=");
     expect(page).not.toContain("Stripe test mode");
     expect(((await (await call(env, "GET", "/api/billing", { cookie: other.cookie })).json()) as any).on_sale).toBe(false);
-    // the Free plan's limits wait for the live key
-    for (const n of ["a", "b", "c", "d"]) await createApp(env, other.cookie, n);
+    // the Free plan's app limit applies whatever the key (a trial, which needs no Stripe, lifts it)
+    for (const n of ["a", "b", "c"]) await createApp(env, other.cookie, n);
+    expect((await call(env, "POST", "/api/account/projects", { body: { name: "d" }, cookie: other.cookie })).status).toBe(409);
   });
 
   it("the webhook takes the test secret with a test key, and ignores (200) the other mode's events after going live", async () => {
@@ -1812,7 +1832,7 @@ describe("Stripe test and live mode", () => {
     setPlan(sql, a.account.id, "custom", { stripe_customer_id: "cus_tst0000009", subscription_id: "sub_tst0000009", subscription_status: "active", stripe_mode: "test" });
     expect(((await (await call(env, "GET", "/api/billing", { cookie: a.cookie })).json()) as any).plan).toBe("free");
     const app = await createApp(env, a.cookie);
-    expect(((await (await call(env, "GET", `/api/account/projects/${app.id}/stats?range=30d`, { cookie: a.cookie })).json()) as any).range).toBe("7d");
+    expect((await call(env, "GET", `/api/account/projects/${app.id}/stats?range=30d`, { cookie: a.cookie })).status).toBe(402);
     expect((await call(env, "GET", `/api/account/projects/${app.id}/events`, { cookie: a.cookie })).status).toBe(403);
     // Upgrade: a new live customer replaces the test one (whose plan goes with it)
     const s = fakeStripe();
