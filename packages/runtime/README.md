@@ -117,7 +117,8 @@ newer data (search.results). (stale, 0.97; discard 0.98)
 In production these lines print in your users' browsers. From `0.3.0` you can send them to your own endpoint or your
 log shipper as well: `npx @genclass/runtime@beta init --sink webhook:/genclass`, or `data-sink="webhook:/genclass"` on
 the script tag ([See it where you already look](#see-it-where-you-already-look)). Forwarding to Sentry, PostHog or
-Datadog is not part of the free runtime, and no paid plan offers it yet ([genclass.dev/pricing](https://genclass.dev/pricing)).
+Datadog is not part of the free runtime; on Pro, the GenClass collector forwards detections to them once you turn it on
+([genclass.dev/pricing](https://genclass.dev/pricing)).
 
 ## Install
 
@@ -823,8 +824,9 @@ intervention, undo, breaker trip and runtime error to your own side as well: one
 for a log shipper (`console-json`), batched POSTs to an endpoint you own (`webhook`), or a function or `{ send }` object
 of yours. The records go only where you point them. The console default does not change.
 
-**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime, and no paid plan
-offers it yet ([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime has no adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
+**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime. On Pro, the
+GenClass collector forwards detections to them (or Slack, or a signed webhook) once you turn it on in the dashboard
+([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime itself has no adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
 so, and nothing is loaded or sent for those names; `init --sink sentry` stops with a usage error that says the same.
 
 With `/auto` or the script tag you write no adapter code yourself:

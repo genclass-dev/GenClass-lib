@@ -807,8 +807,9 @@ export interface InitOptions {
    * entries also take them by name (`console-json:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = {
    * sinks: ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=console-json">`, `data-sink="console-json"`
    * on the script tag, or `npx @genclass/runtime init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
-   * Datadog is not part of the free runtime, and no paid plan offers it yet (https://genclass.dev/pricing); a page
-   * config that names `sentry`, `posthog` or `datadog` gets one console warning that says so and nothing else.
+   * Datadog is not part of the free runtime (on Pro the GenClass collector forwards to them once turned on:
+   * https://genclass.dev/pricing); a page config that names `sentry`, `posthog` or `datadog` gets one console warning
+   * that says so and nothing else.
    */
   sinks?: Sink[];
   /** Session id and tags stamped on records (never shown to the model). */

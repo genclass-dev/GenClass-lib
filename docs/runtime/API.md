@@ -612,8 +612,8 @@ overlay uses it), so debugging tools never become causes in situations.
 ### See it where you already look
 
 0.3.0 (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
-in `0.2.x`. The free runtime has no Sentry, PostHog or Datadog adapter, and no paid plan offers forwarding to
-those tools yet (https://genclass.dev/pricing).
+in `0.2.x`. The free runtime has no Sentry, PostHog or Datadog adapter. On Pro, the GenClass collector forwards
+detections to those tools once you turn it on (https://genclass.dev/pricing).
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
 `sampled`, `diagnosis`, `p`, `detection` (kind `detection`: `"likely"`, or `"possible"` for a sink with
