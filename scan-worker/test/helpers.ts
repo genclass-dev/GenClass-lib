@@ -169,6 +169,8 @@ export interface PageScript {
   reflow?: (width: number) => unknown;
   /** The window's overflow as the page reads it (html and body overflow-y, scroll and client height). */
   overflow?: (view: string) => unknown;
+  /** What the "wall" read returns per view: visible text length, element count, title, challenge markers. */
+  wall?: (view: string) => unknown;
   /** Response statuses by URL in the browser's own record (default 200), and other DevTools events sent while loading. */
   statuses?: Record<string, number>;
   cdpEvents?: [string, unknown][];
@@ -337,8 +339,9 @@ export class FakePage implements PageLike {
       this.pointerAtAxe.push(this.moves.at(-1));
       return JSON.stringify(this.script.axe ? this.script.axe(this.view) : { ok: false, error: "axe-core is not installed" });
     }
-    const side = /\)\("(vitals|audit|reflow|overflow)", (\{.*\})\)\)\)\(\)$/.exec(src);
+    const side = /\)\("(vitals|audit|reflow|overflow|wall)", (\{.*\})\)\)\)\(\)$/.exec(src);
     if (side) {
+      if (side[1] === "wall") return JSON.stringify(this.script.wall?.(this.view) ?? null);
       this.audits.push({ cmd: side[1], arg: JSON.parse(side[2]) });
       const v = side[1] === "vitals" ? this.script.vitals?.(this.view) : side[1] === "audit" ? this.script.audit?.(this.view) : side[1] === "overflow" ? this.script.overflow?.(this.view) : this.script.reflow?.(this.viewport?.width ?? 0);
       return JSON.stringify(v ?? null);

@@ -149,6 +149,17 @@ render `NaN` or a broken image from it. Each view counts the non-GET fetch/XHR r
 says so in a note. A template leak, a broken image or a GenClass diagnosis other than a duplicate is then listed but
 not scored, when every view it appeared in had such answers (`unscored` on the finding).
 
+### Pages the scanner could not see
+
+When every view that loaded got a bot check or a wall instead of the real page, the report has no score, no findings and
+no with-GenClass score, only the message ("We couldn't check amazon.com: it showed our browser a blank or bot-check page
+(HTTP 202) instead of the real page. Scores only count pages we can see.") and one screenshot (`blockedOf` in
+`src/report.ts`). A view counts as blocked when its HTML carries a known challenge or captcha marker (AWS WAF, Cloudflare,
+Akamai, Imperva, DataDome, PerimeterX, Sucuri, Kasada, a robot check, a captcha) on a small page (under 1,500 characters of
+visible text and 400 elements: a real page may load a captcha or a WAF script too), or when it answered with a status
+other than 200, 203 or 304 and was blank (the visual checks' `page-blank`, or under 200 characters of text). A blank page
+answered 200 without such markers is the site's own and keeps its score. Such a report is cached 30 minutes, not 6 hours.
+
 ## The visual checks: the runtime's own chunk
 
 The checks are the measured visual checks built for the GenClass runtime (`packages/runtime/src/visual`, branch

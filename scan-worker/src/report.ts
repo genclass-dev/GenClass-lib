@@ -21,7 +21,7 @@ import { VISION_EVAL, VISION_LINE, VISION_MODEL, VISION_NAME, VISION_ORT, VISION
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 8;
+export const REPORT_VERSION = 9;
 
 export interface Finding {
   n: number;
@@ -134,6 +134,11 @@ export interface Report {
   /** Measured once on this load: the desktop's Largest Contentful Paint and layout shift, its JavaScript, and the light phone's LCP for comparison. */
   metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; phoneLcpMs: number | null; phoneCls: number | null; axeIncomplete: number; axePasses: number; whoAsks: number };
   withGenClass: { shown: boolean; value: number | null; breakdown: ScoreBreakdown | null; fixed: number; note: string };
+  /**
+   * Set when the scanner's browser was shown a bot check, a wall or a blank error page instead of the real page in
+   * every view (blockedOf): the report then has no score and no findings, only this message. Null otherwise.
+   */
+  blocked: { message: string; status: number | null; marks: string[] } | null;
   probe: {
     observe: ProbeResult | null; guard: ProbeResult | null; guardHoldMs: number | null; guardAggressiveness: string; guardMargin: number | null;
     /** How the guard pass was configured, in words: the shipped default, or what differs from it. */
@@ -516,6 +521,42 @@ export function withNote(r: ScanResult, aggr: string, margin: number | null, hol
   return parts.join(" ");
 }
 
+/** Statuses a real page answers with; any other status together with a blank page means the scanner did not see it. */
+const REAL_STATUS = new Set([200, 203, 304]);
+/** A challenge or captcha marker counts only on a page this small (real pages may load a captcha or a WAF script too). */
+export const WALL_MAX_TEXT = 1500;
+export const WALL_MAX_ELEMENTS = 400;
+/** A page with less visible text than this counts as blank for the status rule. */
+export const WALL_BLANK_TEXT = 200;
+
+/** Whether one view saw a bot check, a wall or a blank error page instead of the real page; its signals when it did. */
+export function viewBlocked(v: ScanResult["views"][number]): { status: number | null; marks: string[] } | null {
+  const w = v.wall ?? null;
+  const small = !!w && w.text < WALL_MAX_TEXT && w.elements < WALL_MAX_ELEMENTS;
+  const marks = small && w ? w.marks : [];
+  const blank = v.findings.some((f) => f.kind === "page-blank") || (!!w && w.text < WALL_BLANK_TEXT);
+  const odd = v.status !== null && !REAL_STATUS.has(v.status);
+  return marks.length || (odd && blank) ? { status: v.status, marks } : null;
+}
+
+/**
+ * Whether the scanner could not see the real page: every view that loaded shows a known bot-check or captcha marker on
+ * a small page, or answered with a status other than 200, 203 or 304 and was blank. A real blank page answered 200
+ * without such markers is not blocked: it keeps its score (and its page-blank finding). Null when the page was seen.
+ */
+export function blockedOf(r: ScanResult, display: string): Report["blocked"] {
+  const ok = r.views.filter((v) => v.ok);
+  if (!ok.length) return null;
+  const per = ok.map(viewBlocked);
+  if (per.some((x) => x === null)) return null;
+  const status = per.map((x) => x?.status ?? null).find((x) => x !== null && !REAL_STATUS.has(x)) ?? per[0]?.status ?? null;
+  const marks = [...new Set(per.flatMap((x) => x?.marks ?? []))];
+  const said = [marks[0] ?? "", status !== null && !REAL_STATUS.has(status) ? `HTTP ${status}` : ""].filter(Boolean).join(", ");
+  const what = `${marks.length ? "a bot-check page" : "a blank or bot-check page"}${said ? ` (${said})` : ""}`;
+  return { message: `We couldn't check ${display}: it showed our browser ${what} instead of the real page. Scores only count pages we can see.`, status, marks };
+}
+export const BLOCKED_NOTE = "Not measured: the scanner's browser was shown a bot check or a blank page instead of the real page.";
+
 /** Which categories this scan measured, and why the others were not. */
 export function coverageOf(r: ScanResult): { measured: Record<Category, boolean>; notMeasured: Partial<Record<Category, string>> } {
   const ok = r.views.filter((v) => v.ok);
@@ -633,6 +674,15 @@ export function buildReport(
   lcpOnFasterLoad(merged, r);
 
   const { measured, notMeasured } = coverageOf(r);
+  // a bot check or a wall instead of the real page: no findings and no score, only the message
+  const blocked = blockedOf(r, target.display);
+  if (blocked) {
+    merged.clear();
+    for (const c of CATEGORIES) {
+      measured[c.id] = false;
+      notMeasured[c.id] = BLOCKED_NOTE;
+    }
+  }
   // views whose page got stand-in answers while loading (the probe ran on the desktop page), or had files refused
   const standIn = new Set(r.views.filter((v) => (v.standIns?.count ?? 0) > 0).map((v) => v.id as string));
   if (standIn.has("desktop") || (r.probe?.loadStandIns ?? 0) > 0) standIn.add("probe");
@@ -745,7 +795,9 @@ export function buildReport(
   const guardRan = !!r.guard?.ran;
   const visualRan = r.views.some((v) => v.ok && v.checks !== null);
   const measuredWith = guardRan || visualRan;
-  const note = !flags.withGenClass
+  const note = blocked
+    ? "No score with or without GenClass: the scanner did not see the real page."
+    : !flags.withGenClass
     ? "The with-GenClass score is switched off in this copy of the scanner."
     : measuredWith
       ? withNote(r, ids.guardAggressiveness ?? "balanced", ids.guardMargin ?? null, ids.guardHoldMs)
@@ -777,6 +829,7 @@ export function buildReport(
     score: without,
     top,
     notMeasured,
+    blocked,
     metrics: {
       lcpMs: desk?.metrics?.lcpMs ?? null,
       cls: desk?.metrics?.cls ?? null,
@@ -788,9 +841,9 @@ export function buildReport(
       whoAsks: Math.max(0, ...r.views.map((v) => v.metrics?.whoAsks ?? 0)),
     },
     withGenClass: {
-      shown: flags.withGenClass && measuredWith,
-      value: flags.withGenClass && measuredWith ? withBreakdown.value : null,
-      breakdown: flags.withGenClass && measuredWith ? withBreakdown : null,
+      shown: flags.withGenClass && measuredWith && !blocked,
+      value: flags.withGenClass && measuredWith && !blocked ? withBreakdown.value : null,
+      breakdown: flags.withGenClass && measuredWith && !blocked ? withBreakdown : null,
       fixed: fixedCount,
       note,
     },

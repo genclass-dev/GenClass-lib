@@ -7,6 +7,8 @@
 // <key> is the first 32 hex characters of sha256(normalised URL).
 
 export const CACHE_MS = 6 * 60 * 60 * 1000;
+/** How long a report the scanner could not see the page for (report.ts blockedOf) is served from the cache. */
+export const BLOCKED_CACHE_MS = 30 * 60 * 1000;
 export const RETAIN_MS = 24 * 60 * 60 * 1000;
 /** A lease outlives the 45 s scan budget plus the checks before it and the save after it, and no more. */
 export const LEASE_MS = 60_000;
@@ -39,7 +41,8 @@ export async function cachedReport(bucket: Bucket, key: string, now: number, ver
     const r = JSON.parse(await obj.text()) as Record<string, unknown>;
     if (r.v !== version) return null;
     const at = Date.parse(String(r.scannedAt || "")) || obj.uploaded.getTime();
-    return now - at < CACHE_MS ? r : null;
+    // a page the scanner could not see (a bot check) may let it in later: kept 30 minutes, not 6 hours
+    return now - at < (r.blocked ? BLOCKED_CACHE_MS : CACHE_MS) ? r : null;
   } catch {
     return null;
   }
