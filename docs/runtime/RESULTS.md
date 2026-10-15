@@ -398,12 +398,23 @@ walk, which missed the two shared chunks (2.74 + 0.19 KB).
 | + no vendor sink adapters: the Sentry, PostHog and Datadog adapters removed (never shipped), one console warning for those names in a page config (wave2/no-vendor-sinks `31ddc98`, run 38491077597) | **107.73 KB** (101.75 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **128.01 KB** (375.2 KB minified) |
 | + that warning reworded to claim no paid feature: "Sentry, PostHog and Datadog forwarding is not in the free runtime" (`eea042b`, run 38494904699) | **107.71 KB** (101.74 + 3.05 + 2.74 + 0.19) | **99.61 KB** (93.64 + 3.05 + 2.74 + 0.19) | **128.00 KB** (375.1 KB minified) |
 | limit in `bundle.test.ts` (measured at `bff4a71` + 1.5 KB, owner-approved for 0.3.0; not re-set: the release candidate was 0.13 / 0.10 KB under it, and with the vendor-name warning `/auto` is 0.03 KB under it) | 107.74 KB | 99.71 KB | none |
+| + measured visual checks' first-load stub: wave2/visual `6ae209f` merged (`release/0.3.0-visual`, merge `2c7014f`, PR head `be8cb7c`, run 38676978903; §13) | **108.25 KB** (102.28 + 3.05 + 2.74 + 0.19) | **100.13 KB** (94.15 + 3.05 + 2.74 + 0.19) | **128.56 KB** (376.5 KB minified) |
+| limit in `bundle.test.ts` on `release/0.3.0-visual`, **pending the owner's OK** (the measured sizes + 0.05 / 0.07 KB) | 108.30 KB | 100.20 KB | none |
 
 Removing the vendor adapters changes no first load (they were lazy chunks of `/auto` and files the script tag loaded
 from the CDN). The one warning for the names `sentry`, `posthog` and `datadog` (`src/cdn/sinks.ts` `applySinks`: the
 name check and the text with the pricing link, as reworded in `2fea265`) adds 0.10 KB to `/auto` and 0.08 KB to the
 script tag; the main entry, which has no sink names, is unchanged. That leaves 0.03 KB under the `/auto` limit: the next change that adds to
 `/auto`'s first load needs a smaller first load or a new limit.
+
+The measured visual checks (§13, [VISUAL.md](VISUAL.md)) were that change. Their first-load stub
+(`src/visual/start.ts`: the development-host rule, the hidden-tab and prerender gates, the "check" listener set,
+`rt.checks()` / `rt.checkNow()`, the "check" sink filter, the `visual` page-config key) adds 550 B to `/auto` and 524 B
+to the main entry, measured by `test/first-load-size.mjs` against `release/0.3.0` at `32cc476` in the same run's
+`visual-browser` job (107.711 to 108.248 KB, 99.614 to 100.126 KB; the job fails at 0.6 KB of growth). The checks
+themselves are one lazy file (`dist/visual/index.js`, about 35 KB gzip), outside every first load; the script tag
+loads it by URL, and the script-tag file grows by 0.56 KB. Both entries are over the 107.74 / 99.71 KB limits, so
+`bundle.test.ts` carries 108.30 / 100.20 KB on `release/0.3.0-visual` until the owner decides.
 
 The flow expectations were +7.3 KB on `/auto` when `src/learn/flows.ts` was in the first load (106.5 KB vs 0.2.2's
 99.17 KB on wave1/expectations, run 38455195053). Imported lazily, and only with `learn.expectations: true`, they
@@ -613,7 +624,7 @@ checks work as designed. Section 14 has the bench on the demos, templates, compa
 | planted faults found on the fixture pages | 35 of 35 (every planted fault, on its element, 23 kinds) | `visual.spec.ts`, 24 tests passed |
 | findings on clean fixture pages (false reports) | 0 on the clean page at 1280 x 800 and at 390 x 844 (phone), 0 on the light variant of the dark-mode page, 0 on a 10,000-element page, 0 besides the planted fault on every other page | same |
 | runtime fixes on fixture pages | text colour, `pointer-events` and scroll lock applied, verified, undone; 0 CSP violations from the owned rule under `style-src 'self'` | same |
-| first-load growth against main (minified + gzip) | first build, against an older main: `/auto` +486 B (99.649 KB), main entry +431 B (92.118 KB); limit 512 B. After the review, against main of 2026-10-13 (app tokens, `protect()`; CI run 38497342999): `/auto` +582 B (101.244 KB, over main's 101 KB ceiling), main entry +524 B (93.699 KB of 94 KB). The narrow development-host rule and the hidden-tab gate account for about 100 B. Ceilings raised on the branch to 101.5 KB and 0.6 KB growth, **pending the owner's OK** | `test/first-load-size.mjs` in the `visual-browser` job, `test/bundle.test.ts` |
+| first-load growth against main (minified + gzip) | first build, against an older main: `/auto` +486 B (99.649 KB), main entry +431 B (92.118 KB); limit 512 B. After the review, against main of 2026-10-13 (app tokens, `protect()`; CI run 38497342999): `/auto` +582 B (101.244 KB, over main's 101 KB ceiling), main entry +524 B (93.699 KB of 94 KB). The narrow development-host rule and the hidden-tab gate account for about 100 B. Ceilings raised on the branch to 101.5 KB and 0.6 KB growth, **pending the owner's OK**. Merged into 0.3.0-beta.0 (`release/0.3.0-visual`, CI run 38676978903), against `release/0.3.0`: `/auto` +550 B (108.248 KB), main entry +524 B (100.126 KB); limits 108.30 / 100.20 KB in `bundle.test.ts`, also pending (§10) | `test/first-load-size.mjs` in the `visual-browser` job, `test/bundle.test.ts` |
 | lazy chunk `dist/visual/index.js` | about 35 KB gzip (97 KB minified) | esbuild, minified |
 | a 10,000-element page | 2 passes, 72.9 to 127.8 ms of check time in all (two runs), longest slice 8.5 ms (budget 8 ms per slice), no partial pass; after the review: 106.7 ms, longest slice 8.4 ms | `big.html` |
 | the same page with hover, clicks and scrolling (after the review) | 137.1 ms of check time in all, longest slice 8.7 ms, no long task (50 ms or more) on the page once the checks ran | `big.html`, CI run 38497342999 |

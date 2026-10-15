@@ -79,12 +79,13 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // 38491077597, wave2/no-vendor-sinks 31ddc98); reworded so it names no paid feature, 107.71 KB (CI run 38494904699).
   // Merged with wave2/visual (release/0.3.0-visual), PENDING THE OWNER'S OK: the measured visual checks' first-load
   // stub (src/visual/start.ts with its development-host rule, the "check" listener set, rt.checks()/checkNow(), the
-  // "check" sink filter, the visual page-config key) adds about 0.6 KB to both, past the limits above (107.74 / 99.71
-  // KB). The checks themselves are a lazy chunk (dist/visual/index.js, asserted below); the CI visual-browser job
-  // measures the stub's growth over release/0.3.0 exactly (test/first-load-size.mjs). The limits are raised to the
-  // measured sizes plus a few bytes on this branch only so the rest of CI runs; the owner decides before 0.3.0 ships
-  // (docs/runtime/RESULTS.md section 13). Both sizes are printed before either is asserted.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 108.6, "index.js": 100.5 };
+  // "check" sink filter, the visual page-config key) adds 550 B to /auto and 524 B to the main entry, past the limits
+  // above (107.74 / 99.71 KB): 108.25 / 100.13 KB, script tag 128.56 KB (CI run 38676978903). The checks themselves
+  // are a lazy chunk (dist/visual/index.js, asserted below); the CI visual-browser job measures the stub's growth over
+  // release/0.3.0 exactly (test/first-load-size.mjs, fails at 0.6 KB). The limits are those sizes plus 0.05 / 0.07 KB
+  // on this branch only; the owner decides before 0.3.0 ships (docs/runtime/RESULTS.md sections 10 and 13). Both
+  // sizes are printed before either is asserted.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 108.3, "index.js": 100.2 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };

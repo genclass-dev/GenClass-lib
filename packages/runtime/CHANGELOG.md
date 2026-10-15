@@ -463,9 +463,9 @@ observer does not record the runtime's own writes.
     intranet hosts. `visual: true` (or `data-visual="on"`, `<meta name="genclass" content="visual=on">`) turns them on
     everywhere; `?genclass-visual=on` turns on report-only checks for the person who opened the link; `visual: false`
     or `?genclass-visual=off` turns them off. `createRuntime()` leaves them off.
-  - **Cost.** First load grows by about 0.6 KB gzip (the stub; measured in CI against `release/0.3.0` without the
-    checks), which puts both first loads over the 0.3.0 limits: see "First-load size" below, pending the maintainers'
-    decision. The checks are a lazy chunk (`dist/visual/index.js`, about 35 KB gzip), loaded 1.5 s after `load` and only in a visible tab
+  - **Cost.** First load grows by 550 B gzip on `/auto` and 524 B on the main entry (the stub; measured in CI against
+    `release/0.3.0` without the checks), which puts both first loads over the 0.3.0 limits: see "First-load size"
+    below, pending the maintainers' decision. The checks are a lazy chunk (`dist/visual/index.js`, about 35 KB gzip), loaded 1.5 s after `load` and only in a visible tab
     that is not prerendering. Every page read (passes, the 2 s read of `html` and `body`, the click, hover, focus,
     scroll and page-blank checks) runs in idle callbacks: slices of 8 ms, 100 ms per pass and 1,000 ms per 10 minutes
     of check time. One step can still exceed a slice when the browser must first lay out a heavy page, and a step of
@@ -534,6 +534,11 @@ code, and the dashboard's counting, which is the worker's) measures the same: 10
 first load (they were lazy chunks and CDN files); the one console warning for those names in a page config adds
 0.10 KB to `/auto` and 0.08 KB to the script tag, and nothing to the main entry: **107.71 KB** and **99.61 KB**, script
 tag 128.00 KB (CI run 38494904699, RESULTS.md §10), 0.03 / 0.10 KB under the limits, which are not re-set.
+
+The measured visual checks' first-load stub then adds 550 B to `/auto` and 524 B to the main entry (measured against
+`release/0.3.0` by `test/first-load-size.mjs` in CI; the checks themselves are a lazy chunk): **108.25 KB** and
+**100.13 KB**, script tag 128.56 KB (CI run 38676978903, RESULTS.md §10 and §13), over the 107.74 / 99.71 KB limits.
+The test's limits are 108.30 / 100.20 KB on this branch, **pending the maintainers' decision**.
 
 ## 0.2.2 (2026-10-13)
 

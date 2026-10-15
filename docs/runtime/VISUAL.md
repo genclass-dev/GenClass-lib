@@ -1149,6 +1149,9 @@ packages/runtime/src/visual/
   As measured on 2026-10-13 against current main (RESULTS.md section 13): the stub adds 582 B to `/auto` (101.24 KB,
   over main's 101 KB ceiling) and 524 B to the main entry (93.70 KB of 94 KB), above the 300 to 500 B target; the
   narrow development-host rule and the hidden-tab gate account for about 100 B of it. The owner decides the ceiling.
+  Merged into 0.3.0-beta.0 (`release/0.3.0-visual`, CI run 38676978903, RESULTS.md sections 10 and 13): the stub adds
+  550 B to `/auto` (108.25 KB) and 524 B to the main entry (100.13 KB) against `release/0.3.0`, over its 107.74 /
+  99.71 KB limits; `bundle.test.ts` carries 108.30 / 100.20 KB there, pending the owner's decision.
 
 ## 14. Test plan
 

@@ -687,7 +687,7 @@ with `GenClass.init({ visual: true })` (or `data-visual="on"`, `<meta name="genc
 them with a sink or `rt.on("check", f => ...)`; `?genclass-visual=on` turns on report-only checks for the person who
 opened the link; `visual: false` or `?genclass-visual=off` turns them off.
 
-**Cost.** About 0.55 KB gzip of first load. The checks are a separate file loaded 1.5 s after the page's `load` event
+**Cost.** About 0.5 KB gzip of first load (550 B on `/auto`, 524 B on the main entry; see Performance). The checks are a separate file loaded 1.5 s after the page's `load` event
 in a visible tab, and all their page reads (passes, the 2 s read of `html` and `body`, the click, hover, focus and
 scroll checks) run in idle callbacks: slices of 8 ms, at most 100 ms per pass and 1 s per 10 minutes. One step can
 still take longer than a slice when the browser has to lay out a heavy page first (measured in RESULTS.md section 14).
@@ -1074,19 +1074,20 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | settled-point check | 0.3 ms |
 
 - **Bundle:** what every page loads is about 108 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 107.71 KB and
-  99.61 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38494904699), which keeps them under
-  107.74 KB and 99.71 KB (the `0.3.0-beta.0` release build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
+  discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 108.25 KB and
+  100.13 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38676978903), which keeps them under
+  108.30 KB and 100.20 KB (pending the maintainers' decision: the limit approved for `0.3.0` was 107.74 / 99.71 KB,
+  the `0.3.0-beta.0` release build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
   99.17 KB and 91.70 KB; `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink
   names' proxy and the learned-state persistence (docs/runtime/RESULTS.md §10), then observe's detection tiers and
   deferred situations (+1.3 / +1.4 KB, §11), and on `/auto` the one warning for the sink names `sentry`, `posthog` and
-  `datadog` (+0.10 KB, §10). The model worker, ONNX Runtime Web's JavaScript (about
-  70 KB gzip for WASM, 115 KB with WebGPU, minified), the devtools, the sink adapters and the opt-in flow
-  expectations are separate chunks loaded on demand.
+  `datadog` (+0.10 KB, §10), then the measured visual checks' stub (+0.54 / +0.51 KB, §10 and §13). The model worker, ONNX Runtime Web's JavaScript (about
+  70 KB gzip for WASM, 115 KB with WebGPU, minified), the devtools, the sink adapters, the measured visual checks
+  and the opt-in flow expectations are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  128 KB gzip (128.00 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
-  its model worker, ONNX Runtime glue and sink adapters load on demand.
+  129 KB gzip (128.56 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
+  its model worker, ONNX Runtime glue, sink adapters and visual checks load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass
   took about 182 / 330 / 599 ms at 500 / 780 / 1,170 tokens: about 180 ms per decision at the single-thread budget
