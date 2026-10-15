@@ -1,3 +1,151 @@
+# Calibration of scan-score/4 (strict)
+
+The owner asked for a strict score: median about 50 to 55 on the reference pages, the worst real pages in the 20s and
+30s, the best well-built page no higher than about 85 and nothing at 90 or more unless it has almost nothing to report,
+the deliberate-bug fixture far lower, and every lost point traceable to a listed finding. Two levers: a strict curve
+and more real checks (README, "The deeper checks added with scan-score/4"). 2026-10-15, the test copy, Chrome 128 in
+Browser Rendering, axe-core 4.13.0, race probe runtime 0.2.2.
+
+## The formula
+
+```
+points(rule) = base(severity) × min(3, 1 + log10(instances))   base: critical 50, serious 25, moderate 15, minor 8
+category     = 100 × Π over the category's rules (1 − points / 100)
+mean         = Π over measured categories (max(category, 10) / 100) ^ (weight / Σ weight)
+score        = 100 × mean², then capped: one critical rule 59, two critical rules 35, three serious-or-critical rules 69
+weights      : Visual bugs 20, Accessibility 22, Phone 14, Reliability 12, Speed 12, Security 10, Search and sharing 5, Races 5
+```
+
+Against scan-score/3 (base 30/15/7/3, at most twice the base, weighted mean): every rule costs more at every count
+(a unit test checks it), the geometric mean lets one failing category pull the page down, and squaring the mean is the
+curve (90 gives 81, 70 gives 49, 50 gives 25). The caps rarely bind under the curve; when one does, the report says so
+and names the findings (`scoreNote`). The top issues show what each rule costs before the cap.
+
+How the constants were chosen: the structure (log instance factor up to 3x, multiplicative categories, geometric mean,
+a square, caps) was fixed first; the base points, the category floor and the exponent were then picked from a small grid
+on pass 2's findings (with its false findings removed) for the owner's targets, preferring round numbers, and checked
+on the final pass below. Nothing was tuned per page. A first set (50/30/20/10, floor 5) gave a median of 44.5 and the
+worst real pages 16 to 21, stricter than asked.
+
+## What was scanned
+
+The same 20 public home pages as scan-score/3 (A to T, by letter only) and the fixture with `?deep=1&judge=1` (X), which
+now also has one deliberate problem per new check (README, Tests). One at a time, 20 s apart, through the public
+`POST /api/scan` of the test copy. Pass 1 (first build of the new checks), pass 2 (after the first fixes), a final pass
+(the formula below), and rescans after the last three fixes (A, H, N, T and X; D and A also once in between, to check that a rescan reproduces the score: it did, 90 and 59).
+About 85 scans in all, with the fixture scans made while building.
+
+## The result
+
+Scores out of 100; "n/m" not measured (left out, with the reason in the report); "s" the whole scan. scan-score/3 is
+the pass-4 score of the previous calibration on the same page. "From new checks" counts scored findings of the
+scan-score/4 checks.
+
+| site | kind | s | scan-score/3 | scan-score/4 | before cap | cap | visual | a11y | phone | reliab. | speed | security | search | races | scored findings (rules) | from new checks |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | reference | 22.1 | 89 | **59** | 64 | 59 | 100 | 41 | 100 | 100 | 100 | 85 | 85 | 100 | 5 (5) | 2 |
+| B | developer platform | 39.9 | 99 | **96** | 96 |  | 100 | 92 | 100 | 100 | 100 | 100 | 100 | n/m | 1 (1) | 0 |
+| C | government | 30.7 | 99 | **95** | 95 |  | 100 | 90 | 100 | 100 | 100 | 100 | 100 | 100 | 1 (1) | 0 |
+| D | company | 35.0 | 99 | **90** | 90 |  | 100 | 82 | 100 | 100 | 92 | 100 | 100 | 100 | 3 (3) | 1 |
+| E | documentation | 36.0 | 91 | **69** | 69 |  | 100 | 73 | 51 | 100 | 92 | 100 | 90 | n/m | 6 (6) | 1 |
+| F | education | 28.1 | 86 | **50** | 50 |  | 100 | 46 | 52 | 100 | 73 | 85 | 78 | n/m | 10 (10) | 7 |
+| G | personal, static | 45.0 | 73 | **26** | 26 |  | 100 | 0 | 75 | 85 | 100 | 56 | 76 | n/m | 15 (15) | 7 |
+| H | publisher | 25.8 | 87 | **46** | 46 |  | 100 | 20 | 100 | 92 | 90 | 85 | 100 | 100 | 9 (9) | 2 |
+| I | nonprofit | 21.6 | 78 | **27** | 27 |  | 100 | 8 | 67 | 100 | 90 | 72 | 85 | n/m | 13 (13) | 4 |
+| J | marketplace | 28.9 | 86 | **49** | 49 |  | 100 | 22 | 100 | 100 | 92 | 92 | 92 | 100 | 9 (9) | 2 |
+| K | government | 33.2 | 92 | **66** | 66 |  | 100 | 47 | 100 | 100 | 100 | 66 | 100 | 100 | 7 (7) | 3 |
+| L | search | 32.9 | 84 | **39** | 39 |  | 100 | 14 | 100 | 100 | 82 | 85 | 100 | 100 | 10 (10) | 2 |
+| M | publisher | 37.6 | 77 | **30** | 30 |  | 100 | 5 | 75 | 100 | 100 | 92 | 82 | n/m | 12 (12) | 3 |
+| N | retail | 43.7 | 85 | **44** | 44 |  | 100 | 23 | 78 | 100 | 92 | 74 | 100 | 75 | 9 (9) | 2 |
+| O | AI builder | 37.3 | 89 | **50** | 50 |  | 100 | 39 | 73 | 100 | 66 | 72 | 100 | n/m | 8 (8) | 3 |
+| P | AI builder | 26.2 | 96 | **73** | 73 |  | 100 | 70 | 100 | 92 | 78 | 72 | 100 | n/m | 10 (10) | 4 |
+| Q | AI builder | 23.5 | 91 | **60** | 60 |  | 100 | 42 | 100 | 100 | 85 | 72 | 100 | n/m | 8 (8) | 3 |
+| R | AI builder | 21.9 | 82 | **52** | 52 |  | 100 | 34 | 75 | 100 | 100 | 72 | 100 | n/m | 5 (5) | 2 |
+| S | AI builder | 23.7 | 81 | **29** | 29 |  | 100 | 0 | 72 | 100 | 100 | 72 | 100 | n/m | 6 (6) | 3 |
+| T | AI builder | 38.6 | 99 | **70** | 70 |  | 100 | 69 | 100 | 100 | 56 | 85 | 100 | n/m | 5 (5) | 2 |
+| X | the fixture, `?deep=1&judge=1` | 46.1 | 57 | **9** | 9 |  | 32 | 11 | 26 | 40 | 51 | 48 | 48 | 75 | 36 (36) | 17 |
+
+| | min / median / max over the 20 public pages |
+|---|---|
+| overall, scan-score/4 | **26 / 51 / 96** (scan-score/3: 73 / 88 / 99) |
+| the fixture X | **9** (scan-score/3: 57); with GenClass 10 (the invisible text fixed in the page) |
+| accessibility | 0 / 40 / 92 |
+| phone | 51 / 100 / 100 |
+| speed | 56 / 92 / 100 |
+| security | 56 / 85 / 100 |
+| search and sharing | 76 / 100 / 100 |
+
+- The worst real pages are 26 to 30 (G, I, S, M): accessibility at or near 0 (dozens of axe-core failures) plus security
+  and phone findings. The fixture, with one deliberate problem of almost every kind, is 9.
+- The three highest have almost nothing to report: B (96) and C (95) one minor axe-core best practice each, D (90)
+  three minor findings (an empty heading, content outside landmarks, a web font with `font-display: block`). No other
+  page reaches 75. If the owner wants D under 85, minor would need 12 points (D 85, B 94, C 93, median 47.5).
+- Every page lost points only to listed findings; B, C and D show it most plainly.
+- Visual bugs stay at 100 on every public page: the visual checks found nothing on them, as in scan-score/3.
+
+## The sampled check of the new findings
+
+Every scored finding of a new check on the 20 public pages in the final pass, 57 in all, was checked against the live
+page: headers, cookies, http:// and the head with curl (a phone Chrome user agent, following redirects), the rest in a
+desktop browser (the DOM, computed styles, `document.fonts`, Resource Timing, image files fetched directly).
+
+| check | findings | confirmed | false | unclear |
+|---|---|---|---|---|
+| no CSP limiting scripts | 13 | 12 | 1 (T: its CSP is in a meta tag, and T's phone audits ran out of time, so the head was not read) | |
+| clickjacking (no X-Frame-Options or frame-ancestors) | 9 | 9 | | |
+| social preview tags | 5 | 5 | | |
+| image formats (JPEG, PNG, GIF over 100 KB) | 5 | 5 (a 2.0 MB GIF, PNGs of 136 and 601 KB, JPEGs of 136 and 390 KB) | | |
+| meta description | 4 | 4 | | |
+| no nosniff | 4 | 4 | | |
+| font-display | 4 | 3 | | 1 (D: the scanner's copy had a `block` face last; a browser in another region got only the `swap` one) |
+| skip link | 3 | | 3 (A, H: the skip link is 1 by 1 px until focused, which the stop list left out; N: a "Skip to Content" button) | |
+| HSTS | 2 | 2 | | |
+| page weight | 2 | 1 (F: a 2.0 MB GIF alone) | 1 (T: 5.6 MB in the scanner, 1.2 MB in a browser; it retries the scanner's stand-in answers) | |
+| quirks mode, http:// not redirecting, generic link text, insecure cookies, keyboard focus | 1 each | 5 | | |
+| deprecated APIs | 1 | | | 1 (P: Chrome 128 reports `overflow: visible` on two images; a current Chrome no longer does) |
+| **total** | **57** | **50** | **5** | **2** |
+
+All five false findings were fixed and the pages rescanned (the table above is after the fixes): the skip link is now
+looked for among every displayed focusable element whatever its size or opacity, and a control whose words say it skips
+to the content counts; a missing CSP is not judged when the head was not read; the page weight is listed, not scored,
+when the phone view got stand-in answers. On the rescans A, H and N have no skip-link finding and T neither of the two.
+The fixture reported every deliberate problem of the new checks except http:// (the worker cannot fetch a workers.dev
+host of the same account, so that one is not judged there).
+
+## False findings found in passes 1 and 2, and what was done
+
+| where | what the scanner reported | what the live page showed | fix |
+|---|---|---|---|
+| C, E (security) | no HSTS | both send HSTS | Chrome's renderer copy of the headers can leave HSTS out: the raw headers (`Network.responseReceivedExtraInfo`) are used |
+| R (security) | no HSTS | HSTS sent | the scanner read a later document the page prefetched (`/app`, shown with pushState): the first main-frame document is the page; a security header the browser's copy lacks counts when the worker's own fetch of the same page got it |
+| I (security) | no clickjacking protection | `X-Frame-Options: SAMEORIGIN` sent twice | a header sent twice arrives joined: the same value twice counts |
+| B (security) | session cookie without Secure or HttpOnly | it has both | a long cookie value pushed the attributes past a length cut: values are dropped (never kept) and attributes kept whole |
+| J (speed) | font-display block on `icomoon` | an icon font, where block is the advice | more icon font names left out |
+| N, R, T (reliability) | deprecated `AuthorizationCoveredByWildcard` | caused by the scanner's own stand-in CORS answers (`access-control-allow-headers: *`) | left out, with deprecations from code without a page URL |
+| B (speed) | render-blocking files held up first paint 2.56 s | 0.16 s in a desktop browser | **check dropped**: the scanner's request interception inflates when early files arrive |
+| N (no score) | "a blank or bot-check page (HTTP 204)" | a full page answered 200 | the 204 was the scanner's own answer to a form the page submitted while loading: the status comes from the document, and a 204 never counts (also in main, #39) |
+
+Kept after checking: L's http:// answers 200 without redirecting (not on the HSTS preload list), counted as real; a host
+on the preload list is not reported.
+
+## Time
+
+The 31 scans of the final pass and the rescans: median 36.0 s, p95 47.4 s, max 54.7 s against the 50 s budget (the
+scan stops at 50 s; the rest is closing the browser). Two of them hit the
+budget (N and T, the two heaviest pages, in the same minutes as a scan whose browser did not start: all three views of N
+took 48 s, the load itself, not one step); their categories that did not finish were "not measured" and both were
+rescanned. The new work per view is small: the keyboard check runs last on the desktop and only with 3.5 s to spare, the
+tablet width and the head are part of the phone audits, and the worker's three requests run beside the browser.
+
+## What the owner should decide
+
+- D at 90 with three minor findings, against "best well-built page about 85": raise minor from 8 to 12 if that matters
+  more than the median (47.5 then).
+- Timing findings in the scanner can be inflated (B measured LCP 5.9 to 7.0 s on loads where a desktop browser painted in
+  about 2 s); LCP is pre-existing and judged on the faster of two loads, and render-blocking was dropped for this reason.
+- `noindex` is serious: right for a public home page, though some sites hide on purpose.
+- The worker sends the scanned hostname to hstspreload.org (only the hostname); `/scan/about` says so.
+
 # Calibration of scan-score/3
 
 The deeper checks and the new score, run on a fixed reference set of public home pages and the deliberate-bug fixture,

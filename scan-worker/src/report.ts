@@ -1,6 +1,6 @@
 // Turns a scan result into the report the page shows and the cache keeps: findings merged across views and grouped
 // by category and rule, numbered in a fixed order, with their words, the standard each is judged by, and fixes; the
-// six category scores and the overall score; the top issues; what was measured; and the measured "with GenClass" pass.
+// category scores and the overall score; the top issues; what was measured; and the measured "with GenClass" pass.
 // A finding counts as fixed only when the re-check in the same browser session shows it gone and a GenClass action is
 // on record for it (a visual fix the chunk applied, or guard's own action on the clicked request). Nothing here
 // estimates or projects a fix. Every other finding is reported for the developer with its suggested fix. A finding
@@ -21,7 +21,7 @@ import { VISION_EVAL, VISION_LINE, VISION_MODEL, VISION_NAME, VISION_ORT, VISION
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 11;
+export const REPORT_VERSION = 15;
 
 export interface Finding {
   n: number;
@@ -124,15 +124,27 @@ export interface Report {
     coverage: ScanResult["views"][number]["coverage"];
     /** What the page could read about its window: innerWidth, innerHeight, outerWidth, outerHeight, screen.width, screen.height, clientWidth. */
     env?: number[];
+    /** What the page showed at network quiet (the bot-check read: text length, elements, title, markers). */
+    wall?: ScanResult["views"][number]["wall"];
   }[];
   findings: Finding[];
   score: ScoreBreakdown;
+  /** When a cap lowered the score: the cap and the findings that set it ("Capped at 49: a critical finding (#3)."). */
+  scoreNote: string | null;
   /** The rules that cost the overall score the most, at most 5: the first finding's number and the points they cost. */
   top: { rule: string; category: Category; what: string; severity: Severity; count: number; n: number; points: number }[];
   /** Why a category was not measured on this scan (absent when it was). */
   notMeasured: Partial<Record<Category, string>>;
   /** Measured once on this load: the desktop's Largest Contentful Paint and layout shift, its JavaScript, and the light phone's LCP for comparison. */
-  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; phoneLcpMs: number | null; phoneCls: number | null; axeIncomplete: number; axePasses: number; whoAsks: number };
+  metrics: {
+    lcpMs: number | null; cls: number | null; jsBytes: number | null; phoneLcpMs: number | null; phoneCls: number | null; axeIncomplete: number; axePasses: number; whoAsks: number;
+    /** First Contentful Paint on the desktop and the light phone, and what the light phone downloaded by network quiet. */
+    fcpMs?: number | null; phoneFcpMs?: number | null; phoneBytes?: number | null; phoneRequests?: number | null;
+    /** The keyboard focus check's counts on the desktop (scan.ts focusCheck). */
+    focus?: NonNullable<ScanResult["views"][number]["metrics"]["focus"]> | null;
+    /** The main document the security checks read on the light phone (header names only). */
+    doc?: NonNullable<ScanResult["views"][number]["metrics"]["doc"]> | null;
+  };
   withGenClass: { shown: boolean; value: number | null; breakdown: ScoreBreakdown | null; fixed: number; note: string };
   /**
    * Set when the scanner's browser was shown a bot check, a wall or a blank error page instead of the real page in
@@ -171,6 +183,8 @@ export interface Report {
     findings: { n: number; score: number; flagged: boolean }[];
     beta: { n: number; kind: string; what: string; selector: string; view: string; score: number; crop: string | null }[];
   };
+  /** The worker's own requests about the site: where http:// ended up, and /favicon.ico's status (src/site.ts). */
+  site: { http: string | null; favicon: number | null; preloaded: boolean | null; page: { url: string; status: number; headers: string[] } | null };
   notes: string[];
 }
 
@@ -354,7 +368,7 @@ export function guardSetting(aggr: string, margin: number | null, holdMs: number
 
 
 /** Kinds whose evidence can come from the scanner's stand-in answer to a POST made while the page loaded. */
-const STAND_IN_KINDS = new Set<Kind>(["text-template-leak", "text-placeholder", "image-broken", "page-blank", "js-error", "console-error", "visual-judged"]);
+const STAND_IN_KINDS = new Set<Kind>(["text-template-leak", "text-placeholder", "image-broken", "page-blank", "js-error", "console-error", "visual-judged", "page-weight"]);
 
 // ------------------------------------------------------------------------------------------ the model judge
 
@@ -569,6 +583,8 @@ export function coverageOf(r: ScanResult): { measured: Record<Category, boolean>
     phone: ok.some((v) => v.coverage?.phone === true),
     reliability: ok.some((v) => v.coverage?.reliability === true),
     speed: ok.some((v) => v.id === "desktop" && v.coverage?.vitals === true),
+    security: ok.some((v) => v.coverage?.security === true),
+    seo: ok.some((v) => v.coverage?.seo === true),
     races: !!(r.probe?.ran && (r.probe.typed || r.probe.clicked)),
   };
   const notMeasured: Partial<Record<Category, string>> = {};
@@ -578,6 +594,8 @@ export function coverageOf(r: ScanResult): { measured: Record<Category, boolean>
   if (!measured.phone) notMeasured.phone = "The phone audits did not run on the phone view.";
   if (!measured.reliability) notMeasured.reliability = "The browser's own record of errors and requests could not be read.";
   if (!measured.speed) notMeasured.speed = "The desktop view's timings could not be read.";
+  if (!measured.security) notMeasured.security = "The main document's response headers could not be read (or it did not answer 2xx).";
+  if (!measured.seo) notMeasured.seo = "The page's head could not be read on the phone view.";
   if (!measured.races) notMeasured.races = !r.probe?.ran ? "The race probe did not run." : "The page has no search box and no form that posts, so the race probe had nothing to try.";
   return { measured, notMeasured };
 }
@@ -614,6 +632,19 @@ function lcpOnFasterLoad(merged: Map<string, { raw: RawFinding; severity: Severi
     measured: `Largest Contentful Paint at ${s(desk)} on the desktop view${el} and ${s(phone)} on the phone view; the faster load is ${poor ? "poor (above 4 s)" : "above 2.5 s (needs improvement)"}. ${TIMING_NOTE}`,
     detail: { ...e.raw.detail, severity: e.severity, phoneMs: phone },
   };
+}
+
+/** The words for a cap that lowered the score, naming the first finding of each rule that set it. */
+export function capNote(s: ScoreBreakdown, list: readonly Finding[]): string | null {
+  const c = s.cap;
+  if (!c) return null;
+  const ns = c.by
+    .map((k) => list.find((f) => !f.unscored && `${f.category}|${f.rule}` === k)?.n ?? 0)
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b)
+    .map((n) => `#${n}`);
+  const what = c.rules === 1 ? `a ${c.severity} finding` : `${c.by.length} ${c.severity === "serious" ? "serious or critical" : c.severity} rules`;
+  return `Capped at ${c.at} by ${what} (${ns.join(", ")}); without the cap it would be ${Math.round(s.mean ?? c.at)}.`;
 }
 
 const helpUrl = (v: unknown): string | null => (typeof v === "string" && /^https:\/\/dequeuniversity\.com\/rules\/axe\//.test(v) ? v : null);
@@ -793,6 +824,7 @@ export function buildReport(
       return { rule: t.rule, category: t.category, what: mine[0]?.what ?? t.rule, severity: sev, count: mine.reduce((s, f) => s + f.count, 0), n: mine[0]?.n ?? 0, points: t.points };
     });
 
+  const scoreNote = capNote(without, list);
   const fixedCount = list.filter((f) => !f.unscored && f.fixed).length;
   const withBreakdown = score(scorable(list.filter((f) => !f.fixed)), measured);
   const guardRan = !!r.guard?.ran;
@@ -827,9 +859,11 @@ export function buildReport(
       shot: v.shot ? ids.shotUrl(v.id) : null, shotHeight: v.shotHeight, ...(v.error ? { error: v.error } : {}), checks: v.checks, standIns: v.standIns?.count ?? 0,
       coverage: v.coverage,
       ...(v.metrics?.env ? { env: v.metrics.env } : {}),
+      ...(v.wall ? { wall: v.wall } : {}),
     })),
     findings: list,
     score: without,
+    scoreNote,
     top,
     notMeasured,
     blocked,
@@ -842,6 +876,12 @@ export function buildReport(
       axeIncomplete: Math.max(0, ...axeViews.map((v) => v.coverage.axe.incomplete)),
       axePasses: Math.max(0, ...axeViews.map((v) => v.coverage.axe.passes)),
       whoAsks: Math.max(0, ...r.views.map((v) => v.metrics?.whoAsks ?? 0)),
+      fcpMs: desk?.metrics?.fcpMs ?? null,
+      phoneFcpMs: phone?.metrics?.fcpMs ?? null,
+      phoneBytes: phone?.metrics?.bytes ?? null,
+      phoneRequests: phone?.metrics?.requests ?? null,
+      focus: desk?.metrics?.focus ?? null,
+      doc: phone?.metrics?.doc ?? null,
     },
     withGenClass: {
       shown: flags.withGenClass && measuredWith && !blocked,
@@ -900,6 +940,12 @@ export function buildReport(
           }),
       };
     })(),
+    site: {
+      http: r.site?.http ? `${r.site.http.end} after ${r.site.http.hops} ${r.site.http.hops === 1 ? "hop" : "hops"}` : null,
+      favicon: r.site?.favicon?.status ?? null,
+      preloaded: r.site?.preloaded ?? null,
+      page: r.site?.page ? { url: r.site.page.url.slice(0, 200), status: r.site.page.status, headers: Object.keys(r.site.page.headers) } : null,
+    },
     notes: [...r.notes],
   };
 }

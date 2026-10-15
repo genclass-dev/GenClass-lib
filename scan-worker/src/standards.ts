@@ -1,6 +1,6 @@
 // The standards findings cite: WCAG 2.2 success criteria (with the W3C's Understanding page), the web.dev Core Web
-// Vitals thresholds, the Lighthouse audits whose thresholds the page audits use, and the specs behind the reliability
-// checks. Every link here is to the standard itself, never to a page of ours.
+// Vitals thresholds, the Lighthouse audits whose thresholds the page audits use, the specs behind the reliability
+// checks, and the RFCs, W3C specs and OWASP cheat sheets behind the security checks. Every link here is to the standard itself, never to a page of ours.
 
 export interface Standard {
   /** "WCAG 2.2 SC 1.4.3 Contrast (Minimum), level AA" */
@@ -101,8 +101,26 @@ export const STANDARDS = {
   httpStatus: { label: "RFC 9110 HTTP Semantics: 4xx client errors and 5xx server errors", url: "https://www.rfc-editor.org/rfc/rfc9110#section-15.5" },
   mixedContent: { label: "W3C Mixed Content", url: "https://www.w3.org/TR/mixed-content/" },
   axeBestPractice: { label: "axe-core best practice (not a WCAG requirement)", url: "https://github.com/dequelabs/axe-core/blob/develop/doc/rule-descriptions.md#best-practices-rules" },
+  skipLink: { label: "WCAG technique G1: a link at the top of each page that goes to the main content (best practice)", url: "https://www.w3.org/WAI/WCAG22/Techniques/general/G1" },
+  deprecations: { label: "Lighthouse: Avoids deprecated APIs", url: "https://developer.chrome.com/docs/lighthouse/best-practices/deprecations" },
+  doctype: { label: "Lighthouse: Page has the HTML doctype", url: "https://developer.chrome.com/docs/lighthouse/best-practices/doctype" },
+  byteWeight: { label: "Lighthouse: Avoid enormous network payloads (scores 90 at 2,667 KiB, 50 at 4,000 KiB)", url: "https://developer.chrome.com/docs/lighthouse/performance/total-byte-weight" },
+  imageFormats: { label: "Lighthouse: Serve images in modern formats", url: "https://developer.chrome.com/docs/lighthouse/performance/uses-webp-images" },
+  fontDisplay: { label: "Lighthouse: Ensure text remains visible during webfont load", url: "https://developer.chrome.com/docs/lighthouse/performance/font-display" },
+  https: { label: "Lighthouse: Uses HTTPS", url: "https://developer.chrome.com/docs/lighthouse/best-practices/is-on-https" },
+  tls: { label: "OWASP Transport Layer Security Cheat Sheet: redirect HTTP to HTTPS", url: "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html" },
+  hsts: { label: "RFC 6797 HTTP Strict Transport Security", url: "https://www.rfc-editor.org/rfc/rfc6797" },
+  csp: { label: "W3C Content Security Policy Level 3", url: "https://www.w3.org/TR/CSP3/" },
+  headers: { label: "OWASP HTTP Headers Cheat Sheet", url: "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html" },
+  clickjacking: { label: "OWASP Clickjacking Defense Cheat Sheet", url: "https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html" },
+  cookies: { label: "OWASP Session Management Cheat Sheet: cookie attributes", url: "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#cookies" },
+  metaDescription: { label: "Lighthouse: Document has a meta description", url: "https://developer.chrome.com/docs/lighthouse/seo/meta-description" },
+  crawlable: { label: "Lighthouse: Page isn't blocked from indexing", url: "https://developer.chrome.com/docs/lighthouse/seo/is-crawlable" },
+  openGraph: { label: "The Open Graph protocol: og:title and og:image", url: "https://ogp.me/" },
+  favicon: { label: "Google Search Central: Define a favicon", url: "https://developers.google.com/search/docs/appearance/favicon-in-search" },
+  linkText: { label: "Lighthouse: Links have descriptive text", url: "https://developer.chrome.com/docs/lighthouse/seo/link-text" },
 } as const satisfies Record<string, Standard>;
 
 /** Hosts a standard's link may point to: anything else from stored data is dropped before it is shown. */
-const STANDARD_HOSTS = /^https:\/\/(?:www\.w3\.org|web\.dev|developer\.chrome\.com|www\.rfc-editor\.org|github\.com\/dequelabs|dequeuniversity\.com)\//;
+const STANDARD_HOSTS = /^https:\/\/(?:www\.w3\.org|web\.dev|developer\.chrome\.com|www\.rfc-editor\.org|github\.com\/dequelabs|dequeuniversity\.com|cheatsheetseries\.owasp\.org|ogp\.me|developers\.google\.com)\//;
 export const safeStandardUrl = (u: unknown): string | null => (typeof u === "string" && u.length <= 300 && STANDARD_HOSTS.test(u) && !/[\s"'<>\\]/.test(u) ? u : null);
