@@ -131,6 +131,7 @@ figcaption{font:12px var(--mono);color:var(--ink3);margin-top:10px;max-width:62c
 .callout{border-top:1px solid var(--ink);margin-top:28px;padding-top:16px;max-width:72ch}
 .callout p+p{margin-top:8px}
 .callout.bad b{color:var(--bug)}
+.wallshot{margin-top:14px}.wallshot img{display:block;max-width:240px;width:100%;height:auto;border:1px solid var(--rule)}.wallshot figcaption{font-size:12.5px;color:var(--ink3);margin-top:6px}
 /* score */
 .scoregrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px 56px;margin-top:36px;border-top:1px solid var(--ink);padding-top:24px}
 @media (max-width:820px){.scoregrid{grid-template-columns:1fr}}
@@ -328,6 +329,8 @@ export const JUDGE_FINE_INTRO = `These are measured findings. A model (${JUDGE_N
 
 /** A crop's URL from stored data: only this origin's screenshot path for a judged element. */
 export const CROP_URL = /^\/api\/scan\/shot\/[0-9a-f]{32}\/[0-9a-z]{6,40}-(?:desktop|phone|phone-dark)-j[1-9]\d?\.jpg$/;
+/** A view's screenshot on this origin, the only screenshot URL a report page shows. */
+export const SHOT_URL = /^\/api\/scan\/shot\/[0-9a-f]{32}\/[0-9a-z]{6,40}-(?:desktop|phone|phone-dark)\.jpg$/;
 
 export function scanPage(n: string, data: ScanPageData): string {
   const t = data.target;
@@ -361,6 +364,7 @@ ${report ? staticReport(report) : ""}
 </section>
 <section id="problem" class="callout bad${data.error ? "" : " hidden"}" role="alert"><p><b id="problemt">${data.error ? esc(data.error.message) : ""}</b></p><p id="problemd" class="muted">${esc(errorDetail)}</p></section>
 <div id="result" class="hidden">
+  <section class="callout bad hidden" id="blockedbox" role="status"><p><b id="blockedt"></b></p><p class="muted" id="blockedd"></p><figure class="wallshot hidden" id="wallfig"><img id="wallimg" alt=""><figcaption id="wallcap"></figcaption></figure></section>
   <section class="scoregrid" id="scorebox" aria-labelledby="sh">
     <div>
       <h2 class="sr" id="sh">Score</h2>
@@ -483,6 +487,12 @@ function standardLinks(v: unknown): string {
 }
 
 export function staticReport(r: Record<string, unknown>): string {
+  const blocked = obj(r.blocked);
+  if (str(blocked.message)) {
+    const v = arr(r.views).map(obj).find((x) => SHOT_URL.test(str(x.shot)));
+    const fig = v ? `<figure class="wallshot"><img src="${esc(str(v.shot))}" alt="${esc(`What the scanner's browser was shown, ${str(v.label)}`)}" loading="lazy"><figcaption>${esc(`What our browser was shown (${str(v.label)}).`)}</figcaption></figure>` : "";
+    return `<div id="ssr"><section class="callout bad" role="status"><p><b>${esc(str(blocked.message))}</b></p><p class="muted">Nothing was scored. Many large sites show automated browsers a check page; this result is kept for 30 minutes, so a later scan can try again.</p>${fig}</section></div>`;
+  }
   const score = obj(r.score);
   const w = obj(r.withGenClass);
   const withOn = w.shown === true && int(w.value) !== null;
@@ -695,7 +705,11 @@ function render(r){
   $("title").textContent = r.display;
   var meta = $("meta"); meta.textContent = "";
   [r.url, "Scanned " + new Date(r.scannedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), secs(r.ms.total) + " in total", "@genclass/runtime " + r.runtime, r.axe ? "axe-core " + r.axe : ""].forEach(function(t){ if (t) meta.appendChild(el("span", null, t)); });
-  renderScore(r); renderShots(r); renderFindings(r); renderProbe(r); renderShare(r);
+  var wall = !!r.blocked;
+  ["scorebox", "cats", "measures", "where", "list", "race"].forEach(function(id){ show(id, !wall); });
+  show("blockedbox", wall);
+  if (wall) { renderBlocked(r); show("topbox", false); show("judgedfine", false); show("visionbeta", false); renderShare(r); }
+  else { renderScore(r); renderShots(r); renderFindings(r); renderProbe(r); renderShare(r); }
   show("ctaprobe", true);
   if (history.replaceState && D.target) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
 }
@@ -967,6 +981,14 @@ function names(subject, method, path){
   return after === "" || after === "?" || after === "#" || after === " " || after === "(";
 }
 
+// the scanner was shown a bot check or a blank page: the message and one small screenshot, no score
+function renderBlocked(r){
+  $("blockedt").textContent = r.blocked.message;
+  $("blockedd").textContent = "Nothing was scored. Many large sites show automated browsers a check page; this result is kept for 30 minutes, so a later scan can try again.";
+  var v = null; (r.views || []).forEach(function(x){ if (!v && /^\\/api\\/scan\\/shot\\//.test(String(x.shot || ""))) v = x; });
+  show("wallfig", !!v);
+  if (v) { $("wallimg").src = v.shot; $("wallimg").alt = "What the scanner's browser was shown, " + v.label; $("wallcap").textContent = "What our browser was shown (" + v.label + ")."; }
+}
 function renderShare(r){
   var host = $("share"); host.textContent = "";
   var url = D.shareBase === "https://genclass.dev" && /^[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$/.test(r.display) ? D.shareBase + "/" + r.display : D.shareBase + "/scan?url=" + encodeURIComponent(r.display);
@@ -975,7 +997,7 @@ function renderShare(r){
   var b = el("button", "btn ghost sm", "Copy link"); b.type = "button";
   b.addEventListener("click", function(){ if (navigator.clipboard) navigator.clipboard.writeText(url).then(function(){ b.textContent = "Copied"; setTimeout(function(){ b.textContent = "Copy link"; }, 1500); }); });
   host.appendChild(b);
-  host.appendChild(el("span", null, "Cached for 6 hours."));
+  host.appendChild(el("span", null, r.blocked ? "Cached for 30 minutes." : "Cached for 6 hours."));
 }
 
 // the same address again: scan it here, without reloading the page
@@ -1194,6 +1216,10 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
     <li>A layout shift the visual checks reported stands for the Cumulative Layout Shift note.</li>
     <li>Sideways scrolling at 390 px stands for the 360 and 320 px reflow check.</li>
   </ul>
+  <h3 class="h3" id="blocked">No score</h3>
+  <p>When the scanner's browser is shown a bot check or a blank error page instead of the real page in every view (a known
+  challenge or captcha on a small page, or a status other than 200 with nothing on it), the report gives no score at all and
+  says so. A real blank page answered with 200 is scored. Such a result is kept for 30 minutes.</p>
   <h3 class="h3" id="unscored">Listed, not scored</h3>
   <ul>
     <li>Findings that may come from the scanner's stand-in answers to the page's POST requests, or from files it refused to load

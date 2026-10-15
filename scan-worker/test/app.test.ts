@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { clientOf, handle, targetFromPath, type AppDeps, type Env } from "../src/app.ts";
 import { REPORT_VERSION } from "../src/report.ts";
-import { acquireSlot, cachedReport, cacheKey, CACHE_MS, reportKey, sweep } from "../src/store.ts";
+import { acquireSlot, BLOCKED_CACHE_MS, cachedReport, cacheKey, CACHE_MS, reportKey, sweep } from "../src/store.ts";
 import { FakeBrowser, fakeFetch, Limiter, MemBucket, ndjson, type PageScript } from "./helpers.ts";
 import { buildReport } from "../src/report.ts";
 import { runScan, SCAN_BUDGET_MS } from "../src/scan.ts";
@@ -580,6 +580,43 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
     assert.equal(r.notMeasured.reliability, "The browser's own record of errors and requests could not be read.");
     assert.ok(!r.findings.some((f: { category: string }) => f.category === "reliability"));
+  });
+});
+
+describe("a page the scanner could not see (a bot check answered 202, blank)", () => {
+  const WALL: PageScript = {
+    ...SCRIPT,
+    status: 202,
+    findings: () => [{ kind: "page-blank", selector: "body", box: null, measured: "body shows no text and no media 3 s after the page settled", detail: { severity: "high" } }],
+    wall: () => ({ text: 0, elements: 4, title: "", marks: [] }),
+  };
+  it("gives no score, says why, keeps the result 30 minutes, and shows the message instead of the findings", async () => {
+    const t = setup(WALL);
+    const msgs = await ndjson(await t.post("shop.example.com"));
+    await Promise.all(t.waits);
+    const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    assert.equal(r.blocked.message, "We couldn't check shop.example.com: it showed our browser a blank or bot-check page (HTTP 202) instead of the real page. Scores only count pages we can see.");
+    assert.equal(r.score.value, null);
+    assert.equal(r.withGenClass.value, null);
+    assert.deepEqual(r.findings, []);
+    const page = await (await t.call("/scan?url=shop.example.com")).text();
+    assert.match(page, /We couldn&#39;t check shop\.example\.com: it showed our browser a blank or bot-check page \(HTTP 202\)/);
+    assert.match(page, /<figure class="wallshot"><img src="\/api\/scan\/shot\/[0-9a-f]{32}\/scan0001-desktop\.jpg"/, "one screenshot thumbnail");
+    const ssr = page.slice(page.indexOf('<div id="ssr">'), page.indexOf("</section></div>", page.indexOf('<div id="ssr">')));
+    assert.match(ssr, /^<div id="ssr"><section class="callout bad" role="status">/, "the static report is the message alone");
+    assert.doesNotMatch(ssr, /Top issues|Findings|\/ 100/, "no score sections in the static report");
+    const key = await cacheKey("https://shop.example.com/");
+    assert.ok(await cachedReport(t.bucket, key, t.deps.now() + BLOCKED_CACHE_MS - 1000, REPORT_VERSION), "kept for 30 minutes");
+    assert.equal(await cachedReport(t.bucket, key, t.deps.now() + BLOCKED_CACHE_MS + 1000, REPORT_VERSION), null, "then scanned again");
+  });
+  it("scores a small real page answered 200 as before", async () => {
+    const t = setup({ ...SCRIPT, wall: () => ({ text: 180, elements: 12, title: "Example Domain", marks: [] }) });
+    const r = ((await ndjson(await t.post("shop.example.com"))).find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    await Promise.all(t.waits);
+    assert.equal(r.blocked, null);
+    assert.equal(r.score.value, 90);
+    const key = await cacheKey("https://shop.example.com/");
+    assert.ok(await cachedReport(t.bucket, key, t.deps.now() + CACHE_MS - 1000, REPORT_VERSION), "a real report keeps the 6-hour cache");
   });
 });
 

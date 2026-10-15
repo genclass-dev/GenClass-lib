@@ -418,6 +418,11 @@ export interface ViewResult {
   judged?: JudgeResult[];
   /** How long finding, measuring and cropping them took in this view (null: the judge did not run here). */
   judgeMs?: number | null;
+  /**
+   * What the page showed at network quiet, to tell a bot check or wall from the real page (report.ts blockedOf): the
+   * body's visible text length and element count, the title, and the challenge or captcha markers in its HTML.
+   */
+  wall?: { text: number; elements: number; title: string; marks: string[] } | null;
 }
 
 export interface ViewCoverage {
@@ -1087,6 +1092,15 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     if (log && cdp) await log.frame(cdp);
     // timings at network quiet, before the scanner presses a key or scrolls (a page stops reporting LCP at the first
     // input): the desktop's are judged, the light phone's are kept for comparison only
+    // a bot check or a wall instead of the real page: read in every view, judged in the report
+    if (!skipChecks && !discard) {
+      view.wall = parseWall(
+        await withTimeout(evalDom(page, pageSideSource("wall")), Math.min(1500, Math.max(300, left() - reserve)), "reading the page").then(
+          (v) => parseJson<unknown>(v, null),
+          () => null,
+        ),
+      );
+    }
     let vitals: Record<string, unknown> | null = null;
     if (!skipChecks && !discard && (spec.id === "desktop" || spec.id === "phone")) {
       vitals = await withTimeout(evalDom(page, pageSideSource("vitals")), Math.min(3000, Math.max(500, left() - reserve)), "reading the page's timings").then(
@@ -1800,6 +1814,15 @@ function cleanAct(v: unknown): ProbeResult["acts"][number] {
     id: cutText(a.id, 40), decisionId: cutText(a.decisionId, 40), action: cutText(a.action, 40), trigger: cutText(a.trigger, 40), subject: cutText(a.subject, 140),
     ok: a.ok === true, changed: cutText(a.changed, 220), late: a.late === true,
   };
+}
+
+/** The page side's "wall" read, checked: null when it is not one. */
+export function parseWall(v: unknown): ViewResult["wall"] {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.text !== "number" || typeof o.elements !== "number" || !Number.isFinite(o.text) || !Number.isFinite(o.elements)) return null;
+  const marks = Array.isArray(o.marks) ? o.marks.filter((m): m is string => typeof m === "string").slice(0, 10).map((m) => m.slice(0, 40)) : [];
+  return { text: Math.max(0, Math.round(o.text)), elements: Math.max(0, Math.round(o.elements)), title: cutText(o.title, 120).replace(/[\u0000-\u001f\u007f]/g, " "), marks };
 }
 
 export class ScanError extends Error {

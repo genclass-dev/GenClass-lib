@@ -129,6 +129,28 @@ export function pageSide(cmd: string, options?: any): any {
     });
   }
 
+  if (cmd === "wall") {
+    // whether the page is a bot check or a wall instead of the real page: how much text and how many elements the body
+    // has, and which known challenge or captcha markers its HTML carries (judged in report.ts blockedOf)
+    const body = doc.body;
+    const text = body ? String(body.innerText || "").replace(/\s+/g, " ").trim() : "";
+    const html = String(de.outerHTML || "").slice(0, 400000);
+    const MARKS: [string, RegExp][] = [
+      ["AWS WAF challenge", /awsWafCookieDomainList|gokuProps|AwsWafIntegration|token\.awswaf\.com|captcha\.awswaf\.com/],
+      ["Cloudflare challenge", /_cf_chl_opt|cf-chl-widget|challenge-error-text|<title>\s*Just a moment\.\.\.\s*<\/title>|Attention Required! \| Cloudflare/i],
+      ["Akamai block page", /errors\.edgesuite\.net|<title>\s*Access Denied\s*<\/title>/i],
+      ["robot check", /Robot Check|\/errors\/validateCaptcha|opfcaptcha/i],
+      ["Imperva challenge", /_Incapsula_Resource|Incapsula incident ID/i],
+      ["DataDome challenge", /captcha-delivery\.com/i],
+      ["PerimeterX challenge", /px-captcha|_pxCaptcha/i],
+      ["Sucuri firewall", /Sucuri WebSite Firewall/i],
+      ["Kasada challenge", /KPSDK/],
+      ["captcha", /g-recaptcha|h-captcha|hcaptcha\.com|recaptcha\/api|challenges\.cloudflare\.com\/turnstile|<form[^>]+captcha/i],
+    ];
+    const marks = MARKS.filter((m) => m[1].test(html)).map((m) => m[0]);
+    return { text: text.length, elements: body ? body.getElementsByTagName("*").length : 0, title: String(doc.title || "").replace(/\s+/g, " ").trim().slice(0, 120), marks };
+  }
+
   if (cmd === "overflow") {
     // the window's own scrolling: html's overflow-y, body's, and how far there is to scroll
     return { html: style(de).overflowY, body: doc.body ? style(doc.body).overflowY : "visible", sh: de.scrollHeight, ch: de.clientHeight };
@@ -343,7 +365,7 @@ export function pageSide(cmd: string, options?: any): any {
 }
 
 /** The source that runs pageSide in the page and returns its result as a JSON string. */
-export function pageSideSource(cmd: "vitals" | "audit" | "reflow" | "overflow", options: Record<string, unknown> = {}): string {
+export function pageSideSource(cmd: "vitals" | "audit" | "reflow" | "overflow" | "wall", options: Record<string, unknown> = {}): string {
   return `(async () => JSON.stringify(await (${pageSide.toString()})(${JSON.stringify(cmd)}, ${JSON.stringify(options)})))()`;
 }
 

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { RawFinding } from "../src/catalog.ts";
 import { categoryOf, describe as words, KINDS, sanitizeFinding, sanitizeStats, severityOf, suggestFix, VISUAL_KINDS } from "../src/catalog.ts";
-import { buildReport, guardSetting, heldBack, JS_NOTE, probeFindings, raceFix, REFUSED_NOTE, SHIFT_NOTE, subjectNames } from "../src/report.ts";
+import { BLOCKED_NOTE, blockedOf, buildReport, guardSetting, heldBack, JS_NOTE, probeFindings, raceFix, REFUSED_NOTE, SHIFT_NOTE, subjectNames } from "../src/report.ts";
 import { emptyCoverage, type ProbeResult, type ScanResult, type ViewResult, type VisualFixes } from "../src/scan.ts";
 import { categoryValue, rulesOf } from "../src/score.ts";
 import { normaliseTarget, type Target } from "../src/target.ts";
@@ -390,5 +390,57 @@ describe("review fixes for the launch: race words", () => {
     const rechecked = buildReport(target, ids, scan({ views: scan().views.map((v) => (v.id === "desktop" ? { ...v, fixes: fixedIn("text-invisible|p.note|") } : v)) }), { withGenClass: true });
     assert.match(rechecked.withGenClass.note, /second set of the same checks re-measured the page/);
     assert.match(rechecked.withGenClass.note, /runtime 0\.2\.1 in guard mode/);
+  });
+});
+
+describe("a page the scanner could not see: a bot check or a blank error page gets no score", () => {
+  const blank: RawFinding = { kind: "page-blank", selector: "body", box: null, measured: "body shows no text and no media 3 s after the page settled", detail: { severity: "high" } };
+  const wall = (text: number, elements: number, marks: string[] = []) => ({ text, elements, title: "", marks });
+  /** Three views with one status, the visual checks' findings and one wall read each. */
+  const seen = (status: number, findings: RawFinding[], w: ViewResult["wall"]) =>
+    scan({ views: (["desktop", "phone", "phone-dark"] as const).map((id) => ({ ...view(id, [...findings], [{ kind: "axe", selector: "html", box: null, measured: "no title", detail: { rule: "document-title", severity: "serious", impact: "serious", tags: ["wcag2a", "wcag242"], count: 1 } }]), status, wall: w })) });
+  it("a challenge answered 202 with a blank page in every view: no findings, no score, no with-GenClass score, the message", () => {
+    const r = buildReport(target, ids, seen(202, [blank], wall(0, 4)), { withGenClass: true });
+    assert.ok(r.blocked);
+    assert.equal(r.blocked!.message, "We couldn't check shop.example.com: it showed our browser a blank or bot-check page (HTTP 202) instead of the real page. Scores only count pages we can see.");
+    assert.equal(r.blocked!.status, 202);
+    assert.deepEqual(r.findings, []);
+    assert.deepEqual(r.top, []);
+    assert.equal(r.score.value, null);
+    assert.ok(r.score.categories.every((c) => c.value === null && !c.measured));
+    assert.ok(Object.values(r.notMeasured).every((n) => n === BLOCKED_NOTE));
+    assert.deepEqual([r.withGenClass.shown, r.withGenClass.value, r.withGenClass.breakdown], [false, null, null]);
+    assert.equal(r.views[0].shot, ids.shotUrl("desktop"), "the screenshot stays, for the thumbnail");
+  });
+  it("names a known challenge marker on a small page, whatever the status", () => {
+    const b = blockedOf(seen(200, [], wall(120, 30, ["AWS WAF challenge"])), "shop.example.com");
+    assert.equal(b!.message, "We couldn't check shop.example.com: it showed our browser a bot-check page (AWS WAF challenge) instead of the real page. Scores only count pages we can see.");
+    for (const st of [401, 403, 429, 503]) assert.ok(blockedOf(seen(st, [], wall(40, 12)), "x"), String(st));
+  });
+  it("keeps the score of real pages: a small page answered 200, a real blank page answered 200, a big page with a captcha, an error page with content", () => {
+    // a small real page (example.com: 200, a short paragraph, no markers)
+    assert.equal(blockedOf(seen(200, [], wall(180, 12)), "x"), null);
+    // a genuinely broken blank page answered 200 with no markers: scored, and its page-blank finding stays
+    const broken = buildReport(target, ids, seen(200, [blank], wall(0, 8)), { withGenClass: false });
+    assert.equal(broken.blocked, null);
+    assert.ok(broken.findings.some((f) => f.kind === "page-blank" && !f.unscored));
+    assert.ok(broken.score.value !== null && broken.score.value < 90);
+    // a real page with a reCAPTCHA on its contact form, or an AWS WAF script it loads anyway
+    assert.equal(blockedOf(seen(200, [], wall(9000, 1400, ["captcha", "AWS WAF challenge"])), "x"), null);
+    // a 404 or 403 page with real content is the site's own page
+    assert.equal(blockedOf(seen(404, [], wall(2400, 300)), "x"), null);
+  });
+  it("needs every view that loaded to be blocked: one view with the real page keeps the score", () => {
+    const s = seen(202, [blank], wall(0, 4));
+    s.views[1] = { ...s.views[1], status: 200, findings: [], wall: wall(5000, 900) };
+    assert.equal(blockedOf(s, "x"), null);
+    assert.ok(buildReport(target, ids, s, { withGenClass: false }).score.value !== null);
+    // a view that did not load does not count either way
+    const t = seen(202, [blank], wall(0, 4));
+    t.views[2] = { ...t.views[2], ok: false };
+    assert.ok(blockedOf(t, "x"));
+    // without a wall read, a non-200 status with a page-blank finding is still blocked; a 200 without one never is
+    assert.ok(blockedOf(seen(503, [blank], null), "x"));
+    assert.equal(blockedOf(seen(200, [blank], null), "x"), null);
   });
 });
