@@ -1,13 +1,13 @@
 <!--meta {"path":"/pricing","nav":"pricing","priority":"0.6","crumbs":[["Pricing","/pricing"]],
 "title":"GenClass Pricing: Free, Pro and Custom",
 "og_title":"GenClass pricing: the runtime is free; the dashboard comes with Pro",
-"description":"The GenClass runtime and its on-device model are free and open source. The dashboard comes with Pro ({{plan.pro.price}} a month, trials available): {{plan.pro.history}} of history, data export and forwarding. Custom ({{plan.custom.price}} a month) adds a model trained on your app.",
+"description":"The GenClass runtime and its on-device model are free and open source. The dashboard comes with Pro ({{plan.pro.price}} a month; get a {{plans.trial_days}}-day free trial for analytics): {{plan.pro.history}} of history, data export and forwarding. Custom ({{plan.custom.price}} a month) adds a model trained on your app.",
 "offers_from_plans":true,"faq_from_body":true} -->
 <div class="page-hero price-hero">
   <div class="wrap">
     <!--@crumbs-->
     <h1>Free to run. <em>Pro for the dashboard.</em></h1>
-    <p class="lede">The runtime and its on-device model are free and open source, in every mode, with no usage meters. Pro adds the dashboard, with {{plan.pro.history}} of history, export of every event and forwarding to Sentry, PostHog, Datadog, Slack or a signed webhook. Trials available. Custom adds a model trained on your app.</p>
+    <p class="lede">The runtime and its on-device model are free and open source, in every mode, with no usage meters. Pro adds the dashboard, with {{plan.pro.history}} of history, export of every event and forwarding to Sentry, PostHog, Datadog, Slack or a signed webhook. Get a {{plans.trial_days}}-day free trial for analytics. Custom adds a model trained on your app.</p>
   </div>
 </div>
 
@@ -34,7 +34,7 @@
     <div class="sh"><span class="no">Billing FAQ</span><h2>Questions about plans and billing</h2></div>
     <div class="faq">
       <div>
-        <details><summary><span>Is there a free trial?</span></summary><p>Trials available: sign in and choose Start a trial. No card. When it ends the dashboard locks until you pick a plan, and your apps' data keeps being collected meanwhile.</p></details>
+        <details><summary><span>Is there a free trial?</span></summary><p>Yes. Get a {{plans.trial_days}}-day free trial for analytics: sign in and choose Start your {{plans.trial_days}}-day free trial. No card. When it ends the dashboard locks until you pick a plan, and your apps' data keeps being collected meanwhile.</p></details>
         <details><summary><span>What counts as an app?</span></summary><p>One app token. A token groups the diagnostics of one web app on every hostname and route it runs on, so production and staging can share a token or have one each. Pro and Custom set no app limit; to stop abuse an account holds at most {{plans.apps_cap}}, and we raise that if you write to us. Without a plan, an account holds {{plan.free.apps}}.</p></details>
         <details><summary><span>What does the data export include?</span></summary><p>Every event GenClass received for your apps, as it arrived: page sessions with versions, mode, device class, hostname and route (ids replaced), model loads, each decision with its diagnosis, confidence and action, detections, actions, undos and the periodic counts, plus when each batch arrived and a two-letter country. It covers events that arrived while the app was in your genclass.dev account, starting from the day paid plans opened, and reaches back {{plan.pro.history}} (at most 90 days for the time before you upgraded). Download it from an app's dashboard as JSONL or CSV, or fetch it with <code>GET /api/account/projects/&lt;id&gt;/events?from=&amp;to=</code> and a bearer token. It holds no page text: GenClass does not collect page text unless your app opts in to situation text, and then only the redacted text the model read. Typed passwords and payment fields, cookies, headers, request and response bodies, IP addresses and user agents are never collected, so they are never in an export.</p></details>
         <details><summary><span>What happens to my history if I downgrade?</span></summary><p>When a paid plan ends, the account moves to Free: the dashboard locks, and forwarding and export stop. GenClass keeps every app's data for at least 90 days on any plan, so upgrading again brings those days back into view. Data older than 90 days is deleted 30 days after the paid period ends, so export what you want to keep before the plan ends, or upgrade again within those 30 days. Your apps, tokens and dashboard links keep working.</p></details>

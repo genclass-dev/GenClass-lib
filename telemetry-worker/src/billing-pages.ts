@@ -53,6 +53,8 @@ export interface BillingView {
   switchTo?: string | null;
   /** The names of the plans sold through Stripe Managed Payments (src/stripe.ts managedPayments). */
   managedPlans?: string[];
+  /** How long a trial lasts (TRIAL_DAYS, src/plans.ts trialDays): "Get a 7-day free trial for analytics". */
+  trialDays: number;
   now: Date;
 }
 
@@ -80,7 +82,7 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   if (plan.id === "free") {
     if (v.access.source === "comp") return `You have <b>${esc(v.access.plan.name)}</b>, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
     if (v.access.source === "trial") return `You are on a <b>${esc(v.access.plan.name)}</b> trial.${v.live ? "" : " Paid plans are not on sale yet."}`;
-    const limits = `the runtime and its on-device model, without the dashboard (you have ${apps} app${apps === 1 ? "" : "s"}). ${v.access.trialUsed ? "Your trial has ended." : "Trials available."}`;
+    const limits = `the runtime and its on-device model, without the dashboard (you have ${apps} app${apps === 1 ? "" : "s"}). ${v.access.trialUsed ? "Your trial has ended." : `Get a ${v.trialDays}-day free trial for analytics.`}`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
     const ended = overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
@@ -117,7 +119,7 @@ function planColumn(v: BillingView, p: Plan, current: Plan): string {
   else if (cur) act = `<span class="tag">${v.access.source === "comp" ? "Set up by GenClass" : "Your plan"}</span>`;
   else if (p.id === "free") act = subscribed && v.live ? '<span class="muted">To go back to Free, cancel in Manage billing.</span>' : "";
   else if (v.live && !waiting) act = buy;
-  if (trial) act = `<button class="btn green" type="button" id="trial"><span>Start a trial</span></button>${act ? ` ${act}` : ""}`;
+  if (trial) act = `<button class="btn green" type="button" id="trial"><span>Start your ${v.trialDays}-day free trial</span></button>${act ? ` ${act}` : ""}`;
   const features = p.features
     .map((f) => `<li${f.available ? "" : ' class="soon"'}>${esc(f.text)}${f.available || /coming next/i.test(f.text) ? "" : " (coming next)"}</li>`)
     .join("");

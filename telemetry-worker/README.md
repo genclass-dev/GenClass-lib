@@ -2,8 +2,8 @@
 
 Cloudflare Worker that receives the default-on diagnostics batches from `@genclass/runtime` (see
 [`packages/runtime/TELEMETRY.md`](../packages/runtime/TELEMETRY.md)) and stores them in R2, that gives every web app
-a token and a private dashboard on genclass.dev, and that holds the optional accounts (Google or GitHub, with
-passkeys as extra security) which keep several apps in one place and let `npx @genclass/runtime login` connect an app
+a token and a private dashboard on genclass.dev, and that holds the optional accounts (Google, an email and a
+password, or GitHub, with passkeys as extra security) which keep several apps in one place and let `npx @genclass/runtime login` connect an app
 ([Accounts](#accounts)). Dashboards come with Pro: Free is the open-source runtime and its on-device model; an
 account gets one trial of Pro without a card ([Trials and grants](#trials-and-grants)).
 
@@ -48,10 +48,12 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `src/collector.ts` | ingest (`POST /v1/events`), envelope validation (incl. optional `token`), routing for `/api/*`, `/start`, `/dashboard*`; hands account paths to `src/auth.ts` |
 | `src/dashboard.ts` | ids and hashing, project creation and lookup, token cache, aggregation of a batch into counters, stats for the dashboard, retention |
 | `src/pages.ts` | HTML/CSS/JS for `/start` and `/dashboard/<secret>`, and the shell and dashboard the account pages reuse (`/account/apps/<id>` is the dashboard in its account mode, with the Connect panel); inline, per-response CSP nonce, fonts from Google Fonts only |
-| `src/auth.ts` | accounts: Google, GitHub, passkeys (sign-in, the passkey step, fresh confirmations), sessions, CSRF, the device flow, owned apps, their routes and their retention |
+| `src/auth.ts` | accounts: Google, email and password, GitHub, passkeys (sign-in, the passkey step, fresh confirmations), sessions, CSRF, the device flow, owned apps, their routes and their retention |
+| `src/password.ts` | passwords: the PBKDF2 hash string, the rules for a new password, the schedule of the delay after wrong ones |
+| `scripts/password-hash.mjs` | for the owner: a hash string for a manual password reset ([Owner steps: a forgotten password](#owner-steps-a-forgotten-password)) |
 | `src/trial.ts` | the one trial of Pro per account (`POST /api/billing/trial`, `GET /account/trial`) and the locked private-link page |
 | `src/webauthn.ts`, `src/cbor.ts` | WebAuthn verification with WebCrypto and a minimal CBOR decoder (no dependencies) |
-| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/passkey`, `/login/device`, `/account`, the locked private-link page and the account message pages |
+| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/forgot`, `/login/passkey`, `/login/device`, `/account`, the locked private-link page and the account message pages |
 | `src/http.ts` | shared JSON response and capped body reader |
 | `../billing/plans.json` | the plans (prices, Stripe lookup keys, limits, entitlements, pricing-page lines); the site's build reads it too |
 | `src/plans.ts` | plans from `plans.json`, what an account may use now (paid plan, grant, trial or Free: `accountAccess`), the Free plan's limits, dashboard ranges per plan, the plan-aware retention sweep |
@@ -74,7 +76,7 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `POST /api/projects` | body `{ name? }` (JSON object or empty; name sanitised, at most 80 chars, default "Untitled app"). 201 `{ token, dashboardUrl, name, created }`, `dashboardUrl` = `https://genclass.dev/dashboard/<32 base62>`. CORS `*`, no credentials. 429 JSON when rate-limited, 400 bad JSON, 413 over 4 KB. |
 | `GET /api/projects/<secret>?range=24h\|7d\|30d` | 402 `{ ok:false, error, locked:true }` unless the app's account has Pro (a plan, GenClass's grant or a trial; [Trials and grants](#trials-and-grants)). Otherwise dashboard stats JSON (default `7d`): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
 | `GET /start` | "Get a token" page |
-| `GET /dashboard/<secret>` | the dashboard while the app's account has Pro; otherwise the locked page ("Dashboards come with Pro. Trials available.": sign in, add the app to the account, start the trial; `src/trial.ts`). 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
+| `GET /dashboard/<secret>` | the dashboard while the app's account has Pro; otherwise the locked page ("Dashboards come with Pro. Get a 7-day free trial for analytics.": sign in, add the app to the account, start the trial; `src/trial.ts`). 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
 
 Rate limits on batches: `LIMIT`, 1200 per 60 s per client IP (a ceiling for offices and campuses behind one address;
 since runtime 0.2.2 a page stops sending after 3 failed requests in a row, so a low per-IP limit would silence every
@@ -172,9 +174,11 @@ session ids (only a hash, for 2 days) or the dashboard secret (only its hash). W
 in `wrangler.toml`. Tests assert that headers, the city and the situation text never reach the stores.
 
 Accounts add only what [Accounts](#accounts) lists: an email (as typed, or as Google returned it) and whether Google
-verified it, passkey public keys, the Google `sub` and the GitHub id and login when used, session records (hashes,
-times, a label), and which apps an account owns. Google and GitHub access tokens are used once during sign-in and
-never stored; the client IP is only a hashed rate-limit key.
+verified it, a password's PBKDF2 hash string and its wrong-password counter, hashes of the device cookies of browsers
+where a password was right, passkey public keys, the Google `sub` and the GitHub id and login when used, session
+records (hashes, times, a label), and which apps an account owns. A password is never stored or logged in readable
+form; Google and GitHub access tokens are used once during sign-in and never stored; the client IP is only a hashed
+rate-limit key.
 
 ## Accounts
 
@@ -182,23 +186,29 @@ Optional for the runtime and for collection: `/start`, secret dashboard links (l
 Pro) and ingest keep working without one. An account keeps several apps in one place, holds the trial or the plan
 that opens their dashboards, and lets the CLI (`npx @genclass/runtime login`, in `packages/runtime/bin/lib/login.mjs`
 and `account.mjs`, from `@genclass/runtime` 0.3.0) connect an app without copying keys around. Code: `src/auth.ts`
-(routes and rules), `src/webauthn.ts` + `src/cbor.ts` (passkeys), `src/account-pages.ts` (pages); tests in
+(routes and rules), `src/password.ts` (passwords), `src/webauthn.ts` + `src/cbor.ts` (passkeys),
+`src/account-pages.ts` (pages); tests in
 `test/auth.test.ts`, which also runs the CLI's own request functions (`account.mjs`) against this router: a change
 on either side that breaks the other fails CI.
 
 ### Ways to sign in
 
-Google first, then GitHub: `/signup` and `/login` lead with "Continue with Google", then "Continue with GitHub", each
-shown only when its secrets are set. Creating an account never needs a passkey. A passkey is extra security, added on
-`/account` (Security); once the account has one, every Google or GitHub sign-in also asks for it
+`/signup` and `/login` offer, in this order: "Continue with Google" (when its secrets are set), an email and a password
+(always, so the site always has a way in), then a small "Continue with GitHub" (when its secrets are set) and "Use a
+passkey". Creating an account never needs a passkey, and there is no passkey sign-up: a passkey is extra security,
+added on `/account` (Security); once the account has one, every password, Google or GitHub sign-in also asks for it
 ([The passkey step](#the-passkey-step)).
 
-- **Passkeys (WebAuthn)**, no owner setup. **Sign up with a passkey is only the fallback** for a server with neither
-  Google nor GitHub configured (so the site always has a way in): then `/signup` asks for an email (stored as typed and
-  never verified; it names the passkey and is used for account notices only), then the browser's passkey prompt. With
-  either provider configured, `POST /api/auth/passkey/register/options` without a session answers 403 (and the verify
-  step refuses a sign-up challenge started before). Sign in with a passkey ("Use a passkey" under the provider buttons
-  on `/login`, the main button without them): a discoverable-credential prompt, no email. Verification is done here with WebCrypto: attestation `none` (any `fmt`
+- **Email and password** ([Passwords](#passwords)), no owner setup. Sign-up: `POST /api/auth/password/signup`; the
+  email, trimmed and lowercased, is the username (unique among passwords, never verified: GenClass has no email sender
+  yet) and the account's email. Sign-in: `POST /api/auth/password/login`, a session at once or the passkey step.
+  `/login` links to `/login/forgot`, which says to write to mehar@daybot.ca from the address the account signs in
+  with ([Owner steps: a forgotten password](#owner-steps-a-forgotten-password)).
+- **Passkeys (WebAuthn)**, no owner setup. Added by a signed-in account on `/account`; `POST
+  /api/auth/passkey/register/options` without a session answers 403, and the verify step refuses a sign-up challenge
+  stored before passkey sign-up was removed (accounts made by it keep signing in with their passkey). Sign in with a
+  passkey ("Use a passkey" on `/login`, `/signup` and the device page): a discoverable-credential prompt, no email.
+  Verification is done here with WebCrypto: attestation `none` (any `fmt`
   is accepted and its statement is not verified), ES256 (-7) and RS256 (-257, at least 2048 bits), and checks on
   the clientDataJSON type, a single-use challenge stored for 5 minutes, the exact origin, `crossOrigin`, the RP ID
   hash, user presence, user verification (required), the attested credential id, and the sign counter (a counter
@@ -223,8 +233,9 @@ shown only when its secrets are set. Creating an account never needs a passkey. 
 ### The passkey step
 
 Once an account has a passkey, "Require a passkey at sign-in" is on (it is not a separate switch: it is on exactly
-while the account has a passkey, and `/account` says which). A Google or GitHub sign-in of such an account grants no
-session: the callback stores a single-use `challenges` row (kind `mfa`: the account, where to go next, which provider;
+while the account has a passkey, and `/account` says which). A correct password, or a Google or GitHub sign-in, of such
+an account grants no session: the password route (its JSON answer `{ ok, next: "/login/passkey" }`) or the callback
+stores a single-use `challenges` row (kind `mfa`: the account, where to go next, which way in;
 5 minutes, `MFA_MS`), sets `__Host-gc_mfa` (HttpOnly, Secure, SameSite=Lax, Path=/, 5 minutes; `gc_mfa` on plain-HTTP
 localhost) holding only that row's id, and redirects to `/login/passkey`. That page asks for one of the account's
 passkeys: `POST /api/auth/passkey/mfa/options` (our Origin; WebAuthn request options with `allowCredentials` = that
@@ -241,17 +252,59 @@ Adding a passkey to an account that already has one, and removing a passkey, nee
 session within the last 5 minutes (`FRESH_MS`): a passkey sign-in, the passkey step, or `POST
 /api/auth/passkey/confirm/options` + `/confirm/verify` (browser session and our Origin), which the account page runs
 when the server answers `{ confirm: true }`. So a stolen session cookie can neither add its own passkey nor remove
-the owner's. Removing the last passkey turns the step off (an account with Google or GitHub linked; a passkey-only
+the owner's. Removing the last passkey turns the step off (an account with a password, Google or GitHub; a passkey-only
 account keeps at least one). Several passkeys are allowed. Lost every passkey: email mehar@daybot.ca (the page says
 so); the owner can delete the account's `credentials` rows after checking who is asking.
 
 **Linking rule.** A Google or GitHub identity is attached to an existing account only when that account is signed in
 and chooses Link Google or Link GitHub on `/account` (`/auth/<provider>?link=1`; the callback checks that the same
-account and the same session that started the Link are signed in). Never because emails match: passkey sign-up emails are unverified, so matching would let
+account and the same session that started the Link are signed in). Never because emails match: emails typed at sign-up are unverified, so matching would let
 someone register a victim's address first and later receive the victim's Google sign-in. A first Google sign-in whose
 email another account already uses lands on a page that says so and offers two choices: sign in to that account with
 its passkey and link Google there, or create a separate account (`POST /api/auth/pending`, the identity waits for 10
 minutes in a single-use row named by the `gc_pending` cookie).
+
+### Passwords
+
+- **Storage** (`passwords`, one row per account): the username (`email`, UNIQUE) and a versioned string
+  `$pbkdf2-sha256$v=1$i=600000,l=100000$<salt>$<hash>`: PBKDF2-HMAC-SHA256 through WebCrypto, 600,000 iterations, a
+  16-byte random salt per password, a 32-byte output, both base64url without padding, the password NFC-normalised.
+  Cloudflare Workers refuse a WebCrypto PBKDF2 call over 100,000 iterations (workerd's
+  `DEFAULT_MAX_PBKDF2_ITERATIONS`), so the 600,000 are six chained calls: link 1 is PBKDF2(password, salt, 100,000),
+  each next link is PBKDF2(previous output, salt, 100,000). A guess costs the full 600,000 iterations in sequence, as
+  one call of 600,000 would; with `i` = `l` the string is plain PBKDF2. Checking reads `v`, `i`, `l` and the salt from
+  the string and compares the 32 bytes in constant time, so stored strings keep working when the defaults rise; a
+  correct password stored with less work than today's is re-hashed at that sign-in. One hash costs about 80 ms of CPU
+  (Node on an M-series Mac; Workers' BoringSSL is similar), well inside Workers Paid's CPU limit.
+- **Rules** (NIST SP 800-63B): 10 to 256 characters, counted as code points after NFC; no composition rules; refused
+  when it is on a small embedded list of common passwords (case-insensitive), one character repeated, or the email.
+- **Same answer:** an email without a password and a wrong password give the same 400 ("that email and password do
+  not match an account; ...") after the same work (a check against `DUMMY_HASH`). Sign-up must refuse an email that
+  already has a password (409, "an account already signs in with this email"), which says that much and nothing about
+  how that account signs in; the delay below shows the same for an email it slows down.
+- **The delay, never a lockout** (`src/password.ts` delayAfter). Each check of a password for an account is counted
+  before it is made, in one conditional UPDATE (so parallel guesses cannot all slip in): none for the first 4 wrong
+  passwords in a row, then 30 s after the 5th, doubling (1, 2, 4, 8 minutes) to 15 minutes; while it runs no password
+  for that account is checked, the right one included (429 with `retry-after` and the wait in words). The count
+  starts again after a day without a wrong password, and a correct password clears it. A guesser gets about 4 tries an
+  hour after the first few. To keep a stranger from holding the owner out, a browser where that account's password
+  was right before skips the account's delay: the device cookie `__Host-gc_device` (`gc_device` on plain-HTTP
+  localhost; 32 random bytes, HttpOnly, Secure, SameSite=Lax, Path=/, 400 days), stored only as a SHA-256 hash in
+  `password_devices` with the account, rotated at every correct password. Such a browser has its own budget of 5
+  wrong passwords in a row; after that it is treated like any other until a correct password. A password change
+  forgets every browser of the account; the daily sweep drops rows unused for 400 days. `AUTH_LIMIT` (per IP and
+  route) applies on top.
+- **Change or add** (`POST /api/auth/password`, browser session and our Origin; Security on `/account`). Change:
+  `{ current, password }` (a wrong current password counts toward the delay), or `{ password }` after a passkey in this
+  session within 5 minutes (else 403 `{ confirm: true }`, which the page answers with a passkey prompt). It ends every
+  other session, browsers and terminals, and every trusted browser, then trusts this one. Add, for an account that
+  signs in with Google, GitHub or a passkey: `{ email?, password }`, the email defaulting to the account's (a GitHub
+  account has none: the typed one becomes its email too); 409 when another account signs in with that email; an
+  account with a passkey needs a passkey in the last 5 minutes first (like adding a second passkey).
+- **Forgotten password.** No email sender exists, so `/login/forgot` says to write from the account's address and the
+  owner resets it by hand ([Owner steps: a forgotten password](#owner-steps-a-forgotten-password)). The hook for an
+  emailed reset is `resetSender()` in `src/auth.ts` (null today) and `storeNewPassword()`, which a reset page would
+  call; the comment there lists the route and the challenge row it needs.
 
 ### Sessions and request rules
 
@@ -271,7 +324,7 @@ minutes in a single-use row named by the `gc_pending` cookie).
   `Content-Type: application/json` (415 otherwise). Bearer requests carry no ambient credentials and need no Origin.
   No account endpoint sends CORS headers.
 - Rate limits: binding `AUTH_LIMIT` (namespace `7302`, 20 per 60 s), keyed by a SHA-256 of the route and the client
-  IP, on sign-up options, sign-in options, starting Google or GitHub sign-in, device code creation, code lookups on
+  IP, on sign-up, sign-in options, password sign-in and the current password of a change, starting Google or GitHub sign-in, device code creation, code lookups on
   `/login/device`, device approval and device token polling. A limited poll answers `slow_down` (interval 10)
   before any database read, for unknown device codes too. Account app creation also uses `CREATE_LIMITER` (per
   account) and a global ceiling of 60 apps created in accounts a minute, separate from the 60 a minute for anonymous
@@ -284,16 +337,20 @@ minutes in a single-use row named by the `gc_pending` cookie).
 
 | route | auth | behaviour |
 |---|---|---|
-| `GET /signup`, `GET /login` | - | the pages (`?next=` only to `/account...` or `/login/device...`); a signed-in visitor is redirected. Google, then GitHub; `/signup` has the passkey form only with neither configured |
-| `GET /login/passkey` | `__Host-gc_mfa` | the passkey step after Google or GitHub for an account with a passkey; 400 page when the step expired or is missing |
+| `GET /signup`, `GET /login` | - | the pages (`?next=` only to `/account...` or `/login/device...`); a signed-in visitor is redirected. Google, the email and password form, then a small GitHub link and Use a passkey |
+| `GET /login/forgot` | - | what to do about a forgotten password (no email reset yet) |
+| `POST /api/auth/password/signup` | Origin | `{ email, password, next? }` → `{ ok, account, next }` + session and device cookies; 400 with the rule a password breaks, 409 for an email that already signs in |
+| `POST /api/auth/password/login` | Origin | `{ email, password, next? }` → `{ ok, next }` + session (or `next: "/login/passkey"` and the step's cookie for an account with a passkey) + device cookie; 400 for a wrong password or an unknown email (one answer), 429 while the account's delay runs |
+| `POST /api/auth/password` | cookie + Origin | change (`{ current, password }`, or `{ password }` after a fresh passkey) or add (`{ email?, password }`) the account's password → `{ ok, changed \| added }`; 403 `{ confirm: true }` when a passkey must answer first; 403 for a bearer token |
+| `GET /login/passkey` | `__Host-gc_mfa` | the passkey step after a password, Google or GitHub for an account with a passkey; 400 page when the step expired or is missing |
 | `POST /logout` | cookie + Origin | revokes the session, clears the cookie, 303 to `/login?signed_out=1` |
 | `GET /account` | cookie | the account page (302 to `/login?next=/account` without one): apps, "Dashboards come with Pro" with Start a trial while locked, Security (sign-in methods, "Require a passkey at sign-in", Add a passkey), sessions. `?trial=1` focuses Start a trial; `?claim=1` returns to a locked private link this tab kept |
 | `GET /account/apps/<id>` | cookie | an owned app's dashboard with the Connect panel (on a trial: "Pro trial: N days left", the only place the length shows); without Pro, the locked page (the key, the Connect panel, Start a trial or See plans, no stats); 404 for an app of another account |
 | `GET /login/device?code=ABCD-EFGH` | cookie optional | signed in: the code and the request, Approve and Deny; signed out: the code and the ways to sign in, whether or not the code is live |
 | `GET /auth/google`, `GET /auth/google/callback` | - | Google sign-in (404 page when not configured); `?link=1` needs a session |
 | `GET /auth/github`, `GET /auth/github/callback` | - | GitHub sign-in, same rules |
-| `POST /api/auth/passkey/register/options` | Origin | `{ email }` (sign-up: only with no OAuth provider configured, else 403) or, signed in, `{}` to add a passkey (403 `{ confirm: true }` when the account has one and this session has not proved a passkey in 5 minutes) → `{ id, publicKey }` (WebAuthn creation options, binary fields base64url) |
-| `POST /api/auth/passkey/register/verify` | Origin | `{ id, credential: { id, rawId, type, response: { clientDataJSON, attestationObject, transports } } }` → `{ ok, account }`, sets the session for a new account |
+| `POST /api/auth/passkey/register/options` | cookie + Origin | `{}`: a signed-in account adds a passkey (403 `{ confirm: true }` when the account has one and this session has not proved a passkey in 5 minutes; 403 without a session: there is no passkey sign-up) → `{ id, publicKey }` (WebAuthn creation options, binary fields base64url) |
+| `POST /api/auth/passkey/register/verify` | cookie + Origin | `{ id, credential: { id, rawId, type, response: { clientDataJSON, attestationObject, transports } } }` → `{ ok, account }` (the passkey is added; no new session) |
 | `POST /api/auth/passkey/login/options` | Origin | `{}` → `{ id, publicKey }` (empty `allowCredentials`) |
 | `POST /api/auth/passkey/login/verify` | Origin | `{ id, credential: { ..., response: { clientDataJSON, authenticatorData, signature, userHandle } } }` → `{ ok, account }` + session |
 | `POST /api/auth/passkey/mfa/options`, `/mfa/verify` | Origin + `__Host-gc_mfa` | the passkey step: options for that account's passkeys; verify → `{ ok, next, account }` + session, the step used up |
@@ -345,16 +402,16 @@ The daily cron also deletes expired challenges and device codes and expired or r
 | `AUTH_ORIGIN` | var | `https://genclass.dev` | expected `Origin`, WebAuthn origin, OAuth redirect URIs, cookie `Secure` |
 | `AUTH_RP_ID` | var | `genclass.dev` | WebAuthn RP ID |
 | `RUNTIME_ON_NPM` | var (wrangler.toml) | `0.2.2` | the newest `@genclass/runtime` on npm, on any dist-tag; below `0.3.0-beta.0` the Connect panel, `/start` and private dashboards say first that keys and `login` are not published yet. Set it to `0.3.0-beta.0` once release.yml has published the beta and jsDelivr serves it, then deploy; at `0.3.0`, set it with `src/pages.ts` `SNIPPET_RUNTIME` and `RUNTIME_PKG` (the snippets pin the script tag to `SNIPPET_RUNTIME` and name the `@beta` dist-tag in their commands while it is a prerelease) |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secret | unset | Google sign-in, the first way in; both needed. With neither Google nor GitHub, passkey sign-up is offered instead |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secret | unset | Google sign-in, the first way in; both needed. An email and a password are offered either way |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | secret | unset | GitHub sign-in; both needed |
-| `TRIAL_DAYS` | var (wrangler.toml) | `"7"` | how long a trial of Pro lasts (1 to 60; anything else counts as 7). Never in public copy, which says "Trials available" |
+| `TRIAL_DAYS` | var (wrangler.toml) | `"7"` | how long a trial of Pro lasts (1 to 60; anything else counts as 7). The pages say it ("Get a 7-day free trial for analytics", "Start your 7-day free trial"); the site says the same number from `billing/plans.json` `trial_days`, and `test/trial.test.ts` fails when the two (or the CLI's copy) differ: change them together |
 
 Production needs no other vars (the defaults are production). For local development see `.dev.vars.example`.
 
 ### Owner steps: Google sign-in
 
-Until these secrets exist, production offers only passkey sign-up (the fallback); once they do, `/signup` offers only
-Google (and GitHub, once its secrets exist), and accounts made with a passkey before keep signing in with it.
+Until these secrets exist, `/signup` and `/login` offer the email and password form (and GitHub, once its secrets
+exist); once they do, "Continue with Google" leads. Accounts made with the old passkey sign-up keep signing in with it.
 
 In the Google Cloud console, project of your choice, open **Google Auth Platform**:
 
@@ -391,6 +448,39 @@ npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote
 npx --yes wrangler@4 deploy
 ```
 
+### Migration 0007 (`migrations/0007_passwords.sql`)
+
+Additive: new tables `passwords` (one per account: `email` UNIQUE, `hash`, `created`, `updated`, `last_used`, and the
+delay's `failed`, `failed_at`, `next_try`) and `password_devices` (`hash` of a device cookie and `account_id` as the
+key, `created`, `last_used`, `failed`; indexes on `account_id` and `last_used`). No existing row or column changes;
+existing accounts have no password until they add one on `/account`. `test/auth.test.ts` runs it on a database with
+accounts and sessions made before it. The code reads these tables, so apply it before deploying:
+
+```sh
+npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote
+npx --yes wrangler@4 deploy
+```
+
+### Owner steps: a forgotten password
+
+GenClass cannot email a reset link yet, so `/login/forgot` asks the person to write to mehar@daybot.ca from the
+address they sign in with. The address was never verified, so check that the mail really comes from it (the message's
+DKIM/SPF results in the mail client, and a reply to that address that they answer) before changing anything. An
+account with a passkey needs no help: after signing in with the passkey, Security, Change password takes a new password
+without the current one. Otherwise set a temporary password, send it to that address, and ask them to change it on
+`/account`:
+
+```sh
+read -rs PW && printf '%s' "$PW" | node telemetry-worker/scripts/password-hash.mjs; unset PW   # prints $pbkdf2-sha256$...
+E=<their email, lowercased>; H='<the printed string>'
+npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
+  UPDATE passwords SET hash = '$H', updated = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), failed = 0, failed_at = NULL, next_try = NULL WHERE email = '$E';
+  DELETE FROM password_devices WHERE account_id = (SELECT account_id FROM passwords WHERE email = '$E');
+  UPDATE auth_sessions SET revoked = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE revoked IS NULL AND account_id = (SELECT account_id FROM passwords WHERE email = '$E');"
+```
+
+The account's passkey step still applies after the temporary password, if it has a passkey.
+
 ### Live checks of accounts
 
 Accounts are production data too. A check against genclass.dev signs up with an address at `example.com`, names its
@@ -401,6 +491,7 @@ deletes the apps created in it), or by hand:
 A=<account id>
 npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
   DELETE FROM credentials WHERE account_id = '$A'; DELETE FROM auth_sessions WHERE account_id = '$A';
+  DELETE FROM passwords WHERE account_id = '$A'; DELETE FROM password_devices WHERE account_id = '$A';
   UPDATE projects SET account_id = NULL WHERE account_id = '$A'; DELETE FROM accounts WHERE id = '$A';"
 ```
 
@@ -449,12 +540,13 @@ Pro shows 24 hours, 7 and 30 days, as before.
 
 ### Trials and grants
 
-- **Trial.** One per account, no card and no Stripe: Start a trial on the locked dashboard, on `/account`, on
+- **Trial.** One per account, no card and no Stripe: "Start your 7-day free trial" on the locked dashboard, on `/account`, on
   `/account/billing`, or the pricing page's button (`/account/trial`, through sign-up when signed out; a GET never
   starts one). `POST /api/billing/trial` (browser session and our Origin; 409 once used, or with a paid plan or a
   grant) sets `trial_started_at` and `trial_ends_at` = now + `TRIAL_DAYS` in one conditional update. While it runs the
   account has Pro's entitlements (dashboard, ranges, unlimited apps, export, forwarding) and keeps Pro's history; the
-  dashboard says the days left ("Pro trial: N days left"), and no other page or public copy says the length. Then the
+  dashboard says the days left ("Pro trial: N days left"). Public copy says the length ("Get a 7-day free trial for
+  analytics": the worker's pages from `TRIAL_DAYS`, the site from `billing/plans.json` `trial_days`). Then the
   dashboard locks again ("Your trial has ended"), the account is Free (3 apps; the ones already there stay and are
   still collected) until it buys a plan, and its data older than 90 days goes with the next sweep.
 - **Grant** (`comp_until`): Pro's entitlements until that time, for the owner's own apps or a partner, set only by hand:
@@ -471,7 +563,7 @@ Pro shows 24 hours, 7 and 30 days, as before.
   A paid plan wins over a grant, and a grant over a trial (`src/plans.ts` accessOf). The collector caches each app's
   plan for a minute, so a hand-made change reaches forwarding and export within one.
 - An anonymous app (a private link) gets Pro when it is added to an account that has it: the locked link page signs
-  the visitor in (Google, then GitHub; passkeys when neither is configured), comes back to the link (`/account?claim=1`
+  the visitor in (Continue with Google, or Sign in and Create an account with every other way in), comes back to the link (`/account?claim=1`
   returns to the link this browser tab kept in sessionStorage: the secret is never stored on the server), and one
   button adds the app (`POST /api/account/projects/claim`, as on `/account`) and starts the trial.
 

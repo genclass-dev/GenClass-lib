@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { CDN_SCRIPT, DASH_CSS, dashboardPage, KEY_RUNTIME, RUNTIME_PKG, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
-import { loginPage, messagePage } from "../src/account-pages.js";
+import { accountPage, devicePage, forgotPage, lockedLinkPage, loginPage, messagePage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
 
@@ -235,6 +235,92 @@ describe("snippets: the runtime that reads the token", () => {
   });
 });
 
+/** WCAG 2 contrast ratio of two #RRGGBB colours. */
+function contrast(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, b2] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)) as [number, number, number];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
+  };
+  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m) as [number, number];
+  return (x + 0.05) / (y + 0.05);
+}
+
+/** Every page this worker serves, rendered once (account pages with a small made-up account). */
+function everyPage(): [string, string][] {
+  const project = { name: "a", token: "gc_TestToken0123456789abc", created: "", lastEvent: null };
+  const acct = { apps: [{ id: "0123456789abcdef", name: "a" }], current: "0123456789abcdef", email: "ada@example.com" };
+  const view = {
+    account: { id: "A".repeat(22), email: "ada@example.com", emailVerified: false, google: false, githubLogin: null, created: "2026-10-01T00:00:00.000Z" },
+    projects: [],
+    passkeys: [],
+    web: [],
+    cli: [],
+    password: null,
+    providers: { google: true, github: true },
+    dashboards: "trial" as const,
+  };
+  const providers = { google: true, github: true };
+  return [
+    ["/start", startPage("n")],
+    ["/dashboard", dashboardPage("n", project)],
+    ["/account/apps (locked)", dashboardPage("n", project, { account: acct, id: "0123456789abcdef", locked: { trialUsed: false, trialDays: 7 } })],
+    ["/account/apps", dashboardPage("n", project, { account: acct, id: "0123456789abcdef" })],
+    ["/login", loginPage("n", { ...providers, next: null })],
+    ["/signup", signupPage("n", { ...providers, next: null })],
+    ["/login/forgot", forgotPage("n", { contact: "mehar@daybot.ca" })],
+    ["/login/passkey", passkeyStepPage("n", { via: "password", who: "ada@example.com", recovery: "mehar@daybot.ca" })],
+    ["/login/device", devicePage("n", { signedIn: null, code: "BCDF-GHJK", typed: true, request: null, next: "/login/device?code=BCDF-GHJK", providers })],
+    ["/account", accountPage("n", view)],
+    ["pending", pendingPage("n", { email: "ada@example.com", provider: "google" })],
+    ["message", messagePage("n", { title: "T", text: "x", links: [["One", "/a"]] })],
+    ["/dashboard/<secret> (locked)", lockedLinkPage("n", { name: "a", signedIn: null, owner: "none", providers })],
+  ];
+}
+
+describe("pages: one light theme everywhere, as on genclass.dev", () => {
+  it("no page switches to a dark palette with the visitor's system theme: no prefers-color-scheme, color-scheme light", () => {
+    for (const [name, html] of everyPage()) {
+      expect(html, name).not.toContain("prefers-color-scheme");
+      expect(html, name).toContain("color-scheme:light;");
+      expect(html, name).not.toMatch(/color-scheme:\s*light dark|color-scheme:\s*dark/);
+      // the site's light tokens, once (no second set that could override them)
+      expect(html.match(/--paper:/g), name).toHaveLength(1);
+      expect(html, name).toContain("--paper:#FFFFFF;--panel:#F5F8FB;--ink:#0E1F4D;");
+      // the light lockup only (the dark one, which set the name in type, is gone)
+      expect(html, name).not.toContain('class="lkd"');
+    }
+    expect(DASH_CSS).toContain(":root{--t1:#2B4FB0;--t2:#F0451C;--t3:#0F85B2;--t4:#EE9E10;--t5:#A63C72;--t0:#8A93A8;--grid:#E6EBF2}");
+  });
+
+  it("contrast on the light palette: text at least 4.5:1 on paper and panel, inputs' borders and the focus ring at least 3:1", () => {
+    const html = startPage("n");
+    const token = (name: string) => {
+      const m = new RegExp(`--${name}:(#[0-9A-Fa-f]{6})`).exec(html);
+      if (!m) throw new Error(`no --${name}`);
+      return m[1]!;
+    };
+    const [paper, panel] = [token("paper"), token("panel")];
+    for (const t of ["ink", "ink2", "ink3", "accent", "warn"]) {
+      expect(contrast(token(t), paper), t).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token(t), panel), t).toBeGreaterThanOrEqual(4.5);
+    }
+    // green and red-orange tints behind their own text (notices, the trial line, errors)
+    expect(contrast(token("accent"), token("accent-t"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token("warn"), token("warn-t"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token("ink3"), token("accent-t"))).toBeGreaterThanOrEqual(4.5);
+    // buttons: paper on ink, ink on the green fill (and its hover)
+    expect(contrast(paper, token("ink"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token("on-green"), token("accent-f"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token("on-green"), token("green-h"))).toBeGreaterThanOrEqual(4.5);
+    // large green text, the input border and the focus ring
+    expect(contrast(token("accent-x"), paper)).toBeGreaterThanOrEqual(3);
+    expect(contrast(token("line"), paper)).toBeGreaterThanOrEqual(3);
+    expect(contrast(token("accent"), paper)).toBeGreaterThanOrEqual(3);
+    // the code panels stay the site's night navy, with light text
+    expect(contrast(token("codeink"), token("code"))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe("pages: genclass.dev's palette, buttons, header and focus ring", () => {
   const project = { name: "a", token: "gc_TestToken0123456789abc", created: "", lastEvent: null };
   /** HSL hue of a #RRGGBB colour, in degrees. */
@@ -251,7 +337,7 @@ describe("pages: genclass.dev's palette, buttons, header and focus ring", () => 
       // site/src/css/base.css: ink navy, the green (fills, large text, small text), the red-orange (fills; small text)
       for (const t of ["--ink:#0E1F4D", "--accent-f:#14B86A", "--accent-x:#0E9A58", "--accent:#08794A", "--warn-f:#F0451C", "--warn:#C42A12", "--panel:#F5F8FB", "--rule:#DFE4EC", "--rule2:#C6CEDB"]) expect(html).toContain(t);
       expect(html).toContain(":focus-visible{outline:2px solid var(--accent);outline-offset:3px}");
-      expect(html).toContain("prefers-color-scheme:dark");
+      expect(html).not.toContain("prefers-color-scheme");
     }
     expect(startPage("n")).toMatch(/header\.top\{position:sticky;top:0;/);
     expect(startPage("n")).toContain('src="https://genclass.dev/brand/lockup-h.png?v=2"');
@@ -284,24 +370,30 @@ describe("pages: genclass.dev's palette, buttons, header and focus ring", () => 
   it("the main action of a page is the site's green button; the header ends in its ink button", () => {
     expect(startPage("n")).toContain('<button class="btn green" id="go" type="submit">Get a token</button>');
     expect(startPage("n")).toContain('<a class="btn" href="/start">Get a token</a>');
-    expect(loginPage("n", { google: false, github: false, next: null })).toContain('class="btn prov green" id="pk"');
-    // with Google or GitHub offered they lead, and the passkey steps back to a plain "Use a passkey" link under them
+    // sign-in: the email and password form's button is the green one, whatever is configured; a passkey is a small link
+    const none = loginPage("n", { google: false, github: false, next: null });
+    expect(none).toContain('<button class="btn prov green" type="submit"><span>Sign in</span></button>');
+    expect(none).toContain('<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>');
+    expect(none).not.toContain('class="btn prov green" id="pk"');
+    expect(none).not.toContain('<div class="or">');
+    // with Google offered it leads (the paper button), then "or", the form, and the small links
     const g = loginPage("n", { google: true, github: false, next: null });
-    expect(g).toContain('<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>');
-    expect(g.indexOf("Continue with Google")).toBeLessThan(g.indexOf("Use a passkey"));
+    expect(g.indexOf("Continue with Google")).toBeLessThan(g.indexOf('<div class="or">or</div>'));
+    expect(g.indexOf('<div class="or">or</div>')).toBeLessThan(g.indexOf('id="pwf"'));
+    expect(g.indexOf('id="pwf"')).toBeLessThan(g.indexOf("Use a passkey"));
     expect(g).not.toContain("Sign in with a passkey");
+    expect(signupPage("n", { google: false, github: false, next: null })).toContain('<button class="btn prov green" type="submit"><span>Create account</span></button>');
     const msg = messagePage("n", { title: "T", text: "x", links: [["One", "/a"], ["Two", "/b"]] });
     expect(msg).toContain('<a class="btn green" href="/a">One</a>');
     expect(msg).toContain('<a class="btn ghost" href="/b">Two</a>');
   });
 
-  it("chart series: the validated slots in both modes, none of them green (green means GenClass fixed it)", () => {
+  it("chart series: the validated slots, light only, none of them green (green means GenClass fixed it)", () => {
     const light = /:root\{--t1:(#\w{6});--t2:(#\w{6});--t3:(#\w{6});--t4:(#\w{6});--t5:(#\w{6});/.exec(DASH_CSS)!.slice(1);
-    const dark = /prefers-color-scheme:dark\)\{:root\{--t1:(#\w{6});--t2:(#\w{6});--t3:(#\w{6});--t4:(#\w{6});--t5:(#\w{6});/.exec(DASH_CSS)!.slice(1);
     // validate_palette.js passes on these, in this order (pages.ts, the chart colours comment)
     expect(light).toEqual(["#2B4FB0", "#F0451C", "#0F85B2", "#EE9E10", "#A63C72"]);
-    expect(dark).toEqual(["#5780E6", "#F0451C", "#179FD4", "#C68206", "#C75B90"]);
-    for (const c of [...light, ...dark]) expect(hue(c) < 75 || hue(c) > 170, c).toBe(true);
+    expect(DASH_CSS.match(/--t1:/g)).toHaveLength(1);
+    for (const c of light) expect(hue(c) < 75 || hue(c) > 170, c).toBe(true);
     expect(hue("#14B86A")).toBeGreaterThan(75); // the check itself would catch the brand green
   });
 });

@@ -253,7 +253,11 @@ export async function projectAccess(db: D1Like, project: { account_id?: string |
   return project.account_id ? accountAccess(db, project.account_id, env, now) : NO_ACCESS;
 }
 
-/** How many days a trial lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7. Never said in public copy. */
+/**
+ * How many days a trial lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7. The worker's pages say it ("Get a
+ * 7-day free trial for analytics") from here; the site says it from billing/plans.json trial_days, and
+ * test/trial.test.ts checks that the two agree.
+ */
 export function trialDays(env: Env): number {
   const n = Math.floor(Number(String(env.TRIAL_DAYS ?? "").trim()));
   return Number.isFinite(n) && n >= 1 && n <= 60 ? n : 7;
@@ -280,11 +284,11 @@ export async function appLimit(db: D1Like, env: Env, accountId: string, now: Dat
 }
 
 /** The 409 for an account at its plan's app limit: says the limit and where to go, for the page and the CLI. */
-export function appLimitBody(lim: AppLimit, origin: string): { ok: false; error: string; upgrade_url: string } {
+export function appLimitBody(lim: AppLimit, origin: string, days: number): { ok: false; error: string; upgrade_url: string } {
   const url = `${origin}/account/billing`;
   return {
     ok: false,
-    error: `the ${lim.plan.name} plan holds ${lim.max} app${lim.max === 1 ? "" : "s"}; Pro has no app limit (trials available) at ${url}`,
+    error: `the ${lim.plan.name} plan holds ${lim.max} app${lim.max === 1 ? "" : "s"}; Pro has no app limit (get a ${days}-day free trial for analytics) at ${url}`,
     upgrade_url: url,
   };
 }

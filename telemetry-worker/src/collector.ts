@@ -20,7 +20,7 @@
 // Accounts (src/auth.ts, src/account-pages.ts; routed on genclass.dev/{login*,signup*,logout*,account*,auth/*} and
 // /api/{auth,device,me,account}*): passkeys, Google and GitHub sign-in, sessions, the CLI's device flow, owned apps.
 
-import { routeAuth, runtimeHasTokens } from "./auth.js";
+import { lockedError, routeAuth, runtimeHasTokens } from "./auth.js";
 import {
   aggregate,
   createProject,
@@ -40,7 +40,7 @@ import { routeBilling } from "./billing.js";
 import { json, readCapped } from "./http.js";
 import { afterBatch } from "./paid.js";
 import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages.js";
-import { hasDashboard, projectAccess } from "./plans.js";
+import { hasDashboard, projectAccess, trialDays } from "./plans.js";
 import { lockedLink } from "./trial.js";
 import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
 
@@ -113,7 +113,7 @@ export interface Env {
   /** Optional https URL that gets short JSON notices: a Custom purchase, a duplicate subscription, a plan switch
    * that needs a refund by hand, a billing record holding something that is not GenClass's. */
   NOTIFY_WEBHOOK?: string;
-  /** How many days a trial of Pro lasts (a var in wrangler.toml, "7"; src/plans.ts trialDays). Never in public copy. */
+  /** How many days a trial of Pro lasts (a var in wrangler.toml, "7"; src/plans.ts trialDays). The pages say it. */
   TRIAL_DAYS?: string;
 }
 
@@ -360,7 +360,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     if (api[1] === SAMPLE_SECRET) return json(200, sampleStats(url.searchParams.get("range"), now));
     const p = env.DB ? await projectBySecret(env.DB, api[1]!) : null;
     if (!p || !env.DB) return json(404, { ok: false, error: "not found" });
-    if (!hasDashboard(await projectAccess(env.DB, p, env, now))) return json(402, { ok: false, error: "dashboards come with Pro (trials available)", locked: true });
+    if (!hasDashboard(await projectAccess(env.DB, p, env, now))) return json(402, { ok: false, error: lockedError(env), locked: true });
     const r = url.searchParams.get("range") as Range | null;
     const range: Range = r && RANGES.includes(r) ? r : "7d";
     return json(200, await stats(env.DB, p, range, now));
@@ -369,7 +369,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
   if (path === "/start") {
     if (m !== "GET" && m !== "HEAD") return null;
     const nonce = randomBase62(22);
-    return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env) }), nonce);
+    return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env), trialDays: trialDays(env) }), nonce);
   }
 
   if (path === "/dashboard") {

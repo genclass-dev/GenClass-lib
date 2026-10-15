@@ -568,6 +568,12 @@ def vt(key):
         return s + (" The page check adds a phone view and dark mode." if SCAN_LIVE else "")
     if key == "docs-h2":
         return "Visual bugs" if SHIPPED else "Visual bugs and the page check" if SCAN_LIVE else "Visual bugs (in testing)"
+    if key == "docs-lead":
+        return ("Measured checks find bugs that render without an error:" if SHIPPED else
+                "Measured checks for bugs that render without an error are built and in testing:")
+    if key == "docs-runtime":
+        if SHIPPED: return f" They ship in runtime {esc(D['checks_in_runtime'])}; earlier versions do not have them."
+        return " They are not in runtime {{rt}}."
     if key == "docs-scan":
         if not SCAN_LIVE: return ""
         return (f" {scan_runs()}. Paste the address into the box on the <a href=\"/#visual\">homepage</a>, or open "
