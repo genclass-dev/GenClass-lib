@@ -76,7 +76,7 @@ export const CATEGORIES: { id: Category; label: string; weight: number; covers: 
 ];
 
 /** Base points a rule takes from its category's 100, by severity (before the instance factor). */
-export const SEVERITY_POINTS: Record<Severity, number> = { critical: 50, serious: 25, moderate: 15, minor: 8 };
+export const SEVERITY_POINTS: Record<Severity, number> = { critical: 50, serious: 25, moderate: 15, minor: 12 };
 /** A rule's points grow with the log of its instances and stop at this multiple of its base. */
 export const INSTANCE_CAP = 3;
 /** The lowest a category counts for in the overall geometric mean (a category at 0 would make the whole score 0). */
