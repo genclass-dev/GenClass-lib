@@ -914,7 +914,7 @@ def numbers():
 def model_limit():
     if MODEL_LIVE:
         return "<li><b>The model's numbers hold for the data in Tables 5 and 6.</b> On kinds of sites the crawl did not cover, recall and precision may be lower.</li>"
-    s = "<li><b>The learned model has no numbers yet.</b> Nothing on this page claims a detection rate for it until one is measured and published.</li>"
+    s = "<li><b>The in-browser learned model has no numbers yet.</b> Nothing on this page claims a detection rate for it until one is measured and published.</li>"
     if LIVE:
         sites = [x["sites"] for x in C["public"]["runs"]]
         lo, hi = min(sites), max(sites)
@@ -932,9 +932,8 @@ def vision_home():
     """The homepage's one line on GenClass Vision."""
     if not VISION_LIVE: return ""
     v = D["vision"]; t = v["test"]
-    return (f'<p class="note vnote"><b>New: {esc(v["name"])} ({esc(v["stage"])}).</b> A {fixed(v["size_mb"])} MB model now gives '
-            f'each visual finding in the page check a second opinion, not scored. On our test it ranks bugs level with '
-            f'Cloudflare\'s {esc(v["clef_params"])} Clef. <a href="/visual#vision">Results →</a></p>')
+    return (f'<p class="note vnote"><b>New: {esc(v["name"])} ({esc(v["stage"])}),</b> a {fixed(v["size_mb"])} MB model that '
+            f'ranks bugs level with Cloudflare\'s {esc(v["clef_params"])} Clef. <a href="/visual#vision">Results →</a></p>')
 
 def vision_block():
     """/visual#vision: what GenClass Vision is, its numbers from RESULTS.md, and that it is a beta and not scored."""
