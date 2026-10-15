@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetTokenCache } from "../src/dashboard.js";
 import { resetOwnerCache } from "../src/paid.js";
@@ -7,7 +8,8 @@ import { advance, call, cliToken, createApp, detection, now, ORIGIN, resetClock,
 // Dashboards come with Pro (src/plans.ts accountAccess, src/trial.ts): apps of an account without a paid plan,
 // GenClass's grant or a trial are collected but their dashboards are locked; one trial per account, no card, no
 // Stripe; private links from /start and the 0.3.0-beta.0 CLI's init open a locked page that leads to sign-in, adding the
-// app to an account and the trial. Public copy never says how long a trial lasts.
+// app to an account and the trial. Public copy says how long a trial lasts ("Get a 7-day free trial for analytics"):
+// the worker's pages from TRIAL_DAYS (wrangler.toml), the site from billing/plans.json trial_days; they agree.
 
 const DAY = 86_400_000;
 
@@ -20,8 +22,11 @@ beforeEach(() => {
 const trial = (env: Parameters<typeof call>[0], cookie: string, o: { origin?: string | null } = {}) => call(env, "POST", "/api/billing/trial", { body: {}, cookie, ...o });
 const text = async (r: Promise<Response> | Response) => (await r).text();
 
-/** Nothing on a public page says how long a trial lasts ("Trials available"). */
-const LENGTH = /\b(7|seven)[- ]days?\b|one[- ]week|week[- ]long|\d+[- ]day trial|trial (lasts|of \d|for \d)/i;
+/** The trial's public line and button, with its length (the owner's copy, 2026-10-15). */
+const OFFER = (days = 7) => `Get a ${days}-day free trial for analytics`;
+const START = (days = 7) => `Start your ${days}-day free trial`;
+/** The copy before 2026-10-15, which hid the length. */
+const OLD = /trials available|start a trial/i;
 
 describe("dashboards come with Pro: a new account's apps are collected, and their dashboards locked", () => {
   it("the app's page keeps its key and Connect panel and offers the trial; its stats answer 402; ingest keeps counting", async () => {
@@ -32,20 +37,23 @@ describe("dashboards come with Pro: a new account's apps are collected, and thei
     expect(Number(sql.rows("SELECT COUNT(*) AS n FROM daily WHERE token = ?", app.token)[0]!.n)).toBeGreaterThan(0);
     const html = await text(call(env, "GET", `/account/apps/${app.id}`, { cookie }));
     expect(html).toContain('<h2 id="lock-h">Dashboards come with Pro.</h2>');
-    expect(html).toContain("<p>Trials available.</p>");
-    expect(html).toContain('<button class="btn green" type="button" id="trial">Start a trial</button>');
+    expect(html).toContain(`<p>${OFFER()}.</p>`);
+    expect(html).toContain(`<button class="btn green" type="button" id="trial">${START()}</button>`);
     expect(html).toContain("Connect this app");
     expect(html).toContain(app.token);
     expect(html).not.toContain(`/api/account/projects/${app.id}/stats`);
     expect(html).not.toMatch(/ style="/);
     const st = await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie });
     expect(st.status).toBe(402);
-    expect(await st.json()).toEqual({ ok: false, error: "dashboards come with Pro (trials available)", locked: true, upgrade_url: `${ORIGIN}/account/billing` });
+    expect(await st.json()).toEqual({ ok: false, error: "dashboards come with Pro (get a 7-day free trial for analytics)", locked: true, upgrade_url: `${ORIGIN}/account/billing` });
     const acct = await text(call(env, "GET", "/account", { cookie }));
     expect(acct).toContain('<section class="blk" id="plan">');
-    expect(acct).toContain('<h2>Dashboards come with Pro</h2><span class="aside">Trials available</span>');
-    expect(acct).toContain('<button class="btn green" type="button" id="trial"><span>Start a trial</span></button>');
-    for (const page of [html, acct, await text(call(env, "GET", "/account/billing", { cookie }))]) expect(page).not.toMatch(LENGTH);
+    expect(acct).toContain(`<h2>Dashboards come with Pro</h2><span class="aside">${OFFER()}</span>`);
+    expect(acct).toContain(`<button class="btn green" type="button" id="trial"><span>${START()}</span></button>`);
+    for (const page of [html, acct, await text(call(env, "GET", "/account/billing", { cookie }))]) {
+      expect(page).toContain(START());
+      expect(page).not.toMatch(OLD);
+    }
   });
 });
 
@@ -73,11 +81,11 @@ describe("trials: one per account, no card, Pro's entitlements while it runs", (
     expect((await call(env, "GET", `/api/account/projects/${app.id}/stats?range=1y`, { cookie })).status).toBe(200);
     advance(6 * DAY + 3_600_000);
     expect(await text(call(env, "GET", `/account/apps/${app.id}`, { cookie }))).toContain("Pro trial: last day.");
-    // the account and billing pages never say how long
+    // the days left are said in the dashboard only; the account and billing pages no longer offer the trial
     for (const path of ["/account", "/account/billing"]) {
       const page = await text(call(env, "GET", path, { cookie }));
       expect(page, path).not.toMatch(/days? left|last day/i);
-      expect(page, path).not.toMatch(LENGTH);
+      expect(page, path).not.toContain(START());
       expect(page, path).not.toContain("Dashboards come with Pro");
     }
     expect(await text(call(env, "GET", "/account/billing", { cookie }))).toContain("You are on a <b>Pro</b> trial.");
@@ -88,6 +96,9 @@ describe("trials: one per account, no card, Pro's entitlements while it runs", (
     const { env } = setup({ TRIAL_DAYS: "3" });
     const { cookie } = await signedIn(env);
     const app = await createApp(env, cookie);
+    // every page that offers the trial says its real length
+    for (const path of ["/account", "/account/billing", `/account/apps/${app.id}`]) expect(await text(call(env, "GET", path, { cookie })), path).toContain(START(3));
+    for (const path of ["/start", "/login", "/signup"]) expect(await text(call(env, "GET", path, {})), path).toContain(OFFER(3));
     expect(((await (await trial(env, cookie)).json()) as any).trial.ends).toBe(new Date(now().getTime() + 3 * DAY).toISOString());
     expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie })).status).toBe(200);
     advance(3 * DAY + 1000);
@@ -115,7 +126,7 @@ describe("trials: one per account, no card, Pro's entitlements while it runs", (
     for (const n of ["b", "c"]) await createApp(env, cookie, n);
     const fourth = await call(env, "POST", "/api/account/projects", { body: { name: "d" }, cookie });
     expect(fourth.status).toBe(409);
-    expect(((await fourth.json()) as any).error).toMatch(/trials available/);
+    expect(((await fourth.json()) as any).error).toMatch(/get a 7-day free trial for analytics/);
     await sendBatch(env, first.token, [{ t: "session", seq: 0 }]);
     expect((await trial(env, cookie)).status).toBe(200);
     for (const n of ["d", "e"]) await createApp(env, cookie, n);
@@ -195,20 +206,20 @@ describe("private links without Pro: sign in, add the app to the account, start 
     expect(page.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await page.text();
     expect(html).toContain("<h1>Dashboards come with Pro.</h1>");
-    expect(html).toContain('<p class="lead">Trials available.</p>');
+    expect(html).toContain(`<p class="lead">${OFFER()}.</p>`);
     expect(html).toContain('<div class="eb">shop-web</div>');
-    // no OAuth on this server: sign in or sign up (passkeys), then back here through /account?claim=1
+    // no OAuth on this server: sign in or sign up (an email and a password), then back here through /account?claim=1
     expect(html).toContain('href="/login?next=%2Faccount%3Fclaim%3D1"');
     expect(html).toContain('href="/signup?next=%2Faccount%3Fclaim%3D1"');
     expect(html).toContain('sessionStorage.setItem("gc.claim", secret)');
     expect(html).not.toContain(secret);
-    expect(html).not.toMatch(LENGTH);
-    // with Google: Continue with Google first
+    expect(html).not.toMatch(OLD);
+    // with Google: Continue with Google first, then Sign in (every other way in is on that page)
     const g = setup({ GOOGLE_CLIENT_ID: "client-1", GOOGLE_CLIENT_SECRET: "s" });
     const gj = (await (await call(g.env, "POST", "/api/projects", { body: {}, origin: null })).json()) as any;
     const gh = await text(call(g.env, "GET", new URL(gj.dashboardUrl).pathname, { origin: null }));
     expect(gh).toContain('href="/auth/google?next=%2Faccount%3Fclaim%3D1"');
-    expect(gh.indexOf("Continue with Google")).toBeLessThan(gh.indexOf("Other ways to sign in"));
+    expect(gh.indexOf("Continue with Google")).toBeLessThan(gh.indexOf('href="/login?next=%2Faccount%3Fclaim%3D1"'));
   });
 
   it("signed in: the page adds the app to the account and starts the trial; the link then opens the dashboard", async () => {
@@ -222,7 +233,7 @@ describe("private links without Pro: sign in, add the app to the account, start 
     expect(back).toContain('"claim":true');
     expect(back).toContain('location.replace("/dashboard/" + s)');
     const html = await text(call(env, "GET", path, { cookie }));
-    expect(html).toContain('<button class="btn prov green" id="claim" type="button" data-trial="1"><span>Add to my account and start a trial</span></button>');
+    expect(html).toContain(`<button class="btn prov green" id="claim" type="button" data-trial="1"><span>Add to my account and start your 7-day free trial</span></button>`);
     expect(html).toContain('gcPost("/api/account/projects/claim", { secret: secret })');
     // what the button does: /account's claim, then the trial
     expect((await call(env, "POST", "/api/account/projects/claim", { body: { secret }, cookie })).status).toBe(200);
@@ -263,15 +274,39 @@ describe("private links without Pro: sign in, add the app to the account, start 
     expect(await text(call(env, "GET", "/account?started=1", { cookie }))).toContain("Your Pro trial has started.");
   });
 
-  it("public pages never say how long a trial lasts", async () => {
+  it("public pages say how long a trial lasts, from TRIAL_DAYS, and never the days left", async () => {
     const { env } = setup();
     const pages = [await text(call(env, "GET", "/start", {})), await text(call(env, "GET", "/signup", {})), await text(call(env, "GET", "/login", {}))];
     const { cookie } = await signedIn(env);
     pages.push(await text(call(env, "GET", "/account", { cookie })), await text(call(env, "GET", "/account/billing", { cookie })));
     for (const p of pages) {
-      expect(p).not.toMatch(LENGTH);
+      expect(p).toContain(OFFER());
+      expect(p).not.toMatch(OLD);
       expect(p).not.toMatch(/days? left/i);
     }
-    expect(pages[0]).toContain("Dashboards come with Pro. Trials available.");
+    expect(pages[0]).toContain(`Dashboards come with Pro. ${OFFER()}.`);
+    expect(pages[1]).toContain(`<p class="opt">The runtime needs no account. Dashboards come with Pro. ${OFFER()}.</p>`);
+    const fourteen = setup({ TRIAL_DAYS: "14" });
+    expect(await text(call(fourteen.env, "GET", "/login", {}))).toContain(OFFER(14));
+  });
+
+  it("one number per side: wrangler.toml TRIAL_DAYS equals billing/plans.json trial_days (the site), and the CLI's copy says the same", () => {
+    const toml = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
+    const days = /^TRIAL_DAYS = "(\d+)"$/m.exec(toml)?.[1];
+    expect(days).toBeDefined();
+    const plans = JSON.parse(readFileSync(new URL("../../billing/plans.json", import.meta.url), "utf8"));
+    expect(plans.trial_days).toBe(Number(days));
+    expect(trialDays({ BUCKET: { async put() {} }, TRIAL_DAYS: days })).toBe(plans.trial_days);
+    // the site's build reads that field, and the committed pricing page was built with it
+    expect(readFileSync(new URL("../../site/build.py", import.meta.url), "utf8")).toMatch(/PLANS(\.get\("trial_days"\)|\["trial_days"\])/);
+    const pricing = readFileSync(new URL("../../site/public/pricing.html", import.meta.url), "utf8");
+    expect(pricing).toContain(START(plans.trial_days));
+    expect(pricing).not.toMatch(OLD);
+    // the CLI states it in plain text (packages/runtime/bin): the same number
+    for (const f of ["../../packages/runtime/bin/genclass-runtime.mjs", "../../packages/runtime/bin/lib/init.mjs"]) {
+      const cli = readFileSync(new URL(f, import.meta.url), "utf8");
+      expect(cli, f).toMatch(new RegExp(`get a ${plans.trial_days}-day free trial\\s+for\\s+analytics`));
+      expect(cli, f).not.toMatch(/trials available/i);
+    }
   });
 });

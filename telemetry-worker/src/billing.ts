@@ -26,7 +26,7 @@ import { decodeCursor, exportResponse, PAGE_MAX, parseTime } from "./export.js";
 import { checkConfig, claimTestSend, deliver, integrationRows, integrationsKey, isKind, maskConfig, openConfig, sealConfig, testRecord, type Kind } from "./forward.js";
 import { json, readCapped } from "./http.js";
 import { forgetOwner } from "./paid.js";
-import { accountAccess, accountBilling, accountPlan, canBuy, entitled, PAID_PLANS, PLANS_FILE, planById, stripeMode, type Plan } from "./plans.js";
+import { accountAccess, accountBilling, accountPlan, canBuy, entitled, PAID_PLANS, PLANS_FILE, planById, stripeMode, trialDays, type Plan } from "./plans.js";
 import {
   checkCustomer,
   checkoutSession,
@@ -158,6 +158,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
           picked: picked?.id ?? null,
           switchTo: pickedPlan(url.searchParams.get("to"))?.id ?? null,
           managedPlans: PAID_PLANS.filter((p) => managedPayments(env, p)).map((p) => p.name),
+          trialDays: trialDays(env),
           now: c.now,
         }),
       );

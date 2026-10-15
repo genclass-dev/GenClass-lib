@@ -1,3 +1,4 @@
+import { pbkdf2Sync } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // The CLI's own request functions (packages/runtime/bin/lib/account.mjs), run against this worker below.
 // @ts-expect-error plain ESM module without types
@@ -11,7 +12,9 @@ import {
   GITHUB_TOKEN_URL,
   GITHUB_USER_URL,
   GOOGLE_TOKEN_URL,
+  loginEmail,
   normalizeUserCode,
+  resetSender,
   runtimeHasTokens,
   safeNext,
   secretFromLink,
@@ -19,18 +22,32 @@ import {
 } from "../src/auth.js";
 import { decodeCbor, decodeFirst } from "../src/cbor.js";
 import { PROJECT_ID_RE, resetTokenCache, sha256Hex } from "../src/dashboard.js";
+import {
+  delayAfter,
+  DUMMY_HASH,
+  HASH_RE,
+  hashPassword,
+  needsRehash,
+  PASSWORD_ITERATIONS,
+  passwordProblem,
+  PBKDF2_CALL_MAX,
+  verifyPassword,
+} from "../src/password.js";
 import { derToRaw } from "../src/webauthn.js";
 import { b64url, cbor, FLAGS, makeAuthenticator, rawToDer } from "./authenticator.mjs";
 import { d1 } from "./d1.js";
 
-// Accounts (src/auth.ts): passkeys, sessions, CSRF, the device flow, owned projects, Google and GitHub sign-in.
-// Requests go through the real router (handle) against node:sqlite running the real migrations.
+// Accounts (src/auth.ts, src/password.ts): email and password, passkeys, sessions, CSRF, the device flow, owned
+// projects, Google and GitHub sign-in. Requests go through the real router (handle) against node:sqlite running the
+// real migrations; passwords are hashed with the real 600,000 iterations.
 
 const ORIGIN = "https://genclass.dev";
 const T0 = new Date("2026-10-13T12:00:00Z");
 let clock = new Date(T0);
 const advance = (ms: number) => (clock = new Date(clock.getTime() + ms));
 type Auth = Awaited<ReturnType<typeof makeAuthenticator>>;
+/** The password the test accounts sign up with (no composition rules: four words). */
+const PW = "correct horse battery staple";
 
 beforeEach(() => {
   clock = new Date(T0);
@@ -77,13 +94,33 @@ const sessionOf = (r: Response): string => {
   if (!v) throw new Error("no session cookie");
   return `__Host-gc_session=${v}`;
 };
+/** The browser's device cookie (a correct password there), as a Cookie header part. */
+const deviceOf = (r: Response): string => {
+  const v = cookieValue(r, "__Host-gc_device");
+  if (!v) throw new Error("no device cookie");
+  return `__Host-gc_device=${v}`;
+};
+const logout = (env: Env, cookie: string) => call(env, "POST", "/logout", { cookie, body: "", contentType: "application/x-www-form-urlencoded" });
 
-async function signUp(env: Env, auth: Auth, email = "ada@example.com", over: Record<string, unknown> = {}) {
-  const o = await call(env, "POST", "/api/auth/passkey/register/options", { body: { email } });
+/** POST /api/auth/password/signup. */
+async function pwSignUp(env: Env, email = "ada@example.com", password = PW, o: CallOpts & { next?: string } = {}) {
+  const res = await call(env, "POST", "/api/auth/password/signup", { ...o, body: { email, password, ...(o.next ? { next: o.next } : {}) } });
+  return { res, json: (await res.clone().json()) as any };
+}
+
+/** POST /api/auth/password/login. */
+async function pwLogin(env: Env, email = "ada@example.com", password = PW, o: CallOpts & { next?: string } = {}) {
+  const res = await call(env, "POST", "/api/auth/password/login", { ...o, body: { email, password, ...(o.next ? { next: o.next } : {}) } });
+  return { res, json: (await res.clone().json()) as any };
+}
+
+/** Add a passkey to the signed-in account: registration options, the authenticator, verify. */
+async function addPasskey(env: Env, cookie: string, auth: Auth, over: Record<string, unknown> = {}) {
+  const o = await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie });
   expect(o.status).toBe(200);
   const opts = (await o.json()) as any;
   const credential = await auth.register(opts.publicKey, over);
-  const res = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: opts.id, credential } });
+  const res = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: opts.id, credential }, cookie });
   return { res, json: (await res.clone().json()) as any, opts, credential };
 }
 
@@ -96,31 +133,20 @@ async function signIn(env: Env, auth: Auth, over: Record<string, unknown> = {}) 
   return { res, json: (await res.clone().json()) as any, opts, credential };
 }
 
-/** Set Google and GitHub aside on env; returns the function that puts them back. */
-function withoutOAuth(env: Env): () => void {
-  const keep = { GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET };
-  for (const k of Object.keys(keep) as (keyof typeof keep)[]) delete env[k];
-  return () => {
-    for (const [k, v] of Object.entries(keep)) if (v !== undefined) (env as unknown as Record<string, string>)[k] = v;
-  };
-}
-
 /**
- * A passkey account, made the way passkey sign-up makes one: only on a server with no OAuth provider (the fallback).
- * In tests that configure Google or GitHub it stands for an account made before they were: they are set aside for the
- * sign-up and put back after it.
+ * An account with a password and one passkey, signed in with that passkey (so its session proved a passkey just now):
+ * sign up with an email and a password, add the passkey, sign in with it, and sign the sign-up session out.
  */
 async function signedIn(env: Env, email = "ada@example.com", alg = -7) {
   const auth = await makeAuthenticator(alg);
-  const restore = withoutOAuth(env);
-  let s;
-  try {
-    s = await signUp(env, auth, email);
-  } finally {
-    restore();
-  }
-  expect(s.res.status).toBe(200);
-  return { auth, cookie: sessionOf(s.res), account: s.json.account as { id: string; email: string } };
+  const up = await pwSignUp(env, email);
+  expect(up.res.status).toBe(200);
+  const first = sessionOf(up.res);
+  expect((await addPasskey(env, first, auth)).res.status).toBe(200);
+  const inn = await signIn(env, auth);
+  expect(inn.res.status).toBe(200);
+  expect((await logout(env, first)).status).toBe(303);
+  return { auth, cookie: sessionOf(inn.res), account: up.json.account as { id: string; email: string } };
 }
 
 /** Start the account's trial of Pro (dashboards come with Pro). */
@@ -142,35 +168,52 @@ async function cliToken(env: Env, cookie: string): Promise<string> {
   return tok.access_token;
 }
 
+/** The passkey step on its page: options for the step's account, the passkey's answer. */
+async function finishStep(env: Env, mfa: string, auth: Auth) {
+  const o = await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa });
+  expect(o.status).toBe(200);
+  const opts = (await o.json()) as any;
+  const res = await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: opts.id, credential: await auth.assert(opts.publicKey) }, cookie: mfa });
+  return { res, mfa, opts, json: (await res.clone().json()) as any };
+}
+
+/** A password sign-in of an account with a passkey: no session, the step's cookie, `{ next: "/login/passkey" }`. */
+async function passwordThenStep(env: Env, signin: Response, auth: Auth) {
+  expect(signin.status).toBe(200);
+  expect(await signin.clone().json()).toEqual({ ok: true, next: "/login/passkey" });
+  expect(cookieValue(signin, "__Host-gc_session")).toBeNull();
+  return finishStep(env, `__Host-gc_mfa=${cookieValue(signin, "__Host-gc_mfa")}`, auth);
+}
+
 // ------------------------------------------------------------------------------------------------- passkeys
 
-describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", () => {
+describe("accounts: passkeys (WebAuthn, attestation none), added to an account and then a way to sign in", () => {
   for (const [name, alg] of [["ES256", -7], ["RS256", -257]] as const) {
-    it(`${name}: sign up stores the email unverified and the COSE public key, then sign in with the same passkey`, async () => {
+    it(`${name}: a signed-in account adds a passkey (its COSE public key; the account id as user handle), then signs in with it`, async () => {
       const { env, sql } = setup();
+      const up = await pwSignUp(env, "ada@example.com");
+      const cookie = sessionOf(up.res);
       const auth = await makeAuthenticator(alg);
-      const up = await signUp(env, auth, "  Ada@Example.com ");
-      expect(up.res.status).toBe(200);
-      expect(up.opts.publicKey).toMatchObject({
+      const add = await addPasskey(env, cookie, auth);
+      expect(add.res.status).toBe(200);
+      expect(add.opts.publicKey).toMatchObject({
         rp: { id: "genclass.dev", name: "GenClass" },
         attestation: "none",
         authenticatorSelection: { residentKey: "required", userVerification: "required" },
         pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        excludeCredentials: [],
       });
-      expect(up.opts.publicKey.user.name).toBe("Ada@Example.com");
-      expect(up.json).toMatchObject({ ok: true, account: { email: "Ada@Example.com", github_login: null } });
-      const set = cookies(up.res).find((c) => c.startsWith("__Host-gc_session="))!;
-      expect(set).toMatch(/^__Host-gc_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$/);
+      expect(add.opts.publicKey.user.name).toBe("ada@example.com");
+      expect(add.json).toMatchObject({ ok: true, account: { email: "ada@example.com", github_login: null } });
+      // adding a passkey opens no new session
+      expect(cookieValue(add.res, "__Host-gc_session")).toBeNull();
 
       const [acct] = sql.rows("SELECT * FROM accounts");
-      expect(acct).toMatchObject({ email: "Ada@Example.com", email_verified: 0, google_sub: null, github_id: null });
       const [cred] = sql.rows("SELECT * FROM credentials");
       expect(cred).toMatchObject({ id: auth.credentialId, account_id: acct!.id, alg, sign_count: 0, public_key: b64url(auth.cose) });
       expect(JSON.parse(String(cred!.transports))).toEqual(["internal", "hybrid"]);
       // the user handle is the account id
-      expect(new TextDecoder().decode(Uint8Array.from(atob(up.opts.publicKey.user.id.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)))).toBe(acct!.id);
-
-      expect(await me(env, { cookie: sessionOf(up.res) })).toEqual({ status: 200, json: { account: { id: acct!.id, email: "Ada@Example.com", github_login: null }, projects: [] } });
+      expect(new TextDecoder().decode(Uint8Array.from(atob(add.opts.publicKey.user.id.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)))).toBe(acct!.id);
 
       // sign in: discoverable credential, no email
       const inn = await signIn(env, auth);
@@ -184,13 +227,14 @@ describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", (
 
   it("accepts any attestation format without verifying its statement", async () => {
     const { env } = setup();
-    const auth = await makeAuthenticator(-7);
-    const up = await signUp(env, auth, "ada@example.com", { fmt: "packed", attStmt: new Map<string, unknown>([["alg", -7], ["sig", new Uint8Array([1, 2, 3])]]) });
-    expect(up.res.status).toBe(200);
+    const cookie = sessionOf((await pwSignUp(env)).res);
+    const add = await addPasskey(env, cookie, await makeAuthenticator(-7), { fmt: "packed", attStmt: new Map<string, unknown>([["alg", -7], ["sig", new Uint8Array([1, 2, 3])]]) });
+    expect(add.res.status).toBe(200);
   });
 
-  it("refuses a wrong origin, RP ID, ceremony type, missing user verification and an unsupported algorithm at sign-up", async () => {
+  it("refuses a wrong origin, RP ID, ceremony type, missing user verification and an unsupported algorithm when a passkey is added", async () => {
     const { env, sql } = setup();
+    const cookie = sessionOf((await pwSignUp(env)).res);
     for (const [over, msg] of [
       [{ origin: "https://evil.example" }, /origin/],
       [{ origin: "http://genclass.dev" }, /origin/],
@@ -201,32 +245,34 @@ describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", (
       [{ crossOrigin: true }, /cross-origin/],
       [{ cose: cbor(new Map<number, unknown>([[1, 1], [3, -8], [-1, 6], [-2, new Uint8Array(32)]])) }, /algorithm/],
     ] as const) {
-      const auth = await makeAuthenticator(-7);
-      const up = await signUp(env, auth, "ada@example.com", over as Record<string, unknown>);
-      expect(up.res.status, JSON.stringify(over)).toBe(400);
-      expect(up.json.error).toMatch(msg);
-      expect(cookieValue(up.res, "__Host-gc_session")).toBeNull();
+      const add = await addPasskey(env, cookie, await makeAuthenticator(-7), over as Record<string, unknown>);
+      expect(add.res.status, JSON.stringify(over)).toBe(400);
+      expect(add.json.error).toMatch(msg);
     }
-    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM credentials")[0]!.n).toBe(0);
   });
 
-  it("refuses a rawId that is not the attested credential id, and a bad email", async () => {
-    const { env } = setup();
-    const auth = await makeAuthenticator(-7);
-    const up = await signUp(env, auth, "ada@example.com", { rawId: new Uint8Array(32).fill(7) });
-    expect(up.res.status).toBe(400);
-    for (const email of ["", "nope", "a@b", "<script>@x.io", "a b@example.com", 42]) {
-      const r = await call(env, "POST", "/api/auth/passkey/register/options", { body: { email } });
-      expect(r.status).toBe(400);
+  it("refuses a rawId that is not the attested credential id; there is no passkey sign-up any more", async () => {
+    const { env, sql } = setup();
+    const cookie = sessionOf((await pwSignUp(env)).res);
+    expect((await addPasskey(env, cookie, await makeAuthenticator(-7), { rawId: new Uint8Array(32).fill(7) })).res.status).toBe(400);
+    // signed out, registration options are refused (an account starts with a password, Google or GitHub)
+    const before = sql.rows("SELECT COUNT(*) AS n FROM challenges")[0]!.n;
+    for (const body of [{ email: "new@example.com" }, {}]) {
+      const r = await call(env, "POST", "/api/auth/passkey/register/options", { body });
+      expect(r.status).toBe(403);
+      expect(((await r.json()) as any).error).toMatch(/email and a password, Google or GitHub/);
     }
+    expect(sql.rows("SELECT COUNT(*) AS n FROM challenges")[0]!.n).toBe(before);
   });
 
   it("challenges are single-use: a replayed registration or sign-in is refused", async () => {
     const { env } = setup();
+    const cookie = sessionOf((await pwSignUp(env)).res);
     const auth = await makeAuthenticator(-7);
-    const up = await signUp(env, auth);
-    expect(up.res.status).toBe(200);
-    const again = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: up.opts.id, credential: up.credential } });
+    const add = await addPasskey(env, cookie, auth);
+    expect(add.res.status).toBe(200);
+    const again = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: add.opts.id, credential: add.credential }, cookie });
     expect(again.status).toBe(400);
     const inn = await signIn(env, auth);
     expect(inn.res.status).toBe(200);
@@ -237,16 +283,33 @@ describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", (
 
   it("challenges expire after 5 minutes", async () => {
     const { env } = setup();
+    const cookie = sessionOf((await pwSignUp(env)).res);
     const auth = await makeAuthenticator(-7);
-    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "ada@example.com" } })).json()) as any;
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie })).json()) as any;
     const credential = await auth.register(o.publicKey);
     advance(5 * 60_000 + 1000);
-    const r = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential } });
+    const r = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential }, cookie });
     expect(r.status).toBe(400);
     expect(((await r.json()) as any).error).toMatch(/expired/);
     // a challenge from another ceremony is not accepted either
     const lo = (await (await call(env, "POST", "/api/auth/passkey/login/options", { body: {} })).json()) as any;
-    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: lo.id, credential } })).status).toBe(400);
+    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: lo.id, credential }, cookie })).status).toBe(400);
+  });
+
+  it("a passkey sign-up started before passkey sign-up was removed cannot finish", async () => {
+    const { env, sql } = setup();
+    // a `register` challenge as the old sign-up stored it: a new account id and the typed email, no session
+    const challenge = b64url(new Uint8Array(32).fill(3));
+    const id = "Old0sign0up0challenge0";
+    sql.db
+      .prepare("INSERT INTO challenges (id, kind, challenge, account_id, data, expires) VALUES (?, 'register', ?, ?, ?, ?)")
+      .run(id, challenge, "NewAccount0123456789ab", JSON.stringify({ email: "late@example.com" }), new Date(clock.getTime() + 60_000).toISOString());
+    const publicKey = { rp: { id: "genclass.dev", name: "GenClass" }, user: { id: b64url(new TextEncoder().encode("NewAccount0123456789ab")), name: "late@example.com" }, challenge };
+    const r = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id, credential: await (await makeAuthenticator(-7)).register(publicKey) } });
+    expect(r.status).toBe(403);
+    expect(cookieValue(r, "__Host-gc_session")).toBeNull();
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM credentials")[0]!.n).toBe(0);
   });
 
   it("sign-in refuses a wrong origin or RP ID, a bad signature, missing UV, an unknown passkey and a mismatched user handle", async () => {
@@ -292,7 +355,11 @@ describe("accounts: passkey sign-up and sign-in (WebAuthn, attestation none)", (
     const { env, sql } = setup();
     const { cookie, account } = await signedIn(env);
     const first = sql.rows("SELECT id FROM credentials")[0]!.id as string;
-    expect((await call(env, "DELETE", `/api/account/credentials/${first}`, { cookie })).status).toBe(409);
+    // an account from the old passkey sign-up has no password: its one passkey is its only way in
+    sql.db.prepare("DELETE FROM passwords WHERE account_id = ?").run(account.id);
+    const last = await call(env, "DELETE", `/api/account/credentials/${first}`, { cookie });
+    expect(last.status).toBe(409);
+    expect(((await last.json()) as any).error).toMatch(/add another passkey or a password/);
     const second = await makeAuthenticator(-257);
     const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie })).json()) as any;
     expect(o.publicKey.excludeCredentials).toEqual([{ type: "public-key", id: first }]);
@@ -340,6 +407,9 @@ describe("accounts: sessions, logout and CSRF", () => {
       expect((await call(env, "DELETE", "/api/account/sessions/current", { cookie, origin })).status).toBe(403);
       expect((await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie, origin })).status).toBe(403);
       expect((await call(env, "POST", "/api/auth/passkey/login/options", { body: {}, origin })).status).toBe(403);
+      expect((await call(env, "POST", "/api/auth/password/login", { body: { email: "ada@example.com", password: PW }, origin })).status).toBe(403);
+      expect((await call(env, "POST", "/api/auth/password/signup", { body: { email: "eve@example.com", password: PW }, origin })).status).toBe(403);
+      expect((await call(env, "POST", "/api/auth/password", { body: { current: PW, password: "a brand new passphrase" }, cookie, origin })).status).toBe(403);
     }
     expect(sql.rows("SELECT COUNT(*) AS n FROM projects")[0]!.n).toBe(0);
     expect((await me(env, { cookie })).status).toBe(200);
@@ -380,7 +450,8 @@ describe("accounts: sessions, logout and CSRF", () => {
     const html = await login.text();
     expect(html).toContain('<meta name="referrer" content="same-origin">');
     expect(html).not.toContain("evil.example");
-    expect(html).toContain("Sign in with a passkey");
+    expect(html).toContain('<form class="pwf" id="pwf"');
+    expect(html).toContain("<span>Use a passkey</span>");
     expect(html).not.toMatch(/ style="/);
 
     const { cookie } = await signedIn(env);
@@ -597,7 +668,7 @@ describe("accounts: apps owned by an account", () => {
 // ------------------------------------------------------------------------------------------------- rate limits
 
 describe("accounts: rate limits (AUTH_LIMIT)", () => {
-  it("limits sign-up, sign-in options and device codes; a limited poll answers slow_down; the IP is never the key", async () => {
+  it("limits sign-up, sign-in (passkey options, passwords) and device codes; a limited poll answers slow_down; the IP is never the key", async () => {
     const keys: string[] = [];
     const counts = new Map<string, number>();
     const { env } = setup({
@@ -610,10 +681,12 @@ describe("accounts: rate limits (AUTH_LIMIT)", () => {
       },
     });
     const ip = "203.0.113.7";
-    const signup = () => call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "ada@example.com" }, ip });
+    let n = 0;
+    const signup = () => call(env, "POST", "/api/auth/password/signup", { body: { email: `ada${n++}@example.com`, password: PW }, ip });
     const login = () => call(env, "POST", "/api/auth/passkey/login/options", { body: {}, ip });
+    const password = () => call(env, "POST", "/api/auth/password/login", { body: { email: "ada0@example.com", password: PW }, ip });
     const code = () => call(env, "POST", "/api/device/code", { origin: null, ip });
-    for (const f of [signup, login, code]) {
+    for (const f of [signup, login, password, code]) {
       expect((await f()).status).toBe(200);
       expect((await f()).status).toBe(200);
       const r = await f();
@@ -659,12 +732,7 @@ async function passkeyStep(env: Env, signin: Response, auth: Auth) {
   expect(signin.status).toBe(302);
   expect(signin.headers.get("location")).toBe("/login/passkey");
   expect(cookieValue(signin, "__Host-gc_session")).toBeNull();
-  const mfa = `__Host-gc_mfa=${cookieValue(signin, "__Host-gc_mfa")}`;
-  const o = await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa });
-  expect(o.status).toBe(200);
-  const opts = (await o.json()) as any;
-  const res = await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: opts.id, credential: await auth.assert(opts.publicKey) }, cookie: mfa });
-  return { res, mfa, opts, json: (await res.clone().json()) as any };
+  return finishStep(env, `__Host-gc_mfa=${cookieValue(signin, "__Host-gc_mfa")}`, auth);
 }
 
 async function google(env: Env, o: { claims?: (nonce: string) => Record<string, unknown>; cookie?: string; link?: boolean; next?: string; state?: (s: string) => string; query?: string; dropCookie?: boolean; tokenStatus?: number } = {}): Promise<GoogleRun> {
@@ -826,7 +894,7 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
   });
 
-  it("linking rule: a Google sign-in never takes over a passkey account with the same email; the person chooses", async () => {
+  it("linking rule: a Google sign-in never takes over an account with the same email; the person chooses", async () => {
     const { env, sql } = setup(GOOGLE);
     const victim = await signedIn(env, "ada@gmail.com");
     const g = (n: string) => ({ iss: "https://accounts.google.com", aud: GOOGLE.GOOGLE_CLIENT_ID, exp: now() + 600, nonce: n, sub: "g-ada", email: "ADA@gmail.com", email_verified: true });
@@ -905,31 +973,32 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
 
 const GITHUB = { GITHUB_CLIENT_ID: "Iv1.abc", GITHUB_CLIENT_SECRET: "gh-shh" };
 
-describe("accounts: GitHub sign-in (OAuth web flow)", () => {
-  async function github(env: Env, o: { state?: (s: string) => string; cookie?: string; link?: boolean; id?: number; query?: string } = {}) {
-    const start = await call(env, "GET", `/auth/github${o.link ? "?link=1" : ""}`, { cookie: o.cookie, origin: null });
-    expect(start.status).toBe(302);
-    const loc = new URL(start.headers.get("location")!);
-    expect(`${loc.origin}${loc.pathname}`).toBe("https://github.com/login/oauth/authorize");
-    expect(loc.searchParams.get("redirect_uri")).toBe("https://genclass.dev/auth/github/callback");
-    const state = loc.searchParams.get("state")!;
-    const calls: string[] = [];
-    const fetchMock = async (url: string, init?: RequestInit) => {
-      calls.push(url);
-      if (url === GITHUB_TOKEN_URL) {
-        expect(new URLSearchParams(String(init?.body)).get("client_secret")).toBe("gh-shh");
-        return new Response(JSON.stringify({ access_token: "gho_x", token_type: "bearer" }), { status: 200 });
-      }
-      expect(url).toBe(GITHUB_USER_URL);
-      expect((init?.headers as Record<string, string>).authorization).toBe("Bearer gho_x");
-      return new Response(JSON.stringify({ id: o.id ?? 4242, login: "octo-ada", email: "public@example.com" }), { status: 200 });
-    };
-    const jar = [`gc_oauth_github=${cookieValue(start, "gc_oauth_github")}`, o.cookie ?? ""].filter(Boolean).join("; ");
-    const q = o.query ?? `code=c0de&state=${o.state ? o.state(state) : state}`;
-    const res = await call(env, "GET", `/auth/github/callback?${q}`, { cookie: jar, origin: null, fetch: fetchMock });
-    return { res, calls };
-  }
+/** /auth/github, then GitHub's redirect back to the callback, with the token and user endpoints mocked. */
+async function github(env: Env, o: { state?: (s: string) => string; cookie?: string; link?: boolean; id?: number; query?: string } = {}) {
+  const start = await call(env, "GET", `/auth/github${o.link ? "?link=1" : ""}`, { cookie: o.cookie, origin: null });
+  expect(start.status).toBe(302);
+  const loc = new URL(start.headers.get("location")!);
+  expect(`${loc.origin}${loc.pathname}`).toBe("https://github.com/login/oauth/authorize");
+  expect(loc.searchParams.get("redirect_uri")).toBe("https://genclass.dev/auth/github/callback");
+  const state = loc.searchParams.get("state")!;
+  const calls: string[] = [];
+  const fetchMock = async (url: string, init?: RequestInit) => {
+    calls.push(url);
+    if (url === GITHUB_TOKEN_URL) {
+      expect(new URLSearchParams(String(init?.body)).get("client_secret")).toBe("gh-shh");
+      return new Response(JSON.stringify({ access_token: "gho_x", token_type: "bearer" }), { status: 200 });
+    }
+    expect(url).toBe(GITHUB_USER_URL);
+    expect((init?.headers as Record<string, string>).authorization).toBe("Bearer gho_x");
+    return new Response(JSON.stringify({ id: o.id ?? 4242, login: "octo-ada", email: "public@example.com" }), { status: 200 });
+  };
+  const jar = [`gc_oauth_github=${cookieValue(start, "gc_oauth_github")}`, o.cookie ?? ""].filter(Boolean).join("; ");
+  const q = o.query ?? `code=c0de&state=${o.state ? o.state(state) : state}`;
+  const res = await call(env, "GET", `/auth/github/callback?${q}`, { cookie: jar, origin: null, fetch: fetchMock });
+  return { res, calls };
+}
 
+describe("accounts: GitHub sign-in (OAuth web flow)", () => {
   it("an error parameter (consent refused) sends you back to sign-in without calling GitHub, and clears the cookie", async () => {
     const { env, sql } = setup(GITHUB);
     const { res, calls } = await github(env, { query: "error=access_denied&state=x" });
@@ -985,46 +1054,43 @@ describe("accounts: GitHub sign-in (OAuth web flow)", () => {
 
 // ------------------------------------------------------------------------------------------------- Google first
 
-describe("accounts: Google first; creating an account never needs a passkey", () => {
-  it("with Google or GitHub configured, /signup offers only them, passkey sign-up is refused, and /login leads with them", async () => {
-    for (const over of [GOOGLE, GITHUB, { ...GOOGLE, ...GITHUB }]) {
+describe("accounts: Google first, an email and a password always; creating an account never needs a passkey", () => {
+  it("/signup and /login: Continue with Google, then the email and password form, then a small Continue with GitHub and Use a passkey", async () => {
+    for (const over of [{}, GOOGLE, GITHUB, { ...GOOGLE, ...GITHUB }]) {
       const { env, sql } = setup(over);
-      const signup = await (await call(env, "GET", "/signup", {})).text();
-      expect(signup).toContain(over === GITHUB ? "Continue with GitHub" : "Continue with Google");
-      expect(signup).not.toContain('<form id="f"');
-      expect(signup).not.toContain("Create account with a passkey");
-      expect(signup).toContain("Add a passkey on your account page once you are in.");
+      const google = "GOOGLE_CLIENT_ID" in over;
+      const github = "GITHUB_CLIENT_ID" in over;
+      for (const path of ["/signup", "/login"]) {
+        const html = await (await call(env, "GET", path, {})).text();
+        const tag = `${path} ${JSON.stringify(Object.keys(over))}`;
+        expect(html.includes("Continue with Google"), tag).toBe(google);
+        expect(html.includes("Continue with GitHub"), tag).toBe(github);
+        expect(html, tag).toContain('<form class="pwf" id="pwf"');
+        expect(html, tag).toContain(path === "/signup" ? 'autocomplete="new-password"' : 'autocomplete="current-password"');
+        expect(html, tag).toContain('autocomplete="username"');
+        expect(html, tag).toContain('<button class="lnk" id="pk" type="button"><span>Use a passkey</span></button>');
+        // the owner's order: Google, the form, GitHub (small), the passkey link
+        const at = [google ? html.indexOf("Continue with Google") : -1, html.indexOf('id="pwf"'), github ? html.indexOf("Continue with GitHub") : -1, html.indexOf('id="pk"')].filter((i) => i >= 0);
+        expect(at, tag).toEqual([...at].sort((a, b) => a - b));
+        // GitHub is a small link next to the passkey one, not a full-width button
+        if (github) expect(html, tag).toMatch(/<p class="alt"><a href="\/auth\/github"><svg[^]*?<span>Continue with GitHub<\/span><\/a><button class="lnk" id="pk"/);
+        expect(html, tag).not.toContain("Create account with a passkey");
+        expect(html, tag).not.toContain("Sign in with a passkey");
+        expect(html, tag).toContain("Dashboards come with Pro. Get a 7-day free trial for analytics.");
+      }
+      expect(await (await call(env, "GET", "/login", {})).text()).toContain('<a href="/login/forgot">Forgot your password?</a>');
+      // there is no passkey sign-up: options without a session are refused and store nothing
       const r = await call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "ada@example.com" } });
       expect(r.status).toBe(403);
-      expect(((await r.json()) as any).error).toMatch(/Google or GitHub/);
       expect(sql.rows("SELECT COUNT(*) AS n FROM challenges")[0]!.n).toBe(0);
-      const login = await (await call(env, "GET", "/login", {})).text();
-      expect(login).toContain("Use a passkey");
-      expect(login).not.toContain("Sign in with a passkey");
-      expect(login).toContain("Dashboards come with Pro. Trials available.");
       // a passkey still signs in directly
       expect((await call(env, "POST", "/api/auth/passkey/login/options", { body: {} })).status).toBe(200);
+      // and an email and a password make an account whatever is configured
+      expect((await pwSignUp(env, "x@example.com")).res.status).toBe(200);
     }
   });
 
-  it("with no OAuth provider configured, passkey sign-up is the fallback, so the site always has a way in", async () => {
-    const { env } = setup();
-    const signup = await (await call(env, "GET", "/signup", {})).text();
-    expect(signup).not.toContain("Continue with Google");
-    expect(signup).not.toContain("Continue with GitHub");
-    expect(signup).toContain("Create account with a passkey");
-    expect(await (await call(env, "GET", "/login", {})).text()).toContain("Sign in with a passkey");
-    const auth = await makeAuthenticator(-7);
-    const up = await signUp(env, auth);
-    expect(up.res.status).toBe(200);
-    // a sign-up started before Google was configured cannot finish after it
-    const late = await makeAuthenticator(-7);
-    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "late@example.com" } })).json()) as any;
-    Object.assign(env, GOOGLE);
-    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await late.register(o.publicKey) } })).status).toBe(403);
-  });
-
-  it("a first Google sign-in makes an account with no passkey; /account offers one as extra security, off until added", async () => {
+  it("a first Google sign-in makes an account with no passkey; /account offers one as extra security, and a password", async () => {
     const { env, sql } = setup(GOOGLE);
     const { res } = await google(env);
     expect(res.headers.get("location")).toBe("/account?welcome=1");
@@ -1036,12 +1102,16 @@ describe("accounts: Google first; creating an account never needs a passkey", ()
     expect(page).toContain('id="addpk"');
     expect(page).toContain('Lost all your passkeys? Email <a href="mailto:mehar@daybot.ca?subject=GenClass%20passkeys">mehar@daybot.ca</a>.');
     expect(page.indexOf("<td>Google</td>")).toBeLessThan(page.indexOf('id="addpk"'));
+    // a password: not set, with its form ready for the account's email
+    expect(page).toContain('<tr><td>Password</td><td><span class="muted">Not set</span></td>');
+    expect(page).toContain('<input id="pwemail" type="email" autocomplete="username" maxlength="254" value="ada@gmail.com"');
+    expect(page).toContain('<button class="btn ghost" type="submit" id="pwgo"><span>Add a password</span></button>');
     // the first passkey needs no other one
     const auth = await makeAuthenticator(-7);
-    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie })).json()) as any;
-    expect(o.publicKey.user.name).toBe("ada@gmail.com");
-    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await auth.register(o.publicKey) }, cookie })).status).toBe(200);
-    expect(await (await call(env, "GET", "/account", { cookie })).text()).toContain("<b>Require a passkey at sign-in: on.</b>");
+    const add = await addPasskey(env, cookie, auth);
+    expect(add.opts.publicKey.user.name).toBe("ada@gmail.com");
+    expect(add.res.status).toBe(200);
+    expect(await (await call(env, "GET", "/account", { cookie })).text()).toContain("<b>Require a passkey at sign-in: on.</b> After your password, Google or GitHub");
   });
 });
 
@@ -1240,7 +1310,7 @@ describe("accounts: CBOR, signatures, links (unit)", () => {
     expect(secretFromLink("https://genclass.dev/dashboard/short")).toBeNull();
   });
 
-  it("the daily sweep removes expired challenges and device codes and ended sessions", async () => {
+  it("the daily sweep removes expired challenges and device codes, ended sessions, and browsers not used for 400 days", async () => {
     const { env, sql } = setup();
     await signedIn(env);
     await call(env, "POST", "/api/auth/passkey/login/options", { body: {} });
@@ -1249,6 +1319,12 @@ describe("accounts: CBOR, signatures, links (unit)", () => {
     await authRetention(sql.api, clock);
     for (const t of ["challenges", "device_codes", "auth_sessions"]) expect(sql.rows(`SELECT COUNT(*) AS n FROM ${t}`)[0]!.n).toBe(0);
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(1);
+    // a browser where the password was right stays trusted for 400 days after its last use
+    expect(sql.rows("SELECT COUNT(*) AS n FROM password_devices")[0]!.n).toBe(1);
+    advance(369 * 86_400_000);
+    await authRetention(sql.api, clock);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM password_devices")[0]!.n).toBe(0);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM passwords")[0]!.n).toBe(1);
   });
 });
 
@@ -1520,7 +1596,7 @@ describe("accounts: the device approval page is no code oracle, and shows only t
 });
 
 describe("accounts: what a CLI session may do", () => {
-  it("lists and creates apps and claims, but cannot read stats, end other sessions, remove passkeys, turn off links or delete the account", async () => {
+  it("lists and creates apps and claims, but cannot read stats, end other sessions, remove passkeys, change the password, turn off links or delete the account", async () => {
     const { env, sql } = setup();
     const { cookie } = await signedIn(env);
     await startTrial(env, cookie);
@@ -1542,6 +1618,8 @@ describe("accounts: what a CLI session may do", () => {
     expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, bearer, origin: null })).status).toBe(403);
     const cred = sql.rows("SELECT id FROM credentials")[0]!.id as string;
     expect((await call(env, "DELETE", `/api/account/credentials/${cred}`, { bearer, origin: null })).status).toBe(403);
+    expect((await call(env, "POST", "/api/auth/password", { body: { current: PW, password: "a brand new passphrase" }, bearer, origin: null })).status).toBe(403);
+    expect(await verifyPassword(PW, String(sql.rows("SELECT hash FROM passwords")[0]!.hash))).toBe(true);
     expect((await me(env, { cookie })).status).toBe(200);
     expect(sql.rows("SELECT COUNT(*) AS n FROM credentials")[0]!.n).toBe(1);
     // its own logout still works
@@ -1585,7 +1663,7 @@ describe("accounts: sessions on /account", () => {
 });
 
 describe("accounts: deleting an account", () => {
-  it("removes its passkeys, sessions and row; apps made in it go with their stats; apps with a private link go back to that link", async () => {
+  it("removes its password, trusted browsers, passkeys, sessions and row; apps made in it go with their stats; apps with a private link go back to that link", async () => {
     const { env, sql } = setup();
     const { cookie, account } = await signedIn(env);
     const bearer = await cliToken(env, cookie);
@@ -1597,6 +1675,8 @@ describe("accounts: deleting an account", () => {
     const count = (t: string, token: string) => Number(sql.rows(`SELECT COUNT(*) AS n FROM ${t} WHERE token = ?`, token)[0]!.n);
     expect(count("daily", made.token)).toBeGreaterThan(0);
 
+    expect(sql.rows("SELECT COUNT(*) AS n FROM passwords WHERE account_id = ?", account.id)[0]!.n).toBe(1);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM password_devices WHERE account_id = ?", account.id)[0]!.n).toBe(1);
     expect((await call(env, "DELETE", "/api/account", { body: {}, cookie })).status).toBe(400);
     expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie, origin: "https://evil.example" })).status).toBe(403);
     expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" } })).status).toBe(401);
@@ -1604,7 +1684,7 @@ describe("accounts: deleting an account", () => {
     expect(del.status).toBe(204);
     expect(cookies(del).some((c) => c.startsWith("__Host-gc_session=;") && c.includes("Max-Age=0"))).toBe(true);
 
-    for (const t of ["credentials", "auth_sessions", "device_codes", "challenges"]) expect(sql.rows(`SELECT COUNT(*) AS n FROM ${t} WHERE account_id = ?`, account.id)[0]!.n).toBe(0);
+    for (const t of ["credentials", "auth_sessions", "device_codes", "challenges", "passwords", "password_devices"]) expect(sql.rows(`SELECT COUNT(*) AS n FROM ${t} WHERE account_id = ?`, account.id)[0]!.n, t).toBe(0);
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
     for (const t of ["projects", "daily", "hourly", "recent", "sessions"]) expect(count(t, made.token)).toBe(0);
     expect(sql.rows("SELECT account_id FROM projects WHERE token = ?", anon.token)).toEqual([{ account_id: null }]);
@@ -1767,15 +1847,547 @@ describe("accounts: the Connect panel and the account-mode sidebar", () => {
 });
 
 describe("accounts: cookies in development", () => {
-  it("on plain-HTTP localhost the session cookie has no __Host- prefix and no Secure; elsewhere it has both", async () => {
+  it("on plain-HTTP localhost the session and device cookies have no __Host- prefix and no Secure; elsewhere they have both", async () => {
     const DEV = "http://localhost:8787";
     const { env } = setup({ AUTH_ORIGIN: DEV, AUTH_RP_ID: "localhost" });
-    const auth = await makeAuthenticator(-7);
-    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "dev@example.com" }, origin: DEV })).json()) as any;
-    const res = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await auth.register(o.publicKey, { origin: DEV }) }, origin: DEV });
+    const { res } = await pwSignUp(env, "dev@example.com", PW, { origin: DEV });
     expect(res.status).toBe(200);
     const set = cookies(res).find((c) => c.startsWith("gc_session="))!;
     expect(set).toMatch(/^gc_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax$/);
+    expect(cookies(res).find((c) => c.startsWith("gc_device="))).toMatch(/^gc_device=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=34560000; HttpOnly; SameSite=Lax$/);
     expect((await me(env, { cookie: set.split(";")[0] })).status).toBe(200);
+    // a passkey added there uses the development origin and RP ID
+    const add = await addPasskey(env, set.split(";")[0]!, await makeAuthenticator(-7), { origin: DEV });
+    expect(add.res.status).toBe(200);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------- email and password
+
+describe("accounts: email and password sign-up", () => {
+  it("the email is the username (trimmed, lowercased); the password is kept only as a PBKDF2 string; a session and a trusted browser", async () => {
+    const { env, sql } = setup();
+    const up = await pwSignUp(env, "  Ada@Example.COM ", PW, { next: "/login/device?code=BCDF-GHJK" });
+    expect(up.res.status).toBe(200);
+    expect(up.json).toEqual({ ok: true, account: { id: expect.stringMatching(/^[A-Za-z0-9]{22}$/), email: "ada@example.com", github_login: null }, next: "/login/device?code=BCDF-GHJK" });
+    const set = cookies(up.res).find((c) => c.startsWith("__Host-gc_session="))!;
+    expect(set).toMatch(/^__Host-gc_session=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$/);
+    const dev = cookies(up.res).find((c) => c.startsWith("__Host-gc_device="))!;
+    expect(dev).toMatch(/^__Host-gc_device=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=34560000; HttpOnly; SameSite=Lax; Secure$/);
+    expect(sql.rows("SELECT email, email_verified, google_sub, github_id FROM accounts")).toEqual([{ email: "ada@example.com", email_verified: 0, google_sub: null, github_id: null }]);
+    const [row] = sql.rows("SELECT * FROM passwords");
+    expect(row).toMatchObject({ account_id: up.json.account.id, email: "ada@example.com", failed: 0, failed_at: null, next_try: null, created: T0.toISOString(), updated: T0.toISOString() });
+    expect(String(row!.hash)).toMatch(HASH_RE);
+    expect(String(row!.hash)).toMatch(/^\$pbkdf2-sha256\$v=1\$i=600000,l=100000\$[A-Za-z0-9_-]{22}\$[A-Za-z0-9_-]{43}$/);
+    // nowhere in the database in readable form
+    for (const t of ["accounts", "passwords", "password_devices", "auth_sessions", "challenges"]) expect(JSON.stringify(sql.rows(`SELECT * FROM ${t}`)), t).not.toContain("horse");
+    // the trusted browser is stored as a hash of its cookie only
+    expect(sql.rows("SELECT hash, account_id, failed FROM password_devices")).toEqual([{ hash: await sha256Hex(deviceOf(up.res).split("=")[1]!), account_id: up.json.account.id, failed: 0 }]);
+    expect((await me(env, { cookie: sessionOf(up.res) })).json.account).toEqual({ id: up.json.account.id, email: "ada@example.com", github_login: null });
+    // without next: the account page says welcome
+    expect((await pwSignUp(env, "bob@example.com")).json.next).toBe("/account?welcome=1");
+  });
+
+  it("an email signs in to one account: a second sign-up with it is refused, however it is typed", async () => {
+    const { env, sql } = setup();
+    expect((await pwSignUp(env, "ada@example.com")).res.status).toBe(200);
+    for (const email of ["ada@example.com", " ADA@example.com"]) {
+      const again = await pwSignUp(env, email, "another long passphrase");
+      expect(again.res.status).toBe(409);
+      expect(again.json.error).toMatch(/already signs in with this email; sign in instead/);
+      expect(cookieValue(again.res, "__Host-gc_session")).toBeNull();
+    }
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(1);
+  });
+
+  it("rules: 10 to 256 characters (code points), no composition rules; common ones, one repeated character and the email are refused", async () => {
+    const { env, sql } = setup();
+    const refused: [string, string, RegExp][] = [
+      ["short", "a@example.com", /at least 10 characters/],
+      ["🙂🙃😀😁😂🤣😃😄😅", "a@example.com", /at least 10 characters/], // 9 characters, 18 UTF-16 units
+      ["ab".repeat(129), "a@example.com", /at most 256 characters/],
+      ["password123", "a@example.com", /too common/],
+      ["Password123", "a@example.com", /too common/],
+      ["QWERTYUIOP", "a@example.com", /too common/],
+      ["genclass2026", "a@example.com", /too common/],
+      ["zzzzzzzzzzzz", "a@example.com", /too common/],
+      ["mallory@example.com", "mallory@example.com", /cannot be your email/],
+      ["MALLORY@Example.com", "mallory@example.com", /cannot be your email/],
+    ];
+    for (const [pw, email, why] of refused) {
+      const r = await pwSignUp(env, email, pw);
+      expect(r.res.status, pw).toBe(400);
+      expect(r.json.error, pw).toMatch(why);
+    }
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
+    // no composition rules: all lowercase, no digits, any script, emoji
+    let n = 0;
+    for (const pw of ["correcthorse", "пароль-для-входа", "🙂🙃😀😁😂🤣😃😄😅😆", "a".repeat(9) + "b", "x".repeat(255) + "y"]) expect((await pwSignUp(env, `ok${n++}@example.com`, pw)).res.status, pw).toBe(200);
+    // bad emails, a missing password
+    for (const email of ["", "nope", "a@b", "<script>@x.io", "a b@example.com", 42]) expect((await pwSignUp(env, email as string)).res.status, String(email)).toBe(400);
+    expect((await call(env, "POST", "/api/auth/password/signup", { body: { email: "new@example.com" } })).status).toBe(400);
+    // the rule check itself (src/password.ts)
+    expect(passwordProblem("correct horse", "ada@example.com")).toBeNull();
+    expect(passwordProblem(undefined, null)).toMatch(/enter a password/);
+    expect(passwordProblem("é".repeat(5) + "abcde", null)).toBeNull(); // 10 characters after NFC
+  });
+
+  it("needs our Origin and JSON; the IP budget (AUTH_LIMIT) applies", async () => {
+    const counts = new Map<string, number>();
+    const { env, sql } = setup({
+      AUTH_LIMIT: {
+        async limit({ key }) {
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+          return { success: counts.get(key)! <= 2 };
+        },
+      },
+    });
+    for (const origin of [null, "https://evil.example", "null"]) expect((await pwSignUp(env, "ada@example.com", PW, { origin })).res.status).toBe(403);
+    expect((await call(env, "POST", "/api/auth/password/signup", { body: `{"email":"ada@example.com","password":"${PW}"}`, contentType: "text/plain" })).status).toBe(415);
+    expect((await pwSignUp(env, "one@example.com", PW, { ip: "203.0.113.9" })).res.status).toBe(200);
+    expect((await pwSignUp(env, "two@example.com", PW, { ip: "203.0.113.9" })).res.status).toBe(200);
+    const third = await pwSignUp(env, "three@example.com", PW, { ip: "203.0.113.9" });
+    expect(third.res.status).toBe(429);
+    expect(third.res.headers.get("retry-after")).toBe("60");
+    expect(sql.rows("SELECT email FROM passwords ORDER BY email")).toEqual([{ email: "one@example.com" }, { email: "two@example.com" }]);
+    expect([...counts.keys()].join()).not.toContain("203.0.113.9");
+  });
+});
+
+describe("accounts: email and password sign-in", () => {
+  it("the right password signs in (any case, spaces trimmed) and goes on to a safe next; the session needs no passkey step without a passkey", async () => {
+    const { env, sql } = setup();
+    const id = (await pwSignUp(env)).json.account.id;
+    advance(60_000);
+    const r = await pwLogin(env, " ADA@Example.com ", PW, { next: "/login/device?code=BCDF-GHJK" });
+    expect(r.res.status).toBe(200);
+    expect(r.json).toEqual({ ok: true, next: "/login/device?code=BCDF-GHJK" });
+    expect((await me(env, { cookie: sessionOf(r.res) })).json.account.id).toBe(id);
+    expect(sql.rows("SELECT passkey_at FROM auth_sessions WHERE hash = ?", await sha256Hex(sessionOf(r.res).split("=")[1]!))).toEqual([{ passkey_at: null }]);
+    expect(sql.rows("SELECT last_used FROM passwords")).toEqual([{ last_used: clock.toISOString() }]);
+    expect(deviceOf(r.res)).toMatch(/^__Host-gc_device=[A-Za-z0-9_-]{43}$/);
+    // next stays on our own account pages
+    expect((await pwLogin(env, "ada@example.com", PW, { next: "//evil.example" })).json.next).toBe("/account");
+    expect((await pwLogin(env)).json.next).toBe("/account");
+    // a signed-in visitor of /login goes straight on
+    expect((await call(env, "GET", "/login", { cookie: sessionOf(r.res) })).headers.get("location")).toBe("/account");
+  });
+
+  it("a wrong password and an unknown email get the same answer after the same work (600,000 iterations, in WebCrypto calls of at most 100,000)", async () => {
+    const { env } = setup();
+    expect((await pwSignUp(env)).res.status).toBe(200);
+    const derive = vi.spyOn(crypto.subtle, "deriveBits");
+    try {
+      const wrong = await pwLogin(env, "ada@example.com", "wrong horse battery staple");
+      const wrongCalls = derive.mock.calls.length;
+      const unknown = await pwLogin(env, "nobody@example.com", PW);
+      expect(wrong.res.status).toBe(400);
+      expect(unknown.res.status).toBe(400);
+      expect(wrong.json).toEqual(unknown.json);
+      expect(wrong.json.error).toBe("that email and password do not match an account; if you made your account with Google or GitHub, continue with it instead");
+      expect(cookieValue(wrong.res, "__Host-gc_session")).toBeNull();
+      expect(cookieValue(unknown.res, "__Host-gc_device")).toBeNull();
+      // the same derivation for both: 6 calls of 100,000 iterations (Cloudflare Workers refuse a PBKDF2 call over 100,000)
+      expect(wrongCalls).toBe(6);
+      expect(derive.mock.calls.length).toBe(12);
+      for (const [alg] of derive.mock.calls) expect((alg as Pbkdf2Params).iterations).toBe(PBKDF2_CALL_MAX);
+    } finally {
+      derive.mockRestore();
+    }
+    // a missing or oversized password, a missing email: a plain 400, no work
+    for (const body of [{ email: "ada@example.com" }, { password: PW }, { email: "ada@example.com", password: "x".repeat(1025) }]) {
+      const r = await call(env, "POST", "/api/auth/password/login", { body });
+      expect(r.status).toBe(400);
+      expect(((await r.json()) as any).error).toBe("enter your email and your password");
+    }
+    // Origin, JSON
+    expect((await pwLogin(env, "ada@example.com", PW, { origin: "https://evil.example" })).res.status).toBe(403);
+    expect((await call(env, "POST", "/api/auth/password/login", { body: `{"email":"ada@example.com","password":"${PW}"}`, contentType: "text/plain" })).status).toBe(415);
+  });
+
+  it("a hash stored with less work than today's is replaced at the next correct password", async () => {
+    const { env, sql } = setup();
+    const id = (await pwSignUp(env)).json.account.id;
+    const old = await hashPassword(PW, { iterations: 1000 });
+    expect(old).toMatch(/\$i=1000,l=1000\$/);
+    expect(needsRehash(old)).toBe(true);
+    sql.db.prepare("UPDATE passwords SET hash = ? WHERE account_id = ?").run(old, id);
+    expect((await pwLogin(env, "ada@example.com", "wrong horse battery staple")).res.status).toBe(400);
+    expect(sql.rows("SELECT hash FROM passwords")[0]!.hash).toBe(old);
+    expect((await pwLogin(env)).res.status).toBe(200);
+    const now = String(sql.rows("SELECT hash FROM passwords")[0]!.hash);
+    expect(now).toMatch(/\$i=600000,l=100000\$/);
+    expect(needsRehash(now)).toBe(false);
+    expect(await verifyPassword(PW, now)).toBe(true);
+  });
+
+  it("the passkey step after a password: an account with a passkey gets no session from its password alone", async () => {
+    const { env, sql } = setup();
+    const ada = await signedIn(env);
+    const r = await pwLogin(env, "ada@example.com", PW, { next: "/account?trial=1" });
+    expect(r.res.status).toBe(200);
+    expect(r.json).toEqual({ ok: true, next: "/login/passkey" });
+    expect(cookieValue(r.res, "__Host-gc_session")).toBeNull();
+    const mfa = `__Host-gc_mfa=${cookieValue(r.res, "__Host-gc_mfa")}`;
+    // the pending step is not a session anywhere
+    expect((await me(env, { cookie: mfa })).status).toBe(401);
+    expect((await call(env, "GET", "/account", { cookie: mfa })).status).toBe(302);
+    const page = await (await call(env, "GET", "/login/passkey", { cookie: mfa })).text();
+    expect(page).toContain("Your password signed you in as <b>ada@example.com</b>. This account also asks for one of its passkeys.");
+    // another account's passkey does not finish it
+    const bob = await signedIn(env, "bob@example.com");
+    const o = (await (await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa })).json()) as any;
+    expect((await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o.id, credential: await bob.auth.assert(o.publicKey) }, cookie: mfa })).status).toBe(400);
+    const step = await finishStep(env, mfa, ada.auth);
+    expect(step.res.status).toBe(200);
+    expect(step.json).toMatchObject({ ok: true, next: "/account?trial=1", account: { id: ada.account.id } });
+    const session = sessionOf(step.res);
+    expect((await me(env, { cookie: session })).json.account.id).toBe(ada.account.id);
+    expect(sql.rows("SELECT passkey_at FROM auth_sessions WHERE hash = ?", await sha256Hex(session.split("=")[1]!))).toEqual([{ passkey_at: clock.toISOString() }]);
+    // a wrong password never reaches the step
+    const wrong = await pwLogin(env, "ada@example.com", "wrong horse battery staple");
+    expect(wrong.res.status).toBe(400);
+    expect(cookieValue(wrong.res, "__Host-gc_mfa")).toBeNull();
+  });
+
+  it("the CLI's device flow works with a password sign-in, the passkey step included (the CLI's own requests)", async () => {
+    const { env, sql } = setup();
+    const ada = await signedIn(env);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: clock });
+    try {
+      const fetchFn = async (url: string, init: RequestInit = {}) => handle(new Request(url, init), env, { now: () => new Date(Date.now()) });
+      const dev = await cli.startDeviceLogin({ host: ORIGIN, fetchFn });
+      expect(dev.ok).toBe(true);
+      const next = `/login/device?code=${dev.user_code}`;
+      // signed out, the approval page offers the email and password form, and it comes back here
+      const out = await (await call(env, "GET", next, {})).text();
+      expect(out).toContain("Sign in to continue");
+      expect(out).toContain('<form class="pwf" id="pwf"');
+      expect(out).toContain(`"next":"/login/device?code=${dev.user_code}"`);
+      const r = await pwLogin(env, "ada@example.com", PW, { next });
+      // Ada has a passkey: the step first, then the approval page
+      const step = await passwordThenStep(env, r.res, ada.auth);
+      expect(step.json.next).toBe(next);
+      const cookie = sessionOf(step.res);
+      expect(await (await call(env, "GET", next, { cookie })).text()).toContain("Approve this sign-in");
+      expect((await call(env, "POST", "/api/device/approve", { body: { user_code: dev.user_code, approve: true }, cookie })).status).toBe(200);
+      const poll = cli.pollDeviceLogin(dev, { host: ORIGIN, fetchFn });
+      let done = false;
+      let tok: any;
+      void poll.then((v: unknown) => {
+        done = true;
+        tok = v;
+      });
+      for (let t = 0; !done && t < 60_000; t += 250) {
+        await vi.advanceTimersByTimeAsync(250);
+        for (let i = 0; i < 4; i++) await new Promise((res) => setImmediate(res));
+      }
+      expect(tok).toMatchObject({ ok: true, access_token: expect.stringMatching(CLI_TOKEN_RE), account: { id: ada.account.id, email: "ada@example.com" } });
+      expect(sql.rows("SELECT COUNT(*) AS n FROM auth_sessions WHERE kind = 'cli' AND account_id = ?", ada.account.id)[0]!.n).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("accounts: wrong passwords slow down, never lock out", () => {
+  /** A sign-in from a browser with no device cookie (someone else, somewhere else). */
+  const stranger = (env: Env, password: string) => pwLogin(env, "ada@example.com", password);
+  const WRONG = "wrong horse battery staple";
+
+  it("none for 4 wrong passwords, then 30 s doubling to 15 minutes; while it runs no password is checked, the right one included", async () => {
+    const { env, sql } = setup();
+    expect((await pwSignUp(env)).res.status).toBe(200);
+    for (let i = 1; i <= 4; i++) {
+      const r = await stranger(env, WRONG);
+      expect(r.res.status).toBe(400);
+      expect(r.json.error).not.toMatch(/wait/);
+    }
+    const fifth = await stranger(env, WRONG);
+    expect(fifth.res.status).toBe(400);
+    expect(fifth.json.error).toMatch(/; too many wrong passwords, so wait 30 seconds before the next try$/);
+    expect(sql.rows("SELECT failed, failed_at, next_try FROM passwords")).toEqual([{ failed: 5, failed_at: clock.toISOString(), next_try: new Date(clock.getTime() + 30_000).toISOString() }]);
+    // the delay: the right password is not checked either, and the answer says how long
+    const derive = vi.spyOn(crypto.subtle, "deriveBits");
+    try {
+      const held = await stranger(env, PW);
+      expect(held.res.status).toBe(429);
+      expect(held.res.headers.get("retry-after")).toBe("30");
+      expect(held.json).toEqual({ ok: false, error: "too many wrong passwords for this account; try again in 30 seconds, or sign in another way (Google, GitHub or a passkey) if the account has one", retry_after: 30 });
+      expect(cookieValue(held.res, "__Host-gc_session")).toBeNull();
+      expect(derive).not.toHaveBeenCalled();
+    } finally {
+      derive.mockRestore();
+    }
+    // each further wrong password doubles the wait, up to 15 minutes
+    for (const [n, wait, text] of [[6, 60, "1 minute"], [7, 120, "2 minutes"], [8, 240, "4 minutes"], [9, 480, "8 minutes"], [10, 900, "15 minutes"], [11, 900, "15 minutes"]] as const) {
+      // to the moment the running wait ends (a check is allowed again exactly then)
+      advance(Date.parse(String(sql.rows("SELECT next_try FROM passwords")[0]!.next_try)) - clock.getTime());
+      const r = await stranger(env, WRONG);
+      expect(r.res.status, String(n)).toBe(400);
+      expect(r.json.error, String(n)).toMatch(new RegExp(`wait ${text} before the next try$`));
+      expect(sql.rows("SELECT failed FROM passwords")[0]!.failed).toBe(n);
+      expect(delayAfter(n)).toBe(wait * 1000);
+      // a second before it ends, even the right password waits
+      advance(wait * 1000 - 1000);
+      expect((await stranger(env, PW)).res.status, String(n)).toBe(429);
+    }
+    // it is never a lockout: once the wait is over the right password works, and the count starts again
+    advance(900_000);
+    const ok = await stranger(env, PW);
+    expect(ok.res.status).toBe(200);
+    expect(sql.rows("SELECT failed, failed_at, next_try FROM passwords")).toEqual([{ failed: 0, failed_at: null, next_try: null }]);
+  });
+
+  it("a day without a wrong password and the count starts again; parallel guesses cannot slip past the count", async () => {
+    const { env, sql } = setup();
+    expect((await pwSignUp(env)).res.status).toBe(200);
+    for (let i = 0; i < 4; i++) await stranger(env, WRONG);
+    advance(86_400_000 + 1000);
+    expect((await stranger(env, WRONG)).json.error).not.toMatch(/wait/);
+    expect(sql.rows("SELECT failed FROM passwords")[0]!.failed).toBe(1);
+    advance(86_400_000 + 1000);
+    // eight guesses at once: each is counted before it is checked, so only the first five are checked
+    const all = await Promise.all(Array.from({ length: 8 }, () => stranger(env, WRONG)));
+    expect(all.map((r) => r.res.status).sort()).toEqual([400, 400, 400, 400, 400, 429, 429, 429]);
+  });
+
+  it("a browser where the password was right skips the delay (5 wrong ones of its own), so a stranger cannot keep the owner out", async () => {
+    const { env, sql } = setup();
+    const up = await pwSignUp(env);
+    let mine = deviceOf(up.res);
+    // someone else keeps the account's delay running
+    for (let i = 0; i < 9; i++) await stranger(env, WRONG);
+    expect((await stranger(env, PW)).res.status).toBe(429);
+    // the owner's browser signs in at once
+    const ok = await pwLogin(env, "ada@example.com", PW, { cookie: mine });
+    expect(ok.res.status).toBe(200);
+    // the cookie is rotated at every correct password: the old value is no longer trusted
+    const rotated = deviceOf(ok.res);
+    expect(rotated).not.toBe(mine);
+    expect(sql.rows("SELECT hash FROM password_devices")).toEqual([{ hash: await sha256Hex(rotated.split("=")[1]!) }]);
+    for (let i = 0; i < 9; i++) await stranger(env, WRONG);
+    expect((await pwLogin(env, "ada@example.com", PW, { cookie: mine })).res.status).toBe(429);
+    mine = rotated;
+    // its own typos: 5 wrong passwords answer 400 without any wait; the 6th counts as a stranger's (the delay runs)
+    for (let i = 0; i < 5; i++) {
+      const r = await pwLogin(env, "ada@example.com", WRONG, { cookie: mine });
+      expect(r.res.status, String(i)).toBe(400);
+      expect(r.json.error).not.toMatch(/wait/);
+    }
+    expect((await pwLogin(env, "ada@example.com", PW, { cookie: mine })).res.status).toBe(429);
+    // another account's trusted browser is a stranger here
+    const bob = await pwSignUp(env, "bob@example.com");
+    expect((await pwLogin(env, "ada@example.com", PW, { cookie: deviceOf(bob.res) })).res.status).toBe(429);
+    // a forged cookie is a stranger too
+    expect((await pwLogin(env, "ada@example.com", PW, { cookie: `__Host-gc_device=${"A".repeat(43)}` })).res.status).toBe(429);
+  });
+});
+
+describe("accounts: hashing passwords (src/password.ts)", () => {
+  const salt = Uint8Array.from({ length: 16 }, (_, i) => i);
+  const enc = (b: Uint8Array | Buffer) => b64url(new Uint8Array(b));
+
+  it("is PBKDF2-HMAC-SHA256: one link equals node's pbkdf2; 600,000 is six chained links of 100,000; the string records them", async () => {
+    // plain PBKDF2 when the work fits in one WebCrypto call
+    const one = await hashPassword(PW, { iterations: 1000, salt });
+    expect(one).toBe(`$pbkdf2-sha256$v=1$i=1000,l=1000$${enc(salt)}$${enc(pbkdf2Sync(PW, salt, 1000, 32, "sha256"))}`);
+    // chained: each link's output is the next link's password, with the same salt
+    const two = await hashPassword(PW, { iterations: 2000, link: 1000, salt });
+    expect(two).toBe(`$pbkdf2-sha256$v=1$i=2000,l=1000$${enc(salt)}$${enc(pbkdf2Sync(pbkdf2Sync(PW, salt, 1000, 32, "sha256"), salt, 1000, 32, "sha256"))}`);
+    // today's: 600,000 in calls of at most 100,000, which Cloudflare Workers allow
+    const derive = vi.spyOn(crypto.subtle, "deriveBits");
+    let full: string;
+    try {
+      full = await hashPassword(PW);
+      expect(derive.mock.calls.map(([alg]) => (alg as Pbkdf2Params).iterations)).toEqual([100_000, 100_000, 100_000, 100_000, 100_000, 100_000]);
+    } finally {
+      derive.mockRestore();
+    }
+    expect(PASSWORD_ITERATIONS).toBe(600_000);
+    expect(full).toMatch(HASH_RE);
+    let k: Buffer = Buffer.from(PW);
+    const s = Buffer.from(full.split("$")[4]!.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+    for (let i = 0; i < 6; i++) k = pbkdf2Sync(k, s, 100_000, 32, "sha256");
+    expect(full.split("$")[5]).toBe(enc(k));
+    // a fresh salt every time
+    expect(await hashPassword(PW)).not.toBe(full);
+  });
+
+  it("checks: the right password, NFC-equal spellings; wrong ones, malformed strings and the dummy are false", async () => {
+    const h = await hashPassword("café au lait daily", { iterations: 1000 });
+    expect(await verifyPassword("café au lait daily", h)).toBe(true);
+    expect(await verifyPassword("café au lait daily", h)).toBe(true); // decomposed é
+    expect(await verifyPassword("cafe au lait daily", h)).toBe(false);
+    for (const bad of ["", "plain", h.replace("v=1", "v=2"), h.replace("l=1000", "l=200000"), h.slice(0, -2)]) expect(await verifyPassword("café au lait daily", bad), bad).toBe(false);
+    expect(DUMMY_HASH).toMatch(HASH_RE);
+    expect(DUMMY_HASH).toMatch(/\$i=600000,l=100000\$/);
+    expect(await verifyPassword(PW, DUMMY_HASH)).toBe(false);
+    expect(loginEmail("  Ada@Example.COM ")).toBe("ada@example.com");
+    expect(loginEmail("not an email")).toBeNull();
+  });
+
+  it("the owner's script for a manual reset (scripts/password-hash.mjs) makes strings the worker accepts", async () => {
+    // @ts-expect-error plain ESM module without types
+    const script = await import("../scripts/password-hash.mjs");
+    const h = await script.hashPassword("temporary words for ada");
+    expect(h).toMatch(HASH_RE);
+    expect(h).toMatch(/\$i=600000,l=100000\$/);
+    expect(await verifyPassword("temporary words for ada", h)).toBe(true);
+    expect(needsRehash(h)).toBe(false);
+  });
+});
+
+describe("accounts: changing and adding a password on /account", () => {
+  const NEW = "a brand new passphrase";
+
+  it("change: the current password, or a passkey in the last 5 minutes; it ends every other session and trusted browser", async () => {
+    const { env, sql } = setup();
+    const ada = await signedIn(env); // its session proved a passkey just now
+    const other = sessionOf((await passwordThenStep(env, (await pwLogin(env)).res, ada.auth)).res);
+    const bearer = await cliToken(env, ada.cookie);
+    advance(5 * 60_000 + 1000); // no longer fresh
+    const set = (body: Record<string, unknown>, o: CallOpts = {}) => call(env, "POST", "/api/auth/password", { body, cookie: ada.cookie, ...o });
+    // browser only, our Origin only, signed in only
+    expect((await set({ current: PW, password: NEW }, { cookie: undefined, bearer, origin: null })).status).toBe(403);
+    expect((await set({ current: PW, password: NEW }, { origin: "https://evil.example" })).status).toBe(403);
+    expect((await set({ current: PW, password: NEW }, { cookie: undefined })).status).toBe(401);
+    // neither the current password nor a fresh passkey: confirm with a passkey first
+    const asked = await set({ password: NEW });
+    expect(asked.status).toBe(403);
+    expect(await asked.json()).toEqual({ ok: false, error: "confirm with one of your passkeys first", confirm: true });
+    // a wrong current password is refused and counts toward the account's delay
+    const wrong = await set({ current: "not my password at all", password: NEW });
+    expect(wrong.status).toBe(400);
+    expect(((await wrong.json()) as any).error).toBe("your current password is not right");
+    expect(sql.rows("SELECT failed FROM passwords")[0]!.failed).toBe(1);
+    // the new one follows the rules
+    expect(((await (await set({ current: PW, password: "short" })).json()) as any).error).toMatch(/at least 10/);
+    expect(((await (await set({ current: PW, password: "ada@example.com" })).json()) as any).error).toMatch(/cannot be your email/);
+    const before = String(sql.rows("SELECT hash FROM passwords")[0]!.hash);
+    const ok = await set({ current: PW, password: NEW });
+    expect(ok.status).toBe(200);
+    expect(await ok.clone().json()).toEqual({ ok: true, changed: true });
+    const after = sql.rows("SELECT hash, updated, failed, next_try FROM passwords")[0]!;
+    expect(after).toMatchObject({ updated: clock.toISOString(), failed: 0, next_try: null });
+    expect(after.hash).not.toBe(before);
+    expect(await verifyPassword(NEW, String(after.hash))).toBe(true);
+    // every other session ends (browsers and terminals); this one stays; this browser is the only trusted one
+    expect((await me(env, { cookie: other })).status).toBe(401);
+    expect((await me(env, { bearer, origin: null })).status).toBe(401);
+    expect((await me(env, { cookie: ada.cookie })).status).toBe(200);
+    expect(sql.rows("SELECT hash FROM password_devices")).toEqual([{ hash: await sha256Hex(deviceOf(ok).split("=")[1]!) }]);
+    // the old password no longer signs in; the new one does (then the passkey step)
+    expect((await pwLogin(env, "ada@example.com", PW)).res.status).toBe(400);
+    expect((await pwLogin(env, "ada@example.com", NEW)).json).toEqual({ ok: true, next: "/login/passkey" });
+    expect(await (await call(env, "GET", "/account?password=changed", { cookie: ada.cookie })).text()).toContain("Your password is changed. Every other browser and terminal is signed out.");
+    // with a passkey just used, no current password is needed
+    const co = (await (await call(env, "POST", "/api/auth/passkey/confirm/options", { body: {}, cookie: ada.cookie })).json()) as any;
+    expect((await call(env, "POST", "/api/auth/passkey/confirm/verify", { body: { id: co.id, credential: await ada.auth.assert(co.publicKey) }, cookie: ada.cookie })).status).toBe(200);
+    expect((await set({ password: "and yet another one" })).status).toBe(200);
+    expect((await pwLogin(env, "ada@example.com", "and yet another one")).res.status).toBe(200);
+  });
+
+  it("change on an account without a passkey needs the current password; the page shows the form", async () => {
+    const { env } = setup();
+    const cookie = sessionOf((await pwSignUp(env)).res);
+    const page = await (await call(env, "GET", "/account", { cookie })).text();
+    expect(page).toContain("<tr><td>Password</td><td>Signs in as ada@example.com</td>");
+    expect(page).toContain('<input id="pwcur" type="password" autocomplete="current-password" maxlength="256">');
+    expect(page).toContain('<button class="btn ghost" type="submit" id="pwgo"><span>Change password</span></button>');
+    expect(page).toContain('gcPost("/api/auth/password", body)');
+    expect(page).toContain("<b>Require a passkey at sign-in: off.</b> Add a passkey and GenClass asks for it after your password, Google or GitHub.");
+    const r = await call(env, "POST", "/api/auth/password", { body: { password: "a brand new passphrase" }, cookie });
+    expect(r.status).toBe(400);
+    expect(((await r.json()) as any).error).toBe("enter your current password");
+    expect((await call(env, "POST", "/api/auth/password", { body: { current: PW, password: "a brand new passphrase" }, cookie })).status).toBe(200);
+  });
+
+  it("add: to a Google account (its email by default), to a GitHub account (an email typed); a taken email is refused", async () => {
+    const { env, sql } = setup({ ...GOOGLE, ...GITHUB });
+    const g = sessionOf((await google(env)).res);
+    const add = await call(env, "POST", "/api/auth/password", { body: { password: PW }, cookie: g });
+    expect(add.status).toBe(200);
+    expect(await add.clone().json()).toEqual({ ok: true, added: true });
+    const gid = (await me(env, { cookie: g })).json.account.id;
+    expect(sql.rows("SELECT account_id, email FROM passwords")).toEqual([{ account_id: gid, email: "ada@gmail.com" }]);
+    // it signs in to that same account now
+    expect((await me(env, { cookie: sessionOf((await pwLogin(env, "ada@gmail.com")).res) })).json.account.id).toBe(gid);
+    // a second add is a change (it needs the current password)
+    expect((await call(env, "POST", "/api/auth/password", { body: { password: "something else entirely" }, cookie: g })).status).toBe(400);
+
+    const gh = sessionOf((await github(env)).res);
+    const none = await call(env, "POST", "/api/auth/password", { body: { password: PW }, cookie: gh });
+    expect(none.status).toBe(400);
+    expect(((await none.json()) as any).error).toBe("enter the email address you will sign in with");
+    // an email another account signs in with is refused
+    const taken = await call(env, "POST", "/api/auth/password", { body: { email: "ADA@gmail.com", password: PW }, cookie: gh });
+    expect(taken.status).toBe(409);
+    expect(((await taken.json()) as any).error).toMatch(/another GenClass account already signs in with this email/);
+    expect((await call(env, "POST", "/api/auth/password", { body: { email: " Octo@Example.com", password: PW }, cookie: gh })).status).toBe(200);
+    // the GitHub account had no email: the typed one becomes its email too
+    expect((await me(env, { cookie: gh })).json.account).toMatchObject({ email: "octo@example.com", github_login: "octo-ada" });
+    expect(await (await call(env, "GET", "/account?password=added", { cookie: gh })).text()).toContain("Your password is set. You can now sign in with your email and password.");
+  });
+
+  it("add to an account with a passkey needs a passkey in the last 5 minutes (a stolen session cannot add its own way in)", async () => {
+    const { env } = setup(GOOGLE);
+    const cookie = sessionOf((await google(env)).res);
+    const auth = await makeAuthenticator(-7);
+    expect((await addPasskey(env, cookie, auth)).res.status).toBe(200);
+    const asked = await call(env, "POST", "/api/auth/password", { body: { password: PW }, cookie });
+    expect(asked.status).toBe(403);
+    expect(((await asked.json()) as any).confirm).toBe(true);
+    const co = (await (await call(env, "POST", "/api/auth/passkey/confirm/options", { body: {}, cookie })).json()) as any;
+    expect((await call(env, "POST", "/api/auth/passkey/confirm/verify", { body: { id: co.id, credential: await auth.assert(co.publicKey) }, cookie })).status).toBe(200);
+    expect((await call(env, "POST", "/api/auth/password", { body: { password: PW }, cookie })).status).toBe(200);
+  });
+
+  it("with a password, the last passkey can go (there is still a way in); an account without one keeps its last passkey", async () => {
+    const { env, sql } = setup();
+    const ada = await signedIn(env);
+    const cred = String(sql.rows("SELECT id FROM credentials")[0]!.id);
+    expect((await call(env, "DELETE", `/api/account/credentials/${cred}`, { cookie: ada.cookie })).status).toBe(204);
+    // signing in with the password needs no passkey step now
+    expect((await pwLogin(env)).json).toEqual({ ok: true, next: "/account" });
+  });
+});
+
+describe("accounts: a forgotten password", () => {
+  it("/login/forgot says to write from the account's address (no email sender yet: resetSender is the hook for one)", async () => {
+    const { env } = setup();
+    const r = await call(env, "GET", "/login/forgot", {});
+    expect(r.status).toBe(200);
+    const html = await r.text();
+    expect(html).toContain("<h1>Forgot your password?</h1>");
+    expect(html).toContain("GenClass cannot email you a reset link yet.");
+    expect(html).toContain('href="mailto:mehar@daybot.ca?subject=GenClass%20password"');
+    expect(html).toContain("from the address you sign in with");
+    expect(html).not.toMatch(/ style="/);
+    expect(resetSender(env)).toBeNull();
+    expect((await call(env, "POST", "/login/forgot", { body: {} })).status).toBe(405);
+  });
+});
+
+describe("accounts: migration 0007 on a database that already has accounts", () => {
+  it("existing accounts and sessions are untouched, have no password, and can add one", async () => {
+    const secret = "S".repeat(43);
+    const hash = await sha256Hex(secret);
+    const sql = d1({
+      before: "0007",
+      seed: (db) => {
+        db.prepare("INSERT INTO accounts (id, email, email_verified, google_sub, created) VALUES (?, ?, 1, ?, ?)").run("OldAccount0123456789ab", "old@gmail.com", "g-old", "2026-10-01T00:00:00.000Z");
+        db.prepare("INSERT INTO auth_sessions (id, hash, account_id, kind, created, expires) VALUES (?, ?, ?, 'web', ?, ?)").run("Sess0from0before", hash, "OldAccount0123456789ab", "2026-10-12T00:00:00.000Z", "2026-11-11T00:00:00.000Z");
+      },
+    });
+    const env: Env = { BUCKET: { async put() {} }, DB: sql.api };
+    expect(sql.rows("SELECT COUNT(*) AS n FROM passwords")[0]!.n).toBe(0);
+    const cookie = `__Host-gc_session=${secret}`;
+    expect((await me(env, { cookie })).json.account).toEqual({ id: "OldAccount0123456789ab", email: "old@gmail.com", github_login: null });
+    const page = await (await call(env, "GET", "/account", { cookie })).text();
+    expect(page).toContain('value="old@gmail.com"');
+    expect(page).toContain("<span>Add a password</span>");
+    expect((await call(env, "POST", "/api/auth/password", { body: { password: PW }, cookie })).status).toBe(200);
+    expect((await me(env, { cookie: sessionOf((await pwLogin(env, "old@gmail.com")).res) })).json.account.id).toBe("OldAccount0123456789ab");
   });
 });

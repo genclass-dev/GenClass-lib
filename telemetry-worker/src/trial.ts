@@ -1,5 +1,6 @@
 // Trials of Pro and the locked private link. Dashboards come with Pro: an account without a paid plan or GenClass's own
-// grant gets one trial, without a card and without Stripe (TRIAL_DAYS, wrangler.toml; never said in public copy).
+// grant gets one trial, without a card and without Stripe, of TRIAL_DAYS days (wrangler.toml; the pages say "Get a
+// 7-day free trial for analytics" from it).
 //
 //   POST /api/billing/trial   browser session + Origin: start the account's one trial (409 once it was used, or while
 //                             a paid plan or a grant applies). Pro's entitlements until trial_ends_at (src/plans.ts).
@@ -68,6 +69,6 @@ export async function lockedLink(request: Request, url: URL, env: Env, opts: Han
     signedIn = { pro: hasDashboard(access), canTrial: access.source === null && !access.trialUsed };
     if (p.account_id === a.account.id) owner = "mine";
   }
-  const html = lockedLinkPage(nonce, { name: p.name, signedIn, owner, providers });
+  const html = lockedLinkPage(nonce, { name: p.name, signedIn, owner, providers, trialDays: trialDays(env) });
   return new Response(html, { status: 200, headers: securityHeaders(nonce) });
 }

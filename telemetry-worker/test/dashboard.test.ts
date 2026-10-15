@@ -386,14 +386,14 @@ describe("dashboard pages", () => {
     expect(page.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await page.text();
     expect(html).toContain("Dashboards come with Pro.");
-    expect(html).toContain("Trials available.");
+    expect(html).toContain("Get a 7-day free trial for analytics.");
     expect(html).toContain("Old shop");
     expect(html).not.toContain(secretOf(json.dashboardUrl));
     expect(html).not.toContain("/api/projects/");
     expect(html).not.toMatch(/ style="/);
     const st = await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts);
     expect(st.status).toBe(402);
-    expect(await st.json()).toEqual({ ok: false, error: "dashboards come with Pro (trials available)", locked: true });
+    expect(await st.json()).toEqual({ ok: false, error: "dashboards come with Pro (get a 7-day free trial for analytics)", locked: true });
     // GenClass's grant (or a plan, or a trial) on the app's account opens both
     unlock(sql, json.token);
     expect(await (await handle(new Request(json.dashboardUrl), env, opts)).text()).not.toContain("Dashboards come with Pro.");
@@ -408,7 +408,7 @@ describe("dashboard pages", () => {
     expect(start.status).toBe(200);
     const html = await start.text();
     expect(html).toContain("Get a token");
-    expect(html).toContain("Dashboards come with Pro. Trials available.");
+    expect(html).toContain("Dashboards come with Pro. Get a 7-day free trial for analytics.");
     expect(html).not.toContain("Free, no account");
     expect(html).toContain('fetch("/api/projects"');
     expect(html).toContain("https://cdn.jsdelivr.net/npm/@genclass/runtime");
