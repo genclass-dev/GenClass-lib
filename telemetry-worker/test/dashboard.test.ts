@@ -220,7 +220,6 @@ describe("token on telemetry batches", () => {
   it("aggregates a known token's batch for its dashboard (and still stores the raw batch, with the token, in R2)", async () => {
     const { env, puts, sql } = setup();
     const { json } = await create(env);
-    unlock(sql, json.token);
     const res = await handle(post(pageBatch(json.token)), env, opts);
     expect(res.status).toBe(202);
     expect(puts).toHaveLength(1);
@@ -233,6 +232,8 @@ describe("token on telemetry batches", () => {
     expect(dump).not.toMatch(/SECRET SITUATION|more text|3f9c0a1b2c3d4e5f60718293/);
     expect(sql.rows("SELECT last_event FROM projects")[0]!.last_event).toBe(NOW.toISOString());
 
+    // collected without an account; its link shows the stats once the app's account has Pro (here GenClass's grant)
+    unlock(sql, json.token);
     const st = await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts);
     expect(st.status).toBe(200);
     expect(st.headers.get("referrer-policy")).toBe("no-referrer");

@@ -134,13 +134,13 @@ describe("trials: one per account, no card, Pro's entitlements while it runs", (
     const { env, sql } = setup();
     const owner = await signedIn(env, "owner@example.com");
     const app = await createApp(env, owner.cookie);
-    sql.db.prepare("UPDATE accounts SET comp_until = ? WHERE id = ?").run(new Date(now().getTime() + 30 * DAY).toISOString(), owner.account.id);
+    sql.db.prepare("UPDATE accounts SET comp_until = ? WHERE id = ?").run(new Date(now().getTime() + 10 * DAY).toISOString(), owner.account.id);
     expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie: owner.cookie })).status).toBe(200);
     expect(await text(call(env, "GET", `/account/apps/${app.id}`, { cookie: owner.cookie }))).not.toContain('id="trialn"');
     expect(await text(call(env, "GET", "/account/billing", { cookie: owner.cookie }))).toContain("set up by GenClass");
     expect(((await (await trial(env, owner.cookie)).json()) as any).error).toMatch(/already has Pro/);
     expect(await (await call(env, "GET", "/api/billing", { cookie: owner.cookie })).json()).toMatchObject({ access: "comp", can_trial: false });
-    advance(30 * DAY + 1000);
+    advance(10 * DAY + 1000);
     expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie: owner.cookie })).status).toBe(402);
     // the grant used no trial: one is still there
     expect((await trial(env, owner.cookie)).status).toBe(200);
