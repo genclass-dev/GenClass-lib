@@ -121,5 +121,7 @@ jobs:
           npm init -y > /dev/null
           # a new version can take several minutes to appear in the registry after `npm publish`
           for i in $(seq 1 40); do npm view "@genclass/runtime@$VERSION" version --prefer-online && break; sleep 20; done
-          npm install --no-audit --no-fund --ignore-scripts "@genclass/runtime@$VERSION"
-          npm audit signatures
+          for i in $(seq 1 10); do npm install --no-audit --no-fund --ignore-scripts "@genclass/runtime@$VERSION" && break; sleep 30; done
+          # the attestations endpoint can lag the version by minutes (0.3.0-beta.0: 404 right after publish, 200 later)
+          for i in $(seq 1 20); do npm audit signatures && exit 0; echo "attestations not served yet, retry $i"; sleep 30; done
+          exit 1
