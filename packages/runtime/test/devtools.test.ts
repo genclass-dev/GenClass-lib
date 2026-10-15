@@ -5,6 +5,7 @@ import { mountDevtools, type DevtoolsHandle, type DevtoolsOptions } from "../src
 import { CSS } from "../src/devtools/css.js";
 import { MockRuntime, makeAction, makeDecision } from "./browser/ui/mock-runtime.js";
 import { loadScenario } from "./browser/ui/scenario.js";
+import { setup } from "./helpers.js";
 
 const frame = (): Promise<void> => new Promise((r) => setTimeout(r, 40));
 let handles: DevtoolsHandle[] = [];
@@ -441,5 +442,45 @@ describe("devtools: controls", () => {
     await frame();
     expect($('[data-pane="interventions"] .empty b')?.textContent).toBe("No interventions yet");
     expect($(".st .sm")?.textContent).toBe("WASM · q8");
+  });
+});
+
+describe("devtools: Expectations tab (docs/runtime/EXPECTATIONS.md §5)", () => {
+  it("says the flow expectations are off by default (opt-in)", async () => {
+    const s = setup({});
+    const { click, $ } = mount(s.rt as unknown as MockRuntime, { collapsed: false });
+    await frame();
+    await click('[data-tab="expectations"]');
+    expect($('[data-part="flows-off"]')?.textContent ?? "").toContain("learn: { expectations: true }");
+    s.rt.destroy();
+  });
+
+  it("lists the learned flows with their steps and the recent deviations of a real runtime", async () => {
+    const s = setup({ learn: { persist: false, expectations: true } });
+    await s.clock.advance(0);
+    await s.rt.flowsReady; // the flow layer is a lazy chunk, imported after the first idle
+    s.server.on("POST", "/api/cart", ({ n }) => ({ body: { items: [n] }, latency: 50 }));
+    const cart = s.rt.atom("cart", { items: [] as number[] });
+    const add = async (send: boolean) => {
+      s.rt.user({ kind: "click", target: 'button "Add to cart"' }, () => {
+        if (send) void s.fetch("/api/cart", { method: "POST", body: "{}" }).then(async (r) => cart.set((await r.json()) as { items: number[] }));
+      });
+      await s.clock.advance(2000);
+    };
+    for (let i = 0; i < 9; i++) await add(true);
+    await add(false);
+    expect(s.rt.learned().deviations).toHaveLength(1);
+    const { click, $, $$ } = mount(s.rt as unknown as MockRuntime, { collapsed: false });
+    await frame();
+    await click('[data-tab="expectations"]');
+    const devs = $$('[data-part="deviations"] li').map((li) => li.textContent ?? "");
+    expect(devs).toHaveLength(1);
+    expect(devs[0]).toContain('Expected a request on /search: clicking button "Add to cart" usually sends POST /api/cart (9 of 9 times');
+    const flows = $('[data-part="flows"]')?.textContent ?? "";
+    expect(flows).toContain('click button "Add to cart" on /search: 10 observations (9 repeated in a visit), 1 session');
+    expect(flows).toContain("→ POST /api/cart (9/10");
+    expect(flows).toContain("· missed: not expected until seen again");
+    expect(flows).toContain("✎ POST /api/cart writes cart.items (9/9) · expected");
+    s.rt.destroy();
   });
 });

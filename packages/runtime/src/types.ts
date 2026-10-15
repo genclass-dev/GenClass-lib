@@ -170,7 +170,16 @@ export interface EffectiveGates {
   /** gain kind only. */
   tauGain?: number;
   trigger?: TriggerKind;
+  /** Detections ("likely") need the top diagnosis's probability to reach this. */
   report: number;
+  /**
+   * The "possible" detection gate when it is in force (InitOptions.detect): the eager profile's report value from the
+   * model's meta gate, below `report`. A top diagnosis other than `expected` at or above it, and below `report`, is a
+   * possible detection. Unset when there is no possible tier (guard and heal by default, `detect: "likely"`, an
+   * explicit `policy.thresholds.report`, or a model without a lower eager report value). Reporting only: no action
+   * gate reads it.
+   */
+  possible?: number;
   guard: number;
   heal: number;
   source: { report: GateSource; guard: GateSource; heal: GateSource };
@@ -373,7 +382,8 @@ export interface PolicyOptions {
    * Overrides of the gate thresholds, in the active gate kind: with the default "mass" gate guard/heal are
    * probabilities (defaults 0.9 / 0.8); when the model ships a "gain" gate they are margins in cost units (defaults
    * 2 / 2). `report` is always a probability (default 0.6). Unset values use the model's own gate (meta.json `gate`,
-   * per trigger kind then its default), else the defaults.
+   * per trigger kind then its default), else the defaults. Setting `report` also turns observe's "possible" detection
+   * tier off unless `detect: "possible"` asks for it (InitOptions.detect).
    */
   thresholds?: { report?: number; guard?: number; heal?: number };
   /** Action names. When set, only these non-passive actions may run. */
@@ -443,11 +453,20 @@ export interface ModelOptions {
   ortWasmPaths?: string;
   cacheName?: string;
   /**
-   * Whether to load the model on this device. Default `{ saveData: "lazy" }` (Save-Data connections load lazily).
-   * false / "skip" → no download (status.state "skipped"); "lazy" → preload "lazy". Unknown values count as allowed.
+   * Whether to load the model on this device. Default `{ minDeviceMemoryGB: 4, saveData: "skip" }`: no model on
+   * devices whose `navigator.deviceMemory` is under 4 GB (the value is quantised to powers of two, so that is
+   * exactly "2 GB or less"; browsers that do not report it load) nor on Save-Data connections. The runtime then
+   * observes without a model (status.state "skipped" with `reason` "device-memory" / "save-data" / "loadIf") and
+   * prints one console line. `() => true` forces the load everywhere. false / "skip" → no download; "lazy" →
+   * preload "lazy"; `saveData: "ignore"` loads on Save-Data connections. Unknown values count as allowed.
    */
   loadIf?: { minDeviceMemoryGB?: number; saveData?: "skip" | "lazy" | "ignore" } | ((env: DeviceEnv) => boolean | "lazy");
-  /** Run inference on the main thread when the worker cannot start (default true). */
+  /**
+   * Run inference on the main thread when the model worker cannot start or crashes before it is up (default true).
+   * `false`: the model is then not loaded at all (status.state "skipped", reason "worker-unavailable", one console
+   * line naming the worker error) and the runtime observes without it; `worker: false` still runs inline, since
+   * that asks for the main thread explicitly.
+   */
   inlineFallback?: boolean;
   /** WASM threads (default "auto" = min(4, max(1, cores - 1))). */
   threads?: number | "auto";
@@ -455,7 +474,13 @@ export interface ModelOptions {
   timeoutMs?: number;
   /** Model evaluations per sliding minute (default 30; Infinity disables). Over it, decisions fail open. */
   maxDecisionsPerMinute?: number;
-  /** Tear the model down after this long without an evaluation (default false); it reloads from cache on demand. */
+  /**
+   * Tear the model down after this long without an evaluation (default false; hidden-tab time counts as idle); the
+   * next salient situation in a visible tab reloads it from cache (OPTIONS-SPEC §4.18; in observe that situation is
+   * decided once the model is back, elsewhere it fails open), as does the tab becoming visible with deferred
+   * situations waiting. Before 0.3.0 nothing reloaded it, so guard and heal stopped acting for good; now they act
+   * again after the reload.
+   */
   unloadAfterIdleMs?: number | false;
 }
 
@@ -540,7 +565,11 @@ export interface ActionRequest {
   label?: string;
 }
 
-export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error";
+/**
+ * `"check"`: a measured visual check (InitOptions.visual), delivered only to sinks whose `kinds` lists it, so an
+ * existing sink without a `kinds` filter sees no new record kind.
+ */
+export type SinkKind = "detection" | "intervention" | "undo" | "breaker" | "summary" | "error" | "expectation" | "check";
 
 export interface SinkRecord {
   schema: 1;
@@ -554,16 +583,32 @@ export interface SinkRecord {
   sampled: boolean;
   diagnosis?: string;
   p?: number;
+  /**
+   * kind "detection": "likely" (at the report gate) or "possible" (observe's lower tier, InitOptions.detect). A sink
+   * receives possible ones only with `possible: true`.
+   */
+  detection?: "likely" | "possible";
   action?: string;
   tier?: Tier;
   trigger?: TriggerKind;
   label?: string;
+  /**
+   * The page path (`location.pathname`) the subject's operation was created on, else the current one (kind "check":
+   * the route the check ran on), normalised as telemetry sends it: id-like segments (numbers, UUIDs, long hex and
+   * tokens) and email segments as ":id", ≤ 200 chars.
+   */
+  route?: string;
   changed?: string[];
   undone?: boolean;
   shadow?: { action: string; tier: Tier; wouldPass: boolean; reason?: string };
   reason?: string;
   summary?: SessionSummary;
-  evidence?: { message?: string; trigger?: TriggerKind; subject?: string; timeline?: string[] };
+  /** expectation: the learned step that did not happen (no page text: the action label is in `evidence.message` only). */
+  expectation?: { kind: ExpectationKind; route: string; signature?: string; field?: string; after?: string; to?: string; seen: number; of: number; sessions: number; waitedMs: number };
+  /** kind "check": the measured check, its severity and whether a runtime fix was applied. Never selectors or text. */
+  check?: { kind: CheckKind; severity: CheckSeverity; fixed: boolean };
+  /** With `evidence: true`; for "check" records also the element description and its selector (built locally). */
+  evidence?: { message?: string; trigger?: TriggerKind; subject?: string; timeline?: string[]; target?: string; selector?: string };
 }
 
 export type SinkFn = (r: SinkRecord) => void | Promise<void>;
@@ -574,6 +619,12 @@ export interface SinkObject {
   sampleRate?: number;
   /** Add redacted evidence (message, trigger, subject, timeline). Default false. */
   evidence?: boolean;
+  /**
+   * Also receive "possible" detections (observe's lower tier: `SinkRecord.detection` "possible"; InitOptions.detect).
+   * Default false: a sink gets the likely ones only, as before 0.3.0. A plain function sink never gets possible ones
+   * (`detect: "possible"` does not change what sinks get).
+   */
+  possible?: boolean;
   flush?(): Promise<void>;
 }
 export type Sink = SinkFn | SinkObject;
@@ -581,19 +632,32 @@ export type Sink = SinkFn | SinkObject;
 export interface SessionSummary {
   startedAt: number;
   durationMs: number;
+  /** Likely detections (at the report gate) per diagnosis, as before 0.3.0. */
   detections: Record<string, number>;
+  /** Possible detections (observe's lower tier, InitOptions.detect) per diagnosis. */
+  possibleDetections: Record<string, number>;
   interventions: Record<string, number>;
   undos: number;
   lateReverts: number;
   denied: Record<string, number>;
   shadow: Record<string, number>;
+  /**
+   * `hiddenSkipped`: situations not evaluated because the tab was hidden (guard and heal; in observe, those dropped
+   * from the full hidden-tab queue).
+   */
   model: { state: ModelStatus["state"]; p50Ms?: number; p95Ms?: number; decisions: number; dropped: number; hiddenSkipped: number };
   heldMs: { total: number; max: number };
   errors: number;
+  /**
+   * Measured visual checks (InitOptions.visual): findings per kind and per route, fixes, cost and coverage. Present
+   * only once the checks have run, so a summary without them is unchanged.
+   */
+  visual?: VisualSummary;
 }
 
 /** What an audit entry records (rt.audit()). */
-export type AuditKind = "decision" | "action" | "undo" | "breaker" | "control";
+/** `"fix"`: a measured visual check's runtime fix was applied, undone or dropped (no model fields). */
+export type AuditKind = "decision" | "action" | "undo" | "breaker" | "control" | "fix";
 
 /** The model an audit entry was decided with (from rt.status at the time). */
 export interface AuditModel {
@@ -681,6 +745,8 @@ export interface AuditEntry {
   breaker?: { tripped: boolean; reason: "undos" | "errors" | "reset"; decisionIds: string[]; counts: { undos: number; errors: number } };
   /** control: what changed (setMode, setAggressiveness, pause, resume, enabled, disable) and from/to. */
   control?: { what: "setMode" | "setAggressiveness" | "pause" | "resume" | "enabled" | "disable"; from?: string | number; to?: string | number };
+  /** fix: a visual check's runtime fix (InitOptions.visual.fix): applied, undone or dropped, and the CSS involved. */
+  fix?: { what: "apply" | "undo" | "drop"; checkId: string; kind: CheckKind; css: string; reason?: string };
 }
 
 /** InitOptions.audit: the in-memory audit trail and an optional sink for the app's own logging. */
@@ -714,7 +780,10 @@ export interface InitOptions {
   model?: ModelOptions | false;
   /** Bring your own decision provider instead of the local model. */
   decider?: DecisionProvider | null;
-  /** Default "console". "interventions": the console prints only actions, undos, breaker trips and errors. */
+  /**
+   * Default "console". "interventions": the console prints only actions, undos, breaker trips and errors. A function
+   * receives every report; a possible detection (InitOptions.detect) only with `detect: "possible"` set explicitly.
+   */
   report?: "console" | "interventions" | "silent" | ((r: Report) => void);
   /** Default true. A predicate / Promise / subscribable flag; while false nothing is decided or downloaded. */
   enabled?: boolean | (() => boolean | Promise<boolean>) | EnabledSource;
@@ -731,7 +800,17 @@ export interface InitOptions {
   onBeforeAction?: (a: ActionRequest) => boolean | void;
   /** "report": call the hook and record its verdict but act anyway (default "enforce"). */
   vetoMode?: "enforce" | "report";
-  /** Structured, redacted records for your telemetry. */
+  /**
+   * Structured, redacted records for your own side (OPTIONS-SPEC §4.11): a function, a `{ send }` object, or a
+   * ready-made, vendor-neutral adapter with no dependencies: `@genclass/runtime/sinks/console-json` (one JSON line per
+   * record on the console) and `@genclass/runtime/sinks/webhook` (batched POSTs to a URL you configure). The zero-code
+   * entries also take them by name (`console-json:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = {
+   * sinks: ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=console-json">`, `data-sink="console-json"`
+   * on the script tag, or `npx @genclass/runtime init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
+   * Datadog is not part of the free runtime (on Pro the GenClass collector forwards to them once turned on:
+   * https://genclass.dev/pricing); a page config that names `sentry`, `posthog` or `datadog` gets one console warning
+   * that says so and nothing else.
+   */
   sinks?: Sink[];
   /** Session id and tags stamped on records (never shown to the model). */
   session?: { id?: string; tags?: Record<string, string | number | boolean> };
@@ -748,6 +827,21 @@ export interface InitOptions {
   observe?: Partial<Record<ObserverName | "untrustedEvents", boolean>>;
   /** Default "salient". */
   triage?: "salient" | "always";
+  /**
+   * Which detections are reported (CONTRACT §8). "likely": a top diagnosis other than `expected` at or above the
+   * report gate (`gates().report`: the aggressiveness profile's report value from the model's meta gate, 0.90 at
+   * balanced with model 0.2.0, or `policy.thresholds.report`). "possible": also those at or above the eager profile's
+   * report value (0.70 with model 0.2.0) and below the report gate, as `Decision.detection` "possible": a
+   * `console.debug` line ending in "(possible)" (hidden at Chrome's default console level), a secondary card in the
+   * devtools, `summary().possibleDetections`, the telemetry `detect` event with `tier: "possible"`, and sinks that set
+   * `possible: true`. Default: "possible" where the subject's effective mode is observe and `policy.thresholds.report`
+   * is not set, else "likely". Possible detections reach the "detect" event, "report" listeners and a `report`
+   * function only when `detect: "possible"` is set explicitly (by default those get the likely ones, as in 0.2.x).
+   * Where the possible tier is in force in observe, situations raised while the model loads or the tab is hidden are
+   * kept and decided later, reported at the possible tier at most (OPTIONS-SPEC §5.3); "likely" skips them, as 0.2.x
+   * did. Reporting only: no action gate changes.
+   */
+  detect?: "likely" | "possible";
   policy?: PolicyOptions;
   /**
    * Default: values whose leaf field names a secret (password, token, secret, cvv, card number, ssn, iban, api key,
@@ -759,11 +853,8 @@ export interface InitOptions {
   historySize?: number;
   /** Console logging of every decision. */
   debug?: boolean;
-  /**
-   * Learned state (transition profiles): persist: true / "local" (localStorage) or "session" (sessionStorage); default
-   * false. `key` default "genclass:learn"; `version` (default session.tags.release at init) discards stale state.
-   */
-  learn?: { persist?: boolean | "local" | "session"; key?: string; version?: string };
+  /** Learned state (transition profiles, flow expectations) and its persistence; see LearnOptions. */
+  learn?: LearnOptions;
   /** Override the diagnosis vocabulary and action descriptions the model sees. */
   vocabulary?: Vocabulary;
   /** Quiet time after the last mutation before a settled point (default 60 ms). */
@@ -781,10 +872,12 @@ export interface InitOptions {
   situation?: { budget?: number | "auto" };
   /**
    * Anonymous diagnostics sent to the GenClass maintainers to improve the model (packages/runtime/TELEMETRY.md):
-   * session info, every decision (trigger, its calibrated answers, the gate and what ran; the redacted situation
-   * text the model read only with `include: { situation: true }`), action outcomes, detections, model errors and
-   * periodic counts. Never raw input values, cookies, headers or storage. **Default: on with `GenClass.init()` in a
-   * browser on a public host** (one console notice per page; never on localhost or private networks); off in
+   * session info, decisions (trigger, its calibrated answers, the gate and what ran: every detection, near-miss,
+   * action and veto; a `decisionSample` share of routine ones; the redacted situation text the model read only with
+   * `include: { situation: true }`), action outcomes, detections, model errors and periodic counts. Never raw input
+   * values, cookies, headers or storage. **Default: on with `GenClass.init()` in a browser on a public host** (one
+   * console notice per page; the default is off on localhost and private networks, where `true` or an options
+   * object is an explicit opt-in that sends from them too); off in
    * Node/SSR and with `createRuntime()` unless set here. Off with `false`, `?genclass=no-telemetry` (or `off`),
    * `localStorage["genclass.telemetry"] = "off"`, or when the browser sends Global Privacy Control
    * (`navigator.globalPrivacyControl === true`).
@@ -801,6 +894,19 @@ export interface InitOptions {
    * single sources off (`{ react: false }`). Also `<meta name="genclass" content="autostate=off">`.
    */
   autoState?: boolean | AutoStateOptions;
+  /**
+   * Measured visual checks (docs/runtime/VISUAL.md): text you cannot read against its background, images, fonts,
+   * stylesheets and media that failed to load, pages that scroll sideways, layers that swallow clicks, dialogs
+   * covered by other elements, "[object Object]" and similar leaks. These are deterministic measurements with fixed,
+   * documented thresholds, reported as kind "check" (`rt.on("check")`, `rt.checks()`); the model is not involved and
+   * they never feed a decision. **Default: "local" with `GenClass.init()` in a browser** (on for development hosts:
+   * http(s) on localhost, 127.0.0.1, [::1] or a *.localhost name with a port, and *.test names; and when the devtools
+   * overlay is mounted; off elsewhere); off in `createRuntime()`. Nothing about them is sent. `true` turns report-only
+   * checks on everywhere. `?genclass-visual=off` turns them off; `?genclass-visual=on` turns on report-only checks on
+   * any host (never fixes). Runtime fixes need `{ on: true, fix: true }` and guard or heal mode; observe never changes
+   * the page. `rt.summary().visual` has the counts; `@genclass/runtime/visual` exports `checkPage()` for your tests.
+   */
+  visual?: boolean | "local" | VisualOptions;
   /**
    * Your app's GenClass token (`gc_` + 22 letters/digits; get one with `npx @genclass/runtime init` or at
    * https://genclass.dev/start). Public: it only lets this app's telemetry batches be grouped under your private
@@ -819,6 +925,273 @@ export interface InitOptions {
    * (also `data-scope`, `scope=functions` in the meta tag, `window.GENCLASS_CONFIG.scope`).
    */
   scope?: "app" | "functions";
+}
+
+/**
+ * InitOptions.learn: what GenClass learns about the page (transition profiles per operation, flow expectations per
+ * user action; docs/runtime/EXPECTATIONS.md) and where it keeps it between visits.
+ */
+export interface LearnOptions {
+  /**
+   * Keep learned state per origin between page loads. Unset (the default): the flows behind `expectation` reports
+   * (reporting only) are kept in localStorage; transition profiles, which feed the model, stay in memory (CONTRACT
+   * §4). true / "local": flows and transition profiles in localStorage; "session": both in sessionStorage; false:
+   * nothing is stored. Without working storage, or by default in a DOM test environment (jsdom, happy-dom), nothing
+   * is stored either. What is stored: request signatures, routes and field names (id-like segments and keys
+   * normalised; other path segments and map keys as they are), hashes of user-action labels, counts and delay
+   * samples; never element text or values. Capped at `maxBytes`; discarded when `version` or the runtime version
+   * changes.
+   */
+  persist?: boolean | "local" | "session";
+  /** Storage key. Default "genclass:learn". */
+  key?: string;
+  /** Discards stored state learned under another version (as does a new runtime version). Default: session.tags.release at init. */
+  version?: string;
+  /**
+   * Size cap of the stored state in characters: the most-used flows and the profiles with the most completions are
+   * kept; only the stored copy is trimmed, never what is in memory. Default 200,000.
+   */
+  maxBytes?: number;
+  /**
+   * Flow expectations (`expectation` reports, rt.learned().flows). Default false (opt-in until their false-report rate
+   * is measured, docs/runtime/RESULTS.md): nothing is learned, stored or reported, and src/learn/flows.ts is never
+   * loaded. true: the layer is imported on the next task after init (a lazy chunk, no first-load cost) and learns from then on.
+   */
+  expectations?: boolean;
+  /**
+   * Observations of a flow (or completions of a request) before a step is expected of it. Default 8 while all of
+   * them are from this page load, 20 once stored observations from earlier page loads count; a number sets both.
+   */
+  minSupport?: number;
+  /** Share of observations in which a step must have occurred to be expected. Default 0.95. */
+  minShare?: number;
+  /**
+   * Distinct sessions a flow must have been seen in before anything is expected of it (for `response`: sessions on
+   * this origin, this one included). A session is a browsing session of a tab: a reload continues it. Default 3
+   * when learned state is kept in localStorage, else 1.
+   */
+  minSessions?: number;
+}
+
+/** A learned step that did not happen this time (reporting only; never an action). */
+export type ExpectationKind = "request" | "response" | "write" | "follow-up" | "navigation";
+
+/**
+ * An `expectation` report (rt.on("expectation"), Report.expectation, docs/runtime/EXPECTATIONS.md): a step that the
+ * same user action on the same route usually produces (`seen` of `of` observations across `sessions` sessions) and
+ * this time did not within the learned bound. Counts are learned, never decided by the model.
+ */
+export interface Expectation {
+  kind: ExpectationKind;
+  /** Normalised route the flow was learned on. */
+  route: string;
+  /** The user action, e.g. 'clicking button "Add to cart"' (`response`: the request signature). */
+  action: string;
+  /** The user op (`response`: the request op). */
+  op: number;
+  /** request / follow-up / write / response: the request signature. */
+  signature?: string;
+  /** write: the field(s) usually written. */
+  field?: string;
+  /** follow-up: the request after whose completion `signature` usually follows. */
+  after?: string;
+  /** navigation: the route the action usually leads to. */
+  to?: string;
+  /** Times the step was seen, out of the observations it is measured against, and the sessions behind them. */
+  seen: number;
+  of: number;
+  sessions: number;
+  /** How long GenClass waited before reporting (ms). */
+  waitedMs: number;
+  /** The learned bound the wait was compared with (p95 of the step's delay; p99 of the latency for `response`). */
+  usualMs?: number;
+  at: number;
+  /** The console line. */
+  message: string;
+}
+
+/** One learned flow (rt.learned().flows): what a user action on a route usually does. */
+export interface LearnedFlow {
+  route: string;
+  /** e.g. 'click button "Place order"' (a label not seen this session shows as `button #<hash>`). */
+  action: string;
+  /** Observations, those that repeated the action within a page load, and distinct sessions. */
+  n: number;
+  repeats: number;
+  sessions: number;
+  /** Time from the action to its last request's end. */
+  settleMs?: { p50: number; p95: number };
+  /**
+   * Requests the action starts (`onRepeat`: of them, in repeats). `expected`: its absence is reported the first time
+   * the action happens in a page load (support, share and session thresholds met, a method that changes data, not
+   * protected, not `missed`); `expectedOnRepeat`: also on a repeat (the share holds among `repeats` too). `missed`:
+   * its absence was reported, and it is not expected again until it is seen again (on every step kind below too).
+   */
+  children: { signature: string; n: number; share: number; onRepeat: number; expected: boolean; expectedOnRepeat: boolean; protected?: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
+  /**
+   * Fields each request's response handler writes (a refetch's writes are the refetch's). `expected`: a missing write
+   * is reported (thresholds met and the request changes data: not GET, HEAD or OPTIONS).
+   */
+  writes: { signature: string; field: string; n: number; of: number; share: number; expected: boolean; missed?: boolean }[];
+  /** Requests that start after another one of the flow answers ok; `expected` needs one of the pair to change data. */
+  followUps: { after: string; then: string; n: number; of: number; share: number; expected: boolean; missed?: boolean; delayMs?: { p50: number; p95: number } }[];
+  /** Routes the action leads to. */
+  nav: { to: string; n: number; share: number; expected: boolean; missed?: boolean }[];
+}
+
+/** rt.learned(): what GenClass learned about the page (reporting only). */
+export interface Learned {
+  /** The current route (normalised). */
+  route: string;
+  /** Flow expectations are on (learn.expectations: true); false: `flows` and `deviations` stay empty. */
+  expectations: boolean;
+  /**
+   * This session's ordinal on this origin: 1 + the sessions that stored learned state before it, or, after a reload
+   * in the same tab, the ordinal the tab already had (kept in sessionStorage). Always 1 when nothing is stored.
+   */
+  session: number;
+  /** Learned flows, the current route's first. */
+  flows: LearnedFlow[];
+  /** Recent expectation reports (last 50), oldest first. */
+  deviations: Expectation[];
+  /** Learned relations between fields (invariants), as text, with the settled points they held at. */
+  relations: { text: string; held: number }[];
+}
+
+// --------------------------------------------------------------------------- measured visual checks (VISUAL.md)
+
+/** The v1 measured visual checks (docs/runtime/VISUAL.md section 3). */
+export type CheckKind =
+  | "image-broken"
+  | "image-css-broken"
+  | "media-failed"
+  | "stylesheet-failed"
+  | "font-failed"
+  | "icon-font-failed"
+  | "csp-blocked"
+  | "text-invisible"
+  | "text-template-leak"
+  | "text-placeholder"
+  | "text-encoding"
+  | "css-var-undefined"
+  | "image-distorted"
+  | "page-overflow-x"
+  | "viewport-meta-missing"
+  | "layout-shift"
+  | "page-blank"
+  | "click-blocked"
+  | "pointer-events-leak"
+  | "scroll-lock-stuck"
+  | "control-unreachable"
+  | "focus-obscured"
+  | "dialog-covered";
+
+/** The checks that may apply a runtime fix (opt-in, reversible, never in observe). */
+export type VisualFixKind = "text-invisible" | "pointer-events-leak" | "scroll-lock-stuck";
+
+/** high: content or controls cannot be read, seen or used; medium: visibly wrong but usable; low: small visible effect. */
+export type CheckSeverity = "high" | "medium" | "low";
+
+/** InitOptions.visual as an object. */
+export interface VisualOptions {
+  /** Same values as the shorthand. Default "local" in GenClass.init() (browser), false in createRuntime(). */
+  on?: boolean | "local";
+  /** Turn single kinds on or off. Default: every v1 kind on. */
+  checks?: Partial<Record<CheckKind, boolean>>;
+  /**
+   * Runtime fixes (VISUAL.md section 11). Default false. true allows the three fix kinds; or a list of them. Needs
+   * `on: true` (the "local" default and ?genclass-visual=on never fix) and guard or heal mode (heal alone never turns
+   * fixes on); a sampled-out session never fixes. Every fix is undone on setMode("observe"), the breaker, disable(),
+   * pause() (within 2 s) and destroy(), and by `finding.fix.undo()`; a colour fix also when the background it was made
+   * for changes. A scroll lock held since the page loaded, with no dialog ever open, is reported but not removed.
+   */
+  fix?: boolean | VisualFixKind[];
+  /** Selectors (and image hosts, for text-placeholder) never checked, for example third-party widgets. */
+  ignore?: string[];
+  /** Per idle slice, ms. Default 8, clamped to 2..16. */
+  budgetMs?: number;
+  /** Check time per pass, ms. Default 100; the pass then ends as partial. */
+  passBudgetMs?: number;
+  /** Candidate elements per pass. Default 2,000. */
+  maxElements?: number;
+  /** Low-end devices: "light" (default) runs only the near-free checks; "full" runs all; "off" runs none. */
+  lowEnd?: "light" | "full" | "off";
+  /** Fraction of sessions that run the measured layout and text checks (default 1); deterministic per session id. */
+  sample?: number;
+  /** Console lines per pass before folding (default 10). */
+  maxConsoleLines?: number;
+}
+
+/**
+ * One measured visual check (VISUAL.md section 9.1). A measurement against a fixed threshold, never a model finding:
+ * `source` is always "check".
+ */
+export interface CheckFinding {
+  /** "c1", "c2", ... per runtime (a counter). */
+  id: string;
+  /** Always "check": a measurement, never a model finding. */
+  source: "check";
+  basis?: "measurement" | "baseline";
+  kind: CheckKind;
+  severity: CheckSeverity;
+  /** Clock time. */
+  at: number;
+  /** Normalised route the finding was made on. */
+  route?: string;
+  /** Element description, for example 'paragraph "Ship faster with"'. */
+  target: string;
+  /** A CSS selector for the element, built locally for the developer; never sent anywhere unless the app opts in. */
+  selector: string;
+  /** The element while it is still connected, else null. */
+  element(): Element | null;
+  /** What was measured, for example { ratio: 1.04, fg: "#ffffff", bg: "#fafafa", fontPx: 16 }. */
+  measured: Record<string, number | string | boolean>;
+  /** The threshold the measurement was compared with, and where it comes from. */
+  threshold: { value: number | string; unit: string; source: string };
+  context: {
+    scheme: "light" | "dark";
+    state?: "rest" | "hover" | "focus" | "touch";
+    viewport: { w: number; h: number };
+    coarse: boolean;
+    tier: "full" | "light";
+  };
+  /** The console line. */
+  message: string;
+  /** The collapsed console group: measured values, threshold source, selector, how to ignore. */
+  details: string[];
+  /** A CSS change for the developer. */
+  suggestion?: { selector: string; css: string; note?: string };
+  /** A runtime fix (visual.fix, guard or heal mode only). */
+  fix?: { id: string; applied: boolean; css?: string; reason?: string; undo(): boolean };
+  /** Elements folded into this finding (same kind and same suggested selector). */
+  count?: number;
+}
+
+/** SessionSummary.visual: what the visual checks found, fixed, cost and covered in this session. */
+export interface VisualSummary {
+  /** Findings reported, per kind. */
+  checks: Partial<Record<CheckKind, number>>;
+  /** The same counts per normalised route (at most 20 routes). */
+  checksByRoute: Record<string, Partial<Record<CheckKind, number>>>;
+  /** Runtime fixes applied and undone (by the developer or automatically). */
+  fixes: { applied: number; undone: number };
+  /** Passes run (a pass measures the page or the subtrees that changed). */
+  passes: number;
+  /** Candidate elements measured. */
+  elements: number;
+  /** Total check time (Clock ms) and the longest slice. */
+  ms: number;
+  maxSliceMs: number;
+  /** Passes that ran out of their budget. */
+  partial: number;
+  /** Measurements that abstained (for example text over an image or a gradient), counted, never reported. */
+  abstained: number;
+  /** Kinds this browser cannot measure (no browser signal), recorded instead of a zero. */
+  unsupported: CheckKind[];
+  /** "light" on low-end devices and sampled-out sessions: only the near-free checks ran. */
+  tier: "full" | "light";
+  /** The session budget ran out: incremental checks stopped for the rest of the window. */
+  stopped?: boolean;
 }
 
 /** InitOptions.autoState as an object: each source defaults to on. */
@@ -859,12 +1232,31 @@ export interface TelemetryOptions {
   maxBatch?: number;
   /** situation (default false): include the redacted situation text the model read in decision events. */
   include?: { situation?: boolean };
+  /**
+   * Share of routine decisions (top diagnosis "expected", no action, no veto, no shadow pass) whose `decision` record
+   * is sent (0..1, default 0.25), drawn per decision from a hash of the session and decision ids. Every other
+   * decision, every detection among them, is always sent and never capped. `summary` counts every decision whatever
+   * the share.
+   */
+  decisionSample?: number;
+  /**
+   * Most routine decisions per page load whose `decision` records are sent (default 200; `Infinity` for no cap).
+   * Detections and the other decisions are never capped; `summary` events (counts) continue, so an open tab's upload
+   * stays bounded for routine traffic.
+   */
+  maxDecisions?: number;
   /** Advanced (tests, custom pipelines): replaces the network transport. Errors are swallowed. */
   transport?: TelemetryTransport;
 }
 
 export interface TelemetryTransport {
-  /** `beacon`: the page is going away (pagehide / hidden); prefer navigator.sendBeacon. */
+  /**
+   * `beacon`: the page is going away (pagehide / hidden); prefer navigator.sendBeacon. Reject to report a failed
+   * request: an error whose `status` is 429, or 503 with `retryAfterMs` (a Retry-After header, in ms), is a back-off
+   * (the batch is queued again and sending pauses for 30 s doubling per back-off in a row, or the Retry-After when it
+   * is longer, at most 5 min); after 8 back-offs in a row a refusal counts as a failure. Any other rejection (a network
+   * error, another status) counts as a failure; three in a row stop telemetry for the page.
+   */
   send(url: string, body: string, o: { beacon: boolean }): void | Promise<unknown>;
 }
 
@@ -1034,6 +1426,12 @@ export interface Decision {
   subjectRef?: SubjectRef;
   /** The protect()ed function the subject ran inside (the outermost one in its cause chain); unset otherwise. */
   fn?: string;
+  /**
+   * Set when this decision is a detection: "likely" (top diagnosis not `expected`, probability ≥ the report gate) or
+   * "possible" (≥ the possible gate, below the report gate; InitOptions.detect; also any detection decided late from a
+   * deferred situation, OPTIONS-SPEC §5.3). `explain()`, the console line, the devtools and telemetry read it.
+   */
+  detection?: "likely" | "possible";
 }
 
 export type Detection = Decision;
@@ -1060,10 +1458,17 @@ export interface ActionRecord {
 }
 
 export interface Report {
-  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error";
+  /**
+   * `expectation`: a learned step did not happen (Report.expectation; reporting only). "check": a measured visual
+   * check or one of its runtime fixes (never a model finding).
+   */
+  kind: "detect" | "intervene" | "status" | "undo" | "breaker" | "error" | "expectation" | "check";
   message: string;
+  /** kind "check": the finding. */
+  check?: CheckFinding;
   decision?: Decision;
   action?: ActionRecord;
+  expectation?: Expectation;
   /** Effective mode at the decision. */
   mode?: ModeOrOff;
   correlationId?: string;
@@ -1153,6 +1558,10 @@ export interface Plugin {
 // ---------------------------------------------------------------------------------------- runtime (§2)
 
 export interface RuntimeEvents {
+  /**
+   * A detection: likely ones, and possible ones only with `detect: "possible"` set explicitly (`Decision.detection`;
+   * every detection is also on "decide" with `detection` set).
+   */
   detect: Detection;
   decide: Decision;
   act: ActionRecord;
@@ -1163,6 +1572,10 @@ export interface RuntimeEvents {
   breaker: { tripped: boolean; reason: "undos" | "errors" | "reset"; decisionIds: string[]; counts: { undos: number; errors: number } };
   limit: { kind: "perMinute" | "perSubject" | "perSession"; subject: string };
   modelBudget: { decisionsLastMinute: number; dropped: number };
+  /** A learned step did not happen (also a Report of kind "expectation"). */
+  expectation: Expectation;
+  /** A measured visual check was confirmed (InitOptions.visual). Never fires `detect`. */
+  check: CheckFinding;
 }
 
 export interface Runtime {
@@ -1225,10 +1638,23 @@ export interface Runtime {
   /** Replace the session id and merge tags (later records only). */
   setSession(p: { id?: string; tags?: Record<string, string | number | boolean> }): void;
   readonly breaker: { reset(): void; readonly tripped: boolean };
+  /** `clear()` forgets everything learned (profiles, flows) in memory and in storage. */
   readonly learn: { clear(): void };
+  /** What GenClass learned about the page: flows per user action and route, recent deviations, relations. */
+  learned(): Learned;
   pause(): void;
   resume(): void;
   destroy(): void;
   /** Anonymous diagnostics for this page (InitOptions.telemetry). */
   readonly telemetry?: TelemetryStatus;
+  /**
+   * The last `n` measured visual check findings (InitOptions.visual), oldest first; at most 200 are kept. An empty
+   * list until the checks have run (or when they are off).
+   */
+  checks(n?: number): CheckFinding[];
+  /**
+   * Run a measured visual check pass now (loads the checks if needed; a URL or the option set to off still wins) and
+   * resolve with the findings it confirmed. Report-only unless the fix gate allows (InitOptions.visual.fix).
+   */
+  checkNow(): Promise<CheckFinding[]>;
 }

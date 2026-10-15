@@ -441,7 +441,7 @@ export function bodyTagEnd(text) {
 
 export const CONFIG_COMMENT = "// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).";
 
-const isEmptyConfig = (cfg) => !cfg || (cfg.telemetry === undefined && !cfg.model && !cfg.token);
+const isEmptyConfig = (cfg) => !cfg || (cfg.telemetry === undefined && !cfg.model && !cfg.token && !(cfg.sinks && cfg.sinks.length));
 export { isEmptyConfig };
 
 /**
@@ -452,8 +452,19 @@ export const writtenConfig = (cfg) => (cfg && cfg.telemetry === true ? { ...cfg,
 
 const modelLiteral = (m) => `model: { baseUrl: ${JSON.stringify(m.baseUrl)}, ortWasmPaths: ${JSON.stringify(m.ortWasmPaths)}${m.device ? `, device: ${JSON.stringify(m.device)}` : ""} }`;
 
+// Sinks are written as their names, which the zero-code entries resolve (src/cdn/sinks.ts): console-json and
+// webhook:<url>. Forwarding to Sentry, PostHog or Datadog is not part of the free runtime, so init writes no such
+// sink.
+/** "console-json:noevidence" → "console-json". */
+export const sinkBase = (s) => String(s).split(/[:=]/)[0].trim().toLowerCase();
+/** `<name>:noevidence`: the structured fields only (src/cdn/sinks-fanout.ts parseSinkSpec reads the same). */
+export const sinkNoEvidence = (s) => /^[^:=]+[:=]\s*no[-_\s]?evidence\s*$/i.test(String(s));
+/** `sinks: ["console-json", "webhook:/genclass"]`. */
+const sinksLiteral = (cfg) => `sinks: [${cfg.sinks.map((s) => JSON.stringify(s)).join(", ")}]`;
+const SINKS_RE = /\bsinks\s*:\s*\[[^\]]*\]/;
+
 /**
- * The object init writes: `{ token: "gc_...", telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." } }`.
+ * The object init writes: `{ token: "gc_...", telemetry: false, model: { baseUrl: "/genclass-model/", ortWasmPaths: "..." }, sinks: ["webhook:/genclass"] }`.
  * Only the telemetry opt-out is ever written: `telemetry: true` would also send from local hosts.
  */
 export function configLiteral(cfg) {
@@ -461,6 +472,7 @@ export function configLiteral(cfg) {
   if (cfg.token) parts.push(`token: ${JSON.stringify(cfg.token)}`);
   if (cfg.telemetry === false) parts.push("telemetry: false");
   if (cfg.model) parts.push(modelLiteral(cfg.model));
+  if (cfg.sinks?.length) parts.push(sinksLiteral(cfg));
   return parts.length ? `{ ${parts.join(", ")} }` : "{}";
 }
 
@@ -468,7 +480,7 @@ export function configLiteral(cfg) {
 export const configStatement = (cfg, ts) => `${ts ? "(globalThis as { GENCLASS_CONFIG?: object })" : "globalThis"}.GENCLASS_CONFIG = ${configLiteral(cfg)};`;
 
 /**
- * Sets token / telemetry / model in an existing GENCLASS_CONFIG statement (other keys a user added stay).
+ * Sets token / telemetry / model / sinks in an existing GENCLASS_CONFIG statement (other keys a user added stay).
  * `telemetry: false` writes the opt-out; `telemetry: true` (--telemetry) takes the telemetry key out, back to the
  * default (an explicit `true` would also send from local hosts).
  */
@@ -486,24 +498,26 @@ export function updateConfigText(text, cfg) {
       b = b.replace(/\btelemetry\s*:\s*(?:true|false)\s*,?/, "").replace(/,\s*,/, ",");
     }
     if (cfg.model) b = /\bmodel\s*:\s*\{[^}]*\}/.test(b) ? b.replace(/\bmodel\s*:\s*\{[^}]*\}/, modelLiteral(cfg.model)) : `${b.trim().replace(/,\s*$/, "")}, ${modelLiteral(cfg.model)}`;
+    if (cfg.sinks?.length) b = SINKS_RE.test(b) ? b.replace(SINKS_RE, sinksLiteral(cfg)) : `${b.trim().replace(/,\s*$/, "")}, ${sinksLiteral(cfg)}`;
     b = b.trim().replace(/^,\s*/, "").replace(/,\s*$/, "");
     return b ? `${open} ${b} ${close.trimStart()}` : `${open}${close.trimStart()}`;
   });
 }
 
-/** `telemetry=off, model=/genclass-model/, ort=/genclass-model/ort/` (meta content), "" when nothing to say. */
+/** `telemetry=off, model=/genclass-model/, ort=/genclass-model/ort/, sink=console-json+webhook:/g` (meta content; `+` joins sink names since commas separate keys), "" when nothing to say. */
 export function metaContent(cfg) {
   const parts = [];
   if (cfg.token) parts.push(`token=${cfg.token}`);
   if (cfg.telemetry === false) parts.push("telemetry=off");
   if (cfg.model) parts.push(`model=${cfg.model.baseUrl}`, `ort=${cfg.model.ortWasmPaths}`, ...(cfg.model.device ? [`device=${cfg.model.device}`] : []));
+  if (cfg.sinks?.length) parts.push(`sink=${cfg.sinks.join("+")}`);
   return parts.join(", ");
 }
 
-const TAG_ATTRS = { token: "data-token", telemetry: "data-telemetry", model: "data-model", ort: "data-ort", device: "data-device" };
+const TAG_ATTRS = { token: "data-token", telemetry: "data-telemetry", model: "data-model", ort: "data-ort", device: "data-device", sink: "data-sink" };
 const attrRe = (name) => new RegExp(String.raw`\s+${name}\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)`, "i");
 
-/** A script tag with data-token / data-telemetry / data-model / data-ort set for cfg (telemetry true removes the opt-out). */
+/** A script tag with data-token / data-telemetry / data-model / data-ort / data-sink set for cfg (telemetry true removes the opt-out). */
 export function tagWithConfig(tag, cfg) {
   const set = (t, name, value) => {
     const re = attrRe(name);
@@ -521,6 +535,7 @@ export function tagWithConfig(tag, cfg) {
     t = set(t, TAG_ATTRS.ort, cfg.model.ortWasmPaths);
     if (cfg.model.device) t = set(t, TAG_ATTRS.device, cfg.model.device);
   }
+  if (cfg.sinks?.length) t = set(t, TAG_ATTRS.sink, cfg.sinks.join(","));
   return t;
 }
 
@@ -553,6 +568,7 @@ export function switchMetaConfig(text, cfg) {
     if (cfg.telemetry === false) pairs.telemetry = "off";
     if (cfg.telemetry === true) delete pairs.telemetry;
     if (cfg.model) Object.assign(pairs, { model: cfg.model.baseUrl, ort: cfg.model.ortWasmPaths, ...(cfg.model.device ? { device: cfg.model.device } : {}) });
+    if (cfg.sinks?.length) pairs.sink = cfg.sinks.join("+");
     const content = Object.entries(pairs).map(([k, v]) => `${k}=${v}`).join(", ");
     if (!content) {
       lines[metaAt] = "";

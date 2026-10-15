@@ -1,7 +1,7 @@
 // Batch 12: configuration options (docs/runtime/OPTIONS-SPEC.md). One block per option.
 import { describe, expect, it } from "vitest";
-import { defaultScript, FakeClock, setup } from "./helpers.js";
-import { deviceEnv, evalLoadIf, IdleUnloadProvider } from "../src/index.js";
+import { defaultScript, FakeClock, FakeServer, makeGlobal, setup } from "./helpers.js";
+import { createRuntime, DEFAULT_LOAD_IF, deviceEnv, evalLoadIf, IdleUnloadProvider } from "../src/index.js";
 import type { DecisionProvider, ModelStatus, SinkRecord } from "../src/types.js";
 
 const DELAY = defaultScript({ request: { diagnosis: "overload", action: "delay" } });
@@ -225,8 +225,59 @@ describe("hidden tab", () => {
 
 describe("model.loadIf", () => {
   const warn = () => undefined;
-  it("Save-Data with the default → lazy", () => {
-    expect(evalLoadIf({}, { webgpu: false, saveData: true }, warn)).toBe("lazy");
+  it("the default floor: no model on devices reporting 2 GB or less, nor on Save-Data; 4 GB and unknown load", () => {
+    expect(DEFAULT_LOAD_IF).toEqual({ minDeviceMemoryGB: 4, saveData: "skip" });
+    // navigator.deviceMemory is quantised to 0.25, 0.5, 1, 2, 4, 8: the floor of 4 is exactly "2 GB or less skips"
+    for (const gb of [0.25, 0.5, 1, 2]) expect(evalLoadIf({}, { webgpu: false, deviceMemoryGB: gb }, warn), `${gb} GB`).toEqual({ skip: "device-memory" });
+    for (const gb of [4, 8]) expect(evalLoadIf({}, { webgpu: false, deviceMemoryGB: gb }, warn), `${gb} GB`).toBe("load");
+    expect(evalLoadIf({}, { webgpu: false }, warn)).toBe("load"); // Safari, Firefox: deviceMemory unknown
+    expect(evalLoadIf({}, { webgpu: false, saveData: true }, warn)).toEqual({ skip: "save-data" });
+    expect(evalLoadIf({}, { webgpu: false, saveData: false, deviceMemoryGB: 8 }, warn)).toBe("load");
+    // the floor is a default, not a rule: an explicit predicate or object replaces it
+    expect(evalLoadIf({ loadIf: () => true }, { webgpu: false, deviceMemoryGB: 0.5, saveData: true }, warn)).toBe("load");
+    expect(evalLoadIf({ loadIf: { saveData: "lazy" } }, { webgpu: false, deviceMemoryGB: 2, saveData: true }, warn)).toBe("lazy");
+    expect(evalLoadIf({ loadIf: { minDeviceMemoryGB: 1 } }, { webgpu: false, deviceMemoryGB: 2, saveData: true }, warn)).toEqual({ skip: "save-data" });
+    expect(evalLoadIf({ loadIf: { minDeviceMemoryGB: 1, saveData: "ignore" } }, { webgpu: false, deviceMemoryGB: 2, saveData: true }, warn)).toBe("load");
+  });
+  it("a skipped model prints one status line and the runtime observes without a model; loadIf: () => true forces the load", () => {
+    const lines: string[] = [];
+    const clock = new FakeClock();
+    const mk = (navigator: Record<string, unknown>, model: Record<string, unknown> = {}) =>
+      createRuntime({ clock, global: makeGlobal(new FakeServer(clock), { navigator }), model, report: (r) => lines.push(r.message), observe: { fetch: false, timers: false }, telemetry: false });
+    const rt = mk({ deviceMemory: 2 });
+    expect(rt.status).toMatchObject({ state: "skipped", reason: "device-memory" });
+    expect(lines).toEqual([
+      "[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least 4 GB. GenClass keeps observing (status, devtools) but detects and prevents nothing on this device. To load it anyway: GenClass.init({ model: { loadIf: () => true } }).",
+    ]);
+    rt.destroy();
+    lines.length = 0;
+    // an app's own floor is the one named
+    const rt1 = mk({ deviceMemory: 4 }, { loadIf: { minDeviceMemoryGB: 8 } });
+    expect(rt1.status).toMatchObject({ state: "skipped", reason: "device-memory" });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("reports 4 GB of memory and model.loadIf asks for at least 8 GB");
+    rt1.destroy();
+    lines.length = 0;
+    // a predicate that says no
+    const rtp = mk({ deviceMemory: 8 }, { loadIf: () => false });
+    expect(rtp.status).toMatchObject({ state: "skipped", reason: "loadIf" });
+    expect(lines).toEqual([expect.stringContaining("model.loadIf returned false")]);
+    rtp.destroy();
+    lines.length = 0;
+    const rt2 = mk({ deviceMemory: 8, connection: { saveData: true } });
+    expect(rt2.status).toMatchObject({ state: "skipped", reason: "save-data" });
+    expect(lines[0]).toContain("Save-Data");
+    rt2.destroy();
+    lines.length = 0;
+    // forced: a real model host is created (idle preload: nothing is fetched until the clock runs)
+    const rt3 = mk({ deviceMemory: 2, connection: { saveData: true } }, { loadIf: () => true });
+    expect(rt3.status.state).toBe("off");
+    expect(lines).toEqual([]);
+    rt3.destroy();
+    // report: "silent" prints nothing and never throws
+    const rt4 = createRuntime({ clock, global: makeGlobal(new FakeServer(clock), { navigator: { deviceMemory: 1 } }), model: {}, report: "silent", observe: { fetch: false, timers: false }, telemetry: false });
+    expect(rt4.status).toMatchObject({ state: "skipped", reason: "device-memory" });
+    rt4.destroy();
   });
   it("minDeviceMemoryGB:4 on a 2 GB device → skipped", () => {
     expect(evalLoadIf({ loadIf: { minDeviceMemoryGB: 4 } }, { webgpu: false, deviceMemoryGB: 2 }, warn)).toEqual({ skip: "device-memory" });

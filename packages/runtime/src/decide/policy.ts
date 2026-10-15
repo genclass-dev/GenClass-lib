@@ -210,6 +210,26 @@ export function effectiveGates(c: PolicyConfig, raw: ModelGate | undefined, trig
   return out;
 }
 
+/**
+ * The detection tier of an answer (CONTRACT §8): "likely" when the top diagnosis is not `expected` and its
+ * probability reaches the report gate, "possible" when it reaches `possible` (observe's lower gate, the eager
+ * profile's report value) but not the report gate, else none. A threshold on the model's output: reporting only.
+ */
+export function detectionTier(diagnosis: string, p: number, g: { report: number; possible?: number }): "likely" | "possible" | undefined {
+  if (diagnosis === "expected" || !(p >= 0)) return undefined;
+  if (p >= g.report) return "likely";
+  return g.possible !== undefined && p >= g.possible ? "possible" : undefined;
+}
+
+/**
+ * Observe's "possible" gate: the eager profile's report value from the model's meta gate, when it is below the
+ * report gate in force; undefined otherwise (no profiles, no lower eager value).
+ */
+export function possibleGate(raw: ModelGate | undefined, report: number): number | undefined {
+  const eager = profileGate(raw, 1)?.report;
+  return eager !== undefined && eager < report ? eager : undefined;
+}
+
 export function modeAllows(mode: Mode, tier: Tier): boolean {
   if (tier === "passive") return true;
   if (mode === "observe") return false;

@@ -1,19 +1,145 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-beta.0 (unreleased)
 
-### App tokens and dashboards; function-specific protection with `protect()`
+The first 0.3.0 prerelease, for the `beta` dist-tag (release.yml publishes a prerelease version to the dist-tag
+named after it; `latest` stays where it is until the owner moves it). No model-visible text changed: the situation
+text is still `situation-v2.3` and the default model is still `@genclass/runtime-model@0.2.0`.
+
+### What changes when you upgrade from 0.2.x
+
+- **App tokens and dashboards:** a page with `token` set also feeds that app's private dashboard on genclass.dev
+  (below); the token and `fn` are sent only then.
+- **Telemetry sends more kinds of events and counts, with or without a token** (nothing new about the page itself;
+  TELEMETRY.md): a `detect` event for each of observe's possible detections, with `tier: "possible"` (on by default
+  in observe; 0.2.x sent no `detect` event below the report gate); `summary.counts.possibleDetections`;
+  `summary.telemetry.decisionRecords`, `decisionsSampledOut` and `decisionsCapped`; a `model` event right after
+  `session` when the model was skipped (the device floor) or failed before telemetry started; and `decision` and
+  `detect` records for situations deferred while the model loaded or the tab was hidden, which 0.2.x dropped, with
+  the page path at their trigger. It sends less elsewhere: routine decision records are sampled and capped (next
+  bullet), a path segment holding an `@` (an e-mail address) is sent as `:id`, and URLs in model error text as
+  `<url>`.
+- **Detections are never sampled or capped in telemetry.** Only routine decisions (top diagnosis `expected`, nothing
+  acted) are thinned, to one in four and at most 200 per page load (Telemetry, below).
+- **No model on devices reporting 2 GB of memory or less, or on Save-Data connections** (`model.loadIf` default;
+  `loadIf: () => true` restores loading everywhere). Such a page observes without a model, detects nothing and says
+  why, in the console and in telemetry.
+- **`init` creates a project** (a dashboard) after you approve its diff, unless you pass `--no-token`,
+  `--token <gc_...>`, `--no-telemetry` or `--dry-run`.
+- **Stored learned state from 0.2.2 is discarded once** (a new format, tagged with the runtime version). In a default
+  install nothing is stored; transition profiles are stored only with `learn.persist`, as before.
+- **`model.inlineFallback: false` now skips the model** when the worker cannot be created or does not come up
+  (`status.state` `skipped`, reason `worker-unavailable`); 0.2.x ignored the option and ran the model inline on the
+  main thread. The default (`true`) is unchanged.
+- **Guard and heal no longer retry a `fetch(new Request(...))` whose body is over 64 KB** (`retry` is not offered
+  for it): 0.2.x kept a second copy of every such upload in memory to make it replayable. String, form, Blob and
+  BufferSource bodies passed in `init` are unchanged (Defaults, footprint and fixes, below).
+- New and opt-in: vendor-neutral sink adapters that keep the records on your side (`@genclass/runtime/sinks/console-json`
+  and `/webhook`, `init --sink`), flow expectations (`learn: { expectations: true }`), `protect()` and
+  `scope: "functions"`, and genclass.dev accounts with the CLI's `login`, `connect`, `whoami` and `logout` (`init`
+  asks whether a new app goes into a signed-in account).
+- **No Sentry, PostHog or Datadog adapter.** The vendor adapters that were in development for this release are not
+  part of the free runtime. On Pro, the GenClass collector forwards detections to Sentry, PostHog, Datadog, Slack
+  or a signed webhook once you turn it on (https://genclass.dev/pricing); the runtime has no adapter. A page config that names `sentry`, `posthog` or `datadog` gets one
+  console warning that says so, and nothing else happens; `init --sink sentry` stops with a usage error that says the
+  same.
+- **The webhook adapter, if you add one, caps repeats and sends evidence by default.** Unlike telemetry, it forwards
+  at most 10 records per bug signature per page load (`maxPerSignature`, `0` for no cap), a sink's `sampleRate` below
+  1 can drop detections, and it sends the redacted evidence (console line, subject, timeline, which can hold short
+  fragments of typed input) to the URL you configure unless you pass `evidence: false`.
+- **Measured visual checks, on development hosts by default** (Measured visual checks, below): `visual` defaults to
+  `"local"` with `GenClass.init()`, `/auto` and the script tag, so on `localhost`-style hosts with a port, `*.test`
+  names and wherever the devtools overlay mounts, the page gets `[GenClass] Check (measured): ...` console lines, and
+  an app's `report` function and `rt.on("report")` listeners receive reports of the new kind `"check"`. Off
+  everywhere else and in `createRuntime()`; `visual: false` turns them off. They send nothing in telemetry, reach a
+  sink only when its `kinds` lists `"check"`, and change the page only with `visual: { on: true, fix: true }` in guard
+  or heal mode.
+- **Observe reports more** (below). What an app wired to `rt.on("detect")`, `rt.on("report")` or `report: fn`
+  receives is unchanged by default: likely detections only, as in 0.2.x. New: "possible" detections on
+  `console.debug`, in the devtools, `summary()` and telemetry (to your listeners and report function only with
+  `detect: "possible"`, to a sink only with `possible: true`), and situations from while the model loads or the tab
+  is hidden, decided once it can and reported at the possible tier at most. `detect: "likely"` turns off both.
+  Three fixes can add likely reports, false ones included, at a rate not measured yet, and `detect: "likely"` does
+  not turn them off: overwritten writes now decided in observe on slow devices, the body-wait fix and the idle-unload
+  fix (below). Guard and heal act exactly as before, except with `model.unloadAfterIdleMs`: they act again after the
+  model reloads, where 0.2.x stopped for good after the first unload.
+
+### Observe-mode detection: a "possible" tier, and no blind windows
+
+No model-visible text changed (`git diff` of `src/situation` is empty) and no rule maps a fact to a diagnosis: the
+tiers are thresholds on the model's own output, the rest is when a situation is decided.
+
+- **Two detection tiers** (`InitOptions.detect`, `Decision.detection`). *Likely*: the top diagnosis is not `expected`
+  and its probability reaches the report gate (`gates().report`: the aggressiveness profile's value from the model
+  meta, 0.90 at balanced with model 0.2.0), as before. *Possible* (new): at least the eager profile's report value from
+  the same meta (`gates().possible`, 0.70) and below the report gate. On by default only where the effective mode is
+  observe and the app set no `policy.thresholds.report`; `detect: "likely"` turns it off (also as a meta tag or
+  `data-detect` key), `detect: "possible"` on in guard and heal too (reporting only: no action gate reads either
+  tier). A likely detection prints exactly as before. A possible one prints the same line plus ` (possible)` with
+  `console.debug` only (hidden at Chrome's default console level; repeats fold per tier), shows as a dimmed devtools
+  card left out of the badge counts and without the pill's pulse, is counted in `summary().possibleDetections`
+  (`detections` keeps the likely ones), and is on `rt.on("decide")` with `detection: "possible"`. It reaches
+  `rt.on("detect")`, `rt.on("report")` and a `report` function only when `detect: "possible"` is set explicitly, and
+  sinks only with `possible: true` (`SinkRecord.detection`; the adapters take `possible` too; plain function sinks and
+  sinks by name never get them). Telemetry: the same `detect` event with `tier: "possible"` (absent on likely ones),
+  and `summary.counts.possibleDetections`; nothing new about the page. Expected effect, from measurements already
+  made for the 0.2.0 profiles (eager vs balanced on held-out real apps: stale 30 → 45%, broken 6 → 13%, duplicate
+  75 → 77%), and what is not measured end to end: docs/runtime/RESULTS.md §11. The 0.2.0 fit held eager-profile
+  detections (likely and possible together) to at most 5% (real apps) / 6% (simulated) false per clean decision,
+  against 2% / 3% for balanced; the share of possible detections that are false is not measured and is expected to
+  be well above the likely tier's.
+- **`explain()` and the devtools use the same gate as the "detect" event.** Both read the tier recorded with the
+  decision; the devtools backfill (a panel opened after the fact) used a fixed 0.6 before, so it listed decisions
+  that were never reported (0.6 to 0.9 at balanced) and missed reported ones under a report gate below 0.6.
+- **Situations raised while the model loads are decided once it is ready** (observe, where the possible tier is in
+  force). Until now, a page view's salient situations while the model loaded (about 4 s in production) were dropped
+  before triage, uncounted; the ones before the idle preload started were counted as failOpen `not-ready`, and the
+  first of them started the load. Now a salient situation is built at its trigger (the same text, at the smallest
+  automatic situation budget while the device is not known yet) and kept, at most 32 (the oldest dropped, counted as
+  failOpen `not-ready`), then decided in order as a background decision with a detection-only deadline (30 s from
+  its submission), after any fresh decision. A lazy model starts loading at the first one. A deferred decision never
+  acts: it is gated as observe whatever the mode is by then, and dropped (counted) if its subject is no longer in
+  observe. **Its detection is reported at the possible tier at most** (a likely one is recorded as possible), until a
+  cold-start and hidden-tab clean run measures the false-report rate of these late decisions (RESULTS.md §11). Its
+  telemetry decision record carries the page path at its trigger, not the page it was decided on. Guard and heal do
+  not defer and, as before 0.3.0, do not build situations while the model loads.
+- **Hidden tabs (observe, where the possible tier is in force):** salient situations raised while the tab is hidden
+  are built at once and decided when it is visible again, in order (the same queue of 32; a dropped one counts in
+  `summary.model.hiddenSkipped`), at the possible tier at most. A hidden tab never starts loading or reloading the
+  model: the tab becoming visible does (OPTIONS-SPEC §4.18 counts hidden time as idle). Before, observe skipped them
+  like guard and heal still do (OPTIONS-SPEC §5.1); `detect: "likely"` keeps that.
+- **Fix: with `model.unloadAfterIdleMs`, detection stopped for good after the first idle unload.** The "unloaded"
+  state was not consultable, so nothing ever asked for the model again. Now the next salient situation in a visible
+  tab reloads it (OPTIONS-SPEC §4.18), as does the tab becoming visible with deferred situations waiting: in observe
+  that situation is decided once the model is back, in guard and heal it fails open and the next one is decided (so
+  guard and heal act again after the reload). The reloaded model is idle-unloaded again later.
+- **Fix: a response body slower than 100 ms hid pending-change and typed-text overwrites in observe.** A delivery
+  whose only conflicts were a pending local change or text the user typed was settled as not salient when its body
+  wait ran out, which covered its writes: neither the delivery nor the write was decided. Now, where those writes
+  cannot act (observe), the delivery stays salient and undecided, as when the app writes before the body, so its
+  writes get their own decisions. Guard and heal still decide such a delivery without its body.
+- **Observe computes overwritten writes on slow devices.** The queue skipped a superseded decision (the write was
+  overwritten before the model got to it) whenever decisions took over 300 ms, which is most single-thread WASM
+  devices, to keep a fresh held item from waiting behind it. Nothing is held in observe, so there it is computed now;
+  guard and heal keep the skip.
+- **Priority aging in observe:** a queued decision gains one priority level per second it waits, up to the background
+  level, so error and transition decisions (priority 0) go before newer writes instead of waiting out their deadline
+  in a burst. Still 30 model evaluations a minute (`model.maxDecisionsPerMinute`); the provider timeout (10 s) also
+  bounds the longer deadline of deferred situations.
+
+### App tokens, dashboards and function-specific protection with `protect()`
 
 Each web app can have a token that groups its diagnostics under a private dashboard on genclass.dev, and GenClass can
 be pointed at a few functions instead of the whole app. No model-visible text changes (`scope: "functions"` changes
-which subjects are decided, never what the model reads about one). Without a token, telemetry sends what 0.2.2
-sends.
+which subjects are decided, never what the model reads about one). Without a token, neither the token nor `fn` is
+sent; what telemetry adds in 0.3.0 with or without one is under "What changes when you upgrade", above.
 
 - **`InitOptions.token`** (also `data-token`, `<meta name="genclass" content="token=...">` in `<head>`,
   `window.GENCLASS_CONFIG.token`): `gc_` + 22 letters or digits (`TOKEN_PATTERN`, `isValidToken` exported). Sent as
   the telemetry batch envelope's top-level `token`; `runtime.telemetry.token` reports it. A malformed token logs one
   console warning and is ignored; never throws. It does nothing while telemetry is off: on a local host the console
-  says so once (local hosts never feed a dashboard), otherwise only with `debug: true`. Opt-outs and Global Privacy
+  says so once (local hosts feed a dashboard only with an explicit `telemetry: true` or telemetry options object),
+  otherwise only with `debug: true`. Opt-outs and Global Privacy
   Control still win. With a token, the telemetry console notice says the diagnostics also feed the app's dashboard.
   `token` and `scope` are fixed when GenClass starts: `GenClass.init({ token, scope })` on a runtime that `/auto` or
   the script tag already started is ignored with one console warning that says where to set them
@@ -86,9 +212,19 @@ sends.
   learns whether a code is live, and only the CLI's own name (`genclass-runtime <version>`) is shown as the
   requester. A CLI session can read the account's apps, create and add apps and end itself, nothing more.
   Private-link dashboards and `/start` keep working without an account.
+- **Dashboard counts** (the server side, `telemetry-worker/`, deployed separately): page loads, decisions,
+  detections, actions and the loss counters come from each page load's cumulative summary, so a repeated or split
+  batch and sampled or capped decision records are counted once and exactly. A `detect` event with
+  `tier: "possible"` counts as a possible issue (Fig. 2, its own cards and a Possible column), exact from
+  `summary.counts.possibleDetections`, never as a detection; a `detect` without a tier is a detection, as from
+  earlier runtimes. docs/runtime/RESULTS.md §12. This needs the worker from this release on genclass.dev: the one
+  before it counts every `detect` event, possible ones included, as a detection, takes decisions from the records
+  that arrived (too few once routine ones are sampled) and keeps those aggregates 90 days. So the worker, and the
+  maintainers' admin aggregates (`site/`), are deployed before this version is published (release.yml, "Before you
+  push the tag").
 - **Not done:** a per-function mode (`protect(name, fn, { mode })`).
-- **Cost:** about +1.8 KB gzip on `/auto`: 100.68 KB (98.86 KB in 0.2.2), and the main entry 93.19 KB, minified
-  and gzipped by `test/bundle.test.ts` in CI (run 38436014497). Its ceilings are 101 KB and 94 KB.
+- **Cost:** about +1.8 KB gzip on each first load (CI run 38436014497); the release's total is under "First-load
+  size" below.
 - **Privacy:** TELEMETRY.md ("App tokens and dashboards") and PRIVACY.md ("Dashboards for website owners") describe
   the token, the `fn` field, what `init` sends to create a project, how long project records are kept and who can
   see dashboard data. Dashboards show counts, hostnames, routes, function names and versions, never situation text.
@@ -96,6 +232,313 @@ sends.
   or as Google returned it and whether it is verified, passkey public keys, the Google `sub` and the GitHub id and
   login when used, session records (a hash, times, the CLI's name) and the apps it owns. An account changes nothing
   the runtime sends.
+
+### Telemetry
+
+- **Telemetry volume is bounded per page load; detections are never dropped; counts stay exact.** Every model
+  decision used to be sent as a `decision` record (up to 30 a minute with the built-in model, for as long as a tab
+  stayed open). Now every detection is sent, with its `decision` record, never sampled or capped, and so is every
+  decision whose top diagnosis is not `expected` (near-misses below the report gate too), that ran an action, was
+  vetoed or would have acted in shadow mode. Only routine decisions (top diagnosis `expected`, passive action) are
+  thinned: one in four is sent (`telemetry.decisionSample`, default `0.25`, drawn from a mixed hash of the session
+  and decision ids, so every page sends close to that share), and no routine records after 200 in a page load
+  (`telemetry.maxDecisions`). `summary` events still count every decision, detection, action and veto, and their
+  `telemetry` block adds `decisionRecords`, `decisionsSampledOut` and `decisionsCapped` (counts; the two settings
+  themselves are not sent). Summaries are not capped: one about every minute while decisions continue, so the exact counts keep
+  arriving after the cap (about 40 KB an hour). This narrows what is sent; nothing new about the page is sent.
+  Measured in CI for one page over a simulated hour at 30 decisions a minute (scripted decisions, not the model;
+  situation text off; the release candidate's runs 38485063587, 38485289326 and 38488753971, and 38471973596 with
+  the detection tiers): all routine, 250.9 to 252.2 KB in 157 to 167 requests (61 summaries, 40.7 KB; which routine decisions are
+  sampled follows the random session id); every decision a detection, 2,068.5 KB in 361 requests, the same as with
+  every record (TELEMETRY.md, "Volume"; docs/runtime/RESULTS.md §10).
+  (API.md also had `include.situation` defaulting to true; the default has been false since 0.2.1.)
+- **A 429 is a back-off, not a failure.** 0.2.2 stopped a page's telemetry after 3 failed requests in a row, and an
+  HTTP 429 from the collector's per-address limit counted as one, so pages behind a busy shared IP (an office or
+  campus network) could go silent for good, detections included. Now a 429, or a 503 with a `Retry-After` the page
+  can read, puts the refused batch back at the front of the queue and pauses sending for 30 s doubling per back-off
+  in a row, or the `Retry-After` (seconds) when it is longer, never more than 5 minutes (page exit still sends by
+  `sendBeacon`); it is not a strike. After 8 back-offs in a row (about 27 minutes) a refusal counts as a failure, so
+  a collector that keeps refusing still stops the page after three more. Network errors, other statuses and a 503
+  without a `Retry-After` count toward the stop as before; a `Retry-After` on them is ignored. When the 1,000-event
+  queue is full, the oldest routine decision record makes room, so a detection and its record are never the events
+  dropped while one is left. The default transport puts the HTTP `status` and a readable `retryAfterMs` on its
+  error; a custom transport can do the same (`TelemetryTransport`).
+- **A page the device floor skips still reports why.** Its `session` event says `modelState: "skipped"`, and a
+  `model` event with the reason (`device-memory`, `save-data`, `loadIf`) follows it; before, the reason was only in
+  the console line, because the model never changed state after telemetry started.
+- **Telemetry: model error text carries no URLs.** This version also records the Worker
+  constructor's exception in `status.workerError` (see `inlineFallback` below; before, nothing was recorded), and a browser's text
+  for it can name the worker script's URL and the page's origin (a Content-Security-Policy or cross-origin
+  `SecurityError`). Telemetry replaces every URL with `<url>` in the `model` event's `workerError`, `error` and
+  `attempts[].error` and in `model-error` messages (a `ModelNotReadyError` refusing the inline fallback quotes the
+  worker's error), for that and for the errors a worker reports before it comes up; `status.workerError` and the
+  console warning keep the full text.
+- **Telemetry: a page path segment holding an `@` is sent as `:id`.** The `route` on `session` and `decision`
+  events replaced only id-like segments (numbers, UUIDs, long hex or tokens, slug ids), so `/users/alice@example.com`
+  was sent as it is, kept by the collector and shown among an app's top routes; now any segment with `@` or `%40`
+  (an e-mail address, a handle) is `:id`, as in sink records. A name or username in a segment without an `@` is still
+  sent (docs/runtime/THREAT-MODEL.md T5). Not model-visible: the situation text and `util.ts` are unchanged.
+- **Disclosed:** the app token in every batch of a page that sets one, `fn` on its `decision` events, and the
+  project `init` creates (the `name` from `package.json`) are approved by the owner for 0.3.0 and described in
+  TELEMETRY.md, PRIVACY.md, both READMEs and the console notice. What is new with or without a token (the possible
+  tier's `detect` events and count, the `summary.telemetry` record counts, the skipped-model `model` event and the
+  records of deferred decisions; "What changes when you upgrade", above) is counts and tiers of the runtime's own
+  decisions, nothing about the page, and is described in TELEMETRY.md, PRIVACY.md and both READMEs.
+
+### Reports where developers look: sink adapters
+
+- **Findings reach the developer's own side: vendor-neutral sink adapters.** In production the `[GenClass]` console
+  lines print in your users' browsers; `@genclass/runtime/sinks/console-json` and `/webhook` (both in
+  `@genclass/runtime/sinks`) forward every detection, intervention, undo, breaker trip and runtime error as well: one
+  JSON line per record on the console, for a log shipper; batched POSTs of
+  `{ schema: "genclass-sink/1", version, records }` to a URL you configure by `navigator.sendBeacon`, else `fetch`
+  keepalive (at most one POST per idle-time delivery round, or per `flushMs` window with a `clock`). No new
+  dependency, and neither ever throws. They send only the record the runtime built: kind, diagnosis, probability,
+  action, route, session tags and the redacted evidence (the console line, subject and timeline, URL query values as
+  `…`; timeline lines can hold short fragments of app data, as the console does). `evidence: false` on either sends
+  the structured fields only. Never the situation text, bodies, headers or cookies. Separate entries, never in the
+  first-load bundle. The webhook caps repeats of one bug at 10 per page load (`maxPerSignature`); a bug's signature
+  treats op ids, numbers and id-like path segments (UUIDs, hex, tokens, slug ids, emails) as one, so one bug on many
+  orders is one cap. It sends at most 50 records and 32,000 UTF-8 bytes per POST and at most one POST per round (the
+  browser's 64 KiB keepalive budget is shared with the app's own beacons); the rest waits for the next round, at most
+  500 records wait, and on page hide one batch goes (the session summary first) and the rest is dropped.
+- **Sentry, PostHog and Datadog: not in the free runtime.** The adapters for those tools that were in development for
+  this release (`@genclass/runtime/sinks/sentry`, `/posthog`, `/datadog`, with `init --sink sentry` detecting an
+  npm-installed SDK and passing it in) are not part of it and were never published. On Pro, the GenClass collector
+  forwards detections to those tools once you turn it on (https://genclass.dev/pricing). The runtime has no adapter, export or CDN file for them. A page config that names `sentry`, `posthog` or `datadog` (any
+  case, with or without an option) gets one console warning for them all, "Ignored sink sentry: Sentry, PostHog and
+  Datadog forwarding is not in the free runtime: https://genclass.dev/pricing", and
+  nothing is loaded or sent for those names; `init --sink sentry` is a usage error that says the same, and `init`
+  suggests no sink for a project that depends on those SDKs.
+- **Sinks by name, with no code:** `window.GENCLASS_CONFIG = { sinks: ["webhook:/genclass"] }`,
+  `<meta name="genclass" content="sink=webhook:/genclass+console-json">`, `data-sink="webhook:/genclass,console-json"`
+  on the script tag, and `npx @genclass/runtime init --sink webhook:/genclass` (repeatable; written to the option file,
+  the tag or the Astro meta line; `remove` takes it out). `console-json:noevidence` (`--sink console-json:noevidence`)
+  prints the structured fields only. The names become one proxy sink that queues records (at most 200) and loads the
+  adapters on the first record, never before (a page with `?genclass=off`, or one that reports nothing, fetches none);
+  the name table and the adapters are lazy chunks of `/auto` and come from the CDN for the script tag, so only the
+  proxy is in the first load. A `webhook:<url>` is made absolute at init and only its own endpoint (origin and path) joins `requests.ignore`
+  (`webhook:/collect` never hides `/collections`); from a `<meta>` tag it must be same-origin, like the model URL (a
+  cross-origin one is ignored with one warning; THREAT-MODEL T8), and `init` says so for an absolute webhook URL on
+  Astro. A string passed to `GenClass.init({ sinks })` directly is now ignored with one warning that names the fix
+  (before, every record failed with "a sink failed: … is not a function", reported at most once a minute). Turning
+  page-config sinks into options never throws into the app (it runs before `GenClass.init`'s own guard, while `/auto`
+  is imported): a `requests.ignore` that is not a list stays as written, for `GenClass.init` to report as it would
+  without sinks, and any other failure is one warning.
+- **Security: the same-origin check on meta-tag URLs resolves them as the browser does.** A model, ORT or webhook URL
+  in `<meta name="genclass">` is now resolved with the WHATWG URL parser against the page and `document.baseURI`, so
+  `/\evil.example/`, a tab inside `//` or an injected `<base href>` no longer pass as a same-origin path (the 0.2.2
+  check let them through for model and ORT URLs too).
+- `SinkRecord.route`: the page path the subject's operation was created on, normalised as telemetry sends it (id-like
+  segments and segments holding an `@`, such as an e-mail address, as `:id`; at most 200 chars).
+- Both adapters send the evidence (the console line, subject and timeline) by default, while a sink you write
+  yourself still gets it only with `evidence: true` (`SinkObject.evidence`, default false). `evidence: false` (or
+  `console-json:noevidence`) turns it off per adapter.
+- The console default (`report: "console"`) is unchanged. No model-visible text, no telemetry change.
+
+### Flow expectations (opt-in): learn what each action usually does, report the step that did not happen
+
+**Off by default** (`learn: { expectations: true }` turns it on) until its false-report rate on correct apps is
+measured (docs/runtime/RESULTS.md, "Flow expectations": the demos' clean-trial gate has not been run). Off, nothing
+is learned, stored or reported, and its code is never loaded: `src/learn/flows.ts` is a lazy chunk the runtime
+imports on the next task after init (a 0 ms timer on the injected clock), only when the option is on, so it adds nothing to the first
+load (the script-tag file carries it inline). Activity before it loads is not learned.
+
+A deterministic, reporting-only layer (`docs/runtime/EXPECTATIONS.md`). For every user action on a route (click,
+submit, change, Enter; never typing) the runtime learns which requests it starts and how soon, which request follows
+which, what each response's handler writes, where the page navigates and how long the flow settles. Once a step
+was seen in at least 95% of 20 or more observations over 3 or more visits (8 or more in one page load when nothing
+is stored), a flow in which it did not happen is
+reported: a click that sent nothing within its learned deadline, a follow-up request that never came after its
+predecessor answered, a response whose handler wrote nothing, a navigation that did not happen, and a request still
+waiting past twice its p99 latency. The model is never consulted for these and nothing acts on them in any mode. No model-visible
+text changed (no new fact, trigger or situation text).
+
+- `Report.kind "expectation"` with `Report.expectation` (the learned counts); `rt.on("expectation", fn)`; sink
+  records of kind `expectation` (counts and signatures, no page text), which reach a sink that forwards every kind
+  (a function, `{ send }` without `kinds`, the webhook and console-json adapters) only while the layer is on, and
+  never a sink whose `kinds` leaves `"expectation"` out; one console line per deviation
+  in the usual style, with a collapsed group; folded repeats as for every report. `report: "interventions"` prints
+  none.
+- `rt.learned()`: whether the layer is on (`expectations`), the learned flows (current route first) with their
+  steps, counts, shares and delays, the recent deviations and the learned relations. Devtools: an **Expectations**
+  tab shows the same, and says how to turn the layer on when it is off.
+- `learn.expectations` (default false), `learn.minSupport` (8 while every observation is from this page load, 20
+  once stored ones count; a number sets both), `learn.minShare` (0.95), `learn.minSessions` (3 when learned state is
+  kept in localStorage, else 1; a reload in the same tab is not a new session) and `learn.maxBytes` (200,000).
+- A step reported missing is not expected again until it is seen again (`missed` in `rt.learned()`), so an app whose
+  behaviour changed gets one line, not one per visit; a flow's counts are halved when it reaches 64 observations; a
+  run of hanging requests of one signature is one `response` line until one of them answers.
+- False-positive controls (EXPECTATIONS.md §3), all learned counts or properties of the request: a step is
+  checked only on the branch of the handler it was learned on (the same set of fields written: a submit that showed
+  a validation error and sent nothing is not a gap); a repeat of the action within a page load is held to what
+  earlier repeats did; only a request that changes data (not GET, HEAD or OPTIONS) is expected to start or to write
+  after its answer; an answer with status 400 or above is no missing write and no predecessor of a follow-up; a
+  request with the signature started from anywhere since the action counts as sent; a write that left the value as
+  it was counts as handling the answer; an action repeated while its flow is open (a stepper) opens nothing and its
+  open flow's writes are not checked; a flow whose page was left for another action is neither learned nor
+  reported; deadlines have a 1 s floor.
+- Skipped while the page is hidden or offline or the runtime is paused, for requests under `requests.protect`, on
+  routes with `mode: "off"`, for the second click of a double click and for disabled controls (the DOM observer now
+  records `UserAction.data.disabled`; not model-visible). The layer runs inside `try/catch` and never throws into
+  the app.
+- First-load size: see the package README "Costs" (measured by `test/bundle.test.ts` in CI). Telemetry does not
+  send expectation reports (TELEMETRY.md's event table is unchanged).
+
+#### Learned flows are stored (with the layer on); transition profiles only when asked
+
+With `learn.expectations` on and `learn.persist` unset, the learned flows (reporting only) are kept per origin in `localStorage` under
+`genclass:learn`; transition profiles, which the model reads, stay in memory as before (CONTRACT §4), so what
+reaches the model in a default install is unchanged. `true` / `"local"` stores both in localStorage, `"session"`
+both in sessionStorage, `false` nothing. Nothing is stored by default in jsdom or happy-dom (an app's unit tests) or
+when storage throws (then learning stays in memory with this page load's thresholds). The stored value carries a
+format number and the runtime version and is discarded, never migrated, when either or `learn.version` (default
+`session.tags.release`) changes; the 0.2.2 value is discarded too. It is capped at `learn.maxBytes` (the stored copy
+only; a cap below its header removes it), saved 5 s after a change, when the page is hidden or unloads and on
+`rt.destroy()`, checked field by field and against the learner's bounds when loaded, and cleared (with a pending
+save) by `rt.learn.clear()`. What is stored: request signatures, routes and field names (id-like path segments and
+keys normalised; other path segments and map keys as they are), counts, delay samples and branch hashes; user-action
+labels only as hashes (transition profiles of user actions, when stored, under `user#<hash>`), never values. A tab's
+sessionStorage keeps its session ordinal (`genclass:learn:session`) so a reload is not a new session. The storage
+observer does not record the runtime's own writes.
+
+### Defaults, footprint and fixes
+
+- **A device floor by default.** `model.loadIf` now defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`: the
+  model (about 13 MB downloaded on a first visit and 190 to 280 MB more renderer memory while it is loaded, README
+  "Costs") is not loaded on devices whose `navigator.deviceMemory` is under 4 GB, which, as the value is quantised
+  to powers of two, means exactly the devices reporting 2 GB or less, nor on Save-Data connections (before:
+  Save-Data only made the load lazy). The runtime then keeps observing without a model (`status.state`
+  "skipped", reason `device-memory` / `save-data`; nothing is detected or prevented on that device) and prints
+  one line: `[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least
+  4 GB. …`. Browsers that do not report `deviceMemory` (Safari, Firefox) load as before. An object `loadIf`
+  without `saveData` now skips on Save-Data too (`saveData: "lazy"` keeps the old behaviour).
+  `model: { loadIf: () => true }` forces the load. `DEFAULT_LOAD_IF` is exported next to `deviceEnv` and
+  `evalLoadIf` (now in `src/model/device.ts`).
+- **Fix: `model.inlineFallback: false` is honoured.** The option was documented since 0.2.0 but the model host
+  ignored it and ran the model on the main thread whenever the worker could not be created, errored before it
+  came up or never came up (a `worker-src` policy, `file:`). Now `false` means the model is not loaded in those
+  cases: `status.state` is `skipped` with reason `worker-unavailable` and `workerError` naming the failure, pending
+  evaluations fail open, `rt.ready` rejects, `load()` tries the worker again (with its one WebGPU-to-WASM retry), and
+  one console warning names the error and the `worker-src` fix. `worker: false` still runs inline (that asks for the
+  main thread). The default stays `true` as documented; the `Model ready` line now says `inline on the main thread`
+  when it is, and `status.workerError` records why the worker was not used. `npx @genclass/runtime init` mentions `worker-src` in
+  its CSP advice.
+- **`fetch(new Request(...))` with a body no longer keeps a second copy of the upload.** The fetch observer cloned
+  such a Request twice: once to read up to 64 KB for the request's identity, and once as a pristine template for a
+  later retry or hedge. Nothing read the template until a replay, so its stream tee queued the whole body in memory
+  for the request's lifetime (uploads through axios's fetch adapter or ky, which pass a `Request`). Now there is one
+  clone, read up to 64 KB (then cancelled, which stops its tee from buffering), and a retry rebuilds the Request from
+  the original's URL and fields with those bytes, only when it happens. A Request whose `content-length` is over
+  64 KB is not cloned at all; it, and a body that turns out larger while being read, is not replayable (`retry` is
+  not offered for it; before, the template made it replayable at any size). String, form, Blob and BufferSource
+  bodies passed in `init` are unchanged.
+- **WebSocket and EventSource messages are no longer JSON-parsed inside the dispatch.** Every incoming text message
+  (≤ 16 KB) was parsed and summarised before the app's listeners ran, and parsed a second time when its delivery was
+  analysed; every text `send` was summarised too. Now the summary and the parsed body are computed only when
+  something reads them (the delivery decision of a salient message, a situation that lists the op, devtools), once
+  each and from one shared parse. In observe mode a message that nothing finds salient is never parsed. The op, its
+  event and the delivery gate are unchanged, and the summary text is the same when it is read (the model sees the
+  same situation). Binary messages are still sized at once.
+
+### Measured visual checks
+
+- **New: measured visual checks** ([docs/runtime/VISUAL.md](../../docs/runtime/VISUAL.md)). GenClass now finds visual
+  and CSS bugs that never throw an error: text you cannot read because it is nearly the colour of its background
+  (below 1.5:1, including on hover, on focus and in dark mode), images, CSS background images, stylesheets, web fonts,
+  icon fonts and media that failed to load, styles and images a Content-Security-Policy blocked, `[object Object]`,
+  `$NaN`, `{{ }}`, `Invalid Date`, mojibake and lorem ipsum in rendered text, `var(--x)` with `--x` defined nowhere,
+  stretched images, pages that scroll sideways (with the element that causes it), a missing viewport meta tag on
+  phones, layout shifts above 0.25, a blank main region, invisible layers that swallow clicks, `pointer-events: none`
+  or a scroll lock left on `body`, controls under a fixed bar, focus or anchor targets under a sticky header, and
+  dialogs covered by other elements: 23 kinds. Each report names the element, what was measured and the threshold,
+  and suggests a CSS change for that selector (or the URL, header or HTML change when CSS is not the fix). These are
+  deterministic measurements with documented thresholds, reported as kind `"check"` with the line
+  `[GenClass] Check (measured): ...`; the model is not involved, they never feed a decision, and they abstain on what
+  they cannot know (text over images, video, canvases and gradients, including layers that ignore the pointer,
+  filters, partial opacity, forced colours, page translation).
+  - **Where they run.** `visual` defaults to `"local"` with `GenClass.init()`, `/auto` and the script tag: on for
+    development hosts (a dev server's port on `localhost`, `127.0.0.1`, `[::1]` or a `*.localhost` name, and `*.test`
+    names) and when the devtools overlay mounts, off everywhere else, including Capacitor, Tauri, Electron and
+    intranet hosts. `visual: true` (or `data-visual="on"`, `<meta name="genclass" content="visual=on">`) turns them on
+    everywhere; `?genclass-visual=on` turns on report-only checks for the person who opened the link; `visual: false`
+    or `?genclass-visual=off` turns them off. `createRuntime()` leaves them off.
+  - **Cost.** First load grows by 550 B gzip on `/auto` and 524 B on the main entry (the stub; measured in CI against
+    `release/0.3.0` without the checks), which puts both first loads over the earlier 0.3.0 limits; the maintainers raised them to 108.30 / 100.20 KB
+    (see "First-load size" below). The checks are a lazy chunk (`dist/visual/index.js`, about 35 KB gzip), loaded 1.5 s after `load` and only in a visible tab
+    that is not prerendering. Every page read (passes, the 2 s read of `html` and `body`, the click, hover, focus,
+    scroll and page-blank checks) runs in idle callbacks: slices of 8 ms, 100 ms per pass and 1,000 ms per 10 minutes
+    of check time. One step can still exceed a slice when the browser must first lay out a heavy page, and a step of
+    50 ms or more is a long task the runtime's `perf` observer records. Low-end devices run only the near-free checks.
+  - **Runtime fixes (opt-in).** With `visual: { on: true, fix: true }` and guard or heal mode, three narrow fixes can
+    run: a readable text colour (one owned stylesheet rule and a `data-genclass-fix` attribute), and removing a leaked
+    inline `pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did
+    not help; a colour fix is measured again every 2 s, after class or style changes and when the colour scheme
+    changes, and undone once the background it was made for changes. A scroll lock held since the page loaded, with
+    no dialog or menu ever open, is reported but not removed. Fixes can be undone (`finding.fix.undo()`, the devtools
+    Undo button) and are undone on `setMode("observe")`, the breaker, `disable()` and `destroy()` at once, and on
+    `pause()` at the next 2 s read. Observe mode never changes the page.
+  - **API.** `rt.on("check", f => ...)`, `rt.checks(n?)`, `rt.checkNow()`, `Report.kind "check"`, `rt.summary().visual`
+    (counts per kind and per route, fixes, cost), sink records of kind `"check"` (only for sinks whose `kinds` lists
+    it; the route normalised as in every sink record, a segment holding an `@` as `:id`; the webhook adapter caps
+    repeats per check kind and selector), audit entries of kind `"fix"`, a Checks tab in the devtools overlay (with Copy, Show and Undo), and
+    `@genclass/runtime/visual` with `checkPage()` for your own Playwright or Cypress tests. An app's `report`
+    function and `rt.on("report")` listeners receive reports of kind `"check"` without opting in (sinks only when
+    their `kinds` lists it).
+  - **Telemetry: nothing.** No field about the visual checks is sent; counts per kind are a proposal awaiting the
+    maintainers' approval of the exact fields ([TELEMETRY.md](TELEMETRY.md)).
+  - Not covered yet: text over photos, video and gradients, canvas and WebGL content, the colour scheme or viewport
+    the visitor is not using, layout shifts and failed CSS images outside Chromium, low contrast that is readable but
+    below WCAG AA.
+  - **Measured** by a new bench (`bench/visual`, GitHub Actions only;
+    [RESULTS.md section 14](../../docs/runtime/RESULTS.md)): 0 false reports in 128 views of the demos, templates and
+    compat apps (desktop and phone, light and dark), and recall 1.00 on planted faults for 19 of the 23 kinds
+    (`click-blocked` and `scroll-lock-stuck` 0.67, `pointer-events-leak` 0.94, `css-var-undefined` 0.96; run 5). On
+    about 40 public home pages the checks
+    were tuned on the same sites (the first run had 44 check errors in 100 loads; the fourth had none confirmed);
+    there is no held-out site set yet. Because of what the bench found, `css-var-undefined` reports a missing token only
+    where its fallback leaves text below 3:1; `focus-obscured` needs a cover that paints and is at most half the
+    viewport tall; `layout-shift` needs an element that moved and skips windows that start within 1 s after a scroll;
+    `control-unreachable` sees controls inside open shadow roots and skips covers with no box; `scroll-lock-stuck` and
+    `pointer-events-leak` treat an expanded popup trigger as something open; and a pass on a page that is never idle
+    no longer advances one step per second.
+  - **After a review of the checks** (VISUAL.md section 19), correct pages that looked broken no longer do:
+    `text-invisible` follows the page's own colour scheme for the canvas (the `color-scheme` meta tag, and dark-only
+    pages for every visitor), does not trust a low verdict while a layer that ignores the pointer paints under the
+    text, and skips loading placeholders and emoji; `dialog-covered` tests a dialog's controls only where its own
+    scroll area shows them; `page-blank` counts web components (shadow roots) as content and waits for a tab that
+    stayed visible; `scroll-lock-stuck` ignores wheels at the ends of the page, sideways gestures, gestures the app
+    handled and pages that scroll by moving a layer; `pointer-events-leak` ignores a busy shield while a request runs;
+    `csp-blocked` and `layout-shift` are reported once per session, not again on every route; `icon-font-failed`
+    re-reads the font's status before reporting.
+
+### First-load size
+
+Minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38477010836, commit 7c7c6d6): `/auto` (with state
+discovery) **106.59 KB** and the main entry (`GenClass.init()`) **98.57 KB**, against 99.17 KB and 91.70 KB in
+`0.2.2`. The test's limits are the sizes at bff4a71 (106.24 / 98.21 KB, CI run 38465242176) plus 1.5 KB,
+**107.74 KB** and **99.71 KB** (owner-approved for 0.3.0); the telemetry 429 back-off added about 0.35 KB since. Each first load is four files now (100.26 + 3.05 + 2.74 + 0.19 KB for `/auto`): the util code the lazy flow
+chunk shares is a chunk of its own. Where it goes (CI, step by step, docs/runtime/RESULTS.md §10): app tokens and
+`protect()` about +1.8 KB; the device floor, telemetry sampling and Request replays about +1.5 KB; the sink names'
+proxy +0.8 KB on `/auto`; the flow expectations' runtime side and learned-state persistence about +3.3 KB (the flow
+layer itself, about 4 KB by difference, is a lazy chunk loaded only with `learn.expectations`). The script-tag file is
+126.45 KB (it carries the flow layer inline). Observe's detection tiers and deferred situations, with their review
+fixes, then add 0.97 KB to `/auto` and 1.02 KB to the main entry (the 429 back-off they brought is counted above;
+the expectation report's console text moved into the lazy flow chunk to pay for the fixes): **107.56 KB** and
+**99.59 KB** (CI run 38482297879; script tag 127.89 KB), still under the same limits, 0.18 / 0.12 KB below them
+(docs/runtime/RESULTS.md §11). The release candidate (with main's accounts and CLI commands, which add no browser
+code, and the dashboard's counting, which is the worker's) measures the same: 107.56 / 99.59 KB, script tag
+127.89 KB (CI run 38485063587, RESULTS.md §10). With the release review's telemetry fixes (path segments holding an
+`@` and URLs in model error text masked): **107.61 KB** and **99.61 KB**, script tag 127.92 KB (CI run 38488753971),
+0.13 / 0.10 KB under the limits, which are not re-set. Removing the Sentry, PostHog and Datadog adapters changes no
+first load (they were lazy chunks and CDN files); the one console warning for those names in a page config adds
+0.10 KB to `/auto` and 0.08 KB to the script tag, and nothing to the main entry: **107.71 KB** and **99.61 KB**, script
+tag 128.00 KB (CI run 38494904699, RESULTS.md §10), 0.03 / 0.10 KB under the limits, which are not re-set.
+
+The measured visual checks' first-load stub then adds 550 B to `/auto` and 524 B to the main entry (measured against
+`release/0.3.0` by `test/first-load-size.mjs` in CI; the checks themselves are a lazy chunk): **108.25 KB** and
+**100.13 KB**, script tag 128.56 KB (CI run 38676978903, RESULTS.md §10 and §13), over the 107.74 / 99.71 KB limits.
+The maintainers raised the test's limits to 108.30 / 100.20 KB for this release.
 
 ## 0.2.2 (2026-10-13)
 

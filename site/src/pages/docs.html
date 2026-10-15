@@ -75,16 +75,15 @@ user action (#7). (stale, 0.96)</code></pre>
 
       <h2 id="reports">Where the reports go</h2>
       <p>By default a report is a console line in the end user's browser. In production that is not your console. The <code>sinks</code> option hands every detection, intervention, undo, breaker trip or summary to your own code as a structured, redacted record; the anonymous diagnostics (below) go to the GenClass maintainers. An optional free account also shows your app's detections on a dashboard at genclass.dev; runtime 0.2.2 and earlier do not send to it.</p>
-      <p>Keep your error monitor and session replay. They see exceptions, failed requests, slow spans and what the user saw, but they cannot tell that a response was stale or that a POST was a duplicate, because nothing threw. GenClass decides that on the device, and a sink hands each report to the tools you already use.</p>
+      <p>Keep your error monitor and session replay. They see exceptions, failed requests, slow spans and what the user saw, but they cannot tell that a response was stale or that a POST was a duplicate, because nothing threw. GenClass decides that on the device, and a sink hands each report to your own logging or an endpoint you own.</p>
 <pre><code>GenClass.init({
   sinks: [
-    { send: (r) =&gt; Sentry.addBreadcrumb({ category: "genclass", data: r }) },
-    { send: (r) =&gt; posthog.capture("genclass", r), kinds: ["detection", "intervention"] },
+    { send: (r) =&gt; myLogger.info("genclass", r), kinds: ["detection", "intervention"] },
     { send: (r) =&gt; navigator.sendBeacon("/genclass", JSON.stringify(r)), sampleRate: 0.2 },
   ],
   requests: { ignore: ["/genclass"] },   // a sink that ships over fetch sends to an ignored endpoint
 });</code></pre>
-      <p>The generic sink above ships in {{rt}}. Forwarding from the genclass.dev collector to Sentry, PostHog, Datadog, Slack or a signed webhook, with no code in your app, is part of <a href="/pricing">Pro</a>. <code>rt.audit()</code> exports every decision and action as JSON. <a href="/docs/options">All sink options</a>.</p>
+      <p>The generic sink above ships in {{rt}}. From runtime 0.3.0 (first as 0.3.0-beta.0) two ready-made sinks need no code of yours: <code>console-json</code> prints one JSON line per record for a log shipper, and <code>webhook:&lt;url&gt;</code> sends batched POSTs to an endpoint you own (<code>data-sink="webhook:/genclass"</code> on the script tag, or <code>npx @genclass/runtime init --sink webhook:/genclass</code>). The runtime has no Sentry, PostHog or Datadog adapter; forwarding from the genclass.dev collector to Sentry, PostHog, Datadog, Slack or a signed webhook, with no code in your app, is part of <a href="/pricing">Pro</a>. <code>rt.audit()</code> exports every decision and action as JSON. <a href="/docs/options">All sink options</a>.</p>
 
       <h2 id="explain">Explain and undo</h2>
       <p>Every detection and intervention is logged in plain English. <code>rt.explain(id)</code> returns the exact situation the model read, its facts and every answer. Discards and rollbacks return an <code>ActionRecord</code> with <code>undo()</code>, and the devtools overlay lists everything live. In guard mode the stale-response report above becomes:</p>

@@ -5,13 +5,26 @@
 //   decision or changes model input (situation-v2 freeze). The situation text it sends is the exact text built
 //   from the state the model received, after the redactor.
 // - Never throws into the app or the runtime; failures drop the batch, and MAX_FAIL_STREAK failures in a row stop the
-//   page from sending. Bounded queue (MAX_QUEUE events).
+//   page from sending. A 429 (or a 503 with a Retry-After) is a back-off, not a failure: the batch goes back to the
+//   front of the queue and nothing is sent for BACKOFF_MS, doubling per back-off in a row, or the Retry-After if it is
+//   longer, never more than MAX_BACKOFF_MS; only page exit (sendBeacon) sends during it. After MAX_BACKOFFS in a row
+//   (about 27 minutes) a refusal counts as a failure. Bounded queue (MAX_QUEUE events): when it is full, the oldest
+//   routine decision record makes room, so a detection and its record are never the events dropped while one is.
 // - Timers come from the runtime's Clock; times are ms since this session started (no wall clock: the collector
 //   stamps receivedAt). The session id is random per page load and never stored.
+// - Volume (TELEMETRY.md "Volume"): every decision is counted in `summary`. Detections are never sampled or capped:
+//   every `detect` event and the `decision` record it points to are sent, as are the records of every decision whose
+//   top diagnosis is not "expected" (near-misses below the report gate included) and of every action or veto. Only
+//   routine decisions (top diagnosis "expected", nothing acted, vetoed or shadow-passed) are sampled, a
+//   `decisionSample` share (a hash of the session and decision ids, no randomness), and capped at `maxDecisions` per
+//   page load. A decision whose record is withheld still arms the flush timer, so `summary` keeps its once-a-minute
+//   cadence while decisions continue.
+// - A page whose model is skipped before telemetry starts (the device floor, model.loadIf) still sends its `session`
+//   event (modelState "skipped") followed by a `model` event with the reason.
 
 import type { RuntimeImpl } from "../runtime.js";
 import type { ActionRecord, Answer, Decision, ModelStatus, TelemetryStatus } from "../types.js";
-import { REDACTED, normalizePath } from "../util.js";
+import { REDACTED, fnv1a, normalizePath } from "../util.js";
 import { RUNTIME_VERSION } from "../version.js";
 import { TELEMETRY_SCHEMA, type TelemetryConfig } from "./config.js";
 
@@ -20,6 +33,14 @@ export const MAX_QUEUE = 1000;
 export const MAX_REQUEST_BYTES = 60_000;
 /** Consecutive failed requests after which a page stops sending telemetry (a CSP block, a dead endpoint). */
 export const MAX_FAIL_STREAK = 3;
+/**
+ * First back-off after a 429; doubled for each back-off in a row, up to MAX_BACKOFF_MS. A longer Retry-After is
+ * honoured up to MAX_BACKOFF_MS too (a 0 or 1 s one never makes the page retry faster than this).
+ */
+export const BACKOFF_MS = 30_000;
+export const MAX_BACKOFF_MS = 300_000;
+/** Back-offs in a row after which a refusal counts as a failure (MAX_FAIL_STREAK): 30 s + 1 + 2 + 4 + 4 × 5 min. */
+export const MAX_BACKOFFS = 8;
 export const SUMMARY_MS = 60_000;
 const MAX_ERROR_EVENTS = 20;
 
@@ -37,6 +58,17 @@ export interface TelemetrySessionInfo {
 
 const r4 = (n: unknown): number | undefined => (typeof n === "number" && Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : undefined);
 const cut = (s: unknown, n: number): string | undefined => (typeof s === "string" ? (s.length > n ? s.slice(0, n) : s) : undefined);
+/**
+ * URLs in error text are not sent: a Worker constructor's SecurityError names the script and the page origin, and the
+ * model host's own messages (ModelNotReadyError, a failed attempt) can quote that text. Applied to `workerError`,
+ * `error` and `attempts[].error` on `model` events and to `model-error` messages.
+ */
+const noUrls = (s: unknown): unknown => (typeof s === "string" ? s.replace(/\b(?:[a-z][a-z0-9+.-]*:\/\/|(?:blob|data):[a-z])[^\s'"`<>]*/gi, "<url>") : s);
+/**
+ * A path segment holding an `@` (raw or `%40`: an e-mail address, a handle) is sent as `:id`, as sink records do
+ * (runtime.ts toSinkRecord); normalizePath (util.ts, model-visible and frozen) only replaces id-like segments.
+ */
+const noEmails = (p: string): string => p.replace(/[^/]*(?:@|%40)[^/]*/gi, ":id");
 
 /** An e-mail address, a URL, a run of 4+ digits (ids, phone or card numbers) or 12+ hex digits (a UUID, a hash). */
 const DATA_LIKE = /[^\s@]+@[^\s@]+\.[^\s@]+|\b(?:https?:\/\/|www\.)|\d{4,}|\b[0-9a-f]{12,}\b/i;
@@ -51,6 +83,18 @@ export function fnLabel(s: unknown): string | undefined {
   if (v === undefined) return undefined;
   return DATA_LIKE.test(v) ? REDACTED : v;
 }
+/**
+ * A deterministic draw in [0, 1) from a string: fnv1a, then murmur3's 32-bit finalizer. fnv1a alone hardly mixes the
+ * last characters into the high bits, and decision ids ("d1", "d2", ...) differ only there, so the share a page sent
+ * swung with its session id (44 of 80 routine records at decisionSample 0.25 in one CI run).
+ */
+export function decisionDraw(s: string): number {
+  let h = parseInt(fnv1a(s), 16) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
+}
+
 const inc = (c: Counts, k: string, by = 1) => {
   c[k] = (c[k] ?? 0) + by;
 };
@@ -94,13 +138,23 @@ export class TelemetryClient implements TelemetryStatus {
   private sendFailures = 0;
   /** Consecutive failed requests; at MAX_FAIL_STREAK the page stops sending (a CSP block or a dead endpoint). */
   private failStreak = 0;
+  /** Back-off (429, Retry-After): nothing is sent before this clock time except on page exit; 429s in a row. */
+  private backoffUntil = -Infinity;
+  private backoffs = 0;
   private sentEvents = 0;
+  /** Decisions whose records were sent, routine ones sampled out (decisionSample), and routine ones over maxDecisions. */
+  private decisionRecords = 0;
+  private decisionsSampledOut = 0;
+  private decisionsCapped = 0;
+  /** Routine decisions whose records were sent: the count maxDecisions caps. */
+  private routineRecords = 0;
   private pending = new Set<Promise<void>>();
   private offs: (() => void)[] = [];
   private readonly c = {
     decisions: 0,
     acted: 0,
     detections: 0,
+    possibleDetections: 0,
     actionsOk: 0,
     actionsFailed: 0,
     lateReverts: 0,
@@ -125,6 +179,9 @@ export class TelemetryClient implements TelemetryStatus {
     this.t0 = rt.clock.now();
     this.lastSummaryAt = this.t0;
     this.session(info);
+    // skipped before the runtime could report a change (the device floor): say why right after the session
+    const st = rt.status;
+    if (st.state === "skipped" || st.state === "error") this.modelEvent(st);
     this.listen();
   }
 
@@ -148,7 +205,11 @@ export class TelemetryClient implements TelemetryStatus {
     if (this.stopped) return;
     if (this.queue.length >= MAX_QUEUE) {
       this.dropped++;
-      return;
+      // full (a long back-off): the oldest routine decision record (top diagnosis "expected", nothing acted) makes
+      // room, never a detection or its record
+      const i = this.queue.findIndex((x) => x.t === "decision" && x.diagnosis === "expected" && !x.acted);
+      if (i < 0) return;
+      this.queue.splice(i, 1);
     }
     e.seq = this.seq++;
     e.at = this.at();
@@ -156,10 +217,14 @@ export class TelemetryClient implements TelemetryStatus {
     this.arm();
   }
 
-  private route(): string | undefined {
+  /**
+   * `at`, else the page's path now, normalised (id-like segments and segments with an `@` as `:id`); a deferred
+   * decision's is the path at its trigger (decisionInfo).
+   */
+  private route(at?: string): string | undefined {
     try {
-      const p = (this.g.location as { pathname?: unknown } | undefined)?.pathname;
-      return typeof p === "string" ? cut(normalizePath(p), 200) : undefined;
+      const p = at ?? (this.g.location as { pathname?: unknown } | undefined)?.pathname;
+      return typeof p === "string" ? cut(noEmails(normalizePath(p)), 200) : undefined;
     } catch {
       return undefined;
     }
@@ -202,7 +267,31 @@ export class TelemetryClient implements TelemetryStatus {
       }),
       sample: this.cfg.sample,
       situation: this.cfg.situation,
+      // decisionSample / maxDecisions are not sent (no owner OK for the page's config values, AGENTS.md rule 8): a
+      // collector scales from summary.telemetry (decisionRecords, decisionsSampledOut, decisionsCapped)
     });
+  }
+
+  /**
+   * Whether this decision's records are sent. Not routine (a diagnosis other than "expected", an action, a veto, a
+   * shadow pass): always, never sampled or capped. Routine: while fewer than `maxDecisions` routine records were sent
+   * in this page load, a `decisionSample` share drawn from a hash of the session and decision ids. Counts are kept
+   * either way.
+   */
+  private sends(id: string, routine: boolean): boolean {
+    if (routine) {
+      if (this.routineRecords >= this.cfg.maxDecisions) {
+        this.decisionsCapped++;
+        return false;
+      }
+      if (this.cfg.decisionSample < 1 && decisionDraw(`${this.cfg.sessionId}:${id}`) >= this.cfg.decisionSample) {
+        this.decisionsSampledOut++;
+        return false;
+      }
+      this.routineRecords++;
+    }
+    this.decisionRecords++;
+    return true;
   }
 
   private statusKeyOf(s: ModelStatus): string {
@@ -214,33 +303,37 @@ export class TelemetryClient implements TelemetryStatus {
     const mk = `${s.state}|${s.version ?? ""}`;
     if (mk !== this.modelKey) {
       this.modelKey = mk;
-      this.push({
-        t: "model",
-        state: s.state,
-        version: s.version,
-        model: cut(s.model, 80),
-        variant: cut(s.variant, 80),
-        device: s.device,
-        threads: s.threads,
-        worker: s.worker,
-        workerError: cut(s.workerError, 200),
-        gpu: cut(s.gpu, 120),
-        ort: cut(s.ort, 40),
-        loadMs: typeof s.loadMs === "number" ? Math.round(s.loadMs) : undefined,
-        warmupMs: typeof s.warmupMs === "number" ? Math.round(s.warmupMs) : undefined,
-        fromCache: s.fromCache,
-        bytes: s.bytes,
-        phase: s.phase,
-        reason: cut(s.reason, 120),
-        error: cut(s.error, 200),
-        attempts: Array.isArray(s.attempts) ? s.attempts.slice(0, 6).map((a) => ({ variant: cut(a.variant, 80), device: cut(a.device, 16), error: cut(a.error, 160) })) : undefined,
-      });
+      this.modelEvent(s);
     }
     const sk = this.statusKeyOf(s);
     if (sk !== this.statusKey) {
       this.statusKey = sk;
       this.push({ t: "status", mode: this.rt.mode, effectiveMode: s.effectiveMode, aggressiveness: r4(this.rt.aggressiveness), breaker: !!s.breaker?.tripped });
     }
+  }
+
+  private modelEvent(s: ModelStatus): void {
+    this.push({
+      t: "model",
+      state: s.state,
+      version: s.version,
+      model: cut(s.model, 80),
+      variant: cut(s.variant, 80),
+      device: s.device,
+      threads: s.threads,
+      worker: s.worker,
+      workerError: cut(noUrls(s.workerError), 200),
+      gpu: cut(s.gpu, 120),
+      ort: cut(s.ort, 40),
+      loadMs: typeof s.loadMs === "number" ? Math.round(s.loadMs) : undefined,
+      warmupMs: typeof s.warmupMs === "number" ? Math.round(s.warmupMs) : undefined,
+      fromCache: s.fromCache,
+      bytes: s.bytes,
+      phase: s.phase,
+      reason: cut(s.reason, 120),
+      error: cut(noUrls(s.error), 200),
+      attempts: Array.isArray(s.attempts) ? s.attempts.slice(0, 6).map((a) => ({ variant: cut(a.variant, 80), device: cut(a.device, 16), error: cut(noUrls(a.error), 160) })) : undefined,
+    });
   }
 
   private onDecide(d: Decision): void {
@@ -252,13 +345,24 @@ export class TelemetryClient implements TelemetryStatus {
     inc(c.byAction, d.ran);
     const acted = d.executed && d.tier !== "passive";
     if (acted) c.acted++;
+    const vetoed = d.reason === "vetoed" || d.reason === "would-veto";
+    if (vetoed) c.vetoes++;
     const info = this.rt.decisionInfo(d.id);
     const gates = info?.gates;
+    // routine: the top diagnosis is "expected" and nothing acted, was vetoed or would have acted in shadow mode. Every
+    // detection (its "detect" event follows this one) has a diagnosis other than "expected", so its record is never
+    // sampled out or capped; only which records are sent depends on this, never what is counted
+    const routine = d.diagnosis === "expected" && !acted && !vetoed && !d.shadow?.wouldPass;
+    if (!this.sends(d.id, routine)) {
+      // counted, not sent: the periodic summary is due from the flush timer, which queued events arm otherwise
+      this.arm();
+      return;
+    }
     this.push({
       t: "decision",
       id: d.id,
       trigger: d.trigger,
-      route: this.route(),
+      route: this.route(info?.route),
       model: cut(d.model, 80),
       latencyMs: Math.round(d.latencyMs),
       held: info?.held,
@@ -294,17 +398,26 @@ export class TelemetryClient implements TelemetryStatus {
       // token: it feeds that app's dashboard and is not sent otherwise; a label that looks like data is redacted
       fn: this.cfg.token ? fnLabel(d.fn) : undefined,
     });
-    if (d.reason === "vetoed" || d.reason === "would-veto") {
-      c.vetoes++;
-      this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
-    }
+    if (vetoed) this.push({ t: "veto", decision: d.id, action: d.candidate ?? d.action, enforced: d.reason === "vetoed" });
+    // every detection, likely or possible, from its decision (the "detect" event carries possible ones only when the
+    // app asked for them)
+    if (d.detection) this.onDetect(d);
   }
 
   private onDetect(d: Decision): void {
     this.dirty = true;
-    this.c.detections++;
-    inc(this.c.detectionsByDiagnosis, d.diagnosis);
-    this.push({ t: "detect", decision: d.id, trigger: d.trigger, diagnosis: d.diagnosis, p: r4(d.diagnosisConfidence) });
+    // the tier: likely at the report gate, possible below it in observe or for a deferred decision (OPTIONS-SPEC §5.3,
+    // decided after the model loaded or the tab became visible, whatever its p); only a possible one says so
+    // (`tier: "possible"`: no field means likely, as from earlier runtimes). `detections` and `detectionsByDiagnosis`
+    // keep counting the likely ones, as before 0.3.0
+    const possible = d.detection === "possible";
+    if (possible) this.c.possibleDetections++;
+    else {
+      this.c.detections++;
+      inc(this.c.detectionsByDiagnosis, d.diagnosis);
+    }
+    // never sampled or capped (its decision record went too: a detection's diagnosis is never "expected")
+    this.push({ t: "detect", decision: d.id, trigger: d.trigger, diagnosis: d.diagnosis, p: r4(d.diagnosisConfidence), tier: possible ? "possible" : undefined });
   }
 
   private onAct(a: ActionRecord): void {
@@ -339,7 +452,6 @@ export class TelemetryClient implements TelemetryStatus {
         }
       };
     this.offs.push(rt.on("decide", safe((d) => this.onDecide(d))));
-    this.offs.push(rt.on("detect", safe((d) => this.onDetect(d))));
     this.offs.push(rt.on("act", safe((a) => this.onAct(a))));
     this.offs.push(rt.on("status", safe(() => this.onStatus())));
     this.offs.push(
@@ -385,7 +497,7 @@ export class TelemetryClient implements TelemetryStatus {
         const err = e as { code?: unknown; name?: unknown; message?: unknown } | null;
         const code = cut(typeof err?.code === "string" ? err.code : typeof err?.name === "string" ? err.name : "error", 40) ?? "error";
         inc(this.c.modelErrors, code);
-        if (this.errorEvents++ < MAX_ERROR_EVENTS) this.push({ t: "model-error", code, message: cut(typeof err?.message === "string" ? err.message : String(e), 200) });
+        if (this.errorEvents++ < MAX_ERROR_EVENTS) this.push({ t: "model-error", code, message: cut(noUrls(typeof err?.message === "string" ? err.message : String(e)), 200) });
       },
       failOpen: (reason, trigger) => {
         try {
@@ -456,6 +568,7 @@ export class TelemetryClient implements TelemetryStatus {
         decisions: c.decisions,
         acted: c.acted,
         detections: c.detections,
+        possibleDetections: c.possibleDetections,
         actionsOk: c.actionsOk,
         actionsFailed: c.actionsFailed,
         lateReverts: c.lateReverts,
@@ -479,33 +592,51 @@ export class TelemetryClient implements TelemetryStatus {
             errors: rs.errors,
           }
         : undefined,
-      telemetry: { queued: this.queue.length, dropped: this.dropped, sendFailures: this.sendFailures, sentEvents: this.sentEvents },
+      telemetry: {
+        queued: this.queue.length,
+        dropped: this.dropped,
+        sendFailures: this.sendFailures,
+        sentEvents: this.sentEvents,
+        decisionRecords: this.decisionRecords,
+        decisionsSampledOut: this.decisionsSampledOut,
+        decisionsCapped: this.decisionsCapped,
+      },
     });
   }
 
   private arm(): void {
     if (this.timer !== null || this.stopped) return;
     try {
+      // during a back-off the next send waits for its end
+      const wait = Math.max(this.cfg.flushMs, this.backoffUntil - this.rt.clock.now());
       this.timer = this.rt.clock.setTimeout(() => {
         this.timer = null;
         if (this.dirty && this.rt.clock.now() - this.lastSummaryAt >= SUMMARY_MS) this.summary("periodic");
         void this.flush(false);
-      }, this.cfg.flushMs);
+      }, wait);
     } catch {
       this.timer = null;
     }
   }
 
-  /** Send everything queued, in requests of ≤ maxBatch events and ≤ MAX_REQUEST_BYTES. Never rejects. */
+  /**
+   * Send everything queued, in requests of ≤ maxBatch events and ≤ MAX_REQUEST_BYTES. Never rejects. During a
+   * back-off only a page-exit flush (`beacon`) sends; otherwise the queue waits for the back-off to end.
+   */
   flush(beacon = false): Promise<void> {
     try {
       if (this.timer !== null) {
         this.rt.clock.clearTimeout(this.timer);
         this.timer = null;
       }
+      if (!beacon && this.rt.clock.now() < this.backoffUntil) {
+        if (this.queue.length) this.arm();
+        return Promise.resolve();
+      }
       const sends: Promise<void>[] = [];
       while (this.queue.length) {
         const parts: string[] = [];
+        const batch: Ev[] = [];
         let n = 0;
         const head = this.header();
         let bytes = head.length + 2;
@@ -525,13 +656,13 @@ export class TelemetryClient implements TelemetryStatus {
             continue;
           }
           if (bytes + s.length + 1 > MAX_REQUEST_BYTES) break;
-          this.queue.shift();
+          batch.push(this.queue.shift()!);
           parts.push(s);
           bytes += s.length + 1;
           n++;
         }
         if (!n) continue;
-        sends.push(this.send(`${head}${parts.join(",")}]}`, n, beacon));
+        sends.push(this.send(`${head}${parts.join(",")}]}`, batch, beacon));
       }
       return Promise.all(sends).then(() => undefined);
     } catch {
@@ -551,23 +682,57 @@ export class TelemetryClient implements TelemetryStatus {
     return `{"schema":${JSON.stringify(TELEMETRY_SCHEMA)},${token}"sid":${JSON.stringify(this.cfg.sessionId)},"sent":${this.at()},"runtime":${JSON.stringify(RUNTIME_VERSION)},"model":${JSON.stringify(model)},"events":[`;
   }
 
-  private send(body: string, n: number, beacon: boolean): Promise<void> {
+  private send(body: string, batch: Ev[], beacon: boolean): Promise<void> {
     let p: Promise<void>;
     try {
       p = Promise.resolve(this.cfg.transport.send(this.cfg.endpoint, body, { beacon })).then(
         () => {
-          this.sentEvents += n;
+          this.sentEvents += batch.length;
           this.failStreak = 0;
+          this.backoffs = 0;
         },
-        () => this.failed(),
+        (e: unknown) => this.refused(e, batch),
       );
-    } catch {
-      this.failed();
+    } catch (e) {
+      this.refused(e, batch);
       return Promise.resolve();
     }
     this.pending.add(p);
     void p.finally(() => this.pending.delete(p));
     return p;
+  }
+
+  /** A rejected send: a back-off (429, a 503 with a Retry-After; at most MAX_BACKOFFS in a row) or a failure. */
+  private refused(e: unknown, batch: Ev[]): void {
+    const b = backoffOf(e);
+    if (b === null || this.backoffs >= MAX_BACKOFFS) this.failed();
+    else this.backOff(b, batch);
+  }
+
+  /**
+   * The collector asked this page to slow down (429, or a 503 with a Retry-After): not a failure. The batch goes back
+   * to the front of the queue (within MAX_QUEUE; what does not fit counts as dropped) and nothing is sent for
+   * BACKOFF_MS doubling per back-off in a row, or the Retry-After when it is longer, at most MAX_BACKOFF_MS.
+   */
+  private backOff(retryAfterMs: number | undefined, batch: Ev[]): void {
+    if (this.stopped) return;
+    this.backoffs++;
+    const ms = Math.min(MAX_BACKOFF_MS, Math.max(retryAfterMs ?? 0, BACKOFF_MS * 2 ** (this.backoffs - 1)));
+    this.backoffUntil = Math.max(this.backoffUntil, this.rt.clock.now() + ms);
+    const room = Math.max(0, MAX_QUEUE - this.queue.length);
+    if (batch.length > room) this.dropped += batch.length - room;
+    this.queue.unshift(...batch.slice(0, room));
+    // several requests of one flush refused: keep the events in the order they were queued
+    this.queue.sort((a, b) => (a.seq as number) - (b.seq as number));
+    if (this.timer !== null) {
+      try {
+        this.rt.clock.clearTimeout(this.timer);
+      } catch {
+        /* ignore */
+      }
+      this.timer = null;
+    }
+    this.arm();
   }
 
   /**
@@ -623,6 +788,17 @@ export class TelemetryClient implements TelemetryStatus {
   settled(): Promise<void> {
     return Promise.all([...this.pending]).then(() => undefined);
   }
+}
+
+/**
+ * A rejected send that asks for a back-off: the error's `status` is 429, or 503 with `retryAfterMs` (the transport
+ * read a Retry-After header). Returns the Retry-After in ms (undefined: none given), or null for an ordinary failure
+ * (any other status, a network error; a Retry-After on them is ignored).
+ */
+export function backoffOf(e: unknown): number | undefined | null {
+  const x = (e ?? {}) as { status?: unknown; retryAfterMs?: unknown };
+  const ra = typeof x.retryAfterMs === "number" && x.retryAfterMs >= 0 ? x.retryAfterMs : undefined;
+  return x.status === 429 || (x.status === 503 && ra !== undefined) ? ra : null;
 }
 
 /** runtime.telemetry when nothing is sent. */

@@ -20,7 +20,10 @@ This file binds every workstream. If something here is wrong, tell the lead; do 
    baselines, learned invariants, value deltas) and it may decide *whether a situation is worth asking the
    model about* (triage). It must never map a fact pattern to a diagnosis or an action with an if/then.
    Diagnoses and actions come from the model. If the model is unavailable, the runtime observes only and
-   always takes the passive action.
+   always takes the passive action. Exception (owner, 2026-10-13; wording to be confirmed by the owner before
+   merge): the measured visual checks in `src/visual/` (section 14) are deterministic measurements with documented
+   thresholds, reported as kind `"check"`, never as a model finding; they never decide network actions and never
+   feed situations, facts, the event log, the gate or the model.
 2. **Train/runtime parity.** The training data generator (`sim/`) drives the real runtime code (same trace,
    same facts, same serializer, same questions) in a deterministic virtual world. There is exactly one
    implementation of situation building and serialization: `packages/runtime/src/situation/*`.
@@ -121,6 +124,7 @@ interface InitOptions {
   report?: "console" | "silent" | ((r: Report) => void);   // default "console" (section 8)
   observe?: Partial<Record<"fetch"|"xhr"|"user"|"errors"|"nav"|"storage"|"perf"|"websocket", boolean>>;  // default all true
   triage?: "salient" | "always";            // default "salient" (section 6)
+  detect?: "likely" | "possible";            // 0.3.0: detection tiers (section 8); default "possible" in observe
   policy?: PolicyOptions;                    // section 8
   redact?: (path: string, value: unknown) => unknown;   // default redacts keys matching /pass|token|secret|card|cvv|ssn|auth/i
   plugins?: Plugin[];
@@ -385,7 +389,14 @@ it is under the rate limit, and the decision arrived within the hold budget (els
 Every model decision produces a `Decision { id, trigger, subject, at, latencyMs, model, diagnosis,
 diagnosisConfidence, diagnosisProbabilities, action, confidence (= probabilities[action]), probabilities,
 executed, reason?, facts }`. A `Detection` (same fields) is emitted when the top diagnosis is not `expected` and
-its probability ≥ `thresholds.report`. An `ActionRecord { id, decisionId, action, tier, trigger, subject, at, ok,
+its probability ≥ `thresholds.report` (a **likely** detection; `Decision.detection: "likely"`). Since 0.3.0, where the
+subject's effective mode is `observe` and the app set no `thresholds.report` (or with `detect: "possible"`), one whose
+probability is below that but ≥ the eager profile's report value from the same model meta is a **possible**
+detection (`Decision.detection: "possible"`): the same report and record with that tier, printed only with
+`console.debug` and "(possible)"; the `detect` event, `report` listeners and a `report` function get it only when
+`detect: "possible"` is set explicitly, and sinks only on request (`possible: true`). A situation decided late
+(section 10) is a possible detection at most. Both are thresholds on the model's output and reporting only; no action
+gate reads them, so guard and heal act exactly as before. An `ActionRecord { id, decisionId, action, tier, trigger, subject, at, ok,
 error?, changed: string /* exactly what GenClass altered, in one sentence */, undo?: () => void }` is emitted for
 every non-passive action that ran. Decisions are kept in a ring buffer (200).
 
@@ -441,7 +452,12 @@ bit-for-bit compatible with the PyTorch packer (parity fixtures exist in the Gen
 - CLI `npx genclass-runtime fetch-model <dir> [--from <url>]` downloads a model directory (Node fetch, follows
   redirects) so apps can self-host (`model: { baseUrl: "/genclass-model/" }`).
 - Preload modes (`eager` | `idle` via `requestIdleCallback` with a timeout fallback | `lazy` on the first
-  `evaluate`/`ready`); a decision requested while the model is still loading fails open immediately (passive).
+  `evaluate`/`ready`); a decision requested while the model is still loading fails open immediately (passive). In
+  observe (0.3.0), where nothing is held and the possible tier is in force, a salient situation raised while the model
+  loads or reloads, or while the tab is hidden, is built at its trigger and decided once the model is ready and the
+  tab visible (at most 32 wait, oldest first; a dropped one counts as fail-open `not-ready`); such a decision only
+  detects, at the possible tier at most, and never acts. A hidden tab never loads or reloads the model (OPTIONS-SPEC
+  §5.3).
 - Size target for the runtime model: ≤ 25 MB q8 (lead prunes the vocabulary and quantises embeddings at export;
   the tokenizer/packer must work with a pruned `tokenizer.json`, i.e. no hardcoded vocab size or marker ids:
   read them from the files).
@@ -523,3 +539,33 @@ genuinely different failures or decisions):
   in `observe` when no `mode` is given, so a fresh install reports findings and never holds, delays or changes
   anything. `guard` is opt-in (`mode: "guard"`; `?genclass=guard` only with `debug: true` or on a development host since 0.2.2); `heal` is experimental. Situation text,
   facts and questions are unchanged (they do not depend on the mode), so `situation-v1` training data stays valid.
+
+## 14. Measured visual checks (added 2026-10-13; owner to confirm before merge)
+
+Design, every check, threshold and exclusion: [VISUAL.md](VISUAL.md). Code: `packages/runtime/src/visual/`.
+
+- **What they are.** 23 deterministic measurements of visual and CSS bugs (unreadable text, failed assets, CSP
+  blocks, text leaks, undefined custom properties, stretched images, sideways scrolling, a missing viewport meta tag,
+  layout shifts, a blank main region, swallowed clicks, leaked `pointer-events` and scroll locks, covered controls,
+  focus and dialogs). Each has a documented threshold and abstains where it cannot know. They are reported as kind
+  `"check"` (`rt.on("check")`, `rt.checks()`, `Report.kind "check"`, `[GenClass] Check (measured): ...`) and never fire
+  `detect`.
+- **Separation (section 0 rule 1 exception).** `src/visual/` imports only types from `situation/`, `decide/`,
+  `model/`, `state/`, `trace/` and `runtime.ts`; none of those import `src/visual/`. Only `src/visual/bridge.ts`
+  touches the runtime object, to report findings, write `"fix"` audit entries and follow status and teardown. The
+  checks never push RtEvents, facts or situations and never feed the gate, the breaker or the model
+  (`test/visual-purity.test.ts`: a session is identical with them on and off).
+- **Rule 1 of 0.5 (never make a correct app worse).** In observe mode they write nothing to the page. Their three
+  runtime fixes (a readable text colour through an owned stylesheet rule; removing a leaked inline
+  `pointer-events: none` or `overflow: hidden` on `html` or `body`) need `visual: { on: true, fix: true }` and guard or
+  heal, are re-measured and undone if they do not help (a colour fix also when the background it was made for
+  changes), are undone on `setMode("observe")`, the breaker, `disable()` and `destroy()` at once and on `pause()` at
+  the next 2 s read, and are dropped when the app changes the element.
+- **Defaults.** `"local"` with `GenClass.init()` in a browser (development hosts: a dev server's port on a loopback
+  name, or `*.test`; and the devtools overlay), off elsewhere and in `createRuntime()`. First load grows by about
+  0.57 KB gzip against main of 2026-10-13 (measured in CI; over the 0.5 KB target, owner to decide); the checks load
+  lazily from `dist/visual/index.js`.
+- **Determinism (section 0 rule 3).** All timing uses the injected `Clock`; idle callbacks come from the runtime's
+  global; session sampling hashes the session id.
+- **Telemetry.** None. Counts per check kind and route are a proposal (VISUAL.md section 10) that needs the owner's
+  approval of the exact fields; selectors, element text, colours and URLs are never sent.

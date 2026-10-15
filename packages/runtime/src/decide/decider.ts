@@ -2,7 +2,9 @@
 // subject already went its way run last, see `prio`), a small cache of identical requests, deadlines (a request
 // whose deadline passed while queued is dropped, never computed; the time left is passed to the provider as
 // `timeoutMs`), latency samples for the automatic hold budget, and fail-open on any provider error (not ready, too
-// many tokens, timeout, busy, ...).
+// many tokens, timeout, busy, ...). While nothing can be held (`holds()` false: observe), superseded items are
+// computed on slow devices too and waiting items age up to the background priority (AGING_MS), so error and
+// transition decisions are not starved by a burst of writes.
 
 import type { Answer, Clock, DecisionProvider, EvaluateRequest, ModelStatus } from "../types.js";
 import { fnv1a, stableStringify } from "../util.js";
@@ -21,6 +23,13 @@ export const ROUND_TRIP_MS = 20;
  * (WASM: 500–800 ms per decision) a superseded evaluation could make a fresh held duplicate submit miss its budget.
  */
 export const SUPERSEDED_MAX_MS = 300;
+/**
+ * While nothing can be held (observe), a queued item's priority rises by one for each this many ms it has waited, up
+ * to AGED_MAX (the background priority): an error or transition decision (priority 0) that waited this long goes
+ * before fresh writes (priority 1), oldest first, instead of waiting out its deadline behind them.
+ */
+export const AGING_MS = 1000;
+export const AGED_MAX = 1;
 
 /** The model's typical decision latency from its status alone (no measured decisions yet). */
 export function typicalLatency(st: ModelStatus | undefined): number {
@@ -79,6 +88,12 @@ export class DeciderQueue {
   private dropped = 0;
   /** Called (at most once a minute) when an evaluation is dropped by the budget. */
   onBudget?: (b: { decisionsLastMinute: number; dropped: number }) => void;
+  /**
+   * Whether a queued item may be held, now or before the next evaluation ends (the runtime: guard or heal). Default
+   * true (the conservative reading). False (observe: nothing is ever held): superseded items are computed whatever
+   * the latency, and waiting items age (AGING_MS).
+   */
+  holds: () => boolean = () => true;
   private budgetWarnedAt = -Infinity;
 
   budget(): { decisionsLastMinute: number; dropped: number } {
@@ -149,9 +164,10 @@ export class DeciderQueue {
    * Effective priority: an item whose subject already went its way (`stale()` true: the request was sent, the
    * response delivered, the write applied) can only produce a detection and a report, so it runs behind every item
    * that can still act. It is not dropped for that: a lost answer is a lost detection (and, until 0.2.1, a queue
-   * that read as stuck).
+   * that read as stuck). With `aging` (nothing can be held: observe), an item below AGED_MAX gains one level per
+   * AGING_MS it has waited, up to AGED_MAX; equal levels go oldest first.
    */
-  private prio(it: QueueItem): number {
+  private prio(it: QueueItem, aging = false, now = 0): number {
     let superseded = false;
     try {
       superseded = !!it.stale?.();
@@ -159,7 +175,8 @@ export class DeciderQueue {
       superseded = false;
     }
     const p = it.req.priority ?? 0;
-    return superseded ? Math.min(p, 0) - 1 : p;
+    const base = superseded ? Math.min(p, 0) - 1 : p;
+    return aging && base < AGED_MAX ? Math.min(AGED_MAX, base + Math.floor(Math.max(0, now - it.t0) / AGING_MS)) : base;
   }
 
   /** Median of the measured decision latencies, else the provider's own estimate (0 when it has none). */
@@ -173,12 +190,14 @@ export class DeciderQueue {
 
   private next(): QueueItem | undefined {
     if (!this.q.length) return undefined;
+    const aging = !this.holds();
+    const now = this.clock.now();
     let best = 0;
     for (let i = 1; i < this.q.length; i++) {
       const a = this.q[i];
       const b = this.q[best];
-      const pa = this.prio(a);
-      const pb = this.prio(b);
+      const pa = this.prio(a, aging, now);
+      const pb = this.prio(b, aging, now);
       if (pa > pb || (pa === pb && a.seq < b.seq)) best = i;
     }
     return this.q.splice(best, 1)[0];
@@ -199,8 +218,9 @@ export class DeciderQueue {
         continue;
       }
       // a superseded item can only be reported: compute it when decisions are fast (it then delays a fresh held
-      // item by at most SUPERSEDED_MAX_MS, which the hold logic accounts for), skip it on a slow device
-      if (this.prio(item) < 0 && this.typicalMs(p) > SUPERSEDED_MAX_MS) {
+      // item by at most SUPERSEDED_MAX_MS, which the hold logic accounts for), skip it on a slow device, but only
+      // where an item can be held (guard, heal): in observe nothing waits behind it, so it is always computed
+      if (this.prio(item) < 0 && this.typicalMs(p) > SUPERSEDED_MAX_MS && this.holds()) {
         item.resolve(null);
         continue;
       }
@@ -236,8 +256,9 @@ export class DeciderQueue {
     this.busy = true;
     this.since = t1;
     let settled = false;
-    // runtime-side timeout: a provider that never answers must not block every later decision
-    const limit = item.deadline !== undefined ? Math.max(1, item.deadline - t1) : PROVIDER_TIMEOUT_MS;
+    // runtime-side timeout: a provider that never answers must not block every later decision (a long deadline,
+    // such as a deferred observe situation's, still frees the slot after PROVIDER_TIMEOUT_MS)
+    const limit = item.deadline !== undefined ? Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, item.deadline - t1)) : PROVIDER_TIMEOUT_MS;
     const timer = this.clock.setTimeout(() => {
       this.overdue = true;
       this.onError?.(Object.assign(new Error("the decision provider did not answer in time"), { code: "timeout" }));
@@ -251,7 +272,7 @@ export class DeciderQueue {
       item.resolve(r);
       this.pump();
     };
-    const req: EvaluateRequest = item.deadline !== undefined ? { ...item.req, timeoutMs: Math.max(1, item.deadline - t1) } : item.req;
+    const req: EvaluateRequest = item.deadline !== undefined ? { ...item.req, timeoutMs: limit } : item.req;
     let pr: Promise<Record<string, Answer>>;
     try {
       pr = p.evaluate(req);

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consent banners in shadow roots over the footer</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  /* Two consent banners render inside shadow roots and cover footer links at the end of the page (the bench found
+     the first on a public site). Both have buttons of their own, so neither is the bar without controls that
+     control-unreachable looks for, and nothing is reported:
+     - a closed shadow root in a host with no box (position: fixed, 0 px tall): the page cannot see the buttons;
+     - an open shadow root in a fixed host: the buttons are found through the shadow root. */
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  nav { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 24px; }
+  main { padding: 24px; min-height: 150vh; }
+  footer { display: flex; justify-content: space-between; padding: 16px 24px 24px; background: #f9fafb; }
+  #consent-a { position: fixed; left: 0; bottom: 0; width: 50%; height: 0; z-index: 2147483647; }
+  #consent-b { position: fixed; right: 0; bottom: 0; width: 50%; height: 88px; z-index: 2147483647; }
+</style>
+</head>
+<body>
+<nav><a href="#1">Product</a><a href="#2">Pricing</a><a href="#3">Docs</a><a href="#4">Blog</a><a href="#5">About</a><a href="#6">Careers</a><a href="#7">Press</a><a href="#8">Contact</a><a href="#9">Status</a><a href="#10">Sign in</a></nav>
+<main><p>Content of the page.</p></main>
+<footer><a href="#terms" id="terms">Terms and privacy</a><a href="#language" id="language">English (US)</a></footer>
+<div id="consent-a"></div>
+<div id="consent-b"></div>
+<script>
+  const banner = (root) => {
+    root.innerHTML =
+      '<style>.b { position: fixed; bottom: 0; width: 50%; height: 88px; box-sizing: border-box; padding: 12px 16px; background: #111827; color: #f9fafb; } button { margin-left: 8px; }</style>' +
+      '<div class="b">This site uses cookies. <button type="button">Accept</button><button type="button">Settings</button></div>';
+  };
+  const a = document.getElementById("consent-a").attachShadow({ mode: "closed" });
+  banner(a);
+  a.querySelector(".b").style.left = "0";
+  const b = document.getElementById("consent-b").attachShadow({ mode: "open" });
+  banner(b);
+  b.querySelector(".b").style.right = "0";
+</script>
+</body>
+</html>

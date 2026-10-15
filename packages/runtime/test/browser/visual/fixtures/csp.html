@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blocked by CSP</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<link rel="stylesheet" href="/csp/csp.css">
+<style data-k="inline" data-expect="csp-blocked">.note { color: #b91c1c; }</style>
+</head>
+<body>
+<h1>Strict policy</h1>
+<p class="note">This rule is blocked by style-src.</p>
+<img src="https://img.example.invalid/logo.png" alt="Logo" width="120" height="40" data-k="logo" data-expect="csp-blocked">
+</body>
+</html>

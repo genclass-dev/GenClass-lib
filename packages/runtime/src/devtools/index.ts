@@ -11,10 +11,13 @@
 import type {
   ActionRecord,
   Answer,
+  CheckFinding,
   Clock,
   Decision,
   EffectiveGates,
   Explanation,
+  Learned,
+  LearnedFlow,
   Mode,
   ModelStatus,
   Op,
@@ -59,7 +62,7 @@ import {
 } from "./ui.js";
 
 export type DevtoolsPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
-export type DevtoolsTab = "interventions" | "detections" | "activity" | "now";
+export type DevtoolsTab = "interventions" | "detections" | "checks" | "activity" | "now" | "expectations";
 
 export interface DevtoolsOptions {
   /** Corner of the viewport. Default "bottom-right". */
@@ -106,7 +109,9 @@ const rawSetTimeout = g.setTimeout?.bind(g);
 const TABS: [DevtoolsTab, string][] = [
   ["interventions", "Interventions"],
   ["detections", "Detections"],
+  ["checks", "Checks"],
   ["activity", "Activity"],
+  ["expectations", "Expectations"],
   ["now", "Now"],
 ];
 const MODES: [Mode, string, string][] = [
@@ -209,8 +214,15 @@ class Devtools {
   private readonly emptyA: HTMLElement;
   private readonly emptyD: HTMLElement;
   private readonly emptyE: HTMLElement;
+  private readonly listC: HTMLElement;
+  private readonly emptyC: HTMLElement;
+  private readonly nC: HTMLElement;
+  /** Measured visual checks (rt.checks(), the "check" event), newest last. */
+  private chks = new Map<string, { f: CheckFinding; el?: HTMLElement; dirty: boolean }>();
+  private hlBox: HTMLElement | null = null;
   private readonly evs: HTMLElement;
   private readonly nowEl: HTMLElement;
+  private readonly expEl: HTMLElement;
 
   private isOpen = false;
   private tab: DevtoolsTab;
@@ -305,7 +317,7 @@ class Devtools {
         {
           type: "button",
           role: "tab",
-          class: `tab${id === "interventions" ? " ta" : id === "detections" ? " td" : ""}`,
+          class: `tab${id === "interventions" ? " ta" : id === "detections" ? " td" : id === "checks" ? " tc" : ""}`,
           id: `gc-t-${id}`,
           "data-tab": id,
           "aria-controls": `gc-p-${id}`,
@@ -314,11 +326,12 @@ class Devtools {
           onclick: () => this.setTab(id, true),
         },
         label,
-        id === "interventions" || id === "detections" ? h("span", { class: "n", text: "0" }) : null,
+        id === "interventions" || id === "detections" || id === "checks" ? h("span", { class: "n", text: "0" }) : null,
       ),
     );
     this.nA = this.tabBtns[0].querySelector(".n") as HTMLElement;
     this.nD = this.tabBtns[1].querySelector(".n") as HTMLElement;
+    this.nC = this.tabBtns[2].querySelector(".n") as HTMLElement;
     const tabs = h(
       "div",
       { class: "tabs" },
@@ -337,13 +350,22 @@ class Devtools {
     this.emptyA = h("div", { class: "empty" });
     this.emptyD = empty("eye", "Nothing flagged", "Findings the model reports but GenClass did not act on appear here, with the evidence and what it would have done.");
     this.emptyE = empty("pulse", "Waiting for activity", "User actions, requests, state writes and errors appear here as they happen.");
+    this.listC = h("div", { class: "list", role: "feed", "aria-label": "Measured visual checks" });
+    this.emptyC = empty(
+      "scan",
+      "No visual problems measured",
+      "Measured checks with fixed thresholds (unreadable text, broken images, sideways scrolling, covered controls, and more) appear here with the CSS change to make. They are measurements, not model findings.",
+    );
     this.evs = h("div", { class: "evs", role: "log", "aria-label": "Runtime activity" });
     this.nowEl = h("div", { class: "now" });
+    this.expEl = h("div", { class: "now", "data-part": "expectations" });
     this.panes = {
       interventions: pane("interventions", this.listA, this.emptyA),
       detections: pane("detections", this.listD, this.emptyD),
+      checks: pane("checks", this.listC, this.emptyC),
       activity: pane("activity", this.filterBar(), this.evs, this.emptyE),
       now: pane("now", this.nowEl),
+      expectations: pane("expectations", this.expEl),
     };
 
     this.panel = h(
@@ -426,12 +448,24 @@ class Devtools {
         /* runtime without this event */
       }
     };
-    on("decide", (d) => this.addDecision(d));
-    on("detect", (d) => this.addDet(d, true));
+    // detections from their decisions: the "detect" event carries possible ones only when the app asked for them
+    on("decide", (d) => {
+      this.addDecision(d);
+      if (d.detection) this.addDet(d, true);
+    });
     on("act", (a) => this.addAct(a, true));
     on("report", (r) => this.addReport(r));
     on("event", (e) => this.addEvent(e));
     on("status", () => this.mark(STATUS | MODE)); // setMode() is announced as a status change too
+    on("check", (f) => this.addCheck(f));
+    on("report", (r) => {
+      // a fix line (applied, undone, dropped) changes that finding's card
+      const c = r.kind === "check" && r.check ? this.chks.get(r.check.id) : undefined;
+      if (c) {
+        c.dirty = true;
+        this.mark(LISTS);
+      }
+    });
     // The runtime's clock (virtual in tests/sim), for "4s ago" labels and the overlay's own timers.
     try {
       const off = this.rt.use({
@@ -453,10 +487,22 @@ class Devtools {
       this.seen(d.at);
     }
     for (const a of safe(() => this.rt.interventions(MAX_CARDS), [] as ActionRecord[]).slice().sort((x, y) => x.at - y.at)) this.addAct(a, false);
+    // the tier the runtime recorded with the gates it decided with: the same detections the console and telemetry reported
     for (const d of decs) {
-      if (d.diagnosis && d.diagnosis !== "expected" && diagP(d) >= 0.6) this.addDet(d, false);
+      if (d.detection) this.addDet(d, false);
     }
     for (const e of safe(() => this.rt.history(MAX_ROWS), [] as RtEvent[])) this.addEvent(e);
+    const checks = (this.rt as { checks?: (n?: number) => CheckFinding[] }).checks;
+    if (typeof checks === "function") for (const f of safe(() => checks.call(this.rt, MAX_CARDS), [] as CheckFinding[])) this.addCheck(f);
+    // mounting the overlay means someone is looking: start the measured visual checks when the option is "local"
+    safe(() => (this.rt as { vis?: { start(): void } | null }).vis?.start(), undefined);
+  }
+
+  private addCheck(f: CheckFinding): void {
+    if (!f || this.chks.has(f.id)) return;
+    this.chks.set(f.id, { f, dirty: false });
+    bound(this.chks, MAX_CARDS, (c) => c.el?.remove());
+    this.mark(LISTS);
   }
 
   // -------------------------------------------------------------------------------------- data intake
@@ -535,11 +581,16 @@ class Devtools {
     }
     bound(this.dets, MAX_CARDS, (e) => e.el?.remove());
     bound(this.detOf, 1000);
-    if (live) this.notify("d");
+    // a possible detection is a secondary card: no pulse, not counted as unseen
+    if (live && d.detection !== "possible") this.notify("d");
     this.mark(LISTS);
   }
 
   private addReport(r: Report): void {
+    if (r.kind === "expectation") {
+      if (this.isOpen && this.tab === "expectations" && !this.paused) this.renderExpectations();
+      return;
+    }
     if (r.kind === "status" || !r.message) return;
     const id = r.kind === "intervene" ? r.action?.id ?? (r.decision ? this.actOf.get(r.decision.id) ?? r.decision.id : undefined) : r.decision?.id;
     if (!id) return;
@@ -604,6 +655,7 @@ class Devtools {
     if (this.isOpen && !this.paused) {
       if (b & LISTS) this.renderList(this.acts, this.listA, this.emptyA);
       if (b & LISTS) this.renderList(this.dets, this.listD, this.emptyD);
+      if (b & LISTS) this.renderChecks();
       if (b & EVENTS) this.renderEvents();
       b &= ~(LISTS | EVENTS);
     }
@@ -613,8 +665,13 @@ class Devtools {
 
   private renderCounts(): void {
     const na = this.acts.size;
+    // possible detections (observe's lower tier) are listed as secondary cards, not counted in the badges
     let nd = 0;
-    for (const e of this.dets.values()) nd += e.count;
+    let np = 0;
+    for (const e of this.dets.values()) {
+      if (e.decision?.detection === "possible") np += e.count;
+      else nd += e.count;
+    }
     (this.pcA.lastElementChild as HTMLElement).textContent = String(na);
     (this.pcD.lastElementChild as HTMLElement).textContent = String(nd);
     this.pcA.classList.toggle("on", na > 0);
@@ -623,6 +680,9 @@ class Devtools {
     this.nD.textContent = String(nd);
     this.nA.classList.toggle("on", na > 0);
     this.nD.classList.toggle("on", nd > 0);
+    this.nD.title = np ? `${nd} likely, ${np} possible` : "";
+    this.nC.textContent = String(this.chks.size);
+    this.nC.classList.toggle("on", this.chks.size > 0);
     const s = safe(() => this.rt.status.state, "off");
     this.pill.setAttribute("aria-label", `Open GenClass devtools: ${na} interventions, ${nd} detections, model ${s}`);
     this.pz.hidden = !this.paused;
@@ -717,6 +777,96 @@ class Devtools {
     emptyEl.hidden = m.size > 0;
   }
 
+  // ------------------------------------------------------------------------------------- measured checks
+
+  private renderChecks(): void {
+    for (const c of this.chks.values()) {
+      if (!c.el) {
+        c.el = this.checkCard(c.f);
+        this.listC.prepend(c.el);
+      } else if (c.dirty) {
+        const old = c.el;
+        c.el = this.checkCard(c.f);
+        old.replaceWith(c.el);
+      }
+      c.dirty = false;
+    }
+    this.emptyC.hidden = this.chks.size > 0;
+  }
+
+  /** One finding: kind, target, what was measured against which threshold, the CSS to make, Show and Undo. */
+  private checkCard(f: CheckFinding): HTMLElement {
+    const line = f.message.replace(/^\[GenClass\] Check \(measured\): /, "");
+    const cut = line.indexOf(" Suggested CSS: ");
+    const body = cut >= 0 ? line.slice(0, cut) : line;
+    const css = f.suggestion ? `${f.suggestion.selector} { ${f.suggestion.css} }` : "";
+    const fix = f.fix;
+    return h(
+      "article",
+      { class: `card chk sev-${f.severity}`, "data-id": f.id, "data-kind": f.kind, "aria-label": `${f.kind} on ${f.target}` },
+      h("div", { class: "ci" }, icon("scan")),
+      h(
+        "div",
+        { class: "cb" },
+        h(
+          "div",
+          { class: "ch" },
+          h("span", { class: "ct", text: f.kind }),
+          h("span", { class: "badge", text: "measured", title: "A deterministic measurement against a fixed threshold, not a model finding" }),
+          h("time", { class: "ago", "data-at": String(f.at), text: ago(this.now() - f.at), title: `runtime clock ${clockT(f.at)}` }),
+        ),
+        h("p", { class: "cx", text: body }),
+        h(
+          "div",
+          { class: "chips" },
+          h("span", { class: `chip t-${f.severity === "high" ? "bad" : f.severity === "medium" ? "warn" : "ok"}` }, h("span", { class: "cd" }), h("b", { text: f.severity })),
+          h("span", { class: "chip", title: f.threshold.source }, `threshold ${f.threshold.value} ${f.threshold.unit}`),
+          f.count && f.count > 1 ? h("span", { class: "chip", text: `${f.count}×` }) : null,
+          f.context.state && f.context.state !== "rest" ? h("span", { class: "chip", text: f.context.state }) : null,
+        ),
+        css ? sec("Suggested CSS", copyBtn(css), h("pre", { class: "code", "data-part": "css", text: css }), f.suggestion?.note ? h("p", { class: "none", text: f.suggestion.note }) : null) : null,
+        fix?.applied
+          ? h("div", { class: "note chg" }, icon("check"), h("span", { text: `Runtime fix applied: ${fix.css ?? ""}` }))
+          : fix?.reason
+            ? h("div", { class: "note" }, icon("info"), h("span", { text: `Runtime fix: ${fix.reason}` }))
+            : null,
+        h(
+          "div",
+          { class: "cf" },
+          h("button", { class: "btn", type: "button", "data-act": "show", title: "Scroll to the element and outline it", onclick: () => this.show(f) }, icon("eye"), "Show"),
+          fix?.applied
+            ? h("button", { class: "btn u", type: "button", "data-act": "undo", title: "Remove the runtime fix", onclick: () => this.undoFix(f) }, icon("undo"), "Undo")
+            : null,
+        ),
+      ),
+    );
+  }
+
+  /** Scroll to the finding's element and outline it inside the overlay's own shadow root (nothing is written to the app's DOM). */
+  private show(f: CheckFinding): void {
+    const el = safe(() => f.element(), null);
+    if (!el) return;
+    safe(() => el.scrollIntoView({ block: "center" }), undefined);
+    this.after(250, () => {
+      const r = el.getBoundingClientRect();
+      const box = this.hlBox ?? h("div", { class: "hl", "data-part": "highlight" });
+      this.hlBox = box;
+      Object.assign(box.style, { left: `${r.left - 3}px`, top: `${r.top - 3}px`, width: `${r.width + 6}px`, height: `${r.height + 6}px`, opacity: "1" });
+      (this.sr.querySelector(".root") as HTMLElement | null)?.appendChild(box);
+      this.after(1800, () => {
+        box.style.opacity = "0";
+      });
+    });
+  }
+
+  private undoFix(f: CheckFinding): void {
+    safe(() => f.fix?.undo(), false);
+    const c = this.chks.get(f.id);
+    if (c) c.dirty = true;
+    this.bits |= LISTS;
+    this.flush();
+  }
+
   // --------------------------------------------------------------------------------------------- cards
 
   private card(e: Entry): HTMLElement {
@@ -732,9 +882,10 @@ class Devtools {
     if (!body) body = topFact(d?.facts) || a?.subject || d?.subject || "";
     const evId = `gc-ev-${e.kind}-${e.id}`;
     const dp = d ? diagP(d) : NaN;
+    const possible = !isAct && d?.detection === "possible";
     const el = h(
       "article",
-      { class: `card ${e.kind}${e.undone ? " undone" : ""}${e.fresh ? " new" : ""}${e.open ? " open" : ""}`, "data-id": e.id, "aria-label": title },
+      { class: `card ${e.kind}${possible ? " possible" : ""}${e.undone ? " undone" : ""}${e.fresh ? " new" : ""}${e.open ? " open" : ""}`, "data-id": e.id, "aria-label": possible ? `Possible: ${title}` : title },
       h("div", { class: "ci" }, icon(isAct ? "shield" : "eye")),
       h(
         "div",
@@ -753,6 +904,7 @@ class Devtools {
           d?.diagnosis
             ? h("span", { class: `chip t-${diagTone(d.diagnosis)}`, title: `Diagnosis, calibrated probability ${dp.toFixed(2)}` }, h("span", { class: "cd" }), h("b", { text: d.diagnosis }), h("span", { class: "p", text: pct(dp) }))
             : null,
+          possible ? h("span", { class: "chip poss", title: "Possible: below the report gate, at or above observe's possible gate (rt.gates().possible)" }, "possible") : null,
           a ? h("span", { class: "chip", title: `Action, ${a.tier} tier` }, h("code", { text: a.action }), h("span", { class: "tier", text: a.tier })) : null,
         ),
         isAct ? this.changedNote(e) : this.wouldNote(d),
@@ -1098,6 +1250,63 @@ class Devtools {
     );
   }
 
+  // ---------------------------------------------------------------------------------------- expectations
+
+  /** One learned flow as display lines: the action, then each step with its support and whether it is expected. */
+  private flowLines(f: LearnedFlow): string[] {
+    const q = (x: { p50: number; p95: number } | undefined) => (x ? `, within ${dur(x.p95)}` : "");
+    const tag = (x: { expected: boolean; missed?: boolean }) => (x.missed ? " · missed: not expected until seen again" : x.expected ? " · expected" : "");
+    const out = [`${f.action} on ${f.route}: ${f.n} observation${f.n === 1 ? "" : "s"} (${f.repeats} repeated in a visit), ${f.sessions} session${f.sessions === 1 ? "" : "s"}${f.settleMs ? `, settles in ${dur(f.settleMs.p95)}` : ""}`];
+    for (const c of f.children) out.push(`  → ${c.signature} (${c.n}/${f.n}${q(c.delayMs)})${c.protected ? " · protected" : c.expected && !c.expectedOnRepeat ? " · expected the first time in a visit" : tag(c)}`);
+    for (const w of f.writes) out.push(`  ✎ ${w.signature} writes ${w.field} (${w.n}/${w.of})${tag(w)}`);
+    for (const u of f.followUps) out.push(`  ↳ ${u.then} after ${u.after} (${u.n}/${u.of}${q(u.delayMs)})${tag(u)}`);
+    for (const n of f.nav) out.push(`  ⇒ ${n.to} (${n.n}/${f.n})${tag(n)}`);
+    return out;
+  }
+
+  /** The Expectations view: what GenClass learned about this page's flows, and the steps that did not happen. */
+  private renderExpectations(): void {
+    if (!this.isOpen || this.tab !== "expectations" || this.dead) return;
+    const fn = (this.rt as { learned?: () => Learned }).learned;
+    const learned: Learned | null = typeof fn === "function" ? safe(() => fn.call(this.rt), null as Learned | null) : null;
+    const now = this.now();
+    this.expEl.classList.toggle("paused", this.paused);
+    if (!learned) {
+      this.expEl.replaceChildren(empty("scan", "Not available", "This runtime does not expose what it learned (rt.learned())."));
+      return;
+    }
+    const devs = [...learned.deviations].reverse().slice(0, 50);
+    const flows = learned.flows.slice(0, 40);
+    const block = (lines: string[]): Kid => (lines.length ? h("pre", { class: "code", text: lines.join("\n") }) : h("div", { class: "none", text: "none" }));
+    this.expEl.replaceChildren(
+      ...([
+        h("div", { class: "nh" }, h("span", { class: "live", text: this.paused ? "Paused" : "Live" }), h("span", { text: `What GenClass learned about ${learned.route}` }), h("span", { class: "sp" }), h("span", { class: "none", text: `session ${learned.session}` })),
+        h("p", { class: "none", text: "Learned from repetition, reported when a usual step does not happen. Reporting only: no model, no action in any mode." }),
+        sec(
+          `Deviations${devs.length ? ` · ${devs.length}` : ""}`,
+          null,
+          devs.length
+            ? h(
+                "ul",
+                { class: "facts", "data-part": "deviations" },
+                devs.map((e) => h("li", {}, h("time", { class: "ago", "data-at": String(e.at), text: ago(now - e.at), title: `runtime clock ${clockT(e.at)}` }), " ", e.message.replace(/^\s*\[GenClass\]\s*/, ""))),
+              )
+            : h("div", { class: "none", text: "No usual step has been missed." }),
+        ),
+        sec(
+          `Learned flows${flows.length ? ` · ${flows.length}` : ""}`,
+          null,
+          flows.length
+            ? h("pre", { class: "code", "data-part": "flows", text: flows.flatMap((f) => this.flowLines(f)).join("\n") })
+            : learned.expectations === false
+              ? h("div", { class: "none", "data-part": "flows-off", text: "Flow expectations are off (opt-in): GenClass.init({ learn: { expectations: true } }) learns what each action usually does." })
+              : h("div", { class: "none", text: "Nothing learned yet: a flow is a user action and the requests it starts, seen several times across visits." }),
+        ),
+        sec(`Learned relations${learned.relations.length ? ` · ${learned.relations.length}` : ""}`, null, block(learned.relations.map((r) => `${r.text} (held at ${r.held} settled points)`))),
+      ].filter(Boolean) as Node[]),
+    );
+  }
+
   /**
    * Registered and automatically discovered stores: discovered React and Zustand state is observed only (GenClass
    * sees its writes, never holds, drops or reverts them); discovered Redux stores are full adapters.
@@ -1188,6 +1397,7 @@ class Devtools {
     }
     for (const [id, p] of Object.entries(this.panes)) p.hidden = id !== t;
     if (t === "now") this.renderNow();
+    if (t === "expectations") this.renderExpectations();
     if (t === "activity") {
       const p = this.panes.activity;
       if (!this.scrolledActivity) {
@@ -1220,6 +1430,7 @@ class Devtools {
     this.bits |= LISTS | EVENTS;
     this.flush();
     if (this.tab === "now") this.renderNow();
+    if (this.tab === "expectations") this.renderExpectations();
   }
 
   private clear(): void {
@@ -1227,6 +1438,8 @@ class Devtools {
       for (const e of m.values()) e.el?.remove();
       m.clear();
     }
+    for (const c of this.chks.values()) c.el?.remove();
+    this.chks.clear();
     for (const r of this.rows) r.remove();
     this.rows = [];
     this.rowBySeq.clear();
@@ -1236,7 +1449,7 @@ class Devtools {
     this.unseen = 0;
     this.bits |= ALL;
     this.flush();
-    this.emptyA.hidden = this.emptyD.hidden = this.emptyE.hidden = false;
+    this.emptyA.hidden = this.emptyD.hidden = this.emptyE.hidden = this.emptyC.hidden = false;
   }
 
   private roving(e: KeyboardEvent, items: HTMLElement[], pick: (el: HTMLElement) => void): void {
@@ -1292,6 +1505,7 @@ class Devtools {
       }
       this.ticks++;
       if (this.tab === "now" && !this.paused) this.renderNow();
+      if (this.tab === "expectations" && !this.paused && this.ticks % 5 === 0) this.renderExpectations();
       if (this.ticks % 5 === 0) {
         const now = this.now();
         for (const t of this.sr.querySelectorAll<HTMLElement>("time.ago")) t.textContent = ago(now - Number(t.dataset.at));

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A web-component app</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }</style>
+</head>
+<body>
+<!-- The whole UI renders inside a shadow root (Lit and Stencil do this by default): the light DOM has no text. -->
+<my-app></my-app>
+<script>
+  customElements.define(
+    "my-app",
+    class extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: "open" }).innerHTML = "<style>:host { display: block; padding: 24px; }</style><h1>Dashboard</h1><p>Rendered inside a shadow root.</p><button type=\"button\">Refresh</button>";
+      }
+    },
+  );
+</script>
+</body>
+</html>

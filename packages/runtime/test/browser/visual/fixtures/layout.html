@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .product { width: 300px; height: 300px; }
+  .cover { width: 300px; height: 300px; object-fit: cover; }
+  .wide { width: 1600px; height: 40px; background: #e5e7eb; }
+  .carousel { overflow: hidden; width: 600px; }
+  .track { display: flex; width: 2400px; }
+  .track div { width: 600px; height: 40px; background: #f3f4f6; }
+  .buy { background: var(--brand-primary); color: #fff; border: 0; padding: 8px 16px; font: inherit; }
+  .ok-var { color: var(--undefined-but-has-fallback, #111827); }
+</style>
+</head>
+<body>
+<img class="product" data-k="d1" src="/img/600x300.png" alt="Stretched mug" data-expect="image-distorted">
+<img class="cover" src="/img/600x300.png" alt="Cropped mug">
+<img src="/img/600x300.png" alt="Natural" width="300" height="150">
+<div class="carousel"><div class="track"><div>One</div><div>Two</div><div>Three</div><div>Four</div></div></div>
+<p><button class="buy" type="button" data-k="v1" data-expect="css-var-undefined text-invisible">Buy now</button></p>
+<p class="ok-var">Fallback colour</p>
+<div class="wide" data-k="w1" data-expect="page-overflow-x"></div>
+</body>
+</html>

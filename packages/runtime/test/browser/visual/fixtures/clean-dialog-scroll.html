@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A dialog that scrolls inside</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<!-- A dialog that scrolls on its own (MUI Dialog scroll="paper", shadcn DialogContent with max-h and
+     overflow-y-auto) over a fixed backdrop. The controls scrolled below its visible area are not covered by the
+     backdrop; they are scrolled away. -->
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1200; }
+  .paper { position: fixed; top: 100px; left: 32px; width: 360px; max-height: 220px; overflow-y: auto; background: #fff; z-index: 1300; padding: 16px; box-sizing: border-box; border-radius: 8px; }
+  .paper label { display: block; margin: 8px 0; }
+</style>
+</head>
+<body>
+<h1>Profile</h1>
+<div class="backdrop"></div>
+<div class="paper" role="dialog" aria-labelledby="t">
+  <h2 id="t">Edit profile</h2>
+  <label>Name <input type="text"></label>
+  <label>Email <input type="email"></label>
+  <label>Phone <input type="tel"></label>
+  <label>City <input type="text"></label>
+  <label>Country <input type="text"></label>
+  <label>Company <input type="text"></label>
+  <label>Title <input type="text"></label>
+  <label>Website <input type="url"></label>
+  <label>Bio <textarea rows="2"></textarea></label>
+  <label><input type="checkbox"> Newsletter</label>
+  <label><input type="checkbox"> Product updates</label>
+  <label><input type="checkbox"> Security alerts</label>
+  <button type="button">Cancel</button> <button type="button">Save</button>
+</div>
+</body>
+</html>

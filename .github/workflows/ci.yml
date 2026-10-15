@@ -56,6 +56,66 @@ jobs:
           NODE_OPTIONS: --expose-gc
         run: npx vitest run test/review-perf.test.ts --retry=2
 
+  # Measured visual checks (docs/runtime/VISUAL.md section 14) in real Chromium, and the first-load size of /auto and
+  # the main entry against the release line this branch builds on (FIRST_LOAD_BASE, the merge base with it). Chromium
+  # is installed here only, never on a developer machine.
+  visual-browser:
+    name: "@genclass/runtime: visual checks in Chromium, first-load size"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build -w @genclass/runtime
+
+      # The visual stub's budget was 0.5 KB; with the narrow development-host rule and the hidden-tab gate it measures
+      # about 0.55 KB; 0.6 KB here was approved with the 0.3.0-beta.0 size limits (docs/runtime/RESULTS.md section 13).
+      # The base is main (0.3.0 is merged there).
+      - name: First-load size against the release line (fails at 0.6 KB gzip growth)
+        env:
+          FIRST_LOAD_BASE: origin/main
+        run: |
+          base=$(git merge-base HEAD "$FIRST_LOAD_BASE")
+          echo "merge base with $FIRST_LOAD_BASE: $base"
+          git worktree add ../genclass-base "$base"
+          (cd ../genclass-base && npm ci --no-audit --no-fund && npm run build -w @genclass/runtime)
+          node packages/runtime/test/first-load-size.mjs packages/runtime/dist ../genclass-base/packages/runtime/dist --max-growth-kb 0.6
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-1.63.0
+
+      - name: Install Chromium
+        working-directory: packages/runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Visual checks (Playwright, Chromium)
+        working-directory: packages/runtime
+        run: npx playwright test --config test/browser/visual/playwright.config.ts
+
+      - name: Upload results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-browser-results
+          path: packages/runtime/test-results/visual
+          retention-days: 7
+
   telemetry-worker:
     name: "telemetry-worker: unit tests (collector, dashboard)"
     runs-on: ubuntu-latest

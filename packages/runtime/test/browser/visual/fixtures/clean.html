@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean page</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  :root { --brand: #1d4ed8; --surface: #ffffff; }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 72px; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: var(--surface); }
+  header.topbar { position: sticky; top: 0; height: 64px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: #fff; border-bottom: 1px solid #e5e7eb; z-index: 10; }
+  header.topbar a { color: var(--brand); text-decoration: none; }
+  .hero { padding: 48px 24px; background: linear-gradient(135deg, #1e3a8a, #6d28d9); color: #fff; }
+  .hero .eyebrow { color: rgba(255, 255, 255, 0.8); }
+  .grad-text { background: linear-gradient(90deg, #f97316, #db2777); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 32px; font-weight: 800; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; color: #fff; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; padding: 24px; }
+  .card { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; }
+  .card img { display: block; width: 100%; height: 160px; object-fit: cover; }
+  .card p { margin: 12px; color: #374151; }
+  .muted { color: #6b7280; }
+  .dark-band { background: #111827; color: #f9fafb; padding: 24px; }
+  .dark-band a { color: #93c5fd; }
+  .carousel { overflow: hidden; width: 100%; }
+  .track { display: flex; width: 300%; }
+  .slide { flex: 0 0 33.333%; padding: 24px; background: #f3f4f6; }
+  .banner { background: url("/img/800x200.png?c=1f2937") center / cover; color: #fff; padding: 32px 24px; }
+  .glass { background: rgba(255, 255, 255, 0.7); padding: 12px; }
+  .faded { opacity: 0.5; }
+  .faded p { color: #fff; }
+  .shadowed { color: #fff; text-shadow: 0 0 3px #000; }
+  .tooltip { opacity: 0; color: #fff; background: #fff; }
+  .btn { display: inline-block; padding: 8px 16px; border-radius: 8px; background: var(--brand); color: #fff; border: 0; font: inherit; cursor: pointer; }
+  .icon { width: 20px; height: 20px; vertical-align: middle; }
+  footer { padding: 24px; background: #f9fafb; color: #4b5563; }
+  pre { overflow-x: auto; margin: 24px; }
+  table { border-collapse: collapse; margin: 24px; }
+  td, th { border: 1px solid #e5e7eb; padding: 4px 8px; }
+  .fallback { color: var(--not-defined-anywhere, #111827); }
+  .off-canvas { position: fixed; top: 0; right: 0; width: 320px; height: 100vh; transform: translateX(100%); background: #fff; }
+</style>
+</head>
+<body>
+<header class="topbar"><strong>Acme</strong><a href="#features">Features</a><a href="#pricing">Pricing</a><button class="btn" type="button">Sign up</button></header>
+<section class="hero">
+  <p class="eyebrow">New in 2026</p>
+  <h1>Ship faster with fewer bugs</h1>
+  <p class="grad-text">Gradient headline</p>
+  <label><span class="sr-only">Email address</span><input type="email" placeholder="you@example.com"></label>
+  <button class="btn" type="button" disabled style="background: #e5e7eb; color: #f3f4f6">Disabled</button>
+</section>
+<main>
+  <h2 id="features">Features</h2>
+  <div class="cards">
+    <div class="card"><img src="/img/600x400.png" alt="Dashboard" width="600" height="400"><p>Dashboards that update live.</p></div>
+    <div class="card"><img src="/img/600x400.png?c=a3a3a3" alt="Reports" width="600" height="400"><p>Reports you can share.</p></div>
+    <div class="card"><img src="/img/600x400.png?c=047857" alt="Alerts" width="600" height="400" loading="lazy"><p>Alerts when something breaks.</p></div>
+  </div>
+  <div class="carousel"><div class="track"><div class="slide">Slide one</div><div class="slide">Slide two</div><div class="slide">Slide three</div></div></div>
+  <div class="banner"><p>Text over an image</p></div>
+  <div class="glass"><p>Text on a translucent panel</p></div>
+  <div class="faded"><p>Half-transparent group</p></div>
+  <p class="shadowed">Text with a shadow</p>
+  <span class="tooltip" role="tooltip">Hidden tooltip</span>
+  <p aria-hidden="true" style="color: #fff">Decorative</p>
+  <details><summary>More details</summary><p style="color: #fff; background: #fff">Hidden in a closed details element</p></details>
+  <div role="dialog" aria-modal="true" hidden><p>Closed dialog</p><button type="button">OK</button></div>
+  <h2 id="pricing">Pricing</h2>
+  <table><tr><th>Plan</th><th>Price</th><th>Note</th></tr><tr><td>Free</td><td>$0</td><td>null</td></tr><tr><td>Pro</td><td>$12</td><td>-</td></tr></table>
+  <pre><code>const t = "{{ user.name }}"; // template syntax in a code sample, which is fine</code></pre>
+  <p class="fallback">Colour from a custom property with a fallback</p>
+  <p class="muted">Muted grey text that is still readable.</p>
+  <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="#1d4ed8"/><text x="4" y="14" fill="#fff" font-size="8">i</text></svg>
+</main>
+<aside class="off-canvas" aria-hidden="true"><p>Menu</p></aside>
+<section class="dark-band"><p>Dark section with light text and a <a href="#features">link</a>.</p></section>
+<footer><p>&copy; 2026 Acme Inc. All rights reserved.</p></footer>
+</body>
+</html>

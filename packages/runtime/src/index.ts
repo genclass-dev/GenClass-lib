@@ -8,10 +8,12 @@ import type { Clock, CreateOptions, DecisionProvider, DeviceEnv, EvaluateRequest
 import { browserClock } from "./clock.js";
 import { RuntimeImpl } from "./runtime.js";
 import { createModelHost } from "./model/host.js";
+import { deviceEnv, evalLoadIf } from "./model/device.js";
 import { startTelemetry } from "./telemetry/index.js";
 import { telemetryOff } from "./telemetry/client.js";
 import { resolveToken } from "./token.js";
 import { protect, setProtectResolver } from "./protect.js";
+import { startVisual } from "./visual/start.js";
 
 export * from "./types.js";
 export { browserClock } from "./clock.js";
@@ -64,42 +66,7 @@ function skippedProvider(reason: string): DecisionProvider {
   return { status: { state: "skipped", reason }, ready: () => Promise.reject(err), evaluate: () => Promise.reject(err) };
 }
 
-/** What the page can tell about the device (OPTIONS-SPEC §4.15). Unknown values stay undefined (= allowed). */
-export function deviceEnv(g: Record<string, unknown>): DeviceEnv {
-  const nav = (g.navigator ?? {}) as {
-    deviceMemory?: number;
-    hardwareConcurrency?: number;
-    gpu?: unknown;
-    connection?: { saveData?: boolean; effectiveType?: string };
-    userAgentData?: { mobile?: boolean };
-  };
-  const env: DeviceEnv = { webgpu: !!nav.gpu };
-  if (typeof nav.userAgentData?.mobile === "boolean") env.mobile = nav.userAgentData.mobile;
-  if (typeof nav.deviceMemory === "number") env.deviceMemoryGB = nav.deviceMemory;
-  if (typeof nav.hardwareConcurrency === "number") env.cores = nav.hardwareConcurrency;
-  if (typeof nav.connection?.saveData === "boolean") env.saveData = nav.connection.saveData;
-  if (typeof nav.connection?.effectiveType === "string") env.effectiveType = nav.connection.effectiveType;
-  return env;
-}
-
-/** loadIf → "load" | "lazy" | skip reason. A throwing predicate counts as allowed. */
-export function evalLoadIf(m: ModelOptions, env: DeviceEnv, warn: (s: string) => void): "load" | "lazy" | { skip: string } {
-  const li = m.loadIf ?? { saveData: "lazy" as const };
-  if (typeof li === "function") {
-    try {
-      const v = li(env);
-      return v === "lazy" ? "lazy" : v === false ? { skip: "loadIf" } : "load";
-    } catch (e) {
-      warn(`model.loadIf threw (${(e as Error)?.message ?? e}); loading anyway.`);
-      return "load";
-    }
-  }
-  if (typeof li.minDeviceMemoryGB === "number" && typeof env.deviceMemoryGB === "number" && env.deviceMemoryGB < li.minDeviceMemoryGB) return { skip: "device-memory" };
-  const sd = li.saveData ?? "lazy";
-  if (env.saveData === true && sd === "skip") return { skip: "save-data" };
-  if (env.saveData === true && sd === "lazy") return "lazy";
-  return "load";
-}
+export { deviceEnv, evalLoadIf, DEFAULT_LOAD_IF } from "./model/device.js";
 
 function hostOptions(m: ModelOptions, env: DeviceEnv): Record<string, unknown> {
   const { loadIf: _l, inlineFallback: _i, threads, timeoutMs, maxDecisionsPerMinute: _d, unloadAfterIdleMs: _u, ...rest } = m;
@@ -107,7 +74,7 @@ function hostOptions(m: ModelOptions, env: DeviceEnv): Record<string, unknown> {
   if (typeof threads === "number" && threads >= 1) out.maxThreads = Math.floor(threads);
   else if (threads === "auto" && typeof env.cores === "number") out.maxThreads = Math.min(4, Math.max(1, env.cores - 1));
   if (typeof timeoutMs === "number" && timeoutMs > 0) out.timeoutMs = timeoutMs;
-  // inlineFallback:false needs a host option (src/model/**, not CORE): flagged, passed through for the host to honour.
+  // inlineFallback:false: the host then never runs the model on the main thread (status "skipped", worker-unavailable)
   if (m.inlineFallback === false) out.inlineFallback = false;
   return out;
 }
@@ -130,7 +97,9 @@ function makeHost(m: ModelOptions, fetchFn: typeof fetch | undefined, clock: Clo
 
 /**
  * model.unloadAfterIdleMs (OPTIONS-SPEC §4.18): tears the host down after `idleMs` without an evaluation (state
- * "unloaded"); the next evaluation starts a reload from the cache and is itself rejected (fail open: released unchanged).
+ * "unloaded"); `ready()` or the next evaluation starts a reload from the cache (an evaluation that finds it unloaded is
+ * itself rejected: fail open, released unchanged). The runtime asks for `ready()` at the next salient situation
+ * (runtime.ts consultable / trigger), which in observe is then decided once the model is back.
  */
 export class IdleUnloadProvider implements DecisionProvider {
   private host: DecisionProvider | null;
@@ -168,7 +137,11 @@ export class IdleUnloadProvider implements DecisionProvider {
     return this.host ? this.host.status : { state: "unloaded" };
   }
   ready(): Promise<void> {
-    if (!this.host) this.host = this.attach(this.create());
+    // a reload asked for (the runtime's next salient situation, rt.ready): idle from now on until it is used
+    if (!this.host) {
+      this.host = this.attach(this.create());
+      this.arm();
+    }
     return this.host.ready();
   }
   evaluate(req: EvaluateRequest): ReturnType<DecisionProvider["evaluate"]> {
@@ -223,7 +196,9 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
   const token = resolveToken(options.token, (m) => con()?.warn?.(`[GenClass] ${m}`));
   if (token) tokenOf.set(rt, token);
   if (options.enabled === false) rt.telemetry = telemetryOff("disabled");
-  else
+  else {
+    // measured visual checks (docs/runtime/VISUAL.md): "local" by default with GenClass.init() in a browser
+    rt.vis = startVisual(rt, options.visual, telemetryDefaultOn);
     rt.telemetry = startTelemetry(
       rt,
       options.telemetry,
@@ -236,6 +211,7 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
       },
       token,
     );
+  }
   // a token with telemetry off: say so once in debug; on a local host always (a developer trying the dashboard from
   // localhost would otherwise wait for data that never comes)
   const local = rt.telemetry.reason === "local";

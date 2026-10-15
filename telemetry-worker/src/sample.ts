@@ -1,7 +1,8 @@
 // The public sample dashboard (genclass.dev/dashboard/sample): simulated stats for a storefront, generated on each
 // request relative to the current time, so the page always shows a full period. Nothing is stored and no real
 // project is involved; the project name says it is simulated. Deterministic per day (a seeded generator), so a
-// refresh does not reshuffle the chart.
+// refresh does not reshuffle the chart. It shows the "possible issues" tier too (lower confidence, never counted as
+// problems), with its own simulated counts.
 
 import { dayKey, hourKey, RANGES, type Range, type Stats } from "./dashboard.js";
 
@@ -27,6 +28,23 @@ const TYPES: [string, number, [string, number][]][] = [
   ["transient", 0.35, [["/checkout", 1]]],
 ];
 const ACT = { duplicate: "coalesce", stale: "discard" } as Record<string, string>;
+/** The lower-confidence tier: per type, a daily rate and where it shows up (simulated). */
+const POSSIBLE: [string, number, [string, number][]][] = [
+  ["stale", 1.3, [["/search", 0.6], ["/products", 0.4]]],
+  ["slow", 1.1, [["/products/:id", 0.7], ["/checkout", 0.3]]],
+  ["duplicate", 0.8, [["/cart", 0.6], ["/account", 0.4]]],
+  ["overload", 0.5, [["/search", 1]]],
+  ["failing", 0.3, [["/orders", 1]]],
+];
+
+function split(n: number, routes: [string, number][], into: (route: string, c: number) => void): void {
+  let left = n;
+  routes.forEach(([route, f], i) => {
+    const c = i === routes.length - 1 ? left : Math.min(left, Math.max(1, Math.round(n * f)));
+    left -= c;
+    if (c > 0) into(route, c);
+  });
+}
 
 export function sampleStats(rangeParam: string | null, now: Date): Stats {
   const range: Range = rangeParam && (RANGES as string[]).includes(rangeParam) ? (rangeParam as Range) : "7d";
@@ -54,20 +72,42 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   const byRoute: Record<string, number> = {};
   for (const [k, , routes] of TYPES) {
     const n = tot[k] ?? 0;
-    if (!n) continue;
-    let left = n;
-    routes.forEach(([route, f], i) => {
-      const c = i === routes.length - 1 ? left : Math.min(left, Math.max(1, Math.round(n * f)));
-      left -= c;
-      if (c > 0) {
+    if (n) {
+      split(n, routes, (route, c) => {
         issue.push({ key: `${k}\t${route}`, count: c });
         byRoute[route] = (byRoute[route] ?? 0) + c;
+      });
+    }
+  }
+  // possible issues: their own draw per bucket, their own counters
+  const ptot: Record<string, number> = {};
+  const possibleBy = buckets.map((b) => {
+    const r = rng([...b].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 101));
+    let n = 0;
+    for (const [k, w] of POSSIBLE) {
+      const x = hourly ? (r() < w / 8 ? 1 : 0) : Math.max(0, Math.round(w * (0.3 + r() * 1.4)));
+      if (x) {
+        ptot[k] = (ptot[k] ?? 0) + x;
+        n += x;
       }
-    });
+    }
+    return n;
+  });
+  const possible = Object.values(ptot).reduce((a, b) => a + b, 0);
+  const pissue: { key: string; count: number }[] = [];
+  const pRoute: Record<string, number> = {};
+  for (const [k, , routes] of POSSIBLE) {
+    const n = ptot[k] ?? 0;
+    if (n) {
+      split(n, routes, (route, c) => {
+        pissue.push({ key: `${k}\t${route}`, count: c });
+        pRoute[route] = (pRoute[route] ?? 0) + c;
+      });
+    }
   }
   const perBucket = hourly ? 11 : 262;
   const r = rng(span * 17 + Math.floor(now.getTime() / 86_400_000));
-  const series = buckets.map((b, i) => ({ bucket: b, sessions: Math.round(perBucket * (0.82 + r() * 0.36)), decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0 }));
+  const series = buckets.map((b, i) => ({ bucket: b, sessions: Math.round(perBucket * (0.82 + r() * 0.36)), decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]! }));
   const sessions = series.reduce((a, s) => a + s.sessions, 0);
   const coalesce = Math.round((tot.duplicate ?? 0) * 0.55), discard = Math.round((tot.stale ?? 0) * 0.4);
   const interventions = coalesce + discard;
@@ -90,6 +130,25 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     });
   }
   const from = buckets[0]!;
+  const breakdowns: Stats["breakdowns"] = {
+    detect_diagnosis: Object.entries(tot).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count),
+    detect_issue: issue,
+    detect_route: Object.entries(byRoute).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count),
+    possible_diagnosis: Object.entries(ptot).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count),
+    possible_issue: pissue,
+    possible_route: Object.entries(pRoute).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count),
+    page_route: ["/", "/products", "/products/:id", "/search", "/cart", "/checkout", "/account", "/orders"].map((key, i) => ({ key, count: Math.round(sessions / (i + 2)) })),
+    intervention: [{ key: "coalesce", count: coalesce }, { key: "discard", count: discard }].filter((x) => x.count > 0),
+    action_outcome: [{ key: "applied", count: interventions }, ...(undone ? [{ key: "undone", count: undone }] : [])],
+    mode: [{ key: "guard", count: sessions }],
+    backend: [{ key: "webgpu", count: Math.round(ready * 0.83) }, { key: "wasm", count: ready - Math.round(ready * 0.83) }],
+    model_error_events: [{ key: "model card download failed: HTTP 429", count: Math.ceil(failed * 0.6) }, { key: "timeout", count: Math.floor(failed * 0.4) }].filter((x) => x.count > 0),
+    runtime: [{ key: "0.3.0", count: sessions }],
+    model_version: [{ key: "2.0.0-rc4t", count: sessions }],
+    trigger: [{ key: "request", count: 610 }, { key: "delivery", count: 390 }, { key: "failure", count: 180 }],
+    latency_bucket: [{ key: "<50 ms", count: 60 }, { key: "100-250 ms", count: 820 }, { key: "250-500 ms", count: 290 }],
+    host: [{ key: "shop.example", count: sessions }],
+  };
   return {
     name: SAMPLE_PROJECT.name,
     token: SAMPLE_PROJECT.token,
@@ -101,23 +160,10 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     totals: {
       sessions, decisions: series.reduce((a, s) => a + s.decisions, 0), detections, acted: interventions, executed: interventions, interventions,
       model_ready: ready, model_load_failed: failed, modelLoadAvgMs: 1340, latency_ms_n: Math.round(sessions * 0.66), latencyAvgMs: 168, failOpens: Math.round(sessions * 0.011), modelErrors: failed,
+      detectionsWithPage: detections, possible, possibleWithPage: possible, hidden_skipped: Math.round(sessions * 0.05), model_dropped: hourly ? 0 : Math.round(sessions * 0.002), telemetry_dropped: 0,
     },
-    breakdowns: {
-      detect_diagnosis: Object.entries(tot).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count),
-      detect_issue: issue,
-      detect_route: Object.entries(byRoute).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count),
-      page_route: ["/", "/products", "/products/:id", "/search", "/cart", "/checkout", "/account", "/orders"].map((key, i) => ({ key, count: Math.round(sessions / (i + 2)) })),
-      intervention: [{ key: "coalesce", count: coalesce }, { key: "discard", count: discard }].filter((x) => x.count > 0),
-      action_outcome: [{ key: "applied", count: interventions }, ...(undone ? [{ key: "undone", count: undone }] : [])],
-      mode: [{ key: "guard", count: sessions }],
-      backend: [{ key: "webgpu", count: Math.round(ready * 0.83) }, { key: "wasm", count: ready - Math.round(ready * 0.83) }],
-      model_error_events: [{ key: "model card download failed: HTTP 429", count: Math.ceil(failed * 0.6) }, { key: "timeout", count: Math.floor(failed * 0.4) }].filter((x) => x.count > 0),
-      runtime: [{ key: "0.2.2", count: sessions }],
-      model_version: [{ key: "2.0.0-rc4t", count: sessions }],
-      trigger: [{ key: "request", count: 610 }, { key: "delivery", count: 390 }, { key: "failure", count: 180 }],
-      latency_bucket: [{ key: "<50 ms", count: 60 }, { key: "100-250 ms", count: 820 }, { key: "250-500 ms", count: 290 }],
-      host: [{ key: "shop.example", count: sessions }],
-    },
+    breakdowns,
+    distinct: Object.fromEntries(Object.entries(breakdowns).map(([k, v]) => [k, v.length])),
     series,
     typeSeries,
     previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2) },

@@ -139,7 +139,7 @@ function printManual(token) {
   out(`    ${c.cyan(`GenClass.init({ token: "${token}" })`)}`);
   out(`  or on the script tag ${c.cyan(`data-token="${token}"`)}, or in <head> ${c.cyan(`<meta name="genclass" content="token=${token}">`)},`);
   out(`  or set ${c.cyan(`window.GENCLASS_CONFIG = { token: "${token}" }`)} before the ${c.cyan(AUTO())} import runs.`);
-  out(`  ${c.gray("The key needs @genclass/runtime 0.3.0 or later (0.2.x has no token option).")}`);
+  out(`  ${c.gray("The key needs @genclass/runtime 0.3.0-beta.0 or later (0.2.x has no token option).")}`);
   out();
 }
 

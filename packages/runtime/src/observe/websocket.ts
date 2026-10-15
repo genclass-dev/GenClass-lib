@@ -1,13 +1,13 @@
 // WebSocket observer: the connection is an op (ends when open, or with an error/close before open); every
 // incoming message is an instantaneous root op created inside the message dispatch, ambient while the app's
 // handlers run, and passes the delivery gate (a held message and everything after it on the same socket wait, in
-// order); outgoing sends are recorded.
+// order); outgoing sends are recorded, their summary computed only if something reads it (messages.ts).
 
 import type { OpRec } from "../trace/ops.js";
 import type { EndOpts } from "../decide/exec.js";
 import type { OpStatus } from "../types.js";
 import { normalizePath, parseUrl } from "../util.js";
-import { MessageGate, messageSummary, type MsgHost } from "./messages.js";
+import { lazyMessage, MessageGate, type MsgHost } from "./messages.js";
 
 export type WsHost = MsgHost;
 
@@ -68,9 +68,18 @@ export function installWebSocket(h: MsgHost): (() => void) | null {
       const send = this.send;
       this.send = (data: string | ArrayBufferLike | Blob | ArrayBufferView) => {
         try {
-          const s = messageSummary(data, h.redact());
-          const m = h.startOp(`WS send ${path}`, { instant: true, detail: s });
-          h.event("ws.send", { path, summary: s }, m);
+          const msg = lazyMessage(data, h.redact());
+          const m = h.startOp(`WS send ${path}`, { instant: true, detail: msg.summary });
+          h.event(
+            "ws.send",
+            {
+              path,
+              get summary() {
+                return msg.summary();
+              },
+            },
+            m,
+          );
         } catch {
           /* ignore */
         }
