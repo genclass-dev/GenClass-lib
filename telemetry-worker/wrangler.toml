@@ -32,7 +32,7 @@ routes = [
 # release.yml has published the beta and jsDelivr serves it, and to "0.3.0" at 0.3.0 (with pages.ts SNIPPET_RUNTIME and
 # RUNTIME_PKG).
 [vars]
-RUNTIME_ON_NPM = "0.2.2"
+RUNTIME_ON_NPM = "0.3.0-beta.0"
 # "on" sells Pro through Stripe Managed Payments: Stripe, through Link, is the merchant of record (sales tax and VAT,
 # fraud, disputes, payment support; Link's name on the receipt and the card statement) for 3.5% of each Pro payment on
 # top of Stripe's fees. "off" (and unset) sells Pro on standard Checkout, with GenClass the seller owing the tax; Custom
