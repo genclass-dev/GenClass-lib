@@ -39,11 +39,15 @@ def semver(v):
 
 PAID_OPEN = semver(RT) >= semver(DASH_RT)
 BILLING_URL = "https://genclass.dev/account/billing"  # served by the telemetry worker; it asks the visitor to sign in
+# Pro's trial (telemetry-worker src/trial.ts): sign in (or up), then Start a trial on the account page. A trial needs no
+# Stripe, so its button is live whatever PAID_OPEN says. Public copy never says how long a trial lasts.
+TRIAL_URL = "https://genclass.dev/account/trial"
 # The buttons under each plan: label, link (None: an inactive button), button style, the line under it.
-CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed to run it. The dashboard needs a free account."),
-       "pro": ("Start Pro", BILLING_URL, "btn green", "Sign in first, then pay on Stripe.")}
+CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed. No dashboard."),
+       "pro": ("Start a trial", TRIAL_URL, "btn green", "Trials available. No card needed.")}
 
 def cta(p):
+    if p["id"] == "pro": return CTA["pro"]
     if p["id"] != "free" and not PAID_OPEN:
         return (f"Opens with runtime {DASH_RT}", None, "btn ghost off", f"On sale when runtime {DASH_RT}, the first version that sends to the dashboard, is on npm.")
     return CTA.get(p["id"], (f'Start {p["name"]}', BILLING_URL, "btn", "Sign in first, then pay on Stripe."))
@@ -318,6 +322,7 @@ def llms_plans():
     for p in PLANS["plans"]:
         cents = p["price_usd_cents"]["monthly"]
         sale = f"billed monthly through Stripe Checkout; sign in, then {BILLING_URL}" if PAID_OPEN else f"not on sale yet: it opens with runtime {DASH_RT}, the first version that sends to the dashboard"
+        if p["id"] == "pro": sale = f"trials available at {TRIAL_URL}; " + sale
         head = f'- {p["name"]}, ' + (f"US{usd(cents)} per month ({sale})" if cents else "US$0")
         feats = "; ".join(f["text"] if f["available"] or SOON in f["text"] else f'{f["text"]} {SOON}' for f in p["features"])
         out.append(f"{head}: {feats}.")
@@ -327,7 +332,7 @@ def llms_plans():
 
 LLMS = f"""# GenClass
 
-> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. The optional genclass.dev dashboard is free for {apps(PLAN['free']['limits']['apps'])} apps; the paid plans (Pro, Custom) add history, data export, forwarding and a model trained on the customer's app; the runtime stays free in every plan.
+> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. The runtime and its on-device model are free; the genclass.dev dashboard comes with Pro (trials available), with history, data export and forwarding, and Custom adds a model trained on the customer's app.
 
 ## Shipped
 - `@genclass/runtime` {RT} with `@genclass/runtime-model` {MODEL} (training run r17-v2dT). Default mode observe, default aggressiveness "balanced", report threshold 0.90.
