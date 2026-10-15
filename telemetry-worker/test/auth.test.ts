@@ -1287,8 +1287,14 @@ describe("accounts: the CLI's own requests (packages/runtime/bin/lib/account.mjs
 
   const fakeTime = () => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: clock });
 
-  /** Runs fake time forward in small steps (letting real I/O such as WebCrypto finish between them) until p settles. */
-  async function settle<T>(p: Promise<T>, maxMs = 15 * 60_000): Promise<T> {
+  /**
+   * Runs fake time forward in small steps (letting real I/O such as WebCrypto finish between them) until p settles.
+   * `browser` gives the request a CLI callback sent for the person at the browser (the click on the approval page), if
+   * any: fake time stands still until it has its answer. Its WebCrypto digests finish on Node's thread pool in real
+   * time, while a fake step yields only a few event-loop turns (the fake clock yields with setImmediate), so without
+   * this wait the CLI's next poll, an interval of fake time later, could come before the click lands.
+   */
+  async function settle<T>(p: Promise<T>, browser: () => Promise<unknown> | null = () => null, maxMs = 15 * 60_000): Promise<T> {
     let done = false;
     let value: T;
     void p.then((v) => {
@@ -1297,6 +1303,7 @@ describe("accounts: the CLI's own requests (packages/runtime/bin/lib/account.mjs
     });
     for (let t = 0; !done; t += 250) {
       if (t > maxMs) throw new Error("the CLI's poll did not finish");
+      await browser();
       await vi.advanceTimersByTimeAsync(250);
       for (let i = 0; i < 4; i++) await new Promise((r) => setImmediate(r));
     }
@@ -1347,6 +1354,7 @@ describe("accounts: the CLI's own requests (packages/runtime/bin/lib/account.mjs
         },
         onSlowDown: () => slowDowns++,
       }),
+      () => approval,
     );
     expect((await approval!)!.status).toBe(200);
     expect(r).toEqual({ ok: true, access_token: expect.stringMatching(CLI_TOKEN_RE), expires_in: 90 * 86_400, account: { id: ada.account.id, email: "ada@example.com", github_login: null } });
@@ -1424,6 +1432,7 @@ describe("accounts: the CLI's own requests (packages/runtime/bin/lib/account.mjs
           denial ??= decide(env, dev.user_code, ada.cookie, false);
         },
       }),
+      () => denial,
     );
     expect((await denial!)!.status).toBe(200);
     expect(r).toMatchObject({ ok: false, error: "access_denied" });
