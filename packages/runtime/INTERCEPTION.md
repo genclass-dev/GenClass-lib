@@ -55,11 +55,11 @@ stays in that chain as a pure pass-through (a `disabled` flag), so neither libra
 
 | Global | How | File, function | What it reads | What it may change (guard/heal only) | After `destroy()` |
 |---|---|---|---|---|---|
-| `window.fetch` | replaced by a wrapper | [src/observe/fetch.ts](src/observe/fetch.ts) `installFetch` | method, URL, header names, a hash of header values (tracing ids excluded), the request body (strings, form data, ≤ 64 KB of a Blob, BufferSource or a cloned `Request` stream) to compute an identity; a clone of each response (≤ 256 KB, ≤ 1 s; never `text/event-stream`) | hold before sending; `coalesce`, `delay`, `block`, `serve_cached` (request); hold a failure, `retry`, `serve_cached` (failure); `hedge`, `serve_cached` (stall); hold a response (delivery `defer`, `discard`) | restored |
+| `window.fetch` | replaced by a wrapper | [src/observe/fetch.ts](src/observe/fetch.ts) `installFetch` | method, URL, header names, a hash of header values (tracing ids excluded), the request body (strings, form data, ≤ 64 KB of a Blob, BufferSource or of one clone of a `Request` stream; a `Request` whose `content-length` is larger is not cloned at all) to compute an identity; a clone of each response (≤ 256 KB, ≤ 1 s; never `text/event-stream`) | hold before sending; `coalesce`, `delay`, `block`, `serve_cached` (request); hold a failure, `retry`, `serve_cached` (failure); `hedge`, `serve_cached` (stall); hold a response (delivery `defer`, `discard`) | restored |
 | `XMLHttpRequest.prototype.open`, `send`, `abort`, `setRequestHeader` | replaced on the prototype | [src/observe/xhr.ts](src/observe/xhr.ts) `installXHR` | method, URL, header names and values (for the identity hash), the body (strings and BufferSource for the identity; Blobs are not read), the completed response's JSON | hold before `send`; `delay`, `block`, `serve_cached` (request); hold the completion events (delivery). XHR failures are detection only (no `retry`) | restored |
 | `XMLHttpRequest.prototype.addEventListener`, `removeEventListener` | replaced on the prototype (completion listeners `readystatechange`, `progress`, `load`, `loadend` go through a thin wrapper so a held delivery can queue them) | same | nothing | the order and time at which completion listeners run while a delivery is held | restored, unless a wrapped listener was added: then both stay as pass-throughs so `removeEventListener` still finds the wrapper |
-| `window.WebSocket` | replaced by a subclass of the native constructor | [src/observe/websocket.ts](src/observe/websocket.ts) `installWebSocket` | URL, message data (JSON-summarised for the situation), outgoing `send` summaries | hold an incoming message (and everything after it on the same socket, in order); never drops or changes one | restored; sockets created before stay subclass instances that pass everything through |
-| `window.EventSource` | replaced by a subclass | [src/observe/eventsource.ts](src/observe/eventsource.ts) `installEventSource` | URL, event data | hold an incoming event (order kept) | restored, as above |
+| `window.WebSocket` | replaced by a subclass of the native constructor | [src/observe/websocket.ts](src/observe/websocket.ts) `installWebSocket` | URL, message data (a text message is JSON-parsed and summarised only when something reads it: the delivery decision of a salient message, a situation, devtools; once, one parse for both), outgoing `send` summaries (likewise when read) | hold an incoming message (and everything after it on the same socket, in order); never drops or changes one | restored; sockets created before stay subclass instances that pass everything through |
+| `window.EventSource` | replaced by a subclass | [src/observe/eventsource.ts](src/observe/eventsource.ts) `installEventSource` | URL, event data (parsed and summarised when read, as for WebSocket) | hold an incoming event (order kept) | restored, as above |
 | `window.setTimeout`, `window.setInterval` | replaced by wrappers that wrap the callback (a lazy op carries the causal context) | [src/observe/timers.ts](src/observe/timers.ts) `installTimers` | the delay (for the op's label) | nothing: the delay, `this`, arguments, return value and the timer id are the native ones | restored |
 | `history.pushState`, `history.replaceState` | replaced on the `history` object; the original runs first | [src/observe/nav.ts](src/observe/nav.ts) `installNav` | the new path, query and hash (redacted before the model) | nothing | restored |
 | `Storage.prototype.setItem`, `removeItem`, `clear` | replaced on the prototype; the original runs first | [src/observe/storage.ts](src/observe/storage.ts) `installStorage` | the key name only (redacted when it names a secret); never the value | nothing | restored |
@@ -67,6 +67,8 @@ stays in that chain as a pure pass-through (a `disabled` flag), so neither libra
 | `window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__`, `window.__REDUX_DEVTOOLS_EXTENSION__` | replaced by shims that call the real Redux DevTools extension first when it is installed | [src/discover/redux.ts](src/discover/redux.ts) `installReduxDiscovery` | see state discovery | Redux stores created through them become full adapters (their writes can be held, dropped, rolled back in guard/heal) | restored (deleted when they did not exist) |
 | `window.GenClass` | the script-tag API object | [src/cdn/global.ts](src/cdn/global.ts) `install` | nothing | nothing | stays |
 | `PerformanceObserver` (an instance, not a patch) | observes `longtask` entries | [src/observe/perf.ts](src/observe/perf.ts) `installPerf` | long task durations | nothing | disconnected |
+| `PerformanceObserver`, `MutationObserver` (instances; measured visual checks only) | `layout-shift` and `resource` entries (buffered); child list, text and the `class`, `style`, `hidden`, `src`, `srcset`, `width`, `height`, `open` attributes under `documentElement` | [src/visual/engine.ts](src/visual/engine.ts) `Visual.install` | shift scores and their sources, resource URLs and `responseStatus`; which subtrees changed | nothing | disconnected |
+| `document.adoptedStyleSheets` (measured visual checks, guard or heal with `visual: { on: true, fix: true }` only) | one constructed stylesheet appended, one rule per fix (`[data-genclass-fix~="f3"] { color: ... !important }`) and that token in a `data-genclass-fix` attribute on the element | [src/visual/fix.ts](src/visual/fix.ts) `Fixer.apply` | nothing | a readable text colour for text measured below 1.5:1 | rules and attributes removed |
 
 Not wrapped or observed: `requestAnimationFrame`, `queueMicrotask`, `MessageChannel`, `postMessage`,
 `BroadcastChannel`, IndexedDB, Cache Storage reads by the app, `navigator.sendBeacon`, `Worker`, Service Workers,
@@ -82,7 +84,7 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).
 | `window` (capture, passive) | `click`, `input`, `change`, `submit`, `keydown` (Enter and Escape only), plus `focusin`, `pointerdown`, `mousedown` to find open shadow roots | [src/observe/dom-user.ts](src/observe/dom-user.ts) `installDomUser` | user actions: the target's accessible name, the typed value (empty for password, card, one-time-code and secret-named fields: `isSensitiveField`), the option text | yes (also the per-shadow-root `change`/`submit` listeners) |
 | `window` | `error`, `unhandledrejection` | [src/observe/errors.ts](src/observe/errors.ts) `installErrors` | errors become `error` triggers (message, file name and line) | yes |
 | `window` | `popstate`, `hashchange` | [src/observe/nav.ts](src/observe/nav.ts) `installNav` | navigation (route scopes are recomputed) | yes |
-| `window` / `document` | `pagehide` / `visibilitychange` | [src/runtime.ts](src/runtime.ts) constructor | the session summary for your `sinks` | yes |
+| `window` / `document` | `pagehide` / `visibilitychange` | [src/runtime.ts](src/runtime.ts) constructor | the session summary for your `sinks`; in observe (0.3.0), deciding the situations deferred while the tab was hidden | yes |
 | `window` / `document` | `pagehide` / `visibilitychange` | [src/telemetry/client.ts](src/telemetry/client.ts) `TelemetryClient` | the final telemetry flush (only while telemetry is on) | yes |
 | `window` | `load` (once) | [src/model/host.ts](src/model/host.ts) `scheduleIdle` | start the model download at idle after the page loaded | yes |
 | `document` | `securitypolicyviolation` (while the model loads) | [src/model/host.ts](src/model/host.ts) `watchCsp` | name a CSP-blocked model download in one warning | yes, when loading ends |
@@ -90,6 +92,8 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).
 | the model `Worker` | `message`, `error`, `messageerror` | [src/model/host.ts](src/model/host.ts), [src/cdn/global.ts](src/cdn/global.ts) `blobModuleWorker` | the worker GenClass started | terminated |
 | inside the worker | `message`, `securitypolicyviolation` | [src/model/worker.ts](src/model/worker.ts) | the worker's own scope | terminated |
 | the devtools overlay (only when mounted) | `keydown` on `document` (capture: Alt+Shift+G toggles the overlay and calls `preventDefault` on that combination only), clicks and keys inside its own shadow root, `matchMedia` theme changes | [src/devtools/index.ts](src/devtools/index.ts), [src/devtools/ui.ts](src/devtools/ui.ts) | the overlay | on unmount |
+| `document` (capture), `window` | `securitypolicyviolation` (at most 50 kept), `load` (once) | [src/visual/start.ts](src/visual/start.ts) `startVisual` | measured visual checks ([VISUAL.md](../../docs/runtime/VISUAL.md)), only when `InitOptions.visual` is on for this page: violations during page load cannot be queried later; the checks' chunk loads 1.5 s after `load` | `securitypolicyviolation` yes; `load` fires once and is inert after `destroy()` |
+| `document`, `window`, `document.fonts` (capture, passive; only once the visual chunk runs) | `document`: `error`, `load`, `securitypolicyviolation`, `click`, `pointerover`, `focusin`, `pointerdown`, `pointerup`, `pointercancel`, `keydown`, `visibilitychange`, `prerenderingchange`; `window`: `wheel`, `touchmove`, `scroll`, `hashchange`, `popstate`, `resize`, `pageshow`; `document.fonts`: `loadingdone` | [src/visual/engine.ts](src/visual/engine.ts) `Visual.install` | measured visual checks: failed assets, clicks swallowed by an invisible layer, hover and focus contrast, focus under a sticky header, scroll attempts on a locked page. Read only: never `preventDefault`, `stopPropagation` or a write | yes |
 
 ## Objects it instruments after handing them to the app
 
@@ -99,7 +103,7 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).
 | a `Response` GenClass made (guard/heal actions only) | a new `Response` with the header `x-genclass: cached`, `coalesced` or `blocked` (503, empty body) | [src/observe/cache.ts](src/observe/cache.ts) `makeResponse`, `blockedResponse` | guard: `coalesce`; heal: `block`, `serve_cached` | the app can tell it apart by that header |
 | each `XMLHttpRequest` the app uses | own accessor properties `onreadystatechange`, `onprogress`, `onload`, `onloadend` (the getter returns the wrapper around the app's function) | [src/observe/xhr.ts](src/observe/xhr.ts) `wrapHandlers` | all | same calls, possibly queued while a delivery is held |
 | an `XMLHttpRequest` GenClass answered (heal: `block`, `serve_cached`) | own properties `readyState`, `status`, `statusText`, `response`, `responseText`, `getResponseHeader`, `getAllResponseHeaders`, then `readystatechange`, `load`, `loadend` are dispatched; all removed on the next `open()` | [src/observe/xhr.ts](src/observe/xhr.ts) `fake`, `unfake` | heal | the response carries `x-genclass` |
-| each `WebSocket` created while installed | an own `send` that records a summary, then calls the native `send` with the same data; GenClass's own listeners for `message`, `close`, `error`, `open` | [src/observe/websocket.ts](src/observe/websocket.ts), [src/observe/messages.ts](src/observe/messages.ts) `MessageGate` | all; holding only in guard/heal | a held message is stopped (`stopImmediatePropagation`) and later re-dispatched as a copy (`isTrusted` false, same `data`, `origin`, `lastEventId`, `ports`), in order |
+| each `WebSocket` created while installed | an own `send` that records the send (its summary computed when read), then calls the native `send` with the same data; GenClass's own listeners for `message`, `close`, `error`, `open` | [src/observe/websocket.ts](src/observe/websocket.ts), [src/observe/messages.ts](src/observe/messages.ts) `MessageGate` | all; holding only in guard/heal | a held message is stopped (`stopImmediatePropagation`) and later re-dispatched as a copy (`isTrusted` false, same `data`, `origin`, `lastEventId`, `ports`), in order |
 | each `EventSource` | `addEventListener` (subclass method) makes sure GenClass sees custom event types first | [src/observe/eventsource.ts](src/observe/eventsource.ts) | all; holding only in guard/heal | as WebSocket |
 
 ## Automatic state discovery (React, Redux, Zustand)
@@ -130,15 +134,17 @@ from ever being held.
 
 | What | Where | When | File |
 |---|---|---|---|
-| Network: the model card, tokenizer, calibration, meta and the model variant (about 10 MB) from `model.baseUrl` (default jsDelivr `@genclass/runtime-model`), and onnxruntime-web's wasm from `model.ortWasmPaths` | with the page's fetch as it was when the module loaded (never through the wrapper) | at idle after load, `GenClass.init` in a browser with a model (lazy on Save-Data) | [src/model/loader.ts](src/model/loader.ts), [src/model/backend.ts](src/model/backend.ts) |
-| Network: anonymous diagnostics to the GenClass collector (`DEFAULT_TELEMETRY_ENDPOINT`, a Cloudflare Worker) | native `fetch`/`sendBeacon` captured at module load, `text/plain`, `credentials: "omit"`, `referrerPolicy: "no-referrer"` | `GenClass.init` in a browser unless turned off ([TELEMETRY.md](TELEMETRY.md)); never in `createRuntime()` | [src/telemetry/](src/telemetry/) |
+| Network: the model card, tokenizer, calibration, meta and the model variant (about 10 MB) from `model.baseUrl` (default jsDelivr `@genclass/runtime-model`), and onnxruntime-web's wasm from `model.ortWasmPaths` | with the page's fetch as it was when the module loaded (never through the wrapper) | at idle after load, `GenClass.init` in a browser with a model; not on devices reporting 2 GB or less nor on Save-Data (`model.loadIf` default) | [src/model/loader.ts](src/model/loader.ts), [src/model/backend.ts](src/model/backend.ts) |
+| Network: anonymous diagnostics to the GenClass collector (`DEFAULT_TELEMETRY_ENDPOINT`, a Cloudflare Worker): a summary a minute while active, records of at most 200 decisions per page load (routine ones 1 in 4) | native `fetch`/`sendBeacon` captured at module load, `text/plain`, `credentials: "omit"`, `referrerPolicy: "no-referrer"` | `GenClass.init` in a browser unless turned off ([TELEMETRY.md](TELEMETRY.md)); never in `createRuntime()` | [src/telemetry/](src/telemetry/) |
 | Cache Storage | `genclass-model` cache (`model.cacheName`): model files, each checked against the card's size and sha256 | model load | [src/model/loader.ts](src/model/loader.ts) `fetchFile` |
 | `sessionStorage` | `genclass:bucket` (`sample`), the breaker's trip state | `sample` < 1; breaker trips | [src/runtime.ts](src/runtime.ts) `sampleBucket`, [src/decide/breaker.ts](src/decide/breaker.ts) |
-| `localStorage` / `sessionStorage` | `genclass:learn` (learned operation shapes) | only with `learn.persist` | [src/runtime.ts](src/runtime.ts) `saveProfilesSoon` |
+| `localStorage` / `sessionStorage` | `genclass:learn` (learned flows by default; operation shapes too with `learn.persist`: signatures, routes and field names with id-like parts normalised, counts, hashed action labels; ≤ `learn.maxBytes`), `genclass:learn:probe` (set and removed once at init to check storage works), `genclass:learn:session` in sessionStorage (the tab's session ordinal) | flows by default, not in jsdom / happy-dom (`learn.persist: false` turns it all off); the runtime's own writes are not recorded as storage events | [src/runtime.ts](src/runtime.ts) `saveProfilesSoon`, `startSession`, [docs/runtime/EXPECTATIONS.md](../../docs/runtime/EXPECTATIONS.md) |
 | `localStorage` (read only) | `genclass` (kill switch), `genclass.telemetry` (opt-out) | init | [src/index.ts](src/index.ts) `killSwitch`, [src/telemetry/config.ts](src/telemetry/config.ts) |
-| A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`) | | model load | [src/model/host.ts](src/model/host.ts) |
+| A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`, default true; `false`: no model then, status `skipped` / `worker-unavailable`) | | model load | [src/model/host.ts](src/model/host.ts) |
 | Memory | ≤ 64 response bodies of ≤ 256 KB (last good GET per identity), ≤ 4 MB of recent responses for coalescing, a 500-event history, 200 decisions, 1,000 audit entries | always | [src/observe/cache.ts](src/observe/cache.ts) |
 | Console | one line per detection or intervention (`report`), the telemetry notice, warnings | `report: "console"` (default) | [src/decide/report.ts](src/decide/report.ts) |
+| Network: the measured visual checks' chunk (`dist/visual/index.js`, from the same place as the runtime) | a dynamic `import()` | 1.5 s after `load` when `InitOptions.visual` is on for the page (development hosts by default), or when the devtools overlay mounts or `rt.checkNow()` runs | [src/visual/start.ts](src/visual/start.ts) |
+| Console | `[GenClass] Check (measured): ...`, one collapsed group per finding with its measured values (at most 10 a pass, then one line) | measured visual checks on | [src/visual/bridge.ts](src/visual/bridge.ts) |
 
 ## What each mode may change
 
@@ -158,8 +164,17 @@ including the time spent waiting for a body, deferred re-decisions and `onBefore
 (`test/invariants/network.test.ts`, `test/invariants/state.test.ts` "the hold budget caps ..."). When the model is
 not ready, slow, erroring or over its rate limit, the subject proceeds unchanged (fail open).
 
+**Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md)) only read in every mode. Their runtime fixes need
+`visual: { on: true, fix: true }` and guard or heal mode, and only ever do two things: add an owned stylesheet rule
+that sets a readable colour on one element (text measured below 1.5:1), or remove one leaked inline
+`pointer-events: none` or `overflow: hidden` declaration on `html` or `body` after recording it. Each is re-measured
+50 ms later and undone if it did not help, undone by `finding.fix.undo()`, and undone automatically on
+`setMode("observe")`, the breaker, `pause()` (within 2 s), `disable()` and `destroy()`
+([src/visual/fix.ts](src/visual/fix.ts)).
+
 Every term can only lower the mode: `routes` rules, `sample`, the breaker (after 2 undos or 3 errors following actions,
-the session drops to `observe`), a hidden tab (nothing new is held, background decisions are skipped) and
+the session drops to `observe`), a hidden tab (nothing new is held; background decisions are skipped in guard and heal, and deferred until the tab is
+visible in observe, where they can only detect) and
 `?genclass-mode`. Since 0.2.2 no URL or `localStorage` switch can raise it on a production host: `?genclass=guard`
 or `heal` raises only with `debug: true` or on a development host (see [THREAT-MODEL.md](../../docs/runtime/THREAT-MODEL.md)).
 
@@ -167,7 +182,7 @@ or `heal` raises only with `debug: true` or on a development host (see [THREAT-M
 
 | Never | How it is ensured | Test |
 |---|---|---|
-| changes a request's URL, method, headers or body | the native `fetch`/`send` gets the app's own `input`/`init`/`body`; a replay (`retry`, `hedge`) sends a clone of the original `Request` or the same `init` | `test/fetch.test.ts`, `test/invariants/network.test.ts` |
+| changes a request's URL, method, headers or body | the native `fetch`/`send` gets the app's own `input`/`init`/`body`; a replay (`retry`, `hedge`) sends the same `init`, or a `Request` rebuilt from the original with the ≤ 64 KB of body bytes read for its identity (larger `Request` bodies are not replayable) | `test/fetch.test.ts`, `test/invariants/network.test.ts` |
 | reads or writes cookies, or changes `credentials` | `document.cookie` is never accessed; `init` is passed through | static: no `cookie` access in `src/` outside redaction name lists |
 | sends a non-idempotent request twice without an idempotency key | `retry` and `hedge` are only offered for GET/HEAD/OPTIONS/PUT/DELETE/TRACE or with an `Idempotency-Key`-style header (`policy.idempotencyHeaders`) or opt-in body field (`policy.idempotencyBodyFields`): `situation/build.ts` `repeatUnsafe`; `hedge` is GET only | `test/invariants/network.test.ts` "never sent twice" |
 | serves a cached response to anything but an identical GET | `serve_cached` needs `method === "GET"` and a cached body for the same identity (method, URL, headers, body) | `test/review-fetch.test.ts`, `test/fetch.test.ts` |
@@ -322,5 +337,7 @@ sites src/observe/xhr.ts 15
 sites src/protect.ts 2
 sites src/runtime.ts 1
 sites src/telemetry/client.ts 2
+sites src/visual/engine.ts 3
+sites src/visual/start.ts 1
 ```
 <!-- inventory:end -->

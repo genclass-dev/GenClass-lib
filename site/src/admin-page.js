@@ -124,8 +124,9 @@ td.n,th.n{text-align:right;font-family:var(--mono)}
 <div class="card c8"><h2>Adoption without a beacon <small id="ad-sub"></small></h2><div class="mini" id="ad-mini"></div><div id="ad-chart" style="margin-top:12px"></div><div class="legend" id="ad-leg"></div><div id="ad-deps" style="margin-top:12px"></div></div>
 <div class="card c4"><h2>What this page cannot see <small>coverage</small></h2><ul class="notes">
 <li><b>Who turned telemetry off is unknowable by design.</b> <code>telemetry: false</code> sends nothing, and that stays literally true. The Adoption card estimates the share instead: CDN model loads count every install, telemetry on or off.</li>
-<li><b>Only pages with telemetry on.</b> Since 0.2.1 nothing is sent from localhost, *.local, *.test or private networks, nor with <code>telemetry: false</code>, <code>?genclass=no-telemetry</code>, the localStorage opt-out, Global Privacy Control, <code>createRuntime()</code>, Node/SSR, or sampled-out sessions.</li>
+<li><b>Only pages with telemetry on.</b> Since 0.2.2, by default, nothing is sent from localhost, *.local, *.test or private networks, nor with <code>telemetry: false</code>, <code>?genclass=no-telemetry</code>, the localStorage opt-out, Global Privacy Control, <code>createRuntime()</code>, Node/SSR, or sampled-out sessions.</li>
 <li><b>Blocked deliveries.</b> A strict Content-Security-Policy without the collector in <code>connect-src</code>, tracker blockers, offline users and page exits before the last beacon all drop batches silently; over 60 batches a minute from one IP are rejected.</li>
+<li><b>Sampled routine records (0.3.0).</b> Pages send every detection, near-miss, action and veto, but only about 1 in 4 routine decision records (at most 200 per page load). Decision totals and the <code>expected</code> diagnosis add the rest from the pages' summaries; their trigger shows as "(routine, record not sent)". Latency, held and passive-reason breakdowns come from the records sent.</li>
 <li><b>No people.</b> One random id per page load: no users, IPs, user agents, cross-page sessions, funnels or retention.</li>
 <li><b>No page content.</b> No situation text unless the app opts in, no URLs beyond hostname and id-normalised path, no bodies, headers or storage.</li>
 <li><b>No ground truth.</b> A detection is the model's opinion; nothing here says whether it was a real bug or whether a fix helped, apart from undos and breaker trips.</li>
@@ -209,7 +210,7 @@ function render(d) {
   data = d;
   const labels = dayList(d.days);
   const seriesOf = (m) => labels.map((day) => d.series.filter((r) => r.day === day && r.metric === m).reduce((a, r) => a + r.n, 0));
-  const S = { sessions: seriesOf("sessions"), decisions: seriesOf("decisions"), detections: seriesOf("detections"), acted: seriesOf("acted"), undos: seriesOf("undos") };
+  const S = { sessions: seriesOf("sessions"), decisions: seriesOf("decisions"), detections: seriesOf("detections"), possible: seriesOf("possible_detections"), acted: seriesOf("acted"), undos: seriesOf("undos") };
   const tot = (k) => S[k].reduce((a, b) => a + b, 0);
   const rtNpm = (d.npm && d.npm["@genclass/runtime"]) || { daily: [] };
   const npmDaily = rtNpm.daily.slice(-d.days);
@@ -226,7 +227,7 @@ function render(d) {
     kpi("npm downloads", fmt(npmTotal), "@genclass/runtime · " + range + (rtNpm.latest ? " · latest " + rtNpm.latest : ""), "", npmDaily.map((r) => r.downloads), "#0E1F4D"),
     kpi("Live sites", fmt(liveSites), test ? "incl. " + d.hosts.filter((h) => h.test).length + " test hosts" : "production hosts with sessions", "", null),
     kpi("Sessions", fmt(tot("sessions")), fmt(tot("decisions")) + " decisions by the model", "", S.sessions, "#0E1F4D"),
-    kpi("Errors found", fmt(tot("detections")), "detections above the report gate", tot("detections") ? "bad" : "", S.detections, "#F5A524"),
+    kpi("Errors found", fmt(tot("detections")), "detections above the report gate" + (tot("possible") ? " · " + fmt(tot("possible")) + " possible (below it)" : ""), tot("detections") ? "bad" : "", S.detections, "#F5A524"),
     kpi("Errors resolved", fmt(resolved), fmt(tot("acted")) + " fixes applied · " + fmt(tot("undos")) + " undone", resolved ? "good" : "", S.acted, "#14B86A"),
     kpi("Waitlist", fmt(wlTotal), d.waitlist.map((r) => (r.plan || "?") + " " + r.n).join(" · ") || "no sign-ups yet", "", null));
 
@@ -240,7 +241,7 @@ function render(d) {
   const feed = $("feed"); feed.replaceChildren();
   if (!d.recent.length) feed.append(E("li", { cls: "empty", text: "Nothing yet. Detections and fixes from every site appear here within a minute." }));
   for (const r of d.recent.slice(0, 40)) {
-    const what = r.kind === "detect" ? (DIAG[r.diagnosis] || r.diagnosis || "detection") + (r.confidence ? " · " + Math.round(r.confidence * 100) + "%" : "") : "Fix: " + (r.action || "?") + " · " + (r.outcome || "");
+    const what = r.kind === "detect" || r.kind === "possible" ? (DIAG[r.diagnosis] || r.diagnosis || "detection") + (r.confidence ? " · " + Math.round(r.confidence * 100) + "%" : "") + (r.kind === "possible" ? " · possible" : "") : "Fix: " + (r.action || "?") + " · " + (r.outcome || "");
     feed.append(E("li", { cls: r.kind }, [E("time", { text: ago(r.at), title: r.at }), E("div", {}, [E("b", { text: what }), E("span", { cls: "h", text: (r.host || "(no host)") + (r.trigger ? " · " + r.trigger : "") + (r.runtime ? " · v" + r.runtime : "") })])]));
   }
 

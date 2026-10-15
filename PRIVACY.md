@@ -11,12 +11,16 @@ GenClass is maintained by Daybot Solutions Inc. ("we"). Contact: mehar@daybot.ca
 
 ## What we collect
 
-When a website runs GenClass with telemetry on (the default on public websites; never on localhost or private
-networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2.2), the browser sends us:
+When a website runs GenClass with telemetry on (the default on public websites; off by default on localhost and
+private networks unless the website's developer opts in explicitly with `telemetry: true` or a telemetry options
+object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2.2), the browser sends us:
 
 - **Decisions the runtime made:** what kind of event it looked at (for example a network response or a store
-  write), the model's diagnosis and suggested action, its confidence, and whether anything was changed or undone.
-  No text from the page is included by default.
+  write), the model's diagnosis and suggested action, its confidence, whether anything was changed or undone, and
+  (from runtime 0.3.0) whether a detection was a lower-confidence "possible" one, with a count of those per page
+  load. From runtime 0.3.0, routine decisions (nothing found, nothing changed) are sampled: one in four is sent, at
+  most 200 per page load, and the page load's summary says how many were sent and left out; every detection is
+  sent. No text from the page is included by default.
 - **The situation text the model read, only if the website's developer opted in** (`include: { situation: true }`).
   This describes recent app activity: request paths, store field names and short summaries of their values
   (including app state GenClass finds on its own, such as React component state), timing, route changes, short
@@ -26,9 +30,15 @@ networks, except that version 0.2.1 sent from those too by mistake; fixed in 0.2
   their users.
 - **Technical details:** GenClass and model versions, settings, device type (WebGPU or WASM), load times and error
   counts, and the website's hostname.
+- **The page's path**, with id-like segments (and, from runtime 0.3.0, segments containing an `@`, such as an e-mail
+  address) replaced by `:id` and no query string or fragment (for example `/orders/:id`), on each page load and each
+  decision. Other words in the path, such as a username, are sent as they are.
 - **Your approximate country**, from our server provider.
-- **The website's GenClass token**, if the site set one. It tells us which website the data came from, so that
-  website's owner can see it on their dashboard.
+- **The website's GenClass token**, if the site set one (from runtime 0.3.0). It tells us which website the data
+  came from, so that website's owner can see it on their dashboard.
+- **Names of protected functions, only if the site set a token** (from runtime 0.3.0): the name the developer gave a
+  function wrapped with `protect()`, on the decisions about what that function caused. A name that looks like data
+  (an e-mail address, a URL, 4 or more digits in a row, a long hex id) is sent as `[redacted]`.
 
 We do **not** store IP addresses, browser user-agent strings or cookies, and the runtime sets no cookies. Each page
 load gets a random session ID that is not saved anywhere.
@@ -41,9 +51,9 @@ works on their own site. We do not sell the data, use it for advertising, or try
 ## Dashboards for website owners
 
 A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated
-diagnostics for that site (counts of decisions, detections and actions, the site's hostnames, routes, the names the
-developer gave to protected functions, model speed, versions) and a list of recent detections (time, route or
-function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
+diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
+routes, the names the developer gave to protected functions, model speed, versions) and a list of recent detections
+(time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
 When a developer creates a token with `npx @genclass/runtime init`, after approving its changes, the tool sends us
@@ -55,8 +65,8 @@ asks us to delete them (contact below, with the token); the dashboard data itsel
 ## Accounts on genclass.dev
 
 An account is optional: GenClass, its diagnostics and the private dashboard links work without one. A developer who
-creates one (at genclass.dev/signup, or with `npx @genclass/runtime login` from the next release) can keep their apps
-in one place. An account stores:
+creates one (at genclass.dev/signup, or with `npx @genclass/runtime login`, runtime 0.3.0-beta.0 and later) can keep
+their apps in one place. An account stores:
 
 - **An email address:** as you typed it when signing up with a passkey (we do not verify it), or as Google returned
   it when you sign in with Google, together with whether it is verified (only Google can mark it verified). We use

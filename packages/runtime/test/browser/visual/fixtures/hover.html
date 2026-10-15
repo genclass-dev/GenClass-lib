@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unreadable on hover</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .nav-link { display: inline-block; padding: 8px 12px; color: #1d4ed8; background: #fff; text-decoration: none; }
+  .nav-link:hover { color: #ffffff; }
+  .ok-link { color: #1d4ed8; }
+  .ok-link:hover { color: #1e40af; }
+</style>
+</head>
+<body>
+<nav><a class="nav-link" href="#pricing" data-k="n1" data-expect="text-invisible">Pricing</a> <a class="ok-link" href="#docs" id="n2">Docs</a></nav>
+</body>
+</html>

@@ -36,6 +36,7 @@ GenClass is pre-1.0. Security fixes go into the newest published version only; u
 | package | supported |
 |---|---|
 | `@genclass/runtime`, the newest published `0.2.x` release (npm dist-tag `latest`) | yes |
+| `@genclass/runtime`, the newest `0.3.0` prerelease (npm dist-tag `beta`, from `0.3.0-beta.0`) | yes, fixed in the next prerelease; older `0.3.0` prereleases no |
 | `@genclass/runtime`, all `0.1.0` betas and alphas | no |
 | `@genclass/runtime-model`, the version the supported runtime loads by default (`DEFAULT_MODEL_BASE_URL`) | yes |
 | `research/` and the other directories of this repository that are not published packages | no |

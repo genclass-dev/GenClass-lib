@@ -541,13 +541,13 @@ describe("accounts: apps owned by an account", () => {
     expect(own.status).toBe(200);
     const html = await own.text();
     expect(html).toContain("Connect this app");
-    expect(html).toContain("npx @genclass/runtime login");
+    expect(html).toContain("npx @genclass/runtime@beta login"); // latest on npm is 0.2.x until 0.3.0
     expect(html).toContain(`GenClass.init({ token: &#34;${project.token}&#34; })`);
     expect(html).toContain(`data-token=&#34;${project.token}&#34;`);
-    expect(html).toContain("0.3.0 or later");
+    expect(html).toContain("0.3.0-beta.0 or later");
     // as the runtime behaves (src/telemetry/config.ts isLocalHost; its console says so): a key does not make a
     // local host send, so the first event comes from a deployed page
-    expect(html).toContain("Local hosts (localhost, *.local, *.test, private networks) do not send, even with a key");
+    expect(html).toContain("Local hosts (localhost, *.local, *.test, private networks) do not send by default, even with a key");
     expect(html).not.toContain("send only when a key is set");
     expect(html).not.toContain("only send data with an explicit token");
     expect(html).toContain(`/api/account/projects/${project.id}/stats`);
@@ -1450,8 +1450,8 @@ describe("accounts: migration 0003 on a database that already has projects", () 
 });
 
 describe("accounts: the Connect panel and the account-mode sidebar", () => {
-  it("says first that keys are not on npm until RUNTIME_ON_NPM reaches 0.3.0; the status line sits under the key", async () => {
-    for (const [v, notYet] of [[undefined, true], ["0.2.2", true], ["0.3.0", false]] as const) {
+  it("says first that keys are not on npm until RUNTIME_ON_NPM reaches 0.3.0-beta.0; the status line sits under the key", async () => {
+    for (const [v, notYet] of [[undefined, true], ["0.2.2", true], ["0.3.0-beta.0", false], ["0.3.0", false]] as const) {
       const { env } = setup(v === undefined ? {} : { RUNTIME_ON_NPM: v });
       const { cookie } = await signedIn(env);
       const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name: "App" }, cookie })).json()) as any;
@@ -1465,7 +1465,10 @@ describe("accounts: the Connect panel and the account-mode sidebar", () => {
     }
     expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.10.1" })).toBe(true);
     expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "1.0.0" })).toBe(true);
-    expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.3.0-beta.1" })).toBe(false);
+    // a 0.3 prerelease on the beta dist-tag reads keys (the pages name @beta in their commands); 0.2.x never does
+    expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.3.0-beta.1" })).toBe(true);
+    expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.2.3-beta.0" })).toBe(false);
+    expect(runtimeHasTokens({ BUCKET: { async put() {} }, RUNTIME_ON_NPM: "0.3.0-" })).toBe(false);
   });
 
   it("while an app waits for its first event the sidebar shows Connect only; more than 4 apps collapse to the current one", async () => {

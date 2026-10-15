@@ -66,6 +66,24 @@ not run in CI; say in the PR which of them you could not run.
 - New numbers go to `docs/runtime/RESULTS.md`, with the FIR next to the recall and what was and was not compared.
 - The PR template lists the checks. CI must be green.
 
+## Releasing (maintainers)
+
+In this order, so nothing on `main` points at a version npm does not have yet:
+
+1. On the release branch (`release/<version>`): `packages/runtime/package.json` has the version, the CHANGELOG
+   section is final, CI is green, and the first-load limits in `test/bundle.test.ts` match the README and
+   `docs/runtime/RESULTS.md`.
+2. Tag `v<version>` at that commit and push the tag; approve the `npm-publish` environment run of
+   `.github/workflows/release.yml`.
+3. Check that the version is live: `npm view @genclass/runtime@<version> version` and
+   `curl -sI https://cdn.jsdelivr.net/npm/@genclass/runtime@<version>` (HTTP 200).
+4. Only then merge the release branch into `main`. Both READMEs' quick starts pin the version in a CDN script tag;
+   merged before the publish finishes, the snippet on GitHub loads a 404.
+5. Site: after the merge, regenerate `site/public` with `site/build.sh` (move `RT` in `site/build.py` to this version
+   when the site should show it; `build.sh` refuses a version the CDN does not serve), so `/docs/telemetry` and
+   `/privacy` match the released `TELEMETRY.md` and `PRIVACY.md`. Deploying the site is a separate, owner-approved
+   step.
+
 ## Reporting a false flag
 
 GenClass flagged or acted on code that was right? That is a bug we want: use the "False flag or false

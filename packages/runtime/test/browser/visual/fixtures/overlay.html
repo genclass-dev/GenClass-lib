@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invisible overlay</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .scrim { position: fixed; inset: 0; z-index: 10; background: transparent; }
+  #buy { margin-top: 200px; padding: 12px 24px; font: inherit; }
+</style>
+</head>
+<body>
+<h1>Checkout</h1>
+<button type="button" id="buy" onclick="document.title = 'clicked'">Place order</button>
+<div class="scrim" data-k="scrim" data-expect="click-blocked"></div>
+</body>
+</html>

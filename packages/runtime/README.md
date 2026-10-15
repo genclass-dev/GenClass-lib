@@ -19,7 +19,7 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 **One line covers the whole app.** First in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
 ```
 
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`):
@@ -32,23 +32,24 @@ That is the whole setup. Network traffic, user actions, errors and timing are ob
 React component state (`useState`, `useReducer`, `useSyncExternalStore`, class state), Redux and Redux Toolkit
 stores, and Zustand stores with `devtools` are found automatically, with no store to register
 ([Automatic state discovery](#automatic-state-discovery)). It starts in observe mode: it reports, and never changes
-what your app does (see Known limitations). `npx @genclass/runtime init` writes the line for you.
+what your app does (see Known limitations). `npx @genclass/runtime@beta init` writes the line for you.
 
-**Next release (not in `0.2.2`):** a per-app dashboard on genclass.dev fed by an app token, in a GenClass account
-(`npx @genclass/runtime login`) or behind a private link, and `protect(name, fn)` with `scope: "functions"` to point
+**New in `0.3.0`:** a per-app dashboard on genclass.dev fed by an app token, in a GenClass account
+(`npx @genclass/runtime@beta login`) or behind a private link, and `protect(name, fn)` with `scope: "functions"` to point
 GenClass at a few functions instead of the whole app. See [Your dashboard](#your-dashboard) and
-[Function-specific: protect()](#function-specific-protect); `0.2.2` ignores a token and has no `login` command or
+[Function-specific: protect()](#function-specific-protect); `0.2.x` ignores a token and has no `login` command or
 `protect` export.
 
 > **Privacy notice: anonymous diagnostics are on by default.** `GenClass.init()` in a browser sends GenClass's
 > decisions and counts, without any text from your page, to the GenClass maintainers to improve the model; it is
 > off on `localhost` and other local hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), and the situation text is sent only if you opt in. Opt out with
-> `npx @genclass/runtime init --no-telemetry`, `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, or
+> `npx @genclass/runtime@beta init --no-telemetry`, `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, or
 > `localStorage["genclass.telemetry"] = "off"`;
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
 > and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-> **Status: `0.2.2`, with model `@genclass/runtime-model@0.2.0`.**
+> **Status: `0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
+> with model `@genclass/runtime-model@0.2.0`.**
 >
 > - **The model loads by default.** A default `GenClass.init()` loads `@genclass/runtime-model@0.2.0` (10.2 MB q8,
 >   `genclass-runtime-r17` 2.0.0-rc4t, run `r17-v2dT`, with a gain gate and three aggressiveness profiles) from
@@ -80,8 +81,9 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 [Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
-[What it looks for](#what-it-looks-for) · [State it can protect](#state-it-can-protect) ·
-[Ask it questions](#ask-it-questions) · [Observability](#observability) · [Extend it](#extend-it) ·
+[What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-030) ·
+[State it can protect](#state-it-can-protect) · [Ask it questions](#ask-it-questions) · [Observability](#observability) ·
+[See it where you already look](#see-it-where-you-already-look) · [Extend it](#extend-it) ·
 [Model quality](#model-quality) · [Performance](#performance) · [Costs](#costs) ·
 [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting) · [Privacy and telemetry](#privacy-and-telemetry) ·
 [Known limitations](#known-limitations) · [API reference](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md) ·
@@ -112,9 +114,17 @@ user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropp
 newer data (search.results). (stale, 0.97; discard 0.98)
 ```
 
+In production these lines print in your users' browsers. From `0.3.0` you can send them to your own endpoint or your
+log shipper as well: `npx @genclass/runtime@beta init --sink webhook:/genclass`, or `data-sink="webhook:/genclass"` on
+the script tag ([See it where you already look](#see-it-where-you-already-look)). Forwarding to Sentry, PostHog or
+Datadog is not part of the free runtime; on Pro, the GenClass collector forwards detections to them once you turn it on
+([genclass.dev/pricing](https://genclass.dev/pricing)).
+
 ## Install
 
-Pick one. All of them start the same runtime, in observe mode unless you choose otherwise.
+Pick one. All of them start the same runtime, in observe mode unless you choose otherwise. While `0.3.0` is in beta,
+every npm and npx command here names the `@beta` dist-tag: without it they get the stable `0.2.x`, whose runtime
+ignores a token and whose CLI has no `login`, `connect`, `whoami`, `logout`, `--token` or `--sink`.
 
 **1. One command.** `init` finds your framework and package manager, installs the package, adds one import as the
 first line of your entry file (plus a line that loads the devtools overlay in development only), and shows you the
@@ -122,17 +132,17 @@ diff before writing anything. Running it again changes nothing; running it with 
 import it added.
 
 ```bash
-npx @genclass/runtime init               # observe; shows the diff, asks, then writes
-npx @genclass/runtime init --mode guard  # let GenClass act (also: --mode heal); run again later to switch
-npx @genclass/runtime init --yes         # no questions
-npx @genclass/runtime init --dry-run     # show the diff, write nothing
-npx @genclass/runtime remove             # undo exactly what init added
+npx @genclass/runtime@beta init               # observe; shows the diff, asks, then writes
+npx @genclass/runtime@beta init --mode guard  # let GenClass act (also: --mode heal); run again later to switch
+npx @genclass/runtime@beta init --yes         # no questions
+npx @genclass/runtime@beta init --dry-run     # show the diff, write nothing
+npx @genclass/runtime@beta remove             # undo exactly what init added
 ```
 
 Other flags: `--no-install`, `--no-devtools`, `--cwd <dir>`, `--cdn <url>` and `--no-sri` (plain HTML),
 `remove --keep-package`.
 
-**Token and dashboard** (next release; `init` in `0.2.2` creates no token). On a new setup, once you approve the
+**Token and dashboard** (`0.3.0`; `init` in `0.2.x` creates no token). On a new setup, once you approve the
 diff (or pass `--yes`), `init` also creates a project for your app at genclass.dev: it sends `package.json`'s `name`
 to `https://genclass.dev/api/projects`, writes the token it gets back into what it adds (the diff shows
 `gc_new-token-created-when-you-apply` in its place until then), and prints your private dashboard link:
@@ -149,12 +159,12 @@ repository without one there, such as a monorepo package, it creates one with th
 and that line alone. Declining, running without a terminal and without `--yes`, and `--dry-run` send nothing and
 create nothing. Running `init` again reuses the token (no new project); on a setup made
 without one it never creates a project as a side effect: pass `--token`, or sign in and run `connect`. Signed in
-(`npx @genclass/runtime login`), `init` first asks whether the new app goes into your GenClass account instead of
+(`npx @genclass/runtime@beta login`), `init` first asks whether the new app goes into your GenClass account instead of
 getting a private link ([Your dashboard](#your-dashboard)).
 
 ```bash
-npx @genclass/runtime init --token gc_...   # use a token you already have (no network)
-npx @genclass/runtime init --no-token       # no token, no network
+npx @genclass/runtime@beta init --token gc_...   # use a token you already have (no network)
+npx @genclass/runtime@beta init --no-token       # no token, no network
 ```
 
 `--no-telemetry` implies `--no-token` (a dashboard only gets data while telemetry is on). If genclass.dev cannot be
@@ -165,14 +175,16 @@ network.
 Options without editing code (also on a project `init` already set up; `remove` takes them out too):
 
 ```bash
-npx @genclass/runtime init --no-telemetry                # anonymous diagnostics off (--telemetry: explicitly on)
-npx @genclass/runtime init --model-url /genclass-model/  # a self-hosted model (see Content-Security-Policy below)
+npx @genclass/runtime@beta init --no-telemetry                # anonymous diagnostics off (--telemetry: explicitly on)
+npx @genclass/runtime@beta init --model-url /genclass-model/  # a self-hosted model (see Content-Security-Policy below)
+npx @genclass/runtime@beta init --sink webhook:/genclass     # findings to your own endpoint too; also console-json
+                                                         # (0.3.0; "See it where you already look")
 ```
 
 They go into a marked `genclass.config.ts` (or `.js`) next to your entry, which sets `window.GENCLASS_CONFIG` and is
 imported right before the `/auto` import (an ES module's imports run before its own code, so options cannot be set
 above the import in the same file). Any `GenClass.init()` option works in that file. Plain HTML gets
-`data-telemetry="off"` (and `data-model`, `data-ort`) on the script tag, Astro a `<meta name="genclass">` line.
+`data-telemetry="off"` (and `data-model`, `data-ort`, `data-sink`) on the script tag, Astro a `<meta name="genclass">` line.
 
 `init` also says that telemetry is on by default and how to turn it off, and when your app sets a
 Content-Security-Policy (`next.config` headers, a proxy or middleware, a `<meta http-equiv>`, helmet, `vercel.json`,
@@ -215,7 +227,7 @@ import rt from "@genclass/runtime/auto";  // the same, and the runtime it starte
 ```
 
 Optional page configuration, read once: `<meta name="genclass" content="mode=guard, devtools=local">` inside
-`<head>` or `window.GENCLASS_CONFIG = { mode: "guard", devtools: true }` (any `InitOptions`; next release: also
+`<head>` or `window.GENCLASS_CONFIG = { mode: "guard", devtools: true }` (any `InitOptions`; since `0.3.0` also
 `token=gc_...` / `token: "gc_..."`), set before the import runs. During SSR or in Node, `/auto` installs nothing and
 returns an inert runtime.
 
@@ -227,15 +239,15 @@ returns an inert runtime.
 
 It exposes `window.GenClass`, discovers the app's state like the import does, and loads the model worker, ONNX
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
-overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Next release: `data-token="gc_..."`
+overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
 (your app's token), `data-scope="functions"` and `window.GenClass.protect`. Pin a version in production
-(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2`); the plain-HTML path of `init` writes a pinned
+(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 
 **4. By hand:**
 
 ```bash
-npm install @genclass/runtime
+npm install @genclass/runtime@beta
 ```
 
 ```ts
@@ -255,7 +267,7 @@ The unscoped `genclass-runtime` alias is deprecated; use `@genclass/runtime`.
 
 ## Function-specific: protect()
 
-**Next release** (not in `0.2.2`, which has no `protect` export: importing it fails). Use this when you want GenClass
+**New in `0.3.0`** (`0.2.x` has no `protect` export: importing it fails). Use this when you want GenClass
 on a few functions that matter (a checkout submit, a search, a save) rather than on the whole app.
 
 ```ts
@@ -311,7 +323,7 @@ plugins (`rt.question()`, a plugin's `questions`) are only asked about protected
 `scope: "app"`, decides about the whole app as before; `protect()` then only adds the function names. The mode still
 applies: in `observe` (the default) GenClass reports, in `guard` it may act on what protected functions cause.
 
-**With `/auto` or the script tag** (what `npx @genclass/runtime init` sets up), GenClass is already running before
+**With `/auto` or the script tag** (what `npx @genclass/runtime@beta init` sets up), GenClass is already running before
 your code, so a later `GenClass.init({ token, scope })` is ignored (the console says so once). Set them where GenClass
 starts: `window.GENCLASS_CONFIG = { token: "gc_...", scope: "functions" }` in the `genclass.config.ts`/`.js` that
 `init` imports right before `/auto`, `<meta name="genclass" content="scope=functions">` in `<head>`, or
@@ -322,7 +334,7 @@ where GenClass acts.
 
 ## Your dashboard
 
-**Next release** (not in `0.2.2`, which ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
+**New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
 a GenClass account, or use one private link per app without an account.
@@ -330,10 +342,10 @@ a GenClass account, or use one private link per app without an account.
 **With an account:**
 
 ```bash
-npx @genclass/runtime login     # sign in in the browser, then connect the app in this folder
-npx @genclass/runtime connect   # connect an app folder later (or another one)
-npx @genclass/runtime whoami    # your account and its apps
-npx @genclass/runtime logout    # end the CLI session
+npx @genclass/runtime@beta login     # sign in in the browser, then connect the app in this folder
+npx @genclass/runtime@beta connect   # connect an app folder later (or another one)
+npx @genclass/runtime@beta whoami    # your account and its apps
+npx @genclass/runtime@beta logout    # end the CLI session
 ```
 
 `login` prints a code and opens `https://genclass.dev/login/device`, where you sign in (Google, GitHub or a
@@ -376,7 +388,7 @@ sessions or change how you sign in. What an account stores:
 | token | `gc_` + 22 letters and digits, e.g. `gc_4fQ9...` | public: it ships in your page. It only lets your app's diagnostics be grouped together. |
 | dashboard link | `https://genclass.dev/dashboard/<secret>` | **private**: anyone with the link sees your app's stats, and it is the only way to open them |
 
-**Get one:** `npx @genclass/runtime init` (not signed in, after you approve its diff: creates both, writes the
+**Get one:** `npx @genclass/runtime@beta init` (not signed in, after you approve its diff: creates both, writes the
 token, prints the link and saves it in `.genclass.local`), or click "Get a token" at
 [genclass.dev/start](https://genclass.dev/start). A link can be added to an account later (`connect`, or "Add an
 existing dashboard" on your account page).
@@ -389,16 +401,17 @@ console warning and is ignored.
 model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections.
 
 **What it needs:** telemetry on (the default with `GenClass.init()` in a browser) on a deployed host. Local hosts
-(`localhost`, `*.local`, `*.test`, private networks) never send, so a page there does not feed the dashboard (the
-console says so once when a token is set). With telemetry off for any other reason, a token does nothing (with
+(`localhost`, `*.local`, `*.test`, private networks) do not send by default, so a page there does not feed the
+dashboard (the console says so once when a token is set). `telemetry: true` or any telemetry options object (for
+example `telemetry: { decisionSample: 1 }`) is an explicit opt-in that sends from local hosts too, token included. With telemetry off for any other reason, a token does nothing (with
 `debug: true` the console says so once). Visitors who opt out (`?genclass=no-telemetry`,
 `localStorage["genclass.telemetry"] = "off"`) or whose browser sends Global Privacy Control are not counted. With a
 token, each telemetry batch carries it and decisions about protected functions carry their `fn` name; nothing else
 changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
 
 **Which version:** the token option, `scope`, `protect()` and the `login`, `connect`, `whoami` and `logout` commands
-are in the release after `0.2.2`, `0.3.0` (see the [CHANGELOG](CHANGELOG.md), Unreleased). A key needs
-`@genclass/runtime` `0.3.0` or later in your app.
+are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)). A key needs `@genclass/runtime`
+`0.3.0-beta.0` or later in your app.
 
 ## Automatic state discovery
 
@@ -471,8 +484,8 @@ These hold for the runtime; whether the model's decisions are good is a separate
   it changed carry an `x-genclass` header.
 - **Off in one step.** `?genclass=off` in the URL installs nothing, and observe (the default) never changes
   execution.
-- **Small on the main thread.** The main entry is about 91 KB gzip in `0.2.2` (minified, without the optional
-  devtools; see Performance for the next release). The
+- **Small on the main thread.** The main entry is about 100 KB gzip in `0.3.0` (minified, without the optional
+  devtools; 92 KB in `0.2.2`; see Performance). The
   default model is 10.2 MB on WASM (13.6 MB fp16 on WebGPU with `shader-f16`), downloaded once at idle and cached.
   It runs in a worker that holds 190 to 280 MB while loaded: see [Costs](#costs).
 
@@ -483,6 +496,26 @@ These hold for the runtime; whether the model's decisions are good is a separate
 | `observe` (**default**) | Finds and reports what it sees and what it would have done. Never holds a request or a response, never runs an action. | none |
 | `guard` (opt-in) | Also prevents failures with minimal, reversible guard-tier actions: `discard`, `defer`, `coalesce`, `delay` (drop a stale response, reuse a duplicate's result, back off). Only when the model's gate says acting beats doing nothing (with model 0.2.0 at `balanced`: about 90% sure). | guard tier |
 | `heal` (**experimental**) | Also recovers: `retry`, `serve_cached`, `block`, `hedge`, `rollback`, `resync`, plus your own actions. | guard + heal tier |
+
+**Detections in observe (`0.3.0`).** A detection is *likely* when the model's top diagnosis is not `expected` and
+its probability reaches the report gate (0.90 at `balanced` with model 0.2.0), and is printed as one console line
+with its evidence, as before. In observe GenClass also reports *possible* detections: at least the `eager`
+profile's report value (0.70) but below the report gate. They print with `console.debug` only, ending in
+`(possible)` (Chrome hides them unless the console level includes "Verbose"), show as dimmed cards in the devtools,
+and are counted on their own (`summary().possibleDetections`, telemetry). Your own wiring gets them only if you ask:
+`rt.on("detect")`, `rt.on("report")` and `report: (r) => …` receive the likely ones unless you set
+`detect: "possible"` (every decision, with `detection` set, is on `rt.on("decide")`), and sinks need
+`possible: true`. `detect: "likely"` turns them off; `detect: "possible"` turns them on in guard and heal too (reporting
+only: what guard and heal do is unchanged). Setting `policy.thresholds.report` turns them off unless `detect` asks.
+Measured effect and false-detection bounds:
+[RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md).
+
+Observe no longer goes blind while the model loads or the tab is hidden (`0.3.0`): situations raised then are built
+at once and decided when the model is ready and the tab visible (at most 32 wait; a hidden tab never loads the
+model, the tab becoming visible does). Until their false-report rate is measured, what they find is reported at the
+possible tier at most. `detect: "likely"` turns this off too. In guard and heal, nothing waits: they skip, as before.
+Three `0.3.0` fixes can add likely reports in observe that `detect: "likely"` does not turn off, at a rate not
+measured yet (overwritten writes decided on slow devices, the body-wait and idle-unload fixes; CHANGELOG).
 
 ## How eager should it be?
 
@@ -497,7 +530,8 @@ GenClass.runtime.setAggressiveness("eager");   // change it later (the devtools 
 somewhat higher risk of acting when it did not need to. A number in between interpolates (0 = cautious,
 0.5 = balanced, 1 = eager). Try a level without redeploying with `?genclass-aggr=eager` in the URL. The model ships
 tuned thresholds for each level; explicit `policy.thresholds` still override them. `runtime.gates()` shows what is
-in force.
+in force. In observe, aggressiveness only moves the report gate (what counts as a likely detection); the possible
+tier below it stays at the `eager` value (see [Modes](#modes)).
 
 ## Connect your state (optional)
 
@@ -603,7 +637,84 @@ cover:
 - read-your-writes.
 
 It catches runtime failures that leave evidence: ordering, staleness, duplicates, broken relations, failure patterns.
-It does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code.
+The model does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code. A
+set of visual and CSS bugs is covered by measured checks instead (next section).
+
+**Steps that did not happen (opt-in, `0.3.0`).** `GenClass.init({ learn: { expectations: true } })` also learns what
+each user action on a route usually does (the requests it sends, what their answers write, where it navigates) and
+reports a usual step that did not happen this time: `[GenClass] Expected a request on /cart: clicking button "Add to
+cart" usually sends POST /api/cart (...); this time nothing was sent in 2.0 s.` Deterministic counts, no model, no
+action in any mode. It is off by default until its false-report rate on correct apps is measured
+([RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md), "Flow expectations");
+off, its code is never loaded (a lazy chunk, no first-load cost). Design and controls:
+[EXPECTATIONS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/EXPECTATIONS.md).
+
+## Visual and CSS checks (new in 0.3.0)
+
+GenClass also measures visual bugs that never throw an error: text you cannot read because it is nearly the colour of
+its background, images, fonts, stylesheets and media that failed to load, pages that scroll sideways on a phone,
+invisible layers that swallow clicks, dialogs hidden behind other elements, and leaks such as "[object Object]" or
+"$NaN". Each report names the element, what was measured and the threshold, and suggests a CSS change for that
+selector:
+
+```
+[GenClass] Check (measured): text contrast 1.04:1 on p.hero__subtitle "Ship faster with fewer bugs", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #fafafa on #ffffff from section.hero. Suggested CSS: p.hero__subtitle { color: #737373; }
+[GenClass] Check (measured): the page scrolls sideways on a 390 px viewport: div.pricing-table ends at 512 px (122 px too wide, a width wider than the viewport). Suggested CSS: div.pricing-table { max-width: 100%; }
+```
+
+These are measured checks with fixed thresholds. The model is not involved, does not look at pixels, and never sees
+them; they never feed a decision. They abstain when they cannot know: text over photos, video, canvases and gradients
+(including layers that ignore the pointer), filters, blend modes, partial opacity, forced colours and page translation
+are skipped, not guessed.
+
+| kind | what it finds |
+|---|---|
+| `text-invisible` | text below 1.5:1 against a fully known solid background, at rest, on hover, on focus, in light or dark mode |
+| `image-broken`, `image-css-broken`, `media-failed` | an `img`, a CSS background image (Chromium) or a video or audio player that failed to load |
+| `stylesheet-failed`, `font-failed`, `icon-font-failed` | a first-party stylesheet, a web font in use, or an icon font (boxes or ligature words shown) that failed |
+| `csp-blocked` | a style, font, image or media blocked by the page's Content-Security-Policy |
+| `text-template-leak`, `text-placeholder`, `text-encoding` | `[object Object]`, `$NaN`, `{{ x }}`, `Invalid Date`; lorem ipsum and placeholder-image hosts; mojibake and double-escaped entities |
+| `css-var-undefined` | `var(--x)` without a fallback where `--x` is defined nowhere and the fallback leaves text below 3:1 |
+| `image-distorted`, `page-overflow-x`, `viewport-meta-missing`, `layout-shift` | a stretched image; sideways scrolling and its cause; a phone showing the 980 px layout; a layout shift above 0.25 that names the element that moved and does not follow a scroll (Chromium) |
+| `page-blank` | the main region shows no text and no media after the page settled |
+| `click-blocked`, `pointer-events-leak`, `scroll-lock-stuck` | an invisible layer that took two clicks; `pointer-events: none` or a scroll lock left on `body` |
+| `control-unreachable`, `focus-obscured`, `dialog-covered` | a control under a fixed bar with no controls of its own; a focused element or anchor target under a sticky header or banner that paints over it; a dialog under other elements |
+
+**Where they run.** On by default on development hosts (a dev server's port on `localhost`, `127.0.0.1`, `[::1]` or a
+`*.localhost` name, and `*.test` names) and when the devtools overlay mounts, where the developer reads the console;
+off everywhere else, including hybrid apps served from `https://localhost` (Capacitor), Tauri, Electron files and
+intranet hosts. Turn them on in production
+with `GenClass.init({ visual: true })` (or `data-visual="on"`, `<meta name="genclass" content="visual=on">`) and read
+them with a sink or `rt.on("check", f => ...)`; `?genclass-visual=on` turns on report-only checks for the person who
+opened the link; `visual: false` or `?genclass-visual=off` turns them off.
+
+**Cost.** About 0.5 KB gzip of first load (550 B on `/auto`, 524 B on the main entry; see Performance). The checks are a separate file loaded 1.5 s after the page's `load` event
+in a visible tab, and all their page reads (passes, the 2 s read of `html` and `body`, the click, hover, focus and
+scroll checks) run in idle callbacks: slices of 8 ms, at most 100 ms per pass and 1 s per 10 minutes. One step can
+still take longer than a slice when the browser has to lay out a heavy page first (measured in RESULTS.md section 14).
+Low-end devices run only the near-free checks (failed assets, CSP, layout shifts, the interaction checks). Nothing
+about the checks is sent anywhere.
+
+**Runtime fixes (opt-in).** With `GenClass.init({ mode: "guard", visual: { on: true, fix: true } })`, GenClass can
+apply three narrow fixes: a readable text colour (one rule in its own stylesheet), and removing a leaked inline
+`pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did not help;
+a colour fix is measured again every 2 s and after class changes, and undone as soon as the background it was made for
+changes. A scroll lock held since the page loaded, with no dialog ever open, is reported but never removed. Every fix
+can be undone (`rt.checks().find(c => c.id === "c3").fix.undo()` or the devtools Undo button), and is undone when the
+mode drops to observe. Observe mode never changes the page.
+
+**In your own tests.** `import { checkPage } from "@genclass/runtime/visual"` runs one report-only pass in the page and
+resolves with the findings, for a Playwright or Cypress test.
+
+Not covered yet: text over photos, video and gradients; canvas and WebGL content; the colour scheme, viewport or hover
+state the visitor is not using; layout shifts and failed CSS images outside Chromium; low contrast that is readable but
+below WCAG AA. Measured in CI on the demos, templates, compat apps and 40 public home pages
+([RESULTS.md section 14](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)): 0 false
+reports in 128 views of the local pages, and recall 1.00 on planted faults for 19 of the 23 kinds (0.67 to 0.96 for
+the other four). On the public pages
+the checks were tuned on the same sites (the first run had 44 check errors in 100 loads); there is no held-out site
+set yet, so those figures are not a false-report rate for other sites. Design and thresholds:
+[VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md).
 
 ## State it can protect
 
@@ -672,7 +783,9 @@ Standing questions ride along with built-in decisions: `rt.question({ id, on: ["
 ## Observability
 
 - **Console:** one line per detection and per intervention, with the evidence collapsed below it. Identical repeats
-  within a minute are summarised. `report: "silent"` or `report: (r) => …` to route them yourself.
+  within a minute are summarised. `report: "silent"` or `report: (r) => …` to route them yourself. Possible
+  detections (observe, `0.3.0`) are one `console.debug` line each, ending in `(possible)`; a report function gets
+  them only with `detect: "possible"`.
 - **Events:** `rt.on("detect" | "decide" | "act" | "event" | "status" | "report", fn)` returns an unsubscribe function.
 - **`rt.explain(id)`:** the exact situation text the model read, its facts and timeline, every answer with
   probabilities, and what changed.
@@ -700,6 +813,76 @@ if (import.meta.env.DEV) {
 }
 ```
 
+### See it where you already look
+
+> **New in `0.3.0`.** `0.2.x` ignores `data-sink` and `sink=`, stops at `init --sink` with "unknown option", has no
+> `@genclass/runtime/sinks` exports, and prints "a sink failed" for a sink name in `GENCLASS_CONFIG.sinks`. Pin
+> `0.3.0-beta.0` or later in the script tag below.
+
+In production the `[GenClass]` console lines print in your users' browsers, not yours. Sinks send every detection,
+intervention, undo, breaker trip and runtime error to your own side as well: one JSON line per record on the console
+for a log shipper (`console-json`), batched POSTs to an endpoint you own (`webhook`), or a function or `{ send }` object
+of yours. The records go only where you point them. The console default does not change.
+
+**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime. On Pro, the
+GenClass collector forwards detections to them (or Slack, or a signed webhook) once you turn it on in the dashboard
+([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime itself has no adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
+so, and nothing is loaded or sent for those names; `init --sink sentry` stops with a usage error that says the same.
+
+With `/auto` or the script tag you write no adapter code yourself:
+
+```bash
+npx @genclass/runtime@beta init --sink webhook:/genclass   # or console-json; repeat it or comma-separate
+```
+
+```html
+<meta name="genclass" content="sink=webhook:/genclass+console-json">     <!-- + joins names: commas separate the meta keys -->
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0" data-sink="webhook:/genclass,console-json"></script>
+<script>window.GENCLASS_CONFIG = { sinks: ["webhook:https://collector.example/genclass"] };</script>
+```
+
+In a project with an entry file `init` writes the names to its option file; on a plain HTML page it sets `data-sink`,
+in an Astro layout `sink=` in the meta line. A name loads its adapter on the first record, never before. A `<meta>`
+tag only takes a same-origin webhook URL, checked as the browser resolves it (against the page and
+`document.baseURI`); a cross-origin one is ignored with a console warning, so put a collector on another origin in
+`data-sink` or `window.GENCLASS_CONFIG`. A webhook URL is made absolute once, at init, and only that endpoint (origin
+and path) is excluded from what GenClass observes. Add `:noevidence` to `console-json` (`--sink console-json:noevidence`)
+to print the structured fields without the evidence text. In code, pass the adapters to `GenClass.init`:
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { consoleJson } from "@genclass/runtime/sinks/console-json";
+import { webhook } from "@genclass/runtime/sinks/webhook";
+
+GenClass.init({
+  sinks: [
+    consoleJson(),                 // console.log('{"source":"genclass","schema":1,"kind":"detection",...}') for log shippers
+    webhook({ url: "/genclass" }), // batched POSTs of { schema: "genclass-sink/1", version, records } to your endpoint
+  ],
+});
+```
+
+`@genclass/runtime/sinks` exports both. Neither adds a dependency or ever throws into your app. Both forward every
+record kind, the per-session `summary` record included; the webhook caps repeats of one bug at 10 per page load
+(`maxPerSignature`). Both take `kinds`, `sampleRate` and `evidence`.
+
+**What a sink receives** is the record the runtime built and nothing else: `kind`, `route` (the page path with
+id-like segments and segments holding an `@`, such as an e-mail address, as `:id`, as telemetry sends it from 0.3.0), `diagnosis` and its
+probability `p`, `action`, `tier`, `trigger`, `mode`, `label`, `reason`, `changed` (state paths), `sessionId` and your
+session `tags`, plus the evidence: the console line, the subject and the timeline, with URL query and fragment values
+replaced by `…`. Timeline lines can hold short fragments of app data, as the console does (a store value summary, an
+error message, text typed into an ordinary input; secret-named fields are `[redacted]`). `evidence: false` on an
+adapter sends the structured fields only. A sink never gets the full situation text the model read, request or
+response bodies, headers or cookies. The webhook POSTs exactly those records as
+`{ schema: "genclass-sink/1", version, records }`, by `navigator.sendBeacon` (which GenClass never wraps, and which
+survives page exit), else `fetch` with `keepalive`; the body is JSON sent as `text/plain` (no preflight), so parse it
+as JSON. One POST carries the records GenClass hands over in one idle-time round, at most 50 records and 32,000
+bytes of them, and each round sends at most one: the browser allows 64 KiB of beacons in flight per page, shared with
+yours (your analytics on page exit, say), so GenClass never takes more than about half. What does not fit waits for the
+next round, and on page hide one last batch goes (the session summary first) and the rest is dropped. Pass a `clock`
+and `flushMs` to batch over a time window instead. `headers` switches it to `fetch`; then list the URL in
+`requests.ignore` (the zero-code forms do that for you).
+
 ## Extend it
 
 Plugins can add their own observers, facts, actions and questions:
@@ -725,11 +908,11 @@ measured.
 
 GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that applies once you opt into guard or heal, circuit breaker on). The options below narrow where it acts, cap how much it does, and send findings to your tools. None of them tell the model what a bug looks like. They only scope and limit it.
 
-- **Your app** (next release): `token` (your dashboard, see [Your dashboard](#your-dashboard)), `scope` (`"app"` or `"functions"`, see [protect()](#function-specific-protect)).
+- **Your app** (`0.3.0`): `token` (your dashboard, see [Your dashboard](#your-dashboard)), `scope` (`"app"` or `"functions"`, see [protect()](#function-specific-protect)).
 - **Activation**: `enabled` (a boolean, a predicate, or a subscribable feature flag; while it is false the model is never downloaded), `rt.disable({ undo: true })` (remote kill that also rolls back recent actions), `sample` (the fraction of sessions allowed to act; the rest only observe).
 - **Scope**: `routes` (per-route mode and aggressiveness, which can only be lowered), `requests.ignore` (analytics traffic), `requests.protect` (endpoints that are never held, retried, cached or discarded), `requests.labels` (endpoint names for reports), `requests.correlate` (attach your trace id to records).
 - **Safety**: `breaker` (automatic downgrade after undos, or after errors that follow an action), `shadow` (records what a higher mode would have done), `onBeforeAction` + `vetoMode` (a synchronous veto, or a report-only trial of one), `policy.actionLimits` (per-minute, per-subject and per-session caps), `policy.holdBudgetMs` (a hard ceiling on added latency).
-- **Your own telemetry**: `sinks` (structured, redacted records), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
+- **Your own telemetry**: `sinks` (structured, redacted records; ready-made adapters in `@genclass/runtime/sinks` for JSON console lines and a webhook to your own endpoint, see "See it where you already look"; forwarding to Sentry, PostHog or Datadog is not in the free runtime), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
 - **Loading and cost**: `model.loadIf`, `model.threads`, `model.timeoutMs`, `model.maxDecisionsPerMinute`, `model.unloadAfterIdleMs`.
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.
@@ -767,13 +950,13 @@ const rt = GenClass.init({
   sinks: [
     { send: (r) => navigator.sendBeacon("/genclass", JSON.stringify(r)),
       kinds: ["intervention", "undo", "breaker", "summary"] },
-    { send: (r) => Sentry.addBreadcrumb({ category: "genclass", data: r }), sampleRate: 0.2 },
+    { send: (r) => myLogger.info("genclass", r), sampleRate: 0.2 },
   ],
   session: { tags: { release: __RELEASE__, tenant: tenantTier } },
   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init
   model: {
     preload: "idle",
-    loadIf: { minDeviceMemoryGB: 2, saveData: "lazy" },
+    loadIf: { minDeviceMemoryGB: 8, saveData: "skip" },   // default { minDeviceMemoryGB: 4, saveData: "skip" }
     threads: 2,
     timeoutMs: 10_000,
     maxDecisionsPerMinute: 30,
@@ -842,7 +1025,12 @@ have not been re-measured for 0.2.0:
 What this means in practice:
 
 - **Observe (default).** Expect roughly 1 to 4 false flags per 100 decisions where nothing was wrong (model 0.1.0;
-  `cautious` raises the report threshold to 0.95, `eager` lowers it to 0.70).
+  `cautious` raises the report threshold to 0.95, `eager` lowers it to 0.70). `0.3.0` adds *possible* detections at
+  the `eager` value (0.70) in observe, on `console.debug` only. The 0.2.0 fit held eager-profile detections (likely
+  and possible together) to at most 5% (real apps) / 6% (simulated) false per clean decision on held-out test,
+  against 2% / 3% at `balanced`; the share of possible detections that are false is not measured and is expected to
+  be well above the likely tier's
+  ([RESULTS.md §11](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)).
   - In one held-out real app, `oss-rtk-conduit`, the model flagged 25% of clean decisions as `stale`, all on its
     `article.inProgress` field. A single recurring pattern in your app can do the same.
   - Each flag names its evidence, and identical lines within a minute are summarised.
@@ -887,14 +1075,21 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   | Redux-style dispatch on 5,000 entities | about 0.7 ms |
   | settled-point check | 0.3 ms |
 
-- **Bundle:** what every page loads is about 99 KB gzip for `@genclass/runtime/auto` with automatic state
-  discovery and 91 KB for the main entry with `GenClass.init()`, which does not carry discovery, measured with
-  esbuild in `0.2.2`. The next release (app tokens, `protect()`) measures 100.68 KB and 93.19 KB (CI run
-  38436014497; `test/bundle.test.ts` keeps them under 101 KB and 94 KB and prints the sizes). The model worker, ONNX Runtime Web's JavaScript
-  (about 70 KB gzip for WASM, 115 KB with WebGPU, minified) and the devtools are separate chunks loaded on demand.
+- **Bundle:** what every page loads is about 108 KB gzip for `@genclass/runtime/auto` with automatic state
+  discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 108.25 KB and
+  100.13 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38676978903), which keeps them under
+  108.30 KB and 100.20 KB (pending the maintainers' decision: the limit approved for `0.3.0` was 107.74 / 99.71 KB,
+  the `0.3.0-beta.0` release build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
+  99.17 KB and 91.70 KB; `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink
+  names' proxy and the learned-state persistence (docs/runtime/RESULTS.md §10), then observe's detection tiers and
+  deferred situations (+1.3 / +1.4 KB, §11), and on `/auto` the one warning for the sink names `sentry`, `posthog` and
+  `datadog` (+0.10 KB, §10), then the measured visual checks' stub (+0.54 / +0.51 KB, §10 and §13). The model worker, ONNX Runtime Web's JavaScript (about
+  70 KB gzip for WASM, 115 KB with WebGPU, minified), the devtools, the sink adapters, the measured visual checks
+  and the opt-in flow expectations are separate chunks loaded on demand.
   ONNX Runtime's own `.wasm` (14 MB, 3.1 MB brotli; 27 MB, 5.5 MB brotli with WebGPU) is never part of your build:
   the runtime fetches it when the model loads (from jsDelivr, or `model.ortWasmPaths`). The script-tag file is about
-  110 KB gzip (with discovery); its model worker and ONNX Runtime glue load on demand.
+  129 KB gzip (128.56 KB in the same CI run, with discovery, the sink names' proxy and the flow expectations inline);
+  its model worker, ONNX Runtime glue, sink adapters and visual checks load on demand.
 - **Model:** the default model is 10.2 MB (q8, pruned 16k vocabulary) on WASM and 13.6 MB (fp16) on WebGPU with
   `shader-f16`. With onnxruntime-web 1.30 on single-thread WASM, measured in Node on the training VM, a forward pass
   took about 182 / 330 / 599 ms at 500 / 780 / 1,170 tokens: about 180 ms per decision at the single-thread budget
@@ -911,9 +1106,11 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
   `Cross-Origin-Embedder-Policy: require-corp` enables WASM threads (about 3× faster with 4 threads in Chromium,
   measured with the round-1 model of the same size).
 - **Loading:** the model loads at idle after page load (`model.preload: "idle"`) from
-  `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`. It is cached in Cache Storage and checked
-  with sha256. To self-host, see [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting).
-  `model: false` loads no model (nothing is detected or prevented then).
+  `https://cdn.jsdelivr.net/npm/@genclass/runtime-model@0.2.0/files/`, except on devices that report 2 GB of
+  memory or less and on Save-Data connections (the default `model.loadIf` since `0.3.0`, see [Costs](#costs)). It is cached in
+  Cache Storage and checked with sha256. To self-host, see
+  [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting). `model: false` loads no
+  model (nothing is detected or prevented then).
 
 ## Costs
 
@@ -923,7 +1120,7 @@ without `?genclass=off`:
 
 | | with GenClass |
 |---|---|
-| JavaScript on every page (first load, gzip) | about +99 KB (`/auto` with discovery; 91 KB for the main entry, see Performance) |
+| JavaScript on every page (first load, gzip) | about +108 KB (`/auto` with discovery; 100 KB for the main entry, see Performance) |
 | Main thread: load event, LCP, long tasks | no measurable change; main JS heap +0.4 MB |
 | **Memory: renderer process (holds the model worker)** | **+190 to 280 MB RSS** while the model is loaded (cold 448 vs 169 MB, warm 361 vs 171 MB) |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build |
@@ -936,21 +1133,26 @@ without `?genclass=off`:
 
 | | cost |
 |---|---|
-| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the 99 KB `/auto` entry; `GenClass.init()` setups do not load it) |
+| JavaScript (first load, bytes on the wire) | +7 KB on `/menu` (discovery's share of the `/auto` entry; `GenClass.init()` setups do not load it) |
 | React commit walk, 4× CPU throttling | p50 0.2 ms, p95 1.8 ms, max 2.1 ms per commit including recording the change; total about 5 ms over the `/order` visit |
 | React commit walk, no throttling, 54 bench trials (about 2,000 commits) | p50 below 0.1 ms (the timer's resolution), p95 0.8 to 0.9 ms, max 3.8 ms |
 | Main-thread JS heap (after GC, 4× throttling) | 5.7 MB vs 5.2 MB without discovery |
 | Long tasks (> 50 ms) | unchanged (1 per run, 65 to 70 ms, with and without) |
 
 **On phones** the memory and the download are what matter (the page may also run a call, the camera or a
-recorder). Options that exist today:
+recorder). **By default the model is not loaded on devices that report 2 GB of memory or less, nor on Save-Data
+connections** (since `0.3.0`; `0.2.x` loads everywhere and only lazily on Save-Data; `model.loadIf` defaults to `{ minDeviceMemoryGB: 4, saveData: "skip" }`; `navigator.deviceMemory` is
+quantised to powers of two, so 4 is exactly that floor; Safari and Firefox do not report it and load). The runtime
+then keeps observing without a model (nothing is detected or prevented on that device) and prints one line,
+`[GenClass] Model not loaded: this device reports 2 GB of memory and model.loadIf asks for at least 4 GB. …`.
+Options on top of that:
 
 ```ts
 GenClass.init({
   model: {
-    // no model on phones (Chromium reports userAgentData.mobile; Safari does not), or on small devices
-    loadIf: (env) => !env.mobile && (env.deviceMemoryGB ?? 8) >= 4,
-    // or: loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }   (skip on Save-Data connections too)
+    // no model on phones at all (Chromium reports userAgentData.mobile; Safari does not), or a higher floor
+    loadIf: (env) => !env.mobile && (env.deviceMemoryGB ?? 8) >= 8,
+    // or everywhere, floor and Save-Data ignored: loadIf: () => true
     preload: "lazy",            // download on the first salient situation, not at idle on every page
     unloadAfterIdleMs: 60_000,  // free the worker's memory after a minute without a decision
   },
@@ -958,7 +1160,6 @@ GenClass.init({
 ```
 
 `model: false` keeps the runtime observing (console reports, `rt.status`, devtools) with no download and no worker.
-The default `loadIf` already loads lazily on Save-Data connections.
 
 ## Content-Security-Policy and self-hosting
 
@@ -968,8 +1169,8 @@ prints **one** console warning naming the blocked origin and the fix (`status.bl
 `https://cdn.jsdelivr.net` in `connect-src`, or self-host (no third-party origin):
 
 ```bash
-npx @genclass/runtime fetch-model public/genclass-model   # model + ONNX Runtime files (into public/genclass-model/ort/)
-npx @genclass/runtime init --model-url /genclass-model/   # or pass the options yourself:
+npx @genclass/runtime@beta fetch-model public/genclass-model   # model + ONNX Runtime files (into public/genclass-model/ort/)
+npx @genclass/runtime@beta init --model-url /genclass-model/   # or pass the options yourself:
 ```
 
 ```ts
@@ -980,24 +1181,44 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   is about 24 MB; then also set `model.device: "wasm"` (`init --model-url` does it when it finds only the WASM
   build there). The WebGPU build's wasm is 27 MB, over the 25 MiB per-file limit of some static hosts (Cloudflare).
 - The policy also needs `'wasm-unsafe-eval'` in `script-src` (WebAssembly) and `worker-src 'self'` (or `blob:`
-  for the script tag).
+  for the script tag). When the worker cannot start (a policy without it, `file:`), the default
+  `model.inlineFallback: true` runs the model on the main thread instead (the `Model ready` line then says
+  `inline on the main thread`; each decision then blocks the page for about 180 ms on single-thread WASM, see
+  Model above). `model: { inlineFallback: false }`
+  skips the model in that case (`status.state` `skipped`, reason `worker-unavailable`, one warning naming the
+  worker error) and the runtime observes without it.
 - Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
   `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
   requests, so the policy logs at most 3 violations.
+- Sinks ([See it where you already look](#see-it-where-you-already-look), `0.3.0`): a webhook on another origin
+  needs that origin in `connect-src` (a same-origin path such as `webhook:/genclass` needs nothing). With the script
+  tag, `data-sink` (or `sink=` / `GENCLASS_CONFIG.sinks`) loads `dist/sinks/<name>.js` and the chunk the adapters
+  share from the tag's own CDN path, so allow `https://cdn.jsdelivr.net` in `script-src`, or self-host this package's
+  `dist/` and point `data-base` at it. With `/auto` the adapters are chunks of your own bundle.
 
 ## Privacy and telemetry
 
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
-- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path, and for each decision the trigger, the diagnosis and its confidence, the action and gate, the outcome, latency and counts. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path (from `0.3.0` a segment with an `@`, such as an e-mail address, is `:id` too), and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **The measured visual checks send nothing** (new in `0.3.0`): their findings stay in the page (the console, `rt.checks()`, your own sinks).
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
-- **With a token** (next release: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
+- **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
   Without a token neither is sent; without telemetry, a token does nothing.
+- **Possible detections** (`0.3.0`, observe): their `detect` events carry `tier: "possible"` (a likely detection
+  has no `tier`, as before), and the page-load summary counts them apart from detections (`possibleDetections`). They
+  say which tier a detection was in; nothing new about the page is sent.
+- **The CLI** contacts genclass.dev only for the command you run: `init` creates a dashboard only after you approve its
+  diff (it sends the `name` from `package.json`); `login` asks for a sign-in code with
+  `client_name: "genclass-runtime <version>"` (shown on the approval page and in your account's session list) and
+  polls until you approve it; `whoami` and `connect` read your account's apps; `connect` sends a new app's name, or an
+  existing dashboard's link from `.genclass.local` to add it to your account; `logout` ends the CLI session. The
+  account requests carry `user-agent: genclass-runtime-cli/<version>`. What an account stores: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
-- Other telemetry options: `npx @genclass/runtime init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, flushMs, maxBatch, include }` sends to your own collector, samples page loads, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
+- Other telemetry options: `npx @genclass/runtime@beta init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, decisionSample, maxDecisions, flushMs, maxBatch, include }` sends to your own collector, samples page loads or decision records, caps them per page load, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - **Inputs:** typed values of password fields, `cc-*` / `one-time-code` / password autocomplete fields, and fields
   whose name or label names a secret are never recorded.
 - **Redaction:** the default redactor (`redact` option) works by the leaf field's meaning, not by substring.

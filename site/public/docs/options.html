@@ -689,7 +689,7 @@ import { init } from "@genclass/runtime";</p>
   sinks: [
     { send: (r) =&gt; navigator.sendBeacon("/genclass", JSON.stringify(r)),
       kinds: ["intervention", "undo", "breaker", "summary"] },
-    { send: (r) =&gt; Sentry.addBreadcrumb({ category: "genclass", data: r }), sampleRate: 0.2 },
+    { send: (r) =&gt; myLogger.info("genclass", r), sampleRate: 0.2 },
   ],
   session: { tags: { release: <strong>RELEASE</strong>, tenant: tenantTier } },
   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init

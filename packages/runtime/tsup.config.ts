@@ -77,6 +77,26 @@ const ortExternal = {
   },
 };
 
+// The vendor-neutral sink adapters (@genclass/runtime/sinks/*): entries of their own (importable, and what /auto's lazy
+// chunks and the script tag's `data-sink` load from dist/sinks/), never part of the first-load bundle. There is no
+// Sentry, PostHog or Datadog adapter: forwarding to those tools is not in the free runtime.
+const SINK_ENTRIES = {
+  "sinks/index": "src/sinks/index.ts",
+  "sinks/console-json": "src/sinks/console-json.ts",
+  "sinks/webhook": "src/sinks/webhook.ts",
+};
+
+// The measured visual checks are a lazy chunk (dist/visual/index.js, docs/runtime/VISUAL.md section 13). esbuild
+// inlines dynamic imports in IIFE output, which would put the whole chunk in the script tag: the stub's
+// `import("./index.js")` stays external there (never called: src/cdn/global.ts registers a loader that fetches
+// dist/visual/index.js from the script's base URL, as for the devtools overlay).
+const visualExternal = {
+  name: "genclass-visual-external",
+  setup(build: { onResolve(o: { filter: RegExp }, cb: (a: { path: string; importer: string }) => { path: string; external: boolean } | undefined): void }) {
+    build.onResolve({ filter: /^\.\/index\.js$/ }, (args) => (args.importer.endsWith(`${sep}visual${sep}start.ts`) ? { path: "./visual/index.js", external: true } : undefined));
+  },
+};
+
 // Script-tag build (INSTALL): window.GenClass, auto-init from data attributes. onnxruntime-web stays out of it; the
 // worker and the inline fallback load dist/cdn/* on demand.
 const globalBuild = (minify: boolean): Options => ({
@@ -92,7 +112,7 @@ const globalBuild = (minify: boolean): Options => ({
   dts: false,
   treeshake: true,
   define: { __GENCLASS_VERSION__: JSON.stringify(pkg.version) },
-  esbuildPlugins: [ortExternal as never],
+  esbuildPlugins: [ortExternal as never, visualExternal as never],
 });
 
 export default defineConfig([
@@ -109,9 +129,13 @@ export default defineConfig([
       "devtools/index": "src/devtools/index.ts",
       discover: "src/discover/entry.ts",
       worker: "src/model/worker.ts",
+      ...SINK_ENTRIES,
+      // measured visual checks: the lazy chunk (one file, no static imports) and the public checkPage entry
+      "visual/index": "src/visual/index.ts",
+      visual: "src/visual/entry.ts",
     },
     format: ["esm"],
-    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts" } },
+    dts: { entry: { index: "src/index.ts", auto: "src/auto.ts", "auto/observe": "src/cdn/auto-observe.ts", "auto/guard": "src/cdn/auto-guard.ts", "auto/heal": "src/cdn/auto-heal.ts", "adapters/react": "src/adapters/react.ts", "adapters/redux": "src/adapters/redux.ts", "adapters/zustand": "src/adapters/zustand.ts", "devtools/index": "src/devtools/index.ts", discover: "src/discover/entry.ts", visual: "src/visual/entry.ts", ...SINK_ENTRIES } },
     target: "es2022",
     platform: "browser",
     splitting: true,
@@ -123,6 +147,9 @@ export default defineConfig([
     // onnxruntime-web is a dependency, which tsup would leave external as is: ortFromCdnDir rewrites it instead
     noExternal: [/^onnxruntime-web/],
     esbuildPlugins: [ortFromCdnDir as never],
+    // the version as a constant for modules that must not import src/version.ts (src/sinks/webhook.ts: an adapter
+    // that shared a chunk with the runtime would split that chunk out of every app's first load)
+    define: { __GENCLASS_PKG_VERSION__: JSON.stringify(pkg.version) },
   },
   globalBuild(false),
   globalBuild(true),

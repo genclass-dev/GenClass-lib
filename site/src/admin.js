@@ -69,6 +69,17 @@ export async function handleAdmin(request, env, url, ctx) {
 
 // ---------- ingestion: R2 telemetry batches -> ADMIN_DB ----------
 const dayOf = (iso) => (iso || new Date().toISOString()).slice(0, 10);
+/**
+ * Routine decisions a page counted but whose `decision` records it did not send (runtime 0.3.0: `decisionSample`,
+ * `maxDecisions`), from a `summary` event's cumulative `telemetry` block; 0 for runtimes that send every record.
+ */
+export function withheldOf(e) {
+  const t = (e && e.telemetry) || {};
+  const n = (v) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+  return n(t.decisionsSampledOut) + n(t.decisionsCapped);
+}
+/** Days a page load's withheld-decision baseline is kept (a summary after that would be counted again from 0). */
+const WITHHELD_KEEP_DAYS = 7;
 async function gunzipLines(obj) {
   const stream = obj.body.pipeThrough(new DecompressionStream("gzip"));
   return (await new Response(stream).text()).split("\n").filter(Boolean);
@@ -98,6 +109,10 @@ export async function ingest(env, maxObjects = 150) {
     for (const k of chunk) if (!done.has(k) && todo.length < maxObjects) todo.push(k);
   }
   const hostOf = new Map();
+  // per page load: the withheld routine decisions already counted (summaries are cumulative; batches can arrive out
+  // of order, so the count only grows). The table is created here so a deploy needs no manual migration.
+  await db.prepare("CREATE TABLE IF NOT EXISTS withheld (sid TEXT PRIMARY KEY, n INTEGER NOT NULL, at TEXT NOT NULL)").run();
+  const withheld = new Map();
   const counters = new Map();
   const bump = (day, host, metric, key = "", n = 1) => { const k = `${day}\u0000${host}\u0000${metric}\u0000${key}`; counters.set(k, (counters.get(k) || 0) + n); };
   const stmts = [];
@@ -145,12 +160,34 @@ export async function ingest(env, maxObjects = 150) {
         }
         if (e.held !== undefined) bump(day, host, "held", e.held ? "held (could act)" : "background (too late to act)");
         if (!e.acted) bump(day, host, "passive_reason", String(e.reason || (e.tier === "passive" ? "gate: not confident enough" : "passive")).slice(0, 60));
+      } else if (e.t === "summary") {
+        // 0.3.0 sends about 1 in 4 routine decision records (at most 200 per page load); its summaries count the rest.
+        // Add those to the decision totals so they stay exact. A withheld record is routine by definition (top
+        // diagnosis "expected", nothing acted), so the diagnosis is known; its trigger is not. Latency, held and
+        // passive-reason breakdowns stay those of the records sent.
+        const w = withheldOf(e);
+        if (w > 0) {
+          let prev = withheld.get(r.sid);
+          if (prev === undefined) {
+            const row = await db.prepare("SELECT n FROM withheld WHERE sid = ?").bind(r.sid).first();
+            prev = row ? Number(row.n) || 0 : 0;
+          }
+          if (w > prev) {
+            bump(day, host, "decisions", "", w - prev);
+            bump(day, host, "diagnoses", "expected", w - prev);
+            bump(day, host, "decisions_by_trigger", "(routine, record not sent)", w - prev);
+          }
+          withheld.set(r.sid, Math.max(w, prev));
+        }
       } else if (e.t === "veto") {
         bump(day, host, "vetoes");
       } else if (e.t === "detect") {
-        bump(day, host, "detections", e.diagnosis || "?");
+        // runtime 0.3.0: observe's lower "possible" tier (tier "possible") is counted on its own, never as a detection,
+        // so the detection totals and rates stay those of the report gate (the telemetry-worker dashboard does the same)
+        const possible = e.tier === "possible";
+        bump(day, host, possible ? "possible_detections" : "detections", e.diagnosis || "?");
         stmts.push(db.prepare(`INSERT INTO recent (at, sid, host, route, kind, trigger, diagnosis, confidence, runtime) VALUES (?,?,?,?,?,?,?,?,?)`)
-          .bind(at, r.sid, host, null, "detect", e.trigger || null, e.diagnosis || null, e.p ?? null, r.runtime || null));
+          .bind(at, r.sid, host, null, possible ? "possible" : "detect", e.trigger || null, e.diagnosis || null, e.p ?? null, r.runtime || null));
       } else if (e.t === "action") {
         const outcome = e.outcome || (e.ok === false ? "failed" : "applied");
         bump(day, host, "actions", `${e.action || "?"}:${outcome}`);
@@ -176,6 +213,10 @@ export async function ingest(env, maxObjects = 150) {
     }
     stmts.push(db.prepare("INSERT OR IGNORE INTO processed (key, at, events) VALUES (?,?,?)").bind(key, new Date().toISOString(), rows.length));
   }
+  const now = new Date().toISOString();
+  for (const [sid, n] of withheld) {
+    stmts.push(db.prepare(`INSERT INTO withheld (sid, n, at) VALUES (?1,?2,?3) ON CONFLICT(sid) DO UPDATE SET n = MAX(n, excluded.n), at = excluded.at`).bind(sid, n, now));
+  }
   for (const [k, n] of counters) {
     const [day, host, metric, key] = k.split("\u0000");
     stmts.push(db.prepare(`INSERT INTO daily (day, host, metric, key, n) VALUES (?,?,?,?,?)
@@ -183,6 +224,7 @@ export async function ingest(env, maxObjects = 150) {
   }
   for (let i = 0; i < stmts.length; i += 90) await db.batch(stmts.slice(i, i + 90));
   if (todo.length) await db.prepare("DELETE FROM recent WHERE id < (SELECT MAX(id) - 3000 FROM recent)").run();
+  if (todo.length) await db.prepare("DELETE FROM withheld WHERE at < ?").bind(new Date(Date.now() - WITHHELD_KEEP_DAYS * 864e5).toISOString()).run();
   const pending = keys.length - (await countProcessed(db, keys));
   if (full && pending === 0) await db.prepare("INSERT OR IGNORE INTO processed (key, at, events) VALUES (?,?,0)").bind(BACKFILLED, new Date().toISOString()).run();
   return { scanned: keys.length, processed: todo.length, events, pending, backfill: full };
@@ -253,7 +295,7 @@ export async function stats(env, url) {
   const hostFilter = includeTest ? "" : "AND host NOT IN (SELECT DISTINCT host FROM sessions WHERE test = 1)";
   const q = (sql, ...b) => db.prepare(sql).bind(...b).all().then((r) => r.results);
   const [series, breakdown, hosts, recent, ingestState, testHosts] = await Promise.all([
-    q(`SELECT day, metric, SUM(n) n FROM daily WHERE day >= ? AND metric IN ('sessions','decisions','detections','acted','undos') ${hostFilter} GROUP BY day, metric ORDER BY day`, since),
+    q(`SELECT day, metric, SUM(n) n FROM daily WHERE day >= ? AND metric IN ('sessions','decisions','detections','possible_detections','acted','undos') ${hostFilter} GROUP BY day, metric ORDER BY day`, since),
     q(`SELECT metric, key, SUM(n) n FROM daily WHERE day >= ? AND metric IN ('detections','acted','actions','runtime','mode','country','model_ready','model_error','decisions_by_trigger','breaker','diagnoses','latency_bucket','held','passive_reason','model_worker','model_cache','model_variant','route','aggressiveness','situation_text','webgpu','model_kind','vetoes') ${hostFilter} GROUP BY metric, key ORDER BY n DESC`, since),
     q(`SELECT s.host, MIN(s.first_at) first_at, MAX(s.last_at) last_at, COUNT(*) sessions, MAX(s.test) test, MAX(s.runtime) runtime,
         (SELECT SUM(n) FROM daily d WHERE d.host = s.host AND d.metric = 'detections' AND d.day >= ?1) detections,

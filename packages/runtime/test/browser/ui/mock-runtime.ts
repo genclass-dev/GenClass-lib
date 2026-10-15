@@ -101,12 +101,16 @@ export class MockRuntime implements Runtime {
     return e;
   }
 
-  /** Record a decision; emits decide, and detect when the diagnosis is reportable. */
+  /**
+   * Record a decision; emits decide, and detect when the diagnosis is reportable. Like the runtime, the tier is recorded
+   * on the decision (`detection`: "likely" at p ≥ 0.6 here, unless the test set one), which the devtools backfill reads.
+   */
   decision(d: Decision): Decision {
+    const p = d.diagnosisProbabilities?.[d.diagnosis] ?? d.diagnosisConfidence;
+    if (d.detection === undefined && d.diagnosis !== "expected" && p >= 0.6) d.detection = "likely";
     this.decs.push(d);
     this.emitTo("decide", d);
-    const p = d.diagnosisProbabilities?.[d.diagnosis] ?? d.diagnosisConfidence;
-    if (d.diagnosis !== "expected" && p >= 0.6) this.emitTo("detect", d);
+    if (d.detection) this.emitTo("detect", d);
     return d;
   }
 

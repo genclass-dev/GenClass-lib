@@ -406,5 +406,164 @@ describe("ModelHost inline fallback", () => {
     const { host, workers } = setup({ worker: false, fetch: failingFetch, ortLoader });
     expect(workers.length).toBe(0);
     expect(host.status.worker).toBe(false);
+    expect(host.status.workerError).toBeUndefined();
+  });
+
+  it("the fallback records why the worker was not used (status.workerError)", () => {
+    const { host } = setup({ workerFactory: () => null, fetch: failingFetch, ortLoader });
+    expect(host.status).toMatchObject({ state: "loading", worker: false, workerError: "no Worker support in this environment" });
+  });
+});
+
+describe("ModelHost inlineFallback: false (OPTIONS-SPEC §4.15: a failed worker never runs ORT on the main thread)", () => {
+  const trace = () => {
+    const calls: string[] = [];
+    const fetch = (async (u: unknown) => {
+      calls.push(`fetch ${String(u)}`);
+      throw new TypeError("network down");
+    }) as unknown as typeof fetch;
+    const ortLoader = async () => {
+      calls.push("ort");
+      return { env: { wasm: {}, versions: { web: "1.30.0" } } } as any;
+    };
+    return { calls, fetch, ortLoader };
+  };
+  /** Until the inline load got going (a real dynamic import first; the failed card download retries on the fake clock). */
+  async function untilCalled(calls: string[], clock: FakeClock): Promise<void> {
+    for (let i = 0; i < 500 && !calls.length; i++) {
+      await new Promise((r) => setTimeout(r, 5));
+      await clock.advance(50);
+    }
+  }
+
+  it("the worker cannot be created: nothing is loaded, status is skipped / worker-unavailable, ready() and evaluate() fail open", async () => {
+    const t = trace();
+    const seen: string[] = [];
+    const { host, workers } = setup({ inlineFallback: false, workerFactory: () => { throw new Error("CSP: worker-src 'none'"); }, fetch: t.fetch, ortLoader: t.ortLoader });
+    host.onStatus((s) => seen.push(s.state));
+    expect(workers.length).toBe(0);
+    expect(host.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "CSP: worker-src 'none'" });
+    const err = await host.ready().catch((e) => e);
+    expect(err).toBeInstanceOf(ModelLoadError);
+    expect(err.message).toContain("inlineFallback is false");
+    expect(err.message).toContain("worker-src");
+    const e2 = await host.evaluate(req()).catch((e) => e);
+    expect(e2).toBeInstanceOf(ModelNotReadyError);
+    expect(e2.code).toBe("not_ready");
+    expect(e2.message).toContain("not loaded");
+    const e3 = await host.measure({ a: 1 }).catch((e) => e);
+    expect(e3).toBeInstanceOf(ModelNotReadyError);
+    await flush();
+    expect(t.calls, "no ORT, no download on the main thread").toEqual([]);
+    expect(host.status.state).toBe("skipped");
+    expect(host.stats.notReady).toBe(1);
+  });
+
+  it("the worker errors before saying hello: terminated, skipped, no inline load; load() tries the worker again", async () => {
+    const t = trace();
+    const { host, w, workers } = setup({ inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader });
+    expect(host.status).toMatchObject({ state: "loading", worker: true });
+    const p = host.ready();
+    w().fail("Failed to fetch worker script");
+    expect(w().terminated).toBe(true);
+    expect(host.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "Failed to fetch worker script" });
+    await expect(p).rejects.toBeInstanceOf(ModelLoadError);
+    await flush();
+    expect(t.calls).toEqual([]);
+    // an explicit load() starts a fresh worker; this time it comes up
+    const again = host.load();
+    expect(workers.length).toBe(2);
+    expect(host.status).toMatchObject({ state: "loading", worker: true });
+    w().ready();
+    await again;
+    expect(host.status).toMatchObject({ state: "ready", worker: true });
+    expect(t.calls).toEqual([]);
+  });
+
+  it("the worker never comes up (hello timeout): skipped, not inline; queued requests fail open", async () => {
+    const t = trace();
+    const { host, w, clock } = setup({ inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader, helloTimeoutMs: 3000 });
+    const pending = host.ready();
+    await clock.advance(3001);
+    expect(w().terminated).toBe(true);
+    expect(host.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", worker: false });
+    expect(host.status.workerError).toContain("did not start");
+    await expect(pending).rejects.toBeInstanceOf(ModelLoadError);
+    expect(t.calls).toEqual([]);
+  });
+
+  it("the WebGPU-to-WASM retry gets no second worker: skipped, not inline; load() starts over with a fresh WASM retry", async () => {
+    const t = trace();
+    const workers: FakeWorker[] = [];
+    let calls = 0;
+    const { host } = setup({
+      inlineFallback: false,
+      fetch: t.fetch,
+      ortLoader: t.ortLoader,
+      workerFactory: () => {
+        if (++calls === 2) return null; // the fresh worker for the WASM retry cannot be created
+        const w = new FakeWorker();
+        workers.push(w);
+        return w;
+      },
+    });
+    const webgpuFailed = (w: FakeWorker) => {
+      w.emit({ type: "hello" });
+      w.emit({ type: "status", status: { state: "error", error: "WebGPU did not come up", attempts: [{ variant: "fp16", device: "webgpu", error: "webgpu session creation timed out" }] } });
+    };
+    const p = host.ready();
+    webgpuFailed(workers[0]);
+    expect(workers[0].terminated).toBe(true);
+    expect(calls).toBe(2);
+    expect(host.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "could not start a second worker" });
+    await expect(p).rejects.toBeInstanceOf(ModelLoadError);
+    await flush();
+    expect(t.calls, "no ORT, no download on the main thread").toEqual([]);
+    // load() starts over: a new worker and, when WebGPU fails again, the one WASM retry (not used up by the first round)
+    const again = host.load();
+    expect(workers.length).toBe(2);
+    webgpuFailed(workers[1]);
+    expect(workers.length).toBe(3);
+    expect(workers[2].sent[0]).toMatchObject({ type: "load", options: { device: "wasm" } });
+    workers[2].ready();
+    await again;
+    expect(host.status).toMatchObject({ state: "ready", worker: true });
+    expect(host.status.attempts?.map((a) => a.device)).toEqual(["webgpu"]);
+    expect(t.calls).toEqual([]);
+  });
+
+  it("the WASM retry's worker errors before saying hello: skipped, not inline", async () => {
+    const t = trace();
+    const { host, workers, w } = setup({ inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader });
+    w().emit({ type: "hello" });
+    w().emit({ type: "status", status: { state: "loading", phase: "session", device: "webgpu", variant: "fp16" } });
+    w().fail("GPU process crashed");
+    expect(workers.length).toBe(2);
+    expect(w().sent[0]).toMatchObject({ type: "load", options: { device: "wasm" } });
+    w().fail("Failed to fetch worker script");
+    expect(w().terminated).toBe(true);
+    expect(host.status).toMatchObject({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: "Failed to fetch worker script" });
+    await expect(host.ready()).rejects.toBeInstanceOf(ModelLoadError);
+    await flush();
+    expect(t.calls).toEqual([]);
+  });
+
+  it("worker: false still runs inline (the main thread was asked for), inlineFallback only governs the fallback", async () => {
+    const t = trace();
+    const { host, workers, clock } = setup({ worker: false, inlineFallback: false, fetch: t.fetch, ortLoader: t.ortLoader });
+    expect(workers.length).toBe(0);
+    expect(host.status).toMatchObject({ state: "loading", worker: false });
+    await untilCalled(t.calls, clock);
+    expect(t.calls.length).toBeGreaterThan(0);
+    expect(host.status.state).not.toBe("skipped");
+  });
+
+  it("with the default (inlineFallback unset) a failed worker still falls back inline", async () => {
+    const t = trace();
+    const { host, clock } = setup({ workerFactory: () => { throw new Error("CSP"); }, fetch: t.fetch, ortLoader: t.ortLoader });
+    expect(host.status).toMatchObject({ state: "loading", worker: false, workerError: "CSP" });
+    await untilCalled(t.calls, clock);
+    expect(t.calls.length).toBeGreaterThan(0);
+    expect(host.status.state).not.toBe("skipped");
   });
 });

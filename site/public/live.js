@@ -120,7 +120,7 @@
   }
   if (rt) {
     rt.on("decide", () => { nChecked++; text($("gc-n"), String(nChecked)); });
-    rt.on("detect", (d) => { nBugs++; text($("gc-bugs"), String(nBugs)); card(d); });
+    rt.on("detect", (d) => { if (d.detection === "possible") return; nBugs++; text($("gc-bugs"), String(nBugs)); card(d); });
     rt.on("act", (a) => {
       if (!a.ok || a.tier === "passive") return;
       nFixed++; text($("gc-a"), String(nFixed));

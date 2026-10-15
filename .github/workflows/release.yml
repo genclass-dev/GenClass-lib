@@ -9,6 +9,19 @@ name: Release
 # @genclass/runtime → Settings → Trusted publishing → GitHub Actions: organization genclass-dev, repository
 # GenClass-lib, workflow filename release.yml, environment npm-publish; and a GitHub environment `npm-publish`
 # (Settings → Environments), ideally with required reviewers.
+#
+# Before you push the tag (the order is load-bearing from 0.3.0; packages/runtime/CHANGELOG.md "Dashboard counts"):
+# 1. The previous release is on npm: `npm view @genclass/runtime dist-tags` shows it as `latest`, and
+#    https://cdn.jsdelivr.net/npm/@genclass/runtime@<that version> answers 200 (the docs call it the stable line).
+# 2. The release branch is merged to main by PR with CI green (the READMEs link TELEMETRY.md, PRIVACY.md and
+#    RESULTS.md at blob/main), and the tag goes on that main commit.
+# 3. telemetry-worker is deployed from that commit (`d1 migrations apply genclass-dashboard --remote`, then
+#    `wrangler deploy`; telemetry-worker/README.md), and the site's admin aggregates with it (site/src/admin.js and
+#    site/migrations-admin/): a worker older than 0.3.0's counts every `detect` event, possible ones included, as a
+#    detection and keeps those aggregates 90 days; batches the old admin ingest has processed stay miscounted.
+# After it: check the dist-tags (a prerelease lands on the tag named after it and `latest` stays), that the
+# "Verify the registry signature and provenance" step passed, and that jsDelivr serves @<version>,
+# /dist/cdn/worker.js and /dist/sinks/webhook.js; then set telemetry-worker RUNTIME_ON_NPM to it and deploy the worker.
 
 on:
   push:

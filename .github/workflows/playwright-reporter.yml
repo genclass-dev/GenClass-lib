@@ -1,0 +1,77 @@
+name: Playwright reporter
+
+# @genclass/playwright (packages/playwright): typecheck, build and the unit tests of the reporter, the summariser and
+# the command, then one real Playwright run that loads the reporter by its module name. No browser: the package only
+# reads the files the GenClass Playwright fixture writes, and the fixture lives elsewhere. A separate workflow from
+# ci.yml so it never blocks the main CI job. It renders the unit-test fixture's report into the job summary to show
+# what a pull-request comment would look like; it posts nothing.
+
+on:
+  push:
+    paths:
+      - "packages/playwright/**"
+      - "package-lock.json"
+      - ".github/workflows/playwright-reporter.yml"
+  pull_request:
+    paths:
+      - "packages/playwright/**"
+      - "package-lock.json"
+      - ".github/workflows/playwright-reporter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-reporter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: "@genclass/playwright: typecheck, build, unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck -w @genclass/playwright
+
+      - name: Build
+        run: npm run build -w @genclass/playwright
+
+      - name: Unit tests
+        working-directory: packages/playwright
+        run: npx vitest run
+
+      - name: The fixture's report, rendered by the built command
+        working-directory: packages/playwright
+        run: |
+          node bin/genclass-playwright-report.mjs test/fixtures/races --out - > "$RUNNER_TEMP/genclass-report.md"
+          cat "$RUNNER_TEMP/genclass-report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # A real Playwright run (the @playwright/test devDependency; no browser: the test uses no page). Playwright
+      # loads "@genclass/playwright/reporter" by name the way a user's config does (require.resolve from the config's
+      # directory), the test writes the fixture's race files, and the reporter must write the same report the command
+      # renders from those files. Playwright's own dot reporter must still print, since this reporter does not claim
+      # stdout.
+      - name: Playwright loads the reporter by its module name (real run, no browser)
+        working-directory: packages/playwright/test/playwright-smoke
+        shell: bash
+        run: |
+          node "$GITHUB_WORKSPACE/node_modules/@playwright/test/cli.js" test 2>&1 | tee "$RUNNER_TEMP/playwright.log"
+          grep -qF "1 passed" "$RUNNER_TEMP/playwright.log"
+          grep -qF "GenClass report written to" "$RUNNER_TEMP/playwright.log"
+          node ../../bin/genclass-playwright-report.mjs --out - > "$RUNNER_TEMP/expected.md"
+          diff "$RUNNER_TEMP/expected.md" genclass-report.md
+          grep -qF '**1 reproducible**' genclass-report.md

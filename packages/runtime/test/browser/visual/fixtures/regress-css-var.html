@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-color-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Undefined custom properties without a visible effect</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  /* Patterns the bench found on public sites (bench/visual, docs/runtime/VISUAL.md 19). Each references a custom
+     property defined nowhere, and none leaves text unreadable, so none is reported. One real bug sits next to them. */
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  /* a theme-scope rule on the root with legacy token names; body paints the page */
+  [data-color-mode] { color: var(--color-fg-default); background-color: var(--color-canvas-default); }
+  /* a token alias that points at a token that no longer exists */
+  .heading { --heading-font-computed: var(--tatami-heading-font); font-weight: 700; }
+  /* a layout token a script sets only when a banner is shown */
+  .app { padding-top: var(--banner-height); }
+  /* optional per-token variables of a dual-theme code highlighter */
+  .code span { font-style: var(--shiki-dark-font-style); text-decoration: var(--shiki-dark-text-decoration); background-color: var(--shiki-dark-bg); }
+  .tag { background-color: var(--tag-bg); }
+  /* a hover colour whose token is missing */
+  .flyout:hover { color: var(--vt-c-bland); }
+  /* a footer colour token that is missing: the text inherits the body colour and stays readable */
+  footer { color: var(--color-footer-text); padding: 16px 0; }
+  /* the real bug, a renamed token: the call to action's text inherits dark text on its own dark-grey background */
+  .cta { display: inline-block; padding: 8px 16px; background-color: #555555; color: var(--cta-text); }
+</style>
+</head>
+<body>
+<div class="app">
+  <h2 class="heading">Release notes</h2>
+  <pre class="code"><code><span>const</span> <span>answer</span> = <span>42</span>;</code></pre>
+  <p>Status: <span class="tag">beta</span></p>
+  <div class="flyout"><a href="#guide">Guide</a> <span>Menu</span></div>
+  <p><span class="cta" data-k="c1" data-expect="css-var-undefined">Start free trial</span></p>
+</div>
+<footer>Footer links and copyright</footer>
+</body>
+</html>

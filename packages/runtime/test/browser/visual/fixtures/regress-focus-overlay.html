@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus under a transparent pop-up layer</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  /* A survey pop-up whose full-screen layer is transparent, over the page and a cookie banner (the bench found this
+     on a public site). Keyboard focus moves through links under the layer; they show through it, so they are not
+     hidden and nothing is reported. */
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  main { padding: 16px 24px; min-height: 140vh; }
+  .survey-layer { position: fixed; inset: 0; z-index: 1000; background: transparent; }
+  .survey { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); width: 320px; padding: 16px; background: #fff; border: 1px solid #d1d5db; }
+  .cookies { position: fixed; left: 0; right: 0; bottom: 0; padding: 16px 24px; background: #f3f4f6; z-index: 900; }
+</style>
+</head>
+<body>
+<main>
+  <p><a href="#guide">Read the guide</a> and <a href="#examples">see the examples</a>.</p>
+  <p>Content of the page.</p>
+</main>
+<div class="cookies">This site uses cookies. <a href="#policy">Cookie policy</a> <a href="#accept">Accept all cookies</a></div>
+<div class="survey-layer"><div class="survey"><strong>Survey</strong><p>Help us improve this website.</p></div></div>
+</body>
+</html>

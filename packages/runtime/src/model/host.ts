@@ -1,6 +1,8 @@
 // ModelHost: the DecisionProvider backed by the local GenClass model. Inference runs in a module Worker by default
 // (`new Worker(new URL("./worker.js", import.meta.url), { type: "module" })`, the pattern Vite and webpack bundle)
-// and falls back to running inline on the main thread when the Worker cannot be created or never comes up.
+// and falls back to running inline on the main thread when the Worker cannot be created or never comes up, unless
+// `inlineFallback: false`: then the model is not loaded at all (status "skipped", reason "worker-unavailable",
+// `workerError` says why; `load()` tries the worker again). `worker: false` asks for the main thread explicitly.
 //
 // - Preload: "eager" starts at creation, "idle" (default) after the page load event when the browser is idle
 //   (requestIdleCallback, 2 s timeout), "lazy" on the first ready()/evaluate()/load().
@@ -315,11 +317,17 @@ class Host implements ModelHost {
       const b = blockedFetch(s.error, this.violations, pageOrigin());
       if (b) s = { ...s, blocked: b };
     }
-    if (s.state === "ready") this.stopCspWatch();
+    if (s.state === "ready" || s.state === "skipped") this.stopCspWatch();
     this.st = s;
     this.notify();
     if (s.state === "ready") this.settleReady(null);
     else if (s.state === "error") this.settleReady(new ModelLoadError(s.error ?? "the GenClass model failed to load", s.attempts ?? []));
+    else if (s.state === "skipped") this.settleReady(new ModelLoadError(this.skippedText(), s.attempts ?? []));
+  }
+
+  /** The error text for a model that is not loaded because the worker is unavailable and inlineFallback is false. */
+  private skippedText(): string {
+    return `the GenClass model is not loaded: the model worker could not start (${this.workerError ?? "unknown"}) and model.inlineFallback is false`;
   }
 
   private settleReady(err: Error | null): void {
@@ -357,17 +365,21 @@ class Host implements ModelHost {
     this.watchCsp();
     if (this.opts.worker !== false) {
       let w: WorkerLike | null = null;
+      let why = "no Worker support in this environment";
       try {
         w = (this.opts.workerFactory ?? defaultWorkerFactory)();
-      } catch {
+      } catch (e) {
         w = null; // CSP, file://, bundler without worker support...
+        why = errorMessage(e);
       }
       if (w) {
         this.useWorker(w);
         return;
       }
+      this.useInline(why);
+      return;
     }
-    this.useInline();
+    this.useInline(); // worker: false — the main thread was asked for
   }
 
   private useWorker(w: WorkerLike, options: BackendLoadOptions = this.loadOptions): void {
@@ -426,8 +438,26 @@ class Host implements ModelHost {
     this.onWorkerCrash(error);
   }
 
+  /**
+   * Run the model on the main thread: asked for (`worker: false`, no `why`) or as the fallback for a worker that
+   * could not be used (`why`). With `inlineFallback: false` the fallback is refused: nothing is loaded, the status
+   * is "skipped" / "worker-unavailable" and pending work fails open.
+   */
   private useInline(why?: string, options: BackendLoadOptions = this.loadOptions): void {
     if (this.disposed) return;
+    if (why !== undefined && this.opts.inlineFallback === false) {
+      this.clock.clearTimeout(this.stallTimer);
+      this.stallTimer = null;
+      this.transport = null;
+      this.workerError = why;
+      this.setStatus({ state: "skipped", reason: "worker-unavailable", worker: false, workerError: why });
+      const err = new ModelNotReadyError(this.skippedText(), { state: "skipped" });
+      if (this.running) this.finish(this.running, err);
+      this.running = null;
+      for (const j of this.queue.splice(0)) this.finish(j, err);
+      for (const [id] of this.measures) this.failMeasure(id, err);
+      return;
+    }
     const t = new InlineTransport((m) => {
       if (this.transport === t) this.onMessage(m);
     }, {
@@ -569,6 +599,7 @@ class Host implements ModelHost {
     if (this.st.state === "error" && this.started) {
       return Promise.reject(new ModelLoadError(this.st.error ?? "the GenClass model failed to load", this.st.attempts ?? []));
     }
+    if (this.st.state === "skipped") return Promise.reject(new ModelLoadError(this.skippedText(), this.st.attempts ?? []));
     const p = new Promise<void>((resolve, reject) => this.readyWaiters.push({ resolve, reject }));
     this.start();
     return p;
@@ -576,6 +607,13 @@ class Host implements ModelHost {
 
   load(): Promise<void> {
     if (this.disposed) return Promise.reject(new ModelDisposedError());
+    if (this.st.state === "skipped") {
+      // the worker was unavailable (inlineFallback: false): try it again from the start, WASM retry included
+      this.started = false;
+      this.wasmRetried = false;
+      this.priorAttempts = [];
+      this.st = { state: "off" };
+    }
     if (this.st.state === "error") {
       if (this.transport) {
         const p = new Promise<void>((resolve, reject) => this.readyWaiters.push({ resolve, reject }));
@@ -601,8 +639,10 @@ class Host implements ModelHost {
     if (this.st.state !== "ready") {
       this.st0.notReady++;
       this.start(); // lazy: the first request starts the load; it still fails open now
-      const msg = this.st.state === "error" ? `the GenClass model failed to load: ${this.st.error}` : `the GenClass model is ${this.st.state === "off" ? "not loaded" : "still loading"}`;
-      return Promise.reject(new ModelNotReadyError(msg, { state: this.st.state }));
+      const st = this.st;
+      const msg =
+        st.state === "error" ? `the GenClass model failed to load: ${st.error}` : st.state === "skipped" ? this.skippedText() : `the GenClass model is ${st.state === "off" ? "not loaded" : "still loading"}`;
+      return Promise.reject(new ModelNotReadyError(msg, { state: st.state }));
     }
     let state: unknown;
     try {

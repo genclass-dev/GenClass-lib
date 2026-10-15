@@ -27,8 +27,10 @@ routes = [
 # Secrets, set with `npx wrangler secret put` and never committed: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 # GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET. Without a pair, that provider's button is not shown.
 
-# The newest @genclass/runtime on npm. Below 0.3.0 the Connect panel on an app's dashboard says first that project keys
-# and `npx @genclass/runtime login` are not published yet. Set it to the new version when release.yml publishes 0.3.0.
+# The newest @genclass/runtime on npm, on any dist-tag. Below 0.3.0-beta.0 the Connect panel, /start and private
+# dashboards say first that project keys and `login` are not published yet. Set it to "0.3.0-beta.0" (then deploy) once
+# release.yml has published the beta and jsDelivr serves it, and to "0.3.0" at 0.3.0 (with pages.ts SNIPPET_RUNTIME and
+# RUNTIME_PKG).
 [vars]
 RUNTIME_ON_NPM = "0.2.2"
 # "on" sells Pro through Stripe Managed Payments: Stripe, through Link, is the merchant of record (sales tax and VAT,

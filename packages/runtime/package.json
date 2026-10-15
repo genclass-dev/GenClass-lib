@@ -1,6 +1,6 @@
 {
   "name": "@genclass/runtime",
-  "version": "0.2.2",
+  "version": "0.3.0-beta.0",
   "description": "A runtime for web apps: a small local model watches user actions, async work, network, state and errors, and flags, and optionally prevents, stale responses, races, duplicate requests, inconsistent state and failure storms.",
   "type": "module",
   "license": "Apache-2.0",
@@ -53,7 +53,11 @@
       "redux": ["./dist/adapters/redux.d.ts"],
       "zustand": ["./dist/adapters/zustand.d.ts"],
       "devtools": ["./dist/devtools/index.d.ts"],
-      "discover": ["./dist/discover.d.ts"]
+      "discover": ["./dist/discover.d.ts"],
+      "visual": ["./dist/visual.d.ts"],
+      "sinks": ["./dist/sinks/index.d.ts"],
+      "sinks/console-json": ["./dist/sinks/console-json.d.ts"],
+      "sinks/webhook": ["./dist/sinks/webhook.d.ts"]
     }
   },
   "unpkg": "./dist/genclass.global.min.js",
@@ -98,6 +102,22 @@
     "./discover": {
       "types": "./dist/discover.d.ts",
       "import": "./dist/discover.js"
+    },
+    "./visual": {
+      "types": "./dist/visual.d.ts",
+      "import": "./dist/visual.js"
+    },
+    "./sinks": {
+      "types": "./dist/sinks/index.d.ts",
+      "import": "./dist/sinks/index.js"
+    },
+    "./sinks/console-json": {
+      "types": "./dist/sinks/console-json.d.ts",
+      "import": "./dist/sinks/console-json.js"
+    },
+    "./sinks/webhook": {
+      "types": "./dist/sinks/webhook.d.ts",
+      "import": "./dist/sinks/webhook.js"
     },
     "./worker": {
       "import": "./dist/worker.js"

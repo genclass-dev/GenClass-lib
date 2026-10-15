@@ -4,7 +4,22 @@
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
-export const CDN_SCRIPT = "https://cdn.jsdelivr.net/npm/@genclass/runtime";
+/** The first @genclass/runtime that reads project keys (tokens) and has `login`; earlier versions ignore a key. */
+export const KEY_RUNTIME = "0.3.0-beta.0";
+/**
+ * The runtime the snippets install, pinned in the script tag: the unversioned jsDelivr URL serves npm's `latest`
+ * (0.2.x until 0.3.0, which ignores a key) and may serve an older release from the CDN cache. While it is a
+ * prerelease, the npm and npx commands name its dist-tag (`@beta`): without it they install `latest`. At 0.3.0 set
+ * SNIPPET_RUNTIME to "0.3.0" and RUNTIME_PKG to "@genclass/runtime" (and RUNTIME_ON_NPM in wrangler.toml), then deploy.
+ */
+export const SNIPPET_RUNTIME = "0.3.0-beta.0";
+export const RUNTIME_PKG = "@genclass/runtime@beta";
+export const CDN_SCRIPT = `https://cdn.jsdelivr.net/npm/@genclass/runtime@${SNIPPET_RUNTIME}`;
+/** What local and private hosts do, as the runtime behaves (src/telemetry/config.ts) and PRIVACY.md says. */
+const LOCAL_HOSTS =
+  "Local hosts (localhost, *.local, *.test and private networks) do not send by default, token or not; telemetry: true or a telemetry options object opts them in.";
+/** Said first while the runtime that reads keys is not on npm yet (RUNTIME_ON_NPM, auth.ts runtimeHasTokens). */
+const NOT_ON_NPM = `<b>Not on npm yet.</b> Project keys ship in @genclass/runtime ${KEY_RUNTIME} (npm dist-tag <code>beta</code>), which is not published yet: until it is, the script tag below does not load, <code>npx ${RUNTIME_PKG}</code> fails and 0.2.x ignores the key.`;
 
 /**
  * Headers for every HTML page. `account: true` (the account pages) allows same-origin form posts (the sign-out form)
@@ -33,57 +48,88 @@ export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.ch
 /** JSON safe to embed in <script type="application/json">. */
 export const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 
-/** The header lockup: the mark from genclass.dev beside the name set in type ("gen" ink, "class" green). */
+/**
+ * The header lockup, as on genclass.dev: in light the site's own lockup image; in dark (which the site does not have)
+ * the mark beside the name set in type, "gen" in the page ink and "class" in the brand green, so it stays readable.
+ */
 export const LOGO =
-  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="26" height="26"><span class="wm"><span>gen</span><span class="g">class</span></span></a>';
+  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img class="lk" src="https://genclass.dev/brand/lockup-h.png?v=2" alt="" width="170" height="37">' +
+  '<span class="lkd" aria-hidden="true"><img src="https://genclass.dev/brand/mark-64.png" alt="" width="30" height="30"><span class="wm"><span>gen</span><span class="g">class</span></span></span></a>';
 
 const ICON =
   "data:image/svg+xml," +
   encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0E1F4D"/><path d="M9 21l5-10 4 7 2-3 3 6" fill="none" stroke="#14B86A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 
+// The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), light
+// values as the site has them. The site is light-only; the dark values are steps of the same hues on its night navy
+// (#0B1736, the site's code and console panels), each text colour at least 4.5:1 on --paper and --panel and each UI
+// colour (focus ring, input border, fills) at least 3:1. Light: --accent #08794A is the site's small green text,
+// --accent-x #0E9A58 its large green text, --accent-f #14B86A its green fills and buttons; --warn #C42A12 the
+// red-orange for small text (the site's --orange), --warn-f #F0451C its bug fills. --line is an input border at
+// 3:1 (the site's --rule2 is 1.6:1, fine for a ghost button whose text names it, not for an empty field).
 const CSS = `
 :root{
-  --paper:#fff;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;
-  --accent:#08794A;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C42A12;--warn-t:#FDE6E0;--bar:#0E1F4D;--bar2:#14B86A;--bar3:#F0451C;
+  --paper:#FFFFFF;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;--line:#848FA6;
+  --accent:#08794A;--accent-x:#0E9A58;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C42A12;--warn-f:#F0451C;--warn-t:#FDE6E0;
+  --bar:#0E1F4D;--bar2:#14B86A;--bar3:#F0451C;--ink-h:#071331;--green-h:#0FA35D;--on-green:#0E1F4D;--head:rgba(255,255,255,.92);
   --code:#0B1736;--codeink:#E8EDF8;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(14,31,77,.16)' stroke-width='1'/%3E%3C/svg%3E");
+  --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   color-scheme:light dark;
 }
 @media (prefers-color-scheme:dark){:root{
-  --paper:#0B1736;--panel:#13224A;--ink:#E8EDF8;--ink2:#C3CCE2;--ink3:#97A3C2;--rule:#26355E;--rule2:#34467A;
-  --accent:#4FD08F;--accent-f:#14B86A;--accent-t:#123A2C;--warn:#FF8A6B;--warn-t:#3A1C1A;--bar:#9DB2E8;--bar2:#3ED68A;--bar3:#FF7A55;
+  --paper:#0B1736;--panel:#13224A;--ink:#E8EDF8;--ink2:#C3CCE2;--ink3:#97A3C2;--rule:#26355E;--rule2:#3A4A75;--line:#6E7DA6;
+  --accent:#4FD08F;--accent-x:#4FD08F;--accent-f:#14B86A;--accent-t:#153925;--warn:#FF8A6B;--warn-f:#F0451C;--warn-t:#441F16;
+  --bar:#9DB2E8;--bar2:#3ED68A;--bar3:#F0451C;--ink-h:#FFFFFF;--green-h:#2FD07F;--on-green:#0B1736;--head:rgba(11,23,54,.92);
   --code:#060E24;--codeink:#E8EDF8;
+  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(232,237,248,.10)' stroke-width='1'/%3E%3C/svg%3E");
 }}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
-a{color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
-header.top{border-bottom:1px solid var(--rule)}
-header.top .wrap{display:flex;align-items:center;gap:12px;height:56px}
-.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;text-decoration:none}
-.logo img{width:26px;height:26px}
-.logo .wm{font-family:"Outfit","Helvetica Neue",Arial,sans-serif;font-weight:700;letter-spacing:-.03em}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html:has(header.top){scroll-padding-top:72px}
+a{color:inherit;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
+header.top{position:sticky;top:0;z-index:20;background:var(--head);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+header.top .wrap{display:flex;align-items:center;gap:22px;height:60px}
+body:has(.app) header.top .wrap{max-width:1360px}
+.logo{display:flex;align-items:center;flex:none;text-decoration:none}
+.logo .lk{height:37px;width:auto;display:block}
+.logo .lkd{display:none;align-items:center;gap:8px}
+.logo .lkd img{width:30px;height:30px;display:block}
+.logo .wm{font:700 27px/1 var(--display);letter-spacing:-.035em;color:var(--ink);padding-bottom:2px}
 .logo .wm .g{color:var(--accent-f)}
-header.top nav a{font-family:"Figtree",system-ui,sans-serif}
-header.top nav{margin-left:auto;display:flex;gap:16px;font-size:14px;color:var(--ink2);align-items:center}
-header.top nav a{text-decoration:none}
+@media (prefers-color-scheme:dark){.logo .lk{display:none}.logo .lkd{display:inline-flex}}
+header.top nav{margin-left:auto;display:flex;gap:22px;font-size:14px;color:var(--ink2);align-items:center}
+header.top nav a{text-decoration:none;white-space:nowrap}
+header.top nav a:not(.btn):hover,header.top nav .so button:hover{color:var(--ink)}
+header.top nav .btn{min-height:36px;font-size:14px;padding:0 14px}
 header.top nav form.so{display:contents}
-header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;font-family:"Figtree",system-ui,sans-serif}
-h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:750}
+header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}.logo .lk{height:30px}.logo .lkd img{width:26px;height:26px}.logo .wm{font-size:23px}}
+@media (max-width:420px){header.top nav .dc{display:none}}
+@media (max-width:360px){header.top .wrap{gap:10px}.logo .lk{height:26px}}
+h1,h2,h3{font-family:var(--display);text-wrap:balance}
+h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:700}
 h2{font-size:17px;letter-spacing:-.01em;font-weight:700;margin-bottom:10px}
 p.lead{color:var(--ink2);font-size:16px;max-width:62ch;margin-top:10px}
 .muted{color:var(--ink3)}
 .small{font-size:13px}
 .mono{font-family:var(--mono)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 16px;border-radius:8px;font:600 14px/1 var(--sans);cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);text-decoration:none;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:8px;font:500 15px/1 var(--sans);cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--ink-h);border-color:var(--ink-h)}
 .btn:disabled{opacity:.6;cursor:progress}
+.btn.green{background:var(--accent-f);border-color:var(--accent-f);color:var(--on-green)}
+.btn.green:hover{background:var(--green-h);border-color:var(--green-h)}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule2)}
-.btn.ghost:hover{border-color:var(--ink)}
-.btn.sm{min-height:30px;padding:0 10px;font-size:13px}
-input[type=text]{min-height:42px;padding:0 12px;border-radius:8px;border:1px solid var(--rule2);background:var(--paper);color:var(--ink);font:15px var(--sans);width:100%}
-.card{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:16px;min-width:0}
+.btn.ghost:hover{background:transparent;border-color:var(--ink)}
+.btn.sm{min-height:34px;padding:0 12px;font-size:13.5px}
+@media (max-width:620px){.btn.sm{min-height:44px}}
+input[type=text]{min-height:46px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans);width:100%}
+input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+::placeholder{color:var(--ink3);opacity:1}
+.card{background:var(--panel);border:1px solid var(--rule2);border-radius:16px;padding:clamp(16px,3vw,28px);min-width:0}
 .grid{display:grid;gap:12px}
 .kpis{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .cols{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
@@ -92,10 +138,10 @@ input[type=text]{min-height:42px;padding:0 12px;border-radius:8px;border:1px sol
 .kpi .v{font-size:26px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .kpi .l{font-size:13px;color:var(--ink2)}
 .kpi .s{font-size:12px;color:var(--ink3);margin-top:2px}
-pre.code{background:var(--code);color:var(--codeink);border-radius:10px;padding:12px 14px;font:13px/1.55 var(--mono);overflow-x:auto;white-space:pre}
+pre.code{background:var(--code);color:var(--codeink);border-radius:12px;padding:12px 14px;font:13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
 .snip>*+*{margin-top:6px}
 .snip .between{align-items:center}
-.note{border-left:3px solid var(--warn);background:var(--warn-t);padding:10px 12px;border-radius:6px;font-size:14px}
+.note{border:1px solid var(--rule2);border-left:3px solid var(--warn);background:var(--panel);padding:12px 16px;border-radius:10px;font-size:14px;color:var(--ink)}
 .ok{border-left-color:var(--accent-f);background:var(--accent-t)}
 .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule2);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--ink2)}
 .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ink3)}
@@ -108,8 +154,8 @@ pre.code{background:var(--code);color:var(--codeink);border-radius:10px;padding:
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:13px}
 .bars .k{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
 .bars .n{font-variant-numeric:tabular-nums;color:var(--ink2)}
-.bars .track{grid-column:1/-1;height:6px;border-radius:3px;background:var(--rule)}
-.bars .fill{height:6px;border-radius:3px;background:var(--bar)}
+.bars .track{grid-column:1/-1;height:6px;border-radius:2px;background:var(--rule)}
+.bars .fill{height:6px;border-radius:2px;background:var(--bar)}
 .empty{color:var(--ink3);font-size:13px}
 .chart svg{width:100%;height:120px;display:block}
 .chart .axis{font-size:11px;color:var(--ink3);display:flex;justify-content:space-between;margin-top:4px}
@@ -117,12 +163,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
 th{color:var(--ink3);font-weight:600}
 td.mono{font-family:var(--mono)}
-.tablewrap{overflow-x:auto}
+.tablewrap{overflow-x:auto;padding-left:6px;margin-left:-6px}
 section{margin-top:22px}
 details summary{cursor:pointer;font-weight:700}
 footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
 .hidden{display:none!important}
-.skip{position:absolute;left:12px;top:-60px;z-index:20;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:8px;font-size:14px;text-decoration:none}
+.skip{position:absolute;left:12px;top:-60px;z-index:30;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:8px;font-size:14px;text-decoration:none}
 .skip:focus{top:12px}
 [tabindex="-1"]:focus{outline:none}
 .field{display:grid;gap:6px;max-width:520px}
@@ -136,12 +182,12 @@ function snippets(tok){
   return [
     ["Easy: one script tag", "Paste into your HTML. GenClass starts itself and protects the whole app.",
      '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
-    ["Easy: with a bundler", "A meta tag plus one import (npm i @genclass/runtime).",
+    ["Easy: with a bundler", "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
      '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
     ["Function-specific", "Protect only the functions you choose; the dashboard shows each by name.",
      'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions" });\\nconst save = protect("saveCart", saveCartImpl);'],
     ["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
-     'npx @genclass/runtime init']
+     'npx ${RUNTIME_PKG} init']
   ];
 }
 function gcSelect(node){
@@ -186,8 +232,10 @@ export interface ShellOptions {
   skip?: string;
 }
 
+/** As on genclass.dev: plain links, then one compact ink button. Narrow screens drop Home (the lockup links there),
+ * then Docs. */
 const DEFAULT_NAV =
-  '<a href="https://genclass.dev/">Home</a><a href="/start">Get a token</a><a href="https://github.com/genclass-dev/GenClass-lib#readme">Docs</a><a href="/login">Sign in</a>';
+  '<a class="hm" href="https://genclass.dev/">Home</a><a class="dc" href="https://genclass.dev/docs">Docs</a><a href="/login">Sign in</a><a class="btn" href="/start">Get a token</a>';
 
 /** The page frame shared by every page this worker serves. */
 export function shell(nonce: string, title: string, body: string, script: string, opts: ShellOptions = {}): string {
@@ -222,7 +270,8 @@ export const SIGNED_IN_NAV =
 
 // ------------------------------------------------------------------------------------------------- /start
 
-export function startPage(nonce: string): string {
+export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}): string {
+  const notYet = opts.runtimeReady === true ? "" : `<p class="note small" id="notyet">${NOT_ON_NPM}</p>`;
   const body = `
 <section class="stack mt-xl">
   <h1>Get a token for your web app</h1>
@@ -234,7 +283,7 @@ export function startPage(nonce: string): string {
   <form id="f" class="card stack" novalidate>
     <div class="field"><label for="name">App name <span class="muted small">(optional, shown on your dashboard)</span></label>
     <input id="name" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Acme checkout"></div>
-    <div class="row"><button class="btn" id="go" type="submit">Get a token</button><span id="err" class="small" role="alert"></span></div>
+    <div class="row"><button class="btn green" id="go" type="submit">Get a token</button><span id="err" class="small" role="alert"></span></div>
   </form>
 </section>
 <section id="out" class="hidden stack" aria-live="polite">
@@ -248,9 +297,9 @@ export function startPage(nonce: string): string {
     <div class="note"><strong>Save this link now.</strong> It is the only way back to your dashboard; we cannot recover it.
     Anyone with the link can see your app's stats, so do not commit it to code.</div>
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
-    <div class="row"><a id="open" class="btn" href="#">Open dashboard</a></div>
+    <div class="row"><a id="open" class="btn green" href="#">Open dashboard</a></div>
   </div>
-  <div class="card stack"><h2 class="h2l">Install</h2><div id="snips" class="stack"></div></div>
+  <div class="card stack"><h2 class="h2l">Install</h2>${notYet}<p class="muted small">The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier versions ignore it. ${LOCAL_HOSTS}</p><div id="snips" class="stack"></div></div>
 </section>
 <footer>Dashboards show counts only (never the situation text) and keep data for 90 days.
 See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">privacy</a> and
@@ -299,21 +348,28 @@ export function notFoundPage(nonce: string): string {
 // ---------------------------------------------------------------------------------------------- /dashboard
 // The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
 // problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
-// Chart colours: blue, orange, violet, yellow, magenta (dataviz reference hues, light and dark steps, validated in this
-// order against the light and dark page); no green, which the brand keeps for "GenClass fixed it". Five problem types
-// get a slot, the rest share "Other". Every dynamic string goes through textContent.
+// Chart colours come from genclass.dev's own hues, stepped into the chart lightness band: ink navy, the red-orange the
+// site uses for bugs, a sky blue, amber (the site's live-bug colour) and berry, in that order; dark mode has its own
+// steps of the same hues. No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz skill's
+// validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-13: light on #FFFFFF all checks pass, worst
+// CVD ΔE 20.0, normal-vision 31.3, amber 2.2:1 so the table view and legend carry it; dark on #0B1736 all pass, worst
+// CVD 15.3, normal-vision 19.2, every slot at least 3:1 (the palette it replaces: 16.3/19.6 light, 13.2/19.3 dark).
+// A bar draws only the types it has, so slots that are not palette neighbours can touch: in dark, t2 on t4 (stale on
+// slow, when failing endpoints is absent) is deutan ΔE 1.8 and normal-vision 13.7, and t1 on t3 normal-vision 9.7.
+// The 2px paper gap between segments, the legend, the hover breakdown and the table view carry identity there.
+// Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
+// outlined bars in the muted ink (Fig. 2, one series, so no legend) and ring keys in the type's colour; never in the
+// confirmed counts.
+// Every dynamic string goes through textContent.
 
 export const DASH_CSS = `
-:root{--t1:#2a78d6;--t2:#eb6834;--t3:#4a3aa7;--t4:#eda100;--t5:#e87ba4;--t0:#8a93a8;--grid:#E6EAF1;
-  --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
-@media (prefers-color-scheme:dark){:root{--t1:#3987e5;--t2:#d95926;--t3:#9085e9;--t4:#c98500;--t5:#d55181;--t0:#6f7b98;--grid:#1E2D55}}
-body{font-family:var(--sans)}
-h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
+:root{--t1:#2B4FB0;--t2:#F0451C;--t3:#0F85B2;--t4:#EE9E10;--t5:#A63C72;--t0:#8A93A8;--grid:#E6EBF2}
+@media (prefers-color-scheme:dark){:root{--t1:#5780E6;--t2:#F0451C;--t3:#179FD4;--t4:#C68206;--t5:#C75B90;--t0:#6F7B98;--grid:#1E2D55}}
+h1,h2,h3{letter-spacing:-.03em}
 .dh{margin-top:40px}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
 .dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;line-height:1.05}
 .meta{font:12.5px var(--mono);color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px}
-.meta .btn.sm{min-height:28px;padding:0 10px;font:500 12.5px var(--sans)}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
 .live.on i{background:var(--accent-f)}
@@ -322,7 +378,6 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
 .seg button{border:0;background:transparent;color:var(--ink);padding:8px 14px;font:500 13px var(--sans);cursor:pointer}
 .seg button+button{border-left:1px solid var(--ink)}
 .seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-.btn{font-family:var(--sans)}
 .summary{margin-top:24px;font-size:clamp(18px,2.1vw,21px);line-height:1.5;max-width:68ch}
 .summary b{font-weight:600}
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:1px solid var(--ink);margin-top:32px}
@@ -337,6 +392,14 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.03em}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2);margin-top:14px}
 .legend span{display:inline-flex;align-items:center;gap:7px}
 .key{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.key.ring{background:transparent;border:1.5px solid var(--ink3)}
+.poss-fig{margin-top:40px}
+.poss-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.poss-h h3{font:600 17px var(--sans);letter-spacing:-.01em}
+.poss-h .aside{font-size:13.5px;color:var(--ink3)}
+.poss-note{font-size:14px;color:var(--ink2);margin-top:12px;max-width:72ch}
+.find.poss .n{font-weight:500;color:var(--ink2)}
+table.dt td.poss-n{color:var(--ink3)}
 figure{margin:0}
 figcaption{font:12px var(--mono);color:var(--ink3);margin-top:12px}
 .plot{position:relative;margin-top:14px}
@@ -392,7 +455,7 @@ details.more summary{font:600 15px var(--sans);cursor:pointer}
 .dfoot a{color:var(--ink2)}
 main.wrap:has(.app){max-width:1360px}
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0 48px;align-items:start}
-.side{position:sticky;top:0;align-self:start;max-height:100vh;overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 0;border-right:1px solid var(--rule);min-height:calc(100vh - 57px)}
+.side{position:sticky;top:61px;align-self:start;max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 16px;margin-left:-16px;border-right:1px solid var(--rule);min-height:calc(100vh - 61px)}
 .side .proj{font:600 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
 .side .proj small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px;font-weight:400}
 .side .live{margin-top:10px;font:12px var(--mono)}
@@ -401,7 +464,8 @@ main.wrap:has(.app){max-width:1360px}
 .side .grp{font:500 11.5px var(--mono);color:var(--ink3);margin:26px 0 8px}
 .side nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;margin:0 -10px;border-radius:7px;font-size:14px;color:var(--ink2);text-decoration:none}
 .side nav a:hover{color:var(--ink);background:var(--panel)}
-.side nav a[aria-current=true]{color:var(--ink);background:var(--panel);font-weight:600}
+.side nav a[aria-current=true]{color:var(--accent);background:var(--accent-t);font-weight:600}
+.side nav a[aria-current=true] span{color:var(--accent)}
 .side nav a span{font:12px var(--mono);color:var(--ink3);font-weight:400}
 .side .out a{display:block;font-size:13.5px;color:var(--ink2);text-decoration:none;padding:5px 0}
 .side .out a:hover{color:var(--ink)}
@@ -439,10 +503,9 @@ main.wrap:has(.app){max-width:1360px}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
 .mainc .dh{margin-top:32px}
-section[id]{scroll-margin-top:16px}
 @media (max-width:920px){
   .app{grid-template-columns:minmax(0,1fr)}
-  .side{position:sticky;top:0;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+  .side{position:sticky;top:61px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
   .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
   .side .seg{margin-top:0;width:auto}
   .side .seg button{flex:none;padding:6px 10px}
@@ -450,7 +513,7 @@ section[id]{scroll-margin-top:16px}
   .side nav a{margin:0;white-space:nowrap;padding:6px 10px;font-size:13px}
   .side nav a span{display:none}
   .side nav.apps{display:none}
-  section[id]{scroll-margin-top:64px}
+  html:has(.app>.side:not(.acct)){scroll-padding-top:125px}
 }
 `;
 
@@ -514,9 +577,12 @@ const DASH_JS = `
   function share(a, b){ if (!b) return "-"; var r = 100 * a / b; return (r > 99.5 && a < b ? Math.floor(r * 10) / 10 : Math.round(r)) + "%"; }
   function sum(list){ return (list || []).reduce(function(s, x){ return s + x.count; }, 0); }
   function map(list){ var m = {}; (list || []).forEach(function(x){ m[x.key] = (m[x.key] || 0) + x.count; }); return m; }
-  function issues(B){
+  // distinct keys in the period (breakdown lists stop at their top 25)
+  function count(S, m){ var d = S.distinct || {}; return d[m] != null ? d[m] : (S.breakdowns[m] || []).length; }
+  function ring(color){ var s = el("span", "key ring"); s.style.borderColor = color; return s; }
+  function issues(B, m){
     var out = {};
-    (B.detect_issue || []).forEach(function(x){
+    (B[m || "detect_issue"] || []).forEach(function(x){
       var i = x.key.indexOf("\\t"); if (i < 0) return;
       var d = x.key.slice(0, i), r = x.key.slice(i + 1);
       (out[d] = out[d] || []).push({ route: r, count: x.count });
@@ -530,10 +596,11 @@ const DASH_JS = `
   // ---------- summary and tiles
   function summary(S){
     var T0 = S.totals, B = S.breakdowns, host = document.getElementById("summary"); host.textContent = "";
-    var pages = (B.detect_route || []).length, modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0;
+    var pages = count(S, "detect_route"), modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0, poss = T0.possible || 0;
     function put(t, bold){ host.appendChild(bold ? el("b", null, t) : document.createTextNode(t)); }
     if (!T0.sessions) { put("No page loads in this period yet."); return; }
     put(RANGE[S.range] + " GenClass watched "); put(plural(T0.sessions, "page load", "page loads"), true);
+    if (!T0.detections && poss) { put(" and found no problems. It flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately below."); return; }
     if (!T0.detections) { put(" and found nothing wrong. It only reports situations that stand out, so a quiet stretch is normal."); return; }
     put(" and found "); put(plural(T0.detections, "problem", "problems"), true);
     if (pages) { put(" on "); put(plural(pages, "page", "pages"), true); }
@@ -541,6 +608,7 @@ const DASH_JS = `
     if (acting && T0.interventions) { put("It stepped in "); put(plural(T0.interventions, "time", "times"), true); var u = map(B.action_outcome).undone || 0; put(u ? ", and " + plural(u, "change was", "changes were") + " undone." : ", and nothing it changed was undone."); }
     else if (acting) put("It is allowed to step in and did not need to.");
     else put("It is in observe mode, so it reported them and changed nothing.");
+    if (poss) { put(" It also flagged "); put(plural(poss, "possible issue", "possible issues"), true); put(" at lower confidence, listed separately and not counted as problems."); }
   }
   function delta(now, before){
     if (!before && !now) return "";
@@ -556,7 +624,8 @@ const DASH_JS = `
     var ready = T0.model_ready || 0, failed = T0.model_load_failed || 0, modes = map(B.mode), acting = (modes.guard || 0) + (modes.heal || 0) > 0;
     var outcomes = map(B.action_outcome), applied = outcomes.applied || T0.interventions || 0, undone = outcomes.undone || 0;
     host.appendChild(stat("Problems found", fmt(T0.detections), delta(T0.detections || 0, (S.previous || {}).detections || 0)));
-    host.appendChild(stat("Pages affected", fmt((B.detect_route || []).length), (B.page_route || []).length ? "of " + plural((B.page_route || []).length, "page", "pages") + " that sent data" : ""));
+    var seenPages = count(S, "page_route");
+    host.appendChild(stat("Pages affected", fmt(count(S, "detect_route")), seenPages ? "of " + plural(seenPages, "page", "pages") + " that sent data" : ""));
     host.appendChild(stat("Stopped by GenClass", fmt(T0.interventions), acting ? (applied ? Math.round(100 * undone / applied) + "% undone by users" : "nothing needed stopping") : "observe mode reports only"));
     host.appendChild(stat("Model loaded", share(ready, ready + failed), ready ? "average " + (T0.modelLoadAvgMs >= 1000 ? (T0.modelLoadAvgMs / 1000).toFixed(1) + " s" : fmt(T0.modelLoadAvgMs) + " ms") + ", " + plural(failed, "failure", "failures") : "no model loads yet"));
   }
@@ -574,6 +643,9 @@ const DASH_JS = `
     var order = SLOTS.concat(["other"]).filter(function(s){ return rows.some(function(r){ return r.parts[s]; }); });
     var total = rows.reduce(function(s, r){ return s + r.total; }, 0);
     document.getElementById("trendn").textContent = plural(total, "problem", "problems");
+    var poss = {}, ptotal = 0;
+    (S.series || []).forEach(function(b){ poss[b.bucket] = b.possible || 0; ptotal += b.possible || 0; });
+    if (total || ptotal) trendTable(tbl, rows, order, hourly, poss, ptotal);
     if (!total) { host.appendChild(el("p", "quiet", "No problems found in this period.")); return; }
     if (order.length > 1) order.forEach(function(s){ var x = el("span"); x.appendChild(key(colorOf(s))); x.appendChild(document.createTextNode(s === "other" ? "Other" : TYPES[s].name)); leg.appendChild(x); });
     var W = 720, H = 210, PL = 30, PB = 24, PT = 6, n = rows.length, plotW = W - PL, plotH = H - PB - PT;
@@ -608,10 +680,51 @@ const DASH_JS = `
       g.appendChild(hit);
     });
     host.appendChild(g); host.appendChild(tip);
+  }
+  function trendTable(tbl, rows, order, hourly, poss, ptotal){
     var tb = el("table", "dt"), hr = el("tr"); hr.appendChild(el("th", null, hourly ? "Hour" : "Day")); order.forEach(function(s){ hr.appendChild(el("th", null, s === "other" ? "Other" : TYPES[s].name)); }); hr.appendChild(el("th", null, "Total"));
+    if (ptotal) hr.appendChild(el("th", null, "Possible (not in total)"));
     var th = el("thead"); th.appendChild(hr); tb.appendChild(th); var body = el("tbody");
-    rows.forEach(function(r){ var tr = el("tr"); tr.appendChild(el("td", null, label(r.bucket, hourly))); order.forEach(function(s){ tr.appendChild(el("td", null, fmt(r.parts[s] || 0))); }); tr.appendChild(el("td", null, fmt(r.total))); body.appendChild(tr); });
+    rows.forEach(function(r){ var tr = el("tr"); tr.appendChild(el("td", null, label(r.bucket, hourly))); order.forEach(function(s){ tr.appendChild(el("td", null, fmt(r.parts[s] || 0))); }); tr.appendChild(el("td", null, fmt(r.total))); if (ptotal) tr.appendChild(el("td", "poss-n", fmt(poss[r.bucket] || 0))); body.appendChild(tr); });
     tb.appendChild(body); var wrap = el("div", "tablewrap"); wrap.appendChild(tb); tbl.appendChild(wrap);
+  }
+  // ---------- possible issues over time (Fig. 2): one series, hollow bars in the muted ink, its own axis
+  function possibleTrend(S){
+    var host = document.getElementById("possplot"), fig = document.getElementById("possfig"); host.textContent = "";
+    var hourly = S.range === "24h", rows = (S.series || []).map(function(b){ return { bucket: b.bucket, n: b.possible || 0 }; });
+    var total = rows.reduce(function(s, r){ return s + r.n; }, 0);
+    document.getElementById("unit2").textContent = hourly ? "hour" : "day";
+    document.getElementById("possn").textContent = plural(total, "possible issue", "possible issues");
+    fig.classList.toggle("hidden", !total);
+    if (!total) return;
+    var W = 720, H = 120, PL = 30, PB = 24, PT = 6, n = rows.length, plotW = W - PL, plotH = H - PB - PT;
+    var max = niceMax(Math.max.apply(null, rows.map(function(r){ return r.n; })));
+    var g = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Possible issues (lower confidence) per " + (hourly ? "hour" : "day") });
+    [0, max].forEach(function(v){
+      var y = PT + plotH - plotH * v / max;
+      g.appendChild(svg("line", { x1: PL, x2: W, y1: y, y2: y, stroke: v ? "var(--grid)" : "var(--rule2)", "stroke-width": 1 }));
+      var t = svg("text", { x: PL - 6, y: y + 4, "text-anchor": "end" }); t.textContent = fmt(v); g.appendChild(t);
+    });
+    var step = plotW / n, bw = Math.max(2, Math.min(28, step * 0.64)), tip = el("div", "tip hidden");
+    rows.forEach(function(r, i){
+      var x = PL + i * step + (step - bw) / 2;
+      if (r.n) { var h = Math.max(2, plotH * r.n / max); g.appendChild(svg("rect", { x: x + 0.75, y: PT + plotH - h + 0.75, width: Math.max(1, bw - 1.5), height: h - 0.75, rx: 2, fill: "var(--panel)", stroke: "var(--ink3)", "stroke-width": 1.5 })); }
+      if (i === 0 || i === n - 1 || i === Math.floor(n / 2)) {
+        var lt = svg("text", { x: PL + i * step + step / 2, y: H - 6, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }); lt.textContent = label(r.bucket, hourly); g.appendChild(lt);
+      }
+      var hit = svg("rect", { x: PL + i * step, y: PT, width: step, height: plotH, fill: "transparent", tabindex: 0 });
+      function show(){
+        tip.textContent = ""; tip.appendChild(el("div", "t", label(r.bucket, hourly) + ": " + plural(r.n, "possible issue", "possible issues")));
+        var row = el("div", "r"), a = el("span"); a.appendChild(ring("var(--ink3)")); a.appendChild(document.createTextNode("Not counted as problems")); row.appendChild(a); tip.appendChild(row);
+        tip.classList.remove("hidden");
+        var box = host.getBoundingClientRect(), left = (PL + i * step + step / 2) / W * box.width;
+        tip.style.left = Math.min(Math.max(0, left - 80), box.width - 170) + "px"; tip.style.top = "0px";
+      }
+      hit.addEventListener("mouseenter", show); hit.addEventListener("focus", show);
+      hit.addEventListener("mouseleave", function(){ tip.classList.add("hidden"); }); hit.addEventListener("blur", function(){ tip.classList.add("hidden"); });
+      g.appendChild(hit);
+    });
+    host.appendChild(g); host.appendChild(tip);
   }
 
   // ---------- one card per kind of problem
@@ -645,27 +758,59 @@ const DASH_JS = `
       host.appendChild(c);
     });
   }
+  // the lower-confidence tier: its own cards (ring keys), never merged into the ones above
+  function possibleCards(S){
+    var B = S.breakdowns, host = document.getElementById("possible"), byIssue = issues(B, "possible_issue"); host.textContent = "";
+    var list = (B.possible_diagnosis || []).filter(function(x){ return x.key !== "expected"; }), total = sum(list);
+    document.getElementById("possible-s").classList.toggle("hidden", !list.length);
+    list.forEach(function(x){
+      var t = T(x.key), c = el("article", "find poss");
+      var top = el("div", "top"), h = el("h3"); h.appendChild(ring(colorOf(slotOf(x.key)))); h.appendChild(document.createTextNode(t.name)); top.appendChild(h);
+      var nw = el("div", "nw"); nw.appendChild(el("span", "n", fmt(x.count))); nw.appendChild(el("span", "share", total ? Math.round(100 * x.count / total) + "% of possible issues" : "")); top.appendChild(nw); c.appendChild(top);
+      if (t.what) c.appendChild(el("p", null, t.what));
+      var where = (byIssue[x.key] || []).slice().sort(function(a, b){ return b.count - a.count; });
+      if (where.length) {
+        var ul = el("ul", "where");
+        where.slice(0, 4).forEach(function(w){ var li = el("li"); li.appendChild(el("code", null, w.route)); li.appendChild(el("span", null, fmt(w.count))); ul.appendChild(li); });
+        c.appendChild(ul);
+      }
+      host.appendChild(c);
+    });
+  }
 
   // ---------- pages, actions, health
   function pages(S){
-    var B = S.breakdowns, host = document.getElementById("pages"), byIssue = issues(B); host.textContent = "";
+    var B = S.breakdowns, T0 = S.totals, host = document.getElementById("pages"), byIssue = issues(B), byPoss = issues(B, "possible_issue"); host.textContent = "";
     var routes = {};
-    Object.keys(byIssue).forEach(function(d){ byIssue[d].forEach(function(w){ var r = routes[w.route] = routes[w.route] || { route: w.route, total: 0, parts: {} }; var s = slotOf(d); r.parts[s] = (r.parts[s] || 0) + w.count; r.total += w.count; }); });
+    function at(route){ return routes[route] = routes[route] || { route: route, total: 0, parts: {}, poss: 0 }; }
+    Object.keys(byIssue).forEach(function(d){ byIssue[d].forEach(function(w){ var r = at(w.route); var s = slotOf(d); r.parts[s] = (r.parts[s] || 0) + w.count; r.total += w.count; }); });
+    if (!Object.keys(routes).length) (B.detect_route || []).forEach(function(x){ at(x.key).total += x.count; });
+    if (Object.keys(byPoss).length) Object.keys(byPoss).forEach(function(d){ byPoss[d].forEach(function(w){ at(w.route).poss += w.count; }); });
+    else (B.possible_route || []).forEach(function(x){ at(x.key).poss += x.count; });
     var list = Object.keys(routes).map(function(k){ return routes[k]; });
-    if (!list.length) list = (B.detect_route || []).map(function(x){ return { route: x.key, total: x.count, parts: {} }; });
-    list.sort(function(a, b){ return b.total - a.total; });
+    list.sort(function(a, b){ return b.total - a.total || b.poss - a.poss; });
     if (!list.length) { host.appendChild(el("p", "quiet", "No problems on any page in this period.")); return; }
+    var anyPoss = list.some(function(r){ return r.poss; });
     var max = list[0].total || 1, tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
     hr.appendChild(el("th", null, "Page")); hr.appendChild(el("th", "num", "Problems")); hr.appendChild(el("th", null, "By type"));
+    if (anyPoss) hr.appendChild(el("th", "num", "Possible"));
     hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
     list.slice(0, 8).forEach(function(r){
       var tr = el("tr"); var rc = el("td", "route", r.route); rc.title = r.route; tr.appendChild(rc); tr.appendChild(el("td", "num", fmt(r.total)));
       var td = el("td", "wide"), mix = el("div", "mix"), parts = SLOTS.concat(["other"]).filter(function(s){ return r.parts[s]; });
-      if (!parts.length) { var i0 = el("i"); i0.style.width = (100 * r.total / max) + "%"; i0.style.background = "var(--bar3)"; mix.appendChild(i0); }
+      if (!parts.length && r.total) { var i0 = el("i"); i0.style.width = (100 * r.total / max) + "%"; i0.style.background = "var(--t0)"; i0.title = "Not broken down by type: " + fmt(r.total); mix.appendChild(i0); }
       parts.forEach(function(s){ var i = el("i"); i.style.width = (100 * r.parts[s] / max) + "%"; i.style.background = colorOf(s); i.title = (s === "other" ? "Other" : TYPES[s].name) + ": " + fmt(r.parts[s]); mix.appendChild(i); });
-      td.appendChild(mix); tr.appendChild(td); body.appendChild(tr);
+      td.appendChild(mix); tr.appendChild(td);
+      if (anyPoss) tr.appendChild(el("td", "num poss-n", r.poss ? fmt(r.poss) : "-"));
+      body.appendChild(tr);
     });
     tb.appendChild(body); host.appendChild(tb);
+    var notes = [], withPage = T0.detectionsWithPage;
+    if (anyPoss) notes.push("Possible: lower-confidence issues on that page, not counted in Problems.");
+    if (typeof withPage === "number" && T0.detections > withPage) notes.push(plural(T0.detections - withPage, "problem", "problems") + " arrived without a page (the page comes with the decision record, which was in another batch or not sent); the totals count them.");
+    var possWithPage = T0.possibleWithPage;
+    if (anyPoss && typeof possWithPage === "number" && (T0.possible || 0) > possWithPage) notes.push(plural(T0.possible - possWithPage, "possible issue", "possible issues") + " arrived without a page.");
+    if (notes.length) host.appendChild(el("figcaption", null, notes.join(" ")));
   }
   function acted(S){
     var B = S.breakdowns, T0 = S.totals, host = document.getElementById("acted"); host.textContent = "";
@@ -698,8 +843,15 @@ const DASH_JS = `
     row(dl, "Model loads", ready + failed ? share(ready, ready + failed) + " succeeded" : "-", plural(ready, "load", "loads") + ", " + plural(failed, "failure", "failures"), (ready + failed) && failed / (ready + failed) > 0.02 ? ["bad", "needs a look"] : ready ? ["ok", "healthy"] : null);
     var be = B.backend || [], beTot = sum(be);
     row(dl, "Where it ran", be.length ? be.map(function(x){ return (x.key === "webgpu" ? "WebGPU" : x.key === "wasm" ? "WASM" : x.key) + " " + Math.round(100 * x.count / beTot) + "%"; }).join(", ") : "-", T0.modelLoadAvgMs ? "average load " + (T0.modelLoadAvgMs >= 1000 ? (T0.modelLoadAvgMs / 1000).toFixed(1) + " s" : fmt(T0.modelLoadAvgMs) + " ms") : "");
-    row(dl, "Decision time", T0.latency_ms_n ? fmt(T0.latencyAvgMs) + " ms" : "-", T0.latency_ms_n ? "average over " + plural(T0.latency_ms_n, "decision", "decisions") : "no decisions yet");
+    // from the decision records that arrived: routine ones are sampled (0.3.0), so the average leans towards the rest
+    var sampled = (T0.records_sampled_out || 0) + (T0.records_capped || 0) > 0;
+    row(dl, "Decision time", T0.latency_ms_n ? fmt(T0.latencyAvgMs) + " ms" : "-", T0.latency_ms_n ? "average of " + plural(T0.latency_ms_n, "decision record", "decision records") + " received" + (sampled ? "; routine decisions are sampled, so it leans towards the others" : "") : "no decisions yet");
     row(dl, "Ran without a decision", fmt(T0.failOpens), "times the app went ahead without a decision (model not ready, budget, hidden tab)", T0.failOpens ? null : ["ok", "none"]);
+    var hs = T0.hidden_skipped || 0, md = T0.model_dropped || 0;
+    row(dl, "Not checked", fmt(hs + md), hs + md ? [hs ? fmt(hs) + " in hidden tabs" : "", md ? fmt(md) + " over the decision rate limit" : ""].filter(Boolean).join(", ") : "situations skipped in hidden tabs or over the decision rate limit", hs + md ? null : ["ok", "none"]);
+    if (T0.actionLimits) row(dl, "Action limits reached", fmt(T0.actionLimits), "times GenClass ran the passive action because an action limit was reached");
+    var so = T0.records_sampled_out || 0, rc = T0.records_capped || 0, td = T0.telemetry_dropped || 0;
+    if (so + rc + td) row(dl, "Records not sent", fmt(so + rc + td), [so ? fmt(so) + " routine decisions sampled out" : "", rc ? fmt(rc) + " over the per-page cap" : "", td ? fmt(td) + " dropped in the browser" : ""].filter(Boolean).join(", ") + ". The totals above still count every decision and detection; pages and functions come from the records that arrived.");
     if (errs.length) {
       var dd = row(dl, "Load errors", plural(sum(errs), "error", "errors"), "the model did not load on these page loads; the page still worked, without GenClass decisions", null), ul = el("ul");
       errs.slice(0, 4).forEach(function(x){ var li = el("li", null, fmt(x.count) + " \\u00D7 " + x.key); li.title = x.key; ul.appendChild(li); });
@@ -726,12 +878,12 @@ const DASH_JS = `
   }
   function advanced(S){
     var B = S.breakdowns, host = document.getElementById("adv"); host.textContent = "";
-    [["Triggers", B.trigger], ["Diagnoses (all decisions)", B.diagnosis], ["Top routes (decisions)", B.route], ["Top pages (page loads)", B.page_route], ["Protected functions", B.fn],
-     ["Model load states", B.model_state], ["Decision latency", B.latency_bucket], ["Fail-opens (reason:trigger)", B.fail_open], ["Modes", B.mode], ["Model versions", B.model_version],
-     ["Hosts seen", B.host]].forEach(function(p){
+    [["Triggers", B.trigger], ["Diagnoses (all decisions)", B.diagnosis], ["Top routes (decision records)", B.route], ["Top pages (page loads)", B.page_route], ["Protected functions", B.fn],
+     ["Model load states", B.model_state], ["Decision latency (records)", B.latency_bucket], ["Fail-opens (reason:trigger)", B.fail_open], ["Modes", B.mode], ["Model versions", B.model_version],
+     ["Hosts seen", B.host], ["Possible issues (lower confidence)", B.possible_diagnosis], ["Action limits", B.action_limits]].forEach(function(p){
       var c = el("div"); c.appendChild(el("h2", null, p[0]));
       if (!p[1] || !p[1].length) { c.appendChild(el("p", "empty", "None in this period.")); host.appendChild(c); return; }
-      var max = p[1][0].count || 1, ul = el("ul", "bars");
+      var max = Math.max.apply(null, p[1].map(function(x){ return x.count; })) || 1, ul = el("ul", "bars");
       p[1].slice(0, 10).forEach(function(x){ var li = el("li"); var k = el("span", "k", x.key); k.title = x.key; li.appendChild(k); li.appendChild(el("span", "n", fmt(x.count))); var tr = el("span", "track"); var fi = el("span", "fill"); fi.style.display = "block"; fi.style.width = Math.max(2, 100 * x.count / max) + "%"; tr.appendChild(fi); li.appendChild(tr); ul.appendChild(li); });
       c.appendChild(ul); host.appendChild(c);
     });
@@ -746,11 +898,11 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
     if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); cards(S); pages(S); acted(S); health(S); recent(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
-    document.getElementById("c-pages").textContent = String((B2.detect_route || []).length);
+    document.getElementById("c-pages").textContent = String(count(S, "detect_route"));
     document.getElementById("c-did").textContent = fmt(T2.interventions);
   }
 
@@ -856,7 +1008,10 @@ export interface DashboardOptions {
   firstEvent?: string | null;
   /** Account mode: whether the app's private dashboard link still opens these stats (the footer says so). */
   privateLink?: boolean;
-  /** Whether the @genclass/runtime on npm reads project keys (0.3.0 or later); until then the panel says so first. */
+  /**
+   * Whether a @genclass/runtime that reads project keys (KEY_RUNTIME or later, any dist-tag) is on npm (RUNTIME_ON_NPM);
+   * until then the Connect panel, and the setup notes of a private-link dashboard, say so first.
+   */
   runtimeReady?: boolean;
   /** Account mode: the time ranges the account's plan shows (src/plans.ts); default 24 h, 7 and 30 days. */
   ranges?: string[];
@@ -893,11 +1048,9 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
     const id = `csnip${++n}`;
     return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
   };
-  const notYet = runtimeReady
-    ? ""
-    : `<p class="cnote" id="cnote"><b>Not on npm yet.</b> Project keys and <code>login</code> ship in @genclass/runtime 0.3.0, the next release. Until it is published, <code>npx @genclass/runtime login</code> stops with "unknown command" and 0.2.x does not send this key, so this line keeps waiting.</p>`;
+  const notYet = runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
   return `<section class="connect${connected ? " hidden" : ""}" id="connect" aria-labelledby="connect-h">
-  <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime 0.3.0 or later</span></div>
+  <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime ${KEY_RUNTIME} or later</span></div>
   ${notYet}
   <div class="keyrow">
     <div class="k">Project API key</div>
@@ -909,7 +1062,7 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
     <div class="way">
       <div class="eb">1 · Run in your project</div>
       <h3>Sign in from the terminal</h3>
-      ${snip("In the app's folder", "the login command", "npx @genclass/runtime login")}
+      ${snip("In the app's folder", "the login command", `npx ${RUNTIME_PKG} login`)}
       <p>Signs you in and connects the app in that folder: you pick this app, it shows the change to your files, and writes the key after you agree.</p>
     </div>
     <div class="way">
@@ -920,8 +1073,8 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
       ${snip("Meta tag, with a bundler", "the meta tag", meta)}
     </div>
   </div>
-  <p class="fine">The key needs @genclass/runtime 0.3.0 or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
-  Local hosts (localhost, *.local, *.test, private networks) do not send, even with a key, so the first event comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
+  <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
+  Local hosts (localhost, *.local, *.test, private networks) do not send by default, even with a key (telemetry: true or a telemetry options object opts them in), so the first event usually comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
 </section>`;
 }
 
@@ -951,6 +1104,8 @@ export function dashboardPage(
     ? ""
     : `<section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
   <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
+  ${opts.runtimeReady === true ? "" : `<p class="note small mt-s">${NOT_ON_NPM}</p>`}
+  <p class="muted small mt-s">The token needs @genclass/runtime ${KEY_RUNTIME} or later. ${LOCAL_HOSTS}</p>
   <div id="snips" class="stack mt-s"></div></details></section>`;
   const report = '<a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a>';
   const privacy = acct
@@ -1008,7 +1163,8 @@ export function dashboardPage(
 </section>
 ${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
 <section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
-Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts (localhost, *.local, *.test, private networks) do not send, even with a token: load a page of your deployed site.</p></section>
+Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
+versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
 <div id="content" class="hidden">
 <div class="statrow" id="tiles"></div>
 <section class="blk" id="trend">
@@ -1018,12 +1174,22 @@ Events arrive in batches every 10 seconds and when a tab is hidden. Local hosts 
     <div class="plot" id="trendplot"></div>
     <figcaption>Fig. 1. Problems GenClass found, per <span id="unit">day</span>, by type. Hover a bar for its breakdown.</figcaption>
   </figure>
+  <figure class="poss-fig hidden" id="possfig">
+    <div class="poss-h"><h3>Possible issues</h3><span class="aside" id="possn"></span></div>
+    <div class="plot" id="possplot"></div>
+    <figcaption>Fig. 2. Possible issues per <span id="unit2">day</span>: problems the model leaned towards with less confidence than it reports at (observe mode, from the eager setting's threshold up). Not counted in Fig. 1.</figcaption>
+  </figure>
   <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
 </section>
 <section class="blk" id="found">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
+  <div id="possible-s" class="hidden mt-l">
+    <div class="poss-h"><h3>Possible issues, lower confidence</h3><span class="aside">Not counted as problems</span></div>
+    <p class="poss-note">By default in observe mode GenClass also reports problems the model leaned towards with less confidence than it reports at, from the eager setting's threshold up; the console marks them (possible). Worth a look when one keeps coming back on the same page.</p>
+    <div class="finds" id="possible"></div>
+  </div>
 </section>
 <section class="blk two" id="where">
   <div><div class="blk-h"><h2>Pages</h2><span class="aside">Table 1. Pages with the most problems</span></div><div id="pages"></div></div>
