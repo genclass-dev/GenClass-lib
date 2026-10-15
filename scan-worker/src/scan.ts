@@ -422,6 +422,7 @@ export interface ViewResult {
    * What the page showed at network quiet, to tell a bot check or wall from the real page (report.ts blockedOf): the
    * body's visible text length and element count, the title, and the challenge or captcha markers in its HTML.
    */
+  /** text is -1 when the body had 1,500+ elements and was not read (audits.ts "wall"). */
   wall?: { text: number; elements: number; title: string; marks: string[] } | null;
 }
 

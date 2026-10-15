@@ -532,9 +532,10 @@ export const WALL_BLANK_TEXT = 200;
 /** Whether one view saw a bot check, a wall or a blank error page instead of the real page; its signals when it did. */
 export function viewBlocked(v: ScanResult["views"][number]): { status: number | null; marks: string[] } | null {
   const w = v.wall ?? null;
-  const small = !!w && w.text < WALL_MAX_TEXT && w.elements < WALL_MAX_ELEMENTS;
+  // text -1: the page had 1,500+ elements, so its text was not read (audits.ts "wall"); such a page is never small or blank by text
+  const small = !!w && w.text >= 0 && w.text < WALL_MAX_TEXT && w.elements < WALL_MAX_ELEMENTS;
   const marks = small && w ? w.marks : [];
-  const blank = v.findings.some((f) => f.kind === "page-blank") || (!!w && w.text < WALL_BLANK_TEXT);
+  const blank = v.findings.some((f) => f.kind === "page-blank") || (!!w && w.text >= 0 && w.text < WALL_BLANK_TEXT);
   const odd = v.status !== null && !REAL_STATUS.has(v.status);
   return marks.length || (odd && blank) ? { status: v.status, marks } : null;
 }
