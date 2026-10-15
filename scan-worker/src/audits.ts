@@ -133,6 +133,11 @@ export function pageSide(cmd: string, options?: any): any {
     // whether the page is a bot check or a wall instead of the real page: how much text and how many elements the body
     // has, and which known challenge or captcha markers its HTML carries (judged in report.ts blockedOf)
     const body = doc.body;
+    const elements = body ? body.getElementsByTagName("*").length : 0;
+    const title = String(doc.title || "").replace(/\s+/g, " ").trim().slice(0, 120);
+    // a page this big is the real page, not a wall: skip the text and HTML reads, which take up to the read's timeout
+    // on heavy pages (time the view would otherwise give axe-core); text -1 means "not read" (report.ts viewBlocked)
+    if (elements >= 1500) return { text: -1, elements, title, marks: [] };
     const text = body ? String(body.innerText || "").replace(/\s+/g, " ").trim() : "";
     const html = String(de.outerHTML || "").slice(0, 400000);
     const MARKS: [string, RegExp][] = [
@@ -148,7 +153,7 @@ export function pageSide(cmd: string, options?: any): any {
       ["captcha", /g-recaptcha|h-captcha|hcaptcha\.com|recaptcha\/api|challenges\.cloudflare\.com\/turnstile|<form[^>]+captcha/i],
     ];
     const marks = MARKS.filter((m) => m[1].test(html)).map((m) => m[0]);
-    return { text: text.length, elements: body ? body.getElementsByTagName("*").length : 0, title: String(doc.title || "").replace(/\s+/g, " ").trim().slice(0, 120), marks };
+    return { text: text.length, elements, title, marks };
   }
 
   if (cmd === "overflow") {

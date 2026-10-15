@@ -443,4 +443,10 @@ describe("a page the scanner could not see: a bot check or a blank error page ge
     assert.ok(blockedOf(seen(503, [blank], null), "x"));
     assert.equal(blockedOf(seen(200, [blank], null), "x"), null);
   });
+  it("a big page whose text was not read (text -1) is never small or blank by text", () => {
+    assert.equal(blockedOf(seen(202, [], wall(-1, 2000)), "x"), null);
+    assert.equal(blockedOf(seen(503, [], wall(-1, 1500)), "x"), null);
+    // its own page-blank finding still counts with an odd status
+    assert.ok(blockedOf(seen(503, [blank], wall(-1, 1600)), "x"));
+  });
 });
