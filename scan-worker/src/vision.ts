@@ -1,7 +1,7 @@
 // GenClass Vision (beta) in the page check: the Vision v2 student (MobileNetV3-small over a 224 x 128 letterboxed crop,
 // 64 measured facts joined before the head; branch wave2/vision-v2-student, vision/results/vision-v2/RESULTS.md) gives
 // a second opinion on the measured visual findings the model judge (src/judge.ts) cropped. It never changes a score:
-// the findings, the judge's outcomes and scan-score/3 are computed exactly as without it. The report shows its score on
+// the findings, the judge's outcomes and the score are computed exactly as without it. The report shows its score on
 // each finding it saw ("Vision 0.91") and lists the findings it flags that are not scored (src/report.ts), marked beta.
 //
 // Where it runs: a blank tab the scanner opens in the scan's own Cloudflare browser (src/vision-page.ts), never the

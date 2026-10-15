@@ -164,3 +164,51 @@ describe("the test copy's bucket prefix", () => {
     assert.throws(() => prefixed(bucket, "../"), /STORE_PREFIX/);
   });
 });
+
+describe("scan-score/4: the main document's headers, its cookies, deprecations and the page weight", () => {
+  it("keeps the main frame's document response with lower-case headers, and the Set-Cookie headers Chrome reports apart", async () => {
+    const { log, sent } = await logWith((emit) => {
+      // the raw headers carry what the renderer's copy leaves out (Set-Cookie, here HSTS); a long cookie value is dropped
+      // so its attributes are never cut off
+      emit("Network.responseReceivedExtraInfo", { requestId: "doc1", loaderId: "doc1", headers: { "Set-Cookie": `sid=1; Path=/\ntheme=dark; Secure\nbig=${"v".repeat(5000)}; Path=/; Secure; HttpOnly`, "Strict-Transport-Security": "max-age=600", "X-Frame-Options": "DENY" } });
+      emit("Network.responseReceived", { requestId: "doc1", type: "Document", frameId: "MAIN", response: { url: PAGE, status: 200, mimeType: "text/html", headers: { "X-Frame-Options": "DENY" } } });
+      emit("Network.responseReceived", { requestId: "ad1", type: "Document", frameId: "AD-FRAME", response: { url: "https://ads.example.net/f", status: 200, mimeType: "text/html", headers: { "x-frame-options": "" } } });
+      // a later document for the main frame (a prefetched route the app then shows with pushState) is not the page
+      emit("Network.responseReceived", { requestId: "pre1", type: "Document", frameId: "MAIN", response: { url: "https://shop.example.com/app", status: 200, mimeType: "text/html", headers: { "content-disposition": "inline" } } });
+    });
+    assert.ok(sent.includes("Audits.enable"), "Chrome's Issues are on");
+    const d = log.mainDocument(PAGE)!;
+    assert.deepEqual(d.headers, { "strict-transport-security": "max-age=600", "x-frame-options": "DENY", "set-cookie": "sid=x; Path=/\ntheme=x; Secure\nbig=x; Path=/; Secure; HttpOnly" });
+    assert.deepEqual(d.cookies, ["sid=x; Path=/", "theme=x; Secure", "big=x; Path=/; Secure; HttpOnly"], "names and attributes only, never the values");
+    assert.equal(log.mainDocument("https://shop.example.com/other")!.url, PAGE, "the first main-frame document, whatever the page's address became");
+  });
+  it("is null when no document response was seen", async () => {
+    const { log } = await logWith(() => undefined);
+    assert.equal(log.mainDocument(PAGE), null);
+  });
+  it("reports deprecated APIs from Chrome's Issues, one finding, the scanner's own left out", async () => {
+    const issue = (type: string, url: string) => ({ issue: { code: "DeprecationIssue", details: { deprecationIssueDetails: { type, sourceCodeLocation: { url, lineNumber: 1, columnNumber: 1 } } } } });
+    const { log } = await logWith((emit) => {
+      emit("Audits.issueAdded", issue("UnloadHandler", "https://shop.example.com/app.js"));
+      emit("Audits.issueAdded", issue("UnloadHandler", "https://shop.example.com/other.js"));
+      emit("Audits.issueAdded", issue("PrefixedStorageInfo", "https://tags.example.net/t.js"));
+      emit("Audits.issueAdded", issue("Whatever", "https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2/x.js"));
+      emit("Audits.issueAdded", { issue: { code: "CookieIssue", details: {} } });
+      // caused by the scanner's own stand-in CORS answers, and code without a page URL (the scanner's isolated world)
+      emit("Audits.issueAdded", issue("AuthorizationCoveredByWildcard", "https://shop.example.com/app.js"));
+      emit("Audits.issueAdded", issue("SomethingOld", ""));
+    });
+    const f = judgeReliability(log, PAGE, "desktop").findings.find((x) => x.kind === "deprecated-api")!;
+    assert.deepEqual([f.detail?.severity, f.detail?.count], ["minor", 2]);
+    assert.equal(f.measured, "Chrome reported 2 deprecated APIs on the desktop view (1 from scripts on other sites): UnloadHandler (shop.example.com/app.js); PrefixedStorageInfo (tags.example.net/t.js).");
+  });
+  it("snapshots the bytes and requests at network quiet, the scanner's own downloads left out", async () => {
+    const { log } = await logWith((emit) => {
+      response(emit, "https://shop.example.com/a.js", 200, "Script", 300_000);
+      response(emit, "https://shop.example.com/b.png", 200, "Image", 200_000, "image/png");
+      response(emit, "https://genclass.dev/model/x/model.onnx", 200, "Fetch", 9_000_000, "application/octet-stream");
+    });
+    log.snapshot();
+    assert.deepEqual(log.quiet, { bytes: 500_000, requests: 2 });
+  });
+});

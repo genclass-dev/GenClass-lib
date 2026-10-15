@@ -124,8 +124,13 @@ export function pageSide(cmd: string, options?: any): any {
       // what the page can read about its window and screen (a page that lays itself out from these sees what a
       // visitor's browser would report only when they agree with the viewport)
       const env = [g.innerWidth, g.innerHeight, g.outerWidth, g.outerHeight, g.screen ? g.screen.width : 0, g.screen ? g.screen.height : 0, de.clientWidth].map((x: any) => Math.round(Number(x) || 0));
-      const paint = g.performance.getEntriesByType("paint").find((p: any) => p.name === "first-paint");
-      return { lcp, shifts: sh, unsized, visibility: String(doc.visibilityState || ""), env, firstPaint: paint ? Math.round(paint.startTime) : null };
+      const paints = g.performance.getEntriesByType("paint");
+      const paint = paints.find((p: any) => p.name === "first-paint");
+      const fcpE = paints.find((p: any) => p.name === "first-contentful-paint");
+      return {
+        lcp, shifts: sh, unsized, visibility: String(doc.visibilityState || ""), env, firstPaint: paint ? Math.round(paint.startTime) : null,
+        fcp: fcpE ? Math.round(fcpE.startTime) : null,
+      };
     });
   }
 
@@ -195,6 +200,207 @@ export function pageSide(cmd: string, options?: any): any {
       for (const x of deepest.slice(0, 3)) culprits.push({ sel: sel(x.el), right: Math.round(x.right), w: Math.round(x.w), tag: String(x.el.tagName).toLowerCase() });
     }
     return { width, sw, scrollable, culprits };
+  }
+
+  if (cmd === "focus" || cmd === "focusOne" || cmd === "focusBlur" || cmd === "focusDone") {
+    // Keyboard focus (WCAG 2.4.7), in two steps. "focus" lists the page's keyboard stops in sequential order (positive
+    // tabindex first, then document order), counts those before the main content and looks for a skip link, then
+    // focuses each of the first ones by script and compares the computed styles of the element, its pseudo-elements,
+    // ancestors and children with and without focus: an element whose styles do not change at all is a candidate.
+    // "focusOne" focuses the stop before a candidate so the scanner can press a real Tab; "focusBlur" and
+    // "focusDone" take focus away and put the page back. The list lives in this isolated world only.
+    const key = String(o.name || "__gcsFocus");
+    if (cmd === "focusBlur") {
+      const a = doc.activeElement;
+      if (a && a !== doc.body && typeof a.blur === "function") a.blur();
+      return { ok: true };
+    }
+    if (cmd === "focusDone") {
+      const st = g[key];
+      const a = doc.activeElement;
+      if (a && a !== doc.body && typeof a.blur === "function") a.blur();
+      if (st) {
+        try {
+          g.scrollTo({ left: st.sx, top: st.sy, behavior: "instant" });
+        } catch (e) {
+          g.scrollTo(st.sx, st.sy);
+        }
+      }
+      try {
+        delete g[key];
+      } catch (e) {
+        g[key] = undefined;
+      }
+      return { ok: true };
+    }
+    if (cmd === "focusOne") {
+      const st = g[key];
+      const i = Number(o.i);
+      if (!st || !(i >= 0 && i < st.list.length)) return { ok: false };
+      if (o.check) {
+        const el = st.list[i];
+        const r = el.getBoundingClientRect();
+        let fv = false;
+        try {
+          fv = el.matches(":focus-visible");
+        } catch (e) {
+          fv = false;
+        }
+        return { ok: doc.activeElement === el && fv, x: r.left, y: r.top, w: r.width, h: r.height, vw: g.innerWidth, vh: g.innerHeight, sx: g.scrollX, sy: g.scrollY };
+      }
+      // the stop before the candidate gets focus by script; the scanner's Tab then moves focus to the candidate
+      const a = doc.activeElement;
+      if (a && a !== doc.body && typeof a.blur === "function") a.blur();
+      if (i > 0) st.list[i - 1].focus({ preventScroll: true });
+      return { ok: i === 0 || doc.activeElement === st.list[i - 1] };
+    }
+    // "focus"
+    const sx0 = g.scrollX;
+    const sy0 = g.scrollY;
+    const Q = 'a[href], area[href], button, input:not([type="hidden"]), select, textarea, summary, iframe, [tabindex], [contenteditable=""], [contenteditable="true"]';
+    const raw = Array.prototype.slice.call(doc.querySelectorAll(Q), 0, 4000);
+    const stops: any[] = [];
+    for (const el of raw) {
+      if (!(el.tabIndex >= 0) || el.disabled || (el.closest && el.closest("[inert]"))) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4 || !visible(el)) continue;
+      stops.push(el);
+    }
+    const positive = stops.filter((e) => e.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex);
+    const list = positive.concat(stops.filter((e) => e.tabIndex === 0));
+    const main = doc.querySelector('main, [role="main"]') || doc.querySelector("h1");
+    let beforeMain: number | null = null;
+    if (main) {
+      beforeMain = 0;
+      for (const el of list) if (!main.contains(el) && el.compareDocumentPosition(main) & 4) beforeMain++;
+    }
+    // a skip link is usually visually hidden until it has focus (1 by 1 px, clipped, or transparent), so the first
+    // stops are taken from every focusable element that is displayed, whatever its size or opacity
+    const loose: any[] = [];
+    for (const el of raw) {
+      if (!(el.tabIndex >= 0) || el.disabled || (el.closest && el.closest("[inert]"))) continue;
+      let shown = true;
+      try {
+        shown = typeof el.checkVisibility === "function" ? el.checkVisibility({ checkVisibilityCSS: true }) : style(el).display !== "none";
+      } catch (e) {
+        shown = true;
+      }
+      if (shown) loose.push(el);
+    }
+    const looseOrder = loose.filter((e) => e.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex).concat(loose.filter((e) => e.tabIndex === 0));
+    let skip = "";
+    for (const el of looseOrder.slice(0, 3)) {
+      // a control that says it skips to the content counts whatever it is (some sites use a button that moves focus)
+      const words = String(el.getAttribute("aria-label") || el.textContent || "").replace(/\s+/g, " ").trim();
+      if (/^(skip|jump)\b.*\b(content|main|navigation|nav)\b/i.test(words)) {
+        skip = sel(el);
+        continue;
+      }
+      const h = String(el.getAttribute("href") || "");
+      if (el.tagName !== "A" || h.length < 2 || h.charAt(0) !== "#") continue;
+      let id = h.slice(1);
+      try {
+        id = decodeURIComponent(id);
+      } catch (e) {
+        /* keep it */
+      }
+      if (doc.getElementById(id) || doc.getElementsByName(id).length) skip = sel(el);
+    }
+    const TEXTY = /^(text|search|email|url|tel|password|number|date|datetime-local|month|week|time)$/;
+    const typing = (el: any) =>
+      el.tagName === "TEXTAREA" || el.tagName === "IFRAME" || el.isContentEditable || (el.tagName === "INPUT" && TEXTY.test(String(el.type || "text").toLowerCase()));
+    const PROPS = ["box-shadow", "background-color", "background-image", "color", "opacity", "transform", "scale", "translate", "filter", "visibility", "font-weight", "letter-spacing", "fill", "stroke", "clip-path", "clip", "position", "left", "top", "width", "height", "padding-top", "padding-bottom", "z-index"];
+    // what can be seen of the element, its pseudo-elements, five ancestors and eight descendants, as "where prop=value";
+    // an outline, a border side or an underline counts only when it is drawn (Chrome's own a:focus-visible sets
+    // outline-offset, which shows nothing while outline-style is none)
+    const one = (out: string[], where: string, e: any, pseudo: string | null) => {
+      const cs = pseudo ? g.getComputedStyle(e, pseudo) : g.getComputedStyle(e);
+      const v = (p: string) => String(cs.getPropertyValue(p));
+      if (pseudo) {
+        const c = v("content");
+        out.push(where + " content=" + c);
+        if (c === "none" || c === "normal") return;
+      }
+      const ol = v("outline-style");
+      out.push(where + " outline=" + (ol === "none" || parseFloat(v("outline-width")) === 0 ? "none" : [ol, v("outline-width"), v("outline-color"), v("outline-offset")].join(" ")));
+      for (const side of ["top", "right", "bottom", "left"]) {
+        const st = v("border-" + side + "-style");
+        const w = v("border-" + side + "-width");
+        out.push(where + " border-" + side + "=" + (st === "none" || st === "hidden" || parseFloat(w) === 0 ? "none" : [st, w, v("border-" + side + "-color")].join(" ")));
+      }
+      const tl = v("text-decoration-line");
+      out.push(where + " text-decoration=" + (tl === "none" ? "none" : [tl, v("text-decoration-style"), v("text-decoration-color"), v("text-decoration-thickness"), v("text-underline-offset")].join(" ")));
+      for (const p of PROPS) out.push(where + " " + p + "=" + v(p));
+    };
+    const snap = (el: any) => {
+      const r = el.getBoundingClientRect();
+      const out: string[] = ["box=" + [Math.round(r.left + g.scrollX), Math.round(r.top + g.scrollY), Math.round(r.width), Math.round(r.height)].join(",")];
+      one(out, "el", el, null);
+      one(out, "el::before", el, "::before");
+      one(out, "el::after", el, "::after");
+      for (let a = el.parentElement, k = 0; a && a !== de && k < 5; a = a.parentElement, k++) one(out, "up" + (k + 1), a, null);
+      const kids = el.getElementsByTagName("*");
+      for (let k = 0; k < kids.length && k < 8; k++) {
+        one(out, "in" + (k + 1), kids[k], null);
+        one(out, "in" + (k + 1) + "::before", kids[k], "::before");
+        one(out, "in" + (k + 1) + "::after", kids[k], "::after");
+      }
+      return out;
+    };
+    const near = (el: any, anim: any) => {
+      const t = anim && anim.effect && anim.effect.target;
+      return !!t && (t === el || el.contains(t) || t.contains(el));
+    };
+    const max = Math.max(1, Math.min(60, Number(o.max) || 40));
+    let checked = 0;
+    let changed = 0;
+    let notVisibleMode = 0;
+    const candidates: any[] = [];
+    // what changed, for the first stops: the first differing property (calibration and the report's counts)
+    const diffs: string[] = [];
+    const t0 = g.performance.now();
+    for (let i = 0; i < list.length && checked < max && g.performance.now() - t0 < 1500; i++) {
+      const el = list[i];
+      if (typing(el)) continue;
+      const before = snap(el);
+      el.focus({ preventScroll: true });
+      if (doc.activeElement !== el) continue;
+      let fv = false;
+      try {
+        fv = el.matches(":focus-visible");
+      } catch (e) {
+        fv = false;
+      }
+      checked++;
+      if (!fv) {
+        notVisibleMode++;
+        el.blur();
+        continue;
+      }
+      const after = snap(el);
+      const moving = typeof doc.getAnimations === "function" && doc.getAnimations().some((an: any) => near(el, an));
+      let diff = "";
+      for (let k = 0; k < after.length && !diff; k++) if (after[k] !== before[k]) diff = after[k].split("=")[0];
+      if (!diff && after.length !== before.length) diff = "structure";
+      if (moving || diff) {
+        changed++;
+        // an outline on the element itself is the common case; the others are worth a look in calibration
+        if (diffs.length < 12 && diff !== "el outline") diffs.push(sel(el).slice(0, 40) + ": " + (moving ? "animation" : diff).slice(0, 60));
+      }
+      else {
+        const lab = String(el.getAttribute("aria-label") || el.innerText || el.value || el.getAttribute("title") || el.getAttribute("alt") || "").replace(/\s+/g, " ").trim().slice(0, 40);
+        const r = el.getBoundingClientRect();
+        candidates.push({ i, sel: sel(el), lab, x: Math.round(r.left + g.scrollX), y: Math.round(r.top + g.scrollY), w: Math.round(r.width), h: Math.round(r.height) });
+      }
+      el.blur();
+    }
+    try {
+      g.scrollTo({ left: sx0, top: sy0, behavior: "instant" });
+    } catch (e) {
+      g.scrollTo(sx0, sy0);
+    }
+    g[key] = { list, sx: sx0, sy: sy0 };
+    return { stops: list.length, beforeMain, main: main ? sel(main) : "", skip, checked, changed, notVisibleMode, candidates, diffs };
   }
 
   // "audit"
@@ -366,11 +572,72 @@ export function pageSide(cmd: string, options?: any): any {
     }
     out.images = imgs;
   }
+
+  if (o.head) {
+    // what search engines and link previews read, and the document mode
+    const meta = (q: string) => {
+      const els = Array.prototype.slice.call(doc.querySelectorAll(q), 0, 10);
+      const vals = els.map((m: any) => String(m.getAttribute("content") || "").trim()).filter((x: string) => x);
+      return vals.length ? vals[0].slice(0, 300) : els.length ? "" : null;
+    };
+    const robots = Array.prototype.slice.call(doc.querySelectorAll('meta[name="robots" i], meta[name="googlebot" i]'), 0, 10).map((m: any) => String(m.getAttribute("content") || "").slice(0, 200));
+    const csp = Array.prototype.slice.call(doc.querySelectorAll('meta[http-equiv="content-security-policy" i]'), 0, 5).map((m: any) => String(m.getAttribute("content") || "").slice(0, 1000));
+    const GENERIC = ["click here", "click this", "go", "here", "information", "learn more", "more", "more info", "more information", "right here", "read more", "see more", "start", "this"];
+    let generic = 0;
+    const genericEx: string[] = [];
+    for (const a of Array.prototype.slice.call(doc.querySelectorAll("a[href]"), 0, 3000)) {
+      const href = String(a.getAttribute("href") || "").trim();
+      if (!href || href.charAt(0) === "#" || /^javascript:/i.test(href)) continue;
+      const text = String(a.textContent || "").replace(/\s+/g, " ").trim().toLowerCase().replace(/[.:!?\u2026\u203a\u00bb>\u2192]+$/, "").trim();
+      if (GENERIC.indexOf(text) < 0) continue;
+      // a name that says more (aria-label, aria-labelledby, title) tells screen readers where it goes
+      const named = String(a.getAttribute("aria-label") || a.getAttribute("title") || "").trim().toLowerCase();
+      if (a.getAttribute("aria-labelledby") || (named && named !== text)) continue;
+      if (!visible(a)) continue;
+      const r = a.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+      generic++;
+      if (genericEx.length < 5) genericEx.push(sel(a) + ' ("' + text + '")');
+    }
+    out.head = {
+      title: String(doc.title || "").trim().slice(0, 200),
+      description: meta('meta[name="description" i]'),
+      robots,
+      ogTitle: meta('meta[property="og:title" i]'),
+      ogImage: meta('meta[property="og:image" i], meta[property="og:image:url" i]'),
+      twTitle: meta('meta[name="twitter:title" i]'),
+      twImage: meta('meta[name="twitter:image" i], meta[name="twitter:image:src" i]'),
+      icon: !!doc.querySelector('link[rel~="icon" i][href]'),
+      compat: String(doc.compatMode || ""),
+      csp,
+      generic,
+      genericEx,
+    };
+  }
+
+  if (o.fonts && doc.fonts) {
+    // web fonts that loaded, with their font-display (CSS Fonts 4; "auto" is what an @font-face without it gets). When
+    // two faces match the same family, weight, style and range, the later one is the one text uses, so only it counts
+    const last = new Map();
+    try {
+      doc.fonts.forEach((f: any) => {
+        const key = [f.family, f.weight, f.style, f.stretch, f.unicodeRange].map((x: any) => String(x || "")).join("|");
+        last.set(key, f);
+      });
+    } catch (e) {
+      /* no font list */
+    }
+    const faces: any[] = [];
+    last.forEach((f: any) => {
+      if (faces.length < 60 && f.status === "loaded") faces.push({ family: String(f.family || "").replace(/["']/g, "").slice(0, 60), display: String(f.display || "auto"), weight: String(f.weight || ""), style: String(f.style || "") });
+    });
+    out.fonts = faces;
+  }
   return out;
 }
 
 /** The source that runs pageSide in the page and returns its result as a JSON string. */
-export function pageSideSource(cmd: "vitals" | "audit" | "reflow" | "overflow" | "wall", options: Record<string, unknown> = {}): string {
+export function pageSideSource(cmd: "vitals" | "audit" | "reflow" | "overflow" | "wall" | "focus" | "focusOne" | "focusBlur" | "focusDone", options: Record<string, unknown> = {}): string {
   return `(async () => JSON.stringify(await (${pageSide.toString()})(${JSON.stringify(cmd)}, ${JSON.stringify(options)})))()`;
 }
 
@@ -810,5 +1077,197 @@ export function judgeUnsized(rawImages: unknown, rawShifts: unknown, firstPaint:
     box: h.box,
     measured: `${plural(hits.length, "image")} without width and height or aspect-ratio moved content when ${hits.length === 1 ? "it" : "they"} loaded (layout shift ${total.toFixed(3)} in all). First: ${h.sel} finished loading at ${secs(h.end)}; a shift of ${h.shift.v.toFixed(3)} at ${secs(h.shift.t)} moved ${h.moved || "the content below it"} down.`,
     detail: { severity: "minor" satisfies Severity, count: hits.length, shift: Math.round(total * 10000) / 10000, examples: hits.slice(0, 5).map((x) => x.sel) },
+  };
+}
+
+// ============================================================================== scan-score/4: further audits
+
+// ------------------------------------------------------------------------------------------ keyboard focus
+
+/** The first keyboard stops checked for a visible focus indicator, and how many candidates get a real Tab and screenshots. */
+export const FOCUS_CHECKED = 40;
+export const FOCUS_CONFIRM = 6;
+/** Keyboard stops before the main content from which a skip link is expected (best practice). */
+export const SKIP_LINK_MIN = 15;
+
+export interface FocusScan {
+  stops: number;
+  beforeMain: number | null;
+  main: string;
+  skip: string;
+  checked: number;
+  changed: number;
+  notVisibleMode: number;
+  candidates: { i: number; sel: string; lab: string; x: number; y: number; w: number; h: number }[];
+  /** For the first stops that changed: the stop and the first property that changed. */
+  diffs: string[];
+}
+
+/** The "focus" page side's answer, checked. Null when it is not one. */
+export function parseFocusScan(raw: unknown): FocusScan | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.stops !== "number") return null;
+  return {
+    stops: Math.max(0, Math.round(n0(o.stops))),
+    beforeMain: typeof o.beforeMain === "number" && Number.isFinite(o.beforeMain) ? Math.max(0, Math.round(o.beforeMain)) : null,
+    main: s0(o.main),
+    skip: s0(o.skip),
+    checked: Math.max(0, Math.round(n0(o.checked))),
+    changed: Math.max(0, Math.round(n0(o.changed))),
+    notVisibleMode: Math.max(0, Math.round(n0(o.notVisibleMode))),
+    candidates: (Array.isArray(o.candidates) ? o.candidates : []).slice(0, 30).map((c) => {
+      const x = (c && typeof c === "object" ? c : {}) as Record<string, unknown>;
+      return { i: Math.round(n0(x.i)), sel: s0(x.sel), lab: s0(x.lab, 40), x: n0(x.x), y: n0(x.y), w: n0(x.w), h: n0(x.h) };
+    }),
+    diffs: (Array.isArray(o.diffs) ? o.diffs : []).slice(0, 12).map((d) => s0(d, 110)),
+  };
+}
+
+/**
+ * WCAG 2.2 SC 2.4.7 Focus Visible, level AA, on the desktop: keyboard stops whose screenshot is the same, pixel for
+ * pixel, focused by a real Tab press and not focused (`confirmed`, from the scanner). Only candidates whose computed
+ * styles did not change at all when focused by script are screenshotted, and a stop whose pixels changed in any way
+ * (an outline, a colour, an animation nearby) counts as visible, so a finding needs both measurements to agree.
+ */
+export function judgeFocus(scan: FocusScan | null, confirmed: readonly FocusScan["candidates"][number][]): RawFinding | null {
+  if (!scan || !confirmed.length) return null;
+  const first = confirmed[0];
+  const name = (c: { sel: string; lab: string }) => (c.lab ? `${c.sel} ("${c.lab}")` : c.sel);
+  return {
+    kind: "focus-invisible",
+    selector: first.sel,
+    box: { x: first.x, y: first.y, w: first.w, h: first.h },
+    measured: `${plural(confirmed.length, "keyboard stop")} of the first ${fmt(scan.checked)} on the desktop ${confirmed.length === 1 ? "shows" : "show"} no visible change when reached with Tab: the screenshot with focus is identical to the one without. First: ${name(first)}.`,
+    detail: { severity: "serious" satisfies Severity, count: confirmed.length, checked: scan.checked, examples: confirmed.slice(0, 5).map(name) },
+  };
+}
+
+/**
+ * No skip link (WCAG technique G1) when a keyboard user must pass SKIP_LINK_MIN or more stops before the main content
+ * (the first main landmark, else the first h1) and none of the first three focusable elements (hidden-until-focused
+ * ones included) links to the content or says it skips to it. A best practice: landmarks can meet SC 2.4.1 for screen reader users,
+ * but not for sighted keyboard users. Minor.
+ */
+export function judgeSkipLink(scan: FocusScan | null): RawFinding | null {
+  if (!scan || scan.skip || scan.beforeMain === null || scan.beforeMain < SKIP_LINK_MIN) return null;
+  return {
+    kind: "skip-link-missing",
+    selector: scan.main,
+    box: null,
+    measured: `${fmt(scan.beforeMain)} keyboard stops come before the main content (${scan.main || "the first heading"}) on the desktop, and none of the first three is a link to it.`,
+    detail: { severity: "minor" satisfies Severity, count: 1, before: scan.beforeMain },
+  };
+}
+
+// ------------------------------------------------------------------------------------------ tablet
+
+/** The tablet width the light phone is widened to after the reflow check (a portrait tablet). */
+export const TABLET_WIDTH = 768;
+
+/**
+ * Sideways scrolling on a 768 px tablet (the light phone widened, no reload): the page's scroll width beyond the
+ * viewport, when it can scroll sideways. Moderate; minor when only tables or preformatted text stick out. Not judged
+ * without a viewport meta tag that sets the width.
+ */
+export function judgeTablet(at768: unknown, viewport: string | null): RawFinding | null {
+  if (!viewportOk(viewport)) return null;
+  const r = parseReflow(at768, TABLET_WIDTH);
+  if (!r || !r.scrollable || r.sw <= r.width + 1 || r.width < 700) return null;
+  const twoD = r.culprits.length > 0 && r.culprits.every((c) => /^(table|pre|code)$/.test(c.tag));
+  return {
+    kind: "tablet-overflow",
+    selector: r.culprits[0]?.sel ?? "",
+    box: null,
+    measured: `At ${r.width} px the page is ${fmt(r.sw)} px wide (${fmt(r.sw - r.width)} px too wide).${r.culprits.length ? ` Sticking out: ${r.culprits.map((c) => `${c.sel} (ends at ${fmt(c.right)} px)`).join(", ")}.` : ""}`,
+    detail: { severity: (twoD ? "minor" : "moderate") satisfies Severity, count: 1, examples: r.culprits.map((c) => c.sel) },
+  };
+}
+
+// ------------------------------------------------------------------------------------------ speed
+
+/** Lighthouse's total-byte-weight curve: 90 points at 2,667 KiB, 50 at 4,000 KiB. */
+export const WEIGHT_MINOR = 2667 * 1024;
+export const WEIGHT_MODERATE = 4000 * 1024;
+
+/** Everything the light phone view downloaded until its network went quiet: minor above 2,667 KiB, moderate above 4,000 KiB. */
+export function judgePageWeight(bytes: number, requests: number): RawFinding | null {
+  if (!(bytes > WEIGHT_MINOR)) return null;
+  const heavy = bytes > WEIGHT_MODERATE;
+  return {
+    kind: "page-weight",
+    selector: "",
+    box: null,
+    measured: `The phone view downloaded ${kb(bytes)} in ${plural(requests, "request")} before its network went quiet (compressed, as transferred): above Lighthouse's ${heavy ? "4,000 KiB (a score of 50)" : "2,667 KiB (a score of 90)"}.`,
+    detail: { severity: (heavy ? "moderate" : "minor") satisfies Severity, count: 1, bytes, requests },
+  };
+}
+
+/** An image in an older format is reported when more than this many bytes were transferred for it. */
+export const FORMAT_BYTES = 100 * 1024;
+
+/**
+ * Images on the page served as JPEG, PNG, GIF or BMP with more than 100 KB transferred (Lighthouse's "Serve images in modern
+ * formats"; the browser asked for AVIF and WebP in its Accept header). One finding per view, the images as instances.
+ * Minor.
+ */
+export function judgeImageFormat(raw: unknown, bytesOf: (url: string) => { bytes: number; mime: string } | null, view: string): RawFinding | null {
+  const seen = new Set<string>();
+  const hits: { sel: string; src: string; bytes: number; mime: string; box: Box }[] = [];
+  for (const v of (Array.isArray(raw) ? raw : []).slice(0, 120)) {
+    const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+    const src = s0(o.src, 400);
+    if (!src || seen.has(src)) continue;
+    const b = bytesOf(src);
+    if (!b || b.bytes <= FORMAT_BYTES || !/^image\/(jpeg|jpg|png|gif|bmp|x-ms-bmp|tiff)$/i.test(b.mime.trim())) continue;
+    seen.add(src);
+    hits.push({ sel: s0(o.sel), src, bytes: b.bytes, mime: b.mime.toLowerCase().replace("image/", "").toUpperCase(), box: { x: n0(o.x), y: n0(o.y), w: n0(o.w), h: n0(o.h) } });
+  }
+  if (!hits.length) return null;
+  hits.sort((a, b) => b.bytes - a.bytes);
+  const top = hits[0];
+  const total = hits.reduce((s, h) => s + h.bytes, 0);
+  return {
+    kind: "image-format",
+    selector: top.sel,
+    box: top.box,
+    measured: `${plural(hits.length, "image")} on the ${view} view ${hits.length === 1 ? "is" : "are"} JPEG, PNG, GIF or BMP over 100 KB (${kb(total)} in all). Largest: ${shortUrl(top.src)} (${top.mime}, ${kb(top.bytes)}), shown by ${top.sel.slice(0, 50)}.`,
+    detail: { severity: "minor" satisfies Severity, count: hits.length, bytes: total, examples: hits.slice(0, 5).map((h) => h.sel) },
+  };
+}
+
+const shortUrl = (u: string): string => {
+  try {
+    const x = new URL(u);
+    return `${x.host}${x.pathname}`.slice(0, 110);
+  } catch {
+    return u.slice(0, 110);
+  }
+};
+
+/** Icon fonts: font-display: block is the advice for them (no text flashes as a ligature name), so they are left out. */
+const ICON_FONT = /icon|awesome|glyph|symbol|material|fontello|ionicons|dashicons|lucide|feather|bootstrap-icons|remixicon|tabler|icomoon|icofont|entypo|typicons|octicons|socicon|linearicons|simple-line/i;
+
+/**
+ * Web fonts that loaded with font-display auto or block (Lighthouse's "Ensure text remains visible during webfont
+ * load"): text in them is invisible for up to 3 s while they load. Icon fonts are left out. Minor.
+ */
+export function judgeFontDisplay(raw: unknown, view: string): RawFinding | null {
+  const families = new Map<string, string>();
+  for (const v of (Array.isArray(raw) ? raw : []).slice(0, 60)) {
+    const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+    const family = s0(o.family, 60).trim();
+    const display = s0(o.display, 20).trim().toLowerCase();
+    if (!family || ICON_FONT.test(family) || (display !== "auto" && display !== "block")) continue;
+    if (!families.has(family)) families.set(family, display);
+  }
+  if (!families.size) return null;
+  const list = [...families.entries()];
+  return {
+    kind: "font-display",
+    selector: "",
+    box: null,
+    measured: `${plural(list.length, "web font family", "web font families")} on the ${view} view loaded with font-display ${list.every(([, d]) => d === "block") ? "block" : "auto (not set)"}: ${list.slice(0, 4).map(([f, d]) => `${f} (${d})`).join(", ")}${list.length > 4 ? " and more" : ""}.`,
+    detail: { severity: "minor" satisfies Severity, count: list.length, examples: list.slice(0, 5).map(([f]) => f) },
   };
 }

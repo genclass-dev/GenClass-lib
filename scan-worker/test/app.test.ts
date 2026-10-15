@@ -9,6 +9,7 @@ import { acquireSlot, BLOCKED_CACHE_MS, cachedReport, cacheKey, CACHE_MS, report
 import { FakeBrowser, fakeFetch, Limiter, MemBucket, ndjson, type PageScript } from "./helpers.ts";
 import { buildReport } from "../src/report.ts";
 import { runScan, SCAN_BUDGET_MS } from "../src/scan.ts";
+import { score } from "../src/score.ts";
 import { normaliseTarget, type Target } from "../src/target.ts";
 
 const DNS = {
@@ -202,10 +203,12 @@ describe("a full scan with the browser mocked", () => {
 
     // the findings: contrast (desktop), overflow (phone), and the double click that sent two identical POSTs
     assert.deepEqual(r.findings.map((f: { kind: string }) => f.kind).sort(), ["duplicate-submit", "page-overflow-x", "text-invisible"]);
-    // visual 85 (the 1.08:1 text) and races 85 (the double submit); this fake has no axe-core, no page audits and no
-    // timings, so accessibility, phone and speed are left out (the sideways scrolling is listed, not scored)
-    assert.equal(r.score.value, 90);
-    assert.deepEqual(Object.keys(r.notMeasured).sort(), ["accessibility", "phone", "speed"]);
+    // the 1.08:1 text (visual, serious) and the double submit (races, serious); this fake has no axe-core, no page
+    // audits, no timings and no headers, so accessibility, phone, speed, security and search are left out (the sideways
+    // scrolling is listed, not scored)
+    assert.equal(r.score.value, score([{ category: "visual", rule: "text-invisible", severity: "serious" }, { category: "races", rule: "duplicate-submit", severity: "serious" }], { visual: true, reliability: true, races: true }).value);
+    assert.equal(r.score.value, 68);
+    assert.deepEqual(Object.keys(r.notMeasured).sort(), ["accessibility", "phone", "security", "seo", "speed"]);
     assert.equal(r.withGenClass.shown, false, "the column is behind the flag by default");
     const dup = r.findings.find((f: { kind: string }) => f.kind === "duplicate-submit");
     assert.match(dup.fixed.how, /coalesced/);
@@ -465,6 +468,8 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     ],
     statuses: { "https://shop.example.com/static/chunk.js": 404 },
     cdpEvents: [
+      // the main document's raw headers (req1 is each page's first request, the document)
+      ["Network.responseReceivedExtraInfo", { requestId: "req1", loaderId: "req1", headers: { "Strict-Transport-Security": "max-age=31536000", "Content-Security-Policy": "script-src 'self'", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Set-Cookie": "sid=abc; Path=/; HttpOnly" } }],
       ["Runtime.exceptionThrown", { exceptionDetails: { exception: { description: "TypeError: widget is undefined" }, url: "https://shop.example.com/app.js", lineNumber: 9, executionContextId: 1 } }],
       ["Runtime.exceptionThrown", { exceptionDetails: { exception: { description: "Error: Service workers are off while GenClassScan loads this page" }, executionContextId: 1 } }],
     ],
@@ -483,7 +488,16 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
       targets: view === "phone" ? [{ sel: "nav a", lab: "One", x: 0, y: 0, w: 16, h: 16, inline: false, ua: false, p: -1 }, { sel: "nav a", lab: "Two", x: 20, y: 0, w: 16, h: 16, inline: false, ua: false, p: -1 }] : undefined,
       text: view === "phone" ? { total: 1000, small: 100, blocks: [{ sel: "footer p", px: 10, chars: 100, x: 0, y: 900, w: 300, h: 30 }] } : undefined,
       images: [],
+      head: view === "phone" ? { title: "Shop", description: "Shoes.", robots: [], ogTitle: "Shop", ogImage: null, twTitle: null, twImage: null, icon: true, compat: "CSS1Compat", csp: [], generic: 0, genericEx: [] } : undefined,
+      fonts: [{ family: "Shop Sans", display: "auto" }],
     }),
+    // two keyboard stops whose styles did not change; the scanner's screenshots of them come back identical
+    focus: (cmd, arg) =>
+      cmd === "focus"
+        ? { stops: 30, beforeMain: 4, main: "main", skip: "", checked: 20, changed: 18, notVisibleMode: 0, candidates: [{ i: 3, sel: "nav a.plain", lab: "Docs", x: 400, y: 20, w: 40, h: 18 }, { i: 7, sel: "a.more", lab: "More", x: 40, y: 300, w: 40, h: 18 }], diffs: [] }
+        : cmd === "focusOne"
+          ? arg.check ? { ok: arg.i === 3, x: 400, y: 20, w: 40, h: 18, vw: 1366, vh: 768, sx: 0, sy: 0 } : { ok: true }
+          : { ok: true },
     reflow: (width) => ({ width, sw: 376, scrollable: true, culprits: [{ sel: "div.promo", right: 376, w: 340, tag: "div" }] }),
     search: true,
     button: true,
@@ -497,9 +511,13 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     const r = (msgs.find((m) => m.type === "done") as { report: Record<string, any> }).report;
     const [desk, phone, dark] = t.browsers[0].pages;
     assert.deepEqual([desk.axeRuns, phone.axeRuns, dark.axeRuns], [["desktop"], ["phone"], ["phone-dark"]]);
-    assert.deepEqual(phone.widths, [390, 360, 320], "the phone is narrowed after everything else, without a reload");
+    assert.deepEqual(phone.widths, [390, 360, 320, 768], "the phone is narrowed, then widened to a tablet, after everything else, without a reload");
     assert.deepEqual(desk.widths, [1366]);
-    assert.deepEqual(phone.audits.map((a) => a.cmd), ["vitals", "audit", "reflow", "reflow"]);
+    assert.deepEqual(phone.audits.map((a) => a.cmd), ["vitals", "audit", "reflow", "reflow", "reflow"]);
+    // keyboard focus on the desktop only: the scan, then a real Tab to each candidate (the second one is not reached)
+    assert.deepEqual(desk.focusCmds.map((c) => c.cmd), ["focus", "focusOne", "focusOne", "focusBlur", "focusOne", "focusOne", "focusDone"]);
+    assert.deepEqual([phone.focusCmds, dark.focusCmds], [[], []]);
+    assert.equal(desk.keys.filter((k) => k === "Tab").length, 4 + 2, "four for the visual checks, one per candidate");
     assert.deepEqual(desk.audits.map((a) => [a.cmd, a.arg.targets]), [["vitals", undefined], ["audit", false]]);
     assert.deepEqual(dark.audits, [], "the dark phone runs axe-core only");
     assert.ok(desk.cdp!.sent.includes("Runtime.enable") && desk.cdp!.sent.includes("Network.enable"));
@@ -509,8 +527,12 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
 
     const by = (rule: string) => r.findings.find((f: { rule: string }) => f.rule === rule);
     assert.deepEqual(r.findings.map((f: { rule: string }) => f.rule).sort(), [
-      "axe:color-contrast", "axe:image-alt", "duplicate-submit", "font-size-small", "js-error", "js-heavy", "lcp-slow", "reflow-overflow", "request-failed", "tap-target-small", "text-invisible", "zoom-disabled",
+      "axe:color-contrast", "axe:image-alt", "cookie-insecure", "duplicate-submit", "focus-invisible", "font-display", "font-size-small", "js-error", "js-heavy", "lcp-slow", "reflow-overflow", "request-failed", "social-preview-missing",
+      "tap-target-small", "text-invisible", "zoom-disabled",
     ]);
+    assert.match(by("focus-invisible").measured, /^1 keyboard stop of the first 20 on the desktop shows no visible change when reached with Tab/);
+    assert.match(by("cookie-insecure").measured, /sid \(no Secure\)/);
+    assert.equal(r.metrics.focus.confirmed, 1);
     assert.equal(by("axe:image-alt").count, 2);
     assert.equal(by("axe:image-alt").measured, "Elements: 2 on the desktop, 1 on the phone and 1 on the dark phone. First: Element does not have an alt attribute.");
     assert.deepEqual(by("axe:color-contrast").views, ["phone", "phone-dark"], "on the desktop p.fine is the visual finding's; the phones' visual checks did not report it");
@@ -529,7 +551,7 @@ describe("the deeper checks in a full scan (scan-score/3)", () => {
     const cached = await (await t.call("/scan?url=shop.example.com")).text();
     assert.match(cached, /<h2>Top issues<\/h2>/);
     assert.match(cached, /<a href="https:\/\/www\.w3\.org\/WAI\/WCAG22\/Understanding\/target-size-minimum\.html">WCAG 2\.2 SC 2\.5\.8 Target Size \(Minimum\), level AA<\/a>/);
-    assert.equal((cached.match(/<div class="cat" role="listitem">/g) || []).length, 6);
+    assert.equal((cached.match(/<div class="cat" role="listitem">/g) || []).length, 8, "every category measured");
     assert.match(cached, /<div class="k">Accessibility<\/div>.*?2 rules need review, not scored<\/div>/, "axe-core's needs-review count is shown, not scored");
   });
 
@@ -609,12 +631,20 @@ describe("a page the scanner could not see (a bot check answered 202, blank)", (
     assert.ok(await cachedReport(t.bucket, key, t.deps.now() + BLOCKED_CACHE_MS - 1000, REPORT_VERSION), "kept for 30 minutes");
     assert.equal(await cachedReport(t.bucket, key, t.deps.now() + BLOCKED_CACHE_MS + 1000, REPORT_VERSION), null, "then scanned again");
   });
+  it("takes the page's status from its document, not from a form it submitted while loading (the scanner's 204)", async () => {
+    const t = setup({ ...SCRIPT, status: 204, statuses: { "https://shop.example.com/": 200 }, findings: () => [{ kind: "page-blank", selector: "body", box: null, measured: "blank", detail: { severity: "high" } }], wall: () => ({ text: 0, elements: 4, title: "", marks: [] }) });
+    const r = ((await ndjson(await t.post("shop.example.com"))).find((m) => m.type === "done") as { report: Record<string, any> }).report;
+    await Promise.all(t.waits);
+    assert.equal(r.blocked, null);
+    assert.deepEqual(r.views.map((v: { status: number }) => v.status), [200, 200, 200]);
+    assert.ok(r.score.value !== null && r.findings.some((f: { kind: string }) => f.kind === "page-blank"), "a blank page answered 200 is scored, with its finding");
+  });
   it("scores a small real page answered 200 as before", async () => {
     const t = setup({ ...SCRIPT, wall: () => ({ text: 180, elements: 12, title: "Example Domain", marks: [] }) });
     const r = ((await ndjson(await t.post("shop.example.com"))).find((m) => m.type === "done") as { report: Record<string, any> }).report;
     await Promise.all(t.waits);
     assert.equal(r.blocked, null);
-    assert.equal(r.score.value, 90);
+    assert.equal(r.score.value, 68);
     const key = await cacheKey("https://shop.example.com/");
     assert.ok(await cachedReport(t.bucket, key, t.deps.now() + CACHE_MS - 1000, REPORT_VERSION), "a real report keeps the 6-hour cache");
   });
@@ -782,7 +812,7 @@ describe("review fixes for the launch", () => {
     const cached = await (await t.call("/scan?url=shop.example.com")).text();
     assert.match(cached, /<div id="ssr">/);
     assert.match(cached, /Text that is almost invisible on its background/);
-    assert.match(cached, /<div class="cat" role="listitem"><div class="k">Visual bugs<\/div><div class="v">85<small>\/ 100<\/small><\/div><div class="s">weight 25 · 1 finding<\/div><\/div>/);
+    assert.match(cached, /<div class="cat" role="listitem"><div class="k">Visual bugs<\/div><div class="v">75<small>\/ 100<\/small><\/div><div class="s">weight 20 · 1 finding<\/div><\/div>/);
     assert.match(cached, /<div class="cat off" role="listitem"><div class="k">Accessibility<\/div><div class="v">not measured<\/div><div class="s">axe-core did not finish in any view\.<\/div>/);
     assert.doesNotMatch(cached, /<noscript>/);
     assert.doesNotMatch(cached, /id="ctaprobe" class="hidden"/, "the race probe sentence shows with a report");

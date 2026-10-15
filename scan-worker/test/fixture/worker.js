@@ -16,6 +16,13 @@
 //                800 by 600 image (1.4 MB) shown at 80 by 60, an image without dimensions that arrives after 1.5 s and
 //                pushes the page down, an uncaught TypeError, a console.error, a 404 script, and a script and an image
 //                asked for over http
+//                and, for scan-score/4: 16 header links before the main content and no skip link, two links with
+//                outline: none (no visible focus), one of them "click here", a box 800 px wide from 700 px up (sideways
+//                scrolling on a 768 px tablet), a 2.1 MB image (page weight; the images are BMP, an old format), a
+//                stylesheet that answers after 2 s (a late first paint), a Google font without font-display, an unload
+//                handler (deprecated), and a session cookie without Secure or HttpOnly. The page never sends
+//                Strict-Transport-Security, a CSP, nosniff or X-Frame-Options, and has no description, link preview
+//                tags or favicon.
 //   /?deep=1&slow=1  the late image arrives after 4.5 s instead (Largest Contentful Paint above 4 s)
 // and one for the model judge, with cases the measured checks abstain on (the background is a gradient or an image):
 //   /?judge=1    a "Start free trial" link drawn as a white button with a white-to-near-white gradient, whose text is
@@ -92,8 +99,16 @@ const DEEP = `<p class="grey">This paragraph is grey on white at about 2.85 to 1
 <script src="/missing-chunk.js"></script>
 <script src="http://HOST/mixed.js"></script>
 <script>console.error("fixture: the widget could not load its settings");</script>
-<script>window.fixtureWidget.init();</script>`;
-const DEEP_CSS = `.grey{color:#999}.iconbtn{border:0;background:none;padding:4px}.tiny a{display:inline-block;width:16px;height:16px;font-size:10px;line-height:16px;margin:0 2px;text-align:center;background:#eef2f7}
+<script>window.fixtureWidget.init();</script>
+<p class="more serif"><a class="nofocus" href="/docs">Read the guide</a>, or <a class="nofocus" href="/blog">click here</a> for the blog.</p>
+<div class="tabletwide">This box is 800 px wide on screens 700 px and wider.</div>
+<img src="/heavy.bmp" alt="More noise, drawn smaller than the file" width="200" height="140">
+<script>window.addEventListener("unload", function () {});</script>`;
+const DEEP_HEAD = `<link rel="stylesheet" href="/slow.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora">`;
+const DEEP_NAV = `<header class="topnav">${["News", "Guides", "Pricing", "Docs", "Blog", "Careers", "Press", "Partners", "Events", "Status", "Security", "Legal", "Help", "Contact", "Sign in", "Sign up"].map((t, i) => `<a href="/nav${i + 1}">${t}</a>`).join("")}</header>`;
+const DEEP_CSS = `.nofocus{outline:none}.serif{font-family:Lora,serif}.tabletwide{display:none}@media (min-width:700px){.tabletwide{display:block;width:800px;box-sizing:border-box;background:#eef2f7;padding:12px}}
+.topnav{max-width:860px;margin:0 auto;padding:8px 16px;display:flex;flex-wrap:wrap;gap:4px 12px}.topnav a{display:inline-block;padding:6px 4px}
+.grey{color:#999}.iconbtn{border:0;background:none;padding:4px}.tiny a{display:inline-block;width:16px;height:16px;font-size:10px;line-height:16px;margin:0 2px;text-align:center;background:#eef2f7}
 .small{font-size:10px}.wide{width:340px;box-sizing:border-box}`;
 const JUDGE = `<p class="varink">This sentence's colour is a CSS variable defined nowhere, so it falls back to the text colour around it and reads normally.</p>
 <section class="dk"><p>Plans start at five dollars a month, billed yearly.</p><a class="darkbtn" href="/start">Start free trial</a></section>
@@ -150,7 +165,9 @@ export default {
           .replace('content="width=device-width, initial-scale=1"', 'content="width=device-width, initial-scale=1, maximum-scale=1"')
           .replace("</style>", `${DEEP_CSS}</style>`)
           .replace("<h1>Scanner test page</h1>", `${DEEP_TOP.replace("SLOW", url.searchParams.get("slow") === "1" ? "slow=1" : "")}<h1>Scanner test page</h1>`)
-          .replace("This box is 640 px wide, wider than a phone.", "This box is 340 px wide: it fits a 390 px phone, not a 360 px one.");
+          .replace("This box is 640 px wide, wider than a phone.", "This box is 340 px wide: it fits a 390 px phone, not a 360 px one.")
+          .replace('<link rel="stylesheet" href="/missing.css">', `<link rel="stylesheet" href="/missing.css">${DEEP_HEAD}`)
+          .replace("<body><main>", `<body>${DEEP_NAV}<main>`);
       }
       if (url.searchParams.get("judge") === "1") {
         // near the top, so the cases are in the first screen, but after the faint sentence: put before it they push it
@@ -158,9 +175,16 @@ export default {
         // look at a measured finding has nothing to work on
         page = page.replace("</style>", `${JUDGE_CSS}</style>`).replace("nearly white on white.</p>", `nearly white on white.</p>\n${JUDGE}`);
       }
-      return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" } });
+      const headers = { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" };
+      if (deep) headers["set-cookie"] = "sessionid=fixture; Path=/";
+      return new Response(page, { headers });
     }
     if (url.pathname === "/busy.svg") return new Response(busySvg(), { headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" } });
+    if (url.pathname === "/heavy.bmp") return new Response(bmp(1000, 700, 13), { headers: { "content-type": "image/bmp", "cache-control": "no-store" } });
+    if (url.pathname === "/slow.css") {
+      await new Promise((r) => setTimeout(r, 2000));
+      return new Response("main{border-top:4px solid #eef2f7}", { headers: { "content-type": "text/css", "cache-control": "no-store" } });
+    }
     if (url.pathname === "/big.bmp") return new Response(bmp(800, 600, 7), { headers: { "content-type": "image/bmp", "cache-control": "no-store" } });
     if (url.pathname === "/late.bmp") {
       await new Promise((r) => setTimeout(r, url.searchParams.get("slow") === "1" ? 4500 : 1500));

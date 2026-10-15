@@ -171,6 +171,8 @@ export interface PageScript {
   overflow?: (view: string) => unknown;
   /** What the "wall" read returns per view: visible text length, element count, title, challenge markers. */
   wall?: (view: string) => unknown;
+  /** What the keyboard focus commands answer (pageSide "focus", "focusOne", "focusBlur", "focusDone") on the desktop. */
+  focus?: (cmd: string, arg: Record<string, any>) => unknown;
   /** Response statuses by URL in the browser's own record (default 200), and other DevTools events sent while loading. */
   statuses?: Record<string, number>;
   cdpEvents?: [string, unknown][];
@@ -242,6 +244,8 @@ export class FakePage implements PageLike {
   /** The page audits the scanner ran (src/audits.ts pageSide), and the views axe-core ran in. */
   audits: { cmd: string; arg: Record<string, any> }[] = [];
   axeRuns: string[] = [];
+  /** The keyboard focus commands the scanner sent (src/audits.ts pageSide focus*), in order. */
+  focusCmds: { cmd: string; arg: Record<string, any> }[] = [];
   /** Where the pointer was moved, in order, and where it was each time axe-core ran. */
   moves: [number, number][] = [];
   pointerAtAxe: ([number, number] | undefined)[] = [];
@@ -290,8 +294,9 @@ export class FakePage implements PageLike {
       this.cdp.emit("Network.requestWillBeSent", { requestId: id, request: { url, method, mixedContentType: "none" }, type: cdpType });
       if (r.handled.outcome === "abort") this.cdp.emit("Network.loadingFailed", { requestId: id, errorText: "net::ERR_BLOCKED_BY_CLIENT" });
       else if (!hang) {
-        const status = r.handled.outcome === "respond" ? r.handled.status ?? 200 : this.script.statuses?.[url] ?? 200;
-        this.cdp.emit("Network.responseReceived", { requestId: id, type: cdpType, response: { url, status, mimeType: type === "script" ? "text/javascript" : "text/html" } });
+        // the main document answers with the page's status, as the browser's own record shows it
+        const status = r.handled.outcome === "respond" ? r.handled.status ?? 200 : this.script.statuses?.[url] ?? (type === "document" && main ? this.script.status ?? 200 : 200);
+        this.cdp.emit("Network.responseReceived", { requestId: id, type: cdpType, response: { url, status, mimeType: type === "script" ? "text/javascript" : "text/html", headers: {} } });
         this.cdp.emit("Network.loadingFinished", { requestId: id, encodedDataLength: type === "script" ? 600_000 : 2000 });
       }
     }
@@ -339,9 +344,13 @@ export class FakePage implements PageLike {
       this.pointerAtAxe.push(this.moves.at(-1));
       return JSON.stringify(this.script.axe ? this.script.axe(this.view) : { ok: false, error: "axe-core is not installed" });
     }
-    const side = /\)\("(vitals|audit|reflow|overflow|wall)", (\{.*\})\)\)\)\(\)$/.exec(src);
+    const side = /\)\("(vitals|audit|reflow|overflow|wall|focus|focusOne|focusBlur|focusDone)", (\{.*\})\)\)\)\(\)$/.exec(src);
     if (side) {
       if (side[1] === "wall") return JSON.stringify(this.script.wall?.(this.view) ?? null);
+      if (side[1].startsWith("focus")) {
+        this.focusCmds.push({ cmd: side[1], arg: JSON.parse(side[2]) });
+        return JSON.stringify(this.script.focus?.(side[1], JSON.parse(side[2])) ?? null);
+      }
       this.audits.push({ cmd: side[1], arg: JSON.parse(side[2]) });
       const v = side[1] === "vitals" ? this.script.vitals?.(this.view) : side[1] === "audit" ? this.script.audit?.(this.view) : side[1] === "overflow" ? this.script.overflow?.(this.view) : this.script.reflow?.(this.viewport?.width ?? 0);
       return JSON.stringify(v ?? null);

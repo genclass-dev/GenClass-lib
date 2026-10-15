@@ -14,7 +14,10 @@
 // one: in Browser Rendering it connects through a local proxy, so it reports the proxy), when a WebSocket host
 // resolves privately, when the page ended up on a site that opted out, or when the person who asked went away.
 
-import { clsOf, judgeCls, judgeFontSize, judgeImages, judgeLcp, judgeReflow, judgeTapTargets, judgeUnsized, judgeZoom, JUDGE_DPR, pageSideSource, parseShifts, viewportOk, windowScrolls } from "./audits.ts";
+import {
+  clsOf, FOCUS_CHECKED, FOCUS_CONFIRM, judgeCls, judgeFocus, judgeFontDisplay, judgeFontSize, judgeImageFormat, judgeImages, judgeLcp, judgePageWeight, judgeReflow, judgeSkipLink,
+  judgeTablet, judgeTapTargets, judgeUnsized, judgeZoom, JUDGE_DPR, pageSideSource, parseFocusScan, parseShifts, TABLET_WIDTH, viewportOk, windowScrolls, type FocusScan,
+} from "./audits.ts";
 import { axeFindings, installAxeSource, parseAxe, runAxeSource, withoutVisualDuplicates } from "./axe.ts";
 import { KINDS, sanitizeFinding, sanitizeStats, type RawFinding } from "./catalog.ts";
 import { jsNote, judgeReliability, PageLog, type CdpLike } from "./cdp.ts";
@@ -22,6 +25,7 @@ import { askJudge, cropOf, JUDGE_MAX_CALLS, JUDGE_TIMEOUT_MS, JudgeBudget, judge
 import { judgePageSource } from "./judge-page.ts";
 import { decideRequest, latencySequence, type Phase, type PolicyContext } from "./policy.ts";
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
+import { judgeSearch, judgeSecurity, parseHead, type PageHead, type SiteProbe } from "./site.ts";
 import { blockedAddress, siteOf, type Target } from "./target.ts";
 import { callSource, FIX_KINDS, installSource, PERIODIC_KINDS, visualKey, visualStatus } from "./visual.ts";
 import { VISION_TAIL_MS, visionFacts, visionItem, type VisionClient, type VisionRun } from "./vision.ts";
@@ -281,6 +285,8 @@ export interface ScanDeps {
    * null or absent when it is off. It never changes a finding or the score.
    */
   vision?: VisionClient | null;
+  /** The worker's own requests about the site (http:// and /favicon.ico, src/site.ts siteProbe), started with the scan. */
+  site?: Promise<SiteProbe | null>;
 }
 
 // ------------------------------------------------------------------------------------------ the views
@@ -413,7 +419,13 @@ export interface ViewResult {
   /** What this view measured, so a category that was not measured is never scored as clean. */
   coverage: ViewCoverage;
   /** Timings and sizes measured in this view (the desktop's LCP, CLS and JavaScript bytes; failed requests not scored). */
-  metrics: { lcpMs: number | null; cls: number | null; jsBytes: number | null; whoAsks: number; skippedHosts?: number; env?: number[] };
+  metrics: {
+    lcpMs: number | null; cls: number | null; jsBytes: number | null; whoAsks: number; skippedHosts?: number; env?: number[]; fcpMs?: number | null; bytes?: number | null; requests?: number | null;
+    /** The main document the security checks read: its URL, status, header names, and whether Chrome's raw headers were used. */
+    doc?: { url: string; status: number; headers: string[]; raw: boolean } | null;
+    /** The keyboard focus check on the desktop: stops, how many were focused by script, changed, candidates, Tab-tested, confirmed. */
+    focus?: { stops: number; checked: number; changed: number; notVisible: number; candidates: number; tried: number; confirmed: number; diffs: string[] };
+  };
   /** The elements the model judge was asked about in this view, with its answers (src/judge.ts). */
   judged?: JudgeResult[];
   /** How long finding, measuring and cropping them took in this view (null: the judge did not run here). */
@@ -435,9 +447,13 @@ export interface ViewCoverage {
   reliability: boolean;
   /** Largest Contentful Paint or layout shifts were read. */
   vitals: boolean;
+  /** The main document's headers were read (the security checks ran). */
+  security?: boolean;
+  /** The page's head was read (search and sharing ran). */
+  seo?: boolean;
 }
 
-export const emptyCoverage = (): ViewCoverage => ({ axe: { ran: false, ms: null, rules: 0, incomplete: 0, passes: 0, error: null }, phone: false, reliability: false, vitals: false });
+export const emptyCoverage = (): ViewCoverage => ({ axe: { ran: false, ms: null, rules: 0, incomplete: 0, passes: 0, error: null }, phone: false, reliability: false, vitals: false, security: false, seo: false });
 
 /** The with-GenClass pass of one view: what the chunk's fixes did, measured by a report-only re-check. */
 export interface VisualFixes {
@@ -512,6 +528,8 @@ export interface ScanResult {
   judge?: JudgeRun;
   /** GenClass Vision over the scan (src/vision.ts); absent when it was off. */
   vision?: VisionRun;
+  /** What the worker's own requests found (http:// and /favicon.ico), when they answered in time. */
+  site?: SiteProbe | null;
 }
 
 // ------------------------------------------------------------------------------------------ utilities
@@ -632,7 +650,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   };
   // the scanner's page-side functions live under names the page cannot guess
   const name = deps.pageName ?? `__gcs${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const N = { checks: `${name}c`, safety: `${name}s`, state: `${name}r`, axe: `${name}x`, judge: `${name}j` };
+  const N = { checks: `${name}c`, safety: `${name}s`, state: `${name}r`, axe: `${name}x`, judge: `${name}j`, focus: `${name}f` };
   // the model judge: one budget of calls for the three views, sent as each view finds its elements; answered later
   const judgeBudget = new JudgeBudget();
   const judgeCalls: Promise<void>[] = [];
@@ -1091,6 +1109,14 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     }
     await checkSockets(page);
     if (log && cdp) await log.frame(cdp);
+    // the page's status is its first main-frame document's: goto() can hand back the scanner's own 204 for a form the
+    // page submitted while it loaded
+    const docStatus = log?.mainDocument(view.finalUrl)?.status;
+    if (typeof docStatus === "number" && docStatus > 0 && docStatus !== view.status) {
+      view.notes = view.notes.filter((n) => !/^The page answered HTTP \d+\.$/.test(n));
+      view.status = docStatus;
+      if (docStatus >= 400) view.notes.push(`The page answered HTTP ${docStatus}.`);
+    }
     // timings at network quiet, before the scanner presses a key or scrolls (a page stops reporting LCP at the first
     // input): the desktop's are judged, the light phone's are kept for comparison only
     // a bot check or a wall instead of the real page: read in every view, judged in the report
@@ -1103,6 +1129,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       );
     }
     let vitals: Record<string, unknown> | null = null;
+    if (!skipChecks) log?.snapshot(); // what the page had downloaded by network quiet (the page weight)
     if (!skipChecks && !discard && (spec.id === "desktop" || spec.id === "phone")) {
       vitals = await withTimeout(evalDom(page, pageSideSource("vitals")), Math.min(3000, Math.max(500, left() - reserve)), "reading the page's timings").then(
         (v) => parseJson<Record<string, unknown> | null>(v, null),
@@ -1138,7 +1165,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       } catch (e) {
         view.notes.push(`No screenshot: ${e instanceof Error ? e.message : String(e)}.`);
       }
-      const narrowed = await deeperChecks(page, view, spec, vitals, log, net);
+      const narrowed = await deeperChecks(page, view, spec, vitals, log, net, cdp);
       // the model judge last, in the time the checks above left before the race probe's reserve
       if (deps.judge && view.shot && !discard) await judgeView(page, view, spec, cdp, narrowed);
     }
@@ -1345,7 +1372,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
    * it does not; a step that did not run leaves its category unmeasured in this view (ViewCoverage). On the light phone
    * the viewport is then narrowed to 360 and 320 px (no reload) for the reflow check, after everything else.
    */
-  async function deeperChecks(page: PageLike, view: ViewResult, spec: ViewSpec, vitals: Record<string, unknown> | null, log: PageLog | null, net: NetLog): Promise<boolean> {
+  async function deeperChecks(page: PageLike, view: ViewResult, spec: ViewSpec, vitals: Record<string, unknown> | null, log: PageLog | null, net: NetLog, cdp: CdpLike | null): Promise<boolean> {
     let narrowed = false;
     const room = () => left() - RESERVE_AFTER_VIEWS;
     const out: RawFinding[] = [];
@@ -1363,6 +1390,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       const lcp = vitals.lcp && typeof vitals.lcp === "object" ? numOrNull((vitals.lcp as Record<string, unknown>).t) : null;
       view.metrics.lcpMs = lcp;
       view.metrics.cls = clsOf(parseShifts(vitals.shifts)).value;
+      view.metrics.fcpMs = numOrNull(vitals.fcp);
       if (Array.isArray(vitals.env)) view.metrics.env = vitals.env.slice(0, 7).map((x) => Math.round(Number(x) || 0));
       if (spec.id === "desktop") {
         view.coverage.vitals = true;
@@ -1398,13 +1426,15 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       }
     }
 
-    // the page audits: tap targets, zoom and text size on the light phone; image sizes on the desktop and the light phone
+    // the page audits: tap targets, zoom, text size, the head and the tablet width on the light phone; image sizes and
+    // formats and web fonts on the desktop and the light phone
+    let head: PageHead | null = null;
     if (spec.id !== "phone-dark") {
       if (room() < 1500) {
         if (phone) view.notes.push("The phone audits were skipped: not enough of the scan's time was left.");
       } else {
         try {
-          const a = parseJson<Record<string, unknown> | null>(await withTimeout(evalDom(page, pageSideSource("audit", { targets: phone, text: phone, images: true })), Math.min(5000, room() - 500), "the page audits"), null);
+          const a = parseJson<Record<string, unknown> | null>(await withTimeout(evalDom(page, pageSideSource("audit", { targets: phone, text: phone, images: true, head: phone, fonts: true })), Math.min(5000, room() - 500), "the page audits"), null);
           if (!a || typeof a !== "object") throw new Error("they returned nothing");
           const vp = typeof a.viewport === "string" ? a.viewport : null;
           if (phone) {
@@ -1422,13 +1452,22 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
               const r320 = room() > 1200 ? await at(320) : null;
               const reflow = judgeReflow(r360, r320, vp, overflow390);
               if (reflow) out.push(reflow);
+              // a tablet held upright: the same page widened to 768 px
+              const r768 = room() > 1500 ? await at(TABLET_WIDTH) : null;
+              const tablet = r768 ? judgeTablet(r768, vp) : null;
+              if (tablet) out.push(tablet);
             }
             view.coverage.phone = true;
+            head = parseHead(a.head);
           }
           if (log) {
             const img = judgeImages(a.images, (u) => log.bytesOf(u), spec.mobile ? JUDGE_DPR.phone : JUDGE_DPR.desktop, word);
             if (img) out.push(img);
+            const fmt = judgeImageFormat(a.images, (u) => log.bytesOf(u), word);
+            if (fmt) out.push(fmt);
           }
+          const fonts = judgeFontDisplay(a.fonts, word);
+          if (fonts) out.push(fonts);
         } catch (e) {
           view.notes.push(`The page audits did not finish in this view (${say(e)}).`);
         }
@@ -1449,9 +1488,108 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       }
       const skipped = scannerSkipped(net).length;
       if (skipped) view.metrics.skippedHosts = skipped;
+      // the page weight on the light phone, at network quiet
+      if (phone && log.quiet) {
+        view.metrics.bytes = log.quiet.bytes;
+        view.metrics.requests = log.quiet.requests;
+        const w = judgePageWeight(log.quiet.bytes, log.quiet.requests);
+        if (w) out.push(w);
+      }
+    }
+
+    // security (the main document's headers and cookies, http:// redirecting) and search and sharing, on the light phone
+    if (phone && !discard) {
+      const probe = deps.site ? await withTimeout(deps.site, Math.max(200, Math.min(3000, room())), "the site's own requests").catch(() => null) : null;
+      result.site = probe;
+      const doc = log ? log.mainDocument(view.finalUrl) : null;
+      view.metrics.doc = doc ? { url: cutText(doc.url, 200), status: doc.status, headers: Object.keys(doc.headers).slice(0, 60), raw: doc.raw } : null;
+      const sec = judgeSecurity(view.finalUrl, doc, head ? head.csp : null, probe);
+      if (sec) {
+        out.push(...sec);
+        view.coverage.security = true;
+      } else view.notes.push("The main document's response headers could not be read in this view, so security was not measured.");
+      if (head) {
+        out.push(...judgeSearch(head, doc?.headers["x-robots-tag"] ?? "", probe));
+        view.coverage.seo = true;
+      }
+    }
+
+    // keyboard focus on the desktop, last: it moves focus, so it runs after everything that judges the page at rest
+    if (spec.id === "desktop") {
+      if (room() < 3500) view.notes.push("The keyboard focus check was skipped: not enough of the scan's time was left.");
+      else {
+        try {
+          out.push(...(await focusCheck(page, cdp, room, view)));
+        } catch (e) {
+          view.notes.push(`The keyboard focus check did not finish (${say(e)}).`);
+        }
+      }
     }
     view.audits = out.map(sanitizeFinding).filter((f): f is RawFinding => f !== null);
     return narrowed;
+  }
+
+  /**
+   * Keyboard focus on the desktop (src/audits.ts pageSide "focus"): the stops before the main content and a skip link,
+   * then, for the first stops whose computed styles did not change when focused by script, a real Tab press to each
+   * and a PNG of the area around it with focus and without. Identical images mean focus is not visible there. Any
+   * difference, a stop the Tab press did not reach, or a stop that does not match :focus-visible counts as visible.
+   */
+  async function focusCheck(page: PageLike, cdp: CdpLike | null, room: () => number, view: ViewResult): Promise<RawFinding[]> {
+    const out: RawFinding[] = [];
+    const call = async (cmd: "focus" | "focusOne" | "focusBlur" | "focusDone", arg: Record<string, unknown>, ms = 1500): Promise<Record<string, unknown> | null> =>
+      parseJson<Record<string, unknown> | null>(await withTimeout(evalDom(page, pageSideSource(cmd, { name: N.focus, ...arg })), Math.max(300, Math.min(ms, room() - 300)), "the focus check"), null);
+    try {
+      const scan: FocusScan | null = parseFocusScan(await call("focus", { max: FOCUS_CHECKED }, 3000));
+      if (!scan) throw new Error("the page did not answer");
+      const skip = judgeSkipLink(scan);
+      if (skip) out.push(skip);
+      const confirmed: FocusScan["candidates"] = [];
+      let tried = 0;
+      for (const c of cdp ? scan.candidates.slice(0, FOCUS_CONFIRM) : []) {
+        if (room() < 2500) break;
+        tried++;
+        const prep = await call("focusOne", { i: c.i }).catch(() => null);
+        if (!prep || prep.ok !== true) continue;
+        await page.keyboard.press("Tab");
+        await deps.sleep(100);
+        const at = await call("focusOne", { i: c.i, check: true }).catch(() => null);
+        if (!at || at.ok !== true) continue;
+        const clip = focusClip(at);
+        if (!clip) continue;
+        const shown = await pngOf(cdp as CdpLike, clip);
+        await call("focusBlur", {}).catch(() => null);
+        await deps.sleep(60);
+        const hidden = await pngOf(cdp as CdpLike, clip);
+        if (shown && hidden && shown === hidden) confirmed.push(c);
+      }
+      view.metrics.focus = { stops: scan.stops, checked: scan.checked, changed: scan.changed, notVisible: scan.notVisibleMode, candidates: scan.candidates.length, tried, confirmed: confirmed.length, diffs: scan.diffs };
+      const f = judgeFocus(scan, confirmed);
+      if (f) out.push(f);
+    } finally {
+      await call("focusDone", {}).catch(() => null);
+    }
+    return out;
+  }
+
+  /** The area around a focused element, 12 px on each side, inside the viewport, in page coordinates. */
+  function focusClip(at: Record<string, unknown>): { x: number; y: number; width: number; height: number; scale: number } | null {
+    const [x, y, w, h, vw, vh, sx, sy] = ["x", "y", "w", "h", "vw", "vh", "sx", "sy"].map((k) => numOrNull(at[k]) ?? Number.NaN);
+    // a very large stop (a whole card or banner as one link) is left out: its clip would be most of the screen
+    if (![x, y, w, h, vw, vh, sx, sy].every(Number.isFinite) || w < 2 || h < 2 || w * h > 400_000) return null;
+    const x0 = Math.max(0, Math.floor(x - 12));
+    const y0 = Math.max(0, Math.floor(y - 12));
+    const x1 = Math.min(vw, Math.ceil(x + w + 12));
+    const y1 = Math.min(vh, Math.ceil(y + h + 12));
+    // the element must be in view (focus scrolls it there); a clip that cuts most of it away proves nothing
+    if (x1 - x0 < 4 || y1 - y0 < 4 || (x1 - x0) * (y1 - y0) < 0.5 * (w + 24) * (h + 24)) return null;
+    return { x: x0 + sx, y: y0 + sy, width: x1 - x0, height: y1 - y0, scale: 1 };
+  }
+
+  /** A PNG of one clip, as base64 (lossless, so the same pixels give the same string). */
+  async function pngOf(cdp: CdpLike, clip: { x: number; y: number; width: number; height: number; scale: number }): Promise<string | null> {
+    const r = (await withTimeout(cdp.send("Page.captureScreenshot", { format: "png", clip, captureBeyondViewport: false }), 2000, "a focus screenshot").catch(() => null)) as { data?: unknown } | null;
+    return r && typeof r.data === "string" && r.data.length > 8 ? r.data : null;
   }
 
   function standInsOf(net: NetLog): ViewResult["standIns"] {

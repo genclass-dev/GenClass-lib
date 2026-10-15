@@ -7,13 +7,13 @@ import type { RawFinding } from "../src/catalog.ts";
 import { categoryOf, describe as words, KINDS, sanitizeFinding, sanitizeStats, severityOf, suggestFix, VISUAL_KINDS } from "../src/catalog.ts";
 import { BLOCKED_NOTE, blockedOf, buildReport, guardSetting, heldBack, JS_NOTE, probeFindings, raceFix, REFUSED_NOTE, SHIFT_NOTE, subjectNames } from "../src/report.ts";
 import { emptyCoverage, type ProbeResult, type ScanResult, type ViewResult, type VisualFixes } from "../src/scan.ts";
-import { categoryValue, rulesOf } from "../src/score.ts";
+import { categoryValue, rulesOf, score, SEVERITY_POINTS, type Category, type Severity } from "../src/score.ts";
 import { normaliseTarget, type Target } from "../src/target.ts";
 
 
 const target = normaliseTarget("shop.example.com/") as Target;
 /** Everything measured: axe-core ran in every view, the phone audits on the phone, the browser's record, the desktop's timings. */
-const covered = (id: ViewResult["id"]): ViewResult["coverage"] => ({ ...emptyCoverage(), axe: { ran: true, ms: 120, rules: 0, incomplete: 2, passes: 40, error: null }, phone: id === "phone", reliability: true, vitals: id === "desktop" });
+const covered = (id: ViewResult["id"]): ViewResult["coverage"] => ({ ...emptyCoverage(), axe: { ran: true, ms: 120, rules: 0, incomplete: 2, passes: 40, error: null }, phone: id === "phone", reliability: true, vitals: id === "desktop", security: id === "phone", seo: id === "phone" });
 const view = (id: ViewResult["id"], findings: RawFinding[], audits: RawFinding[] = []): ViewResult => ({
   id, label: id, width: id === "desktop" ? 1366 : 390, height: 800, ok: true, status: 200, finalUrl: target.url, ms: 10, notes: [], findings,
   checks: {}, fixes: null, shot: new Uint8Array([1]), shotHeight: 1600, standIns: { count: 0, requests: [] },
@@ -47,10 +47,13 @@ const scan = (o: Partial<ScanResult> = {}): ScanResult => ({
 const ids = { id: "abc123def", key: "0".repeat(32), at: new Date("2026-10-13T12:00:00Z"), runtime: "0.2.1", axe: "4.13.0", guardHoldMs: 900, shotUrl: (v: string) => `/api/scan/shot/${"0".repeat(32)}/abc123def-${v}.jpg` };
 /** A category's value from its findings, the way the score computes it. */
 const cat = (...fs: [string, "critical" | "serious" | "moderate" | "minor", number?][]) => categoryValue(rulesOf(fs.map(([rule, severity, count]) => ({ category: "visual" as const, rule, severity, count }))));
-const mean = (v: Partial<Record<string, number>>, weights: Record<string, number> = { visual: 25, accessibility: 25, phone: 20, reliability: 15, speed: 10, races: 5 }) => {
-  const keys = Object.keys(weights);
-  return Math.round(keys.reduce((s, k) => s + weights[k] * (v[k] ?? 100), 0) / keys.reduce((s, k) => s + weights[k], 0));
-};
+/** What these fixtures measure: every category (security and search on the light phone, with nothing found). */
+const SIX: Partial<Record<Category, boolean>> = { visual: true, accessibility: true, phone: true, reliability: true, speed: true, security: true, seo: true, races: true };
+const FIVE: Partial<Record<Category, boolean>> = { ...SIX, races: false };
+/** The score the report must give for exactly these scored rules (score.test.ts checks the formula itself). */
+const scoreOf = (fs: [Category, string, Severity, number?][], measured: Partial<Record<Category, boolean>> = SIX) =>
+  score(fs.map(([category, rule, severity, count]) => ({ category, rule, severity, count })), measured).value;
+const BASE4: [Category, string, Severity][] = [["visual", "text-invisible", "serious"], ["visual", "image-broken", "moderate"], ["phone", "page-overflow-x", "serious"], ["races", "duplicate-submit", "serious"]];
 
 describe("buildReport", () => {
   it("merges the same element across views, groups findings by category then rule, and numbers them in that order", () => {
@@ -62,8 +65,10 @@ describe("buildReport", () => {
     assert.equal(r.findings[0].standards[0].label, "WCAG 2.2 SC 1.4.3 Contrast (Minimum), level AA");
     const visual = cat(["text-invisible", "serious"], ["image-broken", "moderate"]);
     assert.equal(r.score.categories.find((c) => c.id === "visual")!.value, Math.round(visual));
-    assert.equal(r.score.value, mean({ visual, phone: 85, races: 85 }));
-    assert.equal(r.score.value, 91);
+    assert.equal(r.score.value, scoreOf(BASE4));
+    // three serious rules cap the score at 69 (the mean without the cap is higher), and the report says which
+    assert.equal(r.score.value, 69);
+    assert.equal(r.scoreNote, `Capped at 69 by 3 serious or critical rules (#1, #3, #4); without the cap it would be ${Math.round(r.score.mean!)}.`);
     assert.equal(r.views[0].shot, ids.shotUrl("desktop"));
     assert.equal(r.axe, "4.13.0");
     assert.deepEqual(r.notMeasured, {});
@@ -73,8 +78,10 @@ describe("buildReport", () => {
     const r = buildReport(target, ids, scan(), { withGenClass: false });
     assert.deepEqual(r.top.map((t) => [t.rule, t.n]), [["text-invisible", 1], ["page-overflow-x", 3], ["image-broken", 2], ["duplicate-submit", 4]]);
     assert.ok(r.top.every((t, i) => i === 0 || r.top[i - 1].points >= t.points));
-    // visual is 79.05 with it and 93 without it: 25 * 13.95 / 100
-    assert.deepEqual(r.top.slice(0, 2).map((t) => t.points), [3.49, 3]);
+    // each rule's cost before the cap: the mean without it minus the mean with it
+    const without = (rule: string) => score(BASE4.filter((x) => x[1] !== rule).map(([category, rule, severity]) => ({ category, rule, severity })), SIX).mean!;
+    const all = score(BASE4.map(([category, rule, severity]) => ({ category, rule, severity })), SIX).mean!;
+    for (const t of r.top) assert.ok(Math.abs(t.points - (without(t.rule) - all)) < 0.02, t.rule);
   });
   it("gives the same report for the same scan", () => {
     assert.deepEqual(buildReport(target, ids, scan(), { withGenClass: true }), buildReport(target, ids, scan(), { withGenClass: true }));
@@ -88,7 +95,7 @@ describe("buildReport", () => {
     assert.match(dup.fixed!.how, /1 sent instead of 2/);
     const on = buildReport(target, ids, scan(), { withGenClass: true });
     assert.equal(on.withGenClass.shown, true);
-    assert.equal(on.withGenClass.value, mean({ visual: cat(["text-invisible", "serious"], ["image-broken", "moderate"]), phone: 85 }), "only the fixed race leaves the score");
+    assert.equal(on.withGenClass.value, scoreOf(BASE4.slice(0, 3)), "only the fixed race leaves the score");
     assert.equal(on.withGenClass.breakdown!.categories.find((c) => c.id === "races")!.value, 100);
     assert.equal(on.withGenClass.fixed, 1);
   });
@@ -113,7 +120,7 @@ describe("buildReport", () => {
     assert.match(f2.fixed!.how, /re-check no longer found it/);
     assert.equal(f2.genclass.status, "fixed");
     assert.equal(r2.withGenClass.fixed, 2);
-    assert.equal(r2.withGenClass.value, mean({ visual: 93, phone: 85 }));
+    assert.equal(r2.withGenClass.value, scoreOf([["visual", "image-broken", "moderate"], ["phone", "page-overflow-x", "serious"]]));
     // a fix the re-check did not confirm says so
     const unconfirmed = scan();
     const nf: VisualFixes = { applied: 1, rechecked: true, fixed: [], notFixed: [{ kind: "text-invisible", selector: "p.note", key, why: "GenClass applied a fix, but the re-check still found the problem." }] };
@@ -140,17 +147,16 @@ describe("buildReport", () => {
       { ...view("phone", [leak]), standIns: { count, requests: [] } },
       view("phone-dark", []),
     ];
-    const noRaces = { visual: 25, accessibility: 25, phone: 20, reliability: 15, speed: 10 };
     const withStandIns = buildReport(target, ids, scan({ views: views(2), probe: null, guard: null }), { withGenClass: false });
     const f = withStandIns.findings.find((x) => x.kind === "text-template-leak")!;
     assert.match(String(f.unscored), /stand-in answer/);
     assert.match(String(withStandIns.findings.find((x) => x.kind === "js-error")!.unscored), /stand-in answer/, "an error can come from a stand-in answer too");
-    assert.equal(withStandIns.score.value, mean({ visual: 85 }, noRaces), "only the contrast finding is scored");
+    assert.equal(withStandIns.score.value, scoreOf([["visual", "text-invisible", "serious"]], FIVE), "only the contrast finding is scored");
     assert.equal(withStandIns.views[0].standIns, 2);
     assert.equal(withStandIns.notMeasured.races, "The race probe did not run.");
     const without = buildReport(target, ids, scan({ views: views(0), probe: null, guard: null }), { withGenClass: false });
     assert.equal(without.findings.find((x) => x.kind === "text-template-leak")!.unscored, null);
-    assert.equal(without.score.value, mean({ visual: cat(["a", "serious"], ["b", "serious"]), reliability: 93 }, noRaces));
+    assert.equal(without.score.value, scoreOf([["visual", "text-template-leak", "serious"], ["visual", "text-invisible", "serious"], ["reliability", "js-error", "moderate"]], FIVE));
     // the same leak also seen in a view that got no stand-in answer is scored
     const mixed = views(1);
     mixed[1] = { ...mixed[1], standIns: { count: 0, requests: [] } };
@@ -159,6 +165,13 @@ describe("buildReport", () => {
 });
 
 describe("the deeper checks in the report", () => {
+  it("lists the page weight but does not score it when the phone view got stand-in answers (a page can retry them and download more)", () => {
+    const weight: RawFinding = { kind: "page-weight", selector: "", box: null, measured: "The phone view downloaded 5.6 MB", detail: { severity: "moderate", count: 1, bytes: 5_600_000 } };
+    const views = (n: number) => [view("desktop", []), { ...view("phone", [], [weight]), standIns: { count: n, requests: n ? ["POST shop.example.com/rest/v1/rpc"] : [] } }, view("phone-dark", [])];
+    const r = buildReport(target, ids, scan({ views: views(3), probe: null, guard: null }), { withGenClass: false });
+    assert.match(String(r.findings.find((f) => f.kind === "page-weight")!.unscored), /stand-in answer/);
+    assert.equal(buildReport(target, ids, scan({ views: views(0), probe: null, guard: null }), { withGenClass: false }).findings.find((f) => f.kind === "page-weight")!.unscored, null);
+  });
   const axe = (count: number, selector: string, summary = "Element has insufficient color contrast of 2.85."): RawFinding => ({
     kind: "axe", selector, box: { x: 0, y: 40, w: 200, h: 20 }, measured: summary,
     detail: { rule: "color-contrast", severity: "serious", impact: "serious", tags: ["wcag2aa", "wcag143"], help: "Elements must meet minimum color contrast ratio thresholds", description: "Ensure the contrast meets WCAG 2 AA.", helpUrl: "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI", count, examples: [selector, ".other"] },
@@ -174,7 +187,7 @@ describe("the deeper checks in the report", () => {
     assert.deepEqual(f.examples, [".a", ".other", ".b"]);
     assert.equal(f.guide, "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI");
     assert.equal(f.what, "Elements must meet minimum color contrast ratio thresholds");
-    assert.equal(r.score.categories.find((c) => c.id === "accessibility")!.value, Math.round(100 - 15 * (1 + Math.log10(5))));
+    assert.equal(r.score.categories.find((c) => c.id === "accessibility")!.value, Math.round(100 - SEVERITY_POINTS.serious * (1 + Math.log10(5))));
     assert.equal(f.genclass.status, "reported");
   });
   it("leaves out of the score, and says why, every category the scan did not measure", () => {
@@ -182,14 +195,13 @@ describe("the deeper checks in the report", () => {
     for (const v of s.views) v.coverage = { ...emptyCoverage(), reliability: true };
     s.views[0].findings.push({ kind: "focus-obscured", selector: "a.skip", box: null, measured: "focus hidden", detail: { severity: "medium" } });
     const r = buildReport(target, ids, s, { withGenClass: false });
-    assert.deepEqual(Object.keys(r.notMeasured).sort(), ["accessibility", "phone", "speed"]);
+    assert.deepEqual(Object.keys(r.notMeasured).sort(), ["accessibility", "phone", "security", "seo", "speed"]);
     assert.equal(r.notMeasured.accessibility, "axe-core did not finish in any view.");
     const a11y = r.score.categories.find((c) => c.id === "accessibility")!;
     assert.deepEqual([a11y.measured, a11y.value], [false, null]);
     assert.match(String(r.findings.find((f) => f.kind === "focus-obscured")!.unscored), /Accessibility was not measured on this scan/);
     assert.match(String(r.findings.find((f) => f.kind === "page-overflow-x")!.unscored), /Phone was not measured/);
-    const visual = cat(["text-invisible", "serious"], ["image-broken", "moderate"]);
-    assert.equal(r.score.value, mean({ visual, races: 85 }, { visual: 25, reliability: 15, races: 5 }));
+    assert.equal(r.score.value, scoreOf([["visual", "text-invisible", "serious"], ["visual", "image-broken", "moderate"], ["races", "duplicate-submit", "serious"]], { visual: true, reliability: true, races: true }));
   });
   it("treats the JavaScript size as a note, and errors from refused files as not scored", () => {
     const js: RawFinding = { kind: "js-heavy", selector: "", box: null, measured: "1.40 MB of JavaScript", detail: { severity: "minor", count: 1, bytes: 1_400_000 } };
@@ -199,7 +211,7 @@ describe("the deeper checks in the report", () => {
     const r = buildReport(target, ids, s, { withGenClass: false });
     assert.equal(r.findings.find((f) => f.kind === "js-heavy")!.unscored, JS_NOTE);
     assert.equal(r.findings.find((f) => f.kind === "js-error")!.unscored, REFUSED_NOTE);
-    assert.equal(r.score.value, mean({ races: 85 }), "only the double submit is scored");
+    assert.equal(r.score.value, scoreOf([["races", "duplicate-submit", "serious"]]), "only the double submit is scored");
   });
   it("lists layout shift, from the scanner's CLS and from the visual checks, without scoring it", () => {
     const cls: RawFinding = { kind: "cls-high", selector: "header > div", box: null, measured: "Cumulative Layout Shift 0.24", detail: { severity: "minor", count: 1, cls: 0.24 } };
@@ -208,7 +220,7 @@ describe("the deeper checks in the report", () => {
     const r = buildReport(target, ids, scan({ views: [view("desktop", [], [cls, unsized]), view("phone", [shift]), view("phone-dark", [])], probe: null, guard: null }), { withGenClass: false });
     for (const kind of ["cls-high", "layout-shift"]) assert.equal(r.findings.find((f) => f.kind === kind)!.unscored, SHIFT_NOTE, kind);
     assert.equal(r.findings.find((f) => f.kind === "image-unsized-shift")!.unscored, null, "an image without dimensions that moved content is scored");
-    assert.equal(r.score.categories.find((c) => c.id === "speed")!.value, 97);
+    assert.equal(r.score.categories.find((c) => c.id === "speed")!.value, 100 - SEVERITY_POINTS.minor);
   });
   it("judges Largest Contentful Paint on the faster of the desktop and phone loads", () => {
     const lcp = (ms: number): RawFinding => ({ kind: "lcp-slow", selector: "h1#hero", box: null, measured: `Largest Contentful Paint at ${ms / 1000} s`, detail: { severity: ms > 4000 ? "moderate" : "minor", count: 1, ms } });

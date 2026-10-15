@@ -17,6 +17,7 @@ import { classifyIp, parseIPv6 } from "./ip.ts";
 import { JUDGE_MODEL, JUDGE_PROMPT, type JudgeClient } from "./judge.ts";
 import { buildReport, guardSetting, judgeCropsToKeep, REPORT_VERSION } from "./report.ts";
 import { runScan, ScanError, UA_TOKEN, type BrowserLike, type NavVerdict, type ScanResult } from "./scan.ts";
+import { siteProbe } from "./site.ts";
 import { aboutPage, nonce, notFoundPage, scanPage, securityHeaders, type ScanPageData } from "./page.ts";
 import { acquireSlot, cachedReport, cacheKey, optedOut, releaseSlot, saveReport, SHOT_PATH, shotKey, type Bucket } from "./store.ts";
 import { RUNTIME_VERSION } from "./visual.ts";
@@ -414,6 +415,8 @@ async function runAndSave(
     guardMargin: margin,
     judge: judgeClient(env),
     vision: deps.vision ? deps.vision(env) : visionClient(env, deps.now),
+    // the worker's own two requests about the site (http:// and /favicon.ico), in parallel with the browser
+    site: siteProbe(target, deps.fetch, ROBOTS_UA).catch(() => null),
     progress: (step, detail) => send({ type: "progress", step, ...(detail || {}) }),
   });
   if (signal.aborted) throw new ScanError("cancelled", "The scan was stopped because the page that asked for it closed.");
