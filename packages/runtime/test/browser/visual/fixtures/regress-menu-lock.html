@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A mega-menu that locks scrolling while it is open</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  /* A navigation mega-menu opens when its trigger gets focus and locks the body's scroll while it is open (the bench
+     found this on a public site). Its panel is not marked as a menu or dialog; the trigger says it is open
+     (aria-expanded="true", aria-haspopup="true"). The lock belongs to the open menu, so it is not reported. */
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  header { position: relative; display: flex; gap: 16px; align-items: center; padding: 12px 24px; border-bottom: 1px solid #e5e7eb; }
+  .panel { position: absolute; left: 24px; top: 56px; display: grid; grid-template-columns: repeat(3, 180px); gap: 8px 16px; padding: 16px; background: #fff; border: 1px solid #d1d5db; z-index: 10; }
+  .panel[hidden] { display: none; }
+  main { padding: 24px; min-height: 260vh; }
+</style>
+</head>
+<body>
+<header>
+  <nav>
+    <button id="platform" type="button" aria-expanded="false" aria-haspopup="true" aria-controls="panel">Platform</button>
+    <div id="panel" class="panel" hidden>
+      <a href="#ci">CI/CD</a><a href="#scm">Source code</a><a href="#agile">Planning</a><a href="#sec">Security</a>
+      <a href="#secrets">Secrets</a><a href="#supply">Supply chain</a><a href="#orch">Orchestration</a><a href="#graph">Context</a>
+      <a href="#vis">Analytics</a><a href="#why">Why us</a><a href="#more">Learn more</a>
+    </div>
+  </nav>
+  <a href="#pricing">Pricing</a>
+</header>
+<main><h1>Ship faster</h1><p>Content of the page.</p></main>
+<script>
+  const trigger = document.getElementById("platform");
+  const panel = document.getElementById("panel");
+  const nav = trigger.closest("nav");
+  const open = (on) => {
+    trigger.setAttribute("aria-expanded", String(on));
+    panel.hidden = !on;
+    document.body.style.overflow = on ? "hidden" : "";
+  };
+  trigger.addEventListener("focus", () => open(true));
+  nav.addEventListener("focusout", (e) => {
+    if (!nav.contains(e.relatedTarget)) open(false);
+  });
+</script>
+</body>
+</html>

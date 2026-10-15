@@ -33,14 +33,17 @@ export function idLike(seg: string): boolean {
 
 /**
  * A grouping key with op ids, numbers and id-like path segments (UUIDs, hex, tokens, slugs, emails: `idLike`)
- * normalised, so repeats of one bug on different entities share one `maxPerSignature` cap.
+ * normalised, so repeats of one bug on different entities share one `maxPerSignature` cap. A measured visual check
+ * (kind "check") has no trigger, diagnosis or subject: its check kind and selector (with evidence) tell it apart.
  */
 export function signature(r: SinkRecord): string {
   const subject = (r.evidence?.subject ?? "")
     .replace(/\/([^\s/?#()]+)/g, (m, seg: string) => (idLike(seg) ? "/:id" : m))
     .replace(/#\d+/g, "#")
     .replace(/\d+(\.\d+)?/g, "n");
-  return [r.kind, r.trigger ?? "", r.diagnosis ?? "", r.action ?? "", subject].join("|");
+  const key = [r.kind, r.trigger ?? "", r.diagnosis ?? "", r.action ?? "", subject];
+  if (r.check) key.push(r.check.kind, r.evidence?.selector ?? "");
+  return key.join("|");
 }
 
 /** Per-session cap per signature: true when this record is over the cap and should be dropped. */

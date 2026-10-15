@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text over layers that ignore the pointer</title>
+<script>
+  // ?fix: guard mode with runtime fixes, to show that no fix is applied to the correct text either
+  if (location.search.includes("fix")) window.GENCLASS_CONFIG = { mode: "guard", visual: { on: true, fix: true } };
+</script>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<!-- White text on dark layers that have pointer-events: none (hit testing skips them, so elementsFromPoint never
+     returns them): a colour overlay, a canvas painted by a script and a video poster, on a white page. Each is
+     readable. The planted fault next to them, white text on a white card, is still found. -->
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .hero { position: relative; height: 180px; padding: 24px; box-sizing: border-box; }
+  .layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .overlay { background: #111827; }
+  .hero h2 { position: relative; margin: 0; color: #fff; }
+  .hero p { position: relative; margin: 8px 0 0; color: #f9fafb; }
+  video.layer { object-fit: cover; }
+  .card { margin: 16px 24px; padding: 12px; border: 1px solid #e5e7eb; background: #fff; }
+  .card .note { color: #fff; }
+</style>
+</head>
+<body>
+<section class="hero"><div class="layer overlay"></div><h2>Over a colour overlay</h2><p>The overlay ignores the pointer.</p></section>
+<section class="hero"><canvas class="layer" id="paint"></canvas><h2>Over a canvas</h2><p>A particles-style canvas.</p></section>
+<section class="hero"><video class="layer" muted playsinline poster="/img/1280x180.png?c=111827"></video><h2>Over a video</h2><p>A background video's poster.</p></section>
+<div class="card"><p class="note" data-k="t1" data-expect="text-invisible">White text on a white card.</p></div>
+<script>
+  const c = document.getElementById("paint");
+  c.width = c.clientWidth;
+  c.height = c.clientHeight;
+  const g = c.getContext("2d");
+  g.fillStyle = "#111827";
+  g.fillRect(0, 0, c.width, c.height);
+</script>
+</body>
+</html>

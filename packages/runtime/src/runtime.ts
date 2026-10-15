@@ -60,7 +60,9 @@ import type {
   Expectation,
   Learned,
   LearnedFlow,
+  CheckFinding,
 } from "./types.js";
+import type { VisualStub } from "./visual/start.js";
 import { AuditLog, type AuditDraft } from "./decide/audit.js";
 import { expandPresets } from "./presets.js";
 import { Breaker, breakerConfig } from "./decide/breaker.js";
@@ -339,6 +341,7 @@ export class RuntimeImpl implements Runtime {
     limit: new Set(),
     modelBudget: new Set(),
     expectation: new Set(),
+    check: new Set(),
   };
   // ---- configuration extensions (OPTIONS-SPEC)
   /** "on", "pending" (an async enabled predicate: pass-through), "off" (an EnabledSource flipped off), "disabled". */
@@ -374,6 +377,8 @@ export class RuntimeImpl implements Runtime {
   private teardowns: (() => void)[] = [];
   /** Telemetry observation points (src/telemetry). */
   tap: RuntimeTap | null = null;
+  /** Measured visual checks (src/visual/start.ts), set by createRuntime when InitOptions.visual allows them. Internal. */
+  vis: VisualStub | null = null;
   /** runtime.telemetry (set by createRuntime). */
   telemetry?: TelemetryStatus;
   private plugins = new Map<Plugin, { cleanup?: () => void }>();
@@ -1034,6 +1039,14 @@ export class RuntimeImpl implements Runtime {
     const s = this.sum.snapshot(this.decider?.status.state ?? "off");
     s.model.dropped = this.queue.budget().dropped;
     return s;
+  }
+
+  checks(n = 200): CheckFinding[] {
+    return this.vis?.b.slice(-n) ?? [];
+  }
+
+  checkNow(): Promise<CheckFinding[]> {
+    return this.vis?.now() ?? Promise.resolve([]);
   }
 
   setSession(p: { id?: string; tags?: Record<string, string | number | boolean> }): void {

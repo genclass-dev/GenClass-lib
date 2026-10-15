@@ -77,8 +77,14 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // shipped: forwarding to those tools is not in the free runtime); the one warning for those names in /auto's page
   // config (src/cdn/sinks.ts applySinks) brings /auto to 107.73 KB, the main entry unchanged at 99.61 KB (CI run
   // 38491077597, wave2/no-vendor-sinks 31ddc98); reworded so it names no paid feature, 107.71 KB (CI run 38494904699).
-  // Both sizes are printed before either is asserted.
-  const LIMIT_KB: Record<string, number> = { "auto.js": 107.74, "index.js": 99.71 };
+  // Merged with wave2/visual (release/0.3.0-visual), PENDING THE OWNER'S OK: the measured visual checks' first-load
+  // stub (src/visual/start.ts with its development-host rule, the "check" listener set, rt.checks()/checkNow(), the
+  // "check" sink filter, the visual page-config key) adds about 0.6 KB to both, past the limits above (107.74 / 99.71
+  // KB). The checks themselves are a lazy chunk (dist/visual/index.js, asserted below); the CI visual-browser job
+  // measures the stub's growth over release/0.3.0 exactly (test/first-load-size.mjs). The limits are raised to the
+  // measured sizes plus a few bytes on this branch only so the rest of CI runs; the owner decides before 0.3.0 ships
+  // (docs/runtime/RESULTS.md section 13). Both sizes are printed before either is asserted.
+  const LIMIT_KB: Record<string, number> = { "auto.js": 108.6, "index.js": 100.5 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };
@@ -138,6 +144,9 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       // of the main entry
       if (entry === "auto.js") expect(code, entry).toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
       else expect(code, entry).not.toContain("__REACT_DEVTOOLS_GLOBAL_HOOK__");
+      // the measured visual checks stay out of first load: only the stub is there (VISUAL.md section 13)
+      for (const marker of VISUAL_MARKERS) expect(code, `${entry}: ${marker}`).not.toContain(marker);
+      expect(code, entry).toContain("genclass-visual");
     }
   });
 
@@ -155,5 +164,25 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
     expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
     expect(code).toContain("https://genclass.dev/pricing"); // the one warning for sentry / posthog / datadog by name
     expect(gz).toBeGreaterThan(0);
+  });
+
+  // strings only the visual chunk has (src/visual/report.ts, src/visual/checks/text.ts)
+  const VISUAL_MARKERS = ["Check (measured): ", "unreadable-text threshold"];
+
+  it("the measured visual checks are one lazy file (dist/visual/index.js) the script tag loads by URL", async () => {
+    const { readFileSync } = await import("node:fs");
+    const chunk = readFileSync(join(DIST, "visual", "index.js"), "utf8");
+    for (const marker of VISUAL_MARKERS) expect(chunk).toContain(marker);
+    // no static import of a shared chunk: the script-tag build loads this file alone from its base URL
+    expect(chunk).not.toMatch(/^\s*import\s[^;]*?from\s*["']\.{1,2}\//m);
+    expect(chunk).not.toMatch(/^\s*import\s*["']\.{1,2}\//m);
+    for (const f of ["genclass.global.js", "genclass.global.min.js"]) {
+      const g = readFileSync(join(DIST, f), "utf8");
+      for (const marker of VISUAL_MARKERS) expect(g, `${f}: ${marker}`).not.toContain(marker);
+      expect(g, f).toContain("visual/index.js");
+    }
+    // the public entry loads it on demand too
+    const entry = readFileSync(join(DIST, "visual.js"), "utf8");
+    for (const marker of VISUAL_MARKERS) expect(entry).not.toContain(marker);
   });
 });

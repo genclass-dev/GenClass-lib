@@ -74,8 +74,9 @@ export interface WebhookSinkOptions {
   /** Most records in one POST (default 50); with a `clock`, a batch this full goes at once instead of after `flushMs`. */
   maxBatch?: number;
   /**
-   * At most this many records per signature (kind, trigger, diagnosis, action and the subject's shape) per page load,
-   * so a failure storm does not flood your endpoint (default 10; 0 = no cap). The session
+   * At most this many records per signature (kind, trigger, diagnosis, action and the subject's shape; for a `check`
+   * record its check kind and selector) per page load, so a failure storm does not flood your endpoint (default 10;
+   * 0 = no cap). The session
    * `summary` record still counts every detection and intervention.
    */
   maxPerSignature?: number;

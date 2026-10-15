@@ -13,6 +13,7 @@ import { startTelemetry } from "./telemetry/index.js";
 import { telemetryOff } from "./telemetry/client.js";
 import { resolveToken } from "./token.js";
 import { protect, setProtectResolver } from "./protect.js";
+import { startVisual } from "./visual/start.js";
 
 export * from "./types.js";
 export { browserClock } from "./clock.js";
@@ -195,7 +196,9 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
   const token = resolveToken(options.token, (m) => con()?.warn?.(`[GenClass] ${m}`));
   if (token) tokenOf.set(rt, token);
   if (options.enabled === false) rt.telemetry = telemetryOff("disabled");
-  else
+  else {
+    // measured visual checks (docs/runtime/VISUAL.md): "local" by default with GenClass.init() in a browser
+    rt.vis = startVisual(rt, options.visual, telemetryDefaultOn);
     rt.telemetry = startTelemetry(
       rt,
       options.telemetry,
@@ -208,6 +211,7 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
       },
       token,
     );
+  }
   // a token with telemetry off: say so once in debug; on a local host always (a developer trying the dashboard from
   // localhost would otherwise wait for data that never comes)
   const local = rt.telemetry.reason === "local";

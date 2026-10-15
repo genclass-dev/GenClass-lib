@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A full-page section scroller</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<!-- The fullPage.js / Locomotive pattern: the document is locked (overflow hidden on html and body) and the wheel
+     moves a tall transformed wrapper from section to section, with a transition. Wheeling up on the first section,
+     down on the last, or during a transition changes nothing, and none of that is a stuck scroll lock. -->
+<style>
+  html, body { overflow: hidden; margin: 0; }
+  body { font: 18px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .fp { transition: transform 0.7s ease; }
+  .fp section { height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  .fp section:nth-child(odd) { background: #f3f4f6; }
+</style>
+</head>
+<body>
+<div class="fp" id="fp"><section><h1>One</h1></section><section><h1>Two</h1></section><section><h1>Three</h1></section><section><h1>Four</h1></section></div>
+<script>
+  const fp = document.getElementById("fp");
+  let i = 0;
+  let busy = false;
+  addEventListener(
+    "wheel",
+    (e) => {
+      if (busy) return;
+      const next = Math.max(0, Math.min(3, i + (e.deltaY > 0 ? 1 : -1)));
+      if (next === i) return;
+      i = next;
+      busy = true;
+      fp.style.transform = `translateY(-${i * 100}vh)`;
+      setTimeout(() => (busy = false), 800);
+    },
+    { passive: true },
+  );
+</script>
+</body>
+</html>

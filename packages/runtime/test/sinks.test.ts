@@ -68,6 +68,16 @@ describe("sinks/common: the per-bug signature the webhook caps repeats by", () =
     expect(on("/api/v2/sha256/item42/report.pdf")).toContain("GET /api/vn/shan/itemn/report.pdf?q=…");
   });
 
+  it("measured visual checks (kind \"check\", sinks whose kinds list it): the check kind and selector tell them apart", () => {
+    const chk = (kind: string, selector: string) =>
+      rec({ kind: "check", diagnosis: undefined, p: undefined, trigger: undefined, check: { kind: kind as never, severity: "high", fixed: false }, evidence: { message: "m", target: "t", selector } });
+    expect(signature(chk("text-invisible", "p.a"))).toBe(signature(chk("text-invisible", "p.a")));
+    expect(signature(chk("text-invisible", "p.a"))).not.toBe(signature(chk("image-broken", "p.a")));
+    expect(signature(chk("text-invisible", "p.a"))).not.toBe(signature(chk("text-invisible", "p.b")));
+    // the runtime's own records keep their key
+    expect(signature(rec())).toBe("detection|delivery|stale||response to GET /api/search?q=… (#)");
+  });
+
   it("the record's route is normalised as telemetry's: id-like and email segments as :id, at most 200 chars", async () => {
     const send = vi.fn();
     const s = setup({

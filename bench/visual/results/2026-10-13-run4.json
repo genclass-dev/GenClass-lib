@@ -1,0 +1,686 @@
+{
+  "at": "2026-10-14T00:39:33.018Z",
+  "commits": [
+    "5c47a7158d39595806343891b2f947aa1ec92842"
+  ],
+  "runs": [
+    "38489994866"
+  ],
+  "chromium": [
+    "153.0.8010.12"
+  ],
+  "clean": {
+    "demos": {
+      "pages": 7,
+      "loads": 28,
+      "measured": 28,
+      "notMeasured": {},
+      "findings": 2,
+      "byKind": {
+        "layout-shift": 2
+      },
+      "real": 2,
+      "falseReports": 0,
+      "unlabelled": 0,
+      "falseByKind": {},
+      "fixesApplied": 0,
+      "falseFixes": 0,
+      "perConfig": {
+        "desktop light": {
+          "loads": 7,
+          "findings": 1
+        },
+        "desktop dark": {
+          "loads": 7,
+          "findings": 1
+        },
+        "phone light": {
+          "loads": 7,
+          "findings": 0
+        },
+        "phone dark": {
+          "loads": 7,
+          "findings": 0
+        }
+      },
+      "falsePerPageView": 0
+    },
+    "templates": {
+      "pages": 4,
+      "loads": 16,
+      "measured": 16,
+      "notMeasured": {},
+      "findings": 0,
+      "byKind": {},
+      "real": 0,
+      "falseReports": 0,
+      "unlabelled": 0,
+      "falseByKind": {},
+      "fixesApplied": 0,
+      "falseFixes": 0,
+      "perConfig": {
+        "desktop light": {
+          "loads": 4,
+          "findings": 0
+        },
+        "desktop dark": {
+          "loads": 4,
+          "findings": 0
+        },
+        "phone light": {
+          "loads": 4,
+          "findings": 0
+        },
+        "phone dark": {
+          "loads": 4,
+          "findings": 0
+        }
+      },
+      "falsePerPageView": 0
+    },
+    "compat": {
+      "pages": 21,
+      "loads": 84,
+      "measured": 84,
+      "notMeasured": {},
+      "findings": 0,
+      "byKind": {},
+      "real": 0,
+      "falseReports": 0,
+      "unlabelled": 0,
+      "falseByKind": {},
+      "fixesApplied": 0,
+      "falseFixes": 0,
+      "perConfig": {
+        "desktop light": {
+          "loads": 21,
+          "findings": 0
+        },
+        "desktop dark": {
+          "loads": 21,
+          "findings": 0
+        },
+        "phone light": {
+          "loads": 21,
+          "findings": 0
+        },
+        "phone dark": {
+          "loads": 21,
+          "findings": 0
+        }
+      },
+      "falsePerPageView": 0
+    }
+  },
+  "sites": {
+    "sites": 40,
+    "sitesMeasured": 31,
+    "loads": 121,
+    "loadsCounted": 96,
+    "notMeasured": {
+      "rate limited (HTTP 429 on the site's own files)": 2,
+      "HTTP error": 2,
+      "bot challenge after load": 1,
+      "bot challenge": 3,
+      "timed out after 240 s": 1,
+      "error: page.goto: net::ERR_HTTP2_PROTOCOL_ERROR": 1
+    },
+    "darkDropped": 15,
+    "perConfig": {
+      "desktop light": {
+        "loads": 31,
+        "findings": 1
+      },
+      "phone light": {
+        "loads": 31,
+        "findings": 4
+      },
+      "desktop dark": {
+        "loads": 17,
+        "findings": 0
+      },
+      "phone dark": {
+        "loads": 17,
+        "findings": 3
+      }
+    },
+    "findings": 8,
+    "loadsWithFindings": 6,
+    "sitesWithFindings": 4,
+    "byKind": {
+      "layout-shift": 3,
+      "focus-obscured": 1,
+      "page-overflow-x": 4
+    },
+    "verdicts": {
+      "real": 5,
+      "checkError": 0,
+      "unconfirmed": 3
+    },
+    "verdictsByKind": {
+      "layout-shift": {
+        "real": 2,
+        "checkError": 0,
+        "unconfirmed": 1
+      },
+      "focus-obscured": {
+        "real": 1,
+        "checkError": 0,
+        "unconfirmed": 0
+      },
+      "page-overflow-x": {
+        "real": 2,
+        "checkError": 0,
+        "unconfirmed": 2
+      }
+    },
+    "findingsPerLoad": 0.083,
+    "findingsPer10Sites": 2.6
+  },
+  "recall": {
+    "loads": 306,
+    "measured": 306,
+    "byKind": {
+      "text-invisible": {
+        "planted": 72,
+        "took": 70,
+        "found": 70,
+        "desktop": {
+          "took": 36,
+          "found": 36
+        },
+        "phone": {
+          "took": 34,
+          "found": 34
+        },
+        "fix": {
+          "held": 70,
+          "undone": 0,
+          "notApplied": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "font-failed": {
+        "planted": 36,
+        "took": 28,
+        "found": 28,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "css-var-undefined": {
+        "planted": 36,
+        "took": 28,
+        "found": 27,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 13
+        },
+        "missed": [
+          "demos/status phone"
+        ],
+        "recall": 0.964
+      },
+      "text-template-leak": {
+        "planted": 72,
+        "took": 54,
+        "found": 54,
+        "desktop": {
+          "took": 26,
+          "found": 26
+        },
+        "phone": {
+          "took": 28,
+          "found": 28
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "text-encoding": {
+        "planted": 36,
+        "took": 28,
+        "found": 28,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "text-placeholder": {
+        "planted": 36,
+        "took": 28,
+        "found": 28,
+        "desktop": {
+          "took": 14,
+          "found": 14
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "image-broken": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "image-distorted": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "image-css-broken": {
+        "planted": 36,
+        "took": 32,
+        "found": 32,
+        "desktop": {
+          "took": 16,
+          "found": 16
+        },
+        "phone": {
+          "took": 16,
+          "found": 16
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "media-failed": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "icon-font-failed": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "stylesheet-failed": {
+        "planted": 36,
+        "took": 32,
+        "found": 32,
+        "desktop": {
+          "took": 16,
+          "found": 16
+        },
+        "phone": {
+          "took": 16,
+          "found": 16
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "csp-blocked": {
+        "planted": 36,
+        "took": 36,
+        "found": 36,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 18,
+          "found": 18
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "page-overflow-x": {
+        "planted": 36,
+        "took": 22,
+        "found": 22,
+        "desktop": {
+          "took": 11,
+          "found": 11
+        },
+        "phone": {
+          "took": 11,
+          "found": 11
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "pointer-events-leak": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "fix": {
+          "held": 18,
+          "undone": 0,
+          "notApplied": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "scroll-lock-stuck": {
+        "planted": 36,
+        "took": 36,
+        "found": 24,
+        "desktop": {
+          "took": 18,
+          "found": 12
+        },
+        "phone": {
+          "took": 18,
+          "found": 12
+        },
+        "fix": {
+          "held": 24,
+          "undone": 0,
+          "notApplied": 0
+        },
+        "missed": [
+          "demos/board desktop",
+          "demos/board phone",
+          "demos/checkout desktop",
+          "demos/checkout phone",
+          "demos/decisions desktop",
+          "demos/decisions phone",
+          "demos/editor desktop",
+          "demos/editor phone",
+          "demos/search desktop",
+          "demos/search phone",
+          "demos/status desktop",
+          "demos/status phone"
+        ],
+        "recall": 0.667
+      },
+      "click-blocked": {
+        "planted": 18,
+        "took": 18,
+        "found": 12,
+        "desktop": {
+          "took": 18,
+          "found": 12
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [
+          "demos/board desktop",
+          "demos/checkout desktop",
+          "demos/decisions desktop",
+          "demos/editor desktop",
+          "demos/search desktop",
+          "demos/status desktop"
+        ],
+        "recall": 0.667
+      },
+      "control-unreachable": {
+        "planted": 36,
+        "took": 32,
+        "found": 32,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 14,
+          "found": 14
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "focus-obscured": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "dialog-covered": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "layout-shift": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "page-blank": {
+        "planted": 18,
+        "took": 18,
+        "found": 18,
+        "desktop": {
+          "took": 18,
+          "found": 18
+        },
+        "phone": {
+          "took": 0,
+          "found": 0
+        },
+        "missed": [],
+        "recall": 1
+      },
+      "viewport-meta-missing": {
+        "planted": 18,
+        "took": 11,
+        "found": 11,
+        "desktop": {
+          "took": 0,
+          "found": 0
+        },
+        "phone": {
+          "took": 11,
+          "found": 11
+        },
+        "missed": [],
+        "recall": 1
+      }
+    },
+    "notApplicable": {
+      "viewport-meta-missing: layout 390 px on a 390 px screen": 7,
+      "page-overflow-x: the viewport clips overflow (overflow-x: clip)": 14,
+      "text-invisible: no visible text over a known solid background in the viewport": 2,
+      "text-template-leak: the element is gone or hidden": 2,
+      "font-failed: no visible text element in the viewport": 8,
+      "css-var-undefined: no visible text element in the viewport": 8,
+      "text-template-leak: no visible text element in the viewport": 16,
+      "text-encoding: no visible text element in the viewport": 8,
+      "text-placeholder: no visible text element in the viewport": 8,
+      "image-css-broken: status 200": 4,
+      "stylesheet-failed: the stylesheet loaded (status 200, the server answers missing files with a page)": 4,
+      "control-unreachable: the cover does not hide all 5 points of the button (button at 32,786, planted at {\"top\":786,\"left\":32,\"h\":72,\"scrollH\":1184}, scrollHeight 1184, a point hits genclass-devtools)": 3,
+      "control-unreachable: the cover does not hide all 5 points of the button (button at 32,786, planted at {\"top\":786,\"left\":32,\"h\":72,\"scrollH\":1222}, scrollHeight 1222, a point hits genclass-devtools)": 1
+    },
+    "otherFindings": 18,
+    "otherFindingsNotOnCleanPage": 7
+  },
+  "cost": {
+    "local1x": {
+      "loads": 128,
+      "firstPassMs": {
+        "p50": 6.1,
+        "p95": 19,
+        "max": 27.9
+      },
+      "firstPassWithinBudget": 100,
+      "maxSliceMs": {
+        "p50": 6,
+        "p95": 8.9,
+        "max": 18.7
+      },
+      "elements": {
+        "p50": 138,
+        "max": 2178
+      },
+      "sessionMs": {
+        "p50": 10,
+        "p95": 31.1
+      },
+      "sheetWalkMs": {
+        "p50": 0.1,
+        "p95": 2.3,
+        "max": 2.5,
+        "readable": 128
+      }
+    },
+    "local4x": {
+      "loads": 32,
+      "firstPassMs": {
+        "p50": 28.3,
+        "p95": 68.8,
+        "max": 90.9
+      },
+      "firstPassWithinBudget": 100,
+      "maxSliceMs": {
+        "p50": 13.5,
+        "p95": 18.4,
+        "max": 25.6
+      },
+      "elements": {
+        "p50": 138,
+        "max": 2178
+      },
+      "sessionMs": {
+        "p50": 36.7,
+        "p95": 105.7
+      },
+      "sheetWalkMs": {
+        "p50": 0,
+        "p95": 8.5,
+        "max": 9.1,
+        "readable": 32
+      }
+    },
+    "sites1x": {
+      "loads": 113,
+      "firstPassMs": {
+        "p50": 40.5,
+        "p95": 97.8,
+        "max": 128.2
+      },
+      "firstPassWithinBudget": 93.8,
+      "maxSliceMs": {
+        "p50": 19.5,
+        "p95": 57.1,
+        "max": 86.1
+      },
+      "elements": {
+        "p50": 894,
+        "max": 6593
+      },
+      "sessionMs": {
+        "p50": 76.9,
+        "p95": 176.7
+      },
+      "sheetWalkMs": {
+        "p50": 12.1,
+        "p95": 31.6,
+        "max": 54.6,
+        "readable": 82
+      }
+    }
+  },
+  "integration": {
+    "loads": 7,
+    "measured": 7,
+    "afterLoadMs": {
+      "p50": 2065,
+      "max": 2117
+    },
+    "chunkAfterLoadMs": {
+      "p50": 1500
+    },
+    "chunkBytes": null,
+    "findings": 0,
+    "byKind": {},
+    "notMeasured": []
+  }
+}

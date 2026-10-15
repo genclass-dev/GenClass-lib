@@ -30,3 +30,7 @@ internal/
 .wrangler/
 .dev.vars
 *.env
+
+# visual bench (bench/visual): harness bundle and work directories
+bench/visual/.out/
+bench/visual/.work/

@@ -51,10 +51,15 @@ segment holding an `@`, such as an e-mail address, is `:id` too).
   (up to 60 characters) and store leaf values up to 48 characters, including state the runtime discovered on its
   own (`autoState`: React, Redux or Zustand state the app never registered; those decisions carry
   `autoState: true`). Add a `redact` function for fields with ordinary names and personal values.
+- **Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md); new in `0.3.0`): nothing about
+  them is sent. Their findings stay in the page (the console, `rt.checks()`, your own sinks). Counts per check kind
+  are a proposal that needs the maintainers' approval of the exact fields first; this file will list them if that
+  happens.
 - **Never, in either setting:** typed values of password, payment (`cc-*`), one-time-code or secret-named inputs
   (the runtime never records them in the first place), cookies, request or response headers, request or response
-  bodies, storage contents, the sentences GenClass prints about what it changed, IP addresses or user agents (the
-  collector does not store them).
+  bodies, storage contents, the sentences GenClass prints about what it changed, the measured visual checks'
+  selectors, element text, colours, URLs and messages, IP addresses or user agents (the collector does not store
+  them).
 
 ### Batch envelope (schema `genclass-telemetry/1`)
 
@@ -211,9 +216,15 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.
 - **Use:** model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
-  app's dashboard. Not sold, not used for advertising.
+  app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
+  turns on: an export of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
+  trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
+  advertising.
 - **Retention:** 90 days. An R2 lifecycle rule (`expire-90d`, prefix `events/`) deletes every stored batch 90 days after it
-  was written. The maintainers may change this later; changes are recorded in the CHANGELOG.
+  was written. For an app on a paid plan, a copy of each batch is kept for its export under `export/<token>/` for up to
+  1 year (another lifecycle rule, 366 days), and its dashboard data for 1 year; both are deleted 30 days after the paid
+  plan ends, and at once when the app or its account is deleted. The maintainers may change this later; changes are
+  recorded in the CHANGELOG.
 - **Your own endpoint:** `telemetry: { endpoint: "https://…" }` sends the same batches to a collector you run
   instead (the worker in `telemetry-worker/` deploys to any Cloudflare account).
 

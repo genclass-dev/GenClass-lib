@@ -81,8 +81,8 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 [Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
-[What it looks for](#what-it-looks-for) · [State it can protect](#state-it-can-protect) ·
-[Ask it questions](#ask-it-questions) · [Observability](#observability) ·
+[What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-030) ·
+[State it can protect](#state-it-can-protect) · [Ask it questions](#ask-it-questions) · [Observability](#observability) ·
 [See it where you already look](#see-it-where-you-already-look) · [Extend it](#extend-it) ·
 [Model quality](#model-quality) · [Performance](#performance) · [Costs](#costs) ·
 [Content-Security-Policy and self-hosting](#content-security-policy-and-self-hosting) · [Privacy and telemetry](#privacy-and-telemetry) ·
@@ -636,7 +636,8 @@ cover:
 - read-your-writes.
 
 It catches runtime failures that leave evidence: ordering, staleness, duplicates, broken relations, failure patterns.
-It does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code.
+The model does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code. A
+set of visual and CSS bugs is covered by measured checks instead (next section).
 
 **Steps that did not happen (opt-in, `0.3.0`).** `GenClass.init({ learn: { expectations: true } })` also learns what
 each user action on a route usually does (the requests it sends, what their answers write, where it navigates) and
@@ -646,6 +647,73 @@ action in any mode. It is off by default until its false-report rate on correct 
 ([RESULTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md), "Flow expectations");
 off, its code is never loaded (a lazy chunk, no first-load cost). Design and controls:
 [EXPECTATIONS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/EXPECTATIONS.md).
+
+## Visual and CSS checks (new in 0.3.0)
+
+GenClass also measures visual bugs that never throw an error: text you cannot read because it is nearly the colour of
+its background, images, fonts, stylesheets and media that failed to load, pages that scroll sideways on a phone,
+invisible layers that swallow clicks, dialogs hidden behind other elements, and leaks such as "[object Object]" or
+"$NaN". Each report names the element, what was measured and the threshold, and suggests a CSS change for that
+selector:
+
+```
+[GenClass] Check (measured): text contrast 1.04:1 on p.hero__subtitle "Ship faster with fewer bugs", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #fafafa on #ffffff from section.hero. Suggested CSS: p.hero__subtitle { color: #737373; }
+[GenClass] Check (measured): the page scrolls sideways on a 390 px viewport: div.pricing-table ends at 512 px (122 px too wide, a width wider than the viewport). Suggested CSS: div.pricing-table { max-width: 100%; }
+```
+
+These are measured checks with fixed thresholds. The model is not involved, does not look at pixels, and never sees
+them; they never feed a decision. They abstain when they cannot know: text over photos, video, canvases and gradients
+(including layers that ignore the pointer), filters, blend modes, partial opacity, forced colours and page translation
+are skipped, not guessed.
+
+| kind | what it finds |
+|---|---|
+| `text-invisible` | text below 1.5:1 against a fully known solid background, at rest, on hover, on focus, in light or dark mode |
+| `image-broken`, `image-css-broken`, `media-failed` | an `img`, a CSS background image (Chromium) or a video or audio player that failed to load |
+| `stylesheet-failed`, `font-failed`, `icon-font-failed` | a first-party stylesheet, a web font in use, or an icon font (boxes or ligature words shown) that failed |
+| `csp-blocked` | a style, font, image or media blocked by the page's Content-Security-Policy |
+| `text-template-leak`, `text-placeholder`, `text-encoding` | `[object Object]`, `$NaN`, `{{ x }}`, `Invalid Date`; lorem ipsum and placeholder-image hosts; mojibake and double-escaped entities |
+| `css-var-undefined` | `var(--x)` without a fallback where `--x` is defined nowhere and the fallback leaves text below 3:1 |
+| `image-distorted`, `page-overflow-x`, `viewport-meta-missing`, `layout-shift` | a stretched image; sideways scrolling and its cause; a phone showing the 980 px layout; a layout shift above 0.25 that names the element that moved and does not follow a scroll (Chromium) |
+| `page-blank` | the main region shows no text and no media after the page settled |
+| `click-blocked`, `pointer-events-leak`, `scroll-lock-stuck` | an invisible layer that took two clicks; `pointer-events: none` or a scroll lock left on `body` |
+| `control-unreachable`, `focus-obscured`, `dialog-covered` | a control under a fixed bar with no controls of its own; a focused element or anchor target under a sticky header or banner that paints over it; a dialog under other elements |
+
+**Where they run.** On by default on development hosts (a dev server's port on `localhost`, `127.0.0.1`, `[::1]` or a
+`*.localhost` name, and `*.test` names) and when the devtools overlay mounts, where the developer reads the console;
+off everywhere else, including hybrid apps served from `https://localhost` (Capacitor), Tauri, Electron files and
+intranet hosts. Turn them on in production
+with `GenClass.init({ visual: true })` (or `data-visual="on"`, `<meta name="genclass" content="visual=on">`) and read
+them with a sink or `rt.on("check", f => ...)`; `?genclass-visual=on` turns on report-only checks for the person who
+opened the link; `visual: false` or `?genclass-visual=off` turns them off.
+
+**Cost.** About 0.55 KB gzip of first load. The checks are a separate file loaded 1.5 s after the page's `load` event
+in a visible tab, and all their page reads (passes, the 2 s read of `html` and `body`, the click, hover, focus and
+scroll checks) run in idle callbacks: slices of 8 ms, at most 100 ms per pass and 1 s per 10 minutes. One step can
+still take longer than a slice when the browser has to lay out a heavy page first (measured in RESULTS.md section 14).
+Low-end devices run only the near-free checks (failed assets, CSP, layout shifts, the interaction checks). Nothing
+about the checks is sent anywhere.
+
+**Runtime fixes (opt-in).** With `GenClass.init({ mode: "guard", visual: { on: true, fix: true } })`, GenClass can
+apply three narrow fixes: a readable text colour (one rule in its own stylesheet), and removing a leaked inline
+`pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did not help;
+a colour fix is measured again every 2 s and after class changes, and undone as soon as the background it was made for
+changes. A scroll lock held since the page loaded, with no dialog ever open, is reported but never removed. Every fix
+can be undone (`rt.checks().find(c => c.id === "c3").fix.undo()` or the devtools Undo button), and is undone when the
+mode drops to observe. Observe mode never changes the page.
+
+**In your own tests.** `import { checkPage } from "@genclass/runtime/visual"` runs one report-only pass in the page and
+resolves with the findings, for a Playwright or Cypress test.
+
+Not covered yet: text over photos, video and gradients; canvas and WebGL content; the colour scheme, viewport or hover
+state the visitor is not using; layout shifts and failed CSS images outside Chromium; low contrast that is readable but
+below WCAG AA. Measured in CI on the demos, templates, compat apps and 40 public home pages
+([RESULTS.md section 14](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md)): 0 false
+reports in 128 views of the local pages, and recall 1.00 on planted faults for 19 of the 23 kinds (0.67 to 0.96 for
+the other four). On the public pages
+the checks were tuned on the same sites (the first run had 44 check errors in 100 loads); there is no held-out site
+set yet, so those figures are not a false-report rate for other sites. Design and thresholds:
+[VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md).
 
 ## State it can protect
 
@@ -1130,6 +1198,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **Decisions are local.** Situations are built and decided in the browser by the local model; nothing is sent anywhere to make a decision.
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path (from `0.3.0` a segment with an `@`, such as an e-mail address, is `:id` too), and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
+- **The measured visual checks send nothing** (new in `0.3.0`): their findings stay in the page (the console, `rt.checks()`, your own sinks).
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries

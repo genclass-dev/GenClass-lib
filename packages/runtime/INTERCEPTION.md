@@ -67,6 +67,8 @@ stays in that chain as a pure pass-through (a `disabled` flag), so neither libra
 | `window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__`, `window.__REDUX_DEVTOOLS_EXTENSION__` | replaced by shims that call the real Redux DevTools extension first when it is installed | [src/discover/redux.ts](src/discover/redux.ts) `installReduxDiscovery` | see state discovery | Redux stores created through them become full adapters (their writes can be held, dropped, rolled back in guard/heal) | restored (deleted when they did not exist) |
 | `window.GenClass` | the script-tag API object | [src/cdn/global.ts](src/cdn/global.ts) `install` | nothing | nothing | stays |
 | `PerformanceObserver` (an instance, not a patch) | observes `longtask` entries | [src/observe/perf.ts](src/observe/perf.ts) `installPerf` | long task durations | nothing | disconnected |
+| `PerformanceObserver`, `MutationObserver` (instances; measured visual checks only) | `layout-shift` and `resource` entries (buffered); child list, text and the `class`, `style`, `hidden`, `src`, `srcset`, `width`, `height`, `open` attributes under `documentElement` | [src/visual/engine.ts](src/visual/engine.ts) `Visual.install` | shift scores and their sources, resource URLs and `responseStatus`; which subtrees changed | nothing | disconnected |
+| `document.adoptedStyleSheets` (measured visual checks, guard or heal with `visual: { on: true, fix: true }` only) | one constructed stylesheet appended, one rule per fix (`[data-genclass-fix~="f3"] { color: ... !important }`) and that token in a `data-genclass-fix` attribute on the element | [src/visual/fix.ts](src/visual/fix.ts) `Fixer.apply` | nothing | a readable text colour for text measured below 1.5:1 | rules and attributes removed |
 
 Not wrapped or observed: `requestAnimationFrame`, `queueMicrotask`, `MessageChannel`, `postMessage`,
 `BroadcastChannel`, IndexedDB, Cache Storage reads by the app, `navigator.sendBeacon`, `Worker`, Service Workers,
@@ -90,6 +92,8 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).
 | the model `Worker` | `message`, `error`, `messageerror` | [src/model/host.ts](src/model/host.ts), [src/cdn/global.ts](src/cdn/global.ts) `blobModuleWorker` | the worker GenClass started | terminated |
 | inside the worker | `message`, `securitypolicyviolation` | [src/model/worker.ts](src/model/worker.ts) | the worker's own scope | terminated |
 | the devtools overlay (only when mounted) | `keydown` on `document` (capture: Alt+Shift+G toggles the overlay and calls `preventDefault` on that combination only), clicks and keys inside its own shadow root, `matchMedia` theme changes | [src/devtools/index.ts](src/devtools/index.ts), [src/devtools/ui.ts](src/devtools/ui.ts) | the overlay | on unmount |
+| `document` (capture), `window` | `securitypolicyviolation` (at most 50 kept), `load` (once) | [src/visual/start.ts](src/visual/start.ts) `startVisual` | measured visual checks ([VISUAL.md](../../docs/runtime/VISUAL.md)), only when `InitOptions.visual` is on for this page: violations during page load cannot be queried later; the checks' chunk loads 1.5 s after `load` | `securitypolicyviolation` yes; `load` fires once and is inert after `destroy()` |
+| `document`, `window`, `document.fonts` (capture, passive; only once the visual chunk runs) | `document`: `error`, `load`, `securitypolicyviolation`, `click`, `pointerover`, `focusin`, `pointerdown`, `pointerup`, `pointercancel`, `keydown`, `visibilitychange`, `prerenderingchange`; `window`: `wheel`, `touchmove`, `scroll`, `hashchange`, `popstate`, `resize`, `pageshow`; `document.fonts`: `loadingdone` | [src/visual/engine.ts](src/visual/engine.ts) `Visual.install` | measured visual checks: failed assets, clicks swallowed by an invisible layer, hover and focus contrast, focus under a sticky header, scroll attempts on a locked page. Read only: never `preventDefault`, `stopPropagation` or a write | yes |
 
 ## Objects it instruments after handing them to the app
 
@@ -139,6 +143,8 @@ from ever being held.
 | A module `Worker` (`genclass-model`) running onnxruntime-web; inline on the main thread only if the worker cannot start (`model.inlineFallback`, default true; `false`: no model then, status `skipped` / `worker-unavailable`) | | model load | [src/model/host.ts](src/model/host.ts) |
 | Memory | ≤ 64 response bodies of ≤ 256 KB (last good GET per identity), ≤ 4 MB of recent responses for coalescing, a 500-event history, 200 decisions, 1,000 audit entries | always | [src/observe/cache.ts](src/observe/cache.ts) |
 | Console | one line per detection or intervention (`report`), the telemetry notice, warnings | `report: "console"` (default) | [src/decide/report.ts](src/decide/report.ts) |
+| Network: the measured visual checks' chunk (`dist/visual/index.js`, from the same place as the runtime) | a dynamic `import()` | 1.5 s after `load` when `InitOptions.visual` is on for the page (development hosts by default), or when the devtools overlay mounts or `rt.checkNow()` runs | [src/visual/start.ts](src/visual/start.ts) |
+| Console | `[GenClass] Check (measured): ...`, one collapsed group per finding with its measured values (at most 10 a pass, then one line) | measured visual checks on | [src/visual/bridge.ts](src/visual/bridge.ts) |
 
 ## What each mode may change
 
@@ -157,6 +163,14 @@ exceeds the hold budget (`policy.holdBudgetMs`, "auto" = 1.5 × the model's medi
 including the time spent waiting for a body, deferred re-decisions and `onBeforeAction`
 (`test/invariants/network.test.ts`, `test/invariants/state.test.ts` "the hold budget caps ..."). When the model is
 not ready, slow, erroring or over its rate limit, the subject proceeds unchanged (fail open).
+
+**Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md)) only read in every mode. Their runtime fixes need
+`visual: { on: true, fix: true }` and guard or heal mode, and only ever do two things: add an owned stylesheet rule
+that sets a readable colour on one element (text measured below 1.5:1), or remove one leaked inline
+`pointer-events: none` or `overflow: hidden` declaration on `html` or `body` after recording it. Each is re-measured
+50 ms later and undone if it did not help, undone by `finding.fix.undo()`, and undone automatically on
+`setMode("observe")`, the breaker, `pause()` (within 2 s), `disable()` and `destroy()`
+([src/visual/fix.ts](src/visual/fix.ts)).
 
 Every term can only lower the mode: `routes` rules, `sample`, the breaker (after 2 undos or 3 errors following actions,
 the session drops to `observe`), a hidden tab (nothing new is held; background decisions are skipped in guard and heal, and deferred until the tab is
@@ -323,5 +337,7 @@ sites src/observe/xhr.ts 15
 sites src/protect.ts 2
 sites src/runtime.ts 1
 sites src/telemetry/client.ts 2
+sites src/visual/engine.ts 3
+sites src/visual/start.ts 1
 ```
 <!-- inventory:end -->

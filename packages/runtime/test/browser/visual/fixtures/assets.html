@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Failed assets</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<link rel="stylesheet" href="/html404/theme.css" data-k="sheet" data-expect="stylesheet-failed">
+<link rel="stylesheet" href="/missing/print.css" media="print">
+<style>
+  @font-face { font-family: "Brand Sans"; src: url("/missing/brand-sans.woff2") format("woff2"); }
+  @font-face { font-family: "IconFont"; src: url("/missing/icons.woff2") format("woff2"); }
+  body { margin: 0; padding: 24px; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  h2.brand { font-family: "Brand Sans", Georgia, serif; }
+  .icon::before { font-family: "IconFont"; content: "\e900"; font-style: normal; }
+  .hero-bg { height: 160px; background-image: url("/missing/hero.jpg"); background-color: #e5e7eb; }
+  .ok-bg { height: 40px; background-image: url("/img/200x40.png"); }
+</style>
+</head>
+<body>
+<h1>Team</h1>
+<img src="/missing/team.jpg" alt="Our team" width="160" height="100" data-k="img1" data-expect="image-broken">
+<img src="/img/160x100.png" alt="Loaded" width="160" height="100">
+<img src="/missing/tracker.gif" alt="" width="1" height="1">
+<h2 class="brand" data-k="h2" data-expect="font-failed">Brand headline</h2>
+<p>Body text in a system font.</p>
+<p><i class="icon icon-star" data-k="icon" data-expect="icon-font-failed"></i> Starred</p>
+<div class="hero-bg" data-k="bg" data-expect="image-css-broken"></div>
+<div class="ok-bg"></div>
+<video controls width="320" height="180" data-k="vid" data-expect="media-failed"><source src="/f/clip.nope" type="video/x-nope"></video>
+<img src="https://placehold.co/300x120.png" alt="placeholder" width="300" height="120" data-k="ph" data-expect="text-placeholder">
+</body>
+</html>

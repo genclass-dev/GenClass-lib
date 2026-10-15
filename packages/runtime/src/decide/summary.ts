@@ -124,7 +124,8 @@ export class SinkDispatcher {
     this.queue = [];
     for (const r of batch) {
       for (const s of this.sinks) {
-        if (s.o.kinds && !s.o.kinds.includes(r.kind)) continue;
+        // "check" records go only to sinks that list them, so existing sinks see no new record kind
+        if (s.o.kinds ? !s.o.kinds.includes(r.kind) : r.kind === "check") continue;
         // possible detections (observe's lower tier) only to sinks that ask for them
         if (r.detection === "possible" && s.o.possible !== true) continue;
         const idx = s.n++;

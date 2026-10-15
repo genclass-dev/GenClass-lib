@@ -1,0 +1,174 @@
+name: Visual bench
+
+# The measured visual checks' bench (docs/runtime/VISUAL.md section 15, bench/visual/README.md), on GitHub runners
+# only: false reports on clean pages (the six demos, the starter templates, the compat apps, about 40 public home
+# pages), recall on faults planted by the harness, cost at 1x and 4x CPU throttling, and the real integration's
+# timing. Manual dispatch (`gh workflow run visual-measure.yml --ref <branch>`), and on the visual branch also on
+# pushes that change the bench. Not on pull requests and not scheduled: loading the public sites weekly is an owner
+# decision (VISUAL.md 17).
+#
+# This repository is public, and so are its run logs and artifacts. For the public sites, the log shows progress and
+# totals only, and the plain artifact holds counts only (counts-sites-<shard>.json: configuration, measured or not,
+# finding kinds and cost per load, sites replaced by tokens that cannot be mapped back). The per-load JSON, the element
+# crops and the screenshots name sites: they are uploaded only encrypted with the VISUAL_BENCH_KEY repository secret
+# (AES-256, `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:KEY`), and not at all when the secret is not
+# set. The summary job and summary.json hold counts per check kind only.
+on:
+  workflow_dispatch:
+    inputs:
+      smoke:
+        description: "Two pages per group only (plumbing check)"
+        type: boolean
+        default: false
+  push:
+    branches: [wave2/visual]
+    paths:
+      - "bench/visual/**"
+      - "!bench/visual/results/**"
+      - "!bench/visual/**/*.md"
+      - ".github/workflows/visual-measure.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-measure-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ONNXRUNTIME_NODE_INSTALL: skip
+  VISUAL_SMOKE: ${{ (github.event_name == 'workflow_dispatch' && inputs.smoke) || contains(github.event.head_commit.message, '[smoke]') }}
+
+jobs:
+  local:
+    name: "local pages: ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: demos-clean, group: demos, parts: "clean,cost" }
+          - { name: demos-faults, group: demos, parts: faults }
+          - { name: templates-clean, group: templates, parts: "clean,cost" }
+          - { name: templates-faults, group: templates, parts: faults }
+          - { name: compat-clean, group: compat, parts: "clean,cost,integration" }
+          - { name: compat-faults, group: compat, parts: faults }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Build the runtime
+        run: npm run build -w @genclass/runtime
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-1.63.0
+      - name: Install Chromium
+        working-directory: packages/runtime
+        run: npx playwright install --with-deps chromium
+      - name: Build the page harness
+        run: node bench/visual/build.mjs
+      - name: Prepare ${{ matrix.group }}
+        env:
+          VISUAL_BENCH_WORK: ${{ runner.temp }}/visual-work
+        run: node bench/visual/corpus.mjs prepare ${{ matrix.group }}
+      - name: Measure
+        env:
+          VISUAL_BENCH_WORK: ${{ runner.temp }}/visual-work
+        run: node bench/visual/run.mjs --group ${{ matrix.group }} --parts ${{ matrix.parts }} --workers 2 --out ${{ runner.temp }}/visual-out/${{ matrix.name }}
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-${{ matrix.name }}
+          path: ${{ runner.temp }}/visual-out
+          retention-days: 7
+          if-no-files-found: warn
+
+  sites:
+    name: "public sites: shard ${{ matrix.shard }} of 4"
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      HAS_KEY: ${{ secrets.VISUAL_BENCH_KEY != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-1.63.0
+      - name: Install Chromium
+        working-directory: packages/runtime
+        run: npx playwright install --with-deps chromium
+      - name: Build the page harness
+        run: node bench/visual/build.mjs
+      - name: Measure (one load per site and configuration, no clicks, no forms)
+        run: node bench/visual/run.mjs --group sites --shard ${{ matrix.shard }}/4 --out ${{ runner.temp }}/visual-out/sites-${{ matrix.shard }}
+      - name: Upload the counts (no site names)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-sites-${{ matrix.shard }}
+          path: ${{ runner.temp }}/visual-out/sites-${{ matrix.shard }}/counts-sites-*.json
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Seal the per-site results (only with the VISUAL_BENCH_KEY secret)
+        if: always() && env.HAS_KEY == 'true'
+        env:
+          KEY: ${{ secrets.VISUAL_BENCH_KEY }}
+        run: |
+          tar -czf - -C "${{ runner.temp }}/visual-out/sites-${{ matrix.shard }}" private \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:KEY -out "${{ runner.temp }}/sealed-sites-${{ matrix.shard }}.tgz.enc"
+      - name: Upload the sealed results
+        if: always() && env.HAS_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sealed-sites-${{ matrix.shard }}
+          path: ${{ runner.temp }}/sealed-sites-${{ matrix.shard }}.tgz.enc
+          retention-days: 7
+          if-no-files-found: warn
+
+  summary:
+    name: summary (counts per check kind)
+    needs: [local, sites]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: visual-*
+          path: ${{ runner.temp }}/all
+      - name: Summarize
+        run: |
+          mkdir -p "${{ runner.temp }}/summary"
+          node bench/visual/summarize.mjs "${{ runner.temp }}/all" --labels bench/visual/labels.json \
+            --out "${{ runner.temp }}/summary/summary.json" --md "${{ runner.temp }}/summary/summary.md" --detail "${{ runner.temp }}/summary/detail.md"
+          cat "${{ runner.temp }}/summary/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-summary
+          path: ${{ runner.temp }}/summary
+          retention-days: 7

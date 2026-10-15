@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout shift while scrolling an infinite list</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  /* A pattern the bench found on a public site (bench/visual, docs/runtime/VISUAL.md 19): an infinite list loads more
+     items as the visitor scrolls and pushes a tall footer down. That is the page answering the scroll, not a load
+     bug, so it is not reported. (A window with no element left to name is the other exclusion; it is unit-tested.) */
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .item { height: 80px; margin: 0 24px; border-bottom: 1px solid #e5e7eb; }
+  footer { height: 60vh; background: #111827; color: #f9fafb; padding: 24px; }
+</style>
+</head>
+<body>
+<div style="height: 70vh; padding: 24px">Latest posts</div>
+<div id="list"></div>
+<footer>Footer: about, careers, press</footer>
+<script>
+  const list = document.getElementById("list");
+  const add = (n) => {
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement("div");
+      d.className = "item";
+      d.textContent = "Item " + (list.children.length + 1);
+      list.appendChild(d);
+    }
+  };
+  add(6);
+  let busy = false;
+  addEventListener("scroll", () => {
+    if (busy || list.children.length >= 60) return;
+    if (scrollY + innerHeight < document.documentElement.scrollHeight - 300) return;
+    busy = true;
+    setTimeout(() => {
+      add(10);
+      busy = false;
+    }, 100);
+  }, { passive: true });
+</script>
+</body>
+</html>

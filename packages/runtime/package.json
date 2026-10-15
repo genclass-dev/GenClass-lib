@@ -54,6 +54,7 @@
       "zustand": ["./dist/adapters/zustand.d.ts"],
       "devtools": ["./dist/devtools/index.d.ts"],
       "discover": ["./dist/discover.d.ts"],
+      "visual": ["./dist/visual.d.ts"],
       "sinks": ["./dist/sinks/index.d.ts"],
       "sinks/console-json": ["./dist/sinks/console-json.d.ts"],
       "sinks/webhook": ["./dist/sinks/webhook.d.ts"]
@@ -101,6 +102,10 @@
     "./discover": {
       "types": "./dist/discover.d.ts",
       "import": "./dist/discover.js"
+    },
+    "./visual": {
+      "types": "./dist/visual.d.ts",
+      "import": "./dist/visual.js"
     },
     "./sinks": {
       "types": "./dist/sinks/index.d.ts",

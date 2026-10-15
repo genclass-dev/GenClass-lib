@@ -690,7 +690,8 @@ export async function aggregate(db: D1Like, token: string, batch: AggBatch, now:
 
 // --------------------------------------------------------------------------------------------- stats
 
-export type Range = "24h" | "7d" | "30d";
+/** 90d and 1y: account dashboards on a plan with that much history (src/plans.ts); link dashboards use RANGES. */
+export type Range = "24h" | "7d" | "30d" | "90d" | "1y";
 export const RANGES: Range[] = ["24h", "7d", "30d"];
 const SERIES_METRICS = ["sessions", "decisions", "detections", "acted", "possible"];
 
@@ -720,7 +721,7 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
   const hourly = range === "24h";
   const table = hourly ? "hourly" : "daily";
   const col = hourly ? "hour" : "day";
-  const span = hourly ? 24 : range === "7d" ? 7 : 30;
+  const span = hourly ? 24 : range === "7d" ? 7 : range === "90d" ? 90 : range === "1y" ? 365 : 30;
   const buckets: string[] = [];
   for (let i = span - 1; i >= 0; i--) {
     const d = new Date(now.getTime() - i * (hourly ? 3_600_000 : 86_400_000));
@@ -814,12 +815,23 @@ export async function stats(db: D1Like, p: Project, range: Range, now: Date): Pr
 
 // --------------------------------------------------------------------------------------------- retention
 
-export async function retention(db: D1Like, now: Date): Promise<void> {
+/**
+ * `longer` (src/plans.ts): a SELECT of the tokens whose owner's plan keeps daily counters and recent rows for `days`
+ * (more than RETENTION_DAYS); their rows are kept that long instead. Without it every token keeps RETENTION_DAYS.
+ */
+export async function retention(db: D1Like, now: Date, longer?: { tokens: string; params: unknown[]; days: number }): Promise<void> {
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * 86_400_000);
-  await db.batch([
-    db.prepare("DELETE FROM daily WHERE day < ?").bind(dayKey(cutoff)),
+  const keep = longer ? ` AND token NOT IN (${longer.tokens})` : "";
+  const p = longer?.params ?? [];
+  const stmts = [
+    db.prepare(`DELETE FROM daily WHERE day < ?${keep}`).bind(dayKey(cutoff), ...p),
     db.prepare("DELETE FROM hourly WHERE hour < ?").bind(hourKey(new Date(now.getTime() - 48 * 3_600_000))),
-    db.prepare("DELETE FROM recent WHERE t < ?").bind(cutoff.toISOString()),
+    db.prepare(`DELETE FROM recent WHERE t < ?${keep}`).bind(cutoff.toISOString(), ...p),
     db.prepare("DELETE FROM sessions WHERE day < ?").bind(dayKey(new Date(now.getTime() - 2 * 86_400_000))),
-  ]);
+  ];
+  if (longer) {
+    const far = new Date(now.getTime() - Math.max(longer.days, RETENTION_DAYS) * 86_400_000);
+    stmts.push(db.prepare("DELETE FROM daily WHERE day < ?").bind(dayKey(far)), db.prepare("DELETE FROM recent WHERE t < ?").bind(far.toISOString()));
+  }
+  await db.batch(stmts);
 }

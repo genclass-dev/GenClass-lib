@@ -47,6 +47,13 @@ text is still `situation-v2.3` and the default model is still `@genclass/runtime
   at most 10 records per bug signature per page load (`maxPerSignature`, `0` for no cap), a sink's `sampleRate` below
   1 can drop detections, and it sends the redacted evidence (console line, subject, timeline, which can hold short
   fragments of typed input) to the URL you configure unless you pass `evidence: false`.
+- **Measured visual checks, on development hosts by default** (Measured visual checks, below): `visual` defaults to
+  `"local"` with `GenClass.init()`, `/auto` and the script tag, so on `localhost`-style hosts with a port, `*.test`
+  names and wherever the devtools overlay mounts, the page gets `[GenClass] Check (measured): ...` console lines, and
+  an app's `report` function and `rt.on("report")` listeners receive reports of the new kind `"check"`. Off
+  everywhere else and in `createRuntime()`; `visual: false` turns them off. They send nothing in telemetry, reach a
+  sink only when its `kinds` lists `"check"`, and change the page only with `visual: { on: true, fix: true }` in guard
+  or heal mode.
 - **Observe reports more** (below). What an app wired to `rt.on("detect")`, `rt.on("report")` or `report: fn`
   receives is unchanged by default: likely detections only, as in 0.2.x. New: "possible" detections on
   `console.debug`, in the devtools, `summary()` and telemetry (to your listeners and report function only with
@@ -433,6 +440,77 @@ observer does not record the runtime's own writes.
   each and from one shared parse. In observe mode a message that nothing finds salient is never parsed. The op, its
   event and the delivery gate are unchanged, and the summary text is the same when it is read (the model sees the
   same situation). Binary messages are still sized at once.
+
+### Measured visual checks
+
+- **New: measured visual checks** ([docs/runtime/VISUAL.md](../../docs/runtime/VISUAL.md)). GenClass now finds visual
+  and CSS bugs that never throw an error: text you cannot read because it is nearly the colour of its background
+  (below 1.5:1, including on hover, on focus and in dark mode), images, CSS background images, stylesheets, web fonts,
+  icon fonts and media that failed to load, styles and images a Content-Security-Policy blocked, `[object Object]`,
+  `$NaN`, `{{ }}`, `Invalid Date`, mojibake and lorem ipsum in rendered text, `var(--x)` with `--x` defined nowhere,
+  stretched images, pages that scroll sideways (with the element that causes it), a missing viewport meta tag on
+  phones, layout shifts above 0.25, a blank main region, invisible layers that swallow clicks, `pointer-events: none`
+  or a scroll lock left on `body`, controls under a fixed bar, focus or anchor targets under a sticky header, and
+  dialogs covered by other elements: 23 kinds. Each report names the element, what was measured and the threshold,
+  and suggests a CSS change for that selector (or the URL, header or HTML change when CSS is not the fix). These are
+  deterministic measurements with documented thresholds, reported as kind `"check"` with the line
+  `[GenClass] Check (measured): ...`; the model is not involved, they never feed a decision, and they abstain on what
+  they cannot know (text over images, video, canvases and gradients, including layers that ignore the pointer,
+  filters, partial opacity, forced colours, page translation).
+  - **Where they run.** `visual` defaults to `"local"` with `GenClass.init()`, `/auto` and the script tag: on for
+    development hosts (a dev server's port on `localhost`, `127.0.0.1`, `[::1]` or a `*.localhost` name, and `*.test`
+    names) and when the devtools overlay mounts, off everywhere else, including Capacitor, Tauri, Electron and
+    intranet hosts. `visual: true` (or `data-visual="on"`, `<meta name="genclass" content="visual=on">`) turns them on
+    everywhere; `?genclass-visual=on` turns on report-only checks for the person who opened the link; `visual: false`
+    or `?genclass-visual=off` turns them off. `createRuntime()` leaves them off.
+  - **Cost.** First load grows by about 0.6 KB gzip (the stub; measured in CI against `release/0.3.0` without the
+    checks), which puts both first loads over the 0.3.0 limits: see "First-load size" below, pending the maintainers'
+    decision. The checks are a lazy chunk (`dist/visual/index.js`, about 35 KB gzip), loaded 1.5 s after `load` and only in a visible tab
+    that is not prerendering. Every page read (passes, the 2 s read of `html` and `body`, the click, hover, focus,
+    scroll and page-blank checks) runs in idle callbacks: slices of 8 ms, 100 ms per pass and 1,000 ms per 10 minutes
+    of check time. One step can still exceed a slice when the browser must first lay out a heavy page, and a step of
+    50 ms or more is a long task the runtime's `perf` observer records. Low-end devices run only the near-free checks.
+  - **Runtime fixes (opt-in).** With `visual: { on: true, fix: true }` and guard or heal mode, three narrow fixes can
+    run: a readable text colour (one owned stylesheet rule and a `data-genclass-fix` attribute), and removing a leaked
+    inline `pointer-events: none` or `overflow: hidden` on `html` or `body`. Each is re-measured and undone if it did
+    not help; a colour fix is measured again every 2 s, after class or style changes and when the colour scheme
+    changes, and undone once the background it was made for changes. A scroll lock held since the page loaded, with
+    no dialog or menu ever open, is reported but not removed. Fixes can be undone (`finding.fix.undo()`, the devtools
+    Undo button) and are undone on `setMode("observe")`, the breaker, `disable()` and `destroy()` at once, and on
+    `pause()` at the next 2 s read. Observe mode never changes the page.
+  - **API.** `rt.on("check", f => ...)`, `rt.checks(n?)`, `rt.checkNow()`, `Report.kind "check"`, `rt.summary().visual`
+    (counts per kind and per route, fixes, cost), sink records of kind `"check"` (only for sinks whose `kinds` lists
+    it; the route normalised as in every sink record, a segment holding an `@` as `:id`; the webhook adapter caps
+    repeats per check kind and selector), audit entries of kind `"fix"`, a Checks tab in the devtools overlay (with Copy, Show and Undo), and
+    `@genclass/runtime/visual` with `checkPage()` for your own Playwright or Cypress tests. An app's `report`
+    function and `rt.on("report")` listeners receive reports of kind `"check"` without opting in (sinks only when
+    their `kinds` lists it).
+  - **Telemetry: nothing.** No field about the visual checks is sent; counts per kind are a proposal awaiting the
+    maintainers' approval of the exact fields ([TELEMETRY.md](TELEMETRY.md)).
+  - Not covered yet: text over photos, video and gradients, canvas and WebGL content, the colour scheme or viewport
+    the visitor is not using, layout shifts and failed CSS images outside Chromium, low contrast that is readable but
+    below WCAG AA.
+  - **Measured** by a new bench (`bench/visual`, GitHub Actions only;
+    [RESULTS.md section 14](../../docs/runtime/RESULTS.md)): 0 false reports in 128 views of the demos, templates and
+    compat apps (desktop and phone, light and dark), and recall 1.00 on planted faults for 19 of the 23 kinds
+    (`click-blocked` and `scroll-lock-stuck` 0.67, `pointer-events-leak` 0.94, `css-var-undefined` 0.96; run 5). On
+    about 40 public home pages the checks
+    were tuned on the same sites (the first run had 44 check errors in 100 loads; the fourth had none confirmed);
+    there is no held-out site set yet. Because of what the bench found, `css-var-undefined` reports a missing token only
+    where its fallback leaves text below 3:1; `focus-obscured` needs a cover that paints and is at most half the
+    viewport tall; `layout-shift` needs an element that moved and skips windows that start within 1 s after a scroll;
+    `control-unreachable` sees controls inside open shadow roots and skips covers with no box; `scroll-lock-stuck` and
+    `pointer-events-leak` treat an expanded popup trigger as something open; and a pass on a page that is never idle
+    no longer advances one step per second.
+  - **After a review of the checks** (VISUAL.md section 19), correct pages that looked broken no longer do:
+    `text-invisible` follows the page's own colour scheme for the canvas (the `color-scheme` meta tag, and dark-only
+    pages for every visitor), does not trust a low verdict while a layer that ignores the pointer paints under the
+    text, and skips loading placeholders and emoji; `dialog-covered` tests a dialog's controls only where its own
+    scroll area shows them; `page-blank` counts web components (shadow roots) as content and waits for a tab that
+    stayed visible; `scroll-lock-stuck` ignores wheels at the ends of the page, sideways gestures, gestures the app
+    handled and pages that scroll by moving a layer; `pointer-events-leak` ignores a busy shield while a request runs;
+    `csp-blocked` and `layout-shift` are reported once per session, not again on every route; `icon-font-failed`
+    re-reads the font's status before reporting.
 
 ### First-load size
 

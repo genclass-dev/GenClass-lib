@@ -2,7 +2,7 @@
 // module as an entrypoint, so the collector and dashboard code (and their constants) live in collector.ts.
 import { authRetention } from "./auth.js";
 import { handle, reply, type Env } from "./collector.js";
-import { retention } from "./dashboard.js";
+import { planRetention, stripeMode } from "./plans.js";
 
 interface Ctx {
   waitUntil(p: Promise<unknown>): void;
@@ -19,13 +19,14 @@ export default {
     );
   },
   /**
-   * Daily cron: delete dashboard rows past retention (R2 has its own 90-day lifecycle rule), and expired sign-in
-   * challenges, device codes and sessions.
+   * Daily cron: delete dashboard rows, export copies and their index past each plan's retention (src/plans.ts; R2's
+   * lifecycle rules expire events/ after 90 days and export/ after a year), and expired sign-in challenges, device
+   * codes and sessions.
    */
   async scheduled(_event: unknown, env: Env, ctx: Ctx): Promise<void> {
     const db = env.DB;
     if (!db) return;
     const now = new Date();
-    ctx.waitUntil(Promise.all([retention(db, now), authRetention(db, now).catch(() => undefined)]));
+    ctx.waitUntil(Promise.all([planRetention(db, now, env.BUCKET, stripeMode(env)), authRetention(db, now).catch(() => undefined)]));
   },
 };

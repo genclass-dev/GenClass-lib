@@ -14,17 +14,18 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 
 | path | what |
 |---|---|
-| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`), `test/` (vitest; `test/install/`, `test/browser/`), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
+| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
 | `packages/runtime-model/` | the data-only model package (`files/` is gitignored, filled at release) and `MODEL_CARD.md` |
 | `sim/` | deterministic training-data simulator driving the real runtime (`SEPARABILITY.md`, `README.md`) |
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
 | `training/` | vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's situation renderer), Azure training, ONNX export, `EVAL.md` |
 | `demos/` | six demo apps with a chaos backend and Playwright trials; `bench/heal/` runs them per mode |
 | `packages/playwright/` | `@genclass/playwright`: Playwright reporter + pure summariser that read the GenClass fixture's `test-results/genclass/*.json` (`genclass-races/1`) and write `genclass-report.md` for the PR; injects nothing, no runtime deps |
+| `bench/visual/` | the visual checks' bench (GitHub Actions only, `.github/workflows/visual-measure.yml`): false reports on the demos, templates, compat apps and about 40 public sites, recall on faults planted from the harness, cost; public sites are counted per check kind only, never named in the repo, its run logs or plain artifacts (per-site results only encrypted with the `VISUAL_BENCH_KEY` secret) |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
 | `site/`, `telemetry-worker/` | genclass.dev, and the diagnostics collector with the dashboards and accounts (Cloudflare Workers) |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
-| `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, **`RESULTS.md`** (every measured number) |
+| `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, `VISUAL.md` (measured visual checks: design), **`RESULTS.md`** (every measured number) |
 | `scripts/` | Azure VM helpers (`vm.sh`, `azvm.sh`, `launch_run.sh`); `internal/` is gitignored working notes |
 
 ## Build and test
@@ -45,7 +46,10 @@ NODE_OPTIONS=--expose-gc npx vitest run test/review-perf.test.ts --retry=2   # t
 `npm run typecheck -w @genclass/playwright && npm run build -w @genclass/playwright && (cd packages/playwright && npx vitest run)`.
 
 One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tests are model-parity tests that need
-`GENCLASS_MODEL_DIR`. Not in CI, ask before running: Playwright (`npm run test:browser`), `test/smoke/smoke.sh`, the
+`GENCLASS_MODEL_DIR`. CI also runs the `visual-browser` job: the first-load size against the release line (`FIRST_LOAD_BASE`, release/0.3.0 until 0.3.0 is on main; `test/first-load-size.mjs`, fails at 0.6 KB
+growth on the visual branch, 0.5 KB before the review, pending the owner's OK) and `npx playwright test --config test/browser/visual/playwright.config.ts` in Chromium. The visual bench
+(`visual-measure.yml`) is a separate workflow: manual dispatch (and pushes to `bench/visual/` on the visual branch);
+it loads public sites, so it does not run on pull requests. Not in CI, ask before running: the model Playwright suite (`npm run test:browser`), `test/smoke/smoke.sh`, the
 install suite (`test/install/run-all.sh`), the sim and realapps generators, the demos' eval, training, anything on
 Azure, `git push`, `npm publish`.
 
@@ -56,7 +60,13 @@ Azure, `git push`, `npm publish`.
    erroring means the passive action. Report FIR (false interventions on clean runs) next to every recall number.
 2. **No hardcoded bug patterns.** The runtime computes facts and triages (`runtime.ts` → `trigger`); it never maps a
    fact pattern to a diagnosis or action with an if/then. `situation/build.ts` → `builtinApplicable` only says
-   whether an action *can* run.
+   whether an action *can* run. Exception (owner, 2026-10-13): visual checks in `src/visual/` are measured checks,
+   labelled as such (deterministic measurements with documented thresholds, reported as kind `"check"`, never as a
+   model finding); they never decide network actions and never feed situations, facts, the event log, the gate or
+   the model. Their runtime fixes follow rule 1: opt-in, reversible, never in `observe`. Design:
+   `docs/runtime/VISUAL.md`. One indirect path stays: their page reads run in idle slices of 8 ms, but a read that
+   makes the browser lay out a very heavy page can still take 50 ms or more, and the runtime's `perf` observer records
+   any such long task as a `perf` event the model can read (VISUAL.md section 1).
 3. **Model-visible text is frozen** (tag `situation-v2.3`). Any change to `src/situation/*`, facts, question, action
    or diagnosis wording, `util.ts` formatting/redaction, op or event names means a new tag, regenerated data, an
    `rt.py` mirror and retraining. Do not make such a change without an explicit go-ahead; exact-text tests exist.
