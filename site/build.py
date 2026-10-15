@@ -13,15 +13,21 @@ SITE = "https://genclass.dev"
 TODAY = datetime.date.today().isoformat()
 GH = "https://github.com/genclass-dev/GenClass-lib"
 NPM = "https://www.npmjs.com/package/@genclass/runtime"
-RT = "0.2.1"  # the pinned @genclass/runtime version shown on the site; "{{rt}}" in src/ renders as this
+RT = "0.2.2"  # the pinned @genclass/runtime version shown on the site; "{{rt}}" in src/ renders as this
 MODEL = "0.2.0"  # the model package the pinned runtime loads
 CONTACT = "mehar@daybot.ca"  # the contact in SECURITY.md; GitHub issues and discussions are not enabled on the repo
 HEADLINE = "Catch the bugs that never throw. Then stop them."  # the one line: H1, og.png, og:image:alt
 
 # The plans: billing/plans.json at the repo root is the one source (the telemetry worker imports the same file).
-# In src/, "{{plan.<id>.price|apps|history|name}}", "{{plans.apps_cap}}" and "{{plans.contact}}" render from it.
+# In src/, "{{plan.<id>.price|apps|history|name}}", "{{plans.apps_cap}}", "{{plans.contact}}" and "{{plans.trial_days}}"
+# render from it.
 PLANS = json.loads((ROOT.parent / "billing/plans.json").read_text())
 PLAN = {p["id"]: p for p in PLANS["plans"]}
+# How long Pro's trial lasts, the only source of the number in public copy ("a {TRIAL_DAYS}-day free trial"). The telemetry worker
+# reads TRIAL_DAYS in telemetry-worker/wrangler.toml, and a telemetry-worker test checks that the two agree.
+TRIAL_DAYS = PLANS.get("trial_days")
+if type(TRIAL_DAYS) is not int or not 1 <= TRIAL_DAYS <= 60:
+    raise SystemExit(f"billing/plans.json: trial_days must be a whole number of days from 1 to 60, not {TRIAL_DAYS!r}")
 APPS_CAP = 200  # the abuse cap on apps per account, whatever the plan (MAX_APPS_PER_ACCOUNT in telemetry-worker/src/auth.ts)
 SOON = "(coming next)"  # shown after a feature line whose "available" is false
 # Paid plans go on sale on this site only when the pinned runtime sends to the dashboard: DASH_RT is the first version
@@ -39,12 +45,12 @@ def semver(v):
 
 PAID_OPEN = semver(RT) >= semver(DASH_RT)
 BILLING_URL = "https://genclass.dev/account/billing"  # served by the telemetry worker; it asks the visitor to sign in
-# Pro's trial (telemetry-worker src/trial.ts): sign in (or up), then Start a trial on the account page. A trial needs no
-# Stripe, so its button is live whatever PAID_OPEN says. Public copy never says how long a trial lasts.
+# Pro's trial (telemetry-worker src/trial.ts): sign in (or up), then start the trial on the account page. A trial needs no
+# Stripe, so its button is live whatever PAID_OPEN says. Public copy states its length only from TRIAL_DAYS.
 TRIAL_URL = "https://genclass.dev/account/trial"
 # The buttons under each plan: label, link (None: an inactive button), button style, the line under it.
 CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed. No dashboard."),
-       "pro": ("Start a trial", TRIAL_URL, "btn green", "Trials available. No card needed.")}
+       "pro": (f"Start your {TRIAL_DAYS}-day free trial", TRIAL_URL, "btn green", f"Get a {TRIAL_DAYS}-day free trial for analytics. No card needed.")}
 
 def cta(p):
     if p["id"] == "pro": return CTA["pro"]
@@ -62,7 +68,7 @@ def history(days):
     return (f"{days // 365} year" + ("s" if days >= 730 else "")) if days % 365 == 0 else f"{days} days"
 
 def plan_tokens(s):
-    s = s.replace("{{plans.apps_cap}}", str(APPS_CAP))
+    s = s.replace("{{plans.apps_cap}}", str(APPS_CAP)).replace("{{plans.trial_days}}", str(TRIAL_DAYS))
     s = s.replace("{{plans.contact}}", PLANS["contact"]).replace("{{dash_rt}}", DASH_RT)
     pick = {"name": lambda p: p["name"], "price": lambda p: usd(p["price_usd_cents"]["monthly"]),
             "apps": lambda p: apps(p["limits"]["apps"]), "history": lambda p: history(p["limits"]["history_days"])}
@@ -322,7 +328,7 @@ def llms_plans():
     for p in PLANS["plans"]:
         cents = p["price_usd_cents"]["monthly"]
         sale = f"billed monthly through Stripe Checkout; sign in, then {BILLING_URL}" if PAID_OPEN else f"not on sale yet: it opens with runtime {DASH_RT}, the first version that sends to the dashboard"
-        if p["id"] == "pro": sale = f"trials available at {TRIAL_URL}; " + sale
+        if p["id"] == "pro": sale = f"get a {TRIAL_DAYS}-day free trial for analytics at {TRIAL_URL}; " + sale
         head = f'- {p["name"]}, ' + (f"US{usd(cents)} per month ({sale})" if cents else "US$0")
         feats = "; ".join(f["text"] if f["available"] or SOON in f["text"] else f'{f["text"]} {SOON}' for f in p["features"])
         out.append(f"{head}: {feats}.")
@@ -332,7 +338,7 @@ def llms_plans():
 
 LLMS = f"""# GenClass
 
-> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. The runtime and its on-device model are free; the genclass.dev dashboard comes with Pro (trials available), with history, data export and forwarding, and Custom adds a model trained on the customer's app.
+> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. The runtime and its on-device model are free; the genclass.dev dashboard comes with Pro (get a {TRIAL_DAYS}-day free trial for analytics), with history, data export and forwarding, and Custom adds a model trained on the customer's app.
 
 ## Shipped
 - `@genclass/runtime` {RT} with `@genclass/runtime-model` {MODEL} (training run r17-v2dT). Default mode observe, default aggressiveness "balanced", report threshold 0.90.
@@ -345,7 +351,7 @@ LLMS = f"""# GenClass
 ## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
 - Model {MODEL} at the shipped setting (balanced), held-out real apps: detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state; guard acts on 7.5% of the cases where acting would help.
 - False interventions, model {MODEL}, held-out simulated apps: guard 0.005% / 0.13% / 0.54% and heal 0.26% / 0.59% / 1.84% for cautious / balanced / eager (targets 0.1% guard, 0.5% heal: cautious meets both, balanced is slightly over). 0.00% on held-out real apps at every profile.
-- Compatibility matrix (runtime 0.1.0-beta.4, the code shipped as {RT}; model {MODEL}, balanced; run 2026-10-10): 7 frameworks, 15 data layers, 8 scenarios, 10 seeds, every mode. 350 of 351 cells pass; 0 bugs introduced in 3,510 runs; 0 non-passive actions on correct apps in 1,760 guard and heal runs; guard left 249 of 250 latent-bug runs buggy; observe mode produced 49 false findings in 880 runs on correct apps. https://genclass.dev/docs/compatibility
+- Compatibility matrix (runtime 0.1.0-beta.4, the code shipped as 0.2.1; model {MODEL}, balanced; run 2026-10-10): 7 frameworks, 15 data layers, 8 scenarios, 10 seeds, every mode. 350 of 351 cells pass; 0 bugs introduced in 3,510 runs; 0 non-passive actions on correct apps in 1,760 guard and heal runs; guard left 249 of 250 latent-bug runs buggy; observe mode produced 49 false findings in 880 runs on correct apps. https://genclass.dev/docs/compatibility
 - Never-worse check: 0 of 396 clean real-app runs changed (66 apps × 6 seeds, always-passive model, v2 runtime as of 0.1.0-alpha.1; not re-run on {RT}).
 - Six demo apps under network chaos, model {MODEL}, balanced: bug rate 72% with GenClass off, 70% observe, 72% guard, 73% heal. Nothing is healed at the shipped gates.
 - Previous model 0.1.0 (r17-v2b), observe mode at report threshold 0.70: 96% detection precision on 16,600 held-out real-app situations, 0.62% false detections on clean traffic. Not re-measured for {MODEL}.

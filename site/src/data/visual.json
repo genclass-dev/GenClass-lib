@@ -5,7 +5,7 @@
   "ready_by": null,
   "scan_live": true,
   "scan_runs": "chunk",
-  "checks_in_runtime": null,
+  "checks_in_runtime": "0.3.0-beta.0",
   "checks": {
     "name": "GenClass visual checks",
     "version": "v1",

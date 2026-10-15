@@ -51,7 +51,7 @@
   <div class="wrap">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Benchmarks</span></nav>
     <h1>Measured on apps <em>it never saw.</em></h1>
-    <p class="lede">Every number here comes from held-out test sets: simulated apps the model was not trained on, and real apps run in Chromium that were kept out of training. Each recall sits next to its false-intervention rate, so you can see what you are trading. The shipped runtime is 0.2.1 with model 0.2.0 (r17-v2dT) at the balanced profile, report threshold 0.90; numbers from the previous model, 0.1.0 (r17-v2b), are labelled as such.</p>
+    <p class="lede">Every number here comes from held-out test sets: simulated apps the model was not trained on, and real apps run in Chromium that were kept out of training. Each recall sits next to its false-intervention rate, so you can see what you are trading. The shipped runtime is 0.2.2 with model 0.2.0 (r17-v2dT) at the balanced profile, report threshold 0.90; numbers from the previous model, 0.1.0 (r17-v2b), are labelled as such.</p>
     <div class="stats">
       <div class="stat"><div class="big">3 in 4</div><p>duplicate submits detected on unseen real apps, with 30% of stale overwrites and 6% of broken state</p><small>model 0.2.0, balanced (shipped)</small></div>
       <div class="stat"><div class="big">0.13% · 0.59%</div><p>guard and heal false interventions at the shipped profile, held-out simulated apps; the targets are 0.1% and 0.5%, met at cautious (0.005% · 0.26%)</p><small>model 0.2.0</small></div>
