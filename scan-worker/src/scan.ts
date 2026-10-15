@@ -24,6 +24,7 @@ import { decideRequest, latencySequence, type Phase, type PolicyContext } from "
 import { probeTargets, runtimeBootstrap, runtimeStateSource } from "./probe.ts";
 import { blockedAddress, siteOf, type Target } from "./target.ts";
 import { callSource, FIX_KINDS, installSource, PERIODIC_KINDS, visualKey, visualStatus } from "./visual.ts";
+import { VISION_TAIL_MS, visionFacts, visionItem, type VisionClient, type VisionRun } from "./vision.ts";
 
 // ------------------------------------------------------------------------------- the browser we drive
 
@@ -275,6 +276,11 @@ export interface ScanDeps {
   judge?: JudgeClient | null;
   /** How long one judge call may take (JUDGE_TIMEOUT_MS; tests shorten it). */
   judgeTimeoutMs?: number;
+  /**
+   * GenClass Vision (src/vision.ts): a second opinion on the measured findings the judge cropped, in a tab of its own;
+   * null or absent when it is off. It never changes a finding or the score.
+   */
+  vision?: VisionClient | null;
 }
 
 // ------------------------------------------------------------------------------------------ the views
@@ -498,6 +504,8 @@ export interface ScanResult {
   chrome: string;
   timedOut: boolean;
   judge?: JudgeRun;
+  /** GenClass Vision over the scan (src/vision.ts); absent when it was off. */
+  vision?: VisionRun;
 }
 
 // ------------------------------------------------------------------------------------------ utilities
@@ -624,6 +632,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   const judgeCalls: Promise<void>[] = [];
   let judgeFirst = 0;
   let judgeLast = 0;
+  // GenClass Vision: fed the judge's crops of measured findings, answered in its own tab
+  const vision = deps.vision ?? null;
+  const visionCalls: Promise<unknown>[] = [];
+  let visionStarted = false;
   const dnsCache = new Map<string, Promise<HostAnswer>>();
   dnsCache.set(target.host, Promise.resolve("ok")); // checked before the browser started
   const dns = (host: string): Promise<HostAnswer> => {
@@ -662,6 +674,17 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     throw new ScanError("browser", e instanceof Error ? e.message : String(e));
   }
   result.ms.launch = deps.now() - t0;
+  /**
+   * The Vision tab opens and loads the model when the first view has a measured finding cropped, not when the browser
+   * starts: on the test copy, loading it alongside the three page loads made the views 1 to 3 s slower (the model's
+   * 6.4 MB of base64 shares the DevTools connection every intercepted request of the views waits on), and most pages
+   * have no visual finding to score. Started then, it loads while the other views finish and the race probe runs.
+   */
+  const startVision = () => {
+    if (!vision || visionStarted) return;
+    visionStarted = true;
+    vision.start(browser, `${name}v`, left);
+  };
   const pages: PageLike[] = [];
   let hardStop: ReturnType<typeof setTimeout> | undefined;
   let stopNow: (why: Stop) => void = () => undefined;
@@ -745,7 +768,12 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
 
     // ------------------------------------------------------------------ the model judge's answers
     // sent while the views ran, so usually all in by now; each call has its own timeout from when it was sent
-    if (judgeCalls.length) await withTimeout(Promise.allSettled(judgeCalls), Math.max(0, left() - 300), "the model judge").catch(() => undefined);
+    // GenClass Vision's answers likewise (it scored while the probe and the guard pass ran), waited for briefly and
+    // in parallel with the judge's, so it adds at most VISION_TAIL_MS to a scan and never time the scan needed
+    await Promise.all([
+      judgeCalls.length ? withTimeout(Promise.allSettled(judgeCalls), Math.max(0, left() - 300), "the model judge").catch(() => undefined) : undefined,
+      vision && visionCalls.length ? withTimeout(Promise.allSettled(visionCalls), Math.max(0, Math.min(VISION_TAIL_MS, left() - 300)), "GenClass Vision").catch(() => undefined) : undefined,
+    ]);
   })();
 
   let outcome: "done" | Stop;
@@ -756,6 +784,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     clearTimeout(hardStop);
     deps.signal?.removeEventListener("abort", onAbort);
     for (const p of pages) await p.close().catch(() => undefined);
+    if (vision) await vision.close().catch(() => undefined);
     await browser.close().catch(() => undefined);
     result.ms.total = deps.now() - t0;
   }
@@ -774,6 +803,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
   }
   for (const v of result.views) if (!v.ok) v.shot = null;
   result.judge = judgeRun();
+  if (vision) result.vision = vision.run();
   return result;
 
   // ======================================================================================== helpers
@@ -1155,6 +1185,8 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
     let chosen = 0;
     let sent = 0;
     const judged = (view.judged ??= []);
+    // the measured findings the judge cropped, for GenClass Vision (scored after the loop, with the var() pass)
+    const forVision: { res: JudgeResult; i: number; facts: JudgeFacts; crop: Crop }[] = [];
     try {
       // the reflow check left the light phone at 320 px: back to the phone's width, as in the screenshot
       if (narrowed) {
@@ -1214,6 +1246,10 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
           const state = judgeText(j.it.cls === "finding", j.facts, j.crop);
           const res: JudgeResult = { id: `${spec.id}-j${judged.length + 1}`, view: spec.id, cls: j.it.cls, key: j.it.key, kind: j.it.kind, selector: j.it.sel, box: j.it.box, crop: j.crop, state, image, answer: null, error: null, ms: 0 };
           judged.push(res);
+          if (vision && j.it.cls === "finding") {
+            startVision();
+            forVision.push({ res, i: j.it.i, facts: j.facts, crop: j.crop });
+          }
           sent++;
           if (!judgeFirst) judgeFirst = deps.now();
           judgeCalls.push(
@@ -1227,6 +1263,7 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
         }
       }
       if (sent < chosen) view.notes.push(`The model judge (Clef) ran out of its time in this view: ${sent} of the ${chosen} elements chosen ${sent === 1 ? "was" : "were"} sent to it; what it did not see stands as measured.`);
+      if (vision && forVision.length) await visionView(page, forVision, timeLeft);
     } catch (e) {
       view.notes.push(`The model judge (Clef) did not run in this view (${cutText(e instanceof Error ? e.message : String(e), 100)}), so the findings here stand as measured.`);
     } finally {
@@ -1234,6 +1271,45 @@ export async function runScan(target: Target, deps: ScanDeps): Promise<ScanResul
       await withTimeout(evalDom(page, judgePageSource("restore", { name: N.judge })), 1500, "restoring the page").catch(() => undefined);
       view.judgeMs = deps.now() - t0;
     }
+  }
+
+  /**
+   * GenClass Vision on the measured findings the judge cropped in one view: the undefined-var() fact the judge measures
+   * only for css-var-undefined findings is measured for the others in what is left of the judge's own time (none left:
+   * taken as 0 and counted), then each crop goes to the Vision tab with its 64 facts. Nothing here waits for an answer,
+   * and nothing it says changes a finding.
+   */
+  async function visionView(page: PageLike, items: { res: JudgeResult; i: number; facts: JudgeFacts; crop: Crop }[], timeLeft: () => number): Promise<void> {
+    if (!vision) return;
+    const has = (v: unknown) => typeof v === "number" && v > 0;
+    const need = items.filter((x) => x.res.kind !== "css-var-undefined" && !has(x.facts.el.vu) && !has(x.facts.el.vi)).map((x) => x.i);
+    let vars: Record<string, unknown> = {};
+    if (need.length && timeLeft() > 350) {
+      const got = parseJson<{ ok?: unknown; vars?: unknown } | null>(
+        await withTimeout(evalDom(page, judgePageSource("vars", { name: N.judge, idx: need, maxMs: Math.min(400, timeLeft() - 250) })), Math.min(900, timeLeft() - 100), "the var() pass").catch(() => null),
+        null,
+      );
+      if (got && got.ok === true && got.vars && typeof got.vars === "object") vars = got.vars as Record<string, unknown>;
+    }
+    let unmeasured = 0;
+    for (const x of items) {
+      const measured = x.res.kind === "css-var-undefined" || has(x.facts.el.vu) || has(x.facts.el.vi) || typeof vars[String(x.i)] === "number";
+      if (!measured) unmeasured++;
+      const undef = has(x.facts.el.vu) || has(x.facts.el.vi) || has(vars[String(x.i)]);
+      const res = x.res;
+      res.vision = null;
+      visionCalls.push(
+        vision.score(res.image, visionFacts(visionItem(x.facts, x.crop, undef))).then(
+          (v) => {
+            res.vision = v ? { any: v.any, family: v.family, verdict: v.verdict, ms: Math.round((v.prepMs + v.runMs) * 10) / 10 } : null;
+          },
+          () => {
+            res.vision = null;
+          },
+        ),
+      );
+    }
+    if (unmeasured) vision.noteVars(unmeasured);
   }
 
   /** One crop as base64 JPEG: a viewport screenshot of the clip, over the view's own DevTools session when there is one. */

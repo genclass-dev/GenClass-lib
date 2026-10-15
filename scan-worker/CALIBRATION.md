@@ -370,3 +370,38 @@ these are the pages whose loads and deeper checks take longest, and the scan sta
 - **Config.** Production's `wrangler.jsonc` has the `AI` binding and `JUDGE` on; `JUDGE_CROPS` is only in env `test` and
   must stay out of production (it keeps every crop and each call's text). `REPORT_VERSION` 7 makes every cached report
   stale once.
+
+## GenClass Vision (beta): the test copy against production (2026-10-15)
+
+GenClass Vision (`VISION.md`) adds a score to the measured visual findings the judge cropped and changes nothing else.
+To check that, the same page was scanned on production (`genclass-scan`, report version 7, no Vision) and on the test
+copy (report version 8, Vision on), one after the other, one load each, through the public `POST /api/scan`. Round 1
+used the first build (Vision loaded when the browser started), test copy first; round 2 the final build (Vision loads at
+the first cropped finding), production first, with `?r=2` on each address so production could not answer from its
+cache. Pages: example.com, the fixture X (its default page `/` and `/?judge=1`), and two of the public pages above, L
+(search) and H (publisher). Times in seconds: the whole scan, and the views phase in brackets.
+
+| round | page | production: score / with GenClass | test copy: score / with GenClass | production total (views) | test total (views) | Vision on the test copy |
+|---|---|---|---|---|---|---|
+| 1 | X `?judge=1` | 82 / 84 | 82 / 84 | 30.6 (15.8) | 31.4 (16.3) | loaded in 4.2 s; 4 crops, 34.5 ms median; text-invisible 0.785 (flagged), focus-obscured 0.527 |
+| 1 | example.com | 97 / 97 | 97 / 97 | 15.1 (11.0) | 17.1 (12.9) | loaded in 5.5 s; no visual finding to score |
+| 1 | X | 80 / 82 | 80 / 82 | 28.5 (15.0) | 30.0 (16.0) | loaded in 3.8 s; 5 crops, 40.5 ms median; text-invisible 0.703, control-unreachable and focus-obscured 0.589 (none flagged) |
+| 1 | L | 84 / 84 | 84 / 84 | 27.8 (18.3) | 30.6 (21.3) | loaded in 8.7 s; no visual finding to score |
+| 1 | H | 87 / 87 | 87 / 87 | 29.7 (19.9) | 28.2 (17.9) | loaded in 4.1 s; no visual finding to score |
+| 2 | X `?judge=1` | 82 / 84 | 82 / 84 | 34.2 (17.3) | 30.6 (16.1) | opened at the first crop, loaded in 2.8 s; 4 crops, 35.9 ms median; the same scores as round 1 |
+| 2 | X | 80 / 82 | 80 / 82 | 27.7 (14.3) | 35.8 (18.0) | opened at the first crop, loaded in 3.8 s; 5 crops, 29.8 ms median; the same scores as round 1 |
+| 2 | example.com | 97 / 97 | 97 / 97 | 12.5 (9.4) | 16.3 (11.2) | not opened (no visual finding) |
+| 2 | L | 84 / 84 | 84 / 84 | 31.2 (18.8) | 24.4 (15.7) | not opened (no visual finding) |
+
+- **The score was the same in every pair**, and so were the findings, their scoring and the judge's outcomes, except one
+  category in one pair: L in round 2 scored Speed 96 on production (two images without dimensions moved content when
+  they loaded) and 100 on the test copy (the images did not arrive late on that load). Vision never opened on that scan,
+  so this is the load, not Vision; the overall score was 84 on both.
+- **Timing.** Every scan stayed well inside the 50 s budget (the longest, 35.8 s). The views phase differed from
+  production's by -3.1 to +3.7 s; the two scans on which Vision never opened differed by +1.8 and -3.1 s, so the
+  differences are within the spread of single loads. One further test-copy scan of X failed to start a browser in 12 s
+  ("Could not start a browser for the scan") before Vision could have run, and was repeated.
+- **Vision's scores were reproducible**: the same crops scored the same to every printed digit across rounds. No
+  finding was unscored on these pages, so the "GenClass Vision (beta)" list stayed empty; `test/vision.test.ts` covers it.
+- **What was not checked.** Whether its flags are right on public pages: none of the public pages here had a measured
+  visual finding for it to score, as for the judge's second stage above.

@@ -521,6 +521,11 @@ export interface JudgeResult {
   /** Why there is no answer: "timeout", "unavailable" (the call threw) or "malformed". */
   error: string | null;
   ms: number;
+  /**
+   * GenClass Vision's second opinion on the same crop (src/vision.ts), for a measured finding: its output, or null when
+   * it did not answer. Absent when Vision was not asked. It never changes the judge's outcome or the score.
+   */
+  vision?: { any: number; family: number[]; verdict: number[]; ms: number } | null;
 }
 
 /**

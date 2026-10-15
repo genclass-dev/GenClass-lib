@@ -20,6 +20,7 @@ import { runScan, ScanError, UA_TOKEN, type BrowserLike, type NavVerdict, type S
 import { aboutPage, nonce, notFoundPage, scanPage, securityHeaders, type ScanPageData } from "./page.ts";
 import { acquireSlot, cachedReport, cacheKey, optedOut, releaseSlot, saveReport, SHOT_PATH, shotKey, type Bucket } from "./store.ts";
 import { RUNTIME_VERSION } from "./visual.ts";
+import { readVisionModel, VISION_MODEL, visionRunner, type VisionClient, type VisionModel } from "./vision.ts";
 import { blockedName, normaliseTarget, publicHostname, resolveCheck, robotsDisallows, robotsRules, siteOf, type Fetcher, type Target } from "./target.ts";
 
 export interface RateLimiter {
@@ -63,6 +64,13 @@ export interface Env {
    * in the report's judge.asked (the test copy, for calibration). Unset in production.
    */
   JUDGE_CROPS?: string;
+  /**
+   * The genclass-models R2 bucket, for GenClass Vision's model (src/vision.ts VISION_KEY, a key the site worker does not
+   * serve). Unset: Vision is off.
+   */
+  MODELS?: { get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null> };
+  /** "off" turns GenClass Vision off even with the MODELS binding (default on). */
+  VISION?: string;
 }
 
 export interface Ctx {
@@ -80,6 +88,8 @@ export interface AppDeps {
   /** axe-core (src/axe-source.ts) and its version, or null. */
   axe?: { source: string; version: string } | null;
   scanId(): string;
+  /** GenClass Vision for one scan (tests hand in a fake); unset: visionClient(env) over the MODELS binding. */
+  vision?(env: Env): VisionClient | null;
 }
 
 export { RUNTIME_VERSION };
@@ -157,7 +167,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, deps: AppDeps
       const r = await cachedReport(env.BUCKET, await cacheKey(t.url), deps.now(), REPORT_VERSION);
       return r ? json({ ok: true, report: r }) : json({ ok: false, code: "none", message: "No recent scan for that page." }, 404);
     }
-    if (path === "/api/scan/health") return json({ ok: true, ua: UA_TOKEN, runtime: RUNTIME_VERSION, report: REPORT_VERSION, judge: judgeClient(env) ? JUDGE_MODEL : null, prompt: JUDGE_PROMPT });
+    if (path === "/api/scan/health") return json({ ok: true, ua: UA_TOKEN, runtime: RUNTIME_VERSION, report: REPORT_VERSION, judge: judgeClient(env) ? JUDGE_MODEL : null, prompt: JUDGE_PROMPT, vision: visionOn(env) ? VISION_MODEL : null });
     if (path.startsWith("/api/scan/shot/")) {
       const m = SHOT_PATH.exec(path);
       if (!m || request.method !== "GET") return new Response("Not found", { status: 404 });
@@ -349,6 +359,29 @@ export function judgeClient(env: Env): JudgeClient | null {
   return { ask: (input) => ai.run(JUDGE_MODEL, input) };
 }
 
+/** GenClass Vision is on when the MODELS binding is there and VISION is not "off". */
+export const visionOn = (env: Env): boolean => !!env.MODELS && env.VISION !== "off";
+
+/** The model's bytes, read once per isolate (a failed read is tried again on the next scan). */
+let visionModelCache: Promise<VisionModel | null> | null = null;
+function visionModel(env: Env): Promise<VisionModel | null> {
+  const bucket = env.MODELS;
+  if (!bucket) return Promise.resolve(null);
+  if (!visionModelCache) {
+    const p = readVisionModel(bucket).catch(() => null);
+    visionModelCache = p;
+    void p.then((m) => {
+      if (!m && visionModelCache === p) visionModelCache = null;
+    });
+  }
+  return visionModelCache;
+}
+
+/** GenClass Vision for one scan over the MODELS binding, or null when it is off. */
+export function visionClient(env: Env, now: () => number): VisionClient | null {
+  return visionOn(env) ? visionRunner(() => visionModel(env), now) : null;
+}
+
 async function runAndSave(
   target: Target,
   key: string,
@@ -380,6 +413,7 @@ async function runAndSave(
     guardAggressiveness: aggr,
     guardMargin: margin,
     judge: judgeClient(env),
+    vision: deps.vision ? deps.vision(env) : visionClient(env, deps.now),
     progress: (step, detail) => send({ type: "progress", step, ...(detail || {}) }),
   });
   if (signal.aborted) throw new ScanError("cancelled", "The scan was stopped because the page that asked for it closed.");
@@ -421,7 +455,8 @@ async function runAndSave(
   const j = report.judge;
   console.log(
     `scan ${id}: ${result.ms.total} ms (launch ${result.ms.launch}, views ${result.ms.views}, probe ${result.ms.probe}, guard ${result.ms.guard}), ${report.findings.length} findings, score ${report.score.value}` +
-      (j.on ? `; judge ${j.answered}/${j.calls} answered, ${j.timeouts} late, ${j.tokens} tokens, call ms median ${j.msMedian} max ${j.msMax}, wall ${j.wallMs}, kept ${j.kept} fine ${j.fine} found ${j.found}` : ""),
+      (j.on ? `; judge ${j.answered}/${j.calls} answered, ${j.timeouts} late, ${j.tokens} tokens, call ms median ${j.msMedian} max ${j.msMax}, wall ${j.wallMs}, kept ${j.kept} fine ${j.fine} found ${j.found}` : "") +
+      (report.vision.on ? `; vision ${report.vision.ran ? "ran" : `did not run (${report.vision.error ?? "no crops"})`}, load ${report.vision.loadMs} ms, ${report.vision.scored} scored, ${report.vision.flagged} flagged, ${report.vision.beta.length} beta, crop ms median ${report.vision.msMedian}` : ""),
   );
   send({ type: "done", report });
 }

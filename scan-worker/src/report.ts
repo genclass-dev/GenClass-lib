@@ -15,12 +15,13 @@ import { CATEGORIES, ruleImpact, score, SEVERITY_ORDER, type Category, type Scor
 import type { Standard } from "./standards.ts";
 import type { Target } from "./target.ts";
 import { FIX_KINDS, RUNTIME_VERSION, visualKey, visualStatus } from "./visual.ts";
+import { VISION_EVAL, VISION_LINE, VISION_MODEL, VISION_NAME, VISION_ORT, VISION_THRESHOLD } from "./vision.ts";
 
 /**
  * The version of the checks and the report. Bump it whenever a change would give a different report for the same
  * page: cached reports from another version are not served (store.ts cachedReport).
  */
-export const REPORT_VERSION = 7;
+export const REPORT_VERSION = 8;
 
 export interface Finding {
   n: number;
@@ -57,6 +58,19 @@ export interface Finding {
   unscored: string | null;
   /** What the model judge said about it (src/judge.ts), when it was asked; null otherwise. */
   judge: FindingJudge | null;
+  /**
+   * GenClass Vision's second opinion (src/vision.ts): its any-problem score on the crop the judge took, the highest over
+   * the views it answered in, and whether that reaches VISION_THRESHOLD. Null when it did not see the element. It never
+   * changes `unscored` or the score.
+   */
+  vision: FindingVision | null;
+}
+
+/** GenClass Vision on one finding. */
+export interface FindingVision {
+  score: number;
+  flagged: boolean;
+  views: { view: string; score: number }[];
 }
 
 /** The model judge on one finding: what it said in each view it was asked in, with the crop it saw. */
@@ -138,6 +152,19 @@ export interface Report {
     note: string;
     /** Every element it was asked about, with its answer (no crop): what it was shown, and what it said. */
     asked: { view: string; cls: string; kind: string; selector: string; score: number | null; verdict: string; family: string; error: string | null; ms: number; crop: string | null; state?: string }[];
+  };
+  /**
+   * GenClass Vision (beta, src/vision.ts): whether it ran, how long it took, its score on each finding it saw, and the
+   * findings it flags that are not scored (`beta`). Not part of any score.
+   */
+  vision: {
+    on: boolean; started: boolean; ran: boolean; name: string; model: string; stage: "beta"; ort: string; threshold: number;
+    error: string | null; loadMs: number | null; msMedian: number | null; msMax: number | null;
+    scored: number; failed: number; varsUnmeasured: number; flagged: number;
+    line: string;
+    eval: { ref: string; testCrops: number; ap: number; apClef: number; apOpenAI: number; behindRules: { kept: number; real: number; precision: number }; labels: string };
+    findings: { n: number; score: number; flagged: boolean }[];
+    beta: { n: number; kind: string; what: string; selector: string; view: string; score: number; crop: string | null }[];
   };
   notes: string[];
 }
@@ -418,6 +445,24 @@ export function findingJudge(raw: RawFinding, views: readonly string[], r: ScanR
   return { outcome, name: JUDGE_NAME, model: JUDGE_MODEL, threshold: KEEP_THRESHOLD, score: top, text, views: asked.map((j) => judgeViewOf(j, cropUrl)) };
 }
 
+/**
+ * GenClass Vision on one merged finding: its score in each view it answered in (on the crop the judge took of that
+ * view's element), the highest of them, and the judge result that score came from (for its crop). Null when it did not
+ * answer in any view.
+ */
+export function findingVision(raw: RawFinding, views: readonly string[], r: ScanResult): { v: FindingVision; best: JudgeResult } | null {
+  if (!isVisual(raw.kind) || NOT_JUDGED.has(raw.kind)) return null;
+  const key = identity(raw);
+  const byView = new Map(r.views.map((v) => [v.id as string, v.judged ?? []]));
+  const got = views
+    .map((v) => (byView.get(v) ?? []).find((j) => j.cls === "finding" && j.key === key && j.vision) ?? null)
+    .filter((j): j is JudgeResult => j !== null && !!j.vision);
+  if (!got.length) return null;
+  const best = got.reduce((x, y) => ((y.vision?.any ?? 0) > (x.vision?.any ?? 0) ? y : x));
+  const score = best.vision!.any;
+  return { v: { score, flagged: score >= VISION_THRESHOLD, views: got.map((j) => ({ view: j.view, score: j.vision!.any })) }, best };
+}
+
 /** The judge's line under the findings: what it was asked, what it changed, and how it was measured. */
 export function judgeNote(run: JudgeRun | undefined, list: readonly Finding[]): string {
   if (!run || !run.on) return "The model judge is off in this copy of the scanner, so every finding comes from the measured checks.";
@@ -606,6 +651,7 @@ export function buildReport(
     }
     return { fixed: null, why: "it was fixed in one view but not re-checked in every view it appeared in, so it is not counted." };
   };
+  const visionBest = new Map<Finding, JudgeResult>();
   const list: Finding[] = [...merged.values()].map(({ raw, views, boxes, counts, examples, severity }) => {
     const words = describe(raw);
     let fixed: { how: string } | null = null;
@@ -637,7 +683,8 @@ export function buildReport(
       const others = sorted.filter((v) => !raw.measured.includes(`the ${VIEW_WORDS[v] ?? v} view`)).map((v) => VIEW_WORDS[v] ?? v);
       if (others.length && others.length < sorted.length) text = `${raw.measured} Also on the ${listWords(others)} view.`;
     }
-    return {
+    const vis = findingVision(raw, sorted, r);
+    const out: Finding = {
       n: 0,
       kind: raw.kind,
       rule: ruleOf(raw),
@@ -661,7 +708,10 @@ export function buildReport(
         : { status: FIX_KINDS.has(raw.kind) || raw.kind === "duplicate-submit" || raw.kind === "genclass-detection" ? "not-fixed" : "reported", text: notFixedText(raw.kind, why) },
       unscored,
       judge,
-    } satisfies Finding;
+      vision: vis ? vis.v : null,
+    };
+    if (vis) visionBest.set(out, vis.best);
+    return out;
   });
 
   const scorable = (fs: readonly Finding[]) => fs.filter((f) => !f.unscored).map((f) => ({ category: f.category, severity: f.severity, rule: f.rule, count: f.count }));
@@ -771,6 +821,27 @@ export function buildReport(
         asked: r.views.flatMap((v) =>
           (v.judged ?? []).map((j) => ({ view: j.view, cls: j.cls, kind: j.kind, selector: j.selector, score: j.answer?.score ?? null, verdict: j.answer?.verdict ?? "", family: j.answer?.family ?? "", error: j.answer ? null : j.error ?? "timeout", ms: j.ms, crop: cropUrl(j.id), ...(flags.judgeDetail && j.state ? { state: j.state } : {}) })),
         ),
+      };
+    })(),
+    vision: (() => {
+      const run = r.vision;
+      const seen = list.filter((f) => f.vision);
+      return {
+        on: !!run?.on, started: !!run?.started, ran: !!run?.ran, name: VISION_NAME, model: VISION_MODEL, stage: "beta" as const, ort: run?.ort ?? VISION_ORT.version, threshold: VISION_THRESHOLD,
+        error: run?.error ?? null, loadMs: run?.loadMs ?? null, msMedian: run?.msMedian ?? null, msMax: run?.msMax ?? null,
+        scored: run?.scored ?? 0, failed: run?.failed ?? 0, varsUnmeasured: run?.varsUnmeasured ?? 0, flagged: seen.filter((f) => f.vision!.flagged).length,
+        line: VISION_LINE,
+        eval: { ref: VISION_EVAL.ref, testCrops: VISION_EVAL.testCrops, ap: VISION_EVAL.ap, apClef: VISION_EVAL.apClef, apOpenAI: VISION_EVAL.apOpenAI, behindRules: { ...VISION_EVAL.behindRules }, labels: VISION_EVAL.labels },
+        findings: seen.map((f) => ({ n: f.n, score: f.vision!.score, flagged: f.vision!.flagged })),
+        // what it flags that the score does not count: measured findings listed, not scored (most often because Clef
+        // judged them as probably fine), at Vision's operating point, highest first
+        beta: seen
+          .filter((f) => f.unscored && f.vision!.flagged)
+          .sort((a, b) => b.vision!.score - a.vision!.score || a.n - b.n)
+          .map((f) => {
+            const j = visionBest.get(f);
+            return { n: f.n, kind: f.kind, what: f.what, selector: f.selector, view: j?.view ?? f.views[0], score: f.vision!.score, crop: j ? cropUrl(j.id) : null };
+          }),
       };
     })(),
     notes: [...r.notes],

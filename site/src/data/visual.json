@@ -1,7 +1,7 @@
 {
   "$comment": "Numbers for the visual-bug feature on genclass.dev (/ and /visual). How to fill it: README.md in this folder. status \"live\" shows the measured checks' numbers (the checks block must be complete); the learned model's numbers show only once model.status is \"live\", and the crawl figure only once crawl.status is \"live\". Every number in checks is copied from docs/runtime/RESULTS.md sections 8 and 9 at commit 6ae209f on branch wave2/visual (linked under sources).",
   "status": "live",
-  "updated": "2026-10-13",
+  "updated": "2026-10-15",
   "ready_by": null,
   "scan_live": true,
   "scan_runs": "chunk",
@@ -121,6 +121,24 @@
     "ms_per_element": null,
     "cost_measured_on": null
   },
+  "vision": {
+    "status": "live",
+    "$source": "vision/results/vision-v2/RESULTS.md, export.json and spec.json at commit cbf9293 on branch wave2/vision-v2-student (linked under sources as \"vision\"); Clef's size from Cloudflare's model card (source \"clef\")",
+    "name": "GenClass Vision",
+    "version": "v2",
+    "stage": "beta",
+    "in_scan": true,
+    "size_mb": 4.8,
+    "params_m": 1.19,
+    "ms_per_crop": 0.53,
+    "ms_measured_on": "one CPU thread (AMD EPYC 9V45, onnxruntime 1.31, one crop at a time)",
+    "test": { "crops": 1052, "real": 173, "ap": 0.611, "ap_clef": 0.615, "ap_openai": 0.651 },
+    "behind_rules": { "flags": 500, "flags_real": 75, "kept": 69, "kept_real": 33 },
+    "labels": "AI labeller agents (Claude subagents), not people",
+    "teacher": "OpenAI's Decisions API (gpt-6-luna, public beta)",
+    "clef_params": "27B",
+    "ship_bar": 0.6
+  },
   "crawl": {
     "status": "draft",
     "date": null,
@@ -147,6 +165,18 @@
       "title": "GenClass visual checks: design",
       "url": "https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/docs/runtime/VISUAL.md",
       "used_for": "the 23 kinds, their thresholds and the opt-in fixes"
+    },
+    {
+      "id": "vision",
+      "title": "GenClass Vision v2: results",
+      "url": "https://github.com/genclass-dev/GenClass-lib/blob/cbf92930fbf7408b35d395387ed7ad8dd2a52e20/vision/results/vision-v2/RESULTS.md",
+      "used_for": "every number for GenClass Vision"
+    },
+    {
+      "id": "clef",
+      "title": "Clef model card (Cloudflare, Hugging Face)",
+      "url": "https://huggingface.co/Cloudflare/clef",
+      "used_for": "the size of Clef, 27B parameters"
     },
     {
       "id": "bench",

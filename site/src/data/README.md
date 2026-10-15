@@ -7,7 +7,7 @@ Data files that `site/build.py` renders into genclass.dev. Pages never hard-code
 `visual.json` holds the numbers for the visual-bug section on the homepage (`site/src/partials/visual.html`) and
 for `/visual` (`site/src/pages/visual.html`). `site/visual.py` reads it.
 
-The file has three blocks of numbers, each with its own switch, so the feature can go live on the measured checks
+The file has four blocks of numbers, each with its own switch, so the feature can go live on the measured checks
 alone while the learned model is still being evaluated:
 
 | block | switch | what the pages show when it is on |
@@ -15,6 +15,7 @@ alone while the learned model is still being evaluated:
 | `checks` | top-level `status: "live"` | homepage: four numbers under the scan box (kinds, planted faults found, false reports on unmodified pages, public-site findings confirmed real). /visual: key lines and Tables 1 to 4 (recall per kind, findings on unmodified pages, public sites per run, cost) |
 | `model` | `model.status: "live"` (needs `status: "live"`) | homepage: one line on the model. /visual: Tables 5 and 6 (recall per family, precision on pages with no injected faults, size and cost) |
 | `crawl` | `crawl.status: "live"` (needs `status: "live"`) | homepage: Fig. 2, measured signals on crawled pages, AI-built against regular sites, labelled as upper bounds |
+| `vision` | `vision.status: "live"` (needs `status: "live"`) | GenClass Vision, the page check's screenshot model (beta, not scored). Homepage: one line under the proof line. /visual: the `#vision` section (ranking against Clef and OpenAI, behind the measured rules, size and speed, why it is a beta), a sentence in step 02, and llms.txt. Every number comes from `vision/results/vision-v2/RESULTS.md` (source `vision`, pinned to a commit) and Clef's size from Cloudflare's model card (source `clef`). The build checks the fields and that `kept_real <= kept <= flags` |
 
 - While `status` is `"draft"`, the build shows no numbers at all: the homepage shows the headline, the status rows
   (when the model's results are due, whether the checks are in the runtime, the model's stage) and the drawn bug

@@ -343,7 +343,7 @@ export class FakePage implements PageLike {
       const v = side[1] === "vitals" ? this.script.vitals?.(this.view) : side[1] === "audit" ? this.script.audit?.(this.view) : side[1] === "overflow" ? this.script.overflow?.(this.view) : this.script.reflow?.(this.viewport?.width ?? 0);
       return JSON.stringify(v ?? null);
     }
-    const jd = /\)\("(find|facts|restore)", (\{.*\})\)\)\)\(\)$/.exec(src);
+    const jd = /\)\("(find|facts|vars|restore)", (\{.*\})\)\)\)\(\)$/.exec(src);
     if (jd) {
       this.judgeCmds.push({ cmd: jd[1], arg: JSON.parse(jd[2]) });
       return JSON.stringify(this.script.judge ? this.script.judge(this.view, jd[1], JSON.parse(jd[2])) : { ok: false });
