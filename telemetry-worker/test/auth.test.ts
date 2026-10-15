@@ -345,10 +345,12 @@ describe("accounts: passkeys (WebAuthn, attestation none), added to an account a
     expect((await signIn(env, auth, { counter: 3 })).res.status).toBe(400);
     expect((await signIn(env, auth, { counter: 6 })).res.status).toBe(200);
 
+    // an authenticator that always sends 0 (its passkey stored with counter 0, never signed in with a higher one)
     const { env: env2 } = setup();
-    const zero = await signedIn(env2, "zero@example.com");
-    expect((await signIn(env2, zero.auth, { counter: 0 })).res.status).toBe(200);
-    expect((await signIn(env2, zero.auth, { counter: 0 })).res.status).toBe(200);
+    const zero = await makeAuthenticator(-7);
+    expect((await addPasskey(env2, sessionOf((await pwSignUp(env2, "zero@example.com")).res), zero)).res.status).toBe(200);
+    expect((await signIn(env2, zero, { counter: 0 })).res.status).toBe(200);
+    expect((await signIn(env2, zero, { counter: 0 })).res.status).toBe(200);
   });
 
   it("a signed-in account adds a second passkey; the last way to sign in cannot be removed", async () => {
@@ -657,7 +659,7 @@ describe("accounts: apps owned by an account", () => {
     expect((await call(env, "GET", `/api/account/projects/${project.id}/stats`, { cookie: b.cookie })).status).toBe(404);
     expect((await call(env, "GET", "/account/apps/nothex", { cookie: a.cookie })).status).toBe(404);
     expect((await call(env, "GET", `/account/apps/${project.id}`, {})).headers.get("location")).toBe(`/login?next=${encodeURIComponent(`/account/apps/${project.id}`)}`);
-    const aSession = sql.rows("SELECT s.id FROM auth_sessions s JOIN accounts a ON a.id = s.account_id WHERE a.email = 'ada@example.com'")[0]!.id as string;
+    const aSession = sql.rows("SELECT s.id FROM auth_sessions s JOIN accounts a ON a.id = s.account_id WHERE a.email = 'ada@example.com' AND s.revoked IS NULL")[0]!.id as string;
     expect((await call(env, "DELETE", `/api/account/sessions/${aSession}`, { cookie: b.cookie })).status).toBe(404);
     expect((await me(env, { cookie: a.cookie })).status).toBe(200);
     expect((await call(env, "DELETE", `/api/account/sessions/${aSession}`, { cookie: a.cookie })).status).toBe(204);
@@ -1321,7 +1323,10 @@ describe("accounts: CBOR, signatures, links (unit)", () => {
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(1);
     // a browser where the password was right stays trusted for 400 days after its last use
     expect(sql.rows("SELECT COUNT(*) AS n FROM password_devices")[0]!.n).toBe(1);
-    advance(369 * 86_400_000);
+    advance(369 * 86_400_000); // 400 days after its last use
+    await authRetention(sql.api, clock);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM password_devices")[0]!.n).toBe(1);
+    advance(1000);
     await authRetention(sql.api, clock);
     expect(sql.rows("SELECT COUNT(*) AS n FROM password_devices")[0]!.n).toBe(0);
     expect(sql.rows("SELECT COUNT(*) AS n FROM passwords")[0]!.n).toBe(1);
@@ -1857,8 +1862,11 @@ describe("accounts: cookies in development", () => {
     expect(cookies(res).find((c) => c.startsWith("gc_device="))).toMatch(/^gc_device=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=34560000; HttpOnly; SameSite=Lax$/);
     expect((await me(env, { cookie: set.split(";")[0] })).status).toBe(200);
     // a passkey added there uses the development origin and RP ID
-    const add = await addPasskey(env, set.split(";")[0]!, await makeAuthenticator(-7), { origin: DEV });
-    expect(add.res.status).toBe(200);
+    const dc = set.split(";")[0]!;
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie: dc, origin: DEV })).json()) as any;
+    expect(o.publicKey.rp.id).toBe("localhost");
+    const v = await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await (await makeAuthenticator(-7)).register(o.publicKey, { origin: DEV }) }, cookie: dc, origin: DEV });
+    expect(v.status).toBe(200);
   });
 });
 
