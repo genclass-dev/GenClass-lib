@@ -640,7 +640,7 @@ ${planBlock}
   <p class="intro" id="pkrule">${passkeyRule}</p>
   <div class="acct-form"><button class="btn ghost" type="button" id="addpk"><span>Add a passkey</span></button></div>
   <p class="err" id="pkerr" role="alert"></p>
-  <p class="intro">Adding or removing a passkey asks for one of your passkeys first; removing one also signs out every other browser and terminal. Lost all your passkeys? Email <a href="mailto:${recovery}?subject=GenClass%20passkeys">${recovery}</a>.</p>
+  <p class="intro">Adding another passkey, or removing one, asks for one of your passkeys first; removing one also signs out every other browser and terminal. Lost all your passkeys? Email <a href="mailto:${recovery}?subject=GenClass%20passkeys">${recovery}</a>.</p>
 </section>
 <section class="blk" id="sessions">
   <div class="blk-h"><h2>Sessions</h2><span class="aside">Table 3. Browsers signed in to this account</span></div>
