@@ -24,6 +24,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `bench/visual/` | the visual checks' bench (GitHub Actions only, `.github/workflows/visual-measure.yml`): false reports on the demos, templates, compat apps and about 40 public sites, recall on faults planted from the harness, cost; public sites are counted per check kind only, never named in the repo, its run logs or plain artifacts (per-site results only encrypted with the `VISUAL_BENCH_KEY` secret) |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
 | `site/`, `telemetry-worker/` | genclass.dev, and the diagnostics collector with the dashboards and accounts (Cloudflare Workers) |
+| `scan-worker/` | genclass.dev/scan: the page check (Browser Rendering, visual checks, race probe, score); its own `package-lock.json`, `node --test` |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
 | `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, `VISUAL.md` (measured visual checks: design), **`RESULTS.md`** (every measured number) |
 | `scripts/` | Azure VM helpers (`vm.sh`, `azvm.sh`, `launch_run.sh`); `internal/` is gitignored working notes |

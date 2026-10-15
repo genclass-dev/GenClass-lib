@@ -18,7 +18,7 @@
     <nav class="toc" aria-label="On this page">
       <b>Start</b><a href="#install">Install</a><a href="#init">Initialize</a><a href="#first">The first five minutes</a><a href="#modes">Modes</a><a href="#profiles">Aggressiveness</a>
       <b>Operate</b><a href="#reports">Where reports go</a><a href="#explain">Explain and undo</a><a href="#off">Kill switch</a><a href="#costs">What it costs</a><a href="#selfhost">Self-host the model</a><a href="#skip">When to skip it</a><a href="#privacy">Privacy and telemetry</a>
-      <b>Plans</b><a href="#dashboard">Dashboard and plans</a><b>Reference</b><a href="/docs/api">API</a><a href="/docs/options">Options</a><a href="/docs/architecture">Architecture</a><a href="/docs/compatibility">Compatibility</a>
+      <b>Visual bugs</b><a href="#visual">Checks and the page check</a><b>Plans</b><a href="#dashboard">Dashboard and plans</a><b>Reference</b><a href="/docs/api">API</a><a href="/docs/options">Options</a><a href="/docs/architecture">Architecture</a><a href="/docs/compatibility">Compatibility</a>
     </nav>
     <div class="prose">
       <h2 id="install">Install</h2>
@@ -126,6 +126,9 @@ npx @genclass/runtime init --model-url /genclass-model/</code></pre>
 
       <h2 id="dashboard">Dashboard and plans</h2>
       <p>The runtime needs no account. An optional genclass.dev account shows each app's detections, actions, routes and model load on a dashboard. Pages send to it with the app's token while diagnostics are on; runtime 0.2.2 and earlier do not send to it. The dashboard is free for {{plan.free.apps}} apps with {{plan.free.history}} of history. Pro ({{plan.pro.price}} a month) adds unlimited apps, {{plan.pro.history}} of history, export of every event and forwarding to the tools you use; Custom ({{plan.custom.price}} a month) adds a model trained on your app. See <a href="/pricing">pricing</a>.</p>
+
+      <h2 id="visual"><!--@vt docs-h2--></h2>
+      <p>Measured checks for bugs that render without an error are built and in testing: text the same colour as its background, images, fonts and stylesheets that failed to load, pages that scroll sideways on a phone, "undefined" or "[object Object]" on the page, and controls under an invisible layer. They are not in runtime {{rt}}.<!--@vt docs-numbers--><!--@vt docs-scan--> <a href="/visual">Visual bugs</a> says what they find, how they measure it and what they do not catch yet.</p>
 
       <h2 id="more">Reference</h2>
       <ul>

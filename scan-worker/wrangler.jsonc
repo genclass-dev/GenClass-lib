@@ -1,0 +1,89 @@
+// genclass.dev/scan: one public page in a Cloudflare browser, the GenClass visual checks, a side-effect-free race
+// probe, and a score. Deploy (workers.dev only): npx --yes wrangler@4 deploy   (from this directory)
+//
+// Routes on genclass.dev (live since 2026-10-14): genclass.dev/api/scan* and genclass.dev/scan*
+// (the * is needed: route matching includes the query string, so genclass.dev/scan alone misses /scan?url=). The
+// /scan* route also matches the site's own /scan-box.js: this worker answers /scan, /scan/ and /scan/about only and
+// hands every other /scan... path to the site worker over the SITE binding below.
+// It also answers on https://genclass-scan.mehar-144.workers.dev.
+{
+  "name": "genclass-scan",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  // enable_request_signal: request.signal aborts when the person who started a scan goes away, so the scan stops.
+  "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
+  "account_id": "144bd5f5270b51dbe7faf46227a154f0",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "genclass.dev/api/scan*", "zone_name": "genclass.dev" },
+    { "pattern": "genclass.dev/scan*", "zone_name": "genclass.dev" }
+  ],
+  // The page-side checks are serialised with Function.prototype.toString(): esbuild's keep-names helper (__name)
+  // would end up inside them and is not defined in the scanned page.
+  "keep_names": false,
+  "browser": { "binding": "BROWSER" },
+  // Workers AI, for the model judge (src/judge.ts): Clef (@cf/cloudflare/clef) reads a crop of the screenshot (and, for
+  // a measured finding, the element's measured facts). At most 40 calls a scan, at most about $0.0125 at list price;
+  // JUDGE "off" turns it off.
+  "ai": { "binding": "AI" },
+  // The site worker, for paths under the /scan* route that are the site's files (its /scan-box.js), read-only GETs.
+  "services": [{ "binding": "SITE", "service": "genclass-site" }],
+  // Existing bucket, scans/ prefix only: reports (6 h cache), screenshots (deleted after 24 h), slots, blocklist.
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
+  // New scans per client per minute (keyed by a hash of the IP, or of its /64 for IPv6, never stored), and per site
+  // (the registrable domain, approximately) per minute whoever asks, so query-string variants of one slow page cannot
+  // keep every scanner busy.
+  "ratelimits": [
+    { "name": "SCAN_LIMIT", "namespace_id": "4810", "simple": { "limit": 5, "period": 60 } },
+    { "name": "SITE_LIMIT", "namespace_id": "4811", "simple": { "limit": 4, "period": 60 } }
+  ],
+  "vars": {
+    // Scans at once across everyone; each holds one Browser Rendering browser. Browser Rendering allows 200 at once
+    // and 3 new browsers a second on Workers Paid (developers.cloudflare.com/browser-rendering/limits, 2026-09-26);
+    // the bound here is the lease file scans/slots.json, written twice per scan, and R2 takes one write a second per
+    // key: 10 scans of about 35 s are about 0.6 writes a second.
+    "MAX_CONCURRENT": "10",
+    // The with-GenClass column: the visual checks' fixes in guard mode, re-checked, and the race probe's guard pass.
+    // The visual fixes are in testing (no released runtime has them); every page and report says so until
+    // VISUAL_IN_RUNTIME in src/visual.ts names a published runtime. "off" runs the visual checks report-only.
+    "WITH_GENCLASS": "on",
+    "GUARD_HOLD_MS": "900",
+    // The model judge on the AI binding: "on", or "off" for measured checks only.
+    "JUDGE": "on"
+  },
+  // Hourly retention sweep: scan reports and screenshots older than 24 hours.
+  "triggers": { "crons": ["23 * * * *"] },
+  "limits": { "cpu_ms": 60000 },
+  "observability": { "enabled": false },
+  // A test copy on workers.dev only: npx --yes wrangler@4 deploy --env test   (https://genclass-scan-test.mehar-144.workers.dev)
+  // Its own name, no routes (routes are inherited unless set, so "routes": [] is required here), its own rate
+  // limit counters, and its own key prefix in the bucket (STORE_PREFIX, src/prefix.ts): its reports, screenshots and
+  // leases never mix with production's. It reads the same opt-out list. Bindings and vars are not inherited by an env,
+  // so every one is repeated.
+  "env": {
+    "test": {
+      "name": "genclass-scan-test",
+      "routes": [],
+      "workers_dev": true,
+      "browser": { "binding": "BROWSER" },
+      "ai": { "binding": "AI" },
+      "services": [{ "binding": "SITE", "service": "genclass-site" }],
+      "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
+      "ratelimits": [
+        { "name": "SCAN_LIMIT", "namespace_id": "4820", "simple": { "limit": 5, "period": 60 } },
+        { "name": "SITE_LIMIT", "namespace_id": "4821", "simple": { "limit": 4, "period": 60 } }
+      ],
+      "vars": {
+        "MAX_CONCURRENT": "3",
+        "WITH_GENCLASS": "on",
+        "GUARD_HOLD_MS": "900",
+        "JUDGE": "on",
+        // calibration: keep the crop of every element the judge was asked about (deleted after 24 hours like the rest)
+        "JUDGE_CROPS": "all",
+        "STORE_PREFIX": "scan-test/"
+      },
+      // the same hourly sweep, over the test prefix: the test copy keeps reports and screenshots 24 hours at most too
+      "triggers": { "crons": ["23 * * * *"] }
+    }
+  }
+}

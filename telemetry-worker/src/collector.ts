@@ -93,11 +93,20 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_WEBHOOK_SECRET_TEST?: string;
   STRIPE_TEST_ACCOUNTS?: string;
+  /** GenClass's own Billing Portal configuration (bpc_...), for a live key and for a test key; scripts/stripe-setup.mjs
+   * stores the one for its key's mode. Without it the portal answers 503. */
+  STRIPE_PORTAL_CONFIGURATION?: string;
+  STRIPE_PORTAL_CONFIGURATION_TEST?: string;
+  /** Worker var (wrangler.toml, "off" until verified): "on" makes Pro's Checkout use Stripe Managed Payments (Stripe,
+   * through Link, is the merchant of record). Unset or "off" sells Pro on standard Checkout, as Custom always is
+   * (src/stripe.ts managedPayments). */
+  MANAGED_PAYMENTS?: string;
   /** Export pages per account per minute (src/billing.ts); without it the export is not rate-limited. */
   EXPORT_LIMIT?: RateLimiterLike;
   /** 32 bytes, base64: encrypts forwarding settings at rest (src/forward.ts). Without it they cannot be saved. */
   INTEGRATIONS_KEY?: string;
-  /** Optional https URL that gets a short JSON notice when someone buys the Custom plan. */
+  /** Optional https URL that gets short JSON notices: a Custom purchase, a duplicate subscription, a plan switch
+   * that needs a refund by hand, a billing record holding something that is not GenClass's. */
   NOTIFY_WEBHOOK?: string;
 }
 

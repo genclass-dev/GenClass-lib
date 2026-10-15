@@ -1,0 +1,11 @@
+// A test page for end-to-end runs of the scanner, with deliberate problems: one of each visual finding, a typeahead
+// that renders whichever response lands last, and a subscribe form that sends one request per click.
+// Deploy (workers.dev only): npx --yes wrangler@4 deploy -c scan-worker/test/fixture/wrangler.jsonc
+{
+  "name": "genclass-scan-fixture",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "account_id": "144bd5f5270b51dbe7faf46227a154f0",
+  "workers_dev": true,
+  "observability": { "enabled": false }
+}
