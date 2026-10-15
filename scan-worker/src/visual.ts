@@ -41,8 +41,8 @@ export function callSource(name: string, cmd: string, arg: Record<string, unknow
   return `(async () => { const f = window[${JSON.stringify(name)}]; if (typeof f !== "function") return "{}"; return JSON.stringify(await f(${JSON.stringify(cmd)}, ${JSON.stringify(arg)})); })()`;
 }
 
-/** The @genclass/runtime version the race probe injects and the install line on /scan names. */
-export const RUNTIME_VERSION = "0.2.1";
+/** The @genclass/runtime version the race probe injects (the stable line; the probe is verified with it). */
+export const RUNTIME_VERSION = "0.2.2";
 
 /**
  * The released @genclass/runtime version that ships these visual checks and their fixes, or null while they are in
@@ -50,7 +50,12 @@ export const RUNTIME_VERSION = "0.2.1";
  * sentence on /scan and /scan/about, and every report, that says where the checks and fixes come from is built from
  * this, as the site's visual.json checks_in_runtime is. Set it only when that runtime is on npm.
  */
-export const VISUAL_IN_RUNTIME: string | null = null;
+export const VISUAL_IN_RUNTIME: string | null = "0.3.0-beta.0";
+
+/** The runtime the install line on /scan loads: the one with the visual checks when it is published, else the probe's. */
+export const INSTALL_VERSION = VISUAL_IN_RUNTIME ?? RUNTIME_VERSION;
+/** Whether that runtime is a pre-release (the page says so next to the install line). */
+export const INSTALL_IS_BETA = /-/.test(INSTALL_VERSION);
 
 /** Where the visual checks and fixes come from, in words: "in testing, not in runtime 0.2.1", or "in runtime 0.3.0". */
 export function visualStatus(): { shipped: boolean; short: string; checks: string; fixes: string } {

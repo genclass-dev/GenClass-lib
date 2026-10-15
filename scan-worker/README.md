@@ -1,12 +1,12 @@
 # genclass-scan: the genclass.dev page check
 
 Type an address, and a Cloudflare browser loads that one page as a desktop and a phone, light and dark, and checks it six
-ways: the measured visual checks built for the GenClass runtime (23 kinds, 22 of them run here; in testing on
-`wave2/visual`, not in any released runtime: npm's 0.2.1, main and release/0.3.0 have no visual code), axe-core 4.13.0's
+ways: the measured visual checks of the GenClass runtime (23 kinds, 22 of them run here; released in 0.3.0-beta.0, npm
+dist-tag `beta`), axe-core 4.13.0's
 WCAG 2.2 A and AA rules and best practices in every view, phone audits (WCAG 2.5.8 tap targets, WCAG 1.4.4 zoom, the
 viewport meta tag, 12 px text, WCAG 1.4.10 reflow at 360 and 320 px), the browser's own record of errors and failed
 requests, speed (Largest Contentful Paint, oversized and unsized images), and races: it types into the search box and
-double-clicks a submit button with GenClass 0.2.1 watching. The page shows an overall score, six category scores and the
+double-clicks a submit button with GenClass 0.2.2 watching. The page shows an overall score, six category scores and the
 top issues, then screenshots with numbered boxes and every finding grouped by category and rule, with what was measured,
 the standard it is judged by (with its link), the element, the suggested fix, and whether GenClass fixed it in the page
 (measured by a re-check) or reports it for the developer. A model, Cloudflare's Clef on Workers AI, takes a second look
@@ -45,7 +45,9 @@ the same browser and shows its score next to each; it changes no finding and no 
 | `GET /api/scan/shot/<key>/<id>-<view>.jpg` | a screenshot (from R2), only while its host (R2 custom metadata) is not opted out; `<id>-<view>-j<n>.jpg` is the crop the model judge saw for one element, served the same way |
 | `GET /api/scan/health` | `{ ok, ua, runtime, report, judge, prompt, vision }`: the report version, the judge model (null when off), its prompt, and GenClass Vision's model (null when off) |
 
-Every HTML response has `x-robots-tag: noindex, nofollow`, a per-response CSP nonce (`default-src 'none'`, one inline
+The scanner's own pages use the light palette only, like genclass.dev (no `prefers-color-scheme: dark` rules, `color-scheme:
+light`); the dark phone view of a scanned page is emulation in the browser and unaffected. Every HTML response has
+`x-robots-tag: noindex, nofollow`, a per-response CSP nonce (`default-src 'none'`, one inline
 script and one inline style, fonts from Google Fonts, images from this origin and genclass.dev), no third-party
 scripts, and puts all dynamic text in place with `textContent` from a `<script type="application/json">` block.
 
@@ -97,7 +99,7 @@ scripts, and puts all dynamic text in place with `textContent` from a `<script t
    - then the model judge (`judgeView` in `src/scan.ts`), in the time the checks above left before the race probe's
      reserve: the elements to ask about, a crop and the measured facts of each, and the calls sent at once, answered
      while the probe and the guard pass run (below);
-   - the race probe on the desktop page with `@genclass/runtime` 0.2.1 injected before any page script (observe,
+   - the race probe on the desktop page with `@genclass/runtime` 0.2.2 injected before any page script (observe,
      `telemetry: false`, model from `https://genclass.dev/model/@genclass/runtime-model@0.2.0/files/`): type `a`, `ab`,
      `abc` 80 ms apart into the first search-like input, then double-click the most prominent submit button of a
      same-origin form that would POST (forms with password or card fields are skipped); `rt.on("detect")` and
@@ -164,11 +166,16 @@ answered 200 without such markers is the site's own and keeps its score. Such a 
 
 The checks are the measured visual checks built for the GenClass runtime (`packages/runtime/src/visual`, branch
 `wave2/visual`, docs/runtime/VISUAL.md): 23 kinds, each a deterministic measurement against a fixed threshold, the code
-an app will load with `GenClass.init({ visual: { on: true } })` once a runtime release has it. **No released runtime
-has it yet** (npm latest 0.2.1; main and release/0.3.0 have no `packages/runtime/src/visual`), so every sentence on
-`/scan` and `/scan/about` that says where the checks and fixes come from is built from `VISUAL_IN_RUNTIME` in
-`src/visual.ts` (null: "in testing, not in runtime 0.2.1"; set it to the version once that runtime is on npm, as the
-site's `visual.json` `checks_in_runtime` does). Nothing in the scanner measures pages itself any more (the built-in
+an app loads with `GenClass.init({ visual: { on: true } })`. **Released in `@genclass/runtime` 0.3.0-beta.0** (npm
+dist-tag `beta`, with provenance), so `VISUAL_IN_RUNTIME` in `src/visual.ts` is `"0.3.0-beta.0"`: every sentence on
+`/scan` and `/scan/about` that says where the checks and fixes come from is built from it, the with-GenClass column is
+"With GenClass on", and the install line on `/scan` loads `@genclass/runtime@0.3.0-beta.0` and says it is a beta (the
+stable 0.2.2 has no visual code). The embedded chunk is still the CI build of `wave2/visual` at 6ae209f: between that
+commit and the `v0.3.0-beta.0` tag the only change under `packages/runtime/src/visual` is the route redaction in
+`bridge.ts` (a path segment holding an `@` reported as `:id`), which only touches the route sink records carry; the
+scanner's reports are silent, so the findings are the same. The race probe injects the stable 0.2.2 (`RUNTIME_VERSION`,
+pinned with its sha256 like every version in `src/runtime-source.ts`; 0.3.0-beta.0's is listed too) with
+`telemetry: false`, so a scanned page never sends diagnostics to the collector. Nothing in the scanner measures pages itself any more (the built-in
 subset in `src/checks.ts` is gone).
 
 - **Build.** CI job `scan-visual` (`.github/workflows/ci.yml`) checks out `wave2/visual` at `VISUAL_REF`, builds the
@@ -389,9 +396,9 @@ critical); axe-core's impact; the audits' own. The weights were set before calib
 
 With `WITH_GENCLASS=on` (the default now):
 
-- **In testing.** The visual half of the column uses code no released runtime has; the column is labelled "With
-  GenClass (in testing)" and every page and report says the fixes are in testing, not in runtime 0.2.1, until
-  `VISUAL_IN_RUNTIME` is set. Set `WITH_GENCLASS=off` to run the visual checks report-only until the chunk ships.
+- **Released as a beta.** The visual half of the column uses the fixes of runtime 0.3.0-beta.0; the race half uses
+  runtime 0.2.2 in guard mode, and the note under the column names both. Set `WITH_GENCLASS=off` to run the visual
+  checks report-only.
 - **Visual fixes, measured.** In every view engine "a" runs in guard mode with `fix: true`, which is what
   `GenClass.init({ mode: "guard", visual: { on: true, fix: true } })` will do: the chunk's own fix gate applies its three
   opt-in fixes (text colour for `text-invisible` through an adopted stylesheet rule; removing a leaked inline
