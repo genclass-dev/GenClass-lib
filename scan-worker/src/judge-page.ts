@@ -10,6 +10,8 @@
 //              the page for a control a fixed bar covers there; by focusing it for a focused element under a sticky
 //              bar), waits two frames, and measures each element as vision/src/extract.js measured the labelled crops
 //              of the Clef evaluation (wave2/clef-eval, vision/clef/eval.py builds its prompt from these fields)
+//   "vars"     extract.js's var() pass for chosen elements (GenClass Vision's undefinedVar fact, src/vision.ts), within
+//              a time cap; it reads style sheets and changes nothing
 //   "restore"  takes focus off and scrolls back to the top
 //
 // Invariants:
@@ -1067,6 +1069,27 @@ export function judgePage(cmd: string, options?: any): any {
     });
   }
 
+  if (cmd === "vars") {
+    // GenClass Vision's undefined-var() fact for elements "facts" was not asked to measure it on (extract.js measured
+    // it for every row): extract.js's var() pass per element, until o.maxMs runs out; an element not reached is left out
+    const s = store();
+    if (!s) return { ok: false, error: "the elements were not found again" };
+    const t0 = g.performance.now();
+    const out: Record<string, number> = {};
+    for (const i of Array.isArray(o.idx) ? o.idx.slice(0, 60) : []) {
+      if (g.performance.now() - t0 > (Number(o.maxMs) || 300)) break;
+      const el = typeof i === "number" ? s.els[i] : null;
+      if (!el || !el.isConnected) continue;
+      try {
+        const v = varsOf(el, style(el));
+        out[String(i)] = v.vu + v.vi;
+      } catch (e) {
+        /* left out */
+      }
+    }
+    return { ok: true, vars: out };
+  }
+
   if (cmd === "restore") {
     try {
       const a = doc.activeElement;
@@ -1085,6 +1108,6 @@ export function judgePage(cmd: string, options?: any): any {
 }
 
 /** The source that runs judgePage in the page and returns its result as a JSON string. */
-export function judgePageSource(cmd: "find" | "facts" | "restore", options: Record<string, unknown> = {}): string {
+export function judgePageSource(cmd: "find" | "facts" | "vars" | "restore", options: Record<string, unknown> = {}): string {
   return `(async () => JSON.stringify(await (${judgePage.toString()})(${JSON.stringify(cmd)}, ${JSON.stringify(options)})))()`;
 }

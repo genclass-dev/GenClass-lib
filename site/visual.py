@@ -375,6 +375,25 @@ def _check(d):
                 problems.append(f"{w}: recall at 1% false reports ({f['recall_at_fp_1']}) is below recall at 0.1% "
                                 f"({f['recall_at_fp_0_1']}); allowing more false reports cannot lower recall")
 
+    # ---- GenClass Vision (the page check's screenshot model, beta), only once vision.status is "live"
+    if _status("vision") == "live":
+        for p in ("vision.name", "vision.version", "vision.stage", "vision.ms_measured_on", "vision.labels", "vision.teacher",
+                  "vision.clef_params"):
+            need(p, "text")
+        for p in ("vision.size_mb", "vision.params_m", "vision.ms_per_crop"): need(p, "positive")
+        for p in ("vision.test.ap", "vision.test.ap_clef", "vision.test.ap_openai", "vision.ship_bar"): need(p, "share")
+        t_ok = [need("vision.test.crops", "count"), need("vision.test.real", "count")]
+        if all(t_ok) and get("vision.test.real") > get("vision.test.crops"): problems.append("vision.test.real is above vision.test.crops")
+        b_ok = [need(f"vision.behind_rules.{k}", "count") for k in ("flags", "flags_real", "kept", "kept_real")]
+        if all(b_ok):
+            b = get("vision.behind_rules")
+            if not (b["kept_real"] <= b["kept"] <= b["flags"] and b["flags_real"] <= b["flags"] and b["kept_real"] <= b["flags_real"]):
+                problems.append("vision.behind_rules: kept_real <= kept <= flags and kept_real <= flags_real <= flags must hold")
+        if get("vision.in_scan") is not True:
+            problems.append("vision.in_scan must be true: the block describes the model the page check runs")
+        if not any(s.get("id") == "vision" and _src_href(s) for s in d.get("sources") or []):
+            missing.append('sources entry "vision" with a url')
+
     # ---- the crawl figure, only once crawl.status is "live": measured signals, shown as upper bounds
     if _status("crawl") == "live":
         need("crawl.date", "date"); need("crawl.sites_ai", "count"); need("crawl.sites_control", "count"); need("crawl.basis", "text")
@@ -395,7 +414,7 @@ if STATUS not in ("draft", "live", "sample"):
 SAMPLE = STATUS == "sample"
 if SAMPLE and DATA.resolve() == (ROOT / "src/data/visual.json").resolve():
     _fail("status \"sample\" belongs only in visual.sample.json")
-for b in ("model", "crawl"):
+for b in ("model", "crawl", "vision"):
     if _status(b) not in ("draft", "live"):
         _fail(f'{b}.status must be "draft" or "live", not {_status(b)!r}')
     if _status(b) == "live" and STATUS == "draft":
@@ -424,6 +443,7 @@ if STATUS != "draft" and MISSING:
 LIVE = STATUS != "draft"              # the measured checks' numbers are shown
 MODEL_LIVE = LIVE and _status("model") == "live"
 CRAWL_LIVE = LIVE and _status("crawl") == "live"
+VISION_LIVE = LIVE and _status("vision") == "live"   # GenClass Vision, the page check's screenshot model (beta)
 SHIPPED = bool(D.get("checks_in_runtime"))
 C = D.get("checks") or {}
 READY_BY = None if MODEL_LIVE else D.get("ready_by")  # when the model's results are due
@@ -596,6 +616,11 @@ def llms_line():
             what = ("the same checks" if SCAN_RUNS == "all" else f"the same checks except {SCAN_SKIP}, {SCAN_SKIP_WHY}"
                     if SCAN_RUNS == "chunk" else f"a built-in subset of the checks ({SCAN_SUBSET})")
             lines.append(f"- Page check: https://genclass.dev/visual#scan, or genclass.dev/<address>. A cloud browser loads one public page and runs {what}.")
+        if VISION_LIVE:
+            v = D["vision"]
+            lines.append(f"- {v['name']} {v['version']} ({v['stage']}): a {fixed(v['size_mb'])} MB screenshot model that gives each visual finding in "
+                         f"the page check a second opinion, not scored. Average precision {fixed(v['test']['ap'])} on {count(v['test']['crops'])} held-out "
+                         f"crops against Clef's {fixed(v['test']['ap_clef'])}; labels by {v['labels']}. https://genclass.dev/visual#vision")
         if MODEL_LIVE:
             m = D["model"]
             lines.append(f"- Learned visual model {m['name']} {m['version']}, numbers as of {when(D['updated'])}: https://genclass.dev/visual#numbers")
@@ -765,7 +790,8 @@ def status_notice():
         model = f" Model numbers as of {when_html(D['updated'])}."
     else:
         model = (" The learned model is still being trained and evaluated" if STAGE == "training" else " The learned model is planned") + \
-            " and has no published numbers; nothing on this page comes from it."
+            (" and has no published numbers; none of the checks' numbers come from it." if VISION_LIVE else
+             " and has no published numbers; nothing on this page comes from it.")
         if READY_BY: model += f" Its results are due by <b>{when_html(READY_BY)}</b>."
     lead = "" if SHIPPED or LIVE else "<b>In testing.</b> "
     return f'<p class="notice vstatus">{lead}{checks}{scan}{nums}{model}</p>'
@@ -785,7 +811,9 @@ def model_step():
     if not MODEL_LIVE:
         after = (" If it meets its bar, its recall and false reports will be published on this page with the data and the split."
                  if STAGE == "training" else " Its recall and false reports will be published on this page, with the data and the split.")
-        return f'<p>{model_sentence()}{after}</p>'
+        vis = (f' {esc(D["vision"]["name"])}, a separate model that reads screenshot crops, gives the page check a second opinion '
+               f'as a {esc(D["vision"]["stage"])} (<a href="#vision">below</a>).' if VISION_LIVE else "")
+        return f'<p>{model_sentence()}{after}{vis}</p>'
     m, t = D["model"], D["model"]["trained_on"]
     return (f'<p>{esc(m["name"])} {esc(m["version"])} was trained on {count(t["sites_ai"])} AI-built and {count(t["sites_control"])} '
             f'regular sites, {count(t["elements"])} labelled elements, with {count(t["injected_faults"])} faults injected from outside '
@@ -896,6 +924,33 @@ def model_limit():
               "between runs, so they are not held out.</li>")
     return s
 
+def vision_share(a, b):
+    """kept_real / kept as a whole percentage, as RESULTS.md rounds it (33 / 69 -> 48%)."""
+    return f"{round(100 * a / b)}%"
+
+def vision_home():
+    """The homepage's one line on GenClass Vision."""
+    if not VISION_LIVE: return ""
+    v = D["vision"]; t = v["test"]
+    return (f'<p class="note vnote"><b>New: {esc(v["name"])} ({esc(v["stage"])}).</b> A {fixed(v["size_mb"])} MB model now gives '
+            f'each visual finding in the page check a second opinion, not scored. On our test it ranks bugs level with '
+            f'Cloudflare\'s {esc(v["clef_params"])} Clef. <a href="/visual#vision">Results →</a></p>')
+
+def vision_block():
+    """/visual#vision: what GenClass Vision is, its numbers from RESULTS.md, and that it is a beta and not scored."""
+    if not VISION_LIVE: return ""
+    v = D["vision"]; t = v["test"]; b = v["behind_rules"]
+    res = src_link("vision", "its results", bare=True)
+    clef = src_link("clef", f"{esc(v['clef_params'])} parameters", bare=True)
+    return f'''<div class="sh"><span class="no">{esc(v["name"])}</span><h2>A {fixed(v["size_mb"])} MB model that looks at the crop.</h2></div>
+    <p class="intro">In the page check, {esc(v["name"])} {esc(v["version"])} ({esc(v["stage"])}) looks at the screenshot crop of each measured visual finding and gives it a score from 0 to 1. It never changes a finding or the score. Every number here is from {res}.{STAMP}</p>
+    <ul class="vlim vkey">
+      <li><b>Level with Clef on ranking.</b> Average precision {fixed(t["ap"])} on {count(t["crops"])} held-out crops ({count(t["real"])} real), against {fixed(t["ap_clef"])} for Cloudflare\'s Clef ({clef}) and {fixed(t["ap_openai"])} for {esc(v["teacher"])}, which taught it.</li>
+      <li><b>Behind the measured rules, {vision_share(b["kept_real"], b["kept"])} real.</b> Of {count(b["flags"])} test crops the rules flagged ({vision_share(b["flags_real"], b["flags"])} real), it kept {count(b["kept"])}; {count(b["kept_real"])} were real.</li>
+      <li><b>Small and fast.</b> {fixed(v["size_mb"])} MB, {fixed(v["params_m"])} M parameters, {fixed(v["ms_per_crop"])} ms a crop on {esc(v["ms_measured_on"])}.</li>
+      <li><b>A beta.</b> The labels come from {esc(v["labels"])}. No bug family reached the {pct(v["ship_bar"])} precision bar, so nothing it says is scored.</li>
+    </ul>'''
+
 def sources():
     items = []
     for s in D.get("sources") or []:
@@ -925,7 +980,8 @@ def scan_section():
 BLOCKS = {"visual-specimens": specimens, "visual-home-live": home_live, "visual-state": state, "visual-status": status_notice,
           "visual-families": families, "visual-model-step": model_step, "visual-numbers": numbers,
           "visual-model-limit": model_limit, "visual-sources": sources, "visual-scan": scan_section,
-          "visual-checks-nums": checks_nums, "visual-home-specimens": home_specimens, "visual-home-proof": home_proof}
+          "visual-checks-nums": checks_nums, "visual-home-specimens": home_specimens, "visual-home-proof": home_proof,
+          "visual-home-vision": vision_home, "visual-vision": vision_block}
 
 def markers(s):
     for name, fn in BLOCKS.items():

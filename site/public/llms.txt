@@ -30,6 +30,7 @@
 ## Visual bug checks: measured in CI, not in 0.2.1 yet; the page check is open
 - Visual bug checks (unreadable text, broken images, pages that scroll sideways on phones, template leaks such as "undefined", stylesheets and fonts that fail, covered controls): 23 kinds of measured check with documented thresholds, GenClass visual checks v1, not a model. Measured on GitHub runners in Chromium 153, October 13, 2026: 35 of 35 planted faults found on fixture pages; 0 false reports in 128 page views of unmodified demo, template and compatibility apps; on public home pages (bench run 4, 31 of 40 sites), 8 findings in 96 loads, 5 confirmed real, 3 unconfirmed. https://genclass.dev/visual#numbers
 - Page check: https://genclass.dev/visual#scan, or genclass.dev/<address>. A cloud browser loads one public page and runs the same checks except click-blocked, which needs a visitor's clicks.
+- GenClass Vision v2 (beta): a 4.8 MB screenshot model that gives each visual finding in the page check a second opinion, not scored. Average precision 0.611 on 1,052 held-out crops against Clef's 0.615; labels by AI labeller agents (Claude subagents), not people. https://genclass.dev/visual#vision
 - Learned visual model: still being trained and evaluated; no published numbers.
 
 ## Guides

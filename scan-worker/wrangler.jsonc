@@ -29,7 +29,9 @@
   // The site worker, for paths under the /scan* route that are the site's files (its /scan-box.js), read-only GETs.
   "services": [{ "binding": "SITE", "service": "genclass-site" }],
   // Existing bucket, scans/ prefix only: reports (6 h cache), screenshots (deleted after 24 h), slots, blocklist.
-  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
+  // MODELS: the site's model bucket, read-only here, for GenClass Vision's model under vision/ (src/vision.ts VISION_KEY;
+  // the site worker serves only @genclass/runtime-model@<version>/files/ keys, so it stays private).
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }, { "binding": "MODELS", "bucket_name": "genclass-models" }],
   // New scans per client per minute (keyed by a hash of the IP, or of its /64 for IPv6, never stored), and per site
   // (the registrable domain, approximately) per minute whoever asks, so query-string variants of one slow page cannot
   // keep every scanner busy.
@@ -49,7 +51,9 @@
     "WITH_GENCLASS": "on",
     "GUARD_HOLD_MS": "900",
     // The model judge on the AI binding: "on", or "off" for measured checks only.
-    "JUDGE": "on"
+    "JUDGE": "on",
+    // GenClass Vision (beta) over the MODELS binding: "on", or "off". It never changes the score.
+    "VISION": "on"
   },
   // Hourly retention sweep: scan reports and screenshots older than 24 hours.
   "triggers": { "crons": ["23 * * * *"] },
@@ -68,7 +72,7 @@
       "browser": { "binding": "BROWSER" },
       "ai": { "binding": "AI" },
       "services": [{ "binding": "SITE", "service": "genclass-site" }],
-      "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }],
+      "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "genclass-telemetry" }, { "binding": "MODELS", "bucket_name": "genclass-models" }],
       "ratelimits": [
         { "name": "SCAN_LIMIT", "namespace_id": "4820", "simple": { "limit": 5, "period": 60 } },
         { "name": "SITE_LIMIT", "namespace_id": "4821", "simple": { "limit": 4, "period": 60 } }
@@ -78,6 +82,7 @@
         "WITH_GENCLASS": "on",
         "GUARD_HOLD_MS": "900",
         "JUDGE": "on",
+        "VISION": "on",
         // calibration: keep the crop of every element the judge was asked about (deleted after 24 hours like the rest)
         "JUDGE_CROPS": "all",
         "STORE_PREFIX": "scan-test/"

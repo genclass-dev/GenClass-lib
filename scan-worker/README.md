@@ -11,7 +11,8 @@ top issues, then screenshots with numbered boxes and every finding grouped by ca
 the standard it is judged by (with its link), the element, the suggested fix, and whether GenClass fixed it in the page
 (measured by a re-check) or reports it for the developer. A model, Cloudflare's Clef on Workers AI, takes a second look
 at crops of the screenshots (below, "The model judge"): what it decides is labelled as judged by a model, never as
-measured.
+measured. A small GenClass model, GenClass Vision (beta), looks at the same crops of the measured visual findings inside
+the same browser and shows its score next to each; it changes no finding and no score ([VISION.md](VISION.md)).
 
 - **Test copy:** `https://genclass-scan-test.mehar-144.workers.dev/scan` (wrangler env `test`: workers.dev only, no
   routes, its own bucket prefix `scan-test/` and rate-limit counters; `npm run deploy:test`). The production worker,
@@ -42,7 +43,7 @@ measured.
 | `POST /api/scan {url}` | JSON for refusals (400 address, 403 opt-out, robots or `automated` user agent, 409 same address in progress, 429 `rate` / `site-rate` / `running`, 503 busy) and cache hits (`{ ok, cached, report }`); otherwise `application/x-ndjson`: `{type:"progress",step}` lines, then `{type:"done",report}` or `{type:"error",code,message}` (codes include `private`, `opted-out`, `robots`, `cancelled`) |
 | `GET /api/scan/report?url=…` | the cached report or 404 |
 | `GET /api/scan/shot/<key>/<id>-<view>.jpg` | a screenshot (from R2), only while its host (R2 custom metadata) is not opted out; `<id>-<view>-j<n>.jpg` is the crop the model judge saw for one element, served the same way |
-| `GET /api/scan/health` | `{ ok, ua, runtime, report, judge, prompt }`: the report version, the judge model (null when off) and its prompt |
+| `GET /api/scan/health` | `{ ok, ua, runtime, report, judge, prompt, vision }`: the report version, the judge model (null when off), its prompt, and GenClass Vision's model (null when off) |
 
 Every HTML response has `x-robots-tag: noindex, nofollow`, a per-response CSP nonce (`default-src 'none'`, one inline
 script and one inline style, fonts from Google Fonts, images from this origin and genclass.dev), no third-party
@@ -335,6 +336,24 @@ The evaluation it is built on is on `wave2/clef-eval` (`vision/clef/README.md`, 
   (Workers AI pricing, 2026-10-14): at most about $0.0003 a call, $0.0125 for 40. Each report has `judge` with the
   calls, answers, tokens and their price, and the times.
 
+## GenClass Vision (beta): a second opinion, not scored
+
+[VISION.md](VISION.md) has the model card, how it runs and the parity numbers. In short:
+
+- `genclass-vision-v2` (MobileNetV3-small, 1.19 M parameters, 4.77 MB ONNX fp32) scores the crop the judge took of each
+  measured visual finding, with the element's 64 measured facts, in a tab of its own in the scan's browser
+  (onnxruntime-web 1.30.0 WASM from jsDelivr; the model from the private R2 key `vision/genclass-vision-v2/model.onnx`
+  in `genclass-models`, checked against its sha256, handed over in pieces over DevTools).
+- The tab opens at the first such crop, loads while the other views finish and scores while the race probe runs; the
+  scan waits for its last answers at most 2.5 s. Any failure leaves the report without it.
+- Each finding it saw shows "Vision 0.91"; findings it scores at 0.752 or more (spec.json `secondStage:v2`: on the test
+  set, behind the crawl's measured rules, 69 kept of 500, 33 real, 48%) that are not scored are listed under "GenClass
+  Vision (beta)" with their crops. `report.vision` has the run (`on`, `started`, `ran`, `loadMs`, `msMedian`, `scored`,
+  `failed`, `varsUnmeasured`), each finding's score, and the list. It never touches `unscored`, the judge's outcome or the
+  score.
+- Its input is the training's: the letterbox is Pillow's resize ported (byte-identical on the fixtures), the facts are
+  `score_onnx.py facts()` (identical), and the model's outputs match the Python's to 1.3e-6.
+
 ## The score and the with-GenClass column
 
 `src/score.ts`, published on `/scan/about#score` from the same constants:
@@ -407,9 +426,11 @@ that as a demo setting.
 | `STORE_PREFIX` | unset (production) | a test copy's key prefix in the bucket (`scan-test/` in env `test`, `src/prefix.ts`): its reports, screenshots and leases live under it; the opt-out list `scans/blocklist.json` is shared |
 | `JUDGE` | `on` | the model judge over the `AI` binding; `off` runs the measured checks only |
 | `JUDGE_CROPS` | unset (production), `all` in env `test` | keep every judged crop and put each call's state text in the report (calibration) |
+| `VISION` | `on` | GenClass Vision (beta) over the `MODELS` binding; `off` turns it off. It never changes the score |
 
 Bindings: `BROWSER` (Browser Rendering), `AI` (Workers AI, the model judge), `BUCKET` (R2 `genclass-telemetry`, `scans/`
-prefix only), `SCAN_LIMIT` (per client, namespace 4810), `SITE_LIMIT` (per site, namespace 4811) and `SITE` (the site
+prefix only), `MODELS` (R2 `genclass-models`, read-only here: GenClass Vision's model under `vision/`, which the site
+worker does not serve), `SCAN_LIMIT` (per client, namespace 4810), `SITE_LIMIT` (per site, namespace 4811) and `SITE` (the site
 worker `genclass-site`, for `/scan…` paths that are the site's). The env `test` repeats every binding (they are not
 inherited), sets `"routes": []` (routes are inherited unless set; wrangler resolves `rawEnv.routes ?? topLevel.routes`,
 so an empty list means none), its own rate-limit namespaces 4820 and 4821, `MAX_CONCURRENT` 3 and `STORE_PREFIX`
@@ -452,7 +473,11 @@ the scanner's own left out, failed same-site requests by type and status, who-as
 bytes, the test copy's bucket prefix), and in `test/app.test.ts` a full deep scan through the mocked browser (axe-core
 in every view, the phone narrowed to 360 and 320, the DevTools record, the static report's six categories and top
 issues), categories left unmeasured when time runs out or there is no DevTools session, and the scroll-lock
-correction. `test/judge.test.ts` (the model judge: both state texts word for word with Python's rounding, which one each
+correction. `test/vision.test.ts` (GenClass Vision: the letterbox byte for byte and the 64 facts value for value against
+the Python reference on synthetic fixtures, answers checked, the tab's request filter and model hand-over, a model
+missing or not the pinned sha256, the score and every finding's scoring the same with and without Vision, a Vision that
+throws or hangs, the tab opened only for a measured finding, the chip, the beta list, escaping, /scan/about).
+`test/judge.test.ts` (the model judge: both state texts word for word with Python's rounding, which one each
 element gets, the Clef input, answers read back and refused when malformed, unknown options ignored, a call that throws,
 hangs or answers nonsense never breaking anything, the 40-call cap and its shares, the scroll groups, the page's list
 checked, the page side serialised without bundler names; through the mocked browser and a fake `AI`: 40 calls at most
@@ -576,6 +601,17 @@ npx --yes wrangler@4 deploy --env test                           # the test copy
 npx --yes wrangler@4 deploy -c test/fixture/wrangler.jsonc       # the fixture page (optional)
 npx --yes wrangler@4 deploy                                      # production (genclass-scan, with the genclass.dev routes): the owner only
 ```
+
+GenClass Vision's model is not in git. It is in R2, uploaded once (both envs read the same key):
+
+```bash
+npx --yes wrangler@4 r2 object put genclass-models/vision/genclass-vision-v2/model.onnx --file model.onnx --content-type application/octet-stream --remote
+npx --yes wrangler@4 r2 object put genclass-models/vision/genclass-vision-v2/spec.json --file spec.json --content-type application/json --remote
+```
+
+`REPORT_VERSION` 8 (GenClass Vision) makes every cached version-7 report a miss. Production needs the `MODELS` binding
+and `VISION` on (both in `wrangler.jsonc`); after a production deploy, `genclass.dev/api/scan/health` names
+`genclass-vision-v2`.
 
 The production worker has had its genclass.dev routes since 2026-10-14 (`wrangler.jsonc`), so a plain `wrangler deploy`
 from this directory deploys to them. The model judge (report version 7) has been deployed to the test env only. Before

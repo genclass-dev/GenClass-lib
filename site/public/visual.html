@@ -53,7 +53,7 @@
     <h1>Bugs your users can see, <em>with no error to log.</em></h1>
     <p class="lede">Unreadable text, broken images, layouts that break on phones, "undefined" on the page, buttons under an invisible layer. They render without an exception, so no error monitor records them. GenClass measures them on the page and names the element, what was measured, and a fix. Paste an address to run the checks on one public page.</p>
     <div class="ctas"><a class="btn" href="#scan">Scan a page</a><a class="btn ghost" href="#numbers">Measured results</a></div>
-    <p class="notice vstatus">The visual checks are built and measured in CI. They are not in runtime 0.2.1 yet: they are in testing for a later release. The page check runs the same checks on one public page, except <code>click-blocked</code>, which needs a visitor's clicks. Check numbers as of <time datetime="2026-10-13"><span class="vwhen">October 13, 2026</span></time>, from the results linked under Sources. The learned model is still being trained and evaluated and has no published numbers; nothing on this page comes from it.</p>
+    <p class="notice vstatus">The visual checks are built and measured in CI. They are not in runtime 0.2.1 yet: they are in testing for a later release. The page check runs the same checks on one public page, except <code>click-blocked</code>, which needs a visitor's clicks. Check numbers as of <time datetime="2026-10-13"><span class="vwhen">October 13, 2026</span></time>, from the results linked under Sources. The learned model is still being trained and evaluated and has no published numbers; none of the checks' numbers come from it.</p>
   </div>
 </div>
 
@@ -73,7 +73,7 @@
     <div class="sh"><span class="no">How it works</span><h2>Measured checks, a model still in evaluation, and opt-in fixes.</h2></div>
     <div class="steps vsteps">
       <div class="step"><span class="n">01</span><h3>Measure in the browser</h3><p>Each check is a measurement against a documented threshold, or a fact the browser reports: text below 1.5:1 contrast against a solid background, an image's error event, a page wider than the phone showing it. A report names the element, the value measured and the threshold, and suggests a CSS change for that selector. Text over photos and gradients is skipped, not guessed.</p></div>
-      <div class="step"><span class="n">02</span><h3>Learn from crawled pages</h3><p>A learned model is still being trained and evaluated on a crawl of AI-built and regular sites, with faults injected from outside each page so every example has a known label. It has no published numbers yet. If it meets its bar, its recall and false reports will be published on this page with the data and the split.</p></div>
+      <div class="step"><span class="n">02</span><h3>Learn from crawled pages</h3><p>A learned model is still being trained and evaluated on a crawl of AI-built and regular sites, with faults injected from outside each page so every example has a known label. It has no published numbers yet. If it meets its bar, its recall and false reports will be published on this page with the data and the split. GenClass Vision, a separate model that reads screenshot crops, gives the page check a second opinion as a beta (<a href="#vision">below</a>).</p></div>
       <div class="step"><span class="n">03</span><h3>Fix only when you ask</h3><p>In testing: observe mode reports and never changes the page. With visual fixes turned on in guard or heal mode, three narrow fixes can run: a readable text colour, a leaked <code>pointer-events: none</code> removed from <code>body</code>, a stuck scroll lock released. Each is measured again after it runs, and each can be undone. On the unmodified pages of the bench, 0 fixes were applied in 128 page views.</p></div>
     </div>
     <p class="note">Design and thresholds: <a href="https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/docs/runtime/VISUAL.md">the visual checks design</a>. The checks never feed the network model, and they read no pixels.</p>
@@ -113,6 +113,19 @@
   </div>
 </section>
 
+<section id="vision">
+  <div class="wrap">
+    <div class="sh"><span class="no">GenClass Vision</span><h2>A 4.8 MB model that looks at the crop.</h2></div>
+    <p class="intro">In the page check, GenClass Vision v2 (beta) looks at the screenshot crop of each measured visual finding and gives it a score from 0 to 1. It never changes a finding or the score. Every number here is from <a href="https://github.com/genclass-dev/GenClass-lib/blob/cbf92930fbf7408b35d395387ed7ad8dd2a52e20/vision/results/vision-v2/RESULTS.md">its results</a>.</p>
+    <ul class="vlim vkey">
+      <li><b>Level with Clef on ranking.</b> Average precision 0.611 on 1,052 held-out crops (173 real), against 0.615 for Cloudflare's Clef (<a href="https://huggingface.co/Cloudflare/clef">27B parameters</a>) and 0.651 for OpenAI&#x27;s Decisions API (gpt-6-luna, public beta), which taught it.</li>
+      <li><b>Behind the measured rules, 48% real.</b> Of 500 test crops the rules flagged (15% real), it kept 69; 33 were real.</li>
+      <li><b>Small and fast.</b> 4.8 MB, 1.19 M parameters, 0.53 ms a crop on one CPU thread (AMD EPYC 9V45, onnxruntime 1.31, one crop at a time).</li>
+      <li><b>A beta.</b> The labels come from AI labeller agents (Claude subagents), not people. No bug family reached the 60% precision bar, so nothing it says is scored.</li>
+    </ul>
+  </div>
+</section>
+
 <section id="limits">
   <div class="wrap">
     <div class="sh"><span class="no">Limits</span><h2>What it does not do yet.</h2></div>
@@ -125,7 +138,7 @@
       <li><b>Design quality is not reported as a bug.</b> Uneven alignment and spacing are in the catalog; no check reports them.</li>
       <li><b>It does not repair CSS in general.</b> The three fixes above are the only changes it can make, and only when you turn them on.</li>
     </ul>
-    <div class="vsrc"><b>Sources</b><ul><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/92ec23e52bab9ae173279b51cf08e2bd3b8e3915/research/visual/CATALOG.md">Visual and CSS bugs in AI-generated web apps: catalog</a> <span>the bug families, their order and the evidence for each bug</span></li><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/docs/runtime/RESULTS.md">GenClass runtime results, sections 8 and 9: the visual checks and the visual bench</a> <span>every number for the measured checks</span></li><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/docs/runtime/VISUAL.md">GenClass visual checks: design</a> <span>the 23 kinds, their thresholds and the opt-in fixes</span></li><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/bench/visual/README.md">Visual bench: pages, loads and planted faults</a> <span>how the clean pages, public sites and planted faults were run</span></li></ul></div>
+    <div class="vsrc"><b>Sources</b><ul><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/92ec23e52bab9ae173279b51cf08e2bd3b8e3915/research/visual/CATALOG.md">Visual and CSS bugs in AI-generated web apps: catalog</a> <span>the bug families, their order and the evidence for each bug</span></li><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/docs/runtime/RESULTS.md">GenClass runtime results, sections 8 and 9: the visual checks and the visual bench</a> <span>every number for the measured checks</span></li><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/docs/runtime/VISUAL.md">GenClass visual checks: design</a> <span>the 23 kinds, their thresholds and the opt-in fixes</span></li><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/cbf92930fbf7408b35d395387ed7ad8dd2a52e20/vision/results/vision-v2/RESULTS.md">GenClass Vision v2: results</a> <span>every number for GenClass Vision</span></li><li><a href="https://huggingface.co/Cloudflare/clef">Clef model card (Cloudflare, Hugging Face)</a> <span>the size of Clef, 27B parameters</span></li><li><a href="https://github.com/genclass-dev/GenClass-lib/blob/6ae209fa272f4e1d1b8ebc080b9b8f1405e0e7ba/bench/visual/README.md">Visual bench: pages, loads and planted faults</a> <span>how the clean pages, public sites and planted faults were run</span></li></ul></div>
   </div>
 </section>
 

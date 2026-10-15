@@ -4,6 +4,7 @@
 // textContent, never innerHTML; data travels in a <script type="application/json"> block escaped by embed().
 
 import { CLS_GOOD, CLS_POOR, FONT_MIN, JUDGE_DPR, LCP_GOOD_MS, LCP_POOR_MS, OVERSIZE_BYTES, OVERSIZE_RATIO, TARGET_MIN } from "./audits.ts";
+import { VISION_EVAL, VISION_LINE, VISION_NAME, VISION_THRESHOLD } from "./vision.ts";
 import { CROP_PAD, FAMILY_WORDS, FIND_THRESHOLD, JUDGE_EVAL, JUDGE_LABEL, JUDGE_MAX_CALLS, JUDGE_MODEL, JUDGE_NAME, JUDGE_PLATFORM, JUDGE_SHARE, JUDGE_TIMEOUT_MS, KEEP_THRESHOLD, VERDICT_WORDS } from "./judge.ts";
 import { AXE_OFF, AXE_TAGS } from "./axe.ts";
 import { AXE_BUILD } from "./axe-source.ts";
@@ -211,6 +212,12 @@ ol.top .p{font:600 13.5px var(--mono);color:var(--bug);font-variant-numeric:tabu
 .crop img{display:block;width:100%;height:auto;border:1px solid var(--rule2);border-radius:2px;background:var(--panel)}
 .cropbox i{position:absolute;border:2px solid var(--bug-f);border-radius:2px;pointer-events:none}
 .crop figcaption{margin-top:6px}
+/* GenClass Vision (beta): its score on a finding, and what it flags that is not scored */
+.find .tags .vchip{color:var(--ink2);border:1px solid var(--rule2);border-radius:4px;padding:0 6px}
+ol.vbeta{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:18px 20px;margin-top:16px}
+ol.vbeta img{display:block;max-width:100%;height:auto;max-height:160px;border:1px solid var(--rule2);border-radius:2px;background:var(--panel)}
+ol.vbeta .k{display:block;font:12.5px var(--mono);color:var(--ink3);margin-top:6px}
+ol.vbeta a{font-size:14.5px}
 /* race probe */
 dl.rows{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr)}
 dl.rows dt,dl.rows dd{padding:16px 0;border-bottom:1px solid var(--rule)}
@@ -328,7 +335,7 @@ export function scanPage(n: string, data: ScanPageData): string {
   const report = data.report && typeof data.report === "object" ? (data.report as Record<string, unknown>) : null;
   const errorDetail = data.error && (data.error.code === "robots" || data.error.code === "opted-out") ? "Site owners can opt out of the page check; this site has." : "";
   const body = `
-<script type="application/json" id="data">${embed({ ...data, status: { withLabel: withLabel(), fixes: st.fixes, shipped: st.shipped, runtime: RUNTIME_VERSION, judge: { label: JUDGE_LABEL, verdicts: VERDICT_WORDS, families: FAMILY_WORDS } } })}</script>
+<script type="application/json" id="data">${embed({ ...data, status: { withLabel: withLabel(), fixes: st.fixes, shipped: st.shipped, runtime: RUNTIME_VERSION, judge: { label: JUDGE_LABEL, verdicts: VERDICT_WORDS, families: FAMILY_WORDS }, vision: VISION_NAME } })}</script>
 <section class="hero">
   <p class="eyebrow">Page check</p>
   <h1 id="title">${t ? esc(t.display) : "What breaks on one page load."}</h1>
@@ -390,6 +397,11 @@ ${report ? staticReport(report) : ""}
     <div class="blk-h"><h2>Listed, not scored (a model judged it as probably fine)</h2><span class="aside" id="finen"></span></div>
     <p class="intro">${esc(JUDGE_FINE_INTRO)}</p>
     <ol class="finds" id="finefinds"></ol>
+  </section>
+  <section class="blk hidden" id="visionbeta">
+    <div class="blk-h"><h2>${esc(VISION_NAME)} (beta)</h2><span class="aside">Not scored</span></div>
+    <p class="intro">${esc(VISION_LINE)}</p>
+    <ol class="vbeta" id="vbeta"></ol>
   </section>
   <section class="blk" id="race">
     <div class="blk-h"><h2>Race probe</h2><span class="aside">What was tried, and what GenClass saw</span></div>
@@ -544,7 +556,7 @@ export function staticReport(r: Record<string, unknown>): string {
     const guide = typeof f.guide === "string" && /^https:\/\/dequeuniversity\.com\/rules\/axe\//.test(f.guide) ? f.guide : "";
     const source = byModel ? `<span>${esc(JUDGE_LABEL)}</span>` : "";
     return `<li class="find${withOn && str(fixed.how) ? " fixed" : ""}" id="sf-${esc(str(f.n))}"><div class="no">${esc(str(f.n))}</div><div><h3>${esc(str(f.what))}</h3>
-<div class="tags"><span class="sev-${esc(sev)}">${esc(SEV_WORDS[sev] ?? "")}</span>${count > 1 ? `<span>${esc(String(count))} instances</span>` : ""}<span>${esc(views)}</span>${source}${str(f.unscored) ? "<span>Not scored</span>" : ""}</div>
+<div class="tags"><span class="sev-${esc(sev)}">${esc(SEV_WORDS[sev] ?? "")}</span>${count > 1 ? `<span>${esc(String(count))} instances</span>` : ""}<span>${esc(views)}</span>${source}${str(f.unscored) ? "<span>Not scored</span>" : ""}${visionChip(f)}</div>
 <dl>${row(byModel ? "What the model saw" : "Measured", esc(str(f.measured)))}${judgeRow}${row("Standard", standardLinks(f.standards))}${row("Where", str(f.selector) ? `<code>${esc(str(f.selector))}</code>${examples.length ? `<span class="ex">Also: ${examples.map(esc).join(", ")}</span>` : ""}` : "")}${row("Not scored", esc(str(f.unscored)))}${row("Why it matters", esc(str(f.why)))}${row("Suggested fix", str(f.fix) ? `<pre>${esc(str(f.fix))}</pre>` : "")}${row("Rule guide", guide ? `<a href="${esc(guide)}">${esc(guide.replace(/^https:\/\//, "").replace(/\?.*$/, ""))}</a>` : "")}${withOn ? row("With GenClass", esc(str(fixed.how) ? `Fixed. ${str(fixed.how)}` : str(gc.text))) : ""}</dl></div></li>`;
   }
   const judgeNote = str(obj(r.judge).note);
@@ -553,6 +565,7 @@ export function staticReport(r: Record<string, unknown>): string {
     : "";
   const n = findings.filter((f) => !str(f.unscored)).length;
   const overall = int(score.value);
+  const vb = visionBeta(r);
   return `<div id="ssr">
 <section class="scoregrid" aria-label="Score">
   <div><div class="nums">
@@ -569,7 +582,29 @@ ${withOn ? `<p class="measures">${esc(str(w.note))}</p>` : ""}
 <section class="blk"><div class="blk-h"><h2>Findings</h2><span class="aside">Table 1. ${findings.length} ${findings.length === 1 ? "finding" : "findings"}, by category and rule</span></div>
 ${findings.length ? `<ol class="finds">${items}</ol>` : `<p class="quiet">No findings from these checks on this load.</p>`}${judgeNote ? `<p class="measures">${esc(judgeNote)}</p>` : ""}</section>
 ${fineBlock}
+${vb}
 </div>`;
+}
+
+/** GenClass Vision's chip on a finding it saw: its score, two decimals (stored data, read defensively). */
+function visionChip(f: Record<string, unknown>): string {
+  const v = obj(f.vision);
+  return typeof v.score === "number" && Number.isFinite(v.score) ? `<span class="vchip" title="${esc(`${VISION_NAME} (beta) score; not part of the score`)}">Vision ${esc(v.score.toFixed(2))}</span>` : "";
+}
+
+/** GenClass Vision's list: what it flags that is not scored, each with the crop and a link to its finding. */
+function visionBeta(r: Record<string, unknown>): string {
+  const v = obj(r.vision);
+  const items = v.ran === true ? arr(v.beta).map(obj).filter((b) => int(b.n) !== null && typeof b.score === "number") : [];
+  if (!items.length) return "";
+  const li = items
+    .map((b) => {
+      const url = str(b.crop);
+      const img = CROP_URL.test(url) ? `<img src="${esc(url)}" alt="${esc(`Crop of finding ${str(b.n)}`)}" loading="lazy">` : "";
+      return `<li>${img}<span class="k">Vision ${esc((b.score as number).toFixed(2))} · ${esc(VIEW_WORDS[str(b.view)] ?? str(b.view))}</span><a href="#sf-${esc(str(b.n))}">${esc(str(b.n))}. ${esc(str(b.what))}</a></li>`;
+    })
+    .join("");
+  return `<section class="blk"><div class="blk-h"><h2>${esc(VISION_NAME)} (beta)</h2><span class="aside">Not scored</span></div><p class="intro">${esc(VISION_LINE)}</p><ol class="vbeta">${li}</ol></section>`;
 }
 
 // The client: progress over the NDJSON stream, then the report. textContent only.
@@ -759,6 +794,7 @@ window.addEventListener("resize", function(){ clearTimeout(resizeTimer); resizeT
 
 var VIEWNAMES = { desktop: "Desktop", phone: "Phone", "phone-dark": "Phone, dark", probe: "Race probe" };
 var JW = ST.judge || { label: "", verdicts: {}, families: {} };
+var VNAME = ST.vision || "GenClass Vision";
 var CROP_URL = /^\\/api\\/scan\\/shot\\/[0-9a-f]{32}\\/[0-9a-z]{6,40}-(?:desktop|phone|phone-dark)-j[1-9]\\d?\\.jpg$/;
 function pct(p){ return Math.round(Number(p) * 100) + "%"; }
 function isFine(f){ return !!(f.judge && f.judge.outcome === "fine"); }
@@ -789,6 +825,18 @@ function renderFindings(r){
   fine.forEach(function(f){ fineHost.appendChild(findItem(r, f, withOn)); });
   show("judgedfine", fine.length > 0);
   $("finen").textContent = fine.length + (fine.length === 1 ? " finding" : " findings");
+  // GenClass Vision (beta): what it flags that is not scored, with the crop it saw
+  var vb = $("vbeta"); vb.textContent = "";
+  var beta = r.vision && r.vision.ran && Array.isArray(r.vision.beta) ? r.vision.beta : [];
+  beta.forEach(function(b){
+    if (typeof b.score !== "number") return;
+    var li = el("li");
+    if (b.crop && CROP_URL.test(b.crop)) { var img = el("img"); img.src = b.crop; img.loading = "lazy"; img.alt = "Crop of finding " + b.n; li.appendChild(img); }
+    li.appendChild(el("span", "k", "Vision " + b.score.toFixed(2) + " · " + (VIEWNAMES[b.view] || b.view)));
+    var a = el("a", null, b.n + ". " + b.what); a.href = "#f-" + b.n; li.appendChild(a);
+    vb.appendChild(li);
+  });
+  show("visionbeta", vb.children.length > 0);
 }
 // what the model judge said about a finding, and the crops it saw (the element's box outlined in each)
 function judgeBlock(f){
@@ -828,6 +876,7 @@ function findItem(r, f, withOn){
     tags.appendChild(el("span", null, f.source === "axe" && r.axe ? "axe-core " + r.axe : (SOURCENAME[f.source] || "")));
     if (f.judge && f.source !== "judge") tags.appendChild(el("span", null, f.judge.outcome === "kept" ? "A model agreed" : f.judge.outcome === "fine" ? "A model: probably fine" : "A model: no answer"));
     if (f.unscored) tags.appendChild(el("span", null, "Not scored"));
+    if (f.vision && typeof f.vision.score === "number") { var vc = el("span", "vchip", "Vision " + f.vision.score.toFixed(2)); vc.title = VNAME + " (beta) score; not part of the score"; tags.appendChild(vc); }
     main.appendChild(tags);
     var dl = el("dl");
     function row(k, node){ dl.appendChild(el("dt", null, k)); var dd = el("dd"); if (typeof node === "string") dd.textContent = node; else dd.appendChild(node); dl.appendChild(dd); return dd; }
@@ -1202,6 +1251,7 @@ export function aboutPage(n: string, guard = "GenClass in guard mode with its de
   </div>
 </section>
 ${judgeSection()}
+${visionSection()}
 <section class="blk prose" id="opt-out">
   <div class="blk-h"><h2>Opting out</h2></div>
   <p>Site owners can stop the page check from loading their pages in two ways:</p>
@@ -1225,6 +1275,7 @@ ${judgeSection()}
     <a href="${esc(WORKERS_AI_DATA_URL)}">Workers AI data-usage page</a> says it does not use what is sent to train models, and stores it
     only when the account adds a storage service to it; this scanner does not. The crops a report shows are kept with its
     screenshots and deleted with them.</li>
+    <li>${esc(VISION_NAME)} looks at the same crops inside the same Cloudflare browser. Nothing more is sent anywhere.</li>
     <li>The visitor's IP address is used only for the per-minute rate limit, as a hash, and is not stored.</li>
     <li>The browser starts empty for every scan and is closed afterwards. No cookies or storage carry over between scans.</li>
   </ul>
@@ -1236,6 +1287,27 @@ ${judgeSection()}
 
 /** Cloudflare's statement of what Workers AI does with what it is sent (read 2026-10-14). */
 export const WORKERS_AI_DATA_URL = "https://developers.cloudflare.com/workers-ai/platform/data-usage/";
+
+/** /scan/about#vision: GenClass Vision (beta), what it does and does not do, and its numbers (src/vision.ts VISION_EVAL). */
+export function visionSection(): string {
+  const e = VISION_EVAL;
+  return `<section class="blk prose" id="vision">
+  <div class="blk-h"><h2>${esc(VISION_NAME)} (beta)</h2><span class="aside">a second opinion, not scored</span></div>
+  <p>A small GenClass model (${(e.bytes / 1e6).toFixed(1)} MB, ${(e.params / 1e6).toFixed(2)} M parameters) looks at the same crop of
+  each measured visual finding, inside the scan's own Cloudflare browser, and gives a score from 0 to 1. Each finding it saw shows it
+  ("Vision 0.91"); the findings it flags at ${VISION_THRESHOLD.toFixed(3)} or more that are not scored are listed on their own. It never
+  changes a finding or the score.</p>
+  <ul>
+    <li><b>How it was measured</b> (<code>${esc(e.ref)}</code>): on ${e.testCrops.toLocaleString("en-US")} held-out crops it ranks
+    problems about as well as ${esc(JUDGE_NAME)} (average precision ${e.ap} against ${e.apClef}). Behind the measured rules, at this
+    threshold, it kept ${e.behindRules.kept} of their ${e.rules.flagged} flags, and ${e.behindRules.real} of those were real
+    (${Math.round(e.behindRules.precision * 100)}%; the rules alone: ${Math.round(e.rules.precision * 100)}%). The labels come from
+    ${esc(e.labels)}.</li>
+    <li><b>Beta.</b> It was taught by ${esc(e.teacher)}. None of its problem families passed the 60% precision bar on the test
+    set, so nothing it says is scored.</li>
+  </ul>
+</section>`;
+}
 
 /** /scan/about#judge: which findings come from the model, how it was measured, what it is sent, what it costs. */
 export function judgeSection(): string {
