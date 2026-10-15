@@ -82,12 +82,11 @@ jobs:
         run: npm run build -w @genclass/runtime
 
       # The visual stub's budget was 0.5 KB; with the narrow development-host rule and the hidden-tab gate it measures
-      # about 0.55 KB. 0.6 KB here is pending the owner's OK (docs/runtime/RESULTS.md section 13). The base is
-      # release/0.3.0 while 0.3.0 is not on main (main's runtime is 0.2.x: growth against it would count all of 0.3.0,
-      # not the visual stub); set FIRST_LOAD_BASE back to origin/main once 0.3.0 is merged there.
+      # about 0.55 KB; 0.6 KB here was approved with the 0.3.0-beta.0 size limits (docs/runtime/RESULTS.md section 13).
+      # The base is main (0.3.0 is merged there).
       - name: First-load size against the release line (fails at 0.6 KB gzip growth)
         env:
-          FIRST_LOAD_BASE: origin/release/0.3.0
+          FIRST_LOAD_BASE: origin/main
         run: |
           base=$(git merge-base HEAD "$FIRST_LOAD_BASE")
           echo "merge base with $FIRST_LOAD_BASE: $base"

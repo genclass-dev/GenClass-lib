@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Interception surface", "item": "https://genclass.dev/docs/interception"}]}, {"@type": "TechArticle", "headline": "Interception surface", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-14", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/INTERCEPTION.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Interception surface", "item": "https://genclass.dev/docs/interception"}]}, {"@type": "TechArticle", "headline": "Interception surface", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-15", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/INTERCEPTION.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -140,7 +140,7 @@ stays in that chain as a pure pass-through (a <code>disabled</code> flag), so ne
 <td><code>window.fetch</code></td>
 <td>replaced by a wrapper</td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/observe/fetch.ts">src/observe/fetch.ts</a> <code>installFetch</code></td>
-<td>method, URL, header names, a hash of header values (tracing ids excluded), the request body (strings, form data, ≤ 64 KB of a Blob, BufferSource or a cloned <code>Request</code> stream) to compute an identity; a clone of each response (≤ 256 KB, ≤ 1 s; never <code>text/event-stream</code>)</td>
+<td>method, URL, header names, a hash of header values (tracing ids excluded), the request body (strings, form data, ≤ 64 KB of a Blob, BufferSource or of one clone of a <code>Request</code> stream; a <code>Request</code> whose <code>content-length</code> is larger is not cloned at all) to compute an identity; a clone of each response (≤ 256 KB, ≤ 1 s; never <code>text/event-stream</code>)</td>
 <td>hold before sending; <code>coalesce</code>, <code>delay</code>, <code>block</code>, <code>serve_cached</code> (request); hold a failure, <code>retry</code>, <code>serve_cached</code> (failure); <code>hedge</code>, <code>serve_cached</code> (stall); hold a response (delivery <code>defer</code>, <code>discard</code>)</td>
 <td>restored</td>
 </tr>
@@ -164,7 +164,7 @@ stays in that chain as a pure pass-through (a <code>disabled</code> flag), so ne
 <td><code>window.WebSocket</code></td>
 <td>replaced by a subclass of the native constructor</td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/observe/websocket.ts">src/observe/websocket.ts</a> <code>installWebSocket</code></td>
-<td>URL, message data (JSON-summarised for the situation), outgoing <code>send</code> summaries</td>
+<td>URL, message data (a text message is JSON-parsed and summarised only when something reads it: the delivery decision of a salient message, a situation, devtools; once, one parse for both), outgoing <code>send</code> summaries (likewise when read)</td>
 <td>hold an incoming message (and everything after it on the same socket, in order); never drops or changes one</td>
 <td>restored; sockets created before stay subclass instances that pass everything through</td>
 </tr>
@@ -172,7 +172,7 @@ stays in that chain as a pure pass-through (a <code>disabled</code> flag), so ne
 <td><code>window.EventSource</code></td>
 <td>replaced by a subclass</td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/observe/eventsource.ts">src/observe/eventsource.ts</a> <code>installEventSource</code></td>
-<td>URL, event data</td>
+<td>URL, event data (parsed and summarised when read, as for WebSocket)</td>
 <td>hold an incoming event (order kept)</td>
 <td>restored, as above</td>
 </tr>
@@ -232,6 +232,22 @@ stays in that chain as a pure pass-through (a <code>disabled</code> flag), so ne
 <td>nothing</td>
 <td>disconnected</td>
 </tr>
+<tr>
+<td><code>PerformanceObserver</code>, <code>MutationObserver</code> (instances; measured visual checks only)</td>
+<td><code>layout-shift</code> and <code>resource</code> entries (buffered); child list, text and the <code>class</code>, <code>style</code>, <code>hidden</code>, <code>src</code>, <code>srcset</code>, <code>width</code>, <code>height</code>, <code>open</code> attributes under <code>documentElement</code></td>
+<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/visual/engine.ts">src/visual/engine.ts</a> <code>Visual.install</code></td>
+<td>shift scores and their sources, resource URLs and <code>responseStatus</code>; which subtrees changed</td>
+<td>nothing</td>
+<td>disconnected</td>
+</tr>
+<tr>
+<td><code>document.adoptedStyleSheets</code> (measured visual checks, guard or heal with <code>visual: { on: true, fix: true }</code> only)</td>
+<td>one constructed stylesheet appended, one rule per fix (<code>[data-genclass-fix~="f3"] { color: ... !important }</code>) and that token in a <code>data-genclass-fix</code> attribute on the element</td>
+<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/visual/fix.ts">src/visual/fix.ts</a> <code>Fixer.apply</code></td>
+<td>nothing</td>
+<td>a readable text colour for text measured below 1.5:1</td>
+<td>rules and attributes removed</td>
+</tr>
 </tbody>
 </table>
 <p>Not wrapped or observed: <code>requestAnimationFrame</code>, <code>queueMicrotask</code>, <code>MessageChannel</code>, <code>postMessage</code>,
@@ -276,7 +292,7 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).</p>
 <td><code>window</code> / <code>document</code></td>
 <td><code>pagehide</code> / <code>visibilitychange</code></td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/runtime.ts">src/runtime.ts</a> constructor</td>
-<td>the session summary for your <code>sinks</code></td>
+<td>the session summary for your <code>sinks</code>; in observe (0.3.0), deciding the situations deferred while the tab was hidden</td>
 <td>yes</td>
 </tr>
 <tr>
@@ -328,6 +344,20 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).</p>
 <td>the overlay</td>
 <td>on unmount</td>
 </tr>
+<tr>
+<td><code>document</code> (capture), <code>window</code></td>
+<td><code>securitypolicyviolation</code> (at most 50 kept), <code>load</code> (once)</td>
+<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/visual/start.ts">src/visual/start.ts</a> <code>startVisual</code></td>
+<td>measured visual checks (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md">VISUAL.md</a>), only when <code>InitOptions.visual</code> is on for this page: violations during page load cannot be queried later; the checks' chunk loads 1.5 s after <code>load</code></td>
+<td><code>securitypolicyviolation</code> yes; <code>load</code> fires once and is inert after <code>destroy()</code></td>
+</tr>
+<tr>
+<td><code>document</code>, <code>window</code>, <code>document.fonts</code> (capture, passive; only once the visual chunk runs)</td>
+<td><code>document</code>: <code>error</code>, <code>load</code>, <code>securitypolicyviolation</code>, <code>click</code>, <code>pointerover</code>, <code>focusin</code>, <code>pointerdown</code>, <code>pointerup</code>, <code>pointercancel</code>, <code>keydown</code>, <code>visibilitychange</code>, <code>prerenderingchange</code>; <code>window</code>: <code>wheel</code>, <code>touchmove</code>, <code>scroll</code>, <code>hashchange</code>, <code>popstate</code>, <code>resize</code>, <code>pageshow</code>; <code>document.fonts</code>: <code>loadingdone</code></td>
+<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/visual/engine.ts">src/visual/engine.ts</a> <code>Visual.install</code></td>
+<td>measured visual checks: failed assets, clicks swallowed by an invisible layer, hover and focus contrast, focus under a sticky header, scroll attempts on a locked page. Read only: never <code>preventDefault</code>, <code>stopPropagation</code> or a write</td>
+<td>yes</td>
+</tr>
 </tbody>
 </table>
 <h2 id="objects-it-instruments-after-handing-them-to-the-app">Objects it instruments after handing them to the app</h2>
@@ -372,7 +402,7 @@ devtools overlay's Alt+Shift+G hotkey (only when you mount the overlay).</p>
 </tr>
 <tr>
 <td>each <code>WebSocket</code> created while installed</td>
-<td>an own <code>send</code> that records a summary, then calls the native <code>send</code> with the same data; GenClass's own listeners for <code>message</code>, <code>close</code>, <code>error</code>, <code>open</code></td>
+<td>an own <code>send</code> that records the send (its summary computed when read), then calls the native <code>send</code> with the same data; GenClass's own listeners for <code>message</code>, <code>close</code>, <code>error</code>, <code>open</code></td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/observe/websocket.ts">src/observe/websocket.ts</a>, <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/observe/messages.ts">src/observe/messages.ts</a> <code>MessageGate</code></td>
 <td>all; holding only in guard/heal</td>
 <td>a held message is stopped (<code>stopImmediatePropagation</code>) and later re-dispatched as a copy (<code>isTrusted</code> false, same <code>data</code>, <code>origin</code>, <code>lastEventId</code>, <code>ports</code>), in order</td>
@@ -453,11 +483,11 @@ from ever being held.</p>
 <tr>
 <td>Network: the model card, tokenizer, calibration, meta and the model variant (about 10 MB) from <code>model.baseUrl</code> (default jsDelivr <code>@genclass/runtime-model</code>), and onnxruntime-web's wasm from <code>model.ortWasmPaths</code></td>
 <td>with the page's fetch as it was when the module loaded (never through the wrapper)</td>
-<td>at idle after load, <code>GenClass.init</code> in a browser with a model (lazy on Save-Data)</td>
+<td>at idle after load, <code>GenClass.init</code> in a browser with a model; not on devices reporting 2 GB or less nor on Save-Data (<code>model.loadIf</code> default)</td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/model/loader.ts">src/model/loader.ts</a>, <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/model/backend.ts">src/model/backend.ts</a></td>
 </tr>
 <tr>
-<td>Network: anonymous diagnostics to the GenClass collector (<code>DEFAULT_TELEMETRY_ENDPOINT</code>, a Cloudflare Worker)</td>
+<td>Network: anonymous diagnostics to the GenClass collector (<code>DEFAULT_TELEMETRY_ENDPOINT</code>, a Cloudflare Worker): a summary a minute while active, records of at most 200 decisions per page load (routine ones 1 in 4)</td>
 <td>native <code>fetch</code>/<code>sendBeacon</code> captured at module load, <code>text/plain</code>, <code>credentials: "omit"</code>, <code>referrerPolicy: "no-referrer"</code></td>
 <td><code>GenClass.init</code> in a browser unless turned off (<a href="/docs/telemetry">TELEMETRY.md</a>); never in <code>createRuntime()</code></td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/telemetry">src/telemetry/</a></td>
@@ -476,9 +506,9 @@ from ever being held.</p>
 </tr>
 <tr>
 <td><code>localStorage</code> / <code>sessionStorage</code></td>
-<td><code>genclass:learn</code> (learned operation shapes)</td>
-<td>only with <code>learn.persist</code></td>
-<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/runtime.ts">src/runtime.ts</a> <code>saveProfilesSoon</code></td>
+<td><code>genclass:learn</code> (learned flows by default; operation shapes too with <code>learn.persist</code>: signatures, routes and field names with id-like parts normalised, counts, hashed action labels; ≤ <code>learn.maxBytes</code>), <code>genclass:learn:probe</code> (set and removed once at init to check storage works), <code>genclass:learn:session</code> in sessionStorage (the tab's session ordinal)</td>
+<td>flows by default, not in jsdom / happy-dom (<code>learn.persist: false</code> turns it all off); the runtime's own writes are not recorded as storage events</td>
+<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/runtime.ts">src/runtime.ts</a> <code>saveProfilesSoon</code>, <code>startSession</code>, <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/EXPECTATIONS.md">docs/runtime/EXPECTATIONS.md</a></td>
 </tr>
 <tr>
 <td><code>localStorage</code> (read only)</td>
@@ -487,7 +517,7 @@ from ever being held.</p>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/index.ts">src/index.ts</a> <code>killSwitch</code>, <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/telemetry/config.ts">src/telemetry/config.ts</a></td>
 </tr>
 <tr>
-<td>A module <code>Worker</code> (<code>genclass-model</code>) running onnxruntime-web; inline on the main thread only if the worker cannot start (<code>model.inlineFallback</code>)</td>
+<td>A module <code>Worker</code> (<code>genclass-model</code>) running onnxruntime-web; inline on the main thread only if the worker cannot start (<code>model.inlineFallback</code>, default true; <code>false</code>: no model then, status <code>skipped</code> / <code>worker-unavailable</code>)</td>
 <td></td>
 <td>model load</td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/model/host.ts">src/model/host.ts</a></td>
@@ -503,6 +533,18 @@ from ever being held.</p>
 <td>one line per detection or intervention (<code>report</code>), the telemetry notice, warnings</td>
 <td><code>report: "console"</code> (default)</td>
 <td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/decide/report.ts">src/decide/report.ts</a></td>
+</tr>
+<tr>
+<td>Network: the measured visual checks' chunk (<code>dist/visual/index.js</code>, from the same place as the runtime)</td>
+<td>a dynamic <code>import()</code></td>
+<td>1.5 s after <code>load</code> when <code>InitOptions.visual</code> is on for the page (development hosts by default), or when the devtools overlay mounts or <code>rt.checkNow()</code> runs</td>
+<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/visual/start.ts">src/visual/start.ts</a></td>
+</tr>
+<tr>
+<td>Console</td>
+<td><code>[GenClass] Check (measured): ...</code>, one collapsed group per finding with its measured values (at most 10 a pass, then one line)</td>
+<td>measured visual checks on</td>
+<td><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/visual/bridge.ts">src/visual/bridge.ts</a></td>
 </tr>
 </tbody>
 </table>
@@ -521,8 +563,16 @@ exceeds the hold budget (<code>policy.holdBudgetMs</code>, "auto" = 1.5 × the m
 including the time spent waiting for a body, deferred re-decisions and <code>onBeforeAction</code>
 (<code>test/invariants/network.test.ts</code>, <code>test/invariants/state.test.ts</code> "the hold budget caps ..."). When the model is
 not ready, slow, erroring or over its rate limit, the subject proceeds unchanged (fail open).</p>
+<p><strong>Measured visual checks</strong> (<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md">VISUAL.md</a>) only read in every mode. Their runtime fixes need
+<code>visual: { on: true, fix: true }</code> and guard or heal mode, and only ever do two things: add an owned stylesheet rule
+that sets a readable colour on one element (text measured below 1.5:1), or remove one leaked inline
+<code>pointer-events: none</code> or <code>overflow: hidden</code> declaration on <code>html</code> or <code>body</code> after recording it. Each is re-measured
+50 ms later and undone if it did not help, undone by <code>finding.fix.undo()</code>, and undone automatically on
+<code>setMode("observe")</code>, the breaker, <code>pause()</code> (within 2 s), <code>disable()</code> and <code>destroy()</code>
+(<a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/visual/fix.ts">src/visual/fix.ts</a>).</p>
 <p>Every term can only lower the mode: <code>routes</code> rules, <code>sample</code>, the breaker (after 2 undos or 3 errors following actions,
-the session drops to <code>observe</code>), a hidden tab (nothing new is held, background decisions are skipped) and
+the session drops to <code>observe</code>), a hidden tab (nothing new is held; background decisions are skipped in guard and heal, and deferred until the tab is
+visible in observe, where they can only detect) and
 <code>?genclass-mode</code>. Since 0.2.2 no URL or <code>localStorage</code> switch can raise it on a production host: <code>?genclass=guard</code>
 or <code>heal</code> raises only with <code>debug: true</code> or on a development host (see <a href="/docs/threat-model">THREAT-MODEL.md</a>).</p>
 <h2 id="what-it-never-does">What it never does</h2>
@@ -537,7 +587,7 @@ or <code>heal</code> raises only with <code>debug: true</code> or on a developme
 <tbody>
 <tr>
 <td>changes a request's URL, method, headers or body</td>
-<td>the native <code>fetch</code>/<code>send</code> gets the app's own <code>input</code>/<code>init</code>/<code>body</code>; a replay (<code>retry</code>, <code>hedge</code>) sends a clone of the original <code>Request</code> or the same <code>init</code></td>
+<td>the native <code>fetch</code>/<code>send</code> gets the app's own <code>input</code>/<code>init</code>/<code>body</code>; a replay (<code>retry</code>, <code>hedge</code>) sends the same <code>init</code>, or a <code>Request</code> rebuilt from the original with the ≤ 64 KB of body bytes read for its identity (larger <code>Request</code> bodies are not replayable)</td>
 <td><code>test/fetch.test.ts</code>, <code>test/invariants/network.test.ts</code></td>
 </tr>
 <tr>
@@ -881,6 +931,8 @@ sites src/observe/xhr.ts 15
 sites src/protect.ts 2
 sites src/runtime.ts 1
 sites src/telemetry/client.ts 2
+sites src/visual/engine.ts 3
+sites src/visual/start.ts 1
 </code></pre>
 <!-- inventory:end --></article></div></section>
 </main>

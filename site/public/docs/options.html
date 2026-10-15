@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Options Reference", "item": "https://genclass.dev/docs/options"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime: configuration extensions spec (v0.3 options), final", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-14", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/OPTIONS-SPEC.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Options Reference", "item": "https://genclass.dev/docs/options"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime: configuration extensions spec (v0.3 options), final", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-15", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/OPTIONS-SPEC.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -52,7 +52,7 @@
 <section style="padding-top: 24px"><div class="wrap doc"><nav class="toc" aria-label="Reference"><b>Reference</b><a href="/docs/api">API Reference</a><a href="/docs/options">Options Reference</a><a href="/docs/architecture">Architecture</a><a href="/docs/telemetry">Telemetry</a><a href="/docs/interception">Interception surface</a><a href="/docs/threat-model">Threat model</a><a href="/security">Security</a><a href="/docs/compatibility">Compatibility</a><b>On this page</b><a href="#0-design-rules">0. Design rules</a><a href="#1-option-summary">1. Option summary</a><a href="#2-types-add-to-typests">2. Types (add to types.ts)</a><a href="#3-shared-infrastructure">3. Shared infrastructure</a><a href="#4-options">4. Options</a><a href="#5-built-in-behaviours-no-option">5. Built-in behaviours (no option)</a><a href="#6-precedence-cheat-sheet">6. Precedence cheat-sheet</a><a href="#7-readme-apimd-text">7. README / API.md text</a><a href="#8-migration-and-compatibility">8. Migration and compatibility</a><a href="#dropped-proposals">Dropped proposals</a></nav><article class="prose"><p>Status: ready for implementation. Branch <code>runtime</code>, package <code>packages/runtime</code>. I read only <code>types.ts</code>, <code>API.md</code>, README and the CONTRACT sections. Nothing was run. <code>aggressiveness</code> is already in flight, so it is not proposed here. Today's documented default is <code>"balanced"</code>, and this spec does not change it.</p>
 <h2 id="0-design-rules">0. Design rules</h2>
 <ol>
-<li><strong>Every new option narrows behaviour or exports data. None of them widens it.</strong> A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, <code>holdBudgetMs</code> is a hard ceiling, model loading is lazy on Save-Data, hidden tabs skip background evaluation, and query values are redacted in what the model sees.</li>
+<li><strong>Every new option narrows behaviour or exports data. None of them widens it.</strong> A few defaults differ from today, and every difference makes things safer. They are all listed in §8: the breaker is on, per-subject and per-session limits exist, <code>holdBudgetMs</code> is a hard ceiling, model loading is skipped on small devices and Save-Data connections, hidden tabs skip background evaluation in guard and heal (observe decides those situations when the tab is visible again, §5.1), and query values are redacted in what the model sees. One default widens what is <em>reported</em>, never what is done: observe reports "possible" detections too (<code>detect</code>, §4.19), and decides situations raised while the model loads or the tab is hidden later, reporting them at the possible tier at most (§5.3); <code>detect: "likely"</code> turns both off. Three 0.3.0 fixes also widen what observe reports, with no option (the idle-unload reload §4.18, overwritten writes decided on slow devices, the 100 ms body wait): they can add likely reports, false ones included, at a rate not measured yet.</li>
 <li><strong>There is no bug knowledge in config.</strong> Options control where the runtime watches or acts, how much it may do, and where findings go. The model alone decides what is wrong. Labels go to reports only by default (§4.4). Tags and correlation ids never reach the model or the gate.</li>
 <li><strong>One effective-mode function, and every term can only demote:</strong></li>
 </ol>
@@ -179,16 +179,16 @@ order: off &lt; observe &lt; guard &lt; heal
 </tr>
 <tr>
 <td>14</td>
-<td><code>learn</code> (+ <code>rt.learn.clear()</code>)</td>
+<td><code>learn</code> (+ <code>rt.learn.clear()</code>, <code>rt.learned()</code>)</td>
 <td>persistence</td>
-<td><code>{persist:false}</code></td>
+<td><code>{persist:unset, expectations:false}</code>: nothing stored; with <code>expectations: true</code>, flows stored, profiles in memory (EXPECTATIONS.md §4)</td>
 <td>extended</td>
 </tr>
 <tr>
 <td>15</td>
 <td><code>model.loadIf</code>, <code>model.inlineFallback</code></td>
 <td>load</td>
-<td><code>{saveData:"lazy"}</code>, <code>true</code></td>
+<td><code>{minDeviceMemoryGB:4, saveData:"skip"}</code>, <code>true</code></td>
 <td>new</td>
 </tr>
 <tr>
@@ -219,9 +219,24 @@ order: off &lt; observe &lt; guard &lt; heal
 <td>—</td>
 <td>extended</td>
 </tr>
+<tr>
+<td>20</td>
+<td><code>detect</code> (0.3.0)</td>
+<td>reporting</td>
+<td><code>"possible"</code> where the effective mode is observe and <code>policy.thresholds.report</code> is unset, else <code>"likely"</code></td>
+<td>new</td>
+</tr>
+<tr>
+<td>21</td>
+<td><code>visual</code> (+ <code>rt.checks()</code>, <code>rt.checkNow()</code>, the <code>check</code> event)</td>
+<td>measured visual checks</td>
+<td><code>"local"</code> in <code>GenClass.init()</code> in a browser, <code>false</code> in <code>createRuntime()</code></td>
+<td>new (§4.20)</td>
+</tr>
 </tbody>
 </table>
-<p>Built in, with no option: hidden-tab background skipping (§5.1).</p>
+<p>Built in, with no option: hidden tabs (§5.1): guard and heal skip background situations; observe defers them until
+the tab is visible. Observe also defers situations raised while the model loads (§5.3).</p>
 <h2 id="2-types-add-to-typests">2. Types (add to <code>types.ts</code>)</h2>
 <pre><code class="language-ts">export type ModeOrOff = Mode | &quot;off&quot;;
 
@@ -274,8 +289,10 @@ export interface SinkRecord {
   tags: Record&lt;string, string | number | boolean&gt;;
   correlationId?: string;      // from requests.correlate; never model-visible
   mode: ModeOrOff;             // effective mode at decision
+  route?: string;              // the path the subject's op was created on (else the current one), id-like and email segments as :id, &lt;= 200 chars
   sampled: boolean;
   diagnosis?: string; p?: number;
+  detection?: &quot;likely&quot; | &quot;possible&quot;; // kind &quot;detection&quot; (0.3.0, §4.19)
   action?: string; tier?: Tier;
   changed?: string[];          // paths only
   undone?: boolean;
@@ -291,13 +308,15 @@ export interface SinkObject {
   kinds?: SinkKind[];
   sampleRate?: number;   // session-deterministic; never drops intervention/undo/breaker
   evidence?: boolean;    // default false
+  possible?: boolean;    // 0.3.0, default false: also &quot;possible&quot; detections (§4.19)
   flush?(): Promise&lt;void&gt;;
 }
 export type Sink = SinkFn | SinkObject;
 
 export interface SessionSummary {
   startedAt: number; durationMs: number;
-  detections: Record&lt;string, number&gt;;
+  detections: Record&lt;string, number&gt;;      // likely detections, by diagnosis
+  possibleDetections: Record&lt;string, number&gt;; // 0.3.0: possible detections (§4.19), by diagnosis
   interventions: Record&lt;string, number&gt;;
   undos: number; lateReverts: number;
   denied: Record&lt;string, number&gt;;          // by reason
@@ -530,17 +549,19 @@ export interface InitOptions {
 <p><strong>Type</strong> <code>Sink[]</code>. <strong>Default</strong> <code>[]</code>.</p>
 <p><strong>Semantics.</strong>
 - Sinks are independent of <code>report</code>.
-- Each <code>Report</code> maps to a <code>SinkRecord</code> (schema 1). By default the record is minimal: no situation text, no URLs, no values, and only paths in <code>changed</code>. <code>evidence:true</code> adds redacted <code>message</code>, <code>trigger</code>, subject label and the <code>explain()</code> timeline.
+- Each <code>Report</code> maps to a <code>SinkRecord</code> (schema 1). By default the record is minimal: no situation text, no request URLs, no values, and only paths in <code>changed</code>; <code>route</code> is the page path normalised as telemetry sends it (id-like and email segments as <code>:id</code>, at most 200 chars). <code>evidence:true</code> adds redacted <code>message</code>, <code>trigger</code>, subject label and the <code>explain()</code> timeline.
 - <code>kinds</code> filters records. <code>sampleRate</code> is deterministic per session (<code>hash(sessionId+index)</code>) and never drops <code>intervention</code>, <code>undo</code> or <code>breaker</code>.
+- <code>possible: true</code> (0.3.0) also delivers "possible" detections (<code>SinkRecord.detection: "possible"</code>, §4.19); without it a sink, and every plain function sink, gets the likely ones only. The adapters take <code>possible</code> too; sinks by name never get possible ones.
 - Dispatch is queued (a microtask batch, then <code>requestIdleCallback</code>) and never runs on the decision or hold path.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On <code>pagehide</code>, or once on <code>visibilitychange→hidden</code> as a fallback, one <code>summary</code> record is emitted and each sink's <code>flush()</code> is called.
-- <code>rt.summary()</code> is always available. Vendor adapters are left to separate packages.</p>
+- <code>rt.summary()</code> is always available. Two vendor-neutral adapters ship as entries of the package, outside the first-load bundle: <code>@genclass/runtime/sinks/{console-json,webhook}</code> (<code>src/sinks/</code>, each a function returning a <code>SinkObject</code> that never throws and sends only the record: one JSON line per record on the console, or batched POSTs to the URL the developer configures). The zero-code entries take them by name (<code>src/cdn/sinks.ts</code>: <code>window.GENCLASS_CONFIG.sinks: ["webhook:/genclass"]</code>, <code>&lt;meta name="genclass" content="sink=console-json"&gt;</code>, <code>data-sink</code>, <code>init --sink</code>), as one proxy sink that queues records and loads the adapters on the first record, never before (<code>src/cdn/sinks-fanout.ts</code>, a lazy chunk of <code>/auto</code>; <code>dist/sinks/&lt;name&gt;.js</code> from the CDN for the script tag), so only the proxy is in the first load; a <code>webhook:&lt;url&gt;</code> is made absolute at init (against <code>document.baseURI</code>) and its endpoint (origin and path) joins <code>requests.ignore</code> as an exact match, and from a <code>&lt;meta&gt;</code> tag it must be same-origin as the browser resolves it (against the page and <code>document.baseURI</code>). Each adapter takes <code>evidence</code> (default true; false sends the structured fields only; <code>console-json:noevidence</code> in the no-code forms); the webhook caps repeats of one bug at <code>maxPerSignature</code> (10) per page load. A string in <code>GenClass.init({ sinks })</code> is ignored with one warning.
+- No Sentry, PostHog or Datadog adapter (owner decision, 2026-10-13): forwarding to those tools is not part of the free runtime. The owner intends it as a paid, server-side feature; it is not built, and no plan on https://genclass.dev/pricing offers it yet. A page config that names <code>sentry</code>, <code>posthog</code> or <code>datadog</code> (any case, with or without an option) gets one console warning for them all that says so, with https://genclass.dev/pricing, and nothing is loaded or sent for those names (<code>applySinks</code>); <code>init --sink sentry</code> is a usage error that says the same.</p>
 <p><strong>Hooks.</strong> <code>report.ts</code> (<code>toSinkRecord</code>, <code>SinkDispatcher</code>), the new <code>decide/summary.ts</code>, and a pagehide listener in <code>runtime.ts</code>.</p>
 <p><strong>Tests.</strong>
 - Three sinks and the console all receive records.
 - A throwing sink, or one whose Promise takes 2 s, does not delay a hold release.
-- Snapshot of the default record: no URL and no situation text.
+- Snapshot of the default record: no request URL (the page path only, normalised) and no situation text.
 - <code>evidence:true</code> adds fields that are still redacted.
 - <code>sampleRate:0</code> still delivers interventions.
 - pagehide → exactly one summary and <code>flush</code> called.
@@ -564,9 +585,11 @@ export interface InitOptions {
 - A detection is not printed under <code>"interventions"</code>, but sinks still receive it.
 - An intervention is printed.</p>
 <h3 id="414-learn-extended-and-rtlearnclear">4.14 <code>learn</code> (extended) and <code>rt.learn.clear()</code></h3>
-<p><strong>Type</strong> <code>{ persist?: boolean|"local"|"session"; key?; version? }</code>. <strong>Defaults</strong> <code>persist:false</code>, <code>key:"genclass:learn"</code>, and <code>version</code> equal to <code>session.tags.release</code> <strong>as read once at init</strong>.</p>
+<p><strong>Type</strong> <code>{ persist?: boolean|"local"|"session"; key?; version?; maxBytes?; expectations?; minSupport?; minShare?; minSessions? }</code>. <strong>Defaults</strong> <code>expectations: false</code> (opt-in in 0.3.0 until its false-report rate is measured; off, src/learn/flows.ts is never loaded and nothing is stored); <code>persist</code> unset: with <code>expectations: true</code> the learned flows (reporting only) are stored in localStorage, and transition profiles stay in memory either way (see <code>docs/runtime/EXPECTATIONS.md</code> §4); <code>key:"genclass:learn"</code>, <code>version</code> equal to <code>session.tags.release</code> <strong>as read once at init</strong>, <code>maxBytes:200000</code>.</p>
 <p><strong>Semantics.</strong>
-- <code>true</code> means <code>"local"</code>, which matches today's behaviour.
+- <code>true</code> means <code>"local"</code>, which matches the 0.2.2 behaviour for transition profiles, and stores the flows too. <code>false</code> stores nothing.
+- Unset in jsdom / happy-dom, or with storage that throws on a probe write: nothing is stored.
+- The stored value also carries a format number and the runtime version; a mismatch of either discards it.
 - If the stored version differs from the configured one, the stored state is discarded at load. A later <code>setSession</code> change does not reload it.
 - <code>rt.learn.clear()</code> clears both storage and memory.
 - All storage access is wrapped in try/catch.</p>
@@ -578,18 +601,20 @@ export interface InitOptions {
 - Storage throws → in-memory only.
 - Changing the release tag after init → no reload.</p>
 <h3 id="415-modelloadif-and-modelinlinefallback">4.15 <code>model.loadIf</code> and <code>model.inlineFallback</code></h3>
-<p><strong>Defaults</strong> <code>loadIf: { saveData:"lazy" }</code>, <code>inlineFallback: true</code>.</p>
+<p><strong>Defaults</strong> <code>loadIf: { minDeviceMemoryGB: 4, saveData: "skip" }</code> (0.3.0; 0.2.x: <code>{ saveData: "lazy" }</code>), <code>inlineFallback: true</code>.</p>
 <p><strong>Semantics.</strong>
 - <code>loadIf</code> is evaluated before the ModelHost is constructed. Unknown device values count as allowed, and a throwing predicate counts as allowed, with a warning.
-- <code>false</code> or <code>"skip"</code> → no download, <code>status.model.state="skipped"</code> with a reason, and the runtime behaves as if <code>model:false</code>.
+- The default is a device floor: the model (10 MB on the wire, a worker of 190 to 280 MB) is not loaded on devices whose <code>navigator.deviceMemory</code> is under 4 GB, nor on Save-Data connections. <code>deviceMemory</code> is quantised to powers of two (0.25 … 8), so the floor skips exactly the devices reporting 2 GB or less; browsers that do not report it (Safari, Firefox) load. <code>model: { loadIf: () =&gt; true }</code> forces the load.
+- <code>false</code> or <code>"skip"</code> → no download, <code>status.state="skipped"</code> with a reason (<code>device-memory</code>, <code>save-data</code>, <code>loadIf</code>), the runtime behaves as if <code>model:false</code> (observes without a model) and prints one console status line saying so (<code>[GenClass] Model not loaded: …</code>; silent with <code>report: "silent"</code>).
 - <code>"lazy"</code> → <code>preload</code> is forced to <code>"lazy"</code>.
-- <code>inlineFallback:false</code> → if the worker fails, ORT does not run on the main thread, and the state is <code>skipped</code> with reason <code>worker-unavailable</code>.
+- <code>inlineFallback:false</code> → if the worker cannot be created or fails before it is up, ORT does not run on the main thread: the state is <code>skipped</code> with reason <code>worker-unavailable</code> and one console line names the worker error. <code>worker:false</code> still runs inline (explicit).
 - <code>loadIf</code> never affects decisions.</p>
 <p><strong>Tests.</strong>
-- Save-Data with the default → lazy.
+- A 2 GB device (and 1, 0.5, 0.25) with the default → skipped; 4 GB, 8 GB and unknown → load; Save-Data with the default → skipped.
 - <code>minDeviceMemoryGB:4</code> with a 2 GB device → skipped, with zero model fetches.
 - Unknown device memory → loads.
-- A worker failure with <code>inlineFallback:false</code> → no ORT on the main thread.</p>
+- <code>loadIf: () =&gt; true</code> on a 0.5 GB Save-Data device → loads.
+- A worker failure with <code>inlineFallback:false</code> → no ORT on the main thread, <code>skipped</code> / <code>worker-unavailable</code>.</p>
 <h3 id="416-modelthreads-and-modeltimeoutms">4.16 <code>model.threads</code> and <code>model.timeoutMs</code></h3>
 <p><strong>Defaults</strong> <code>"auto"</code> = <code>min(4, max(1, cores-1))</code>, and <code>10000</code>.</p>
 <p><strong>Semantics.</strong>
@@ -617,19 +642,52 @@ export interface InitOptions {
 <p><strong>Semantics.</strong>
 - The idle timer resets on every evaluation, and time with the tab hidden counts as idle.
 - When the timer fires, the worker and session are torn down and the state becomes <code>"unloaded"</code>.
-- The next situation reloads the model from <code>cacheName</code>. During the reload, held items are released unchanged.</p>
+- The next situation reloads the model from <code>cacheName</code>: "unloaded" counts as consultable (like "off" for a lazy model), so the next salient situation in a visible tab asks for <code>ready()</code> again (until 0.3.0 it did not, and detection stopped for the rest of the page load after the first unload; guard and heal now act again after the reload). A hidden tab never asks: hidden-tab situations are deferred (§5.3) and the tab becoming visible asks for the model. During the reload, held items are released unchanged (failOpen <code>not-ready</code>); in observe the situation is deferred (§5.3) and decided once the model is back.</p>
 <p><strong>Tests.</strong>
 - Idle → worker terminated, and the reload comes from the cache with no network.
-- A held item during the reload is released unchanged.</p>
+- A held item during the reload is released unchanged.
+- Runtime level (<code>test/deferred.test.ts</code>): after an unload the next salient situation reloads the model; in observe it is decided once the model is back, in guard it fails open and the next one is decided; a second unload reloads again; a hidden tab polling through an unload never reloads it, and the tab becoming visible reloads it and decides the queue.</p>
+<h3 id="419-detect-030">4.19 <code>detect</code> (0.3.0)</h3>
+<p><strong>Type</strong> <code>"likely" | "possible"</code>. <strong>Default</strong> <code>"possible"</code> where the subject's effective mode is <code>observe</code> and the app set no <code>policy.thresholds.report</code>; <code>"likely"</code> otherwise.</p>
+<p><strong>Semantics.</strong> Reporting only; no action gate reads it.
+- A decision whose top diagnosis is not <code>expected</code> is a <strong>likely</strong> detection when its probability is at least the report gate (<code>gates().report</code>: the aggressiveness profile's <code>report</code> from the model meta, 0.90 at balanced with model 0.2.0; <code>policy.thresholds.report</code> when set), as before 0.3.0.
+- With <code>"possible"</code>, it is a <strong>possible</strong> detection when its probability is at least the eager profile's <code>report</code> from the same meta (0.70 with model 0.2.0; <code>gates().possible</code>) and below the report gate. No possible tier when the meta has no lower eager value.
+- <code>Decision.detection</code> records the tier when the decision is made; <code>explain()</code>, the console, the devtools (live, from <code>decide</code>, and backfill) and telemetry read it. A deferred situation's decision (§5.3) is possible at most.
+- Likely: the console line and group, the <code>detect</code> event, <code>report</code> listeners and a <code>report</code> function exactly as before. Possible: the same line ending in <code>(possible)</code>, with <code>console.debug</code> only (hidden at Chrome's default level; repeats fold per tier), a dimmed devtools card left out of the badge counts and without the pill's pulse, <code>summary().possibleDetections</code>, the telemetry <code>detect</code> event with <code>tier: "possible"</code> (<code>summary.counts.possibleDetections</code>), and <code>rt.on("decide")</code> with <code>detection: "possible"</code>. The <code>detect</code> event, <code>report</code> listeners and a <code>report</code> function get possible ones only when <code>detect: "possible"</code> is set explicitly; sinks only with <code>possible: true</code> (§4.11), whatever <code>detect</code> says.
+- The meta tag and <code>data-*</code> attributes take <code>detect=likely</code> / <code>detect=possible</code>.</p>
+<p><strong>Tests.</strong> <code>test/detect-tiers.test.ts</code>, <code>test/detect-tiers-devtools.test.ts</code>.</p>
+<h3 id="420-visual-measured-visual-checks">4.20 <code>visual</code> (measured visual checks)</h3>
+<p><strong>Default</strong> <code>"local"</code> with <code>GenClass.init()</code>, <code>/auto</code> and the script tag in a browser; <code>false</code> with <code>createRuntime()</code>.
+Design, every check and threshold: <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md">VISUAL.md</a>. Types: <code>VisualOptions</code>, <code>CheckKind</code>, <code>CheckFinding</code>,
+<code>VisualSummary</code> in <code>types.ts</code>.</p>
+<p><strong>Semantics.</strong>
+- <code>false</code> (or <code>?genclass-visual=off</code>): nothing is installed, no listener, no timer, no download.
+- <code>"local"</code>: on for development hosts (<code>devHost</code> in <code>src/visual/start.ts</code>: http(s) on <code>localhost</code>, <code>127.0.0.1</code>,
+  <code>[::1]</code> or a <code>*.localhost</code> name with an explicit port, or a <code>*.test</code> name; narrower than telemetry's <code>isLocalHost</code>,
+  so Capacitor, Tauri, Electron and intranet hosts are off) and when the devtools overlay mounts or <code>rt.checkNow()</code>
+  is called; off otherwise. <code>?genclass-visual=on</code> turns it on for that page load, report-only.
+- <code>true</code> / <code>{ on: true }</code>: on everywhere, report-only unless <code>fix</code> is set.
+- <code>fix: true</code> (or a list of <code>"text-invisible"</code>, <code>"pointer-events-leak"</code>, <code>"scroll-lock-stuck"</code>) needs <code>on: true</code> and an
+  effective mode of guard or heal; a sampled-out session never fixes. A URL can never turn fixes on.
+- The checks are measurements reported as kind <code>"check"</code>: they never change <code>effectiveMode</code>, never feed a decision,
+  the gate, the breaker, a situation, a fact or the event log. In observe mode the page is never written to.
+- <code>enabled</code> false or pending, a hidden tab or a prerendered page: no chunk download. A route whose mode is <code>"off"</code>:
+  no checks there. <code>disable()</code>, <code>destroy()</code> and <code>setMode("observe")</code> undo every fix at once, <code>pause()</code> within 2 s.</p>
+<p><strong>Precedence.</strong> <code>?genclass-visual=off</code> &gt; an explicit <code>visual: false</code> &gt; <code>?genclass-visual=on</code> &gt; the <code>"local"</code> default.</p>
+<p><strong>Tests.</strong> <code>test/visual-options.test.ts</code> (resolution, load timing, enabled pending), <code>test/visual-fix.test.ts</code> (the
+fix gate, undo), <code>test/visual-purity.test.ts</code> (no effect on situations, history or decisions),
+<code>test/browser/visual/visual.spec.ts</code> (Chromium, the CI <code>visual-browser</code> job).</p>
 <h2 id="5-built-in-behaviours-no-option">5. Built-in behaviours (no option)</h2>
 <ol>
 <li><strong>Hidden tabs.</strong> While the tab is hidden:
-   - background situations are neither built nor evaluated, and <code>summary.model.hiddenSkipped</code> counts them;
+   - guard and heal: background situations are neither built nor evaluated, and <code>summary.model.hiddenSkipped</code> counts them;
    - <strong>held items are released unchanged at once, without evaluation</strong>, so nothing waits behind a throttled worker;
+   - observe (0.3.0; nothing is held there), where the possible tier is in force (§4.19): each salient situation is built at once, from the state at its trigger, and kept (§5.3) until the tab is visible again (<code>visibilitychange</code>), then decided in order, at the possible tier at most. Only the ones dropped from the full queue count in <code>summary.model.hiddenSkipped</code>. A hidden tab never starts loading or reloading the model; the tab becoming visible does. Before 0.3.0 observe skipped them like guard does, and with <code>detect: "likely"</code> it still does;
    - observers keep recording.</li>
 </ol>
-<p>Test: hidden polling → zero model calls, holds released in about 0 ms, timeline still recorded.
-2. Internal buffers stay bounded by <code>historySize</code>.</p>
+<p>Test: hidden polling in guard → zero model calls, holds released in about 0 ms, timeline still recorded; in observe → decided, in order, after <code>visibilitychange</code> (<code>test/deferred.test.ts</code>).
+2. Internal buffers stay bounded by <code>historySize</code>.
+3. <strong>Deferred situations (observe only, 0.3.0).</strong> Where the subject's effective mode is observe and the possible tier is in force (§4.19; not with <code>detect: "likely"</code> or an explicit <code>policy.thresholds.report</code>), a salient situation that cannot be decided yet, because the model is loading (or reloading, §4.18; a lazy model starts loading then, from a visible tab only) or the tab is hidden, is built at its trigger and kept in a queue of at most 32 (<code>DEFERRED_MAX</code>). It is built at the situation budget in force then: an automatic budget is the smallest one (1,000 characters) while the model's device is not known yet. When the model is ready and the tab visible (the <code>ready</code> resolution, <code>visibilitychange</code>, <code>resume()</code>, or the next fresh decision, which is submitted first) they are decided one at a time, oldest first, as background decisions with a detection-only deadline (30 s from submission, <code>DEFERRED_DEADLINE_MS</code>; the provider timeout still applies), gated as observe whatever the mode is by then: a deferred situation never acts, and one whose subject's effective mode is no longer observe is dropped. Its detection is reported at the possible tier at most (a likely one is recorded as possible) until a cold-start and hidden-tab clean run measures the false-report rate of these late decisions (RESULTS.md §11). Its telemetry decision record carries the page path at its trigger. A delivery covers its chain's writes while it waits, like any background delivery decision. The oldest is dropped when the queue is full, counted as failOpen <code>not-ready</code> (or <code>hiddenSkipped</code>, for one that waited for the tab); all are dropped, counted, when the model fails (<code>error</code>, <code>skipped</code>). Guard and heal never defer and, as before 0.3.0, build no situation while the model loads (a background decision there can still late-revert); an <code>unloaded</code> model is consultable like a lazy <code>off</code> one, so the first salient situation after an idle unload fails open as <code>not-ready</code> and starts the reload.</p>
 <h2 id="6-precedence-cheat-sheet">6. Precedence cheat-sheet</h2>
 <pre><code>requests.ignore         → not observed at all
 enabled false/pending   → off / pass-through; beats URL overrides; rt.disable({undo}) rolls back
@@ -644,7 +702,11 @@ policy.actionLimits     → limit:perMinute / perSubject / perSession
 onBeforeAction          → final sync veto (vetoMode &quot;report&quot; = record only); over hold budget → limit:hold
 holdBudgetMs            → hard ceiling incl. defers + hook; release at min(remaining, timeoutMs)
 shadow                  → gate steps 1–6 at higher mode, dry-run; ignores sample/route/breaker caps
+visual                  → measurements only; ?genclass-visual=off &gt; visual:false &gt; ?genclass-visual=on &gt; &quot;local&quot;;
+                          fixes need visual.on true + fix + effective mode guard/heal; never feeds the gate
 model.loadIf / maxDecisionsPerMinute / timeoutMs / unload / hidden tab → availability only; held items release unchanged
+                          (observe: situations raised while loading or hidden are deferred and decided later, §5.3)
+detect                  → which detections are reported (likely / possible); reporting only
 status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = effective
 </code></pre>
 <h2 id="7-readme-apimd-text">7. README / API.md text</h2>
@@ -695,7 +757,7 @@ import { init } from "@genclass/runtime";</p>
   learn: { persist: "local", key: "genclass:shop" },  // version = session.tags.release at init
   model: {
     preload: "idle",
-    loadIf: { minDeviceMemoryGB: 2, saveData: "lazy" },
+    loadIf: { minDeviceMemoryGB: 8, saveData: "skip" },   // default { minDeviceMemoryGB: 4, saveData: "skip" }
     threads: 2,
     timeoutMs: 10_000,
     maxDecisionsPerMinute: 30,
@@ -718,8 +780,8 @@ onIncident(() =&gt; rt.disable({ undo: true }));
   1. <code>breaker</code> is on by default. Opt out with <code>breaker:false</code>.
   2. New <code>perSubject:10</code> (per rolling minute) and <code>perSession:200</code> limits. Opt out with <code>Infinity</code>. This may suppress frequent retries on polling endpoints.
   3. <code>holdBudgetMs</code> is now a hard ceiling that includes defers and <code>onBeforeAction</code> time.
-  4. <code>model.loadIf.saveData:"lazy"</code> forces lazy preload on Save-Data connections.
-  5. Hidden tabs skip background evaluation and release held items immediately (counted in <code>summary.model.hiddenSkipped</code>).
+  4. <code>model.loadIf</code> defaults to a device floor: no model on devices reporting 2 GB or less or on Save-Data connections (<code>{ minDeviceMemoryGB: 4, saveData: "skip" }</code>; the earlier draft said <code>saveData:"lazy"</code>).
+  5. Hidden tabs skip background evaluation and release held items immediately (counted in <code>summary.model.hiddenSkipped</code>). 0.3.0: in observe they are deferred and decided when the tab is visible again (§5.1, §5.3).
   6. Query and fragment values in recorded URLs are now <code>…</code> in situation text. <strong>Model input changes, so add this to the eval plan and re-measure accuracy before release.</strong> Sent URLs are unchanged.
   7. URL overrides can no longer raise mode or aggressiveness without <code>debug:true</code>.
   8. Ops created under <code>off</code>/<code>observe</code> route scope can no longer be action targets.</li>

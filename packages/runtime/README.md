@@ -1078,8 +1078,8 @@ observe mode against running without GenClass. With network chaos, 3 of 198 runs
 - **Bundle:** what every page loads is about 108 KB gzip for `@genclass/runtime/auto` with automatic state
   discovery and 100 KB for the main entry with `GenClass.init()`, which does not carry discovery: 108.25 KB and
   100.13 KB, minified and gzipped by esbuild in `test/bundle.test.ts` (CI run 38676978903), which keeps them under
-  108.30 KB and 100.20 KB (pending the maintainers' decision: the limit approved for `0.3.0` was 107.74 / 99.71 KB,
-  the `0.3.0-beta.0` release build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
+  108.30 KB and 100.20 KB (raised for the measured visual checks from 107.74 / 99.71 KB, the `0.3.0-beta.0` release
+  build's 106.24 / 98.21 KB plus 1.5 KB). `0.2.2` measured
   99.17 KB and 91.70 KB; `0.3.0` adds the app token and `protect()`, the device floor, telemetry sampling, the sink
   names' proxy and the learned-state persistence (docs/runtime/RESULTS.md §10), then observe's detection tiers and
   deferred situations (+1.3 / +1.4 KB, §11), and on `/auto` the one warning for the sink names `sentry`, `posthog` and
