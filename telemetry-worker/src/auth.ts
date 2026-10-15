@@ -1,8 +1,16 @@
-// Accounts on genclass.dev: sign-up and sign-in with passkeys (WebAuthn, src/webauthn.ts), Google (OpenID Connect,
-// authorization code flow with PKCE, confidential client) or GitHub (OAuth web flow); web and CLI sessions; the
-// device flow (RFC 8628) behind `npx @genclass/runtime login`; apps (projects) owned by an account.
+// Accounts on genclass.dev: sign-up and sign-in with Google (OpenID Connect, authorization code flow with PKCE,
+// confidential client) or GitHub (OAuth web flow), passkeys (WebAuthn, src/webauthn.ts) as optional extra security;
+// web and CLI sessions; the device flow (RFC 8628) behind `npx @genclass/runtime login`; apps (projects) owned by an
+// account.
 //
 // Invariants:
+// - Creating an account never needs a passkey: Google or GitHub. Passkey sign-up exists only as the fallback when this
+//   server has no OAuth provider configured, so the site is never left without a way in.
+// - An account with a passkey requires one at sign-in: after Google or GitHub vouched for it, no session is granted
+//   until a passkey assertion of that account succeeds (a pending step of MFA_MS, a single-use row named by the
+//   __Host-gc_mfa cookie; Origin checked; the WebAuthn challenge single-use). A passkey alone also signs in. Adding a
+//   passkey to an account that has one, and removing one (the last one turns the requirement off), need a passkey
+//   assertion in this session within FRESH_MS. The device flow rides on the web session, so it gets the same step.
 // - Secrets are stored only as SHA-256 hashes: session cookies, CLI bearer tokens and device codes. Passkeys store a
 //   public key. Google and GitHub access tokens are used once during sign-in and never stored.
 // - A Google or GitHub identity is attached to an existing account only through "Link" from a signed-in session,
@@ -28,6 +36,7 @@ import {
   devicePage,
   loginPage,
   messagePage,
+  passkeyStepPage,
   pendingPage,
   signupPage,
   type AccountView,
@@ -53,7 +62,7 @@ import { appExtrasData, appExtrasHtml } from "./billing-pages.js";
 import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
 import { dashboardPage, securityHeaders } from "./pages.js";
-import { accountBilling, accountPlan, appLimit, appLimitBody, pickRange, viewRanges } from "./plans.js";
+import { accountAccess, accountBilling, appLimit, appLimitBody, hasDashboard, pickRange, trialDaysLeft, viewRanges } from "./plans.js";
 import { cancelForDeletion } from "./stripe.js";
 import {
   b64url,
@@ -78,6 +87,12 @@ export const OAUTH_MS = 10 * MINUTE;
 export const DEVICE_CODE_MS = 10 * MINUTE;
 export const DEVICE_INTERVAL_S = 5;
 export const MAX_APPS_PER_ACCOUNT = 200;
+/** The passkey step after Google or GitHub, for an account that has a passkey. */
+export const MFA_MS = 5 * MINUTE;
+/** How recent a passkey assertion must be to add or remove a passkey. */
+export const FRESH_MS = 5 * MINUTE;
+/** Where to write about an account whose passkeys are all lost. */
+export const RECOVERY_CONTACT = "mehar@daybot.ca";
 /** Global ceiling on apps created in accounts per minute (anonymous creation has its own, collector.ts). */
 const MAX_ACCOUNT_PROJECTS_PER_MINUTE = 60;
 
@@ -87,6 +102,9 @@ export const DEV_SESSION_COOKIE = "gc_session";
 /** The email-collision choice a first Google or GitHub sign-in waits on (a challenges row id). */
 export const PENDING_COOKIE = "__Host-gc_pending";
 export const DEV_PENDING_COOKIE = "gc_pending";
+/** The passkey step a Google or GitHub sign-in waits on (a challenges row id, kind `mfa`). */
+export const MFA_COOKIE = "__Host-gc_mfa";
+export const DEV_MFA_COOKIE = "gc_mfa";
 export const GOOGLE_COOKIE = "gc_oauth_google";
 export const GITHUB_COOKIE = "gc_oauth_github";
 /**
@@ -125,6 +143,7 @@ export interface AuthConfig {
   /** Cookie names (SESSION_COOKIE and PENDING_COOKIE, or their development names when not secure). */
   session: string;
   pending: string;
+  mfa: string;
   google: boolean;
   github: boolean;
 }
@@ -138,6 +157,7 @@ export function authConfig(env: Env): AuthConfig {
     secure,
     session: secure ? SESSION_COOKIE : DEV_SESSION_COOKIE,
     pending: secure ? PENDING_COOKIE : DEV_PENDING_COOKIE,
+    mfa: secure ? MFA_COOKIE : DEV_MFA_COOKIE,
     google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
   };
@@ -294,6 +314,8 @@ export interface Auth {
   account: Account;
   sessionId: string;
   via: "cookie" | "bearer";
+  /** When this session last proved a passkey (sign-in, the passkey step, or a confirmation), or null. */
+  passkeyAt: string | null;
 }
 
 const ACCOUNT_COLUMNS = "a.id, a.email, a.email_verified, a.google_sub, a.github_id, a.github_login, a.created";
@@ -318,11 +340,11 @@ export async function authenticate(c: C): Promise<Auth | null> {
   }
   const row = await c.db
     .prepare(
-      `SELECT s.id AS sid, s.last_used AS slu, ${ACCOUNT_COLUMNS} FROM auth_sessions s JOIN accounts a ON a.id = s.account_id ` +
+      `SELECT s.id AS sid, s.last_used AS slu, s.passkey_at AS spk, ${ACCOUNT_COLUMNS} FROM auth_sessions s JOIN accounts a ON a.id = s.account_id ` +
         "WHERE s.hash = ? AND s.kind = ? AND s.revoked IS NULL AND s.expires > ?",
     )
     .bind(await sha256Hex(secret), kind, c.now.toISOString())
-    .first<Account & { sid: string; slu: string | null }>();
+    .first<Account & { sid: string; slu: string | null; spk: string | null }>();
   if (!row) return null;
   if (!row.slu || Date.parse(row.slu) < c.now.getTime() - 10 * MINUTE) {
     try {
@@ -331,8 +353,8 @@ export async function authenticate(c: C): Promise<Auth | null> {
       /* best effort */
     }
   }
-  const { sid, slu: _slu, ...account } = row;
-  c.auth = { account, sessionId: sid, via: kind === "cli" ? "bearer" : "cookie" };
+  const { sid, slu: _slu, spk, ...account } = row;
+  c.auth = { account, sessionId: sid, via: kind === "cli" ? "bearer" : "cookie", passkeyAt: spk ?? null };
   return c.auth;
 }
 
@@ -341,17 +363,43 @@ export async function webSession(c: C): Promise<Auth | null> {
   return a && a.via === "cookie" ? a : null;
 }
 
-async function createSession(c: C, accountId: string, kind: "web" | "cli", label: string | null): Promise<{ id: string; secret: string; expires: string }> {
+/** A new session; `passkey`: it was granted on a passkey assertion (it is fresh for FRESH_MS). */
+async function createSession(c: C, accountId: string, kind: "web" | "cli", label: string | null, passkey = false): Promise<{ id: string; secret: string; expires: string }> {
   const raw = randomSecret(32);
   const secret = kind === "cli" ? `gcs_${raw}` : raw;
   const id = randomBase62(16);
   const expires = new Date(c.now.getTime() + (kind === "cli" ? CLI_SESSION_MS : WEB_SESSION_MS)).toISOString();
+  const iso = c.now.toISOString();
   await c.db
-    .prepare("INSERT INTO auth_sessions (id, hash, account_id, kind, created, expires, label, last_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(id, await sha256Hex(secret), accountId, kind, c.now.toISOString(), expires, label, c.now.toISOString())
+    .prepare("INSERT INTO auth_sessions (id, hash, account_id, kind, created, expires, label, last_used, passkey_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(id, await sha256Hex(secret), accountId, kind, iso, expires, label, iso, passkey ? iso : null)
     .run();
   return { id, secret, expires };
 }
+
+/** The account's passkeys (id and transports), oldest first. */
+async function passkeysOf(c: C, accountId: string): Promise<{ id: string; transports: string | null }[]> {
+  const r = await c.db.prepare("SELECT id, transports FROM credentials WHERE account_id = ? ORDER BY created").bind(accountId).all<{ id: string; transports: string | null }>();
+  return r.results ?? [];
+}
+
+/** WebAuthn allowCredentials for an account's passkeys. */
+function allowCredentials(creds: { id: string; transports: string | null }[]): { type: "public-key"; id: string; transports?: string[] }[] {
+  return creds.map((k) => {
+    let transports: string[] | undefined;
+    try {
+      transports = k.transports ? (JSON.parse(k.transports) as string[]) : undefined;
+    } catch {
+      transports = undefined;
+    }
+    return { type: "public-key" as const, id: k.id, ...(transports?.length ? { transports } : {}) };
+  });
+}
+
+/** This session proved a passkey within FRESH_MS. */
+const fresh = (c: C, a: Auth): boolean => !!a.passkeyAt && Date.parse(a.passkeyAt) > c.now.getTime() - FRESH_MS;
+const confirmFirst = (): Response => json(403, { ok: false, error: "confirm with one of your passkeys first", confirm: true });
+const oauthOnly = (): Response => fail(403, "create an account with Google or GitHub; you can add a passkey for extra security afterwards");
 
 const sessionCookie = (c: C, secret: string): string => setCookie(c, c.cfg.session, secret, WEB_SESSION_MS / 1000);
 
@@ -455,13 +503,16 @@ async function passkeyRegisterOptions(c: C): Promise<Response> {
   let data: Record<string, unknown>;
   let exclude: string[] = [];
   if (session) {
-    // a signed-in account adds another passkey
+    // a signed-in account adds a passkey; to one that already has a passkey, only after one of them was just used
+    // (a stolen session must not be able to add its own passkey and then remove the owner's)
     accountId = session.account.id;
     name = userName(session.account);
     data = { add: true };
-    const r = await c.db.prepare("SELECT id FROM credentials WHERE account_id = ?").bind(accountId).all<{ id: string }>();
-    exclude = (r.results ?? []).map((x) => x.id);
+    exclude = (await passkeysOf(c, accountId)).map((x) => x.id);
+    if (exclude.length && !fresh(c, session)) return confirmFirst();
   } else {
+    // passkey sign-up is only the fallback for a server with no OAuth provider
+    if (c.cfg.google || c.cfg.github) return oauthOnly();
     if (await overLimit(c, "signup")) return tooMany();
     const email = cleanEmail(body.email);
     if (!email) return fail(400, "enter a valid email address");
@@ -525,12 +576,13 @@ async function passkeyRegisterVerify(c: C): Promise<Response> {
     await insertCred.run();
     return json(200, { ok: true, account: accountJson(session.account) });
   }
+  if (c.cfg.google || c.cfg.github) return oauthOnly();
   const email = cleanEmail(ch.data.email);
   await c.db.batch([
     c.db.prepare("INSERT INTO accounts (id, email, email_verified, created) VALUES (?, ?, 0, ?)").bind(ch.account_id, email, iso),
     insertCred,
   ]);
-  const s = await createSession(c, ch.account_id, "web", null);
+  const s = await createSession(c, ch.account_id, "web", null, true);
   return withCookies(json(200, { ok: true, account: { id: ch.account_id, email, github_login: null } }), [sessionCookie(c, s.secret)]);
 }
 
@@ -543,12 +595,12 @@ async function passkeyLoginOptions(c: C): Promise<Response> {
   return json(200, { id: ch.id, publicKey: { challenge: ch.challenge, rpId: c.cfg.rpId, timeout: CHALLENGE_MS, userVerification: "required", allowCredentials: [] } });
 }
 
-async function passkeyLoginVerify(c: C): Promise<Response> {
-  if (!originOk(c)) return csrfFail();
-  const body = await readJson(c, 32 * 1024);
-  if (body instanceof Response) return body;
-  const ch = await takeChallenge(c, body.id, "login");
-  if (!ch) return fail(400, "this sign-in request expired; start again");
+/**
+ * Check a passkey assertion for a challenge already taken (single use): the credential, its user handle, the signature
+ * and the sign counter (updated only if it is still the one checked, so two concurrent uses cannot both pass).
+ * `account`: the passkey must belong to that account. The credential's account id, or the Response to send.
+ */
+async function checkAssertion(c: C, body: Record<string, unknown>, ch: { challenge: string }, account?: string | null): Promise<string | Response> {
   const parts = credentialParts(body);
   if (!parts) return fail(400, "missing passkey credential");
   let credId: string;
@@ -569,6 +621,7 @@ async function passkeyLoginVerify(c: C): Promise<Response> {
     .first<{ account_id: string; public_key: string; alg: number; sign_count: number }>();
   if (!row) return fail(400, "this passkey is not registered with GenClass; create an account first");
   if (userHandle !== null && userHandle !== row.account_id) return fail(400, "passkey not accepted: user handle does not match");
+  if (account && row.account_id !== account) return fail(400, "this passkey belongs to another GenClass account; use one of this account's passkeys");
   let v;
   try {
     v = await verifyAssertion(
@@ -586,10 +639,116 @@ async function passkeyLoginVerify(c: C): Promise<Response> {
     .bind(v.signCount, c.now.toISOString(), credId, row.sign_count)
     .first();
   if (!upd) return fail(409, "passkey was used twice at once; sign in again");
-  const account = await accountById(c, row.account_id);
+  return row.account_id;
+}
+
+async function passkeyLoginVerify(c: C): Promise<Response> {
+  if (!originOk(c)) return csrfFail();
+  const body = await readJson(c, 32 * 1024);
+  if (body instanceof Response) return body;
+  const ch = await takeChallenge(c, body.id, "login");
+  if (!ch) return fail(400, "this sign-in request expired; start again");
+  const id = await checkAssertion(c, body, ch);
+  if (id instanceof Response) return id;
+  const account = await accountById(c, id);
   if (!account) return fail(400, "this passkey's account no longer exists");
-  const s = await createSession(c, account.id, "web", null);
+  const s = await createSession(c, account.id, "web", null, true);
   return withCookies(json(200, { ok: true, account: accountJson(account) }), [sessionCookie(c, s.secret)]);
+}
+
+// --------------------------------------------------------------------------------------------- the passkey step
+
+/** The passkey step the mfa cookie names (kind `mfa`), still running; `take` consumes it (single use). */
+async function mfaPending(c: C, take: boolean): Promise<{ id: string; account_id: string; next: string | null; via: string | null } | null> {
+  const id = getCookie(c.req, c.cfg.mfa);
+  if (!id || !ID22_RE.test(id)) return null;
+  const sql = take
+    ? "DELETE FROM challenges WHERE id = ? AND kind = 'mfa' RETURNING account_id, data, expires"
+    : "SELECT account_id, data, expires FROM challenges WHERE id = ? AND kind = 'mfa'";
+  const row = await c.db.prepare(sql).bind(id).first<{ account_id: string | null; data: string | null; expires: string }>();
+  if (!row || !row.account_id || Date.parse(row.expires) <= c.now.getTime()) return null;
+  let d: Record<string, unknown> = {};
+  try {
+    d = row.data ? (JSON.parse(row.data) as Record<string, unknown>) : {};
+  } catch {
+    /* none */
+  }
+  return { id, account_id: row.account_id, next: safeNext(typeof d.next === "string" ? d.next : null), via: d.via === "google" || d.via === "github" ? d.via : null };
+}
+
+/**
+ * After Google or GitHub vouched for an existing account: a session at once, or, for an account with a passkey, the
+ * passkey step first (no session until it succeeds). For a page (redirect) or for a JSON answer (`json`).
+ */
+async function signInTo(c: C, accountId: string, next: string | null, via: Provider, asJson = false): Promise<Response> {
+  if ((await passkeysOf(c, accountId)).length) {
+    const p = await putChallenge(c, "mfa", accountId, { next, via }, MFA_MS);
+    const cookie = setCookie(c, c.cfg.mfa, p.id, MFA_MS / 1000);
+    return asJson ? withCookies(json(200, { ok: true, next: "/login/passkey" }), [cookie]) : redirect("/login/passkey", [cookie]);
+  }
+  const s = await createSession(c, accountId, "web", null);
+  const to = next ?? "/account";
+  return asJson ? withCookies(json(200, { ok: true, next: to }), [sessionCookie(c, s.secret)]) : redirect(to, [sessionCookie(c, s.secret)]);
+}
+
+/** POST /api/auth/passkey/mfa/options: WebAuthn request options for the pending step's account (its passkeys only). */
+async function passkeyStepOptions(c: C): Promise<Response> {
+  if (!originOk(c)) return csrfFail();
+  const body = await readJson(c);
+  if (body instanceof Response) return body;
+  if (await overLimit(c, "login")) return tooMany();
+  const p = await mfaPending(c, false);
+  if (!p) return fail(400, "this sign-in expired; start again from the sign-in page");
+  const creds = await passkeysOf(c, p.account_id);
+  if (!creds.length) return fail(400, "this account has no passkey any more; start again from the sign-in page");
+  const ch = await putChallenge(c, "mfa-login", p.account_id, { p: p.id }, CHALLENGE_MS);
+  return json(200, { id: ch.id, publicKey: { challenge: ch.challenge, rpId: c.cfg.rpId, timeout: CHALLENGE_MS, userVerification: "required", allowCredentials: allowCredentials(creds) } });
+}
+
+/** POST /api/auth/passkey/mfa/verify: the account's passkey; then the session, and the pending step is used up. */
+async function passkeyStepVerify(c: C): Promise<Response> {
+  if (!originOk(c)) return csrfFail();
+  const body = await readJson(c, 32 * 1024);
+  if (body instanceof Response) return body;
+  const ch = await takeChallenge(c, body.id, "mfa-login");
+  const pendingId = getCookie(c.req, c.cfg.mfa);
+  if (!ch || !ch.account_id || !pendingId || ch.data.p !== pendingId) return fail(400, "this sign-in expired; start again from the sign-in page");
+  const id = await checkAssertion(c, body, ch, ch.account_id);
+  if (id instanceof Response) return id;
+  const p = await mfaPending(c, true);
+  if (!p || p.account_id !== id) return fail(400, "this sign-in expired; start again from the sign-in page");
+  const account = await accountById(c, id);
+  if (!account) return fail(400, "this account no longer exists");
+  const s = await createSession(c, id, "web", null, true);
+  return withCookies(json(200, { ok: true, next: p.next ?? "/account", account: accountJson(account) }), [clearCookie(c, c.cfg.mfa), sessionCookie(c, s.secret)]);
+}
+
+// --------------------------------------------------------------------------------------------- confirm (fresh)
+
+/** POST /api/auth/passkey/confirm/options: a signed-in browser proves one of its passkeys again (add or remove one). */
+async function passkeyConfirmOptions(c: C): Promise<Response> {
+  const a = await browserWriter(c, "passkeys can be confirmed");
+  if (a instanceof Response) return a;
+  const body = await readJson(c);
+  if (body instanceof Response) return body;
+  const creds = await passkeysOf(c, a.account.id);
+  if (!creds.length) return fail(409, "this account has no passkey to confirm with");
+  const ch = await putChallenge(c, "confirm", a.account.id, { sid: a.sessionId }, CHALLENGE_MS);
+  return json(200, { id: ch.id, publicKey: { challenge: ch.challenge, rpId: c.cfg.rpId, timeout: CHALLENGE_MS, userVerification: "required", allowCredentials: allowCredentials(creds) } });
+}
+
+/** POST /api/auth/passkey/confirm/verify: marks this session fresh (passkey_at) for FRESH_MS. */
+async function passkeyConfirmVerify(c: C): Promise<Response> {
+  const a = await browserWriter(c, "passkeys can be confirmed");
+  if (a instanceof Response) return a;
+  const body = await readJson(c, 32 * 1024);
+  if (body instanceof Response) return body;
+  const ch = await takeChallenge(c, body.id, "confirm");
+  if (!ch || ch.account_id !== a.account.id || ch.data.sid !== a.sessionId) return fail(400, "this confirmation expired; start again");
+  const id = await checkAssertion(c, body, ch, a.account.id);
+  if (id instanceof Response) return id;
+  await c.db.prepare("UPDATE auth_sessions SET passkey_at = ? WHERE id = ?").bind(c.now.toISOString(), a.sessionId).run();
+  return json(200, { ok: true });
 }
 
 // --------------------------------------------------------------------------------------------- Google, GitHub
@@ -826,8 +985,8 @@ async function finishProvider(c: C, ident: Identity, st: OAuthState): Promise<Re
   }
   if (owner) {
     if (ident.provider === "github") await c.db.prepare("UPDATE accounts SET github_login = ? WHERE id = ?").bind(ident.login, owner.id).run();
-    const s = await createSession(c, owner.id, "web", null);
-    return redirect(st.next ?? "/account", [sessionCookie(c, s.secret)]);
+    // an account with a passkey: the passkey step first, then the session
+    return signInTo(c, owner.id, st.next, ident.provider);
   }
   // A new identity. If another account already uses this email, ask first: never attach on an email match.
   if (ident.email) {
@@ -872,10 +1031,12 @@ async function confirmPending(c: C): Promise<Response> {
   const ident: Identity = { provider: d.provider, sub: d.sub, email: cleanEmail(d.email), emailVerified: d.emailVerified === true, login: typeof d.login === "string" ? d.login : null };
   const col = ident.provider === "google" ? "google_sub" : "github_id";
   const owner = await c.db.prepare(`SELECT id FROM accounts WHERE ${col} = ?`).bind(ident.sub).first<{ id: string }>();
-  const id = owner ? owner.id : await createProviderAccount(c, ident);
+  const next = safeNext(typeof d.next === "string" ? d.next : null);
+  // the identity got an account meanwhile (another tab): sign in to it, with its passkey step if it has a passkey
+  if (owner) return withCookies(await signInTo(c, owner.id, next, ident.provider, true), [clear]);
+  const id = await createProviderAccount(c, ident);
   const s = await createSession(c, id, "web", null);
-  const next = safeNext(typeof d.next === "string" ? d.next : null) ?? "/account?welcome=1";
-  return withCookies(json(200, { ok: true, next }), [clear, sessionCookie(c, s.secret)]);
+  return withCookies(json(200, { ok: true, next: next ?? "/account?welcome=1" }), [clear, sessionCookie(c, s.secret)]);
 }
 
 // --------------------------------------------------------------------------------------------- device flow
@@ -1053,7 +1214,7 @@ const tooManyApps = (): Response => fail(409, `an account can hold at most ${MAX
 async function overAppLimit(c: C, accountId: string): Promise<Response | null> {
   const n = await appCount(c, accountId);
   if (n >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
-  const lim = await appLimit(c.db, c.env, accountId);
+  const lim = await appLimit(c.db, c.env, accountId, c.now);
   if (lim.max !== null && n >= lim.max) return json(409, appLimitBody(lim, c.cfg.origin));
   return null;
 }
@@ -1156,7 +1317,10 @@ async function revokeOthers(c: C, a: Auth): Promise<void> {
     .run();
 }
 
-/** Remove a passkey; every other session ends too, since one of them may be where that passkey was used. */
+/**
+ * Remove a passkey, after a passkey assertion in this session within FRESH_MS (removing the last one turns off the
+ * passkey step at sign-in); every other session ends too, since one of them may be where that passkey was used.
+ */
 async function removeCredential(c: C, id: string): Promise<Response> {
   const a = await browserWriter(c, "passkeys can be removed");
   if (a instanceof Response) return a;
@@ -1166,6 +1330,7 @@ async function removeCredential(c: C, id: string): Promise<Response> {
   const mine = await c.db.prepare("SELECT 1 AS x FROM credentials WHERE id = ? AND account_id = ?").bind(id, a.account.id).first();
   if (!mine) return fail(404, "no such passkey");
   if (methods <= 1) return fail(409, "this is your only way to sign in; add another passkey or link Google or GitHub first");
+  if (!fresh(c, a)) return confirmFirst();
   await c.db.prepare("DELETE FROM credentials WHERE id = ? AND account_id = ?").bind(id, a.account.id).run();
   await revokeOthers(c, a);
   return noContent();
@@ -1212,6 +1377,7 @@ async function deleteAccount(c: C): Promise<Response> {
 
 async function accountView(c: C, a: Auth): Promise<AccountView> {
   const iso = c.now.toISOString();
+  const access = await accountAccess(c.db, a.account.id, c.env, c.now);
   const [creds, sessions] = await c.db.batch([
     c.db.prepare("SELECT id, created, last_used, transports FROM credentials WHERE account_id = ? ORDER BY created").bind(a.account.id),
     c.db
@@ -1249,6 +1415,10 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
     web: rows(sessions).filter((r) => r.kind === "web").map(session),
     cli: rows(sessions).filter((r) => r.kind === "cli").map(session),
     providers: { google: c.cfg.google, github: c.cfg.github },
+    // dashboards: open (a plan, GenClass's grant, or the trial), or locked with a trial still to start, or after it
+    dashboards: hasDashboard(access) ? "open" : access.trialUsed ? "ended" : "trial",
+    pick: { trial: c.url.searchParams.get("trial") === "1", claim: c.url.searchParams.get("claim") === "1" },
+    recovery: RECOVERY_CONTACT,
   };
 }
 
@@ -1261,7 +1431,7 @@ export function accountContext(request: Request, url: URL, env: Env, opts: Handl
 }
 
 const PREFIXES = ["/auth/", "/api/auth/", "/api/device/", "/api/account/", "/account/"];
-const EXACT = new Set(["/signup", "/login", "/login/device", "/logout", "/account", "/api/me", "/api/account"]);
+const EXACT = new Set(["/signup", "/login", "/login/device", "/login/passkey", "/logout", "/account", "/api/me", "/api/account"]);
 
 /** Account routes. Returns null for paths this module does not own (the caller continues routing). */
 export async function routeAuth(request: Request, url: URL, path: string, env: Env, opts: HandleOptions): Promise<Response | null> {
@@ -1285,6 +1455,14 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       const notice = path === "/login" ? loginNotice(url) : null;
       const o = { google: c.cfg.google, github: c.cfg.github, next, notice };
       return page(200, (n) => (path === "/login" ? loginPage(n, o) : signupPage(n, o)));
+    }
+    case "/login/passkey": {
+      // the passkey step after Google or GitHub, for an account with a passkey (no session until it succeeds)
+      if (!get) return method();
+      const p = await mfaPending(c, false);
+      if (!p) return page(400, (n) => messagePage(n, { title: "This sign-in expired", text: "The passkey step lasts 5 minutes. Sign in again.", links: [["Sign in", "/login"]] }), [clearCookie(c, c.cfg.mfa)]);
+      const who = await accountById(c, p.account_id);
+      return page(200, (n) => passkeyStepPage(n, { via: p.via, who: who ? (who.email ?? (who.github_login ? `@${who.github_login}` : null)) : null, recovery: RECOVERY_CONTACT }));
     }
     case "/logout": {
       if (get) return redirect("/account");
@@ -1346,6 +1524,14 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       return post ? passkeyLoginOptions(c) : method();
     case "/api/auth/passkey/login/verify":
       return post ? passkeyLoginVerify(c) : method();
+    case "/api/auth/passkey/mfa/options":
+      return post ? passkeyStepOptions(c) : method();
+    case "/api/auth/passkey/mfa/verify":
+      return post ? passkeyStepVerify(c) : method();
+    case "/api/auth/passkey/confirm/options":
+      return post ? passkeyConfirmOptions(c) : method();
+    case "/api/auth/passkey/confirm/verify":
+      return post ? passkeyConfirmVerify(c) : method();
     case "/api/auth/pending":
       return post ? confirmPending(c) : method();
     case "/api/device/code":
@@ -1383,8 +1569,11 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     if (a.via !== "cookie") return fail(403, "a command line session cannot read stats; open the dashboard in the browser");
     const p = await ownedProject(c, a.account.id, stat[1]!);
     if (!p) return fail(404, "not found");
-    // the ranges this account's plan shows (src/plans.ts); a longer one is answered with the longest it shows
-    const range = pickRange(url.searchParams.get("range"), viewRanges(env, await accountPlan(c.db, a.account.id, env)));
+    // dashboards come with Pro (a plan, GenClass's grant or the trial; src/plans.ts accountAccess)
+    const access = await accountAccess(c.db, a.account.id, env, c.now);
+    if (!hasDashboard(access)) return lockedJson(c);
+    // the ranges this account's plan shows; a longer one is answered with the longest it shows
+    const range = pickRange(url.searchParams.get("range"), viewRanges(access.plan));
     return json(200, await stats(c.db, p, range, c.now));
   }
   const link = /^\/api\/account\/projects\/([^/]+)\/link$/.exec(path);
@@ -1402,28 +1591,39 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     const p = await ownedProject(c, a.account.id, app[1]!);
     if (!p) return page(404, (n) => appNotFoundPage(n));
     const apps = (await accountProjects(c, a.account.id)).map((x) => ({ id: x.id!, name: x.name }));
+    const access = await accountAccess(c.db, a.account.id, env, c.now);
+    const base = {
+      account: { apps, current: p.id!, email: a.account.email ?? a.account.github_login },
+      id: p.id!,
+      firstEvent: p.first_event,
+      privateLink: !!p.private_link,
+      runtimeReady: runtimeHasTokens(env),
+    };
+    const project = { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event };
+    // locked: the app's key and Connect panel, and a way to Pro (the trial, or the plans); no stats
+    if (!hasDashboard(access)) return page(200, (n) => dashboardPage(n, project, { ...base, locked: { trialUsed: access.trialUsed } }));
     // plan-dependent parts: ranges, retention, forwarding and export (src/billing-pages.ts)
-    const extras = await appExtrasData(c.db, env, a.account.id, p);
+    const extras = await appExtrasData(c.db, env, a.account.id, p, c.now);
     return page(200, (n) =>
-      dashboardPage(
-        n,
-        { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event },
-        {
-          account: { apps, current: p.id!, email: a.account.email ?? a.account.github_login },
-          id: p.id!,
-          firstEvent: p.first_event,
-          privateLink: !!p.private_link,
-          runtimeReady: runtimeHasTokens(env),
-          ranges: extras.ranges,
-          keepDays: extras.keep,
-          extra: appExtrasHtml(n, extras),
-        },
-      ),
+      dashboardPage(n, project, {
+        ...base,
+        ranges: extras.ranges,
+        keepDays: extras.keep,
+        extra: appExtrasHtml(n, extras),
+        // the trial's days left are said here, inside the dashboard, and nowhere else
+        trialDaysLeft: access.source === "trial" && access.trialEndsAt ? trialDaysLeft(access.trialEndsAt, c.now) : undefined,
+      }),
     );
   }
 
   if (path.startsWith("/api/")) return fail(404, "not found");
   return null;
+}
+
+/** The answer to a stats request for an app whose account has no dashboard (no plan, grant or trial). */
+export function lockedJson(c: { cfg: AuthConfig }): Response {
+  const url = `${c.cfg.origin}/account/billing`;
+  return json(402, { ok: false, error: "dashboards come with Pro (trials available)", locked: true, upgrade_url: url });
 }
 
 function loginNotice(url: URL): string | null {
@@ -1438,6 +1638,7 @@ function loginNotice(url: URL): string | null {
 function accountNotice(url: URL): AccountView["notice"] {
   const q = url.searchParams;
   if (q.get("welcome") === "1") return { kind: "ok", text: "Your account is ready." };
+  if (q.get("started") === "1") return { kind: "ok", text: "Your Pro trial has started." };
   if (q.get("linked") === "google") return { kind: "ok", text: "Google is linked. You can now sign in with it." };
   if (q.get("linked") === "github") return { kind: "ok", text: "GitHub is linked. You can now sign in with it." };
   if (q.get("error") === "google_taken") return { kind: "bad", text: "That Google account is already linked to another GenClass account, so it was not linked here." };

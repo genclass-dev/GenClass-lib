@@ -285,8 +285,11 @@ describe("pages: genclass.dev's palette, buttons, header and focus ring", () => 
     expect(startPage("n")).toContain('<button class="btn green" id="go" type="submit">Get a token</button>');
     expect(startPage("n")).toContain('<a class="btn" href="/start">Get a token</a>');
     expect(loginPage("n", { google: false, github: false, next: null })).toContain('class="btn prov green" id="pk"');
-    // with Google or GitHub offered, the passkey button steps back to a ghost button
-    expect(loginPage("n", { google: true, github: false, next: null })).toContain('class="btn prov ghost" id="pk"');
+    // with Google or GitHub offered they lead, and the passkey steps back to a plain "Use a passkey" link under them
+    const g = loginPage("n", { google: true, github: false, next: null });
+    expect(g).toContain('<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>');
+    expect(g.indexOf("Continue with Google")).toBeLessThan(g.indexOf("Use a passkey"));
+    expect(g).not.toContain("Sign in with a passkey");
     const msg = messagePage("n", { title: "T", text: "x", links: [["One", "/a"], ["Two", "/b"]] });
     expect(msg).toContain('<a class="btn green" href="/a">One</a>');
     expect(msg).toContain('<a class="btn ghost" href="/b">Two</a>');

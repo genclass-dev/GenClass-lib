@@ -3,7 +3,9 @@
 // note on the time ranges). A switch between Pro and Custom is a new Checkout (src/billing.ts checkout); back from it
 // the page waits for the new plan. Same shell, tokens and rules as the account pages; server-rendered text goes through esc(),
 // scripts insert text with textContent. Buttons that need Stripe are shown only to an account that can buy (a live
-// STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS).
+// STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS). Start a trial needs no Stripe: it shows
+// to an account without a paid plan or grant that has not had its trial. The trial's days left are said only inside the
+// dashboard, never here.
 
 import { ACCOUNT_CSS, CLIENT_JS, time } from "./account-pages.js";
 import type { Env } from "./collector.js";
@@ -11,7 +13,7 @@ import type { D1Like, Project, Range } from "./dashboard.js";
 import { integrationRows, integrationsKey, KIND_NAMES, KINDS, maskConfig, openConfig, DATADOG_SITES, POSTHOG_HOSTS, type Kind } from "./forward.js";
 import { DASH_CSS, embed, esc, shell, SIGNED_IN_NAV } from "./pages.js";
 import {
-  accountBilling,
+  accountPlan,
   billingLive,
   entitled,
   GRACE_DAYS,
@@ -23,6 +25,7 @@ import {
   planById,
   priceText,
   viewRanges,
+  type Access,
   type Billing,
   type Plan,
 } from "./plans.js";
@@ -36,10 +39,10 @@ export interface BillingView {
   account: { id: string; email: string | null; githubLogin: string | null };
   apps: { id: string; name: string }[];
   billing: Billing;
+  /** What the account may use now: its paid plan, or Pro during GenClass's grant or the trial (src/plans.ts). */
+  access: Access;
   /** This account can buy (src/plans.ts canBuy). */
   live: boolean;
-  /** The Free plan's limits apply (a live key). */
-  limits: boolean;
   /** The key is a Stripe test key: no real money moves. */
   testMode: boolean;
   /** Back from Stripe Checkout (?done=1). */
@@ -75,14 +78,16 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   const b = v.billing;
   const name = `<b>${esc(plan.name)}</b>`;
   if (plan.id === "free") {
-    const limits = v.limits ? `up to ${plan.limits.apps ?? "any number of"} apps (you have ${apps}) and ${plan.limits.history_days} days of dashboard history` : `your apps' dashboards (you have ${apps} apps)`;
+    if (v.access.source === "comp") return `You have <b>${esc(v.access.plan.name)}</b>, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
+    if (v.access.source === "trial") return `You are on a <b>${esc(v.access.plan.name)}</b> trial.${v.live ? "" : " Paid plans are not on sale yet."}`;
+    const limits = `the runtime and its on-device model, without the dashboard (you have ${apps} app${apps === 1 ? "" : "s"}). ${v.access.trialUsed ? "Your trial has ended." : "Trials available."}`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
     const ended = overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
       : b.subscription_id && b.current_period_end && b.subscription_status === "canceled" && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
         ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
         : "";
-    return `You are on the ${name} plan: ${limits}.${ended}${v.live ? "" : " Paid plans are not on sale yet."}`;
+    return `You are on the ${name} plan: ${limits}${ended}${v.live ? "" : " Paid plans are not on sale yet."}`;
   }
   if (!b.subscription_id) return `You are on the ${name} plan, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
   if (b.subscription_status === "past_due") {
@@ -96,17 +101,23 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
 }
 
 function planColumn(v: BillingView, p: Plan, current: Plan): string {
-  const cur = p.id === current.id;
+  // the column marked as the account's: its paid plan, or Pro during a grant or the trial (which can still be bought)
+  const granted = v.access.source === "comp" || v.access.source === "trial";
+  const cur = p.id === (granted ? v.access.plan.id : current.id);
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && current.id !== "free";
   // back from Checkout (a purchase or a switch) and still waiting for Stripe's word: no buttons, so a second purchase
   // or switch cannot start
   const waiting = !!awaited(v, current);
-  const pick = !cur && v.picked === p.id && v.live && !waiting;
+  const pick = !(cur && v.access.source !== "trial") && v.picked === p.id && v.live && !waiting;
+  // the trial: no card and no Stripe, once per account
+  const trial = p.id === "pro" && v.access.source === null && !v.access.trialUsed && !waiting;
+  const buy = `<button class="btn${(p.id === "custom" && !pick) || trial ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"${pick ? " data-pick" : ""}><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
   let act = "";
-  if (cur) act = '<span class="tag">Your plan</span>';
+  if (cur && v.access.source === "trial") act = `<span class="tag">Your trial</span>${v.live && !waiting ? ` ${buy}` : ""}`;
+  else if (cur) act = `<span class="tag">${v.access.source === "comp" ? "Set up by GenClass" : "Your plan"}</span>`;
   else if (p.id === "free") act = subscribed && v.live ? '<span class="muted">To go back to Free, cancel in Manage billing.</span>' : "";
-  else if (v.live && !waiting)
-    act = `<button class="btn${p.id === "custom" && !pick ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"${pick ? " data-pick" : ""}><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
+  else if (v.live && !waiting) act = buy;
+  if (trial) act = `<button class="btn green" type="button" id="trial"><span>Start a trial</span></button>${act ? ` ${act}` : ""}`;
   const features = p.features
     .map((f) => `<li${f.available ? "" : ' class="soon"'}>${esc(f.text)}${f.available || /coming next/i.test(f.text) ? "" : " (coming next)"}</li>`)
     .join("");
@@ -160,7 +171,7 @@ export function billingPage(nonce: string, v: BillingView): string {
   <div class="grp">Your apps</div>
   <nav class="apps" aria-label="Your apps">${appsNav}<a class="new" href="/account#new-app">New app</a></nav>
   <div class="grp">Account</div>
-  <div class="out"><a href="/account/billing" aria-current="page">Plan and billing</a><a href="/account#signin">Sign-in methods</a><a href="/account#sessions">Sessions</a><a href="/account#delete">Delete account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
+  <div class="out"><a href="/account/billing" aria-current="page">Plan and billing</a><a href="/account#security">Security</a><a href="/account#sessions">Sessions</a><a href="/account#delete">Delete account</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>
 </aside>
 <div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
@@ -206,6 +217,12 @@ status and renewal date, and your plan; never card details. <a href="https://gen
   });
   var pick = document.querySelector("[data-pick]");
   if (pick) pick.focus();
+  var trial = document.getElementById("trial");
+  if (trial) trial.addEventListener("click", function(){
+    var err = document.getElementById("planerr"); err.textContent = "";
+    gcBusy(trial, true, "Starting...");
+    gcPost("/api/billing/trial", {}).then(function(){ location.reload(); }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
+  });
   var portal = document.getElementById("portal");
   if (portal) portal.addEventListener("click", function(){
     var err = document.getElementById("portalerr"); err.textContent = "";
@@ -241,9 +258,9 @@ export interface AppExtras {
   keep: number;
 }
 
-/** Everything the app page's plan-dependent sections show, read for one owned app. */
-export async function appExtrasData(db: D1Like, env: Env, accountId: string, p: Project): Promise<AppExtras> {
-  const plan = planById((await accountBilling(db, accountId, env)).plan);
+/** Everything the app page's plan-dependent sections show, read for one owned app (a grant or a trial gives Pro's). */
+export async function appExtrasData(db: D1Like, env: Env, accountId: string, p: Project, now: Date): Promise<AppExtras> {
+  const plan = await accountPlan(db, accountId, env, now);
   const projectId = p.id ?? "";
   const destinations: AppExtras["destinations"] = [];
   if (entitled(plan, "forwarding") && projectId) {
@@ -265,7 +282,7 @@ export async function appExtrasData(db: D1Like, env: Env, accountId: string, p: 
     canSave: !!(await integrationsKey(env)),
     destinations,
     exportKeys,
-    ranges: viewRanges(env, plan),
+    ranges: viewRanges(plan),
     keep: keepDays(plan),
   };
 }

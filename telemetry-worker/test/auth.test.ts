@@ -96,11 +96,37 @@ async function signIn(env: Env, auth: Auth, over: Record<string, unknown> = {}) 
   return { res, json: (await res.clone().json()) as any, opts, credential };
 }
 
+/** Set Google and GitHub aside on env; returns the function that puts them back. */
+function withoutOAuth(env: Env): () => void {
+  const keep = { GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET };
+  for (const k of Object.keys(keep) as (keyof typeof keep)[]) delete env[k];
+  return () => {
+    for (const [k, v] of Object.entries(keep)) if (v !== undefined) (env as unknown as Record<string, string>)[k] = v;
+  };
+}
+
+/**
+ * A passkey account, made the way passkey sign-up makes one: only on a server with no OAuth provider (the fallback).
+ * In tests that configure Google or GitHub it stands for an account made before they were: they are set aside for the
+ * sign-up and put back after it.
+ */
 async function signedIn(env: Env, email = "ada@example.com", alg = -7) {
   const auth = await makeAuthenticator(alg);
-  const s = await signUp(env, auth, email);
+  const restore = withoutOAuth(env);
+  let s;
+  try {
+    s = await signUp(env, auth, email);
+  } finally {
+    restore();
+  }
   expect(s.res.status).toBe(200);
   return { auth, cookie: sessionOf(s.res), account: s.json.account as { id: string; email: string } };
+}
+
+/** Start the account's trial of Pro (dashboards come with Pro). */
+async function startTrial(env: Env, cookie: string) {
+  const r = await call(env, "POST", "/api/billing/trial", { body: {}, cookie });
+  expect(r.status).toBe(200);
 }
 
 async function me(env: Env, o: CallOpts) {
@@ -506,6 +532,9 @@ describe("accounts: apps owned by an account", () => {
     await handle(new Request(`${ORIGIN}/api/v1/events`, { method: "POST", body: JSON.stringify(batch("bbbbbbbbbbbb")), headers: { "content-type": "text/plain" } }), env, { now: () => clock });
     const [p] = ((await (await call(env, "GET", "/api/account/projects", { cookie })).json()) as any).projects;
     expect(p).toMatchObject({ first_event: t1, last_event: clock.toISOString() });
+    // collected all along, shown once the account has Pro (here its trial)
+    expect((await call(env, "GET", `/api/account/projects/${project.id}/stats?range=24h`, { cookie })).status).toBe(402);
+    await startTrial(env, cookie);
     const st = await call(env, "GET", `/api/account/projects/${project.id}/stats?range=24h`, { cookie });
     expect(st.status).toBe(200);
     expect(((await st.json()) as any).totals.sessions).toBe(2);
@@ -536,6 +565,8 @@ describe("accounts: apps owned by an account", () => {
     const { env, sql } = setup();
     const a = await signedIn(env, "ada@example.com");
     const b = await signedIn(env, "bob@example.com");
+    await startTrial(env, a.cookie);
+    await startTrial(env, b.cookie);
     const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name: "Ada's app" }, cookie: a.cookie })).json()) as any;
     const own = await call(env, "GET", `/account/apps/${project.id}`, { cookie: a.cookie });
     expect(own.status).toBe(200);
@@ -620,8 +651,24 @@ interface GoogleRun {
 }
 
 /** /auth/google, then Google's redirect back to the callback, with the token endpoint mocked. */
-async function google(env: Env, o: { claims?: (nonce: string) => Record<string, unknown>; cookie?: string; link?: boolean; state?: (s: string) => string; query?: string; dropCookie?: boolean; tokenStatus?: number } = {}): Promise<GoogleRun> {
-  const start = await call(env, "GET", `/auth/google${o.link ? "?link=1" : ""}`, { cookie: o.cookie, origin: null });
+/**
+ * The passkey step (/login/passkey) after a Google or GitHub sign-in of an account that has a passkey: the sign-in
+ * answered with no session and the step's cookie; the account's passkey answers the step's options.
+ */
+async function passkeyStep(env: Env, signin: Response, auth: Auth) {
+  expect(signin.status).toBe(302);
+  expect(signin.headers.get("location")).toBe("/login/passkey");
+  expect(cookieValue(signin, "__Host-gc_session")).toBeNull();
+  const mfa = `__Host-gc_mfa=${cookieValue(signin, "__Host-gc_mfa")}`;
+  const o = await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa });
+  expect(o.status).toBe(200);
+  const opts = (await o.json()) as any;
+  const res = await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: opts.id, credential: await auth.assert(opts.publicKey) }, cookie: mfa });
+  return { res, mfa, opts, json: (await res.clone().json()) as any };
+}
+
+async function google(env: Env, o: { claims?: (nonce: string) => Record<string, unknown>; cookie?: string; link?: boolean; next?: string; state?: (s: string) => string; query?: string; dropCookie?: boolean; tokenStatus?: number } = {}): Promise<GoogleRun> {
+  const start = await call(env, "GET", `/auth/google${o.link ? "?link=1" : o.next ? `?next=${encodeURIComponent(o.next)}` : ""}`, { cookie: o.cookie, origin: null });
   expect(start.status).toBe(302);
   const loc = new URL(start.headers.get("location")!);
   const state = loc.searchParams.get("state")!;
@@ -817,8 +864,11 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     expect(linked.res.status).toBe(302);
     expect(linked.res.headers.get("location")).toBe("/account?linked=google");
     expect(sql.rows("SELECT google_sub, email FROM accounts WHERE id = ?", ada.account.id)[0]).toEqual({ google_sub: "g-linked", email: "ada@example.com" });
+    // Ada's account has a passkey, so Google alone opens no session: the passkey step does
     const via = await google(env, { claims: linkClaims });
-    expect((await me(env, { cookie: sessionOf(via.res) })).json.account.id).toBe(ada.account.id);
+    const step = await passkeyStep(env, via.res, ada.auth);
+    expect(step.res.status).toBe(200);
+    expect((await me(env, { cookie: sessionOf(step.res) })).json.account.id).toBe(ada.account.id);
 
     // the link flow is bound to the account that started it
     const bob = await signedIn(env, "bob@example.com");
@@ -837,7 +887,7 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     expect(g).not.toContain("Continue with GitHub");
     const both = await (await call(setup({ ...GOOGLE, GITHUB_CLIENT_ID: "Iv1.x", GITHUB_CLIENT_SECRET: "y" }).env, "GET", "/login", {})).text();
     expect(both.indexOf("Continue with Google")).toBeLessThan(both.indexOf("Continue with GitHub"));
-    expect(both.indexOf("Continue with GitHub")).toBeLessThan(both.indexOf("Sign in with a passkey"));
+    expect(both.indexOf("Continue with GitHub")).toBeLessThan(both.indexOf("Use a passkey"));
   });
 
   it("claim checks (unit)", () => {
@@ -899,9 +949,10 @@ describe("accounts: GitHub sign-in (OAuth web flow)", () => {
     expect(linked.res.status).toBe(302);
     expect(linked.res.headers.get("location")).toBe("/account?linked=github");
     expect(sql.rows("SELECT github_id, github_login, email FROM accounts WHERE id = ?", ada.account.id)[0]).toEqual({ github_id: "4242", github_login: "octo-ada", email: "ada@example.com" });
-    // signing in with GitHub now opens Ada's account
+    // signing in with GitHub now opens Ada's account, after its passkey (the account has one)
     const via = await github(env);
-    expect((await me(env, { cookie: sessionOf(via.res) })).json.account.id).toBe(ada.account.id);
+    const step = await passkeyStep(env, via.res, ada.auth);
+    expect((await me(env, { cookie: sessionOf(step.res) })).json.account.id).toBe(ada.account.id);
     const bob = await signedIn(env, "bob@example.com");
     const taken = await github(env, { link: true, cookie: bob.cookie });
     expect(taken.res.headers.get("location")).toBe("/account?error=github_taken");
@@ -929,6 +980,224 @@ describe("accounts: GitHub sign-in (OAuth web flow)", () => {
     const second = await github(env);
     expect((await me(env, { cookie: sessionOf(second.res) })).json.account.id).toBe(m.json.account.id);
     expect(JSON.stringify(sql.rows("SELECT * FROM accounts"))).not.toContain("gho_x");
+  });
+});
+
+// ------------------------------------------------------------------------------------------------- Google first
+
+describe("accounts: Google first; creating an account never needs a passkey", () => {
+  it("with Google or GitHub configured, /signup offers only them, passkey sign-up is refused, and /login leads with them", async () => {
+    for (const over of [GOOGLE, GITHUB, { ...GOOGLE, ...GITHUB }]) {
+      const { env, sql } = setup(over);
+      const signup = await (await call(env, "GET", "/signup", {})).text();
+      expect(signup).toContain(over === GITHUB ? "Continue with GitHub" : "Continue with Google");
+      expect(signup).not.toContain('<form id="f"');
+      expect(signup).not.toContain("Create account with a passkey");
+      expect(signup).toContain("Add a passkey on your account page once you are in.");
+      const r = await call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "ada@example.com" } });
+      expect(r.status).toBe(403);
+      expect(((await r.json()) as any).error).toMatch(/Google or GitHub/);
+      expect(sql.rows("SELECT COUNT(*) AS n FROM challenges")[0]!.n).toBe(0);
+      const login = await (await call(env, "GET", "/login", {})).text();
+      expect(login).toContain("Use a passkey");
+      expect(login).not.toContain("Sign in with a passkey");
+      expect(login).toContain("Dashboards come with Pro. Trials available.");
+      // a passkey still signs in directly
+      expect((await call(env, "POST", "/api/auth/passkey/login/options", { body: {} })).status).toBe(200);
+    }
+  });
+
+  it("with no OAuth provider configured, passkey sign-up is the fallback, so the site always has a way in", async () => {
+    const { env } = setup();
+    const signup = await (await call(env, "GET", "/signup", {})).text();
+    expect(signup).not.toContain("Continue with Google");
+    expect(signup).not.toContain("Continue with GitHub");
+    expect(signup).toContain("Create account with a passkey");
+    expect(await (await call(env, "GET", "/login", {})).text()).toContain("Sign in with a passkey");
+    const auth = await makeAuthenticator(-7);
+    const up = await signUp(env, auth);
+    expect(up.res.status).toBe(200);
+    // a sign-up started before Google was configured cannot finish after it
+    const late = await makeAuthenticator(-7);
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: { email: "late@example.com" } })).json()) as any;
+    Object.assign(env, GOOGLE);
+    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await late.register(o.publicKey) } })).status).toBe(403);
+  });
+
+  it("a first Google sign-in makes an account with no passkey; /account offers one as extra security, off until added", async () => {
+    const { env, sql } = setup(GOOGLE);
+    const { res } = await google(env);
+    expect(res.headers.get("location")).toBe("/account?welcome=1");
+    const cookie = sessionOf(res);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM credentials")[0]!.n).toBe(0);
+    const page = await (await call(env, "GET", "/account", { cookie })).text();
+    expect(page).toContain('<section class="blk" id="security">');
+    expect(page).toContain("<b>Require a passkey at sign-in: off.</b>");
+    expect(page).toContain('id="addpk"');
+    expect(page).toContain('Lost all your passkeys? Email <a href="mailto:mehar@daybot.ca?subject=GenClass%20passkeys">mehar@daybot.ca</a>.');
+    expect(page.indexOf("<td>Google</td>")).toBeLessThan(page.indexOf('id="addpk"'));
+    // the first passkey needs no other one
+    const auth = await makeAuthenticator(-7);
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie })).json()) as any;
+    expect(o.publicKey.user.name).toBe("ada@gmail.com");
+    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await auth.register(o.publicKey) }, cookie })).status).toBe(200);
+    expect(await (await call(env, "GET", "/account", { cookie })).text()).toContain("<b>Require a passkey at sign-in: on.</b>");
+  });
+});
+
+describe("accounts: a passkey as extra security (the passkey step after Google or GitHub)", () => {
+  /** A Google account (sub g-1001, ada@gmail.com) that added one passkey on /account; its session and the authenticator. */
+  async function googleWithPasskey(env: Env) {
+    const { res } = await google(env);
+    const cookie = sessionOf(res);
+    const auth = await makeAuthenticator(-7);
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie })).json()) as any;
+    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await auth.register(o.publicKey) }, cookie })).status).toBe(200);
+    return { cookie, auth, id: (await me(env, { cookie })).json.account.id as string };
+  }
+
+  it("Google alone grants no session once the account has a passkey; the passkey step does, once", async () => {
+    const { env, sql } = setup(GOOGLE);
+    const ada = await googleWithPasskey(env);
+    const { res } = await google(env);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/login/passkey");
+    expect(cookieValue(res, "__Host-gc_session")).toBeNull();
+    const set = cookies(res).find((c) => c.startsWith("__Host-gc_mfa="))!;
+    expect(set).toMatch(/^__Host-gc_mfa=[A-Za-z0-9]{22}; Path=\/; Max-Age=300; HttpOnly; SameSite=Lax; Secure$/);
+    const mfa = set.split(";")[0]!;
+    // the pending step is not a session anywhere
+    expect((await me(env, { cookie: mfa })).status).toBe(401);
+    expect((await call(env, "GET", "/account", { cookie: mfa })).status).toBe(302);
+    const step = await (await call(env, "GET", "/login/passkey", { cookie: mfa })).text();
+    expect(step).toContain("Use your passkey");
+    expect(step).toContain("Google signed you in as <b>ada@gmail.com</b>");
+    expect(step).toContain("Lost your passkeys? Email");
+    // options name this account's passkeys only, and need our Origin
+    expect((await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa, origin: "https://evil.example" })).status).toBe(403);
+    const o = (await (await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa })).json()) as any;
+    expect(o.publicKey.allowCredentials).toEqual([{ type: "public-key", id: ada.auth.credentialId, transports: ["internal", "hybrid"] }]);
+    expect(o.publicKey.userVerification).toBe("required");
+    expect((await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o.id, credential: await ada.auth.assert(o.publicKey) }, cookie: mfa, origin: null })).status).toBe(403);
+    const ok = await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o.id, credential: await ada.auth.assert(o.publicKey) }, cookie: mfa });
+    expect(ok.status).toBe(200);
+    expect(await ok.clone().json()).toMatchObject({ ok: true, next: "/account", account: { id: ada.id } });
+    const session = sessionOf(ok);
+    expect((await me(env, { cookie: session })).json.account.id).toBe(ada.id);
+    expect(cookies(ok).some((c) => c.startsWith("__Host-gc_mfa=;") && c.includes("Max-Age=0"))).toBe(true);
+    expect(sql.rows("SELECT passkey_at FROM auth_sessions WHERE hash = ?", await sha256Hex(session.split("=")[1]!))).toEqual([{ passkey_at: clock.toISOString() }]);
+    // single use: the step and its challenge are gone
+    expect(sql.rows("SELECT COUNT(*) AS n FROM challenges WHERE kind IN ('mfa', 'mfa-login')")[0]!.n).toBe(0);
+    expect((await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o.id, credential: await ada.auth.assert(o.publicKey) }, cookie: mfa })).status).toBe(400);
+    expect((await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa })).status).toBe(400);
+    expect((await call(env, "GET", "/login/passkey", { cookie: mfa })).status).toBe(400);
+    // a passkey alone also signs in
+    expect((await signIn(env, ada.auth)).json.account.id).toBe(ada.id);
+  });
+
+  it("the step refuses another account's passkey, a missing cookie, a challenge from another step, and an expired step", async () => {
+    const { env } = setup(GOOGLE);
+    const ada = await googleWithPasskey(env);
+    const bob = await signedIn(env, "bob@example.com");
+    const begin = async () => `__Host-gc_mfa=${cookieValue((await google(env)).res, "__Host-gc_mfa")}`;
+    const opts = async (mfa: string) => (await (await call(env, "POST", "/api/auth/passkey/mfa/options", { body: {}, cookie: mfa })).json()) as any;
+    const mfa = await begin();
+    const o1 = await opts(mfa);
+    const wrong = await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o1.id, credential: await bob.auth.assert(o1.publicKey) }, cookie: mfa });
+    expect(wrong.status).toBe(400);
+    expect(((await wrong.json()) as any).error).toMatch(/another GenClass account/);
+    const o2 = await opts(mfa);
+    expect((await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o2.id, credential: await ada.auth.assert(o2.publicKey) } })).status).toBe(400);
+    // a challenge from one step does not finish another
+    const other = await begin();
+    const o3 = await opts(other);
+    expect((await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o3.id, credential: await ada.auth.assert(o3.publicKey) }, cookie: mfa })).status).toBe(400);
+    // the step lasts 5 minutes
+    const o4 = await opts(mfa);
+    advance(5 * 60_000 + 1000);
+    const late = await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o4.id, credential: await ada.auth.assert(o4.publicKey) }, cookie: mfa });
+    expect(late.status).toBe(400);
+    expect(cookieValue(late, "__Host-gc_session")).toBeNull();
+    const page = await call(env, "GET", "/login/passkey", { cookie: mfa });
+    expect(page.status).toBe(400);
+    expect(await page.text()).toContain("This sign-in expired");
+  });
+
+  it("the CLI's device flow rides on the web session, so it waits for the passkey step", async () => {
+    const { env } = setup(GOOGLE);
+    const ada = await googleWithPasskey(env);
+    const code = (await (await call(env, "POST", "/api/device/code", { body: { client_name: "genclass-runtime 0.3.0" }, origin: null })).json()) as any;
+    const next = `/login/device?code=${code.user_code}`;
+    const { res } = await google(env, { next });
+    const mfa = `__Host-gc_mfa=${cookieValue(res, "__Host-gc_mfa")}`;
+    // Google done, passkey not yet: still signed out for the approval page and the approval
+    const half = await (await call(env, "GET", next, { cookie: mfa })).text();
+    expect(half).toContain("Sign in to continue");
+    expect(half).not.toContain("genclass-runtime 0.3.0");
+    expect((await call(env, "POST", "/api/device/approve", { body: { user_code: code.user_code, approve: true }, cookie: mfa })).status).toBe(401);
+    const pending = await call(env, "POST", "/api/device/token", { body: { device_code: code.device_code }, origin: null });
+    expect(((await pending.json()) as any).error).toBe("authorization_pending");
+    // the step, then back to the approval page, signed in
+    const step = await passkeyStep(env, res, ada.auth);
+    expect(step.json.next).toBe(next);
+    const cookie = sessionOf(step.res);
+    expect(await (await call(env, "GET", next, { cookie })).text()).toContain("Approve this sign-in");
+    expect((await call(env, "POST", "/api/device/approve", { body: { user_code: code.user_code, approve: true }, cookie })).status).toBe(200);
+    advance(6000);
+    const tok = await call(env, "POST", "/api/device/token", { body: { device_code: code.device_code }, origin: null });
+    expect(tok.status).toBe(200);
+    expect(((await tok.json()) as any).account.id).toBe(ada.id);
+  });
+
+  it("adding a second passkey and removing one need a passkey in this session within 5 minutes; removing the last turns the step off", async () => {
+    const { env, sql } = setup(GOOGLE);
+    const ada = await googleWithPasskey(env); // its session came from Google: no passkey in it yet
+    const asked = await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie: ada.cookie });
+    expect(asked.status).toBe(403);
+    expect(await asked.json()).toEqual({ ok: false, error: "confirm with one of your passkeys first", confirm: true });
+    const confirm = async (auth: Auth) => {
+      const co = (await (await call(env, "POST", "/api/auth/passkey/confirm/options", { body: {}, cookie: ada.cookie })).json()) as any;
+      return call(env, "POST", "/api/auth/passkey/confirm/verify", { body: { id: co.id, credential: await auth.assert(co.publicKey) }, cookie: ada.cookie });
+    };
+    // browser only, our Origin only
+    const bearer = await cliToken(env, ada.cookie);
+    expect((await call(env, "POST", "/api/auth/passkey/confirm/options", { body: {}, bearer, origin: null })).status).toBe(403);
+    expect((await call(env, "POST", "/api/auth/passkey/confirm/options", { body: {}, cookie: ada.cookie, origin: null })).status).toBe(403);
+    expect((await confirm(ada.auth)).status).toBe(200);
+    const second = await makeAuthenticator(-257);
+    const o = (await (await call(env, "POST", "/api/auth/passkey/register/options", { body: {}, cookie: ada.cookie })).json()) as any;
+    expect((await call(env, "POST", "/api/auth/passkey/register/verify", { body: { id: o.id, credential: await second.register(o.publicKey) }, cookie: ada.cookie })).status).toBe(200);
+    const [first, last] = sql.rows("SELECT id FROM credentials ORDER BY created, rowid").map((r) => String(r.id));
+    // later, removing one asks again; another passkey of the account answers
+    advance(5 * 60_000 + 1000);
+    const rm = await call(env, "DELETE", `/api/account/credentials/${first}`, { cookie: ada.cookie });
+    expect(rm.status).toBe(403);
+    expect(((await rm.json()) as any).confirm).toBe(true);
+    expect((await confirm(second)).status).toBe(200);
+    expect((await call(env, "DELETE", `/api/account/credentials/${first}`, { cookie: ada.cookie })).status).toBe(204);
+    // the last one can go too (Google is linked), after a fresh passkey: the step turns off
+    expect((await call(env, "DELETE", `/api/account/credentials/${last}`, { cookie: ada.cookie })).status).toBe(204);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM credentials")[0]!.n).toBe(0);
+    const { res } = await google(env);
+    expect(res.headers.get("location")).toBe("/account");
+    expect(await (await call(env, "GET", "/account", { cookie: sessionOf(res) })).text()).toContain("<b>Require a passkey at sign-in: off.</b>");
+  });
+
+  it("the email-collision choice signs in to an account that appeared meanwhile only through its passkey step", async () => {
+    const { env, sql } = setup(GOOGLE);
+    await signedIn(env, "ada@gmail.com");
+    const claims = (n: string) => ({ iss: "https://accounts.google.com", aud: GOOGLE.GOOGLE_CLIENT_ID, exp: Math.floor(clock.getTime() / 1000) + 600, nonce: n, sub: "g-ada", email: "ada@gmail.com", email_verified: true });
+    const pending = cookieValue((await google(env, { claims })).res, "__Host-gc_pending")!;
+    // meanwhile, in another tab, that Google identity got an account and the account a passkey
+    const id = "Meanwhile0123456789abc";
+    sql.db.prepare("INSERT INTO accounts (id, email, email_verified, google_sub, created) VALUES (?, 'ada@gmail.com', 1, 'g-ada', ?)").run(id, clock.toISOString());
+    sql.db.prepare("INSERT INTO credentials (id, account_id, public_key, alg, created) VALUES ('pk-meanwhile', ?, 'AA', -7, ?)").run(id, clock.toISOString());
+    const r = await call(env, "POST", "/api/auth/pending", { body: {}, cookie: `__Host-gc_pending=${pending}` });
+    expect(r.status).toBe(200);
+    expect(await r.clone().json()).toEqual({ ok: true, next: "/login/passkey" });
+    expect(cookieValue(r, "__Host-gc_session")).toBeNull();
+    expect(cookieValue(r, "__Host-gc_mfa")).toMatch(/^[A-Za-z0-9]{22}$/);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(2);
   });
 });
 
@@ -1254,7 +1523,10 @@ describe("accounts: what a CLI session may do", () => {
   it("lists and creates apps and claims, but cannot read stats, end other sessions, remove passkeys, turn off links or delete the account", async () => {
     const { env, sql } = setup();
     const { cookie } = await signedIn(env);
+    await startTrial(env, cookie);
     const bearer = await cliToken(env, cookie);
+    // nor start a trial (a browser decision)
+    expect((await call(env, "POST", "/api/billing/trial", { body: {}, bearer, origin: null })).status).toBe(403);
     const created = await call(env, "POST", "/api/account/projects", { body: { name: "x" }, bearer, origin: null });
     expect(created.status).toBe(201);
     const { project } = (await created.json()) as any;
@@ -1474,6 +1746,7 @@ describe("accounts: the Connect panel and the account-mode sidebar", () => {
   it("while an app waits for its first event the sidebar shows Connect only; more than 4 apps collapse to the current one", async () => {
     const { env } = setup();
     const { cookie } = await signedIn(env);
+    await startTrial(env, cookie);
     const ids: string[] = [];
     let token = "";
     for (const name of ["a", "b", "c", "d", "e"]) {

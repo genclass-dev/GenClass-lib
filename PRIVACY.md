@@ -50,8 +50,8 @@ works on their own site. We do not sell the data, use it for advertising, or try
 
 ## Dashboards for website owners
 
-A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated
-diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
+A website owner can get a private dashboard link for their site's token. While the site's app is in an account with
+Pro or a trial, whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
 routes, the names the developer gave to protected functions, model speed, versions) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
@@ -68,22 +68,24 @@ An account is optional: GenClass, its diagnostics and the private dashboard link
 creates one (at genclass.dev/signup, or with `npx @genclass/runtime login`, runtime 0.3.0-beta.0 and later) can keep
 their apps in one place. An account stores:
 
-- **An email address:** as you typed it when signing up with a passkey (we do not verify it), or as Google returned
-  it when you sign in with Google, together with whether it is verified (only Google can mark it verified). We use
+- **An email address:** as Google returned it when you sign in with Google, or as you typed it when signing up with a
+  passkey (offered only when Google and GitHub sign-in are not available; we do not verify it), together with whether
+  it is verified (only Google can mark it verified). We use
   it only for notices about your account. A GitHub sign-in stores no email.
 - **Your passkeys' public keys** and, for each, when it was added and last used and how the browser said it connects
   (for example "this device"). The private key never leaves your device.
 - **Your Google account id** (the OpenID `sub`) if you sign in with Google, and **your GitHub user id and login** if
   you sign in with GitHub. Google and GitHub sign-in tokens are used once and not kept.
 - **Your sign-in sessions:** for the browser and for each terminal you signed in with the CLI, a one-way hash of the
-  session secret, when it was created, last used and expires, and the name the CLI gave itself (such as
-  "genclass-runtime 0.3.0").
+  session secret, when it was created, last used and expires, when it last used a passkey, and the name the CLI gave
+  itself (such as "genclass-runtime 0.3.0").
+- **Your trial:** when it started and when it ends, if you start one.
 - **The apps you own:** which of the records above (token, name, times) belong to your account, and whether an
   app's private dashboard link still opens it.
 
 Nothing else: no password, no IP address, no browser fingerprint, no tracking cookies. The only cookies are the
 session cookie, set when you sign in, and short-lived cookies (10 minutes at most) that keep a Google or GitHub
-sign-in tied to your browser. Sessions end after 30 days in the browser and 90 days for the CLI, or when you sign out
+sign-in, and the passkey step after it, tied to your browser. Sessions end after 30 days in the browser and 90 days for the CLI, or when you sign out
 or revoke them on your account page. To delete your account, choose Delete account on your account page while
 signed in: the account, its passkeys and its sessions are deleted at once, apps created in the account are deleted
 with their stats, and apps that still have a private dashboard link leave the account and keep working through that

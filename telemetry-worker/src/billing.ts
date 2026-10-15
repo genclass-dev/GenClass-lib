@@ -4,8 +4,9 @@
 //                                                       switch: true when it replaces the plan already paid)
 //   POST /api/billing/portal                           browser session + Origin; {url} of the Billing Portal
 //   POST /api/billing/webhook                          Stripe only: signature, no session (src/stripe.ts)
-//   GET  /api/billing                                  browser session; the plan and subscription state
+//   GET  /api/billing                                  browser session; the plan, subscription and trial state
 //   GET  /account/billing                              the plan page (src/billing-pages.ts)
+//   POST /api/billing/trial, GET /account/trial        the account's one trial of Pro (src/trial.ts)
 //   GET|PUT|PATCH|DELETE /api/account/projects/<id>/integrations[/<kind>]   forwarding destinations (paid plans)
 //   POST /api/account/projects/<id>/integrations/<kind>/test               one test record to that destination
 //   GET  /api/account/projects/<id>/events?from&to&format&cursor&limit      export (paid plans): an export key as a
@@ -25,7 +26,7 @@ import { decodeCursor, exportResponse, PAGE_MAX, parseTime } from "./export.js";
 import { checkConfig, claimTestSend, deliver, integrationRows, integrationsKey, isKind, maskConfig, openConfig, sealConfig, testRecord, type Kind } from "./forward.js";
 import { json, readCapped } from "./http.js";
 import { forgetOwner } from "./paid.js";
-import { accountBilling, billingLive, canBuy, entitled, PAID_PLANS, PLANS_FILE, planById, stripeMode, type Plan } from "./plans.js";
+import { accountAccess, accountBilling, accountPlan, canBuy, entitled, PAID_PLANS, PLANS_FILE, planById, stripeMode, type Plan } from "./plans.js";
 import {
   checkCustomer,
   checkoutSession,
@@ -43,6 +44,7 @@ import {
   stripeWebhook,
   subscriptionState,
 } from "./stripe.js";
+import { startTrial, trialEntry } from "./trial.js";
 import { b64url } from "./webauthn.js";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -94,7 +96,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
   const integ = /^\/api\/account\/projects\/([^/]+)\/integrations(?:\/([^/]+)(\/test)?)?$/.exec(path);
   const events = /^\/api\/account\/projects\/([^/]+)\/events$/.exec(path);
   const keys = /^\/api\/account\/export-keys(?:\/([^/]+))?$/.exec(path);
-  const billing = path === "/api/billing" || path.startsWith("/api/billing/") || path === "/account/billing";
+  const billing = path === "/api/billing" || path.startsWith("/api/billing/") || path === "/account/billing" || path === "/account/trial";
   if (!integ && !events && !keys && !billing) return null;
   const c = accountContext(request, url, env, opts);
   if (!c) return null; // the account routes answer "unavailable"
@@ -113,17 +115,26 @@ export async function routeBilling(request: Request, url: URL, path: string, env
       return m === "POST" ? checkout(c, f) : method();
     case "/api/billing/portal":
       return m === "POST" ? portal(c, f) : method();
+    case "/api/billing/trial":
+      return m === "POST" ? startTrial(c) : method();
+    case "/account/trial":
+      return get ? trialEntry(c) : method();
     case "/api/billing": {
       if (!get) return method();
       const a = await browserRead(c);
       if (a instanceof Response) return a;
       const b = await accountBilling(c.db, a.account.id, env);
+      const access = await accountAccess(c.db, a.account.id, env, c.now);
       return json(200, {
         plan: planById(b.plan).id,
         subscription_status: b.subscription_status,
         current_period_end: b.current_period_end,
         cancel_at_period_end: !!b.cancel_at_period_end,
         on_sale: canBuy(env, a.account),
+        // what the account may use now: its paid plan, or Pro during GenClass's grant or the trial; null when locked
+        access: access.source,
+        trial_ends_at: access.trialEndsAt,
+        can_trial: access.source === null && !access.trialUsed,
       });
     }
     case "/account/billing": {
@@ -132,6 +143,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
       const a = await webSession(c);
       // the plan picked on the pricing page survives the sign-in
       if (!a) return redirect(`/login?next=${encodeURIComponent(`/account/billing${picked ? `?plan=${picked.id}` : ""}`)}`);
+      const access = await accountAccess(c.db, a.account.id, env, c.now);
       const apps = (await accountProjects(c, a.account.id)).map((p) => ({ id: p.id!, name: p.name }));
       const b = await accountBilling(c.db, a.account.id, env);
       return page(200, (n) =>
@@ -139,8 +151,8 @@ export async function routeBilling(request: Request, url: URL, path: string, env
           account: { id: a.account.id, email: a.account.email, githubLogin: a.account.github_login },
           apps,
           billing: b,
+          access,
           live: canBuy(env, a.account),
-          limits: billingLive(env),
           testMode: stripeMode(env) === "test",
           done: url.searchParams.get("done") === "1",
           picked: picked?.id ?? null,
@@ -287,7 +299,8 @@ async function integrations(c: C, f: Fetch, projectId: string, kindRaw: string |
   if (a instanceof Response) return a;
   const p = await ownedProject(c, a.account.id, projectId);
   if (!p || !p.id) return fail(404, "not found");
-  const plan = planById((await accountBilling(c.db, a.account.id, c.env)).plan);
+  // a grant or the trial gives Pro's forwarding too (src/plans.ts accountAccess)
+  const plan = await accountPlan(c.db, a.account.id, c.env, c.now);
 
   if (kindRaw === null) {
     if (write) return method();
@@ -394,7 +407,7 @@ async function exportEvents(c: C, projectId: string): Promise<Response> {
   if (who instanceof Response) return who;
   const p = await ownedProject(c, who.accountId, projectId);
   if (!p) return fail(404, "not found");
-  const plan: Plan = planById((await accountBilling(c.db, who.accountId, c.env)).plan);
+  const plan: Plan = await accountPlan(c.db, who.accountId, c.env, c.now);
   if (!entitled(plan, "export")) return upgrade(c, "export");
   if (await overBudget(c.env.EXPORT_LIMIT, "export", who.accountId)) return tooMany();
   const q = c.url.searchParams;
@@ -439,7 +452,7 @@ async function exportKeys(c: C, id: string | null): Promise<Response> {
     if (a instanceof Response) return a;
     const body = await readJson(c, 1024);
     if (body instanceof Response) return body;
-    if (!entitled(planById((await accountBilling(c.db, a.account.id, c.env)).plan), "export")) return upgrade(c, "export");
+    if (!entitled(await accountPlan(c.db, a.account.id, c.env, c.now), "export")) return upgrade(c, "export");
     if (await overBudget(c.env.AUTH_LIMIT, "export-key", a.account.id)) return tooMany();
     const n = await c.db.prepare("SELECT COUNT(*) AS n FROM export_keys WHERE account_id = ?").bind(a.account.id).first<{ n: number }>();
     if (Number(n?.n ?? 0) >= MAX_EXPORT_KEYS) return fail(409, `an account can have at most ${MAX_EXPORT_KEYS} export keys; revoke one first`);
