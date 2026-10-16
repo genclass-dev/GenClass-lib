@@ -35,8 +35,22 @@
     let viewer = get("deck.viewer");
     if (!ID.test(viewer || "")) { viewer = rid(); put("deck.viewer", viewer); if (get("deck.viewer") !== viewer) viewer = null; }
     const own = get("deck.owner") === "1";
+    // A named share link (?k=<token>): read once, remembered in this browser (a reload or a later visit from history or a
+    // bookmark still counts for that link) and taken out of the address bar, so a URL copied from the address bar and
+    // passed on carries no token: its views count as the direct link instead of looking like the recipient's.
+    const TOKEN = /^[A-Za-z0-9_-]{16,64}$/;
     let token = null, ref = null;
-    try { const k = new URLSearchParams(location.search).get("k"); if (k && /^[A-Za-z0-9_-]{16,64}$/.test(k)) token = k; } catch { /* none */ }
+    try {
+      const q = new URLSearchParams(location.search);
+      const k = q.get("k");
+      if (k !== null) {
+        if (TOKEN.test(k)) { token = k; put("deck.k", k); }
+        q.delete("k");
+        const rest = q.toString();
+        history.replaceState(history.state, "", location.pathname + (rest ? "?" + rest : "") + location.hash);
+      }
+    } catch { /* keep the address as it is */ }
+    if (!token) { const k = get("deck.k"); if (k && TOKEN.test(k)) token = k; }
     try { if (document.referrer) ref = new URL(document.referrer).hostname.slice(0, 253); } catch { /* none */ }
     const deck = document.body.getAttribute("data-deck") || "";
     const touch = (navigator.maxTouchPoints || 0) > 1;
