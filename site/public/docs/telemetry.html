@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Telemetry", "item": "https://genclass.dev/docs/telemetry"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime telemetry", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-15", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Telemetry", "item": "https://genclass.dev/docs/telemetry"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime telemetry", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-16", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -54,8 +54,16 @@ decisions to the GenClass maintainers (Daybot Solutions Inc.). We use them to me
 model (accuracy, false interventions, latency, which situations it sees in real apps). This page lists exactly what
 is sent, where it goes, and how to turn it off.</p>
 <p><strong>Turn it off:</strong> <code>GenClass.init({ telemetry: false })</code>, <code>?genclass=no-telemetry</code> in the URL, or
-<code>localStorage.setItem("genclass.telemetry", "off")</code>. Browsers that send Global Privacy Control are never collected.
+<code>localStorage.setItem("genclass.telemetry", "off")</code>. Pages in browsers that send Global Privacy Control send nothing.
 Details under <a href="#opting-out">Opting out</a>.</p>
+<p><strong>What you get with it on:</strong> with an app token (<code>npx @genclass/runtime init</code> creates one), the same diagnostics also
+reach you, the app's developer. <code>npx @genclass/runtime stats</code> (<code>0.3.0-beta.1</code>) prints a free summary of what
+GenClass found on your deployed site in the last 24 hours or 7 days: page loads, problems found by type, the pages
+most affected, the mode and how often the model loaded. The app's private dashboard shows all of it page by page,
+with what GenClass did, up to 1 year of history, export and forwarding; it needs Pro (get a 7-day free trial for
+analytics). With <code>telemetry: false</code> or <code>init --no-telemetry</code>, the summary and the dashboard stay empty; visitors who
+opt out are not counted. Neither sends anything more from the page: both read the counters
+the collector keeps from the batches described below (<a href="#app-tokens-and-dashboards">App tokens and dashboards</a>).</p>
 <h2 id="when-it-is-on">When it is on</h2>
 <table>
 <thead>
@@ -91,7 +99,7 @@ an explicit <code>telemetry: true</code> internally, so local and private hosts 
 </code></pre>
 <p><code>runtime.telemetry</code> reports <code>{ enabled, reason?, endpoint?, sessionId?, token?, flush() }</code>; <code>reason</code> says why it is off
 (<code>option</code>, <code>headless</code>, <code>local</code>, <code>url</code>, <code>localStorage</code>, <code>gpc</code>, <code>sampled-out</code>, <code>no-crypto</code>, <code>no-transport</code>,
-<code>kill-switch</code>, <code>disabled</code>).</p>
+<code>kill-switch</code>, <code>disabled</code>, <code>error</code>).</p>
 <h2 id="what-is-sent">What is sent</h2>
 <p>Only data the runtime already computes for its own decisions. <strong>By default, no text from the page is sent:</strong>
 decision events carry the trigger kind, the diagnosis and its confidence, the chosen action, the gate, the outcome,
@@ -316,7 +324,27 @@ typical volumes.</p>
   dashboard with <code>POST /api/account/projects/claim</code> and its link from <code>.genclass.local</code>; <code>logout</code> sends
   <code>DELETE /api/account/sessions/current</code>. Signed in, <code>init</code> asks whether a new app goes into the account and then
   creates it with <code>POST /api/account/projects</code> instead of <code>/api/projects</code>. These account requests carry
-  <code>user-agent: genclass-runtime-cli/&lt;version&gt;</code>.</li>
+  <code>user-agent: genclass-runtime-cli/&lt;version&gt;</code>. A CLI session can read each app's summary (below) but not its
+  dashboard: <code>GET /api/account/projects/&lt;id&gt;/stats</code> refuses it.</li>
+<li><strong>Summary</strong> (<code>0.3.0-beta.1</code>). <code>GET https://genclass.dev/api/projects/&lt;secret&gt;/summary?range=24h|7d</code> (the secret from
+  the private dashboard link) and, for an app in an account, <code>GET /api/account/projects/&lt;id&gt;/summary?range=24h|7d</code>
+  (the owner signed in to genclass.dev in the browser, or with a CLI session) return a short summary: the app's name, when it was created
+  and when its last batch arrived; for the range, page loads, detections, possible detections, actions, the pages
+  with a detection out of the pages that sent data, the share of page loads that loaded the model and its average
+  load time; page loads and detections in the range before; the top 3 problem types and the top 3 routes; the mode;
+  and whether the dashboard is locked, where its trial starts (for an app in no account, its private link, whose page
+  adds the app to an account first) and whether the account can still start one. Route and problem-type keys are
+  returned without control, bidi or zero-width characters. It is computed from the daily and hourly counters the collector already keeps
+  for the dashboard, so nothing new is collected for it. It is not gated by Pro; any other <code>range</code> is read as <code>7d</code>;
+  it answers 404 for an unknown secret or app and 429 (with <code>Retry-After</code>) past 30 requests a minute for one link or
+  one account. <code>https://genclass.dev/api/projects/sample/summary</code> returns the made-up sample app's summary.</li>
+<li><code>npx @genclass/runtime stats</code> reads that summary and prints it. With <code>--app</code>, signed in, it sends <code>GET /api/me</code> and
+  then <code>GET /api/account/projects/&lt;id&gt;/summary</code> with the CLI session as a bearer. Otherwise, when <code>.genclass.local</code>
+  holds the private link for the token in this project's setup, it sends <code>GET /api/projects/&lt;secret&gt;/summary</code> with
+  that link's secret; failing that (or when that link answers 404), signed in, <code>GET /api/me</code> (to find the app whose
+  token the project carries, or the account's only app) and then the account route. Besides the app's id and the
+  range, it sends nothing else: no file or name from the project. Its human output never prints the private link;
+  <code>--json</code> prints the answer as it came, link included. These requests carry the same <code>user-agent</code> as the account requests.</li>
 </ul>
 <h2 id="where-it-goes">Where it goes</h2>
 <ul>

@@ -11,8 +11,10 @@
 // OPTIONS /v1/events (CORS preflight), GET /v1/health.
 //
 // Per-app tokens and dashboards (src/dashboard.ts, src/pages.ts; also routed on genclass.dev/{api/*,start*,dashboard*}):
-// POST /api/projects, GET /api/projects/<secret>, GET /start, GET /dashboard/<secret>. A batch with a known top-level
-// `token` is also aggregated into D1 for that app's dashboard; without one it is stored in R2 only, exactly as before.
+// POST /api/projects, GET /api/projects/<secret>, GET /api/projects/<secret>/summary (the free summary that
+// `npx @genclass/runtime stats` prints, src/summary.ts; open whatever the plan), GET /start, GET /dashboard/<secret>.
+// A batch with a known top-level `token` is also aggregated into D1 for that app's dashboard; without one it is
+// stored in R2 only, exactly as before.
 // Dashboards come with Pro: a private link opens the dashboard only while the app's account has a plan, GenClass's
 // grant or a trial (src/plans.ts); otherwise it opens the locked page (src/trial.ts) and its stats answer 402.
 // Collection never depends on it: every known token is aggregated, so a trial or a plan starts with recent data.
@@ -43,6 +45,7 @@ import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages
 import { hasDashboard, projectAccess, trialDays } from "./plans.js";
 import { lockedLink } from "./trial.js";
 import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
+import { summary, summaryFromStats, summaryLimited, summaryRange } from "./summary.js";
 
 export const SCHEMA = "genclass-telemetry/1";
 export const MAX_BODY_BYTES = 256 * 1024;
@@ -108,6 +111,9 @@ export interface Env {
   MANAGED_PAYMENTS?: string;
   /** Export pages per account per minute (src/billing.ts); without it the export is not rate-limited. */
   EXPORT_LIMIT?: RateLimiterLike;
+  /** Summary requests (src/summary.ts, `npx @genclass/runtime stats`): 30 / 60 s per dashboard secret or account (the
+   * key is a hash of it). Without it only the per-IP LIMIT applies. */
+  SUMMARY_LIMIT?: RateLimiterLike;
   /** 32 bytes, base64: encrypts forwarding settings at rest (src/forward.ts). Without it they cannot be saved. */
   INTEGRATIONS_KEY?: string;
   /** Optional https URL that gets short JSON notices: a Custom purchase, a duplicate subscription, a plan switch
@@ -352,6 +358,32 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     const p = await createProject(env.DB, name, now);
     const origin = (env.DASHBOARD_ORIGIN ?? "https://genclass.dev").replace(/\/+$/, "");
     return json(201, { token: p.token, dashboardUrl: `${origin}/dashboard/${p.secret}`, name: p.name, created: p.created }, PROJECT_CORS);
+  }
+
+  const sum = /^\/api\/projects\/([^/]+)\/summary$/.exec(path);
+  if (sum) {
+    if (m !== "GET" && m !== "HEAD") return json(405, { ok: false, error: "method not allowed" });
+    const secret = sum[1]!;
+    const origin = (env.DASHBOARD_ORIGIN ?? "https://genclass.dev").replace(/\/+$/, "");
+    const trialUrl = `${(env.AUTH_ORIGIN || "https://genclass.dev").replace(/\/+$/, "")}/account/trial`;
+    const range = summaryRange(url.searchParams.get("range"));
+    // the sample is shared by everyone: only the per-IP budget applies to it
+    const limited = await summaryLimited(env, request, secret === SAMPLE_SECRET ? null : `secret:${secret}`);
+    if (limited) return limited;
+    if (secret === SAMPLE_SECRET) {
+      const dashboard = { url: `${origin}/dashboard/${SAMPLE_SECRET}`, locked: false, trialUrl, trialAvailable: true };
+      return json(200, summaryFromStats(sampleStats(range, now), dashboard, now));
+    }
+    const p = env.DB ? await projectBySecret(env.DB, secret) : null;
+    if (!p || !env.DB) return json(404, { ok: false, error: "not found" });
+    const access = await projectAccess(env.DB, p, env, now);
+    const link = `${origin}/dashboard/${secret}`;
+    // an app in no account gets its trial through the private link's locked page (sign in, add the app, start it):
+    // /account/trial alone would start a trial that does not cover this app
+    const dashboard = p.account_id
+      ? { url: link, locked: !hasDashboard(access), trialUrl, trialAvailable: access.source === null && !access.trialUsed }
+      : { url: link, locked: !hasDashboard(access), trialUrl: link, trialAvailable: true };
+    return json(200, await summary(env.DB, p, range, now, dashboard));
   }
 
   const api = /^\/api\/projects\/([^/]+)$/.exec(path);

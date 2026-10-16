@@ -565,3 +565,125 @@ describe("credentials file location", () => {
     expect(login.calls).toEqual([]);
   });
 });
+
+describe("stats with a signed-in account (GET /api/account/projects/<id>/summary with the CLI bearer)", () => {
+  const AFTER_CONNECT = (dir: string, projects: unknown[]) => {
+    const config = signedIn();
+    const env = { GENCLASS_TEST_PROJECTS: JSON.stringify(projects) };
+    expect(run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env }).code).toBe(0);
+    return { config, env };
+  };
+  const lines = (r: Run) => r.out.replace(/\n+$/, "").split("\n");
+
+  it("(2) the token in the setup: GET /api/me, then that app's summary with the bearer; its dashboard is open", () => {
+    const dir = viteApp();
+    const { config, env } = AFTER_CONNECT(dir, [BLOG, SHOP]);
+    const r = run(["stats", "--cwd", dir], { config, env });
+    expect(r.code, r.out).toBe(0);
+    expect(routes(r.calls)).toEqual(["GET /api/me", "GET /api/account/projects/p_shop/summary"]);
+    expect(r.calls.map((c) => c.url)[1]).toBe("https://genclass.dev/api/account/projects/p_shop/summary?range=7d");
+    expect(r.calls.every((c) => c.auth === `Bearer ${SESSION}` && c.body === null)).toBe(true);
+    expect(lines(r)).toEqual([
+      "GenClass stats for shop-web (last 7 days, UTC)",
+      "  Page loads           80   -20% vs the 7 days before",
+      "  Problems found        3   slow operations 2 · made_up 1",
+      "  Possible issues       0   lower-confidence detections",
+      "  Pages affected        1   of 6 pages that sent data · most on /search (3)",
+      "  Mode              guard: GenClass reported them and acted 2 times",
+      "  Model loaded      100% of page loads, 1,250 ms on average",
+      "  Last event        2 hours ago",
+      "",
+      "This is the free summary. The dashboard shows every page and problem, what GenClass did, how to fix each kind,",
+      "1 year of history, export, and forwarding to Sentry, PostHog, Datadog or Slack.",
+      "Dashboard: https://genclass.dev/account/apps/p_shop",
+    ]);
+  });
+
+  it("a locked dashboard: the trial lines; no page loads: the empty summary; --json: the answer only", () => {
+    const dir = viteApp();
+    const { config, env } = AFTER_CONNECT(dir, [SHOP]);
+    const locked = run(["stats", "--cwd", dir], { config, env: { ...env, GENCLASS_TEST_SUMMARY: "locked" } });
+    expect(locked.code, locked.out).toBe(0);
+    expect(lines(locked).slice(-2)).toEqual(["Get a 7-day free trial for analytics: https://genclass.dev/account/trial (no card needed)", "See one filled in: https://genclass.dev/dashboard/sample"]);
+    const used = run(["stats", "--cwd", dir], { config, env: { ...env, GENCLASS_TEST_SUMMARY: "trial-used" } });
+    expect(used.code, used.out).toBe(0);
+    expect(lines(used).slice(-2)).toEqual(["Your trial has ended; the dashboard comes with Pro: https://genclass.dev/account/billing", "See one filled in: https://genclass.dev/dashboard/sample"]);
+    const empty = run(["stats", "--cwd", dir], { config, env: { ...env, GENCLASS_TEST_SUMMARY: "empty" } });
+    expect(empty.code, empty.out).toBe(0);
+    expect(lines(empty)[0]).toBe("No diagnostics received for shop-web in the last 7 days.");
+    const j = run(["stats", "--json", "--range", "24h", "--cwd", dir], { config, env });
+    expect(j.code, j.out).toBe(0);
+    expect(JSON.parse(j.out)).toMatchObject({ ok: true, name: "shop-web", range: "24h", mode: "guard" });
+  });
+
+  it("(3) no token here: the account's only app; several: lists them and asks for --app (by id or token); unknown --app: exit 1", () => {
+    const empty = tmp("gc-empty-");
+    const one = run(["stats", "--cwd", empty], { config: signedIn(), env: { GENCLASS_TEST_PROJECTS: JSON.stringify([BLOG]) } });
+    expect(one.code, one.out).toBe(0);
+    expect(routes(one.calls)).toEqual(["GET /api/me", "GET /api/account/projects/p_blog/summary"]);
+    expect(one.out).toContain("GenClass stats for blog (last 7 days, UTC)");
+    const env = { GENCLASS_TEST_PROJECTS: JSON.stringify([SHOP, BLOG]) };
+    const config = signedIn();
+    const two = run(["stats", "--cwd", empty], { config, env });
+    expect(two.code, two.out).toBe(1);
+    expect(routes(two.calls)).toEqual(["GET /api/me"]);
+    expect(two.out).toContain("Your account (dev@example.com) has 2 apps. Pick one with npx @genclass/runtime stats --app <id>:");
+    expect(two.out).toMatch(/shop-web\s+p_shop\s+gc_ShopToken0123456789abc/);
+    for (const pick of ["p_blog", BLOG.token]) {
+      const r = run(["stats", "--app", pick, "--cwd", empty], { config, env });
+      expect(r.code, r.out).toBe(0);
+      expect(routes(r.calls)).toEqual(["GET /api/me", "GET /api/account/projects/p_blog/summary"]);
+    }
+    const none = run(["stats", "--app", "p_nope", "--cwd", empty], { config, env });
+    expect(none.code).toBe(1);
+    expect(none.out).toContain(`No app "p_nope" in your account (dev@example.com).`);
+    expect(routes(none.calls)).toEqual(["GET /api/me"]);
+  });
+
+  it("a private link that no longer works (turned off after the app joined an account): falls through to the session", () => {
+    const dir = viteApp();
+    // init without an account: a token and a private link in .genclass.local (the fake answers POST /api/projects)
+    expect(run(["init", "--yes", "--no-install", "--cwd", dir]).code).toBe(0);
+    expect(readFileSync(join(dir, ".genclass.local"), "utf8")).toContain("GENCLASS_DASHBOARD=");
+    const app = { ...SHOP, token: "gc_TestToken0123456789abc" };
+    const env = { GENCLASS_TEST_PROJECTS: JSON.stringify([app]) };
+    const r = run(["stats", "--cwd", dir], { config: signedIn(), env });
+    expect(r.code, r.out).toBe(0);
+    expect(routes(r.calls)).toEqual(["GET /api/projects/TestSecret0123456789abcdefghijkl/summary", "GET /api/me", "GET /api/account/projects/p_shop/summary"]);
+    expect(r.out).toContain("no longer works at https://genclass.dev (HTTP 404)");
+    expect(r.out).toContain("Reading the app from your signed-in account instead.");
+    expect(r.out).toContain("GenClass stats for shop-web (last 7 days, UTC)");
+    // signed out: it says the link stopped working and how to read it (not that the app may have been deleted only)
+    const anon = run(["stats", "--cwd", dir]);
+    expect(anon.code).toBe(1);
+    expect(anon.out).toContain("If the app is in your account, sign in and run stats again: npx @genclass/runtime login");
+  });
+
+  it("a token here that is not in the account: says to connect it, reads no summary", () => {
+    const dir = viteApp();
+    expect(run(["init", "--yes", "--no-install", "--token", "gc_Mine0123456789abcdefgh", "--cwd", dir]).code).toBe(0);
+    const r = run(["stats", "--cwd", dir], { config: signedIn(), env: { GENCLASS_TEST_PROJECTS: JSON.stringify([SHOP]) } });
+    expect(r.code, r.out).toBe(1);
+    expect(r.out).toContain("This app's token (gc_Mine0123456789abcdefgh) is not one of your account's apps (dev@example.com).");
+    expect(r.out).toContain("npx @genclass/runtime connect");
+    expect(routes(r.calls)).toEqual(["GET /api/me"]);
+  });
+
+  it("errors: a revoked session, 403, 429 (when to retry); --app without a session contacts nothing", () => {
+    const empty = tmp("gc-empty-");
+    const env = { GENCLASS_TEST_PROJECTS: JSON.stringify([SHOP]) };
+    const revoked = run(["stats", "--cwd", empty], { config: signedIn(), env: { ...env, GENCLASS_TEST_ME: "401" } });
+    expect(revoked.code).toBe(1);
+    expect(revoked.out).toContain("The saved CLI session no longer works");
+    const refused = run(["stats", "--cwd", empty], { config: signedIn(), env: { ...env, GENCLASS_TEST_SUMMARY: "403" } });
+    expect(refused.code).toBe(1);
+    expect(refused.out).toContain("https://genclass.dev did not let this CLI session read shop-web's summary (HTTP 403: refused).");
+    const limited = run(["stats", "--cwd", empty], { config: signedIn(), env: { ...env, GENCLASS_TEST_SUMMARY: "429" } });
+    expect(limited.code).toBe(1);
+    expect(limited.out).toContain("try again in 7 s");
+    const anon = run(["stats", "--app", "p_shop", "--cwd", empty]);
+    expect(anon.code).toBe(1);
+    expect(anon.out).toContain("--app needs a signed-in GenClass account");
+    expect(anon.calls).toEqual([]);
+  });
+});

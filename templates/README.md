@@ -25,7 +25,9 @@ Every template:
   changes nothing. Switch the import to `@genclass/runtime/auto/guard` to let it act when its model is confident;
 - **loads the devtools overlay in development only**;
 - **can be turned off per page load** with `?genclass=off` in the URL;
-- sends anonymous, redacted diagnostics by default; each README shows the one-line opt-out.
+- sends anonymous, redacted diagnostics by default on public hosts, which feed `npx @genclass/runtime@beta stats`
+  and the app's dashboard once the app has a token (runtime 0.3.0 or later); each README's Diagnostics section shows
+  the one-line opt-out.
 
 They need `@genclass/runtime` 0.2.0 or later (automatic state discovery). Each one builds, boots and passes
 the checks in `compat/templates-check.mjs` (production build and dev server, Chromium) against the runtime packed

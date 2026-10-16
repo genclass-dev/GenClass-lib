@@ -6,8 +6,17 @@ model (accuracy, false interventions, latency, which situations it sees in real 
 is sent, where it goes, and how to turn it off.
 
 **Turn it off:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry` in the URL, or
-`localStorage.setItem("genclass.telemetry", "off")`. Browsers that send Global Privacy Control are never collected.
+`localStorage.setItem("genclass.telemetry", "off")`. Pages in browsers that send Global Privacy Control send nothing.
 Details under [Opting out](#opting-out).
+
+**What you get with it on:** with an app token (`npx @genclass/runtime init` creates one), the same diagnostics also
+reach you, the app's developer. `npx @genclass/runtime stats` (`0.3.0-beta.1`) prints a free summary of what
+GenClass found on your deployed site in the last 24 hours or 7 days: page loads, problems found by type, the pages
+most affected, the mode and how often the model loaded. The app's private dashboard shows all of it page by page,
+with what GenClass did, up to 1 year of history, export and forwarding; it needs Pro (get a 7-day free trial for
+analytics). With `telemetry: false` or `init --no-telemetry`, the summary and the dashboard stay empty; visitors who
+opt out are not counted. Neither sends anything more from the page: both read the counters
+the collector keeps from the batches described below ([App tokens and dashboards](#app-tokens-and-dashboards)).
 
 ## When it is on
 
@@ -30,7 +39,7 @@ When it is on, the console shows one notice per page:
 
 `runtime.telemetry` reports `{ enabled, reason?, endpoint?, sessionId?, token?, flush() }`; `reason` says why it is off
 (`option`, `headless`, `local`, `url`, `localStorage`, `gpc`, `sampled-out`, `no-crypto`, `no-transport`,
-`kill-switch`, `disabled`).
+`kill-switch`, `disabled`, `error`).
 
 ## What is sent
 
@@ -202,7 +211,27 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   dashboard with `POST /api/account/projects/claim` and its link from `.genclass.local`; `logout` sends
   `DELETE /api/account/sessions/current`. Signed in, `init` asks whether a new app goes into the account and then
   creates it with `POST /api/account/projects` instead of `/api/projects`. These account requests carry
-  `user-agent: genclass-runtime-cli/<version>`.
+  `user-agent: genclass-runtime-cli/<version>`. A CLI session can read each app's summary (below) but not its
+  dashboard: `GET /api/account/projects/<id>/stats` refuses it.
+- **Summary** (`0.3.0-beta.1`). `GET https://genclass.dev/api/projects/<secret>/summary?range=24h|7d` (the secret from
+  the private dashboard link) and, for an app in an account, `GET /api/account/projects/<id>/summary?range=24h|7d`
+  (the owner signed in to genclass.dev in the browser, or with a CLI session) return a short summary: the app's name, when it was created
+  and when its last batch arrived; for the range, page loads, detections, possible detections, actions, the pages
+  with a detection out of the pages that sent data, the share of page loads that loaded the model and its average
+  load time; page loads and detections in the range before; the top 3 problem types and the top 3 routes; the mode;
+  and whether the dashboard is locked, where its trial starts (for an app in no account, its private link, whose page
+  adds the app to an account first) and whether the account can still start one. Route and problem-type keys are
+  returned without control, bidi or zero-width characters. It is computed from the daily and hourly counters the collector already keeps
+  for the dashboard, so nothing new is collected for it. It is not gated by Pro; any other `range` is read as `7d`;
+  it answers 404 for an unknown secret or app and 429 (with `Retry-After`) past 30 requests a minute for one link or
+  one account. `https://genclass.dev/api/projects/sample/summary` returns the made-up sample app's summary.
+- `npx @genclass/runtime stats` reads that summary and prints it. With `--app`, signed in, it sends `GET /api/me` and
+  then `GET /api/account/projects/<id>/summary` with the CLI session as a bearer. Otherwise, when `.genclass.local`
+  holds the private link for the token in this project's setup, it sends `GET /api/projects/<secret>/summary` with
+  that link's secret; failing that (or when that link answers 404), signed in, `GET /api/me` (to find the app whose
+  token the project carries, or the account's only app) and then the account route. Besides the app's id and the
+  range, it sends nothing else: no file or name from the project. Its human output never prints the private link;
+  `--json` prints the answer as it came, link included. These requests carry the same `user-agent` as the account requests.
 
 ## Where it goes
 

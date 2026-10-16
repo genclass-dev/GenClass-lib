@@ -7,6 +7,9 @@
 //       and private dashboard link from genclass.dev) and take it out again. Implemented in bin/lib/ (owner: INSTALL).
 //   genclass-runtime login [--yes] [--no-browser] [--no-connect] | connect [--app <id|name>] [--name <name>] | whoami | logout
 //       A GenClass account for the CLI (device sign-in, the app's token from the account): bin/lib/login.mjs.
+//   genclass-runtime stats [--range 24h|7d] [--json] [--app <id|name|gc_token>]
+//       A free summary of what GenClass found on the deployed app, from genclass.dev's summary endpoint (it needs the
+//       app's diagnostics, so telemetry on and a token): bin/lib/stats.mjs.
 //   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
 //       Download a GenClass model directory (model.json + model files) so an app can self-host it, plus the
 //       onnxruntime-web files the runtime loads (into <dir>/ort/, the version the runtime bundles):
@@ -58,6 +61,7 @@ const USAGE = `Usage:
   genclass-runtime connect [--app <id|name>] [--name <name>] [--yes] [--dry-run] [--no-install]
   genclass-runtime whoami
   genclass-runtime logout
+  genclass-runtime stats [--range 24h|7d] [--json] [--app <id|name|gc_token>]
   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
   genclass-runtime info <dir>
 
@@ -68,6 +72,8 @@ analytics; --no-token: no network); remove undoes it
 login signs you in to your GenClass account in the browser and connects the app in this folder; connect does the
 second half alone; whoami shows the account and its apps; logout ends the CLI session
 (\`genclass-runtime login --help\` for details).
+stats prints a free summary of what GenClass found on your deployed app (page loads, problems found, the pages
+they were on), from the diagnostics it sends with telemetry on (\`genclass-runtime stats --help\` for details).
 fetch-model downloads a GenClass model directory for self-hosting (default --variant all). The default --from is
 @genclass/runtime-model@0.2.0 on npm via jsDelivr, the runtime's own default model:
   ${DEFAULT_FROM}
@@ -496,6 +502,11 @@ async function main() {
   }
   if (["login", "connect", "whoami", "logout"].includes(argv[0])) {
     const { run } = await import("./lib/login.mjs");
+    process.exitCode = await run(argv[0], argv.slice(1));
+    return;
+  }
+  if (argv[0] === "stats") {
+    const { run } = await import("./lib/stats.mjs");
     process.exitCode = await run(argv[0], argv.slice(1));
     return;
   }

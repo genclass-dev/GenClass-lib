@@ -85,7 +85,7 @@ npx @genclass/runtime init
 npx @genclass/runtime init --mode guard
 npx @genclass/runtime remove   <span class="c"># undo exactly what init added</span></pre>
     </div>
-    <p class="disclose">Anonymous diagnostics, with no page text, are on by default. Turn them off with <code>GenClass.init({ telemetry: false })</code> or <code>npx @genclass/runtime init --no-telemetry</code>. See <a href="/docs/telemetry">what is sent</a>.</p>
+    <p class="disclose">Anonymous diagnostics, with no page text, are on by default. With your app's token they also feed <code>npx @genclass/runtime@beta stats</code> (runtime 0.3.0-beta.1 and later), a free summary of what GenClass found on your deployed site, and the app's dashboard (Pro; get a {{plans.trial_days}}-day free trial for analytics). Turn them off with <code>GenClass.init({ telemetry: false })</code> or <code>npx @genclass/runtime init --no-telemetry</code>; with telemetry off, stats and the dashboard stay empty. See <a href="/docs/telemetry">what is sent</a>.</p>
   </div>
 </section>
 

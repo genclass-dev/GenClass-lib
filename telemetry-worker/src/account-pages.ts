@@ -463,7 +463,7 @@ ${signInWays({ ...v.providers, next: v.next })}
   <dt>Code expires</dt><dd id="exp">${time(r.expires, "time")}</dd>
   <dt>Account</dt><dd>${who}</dd>
 </dl>
-<p class="lead" id="scope">If you approve, the terminal that shows this code can list the apps in this account, create apps, add an app from its private dashboard link, and write a project key into your project, for 90 days or until you revoke it on your account page. It cannot read your apps' stats or change how you sign in.</p>
+<p class="lead" id="scope">If you approve, the terminal that shows this code can list the apps in this account, create apps, add an app from its private dashboard link, and write a project key into your project, for 90 days or until you revoke it on your account page. It can read a short summary of each app's diagnostics (what npx @genclass/runtime stats prints), not the dashboard, and cannot change how you sign in.</p>
 <p class="caution" id="caution"><b>Approve only a sign-in you started.</b> If you did not run ${RUN} yourself just now, or someone sent you this link or code, choose Deny.</p>
 <div class="acts" id="acts"><button class="btn green" id="yes" type="button"><span>Approve</span></button><button class="btn ghost" id="no" type="button"><span>Deny</span></button></div>
 <p class="err" id="err" role="alert"></p>

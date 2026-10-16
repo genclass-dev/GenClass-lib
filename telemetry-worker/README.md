@@ -47,6 +47,7 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `src/index.ts` | entry point: default export only (`fetch`, `scheduled`). The Workers runtime treats every named export of the main module as an entrypoint, so nothing else is exported here. |
 | `src/collector.ts` | ingest (`POST /v1/events`), envelope validation (incl. optional `token`), routing for `/api/*`, `/start`, `/dashboard*`; hands account paths to `src/auth.ts` |
 | `src/dashboard.ts` | ids and hashing, project creation and lookup, token cache, aggregation of a batch into counters, stats for the dashboard, retention |
+| `src/summary.ts` | the free summary `npx @genclass/runtime stats` prints: a few totals and the top 3 problem types and pages from the same counters, for 24 hours or 7 days, and its rate limits |
 | `src/pages.ts` | HTML/CSS/JS for `/start` and `/dashboard/<secret>`, and the shell and dashboard the account pages reuse (`/account/apps/<id>` is the dashboard in its account mode, with the Connect panel); inline, per-response CSP nonce, fonts from Google Fonts only |
 | `src/auth.ts` | accounts: Google, email and password, GitHub, passkeys (sign-in, the passkey step, fresh confirmations), sessions, CSRF, the device flow, owned apps, their routes and their retention |
 | `src/password.ts` | passwords: the PBKDF2 hash string, the rules for a new password, the schedule of the delay after wrong ones |
@@ -75,6 +76,7 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `GET /v1/health` | `{ ok: true, schema }` |
 | `POST /api/projects` | body `{ name? }` (JSON object or empty; name sanitised, at most 80 chars, default "Untitled app"). 201 `{ token, dashboardUrl, name, created }`, `dashboardUrl` = `https://genclass.dev/dashboard/<32 base62>`. CORS `*`, no credentials. 429 JSON when rate-limited, 400 bad JSON, 413 over 4 KB. |
 | `GET /api/projects/<secret>?range=24h\|7d\|30d` | 402 `{ ok:false, error, locked:true }` unless the app's account has Pro (a plan, GenClass's grant or a trial; [Trials and grants](#trials-and-grants)). Otherwise dashboard stats JSON (default `7d`): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
+| `GET /api/projects/<secret>/summary?range=24h\|7d` | the free summary `npx @genclass/runtime stats` prints ([The summary](#the-summary)), whatever the plan: 200 with the summary JSON (`dashboard.url` is the private link); any other range is answered for `7d`. `<secret>` may be `sample` (a fixed-shape summary of the sample dashboard's simulated stats, `dashboard.locked: false`). 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret; 429 `{ ok:false, error:"too many summary requests; try again in a minute" }` with `retry-after: 60` over `SUMMARY_LIMIT` (30 per 60 s per secret; not for `sample`) or the per-IP `LIMIT`. Same-origin only (no CORS). |
 | `GET /start` | "Get a token" page |
 | `GET /dashboard/<secret>` | the dashboard while the app's account has Pro; otherwise the locked page ("Dashboards come with Pro. Get a 7-day free trial for analytics.": sign in, add the app to the account, start the trial; `src/trial.ts`). 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
 
@@ -93,6 +95,44 @@ and the pages a strict CSP (`default-src 'none'`, scripts and styles only with t
 
 Limits: 256 KB body, 500 events per batch, `sid` 8-64 chars `[A-Za-z0-9_-]`, every event an object with a string `t`.
 Unknown top-level fields are dropped. Event objects are stored in R2 as sent (the client defines them).
+
+### The summary
+
+`npx @genclass/runtime stats` (`packages/runtime/bin/lib/stats.mjs`) prints a short summary of an app's diagnostics in
+the terminal. It is free and deliberately smaller than the dashboard: it reads only the counters above (`hourly` for
+`24h`, `daily` for `7d`) and the app's `projects` row, adds nothing to what is collected, and is not gated by the plan.
+`dashboard.locked` says whether the app's dashboard opens (Pro, GenClass's grant or a trial). Both routes,
+`GET /api/projects/<secret>/summary` and `GET /api/account/projects/<id>/summary`, answer:
+
+```json
+{"ok": true, "name": "my-app", "created": "<iso>", "lastEvent": "<iso>|null", "range": "7d", "from": "<iso>", "generated": "<iso>",
+ "totals": {"sessions": 1234, "detections": 17, "possible": 4, "acted": 0, "pagesAffected": 5, "pagesSeen": 42, "modelLoadedShare": 0.98, "modelLoadMsAvg": 412},
+ "previous": {"sessions": 1100, "detections": 12},
+ "top": {"diagnoses": [{"key": "duplicate", "count": 9}], "routes": [{"key": "/checkout", "count": 7}]},
+ "mode": "observe|guard|heal|mixed|null",
+ "dashboard": {"url": "https://genclass.dev/dashboard/<secret>|https://genclass.dev/account/apps/<id>", "locked": true, "trialUrl": "https://genclass.dev/account/trial|https://genclass.dev/dashboard/<secret>", "trialAvailable": true},
+ "limits": {"ranges": ["24h", "7d"], "top": 3}}
+```
+
+| field | counters (metric, key) |
+|---|---|
+| `totals.sessions`, `detections`, `possible`, `acted` | `sessions`, `detections`, `possible`, `acted` (key `""`), summed over the period |
+| `totals.pagesAffected` | distinct keys of `detect_route` (pages with a problem whose decision record came in the same batch) |
+| `totals.pagesSeen` | distinct keys of `page_route`, `route` and `detect_route` together (pages where a page load started or GenClass made a decision, so a single-page app's later pages count); never less than `pagesAffected` |
+| `totals.modelLoadedShare` | `model_ready` / `sessions`, at most 1, 3 decimals; `null` with no page loads or no model load (ready or failed) reported |
+| `totals.modelLoadMsAvg` | `model_load_ms_sum` / `model_load_ms_n`, rounded; `null` when no load time was reported |
+| `previous` | `sessions` and `detections` over the period of the same length just before: the current range ends now, partway through its last bucket, so the previous one takes its full buckets and the same share of its first bucket (assuming even traffic within that bucket), rounded |
+| `top.diagnoses`, `top.routes` | the 3 largest keys of `detect_diagnosis` and `detect_route`, most first, ties by key; raw keys (`duplicate`, `stale`, ...) without control, bidi or zero-width characters (anyone with the public token can send any text; keys that clean to the same text are merged) |
+| `dashboard.trialUrl` | `/account/trial` for an app in an account; for an app in no account, its private link, whose locked page adds the app to an account and starts the trial (`/account/trial` alone would not cover the app) |
+| `dashboard.trialAvailable` | `false` when the app's account already had its one trial or has Pro; `true` for an app in no account (the CLI then offers the trial; otherwise it points to the plans) |
+| `mode` | keys of `mode` (each page load's effective mode) other than `(unknown)`: the one mode, `mixed` for more than one, `null` for none |
+| `name`, `created`, `lastEvent` | `projects.name`, `created`, `last_event` |
+
+`from` is the start of the first hour (`24h`, 24 hourly buckets) or UTC day (`7d`, 7 daily buckets), the same buckets
+as the dashboard's stats. There are no `series`, `typeSeries`, `recent`, `breakdowns` or `distinct` fields, and no app
+token. Rate limits: the per-IP `LIMIT` under its own key (a SHA-256 of `summary:ip:` and the IP, so it never spends the
+batches' budget) and `SUMMARY_LIMIT` (namespace `7304`, 30 per 60 s, keyed by a SHA-256 of the secret or the account
+id); both best effort, 429 with `retry-after: 60`. Tests: `test/summary.test.ts`.
 
 ## Tokens and secrets
 
@@ -315,10 +355,12 @@ minutes in a single-use row named by the `gc_pending` cookie).
   "Sign out everywhere else"); a cookie is never accepted as a bearer token or the reverse. `POST /logout` revokes
   the web session, and removing a passkey revokes every other session of the account. `auth_sessions.passkey_at` is
   when the session last proved a passkey (sign-in, the passkey step, a confirmation).
-- What a CLI session (bearer) may do is what the CLI needs and the approval page says: `GET /api/me`,
-  `GET /api/account/projects`, `POST /api/account/projects`, `POST /api/account/projects/claim` and
-  `DELETE /api/account/sessions/current`. Stats, other sessions, passkeys, private links, starting a trial and
-  deleting the account answer 403 to a bearer token.
+- What a CLI session (bearer) may do is what the CLI needs and the approval page says ("It can read a short summary
+  of each app's diagnostics (what npx @genclass/runtime stats prints), not the dashboard, and cannot change how you
+  sign in."): `GET /api/me`, `GET /api/account/projects`, `POST /api/account/projects`,
+  `POST /api/account/projects/claim`, `GET /api/account/projects/<id>/summary` ([The summary](#the-summary)) and
+  `DELETE /api/account/sessions/current`. The dashboard's stats, other sessions, passkeys, private links, starting a
+  trial and deleting the account answer 403 to a bearer token.
 - CSRF: every state-changing request authenticated by the cookie must send `Origin` equal to `AUTH_ORIGIN` (403
   otherwise); the passkey endpoints require it even without a session. The JSON endpoints the pages call require
   `Content-Type: application/json` (415 otherwise). Bearer requests carry no ambient credentials and need no Origin.
@@ -363,6 +405,7 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `GET /api/account/projects` | bearer or cookie | `{ projects: [project] }` (the Connect panel polls this every 5 s) |
 | `POST /api/account/projects` | bearer, or cookie + Origin | `{ name }` → 201 `{ project }`; at most 200 apps per account |
 | `POST /api/account/projects/claim` | bearer, or cookie + Origin | `{ dashboard_url }` or `{ secret }` → 200 `{ project }`: the secret-link app joins the account and its link keeps working; 409 when another account owns it or the account holds 200 apps, 404 for an unknown link |
+| `GET /api/account/projects/<id>/summary?range=24h\|7d` | bearer or cookie | the free summary ([The summary](#the-summary); `dashboard.url` is `/account/apps/<id>`), owned apps only, whatever the plan; 401 signed out, 404 `{ ok:false, error:"not found" }` for an app of another account or a malformed id, 429 over `SUMMARY_LIMIT` (30 per 60 s per account) or the per-IP `LIMIT` |
 | `GET /api/account/projects/<id>/stats?range=` | cookie | the dashboard stats (same shape as `/api/projects/<secret>`), owned apps only; 402 `{ locked: true, upgrade_url }` without Pro; 403 for a bearer token |
 | `DELETE /api/account/projects/<id>/link` | cookie + Origin | turn off the app's private dashboard link (its hash is replaced by one nobody holds); 204 |
 | `DELETE /api/account/sessions/current` | bearer (CLI logout) or cookie + Origin | 204 |
@@ -932,6 +975,7 @@ removed its object by then).
 | `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
 | `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a Custom plan is paid, `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
 | `EXPORT_LIMIT` | rate limit binding | export pages per account per minute (120) |
+| `SUMMARY_LIMIT` | rate limit binding | summary requests per dashboard secret or account per minute (30; namespace `7304`) |
 
 A Custom buyer's email, for the notice above:
 `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "SELECT email, created, mode FROM custom_requests WHERE id = '<request_id>'"`.

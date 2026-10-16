@@ -27,8 +27,9 @@
 //   403); so must sign-in and sign-up, with or without a session. The JSON endpoints the pages call also require
 //   Content-Type application/json. Bearer requests (the CLI) carry no ambient credentials and need no Origin.
 // - A CLI bearer session can do what the CLI needs and the approval page says: read the account and its apps, create
-//   apps, add an app from its private link, and end itself. Stats, other sessions, passkeys, passwords, private links
-//   and the account itself need the browser session.
+//   apps, add an app from its private link, read each app's short summary (src/summary.ts, what `npx @genclass/runtime
+//   stats` prints), and end itself. The dashboard's stats, other sessions, passkeys, passwords, private links and the
+//   account itself need the browser session.
 // - OAuth state (state, nonce, PKCE verifier, where to go next, which account and session a Link started from) is
 //   kept server-side in `challenges`; the cookie holds only that row's random id, so a planted cookie cannot name an
 //   account to link to. Session cookies use the __Host- prefix (no Domain, Path=/, Secure), except on plain-HTTP
@@ -67,6 +68,7 @@ import {
   type Project,
 } from "./dashboard.js";
 import { appExtrasData, appExtrasHtml } from "./billing-pages.js";
+import { summary, summaryLimited, summaryRange } from "./summary.js";
 import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
 import { dashboardPage, securityHeaders } from "./pages.js";
@@ -1819,13 +1821,32 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       return post ? claimProject(c) : method();
   }
 
+  const sum = /^\/api\/account\/projects\/([^/]+)\/summary$/.exec(path);
+  if (sum) {
+    if (!get) return method();
+    const a = await authenticate(c);
+    if (!a) return signedOut();
+    // the browser session or a CLI session: the approval page says a CLI session can read this summary
+    const limited = await summaryLimited(env, request, `account:${a.account.id}`);
+    if (limited) return limited;
+    const p = await ownedProject(c, a.account.id, sum[1]!);
+    if (!p) return fail(404, "not found");
+    const access = await accountAccess(c.db, a.account.id, env, c.now);
+    const dashboard = {
+      url: `${c.cfg.origin}/account/apps/${p.id}`,
+      locked: !hasDashboard(access),
+      trialUrl: `${c.cfg.origin}/account/trial`,
+      trialAvailable: access.source === null && !access.trialUsed,
+    };
+    return json(200, await summary(c.db, p, summaryRange(url.searchParams.get("range")), c.now, dashboard));
+  }
   const stat = /^\/api\/account\/projects\/([^/]+)\/stats$/.exec(path);
   if (stat) {
     if (!get) return method();
     const a = await authenticate(c);
     if (!a) return signedOut();
-    // the dashboard reads stats with the browser session; a CLI session was not approved for them
-    if (a.via !== "cookie") return fail(403, "a command line session cannot read stats; open the dashboard in the browser");
+    // the dashboard reads stats with the browser session; a CLI session was approved for the summary only
+    if (a.via !== "cookie") return fail(403, "a command line session cannot read the dashboard's stats (npx @genclass/runtime stats reads the summary); open the dashboard in the browser");
     const p = await ownedProject(c, a.account.id, stat[1]!);
     if (!p) return fail(404, "not found");
     // dashboards come with Pro (a plan, GenClass's grant or the trial; src/plans.ts accountAccess)

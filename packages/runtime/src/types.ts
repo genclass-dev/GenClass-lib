@@ -880,7 +880,9 @@ export interface InitOptions {
    * object is an explicit opt-in that sends from them too); off in
    * Node/SSR and with `createRuntime()` unless set here. Off with `false`, `?genclass=no-telemetry` (or `off`),
    * `localStorage["genclass.telemetry"] = "off"`, or when the browser sends Global Privacy Control
-   * (`navigator.globalPrivacyControl === true`).
+   * (`navigator.globalPrivacyControl === true`). With a `token`, the same diagnostics feed
+   * `npx @genclass/runtime stats` (a free summary in the terminal) and the app's dashboard (Pro); with telemetry off,
+   * both stay empty.
    */
   telemetry?: boolean | TelemetryOptions;
   /**
@@ -1263,7 +1265,10 @@ export interface TelemetryTransport {
 /** runtime.telemetry: whether this page sends diagnostics, and why not. */
 export interface TelemetryStatus {
   readonly enabled: boolean;
-  /** Off: "option", "headless", "url", "localStorage", "gpc", "sampled-out", "no-crypto", "no-transport", "kill-switch". */
+  /**
+   * Off: "option", "headless", "local" (a local or private host), "url", "localStorage", "gpc", "sampled-out",
+   * "no-crypto", "no-transport", "kill-switch", "disabled" (`enabled: false`), "error" (telemetry failed to start).
+   */
   readonly reason?: string;
   readonly endpoint?: string;
   /** Random per page load (not persisted). */

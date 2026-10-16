@@ -56,6 +56,11 @@ routes, the names the developer gave to protected functions, model speed, versio
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
+A shorter summary of the same counts (totals for the last 24 hours or 7 days, the top 3 problem types and routes) is
+available without Pro, at `genclass.dev/api/projects/<secret>/summary` to whoever holds the link, and to the
+account's owner, signed in to genclass.dev in the browser or with the command line (`npx @genclass/runtime stats`, runtime
+0.3.0-beta.1 and later). It is computed from the counts the dashboard already keeps; nothing more is collected for it.
+
 When a developer creates a token with `npx @genclass/runtime init`, after approving its changes, the tool sends us
 the name in their project's `package.json`. We keep one record per token: the token, that name, when it was created,
 when data first and last arrived, a one-way hash of the dashboard link's secret, and the account it belongs to, if

@@ -100,6 +100,13 @@ name = "EXPORT_LIMIT"
 namespace_id = "7303"
 simple = { limit = 120, period = 60 }
 
+# The free summary (src/summary.ts, `npx @genclass/runtime stats`): 30 per 60 s per dashboard secret or account (the key
+# is a hash of it). The per-IP LIMIT above applies too, under its own key.
+[[ratelimits]]
+name = "SUMMARY_LIMIT"
+namespace_id = "7304"
+simple = { limit = 30, period = 60 }
+
 # Read-only use of the site worker: unknown genclass.dev/start* and /dashboard* paths are handed to it unchanged.
 [[services]]
 binding = "SITE"

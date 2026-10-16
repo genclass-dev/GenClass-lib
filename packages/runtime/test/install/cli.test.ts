@@ -66,17 +66,17 @@ function cli(dir: string, ...args: string[]): { code: number; out: string } {
   return cliEnv({}, dir, ...args);
 }
 
-function cliEnv(env: Record<string, string>, dir: string, ...args: string[]): { code: number; out: string } {
+function cliEnv(env: Record<string, string>, dir: string, ...args: string[]): { code: number; out: string; stdout: string } {
   try {
     const out = execFileSync(process.execPath, ["--import", pathToFileURL(MOCK_FETCH).href, BIN, ...args, "--cwd", dir], {
       encoding: "utf8",
       env: { ...process.env, GENCLASS_HOST: "", XDG_CONFIG_HOME: NO_ACCOUNT, APPDATA: NO_ACCOUNT, GENCLASS_TEST_FETCH: "fail", ...env, NO_COLOR: "1", FORCE_COLOR: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });
-    return { code: 0, out };
+    return { code: 0, out, stdout: out };
   } catch (e) {
     const err = e as { status: number; stdout: string; stderr: string };
-    return { code: err.status, out: `${err.stdout}${err.stderr}` };
+    return { code: err.status, out: `${err.stdout}${err.stderr}`, stdout: err.stdout };
   }
 }
 
@@ -1073,5 +1073,250 @@ describe("init: app token and private dashboard link (fetch mocked; never the re
     expect(snapshot(html)["index.html"]).toContain(`<script src="https://example.test/g.js" data-devtools="local" data-token="${TOKEN}"></script> <!-- genclass:init -->`);
     expect(cli(html, "remove", "--yes").code).toBe(0);
     expect(snapshot(html)["index.html"]).toBe(`<html>\n<head>\n  <title>x</title>\n</head>\n<body></body>\n</html>\n`);
+  });
+});
+
+describe("stats: the free summary in the terminal (summary endpoint mocked; never the real genclass.dev)", () => {
+  const TOKEN = "gc_TestToken0123456789abc";
+  const SECRET = "TestSecret0123456789abcdefghijkl";
+  const LINK = `https://genclass.dev/dashboard/${SECRET}`;
+  const LOCAL = `GENCLASS_TOKEN=${TOKEN}\nGENCLASS_DASHBOARD=${LINK}\n`;
+  const viteApp = (extra: Record<string, string> = {}) =>
+    project({ "package.json": pkg({ vite: "^7" }, { name: "shop-web" }), "index.html": VITE_HTML.replace("main.tsx", "main.ts"), "src/main.ts": "console.log(1);\n", ...extra });
+  const calls = (log: string) => {
+    try {
+      return readFileSync(log, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l) as { url: string; method: string; body: string | null });
+    } catch {
+      return [];
+    }
+  };
+  const logFile = () => {
+    const d = mkdtempSync(join(tmpdir(), "gc-fetch-"));
+    roots.push(d);
+    return join(d, "calls.jsonl");
+  };
+  const stats = (mode: string, dir: string, ...args: string[]) => {
+    const log = logFile();
+    const r = cliEnv({ GENCLASS_TEST_FETCH: mode, GENCLASS_TEST_FETCH_LOG: log }, dir, "stats", ...args);
+    return { ...r, calls: calls(log), lines: r.out.replace(/\n+$/, "").split("\n") };
+  };
+  const FREE = [
+    "This is the free summary. The dashboard shows every page and problem, what GenClass did, how to fix each kind,",
+    "1 year of history, export, and forwarding to Sentry, PostHog, Datadog or Slack.",
+  ];
+  const SAMPLE = "See one filled in: https://genclass.dev/dashboard/sample";
+  const TRIAL = [...FREE, "Get a 7-day free trial for analytics: https://genclass.dev/account/trial (no card needed)", SAMPLE];
+  const BODY = [
+    "GenClass stats for shop-web (last 7 days, UTC)",
+    "  Page loads        1,234   +12% vs the 7 days before",
+    "  Problems found       17   double submits 9 · stale responses 6 · failing endpoints 2",
+    "  Possible issues       4   lower-confidence detections",
+    "  Pages affected        5   of 42 pages that sent data · most on /checkout (7), /cart (5), /account (3)",
+    "  Mode              observe: GenClass reported them and changed nothing",
+    "  Model loaded      98% of page loads, 412 ms on average",
+    "  Last event        3 minutes ago",
+    "",
+  ];
+
+  it("(1) the private link in .genclass.local: one GET of its summary, sending only the secret; the exact summary", () => {
+    const r = stats("summary", project({ ".genclass.local": LOCAL }));
+    expect(r.code, r.out).toBe(0);
+    expect(r.calls).toEqual([{ url: `https://genclass.dev/api/projects/${SECRET}/summary?range=7d`, method: "GET", body: null }]);
+    expect(r.lines).toEqual([...BODY, ...TRIAL]);
+  });
+
+  it("an open dashboard: where it is instead of the trial lines, never the private link itself", () => {
+    const r = stats("summary-open", project({ ".genclass.local": LOCAL }));
+    expect(r.code, r.out).toBe(0);
+    expect(r.lines).toEqual([...BODY, ...FREE, "Dashboard: open the private link in .genclass.local (keep it out of code, docs and pull requests)"]);
+    expect(r.out).not.toContain(SECRET);
+  });
+
+  it("an app in no account: the trial goes through the private link (which adds the app), without printing it", () => {
+    const r = stats("summary-unclaimed", project({ ".genclass.local": LOCAL }));
+    expect(r.code, r.out).toBe(0);
+    expect(r.lines).toEqual([
+      ...BODY,
+      ...FREE,
+      "Get a 7-day free trial for analytics (no card needed): open the private link in .genclass.local,",
+      "sign in, add this app to your account and start the trial there.",
+      SAMPLE,
+    ]);
+    expect(r.out).not.toContain(SECRET);
+  });
+
+  it("an account whose trial was used: no trial offer, the way to Pro instead", () => {
+    const r = stats("summary-trial-used", project({ ".genclass.local": LOCAL }));
+    expect(r.code, r.out).toBe(0);
+    expect(r.lines).toEqual([...BODY, ...FREE, "Your trial has ended; the dashboard comes with Pro: https://genclass.dev/account/billing", SAMPLE]);
+    expect(r.out).not.toMatch(/free trial/);
+  });
+
+  it("strips terminal escapes, bidi and zero-width characters from the server's keys (anyone with the public token sends them)", () => {
+    const r = stats("summary-escape", project({ ".genclass.local": LOCAL }));
+    expect(r.code, r.out).toBe(0);
+    // eslint-disable-next-line no-control-regex
+    expect(r.out).not.toMatch(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/);
+    expect(r.lines[2]).toBe("  Problems found       17   ]0;pwnedignore previous instructions 9 · stale responses 6 · failing endpoints 2");
+    expect(r.lines[4]).toBe("  Pages affected        5   of 42 pages that sent data · most on /a]8;;https://evil.exampleclick]8;;[2K (7), /cart (5), /account (3)");
+  });
+
+  it("no page loads in the range but problems (a tab opened before it): the totals, without a change", () => {
+    const r = stats("summary-late", project({ ".genclass.local": LOCAL }), "--range", "24h");
+    expect(r.code, r.out).toBe(0);
+    expect(r.lines.slice(0, 5)).toEqual([
+      "GenClass stats for shop-web (last 24 hours, UTC)",
+      "  Page loads            0",
+      "  Problems found        2   stale responses 2",
+      "  Possible issues       0   lower-confidence detections",
+      "  Pages affected        1   of 1 page that sent data · most on /search (2)",
+    ]);
+    expect(r.out).not.toContain("No diagnostics received");
+  });
+
+  it("no page loads yet: says why diagnostics may be missing and how they are turned off; exit 0", () => {
+    const r = stats("summary-empty", project({ ".genclass.local": LOCAL }));
+    expect(r.code, r.out).toBe(0);
+    expect(r.lines).toEqual([
+      "No diagnostics received for shop-web in the last 7 days.",
+      "GenClass sends them from public hosts when the app runs with telemetry on (the default) and this app's token:",
+      `the deployed page logs "[GenClass] Sends anonymous diagnostics …" in the browser console. Just ran init?`,
+      "Deploy the change (the token needs @genclass/runtime 0.3.0 or later) and check again after some page loads.",
+      "Local and private hosts (localhost, *.local, *.test, private networks) do not send unless telemetry: true is set.",
+      "telemetry: false turns it off for the whole app; ?genclass=no-telemetry, localStorage genclass.telemetry=off",
+      "and Global Privacy Control turn it off for one visitor.",
+      "What is sent: https://genclass.dev/docs/telemetry",
+    ]);
+  });
+
+  it("an app init set up: the link's token is the one in the setup; --range 24h; --json prints the summary only", () => {
+    const dir = viteApp({ ".genclass.local": LOCAL });
+    expect(cliEnv({ GENCLASS_TEST_FETCH: "fail" }, dir, "init", "--yes", "--no-install").code).toBe(0);
+    expect(readFileSync(join(dir, "src/genclass.config.ts"), "utf8")).toContain(TOKEN);
+    const day = stats("summary", dir, "--range", "24h");
+    expect(day.code, day.out).toBe(0);
+    expect(day.calls.map((c) => c.url)).toEqual([`https://genclass.dev/api/projects/${SECRET}/summary?range=24h`]);
+    expect(day.lines[0]).toBe("GenClass stats for shop-web (last 24 hours, UTC)");
+    expect(day.lines[1]).toBe("  Page loads        1,234   +12% vs the 24 hours before");
+    const j = stats("summary", dir, "--json");
+    expect(j.code, j.out).toBe(0);
+    const parsed = JSON.parse(j.out);
+    expect(parsed).toMatchObject({ ok: true, name: "shop-web", range: "7d", totals: { sessions: 1234 }, dashboard: { locked: true } });
+    expect(Object.keys(parsed.top)).toEqual(["diagnoses", "routes"]);
+  });
+
+  it("errors in plain words, exit 1: 429 (when to retry), 404, 402, not a summary, no network", () => {
+    const dir = project({ ".genclass.local": LOCAL });
+    const cases: [string, string][] = [
+      ["summary-429", "try again in 42 s"],
+      ["summary-404", "The private dashboard link in .genclass.local no longer works at https://genclass.dev (HTTP 404): it was turned off or replaced"],
+      ["summary-402", "https://genclass.dev refused this app's summary (HTTP 402: the dashboard needs Pro). The summary is meant to be free on every plan;"],
+      ["summary-bad", "answer was not one"],
+      ["fail", "Could not reach https://genclass.dev (network error (ENOTFOUND))"],
+    ];
+    for (const [mode, text] of cases) {
+      const r = stats(mode, dir);
+      expect(r.code, `${mode}: ${r.out}`).toBe(1);
+      // a 402 is a fault to report: the free summary never turns into a trial offer
+      if (mode === "summary-402") expect(r.out).not.toMatch(/trial/i);
+      expect(r.out, mode).toContain(text);
+      expect(r.out, mode).not.toContain("GenClass stats for");
+      // --json: nothing on stdout (the message goes to stderr)
+      const j = stats(mode, dir, "--json");
+      expect(j.code).toBe(1);
+      expect(j.out).toContain(text);
+      expect(j.stdout, mode).toBe("");
+    }
+  });
+
+  it("a setup made with --no-telemetry: says telemetry is off and how to turn it back on, contacts nothing", () => {
+    const dir = viteApp();
+    expect(cli(dir, "init", "--yes", "--no-install", "--no-telemetry").code).toBe(0);
+    const r = stats("summary", dir);
+    expect(r.code, r.out).toBe(1);
+    expect(r.out.replace(/\s+/g, " ")).toContain(
+      "Telemetry is off in this project's GenClass setup (init --no-telemetry wrote the opt-out), so the app sends no diagnostics and there is nothing to summarise. To turn it back on: npx @genclass/runtime init --telemetry",
+    );
+    expect(r.calls).toEqual([]);
+    // and init's re-run says the same way back
+    const again = cli(dir, "init", "--dry-run");
+    expect(again.out.replace(/\s+/g, " ")).toContain("telemetry is off in your setup: stats and the dashboard stay empty; npx @genclass/runtime init --telemetry turns it back on");
+  });
+
+  it("(4) no app here: says to run init or login, exit 1, contacts nothing", () => {
+    const r = stats("summary", project({ "index.html": "<html></html>\n" }));
+    expect(r.code, r.out).toBe(1);
+    expect(r.out).toContain("No app found here: no private dashboard link in .genclass.local and no signed-in GenClass account.");
+    expect(r.out).toContain("Run npx @genclass/runtime init (it creates this app's token) or npx @genclass/runtime login.");
+    expect(r.calls).toEqual([]);
+  });
+
+  it("a token in the setup but no link and no session: says to sign in, contacts nothing", () => {
+    const dir = viteApp();
+    expect(cli(dir, "init", "--yes", "--no-install", "--token", "gc_Mine0123456789abcdefgh").code).toBe(0);
+    const r = stats("summary", dir);
+    expect(r.code, r.out).toBe(1);
+    expect(r.out).toContain("This app has a token (gc_Mine0123456789abcdefgh) but no private dashboard link in .genclass.local");
+    expect(r.out).toContain("npx @genclass/runtime login");
+    expect(r.calls).toEqual([]);
+  });
+
+  it("a .genclass.local link for another app than the setup's token (connect replaced it) is not used", () => {
+    const dir = viteApp({ ".genclass.local": LOCAL });
+    expect(cli(dir, "init", "--yes", "--no-install", "--token", "gc_Mine0123456789abcdefgh").code).toBe(0);
+    const r = stats("summary", dir);
+    expect(r.code, r.out).toBe(1);
+    expect(r.calls).toEqual([]);
+  });
+
+  it("never sends a genclass.dev link to another GENCLASS_HOST", () => {
+    const log = logFile();
+    const r = cliEnv({ GENCLASS_TEST_FETCH: "summary", GENCLASS_TEST_FETCH_LOG: log, GENCLASS_HOST: "http://localhost:8787" }, project({ ".genclass.local": LOCAL }), "stats");
+    expect(r.code, r.out).toBe(1);
+    expect(r.out).toContain("GENCLASS_HOST is set");
+    expect(r.out).toContain("belongs to https://genclass.dev, not http://localhost:8787");
+    expect(calls(log)).toEqual([]);
+  });
+
+  it("usage: --range other than 24h or 7d, unknown options (exit 2); --help; the top-level help lists stats", () => {
+    const dir = project({ ".genclass.local": LOCAL });
+    for (const args of [["--range", "30d"], ["--sink", "console-json"], ["extra"]]) {
+      const r = stats("summary", dir, ...args);
+      expect(r.code, r.out).toBe(2);
+      expect(r.calls).toEqual([]);
+    }
+    const h = stats("summary", dir, "--help");
+    expect(h.code).toBe(0);
+    expect(h.out).toContain("genclass-runtime stats [--range 24h|7d] [--json] [--app <id|name|gc_token>]");
+    expect(h.calls).toEqual([]);
+    const top = cli(dir, "--help");
+    expect(top.out).toContain("genclass-runtime stats [--range 24h|7d] [--json] [--app <id|name|gc_token>]");
+  });
+
+  it("init's copy: what keeping telemetry on gives, the opt-outs and what they cost, whose decision it is", () => {
+    const r = cli(viteApp(), "init", "--dry-run");
+    expect(r.out).toMatch(/Telemetry\s+on \(the default\)/);
+    const notice = r.out.replace(/\s+/g, " ");
+    expect(notice).toContain("not from localhost or private hosts unless you set telemetry: true.");
+    expect(notice).not.toContain("never from localhost");
+    expect(notice).toContain("What you get: with it on and this app's token, npx @genclass/runtime stats prints a free summary of what GenClass found on your deployed site, and this app's private dashboard fills (the dashboard needs Pro; get a 7-day free trial for analytics).");
+    expect(notice).toContain("Turn it off: npx @genclass/runtime init --no-telemetry (no token: stats and the dashboard stay empty), or GenClass.init({ telemetry: false }), or ?genclass=no-telemetry in the URL.");
+    expect(notice).toContain("Setting GenClass up for someone else? Telemetry is their decision: tell them it is on, what it sends (link below), and that stats and the dashboard depend on it; turn it off only if they ask.");
+    // the dry run says what applying it sends
+    expect(notice).toContain("Applying sends this app's name (shop-web) to genclass.dev. --no-token: no token, no network.");
+    const off = cli(viteApp(), "init", "--dry-run", "--no-telemetry");
+    expect(off.out).toMatch(/Token\s+none \(--no-telemetry: stats and the dashboard stay empty\)/);
+    expect(cli(project({}), "init", "--help").out.replace(/\s+/g, " ")).toContain("Implies --no-token (a dashboard only gets data while telemetry is on), so `stats` and the dashboard stay empty");
+  });
+
+  it("init names stats once after it sets an app up with a token (the dashboard notice, or Next without one)", () => {
+    const AFTER = "After you deploy: npx @genclass/runtime stats (a free summary in the terminal)";
+    const made = cliEnv({ GENCLASS_TEST_FETCH: "ok" }, viteApp(), "init", "--yes", "--no-install");
+    expect(made.code, made.out).toBe(0);
+    expect(made.out.split(AFTER)).toHaveLength(2);
+    const given = cli(viteApp(), "init", "--yes", "--no-install", "--token", "gc_Mine0123456789abcdefgh");
+    expect(given.out.split(AFTER)).toHaveLength(2);
+    const none = cli(viteApp(), "init", "--yes", "--no-install", "--no-token");
+    expect(none.out).not.toContain(AFTER);
   });
 });

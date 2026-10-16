@@ -38,7 +38,9 @@ which available action is best. There is no list of known bugs in the code.
 **Status: `@genclass/runtime@0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable
 line is `0.2.x`) with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
 opt-in; `heal` is experimental. Measured false-intervention and recall rates are under
-[Measured behaviour](#measured-behaviour). AI coding agents: start at [AGENTS.md](AGENTS.md).
+[Measured behaviour](#measured-behaviour). Contributing with an AI agent: [AGENTS.md](AGENTS.md). Installing
+GenClass in your app with an AI agent:
+[packages/runtime/README.md#for-ai-coding-agents-installing-genclass](packages/runtime/README.md#for-ai-coding-agents-installing-genclass).
 
 ## Install
 
@@ -55,9 +57,12 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 
 ### What you will see in the first two minutes
 
-- One console line saying anonymous diagnostics are on (`[GenClass] Sends anonymous diagnostics (decisions and
-  counts, no page text) to improve the model. Opt out: …`); since `0.2.2` it does not appear on `localhost`
-  or other local hosts (`0.2.1` sends and shows it there too, by mistake).
+- On a deployed page, one console line saying anonymous diagnostics are on (`[GenClass] Sends anonymous diagnostics
+  (decisions and counts, no page text) to improve the model. Opt out: …`). With the app token `init` creates, they
+  also feed `npx @genclass/runtime@beta stats` (from `0.3.0-beta.1`, not yet on npm), a free summary in your
+  terminal, and the app's dashboard (Pro; get a 7-day free trial for analytics); with telemetry off, both stay
+  empty. Since `0.2.2`
+  the line does not appear on `localhost` or other local hosts (`0.2.1` sends and shows it there too, by mistake).
 - `[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.4s). Mode: observe.` once the model has loaded at idle.
 - Then possibly nothing for a while. Observe mode reports only salient situations (a response landing over newer
   data, a repeat, a failure streak, a broken relation, an error), and the first response of each kind after a page
@@ -92,7 +97,10 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
   terminal (device flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
   dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`,
   private networks) do not send by default; `telemetry: true` or any telemetry options object (`telemetry: { ... }`)
-  is an explicit opt-in that sends from them too, with the token. Data is kept for 90 days.
+  is an explicit opt-in that sends from them too, with the token. Data is kept for 90 days. Without Pro,
+  `npx @genclass/runtime@beta stats` (from `0.3.0-beta.1`) prints a free summary of the last 24 hours or 7 days in the
+  terminal: page loads, problems found by type, the pages most affected
+  ([package README](packages/runtime/README.md#install), Stats in the terminal).
 - **`protect(name, fn)`** returns a function with the same signature (same `this`, arguments, return value and
   errors); decisions about what it causes carry `fn: name`. Without a runtime it just calls `fn`.
   [Package README](packages/runtime/README.md#function-specific-protect).
@@ -189,7 +197,9 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
   diff (it sends the `name` from `package.json`); `login` asks for a sign-in code with
   `client_name: "genclass-runtime <version>"` (shown on the approval page and in your account's session list) and
   polls until you approve it; `whoami` and `connect` read your account's apps; `connect` sends a new app's name, or an
-  existing dashboard's link from `.genclass.local` to add it to your account; `logout` ends the CLI session. The
+  existing dashboard's link from `.genclass.local` to add it to your account; `stats` reads the app's summary with
+  the secret of the private link in `.genclass.local`, or with your CLI session (after `GET /api/me` to find the
+  app), and sends nothing from your project; `logout` ends the CLI session. The
   account requests carry `user-agent: genclass-runtime-cli/<version>`. What an account stores: [PRIVACY.md](PRIVACY.md).
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](packages/runtime/TELEMETRY.md).
 

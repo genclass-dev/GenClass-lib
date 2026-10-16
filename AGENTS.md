@@ -1,5 +1,8 @@
 # AGENTS.md
 
+This file is for agents working on GenClass-lib itself. Installing GenClass in someone's app instead? Read
+[For AI coding agents installing GenClass](packages/runtime/README.md#for-ai-coding-agents-installing-genclass).
+
 Guide for coding agents working in GenClass-lib. The code is the source of truth; `docs/runtime/CONTRACT.md` is binding.
 
 ## What this repo is
@@ -14,7 +17,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 
 | path | what |
 |---|---|
-| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
+| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `stats`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
 | `packages/runtime-model/` | the data-only model package (`files/` is gitignored, filled at release) and `MODEL_CARD.md` |
 | `sim/` | deterministic training-data simulator driving the real runtime (`SEPARABILITY.md`, `README.md`) |
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
@@ -80,7 +83,8 @@ Azure, `git push`, `npm publish`.
    `package-lock.json` in sync. TypeScript strict, ESM only, `src/` uses no Node APIs (`types: []`).
 8. **Telemetry** stays disclosed (console notice, `TELEMETRY.md`, both READMEs, CHANGELOG), sends no page text
    unless the app opts in, keeps every opt-out (`telemetry: false`, `?genclass=no-telemetry`, localStorage, GPC) and
-   never feeds a decision. Widening what is sent needs the owner's OK.
+   never feeds a decision. Widening what is sent needs the owner's OK. The stats summary and its endpoint read only
+   counters the collector already keeps.
 9. **Publish only through the release workflow** (`.github/workflows/release.yml`) on a `v*` tag whose version
    equals `packages/runtime/package.json`. Never `npm publish` by hand. Never push without being asked.
 

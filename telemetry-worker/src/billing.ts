@@ -14,9 +14,9 @@
 //   GET|POST /api/account/export-keys, DELETE /api/account/export-keys/<id> export keys (browser session)
 //
 // A command line session (the CLI's bearer token) is refused on every route here: the approval page promises it
-// cannot read stats, and billing and settings belong to the browser. The routes that call Stripe or send to another
-// server (checkout, portal, Send test, new export keys) take AUTH_LIMIT's budget per account, and the export
-// EXPORT_LIMIT's.
+// cannot read the dashboard (only each app's short summary, src/summary.ts), and billing and settings belong to the
+// browser. The routes that call Stripe or send to another server (checkout, portal, Send test, new export keys) take
+// AUTH_LIMIT's budget per account, and the export EXPORT_LIMIT's.
 
 import { accountContext, accountProjects, authenticate, csrfFail, fail, originOk, ownedProject, page, readJson, redirect, webSession, type Auth, type C } from "./auth.js";
 import { billingPage } from "./billing-pages.js";
