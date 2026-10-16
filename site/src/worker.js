@@ -1,5 +1,6 @@
 // genclass.dev edge worker: canonical host, early-access API, then static assets with security and cache headers.
 import { handleAdmin, ingest } from "./admin.js";
+import { deckBeacon } from "./deck.js";
 import { scanTargetFromPath } from "./scan-path.js";
 
 const CANONICAL = "genclass.dev";
@@ -14,6 +15,16 @@ const SECURITY = {
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com https://cdn.jsdelivr.net; " +
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+};
+
+// /pitch-deck is a standalone slide viewer (public/pitch-deck.html, its script and styles in public/pitch-deck/): nothing
+// but its own files, so a stricter policy than the site's, and never indexed (the page, the slides and the PDF).
+const DECK_PAGE = {
+  "content-security-policy":
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; " +
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  "x-robots-tag": "noindex, nofollow",
+  "referrer-policy": "no-referrer",
 };
 
 const PLANS = new Set(["cloud", "enterprise", "community"]);
@@ -143,6 +154,7 @@ export default {
     }
     if (url.pathname.startsWith("/forms/")) return new Response("Not found", { status: 404 });
     if (url.pathname.startsWith("/demo-api/")) return demoApi(request, url);
+    if (url.pathname === "/pitch-deck/beacon") return deckBeacon(request, env);
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) return handleAdmin(request, env, url, ctx);
     // /cloud described a planned product; the plans are on /pricing now (billing/plans.json).
     if (url.pathname === "/cloud" || url.pathname === "/cloud/" || url.pathname === "/cloud.html") return Response.redirect(`${url.origin}/pricing`, 301);
@@ -158,6 +170,8 @@ export default {
     for (const [k, v] of Object.entries(SECURITY)) out.headers.set(k, v);
     const path = url.pathname;
     if (path === "/thanks") out.headers.set("x-robots-tag", "noindex");
+    if (path === "/pitch-deck" || path === "/pitch-deck.html") for (const [k, v] of Object.entries(DECK_PAGE)) out.headers.set(k, v);
+    else if (path.startsWith("/pitch-deck/")) out.headers.set("x-robots-tag", "noindex, nofollow");
     if (/\.(png|svg|ico|webmanifest)$/.test(path)) out.headers.set("cache-control", "public, max-age=604800");
     else if (/\.(css|js)$/.test(path)) out.headers.set("cache-control", "public, max-age=31536000, immutable");
     else if (/\.(txt|xml)$/.test(path)) out.headers.set("cache-control", "public, max-age=3600");

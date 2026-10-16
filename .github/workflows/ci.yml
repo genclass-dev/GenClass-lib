@@ -154,6 +154,8 @@ jobs:
         run: npm test
       - name: Site worker path rule
         run: node --test site/check/scan-path.test.mjs
+      - name: Site pitch deck beacon (validation, caps, idempotency on node:sqlite)
+        run: node --test site/check/deck.test.mjs
 
   # The scanner's visual checks are the runtime's own lazy visual chunk (packages/runtime/dist/visual/index.js) from
   # branch wave2/visual at VISUAL_REF, bundled with scan-worker/visual/scan-entry.js into src/visual-source.ts by
