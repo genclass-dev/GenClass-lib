@@ -32,3 +32,6 @@ jobs:
           node-version: 22
       - name: Path rule
         run: node --test site/check/scan-path.test.mjs
+      # node:sqlite stands in for D1 (Node 22.13+; the warning that it is experimental is expected)
+      - name: Pitch deck beacon (validation, caps, idempotency)
+        run: node --test site/check/deck.test.mjs

@@ -105,6 +105,7 @@ td.n,th.n{text-align:right;font-family:var(--mono)}
 <label class="chk"><input type="checkbox" id="test"> Include test traffic</label>
 <button class="btn" id="ingest" type="button">Sync telemetry</button>
 <button class="btn" id="pause" type="button" aria-pressed="false">Pause</button>
+<a class="btn" href="/admin/deck">Pitch deck</a>
 <a class="btn" href="/admin/logout">Sign out</a>
 </div></div></header>
 <main>

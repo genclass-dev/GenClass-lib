@@ -26,7 +26,9 @@
   // genclass.dev/<url> (src/scan-path.js) is answered by the page-check worker genclass-scan (scan-worker/).
   "services": [{ "binding": "SCAN", "service": "genclass-scan" }],
   "ratelimits": [
-    { "name": "LIMIT", "namespace_id": "4801", "simple": { "limit": 5, "period": 60 } }
+    { "name": "LIMIT", "namespace_id": "4801", "simple": { "limit": 5, "period": 60 } },
+    // /pitch-deck/beacon per client IP (never stored): one open deck sends about 6 a minute, more while flipping slides
+    { "name": "DECK_LIMIT", "namespace_id": "4830", "simple": { "limit": 120, "period": 60 } }
   ],
   "routes": [
     { "pattern": "genclass.dev/*", "zone_name": "genclass.dev" },

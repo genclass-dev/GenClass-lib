@@ -2,6 +2,8 @@
 // ingest(): every minute (cron) reads new telemetry batches from the collector's R2 bucket into the ADMIN_DB
 // aggregates. stats(): one JSON for the dashboard (telemetry aggregates + npm + GitHub + waitlist + dashboard projects).
 import { ADMIN_PAGE, ADMIN_JS, LOGIN_PAGE } from "./admin-page.js";
+import { DECK_ADMIN_JS, DECK_ADMIN_PAGE } from "./deck-page.js";
+import { deckAdminApi } from "./deck.js";
 
 const COOKIE = "gc_admin";
 const SESSION_HOURS = 12;
@@ -62,7 +64,10 @@ export async function handleAdmin(request, env, url, ctx) {
     return Response.json(await stats(env, url), { headers: NOINDEX });
   }
   if (path === "/admin/api/ingest" && request.method === "POST") return Response.json(await ingest(env, 300), { headers: NOINDEX });
+  if (path === "/admin/api/deck") return deckAdminApi(request, env);
   if (path === "/admin") return html(ADMIN_PAGE);
+  if (path === "/admin/deck") return html(DECK_ADMIN_PAGE);
+  if (path === "/admin/deck.js") return new Response(DECK_ADMIN_JS, { headers: { "content-type": "text/javascript; charset=utf-8", ...NOINDEX } });
   if (path === "/admin/app.js") return new Response(ADMIN_JS, { headers: { "content-type": "text/javascript; charset=utf-8", ...NOINDEX } });
   return new Response("Not found", { status: 404, headers: NOINDEX });
 }
