@@ -1,5 +1,5 @@
 // The pitch deck beacon (site/src/deck.js): validation, caps and idempotency, against a real SQLite database standing
-// in for D1 (node:sqlite, Node 22.13+). Run: node --test site/check/deck.test.mjs (CI: scan-worker job).
+// in for D1 (node:sqlite, Node 22.13+). Run: node --test site/check/deck.test.mjs (CI: .github/workflows/site.yml).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
