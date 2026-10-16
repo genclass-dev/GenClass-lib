@@ -54,11 +54,16 @@ if (process.env.NODE_ENV === "development") {
 - For a browser: `localStorage.genclass = "off"`.
 - For good: delete `instrumentation-client.ts` (or run `npx @genclass/runtime remove`).
 
-## Privacy
+## Diagnostics
 
-In a browser, GenClass sends anonymous, redacted diagnostics by default
+In a browser on a public host, GenClass sends anonymous, redacted diagnostics by default (since runtime 0.2.2; 0.2.0
+and 0.2.1 also send from localhost)
 ([TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md)).
-To turn that off, add a meta tag through the root layout's metadata:
+With an app token (runtime 0.3.0 or later; `npx @genclass/runtime@beta init` creates one), the same diagnostics also
+feed `npx @genclass/runtime@beta stats` (runtime 0.3.0-beta.1 and later), a free summary in your terminal, and the
+app's dashboard (Pro; get a 7-day free trial for analytics); with diagnostics off, the summary and the dashboard stay
+empty.
+To turn diagnostics off, add a meta tag through the root layout's metadata:
 
 ```ts
 export const metadata: Metadata = { title: "…", other: { genclass: "telemetry=off" } };

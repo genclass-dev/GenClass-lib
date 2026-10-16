@@ -249,7 +249,7 @@ export async function pollDeviceLogin(dev, opts = {}) {
 
 /** GET /api/me: { ok: true, account, projects } or { ok: false, status, reason }. */
 export async function fetchMe(creds, opts = {}) {
-  const r = await request("/api/me", { token: creds.access_token, host: creds.host, fetchFn: opts.fetchFn });
+  const r = await request("/api/me", { token: creds.access_token, host: creds.host, fetchFn: opts.fetchFn, timeoutMs: opts.timeoutMs });
   if (!r.ok) return { ok: false, status: r.status, reason: failure(r) };
   const j = r.json ?? {};
   return { ok: true, account: cleanAccount(j.account) ?? creds.account, projects: (Array.isArray(j.projects) ? j.projects : []).map((p) => cleanProject(p, creds.host)).filter(Boolean) };

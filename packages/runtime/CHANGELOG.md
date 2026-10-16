@@ -2,6 +2,50 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **New CLI command: `npx @genclass/runtime stats`** (`bin/lib/stats.mjs`). It prints a free summary of what GenClass
+  found on the deployed app in the last 7 days (`--range 24h`: 24 hours, UTC): page loads and the change from the
+  range before, problems found by type, possible issues, the pages most affected, the mode, how often the model
+  loaded, and the last event, then what the dashboard adds and how to get it: the trial (for an app with only a
+  private link, through that link's page, which adds the app to an account first), or, once the account had its one
+  trial, the plans; with Pro, where the dashboard is. The human output never prints the private link; `--json` does.
+  The app, in this order: `--app` (an app of the signed-in account, by id, name or token); the private link in
+  `.genclass.local` when its token is the one in the setup (one `GET`, with only the link's secret); the token in the
+  setup and a signed-in CLI session (`GET /api/me`, then the app's summary with the session); the account's only app
+  (several: it lists them and asks for `--app`). A private link that answers 404 (turned off or replaced) falls
+  through to the signed-in account. In a setup made with `--no-telemetry` it says telemetry is off and that
+  `init --telemetry` turns it back on. Nothing from the code or the pages is sent, and a genclass.dev link is never sent to
+  another `GENCLASS_HOST`. Text from the server (route and problem-type keys, which anyone with the public token can
+  send) is printed without control, bidi or zero-width characters. When nothing arrived in the range it says why that
+  can be (not deployed yet, telemetry off, a local host, the opt-outs); a range with problems but no page loads (tabs
+  opened before it) still shows its totals. Each request has a 10 s timeout; HTTP 429 says when to try again
+  (`Retry-After`), and other refusals are explained in plain words. `--json` prints only the summary's JSON on stdout
+  (messages go to stderr); `--cwd <dir>` picks the folder. Problem types are named as on the dashboard (double
+  submits, stale responses, failing endpoints, ...); an unknown type prints as sent. Exit codes: 0 (also with no data
+  yet), 1 (no app, or the summary could not be read), 2 (usage). It works through the `genclass-runtime` alias once
+  that package depends on this version. The summary is free on every plan; the dashboard still needs Pro.
+- **genclass.dev gained a summary endpoint** (`telemetry-worker`, deployed separately): `GET
+  /api/projects/<secret>/summary` and `GET /api/account/projects/<id>/summary`, `range` `24h` or `7d`, at most 3 top
+  problem types and routes (keys without control, bidi or zero-width characters), rate-limited (30 requests a minute
+  per link or account). The change from the range before compares ranges of the same length; pages that sent data
+  count the pages where GenClass made a decision as well as the landing pages; `dashboard.trialAvailable` says whether
+  the account can still start its trial. It reads only the daily and hourly counters the collector already keeps for
+  the dashboard: nothing new is collected, and the runtime sends exactly what it sent before (TELEMETRY.md, App tokens
+  and dashboards).
+- **A CLI session can now read each app's summary.** Before, it could not read any stats; it still cannot read the
+  dashboard (`/api/account/projects/<id>/stats` refuses a CLI session). The device-flow approval page says so: "It can
+  read a short summary of each app's diagnostics (what npx @genclass/runtime stats prints), not the dashboard, and
+  cannot change how you sign in." `stats` sends the private link's secret or the CLI session, and nothing from the
+  project.
+- **Telemetry copy: what keeping it on gives you, before how to turn it off.** `init`'s telemetry notice, its help,
+  the token row and the closing lines, both READMEs, TELEMETRY.md ("What you get with it on"), PRIVACY.md, the
+  templates' "Diagnostics" sections and the site now say that the diagnostics feed `stats` and the dashboard, and that
+  `--no-telemetry` or `telemetry: false` leaves both empty. Every opt-out is unchanged and still listed in the same
+  places, and the console notice is unchanged. `init` and the package README add a note for AI coding agents that
+  install GenClass: telemetry is the user's decision, so tell them it is on, what it sends and what depends on it, and
+  turn it off only if they ask; the README also says to show the dry run first and say that applying `init` sends the
+  app's name. `init`'s notice now says local hosts send only with `telemetry: true` (it said "never"), and its dry run
+  names what applying sends (the app's name). `runtime.telemetry.reason`'s JSDoc now lists `local`, `disabled` and
+  `error`.
 - **CLI copy: the dashboard needs Pro (get a 7-day free trial for analytics).** genclass.dev's dashboards now come
   with Pro; `init`'s dashboard notice and help, the top-level help and the README say so next to the private
   dashboard link, with the trial's length (7 days, the same as `trial_days` in `billing/plans.json`). A link made by
