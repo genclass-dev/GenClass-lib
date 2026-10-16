@@ -64,7 +64,7 @@ export async function handleAdmin(request, env, url, ctx) {
     return Response.json(await stats(env, url), { headers: NOINDEX });
   }
   if (path === "/admin/api/ingest" && request.method === "POST") return Response.json(await ingest(env, 300), { headers: NOINDEX });
-  if (path === "/admin/api/deck") return deckAdminApi(request, env);
+  if (path === "/admin/api/deck" || path.startsWith("/admin/api/deck/")) return deckAdminApi(request, env, url, path);
   if (path === "/admin") return html(ADMIN_PAGE);
   if (path === "/admin/deck") return html(DECK_ADMIN_PAGE);
   if (path === "/admin/deck.js") return new Response(DECK_ADMIN_JS, { headers: { "content-type": "text/javascript; charset=utf-8", ...NOINDEX } });
