@@ -513,7 +513,8 @@ describe("accounts: device flow for the CLI (RFC 8628)", () => {
     expect(page).toContain("genclass-runtime 0.3.0");
     // the warning comes before the buttons, and the scope says what a CLI session can and cannot do
     expect(page.indexOf("Approve only a sign-in you started")).toBeLessThan(page.indexOf('id="yes"'));
-    expect(page).toContain("It cannot read your apps' stats");
+    expect(page).toContain("It can read a short summary of each app's diagnostics (what npx @genclass/runtime stats prints), not the dashboard, and cannot change how you sign in.");
+    expect(page).not.toContain("It cannot read your apps' stats");
 
     const ap = await call(env, "POST", "/api/device/approve", { body: { user_code: code.user_code.replace("-", " ").toLowerCase(), approve: true }, cookie });
     expect(ap.status).toBe(200);
@@ -1601,7 +1602,7 @@ describe("accounts: the device approval page is no code oracle, and shows only t
 });
 
 describe("accounts: what a CLI session may do", () => {
-  it("lists and creates apps and claims, but cannot read stats, end other sessions, remove passkeys, change the password, turn off links or delete the account", async () => {
+  it("lists and creates apps and claims and reads their summaries, but cannot read the dashboard's stats, end other sessions, remove passkeys, change the password, turn off links or delete the account", async () => {
     const { env, sql } = setup();
     const { cookie } = await signedIn(env);
     await startTrial(env, cookie);
@@ -1616,6 +1617,8 @@ describe("accounts: what a CLI session may do", () => {
     expect(stats.status).toBe(403);
     expect(((await stats.json()) as any).error).toMatch(/browser/);
     expect((await call(env, "GET", `/api/account/projects/${project.id}/stats`, { cookie })).status).toBe(200);
+    // the short summary `npx @genclass/runtime stats` prints is what the approval page says it may read
+    expect((await call(env, "GET", `/api/account/projects/${project.id}/summary`, { bearer, origin: null })).status).toBe(200);
     const web = sql.rows("SELECT id FROM auth_sessions WHERE kind = 'web'")[0]!.id as string;
     expect((await call(env, "DELETE", `/api/account/sessions/${web}`, { bearer, origin: null })).status).toBe(403);
     expect((await call(env, "DELETE", "/api/account/sessions/others", { bearer, origin: null })).status).toBe(403);

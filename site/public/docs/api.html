@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-15", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-16", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -111,7 +111,9 @@ no model. Use <a href="#headless-use-tests-ssr-simulation"><code>createRuntime</
 page. Off with <code>telemetry: false</code>, <code>?genclass=no-telemetry</code> (or <code>?genclass=off</code>),
 <code>localStorage["genclass.telemetry"] = "off"</code>, or Global Privacy Control; off by default on localhost and private
 hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2</code>), outside a browser and in
-<code>createRuntime()</code>. An explicit <code>telemetry: true</code> also sends from local hosts. Schema and details:
+<code>createRuntime()</code>. An explicit <code>telemetry: true</code> also sends from local hosts. With an app token (below), the same
+diagnostics feed <code>npx @genclass/runtime stats</code> (a free summary in the terminal, 0.3.0-beta.1) and the app's dashboard
+(Pro); with telemetry off, both stay empty. Schema and details:
 <a href="/docs/telemetry">packages/runtime/TELEMETRY.md</a>.</p>
 <p><strong>App token and dashboard</strong> (0.3.0: <code>0.2.x</code> ignores <code>token</code>). <code>token: "gc_..."</code> (from
 <code>npx @genclass/runtime init</code> or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
@@ -455,7 +457,7 @@ rt.learned(): Learned              // learned flows per user action and route, r
 rt.checks(n?): CheckFinding[]      // the last measured visual check findings (at most 200; empty while the checks are off or not loaded)
 rt.checkNow(): Promise&lt;CheckFinding[]&gt; // run a measured visual check pass now (loads the checks if needed) and resolve with what it confirmed
 rt.setMode(mode); rt.pause(); rt.resume(); rt.destroy()
-rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise&lt;void&gt; } // reason when off: option, headless, url, localStorage, gpc, sampled-out, kill-switch, disabled, ...
+rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise&lt;void&gt; } // reason when off: option, headless, local, url, localStorage, gpc, sampled-out, no-crypto, no-transport, kill-switch, disabled, error
 </code></pre>
 <p><code>pause()</code> stops consulting the model (everything proceeds unchanged, tracing continues); <code>destroy()</code> uninstalls
 every observer and restores the globals it wrapped.</p>

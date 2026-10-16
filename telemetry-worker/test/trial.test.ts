@@ -308,5 +308,12 @@ describe("private links without Pro: sign in, add the app to the account, start 
       expect(cli, f).toMatch(new RegExp(`get a ${plans.trial_days}-day free trial\\s+for\\s+analytics`));
       expect(cli, f).not.toMatch(/trials available/i);
     }
+    // `stats` (packages/runtime/bin/lib/stats.mjs) prints the trial's length from one constant
+    const stats = readFileSync(new URL("../../packages/runtime/bin/lib/stats.mjs", import.meta.url), "utf8");
+    expect(/^const TRIAL_DAYS = (\d+);$/m.exec(stats)?.[1]).toBe(String(plans.trial_days));
+    expect(stats).not.toMatch(/trials available/i);
+    // and words the offer as the rest of the CLI does
+    expect(stats).toMatch(/Get a \$\{TRIAL_DAYS\}-day free trial\s+for\s+analytics/);
+    expect(stats).not.toMatch(/Start (your|the) \$\{TRIAL_DAYS\}-day/);
   });
 });

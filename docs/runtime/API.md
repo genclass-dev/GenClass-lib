@@ -54,7 +54,9 @@ no model. Use [`createRuntime`](#headless-use-tests-ssr-simulation) for headless
 page. Off with `telemetry: false`, `?genclass=no-telemetry` (or `?genclass=off`),
 `localStorage["genclass.telemetry"] = "off"`, or Global Privacy Control; off by default on localhost and private
 hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), outside a browser and in
-`createRuntime()`. An explicit `telemetry: true` also sends from local hosts. Schema and details:
+`createRuntime()`. An explicit `telemetry: true` also sends from local hosts. With an app token (below), the same
+diagnostics feed `npx @genclass/runtime stats` (a free summary in the terminal, 0.3.0-beta.1) and the app's dashboard
+(Pro); with telemetry off, both stay empty. Schema and details:
 [packages/runtime/TELEMETRY.md](../../packages/runtime/TELEMETRY.md).
 
 **App token and dashboard** (0.3.0: `0.2.x` ignores `token`). `token: "gc_..."` (from
@@ -457,7 +459,7 @@ rt.learned(): Learned              // learned flows per user action and route, r
 rt.checks(n?): CheckFinding[]      // the last measured visual check findings (at most 200; empty while the checks are off or not loaded)
 rt.checkNow(): Promise<CheckFinding[]> // run a measured visual check pass now (loads the checks if needed) and resolve with what it confirmed
 rt.setMode(mode); rt.pause(); rt.resume(); rt.destroy()
-rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise<void> } // reason when off: option, headless, url, localStorage, gpc, sampled-out, kill-switch, disabled, ...
+rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise<void> } // reason when off: option, headless, local, url, localStorage, gpc, sampled-out, no-crypto, no-transport, kill-switch, disabled, error
 ```
 
 `pause()` stops consulting the model (everything proceeds unchanged, tracing continues); `destroy()` uninstalls

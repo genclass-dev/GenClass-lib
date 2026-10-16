@@ -13,6 +13,10 @@
 //   GENCLASS_TEST_ME        "401": GET /api/me answers 401 (a revoked session)
 //   GENCLASS_TEST_CLAIM     "ok" (default) or an HTTP status for POST /api/account/projects/claim
 //   GENCLASS_TEST_TTY       "1": stdin counts as a terminal (answers are piped on stdin)
+//   GENCLASS_TEST_SUMMARY   GET /api/account/projects/<id>/summary: "open" (default: the app's dashboard is open),
+//                           "locked" (a trial still available), "trial-used" (locked, the account's trial was used),
+//                           "empty" (no page loads), or an HTTP status ("403", "429", ...). The id must be one
+//                           of GENCLASS_TEST_PROJECTS (else 404), and the bearer the session (else 401)
 //   GENCLASS_TEST_TIMERS    divide every setTimeout delay by this (default 100: a 5 s poll interval takes 50 ms)
 
 import { appendFileSync } from "node:fs";
@@ -99,6 +103,33 @@ globalThis.fetch = async (input, init = {}) => {
   if (route === "DELETE /api/account/sessions/current") {
     if (!bearer) return fail(401, "not signed in");
     return json(204, null);
+  }
+  const summaryOf = /^GET \/api\/account\/projects\/([^/]+)\/summary$/.exec(route);
+  if (summaryOf) {
+    if (!bearer) return fail(401, "not signed in");
+    const app = projects.find((p) => p.id === decodeURIComponent(summaryOf[1]));
+    if (!app) return fail(404, "not found");
+    const mode = env.GENCLASS_TEST_SUMMARY || "open";
+    if (/^\d{3}$/.test(mode)) return new Response(JSON.stringify({ ok: false, error: "refused" }), { status: Number(mode), headers: { "content-type": "application/json", "retry-after": "7" } });
+    const range = url.searchParams.get("range") === "24h" ? "24h" : "7d";
+    const empty = mode === "empty";
+    return json(200, {
+      ok: true,
+      name: app.name,
+      created: app.created,
+      lastEvent: empty ? null : new Date(Date.now() - 2 * 3_600_000).toISOString(),
+      range,
+      from: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+      generated: new Date().toISOString(),
+      totals: empty
+        ? { sessions: 0, detections: 0, possible: 0, acted: 0, pagesAffected: 0, pagesSeen: 0, modelLoadedShare: null, modelLoadMsAvg: null }
+        : { sessions: 80, detections: 3, possible: 0, acted: 2, pagesAffected: 1, pagesSeen: 6, modelLoadedShare: 1, modelLoadMsAvg: 1250 },
+      previous: { sessions: empty ? 0 : 100, detections: 0 },
+      top: empty ? { diagnoses: [], routes: [] } : { diagnoses: [{ key: "slow", count: 2 }, { key: "made_up", count: 1 }], routes: [{ key: "/search", count: 3 }] },
+      mode: empty ? null : "guard",
+      dashboard: { url: app.dashboard_url, locked: mode === "locked" || mode === "trial-used", trialUrl: `${origin}/account/trial`, trialAvailable: mode === "locked" },
+      limits: { ranges: ["24h", "7d"], top: 3 },
+    });
   }
   if (route === "POST /api/projects") {
     return json(201, { token: "gc_TestToken0123456789abc", dashboardUrl: `${origin}/dashboard/TestSecret0123456789abcdefghijkl`, name: body?.name ?? "", created: "2026-10-10T00:00:00.000Z" });

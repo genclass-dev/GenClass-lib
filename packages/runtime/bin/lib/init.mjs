@@ -38,7 +38,7 @@ const REPO = "https://github.com/genclass-dev/GenClass-lib/blob/main";
 export const TELEMETRY_URL = `${REPO}/packages/runtime/TELEMETRY.md`;
 export const INTERCEPTION_URL = "https://genclass.dev/docs/interception";
 export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
-/** The plans page: forwarding to Sentry, PostHog and Datadog is not part of the free runtime, and no plan offers it yet. */
+/** The plans page: forwarding to Sentry, PostHog and Datadog is not in the free runtime; Pro has it (plans.json). */
 export const PRICING_URL = "https://genclass.dev/pricing";
 
 export const USAGE = `Usage:
@@ -65,7 +65,8 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --no-telemetry   turn off GenClass's anonymous diagnostics (on by default; see TELEMETRY.md and
                    PRIVACY.md). Written as an option file (genclass.config.ts/js, imported right before
                    the auto import), or data-telemetry="off" on a plain HTML script tag. Implies
-                   --no-token (a dashboard only gets data while telemetry is on)
+                   --no-token (a dashboard only gets data while telemetry is on), so \`stats\` and the
+                   dashboard stay empty
   --telemetry      undo --no-telemetry: back to the default (on, but never from local hosts); init
                    takes the opt-out out and writes no telemetry option of its own
   --model-url <u>  use a self-hosted model directory (made with \`fetch-model\`), e.g. /genclass-model/,
@@ -373,7 +374,10 @@ function sinksNotice(cfg, where) {
   for (const s of cfg.sinks) out(`             ${sym.dot} ${s}: ${SINK_WHAT[sinkBase(s)] ?? ""}${sinkNoEvidence(s) ? " (the structured fields only, no evidence text)" : ""}`);
 }
 
-/** Telemetry disclosure: it is on by default, what it sends, how to turn it off, where the policy is. */
+/**
+ * Telemetry disclosure: it is on by default, what it sends, what keeping it on gives the user, how to turn it off and
+ * what that costs, that it is the app owner's decision (for agents setting GenClass up), where the policy is.
+ */
 function telemetryNotice(cfg, where) {
   if (cfg.telemetry === false) {
     row("Telemetry", `off ${c.gray(`(--no-telemetry${where ? `, written to ${where}` : ""})`)}`);
@@ -383,8 +387,15 @@ function telemetryNotice(cfg, where) {
   out(`             GenClass sends anonymous diagnostics to its maintainers: its decisions, action outcomes,`);
   out(`             model status and counts. No text from the page (the situation text the model read is sent`);
   out(`             only with telemetry: { include: { situation: true } }); never cookies or IP addresses;`);
-  out(`             never from localhost or private hosts. Turn it off: ${c.cyan(`${CMD} init --no-telemetry`)}`);
-  out(`             (or GenClass.init({ telemetry: false }), ?genclass=no-telemetry in the URL).`);
+  out(`             not from localhost or private hosts unless you set telemetry: true.`);
+  out(`             What you get: with it on and this app's token, ${c.cyan(`${CMD} stats`)} prints a free`);
+  out(`             summary of what GenClass found on your deployed site, and this app's private dashboard`);
+  out(`             fills (the dashboard needs Pro; get a 7-day free trial for analytics).`);
+  out(`             Turn it off: ${c.cyan(`${CMD} init --no-telemetry`)} (no token: stats and the dashboard stay`);
+  out(`             empty), or GenClass.init({ telemetry: false }), or ?genclass=no-telemetry in the URL.`);
+  out(`             Setting GenClass up for someone else? Telemetry is their decision: tell them it is on,`);
+  out(`             what it sends (link below), and that stats and the dashboard depend on it; turn it off`);
+  out(`             only if they ask.`);
   out(`             What is sent: ${TELEMETRY_URL}`);
   out(`             Privacy policy: ${PRIVACY_URL}`);
 }
@@ -534,8 +545,8 @@ const describeConfig = (cfg) =>
     .filter(Boolean)
     .join(", ");
 
-/** Telemetry as the marked files set it (an existing setup): false when init wrote the opt-out. */
-function currentConfig(files) {
+/** Telemetry as the marked files set it (an existing setup): false when init wrote the opt-out. stats.mjs uses it too. */
+export function currentConfig(files) {
   for (const f of files) {
     const t = readText(f) ?? "";
     if (/GENCLASS_CONFIG\s*=\s*\{[^;]*\btelemetry\s*:\s*false/.test(t) || /data-telemetry=["']?off/.test(t) || /<meta[^>]*name=["']genclass["'][^>]*telemetry=off/.test(t)) return { telemetry: false };
@@ -569,18 +580,18 @@ function withLocalDevice(cfg, project) {
  * --no-telemetry or --dry-run, or when this project already has a token.
  */
 function planToken(o, project, cwd, marked, fresh) {
-  if (o.noTelemetry) return { why: "--no-telemetry" };
+  if (o.noTelemetry) return { why: "--no-telemetry: stats and the dashboard stay empty" };
   if (o.noToken) return { why: "--no-token" };
   const inFiles = tokenInFiles(marked);
   const local = readLocal(cwd);
   if (o.token) return { token: o.token, write: o.token !== inFiles, source: "--token", local: local?.token === o.token ? local : null };
   if (inFiles) return { token: inFiles, write: false, source: "already in your setup", local: local?.token === inFiles ? local : null };
   if (local) return { token: local.token, write: true, source: LOCAL_FILE, local };
-  if (!o.telemetry && currentConfig(marked).telemetry === false) return { why: "telemetry is off in your setup" };
+  if (!o.telemetry && currentConfig(marked).telemetry === false) return { why: `telemetry is off in your setup: stats and the dashboard stay empty; ${CMD} init --telemetry turns it back on` };
   // a setup init made earlier without a token (offline, --no-token, or before tokens existed): never a new project
   // as a side effect of another change (a mode switch, a re-run)
   if (!fresh) return { why: "none in your setup", hint: true };
-  if (o.dryRun) return { why: "dry run", wouldCreate: true };
+  if (o.dryRun) return { why: "dry run", wouldCreate: true, name: project.pkg?.name || project.name };
   return { pending: true, name: project.pkg?.name || project.name };
 }
 
@@ -639,6 +650,7 @@ function tokenRow(tk) {
     const where = tk.account ? `, in your account (${accountLabel(tk.account.account)})${tk.chosen ? "" : " if you agree"}` : "";
     // connect --dry-run has read the account's apps (GET /api/me) to get here; init --dry-run sends nothing
     row("Token", `${c.gray(`a new one would be created at genclass.dev${where} (dry run: ${tk.chosen ? "nothing is created" : "no network"})`)}`);
+    if (tk.name) out(`             Applying sends this app's name (${name}) to genclass.dev. ${c.cyan("--no-token")}: no token, no network.`);
     return;
   }
   if (tk.failed) {
@@ -678,7 +690,7 @@ const SAVED_WHERE = {
  * After init wrote its changes (`applied`): the dashboard link. `saved`: what persistCreated did for a project created
  * in this run (it runs before any file is written, so a failed write cannot lose the link). `remind`: a run with
  * nothing to do may repeat the link from .genclass.local. A run that wrote nothing never created a project and prints
- * no link.
+ * no link. Returns true when it printed the notice (which names `stats`).
  */
 function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
   if (tk.created?.account || tk.app) {
@@ -690,8 +702,9 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
     out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
     out(`  ${c.gray("networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send")}`);
     out(`  ${c.gray("Global Privacy Control are not counted.")}`);
+    out(`  After you deploy: ${c.cyan(`${CMD} stats`)} ${c.gray("(a free summary in the terminal)")}`);
     out();
-    return;
+    return true;
   }
   const link = tk.created?.dashboardUrl ?? tk.local?.dashboardUrl;
   if (!tk.token || !link) return;
@@ -705,7 +718,9 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
   out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
   out(`  ${c.gray("networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send")}`);
   out(`  ${c.gray("Global Privacy Control are not counted.")}`);
+  out(`  After you deploy: ${c.cyan(`${CMD} stats`)} ${c.gray("(a free summary in the terminal)")}`);
   out();
+  return true;
 }
 
 /**
@@ -933,7 +948,7 @@ export async function init(o, ctx = {}) {
   out();
   out(`  ${c.green(sym.ok)} ${c.bold("GenClass Runtime is set up.")} ${c.gray(`(${changes.map((ch) => ch.rel).join(", ")})`)}`);
   out();
-  dashboardNotice(tk, cwd, true, false, saved);
+  const named = dashboardNotice(tk, cwd, true, false, saved);
   out(`  ${c.bold("Next")}`);
   const script = project.pkg?.scripts?.dev ? "dev" : project.pkg?.scripts?.start ? "start" : null;
   if (project.framework === "html") out(`    ${sym.dot} Open your page. GenClass starts before your other scripts.`);
@@ -942,6 +957,7 @@ export async function init(o, ctx = {}) {
   if (cfg.sinks?.length) out(`    ${sym.dot} They also reach ${c.cyan(cfg.sinks.join(", "))}: ${cfg.sinks.map((s) => SINK_WHAT[sinkBase(s)] ?? s).join("; ")}.`);
   if (devtools && changes.some((ch) => /devtools/.test(ch.after))) out(`    ${sym.dot} In development an overlay shows what GenClass sees (bottom-right, ${c.bold("Alt+Shift+G")}).`);
   out(`    ${sym.dot} Rule it out while debugging: add ${c.cyan("?genclass=off")} to the URL.`);
+  if (tk.token && cfg.telemetry !== false && !named) out(`    ${sym.dot} After you deploy: ${c.cyan(`${CMD} stats`)} ${c.gray("(a free summary in the terminal)")}`);
 
   out();
   printRecommendations(recs);

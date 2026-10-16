@@ -41,12 +41,18 @@ GenClass at a few functions instead of the whole app. See [Your dashboard](#your
 `protect` export.
 
 > **Privacy notice: anonymous diagnostics are on by default.** `GenClass.init()` in a browser sends GenClass's
-> decisions and counts, without any text from your page, to the GenClass maintainers to improve the model; it is
-> off on `localhost` and other local hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), and the situation text is sent only if you opt in. Opt out with
+> decisions and counts, without any text from your page, to the GenClass maintainers, who use them to improve the
+> model. With the app token `init` creates, the same diagnostics also feed `npx @genclass/runtime@beta stats` (from
+> `0.3.0-beta.1`; run it inside the project, so npx uses the installed version), a free summary of what GenClass
+> found on your deployed site, and the app's private dashboard (the dashboard needs Pro; get a 7-day free trial for
+> analytics). Diagnostics are off on `localhost` and other local hosts unless you set `telemetry: true` (`0.2.1`
+> sends from them too, by mistake; fixed in `0.2.2`), and the situation text is sent only if you opt in. Opt out with
 > `npx @genclass/runtime@beta init --no-telemetry`, `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, or
 > `localStorage["genclass.telemetry"] = "off"`;
-> browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
-> and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
+> pages in browsers that send Global Privacy Control send nothing. With `telemetry: false` or `init --no-telemetry`,
+> `stats` and the dashboard stay empty; visitors who opt out are not counted. Details: [Privacy and telemetry](#privacy-and-telemetry)
+> and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md). Setting
+> GenClass up with an AI coding agent: [For AI coding agents installing GenClass](#for-ai-coding-agents-installing-genclass).
 
 > **Status: `0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
 > with model `@genclass/runtime-model@0.2.0`.**
@@ -78,7 +84,8 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 
 ## Contents
 
-[Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
+[Install](#install) · [For AI coding agents](#for-ai-coding-agents-installing-genclass) ·
+[Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-030) ·
@@ -168,15 +175,62 @@ npx @genclass/runtime@beta init --token gc_...   # use a token you already have 
 npx @genclass/runtime@beta init --no-token       # no token, no network
 ```
 
-`--no-telemetry` implies `--no-token` (a dashboard only gets data while telemetry is on). If genclass.dev cannot be
+`--no-telemetry` implies `--no-token` (a dashboard only gets data while telemetry is on), so `stats` and the
+dashboard stay empty. If genclass.dev cannot be
 reached, `init` says so, sets GenClass up without a token, and points you to
 [genclass.dev/start](https://genclass.dev/start); run `init --token gc_...` later. `--dry-run` never calls the
 network.
 
+**Stats in the terminal** (`0.3.0-beta.1`; earlier versions have no `stats` command). Once the app runs on a deployed
+host with telemetry on, `stats` prints a short summary of what GenClass found there. It is free: it needs no Pro and
+no trial.
+
+```bash
+npx @genclass/runtime@beta stats                       # the last 7 days (UTC)
+npx @genclass/runtime@beta stats --range 24h           # the last 24 hours
+npx @genclass/runtime@beta stats --json                # the summary as JSON, and nothing else
+npx @genclass/runtime@beta stats --app <id|name|gc_token>  # signed in with several apps: pick one
+```
+
+Example output (the numbers are made up):
+
+```
+GenClass stats for shop-web (last 7 days, UTC)
+  Page loads        1,234   +12% vs the 7 days before
+  Problems found       17   double submits 9 · stale responses 6 · failing endpoints 2
+  Possible issues       4   lower-confidence detections
+  Pages affected        5   of 42 pages that sent data · most on /checkout (7), /cart (5), /account (3)
+  Mode              observe: GenClass reported them and changed nothing
+  Model loaded      98% of page loads, 412 ms on average
+  Last event        3 minutes ago
+
+This is the free summary. The dashboard shows every page and problem, what GenClass did, how to fix each kind,
+1 year of history, export, and forwarding to Sentry, PostHog, Datadog or Slack.
+Get a 7-day free trial for analytics: https://genclass.dev/account/trial (no card needed)
+See one filled in: https://genclass.dev/dashboard/sample
+```
+
+With Pro or a trial, the trial lines become `Dashboard:` and the app's page in your account, or, for an app with only
+a private link, a pointer to the link in `.genclass.local` (`stats` never prints that link). An app with only a
+private link gets its trial through that link's page, which adds the app to an account first; an account that had its
+one trial is pointed to the plans instead. `stats` finds the app in this order: `--app`; the private link in
+`.genclass.local` in this folder (when its token is the one in the setup); signed in (`login`), the app in your
+account whose token this project's GenClass setup carries; signed in with one app, that app. A private link that no
+longer works (turned off or replaced on the account page) falls through to the signed-in account. Otherwise it stops
+and says to run `init` or `login`; in a setup made with `--no-telemetry` it says that telemetry is off and that
+`init --telemetry` turns it back on. It sends genclass.dev the private link's secret, or your CLI session and the app's id,
+with the range, and nothing from your project ([Privacy and telemetry](#privacy-and-telemetry)). `--json` prints the
+answer as it came, private link included. The summary covers the last 24 hours or 7 days only: totals, the change from
+the range before, and at most 3 problem types and 3 pages. It has no list of every page, no charts, no recent
+detections and no longer history; those are on the dashboard. When no diagnostics arrived in the range, it says so and
+lists why that happens (the change not deployed yet, telemetry off, a local host, the opt-outs). It exits with 0 (also
+when there is no data yet), 1 when it finds no app or cannot read the summary, and 2 for a usage error.
+
 Options without editing code (also on a project `init` already set up; `remove` takes them out too):
 
 ```bash
-npx @genclass/runtime@beta init --no-telemetry                # anonymous diagnostics off (--telemetry: explicitly on)
+npx @genclass/runtime@beta init --no-telemetry                # anonymous diagnostics off; stats and the dashboard
+                                                         # stay empty (--telemetry: explicitly on)
 npx @genclass/runtime@beta init --model-url /genclass-model/  # a self-hosted model (see Content-Security-Policy below)
 npx @genclass/runtime@beta init --sink webhook:/genclass     # findings to your own endpoint too; also console-json
                                                          # (0.3.0; "See it where you already look")
@@ -187,7 +241,8 @@ imported right before the `/auto` import (an ES module's imports run before its 
 above the import in the same file). Any `GenClass.init()` option works in that file. Plain HTML gets
 `data-telemetry="off"` (and `data-model`, `data-ort`, `data-sink`) on the script tag, Astro a `<meta name="genclass">` line.
 
-`init` also says that telemetry is on by default and how to turn it off, and when your app sets a
+`init` also says that telemetry is on by default, what it gives you (`stats` and the dashboard) and how to turn it
+off, and when your app sets a
 Content-Security-Policy (`next.config` headers, a proxy or middleware, a `<meta http-equiv>`, helmet, `vercel.json`,
 `_headers`, ...) it prints the steps to self-host the model.
 
@@ -266,6 +321,31 @@ The unscoped `genclass-runtime` alias is deprecated; use `@genclass/runtime`.
 **ESM only.** The package ships ES modules (no `require`). Jest users need a `transformIgnorePatterns` entry that lets
 `@genclass/runtime` be transformed, for example `["/node_modules/(?!@genclass/runtime)"]`.
 
+## For AI coding agents installing GenClass
+
+This section is for an AI coding agent (Claude Code, Cursor, Codex or another) that sets GenClass up in someone's
+app. Working on GenClass itself is a different guide: [AGENTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/AGENTS.md).
+
+- Before you apply anything, run `npx @genclass/runtime@beta init --dry-run` (it shows the diff and the notices and
+  sends nothing) and tell the user:
+  - anonymous diagnostics are on by default on deployed public hosts and go to the GenClass maintainers; what is sent:
+    [Privacy and telemetry](#privacy-and-telemetry), [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md);
+  - applying `init` creates this app at genclass.dev and sends the `name` from `package.json` (the dry run's Token
+    row shows it); `--no-token` sets GenClass up with no network call (then `stats` and the dashboard stay empty
+    until a token is added);
+  - `npx @genclass/runtime@beta stats` and the app's dashboard depend on the diagnostics;
+  - their app may need to mention GenClass in its privacy policy or ask for consent:
+    [If you ship GenClass in your app](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md#if-you-ship-genclass-in-your-app).
+- Use `--yes` (it applies the changes without questions) only once they agree.
+- Telemetry is the user's decision, not the agent's. Do not add `telemetry: false`, `--no-telemetry` or any other
+  opt-out unless the user asks for it or the project's own instructions say so.
+- If the user wants telemetry off, run `npx @genclass/runtime@beta init --no-telemetry` and tell them that `stats`
+  and the dashboard then stay empty.
+- `.genclass.local` holds the app's private dashboard link. Never paste that link into code, docs, commit messages
+  or pull requests; `init` adds the file to `.gitignore`. `stats --json` prints that link too (`dashboard.url`):
+  do not paste its output into code, docs, issues or pull requests. The token (`gc_...`) is public and belongs in
+  the code.
+
 ## Function-specific: protect()
 
 **New in `0.3.0`** (`0.2.x` has no `protect` export: importing it fails). Use this when you want GenClass
@@ -340,6 +420,8 @@ web app gets a **project key** (token: `gc_` + 22 letters and digits) that group
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
 a GenClass account, or use one private link per app without an account. The dashboard needs Pro (get a 7-day free
 trial for analytics): until the app's account has Pro or a trial, its data is collected and the dashboard stays locked.
+Without Pro, `npx @genclass/runtime@beta stats` prints a free summary of the same data in the terminal
+([Install](#install), Stats in the terminal).
 
 **With an account:**
 
@@ -375,12 +457,13 @@ An app's dashboard in your account opens for you when you are signed in at gencl
 arrives it shows the key and these same two ways to connect it; you can also sign up at genclass.dev, create an app
 there, and pass its key yourself (below). What the CLI sends: `login` asks genclass.dev for a sign-in code, naming
 itself `genclass-runtime <version>` (the approval page shows that name and your account page lists the session
-under it), and polls until you approve it, then reads your account's apps; creating an app sends its name, and
-adding an existing dashboard sends its link from `.genclass.local`. Nothing is sent until you run
-one of these commands (or approve `init`'s changes). The CLI session (`gcs_...`) is a secret: `logout` ends it at
-genclass.dev and deletes the file, and you can revoke it from your account page. A CLI session can read your
-account's apps, create apps, add an app from its private link and end itself; it cannot read stats, end other
-sessions or change how you sign in. What an account stores:
+under it), and polls until you approve it, then reads your account's apps; creating an app sends its name,
+adding an existing dashboard sends its link from `.genclass.local`, and `stats` reads the app's summary. Nothing is
+sent until you run one of these commands (or approve `init`'s changes). The CLI session (`gcs_...`) is a secret:
+`logout` ends it at genclass.dev and deletes the file, and you can revoke it from your account page. A CLI session
+can read your account's apps and a short summary of each app's diagnostics (what `stats` prints), create apps, add
+an app from its private link and end itself; it cannot read the dashboard, end other sessions or change how you sign
+in. What an account stores:
 [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 
 **Without an account:**
@@ -409,11 +492,12 @@ example `telemetry: { decisionSample: 1 }`) is an explicit opt-in that sends fro
 `debug: true` the console says so once). Visitors who opt out (`?genclass=no-telemetry`,
 `localStorage["genclass.telemetry"] = "off"`) or whose browser sends Global Privacy Control are not counted. With a
 token, each telemetry batch carries it and decisions about protected functions carry their `fn` name; nothing else
-changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
+changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days,
+or 1 year for an app on a paid plan ([PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md)).
 
 **Which version:** the token option, `scope`, `protect()` and the `login`, `connect`, `whoami` and `logout` commands
-are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)). A key needs `@genclass/runtime`
-`0.3.0-beta.0` or later in your app.
+are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)), and `stats` from `0.3.0-beta.1`. A key
+needs `@genclass/runtime` `0.3.0-beta.0` or later in your app.
 
 ## Automatic state discovery
 
@@ -1190,7 +1274,8 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   skips the model in that case (`status.state` `skipped`, reason `worker-unavailable`, one warning naming the
   worker error) and the runtime observes without it.
 - Anonymous diagnostics (on by default on public hosts) go to `https://genclass.dev/api/v1/events`: add
-  `https://genclass.dev` to `connect-src`, or pass `telemetry: false`. A blocked page stops trying after 3 failed
+  `https://genclass.dev` to `connect-src`, or pass `telemetry: false` (then `stats` and the dashboard stay empty). A
+  blocked page stops trying after 3 failed
   requests, so the policy logs at most 3 violations.
 - Sinks ([See it where you already look](#see-it-where-you-already-look), `0.3.0`): a webhook on another origin
   needs that origin in `connect-src` (a same-origin path such as `webhook:/genclass` needs nothing). With the script
@@ -1205,7 +1290,11 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path (from `0.3.0` a segment with an `@`, such as an e-mail address, is `:id` too), and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The measured visual checks send nothing** (new in `0.3.0`): their findings stay in the page (the console, `rt.checks()`, your own sinks).
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
-- **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
+- **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; pages in browsers that send Global Privacy Control send nothing.
+- **Retention and use:** the maintainers keep the raw diagnostics for 90 days and use them to evaluate and train the
+  model ([TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md), Use and Retention). The local-host exemption goes by host name, so an
+  internal app on a public-style host name (such as `app.corp.example.com`) sends like any deployed app: set
+  `telemetry: false` (or run `init --no-telemetry`) there if your policy requires it.
 - **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
@@ -1217,7 +1306,9 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   diff (it sends the `name` from `package.json`); `login` asks for a sign-in code with
   `client_name: "genclass-runtime <version>"` (shown on the approval page and in your account's session list) and
   polls until you approve it; `whoami` and `connect` read your account's apps; `connect` sends a new app's name, or an
-  existing dashboard's link from `.genclass.local` to add it to your account; `logout` ends the CLI session. The
+  existing dashboard's link from `.genclass.local` to add it to your account; `stats` reads the app's summary with
+  the secret of the private link in `.genclass.local`, or with your CLI session (after `GET /api/me` to find the
+  app), and sends nothing from your project; `logout` ends the CLI session. The
   account requests carry `user-agent: genclass-runtime-cli/<version>`. What an account stores: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 - Other telemetry options: `npx @genclass/runtime@beta init --no-telemetry` writes the opt-out into your project (`telemetry=off` in the meta tag or `data-telemetry="off"` on the script tag do the same); `telemetry: { endpoint, sample, decisionSample, maxDecisions, flushMs, maxBatch, include }` sends to your own collector, samples page loads or decision records, caps them per page load, or tunes batching; `runtime.telemetry` tells whether it is on and why not. Privacy policy: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
