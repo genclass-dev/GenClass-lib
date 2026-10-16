@@ -71,9 +71,11 @@ export function nonce(): string {
   return btoa(String.fromCharCode(...b)).replace(/[+/=]/g, "");
 }
 
-const ICON =
-  "data:image/svg+xml," +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0E1F4D"/><path d="M9 21l5-10 4 7 2-3 3 6" fill="none" stroke="#14B86A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+/** The site's own icons (site/public/brand, apple-touch-icon.png), so every genclass.dev page shows the same one. */
+const ICON_LINKS =
+  '<link rel="icon" href="https://genclass.dev/brand/mark-32.png?v=2" sizes="32x32" type="image/png">' +
+  '<link rel="icon" href="https://genclass.dev/brand/mark-64.png?v=2" sizes="64x64" type="image/png">' +
+  '<link rel="apple-touch-icon" href="https://genclass.dev/apple-touch-icon.png">';
 
 const CSS = `
 :root{
@@ -293,7 +295,7 @@ function shell(n: string, title: string, current: "scan" | "about", body: string
 <meta name="referrer" content="no-referrer">
 <title>${esc(title)}</title>
 <meta name="description" content="Check one public page for visual bugs, accessibility (axe-core, WCAG 2.2 A and AA, keyboard focus), phone layout, errors, speed, security headers, search and sharing, and double-submit races. Requests that could change something on the site are never sent.">
-<link rel="icon" href="${ICON}">
+${ICON_LINKS}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap">
