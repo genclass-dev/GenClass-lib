@@ -2,6 +2,19 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **Interaction analytics, off by default (`analytics: true`; [docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md)).**
+  An app that sets `analytics: true` with its token also sends `interactions` telemetry events for its dashboard: per
+  page view, the route, engaged time (the tab visible, at most 30 s after the last input), scroll depth milestones
+  (25 / 50 / 75 / 100 %), and clicks, rage clicks (3 within 1 s on one element) and dead clicks (a link or button
+  after which nothing changed within 1 s) per element key. Keys are built from markup only (`data-genclass-name`,
+  `data-testid`, a stable id, a link's target, stable class names, a short structural path), never element text;
+  nothing is stored on the device and no visitor id exists. Needs telemetry and the token (or a custom endpoint);
+  every telemetry opt-out and Global Privacy Control turn it off; `runtime.analytics` reports it and its `start()` /
+  `stop()` turn it on after consent and off again. The recording is a lazy chunk (`dist/analytics/index.js`, loaded
+  only when an app turns analytics on) with its own passive listeners, outside the event log: no model-visible text
+  changed (`situation-v2.3`), and nothing reaches a situation, a decision or the model. First-load cost of the stub:
+  about 0.29 KB gzip on `/auto` and 0.27 KB on the main entry (TELEMETRY.md "Interaction analytics", README "Privacy
+  and telemetry", API.md, INTERCEPTION.md).
 - **CLI copy: the dashboard needs Pro (get a 7-day free trial for analytics).** genclass.dev's dashboards now come
   with Pro; `init`'s dashboard notice and help, the top-level help and the README say so next to the private
   dashboard link, with the trial's length (7 days, the same as `trial_days` in `billing/plans.json`). A link made by

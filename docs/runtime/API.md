@@ -66,6 +66,16 @@ is on. `token` and `scope` are fixed when GenClass starts: on a runtime already 
 `GenClass.init({ token, scope })` is ignored with one console warning (set them in `window.GENCLASS_CONFIG`, the meta
 tag or `data-token` / `data-scope`).
 
+**Interaction analytics** (0.3.0-beta.1; [ANALYTICS.md](ANALYTICS.md)). Off by default. `analytics: true` with a
+`token` (or a custom `telemetry.endpoint`) also sends `interactions` telemetry events for the app's dashboard: per
+page view the route, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per element key (built
+from markup: `data-genclass-name`, `data-testid`, a stable id, a link's target, stable classes, a short structural
+path; never element text). Every telemetry opt-out and Global Privacy Control turn them off; without a token
+`analytics: true` warns once and records nothing. They run in a lazy chunk (`dist/analytics/index.js`), outside the
+event log: nothing reaches a situation, a decision or the model. `rt.analytics.start()` / `stop()` turn them on and
+off later (consent; `stop()` drops the counts not sent yet). Also `data-analytics="on"`, `analytics=on` in the meta
+tag, `window.GENCLASS_CONFIG.analytics`. Schema: [TELEMETRY.md](../../packages/runtime/TELEMETRY.md#interaction-analytics).
+
 ## Options
 
 ```ts
@@ -111,6 +121,8 @@ interface InitOptions {
                                                         // automatic state discovery: default on in @genclass/runtime/auto* and the script tag,
                                                         // off in GenClass.init / createRuntime (there it needs import "@genclass/runtime/discover" first)
   token?: string;                                       // (0.3.0) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
+  analytics?: boolean;                                  // (0.3.0-beta.1) [false] interaction analytics for the app's dashboard: page views, engaged time,
+                                                        // scroll depth, clicks, rage and dead clicks per element key; needs telemetry and the token
   scope?: "app" | "functions";                          // (0.3.0) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
@@ -458,6 +470,7 @@ rt.checks(n?): CheckFinding[]      // the last measured visual check findings (a
 rt.checkNow(): Promise<CheckFinding[]> // run a measured visual check pass now (loads the checks if needed) and resolve with what it confirmed
 rt.setMode(mode); rt.pause(); rt.resume(); rt.destroy()
 rt.telemetry?: { enabled; reason?; endpoint?; sessionId?; flush(): Promise<void> } // reason when off: option, headless, url, localStorage, gpc, sampled-out, kill-switch, disabled, ...
+rt.analytics?: { enabled; reason?; start(): boolean; stop(): void } // interaction analytics (0.3.0-beta.1); reason when off: option, telemetry-off, no-token, stopped, error
 ```
 
 `pause()` stops consulting the model (everything proceeds unchanged, tracing continues); `destroy()` uninstalls
