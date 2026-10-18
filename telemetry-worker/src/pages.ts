@@ -885,6 +885,68 @@ const DASH_JS = `
     });
   }
 
+  // ---------- interaction analytics (runtime \`interactions\` events: only apps that turned them on)
+  function dur(ms){
+    var s = Math.round((ms || 0) / 1000);
+    if (s < 60) return s + " s";
+    if (s < 3600) return Math.floor(s / 60) + " min" + (s % 60 ? " " + (s % 60) + " s" : "");
+    return (s / 3600).toFixed(1) + " h";
+  }
+  function pairs(list){ return (list || []).map(function(x){ var i = x.key.indexOf("\\t"); return i < 0 ? null : { route: x.key.slice(0, i), key: x.key.slice(i + 1), count: x.count }; }).filter(Boolean); }
+  function ixTable(host, list, head, empty){
+    host.textContent = "";
+    if (!list.length) { host.appendChild(el("p", "quiet", empty)); return; }
+    var max = list[0].count || 1, tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+    hr.appendChild(el("th", null, "Page")); hr.appendChild(el("th", null, "Element")); hr.appendChild(el("th", "num", head)); hr.appendChild(el("th", null, ""));
+    hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
+    list.slice(0, 10).forEach(function(x){
+      var tr = el("tr"), rc = el("td", "route", x.route); rc.title = x.route; tr.appendChild(rc);
+      var kc = el("td", "route", x.key); kc.title = x.key; tr.appendChild(kc);
+      tr.appendChild(el("td", "num", fmt(x.count)));
+      var td = el("td", "wide"), mix = el("div", "mix"), i = el("i"); i.style.width = (100 * x.count / max) + "%"; i.style.background = "var(--accent-f)"; mix.appendChild(i); td.appendChild(mix); tr.appendChild(td);
+      body.appendChild(tr);
+    });
+    tb.appendChild(body); host.appendChild(tb);
+  }
+  function visits(S){
+    var B = S.breakdowns, T0 = S.totals, views = T0.ix_views || 0, on = views > 0 || (B.ix_click || []).length > 0;
+    ["visits", "clicks", "nav-visits"].forEach(function(id){ var e = document.getElementById(id); if (e) e.classList.toggle("hidden", !on); });
+    if (!on) return;
+    var dl = el("dl", "health"), prev = (S.previous || {}).ix_views;
+    row(dl, "Page views", fmt(views), typeof prev === "number" && prev ? (views >= prev ? "+" : "") + share(views - prev, prev) + " on the previous period" : "page loads and in-app route changes");
+    row(dl, "Time on page", views ? dur((T0.ix_engaged_ms || 0) / views) : "-", "average engaged time per view: the tab visible, at most 30 s after the last input");
+    row(dl, "Clicks", fmt(T0.ix_click || 0), views ? (Math.round(10 * (T0.ix_click || 0) / views) / 10) + " per view" : "");
+    row(dl, "Rage clicks", fmt(T0.ix_rage || 0), "3 or more clicks on one element within a second", T0.ix_rage ? ["bad", "worth a look"] : ["ok", "none"]);
+    row(dl, "Dead clicks", fmt(T0.ix_dead || 0), "a link or button that changed nothing within a second", T0.ix_dead ? ["bad", "worth a look"] : ["ok", "none"]);
+    var sumh = document.getElementById("ixsum"); sumh.textContent = ""; sumh.appendChild(dl);
+    sumh.appendChild(el("figcaption", null, "Unique visitors are not counted: GenClass stores no visitor id, so two page loads by one person cannot be linked."));
+    var eng = map(B.ix_engaged_ms), reach = {};
+    pairs(B.ix_scroll).forEach(function(x){ (reach[x.route] = reach[x.route] || {})[x.key] = x.count; });
+    var host = document.getElementById("ixpages"); host.textContent = "";
+    var list = (B.ix_views || []).slice().sort(function(a, b){ return b.count - a.count; });
+    if (!list.length) return;
+    var tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+    ["Page", "Views", "Time on page", "Read half", "Read to the end"].forEach(function(h, i){ hr.appendChild(el("th", i ? "num" : null, h)); });
+    hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody");
+    list.slice(0, 12).forEach(function(x){
+      var tr = el("tr"), rc = el("td", "route", x.key); rc.title = x.key; tr.appendChild(rc);
+      var r = reach[x.key] || {};
+      tr.appendChild(el("td", "num", fmt(x.count)));
+      tr.appendChild(el("td", "num", x.count ? dur((eng[x.key] || 0) / x.count) : "-"));
+      tr.appendChild(el("td", "num", share(Math.min(r["50"] || 0, x.count), x.count)));
+      tr.appendChild(el("td", "num", share(Math.min(r["100"] || 0, x.count), x.count)));
+      body.appendChild(tr);
+    });
+    tb.appendChild(body); host.appendChild(tb);
+    host.appendChild(el("figcaption", null, "Table 4. Pages by views. Read half / to the end: the share of views whose viewport reached 50 % / 100 % of the page height."));
+    ixTable(document.getElementById("ixclicks"), pairs(B.ix_click), "Clicks", "No clicks recorded in this period.");
+    var flags = pairs(B.ix_rage).map(function(x){ return { route: x.route, key: x.key + "  (rage)", count: x.count }; })
+      .concat(pairs(B.ix_dead).map(function(x){ return { route: x.route, key: x.key + "  (dead)", count: x.count }; }))
+      .sort(function(a, b){ return b.count - a.count; });
+    ixTable(document.getElementById("ixflags"), flags, "Clicks", "No rage or dead clicks in this period.");
+    document.getElementById("c-visits").textContent = fmt(views);
+  }
+
   function render(S){
     var live = !!S.lastEvent, st = document.getElementById("status");
     st.classList.toggle("on", live);
@@ -894,7 +956,7 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
     if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
@@ -919,7 +981,7 @@ const DASH_JS = `
       var per = document.getElementById("period"); if (best === "top" && per && per.classList.contains("hidden")) best = "connect";
       if (best) links.forEach(function(a){ a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + best)); });
     }, { rootMargin: "-10% 0px -55% 0px", threshold: [0, 0.2, 0.5, 1] });
-    ["connect", "top", "trend", "found", "where", "did", "health-s", "recent-s", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
+    ["connect", "top", "trend", "found", "where", "did", "health-s", "recent-s", "visits", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
   })();
   document.title = P.name + " | GenClass dashboard";
   if (document.getElementById("ptok")) {
@@ -1133,6 +1195,7 @@ export function dashboardPage(
     <a href="#did">What GenClass did <span id="c-did"></span></a>
     <a href="#health-s">Health</a>
     <a href="#recent-s">Recent activity</a>
+    <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
   </nav>`;
   const side = acct
@@ -1210,12 +1273,22 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <tbody id="recent"></tbody></table></div>
   <p class="quiet hidden" id="recent0">Nothing detected in this period.</p>
 </section>
+<section class="blk hidden" id="visits">
+  <div class="blk-h"><h2>How visitors use this app</h2><span class="aside">Interaction analytics, for apps that turn them on</span></div>
+  <div id="ixsum"></div>
+  <div id="ixpages" class="mt-l"></div>
+</section>
+<section class="blk two hidden" id="clicks">
+  <div><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></div>
+  <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
+</section>
 <section class="blk"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 </div>
 ${setup}
 ${opts.extra?.html ?? ""}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
-decided. No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
+decided, and, for apps that turn on interaction analytics, page views, time on page, scroll depth and clicks per element (named by a
+selector or a name the app gave it, never its text). No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
 </div>
 </div>`;
   return shell(

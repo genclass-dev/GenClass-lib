@@ -400,7 +400,10 @@ existing dashboard" on your account page).
 console warning and is ignored.
 
 **What it shows:** decisions, detections by diagnosis, actions taken, top routes and protected functions,
-model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections.
+model load, backend (WebGPU or WASM) and latency, runtime and model versions, and recent detections. With
+`analytics: true` (new in `0.3.0-beta.1`, off by default), also how visitors use the app: page views, time on page and
+scroll depth per page, the most clicked elements, and rage and dead clicks ([Privacy and telemetry](#privacy-and-telemetry)).
+Put `data-genclass-name="pricing-cta"` on an element to give it a readable name there.
 
 **What it needs:** telemetry on (the default with `GenClass.init()` in a browser) on a deployed host. Local hosts
 (`localhost`, `*.local`, `*.test`, private networks) do not send by default, so a page there does not feed the
@@ -1204,6 +1207,7 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **Anonymous diagnostics are on by default** with `GenClass.init()` in a browser, except on local and private hosts (`localhost`, `*.localhost`, `*.local`, `*.test`, `127.0.0.1`, `::1`, private IP ranges) (`0.2.1` sends from local hosts too, by mistake; fixed in `0.2.2`, see the CHANGELOG), in Node/SSR, and in `createRuntime()`. They go to the GenClass maintainers' collector ([`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker), a Cloudflare Worker writing to a private R2 bucket) and are used to improve the model.
 - **By default no text from your page is sent.** Sent: a random per-page session id, versions, mode, device class, the app's hostname and id-normalised path (from `0.3.0` a segment with an `@`, such as an e-mail address, is `:id` too), and per decision (every detection and every decision whose diagnosis is not `expected`, every action and veto; of the routine ones, one in four and at most 200 per page load; counts are exact; `0.2.2` and earlier send every decision) the trigger, the diagnosis and its confidence, the action and gate, the outcome and latency. The collector stores no IP address or user agent. One console notice per page says it is on.
 - **The measured visual checks send nothing** (new in `0.3.0`): their findings stay in the page (the console, `rt.checks()`, your own sinks).
+- **Interaction analytics are off unless you turn them on** (new in `0.3.0-beta.1`): `GenClass.init({ token, analytics: true })` also sends, per page view, the route, engaged time, scroll depth and clicks, rage clicks and dead clicks per element, for your dashboard. Elements are named from markup (`data-genclass-name`, `data-testid`, an id, a link's target, class names, a short path), never their text; nothing is stored on the device and no visitor id exists. They need the token and telemetry on, every opt-out above turns them off, and they never feed a decision or the model. Where analytics need consent (the EU, EEA and UK), leave them off and call `runtime.analytics.start()` after consent. Details: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md#interaction-analytics).
 - **The situation text the model read is sent only if you opt in** with `GenClass.init({ telemetry: { include: { situation: true } } })`. It is redacted by field meaning, but can still contain route names with query strings, short error messages and short field values; read [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md) before enabling it.
 - **Opt out:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")`; browsers sending Global Privacy Control are never collected.
 - **With a token** (`0.3.0`: `token` option, `data-token`, `token=` in the meta tag), each batch also carries

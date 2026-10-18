@@ -397,3 +397,35 @@ describe("pages: genclass.dev's palette, buttons, header and focus ring", () => 
     expect(hue("#14B86A")).toBeGreaterThan(75); // the check itself would catch the brand green
   });
 });
+
+describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md section 3)", () => {
+  it("the visitors section: views, time on page, clicks, rage and dead clicks, pages with scroll reach, element tables", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, text, hidden, heads, close } = await render(st);
+    expect(hidden("visits")).toBe(false);
+    expect(hidden("clicks")).toBe(false);
+    expect(hidden("nav-visits")).toBe(false);
+    expect(text("#c-visits")).toBe(nf.format(st.totals.ix_views!));
+    expect(text("#ixsum")).toContain("Page views");
+    expect(text("#ixsum")).toContain("Unique visitors are not counted");
+    expect(heads("#ixpages")).toEqual(["Page", "Views", "Time on page", "Read half", "Read to the end"]);
+    expect(doc.querySelectorAll("#ixpages tbody tr").length).toBe(Math.min(12, st.breakdowns.ix_views!.length));
+    expect(text("#ixclicks")).toContain("button#pay");
+    expect(text("#ixflags")).toContain("button.promo-apply (dead)");
+    expect(text("#ixflags")).toContain("button#pay (rage)");
+    await close();
+  });
+
+  it("hidden for an app that has not turned analytics on; the footer says what interaction data is", async () => {
+    const st = sampleStats("7d", NOW);
+    for (const k of Object.keys(st.breakdowns)) if (k.startsWith("ix_")) delete st.breakdowns[k];
+    for (const k of Object.keys(st.totals)) if (k.startsWith("ix_")) delete st.totals[k];
+    const { doc, hidden, close } = await render(st);
+    expect(hidden("visits")).toBe(true);
+    expect(hidden("clicks")).toBe(true);
+    expect(hidden("nav-visits")).toBe(true);
+    expect(doc.querySelector(".dfoot")!.textContent).toContain("never its text");
+    expect(doc.querySelector(".dfoot")!.textContent).toContain("No text from your pages, no IP addresses and no user agents are stored.");
+    await close();
+  });
+});

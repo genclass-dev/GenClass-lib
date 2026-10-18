@@ -14,6 +14,7 @@ import { telemetryOff } from "./telemetry/client.js";
 import { resolveToken } from "./token.js";
 import { protect, setProtectResolver } from "./protect.js";
 import { startVisual } from "./visual/start.js";
+import { startAnalytics } from "./analytics/start.js";
 
 export * from "./types.js";
 export { browserClock } from "./clock.js";
@@ -212,6 +213,8 @@ function buildRuntime(options: CreateOptions, telemetryDefaultOn: boolean): Runt
       token,
     );
   }
+  // interaction analytics (docs/runtime/ANALYTICS.md): off unless the app turns them on; they need telemetry and a token
+  rt.analytics = startAnalytics(rt, options.analytics);
   // a token with telemetry off: say so once in debug; on a local host always (a developer trying the dashboard from
   // localhost would otherwise wait for data that never comes)
   const local = rt.telemetry.reason === "local";

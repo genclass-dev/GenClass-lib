@@ -51,6 +51,12 @@ segment holding an `@`, such as an e-mail address, is `:id` too).
   (up to 60 characters) and store leaf values up to 48 characters, including state the runtime discovered on its
   own (`autoState`: React, Redux or Zustand state the app never registered; those decisions carry
   `autoState: true`). Add a `redact` function for fields with ordinary names and personal values.
+- **Interaction analytics** (new in `0.3.0-beta.1`; [design](../../docs/runtime/ANALYTICS.md)): **off unless the app
+  turns them on** with `analytics: true`, and only with the app's token (or your own `telemetry.endpoint`). Then the
+  page also sends `interactions` events: per page view, the route, engaged time, scroll depth milestones and clicks,
+  rage clicks and dead clicks per element, the element named from markup (a `data-genclass-name`, a `data-testid`, an
+  id, a link's target, stable class names or a short structural path), never its text. See
+  [Interaction analytics](#interaction-analytics).
 - **Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md); new in `0.3.0`): nothing about
   them is sent. Their findings stay in the page (the console, `rt.checks()`, your own sinks). Counts per check kind
   are a proposal that needs the maintainers' approval of the exact fields first; this file will list them if that
@@ -91,6 +97,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars, URLs replaced by `<url>`: a model host's message can quote the browser's worker error, which names the script and the page origin) |
 | `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart), actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
+| `interactions` | only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction analytics](#interaction-analytics)) | `view` (page view number in this page load), `route` (normalised as on `session`), `start` (the view's first event: a page view), `engagedMs`, `scroll` (milestones 25 / 50 / 75 / 100 first reached since the previous event), `clicks`, `rage`, `dead` (counts per element key, at most 50 / 20 / 20 keys, the rest under `(other)`), `end` (the view ended). Counts are deltas since the view's previous event |
 
 Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
 else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
@@ -158,6 +165,55 @@ typical volumes.
   behind one IP, against the collector's per-address limit) could stop its pages for good after three 429s.
   Telemetry never throws into your app, never changes what the model sees, and never delays a decision.
 
+### Interaction analytics
+
+New in `0.3.0-beta.1`. **Off by default.** An app turns them on for its own dashboard:
+
+```ts
+GenClass.init({ token: "gc_…", analytics: true });
+```
+
+(also `data-analytics="on"` on the script tag, `<meta name="genclass" content="analytics=on">`,
+`window.GENCLASS_CONFIG.analytics`). They need telemetry on and the app's token, or a custom `telemetry.endpoint`;
+without either, `analytics: true` warns once in the console and records nothing. Every telemetry opt-out below, Global
+Privacy Control and the local-host default turn them off too. When they start, the console says so once:
+
+```
+[GenClass] Interaction analytics are on (this app turned them on): page views, time on page, scroll depth and clicks per element, never page text.
+```
+
+What is recorded, per page view (a page load, and each route change to a new path):
+
+- **page views** and the **route** (the path as on `session`: id-like segments and segments with an `@` as `:id`, no
+  query, no fragment);
+- **engaged time:** while the tab is visible, at most 30 s after the visitor's last input (pointer, key, wheel, scroll,
+  touch);
+- **scroll depth:** which of 25 / 50 / 75 / 100 % of the page height the bottom of the viewport reached (a page that
+  fits the screen reaches 100 % at once);
+- **clicks** per element; **rage clicks** (3 or more on one element within 1 s, once per burst, not while text is
+  being selected); **dead clicks** (a click on a link or button after which nothing in the page changed within 1 s: no
+  DOM change, no URL change; not counted for modified clicks, links that open another tab or download);
+- the **element key:** `[data-genclass-name="…"]` (a name you put on the element; the way to get readable keys),
+  `[data-testid="…"]`, `tag#id` (ids that look generated or like data are skipped), a link's target (`a[href="/route"]`
+  on your site, the other site's origin only), the tag with up to two stable class names, or an `nth-of-type` path of
+  up to 4 levels under a named ancestor or a landmark. At most 120 characters. Any attribute value that looks like data
+  (an e-mail address, a URL, 4 or more digits, 12 or more hex digits) is not used.
+
+**Never recorded:** element text, labels, `alt`, `title`, placeholders, input values or what was typed, mouse
+coordinates, the order or timing of clicks, the query string or fragment, the referrer, the page title, the screen
+size, a visitor id. Nothing is written to cookies or `localStorage`, so page loads by the same person cannot be linked
+and the dashboard does not count unique visitors. Synthetic events (`isTrusted` false) and events inside
+`[data-genclass-ignore]` are not counted.
+
+They never reach the model or a decision: they are recorded by their own listeners (a separate file the runtime loads
+only when analytics are on), outside GenClass's event log, and change nothing on the page in any mode. The
+maintainers use `interactions` events only for the app's dashboard and its export, never for model training or
+evaluation.
+
+**After consent:** `runtime.analytics.start()` turns them on later (for example once a visitor accepts analytics in
+your consent banner), `runtime.analytics.stop()` turns them off and drops the counts not sent yet.
+`runtime.analytics` reports `{ enabled, reason? }` (`option`, `telemetry-off`, `no-token`, `stopped`, `error`).
+
 ## App tokens and dashboards
 
 New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An app can set a **token**
@@ -215,8 +271,8 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   partitioned by UTC date, runtime version and model version. The collector adds only the time it received the
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.
-- **Use:** model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
-  app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
+- **Use:** model evaluation and training by the GenClass maintainers (never `interactions` events: those are only for
+  the app's dashboard and export), and, for batches that carry a token, that app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
   turns on: an export of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
   trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
   advertising.
@@ -241,6 +297,7 @@ GenClass.init({
     maxBatch: 100,                   // events per request
     include: { situation: true },    // also send the redacted situation text (default: off)
   },
+  analytics: true,                   // interaction analytics for the app's dashboard (default: off; needs the token)
 });
 ```
 
@@ -273,6 +330,13 @@ the session event names your hostname. Depending on your users and jurisdiction 
 - decide whether it needs consent where you require consent for analytics (GDPR / ePrivacy), and if so start
   GenClass with `telemetry: false` until consent is given (`GenClass.init()` reads the option once; to switch it on
   later, create the runtime after consent);
+- if you turn on interaction analytics (`analytics: true`): in the EU, the EEA and the UK, Article 5(3) of the
+  ePrivacy Directive (regulation 6 of PECR in the UK) requires consent to read information from a visitor's device
+  unless it is strictly necessary for the service they asked for, and regulators read it as covering scripts that send
+  interaction data, not only cookies (EDPB Guidelines 2/2023). Analytics are not strictly necessary, so start with them
+  off there and call `runtime.analytics.start()` after consent; some regulators exempt first-party audience
+  measurement under strict conditions (the CNIL in France), which is your call. Name GenClass as a recipient in your
+  privacy policy either way;
 - turn it off (`telemetry: false`) in apps that handle regulated data (health, finance, children's services): a
   custom `redact` lowers what reaches situation text but does not guarantee that nothing sensitive does;
 - if you add a webhook sink (`@genclass/runtime/sinks/webhook`, `init --sink webhook:<url>`, 0.3.0) that posts to an

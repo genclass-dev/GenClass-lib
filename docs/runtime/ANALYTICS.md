@@ -1,8 +1,11 @@
 # Interaction analytics: design
 
-Status: design written 2026-10-17, **waiting for the owner's OK** on the fields, the default and the decisions in
-[section 9](#9-decisions-for-the-owner). Nothing is built yet. Widening what telemetry sends needs that OK (AGENTS.md
-rule 8).
+Status: design written 2026-10-17 and **approved by the owner the same day** with every recommendation in
+[section 9](#9-decisions-for-the-owner) (AGENTS.md rule 8: widening what telemetry sends needs that OK). **Built**
+2026-10-18 on branch `feat/interaction-analytics`: the runtime (`packages/runtime/src/analytics/`), the collector
+and the dashboard (`telemetry-worker/`), and the admin filter for genclass.dev (`site/src/admin.js`); the differences
+from this note are in [section 10](#10-implementation-notes). Not released: genclass.dev needs a runtime release
+first (section 7).
 
 The owner asked on 2026-10-17: "can genclass please track all the clicks, and scrolls, time spent everywhere, and then
 we'll put genclass on our own website to track everything." This note says what the runtime would record, how the
@@ -21,8 +24,8 @@ A page view starts when GenClass starts and again at every route change (a new p
 | engaged time | ms the tab was visible, counting at most 30 s after the visitor's last input (pointer move or press, key, wheel, scroll, touch). A tab left open in the background or untouched for an hour adds at most 30 s |
 | scroll depth | which of 25 / 50 / 75 / 100 % of the page height the bottom of the viewport reached in this view. A page that fits the screen reaches 100 % at once |
 | clicks | count per element, the element named by its **element key** (below) |
-| rage clicks | 3 or more clicks on the same element within 1 s, counted once per burst, per element |
-| dead clicks | a click on a link or button (the `a`, `button`, `[role=button]`, `[role=link]`, `[role=tab]`, `[role=menuitem]` and button-type inputs) after which nothing changed within 1 s: no DOM mutation, no URL change, no page hide. Not counted: modified clicks (Ctrl, Cmd, Shift, middle button), links with `target` other than `_self` or with `download`. A click on a disabled button counts (the visitor tried and nothing happened) |
+| rage clicks | 3 or more clicks on the same element within 1 s, counted once per burst, per element; not while the visitor is selecting text (a triple click selects a paragraph) |
+| dead clicks | a click on a link or button (the `a`, `button`, `[role=button]`, `[role=link]`, `[role=tab]`, `[role=menuitem]` and button-type inputs) after which nothing changed within 1 s: no DOM mutation outside `[data-genclass-ignore]`, no URL change, no page hide. Not counted: modified clicks (Ctrl, Cmd, Shift, Alt, a button other than the main one), links with `target` other than `_self` or with `download`. A click on a control marked `aria-disabled` counts (the visitor tried and nothing happened); browsers send no click for a natively `disabled` button |
 
 **Element key.** A short name for the element, built from markup only, at most 120 characters. In order:
 
@@ -170,12 +173,16 @@ Then:
 2. Add the runtime to every page's head (today only `/` and `/docs` load it) with `model: false` outside the lab, so
    other pages do not download the model, and `analytics: true` with the token.
 3. The lab sets `telemetry: false` today, and its footer says "Telemetry is off on this site". Analytics need
-   telemetry on, so the lab's decisions (guard, eager profile, margins at 0) would be sent too. Either filter host
-   `genclass.dev` out of model evaluation in the admin ingest, or keep the lab's own runtime instance off and track
-   the lab page's interactions only. The footer sentence changes either way.
-4. Update genclass.dev's privacy page (it describes GenClass's diagnostics for other apps, not tracking on
-   genclass.dev itself), and decide on consent for EU, EEA and UK visitors (section 5): a consent banner, or start
-   analytics only outside those regions (Cloudflare gives the country at the edge).
+   telemetry on, so the lab's decisions (guard, eager profile, margins at 0) would be sent too. **Decided:** filter
+   host `genclass.dev` out of model evaluation in the admin ingest (done on this branch, `site/src/admin.js`), and
+   change the footer sentence.
+4. **Decided:** record analytics only outside the EU, the EEA and the UK until the site has a consent banner. The
+   site worker (`site/src/worker.js`) adds `<meta name="genclass" content="analytics=on">` to the page's head with
+   HTMLRewriter only when `request.cf.country` is outside the EEA, the UK and Switzerland (and not unknown); the pages
+   start GenClass without an `analytics` option, so the meta tag decides, and visitors elsewhere get diagnostics only.
+   The page must not be cached across countries with that tag (it is added per request, after the static asset).
+   Update genclass.dev's privacy page: it describes GenClass's diagnostics for other apps, not tracking on
+   genclass.dev itself.
 5. Add `data-genclass-name` to the calls to action so the keys read well (`hero-start`, `pricing-pro`, `scan-submit`).
 
 ## 8. Tests
@@ -190,6 +197,10 @@ happy-dom.
 
 ## 9. Decisions for the owner
 
+All five approved as recommended on 2026-10-17, with genclass.dev's: filter host `genclass.dev` out of model
+evaluation (option one in section 7 step 3), and record analytics only outside the EU, EEA and UK until the site has
+a consent banner (section 7 step 4).
+
 1. **Fields** as in section 1 (route, page views, engaged time, scroll milestones, clicks, rage and dead clicks per
    element key). Recommended.
 2. **Default off**, opt-in with `analytics: true`, and only with a token (or a custom endpoint). Recommended: a
@@ -200,3 +211,37 @@ happy-dom.
    for model training. The alternative strips them from R2 and keeps only the dashboard counters.
 5. **genclass.dev**: which of the two options in section 7 step 3, and how to handle consent for EU, EEA and UK
    visitors (section 7 step 4).
+
+## 10. Implementation notes
+
+What the build (2026-10-18) does where this note was not specific, or differs:
+
+- **Runtime.** `src/analytics/start.ts` (first load: `runtime.analytics`, the chunk loader) and `src/analytics/index.ts`
+  (the lazy chunk, one file with no static imports; the script tag loads `dist/analytics/index.js` by URL). The
+  telemetry client gained a `pre` hook, called first in every `summary()`, where the chunk queues its event so it
+  goes out in the same flush; `push`, `route` and `stopped` lost their `private` modifier for the chunk. The chunk
+  copies the `INTERACTIVE` selector from `dom-user.ts` and the generated-id and class rules from the visual checks
+  instead of importing them (a static import would make it depend on another file). `runtime.analytics.reason` can
+  also be `"error"` (the chunk did not load).
+- **Console.** One line when analytics start: `[GenClass] Interaction analytics are on (this app turned them on):
+  page views, time on page, scroll depth and clicks per element, never page text.` Without a token:
+  `[GenClass] analytics: true needs the app's token; nothing is recorded.`
+- **Route changes** come from the runtime's `nav` events when the nav observer is on (exact); without it, from
+  `location.pathname` at the next input, so the time between a navigation and that input counts for the previous page.
+- **First-load cost:** 288 B gzip on `/auto` and 275 B on the main entry over main (RESULTS.md section 15), under the
+  CI gate (0.6 KB) but over `test/bundle.test.ts`'s limits, which this branch raises to 108.6 / 100.48 KB: **the
+  owner's OK on those limits is still needed.**
+- **Collector.** `ix_*` counters (section 3) in a separate per-batch budget of 200; at most 60 element keys read per
+  map, counts above 10,000 per key per event and engaged time above 24 h per event ignored; element keys cut to 120
+  characters and routes to 100. Stats keep the top 200 keys of every `ix_*` metric, add `ix_views` to the timeline and
+  to `previous`. The sample dashboard (`/dashboard/sample`) shows simulated interaction data.
+- **Dashboard.** "How visitors use this app" (page views with the change on the previous period, time on page,
+  clicks, rage and dead clicks; Table 4, pages with views, time on page and the share of views reading half and to
+  the end) and "Most clicked" / "Rage and dead clicks" (Tables 5 and 6), after Recent activity, with a "Visitors" link
+  in the sidebar; all hidden until the app sends `interactions` events. Built from the page's existing classes; no
+  CSS changed.
+- **Admin.** `site/src/admin.js` marks `genclass.dev` and `www.genclass.dev` as test hosts, so their sessions,
+  decisions and detections stay out of the model numbers unless "Include test traffic" is ticked; it never reads
+  `interactions` events.
+- **Not done here:** `billing/plans.json` still says "Interaction analytics (coming next)" for Pro; it becomes
+  available when a runtime with analytics is on npm. genclass.dev's own pages are unchanged (section 7).

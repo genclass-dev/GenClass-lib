@@ -14,7 +14,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 
 | path | what |
 |---|---|
-| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
+| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk), `analytics/` (interaction analytics, opt-in: `start.ts` stub, `index.ts` lazy chunk; `docs/runtime/ANALYTICS.md`)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
 | `packages/runtime-model/` | the data-only model package (`files/` is gitignored, filled at release) and `MODEL_CARD.md` |
 | `sim/` | deterministic training-data simulator driving the real runtime (`SEPARABILITY.md`, `README.md`) |
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
@@ -26,7 +26,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `site/`, `telemetry-worker/` | genclass.dev, and the diagnostics collector with the dashboards and accounts (Cloudflare Workers) |
 | `scan-worker/` | genclass.dev/scan: the page check (Browser Rendering, visual checks, race probe, score); its own `package-lock.json`, `node --test` |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
-| `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, `VISUAL.md` (measured visual checks: design), **`RESULTS.md`** (every measured number) |
+| `docs/runtime/` | `CONTRACT.md` (binding), `API.md`, `ARCHITECTURE.md`, `OPTIONS-SPEC.md`, `THREAT-MODEL.md`, `VISUAL.md` (measured visual checks: design), `ANALYTICS.md` (interaction analytics: design), **`RESULTS.md`** (every measured number) |
 | `scripts/` | Azure VM helpers (`vm.sh`, `azvm.sh`, `launch_run.sh`); `internal/` is gitignored working notes |
 
 ## Build and test
