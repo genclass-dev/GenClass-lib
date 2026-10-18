@@ -1,56 +1,64 @@
 // genclass.dev/admin/deck: the pitch deck's share links, per-slide aggregates and views. Served behind the admin session
 // (src/admin.js) under its strict CSP; the script is /admin/deck.js and only ever sets textContent. "This browser is
-// ours" uses the same localStorage keys as the viewer (deck.viewer, deck.owner): both pages are on genclass.dev.
+// ours" uses the same localStorage keys as the viewer (deck.viewer, deck.owner): both pages are on genclass.dev. Its look
+// (fonts, colour tokens, header, buttons, tables) is the dashboard's, from src/admin-page.js.
+import { BASE_CSS, FONTS } from "./admin-page.js";
 
 export const DECK_ADMIN_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>Pitch deck views</title><link rel="icon" href="data:,">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#F5F8FB;color:#0E1F4D;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:20px}
-a{color:inherit}main{max-width:1400px;margin:0 auto;display:grid;gap:14px}
-header{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px}h1{font-size:20px}
-header nav{margin-left:auto;display:flex;gap:12px;font-size:13px}
-h2{font-size:15px;margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}h2 small{font-weight:400;color:#5A6684;font-size:12.5px}
-.sub{color:#5A6684;font-size:13px}
-.card{background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:14px}
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000"><title>Pitch deck views</title><link rel="icon" href="/brand/mark-32.png?v=2">${FONTS}
+<style>${BASE_CSS}
+body{font-size:14px}
+.top h1{font:500 17px var(--display);letter-spacing:-.02em;padding-left:16px;border-left:1px solid var(--rule-strong);line-height:24px}
+.top .sub{font-family:var(--mono);font-size:12.5px}
+.top nav{margin-left:auto;display:flex;flex-wrap:wrap;gap:8px}
+main{max-width:1400px;margin:0 auto;padding:24px 20px 40px;display:grid;gap:16px}
+h2{font:500 15px var(--sans);letter-spacing:-.01em;margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}h2 small{font:400 12.5px/1.5 var(--sans);color:var(--faint);letter-spacing:0}
+.sub{color:var(--faint);font-size:13px}
+.card{background:var(--raised);border:1px solid var(--rule);padding:18px 20px 20px;min-width:0}
 .scroll{overflow:auto}
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-button,input,select{font:inherit;color:inherit}
-button,.btn{border:1px solid #C6CEDB;background:#fff;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
-button:hover{border-color:#0E1F4D}button.primary{background:#0E1F4D;color:#fff;border-color:#0E1F4D}
-input[type=text]{border:1px solid #C6CEDB;border-radius:8px;padding:5px 10px;min-width:240px}
-select{border:1px solid #C6CEDB;border-radius:8px;padding:4px 8px;background:#fff}
-:focus-visible{outline:2px solid #14B86A;outline-offset:2px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;font-weight:600;font-size:11.5px;color:#5A6684;text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid #DFE4EC;white-space:nowrap}
-td{padding:7px 8px;border-bottom:1px solid #EEF1F5;vertical-align:middle;white-space:nowrap}
-td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-td.ms{font-variant-numeric:tabular-nums;color:#3D4B6B;font-size:12px;text-align:right}
-td.ms b{display:block;height:4px;background:#0E1F4D;border-radius:2px;margin-top:2px;margin-left:auto;opacity:.75}
-td.z{color:#C6CEDB}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+main button{display:inline-flex;align-items:center;justify-content:center;min-height:30px;border:1px solid var(--rule-strong);border-radius:0;background:transparent;color:var(--dim);padding:0 10px;font:500 12.5px var(--sans);cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s,opacity .15s}
+main button:hover{color:var(--bone);border-color:var(--faint)}
+main button.primary{min-height:38px;padding:0 16px;font-size:13.5px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}main button.primary:hover{opacity:.9;color:var(--accent-ink);border-color:var(--accent)}
+input[type=text]{min-height:38px;border:1px solid var(--line);border-radius:0;background:var(--ground);color:var(--bone);padding:0 12px;min-width:min(280px,100%);font-size:14px;transition:border-color .15s}
+input[type=text]::placeholder{color:var(--faint)}
+input[type=text]:focus,select:focus{outline:0;border-color:var(--accent)}
+select{appearance:none;-webkit-appearance:none;min-height:34px;border:1px solid var(--line);border-radius:0;color:var(--bone);padding:0 32px 0 10px;font-size:13px;background:var(--ground) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%2388897F' stroke-width='1.4'/%3E%3C/svg%3E") right 10px center/12px no-repeat;max-width:100%}
+label.sub{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+table{font-size:13px}
+th{padding:8px 8px 8px 0;font-size:11px;letter-spacing:.04em;white-space:nowrap}
+td{padding:8px 8px 8px 0;vertical-align:middle;white-space:nowrap}
+td.n{font-size:12.5px}
+td.ms{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim);font-size:12px;text-align:right}
+td.ms b{display:block;height:3px;background:var(--dim);margin-top:3px;margin-left:auto}
+td.z{color:var(--faint)}
 .views table{min-width:1100px}.links table{min-width:1000px}
-.pill{display:inline-block;font-size:11px;border-radius:999px;padding:0 7px;background:#EEF1F5;color:#3D4B6B;margin-left:4px}
-.pill.off{background:#FDE6E0;color:#C42A12}.pill.ours{background:#FFF3D6;color:#7A5200}
-.path{color:#5A6684;font-size:12px;white-space:normal;min-width:120px}
-code{font:12px ui-monospace,Menlo,monospace;color:#3D4B6B}
-.empty{color:#5A6684;padding:10px}
-.meter{display:inline-block;vertical-align:middle;width:120px;height:8px;background:#EEF1F5;border-radius:4px;overflow:hidden;margin-left:8px}
-.meter i{display:block;height:100%;background:#0E1F4D}.meter.red i{background:#F0451C}
+.pill{margin-left:6px}
+.pill.off{color:var(--bad);border-color:rgba(255,90,54,.45)}.pill.ours{color:var(--warn);border-color:rgba(245,198,106,.4)}
+.path{font-family:var(--mono);color:var(--faint);font-size:12px;white-space:normal;min-width:120px}
+code{font-size:11.5px;color:var(--dim)}
+.empty{padding:12px 14px}
+.meter{display:inline-block;vertical-align:middle;width:120px;height:6px;background:var(--raised2);overflow:hidden;margin-left:10px}
+.meter i{display:block;height:100%;background:var(--bone)}.meter.red i{background:var(--bad)}
 .spark{display:inline-flex;align-items:flex-end;gap:2px;height:22px;vertical-align:middle}
-.spark i{display:block;width:7px;background:#0E1F4D;border-radius:1px;min-height:1px;opacity:.8}
-.err{color:#C42A12;font-size:13px}
-</style></head><body><main>
-<header><h1>Pitch deck</h1><span class="sub" id="sub">loading…</span>
-<nav><a href="/admin">Dashboard</a><a href="/pitch-deck" target="_blank" rel="noopener">Open the deck</a><a href="/admin/logout">Sign out</a></nav></header>
+.spark i{display:block;width:7px;background:var(--dim);min-height:1px}
+.err{color:var(--bad);font-size:13px}
+@media (max-width:720px){.top nav{margin-left:0;width:100%}}
+@media (max-width:620px){main{padding:16px 16px 32px;gap:12px}.card{padding:16px}.top h1{padding-left:12px}}
+</style></head><body>
+<header class="top"><div class="in">
+<a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a><h1>Pitch deck</h1><span class="sub" id="sub">loading…</span>
+<nav><a class="btn" href="/admin">Dashboard</a><a class="btn" href="/pitch-deck" target="_blank" rel="noopener">Open the deck</a><a class="btn" href="/admin/logout">Sign out</a></nav></div></header>
+<main>
 <section class="card"><h2>This browser</h2><div class="row"><span id="me-t" class="sub"></span><button type="button" id="me-b"></button></div></section>
 <section class="card links"><h2>Share links <small>genclass.dev/pitch-deck?k=… The token is random and says nothing about the name. A disabled link's new views count as the direct link (the deck stays public).</small></h2>
 <form class="row" id="new"><input type="text" id="new-name" maxlength="80" placeholder="Name, e.g. a fund or a person" aria-label="New link name" required><button class="primary" type="submit">Create link</button><span class="err" id="new-err" role="alert"></span></form>
-<div class="scroll" id="links" style="margin-top:10px"></div></section>
+<div class="scroll" id="links" style="margin-top:14px"></div></section>
 <section class="card"><h2>Slides <small id="agg-sub"></small></h2><div class="scroll" id="agg"></div></section>
 <section class="card views"><h2>Views <small id="views-sub"></small></h2>
-<div class="row" style="margin-bottom:8px"><label class="sub" for="filter">Link</label><select id="filter"></select>
+<div class="row" style="margin-bottom:10px"><label class="sub" for="filter">Link</label><select id="filter"></select>
 <label class="sub"><input type="checkbox" id="own"> Show our own views</label></div>
-<p class="sub" style="margin-bottom:8px">One row per page load. Slide times count only while the deck was on screen in a visible tab with the window focused. Browser: a random id kept in that browser, so repeat visits show as visit 2, 3…</p>
+<p class="sub" style="margin-bottom:10px">One row per page load. Slide times count only while the deck was on screen in a visible tab with the window focused. Browser: a random id kept in that browser, so repeat visits show as visit 2, 3…</p>
 <div class="scroll" id="views"></div></section>
 </main><script src="/admin/deck.js" defer></script></body></html>`;
 

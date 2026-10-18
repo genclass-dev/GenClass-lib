@@ -149,10 +149,13 @@ async function signedIn(env: Env, email = "ada@example.com", alg = -7) {
   return { auth, cookie: sessionOf(inn.res), account: up.json.account as { id: string; email: string } };
 }
 
-/** Start the account's trial of Pro (dashboards come with Pro). */
-async function startTrial(env: Env, cookie: string) {
-  const r = await call(env, "POST", "/api/billing/trial", { body: {}, cookie });
-  expect(r.status).toBe(200);
+/**
+ * Give the account Pro (dashboards come with Pro) the one way that needs no Stripe: GenClass's grant (comp_until, set
+ * by hand in production). The trial is a Stripe Checkout with a card (test/trial.test.ts).
+ */
+async function givePro(env: Env, cookie: string) {
+  const { json: me1 } = await me(env, { cookie });
+  await env.DB!.prepare("UPDATE accounts SET comp_until = ? WHERE id = ?").bind("9999-12-31T00:00:00.000Z", me1.account.id).run();
 }
 
 async function me(env: Env, o: CallOpts) {
@@ -605,9 +608,9 @@ describe("accounts: apps owned by an account", () => {
     await handle(new Request(`${ORIGIN}/api/v1/events`, { method: "POST", body: JSON.stringify(batch("bbbbbbbbbbbb")), headers: { "content-type": "text/plain" } }), env, { now: () => clock });
     const [p] = ((await (await call(env, "GET", "/api/account/projects", { cookie })).json()) as any).projects;
     expect(p).toMatchObject({ first_event: t1, last_event: clock.toISOString() });
-    // collected all along, shown once the account has Pro (here its trial)
+    // collected all along, shown once the account has Pro (here GenClass's grant)
     expect((await call(env, "GET", `/api/account/projects/${project.id}/stats?range=24h`, { cookie })).status).toBe(402);
-    await startTrial(env, cookie);
+    await givePro(env, cookie);
     const st = await call(env, "GET", `/api/account/projects/${project.id}/stats?range=24h`, { cookie });
     expect(st.status).toBe(200);
     expect(((await st.json()) as any).totals.sessions).toBe(2);
@@ -638,8 +641,8 @@ describe("accounts: apps owned by an account", () => {
     const { env, sql } = setup();
     const a = await signedIn(env, "ada@example.com");
     const b = await signedIn(env, "bob@example.com");
-    await startTrial(env, a.cookie);
-    await startTrial(env, b.cookie);
+    await givePro(env, a.cookie);
+    await givePro(env, b.cookie);
     const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name: "Ada's app" }, cookie: a.cookie })).json()) as any;
     const own = await call(env, "GET", `/account/apps/${project.id}`, { cookie: a.cookie });
     expect(own.status).toBe(200);
@@ -737,7 +740,7 @@ async function passkeyStep(env: Env, signin: Response, auth: Auth) {
   return finishStep(env, `__Host-gc_mfa=${cookieValue(signin, "__Host-gc_mfa")}`, auth);
 }
 
-async function google(env: Env, o: { claims?: (nonce: string) => Record<string, unknown>; cookie?: string; link?: boolean; next?: string; state?: (s: string) => string; query?: string; dropCookie?: boolean; tokenStatus?: number } = {}): Promise<GoogleRun> {
+async function google(env: Env, o: { claims?: (nonce: string) => Record<string, unknown>; cookie?: string; link?: boolean; next?: string; state?: (s: string) => string; query?: string; dropCookie?: boolean; tokenStatus?: number; tokenBody?: Record<string, unknown> } = {}): Promise<GoogleRun> {
   const start = await call(env, "GET", `/auth/google${o.link ? "?link=1" : o.next ? `?next=${encodeURIComponent(o.next)}` : ""}`, { cookie: o.cookie, origin: null });
   expect(start.status).toBe(302);
   const loc = new URL(start.headers.get("location")!);
@@ -753,7 +756,7 @@ async function google(env: Env, o: { claims?: (nonce: string) => Record<string, 
     // PKCE: the verifier sent here hashes to the challenge sent to Google
     expect(b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body.get("code_verifier")!))))).toBe(challenge);
     const claims = o.claims ? o.claims(nonce) : { iss: "https://accounts.google.com", aud: GOOGLE.GOOGLE_CLIENT_ID, exp: Math.floor(clock.getTime() / 1000) + 3600, nonce, sub: "g-1001", email: "ada@gmail.com", email_verified: true };
-    return new Response(JSON.stringify({ access_token: "ya29.x", id_token: jwt(claims), token_type: "Bearer" }), { status: o.tokenStatus ?? 200, headers: { "content-type": "application/json" } });
+    return new Response(JSON.stringify(o.tokenBody ?? { access_token: "ya29.x", id_token: jwt(claims), token_type: "Bearer" }), { status: o.tokenStatus ?? 200, headers: { "content-type": "application/json" } });
   };
   const q = o.query ?? `state=${encodeURIComponent(o.state ? o.state(state) : state)}&code=4%2Fabc`;
   const jar = [o.dropCookie ? "" : `gc_oauth_google=${oauth}`, o.cookie ?? ""].filter(Boolean).join("; ");
@@ -896,6 +899,27 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     expect(sql.rows("SELECT COUNT(*) AS n FROM accounts")[0]!.n).toBe(0);
   });
 
+  it("a refused code exchange says Google's error code on the page (never the secret); stored credentials are trimmed", async () => {
+    // a secret pasted with a trailing newline used to fail every exchange with no reason given
+    const { env, sql } = setup({ GOOGLE_CLIENT_ID: ` ${GOOGLE.GOOGLE_CLIENT_ID}\n`, GOOGLE_CLIENT_SECRET: "shh\n" });
+    const start = new URL((await call(env, "GET", "/auth/google", { origin: null })).headers.get("location")!);
+    expect(start.searchParams.get("client_id")).toBe(GOOGLE.GOOGLE_CLIENT_ID);
+    const ok = await google(env);
+    expect(ok.calls[0]!.body.get("client_id")).toBe(GOOGLE.GOOGLE_CLIENT_ID);
+    expect(ok.calls[0]!.body.get("client_secret")).toBe("shh");
+    expect(ok.res.status).toBe(302);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM accounts WHERE google_sub = 'g-1001'")[0]!.n).toBe(1);
+    const refused = await google(setup(GOOGLE).env, { tokenStatus: 401, tokenBody: { error: "invalid_client", error_description: "Unauthorized" } });
+    expect(refused.res.status).toBe(502);
+    const html = await refused.res.text();
+    expect(html).toContain("Google answered: invalid_client");
+    expect(html).not.toContain("shh");
+    expect(html).not.toContain("Unauthorized");
+    // anything but a plain error code is not echoed
+    const odd = await google(setup(GOOGLE).env, { tokenStatus: 400, tokenBody: { error: "<b>x</b>" } });
+    expect(await odd.res.text()).toContain("Google answered: HTTP 400");
+  });
+
   it("linking rule: a Google sign-in never takes over an account with the same email; the person chooses", async () => {
     const { env, sql } = setup(GOOGLE);
     const victim = await signedIn(env, "ada@gmail.com");
@@ -956,8 +980,9 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     expect(g).toContain("Continue with Google");
     expect(g).not.toContain("Continue with GitHub");
     const both = await (await call(setup({ ...GOOGLE, GITHUB_CLIENT_ID: "Iv1.x", GITHUB_CLIENT_SECRET: "y" }).env, "GET", "/login", {})).text();
-    expect(both.indexOf("Continue with Google")).toBeLessThan(both.indexOf("Continue with GitHub"));
-    expect(both.indexOf("Continue with GitHub")).toBeLessThan(both.indexOf("Use a passkey"));
+    // the owner's order (2026-10-18): GitHub above Google
+    expect(both.indexOf("Continue with GitHub")).toBeLessThan(both.indexOf("Continue with Google"));
+    expect(both.indexOf("Continue with Google")).toBeLessThan(both.indexOf("Use a passkey"));
   });
 
   it("claim checks (unit)", () => {
@@ -976,7 +1001,7 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
 const GITHUB = { GITHUB_CLIENT_ID: "Iv1.abc", GITHUB_CLIENT_SECRET: "gh-shh" };
 
 /** /auth/github, then GitHub's redirect back to the callback, with the token and user endpoints mocked. */
-async function github(env: Env, o: { state?: (s: string) => string; cookie?: string; link?: boolean; id?: number; query?: string } = {}) {
+async function github(env: Env, o: { state?: (s: string) => string; cookie?: string; link?: boolean; id?: number; query?: string; tokenBody?: Record<string, unknown> } = {}) {
   const start = await call(env, "GET", `/auth/github${o.link ? "?link=1" : ""}`, { cookie: o.cookie, origin: null });
   expect(start.status).toBe(302);
   const loc = new URL(start.headers.get("location")!);
@@ -988,7 +1013,7 @@ async function github(env: Env, o: { state?: (s: string) => string; cookie?: str
     calls.push(url);
     if (url === GITHUB_TOKEN_URL) {
       expect(new URLSearchParams(String(init?.body)).get("client_secret")).toBe("gh-shh");
-      return new Response(JSON.stringify({ access_token: "gho_x", token_type: "bearer" }), { status: 200 });
+      return new Response(JSON.stringify(o.tokenBody ?? { access_token: "gho_x", token_type: "bearer" }), { status: 200 });
     }
     expect(url).toBe(GITHUB_USER_URL);
     expect((init?.headers as Record<string, string>).authorization).toBe("Bearer gho_x");
@@ -1001,6 +1026,18 @@ async function github(env: Env, o: { state?: (s: string) => string; cookie?: str
 }
 
 describe("accounts: GitHub sign-in (OAuth web flow)", () => {
+  it("stored credentials are trimmed, and a refused code (GitHub answers 200 with an error) says GitHub's error code", async () => {
+    const padded = setup({ GITHUB_CLIENT_ID: "Iv1.abc\n", GITHUB_CLIENT_SECRET: " gh-shh\n" });
+    const ok = await github(padded.env);
+    expect(ok.res.status).toBe(302);
+    const refused = await github(setup(GITHUB).env, { tokenBody: { error: "incorrect_client_credentials", error_description: "The client_id and/or client_secret passed are incorrect." } });
+    expect(refused.res.status).toBe(502);
+    const html = await refused.res.text();
+    expect(html).toContain("GitHub answered: incorrect_client_credentials");
+    expect(html).not.toContain("gh-shh");
+    expect(refused.calls).toEqual([GITHUB_TOKEN_URL]);
+  });
+
   it("an error parameter (consent refused) sends you back to sign-in without calling GitHub, and clears the cookie", async () => {
     const { env, sql } = setup(GITHUB);
     const { res, calls } = await github(env, { query: "error=access_denied&state=x" });
@@ -1056,8 +1093,8 @@ describe("accounts: GitHub sign-in (OAuth web flow)", () => {
 
 // ------------------------------------------------------------------------------------------------- Google first
 
-describe("accounts: Google first, an email and a password always; creating an account never needs a passkey", () => {
-  it("/signup and /login: Continue with Google, then the email and password form, then a small Continue with GitHub and Use a passkey", async () => {
+describe("accounts: GitHub and Google first, an email and a password always; creating an account never needs a passkey", () => {
+  it("/signup and /login: Continue with GitHub, then Continue with Google, then the email and password form, then a small Use a passkey", async () => {
     for (const over of [{}, GOOGLE, GITHUB, { ...GOOGLE, ...GITHUB }]) {
       const { env, sql } = setup(over);
       const google = "GOOGLE_CLIENT_ID" in over;
@@ -1071,11 +1108,12 @@ describe("accounts: Google first, an email and a password always; creating an ac
         expect(html, tag).toContain(path === "/signup" ? 'autocomplete="new-password"' : 'autocomplete="current-password"');
         expect(html, tag).toContain('autocomplete="username"');
         expect(html, tag).toContain('<button class="lnk" id="pk" type="button"><span>Use a passkey</span></button>');
-        // the owner's order: Google, the form, GitHub (small), the passkey link
-        const at = [google ? html.indexOf("Continue with Google") : -1, html.indexOf('id="pwf"'), github ? html.indexOf("Continue with GitHub") : -1, html.indexOf('id="pk"')].filter((i) => i >= 0);
+        // the owner's order (2026-10-18): GitHub, Google, the form, the passkey link
+        const at = [github ? html.indexOf("Continue with GitHub") : -1, google ? html.indexOf("Continue with Google") : -1, html.indexOf('id="pwf"'), html.indexOf('id="pk"')].filter((i) => i >= 0);
         expect(at, tag).toEqual([...at].sort((a, b) => a - b));
-        // GitHub is a small link next to the passkey one, not a full-width button
-        if (github) expect(html, tag).toMatch(/<p class="alt"><a href="\/auth\/github"><svg[^]*?<span>Continue with GitHub<\/span><\/a><button class="lnk" id="pk"/);
+        // GitHub is a full-width button like Google's; the small links are only Use a passkey
+        if (github) expect(html, tag).toMatch(/<a class="btn prov paper" href="\/auth\/github"><svg[^]*?<span>Continue with GitHub<\/span><\/a>/);
+        expect(html, tag).toContain('<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>');
         expect(html, tag).not.toContain("Create account with a passkey");
         expect(html, tag).not.toContain("Sign in with a passkey");
         expect(html, tag).toContain("Dashboards come with Pro. Get a 7-day free trial for analytics.");
@@ -1604,9 +1642,9 @@ describe("accounts: what a CLI session may do", () => {
   it("lists and creates apps and claims, but cannot read stats, end other sessions, remove passkeys, change the password, turn off links or delete the account", async () => {
     const { env, sql } = setup();
     const { cookie } = await signedIn(env);
-    await startTrial(env, cookie);
+    await givePro(env, cookie);
     const bearer = await cliToken(env, cookie);
-    // nor start a trial (a browser decision)
+    // nor start a trial (a browser decision, on Stripe's checkout)
     expect((await call(env, "POST", "/api/billing/trial", { body: {}, bearer, origin: null })).status).toBe(403);
     const created = await call(env, "POST", "/api/account/projects", { body: { name: "x" }, bearer, origin: null });
     expect(created.status).toBe(201);
@@ -1831,7 +1869,7 @@ describe("accounts: the Connect panel and the account-mode sidebar", () => {
   it("while an app waits for its first event the sidebar shows Connect only; more than 4 apps collapse to the current one", async () => {
     const { env } = setup();
     const { cookie } = await signedIn(env);
-    await startTrial(env, cookie);
+    await givePro(env, cookie);
     const ids: string[] = [];
     let token = "";
     for (const name of ["a", "b", "c", "d", "e"]) {

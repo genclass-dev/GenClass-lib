@@ -4,7 +4,7 @@
     <span class="lab-chip" id="lab-chip"><span>guard</span> <span>gain margins 0</span> <span>eager profile (demo)</span></span><a class="lab-chip-link" id="lab-alt" href="/?lab-thr=default#lab">shipped defaults (observe, balanced)</a>
     <span class="lab-live"><i></i><span id="gc-live">Loading GenClass {{rt}} on your device…</span></span>
   </div>
-  <p class="lab-intro" id="lab-intro">This demo turns on guard with every gain margin at 0 and the eager profile, so you can see it act. The shipped defaults only report. Keep this tab in front: the model loads at idle and the stock poll pauses while the tab is hidden.</p>
+  <p class="lab-intro" id="lab-intro">This demo turns on guard with every gain margin at 0, the eager profile and a 1 s hold budget, so you can see it act. The shipped defaults only report. Keep this tab in front: the model loads at idle and the stock poll pauses while the tab is hidden.</p>
 
   <div class="dup">
     <div class="dup-head">
@@ -49,5 +49,5 @@
     </div>
   </div>
 
-  <p class="lab-foot">Everything above is the real <code>@genclass/runtime@{{rt}}</code> from npm, deciding on your device (<span id="gc-backend">model loading</span>). This run's settings: <code id="lab-cfg">mode: "guard", aggressiveness: "eager", policy: { thresholds: { guard: 0, heal: 0 } }</code>. The shipped defaults are <code>mode: "observe", aggressiveness: "balanced"</code>: <a href="/?lab-thr=default#lab">run the demo with them</a>, or with <a href="/?lab-mode=guard&amp;lab-thr=default#lab">guard at its shipped gates</a>. In the <a href="/docs/compatibility">compatibility matrix</a> guard at those gates left 249 of 250 runs with a latent bug buggy, so with the defaults this demo shows reports and no fix. The endpoint is real; the page asks for the delays so the race is reproducible. Telemetry is off on this site. Open DevTools to see the same <code>[GenClass]</code> lines.</p>
+  <p class="lab-foot">Everything above is the real <code>@genclass/runtime@{{rt}}</code> from npm, deciding on your device (<span id="gc-backend">model loading</span>). This run's settings: <code id="lab-cfg">mode: "guard", aggressiveness: "eager", policy: { thresholds: { guard: 0, heal: 0 }, holdBudgetMs: 1000 }</code>.<span id="lab-warm"> Before the invoice button turns on, the page asks the model one question, so the runtime has timed a real decision: runtime {{rt}} otherwise estimates the first one from its warm-up pass, which on WASM overstates it several times, and on a slower CPU then does not hold the first duplicate.</span> The shipped defaults are <code>mode: "observe", aggressiveness: "balanced"</code>: <a href="/?lab-thr=default#lab">run the demo with them</a>, or with <a href="/?lab-mode=guard&amp;lab-thr=default#lab">guard at its shipped gates</a>. In the <a href="/docs/compatibility">compatibility matrix</a> guard at those gates left 249 of 250 runs with a latent bug buggy, so with the defaults this demo shows reports and no fix. The endpoint is real; the page asks for the delays so the race is reproducible. Telemetry is off on this site. Open DevTools to see the same <code>[GenClass]</code> lines.</p>
 </div>

@@ -1,8 +1,9 @@
 // Live GenClass lab on genclass.dev: the real @genclass/runtime (script tag from jsDelivr, model on this device).
 // "Without GenClass" uses the browser's original fetch (captured before the runtime loaded); "With GenClass" uses the
-// page's fetch, which GenClass observes. The demo runs guard with every gain margin at 0 and the eager profile unless
-// ?lab-thr=default (the shipped defaults: observe mode, the balanced profile, the model's own gates; nothing
-// overridden) or ?lab-thr=<n> (that margin, eager); ?lab-mode= picks the mode in either case.
+// page's fetch, which GenClass observes. The demo runs guard with every gain margin at 0, the eager profile and a 1 s
+// hold budget unless ?lab-thr=default (the shipped defaults: observe mode, the balanced profile, the model's own gates,
+// the automatic hold budget; nothing overridden) or ?lab-thr=<n> (that margin, eager); ?lab-mode= picks the mode in
+// either case, ?lab-hold=<ms>|auto the demo's hold budget.
 (() => {
   const $ = (id) => document.getElementById(id);
   const lab = $("lab");
@@ -14,11 +15,20 @@
   const thr = qs.get("lab-thr") ?? "0";
   const shipped = thr === "default"; // no policy or aggressiveness override at all
   const mode = qs.get("lab-mode") || (shipped ? "observe" : "guard");
+  // The demo's hold budget: how long a held request may wait for the model. The runtime's automatic budget is 1.5x the
+  // median of its recent decisions (150-800 ms), and the duplicate POST's decision is often longer than that median:
+  // the question below decides in ~0.1-0.2 s (a 150-300 ms budget), and on a CPU half as fast as the train VM's a
+  // press right after the button turned on took up to 815 ms (later ones ~300 ms). By the code, a POST that arrives
+  // while another decision is computing is not held at all under the automatic budget (its expected wait, two
+  // decisions, is over 1.5x one). A fixed 1 s holds these (site/check/dup-demo-measure.mjs; numbers in the PR).
+  // Labelled with the other settings.
+  const hold = shipped ? "auto" : qs.get("lab-hold") || "1000";
+  const holdMs = hold === "auto" || !(Number(hold) >= 0) ? null : Number(hold);
   let rt = null;
   try {
     rt = GC && GC.init({
       mode,
-      ...(shipped ? {} : { policy: { thresholds: { guard: Number(thr), heal: Number(thr) } }, aggressiveness: "eager" }),
+      ...(shipped ? {} : { policy: { thresholds: { guard: Number(thr), heal: Number(thr) }, ...(holdMs === null ? {} : { holdBudgetMs: holdMs }) }, aggressiveness: "eager" }),
       telemetry: false,
       report: "console",
       observe: { untrustedEvents: true },
@@ -33,7 +43,7 @@
   // ---------- label this run's settings exactly ----------
   text($("lab-cfg"), shipped
     ? `mode: "${mode}", aggressiveness: "balanced"`
-    : `mode: "${mode}", aggressiveness: "eager", policy: { thresholds: { guard: ${Number(thr)}, heal: ${Number(thr)} } }`);
+    : `mode: "${mode}", aggressiveness: "eager", policy: { thresholds: { guard: ${Number(thr)}, heal: ${Number(thr)} }${holdMs === null ? "" : `, holdBudgetMs: ${holdMs}`} }`);
   // three parts, each kept on one line, with a space between them for screen readers; the CSS adds a dot between them
   // on a wide screen and lays them out with a gap on a phone, so no dot ever hangs at the end of a line
   const chip = $("lab-chip");
@@ -45,10 +55,26 @@
     const alt = $("lab-alt");
     if (alt) { alt.href = "/#lab"; alt.textContent = "back to the demo setting (guard, margins 0)"; }
   }
+  if (holdMs === null) $("lab-warm")?.remove(); // the question at load comes with the demo's explicit hold budget only
 
   // ---------- status ----------
-  let ready = false;
+  // In the demo setting the invoice button also waits for one measured decision. Before its first one, runtime 0.2.2
+  // estimates a decision from the model's warm-up pass, which on WASM is timed cold and scaled to a full situation:
+  // about 4-7x a real decision. A request is held only when that estimate fits the hold budget, so on a CPU half as
+  // fast as the train VM's the first press of every visit went out unheld (0 of 20 caught). One question to the model
+  // when it is ready gives the runtime a measured latency, as a page that already had a salient request has; the
+  // lab's foot says so. Only with the explicit budget: with "auto" the question's short decision would set the budget
+  // (150 ms, shorter than the POST's decision), and the shipped-defaults runs add nothing.
+  let ready = false, measured = holdMs === null, warming = false;
   const go = $("dup-go");
+  function warm() {
+    if (warming || measured || !rt) return;
+    warming = true;
+    Promise.resolve()
+      .then(() => rt.ask({ type: "score", instructions: "How busy is the app right now?", criteria: ["idle", "light", "busy"] }, { timeoutMs: 20000 }))
+      .catch(() => {})
+      .finally(() => { measured = true; setStatus(rt.status); });
+  }
   function setStatus(s) {
     if (!s) return;
     if (s.device) text($("gc-backend"), s.device + (s.variant ? " · " + s.variant : "") + (s.loadMs ? " · loaded in " + (s.loadMs / 1000).toFixed(1) + " s" : ""));
@@ -56,12 +82,13 @@
       ready = true;
       text($("gc-live"), "GenClass" + (RTV ? " " + RTV : "") + " running on your device");
       lab.classList.add("is-ready");
+      warm();
     } else if (s.state === "loading" || s.state === "unloaded") {
       text($("gc-live"), "Loading the GenClass model on your device…");
     } else {
       text($("gc-live"), "Model unavailable here: GenClass only observes");
     }
-    go.disabled = !ready && (s.state === "loading" || s.state === "unloaded");
+    go.disabled = (ready && !measured) || (!ready && (s.state === "loading" || s.state === "unloaded"));
     text(go, go.disabled ? "Loading model…" : "Double-click both");
   }
   if (rt) { setStatus(rt.status); rt.on("status", setStatus); }

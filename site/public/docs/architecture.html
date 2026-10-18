@@ -7,14 +7,15 @@
 <meta name="description" content="How the GenClass runtime is built: observers, causality, stores, facts, triage, the policy gate, actions and the on-device model host.">
 <link rel="canonical" href="https://genclass.dev/docs/architecture">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="author" content="GenClass">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="GenClass">
 <meta property="og:url" content="https://genclass.dev/docs/architecture">
 <meta property="og:title" content="GenClass Runtime Architecture">
 <meta property="og:description" content="How the GenClass runtime is built: observers, causality, stores, facts, triage, the policy gate, actions and the on-device model host.">
-<meta property="og:image" content="https://genclass.dev/og.png?v=5">
+<meta property="og:image" content="https://genclass.dev/og.png?v=6">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="GenClass: Catch the bugs that never throw. Then stop them.">
@@ -22,28 +23,33 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="GenClass Runtime Architecture">
 <meta name="twitter:description" content="How the GenClass runtime is built: observers, causality, stores, facts, triage, the policy gate, actions and the on-device model host.">
-<meta name="twitter:image" content="https://genclass.dev/og.png?v=5">
+<meta name="twitter:image" content="https://genclass.dev/og.png?v=6">
 <link rel="icon" href="/brand/mark-32.png?v=2" sizes="32x32" type="image/png">
 <link rel="icon" href="/brand/mark-64.png?v=2" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Architecture", "item": "https://genclass.dev/docs/architecture"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime: architecture", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-15", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ARCHITECTURE.md"}]}</script>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="/styles.css?v=62e41e5d">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Architecture", "item": "https://genclass.dev/docs/architecture"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime: architecture", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-18", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ARCHITECTURE.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="nav">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
+    <a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>
     <nav aria-label="Main"><a href="/docs" class="on" aria-current="page">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a></nav>
-    <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <a class="gh signin" href="/login">Sign in</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
-    <a class="btn" href="/docs">Get started</a>
+    <div class="right">
+      <a class="gh" href="https://www.npmjs.com/package/@genclass/runtime">npm</a>
+      <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
+      <a class="gh signin" href="/login">Sign in</a>
+      <a class="btn" href="/docs">Get started</a>
+      <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
+    </div>
   </div>
 </header>
 <main id="main">
@@ -188,15 +194,10 @@ sizes, R17 (17M parameters) and R32 (32M), both with a pruned 16k vocabulary and
   and in heal. Reports cover bug rate, false interventions on clean runs, and added latency.</li>
 </ul></article></div></section>
 </main>
-<footer class="end">
+<footer class="foot-wrap">
   <div class="wrap">
-    <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Add one line and read what it reports.</h2>
-    <div class="row">
-      <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
-    </div>
-    <div class="foot-cols">
+    <div class="foot-grid">
+      <div class="foot-brand"><a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a><p>Catch the bugs that never throw, with a model that runs in the browser.</p></div>
       <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
@@ -204,9 +205,10 @@ sizes, R17 (17M parameters) and R32 (32M), both with a pruned 16k vocabulary and
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
+      <span>Made for developers who read the console.</span>
     </div>
   </div>
 </footer>
-<script src="/app.js?v=7e896e7d" defer></script>
+<script src="/app.js?v=69ea04e3" defer></script>
 </body>
 </html>
