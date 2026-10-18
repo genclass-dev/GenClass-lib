@@ -229,8 +229,8 @@ What the build (2026-10-18) does where this note was not specific, or differs:
 - **Route changes** come from the runtime's `nav` events when the nav observer is on (exact); without it, from
   `location.pathname` at the next input, so the time between a navigation and that input counts for the previous page.
 - **First-load cost:** 288 B gzip on `/auto` and 275 B on the main entry over main (RESULTS.md section 15), under the
-  CI gate (0.6 KB) but over `test/bundle.test.ts`'s limits, which this branch raises to 108.6 / 100.48 KB: **the
-  owner's OK on those limits is still needed.**
+  CI gate (0.6 KB) but over `test/bundle.test.ts`'s limits, which this branch raises to 108.6 / 100.48 KB (approved
+  by the owner on 2026-10-18).
 - **Collector.** `ix_*` counters (section 3) in a separate per-batch budget of 200; at most 60 element keys read per
   map, counts above 10,000 per key per event and engaged time above 24 h per event ignored; element keys cut to 120
   characters and routes to 100. Stats keep the top 200 keys of every `ix_*` metric, add `ix_views` to the timeline and
