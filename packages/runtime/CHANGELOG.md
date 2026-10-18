@@ -2,7 +2,15 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
-<<<<<<< HEAD
+- **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
+  uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
+  red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the
+  current GenClass mark (drawn inline, no image request). It is black by default whatever the page's or the OS's
+  theme: `theme` defaulted to `"auto"` before and now defaults to `"dark"`; `"light"` gives the same design on white
+  and `"auto"` still follows `prefers-color-scheme`. Type is the system UI font and a system mono stack: the overlay
+  no longer names Inter or JetBrains Mono, so a page that declares either as a web font no longer downloads it for
+  the overlay. The tab row scrolls sideways instead of hiding Expectations and Now past the panel's edge, and the
+  header no longer clips the name. Every view, control and string is the same; no model-visible text changed.
 - **Interaction analytics, off by default (`analytics: true`; [docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md)).**
   An app that sets `analytics: true` with its token also sends `interactions` telemetry events for its dashboard: per
   page view, the route, engaged time (the tab visible, at most 30 s after the last input), scroll depth milestones
@@ -16,17 +24,6 @@
   changed (`situation-v2.3`), and nothing reaches a situation, a decision or the model. First-load cost of the stub:
   about 0.29 KB gzip on `/auto` and 0.27 KB on the main entry (TELEMETRY.md "Interaction analytics", README "Privacy
   and telemetry", API.md, INTERCEPTION.md).
-=======
-- **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
-  uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
-  red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the
-  current GenClass mark (drawn inline, no image request). It is black by default whatever the page's or the OS's
-  theme: `theme` defaulted to `"auto"` before and now defaults to `"dark"`; `"light"` gives the same design on white
-  and `"auto"` still follows `prefers-color-scheme`. Type is the system UI font and a system mono stack: the overlay
-  no longer names Inter or JetBrains Mono, so a page that declares either as a web font no longer downloads it for
-  the overlay. The tab row scrolls sideways instead of hiding Expectations and Now past the panel's edge, and the
-  header no longer clips the name. Every view, control and string is the same; no model-visible text changed.
->>>>>>> 2d815e35ab3f796760c1de91b51dee3c45822dde
 - **CLI copy: the dashboard needs Pro (get a 7-day free trial for analytics).** genclass.dev's dashboards now come
   with Pro; `init`'s dashboard notice and help, the top-level help and the README say so next to the private
   dashboard link, with the trial's length (7 days, the same as `trial_days` in `billing/plans.json`). A link made by
