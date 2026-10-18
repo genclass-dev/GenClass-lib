@@ -76,12 +76,13 @@ export type IconName = keyof typeof ICONS;
 export const icon = (name: IconName, cls = "i"): Element =>
   svg(`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name]}</svg>`);
 
-let markN = 0;
-/** The GenClass mark: the brand's blue-violet tile with a white trace line. Unique gradient id per instance. */
+/**
+ * The GenClass mark as on genclass.dev, in flat colours: a green arrow and a red-orange one turning into a G. Drawn
+ * inline (no image request); the `.mg` path cuts the gap around the red arrowhead in the overlay's ground colour.
+ */
 export function mark(): Element {
-  const id = `gcm${++markN}`;
   return svg(
-    `<svg class="mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f6cf2"/><stop offset="1" stop-color="#7b3cf0"/></linearGradient></defs><rect width="24" height="24" rx="7" fill="url(#${id})"/><path d="M5 12.6h3.1l2-4.8 3.5 9 2-4.2H19" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="12.6" r="1.6" fill="#ffd166"/></svg>`,
+    `<svg class="mark" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><path fill="#2FD07F" d="M300 46C215 44 120 70 62 140C10 205 10 300 52 355C85 400 130 422 172 432L212 368C170 345 135 300 132 255C129 200 170 150 230 140C255 137 280 137 300 137Z"/><path fill="#2FD07F" stroke="#2FD07F" stroke-width="16" stroke-linejoin="round" d="M300 24L398 97L300 170Z"/><path class="mg" d="M272 352L166 423L272 494Z"/><path fill="#FF5A36" d="M338 229H430C474 229 496 262 496 310C496 400 430 462 334 462H268V384H334C380 384 410 360 410 330C410 312 396 301 372 301H338A36 36 0 0 1 338 229Z"/><path fill="#FF5A36" stroke="#FF5A36" stroke-width="16" stroke-linejoin="round" d="M272 352L166 423L272 494Z"/></svg>`,
   );
 }
 
