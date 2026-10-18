@@ -3,9 +3,51 @@ const $ = id => document.getElementById(id);
 
 document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(b.dataset.copy); } catch {}
-  const k = b.querySelector(".k"); b.classList.add("done"); k.textContent = "Copied";
-  setTimeout(() => { b.classList.remove("done"); k.textContent = "Copy"; }, 1600);
+  const k = b.querySelector(".k"); b.classList.add("done"); if (k) k.textContent = "Copied";
+  setTimeout(() => { b.classList.remove("done"); if (k) k.textContent = "Copy"; }, 1600);
 }));
+
+// nav rule once the page scrolls, and sections that fade in as they arrive
+const nav = document.querySelector(".nav");
+if (nav) { const f = () => nav.classList.toggle("scrolled", scrollY > 8); addEventListener("scroll", f, { passive: true }); f(); }
+const seen = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); seen.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" });
+document.querySelectorAll(".reveal, .race").forEach(el => seen.observe(el));
+
+// home "Set up in a minute": each step shows its own terminal, typed in
+document.querySelectorAll("[data-setup]").forEach(box => {
+  const items = [...box.querySelectorAll(".steps2 li")], srcs = [...box.querySelectorAll("[data-step-src]")];
+  const term = box.querySelector("[data-term]"), title = box.querySelector("[data-term-title]");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let run = 0;
+  function show(i) {
+    items.forEach((li, j) => { li.classList.toggle("on", i === j); li.querySelector("button").setAttribute("aria-expanded", i === j); });
+    const src = srcs[i]; if (!src || !term) return;
+    if (title) title.textContent = src.dataset.title || "";
+    const id = ++run, lines = src.innerHTML.split("\n");
+    if (still) { term.innerHTML = src.innerHTML; return; }
+    term.innerHTML = "";
+    const caret = document.createElement("span"); caret.className = "caret"; caret.setAttribute("aria-hidden", "true");
+    let n = 0;
+    const next = () => {
+      if (id !== run) return;
+      if (n >= lines.length) { term.append(caret); return; }
+      const line = lines[n++], tmp = document.createElement("div"); tmp.innerHTML = line;
+      const prompt = tmp.firstElementChild?.classList.contains("p") ? tmp.firstElementChild : null;
+      if (n > 1) term.append("\n");
+      if (!prompt) { term.insertAdjacentHTML("beforeend", line); term.append(caret); setTimeout(next, 90); return; }
+      const text = line.slice(line.indexOf("</span>") + 7).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+      term.append(prompt);
+      const typed = document.createTextNode(""); term.append(typed, caret);
+      let c = 0;
+      const type = () => { if (id !== run) return; typed.data = text.slice(0, ++c); if (c < text.length) setTimeout(type, 28); else setTimeout(next, 260); };
+      setTimeout(type, 200);
+    };
+    next();
+  }
+  items.forEach((li, i) => li.querySelector("button").addEventListener("click", () => show(i)));
+  let started = false;
+  new IntersectionObserver(es => { if (!started && es.some(e => e.isIntersecting)) { started = true; show(0); } }, { threshold: 0.4 }).observe(box);
+});
 
 const tabs = [...document.querySelectorAll('.code [role="tab"]')];
 function select(i, focus) {
@@ -109,7 +151,7 @@ $("auto").addEventListener("click", () => {
         const r = await fetch("/forms/waitlist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
-        msg.className = "msg ok"; msg.textContent = "You're on the list. We'll be in touch soon."; form.reset();
+        msg.className = "msg ok"; msg.textContent = "Thanks. We'll be in touch soon."; form.reset();
       } catch (err) {
         msg.className = "msg err"; msg.textContent = err.message;
       } finally { btn.disabled = false; }

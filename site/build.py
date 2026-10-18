@@ -8,45 +8,45 @@ SITE = "https://genclass.dev"
 TODAY = datetime.date.today().isoformat()
 GH = "https://github.com/genclass-dev/GenClass-lib"
 NPM = "https://www.npmjs.com/package/@genclass/runtime"
-RT = "0.2.1"  # the pinned @genclass/runtime version shown on the site; "{{rt}}" in src/ renders as this
+RT = "0.2.2"  # the pinned @genclass/runtime version shown on the site; "{{rt}}" in src/ renders as this
 
 css = (SRC / "css/base.css").read_text() + "\n" + (SRC / "css/components.css").read_text()
 (PUB / "styles.css").write_text(css)
 CSSV = hashlib.sha1(css.encode()).hexdigest()[:8]
 JSV = hashlib.sha1((PUB / "app.js").read_bytes()).hexdigest()[:8]
 
-NAV = [("Cloud", "/cloud", "cloud"), ("Enterprise", "/enterprise", "enterprise"), ("Pricing", "/pricing", "pricing"),
-       ("Docs", "/docs", "docs"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides")]
+NAV = [("Docs", "/docs", "docs"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides"),
+       ("Cloud", "/cloud", "cloud"), ("Enterprise", "/enterprise", "enterprise"), ("Pricing", "/pricing", "pricing")]
+LOGO = '<a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>'
 
 def nav(active):
     links = "".join(f'<a href="{h}"{" class=\"on\" aria-current=\"page\"" if k == active else ""}>{t}</a>' for t, h, k in NAV)
-    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{GH}">GitHub</a><a href="/docs">Get started</a>'
+    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{NPM}">npm</a><a href="{GH}">GitHub</a><a href="/docs">Get started</a>'
     return f'''<header class="nav">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
+    {LOGO}
     <nav aria-label="Main">{links}</nav>
-    <a class="gh" href="{GH}">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel">{mlinks}</div></details>
-    <a class="btn" href="/docs">Get started</a>
+    <div class="right">
+      <a class="gh" href="{NPM}">npm</a>
+      <a class="gh" href="{GH}">GitHub</a>
+      <a class="btn" href="/docs">Get started</a>
+      <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel">{mlinks}</div></details>
+    </div>
   </div>
 </header>'''
 
-FOOTER = f'''<footer class="end">
+FOOTER = f'''<footer class="foot-wrap">
   <div class="wrap">
-    <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Free to run. Built to scale.</h2>
-    <div class="row">
-      <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn green" href="/cloud#early-access">Join Cloud early access</a>
-    </div>
-    <div class="foot-cols">
+    <div class="foot-grid">
+      <div class="foot-brand">{LOGO}<p>Catch race conditions and stale data in production, with a model that runs in the browser.</p></div>
       <div><b>Product</b><a href="/">Runtime</a><a href="/cloud">GenClass Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="{GH}">GitHub</a><a href="{NPM}">npm</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="{GH}/blob/main/LICENSE">License (Apache-2.0)</a><a href="{GH}/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="{GH}/blob/main/LICENSE">License (Apache-2.0)</a><a href="{GH}/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
+      <span>Made for developers who read the console.</span>
     </div>
   </div>
 </footer>'''
@@ -81,7 +81,8 @@ def page(meta, body):
 <meta name="description" content="{desc}">
 <link rel="canonical" href="{url}">
 <meta name="robots" content="{robots}">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="author" content="GenClass">
 <meta property="og:type" content="{og_type}">
 <meta property="og:site_name" content="GenClass">
@@ -102,9 +103,11 @@ def page(meta, body):
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add("js")</script>
 <link rel="stylesheet" href="/styles.css?v={CSSV}">
 <script type="application/ld+json">{json.dumps({"@context": "https://schema.org", "@graph": graph}, ensure_ascii=False)}</script>
 {meta.get("head_extra", "")}</head>
@@ -209,27 +212,30 @@ def dashboard():
       <div class="view" data-panel="settings" hidden>
         <div class="app-head"><h3>Connect your app</h3></div>
         <p style="font-size: 14.5px; color: var(--ink2); margin-top: 10px">Paste the publishable project key. It can only send aggregate metrics, and the runtime keeps protecting your app if the cloud is unreachable.</p>
-        <div class="console" style="margin-top: 12px"><div class="d">// early access: proposed API</div><div>GenClass.init({{ cloud: {{ projectKey: <span class="b">"gc_pub_7Hq2…"</span> }} }});</div></div>
+        <div class="console" style="margin-top: 12px"><div class="d">// planned: proposed API</div><div>GenClass.init({{ cloud: {{ projectKey: <span class="b">"gc_pub_7Hq2…"</span> }} }});</div></div>
       </div>
     </div>
   </div>
   <p class="app-note">Product preview with sample data. GenClass Cloud is not available yet; figures here illustrate the planned dashboard and are not customer results.</p>
 </div>'''
 
-def waitlist(plan, heading, text):
-    opts = "".join(f'<option value="{v}"{" selected" if v == plan else ""}>{l}</option>' for v, l in [("cloud", "GenClass Cloud (Teams)"), ("enterprise", "GenClass Enterprise"), ("community", "Community updates")])
-    return f'''<div class="formcard" id="early-access">
-  <div><h2>{heading}</h2><p>{text}</p><p style="font-size: 14px">The open-source runtime needs no account. This list is only for the paid products and is never shared.</p></div>
-  <form class="wl" method="post" action="/forms/waitlist" data-waitlist>
+def waitlist_form(plan, button="Send"):
+    opts = "".join(f'<option value="{v}"{" selected" if v == plan else ""}>{l}</option>' for v, l in [("enterprise", "GenClass Enterprise"), ("community", "Community updates")])
+    return f'''<form class="wl" method="post" action="/forms/waitlist" data-waitlist>
     <label>Work email<input type="email" name="email" required autocomplete="email" placeholder="you@company.com"></label>
-    <div class="row2"><label>Company<input type="text" name="company" autocomplete="organization"></label>
+    <div class="row2"><label>Company<input type="text" name="company" autocomplete="organization" placeholder="Acme"></label>
     <label>Production apps<select name="apps"><option value="1">1</option><option value="2-5">2 to 5</option><option value="6-20">6 to 20</option><option value="21+">21 or more</option></select></label></div>
     <label>Interested in<select name="plan">{opts}</select></label>
     <label class="hp" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
-    <button class="btn green" type="submit">Request early access</button>
+    <button class="btn" type="submit">{button}</button>
     <div class="msg" role="status" aria-live="polite"></div>
     <small>By submitting you agree to be contacted about GenClass. See <a href="/privacy">privacy</a>.</small>
-  </form>
+  </form>'''
+
+def waitlist(plan, heading, text):
+    return f'''<div class="formcard" id="contact">
+  <div><h2>{heading}</h2><p>{text}</p><p style="font-size: 14px">The open-source runtime needs no account. This list is only for the paid products and is never shared.</p></div>
+  {waitlist_form(plan)}
 </div>'''
 
 def blocks(s):

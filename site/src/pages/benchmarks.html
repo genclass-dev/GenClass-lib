@@ -1,7 +1,7 @@
 <!--meta {"path":"/benchmarks","nav":"benchmarks","priority":"0.8","crumbs":[["Benchmarks","/benchmarks"]],
 "title":"GenClass Benchmarks: Precision, Recall and Safety on Unseen Apps",
 "og_title":"GenClass benchmarks: precision, recall and safety on held-out apps",
-"description":"Held-out results: 96% detection precision on unseen real apps (model 0.1.0, report threshold 0.70), 75% of duplicate submits detected by model 0.2.0 at its default setting, 0 non-passive actions on correct apps in 1,760 runs, and where it still misses.",
+"description":"Held-out results for the shipped model 0.2.0: 0.00% false interventions on unseen real apps, 75% of duplicate submits detected at the default setting, 86% diagnosis accuracy on real apps, 0 non-passive actions on correct apps in 1,760 runs, and where it still misses.",
 "jsonld":[{"@type":"Dataset","name":"GenClass real-app evaluation set","description":"16,600 held-out runtime situations recorded from real web apps in headless Chromium, never used for training, labelled by counterfactual replay.","creator":{"@id":"https://genclass.dev/#org"},"license":"https://www.apache.org/licenses/LICENSE-2.0","url":"https://genclass.dev/benchmarks","isAccessibleForFree":true},
 {"@type":"TechArticle","headline":"GenClass benchmarks","author":{"@id":"https://genclass.dev/#org"},"publisher":{"@id":"https://genclass.dev/#org"},"dateModified":"2026-10-10"}]} -->
 <div class="page-hero">
@@ -10,9 +10,9 @@
     <h1>Measured on apps <em>it never saw.</em></h1>
     <p class="lede">Every number here comes from held-out test sets: simulated apps it wasn't trained on, and real apps run in Chromium that were kept out of training. Each recall sits next to its false-intervention rate, so you can see exactly what you are trading. Each number is labelled with the model it measures, 0.1.0 (r17-v2b) or the shipped 0.2.0 (r17-v2dT), and the report threshold used; the shipped default threshold is 0.90.</p>
     <div class="stats">
-      <div class="stat"><div class="big g">96%</div><p>detection precision on unseen real apps</p><small>model 0.1.0, report threshold 0.70</small></div>
+      <div class="stat"><div class="big g">0.00%</div><p>false interventions on unseen real apps, at every aggressiveness profile</p><small>model 0.2.0 · 0.13% guard FIR on simulated apps at the default, recall 7.5% on real apps</small></div>
       <div class="stat"><div class="big">75%</div><p>of duplicate submits detected on unseen real apps</p><small>model 0.2.0, default setting</small></div>
-      <div class="stat"><div class="big">91%</div><p>recall on slow calls at 94% precision, simulated test apps</p><small>model 0.1.0, report threshold 0.70</small></div>
+      <div class="stat"><div class="big">86%</div><p>diagnosis accuracy on held-out real apps</p><small>model 0.2.0 · real3e 86.4%, real2e 85.5%</small></div>
       <div class="stat"><div class="big g">0</div><p>non-passive actions on correct apps in 1,760 guard and heal runs</p><small>compatibility matrix, 7 frameworks, 15 data layers</small></div>
     </div>
   </div>

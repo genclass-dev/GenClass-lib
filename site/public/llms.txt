@@ -4,7 +4,7 @@
 
 ## Products and pricing
 - Community runtime: $0, unlimited use including commercial, no account or API key. https://genclass.dev/docs
-- GenClass Cloud (Teams): from $99/month, not available yet (early-access list). https://genclass.dev/cloud
+- GenClass Cloud (Teams): from $99/month, not available yet. https://genclass.dev/cloud
 - GenClass Enterprise: from $15k/year, not available yet (design-partner program). https://genclass.dev/enterprise
 - Plan comparison: https://genclass.dev/pricing
 
@@ -12,10 +12,10 @@
 - `npm install @genclass/runtime`, then `import { GenClass } from "@genclass/runtime"; GenClass.init();`
 - CLI: `npx @genclass/runtime init`; script tag: `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime" data-mode="observe"></script>`
 - Modes: observe (default, changes nothing), guard (discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync)
-- Shipped: @genclass/runtime 0.2.0 with @genclass/runtime-model 0.2.0 (training run r17-v2dT); default report threshold 0.90, default aggressiveness "balanced"
+- Shipped: @genclass/runtime 0.2.2 with @genclass/runtime-model 0.2.0 (training run r17-v2dT); default report threshold 0.90, default aggressiveness "balanced"
 
 ## Results on held-out data (https://genclass.dev/benchmarks)
-- 96% detection precision on real apps never used in training (16,600 situations): model 0.1.0 (r17-v2b) at report threshold 0.70
+- Shipped model 0.2.0 (r17-v2dT): 0.00% false interventions on held-out real apps at every aggressiveness profile (0.13% guard false-intervention rate on simulated apps at the default); diagnosis accuracy 85.5–86.4% on held-out real apps
 - Model 0.2.0 at its default setting detects 75% of duplicate submits, 21–30% of stale overwrites and 6% of broken state on unseen real apps; guard acts on about 8% of the cases where acting would help
 - 0 false interventions on held-out real apps at any aggressiveness setting; 0 non-passive actions on correct apps in 1,760 guard and heal runs across 7 frameworks and 15 data layers, 0 bugs introduced in 3,510 runs (https://genclass.dev/docs/compatibility)
 - Where it still misses: on six demo apps under chaos the bug rate is 72% off, 70% observe, 72% guard, 73% heal at the default setting; nothing is healed at the shipped gates

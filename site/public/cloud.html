@@ -7,7 +7,8 @@
 <meta name="description" content="A planned dashboard for apps running GenClass: detections, interventions and undo rates, release comparisons, alerts and safe rollouts. Not available yet; built with design partners.">
 <link rel="canonical" href="https://genclass.dev/cloud">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="author" content="GenClass">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="GenClass">
@@ -28,32 +29,37 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=0ca3ba97">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="/styles.css?v=e0829a24">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Cloud", "item": "https://genclass.dev/cloud"}]}, {"@type": "SoftwareApplication", "name": "GenClass Cloud", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "Reliability monitoring", "operatingSystem": "Web", "url": "https://genclass.dev/cloud", "description": "Central dashboard, release comparisons, alerts, rollouts and team controls for apps running the GenClass runtime.", "offers": {"@type": "Offer", "price": "99", "priceCurrency": "USD", "availability": "https://schema.org/PreOrder"}, "publisher": {"@id": "https://genclass.dev/#org"}}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="nav">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
-    <nav aria-label="Main"><a href="/cloud" class="on" aria-current="page">Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a></nav>
-    <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/cloud">Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
-    <a class="btn" href="/docs">Get started</a>
+    <a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>
+    <nav aria-label="Main"><a href="/docs">Docs</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/cloud" class="on" aria-current="page">Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a></nav>
+    <div class="right">
+      <a class="gh" href="https://www.npmjs.com/package/@genclass/runtime">npm</a>
+      <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
+      <a class="btn" href="/docs">Get started</a>
+      <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/cloud">Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/docs">Get started</a></div></details>
+    </div>
   </div>
 </header>
 <main id="main">
 <div class="page-hero">
   <div class="wrap">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Cloud</span></nav>
-    <span class="badge">Early access</span>
+    <span class="badge n">Planned</span>
     <p class="notice">GenClass Cloud is not available yet. We are building it with design partners; the open-source runtime is what ships today.</p>
     <h1 style="margin-top: 18px">See what GenClass reported and prevented, <em>across every app.</em></h1>
     <p class="lede">GenClass Cloud will be the control plane for every app running GenClass. One dashboard for what was reported, what was prevented and what got worse, with alerts and rollout controls your whole team shares.</p>
-    <div class="ctas"><a class="btn green" href="#early-access">Request early access</a><a class="btn ghost" href="/pricing">See pricing</a></div>
+    <div class="ctas"><a class="btn green" href="/docs">Install the runtime</a><a class="btn ghost" href="/pricing">See pricing</a></div>
 <div class="app" data-app>
   <div class="app-top"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="url">app.genclass.dev / acme / storefront-web</span><span class="badge n sample">Preview · sample data</span></div>
   <div class="app-body">
@@ -132,7 +138,7 @@
       <div class="view" data-panel="settings" hidden>
         <div class="app-head"><h3>Connect your app</h3></div>
         <p style="font-size: 14.5px; color: var(--ink2); margin-top: 10px">Paste the publishable project key. It can only send aggregate metrics, and the runtime keeps protecting your app if the cloud is unreachable.</p>
-        <div class="console" style="margin-top: 12px"><div class="d">// early access: proposed API</div><div>GenClass.init({ cloud: { projectKey: <span class="b">"gc_pub_7Hq2…"</span> } });</div></div>
+        <div class="console" style="margin-top: 12px"><div class="d">// planned: proposed API</div><div>GenClass.init({ cloud: { projectKey: <span class="b">"gc_pub_7Hq2…"</span> } });</div></div>
       </div>
     </div>
   </div>
@@ -165,42 +171,25 @@
       <div class="link"><div class="lvl">Optional · explicitly enabled</div><h3>Publishable project key</h3><p>Aggregate metrics out, policies in. No source code, request bodies or user state.</p></div>
       <div class="paid"><div class="lvl">GenClass Cloud · paid, planned</div><h3>Control plane</h3><p>Dashboard, release comparisons, alerts, rollouts and team controls.</p></div>
     </div>
-<div class="formcard" id="early-access">
-  <div><h2>Get GenClass Cloud early access</h2><p>We are onboarding a small group of teams running GenClass in production. Tell us about your apps and we will reach out.</p><p style="font-size: 14px">The open-source runtime needs no account. This list is only for the paid products and is never shared.</p></div>
-  <form class="wl" method="post" action="/forms/waitlist" data-waitlist>
-    <label>Work email<input type="email" name="email" required autocomplete="email" placeholder="you@company.com"></label>
-    <div class="row2"><label>Company<input type="text" name="company" autocomplete="organization"></label>
-    <label>Production apps<select name="apps"><option value="1">1</option><option value="2-5">2 to 5</option><option value="6-20">6 to 20</option><option value="21+">21 or more</option></select></label></div>
-    <label>Interested in<select name="plan"><option value="cloud" selected>GenClass Cloud (Teams)</option><option value="enterprise">GenClass Enterprise</option><option value="community">Community updates</option></select></label>
-    <label class="hp" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
-    <button class="btn green" type="submit">Request early access</button>
-    <div class="msg" role="status" aria-live="polite"></div>
-    <small>By submitting you agree to be contacted about GenClass. See <a href="/privacy">privacy</a>.</small>
-  </form>
-</div>
   </div>
 </section>
 
 </main>
-<footer class="end">
+<footer class="foot-wrap">
   <div class="wrap">
-    <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Free to run. Built to scale.</h2>
-    <div class="row">
-      <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn green" href="/cloud#early-access">Join Cloud early access</a>
-    </div>
-    <div class="foot-cols">
+    <div class="foot-grid">
+      <div class="foot-brand"><a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a><p>Catch race conditions and stale data in production, with a model that runs in the browser.</p></div>
       <div><b>Product</b><a href="/">Runtime</a><a href="/cloud">GenClass Cloud</a><a href="/enterprise">Enterprise</a><a href="/pricing">Pricing</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
-      <div><b>Company</b><a href="/privacy">Privacy</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
+      <div><b>Company</b><a href="/privacy">Privacy</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
+      <span>Made for developers who read the console.</span>
     </div>
   </div>
 </footer>
-<script src="/app.js?v=7a4fd5f9" defer></script>
+<script src="/app.js?v=d8e98717" defer></script>
 </body>
 </html>

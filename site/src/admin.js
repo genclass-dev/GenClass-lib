@@ -11,7 +11,7 @@ let lastViewIngest = 0;
 const NOINDEX = {
   "x-robots-tag": "noindex, nofollow", "cache-control": "no-store", "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff", "x-frame-options": "DENY",
-  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src https://fonts.gstatic.com https://cdn.fontshare.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
 };
 
 // ---------- auth ----------

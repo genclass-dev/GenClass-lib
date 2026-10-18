@@ -10,7 +10,7 @@
             <div class="colg"><div class="dx" style="height: 90.5%"><span>90.5</span></div><div class="ax" style="height: 81.9%"><span>81.9</span></div></div>
           </div>
           <div class="xl"><span>Base model, no runtime data</span><span>Curriculum, 1.2M rows</span><span>Simulator pilot, 224k rows</span><span>Round 1, 448k rows</span></div>
-          <div class="legend"><span><span class="key" style="background: #0E1F4D"></span>diagnosis %</span><span><span class="key" style="background: #14B86A"></span>action %</span></div>
+          <div class="legend"><span><span class="key" style="background: #F0F1E9"></span>diagnosis %</span><span><span class="key" style="background: #2FD07F"></span>action %</span></div>
         </div>
         <figcaption><b>Fig. 1</b> Round 1 used situation format v1. The stricter v2 format, with honest labels, scores 84.2% / 77.8% on simulated apps and 83.6% / 80.0% on real apps.</figcaption>
       </figure>
@@ -74,18 +74,18 @@
           <div class="ftitle">More caught at the same safety, each round</div>
           <div class="fsub">Heal-mode gain captured at a fixed false-intervention budget</div>
           <svg class="chart" viewBox="0 0 640 262" role="img" aria-label="Line chart. At false-intervention budgets of 0.05, 0.1, 0.2 and 0.5 percent, model v2dT captures 2.1, 3.4, 6.2 and 12.3 percent; v2d 1.6, 2.5, 5.3 and 10.0; v2c 1.6, 2.8, 4.6 and 8.3.">
-            <line x1="60" x2="540" y1="165.7" y2="165.7" stroke="#DFE4EC"></line>
-            <line x1="60" x2="540" y1="111.4" y2="111.4" stroke="#DFE4EC"></line>
-            <line x1="60" x2="540" y1="57.1" y2="57.1" stroke="#DFE4EC"></line>
-            <line x1="60" x2="540" y1="220" y2="220" stroke="#0E1F4D"></line>
+            <line x1="60" x2="540" y1="165.7" y2="165.7" stroke="#30312B"></line>
+            <line x1="60" x2="540" y1="111.4" y2="111.4" stroke="#30312B"></line>
+            <line x1="60" x2="540" y1="57.1" y2="57.1" stroke="#30312B"></line>
+            <line x1="60" x2="540" y1="220" y2="220" stroke="#F0F1E9"></line>
             <text x="50" y="224" text-anchor="end">0%</text><text x="50" y="169.7" text-anchor="end">4%</text><text x="50" y="115.4" text-anchor="end">8%</text><text x="50" y="61.1" text-anchor="end">12%</text>
             <text x="60" y="244" text-anchor="middle">0.05%</text><text x="220" y="244" text-anchor="middle">0.1%</text><text x="380" y="244" text-anchor="middle">0.2%</text><text x="540" y="244" text-anchor="middle">0.5%</text>
-            <path d="M60,198.3 L220,182 L380,157.6 L540,107.4" fill="none" stroke="#AAB4C8" stroke-width="2"></path>
-            <path d="M60,198.3 L220,186.1 L380,148.1 L540,84.3" fill="none" stroke="#0E1F4D" stroke-width="2"></path>
-            <path d="M60,191.5 L220,173.9 L380,135.9 L540,53.1" fill="none" stroke="#14B86A" stroke-width="3"></path>
-            <circle cx="60" cy="191.5" r="4" fill="#14B86A"></circle><circle cx="220" cy="173.9" r="4" fill="#14B86A"></circle><circle cx="380" cy="135.9" r="4" fill="#14B86A"></circle><circle cx="540" cy="53.1" r="4" fill="#14B86A"></circle>
-            <text x="552" y="57" style="fill: #08794A">v2dT 12.3%</text>
-            <text x="552" y="88" style="fill: #0E1F4D">v2d 10.0%</text>
+            <path d="M60,198.3 L220,182 L380,157.6 L540,107.4" fill="none" stroke="#46463E" stroke-width="2"></path>
+            <path d="M60,198.3 L220,186.1 L380,148.1 L540,84.3" fill="none" stroke="#F0F1E9" stroke-width="2"></path>
+            <path d="M60,191.5 L220,173.9 L380,135.9 L540,53.1" fill="none" stroke="#2FD07F" stroke-width="3"></path>
+            <circle cx="60" cy="191.5" r="4" fill="#2FD07F"></circle><circle cx="220" cy="173.9" r="4" fill="#2FD07F"></circle><circle cx="380" cy="135.9" r="4" fill="#2FD07F"></circle><circle cx="540" cy="53.1" r="4" fill="#2FD07F"></circle>
+            <text x="552" y="57" style="fill: #2FD07F">v2dT 12.3%</text>
+            <text x="552" y="88" style="fill: #F0F1E9">v2d 10.0%</text>
             <text x="552" y="111">v2c 8.3%</text>
           </svg>
         </div>
@@ -110,8 +110,8 @@
         <div class="ftitle">Never make a correct app worse</div>
         <div class="fsub">Plumbing test of the runtime with an always-passive model: real apps in headless Chromium, final page text and server state with and without the runtime installed</div>
         <div class="pair">
-          <div><div class="big" style="color: #C42A12">194 / 198</div><p>clean runs untouched by the v1 runtime, which held store writes. Not good enough: the React/Redux RealWorld app never rendered its home feed.</p></div>
-          <div><div class="big" style="color: #08794A">396 / 396</div><p>clean runs unchanged with the v2 runtime installed, which decides at the network boundary: 66 real apps × 6 seeds, always-passive model. With the real model, the compatibility matrix counts 0 non-passive actions on correct apps in 1,760 guard and heal runs.</p></div>
+          <div><div class="big" style="color: #FF8A6B">194 / 198</div><p>clean runs untouched by the v1 runtime, which held store writes. Not good enough: the React/Redux RealWorld app never rendered its home feed.</p></div>
+          <div><div class="big" style="color: #2FD07F">396 / 396</div><p>clean runs unchanged with the v2 runtime installed, which decides at the network boundary: 66 real apps × 6 seeds, always-passive model. With the real model, the compatibility matrix counts 0 non-passive actions on correct apps in 1,760 guard and heal runs.</p></div>
         </div>
       </div>
     </figure>
