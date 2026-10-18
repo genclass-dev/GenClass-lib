@@ -16,10 +16,12 @@
   const shipped = thr === "default"; // no policy or aggressiveness override at all
   const mode = qs.get("lab-mode") || (shipped ? "observe" : "guard");
   // The demo's hold budget: how long a held request may wait for the model. The runtime's automatic budget is 1.5x the
-  // median of its recent decisions (150-800 ms). The page's other decisions (the stock poll's, the question below) are
-  // shorter than the duplicate POST's, and a POST that arrives while one of them is computing is not held at all (its
-  // expected wait, two decisions, is over 1.5x one); on a CPU half as fast as the train VM's such a POST waited about
-  // 800 ms. A fixed 1 s holds it (site/check/dup-demo-measure.mjs; numbers in the PR). Labelled with the settings.
+  // median of its recent decisions (150-800 ms), and the duplicate POST's decision is often longer than that median:
+  // the question below decides in ~0.1-0.2 s (a 150-300 ms budget), and on a CPU half as fast as the train VM's a
+  // press right after the button turned on took up to 815 ms (later ones ~300 ms). By the code, a POST that arrives
+  // while another decision is computing is not held at all under the automatic budget (its expected wait, two
+  // decisions, is over 1.5x one). A fixed 1 s holds these (site/check/dup-demo-measure.mjs; numbers in the PR).
+  // Labelled with the other settings.
   const hold = shipped ? "auto" : qs.get("lab-hold") || "1000";
   const holdMs = hold === "auto" || !(Number(hold) >= 0) ? null : Number(hold);
   let rt = null;
