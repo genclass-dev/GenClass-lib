@@ -3,9 +3,10 @@
 // Run by .github/workflows/live-demo-check.yml (after a site deploy, and daily). Local use:
 //   DEMO_URL=https://genclass.dev/ node site/check/live-demo.mjs
 //
-// Two runs: the first with the lab's explicit hold budget (?lab-hold=900), which checks the page and the runtime's
-// action path on a WASM-only runner; the second with the runtime's automatic budget (?lab-hold=auto), which is
-// informational: on WASM the first decision can be slower than the first automatic budget (see PR #4).
+// Two runs: the first with the lab's own demo setting (a 1 s hold budget, one question to the model before the button
+// turns on), which must pass; the second with the runtime's automatic budget (?lab-hold=auto), which is informational:
+// on a slower CPU the automatic budget is often shorter than the duplicate POST's decision. Catch rates per CPU speed:
+// site/check/dup-demo-measure.mjs.
 //
 // The runtime skips held decisions in a hidden tab by design, so the check asserts document.visibilityState first.
 import { chromium } from "playwright";
@@ -54,7 +55,7 @@ async function run(label, query, { mustPass }) {
   return ok;
 }
 
-const explicit = await run("explicit hold budget", "lab-hold=900", { mustPass: true });
+const explicit = await run("demo setting (1 s hold budget)", "lab=check", { mustPass: true });
 const auto = await run("automatic hold budget", "lab-hold=auto", { mustPass: false });
 console.log(`\nsummary: explicit=${explicit ? "ok" : "FAILED"} automatic=${auto ? "ok" : "failed (informational)"}`);
 if (!explicit) process.exit(1);
