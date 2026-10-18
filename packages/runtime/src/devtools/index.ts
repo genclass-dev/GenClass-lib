@@ -69,7 +69,10 @@ export interface DevtoolsOptions {
   position?: DevtoolsPosition;
   /** Start as the small pill (default true); false opens the panel immediately. */
   collapsed?: boolean;
-  /** Default "auto" (follows prefers-color-scheme). */
+  /**
+   * Default "dark": genclass.dev's black design, whatever the page's or the OS's theme. "light" is the same design on
+   * white; "auto" follows prefers-color-scheme (light or dark) live.
+   */
   theme?: "auto" | "light" | "dark";
   /** Initially selected view. Default "interventions". */
   tab?: DevtoolsTab;
@@ -379,8 +382,8 @@ class Devtools {
     );
 
     const root = h("div", { class: "root", "data-pos": pos }, this.pill, this.panel);
-    // "auto" follows the OS setting live; "light"/"dark" are fixed.
-    const theme = o.theme ?? "auto";
+    // "auto" follows the OS setting live; "light"/"dark" are fixed. Black by default, like genclass.dev.
+    const theme = o.theme ?? "dark";
     const mql = theme === "auto" ? safe(() => (globalThis as { matchMedia?: (q: string) => MediaQueryList }).matchMedia?.("(prefers-color-scheme: dark)") ?? null, null) : null;
     const applyTheme = (): void => root.setAttribute("data-theme", theme === "auto" ? (mql?.matches ? "dark" : "light") : theme);
     applyTheme();

@@ -14,13 +14,13 @@
   stage.prepend(cv);
   const ctx = cv.getContext("2d");
   if (!ctx) return;
-  const INK = "14,31,77", RED = "240,69,28", GREEN = "20,184,106";
-  const RED_TXT = "194,54,15", GREEN_TXT = "8,121,74"; // darker red-orange and green for the note text (11px, 12px on a phone)
-  const FONT = 'px "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+  const INK = "240,241,233", RED = "255,90,54", GREEN = "47,208,127"; // drawn for the black site
+  const RED_TXT = "255,122,87", GREEN_TXT = "91,227,155"; // lighter red-orange and green for the note text on black (11px, 12px on a phone)
+  const FONT = 'px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
   // Lattice strength: AMAX in the open, AMIN under the text (still visible, but the headline stays easy to read). FADE
   // is how far from the text the lattice reaches full strength; a phone uses a shorter one (FADE_PHONE) and soft boxes
   // that hug each line of text, so open lattice shows beside the ragged lines and between the blocks, not only below.
-  const AMAX = 0.56, AMIN = 0.1, FADE = 72, FADE_PHONE = 40;
+  const AMAX = 0.34, AMIN = 0.05, FADE = 72, FADE_PHONE = 40;
   const at = (f) => AMIN + (AMAX - AMIN) * f;
   const SOFT = at(0.12); // under or right next to the text: no dots, no red or green, no pointer damage
   const OPEN = at(0.6); // where the scripted breaks may start
@@ -130,7 +130,7 @@
   // soft boxes are each line of the headline and lede and each button and name, and the caption is one too (so no
   // note covers it); the breaks only keep their centres above the caption, as on a wide screen.
   function mask() {
-    const sr = stage.getBoundingClientRect(), els = [...stage.querySelectorAll(".announce,h1,.lede,.ctas,.install-line,.fw")];
+    const sr = stage.getBoundingClientRect(), els = [...stage.querySelectorAll(".announce,.kicker,h1,.lede,.sub,.ctas,.cta2,.install-line,.install,.agent,.fw")];
     let boxes = els.map((el) => el.getBoundingClientRect());
     if (phone) {
       boxes = [];
@@ -389,7 +389,7 @@
       ctx.font = L.font;
       const healed = now >= L.tg, text = healed ? L.good : L.bad;
       const a = Math.min(1, age / 160, (L.life - age) / 450);
-      ctx.fillStyle = `rgba(255,255,255,${0.9 * a})`;
+      ctx.fillStyle = `rgba(0,0,0,${0.85 * a})`;
       ctx.fillRect(L.lx - 5, L.ly - L.h / 2, L.w, L.h);
       ctx.fillStyle = `rgba(${healed ? GREEN_TXT : RED_TXT},${a})`;
       ctx.fillText(text, L.lx, L.ly);

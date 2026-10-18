@@ -138,7 +138,7 @@ ART = {
 
 def art(fid, label):
     return (f'<svg class="vart" viewBox="0 0 160 100" role="img" aria-label="{esc(label)}">'
-            f'<rect width="160" height="100" rx="8" fill="{PANEL}"/>{ART[fid]}</svg>')
+            f'<rect width="160" height="100" fill="{PANEL}"/>{ART[fid]}</svg>')
 
 # The catalog's families in its order (research/visual/CATALOG.md on the visual-data branch), with the VISUAL.md v1
 # check kinds that cover each one. Sentences are plain descriptions; none carries a number.

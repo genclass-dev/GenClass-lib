@@ -1,15 +1,16 @@
 // HTML for the account pages on genclass.dev: /signup, /login, /login/forgot, /login/passkey (the passkey step after a
 // password, Google or GitHub for an account with a passkey), /login/device, /account, the email-collision page a first
-// Google sign-in can land on, and short message pages. Sign-in leads with Continue with Google, then an email and a
-// password (always there), then a small Continue with GitHub and Use a passkey; a passkey is extra security, added on
-// /account. Same shell, fonts, rules and tokens as the dashboard (src/pages.ts, the light palette and buttons of
+// Google sign-in can land on, and short message pages. Sign-in leads with Continue with GitHub, then Continue with
+// Google (each when its secrets are set), then an email and a password (always there), then a small Use a passkey; a
+// passkey is extra security, added on /account. Same shell, fonts, rules and tokens as the dashboard (src/pages.ts, the black palette and buttons of
 // genclass.dev, whatever the visitor's system theme); no boxed cards, no gradients. The sign-in column sits on the
-// site's triangle lattice (the hero mesh's grid, as a still pattern), kept clear behind the text. Server-rendered text
+// left of genclass.dev's self-healing sphere (site/public/signin-mesh.js, the /admin sign-in's backdrop). Server-rendered text
 // goes through esc(); scripts insert text with textContent. Every page is served under a per-response CSP nonce with
 // form-action 'self' (for the sign-out form).
 // Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
 import { DASH_CSS, embed, esc, LOGO, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
+import { trialTerms } from "./plans.js";
 
 // --------------------------------------------------------------------------------------------- styles, icons
 
@@ -17,21 +18,31 @@ export const ACCOUNT_CSS = `
 code{font-family:var(--mono);font-size:.9em}
 .eb{font:500 12.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
 .auth{max-width:440px;margin:0 auto;padding:44px 0 64px}
-.auth>.logo{display:inline-flex;margin-bottom:52px}
-.auth h1{font:700 clamp(28px,6vw,36px)/1.08 var(--display);letter-spacing:-.03em;margin-top:10px;text-wrap:balance}
-.auth h2{font:600 16px var(--sans);letter-spacing:-.01em;margin:0}
+.auth>.logo{display:inline-flex;margin-bottom:44px}
+.auth h1{font:500 clamp(28px,5vw,34px)/1.15 var(--display);letter-spacing:-.04em;margin-top:10px;text-wrap:balance}
+.auth h2{font:500 16px var(--sans);letter-spacing:-.015em;margin:0}
+/* the sign-in pages (shell option mesh): the column on the left, genclass.dev's self-healing sphere on the right */
+body.mesh{isolation:isolate}
+body.mesh canvas[data-mesh]{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+body.mesh main.wrap{max-width:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,40%) 1fr;min-height:100vh;min-height:100dvh}
+body.mesh header.top~main.wrap{min-height:calc(100dvh - 64px)}
+body.mesh .auth{grid-column:1;align-self:center;justify-self:center;width:min(440px,100%);max-width:none;margin:0;padding:48px 24px 56px}
+body.mesh .auth>*{animation:gcin .7s cubic-bezier(.2,.7,.2,1) both}
+body.mesh .auth>:nth-child(2){animation-delay:.05s}body.mesh .auth>:nth-child(3){animation-delay:.1s}body.mesh .auth>:nth-child(4){animation-delay:.15s}body.mesh .auth>:nth-child(n+5){animation-delay:.2s}
+@keyframes gcin{from{opacity:0;transform:translateY(8px)}}
+.mesh-cap{position:fixed;right:16px;bottom:12px;margin:0;font:11px/1.4 var(--mono);color:var(--ink3);pointer-events:none}
+.mesh-cap span+span::before{content:" · "}
+.mesh-cap span:empty{display:none}
+@media (max-width:900px){body.mesh main.wrap{grid-template-columns:1fr}body.mesh .auth{padding:40px 16px 56px}body.mesh canvas[data-mesh]{opacity:.25}.mesh-cap{display:none}}
+@media (prefers-reduced-motion:reduce){body.mesh .auth>*{animation:none}}
 .auth .lead{font-size:16px;line-height:1.55;color:var(--ink2);margin-top:12px}
-.auth .ways{margin-top:30px;padding-top:24px;border-top:1px solid var(--ink);display:grid;gap:10px}
+.auth .ways{margin-top:30px;padding-top:24px;border-top:1px solid var(--rule2);display:grid;gap:10px}
 .btn.prov{width:100%;min-height:46px;gap:10px}
 .btn.prov svg{width:18px;height:18px;flex:none}
-.btn.paper{background:var(--paper);color:var(--ink);border-color:var(--ink)}
-.btn.paper:hover{background:var(--panel);border-color:var(--ink)}
+.btn.paper{background:transparent;color:var(--ink);border-color:var(--rule2)}
+.btn.paper:hover{opacity:1;background:var(--panel);border-color:var(--ink3)}
 .btn.danger{background:transparent;color:var(--warn);border-color:var(--warn)}
 .btn.danger:hover{background:var(--warn-t);border-color:var(--warn)}
-.lat{position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--lattice) 0 0/24px 41.569px;
-  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(50% - 470px),transparent calc(50% - 270px),transparent calc(50% + 270px),#000 calc(50% + 470px));
-  mask-image:linear-gradient(90deg,#000 0,#000 calc(50% - 470px),transparent calc(50% - 270px),transparent calc(50% + 270px),#000 calc(50% + 470px))}
-@media (max-width:720px){.lat{display:none}}
 .or{display:flex;align-items:center;gap:12px;font:500 12px var(--mono);color:var(--ink3);margin:8px 0}
 .alt{font-size:14.5px;color:var(--ink2);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 22px;align-items:center}
 .alt a,.alt button.lnk,.lnk.ul{color:var(--ink);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center;gap:7px}
@@ -40,8 +51,8 @@ code{font-family:var(--mono);font-size:.9em}
 .pwf .row a{font-size:13px;color:var(--ink2)}
 .or::before,.or::after{content:"";flex:1;border-top:1px solid var(--rule)}
 .auth label,.acct-form label{display:block;font:500 12.5px var(--mono);color:var(--ink3);margin-bottom:7px}
-.auth input,.acct-form input{min-height:46px;width:100%;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans)}
-.auth input:focus-visible,.acct-form input:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.auth input,.acct-form input{min-height:46px;width:100%;padding:0 12px;border-radius:0;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans)}
+.auth input:focus-visible,.acct-form input:focus-visible{outline:1px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 .auth form{display:grid;gap:10px}
 .hint{font-size:13px;line-height:1.5;color:var(--ink3)}
 .err{font-size:14px;color:var(--warn);min-height:21px;margin-top:6px}
@@ -50,15 +61,15 @@ code{font-family:var(--mono);font-size:.9em}
 .swap a,.opt a,.auth p a{color:var(--ink)}
 .opt{margin-top:10px;font-size:13px;line-height:1.5;color:var(--ink3)}
 .detail{margin-top:14px;font:12.5px var(--mono);color:var(--ink3);overflow-wrap:anywhere}
-.notice{margin-top:22px;padding:12px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--rule);font-size:14.5px;color:var(--ink2)}
-.notice b{font-weight:600;color:var(--ink)}
+.notice{margin-top:22px;padding:12px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);font-size:14.5px;color:var(--ink2)}
+.notice b{font-weight:500;color:var(--ink)}
 .auth .notice{border:0;padding:0;margin-top:16px;color:var(--ink)}
 .notice.n-ok b{color:var(--accent)}
 .notice.n-bad b{color:var(--warn)}
 .caution{margin-top:22px;padding:12px 0 12px 14px;border-left:3px solid var(--warn);font-size:14.5px;line-height:1.5;color:var(--ink2)}
-.caution b{color:var(--warn);font-weight:600}
+.caution b{color:var(--warn);font-weight:500}
 .ucode{font:500 clamp(36px,10vw,50px)/1 var(--mono);letter-spacing:.06em;margin-top:26px;font-variant-numeric:tabular-nums;white-space:nowrap}
-dl.req{display:grid;grid-template-columns:minmax(110px,auto) minmax(0,1fr);border-top:1px solid var(--ink);margin-top:24px}
+dl.req{display:grid;grid-template-columns:minmax(110px,auto) minmax(0,1fr);border-top:1px solid var(--rule2);margin-top:24px}
 dl.req dt,dl.req dd{padding:11px 0;border-bottom:1px solid var(--rule);font-size:14.5px;min-width:0;overflow-wrap:anywhere}
 dl.req dt{font:500 12.5px var(--mono);color:var(--ink3);padding-top:13px;padding-right:16px}
 .acts{display:flex;gap:10px;margin-top:22px}
@@ -66,7 +77,7 @@ dl.req dt{font:500 12.5px var(--mono);color:var(--ink3);padding-top:13px;padding
 .step{margin-top:26px;padding-top:18px;border-top:1px solid var(--rule);display:grid;gap:10px;justify-items:start}
 .step p{font-size:14.5px;color:var(--ink2)}
 .done{margin-top:22px;font-size:15px}
-.done b{color:var(--accent);font-weight:600}
+.done b{color:var(--accent);font-weight:500}
 .acct-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:20px;max-width:680px}
 .acct-form .f{flex:1 1 260px;min-width:0}
 .blk p.intro{font-size:14.5px;color:var(--ink2);margin-top:14px;max-width:70ch}
@@ -83,7 +94,7 @@ table.dt td .tag{font:500 12px var(--mono);color:var(--accent);margin-left:8px}
   table.dt.rows thead{display:none}
   table.dt.rows tr{display:block;padding:12px 0;border-bottom:1px solid var(--rule)}
   table.dt.rows td{display:block;border:0;padding:3px 0;white-space:normal;overflow-wrap:anywhere;max-width:none}
-  table.dt.rows td:first-child{font-weight:600}
+  table.dt.rows td:first-child{font-weight:500}
   table.dt.rows td:empty{display:none}
   table.dt.rows td[data-l]::before{content:attr(data-l) " ";font:500 12px var(--mono);color:var(--ink3)}
   table.dt.rows td.act{text-align:left;padding-top:8px}
@@ -214,9 +225,16 @@ const q = (next: string | null): string => (next ? `?next=${encodeURIComponent(n
 const googleButton = (p: { google: boolean }, next: string | null): string =>
   p.google ? `<a class="btn prov paper" href="/auth/google${q(next)}">${GOOGLE_G}<span>Continue with Google</span></a>` : "";
 
-/** Every way in, in the owner's order: Google, an email and a password, then a small GitHub link and Use a passkey. */
+const githubButton = (p: { github: boolean }, next: string | null): string =>
+  p.github ? `<a class="btn prov paper" href="/auth/github${q(next)}">${GITHUB_MARK}<span>Continue with GitHub</span></a>` : "";
+
+/** The provider buttons, in the owner's order (2026-10-18): GitHub above Google; empty when neither is set up. */
+const providerButtons = (p: { google: boolean; github: boolean }, next: string | null): string =>
+  [githubButton(p, next), googleButton(p, next)].filter(Boolean).join("\n");
+
+/** Every way in, in the owner's order: GitHub, Google, an email and a password, then a small Use a passkey. */
 function signInWays(o: { google: boolean; github: boolean; next: string | null; signup?: boolean }): string {
-  const google = googleButton(o, o.next);
+  const providers = providerButtons(o, o.next);
   const form = o.signup
     ? `<form class="pwf" id="pwf" data-err="err" novalidate>
   <div><label for="email">Email</label>
@@ -233,21 +251,15 @@ function signInWays(o: { google: boolean; github: boolean; next: string | null; 
   <input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required></div>
   <button class="btn prov green" type="submit"><span>Sign in</span></button>
 </form>`;
-  const small = [
-    o.github ? `<a href="/auth/github${q(o.next)}">${GITHUB_MARK}<span>Continue with GitHub</span></a>` : "",
-    '<button class="lnk" id="pk" type="button"><span>Use a passkey</span></button>',
-  ].filter(Boolean);
-  return `${google}${google ? '\n<div class="or">or</div>' : ""}
+  return `${providers}${providers ? '\n<div class="or">or</div>' : ""}
 ${form}
 <p class="err" id="err" role="alert"></p>
-<p class="alt">${small.join("")}</p>`;
+<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>`;
 }
 
-/** The still lattice behind a sign-in column (decorative; hidden on narrow screens, where the column fills them). */
-const LATTICE = '<div class="lat" aria-hidden="true"></div>';
-
+/** A sign-in column on genclass.dev's self-healing sphere (the shell's mesh option, as on /admin's sign-in). */
 function authPage(nonce: string, title: string, inner: string, script: string): string {
-  return shell(nonce, title, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>${LATTICE}<div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, account: true });
+  return shell(nonce, title, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, account: true, mesh: true });
 }
 
 export interface AuthPageOptions {
@@ -511,7 +523,7 @@ ${signInWays({ ...v.providers, next: v.next })}
   no.addEventListener("click", function(){ answer(false); });
 })();`;
   if (v.signedIn) {
-    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>${LATTICE}<div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true });
+    return shell(nonce, "Command line sign-in | GenClass", `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${inner}</div>`, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, mesh: true });
   }
   return authPage(nonce, "Command line sign-in | GenClass", inner, script);
 }
@@ -539,8 +551,11 @@ export interface AccountView {
   password?: { email: string; created: string; updated: string; lastUsed: string | null } | null;
   providers: { google: boolean; github: boolean };
   notice?: { kind: "ok" | "bad"; text: string };
-  /** Dashboards: open (a plan, GenClass's grant or the trial), or locked with the trial still to start, or after it. */
-  dashboards?: "open" | "trial" | "ended";
+  /**
+   * Dashboards: open (a plan, GenClass's grant or the trial), or locked: with the trial to start (on Stripe, with a
+   * card), after the trial, or with the plans only (no trial offered to this account).
+   */
+  dashboards?: "open" | "trial" | "ended" | "plans";
   /** From the query: the pricing page's Start a trial (?trial=1), the locked dashboard's sign-in (?claim=1). */
   pick?: { trial: boolean; claim: boolean };
   /** Where to write when every passkey is lost. */
@@ -597,8 +612,9 @@ ${v.projects
     dash === "open"
       ? ""
       : `<section class="blk" id="plan">
-  <div class="blk-h"><h2>Dashboards come with Pro</h2><span class="aside">${dash === "trial" ? `Get a ${days}-day free trial for analytics` : "Your trial has ended"}</span></div>
-  <div class="acct-form">${dash === "trial" ? `<button class="btn green" type="button" id="trial"><span>Start your ${days}-day free trial</span></button>` : ""}<a class="btn ${dash === "trial" ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
+  <div class="blk-h"><h2>Dashboards come with Pro</h2>${dash === "plans" ? "" : `<span class="aside">${dash === "trial" ? `Get a ${days}-day free trial for analytics` : "Your trial has ended"}</span>`}</div>
+  ${dash === "trial" ? `<p class="intro">${esc(trialTerms(days))}</p>
+  ` : ""}<div class="acct-form">${dash === "trial" ? `<button class="btn green" type="button" id="trial"><span>Start your ${days}-day free trial</span></button>` : ""}<a class="btn ${dash === "trial" ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
   <p class="err" id="trialerr" role="alert"></p>
 </section>`;
   // the password: the email it signs in with; below the table, Change password (or Add a password)
@@ -788,8 +804,8 @@ you link them, your sign-in sessions and the browsers where your password was ri
   if (trial) {
     trial.addEventListener("click", function(){
       var err = document.getElementById("trialerr"); err.textContent = "";
-      gcBusy(trial, true, "Starting...");
-      gcPost("/api/billing/trial", {}).then(function(){ location.href = "/account?started=1"; }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
+      gcBusy(trial, true, "Opening Stripe...");
+      gcPost("/api/billing/trial", {}).then(function(j){ location.href = j.url; }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
     });
     if (cfg.trial) trial.focus();
   }
@@ -810,8 +826,11 @@ you link them, your sign-in sessions and the browsers where your password was ri
 export interface LockedLinkView {
   /** The app's name. */
   name: string;
-  /** The visitor's account, when signed in: whether it has Pro now (a plan, grant or trial) and can still start its trial. */
-  signedIn: { pro: boolean; canTrial: boolean } | null;
+  /**
+   * The visitor's account, when signed in: whether it has Pro now (a plan, grant or trial), can start its trial (on
+   * Stripe, with a card: src/plans.ts canTrial) and already had one.
+   */
+  signedIn: { pro: boolean; canTrial: boolean; trialUsed?: boolean } | null;
   /** Where the app is: in no account yet, in the visitor's account, or in another one. */
   owner: "none" | "mine" | "other";
   providers: { google: boolean; github: boolean };
@@ -824,8 +843,9 @@ export interface LockedLinkView {
  * "Dashboards come with Pro. Get a 7-day free trial for analytics." Signed out: Continue with Google (when configured),
  * then Sign in and Create an account (every other way in is there); the link is kept in this tab's sessionStorage only, and /account?claim=1 brings the
  * visitor back here once signed in. Signed in: add the app to the account (POST /api/account/projects/claim, as on
- * /account) and start the trial in one click, or start the trial, or see the plans. Served with the private link's own
- * headers (no referrer); the page's fetch() calls still carry our Origin.
+ * /account) and go to the trial's Stripe Checkout in one click, or go there, or see the plans; the card terms are said
+ * next to the button. Served with the private link's own headers (no referrer); the page's fetch() calls still carry
+ * our Origin.
  */
 export function lockedLinkPage(nonce: string, v: LockedLinkView): string {
   const back = "/account?claim=1";
@@ -834,7 +854,7 @@ export function lockedLinkPage(nonce: string, v: LockedLinkView): string {
   let acts: string;
   if (!s) {
     acts = `<div class="ways">
-${googleButton(v.providers, back)}
+${providerButtons(v.providers, back)}
 <a class="btn prov green" href="/login${q(back)}"><span>Sign in</span></a><a class="btn prov ghost" href="/signup${q(back)}"><span>Create an account</span></a>
 </div>
 <p class="opt">Then add this app to your account. It keeps its key and its data.</p>`;
@@ -844,11 +864,12 @@ ${googleButton(v.providers, back)}
     const label = s.canTrial ? `Add to my account and start your ${days}-day free trial` : "Add to my account";
     acts = `<div class="ways"><button class="btn prov green" id="claim" type="button" data-trial="${s.canTrial ? "1" : "0"}"><span>${label}</span></button>
 <p class="err" id="err" role="alert"></p></div>
-${!s.pro && !s.canTrial ? '<p class="opt">Your trial has ended. <a href="/account/billing">See plans</a></p>' : '<p class="opt">The app keeps its key and its data.</p>'}`;
+${s.canTrial ? `<p class="opt">${esc(trialTerms(days))} The app keeps its key and its data.</p>` : !s.pro ? `<p class="opt">${s.trialUsed ? "Your trial has ended. " : ""}<a href="/account/billing">See plans</a></p>` : '<p class="opt">The app keeps its key and its data.</p>'}`;
   } else {
     acts = s.canTrial
-      ? `<div class="ways"><button class="btn prov green" id="trial" type="button"><span>Start your ${days}-day free trial</span></button><p class="err" id="err" role="alert"></p></div>`
-      : `<p class="lead">Your trial has ended.</p><div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>`;
+      ? `<div class="ways"><button class="btn prov green" id="trial" type="button"><span>Start your ${days}-day free trial</span></button><p class="err" id="err" role="alert"></p></div>
+<p class="opt">${esc(trialTerms(days))}</p>`
+      : `${s.trialUsed ? '<p class="lead">Your trial has ended.</p>' : ""}<div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>`;
   }
   const inner = `
 <div class="eb">${esc(v.name)}</div>
@@ -870,14 +891,15 @@ ${acts}
     gcPost("/api/account/projects/claim", { secret: secret }).then(function(j){
       function go(){ location.href = "/account/apps/" + encodeURIComponent(j.project.id); }
       if (claim.getAttribute("data-trial") !== "1") { go(); return; }
-      return gcPost("/api/billing/trial", {}).then(go, go);
+      // the trial starts on Stripe's checkout, where the card is entered; if it cannot open, the app's page offers it
+      return gcPost("/api/billing/trial", {}).then(function(t){ if (t && t.url) location.href = t.url; else go(); }, go);
     }, function(e){ err.textContent = gcWhy(e); gcBusy(claim, false); });
   });
   var trial = document.getElementById("trial");
   if (trial) trial.addEventListener("click", function(){
-    err.textContent = ""; gcBusy(trial, true, "Starting...");
-    gcPost("/api/billing/trial", {}).then(function(){ location.reload(); }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
+    err.textContent = ""; gcBusy(trial, true, "Opening Stripe...");
+    gcPost("/api/billing/trial", {}).then(function(j){ location.href = j.url; }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
   });
 })();`;
-  return shell(nonce, `${v.name} | GenClass`, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>${LATTICE}<div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true });
+  return shell(nonce, `${v.name} | GenClass`, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, mesh: true });
 }

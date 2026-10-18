@@ -3,8 +3,8 @@
 //
 // Load: model card -> tokenizer/calibration/meta (cached) -> ORT wasm binary (cached, same Cache Storage) ->
 // for each plan (webgpu+fp16 -> webgpu+q8 -> wasm+q8): variant bytes (cached, sha256-checked, progress) ->
-// InferenceSession -> Engine -> warm-up pass. The first plan that works wins; failures are recorded in
-// status.attempts.
+// InferenceSession -> Engine -> warm-up (a cold pass, then a timed warm one). The first plan that works wins;
+// failures are recorded in status.attempts.
 
 import type { Clock, ModelGate, ModelStatus } from "../types.js";
 import { parseCalibration } from "./calibrate.js";
@@ -42,7 +42,7 @@ export interface ModelHostStatus extends ModelStatus {
   fromCache?: boolean;
   /** WASM threads (1 unless the page is crossOriginIsolated). */
   threads?: number;
-  /** Duration of the warm-up forward pass. */
+  /** Duration of the first (cold) warm-up forward pass; `latency` comes from the second, warm one. */
   warmupMs?: number;
   /** Inference runs in a Worker (false: inline on the main thread). */
   worker?: boolean;
@@ -58,7 +58,8 @@ export interface ModelHostStatus extends ModelStatus {
   ortBuild?: OrtBuild;
   /**
    * Inference time (pack + forward + answers, in the worker; no queue wait) over the last 20 evaluations. Before the
-   * first evaluation it is the warm-up estimate (n = 0). `msPerToken` is the median of ms / sequence tokens.
+   * first evaluation it is the warm-up estimate (n = 0): the second, warm warm-up pass, on every device. `msPerToken`
+   * is the median of ms / sequence tokens.
    */
   latency?: LatencyStats;
 }
@@ -258,10 +259,12 @@ export class ModelBackend {
             this.set({ ...at, phase: "warmup" });
             try {
               const tw = clock.now();
-              let r = await engine.evaluate(WARMUP_STATE, WARMUP_QUESTIONS);
+              await engine.evaluate(WARMUP_STATE, WARMUP_QUESTIONS);
               warmupMs = Math.round(clock.now() - tw);
-              // WebGPU compiles its pipelines on the first pass: time a second one for the latency estimate.
-              if (plan.device === "webgpu") r = await engine.evaluate(WARMUP_STATE, WARMUP_QUESTIONS);
+              // The first pass is cold on every device (WebGPU compiles its pipelines; on WASM its per-token cost was
+              // 4-7x a real decision's, 0.2.2 on the train VM): time a second one for the latency estimate, which
+              // sizes the first hold of the page load.
+              const r = await engine.evaluate(WARMUP_STATE, WARMUP_QUESTIONS);
               const ms = Math.round(r.timings.total);
               latency = { p50: ms, p90: ms, n: 0, tokensP50: r.usage.input_tokens, msPerToken: round3(ms / r.usage.input_tokens), source: "warmup" };
             } catch (e) {

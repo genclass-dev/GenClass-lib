@@ -2,11 +2,15 @@
 //
 //   POST /api/billing/checkout {plan: "pro" | "custom"}  browser session + Origin; {url} of Stripe Checkout (with
 //                                                       switch: true when it replaces the plan already paid)
+//   POST /api/billing/trial                            browser session + Origin; {url, trial: true} of Stripe Checkout
+//                                                       for the account's one trial of Pro: the card is entered there
+//                                                       and first charged when the trial ends (409 when the account
+//                                                       may not have one, 503 while it cannot buy)
 //   POST /api/billing/portal                           browser session + Origin; {url} of the Billing Portal
 //   POST /api/billing/webhook                          Stripe only: signature, no session (src/stripe.ts)
 //   GET  /api/billing                                  browser session; the plan, subscription and trial state
 //   GET  /account/billing                              the plan page (src/billing-pages.ts)
-//   POST /api/billing/trial, GET /account/trial        the account's one trial of Pro (src/trial.ts)
+//   GET  /account/trial                                the pricing page's Start a trial (src/trial.ts)
 //   GET|PUT|PATCH|DELETE /api/account/projects/<id>/integrations[/<kind>]   forwarding destinations (paid plans)
 //   POST /api/account/projects/<id>/integrations/<kind>/test               one test record to that destination
 //   GET  /api/account/projects/<id>/events?from&to&format&cursor&limit      export (paid plans): an export key as a
@@ -26,8 +30,25 @@ import { decodeCursor, exportResponse, PAGE_MAX, parseTime } from "./export.js";
 import { checkConfig, claimTestSend, deliver, integrationRows, integrationsKey, isKind, maskConfig, openConfig, sealConfig, testRecord, type Kind } from "./forward.js";
 import { json, readCapped } from "./http.js";
 import { forgetOwner } from "./paid.js";
-import { accountAccess, accountBilling, accountPlan, canBuy, entitled, PAID_PLANS, PLANS_FILE, planById, stripeMode, trialDays, type Plan } from "./plans.js";
 import {
+  accountAccess,
+  accountBilling,
+  accountPlan,
+  canBuy,
+  canTrial,
+  CARD_CHECK_MAX_FAILURES,
+  entitled,
+  PAID_PLANS,
+  PLANS_FILE,
+  planById,
+  stripeMode,
+  TRIAL_PLAN,
+  trialCardChecks,
+  trialDays,
+  type Plan,
+} from "./plans.js";
+import {
+  CARD_CHECK_FAILED,
   checkCustomer,
   checkoutSession,
   ensureCustomer,
@@ -44,7 +65,7 @@ import {
   stripeWebhook,
   subscriptionState,
 } from "./stripe.js";
-import { startTrial, trialEntry } from "./trial.js";
+import { trialEntry } from "./trial.js";
 import { b64url } from "./webauthn.js";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -116,7 +137,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
     case "/api/billing/portal":
       return m === "POST" ? portal(c, f) : method();
     case "/api/billing/trial":
-      return m === "POST" ? startTrial(c) : method();
+      return m === "POST" ? checkout(c, f, true) : method();
     case "/account/trial":
       return get ? trialEntry(c) : method();
     case "/api/billing": {
@@ -125,6 +146,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
       if (a instanceof Response) return a;
       const b = await accountBilling(c.db, a.account.id, env);
       const access = await accountAccess(c.db, a.account.id, env, c.now);
+      const checks = await trialCardChecks(c.db, a.account.id);
       return json(200, {
         plan: planById(b.plan).id,
         subscription_status: b.subscription_status,
@@ -134,7 +156,9 @@ export async function routeBilling(request: Request, url: URL, path: string, env
         // what the account may use now: its paid plan, or Pro during GenClass's grant or the trial; null when locked
         access: access.source,
         trial_ends_at: access.trialEndsAt,
-        can_trial: access.source === null && !access.trialUsed,
+        can_trial: canTrial(access, env, a.account, checks.failures),
+        // when the card of the latest trial attempt failed the $1 check (null: none, or it passed)
+        trial_card_declined_at: checks.failedAt,
       });
     }
     case "/account/billing": {
@@ -146,6 +170,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
       const access = await accountAccess(c.db, a.account.id, env, c.now);
       const apps = (await accountProjects(c, a.account.id)).map((p) => ({ id: p.id!, name: p.name }));
       const b = await accountBilling(c.db, a.account.id, env);
+      const checks = await trialCardChecks(c.db, a.account.id);
       return page(200, (n) =>
         billingPage(n, {
           account: { id: a.account.id, email: a.account.email, githubLogin: a.account.github_login },
@@ -159,6 +184,9 @@ export async function routeBilling(request: Request, url: URL, path: string, env
           switchTo: pickedPlan(url.searchParams.get("to"))?.id ?? null,
           managedPlans: PAID_PLANS.filter((p) => managedPayments(env, p)).map((p) => p.name),
           trialDays: trialDays(env),
+          canTrial: canTrial(access, env, a.account, checks.failures),
+          trialDone: url.searchParams.get("trial") === "1",
+          cardCheck: { ...checks, max: CARD_CHECK_MAX_FAILURES },
           now: c.now,
         }),
       );
@@ -196,14 +224,35 @@ const NOT_GENCLASS = "is not a customer GenClass made for this account";
 const SHARED_SUBSCRIPTION = "also has a subscription that is not GenClass's";
 const SHARED_INVOICE = "also has an invoice that is not for a GenClass subscription";
 
-async function checkout(c: C, f: Fetch): Promise<Response> {
-  const a = await browserWrite(c, "plans can be bought");
+/**
+ * POST /api/billing/checkout, and POST /api/billing/trial (`trial`): the account's one trial of Pro is a Checkout too,
+ * for Pro with Stripe's trial days, where the buyer enters a card that is first charged when the trial ends (src/stripe.ts
+ * checkoutSession). No trial without that card: nothing here grants Pro; the webhook does once Stripe has the trialing
+ * subscription and its payment method, and the card held $1 (src/stripe.ts cardCheck). A trial is refused (409) to an
+ * account with a plan, a grant or a trial, one that started a trial before, one that has had a GenClass subscription
+ * (asked of Stripe too, as the database can lag behind a webhook; a trial cancelled because its card failed the $1
+ * check does not count), and one whose cards failed that check CARD_CHECK_MAX_FAILURES times. Opening a trial's
+ * Checkout clears the last failed check, so the billing page speaks of this attempt only.
+ */
+async function checkout(c: C, f: Fetch, trial = false): Promise<Response> {
+  const a = await browserWrite(c, trial ? "a trial can be started" : "plans can be bought");
   if (a instanceof Response) return a;
   const body = await readJson(c, 1024);
   if (body instanceof Response) return body;
-  if (!canBuy(c.env, a.account)) return fail(503, "paid plans are not on sale yet");
-  const plan = PAID_PLANS.find((p) => p.id === body.plan);
+  if (!canBuy(c.env, a.account)) return fail(503, trial ? "the free trial starts on Stripe's checkout, which is not open yet" : "paid plans are not on sale yet");
+  const plan = trial ? TRIAL_PLAN : PAID_PLANS.find((p) => p.id === body.plan);
   if (!plan) return fail(400, `choose a plan: ${PAID_PLANS.map((p) => p.id).join(" or ")}`);
+  const plans = `see the plans at ${c.cfg.origin}/account/billing`;
+  if (trial) {
+    const access = await accountAccess(c.db, a.account.id, c.env, c.now);
+    if (access.source === "paid") return fail(409, `this account already has the ${access.plan.name} plan`);
+    if (access.source) return fail(409, "this account already has Pro");
+    if (access.trialUsed) return fail(409, `this account already had its trial; ${plans}`);
+    if (access.subscribed) return fail(409, `the free trial comes before a first plan, and this account has had one; ${plans}`);
+    if ((await trialCardChecks(c.db, a.account.id)).failures >= CARD_CHECK_MAX_FAILURES) {
+      return fail(409, `${CARD_CHECK_MAX_FAILURES} cards on this account did not pass the $1 card check, so no trial can start; email ${PLANS_FILE.contact}`);
+    }
+  }
   if (await overBudget(c.env.AUTH_LIMIT, "checkout", a.account.id)) return tooMany();
   // as stored: ensureCustomer decides what to do with a customer from the other Stripe mode
   const account = { id: a.account.id, email: a.account.email, ...(await accountBilling(c.db, a.account.id)) };
@@ -217,6 +266,11 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
       if (own.state === "not_genclass") return refuseShared(c, f, account.id, customer.id, NOT_GENCLASS);
       if (own.state === "ok" && sharedCustomer(own.subs)) return refuseShared(c, f, account.id, customer.id, SHARED_SUBSCRIPTION);
       const subs = own.state === "ok" ? own.subs : [];
+      // what Stripe has, whatever the database says: any GenClass subscription on the customer, in any status, means
+      // this account had a plan or a trial
+      if (trial && subs.some((s) => isGenClassSubscription(s) && s?.metadata?.genclass_card_check !== CARD_CHECK_FAILED)) {
+        return fail(409, `the free trial comes before a first plan, and this account has had one; ${plans}`);
+      }
       if (own.state === "missing") {
         customer = await ensureCustomer(c.env, f, c.db, { ...account, stripe_customer_id: customer.id, stripe_mode: stripeMode(c.env) }, customer.id);
       }
@@ -243,8 +297,10 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
         return json(200, { url, switch: true });
       }
     }
-    const url = await checkoutSession(c.env, f, { account, customer: customer.id, plan, origin: c.cfg.origin, now: c.now, fresh: customer.fresh });
-    return json(200, { url });
+    const url = await checkoutSession(c.env, f, { account, customer: customer.id, plan, origin: c.cfg.origin, now: c.now, fresh: customer.fresh, trialDays: trial ? trialDays(c.env) : undefined });
+    // this attempt starts with no failed card check on record (the billing page waits for this one's)
+    if (trial) await c.db.prepare("UPDATE accounts SET trial_check_failed_at = NULL WHERE id = ? AND trial_check_failed_at IS NOT NULL").bind(account.id).run();
+    return json(200, trial ? { url, trial: true } : { url });
   } catch (e) {
     return stripeFail(e);
   }
