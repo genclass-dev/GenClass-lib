@@ -2,6 +2,7 @@
 
 import type {
   TelemetryStatus,
+  AnalyticsStatus,
   ActionContext,
   ActionDef,
   AdapterHandle,
@@ -381,6 +382,8 @@ export class RuntimeImpl implements Runtime {
   vis: VisualStub | null = null;
   /** runtime.telemetry (set by createRuntime). */
   telemetry?: TelemetryStatus;
+  /** runtime.analytics (set by createRuntime; src/analytics/start.ts). */
+  analytics?: AnalyticsStatus;
   private plugins = new Map<Plugin, { cleanup?: () => void }>();
   private customActions: ActionDef[] = [];
   private standing: StandingQuestion[] = [];

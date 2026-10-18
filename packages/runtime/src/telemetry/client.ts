@@ -71,7 +71,7 @@ const noUrls = (s: unknown): unknown => (typeof s === "string" ? s.replace(/\b(?
 const noEmails = (p: string): string => p.replace(/[^/]*(?:@|%40)[^/]*/gi, ":id");
 
 /** An e-mail address, a URL, a run of 4+ digits (ids, phone or card numbers) or 12+ hex digits (a UUID, a hash). */
-const DATA_LIKE = /[^\s@]+@[^\s@]+\.[^\s@]+|\b(?:https?:\/\/|www\.)|\d{4,}|\b[0-9a-f]{12,}\b/i;
+export const DATA_LIKE = /[^\s@]+@[^\s@]+\.[^\s@]+|\b(?:https?:\/\/|www\.)|\d{4,}|\b[0-9a-f]{12,}\b/i;
 
 /**
  * A protect() label as telemetry sends it (only on batches with the app's token): a name the developer chose, at most
@@ -128,7 +128,8 @@ export class TelemetryClient implements TelemetryStatus {
   private seq = 0;
   private readonly t0: number;
   private timer: unknown = null;
-  private stopped = false;
+  /** True once the page stopped sending (destroyed, or MAX_FAIL_STREAK failures); read by the analytics chunk. */
+  stopped = false;
   private lastSummaryAt: number;
   private dirty = false;
   private modelKey = "";
@@ -150,6 +151,11 @@ export class TelemetryClient implements TelemetryStatus {
   private routineRecords = 0;
   private pending = new Set<Promise<void>>();
   private offs: (() => void)[] = [];
+  /**
+   * Called first in every summary() (periodic, hidden, pagehide, destroy): the interaction analytics chunk queues its
+   * `interactions` event here, so it goes out in the same flush (src/analytics/index.ts).
+   */
+  pre?: (reason: string) => void;
   private readonly c = {
     decisions: 0,
     acted: 0,
@@ -201,7 +207,8 @@ export class TelemetryClient implements TelemetryStatus {
     return Math.round(this.rt.clock.now() - this.t0);
   }
 
-  private push(e: Ev): void {
+  /** Queue an event (also the analytics chunk's `interactions` events). */
+  push(e: Ev): void {
     if (this.stopped) return;
     if (this.queue.length >= MAX_QUEUE) {
       this.dropped++;
@@ -221,7 +228,7 @@ export class TelemetryClient implements TelemetryStatus {
    * `at`, else the page's path now, normalised (id-like segments and segments with an `@` as `:id`); a deferred
    * decision's is the path at its trigger (decisionInfo).
    */
-  private route(at?: string): string | undefined {
+  route(at?: string): string | undefined {
     try {
       const p = at ?? (this.g.location as { pathname?: unknown } | undefined)?.pathname;
       return typeof p === "string" ? cut(noEmails(normalizePath(p)), 200) : undefined;
@@ -552,6 +559,11 @@ export class TelemetryClient implements TelemetryStatus {
   /** Queue a summary event (counts since the session started). */
   summary(reason: "periodic" | "hidden" | "pagehide" | "destroy"): void {
     if (this.stopped) return;
+    try {
+      this.pre?.(reason);
+    } catch {
+      /* analytics never break telemetry */
+    }
     this.dirty = false;
     this.lastSummaryAt = this.rt.clock.now();
     let rs: ReturnType<RuntimeImpl["summary"]> | undefined;

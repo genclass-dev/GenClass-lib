@@ -257,13 +257,13 @@ describe("token on telemetry batches", () => {
     expect(bd("model_errors")).toEqual({ inference_failed: 1 });
     expect(bd("latency_bucket")).toEqual({ "<50 ms": 1, "100-250 ms": 1 });
     expect(s.series).toHaveLength(7);
-    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1, possible: 0 });
+    expect(s.series.at(-1)).toEqual({ bucket: "2026-10-08", sessions: 1, decisions: 2, detections: 1, acted: 1, possible: 0, ix_views: 0 });
     // the dashboard's type x page view and per-type timeline, and the period before for deltas
     expect(bd("detect_issue")).toEqual({ "stale\t/cart/:id": 1 });
     expect(s.typeSeries).toHaveLength(7);
     expect(s.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08", counts: { stale: 1 } });
     expect(s.typeSeries[0]).toEqual({ bucket: "2026-10-02", counts: {} });
-    expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0 });
+    expect(s.previous).toEqual({ sessions: 0, detections: 0, acted: 0, ix_views: 0 });
     expect(s.recent).toEqual([
       // the diagnosis confidence (0.97), not p(action) (0.95)
       { t: NOW.toISOString(), route: "/cart/:id", fn: "saveCart", trigger: "mutation", diagnosis: "stale", action: "discard", ran: "discard", confidence: 0.97, mode: "heal", executed: true, acted: true, kind: "detect" },
@@ -279,7 +279,7 @@ describe("token on telemetry batches", () => {
     expect(h.typeSeries.at(-1)).toEqual({ bucket: "2026-10-08T12", counts: { stale: 1 } });
     // a later 7 d window sees this week as the previous period
     const later = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, { ...opts, now: () => new Date(NOW.getTime() + 7 * 86_400_000) })).json()) as any;
-    expect(later.previous).toEqual({ sessions: 1, detections: 1, acted: 1 });
+    expect(later.previous).toEqual({ sessions: 1, detections: 1, acted: 1, ix_views: 0 });
     expect(later.totals.detections ?? 0).toBe(0);
     const m = (await (await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=30d`), env, opts)).json()) as any;
     expect(m.series).toHaveLength(30);
@@ -776,5 +776,81 @@ describe("sample dashboard: possible issues", () => {
       expect(s.typeSeries.reduce((a, b) => a + Object.values(b.counts).reduce((x, y) => x + y, 0), 0)).toBe(s.totals.detections);
       expect(s.distinct.detect_route).toBe(s.breakdowns.detect_route!.length);
     }
+  });
+});
+
+describe("interaction analytics: runtime `interactions` events (docs/runtime/ANALYTICS.md section 3)", () => {
+  const ixe = (seq: number, o: E): E => ({ t: "interactions", seq, at: seq * 10, view: 1, route: "/pricing", ...o });
+
+  it("counts page views, engaged time, scroll milestones, clicks, rage and dead clicks per page and element", async () => {
+    const { sql } = setup();
+    const events = [
+      sess(),
+      ixe(1, { start: true, engagedMs: 12_000, scroll: [25, 50], clicks: { '[data-genclass-name="pro"]': 3, "a[href=\"/docs\"]": 1 }, rage: { '[data-genclass-name="pro"]': 1 } }),
+      ixe(2, { engagedMs: 3_000, scroll: [75], dead: { "button.copy": 2 }, end: true }),
+      ixe(3, { view: 2, route: "/docs", start: true, engagedMs: 40_000, scroll: [25, 25, 50, 75, 100, 33], clicks: { "a[href=\"/docs\"]": 1 } }),
+    ];
+    await aggregate(sql.api, TOK, batchOf(events), NOW);
+    const s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ ix_views: 2, ix_engaged_ms: 55_000, ix_click: 5, ix_rage: 1, ix_dead: 2 });
+    expect(bdOf(s, "ix_views")).toEqual({ "/pricing": 1, "/docs": 1 });
+    expect(bdOf(s, "ix_engaged_ms")).toEqual({ "/pricing": 15_000, "/docs": 40_000 });
+    expect(bdOf(s, "ix_scroll")).toEqual({ "/pricing\t25": 1, "/pricing\t50": 1, "/pricing\t75": 1, "/docs\t25": 1, "/docs\t50": 1, "/docs\t75": 1, "/docs\t100": 1 });
+    expect(bdOf(s, "ix_click")).toEqual({ '/pricing\t[data-genclass-name="pro"]': 3, '/pricing\ta[href="/docs"]': 1, '/docs\ta[href="/docs"]': 1 });
+    expect(bdOf(s, "ix_rage")).toEqual({ '/pricing\t[data-genclass-name="pro"]': 1 });
+    expect(bdOf(s, "ix_dead")).toEqual({ "/pricing\tbutton.copy": 2 });
+    expect(s.series.at(-1)).toMatchObject({ ix_views: 2 });
+    // never a diagnostics count
+    expect(s.totals.decisions ?? 0).toBe(0);
+    expect(s.totals.detections ?? 0).toBe(0);
+  });
+
+  it("a repeated batch adds nothing; bad values are ignored; ix counters never crowd out the diagnostics ones", async () => {
+    const { sql } = setup();
+    const many: Record<string, number> = {};
+    for (let i = 0; i < 400; i++) many[`button.b${i}`] = 1;
+    const events = [
+      sess(),
+      dec(1, "d1", { route: "/a" }), det(2, "d1"),
+      ixe(3, { start: true, engagedMs: -5, scroll: ["50", 101], clicks: { "": 4, "button.ok": 2, "button.nan": Number.NaN as unknown as number, "button.huge": 1e9 } }),
+      ixe(4, { view: 2, route: "/b", start: true, clicks: many }),
+    ];
+    await aggregate(sql.api, TOK, batchOf(events), NOW);
+    await aggregate(sql.api, TOK, batchOf(events), NOW);
+    const s = await statsOf(sql);
+    expect(s.totals).toMatchObject({ ix_views: 2, detections: 1, decisions: 1 });
+    expect(s.totals.ix_engaged_ms ?? 0).toBe(0);
+    expect(bdOf(s, "ix_scroll")).toEqual({});
+    expect(bdOf(s, "ix_click")["/pricing\tbutton.ok"]).toBe(2);
+    expect(Object.keys(bdOf(s, "ix_click")).filter((k) => k.startsWith("/pricing"))).toEqual(["/pricing\tbutton.ok"]);
+    // at most 60 keys read per event, at most MAX_IX_COUNTERS distinct ix counters per batch
+    expect(s.distinct.ix_click).toBeLessThanOrEqual(61);
+    expect(bdOf(s, "detect_route")).toEqual({ "/a": 1 });
+  });
+
+  it("through the collector: stored in R2 with the batch (for the export) and counted for the app", async () => {
+    const { env, puts, sql } = setup();
+    const { json } = await create(env);
+    const body = pageBatch(json.token, "3f9c0a1b2c3d4e5f60718299", [{ t: "interactions", seq: 9, at: 5000, view: 1, route: "/cart/:id", start: true, engagedMs: 4000, clicks: { "button#pay": 1 } }]);
+    const res = await handle(post(body), env, opts);
+    expect(res.status).toBe(202);
+    const stored = gunzipSync(puts.at(-1)!.body).toString("utf8");
+    expect(stored).toContain('"t":"interactions"');
+    const rows = sql.rows("SELECT metric, key, count FROM daily WHERE token = ? AND metric LIKE 'ix_%' ORDER BY metric, key", json.token);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { metric: "ix_views", key: "", count: 1 },
+        { metric: "ix_views", key: "/cart/:id", count: 1 },
+        { metric: "ix_engaged_ms", key: "/cart/:id", count: 4000 },
+        { metric: "ix_click", key: "/cart/:id\tbutton#pay", count: 1 },
+      ]),
+    );
+  });
+
+  it("the sample dashboard shows simulated interaction analytics too", () => {
+    const st = sampleStats("7d", NOW);
+    expect(st.totals.ix_views).toBeGreaterThan(0);
+    expect(st.breakdowns.ix_click!.length).toBeGreaterThan(0);
+    expect(st.series.every((b) => b.ix_views > 0)).toBe(true);
   });
 });

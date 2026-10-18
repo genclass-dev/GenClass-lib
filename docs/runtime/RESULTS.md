@@ -789,3 +789,17 @@ longest slice at most budget + 4 ms (12 ms): p95 8.9 ms on local pages, 57.1 ms 
 1 inside 100 ms at 4x throttling on at least 90% of clean local pages: 78.1% in runs 1, 2 and 3 and 100% in run 4; the
 code change before run 4 (popup triggers for two interaction checks) did not touch cost, so run 4 is the outlier, not
 an improvement.
+
+## 15. Interaction analytics: first-load cost (train VM, 2026-10-18, branch `feat/interaction-analytics`)
+
+`test/first-load-size.mjs` against the merge base with main (`e22fc24`), minified + gzip as an app's bundler ships
+them, measured on the train VM (not CI):
+
+| entry | main | with the analytics stub | growth |
+|---|---|---|---|
+| `/auto` | 108.248 KB | 108.529 KB | 288 B |
+| main entry (`GenClass.init({})`) | 100.126 KB | 100.395 KB | 275 B |
+
+`test/bundle.test.ts` measures the same build at 108.53 / 100.39 KB (script tag 128.83 KB). The
+recording itself is `dist/analytics/index.js` (12.5 KB minified, not gzipped), loaded only when an app turns
+analytics on. No detection numbers: analytics never feed a decision, so recall and FIR do not change.
