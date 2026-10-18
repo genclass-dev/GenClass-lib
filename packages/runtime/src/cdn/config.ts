@@ -15,7 +15,8 @@
 // gc_...), scope (app or functions), sink (sinks by name: console-json, webhook:<url>; "console-json+webhook:/g" in
 // the meta tag since commas separate its keys, data-sink="console-json,webhook:/g" on the tag; src/cdn/sinks.ts, which
 // warns once about the names sentry, posthog and datadog: forwarding to those tools is not in the free runtime),
-// visual (measured visual checks: on, off, local, or fix = on with runtime fixes, which still need guard or heal mode).
+// visual (measured visual checks: on, off, local, or fix = on with runtime fixes, which still need guard or heal mode),
+// analytics (interaction analytics: on or off; off by default, and they need telemetry and the app's token).
 //
 // Trust: only `<meta name="genclass">` tags inside <head> are read (first to last), so markup injected into the body
 // (user content, a CMS field) cannot configure GenClass. A meta tag may set the mode, but the model, onnxruntime-web
@@ -142,6 +143,10 @@ export function fromPairs(pairs: Record<string, string>): PageConfig {
         // sinks by name, resolved by the entry (cdn/sinks.ts → applySinks); "off" clears what an earlier source set
         if (isOff(lv)) c.sinks = [];
         else if (v) c.sinks = parseSinkList(v);
+        break;
+      case "analytics":
+        // interaction analytics (docs/runtime/ANALYTICS.md): off by default; they need telemetry and the app's token
+        c.analytics = !isOff(lv);
         break;
       case "visual":
         // measured visual checks (docs/runtime/VISUAL.md): "local" is the GenClass.init default

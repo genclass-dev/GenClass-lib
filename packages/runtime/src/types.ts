@@ -887,6 +887,18 @@ export interface InitOptions {
    */
   telemetry?: boolean | TelemetryOptions;
   /**
+   * Interaction analytics for the app's dashboard (docs/runtime/ANALYTICS.md, TELEMETRY.md "Interaction analytics"):
+   * per page view, the page route, page views, engaged time (the tab visible, at most 30 s after the last input),
+   * scroll depth (25 / 50 / 75 / 100 %) and clicks, rage clicks and dead clicks per element, the element named from
+   * markup only (`data-genclass-name`, `data-testid`, an id, a link's target, stable class names or a short
+   * structural path; never its text). Sent as `interactions` telemetry events, never fed to a decision or the model.
+   * **Default: off.** Needs telemetry on and the app's `token` (or your own `telemetry.endpoint`); every telemetry
+   * opt-out and Global Privacy Control turn it off too. Nothing is stored on the device. Where analytics need consent
+   * (the EU, EEA and UK), leave it off and call `runtime.analytics.start()` once the visitor agrees. Also
+   * `data-analytics="on"`, `<meta name="genclass" content="analytics=on">`, `window.GENCLASS_CONFIG.analytics`.
+   */
+  analytics?: boolean;
+  /**
    * Automatic state discovery: find the app's state without registering stores. **Default: on in the zero-code
    * entries** (`@genclass/runtime/auto*`, the script tag); off with `GenClass.init()` / `createRuntime()` unless set
    * here. Must be installed before the framework loads (the one line first). Covers React ≥ 16.8 component state
@@ -1280,6 +1292,24 @@ export interface TelemetryStatus {
   flush(): Promise<void>;
 }
 
+/** runtime.analytics: whether interaction analytics are recorded on this page (InitOptions.analytics), and why not. */
+export interface AnalyticsStatus {
+  readonly enabled: boolean;
+  /**
+   * Off: "option" (not turned on), "telemetry-off" (telemetry is off: an opt-out, Global Privacy Control, a local
+   * host), "no-token" (no app token and the default endpoint), "stopped" (`stop()`), "error" (the analytics code did
+   * not load).
+   */
+  readonly reason?: string;
+  /**
+   * Start recording now (after the visitor consented, or to turn analytics on without the init option). Returns
+   * whether they are on; does nothing while telemetry is off or without a token.
+   */
+  start(): boolean;
+  /** Stop recording and drop the counts not sent yet (the visitor withdrew consent). `start()` turns it on again. */
+  stop(): void;
+}
+
 export interface CreateOptions extends InitOptions {
   /** Default browserClock. */
   clock?: Clock;
@@ -1650,6 +1680,8 @@ export interface Runtime {
   destroy(): void;
   /** Anonymous diagnostics for this page (InitOptions.telemetry). */
   readonly telemetry?: TelemetryStatus;
+  /** Interaction analytics for this page (InitOptions.analytics): whether they are recorded, and the consent switch. */
+  readonly analytics?: AnalyticsStatus;
   /**
    * The last `n` measured visual check findings (InitOptions.visual), oldest first; at most 200 are kept. An empty
    * list until the checks have run (or when they are off).
