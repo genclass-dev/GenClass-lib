@@ -84,7 +84,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // are a lazy chunk (dist/visual/index.js, asserted below); the CI visual-browser job measures the stub's growth over
   // release/0.3.0 exactly (test/first-load-size.mjs, fails at 0.6 KB). The limits are those sizes plus 0.05 / 0.07 KB
   // (docs/runtime/RESULTS.md sections 10 and 13). Interaction analytics (docs/runtime/ANALYTICS.md, branch
-  // feat/interaction-analytics, pending the owner's OK on these limits): the first-load stub (src/analytics/start.ts,
+  // feat/interaction-analytics, limits approved by the owner 2026-10-18): the first-load stub (src/analytics/start.ts,
   // runtime.analytics with start()/stop(), the telemetry client's `pre` hook, the analytics page-config key) adds about
   // 0.29 KB to /auto and 0.27 KB to the main entry over main (108.25 / 100.13 KB; 108.53 / 100.40 KB with it, measured
   // with test/first-load-size.mjs on the train VM, 2026-10-18); the recording itself is a lazy chunk (dist/analytics/index.js, asserted below). The
