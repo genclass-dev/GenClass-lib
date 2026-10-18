@@ -9,6 +9,15 @@
 - **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
   password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
   GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).
+- **Fix: on WASM, the first salient request of a page load was not held on CPUs a little slower than the train
+  VM's.** The model's warm-up timed a second, warm pass only on WebGPU (where the first compiles pipelines); on WASM
+  `status.latency` came from the first, cold pass. The runtime's estimate before any measured decision (that pass's
+  per-token cost × 1,200 tokens + 20 ms) then came to 4-7x a real decision (0.2.2, model 0.2.0, Chromium on the train
+  VM): 711 ms against about 160 ms at the VM's speed, 2.0-2.5 s against about 340 ms at half of it. A request is held only when the estimate fits the hold budget (at most 800 ms automatically), so in guard
+  and heal the first duplicate submit of every page load went through on a CPU about 15% slower than the VM's. The
+  warm-up now times a second pass on every device: `status.latency` comes from it, `status.warmupMs` is still the
+  first, cold pass. A load on WASM takes one more warm-up pass (a ~430-token situation, warm). No model-visible text
+  changed.
 
 ## 0.3.0-beta.0 (unreleased)
 
