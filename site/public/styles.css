@@ -517,6 +517,10 @@ details p a{color:var(--bone);text-underline-offset:4px;text-decoration-color:va
 .cta2{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:min(576px,100%);margin:36px auto 0}
 @media (max-width:480px){.cta2{grid-template-columns:1fr}}
 .cta2 .btn{width:100%}
+/* the hero's three buttons (Start free trial first): one row on desktop, the trial on its own row on tablets, stacked on phones */
+.cta2.three{grid-template-columns:repeat(3,1fr);width:min(720px,100%)}
+@media (max-width:760px){.cta2.three{grid-template-columns:1fr 1fr;width:min(576px,100%)}.cta2.three .btn:first-child{grid-column:1/-1}}
+@media (max-width:480px){.cta2.three{grid-template-columns:1fr}}
 .install{width:min(576px,100%);margin:16px auto 0}
 .install .cmd{width:100%}
 .install .npm{display:inline-block;margin-top:10px;font:400 12.5px var(--mono);color:var(--faint);text-decoration:none;transition:color .15s}
