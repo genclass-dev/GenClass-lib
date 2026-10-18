@@ -1,8 +1,8 @@
 // HTML for the account pages on genclass.dev: /signup, /login, /login/forgot, /login/passkey (the passkey step after a
 // password, Google or GitHub for an account with a passkey), /login/device, /account, the email-collision page a first
-// Google sign-in can land on, and short message pages. Sign-in leads with Continue with Google, then an email and a
-// password (always there), then a small Continue with GitHub and Use a passkey; a passkey is extra security, added on
-// /account. Same shell, fonts, rules and tokens as the dashboard (src/pages.ts, the black palette and buttons of
+// Google sign-in can land on, and short message pages. Sign-in leads with Continue with GitHub, then Continue with
+// Google (each when its secrets are set), then an email and a password (always there), then a small Use a passkey; a
+// passkey is extra security, added on /account. Same shell, fonts, rules and tokens as the dashboard (src/pages.ts, the black palette and buttons of
 // genclass.dev, whatever the visitor's system theme); no boxed cards, no gradients. The sign-in column sits on the
 // left of genclass.dev's self-healing sphere (site/public/signin-mesh.js, the /admin sign-in's backdrop). Server-rendered text
 // goes through esc(); scripts insert text with textContent. Every page is served under a per-response CSP nonce with
@@ -224,9 +224,16 @@ const q = (next: string | null): string => (next ? `?next=${encodeURIComponent(n
 const googleButton = (p: { google: boolean }, next: string | null): string =>
   p.google ? `<a class="btn prov paper" href="/auth/google${q(next)}">${GOOGLE_G}<span>Continue with Google</span></a>` : "";
 
-/** Every way in, in the owner's order: Google, an email and a password, then a small GitHub link and Use a passkey. */
+const githubButton = (p: { github: boolean }, next: string | null): string =>
+  p.github ? `<a class="btn prov paper" href="/auth/github${q(next)}">${GITHUB_MARK}<span>Continue with GitHub</span></a>` : "";
+
+/** The provider buttons, in the owner's order (2026-10-18): GitHub above Google; empty when neither is set up. */
+const providerButtons = (p: { google: boolean; github: boolean }, next: string | null): string =>
+  [githubButton(p, next), googleButton(p, next)].filter(Boolean).join("\n");
+
+/** Every way in, in the owner's order: GitHub, Google, an email and a password, then a small Use a passkey. */
 function signInWays(o: { google: boolean; github: boolean; next: string | null; signup?: boolean }): string {
-  const google = googleButton(o, o.next);
+  const providers = providerButtons(o, o.next);
   const form = o.signup
     ? `<form class="pwf" id="pwf" data-err="err" novalidate>
   <div><label for="email">Email</label>
@@ -243,14 +250,10 @@ function signInWays(o: { google: boolean; github: boolean; next: string | null; 
   <input id="password" name="password" type="password" autocomplete="current-password" maxlength="256" required></div>
   <button class="btn prov green" type="submit"><span>Sign in</span></button>
 </form>`;
-  const small = [
-    o.github ? `<a href="/auth/github${q(o.next)}">${GITHUB_MARK}<span>Continue with GitHub</span></a>` : "",
-    '<button class="lnk" id="pk" type="button"><span>Use a passkey</span></button>',
-  ].filter(Boolean);
-  return `${google}${google ? '\n<div class="or">or</div>' : ""}
+  return `${providers}${providers ? '\n<div class="or">or</div>' : ""}
 ${form}
 <p class="err" id="err" role="alert"></p>
-<p class="alt">${small.join("")}</p>`;
+<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>`;
 }
 
 /** A sign-in column on genclass.dev's self-healing sphere (the shell's mesh option, as on /admin's sign-in). */
@@ -842,7 +845,7 @@ export function lockedLinkPage(nonce: string, v: LockedLinkView): string {
   let acts: string;
   if (!s) {
     acts = `<div class="ways">
-${googleButton(v.providers, back)}
+${providerButtons(v.providers, back)}
 <a class="btn prov green" href="/login${q(back)}"><span>Sign in</span></a><a class="btn prov ghost" href="/signup${q(back)}"><span>Create an account</span></a>
 </div>
 <p class="opt">Then add this app to your account. It keeps its key and its data.</p>`;
