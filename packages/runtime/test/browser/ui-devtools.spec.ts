@@ -1,5 +1,6 @@
 // Devtools overlay in a real browser: style isolation, keyboard, undo, mode switch, and the README screenshots
-// (light + dark, collapsed + open, every view) written to test/browser/ui/screenshots/.
+// written to test/browser/ui/screenshots/: the default black overlay over a light and a dark page (`-light`, `-dark`:
+// the page's colour scheme), collapsed + open, every view, and `theme: "light"` (`theme-light-*`).
 import { expect, test, type Page } from "@playwright/test";
 import { build } from "esbuild";
 import { mkdirSync, readFileSync } from "node:fs";
@@ -149,7 +150,7 @@ test.describe("devtools overlay", () => {
       await shotPanel(page, `evidence-answers-${scheme}`);
       await stale.click();
 
-      for (const tab of ["detections", "activity", "now"]) {
+      for (const tab of ["detections", "checks", "activity", "expectations", "now"]) {
         await page.locator(`genclass-devtools [data-tab="${tab}"]`).click();
         await shotPanel(page, `${tab}-${scheme}`);
       }
@@ -159,4 +160,15 @@ test.describe("devtools overlay", () => {
       await shotPanel(page, `loading-${scheme}`);
     });
   }
+
+  test("screenshots (theme: light)", async ({ page }) => {
+    await start(page, "light", { theme: "light" });
+    await shotPanel(page, "theme-light-pill", 24);
+    await start(page, "light", { collapsed: false, theme: "light" });
+    await shotPanel(page, "theme-light-interventions");
+    for (const tab of ["detections", "activity"]) {
+      await page.locator(`genclass-devtools [data-tab="${tab}"]`).click();
+      await shotPanel(page, `theme-light-${tab}`);
+    }
+  });
 });
