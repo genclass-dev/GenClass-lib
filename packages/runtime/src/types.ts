@@ -92,9 +92,12 @@ export interface ModelStatus {
   fromCache?: boolean;
   /** WASM threads (1 unless the page is crossOriginIsolated). */
   threads?: number;
-  /** Duration of the warm-up forward pass. */
+  /** Duration of the first (cold) warm-up forward pass. */
   warmupMs?: number;
-  /** Model latency: the warm pass after the pipelines compiled ("warmup"), then a window of real evaluations. */
+  /**
+   * Model latency: the second, warm warm-up pass ("warmup"; the first pass is cold on every device, so it is not
+   * timed for this), then a window of real evaluations.
+   */
   latency?: { p50: number; p90: number; n: number; tokensP50?: number; msPerToken?: number; source?: "warmup" | "evaluations" };
   /** Inference runs in a Worker (false: inline on the main thread). */
   worker?: boolean;

@@ -64,9 +64,11 @@ files on disk with their hashes. `genclass-runtime info <dir>` verifies a direct
    (fallback) adapters; `"webgpu"` still ends with WASM; `"wasm"` never touches the GPU. The probe creates and
    destroys a device first: onnxruntime can hang on an adapter that cannot make one.
 5. Per plan: variant bytes -> `InferenceSession.create` (timeout: webgpu 60 s, wasm 180 s) -> `Engine` (graph
-   contract check) -> warm-up pass on a situation-shaped request (on WebGPU a second, timed pass: the first compiles
-   pipelines); its time seeds `status.latency` (`source: "warmup"`). A failure records `{variant, device, error}` in
-   `status.attempts` and moves on. A WebGPU session that times out in a worker ends that worker's plans; the host
+   contract check) -> two warm-up passes on a situation-shaped request. The first is cold on every device (WebGPU
+   compiles its pipelines; on WASM its per-token cost was 4-7x a real decision's, 0.2.2 on the train VM) and is
+   `status.warmupMs`; the second, warm one seeds `status.latency` (`source: "warmup"`), which sizes the first hold of
+   a page load (until 0.2.2 WASM timed only the cold pass, and that first hold never happened on a CPU a little
+   slower than the VM's). A failure records `{variant, device, error}` in `status.attempts` and moves on. A WebGPU session that times out in a worker ends that worker's plans; the host
    then retries once in a fresh WASM-only worker (it also does so after any failed load that involved WebGPU, and
    when a loading worker is silent for 180 s).
 6. Downloads: Cache Storage `genclass-runtime-v1` (`cacheName`), keyed by URL; an entry is valid when its recorded
@@ -139,7 +141,7 @@ Ranges are runs on the shared VM (other agents' load moves them by 10-20%).
 | warm forward, ~600-token state (607 state / 780 sequence tokens, 2 choice questions with 8 + 4 options), WASM 1 thread | 837-981 ms median |
 | warm forward, ~1,000-token state (1,001 / 1,174 tokens), WASM 1 thread | 1,452-1,791 ms median |
 | same two, WASM 4 threads (crossOriginIsolated page) | 271-360 ms / 464-556 ms |
-| `status.latency` after the warm-up / after 20 evaluations at 1,174 tokens | `{p50: 472, tokensP50: 406, msPerToken: 1.16, source: "warmup"}` / `{p50: 1657, p90: 1793, n: 20, msPerToken: 1.41}` |
+| `status.latency` after the warm-up (v0.1 timed the cold first pass on WASM; now the second, warm one) / after 20 evaluations at 1,174 tokens | `{p50: 472, tokensP50: 406, msPerToken: 1.16, source: "warmup"}` / `{p50: 1657, p90: 1793, n: 20, msPerToken: 1.41}` |
 | `evaluate()` before ready | rejects in < 1 ms |
 | tokenizer build from tokenizer.json (50k vocab) / encode 2.9k tokens cold | 26 ms / 8 ms |
 

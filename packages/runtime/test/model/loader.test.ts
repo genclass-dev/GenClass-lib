@@ -3,11 +3,15 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { browserClock } from "../../src/clock.js";
+import { ROUND_TRIP_MS, TYPICAL_TOKENS, typicalLatency } from "../../src/decide/decider.js";
+import { HOLD_MAX_MS, holdBudget, policyConfig } from "../../src/decide/policy.js";
 import { ModelBackend, ORT_GLUE_FILES, ORT_SESSION_LOG, ORT_WASM_FILES, type ModelHostStatus, type OrtBuild } from "../../src/model/backend.js";
 import type { OrtLike } from "../../src/model/engine.js";
 import { ModelIntegrityError, ModelLoadError, ModelNotReadyError, ModelUnsupportedError } from "../../src/model/errors.js";
 import { fetchCard, fetchFile, parseCard, planOrder, type GpuInfo } from "../../src/model/loader.js";
 import { bytesToUnicode } from "../../src/model/tokenizer.js";
+import type { Clock } from "../../src/types.js";
+import { FakeClock } from "../helpers.js";
 
 // --------------------------------------------------------------------------------------------- fakes
 
@@ -99,11 +103,16 @@ function modelDir(opts: { onnxBytes?: number; v01?: boolean; gate?: unknown } = 
   return { files, card, fetch: fetchFn, log, wasm, setDown: (v: boolean) => (down = v) };
 }
 
-/** onnxruntime stand-in: WebGPU sessions fail (no adapter on the VM), WASM sessions answer with fixed logits. */
-function fakeOrt(): OrtLike & { created: string[]; env: any } {
+/**
+ * onnxruntime stand-in: WebGPU sessions fail (no adapter on the VM) unless `webgpu`, sessions answer with fixed
+ * logits. With `clock` and `msPerToken`, each run advances the fake clock by msPerToken(the session's run index) ×
+ * its sequence tokens.
+ */
+function fakeOrt(opt: { webgpu?: boolean; clock?: FakeClock; msPerToken?: (run: number) => number } = {}): OrtLike & { created: string[]; runs: number; env: any } {
   const created: string[] = [];
-  return {
+  const ort = {
     created,
+    runs: 0,
     Tensor: class {
       constructor(
         public type: string,
@@ -115,11 +124,14 @@ function fakeOrt(): OrtLike & { created: string[]; env: any } {
       create: async (_bytes: Uint8Array, o?: Record<string, unknown>) => {
         const ep = (o?.executionProviders as string[])[0];
         created.push(ep);
-        if (ep === "webgpu") throw new Error("WebGPU not available on this browser (requestAdapter returned null)");
+        if (ep === "webgpu" && !opt.webgpu) throw new Error("WebGPU not available on this browser (requestAdapter returned null)");
+        let runs = 0;
         return {
           inputNames: ["input_ids", "position_ids", "q_group", "i_group", "choice_q", "choice_items", "score_q", "score_items", "noul_q", "noul_t", "noul_f"],
           outputNames: ["choice_logits", "score_logits", "noul_logits"],
           run: async (feeds: Record<string, any>) => {
+            ort.runs++;
+            if (opt.clock && opt.msPerToken) opt.clock.t += opt.msPerToken(runs++) * feeds.input_ids.dims[1];
             const [g, k] = feeds.choice_items.dims;
             const [s, k2] = feeds.score_items.dims;
             const m = feeds.noul_q.dims[0];
@@ -135,6 +147,7 @@ function fakeOrt(): OrtLike & { created: string[]; env: any } {
     },
     env: { wasm: {}, versions: { web: "1.30.0" } },
   };
+  return ort;
 }
 
 const NO_GPU: GpuInfo = { webgpu: false, f16: false, fallback: false };
@@ -245,8 +258,8 @@ describe("cached downloads", () => {
 
 // ---------------------------------------------------------------------------------------------- backend
 
-describe("ModelBackend load", () => {
-  function backend(d: ReturnType<typeof modelDir>, caches: FakeCacheStorage | null, gpu: GpuInfo, ort = fakeOrt()) {
+describe("ModelBackend load (CONTRACT §10)", () => {
+  function backend(d: ReturnType<typeof modelDir>, caches: FakeCacheStorage | null, gpu: GpuInfo, ort = fakeOrt(), clock: Clock = browserClock) {
     const statuses: ModelHostStatus[] = [];
     const builds: OrtBuild[] = [];
     const b = new ModelBackend({
@@ -256,7 +269,7 @@ describe("ModelBackend load", () => {
       },
       fetch: d.fetch,
       caches: caches as unknown as CacheStorage,
-      clock: browserClock,
+      clock,
       emit: (s) => statuses.push(s),
       probeGpu: async () => gpu,
       inWorker: true,
@@ -294,6 +307,40 @@ describe("ModelBackend load", () => {
     expect(r.answers.n).toEqual({ type: "noul", noul: 1 / (1 + Math.exp(-2)) });
     // byte vocabulary, no merges: [CLS] "s" ":" "Ġ" "x" [SEP]
     expect(b.measure({ s: "x" }).stateTokens).toBe(6);
+  });
+
+  it("times a second, warm pass on WASM as on WebGPU: status.latency from it, warmupMs from the cold one (and §8: the first hold)", async () => {
+    // 0.2.2 timed the second pass on WebGPU only: on WASM status.latency came from the cold first pass (4-6x a warm
+    // one), so the first hold of a page load was sized to it and, on a CPU a little slower than the train VM's, never
+    // happened. Half the VM's speed here: cold 1.843 ms/token (800 ms for 434 tokens), warm 0.288 ms/token.
+    const COLD = 1.843;
+    const WARM = 0.288;
+    for (const [gpu, device] of [
+      [NO_GPU, "wasm"],
+      [GPU_F16, "webgpu"],
+    ] as const) {
+      const clock = new FakeClock();
+      const ort = fakeOrt({ webgpu: true, clock, msPerToken: (run) => (run === 0 ? COLD : WARM) });
+      const { b, statuses } = backend(modelDir(), new FakeCacheStorage(), gpu, ort, clock);
+      await b.load({ baseUrl: "https://cdn.test/model/" });
+      const last = statuses.at(-1) as ModelHostStatus;
+      expect(last).toMatchObject({ state: "ready", device, latency: { n: 0, source: "warmup" } });
+      expect(ort.runs).toBe(2); // the cold pass, then the timed warm one
+      const tokens = last.latency!.tokensP50;
+      expect(tokens).toBeGreaterThan(100);
+      expect(last.warmupMs).toBe(Math.round(COLD * tokens)); // warmupMs stays the first, cold pass
+      expect(last.latency).toMatchObject({ p50: Math.round(WARM * tokens), p90: Math.round(WARM * tokens) });
+      expect(last.latency!.msPerToken).toBeCloseTo(WARM, 2);
+      // the first hold of the page load: the estimate fits the automatic budget (1.5x, at most 800 ms), so a salient
+      // request is held (runtime.ts trigger(): expectedLatency() <= budget)
+      const expected = typicalLatency(last);
+      expect(Math.abs(expected - Math.max(WARM * tokens, WARM * TYPICAL_TOKENS + ROUND_TRIP_MS))).toBeLessThan(5);
+      expect(expected).toBeLessThanOrEqual(holdBudget(policyConfig(undefined), [], expected));
+      // what 0.2.2 reported on WASM (the cold pass as the latency) is never held: above the 800 ms ceiling
+      const cold: ModelHostStatus = { ...last, latency: { ...last.latency!, p50: last.warmupMs!, p90: last.warmupMs!, msPerToken: last.warmupMs! / tokens } };
+      expect(typicalLatency(cold)).toBeGreaterThan(HOLD_MAX_MS);
+      expect(holdBudget(policyConfig(undefined), [], typicalLatency(cold))).toBe(HOLD_MAX_MS);
+    }
   });
 
   it("passes meta.json `gate` through in the ready status (CORE batch 6: data-derived gate thresholds)", async () => {

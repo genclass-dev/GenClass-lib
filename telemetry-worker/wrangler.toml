@@ -41,16 +41,18 @@ RUNTIME_ON_NPM = "0.3.0-beta.0"
 # test-mode Pro checkout with it "on" went through (Stripe's changelog lists the parameter under a newer API version
 # than the pinned one; README "Owner steps"). Then set "on" and deploy.
 MANAGED_PAYMENTS = "off"
-# How many days a trial of Pro lasts (one per account, no card, no Stripe; src/trial.ts). The pages say it ("Get a
-# 7-day free trial for analytics"). 1 to 60; anything else counts as 7. The site says the same number from
-# billing/plans.json trial_days: change both together (test/trial.test.ts checks that they agree).
+# How many days a trial of Pro lasts: one per account, on Stripe Checkout with a card collected up front and first
+# charged when the trial ends (src/billing.ts, src/stripe.ts checkoutSession). The pages say it ("Get a 7-day free
+# trial for analytics"). 1 to 60; anything else counts as 7. The site says the same number from billing/plans.json
+# trial_days: change both together (test/trial.test.ts checks that they agree).
 TRIAL_DAYS = "7"
 
 # Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
 # STRIPE_WEBHOOK_SECRET_TEST, STRIPE_PORTAL_CONFIGURATION and STRIPE_PORTAL_CONFIGURATION_TEST (GenClass's Billing
 # Portal configuration id; scripts/stripe-setup.mjs stores the ones for its key's mode), STRIPE_TEST_ACCOUNTS (who
 # can buy while the key is a test key), INTEGRATIONS_KEY (32 random bytes, base64) and, optionally, NOTIFY_WEBHOOK.
-# Without a live STRIPE_SECRET_KEY nothing is on sale to the public; trials, and the Free plan's limits, apply anyway.
+# Without a live STRIPE_SECRET_KEY nothing is on sale to the public, trials included (a trial is a Stripe Checkout);
+# the Free plan's limits apply anyway.
 # The key is for GenClass's own Stripe account ("GenClass"); the worker and the setup script still touch only
 # GenClass's own objects there, as when the account was shared with Polar Parts (README "Shared-account defences").
 

@@ -39,7 +39,7 @@ export function securityHeaders(nonce: string, extra: Record<string, string> = {
     "cross-origin-opener-policy": "same-origin",
     "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
     "content-security-policy":
-      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; ` +
+      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}' https://api.fontshare.com https://fonts.googleapis.com; font-src https://cdn.fontshare.com https://fonts.gstatic.com; connect-src 'self'; ` +
       `img-src 'self' data: https://genclass.dev; base-uri 'none'; form-action ${opts.account ? "'self'" : "'none'"}; frame-ancestors 'none'`,
     ...extra,
   };
@@ -50,9 +50,9 @@ export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.ch
 /** JSON safe to embed in <script type="application/json">. */
 export const embed = (v: unknown): string => JSON.stringify(v).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 
-/** The header lockup, as on genclass.dev: the site's own lockup image (the pages are light only, like the site). */
+/** The header logo, as on genclass.dev: the mark and the name set in type. */
 export const LOGO =
-  '<a class="logo" href="https://genclass.dev/" aria-label="GenClass home"><img class="lk" src="https://genclass.dev/brand/lockup-h.png?v=2" alt="" width="170" height="37"></a>';
+  '<a class="logo" href="https://genclass.dev/"><img src="https://genclass.dev/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>';
 
 /** The site's own icons (site/public/brand, apple-touch-icon.png), so every genclass.dev page shows the same one. */
 const ICON_LINKS =
@@ -61,107 +61,112 @@ const ICON_LINKS =
   '<link rel="apple-touch-icon" href="https://genclass.dev/apple-touch-icon.png">';
 
 // The palette, type, buttons, header and focus ring of genclass.dev (site/src/css/base.css and components.css), with
-// the site's values. Like the site, every page here is light only, whatever the visitor's system theme: no
-// prefers-color-scheme rules and `color-scheme: light`, so form controls and scrollbars stay light too. Text colours
-// are at least 4.5:1 on --paper and --panel, UI colours (focus ring, input border, fills) at least 3:1
-// (test/pages.test.ts measures them). --accent #08794A is the site's small green text,
-// --accent-x #0E9A58 its large green text, --accent-f #14B86A its green fills and buttons; --warn #C42A12 the
-// red-orange for small text (the site's --orange), --warn-f #F0451C its bug fills. --line is an input border at
-// 3:1 (the site's --rule2 is 1.6:1, fine for a ghost button whose text names it, not for an empty field).
+// the site's values: black ground, bone text, the GenClass mark's green and red-orange, square corners, 1px rules,
+// Satoshi for text and JetBrains Mono for code. Like the site, every page here is dark only, whatever the visitor's
+// system theme: no prefers-color-scheme rules and `color-scheme: dark`, so form controls and scrollbars are dark too.
+// The token names are the light design's (--paper is the page, --ink the text), so every rule keeps working. Text
+// colours are at least 4.5:1 on --paper, --panel and --code, UI colours (focus ring, input border, fills) at least
+// 3:1 (test/pages.test.ts measures them). --accent #2FD07F is the site's green for text, fills and buttons, with
+// --on-green #02140A on it; --warn #FF6B4A the red-orange for bug text (the site's --bad), --warn-f #FF5A36 its bug
+// fills; --accent-t and --warn-t are their tints on black. --line is an input border at 4:1 (the site's
+// --rule-strong is 2:1, fine for a divider, not for an empty field).
 const CSS = `
 :root{
-  --paper:#FFFFFF;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;--line:#848FA6;
-  --accent:#08794A;--accent-x:#0E9A58;--accent-f:#14B86A;--accent-t:#DCF5E8;--warn:#C42A12;--warn-f:#F0451C;--warn-t:#FDE6E0;
-  --bar:#0E1F4D;--bar2:#14B86A;--bar3:#F0451C;--ink-h:#071331;--green-h:#0FA35D;--on-green:#0E1F4D;--head:rgba(255,255,255,.92);
-  --code:#0B1736;--codeink:#E8EDF8;
-  --lattice:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='41.569'%3E%3Cpath d='M0 .5H24M0 21.285H24M0 0L24 41.569M24 0L0 41.569' fill='none' stroke='rgba(14,31,77,.16)' stroke-width='1'/%3E%3C/svg%3E");
-  --display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;
-  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  color-scheme:light;
+  --paper:#000000;--panel:#0B0B0A;--ink:#F0F1E9;--ink2:#A0A196;--ink3:#88897F;--rule:#30312B;--rule2:#46463E;--line:#6E6F66;
+  --accent:#2FD07F;--accent-x:#2FD07F;--accent-f:#2FD07F;--accent-t:#06140D;--warn:#FF6B4A;--warn-f:#FF5A36;--warn-t:#1C0A06;
+  --bar:#A0A196;--bar2:#2FD07F;--bar3:#FF5A36;--ink-h:#FFFFFF;--green-h:#52DA95;--on-green:#02140A;--head:rgba(0,0,0,.75);
+  --code:#131311;--codeink:#F0F1E9;
+  --display:"Satoshi",ui-sans-serif,system-ui,sans-serif;--sans:"Satoshi",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-html:has(header.top){scroll-padding-top:72px}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+::selection{background:var(--accent-f);color:var(--on-green)}
+html:has(header.top){scroll-padding-top:76px}
 a{color:inherit;text-underline-offset:3px}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
 .wrap{max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
-header.top{position:sticky;top:0;z-index:20;background:var(--head);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
-header.top .wrap{display:flex;align-items:center;gap:22px;height:60px}
+header.top{position:sticky;top:0;z-index:20;background:var(--head);backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);border-bottom:1px solid var(--rule)}
+@media (prefers-reduced-transparency:reduce){header.top{background:var(--paper)}}
+header.top .wrap{display:flex;align-items:center;gap:22px;height:64px}
 body:has(.app) header.top .wrap{max-width:1360px}
-.logo{display:flex;align-items:center;flex:none;text-decoration:none}
-.logo .lk{height:37px;width:auto;display:block}
+.logo{display:flex;align-items:center;gap:10px;flex:none;font:500 17px var(--display);letter-spacing:-.02em;color:var(--ink);text-decoration:none}
+.logo img{width:24px;height:24px;display:block}
 header.top nav{margin-left:auto;display:flex;gap:22px;font-size:14px;color:var(--ink2);align-items:center}
 header.top nav a{text-decoration:none;white-space:nowrap}
-header.top nav a:not(.btn):hover,header.top nav .so button:hover{color:var(--ink)}
+header.top nav a:not(.btn):hover,header.top nav .so button:hover,header.top nav a[aria-current=page]{color:var(--ink)}
 header.top nav .btn{min-height:36px;font-size:14px;padding:0 14px}
 header.top nav form.so{display:contents}
 header.top nav .so button,button.lnk{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
-@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}.logo .lk{height:30px}}
+@media (max-width:620px){header.top .wrap{gap:12px}header.top nav{gap:14px}header.top nav .hm{display:none}}
 @media (max-width:420px){header.top nav .dc{display:none}}
-@media (max-width:360px){header.top .wrap{gap:10px}.logo .lk{height:26px}}
+@media (max-width:360px){header.top .wrap{gap:10px}}
 h1,h2,h3{font-family:var(--display);text-wrap:balance}
-h1{font-size:clamp(26px,4vw,40px);line-height:1.1;letter-spacing:-.03em;font-weight:700}
-h2{font-size:17px;letter-spacing:-.01em;font-weight:700;margin-bottom:10px}
+h1{font-size:clamp(26px,4vw,40px);line-height:1.15;letter-spacing:-.04em;font-weight:500}
+h2{font-size:17px;letter-spacing:-.015em;font-weight:500;margin-bottom:10px}
 p.lead{color:var(--ink2);font-size:16px;max-width:62ch;margin-top:10px}
 .muted{color:var(--ink3)}
 .small{font-size:13px}
 .mono{font-family:var(--mono)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:8px;font:500 15px/1 var(--sans);cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--paper);text-decoration:none;white-space:nowrap}
-.btn:hover{background:var(--ink-h);border-color:var(--ink-h)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:0;font:500 15px/1 var(--sans);cursor:pointer;border:1px solid var(--accent-f);background:var(--accent-f);color:var(--on-green);text-decoration:none;white-space:nowrap;transition:opacity .15s,border-color .15s,color .15s,transform .1s}
+.btn:hover{opacity:.9}
+.btn:active{transform:scale(.985)}
 .btn:disabled{opacity:.6;cursor:progress}
 .btn.green{background:var(--accent-f);border-color:var(--accent-f);color:var(--on-green)}
-.btn.green:hover{background:var(--green-h);border-color:var(--green-h)}
-.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule2)}
-.btn.ghost:hover{background:transparent;border-color:var(--ink)}
+.btn.green:hover{opacity:.9}
+.btn.ghost{background:transparent;color:var(--ink2);border-color:var(--rule2)}
+.btn.ghost:hover{opacity:1;background:transparent;color:var(--ink);border-color:var(--ink3)}
 .btn.sm{min-height:34px;padding:0 12px;font-size:13.5px}
 @media (max-width:620px){.btn.sm{min-height:44px}}
-input[type=text]{min-height:46px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans);width:100%}
-input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+input[type=text]{min-height:46px;padding:0 12px;border-radius:0;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:16px var(--sans);width:100%}
+input[type=text]:focus-visible{outline:1px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 ::placeholder{color:var(--ink3);opacity:1}
-.card{background:var(--panel);border:1px solid var(--rule2);border-radius:16px;padding:clamp(16px,3vw,28px);min-width:0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:0;padding:clamp(16px,3vw,28px);min-width:0}
 .grid{display:grid;gap:12px}
 .kpis{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .cols{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 .charts{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 @media (max-width:420px){.cols{grid-template-columns:1fr}}
-.kpi .v{font-size:26px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .v{font-size:26px;font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .kpi .l{font-size:13px;color:var(--ink2)}
 .kpi .s{font-size:12px;color:var(--ink3);margin-top:2px}
-pre.code{background:var(--code);color:var(--codeink);border-radius:12px;padding:12px 14px;font:13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
+pre.code{background:var(--code);color:var(--codeink);border-radius:0;padding:12px 14px;font:13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
 .snip>*+*{margin-top:6px}
 .snip .between{align-items:center}
-.note{border:1px solid var(--rule2);border-left:3px solid var(--warn);background:var(--panel);padding:12px 16px;border-radius:10px;font-size:14px;color:var(--ink)}
+.note{border:1px solid var(--rule);border-left:3px solid var(--warn);background:var(--panel);padding:12px 16px;border-radius:0;font-size:14px;color:var(--ink)}
 .ok{border-left-color:var(--accent-f);background:var(--accent-t)}
-.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule2);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--ink2)}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule2);border-radius:0;padding:3px 10px;font:500 12px var(--mono);color:var(--ink2)}
 .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ink3)}
 .pill.live .dot{background:var(--accent-f)}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.tabs{display:inline-flex;border:1px solid var(--rule2);border-radius:8px;overflow:hidden}
-.tabs button{border:0;background:transparent;color:var(--ink2);padding:7px 12px;font:600 13px var(--sans);cursor:pointer}
+.tabs{display:inline-flex;border:1px solid var(--rule2);border-radius:0;overflow:hidden}
+.tabs button{border:0;background:transparent;color:var(--ink2);padding:7px 12px;font:500 13px var(--sans);cursor:pointer}
 .tabs button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
 .bars{list-style:none;display:grid;gap:6px}
 .bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:13px}
 .bars .k{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
 .bars .n{font-variant-numeric:tabular-nums;color:var(--ink2)}
-.bars .track{grid-column:1/-1;height:6px;border-radius:2px;background:var(--rule)}
-.bars .fill{height:6px;border-radius:2px;background:var(--bar)}
+.bars .track{grid-column:1/-1;height:6px;border-radius:0;background:var(--rule)}
+.bars .fill{height:6px;border-radius:0;background:var(--bar)}
 .empty{color:var(--ink3);font-size:13px}
 .chart svg{width:100%;height:120px;display:block}
 .chart .axis{font-size:11px;color:var(--ink3);display:flex;justify-content:space-between;margin-top:4px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
-th{color:var(--ink3);font-weight:600}
+th{color:var(--ink3);font:500 12px var(--mono);text-transform:uppercase;letter-spacing:.06em}
 td.mono{font-family:var(--mono)}
 .tablewrap{overflow-x:auto;padding-left:6px;margin-left:-6px}
 section{margin-top:22px}
-details summary{cursor:pointer;font-weight:700}
+details summary{cursor:pointer;font-weight:500}
 footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
 .hidden{display:none!important}
-.skip{position:absolute;left:12px;top:-60px;z-index:30;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:8px;font-size:14px;text-decoration:none}
+.skip{position:absolute;left:12px;top:-60px;z-index:30;background:var(--accent-f);color:var(--on-green);padding:10px 14px;border-radius:0;font-size:14px;text-decoration:none}
 .skip:focus{top:12px}
 [tabindex="-1"]:focus{outline:none}
 .field{display:grid;gap:6px;max-width:520px}
-.field label{font-size:14px;font-weight:600}
+.field label{font-size:14px;font-weight:500}
 .stack>*+*{margin-top:12px}
 .mt-xl{margin-top:44px}.mt-l{margin-top:28px}.mt-s{margin-top:12px}.big{font-size:16px}.brk{word-break:break-all}.h2l{font-size:20px}.between{justify-content:space-between;align-items:flex-end}.minw0{min-width:0}
 `;
@@ -213,15 +218,23 @@ function renderSnippets(host, tok){
 export interface ShellOptions {
   /** Header links (HTML). Default: Home, Get a token, Docs, Sign in. */
   nav?: string;
-  /** No top header: the sign-in pages put the lockup at the top of their own column. */
+  /** No top header: the sign-in pages put the logo at the top of their own column. */
   bare?: boolean;
   /** An account page: the referrer policy `same-origin` (see securityHeaders), which the meta tag must repeat. */
   account?: boolean;
   /** The id the "Skip to content" link jumps to (default the <main> element; pages with a sidebar name their content). */
   skip?: string;
+  /**
+   * A sign-in page: the content in a column on the left, the self-healing sphere of genclass.dev/signin-mesh.js (the
+   * same backdrop as /admin's sign-in) on the right. The script is the site's, loaded under this page's nonce.
+   */
+  mesh?: boolean;
 }
 
-/** As on genclass.dev: plain links, then one compact ink button. Narrow screens drop Home (the lockup links there),
+/** genclass.dev's sign-in backdrop script; bump ?v= with site/public/signin-mesh.js (assets are cached immutably). */
+export const MESH_SCRIPT = "https://genclass.dev/signin-mesh.js?v=2";
+
+/** As on genclass.dev: plain links, then one compact green button. Narrow screens drop Home (the logo links there),
  * then Docs. */
 const DEFAULT_NAV =
   '<a class="hm" href="https://genclass.dev/">Home</a><a class="dc" href="https://genclass.dev/docs">Docs</a><a href="/login">Sign in</a><a class="btn" href="/start">Get a token</a>';
@@ -240,16 +253,18 @@ export function shell(nonce: string, title: string, body: string, script: string
 <meta name="referrer" content="${opts.account ? "same-origin" : "no-referrer"}">
 <title>${esc(title)}</title>
 ${ICON_LINKS}
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
 <style nonce="${nonce}">${CSS}</style>
 </head>
-<body>
+<body${opts.mesh ? ' class="mesh"' : ""}>
 <a class="skip" href="#${esc(opts.skip ?? "main")}">Skip to content</a>
 ${header}<main class="wrap" id="main">${body}</main>
 <script nonce="${nonce}">${SNIPPETS_JS}${script}</script>
-</body>
+${opts.mesh ? `<canvas data-mesh aria-hidden="true"></canvas>\n<script nonce="${nonce}" src="${MESH_SCRIPT}" defer></script>\n` : ""}</body>
 </html>`;
 }
 
@@ -339,11 +354,12 @@ export function notFoundPage(nonce: string): string {
 // ---------------------------------------------------------------------------------------------- /dashboard
 // The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
 // problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
-// Chart colours come from genclass.dev's own hues, stepped into the chart lightness band: ink navy, the red-orange the
-// site uses for bugs, a sky blue, amber (the site's live-bug colour) and berry, in that order (light only, like the
-// rest of the page). No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz skill's
-// validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-13: on #FFFFFF all checks pass, worst CVD
-// ΔE 20.0, normal-vision 31.3, amber 2.2:1 so the table view and legend carry it (the palette it replaces: 16.3/19.6).
+// Chart colours come from genclass.dev's own hues, stepped into the dark chart lightness band (OKLCH L .48-.67): blue,
+// the red-orange the site uses for bugs, a sky blue, amber (the site's warning colour) and violet, in that order (dark
+// only, like the rest of the page). No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz
+// skill's validate_palette.js (adjacent pairs, as the stacks draw them) on 2026-10-17: on #000000 and #0B0B0A all
+// checks pass, worst CVD ΔE 20.7 (deutan; tritan 7.3), normal-vision 24.8, every slot at least 3:1 on the surface (the
+// light palette it replaces, on #FFFFFF: 20.0/31.3).
 // A bar draws only the types it has, so slots that are not palette neighbours can touch; the 2px paper gap between
 // segments, the legend, the hover breakdown and the table view carry identity there.
 // Five problem types get a slot, the rest share "Other". Possible issues (the lower-confidence tier) are drawn hollow:
@@ -352,38 +368,38 @@ export function notFoundPage(nonce: string): string {
 // Every dynamic string goes through textContent.
 
 export const DASH_CSS = `
-:root{--t1:#2B4FB0;--t2:#F0451C;--t3:#0F85B2;--t4:#EE9E10;--t5:#A63C72;--t0:#8A93A8;--grid:#E6EBF2}
+:root{--t1:#3987E5;--t2:#E8552F;--t3:#2AA3C7;--t4:#C98500;--t5:#B964C9;--t0:#88897F;--grid:#1E1F1B}
 h1,h2,h3{letter-spacing:-.03em}
 .dh{margin-top:40px}
 .dh-top{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end}
-.dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:700;line-height:1.05}
+.dh h1{font-size:clamp(30px,4.4vw,46px);font-weight:500;line-height:1.05}
 .meta{font:12.5px var(--mono);color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px}
 .live{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ink3);display:inline-block}
 .live.on i{background:var(--accent-f)}
 .ctl{display:flex;gap:10px;align-items:center}
-.seg{display:inline-flex;border:1px solid var(--ink);border-radius:8px;overflow:hidden}
+.seg{display:inline-flex;border:1px solid var(--rule2);border-radius:0;overflow:hidden}
 .seg button{border:0;background:transparent;color:var(--ink);padding:8px 14px;font:500 13px var(--sans);cursor:pointer}
-.seg button+button{border-left:1px solid var(--ink)}
+.seg button+button{border-left:1px solid var(--rule2)}
 .seg button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
 .summary{margin-top:24px;font-size:clamp(18px,2.1vw,21px);line-height:1.5;max-width:68ch}
-.summary b{font-weight:600}
-.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:1px solid var(--ink);margin-top:32px}
+.summary b{font-weight:500}
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:1px solid var(--rule2);margin-top:32px}
 .statrow>div{padding:18px 20px 20px 0;border-bottom:1px solid var(--rule);min-width:0}
 .statrow .k{font:500 12px var(--mono);color:var(--ink3)}
-.statrow .v{font:600 40px/1.05 var(--display);letter-spacing:-.03em;margin-top:10px;font-variant-numeric:tabular-nums}
+.statrow .v{font:500 40px/1.05 var(--display);letter-spacing:-.03em;margin-top:10px;font-variant-numeric:tabular-nums}
 .statrow .s{font-size:13.5px;color:var(--ink2);margin-top:6px}
 .blk{margin-top:60px}
-.blk-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--ink)}
-.blk-h h2{font-size:22px;font-weight:700;margin:0}
+.blk-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--rule2)}
+.blk-h h2{font-size:22px;font-weight:500;margin:0}
 .blk-h .aside{font-size:13.5px;color:var(--ink3)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2);margin-top:14px}
 .legend span{display:inline-flex;align-items:center;gap:7px}
-.key{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.key{width:8px;height:8px;border-radius:0;display:inline-block;flex:none}
 .key.ring{background:transparent;border:1.5px solid var(--ink3)}
 .poss-fig{margin-top:40px}
 .poss-h{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--rule)}
-.poss-h h3{font:600 17px var(--sans);letter-spacing:-.01em}
+.poss-h h3{font:500 17px var(--sans);letter-spacing:-.01em}
 .poss-h .aside{font-size:13.5px;color:var(--ink3)}
 .poss-note{font-size:14px;color:var(--ink2);margin-top:12px;max-width:72ch}
 .find.poss .n{font-weight:500;color:var(--ink2)}
@@ -393,20 +409,20 @@ figcaption{font:12px var(--mono);color:var(--ink3);margin-top:12px}
 .plot{position:relative;margin-top:14px}
 .plot svg{display:block;width:100%;height:auto;overflow:visible}
 .plot text{font:12px var(--mono);fill:var(--ink3)}
-.tip{position:absolute;pointer-events:none;background:var(--paper);border:1px solid var(--ink);border-radius:8px;padding:9px 11px;font-size:13px;min-width:160px;z-index:2}
-.tip .t{font:600 13px var(--sans);margin-bottom:5px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--rule2);border-radius:0;padding:9px 11px;font-size:13px;min-width:160px;z-index:2}
+.tip .t{font:500 13px var(--sans);margin-bottom:5px}
 .tip .r{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .tip .r span:first-child{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
-.tip .r b{font-variant-numeric:tabular-nums;font-weight:600}
+.tip .r b{font-variant-numeric:tabular-nums;font-weight:500}
 .finds{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));column-gap:44px}
 .find{padding:24px 0;border-bottom:1px solid var(--rule);display:grid;gap:11px;align-content:start;min-width:0}
 .find .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.find h3{font:600 17px var(--sans);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.find h3{font:500 17px var(--sans);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
 .find .nw{text-align:right;white-space:nowrap}
-.find .n{font:600 30px/1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.find .n{font:500 30px/1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .find .share{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px}
 .find p{font-size:14.5px;color:var(--ink2)}
-.find p.fix b{color:var(--ink);font-weight:600}
+.find p.fix b{color:var(--ink);font-weight:500}
 .where{list-style:none;display:grid;gap:3px}
 .where li{display:flex;justify-content:space-between;gap:12px;font:13px var(--mono)}
 .where li code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font:inherit}
@@ -420,13 +436,13 @@ table.dt .num{text-align:right;font-variant-numeric:tabular-nums}
 table.dt td.route{font:13px var(--mono);max-width:240px;overflow:hidden;text-overflow:ellipsis}
 table.dt td.wide{width:45%}
 .mix{display:flex;gap:2px;height:6px}
-.mix i{display:block;height:6px;border-radius:1px;min-width:3px}
+.mix i{display:block;height:6px;border-radius:0;min-width:3px}
 .chip{display:inline-flex;align-items:center;gap:7px}
-.did-a{color:var(--accent);font-weight:600}
+.did-a{color:var(--accent);font-weight:500}
 dl.health{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr)}
 dl.health dt,dl.health dd{padding:15px 0;border-bottom:1px solid var(--rule)}
 dl.health dt{font:500 12.5px var(--mono);color:var(--ink3);padding-right:18px}
-dl.health .v{font:600 18px var(--display);letter-spacing:-.01em}
+dl.health .v{font:500 18px var(--display);letter-spacing:-.01em}
 dl.health .s{font-size:13.5px;color:var(--ink2);margin-top:3px}
 dl.health ul{list-style:none;margin-top:6px;display:grid;gap:2px;font:12.5px var(--mono);color:var(--ink2)}
 .ok-t{font:500 12.5px var(--mono);color:var(--accent);margin-left:8px}
@@ -434,31 +450,31 @@ dl.health ul{list-style:none;margin-top:6px;display:grid;gap:2px;font:12.5px var
 @media (max-width:560px){dl.health{grid-template-columns:1fr}dl.health dt{border-bottom:0;padding-bottom:0}}
 .quiet{padding:36px 0;color:var(--ink3);font-size:14.5px}
 details.more{border-top:1px solid var(--rule);padding:16px 0}
-details.more summary{font:600 15px var(--sans);cursor:pointer}
+details.more summary{font:500 15px var(--sans);cursor:pointer}
 .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px 40px}
-.kv h2{font:600 14px var(--sans);margin-bottom:8px}
-.first{border-top:1px solid var(--ink);padding:22px 0;margin-top:32px;max-width:72ch}
+.kv h2{font:500 14px var(--sans);margin-bottom:8px}
+.first{border-top:1px solid var(--rule2);padding:22px 0;margin-top:32px;max-width:72ch}
 .first p{font-size:15px;color:var(--ink2)}
 .dfoot{margin:64px 0 36px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink3);max-width:90ch}
 .dfoot a{color:var(--ink2)}
 main.wrap:has(.app){max-width:1360px}
 .app{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0 48px;align-items:start}
-.side{position:sticky;top:61px;align-self:start;max-height:calc(100vh - 61px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 16px;margin-left:-16px;border-right:1px solid var(--rule);min-height:calc(100vh - 61px)}
-.side .proj{font:600 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
+.side{position:sticky;top:65px;align-self:start;max-height:calc(100vh - 65px);overflow-y:auto;scrollbar-width:thin;padding:28px 24px 28px 16px;margin-left:-16px;border-right:1px solid var(--rule);min-height:calc(100vh - 65px)}
+.side .proj{font:500 15px var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}
 .side .proj small{display:block;font:12px var(--mono);color:var(--ink3);margin-top:4px;font-weight:400}
 .side .live{margin-top:10px;font:12px var(--mono)}
 .side .seg{margin-top:18px;display:flex;width:100%}
 .side .seg button{flex:1;padding:7px 4px;font-size:12.5px}
 .side .grp{font:500 11.5px var(--mono);color:var(--ink3);margin:26px 0 8px}
-.side nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;margin:0 -10px;border-radius:7px;font-size:14px;color:var(--ink2);text-decoration:none}
+.side nav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;margin:0 -10px;border-radius:0;font-size:14px;color:var(--ink2);text-decoration:none}
 .side nav a:hover{color:var(--ink);background:var(--panel)}
-.side nav a[aria-current=true]{color:var(--accent);background:var(--accent-t);font-weight:600}
+.side nav a[aria-current=true]{color:var(--accent);background:var(--accent-t);font-weight:500}
 .side nav a[aria-current=true] span{color:var(--accent)}
 .side nav a span{font:12px var(--mono);color:var(--ink3);font-weight:400}
 .side .out a{display:block;font-size:13.5px;color:var(--ink2);text-decoration:none;padding:5px 0}
 .side .out a:hover{color:var(--ink)}
 .side .btn{width:100%;margin-top:14px}
-.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:600}
+.side nav a[aria-current=page]{color:var(--ink);background:var(--panel);font-weight:500}
 .side nav.apps a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .side nav.apps a.new{color:var(--accent);font-weight:500}
 #period{display:contents}
@@ -475,13 +491,13 @@ main.wrap:has(.app){max-width:1360px}
 .connect .way{padding:22px 0;border-bottom:1px solid var(--rule);min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-content:start}
 .connect .way>*{min-width:0}
 .connect .eb{font:500 12.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
-.connect h3{font:600 17px var(--sans);letter-spacing:-.01em}
+.connect h3{font:500 17px var(--sans);letter-spacing:-.01em}
 .connect .way p{font-size:14.5px;color:var(--ink2);max-width:62ch}
 .connect .sh{display:flex;justify-content:space-between;align-items:center;gap:10px;font:500 12px var(--mono);color:var(--ink3);margin-top:4px}
 .connect pre.code{white-space:pre-wrap;overflow-wrap:anywhere}
 .connect .cnote{margin-top:18px;padding:12px 0 12px 14px;border-left:3px solid var(--warn);font-size:14.5px;line-height:1.5;color:var(--ink2);max-width:80ch}
-.connect .cnote b{color:var(--warn);font-weight:600}
-.cstat{display:flex;align-items:center;gap:9px;padding:16px 0;font:500 13.5px var(--mono);color:var(--ink2);border-bottom:1px solid var(--ink)}
+.connect .cnote b{color:var(--warn);font-weight:500}
+.cstat{display:flex;align-items:center;gap:9px;padding:16px 0;font:500 13.5px var(--mono);color:var(--ink2);border-bottom:1px solid var(--rule2)}
 .cstat i{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex:none;animation:gcpulse 1.6s ease-in-out infinite}
 .cstat.on{color:var(--accent)}
 .cstat.on i{background:var(--accent-f);animation:none}
@@ -492,8 +508,8 @@ main.wrap:has(.app){max-width:1360px}
 .mainc{min-width:0;padding-bottom:20px}
 .trialn{font:500 12.5px var(--mono);color:var(--accent);margin-top:10px}
 .trialn a{color:var(--ink2)}
-.lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--ink);border-bottom:1px solid var(--rule);max-width:72ch}
-.lock h2{font:700 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
+.lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);max-width:72ch}
+.lock h2{font:500 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
 .lock p{font-size:16px;color:var(--ink2);margin-top:8px}
 .lock .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
 .lock .err{font-size:14px;color:var(--warn);margin-top:10px}
@@ -501,7 +517,7 @@ main.wrap:has(.app){max-width:1360px}
 .mainc .dh{margin-top:32px}
 @media (max-width:920px){
   .app{grid-template-columns:minmax(0,1fr)}
-  .side{position:sticky;top:61px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+  .side{position:sticky;top:65px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
   .side .proj,.side .grp,.side .out,.side .live,.side .btn{display:none}
   .side .seg{margin-top:0;width:auto}
   .side .seg button{flex:none;padding:6px 10px}
@@ -1057,16 +1073,16 @@ const CONNECT_JS = `
   document.addEventListener("visibilitychange", tick);
 })();`;
 
-// The locked account mode's one button: start the account's trial, then reload (the dashboard opens).
+// The locked account mode's one button: open the trial's Stripe Checkout, where the card is entered (src/billing.ts).
 const LOCK_JS = `
 (function(){
   var b = document.getElementById("trial"); if (!b) return;
   var err = document.getElementById("lockerr"), label = b.textContent;
   b.addEventListener("click", function(){
-    err.textContent = ""; b.disabled = true; b.textContent = "Starting...";
+    err.textContent = ""; b.disabled = true; b.textContent = "Opening Stripe...";
     fetch("/api/billing/trial", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json" }, body: "{}" })
-      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status)); }); })
-      .then(function(){ location.reload(); }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = label; });
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok || !j || !j.url) throw new Error((j && j.error) || ("HTTP " + r.status)); return j; }); })
+      .then(function(j){ location.href = j.url; }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = label; });
   });
 })();`;
 
@@ -1092,9 +1108,10 @@ export interface DashboardOptions {
   extra?: { html: string; script: string };
   /**
    * Account mode, locked: the account has no plan, grant or trial (dashboards come with Pro). The page keeps the app's
-   * key and the Connect panel and offers the trial (until it was used) or the plans; no stats are loaded.
+   * key and the Connect panel and offers the trial (canTrial: on Stripe, with a card; `terms` says it, src/plans.ts
+   * trialTerms) or the plans; no stats are loaded.
    */
-  locked?: { trialUsed: boolean; trialDays: number };
+  locked?: { trialUsed: boolean; canTrial: boolean; trialDays: number; terms: string };
   /** Account mode, on the trial: whole days left, said here and nowhere else. */
   trialDaysLeft?: number;
 }
@@ -1315,16 +1332,17 @@ function accountApps(acct: NonNullable<DashboardOptions["account"]>): string {
 
 /**
  * /account/apps/<id> for an account without a plan, grant or trial: the app's name, "Dashboards come with Pro" with
- * the trial (until it was used) and the plans, then the Connect panel (connecting is free: the app's data is collected
- * so the dashboard starts with it). No stats are fetched.
+ * the trial (when the account may start it, with its card terms) and the plans, then the Connect panel (connecting is
+ * free: the app's data is collected so the dashboard starts with it). No stats are fetched.
  */
 function lockedDashboardPage(
   nonce: string,
   project: { name: string; token: string; created: string; lastEvent: string | null },
-  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: { trialUsed: boolean; trialDays: number } },
+  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: NonNullable<DashboardOptions["locked"]> },
 ): string {
   const data = { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, account: true, locked: true };
-  const used = opts.locked.trialUsed;
+  const offer = opts.locked.canTrial;
+  const line = offer ? `Get a ${opts.locked.trialDays}-day free trial for analytics. ${esc(opts.locked.terms)}` : opts.locked.trialUsed ? "Your trial has ended." : "Pick a plan to open it.";
   const privacy = opts.privateLink
     ? "This app also has the private dashboard link it had before it joined your account; with Pro, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
     : "Only you can open this page, while signed in.";
@@ -1344,8 +1362,8 @@ function lockedDashboardPage(
 </section>
 <section class="lock" id="lock" aria-labelledby="lock-h">
   <h2 id="lock-h">Dashboards come with Pro.</h2>
-  <p>${used ? "Your trial has ended." : `Get a ${opts.locked.trialDays}-day free trial for analytics.`}</p>
-  <div class="acts">${used ? "" : `<button class="btn green" type="button" id="trial">Start your ${opts.locked.trialDays}-day free trial</button>`}<a class="btn ${used ? "green" : "ghost"}" href="/account/billing">See plans</a></div>
+  <p>${line}</p>
+  <div class="acts">${offer ? `<button class="btn green" type="button" id="trial">Start your ${opts.locked.trialDays}-day free trial</button>` : ""}<a class="btn ${offer ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
   <p class="err" id="lockerr" role="alert"></p>
 </section>
 ${connectPanel(project.token, false, opts.runtimeReady === true)}
