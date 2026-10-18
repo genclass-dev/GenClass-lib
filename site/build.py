@@ -159,7 +159,7 @@ def page(meta, body):
 <meta property="og:url" content="{url}">
 <meta property="og:title" content="{meta.get("og_title", title)}">
 <meta property="og:description" content="{desc}">
-<meta property="og:image" content="{SITE}/og.png?v=5">
+<meta property="og:image" content="{SITE}/og.png?v=6">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="GenClass: {HEADLINE}">
@@ -167,7 +167,7 @@ def page(meta, body):
 {extra}<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{meta.get("og_title", title)}">
 <meta name="twitter:description" content="{desc}">
-<meta name="twitter:image" content="{SITE}/og.png?v=5">
+<meta name="twitter:image" content="{SITE}/og.png?v=6">
 <link rel="icon" href="/brand/mark-32.png?v=2" sizes="32x32" type="image/png">
 <link rel="icon" href="/brand/mark-64.png?v=2" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
