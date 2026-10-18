@@ -36,6 +36,13 @@
 // - A plan is granted only once Stripe has the money: a subscription the account has not been granted yet counts only
 //   when its latest invoice is paid (or asks for nothing), not when Stripe calls it active while a bank debit is still
 //   processing; invoice.paid brings it back when the payment clears.
+// - The trial of Pro exists only as a Stripe subscription in its trial period, started on Checkout with a card: every
+//   Checkout GenClass makes collects a payment method up front (payment_method_collection "always", also when nothing
+//   is due today), a trial's subscription is cancelled by Stripe if it reaches the trial's end with no payment method
+//   (trial_settings), and a trialing subscription the account has not been granted yet counts only with a saved payment
+//   method (cardOnFile). The trial's end is the first charge: a card that fails then is a failed payment like any other
+//   (past_due, PAST_DUE_GRACE_DAYS, then Free). The webhook records when the account's trial started
+//   (accounts.trial_started_at), so it gets one trial.
 // - One subscription per account. Checkout asks Stripe (not the database, which a late webhook leaves behind) whether
 //   the customer already has one: the same plan is refused, the other plan is a switch (a Checkout whose subscription
 //   carries metadata genclass_switch_from naming the one it replaces); an account's older unpaid Checkout pages are
@@ -348,28 +355,34 @@ export function managedPayments(env: Env, plan: Plan): boolean {
 /**
  * A Checkout Session in subscription mode for one plan's monthly price, for the account's own GenClass customer, with
  * metadata genclass=1, genclass_account and genclass_plan (the subscription it starts carries genclass and
- * genclass_account), flexible billing mode, and Managed Payments when managedPayments says so (then nothing Managed
- * Payments refuses is sent: no automatic_tax, tax_id_collection, payment_method_types, customer_update or invoice
- * settings). `switchFrom`: the GenClass subscription this one replaces (metadata genclass_switch_from on the session
- * and the subscription; the webhook cancels it once the new one is active). Returns Stripe's page URL. Unless the
- * customer is `fresh`, its open Checkout pages are looked at first: GenClass's page for this plan and this switch is
- * reused (a second click, or a second tab), any other page of GenClass's is closed, so an abandoned tab cannot start a
- * second subscription later. A page GenClass did not make is left alone.
+ * genclass_account), flexible billing mode, a payment method always collected (payment_method_collection "always"),
+ * and Managed Payments when managedPayments says so (then nothing Managed Payments refuses is sent: no automatic_tax,
+ * tax_id_collection, payment_method_types, customer_update or invoice settings). `switchFrom`: the GenClass
+ * subscription this one replaces (metadata genclass_switch_from on the session and the subscription; the webhook
+ * cancels it once the new one is active). `trialDays`: the account's one trial (the caller checks it may have one):
+ * the subscription starts trialing for that many days with the card already collected, nothing is charged until the
+ * trial ends, and Stripe cancels it at the trial's end if it has no payment method by then (metadata genclass_trial=1
+ * on the session). Returns Stripe's page URL. Unless the customer is `fresh`, its open Checkout pages are looked at
+ * first: GenClass's page for this plan, this switch and this trial is reused (a second click, or a second tab), any
+ * other page of GenClass's is closed, so an abandoned tab cannot start a second subscription later. A page GenClass
+ * did not make is left alone.
  */
 export async function checkoutSession(
   env: Env,
   f: Fetch,
-  o: { account: BillingAccount; customer: string; plan: Plan; origin: string; now: Date; fresh?: boolean; switchFrom?: string },
+  o: { account: BillingAccount; customer: string; plan: Plan; origin: string; now: Date; fresh?: boolean; switchFrom?: string; trialDays?: number },
 ): Promise<string> {
   const lookup = o.plan.stripe_lookup_keys.monthly;
   if (!lookup) throw new StripeError(`the ${o.plan.name} plan has no monthly price`, 400);
   if (o.switchFrom !== undefined && !idOf(o.switchFrom)) throw new StripeError("not a subscription id", 400);
+  const trial = o.trialDays !== undefined ? o.trialDays : null;
+  if (trial !== null && (!Number.isInteger(trial) || trial < 1 || trial > 60 || o.switchFrom !== undefined)) throw new StripeError("not a trial GenClass offers", 400);
   const closed: string[] = [];
   if (!o.fresh) {
     const open = await stripe(env, f, "GET", "/v1/checkout/sessions", { customer: o.customer, status: "open", limit: 20 });
     for (const x of Array.isArray(open?.data) ? (open.data as Obj[]) : []) {
       if (typeof x?.id !== "string" || !SESSION_ID_RE.test(x.id) || !ownSession(x, o.account.id)) continue;
-      const same = x.metadata?.genclass_plan === o.plan.id && (x.metadata?.genclass_switch_from ?? undefined) === o.switchFrom;
+      const same = x.metadata?.genclass_plan === o.plan.id && (x.metadata?.genclass_switch_from ?? undefined) === o.switchFrom && (x.metadata?.genclass_trial === "1") === (trial !== null);
       if (same && typeof x.url === "string" && x.url.startsWith("https://")) return x.url;
       await stripe(env, f, "POST", `/v1/checkout/sessions/${encodeURIComponent(x.id)}/expire`, {});
       closed.push(x.id);
@@ -381,7 +394,7 @@ export async function checkoutSession(
   // a double click within the same minute gets the same session; after closing pages, a new key (the old session
   // under the plain key may be one of those just closed); a switch has its own
   const after = closed.length ? `-after-${(await sha256Hex(closed.join(","))).slice(0, 16)}` : "";
-  const from = o.switchFrom ? `-from-${o.switchFrom}` : "";
+  const from = o.switchFrom ? `-from-${o.switchFrom}` : trial !== null ? "-trial" : "";
   let s: Obj;
   try {
     s = await stripe(
@@ -394,11 +407,18 @@ export async function checkoutSession(
         customer: o.customer,
         client_reference_id: o.account.id,
         line_items: [{ price, quantity: 1 }],
-        // back from a switch, the page waits for the new plan
-        success_url: `${o.origin}/account/billing?done=1${o.switchFrom ? `&to=${o.plan.id}` : ""}`,
+        // back from a switch, the page waits for the new plan; back from a trial, for the trial
+        success_url: `${o.origin}/account/billing?done=1${o.switchFrom ? `&to=${o.plan.id}` : trial !== null ? "&trial=1" : ""}`,
         cancel_url: `${o.origin}/account/billing`,
-        metadata: { ...mark, genclass_plan: o.plan.id },
-        subscription_data: { metadata: mark, billing_mode: { type: "flexible" } },
+        metadata: { ...mark, genclass_plan: o.plan.id, genclass_trial: trial !== null ? "1" : undefined },
+        // a card (or another payment method) up front, also when a trial makes today's total zero
+        payment_method_collection: "always",
+        subscription_data: {
+          metadata: mark,
+          billing_mode: { type: "flexible" },
+          trial_period_days: trial ?? undefined,
+          trial_settings: trial !== null ? { end_behavior: { missing_payment_method: "cancel" } } : undefined,
+        },
         managed_payments: managedPayments(env, o.plan) ? { enabled: true } : undefined,
       },
       `genclass-checkout-${o.account.id}-${o.plan.id}-${Math.floor(o.now.getTime() / 60_000)}${from}${after}`,
@@ -709,6 +729,18 @@ export function paymentCleared(sub: Obj): boolean {
   return !!inv && typeof inv === "object" && (inv.status === "paid" || inv.amount_due === 0);
 }
 
+/**
+ * A trialing subscription has a saved payment method to charge when its trial ends: its own default payment method
+ * (Checkout sets it from what the buyer entered) or default source, or, with the customer expanded, the customer's
+ * default. Any other status: true (paymentCleared covers what was paid). A trial is never granted without one.
+ * Exported for tests.
+ */
+export function cardOnFile(sub: Obj): boolean {
+  if (sub?.status !== "trialing") return true;
+  const c: Obj | null = sub?.customer && typeof sub.customer === "object" ? sub.customer : null;
+  return !!(idOf(sub?.default_payment_method) ?? idOf(sub?.default_source) ?? idOf(c?.invoice_settings?.default_payment_method) ?? idOf(c?.default_source));
+}
+
 /** The account already has this subscription, live: its plan was granted from it. */
 const granted = (account: BillingAccount, sub: Obj): boolean => !!account.subscription_id && idOf(sub?.id) === account.subscription_id && LIVE_STATUSES.has(account.subscription_status ?? "");
 
@@ -762,6 +794,8 @@ export async function handleEvent(x: EventContext, event: Obj): Promise<EventRes
   if (!isGenClassSubscription(sub) && idOf(sub?.id) !== account.subscription_id) return ignored("not a GenClass subscription", event, true);
   // a new subscription is granted only once its first payment cleared: never on "active" alone
   if (!granted(account, sub) && LIVE_STATUSES.has(sub?.status) && !paymentCleared(sub)) return ignored("its first payment has not cleared yet", event, true);
+  // and a trial only with a payment method saved to charge when it ends
+  if (!granted(account, sub) && !cardOnFile(sub)) return ignored("its trial has no saved payment method", event, true);
   // a subscription that starts billing (created, its status changed, or an invoice of it paid)
   const prev = event?.data?.previous_attributes;
   const started =
@@ -831,7 +865,8 @@ const PLAN_RANK: Record<string, number> = { pro: 1, custom: 2 };
  * page completed after a purchase), the account keeps one. A switch keeps the subscription whose genclass_switch_from
  * names another of them (the newest such); the one it names is the switch's old plan. Otherwise (a duplicate) a live
  * one before one that is unpaid or paused, then the higher plan (Custom over Pro), then the newest. A new subscription
- * whose first payment has not cleared is not counted: it neither replaces nor is cancelled until it clears. Only
+ * whose first payment has not cleared (or a trial without a saved payment method) is not counted: it neither replaces
+ * nor is cancelled until it clears. Only
  * GenClass subscriptions are counted. When it is the only one that bills, it is chosen with nothing to settle; null
  * when it is not live or not GenClass's. The caller applies `keep` first and then settles `extra` (settleOthers).
  */
@@ -839,7 +874,7 @@ async function oneSubscription(x: EventContext, account: BillingAccount, sub: Ob
   const customer = idOf(sub?.customer);
   if (!customer || customer !== account.stripe_customer_id || !LIVE_STATUSES.has(sub?.status) || !isGenClassSubscription(sub)) return null;
   const all = await customerSubscriptions(x.env, x.fetch, customer);
-  const holding = all.filter((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s) && (granted(account, s) || paymentCleared(s)));
+  const holding = all.filter((s) => HOLDING_STATUSES.has(s.status) && isGenClassSubscription(s) && (granted(account, s) || (paymentCleared(s) && cardOnFile(s))));
   // the only one that bills (Stripe may have ended the account's recorded one before its event arrived): it is chosen
   if (holding.length < 2) return { keep: sub, extra: [] };
   const newest = (a: Obj, b: Obj): number => (Number(b.created) || 0) - (Number(a.created) || 0) || String(b.id).localeCompare(String(a.id));
@@ -947,9 +982,11 @@ async function settleOthers(x: EventContext, account: BillingAccount, o: OneSubs
 /**
  * Write a subscription's state to its account (the caller has checked that it is the account's GenClass
  * subscription). past_due_since keeps the time GenClass first saw this subscription past due, so the grace runs from
- * there whatever events follow. Another subscription than the account's current one is written only when
- * oneSubscription chose it (`chosen`), or when it is live and the current one has ended (a purchase after a cancelled
- * plan): an event about an older or duplicate subscription never overwrites a live plan.
+ * there whatever events follow. A subscription with a trial (trial_start) records when the account's trial started,
+ * once (trial_started_at is never changed after), so the account gets no second trial. Another subscription than the
+ * account's current one is written only when oneSubscription chose it (`chosen`), or when it is live and the current
+ * one has ended (a purchase after a cancelled plan): an event about an older or duplicate subscription never
+ * overwrites a live plan.
  */
 export async function applySubscription(x: EventContext, account: BillingAccount, sub: Obj, event: Obj = {}, chosen = false): Promise<EventResult> {
   const subId = idOf(sub?.id);
@@ -972,9 +1009,9 @@ export async function applySubscription(x: EventContext, account: BillingAccount
   await x.db
     .prepare(
       "UPDATE accounts SET plan = ?, subscription_id = ?, subscription_status = ?, past_due_since = ?, current_period_end = ?, cancel_at_period_end = ?, " +
-        "stripe_mode = ? WHERE id = ? AND stripe_customer_id = ?",
+        "stripe_mode = ?, trial_started_at = COALESCE(trial_started_at, ?) WHERE id = ? AND stripe_customer_id = ?",
     )
-    .bind(s.plan, subId, s.status, pastDueSince, s.periodEnd, s.cancelAtPeriodEnd ? 1 : 0, stripeMode(x.env), account.id, customer)
+    .bind(s.plan, subId, s.status, pastDueSince, s.periodEnd, s.cancelAtPeriodEnd ? 1 : 0, stripeMode(x.env), isoOf(sub?.trial_start), account.id, customer)
     .run();
   return { status: "applied", ours: true, account: account.id, plan: s.plan };
 }

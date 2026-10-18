@@ -45,12 +45,15 @@ def semver(v):
 
 PAID_OPEN = semver(RT) >= semver(DASH_RT)
 BILLING_URL = "https://genclass.dev/account/billing"  # served by the telemetry worker; it asks the visitor to sign in
-# Pro's trial (telemetry-worker src/trial.ts): sign in (or up), then start the trial on the account page. A trial needs no
-# Stripe, so its button is live whatever PAID_OPEN says. Public copy states its length only from TRIAL_DAYS.
+# Pro's trial (telemetry-worker src/billing.ts): sign in (or up), then start the trial on the account page, which opens
+# Stripe Checkout: a card is required and first charged when the trial ends. The worker decides whether Stripe sells
+# (its key), so the button is live whatever PAID_OPEN says. Public copy states its length only from TRIAL_DAYS.
 TRIAL_URL = "https://genclass.dev/account/trial"
+# Said wherever the trial is offered (the worker's pages say the same: telemetry-worker src/plans.ts trialTerms).
+TRIAL_TERMS = f"Card required. Nothing is charged for {TRIAL_DAYS} days; when they end, your card is charged ${PLAN['pro']['price_usd_cents']['monthly'] // 100:,} a month unless you cancel before."
 # The buttons under each plan: label, link (None: an inactive button), button style, the line under it.
 CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed. No dashboard."),
-       "pro": (f"Start your {TRIAL_DAYS}-day free trial", TRIAL_URL, "btn green", f"Get a {TRIAL_DAYS}-day free trial for analytics. No card needed.")}
+       "pro": (f"Start your {TRIAL_DAYS}-day free trial", TRIAL_URL, "btn green", TRIAL_TERMS)}
 
 def cta(p):
     if p["id"] == "pro": return CTA["pro"]
@@ -332,7 +335,7 @@ def llms_plans():
     for p in PLANS["plans"]:
         cents = p["price_usd_cents"]["monthly"]
         sale = f"billed monthly through Stripe Checkout; sign in, then {BILLING_URL}" if PAID_OPEN else f"not on sale yet: it opens with runtime {DASH_RT}, the first version that sends to the dashboard"
-        if p["id"] == "pro": sale = f"get a {TRIAL_DAYS}-day free trial for analytics at {TRIAL_URL}; " + sale
+        if p["id"] == "pro": sale = f"get a {TRIAL_DAYS}-day free trial for analytics at {TRIAL_URL}, with a card that is first charged when the trial ends; " + sale
         head = f'- {p["name"]}, ' + (f"US{usd(cents)} per month ({sale})" if cents else "US$0")
         feats = "; ".join(f["text"] if f["available"] or SOON in f["text"] else f'{f["text"]} {SOON}' for f in p["features"])
         out.append(f"{head}: {feats}.")
