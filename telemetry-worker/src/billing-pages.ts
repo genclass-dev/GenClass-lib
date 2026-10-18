@@ -60,9 +60,9 @@ export interface BillingView {
 
 const BILLING_CSS = `
 .plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin-top:22px}
-.plan{border-top:2px solid var(--ink);padding-top:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.plan{border-top:1px solid var(--rule2);padding-top:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .plan.cur,.plan.pick{border-top-color:var(--accent)}
-.plan h3{font:700 22px/1.1 var(--display);letter-spacing:-.02em;margin:0}
+.plan h3{font:500 22px/1.1 var(--display);letter-spacing:-.02em;margin:0}
 .plan .price{font:500 15px var(--mono)}
 .plan .sum{font-size:14.5px;color:var(--ink2);line-height:1.5}
 .plan ul{list-style:none;padding:0;margin:4px 0 0;display:grid;gap:7px;font-size:14px;line-height:1.45;color:var(--ink2)}
@@ -72,7 +72,7 @@ const BILLING_CSS = `
 .plan .act{margin-top:auto;padding-top:10px}
 .plan .tag{font:500 12px var(--mono);color:var(--accent)}
 .status{margin-top:18px;font-size:16px;line-height:1.55;max-width:70ch;color:var(--ink2)}
-.status b{color:var(--ink);font-weight:600}
+.status b{color:var(--ink);font-weight:500}
 @media (max-width:860px){.plans{grid-template-columns:1fr}}
 `;
 
@@ -296,8 +296,8 @@ const EXTRA_CSS = `
 .paid .xf .f{flex:1 1 220px;min-width:0}
 .paid .xf .f.sm{flex:0 1 150px}
 .paid .xf label{display:block;font:500 12.5px var(--mono);color:var(--ink3);margin-bottom:6px}
-.paid .xf input,.paid .xf select{min-height:40px;width:100%;padding:0 10px;border-radius:8px;border:1px solid var(--rule2);background:var(--paper);color:var(--ink);font:14px var(--sans)}
-.paid .xf input:focus-visible,.paid .xf select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.paid .xf input,.paid .xf select{min-height:40px;width:100%;padding:0 10px;border-radius:0;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:14px var(--sans)}
+.paid .xf input:focus-visible,.paid .xf select:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
 .paid .xf .btn{min-height:40px}
 .paid .err{font-size:14px;color:var(--warn);margin-top:8px}
 .paid .err:empty{display:none}

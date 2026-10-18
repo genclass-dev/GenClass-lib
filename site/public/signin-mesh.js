@@ -1,11 +1,14 @@
-// The /admin sign-in backdrop: a self-healing geodesic sphere built from the same triangular lattice as the
-// genclass.dev hero mesh. It assembles from scattered shards, requests orbit it, and every few seconds one of the bugs
-// GenClass catches tears a patch (red): a stale write lifts and twists it, a duplicate lands a ghost copy beside it, a
-// failing endpoint splits a seam. The predicted shape shows as green dots and a repair front closes the patch from its
-// rim inward. A faint green meridian sweeps the surface the whole time (GenClass watching every request). Each
-// keystroke in the password field sends a pulse across the surface, the cursor tears what it touches,
-// and submitting seals the whole sphere green. Canvas 2D, no dependencies, same-origin (the admin CSP allows only
-// 'self' scripts), paused while the tab is hidden, one still frame under prefers-reduced-motion. An illustration.
+// The sign-in backdrop of genclass.dev (/admin, and /login, /signup and the other account pages served by
+// telemetry-worker/): a self-healing geodesic sphere built from the same triangular lattice as the genclass.dev hero
+// mesh. It assembles from scattered shards, requests orbit it, and every few seconds one of the bugs GenClass catches
+// tears a patch (red): a stale write lifts and twists it, a duplicate lands a ghost copy beside it, a failing endpoint
+// splits a seam. The predicted shape shows as green dots and a repair front closes the patch from its rim inward. A
+// faint green meridian sweeps the surface the whole time (GenClass watching every request). Each keystroke in a form
+// field sends a pulse across the surface, the cursor tears what it touches, and submitting seals the whole sphere
+// green; an error the page shows afterwards (a server-rendered .err, or text a script puts in one) unseals it and
+// tears one more patch that heals. Canvas 2D, no dependencies, same-origin (the admin CSP allows only 'self' scripts;
+// the account pages load it with their nonce), paused while the tab is hidden, one still frame under
+// prefers-reduced-motion. An illustration.
 (() => {
   const cv = document.querySelector("canvas[data-mesh]");
   if (!cv || !window.CanvasRenderingContext2D) return;
@@ -388,13 +391,18 @@
   addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { build(); paintGrid(); if (still) draw(performance.now()); }, 120); });
   addEventListener("pointermove", (e) => { mouseX = e.clientX; mouseY = e.clientY; }, { passive: true });
   document.addEventListener("pointerleave", () => { mouseX = mouseY = -1e4; });
-  const pw = document.getElementById("pw");
-  if (pw) pw.addEventListener("input", () => pulse(performance.now()));
-  const form = document.querySelector("form");
-  if (form) form.addEventListener("submit", () => { seal = performance.now(); });
-  // a wrong password shows as one more bug that heals: nothing changed, try again
-  if (document.querySelector(".err")) {
-    const once = { kind: "tear", bad: "wrong password", good: "[GenClass] nothing changed, try again" };
-    setTimeout(() => { if (t0) spawn(performance.now(), once); }, still ? 0 : 2300);
+  document.querySelectorAll("form input").forEach((f) => f.addEventListener("input", () => pulse(performance.now())));
+  // the sign-out form in an account page's header is not a sign-in
+  document.querySelectorAll("form:not(.so)").forEach((f) => f.addEventListener("submit", () => { seal = performance.now(); }));
+  // a refused sign-in shows as one more bug that heals: nothing changed, try again
+  const refused = (bad, wait) => {
+    const once = { kind: "tear", bad, good: "[GenClass] nothing changed, try again" };
+    setTimeout(() => { seal = 0; if (t0) spawn(performance.now(), once); }, wait);
+  };
+  const errs = [...document.querySelectorAll(".err")];
+  if (errs.some((e) => e.textContent.trim())) refused("wrong password", still ? 0 : 2300);
+  if (window.MutationObserver) {
+    const mo = new MutationObserver(() => { if (errs.some((e) => e.textContent.trim())) refused("sign-in refused", 0); });
+    errs.forEach((e) => mo.observe(e, { childList: true, characterData: true, subtree: true }));
   }
 })();
