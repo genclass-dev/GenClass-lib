@@ -746,18 +746,14 @@ describe("private links without Pro: sign in, add the app to the account, go to 
     expect(await text(call(fourteen.env, "GET", "/login", {}))).toContain(OFFER(14));
   });
 
-  it("one number per side: wrangler.toml TRIAL_DAYS equals billing/plans.json trial_days (the site), and the CLI's copy says the same", () => {
+  it("one number per side: wrangler.toml TRIAL_DAYS equals billing/plans.json trial_days, and the CLI's copy says the same", () => {
     const toml = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
     const days = /^TRIAL_DAYS = "(\d+)"$/m.exec(toml)?.[1];
     expect(days).toBeDefined();
     const plans = JSON.parse(readFileSync(new URL("../../billing/plans.json", import.meta.url), "utf8"));
     expect(plans.trial_days).toBe(Number(days));
     expect(trialDays({ BUCKET: { async put() {} }, TRIAL_DAYS: days })).toBe(plans.trial_days);
-    // the site's build reads that field, and the committed pricing page was built with it
-    expect(readFileSync(new URL("../../site/build.py", import.meta.url), "utf8")).toMatch(/PLANS(\.get\("trial_days"\)|\["trial_days"\])/);
-    const pricing = readFileSync(new URL("../../site/public/pricing.html", import.meta.url), "utf8");
-    expect(pricing).toContain(START(plans.trial_days));
-    expect(pricing).not.toMatch(OLD);
+    // the site (genclass-dev/genclass-site) reads the same field from this file through its lib/ submodule
     // the CLI states it in plain text (packages/runtime/bin): the same number
     for (const f of ["../../packages/runtime/bin/genclass-runtime.mjs", "../../packages/runtime/bin/lib/init.mjs"]) {
       const cli = readFileSync(new URL(f, import.meta.url), "utf8");
@@ -766,26 +762,7 @@ describe("private links without Pro: sign in, add the app to the account, go to 
     }
   });
 
-  it("the site says plainly that the trial needs a card and when it is first charged, and nowhere that it needs none", () => {
-    const plans = JSON.parse(readFileSync(new URL("../../billing/plans.json", import.meta.url), "utf8"));
-    const days = plans.trial_days as number;
-    const price = `$${plans.plans.find((p: any) => p.id === "pro").price_usd_cents.monthly / 100}`;
-    const read = (f: string) => readFileSync(new URL(`../../site/${f}`, import.meta.url), "utf8");
-    // the pricing page: the line under Start your trial, and the FAQ
-    const pricing = read("public/pricing.html");
-    expect(pricing).toContain(`${START(days)}</a><p>Card required, checked by Stripe with a $1 hold that is released at once. Nothing is charged for ${days} days; when they end, your card is charged ${price} a month unless you cancel before.</p>`);
-    expect(pricing).toContain(`<summary><span>Is there a free trial?</span></summary><p>Yes. Get a ${days}-day free trial for analytics: sign in, choose Start your ${days}-day free trial and enter a card on Stripe's checkout. A card is required: Stripe checks it with a $1 hold and releases the hold at once (your bank may show it as pending for a few days). Nothing is charged for ${days} days; when they end, your card is charged ${price} for the first month of Pro, then monthly.`);
-    // the home page's FAQ (and its JSON-LD), and the terms
-    const index = read("public/index.html");
-    const faq = `${OFFER(days)}: a card is required, and it is first charged ${price} when the ${days} days end, unless you cancel before.`;
-    expect(index.split(faq)).toHaveLength(3);
-    expect(read("public/terms.html")).toContain(`It needs a card, entered on Stripe's checkout when you start it. Stripe checks the card with a temporary $1 authorization hold, released at once and never charged (your bank may show it as pending for a few days); a card that cannot hold $1 gets no trial. Nothing is charged during the trial. When it ends, Pro starts and the card is charged ${price} for the first month`);
-    expect(read("public/llms.txt")).toContain("with a card that is first charged when the trial ends");
-    // nothing the site builds from, or publishes, says the trial needs no card
-    const files = ["build.py", ...readdirSync(new URL("../../site/src/pages/", import.meta.url)).filter((f) => f.endsWith(".html")).map((f) => `src/pages/${f}`)];
-    files.push(...readdirSync(new URL("../../site/src/partials/", import.meta.url)).filter((f) => f.endsWith(".html")).map((f) => `src/partials/${f}`));
-    files.push(...readdirSync(new URL("../../site/public/", import.meta.url)).filter((f) => f.endsWith(".html") || f.endsWith(".txt")).map((f) => `public/${f}`));
-    for (const f of files) expect(noCardTrialLines(read(f)), f).toEqual([]);
+  it("nothing the worker serves says the trial needs no card (the site's own pages are checked in genclass-dev/genclass-site)", () => {
     const src = new URL("../src/", import.meta.url);
     for (const f of readdirSync(src).filter((x) => x.endsWith(".ts"))) expect(noCardTrialLines(readFileSync(new URL(f, src), "utf8")), f).toEqual([]);
   });

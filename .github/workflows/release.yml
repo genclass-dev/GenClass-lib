@@ -16,7 +16,7 @@ name: Release
 # 2. The release branch is merged to main by PR with CI green (the READMEs link TELEMETRY.md, PRIVACY.md and
 #    RESULTS.md at blob/main), and the tag goes on that main commit.
 # 3. telemetry-worker is deployed from that commit (`d1 migrations apply genclass-dashboard --remote`, then
-#    `wrangler deploy`; telemetry-worker/README.md), and the site's admin aggregates with it (site/src/admin.js and
+#    `wrangler deploy`; telemetry-worker/README.md), and the site's admin aggregates with it (in genclass-dev/genclass-site: site/src/admin.js and
 #    site/migrations-admin/): a worker older than 0.3.0's counts every `detect` event, possible ones included, as a
 #    detection and keeps those aggregates 90 days; batches the old admin ingest has processed stay miscounted.
 # After it: check the dist-tags (a prerelease lands on the tag named after it and `latest` stays), that the
