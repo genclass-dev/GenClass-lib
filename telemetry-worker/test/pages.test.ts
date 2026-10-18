@@ -263,7 +263,7 @@ function everyPage(): [string, string][] {
   return [
     ["/start", startPage("n")],
     ["/dashboard", dashboardPage("n", project)],
-    ["/account/apps (locked)", dashboardPage("n", project, { account: acct, id: "0123456789abcdef", locked: { trialUsed: false, trialDays: 7 } })],
+    ["/account/apps (locked)", dashboardPage("n", project, { account: acct, id: "0123456789abcdef", locked: { trialUsed: false, canTrial: true, trialDays: 7, terms: "Card required." } })],
     ["/account/apps", dashboardPage("n", project, { account: acct, id: "0123456789abcdef" })],
     ["/login", loginPage("n", { ...providers, next: null })],
     ["/signup", signupPage("n", { ...providers, next: null })],

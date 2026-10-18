@@ -10,6 +10,7 @@
 // Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
 import { DASH_CSS, embed, esc, LOGO, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
+import { trialTerms } from "./plans.js";
 
 // --------------------------------------------------------------------------------------------- styles, icons
 
@@ -550,8 +551,11 @@ export interface AccountView {
   password?: { email: string; created: string; updated: string; lastUsed: string | null } | null;
   providers: { google: boolean; github: boolean };
   notice?: { kind: "ok" | "bad"; text: string };
-  /** Dashboards: open (a plan, GenClass's grant or the trial), or locked with the trial still to start, or after it. */
-  dashboards?: "open" | "trial" | "ended";
+  /**
+   * Dashboards: open (a plan, GenClass's grant or the trial), or locked: with the trial to start (on Stripe, with a
+   * card), after the trial, or with the plans only (no trial offered to this account).
+   */
+  dashboards?: "open" | "trial" | "ended" | "plans";
   /** From the query: the pricing page's Start a trial (?trial=1), the locked dashboard's sign-in (?claim=1). */
   pick?: { trial: boolean; claim: boolean };
   /** Where to write when every passkey is lost. */
@@ -608,8 +612,9 @@ ${v.projects
     dash === "open"
       ? ""
       : `<section class="blk" id="plan">
-  <div class="blk-h"><h2>Dashboards come with Pro</h2><span class="aside">${dash === "trial" ? `Get a ${days}-day free trial for analytics` : "Your trial has ended"}</span></div>
-  <div class="acct-form">${dash === "trial" ? `<button class="btn green" type="button" id="trial"><span>Start your ${days}-day free trial</span></button>` : ""}<a class="btn ${dash === "trial" ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
+  <div class="blk-h"><h2>Dashboards come with Pro</h2>${dash === "plans" ? "" : `<span class="aside">${dash === "trial" ? `Get a ${days}-day free trial for analytics` : "Your trial has ended"}</span>`}</div>
+  ${dash === "trial" ? `<p class="intro">${esc(trialTerms(days))}</p>
+  ` : ""}<div class="acct-form">${dash === "trial" ? `<button class="btn green" type="button" id="trial"><span>Start your ${days}-day free trial</span></button>` : ""}<a class="btn ${dash === "trial" ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
   <p class="err" id="trialerr" role="alert"></p>
 </section>`;
   // the password: the email it signs in with; below the table, Change password (or Add a password)
@@ -799,8 +804,8 @@ you link them, your sign-in sessions and the browsers where your password was ri
   if (trial) {
     trial.addEventListener("click", function(){
       var err = document.getElementById("trialerr"); err.textContent = "";
-      gcBusy(trial, true, "Starting...");
-      gcPost("/api/billing/trial", {}).then(function(){ location.href = "/account?started=1"; }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
+      gcBusy(trial, true, "Opening Stripe...");
+      gcPost("/api/billing/trial", {}).then(function(j){ location.href = j.url; }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
     });
     if (cfg.trial) trial.focus();
   }
@@ -821,8 +826,11 @@ you link them, your sign-in sessions and the browsers where your password was ri
 export interface LockedLinkView {
   /** The app's name. */
   name: string;
-  /** The visitor's account, when signed in: whether it has Pro now (a plan, grant or trial) and can still start its trial. */
-  signedIn: { pro: boolean; canTrial: boolean } | null;
+  /**
+   * The visitor's account, when signed in: whether it has Pro now (a plan, grant or trial), can start its trial (on
+   * Stripe, with a card: src/plans.ts canTrial) and already had one.
+   */
+  signedIn: { pro: boolean; canTrial: boolean; trialUsed?: boolean } | null;
   /** Where the app is: in no account yet, in the visitor's account, or in another one. */
   owner: "none" | "mine" | "other";
   providers: { google: boolean; github: boolean };
@@ -835,8 +843,9 @@ export interface LockedLinkView {
  * "Dashboards come with Pro. Get a 7-day free trial for analytics." Signed out: Continue with Google (when configured),
  * then Sign in and Create an account (every other way in is there); the link is kept in this tab's sessionStorage only, and /account?claim=1 brings the
  * visitor back here once signed in. Signed in: add the app to the account (POST /api/account/projects/claim, as on
- * /account) and start the trial in one click, or start the trial, or see the plans. Served with the private link's own
- * headers (no referrer); the page's fetch() calls still carry our Origin.
+ * /account) and go to the trial's Stripe Checkout in one click, or go there, or see the plans; the card terms are said
+ * next to the button. Served with the private link's own headers (no referrer); the page's fetch() calls still carry
+ * our Origin.
  */
 export function lockedLinkPage(nonce: string, v: LockedLinkView): string {
   const back = "/account?claim=1";
@@ -855,11 +864,12 @@ ${providerButtons(v.providers, back)}
     const label = s.canTrial ? `Add to my account and start your ${days}-day free trial` : "Add to my account";
     acts = `<div class="ways"><button class="btn prov green" id="claim" type="button" data-trial="${s.canTrial ? "1" : "0"}"><span>${label}</span></button>
 <p class="err" id="err" role="alert"></p></div>
-${!s.pro && !s.canTrial ? '<p class="opt">Your trial has ended. <a href="/account/billing">See plans</a></p>' : '<p class="opt">The app keeps its key and its data.</p>'}`;
+${s.canTrial ? `<p class="opt">${esc(trialTerms(days))} The app keeps its key and its data.</p>` : !s.pro ? `<p class="opt">${s.trialUsed ? "Your trial has ended. " : ""}<a href="/account/billing">See plans</a></p>` : '<p class="opt">The app keeps its key and its data.</p>'}`;
   } else {
     acts = s.canTrial
-      ? `<div class="ways"><button class="btn prov green" id="trial" type="button"><span>Start your ${days}-day free trial</span></button><p class="err" id="err" role="alert"></p></div>`
-      : `<p class="lead">Your trial has ended.</p><div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>`;
+      ? `<div class="ways"><button class="btn prov green" id="trial" type="button"><span>Start your ${days}-day free trial</span></button><p class="err" id="err" role="alert"></p></div>
+<p class="opt">${esc(trialTerms(days))}</p>`
+      : `${s.trialUsed ? '<p class="lead">Your trial has ended.</p>' : ""}<div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>`;
   }
   const inner = `
 <div class="eb">${esc(v.name)}</div>
@@ -881,13 +891,14 @@ ${acts}
     gcPost("/api/account/projects/claim", { secret: secret }).then(function(j){
       function go(){ location.href = "/account/apps/" + encodeURIComponent(j.project.id); }
       if (claim.getAttribute("data-trial") !== "1") { go(); return; }
-      return gcPost("/api/billing/trial", {}).then(go, go);
+      // the trial starts on Stripe's checkout, where the card is entered; if it cannot open, the app's page offers it
+      return gcPost("/api/billing/trial", {}).then(function(t){ if (t && t.url) location.href = t.url; else go(); }, go);
     }, function(e){ err.textContent = gcWhy(e); gcBusy(claim, false); });
   });
   var trial = document.getElementById("trial");
   if (trial) trial.addEventListener("click", function(){
-    err.textContent = ""; gcBusy(trial, true, "Starting...");
-    gcPost("/api/billing/trial", {}).then(function(){ location.reload(); }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
+    err.textContent = ""; gcBusy(trial, true, "Opening Stripe...");
+    gcPost("/api/billing/trial", {}).then(function(j){ location.href = j.url; }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
   });
 })();`;
   return shell(nonce, `${v.name} | GenClass`, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, mesh: true });
