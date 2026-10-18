@@ -1011,16 +1011,16 @@ const CONNECT_JS = `
   document.addEventListener("visibilitychange", tick);
 })();`;
 
-// The locked account mode's one button: start the account's trial, then reload (the dashboard opens).
+// The locked account mode's one button: open the trial's Stripe Checkout, where the card is entered (src/billing.ts).
 const LOCK_JS = `
 (function(){
   var b = document.getElementById("trial"); if (!b) return;
   var err = document.getElementById("lockerr"), label = b.textContent;
   b.addEventListener("click", function(){
-    err.textContent = ""; b.disabled = true; b.textContent = "Starting...";
+    err.textContent = ""; b.disabled = true; b.textContent = "Opening Stripe...";
     fetch("/api/billing/trial", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json" }, body: "{}" })
-      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status)); }); })
-      .then(function(){ location.reload(); }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = label; });
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok || !j || !j.url) throw new Error((j && j.error) || ("HTTP " + r.status)); return j; }); })
+      .then(function(j){ location.href = j.url; }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = label; });
   });
 })();`;
 
@@ -1046,9 +1046,10 @@ export interface DashboardOptions {
   extra?: { html: string; script: string };
   /**
    * Account mode, locked: the account has no plan, grant or trial (dashboards come with Pro). The page keeps the app's
-   * key and the Connect panel and offers the trial (until it was used) or the plans; no stats are loaded.
+   * key and the Connect panel and offers the trial (canTrial: on Stripe, with a card; `terms` says it, src/plans.ts
+   * trialTerms) or the plans; no stats are loaded.
    */
-  locked?: { trialUsed: boolean; trialDays: number };
+  locked?: { trialUsed: boolean; canTrial: boolean; trialDays: number; terms: string };
   /** Account mode, on the trial: whole days left, said here and nowhere else. */
   trialDaysLeft?: number;
 }
@@ -1258,16 +1259,17 @@ function accountApps(acct: NonNullable<DashboardOptions["account"]>): string {
 
 /**
  * /account/apps/<id> for an account without a plan, grant or trial: the app's name, "Dashboards come with Pro" with
- * the trial (until it was used) and the plans, then the Connect panel (connecting is free: the app's data is collected
- * so the dashboard starts with it). No stats are fetched.
+ * the trial (when the account may start it, with its card terms) and the plans, then the Connect panel (connecting is
+ * free: the app's data is collected so the dashboard starts with it). No stats are fetched.
  */
 function lockedDashboardPage(
   nonce: string,
   project: { name: string; token: string; created: string; lastEvent: string | null },
-  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: { trialUsed: boolean; trialDays: number } },
+  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: NonNullable<DashboardOptions["locked"]> },
 ): string {
   const data = { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, account: true, locked: true };
-  const used = opts.locked.trialUsed;
+  const offer = opts.locked.canTrial;
+  const line = offer ? `Get a ${opts.locked.trialDays}-day free trial for analytics. ${esc(opts.locked.terms)}` : opts.locked.trialUsed ? "Your trial has ended." : "Pick a plan to open it.";
   const privacy = opts.privateLink
     ? "This app also has the private dashboard link it had before it joined your account; with Pro, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
     : "Only you can open this page, while signed in.";
@@ -1287,8 +1289,8 @@ function lockedDashboardPage(
 </section>
 <section class="lock" id="lock" aria-labelledby="lock-h">
   <h2 id="lock-h">Dashboards come with Pro.</h2>
-  <p>${used ? "Your trial has ended." : `Get a ${opts.locked.trialDays}-day free trial for analytics.`}</p>
-  <div class="acts">${used ? "" : `<button class="btn green" type="button" id="trial">Start your ${opts.locked.trialDays}-day free trial</button>`}<a class="btn ${used ? "green" : "ghost"}" href="/account/billing">See plans</a></div>
+  <p>${line}</p>
+  <div class="acts">${offer ? `<button class="btn green" type="button" id="trial">Start your ${opts.locked.trialDays}-day free trial</button>` : ""}<a class="btn ${offer ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
   <p class="err" id="lockerr" role="alert"></p>
 </section>
 ${connectPanel(project.token, false, opts.runtimeReady === true)}

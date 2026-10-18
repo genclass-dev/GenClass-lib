@@ -71,7 +71,7 @@ import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
 import { dashboardPage, securityHeaders } from "./pages.js";
 import { DEVICE_FAILURES, DEVICE_MS, DUMMY_HASH, FAILURE_WINDOW_MS, FREE_FAILURES, MAX_DELAY_MS, PASSWORD_MAX, delayAfter, hashPassword, needsRehash, passwordProblem, verifyPassword, waitText } from "./password.js";
-import { accountAccess, accountBilling, appLimit, appLimitBody, hasDashboard, pickRange, trialDays, trialDaysLeft, viewRanges } from "./plans.js";
+import { accountAccess, accountBilling, appLimit, appLimitBody, canTrial, hasDashboard, pickRange, trialDays, trialDaysLeft, trialTerms, viewRanges } from "./plans.js";
 import { cancelForDeletion } from "./stripe.js";
 import {
   b64url,
@@ -1695,8 +1695,9 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
     cli: rows(sessions).filter((r) => r.kind === "cli").map(session),
     password: rows(pw).map((r) => ({ email: String(r.email), created: String(r.created), updated: String(r.updated), lastUsed: (r.last_used as string | null) ?? null }))[0] ?? null,
     providers: { google: c.cfg.google, github: c.cfg.github },
-    // dashboards: open (a plan, GenClass's grant, or the trial), or locked with a trial still to start, or after it
-    dashboards: hasDashboard(access) ? "open" : access.trialUsed ? "ended" : "trial",
+    // dashboards: open (a plan, GenClass's grant, or the trial), or locked with the trial to start on Stripe, or after
+    // it, or with the plans only (no trial: one is not on sale to this account, or it had a subscription)
+    dashboards: hasDashboard(access) ? "open" : canTrial(access, c.env, a.account) ? "trial" : access.trialUsed ? "ended" : "plans",
     pick: { trial: c.url.searchParams.get("trial") === "1", claim: c.url.searchParams.get("claim") === "1" },
     recovery: RECOVERY_CONTACT,
     trialDays: trialDays(c.env),
@@ -1891,7 +1892,11 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     };
     const project = { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event };
     // locked: the app's key and Connect panel, and a way to Pro (the trial, or the plans); no stats
-    if (!hasDashboard(access)) return page(200, (n) => dashboardPage(n, project, { ...base, locked: { trialUsed: access.trialUsed, trialDays: trialDays(env) } }));
+    if (!hasDashboard(access)) {
+      const days = trialDays(env);
+      const locked = { trialUsed: access.trialUsed, canTrial: canTrial(access, env, a.account), trialDays: days, terms: trialTerms(days) };
+      return page(200, (n) => dashboardPage(n, project, { ...base, locked }));
+    }
     // plan-dependent parts: ranges, retention, forwarding and export (src/billing-pages.ts)
     const extras = await appExtrasData(c.db, env, a.account.id, p, c.now);
     return page(200, (n) =>
@@ -1931,7 +1936,6 @@ function loginNotice(url: URL): string | null {
 function accountNotice(url: URL): AccountView["notice"] {
   const q = url.searchParams;
   if (q.get("welcome") === "1") return { kind: "ok", text: "Your account is ready." };
-  if (q.get("started") === "1") return { kind: "ok", text: "Your Pro trial has started." };
   if (q.get("linked") === "google") return { kind: "ok", text: "Google is linked. You can now sign in with it." };
   if (q.get("linked") === "github") return { kind: "ok", text: "GitHub is linked. You can now sign in with it." };
   if (q.get("password") === "changed") return { kind: "ok", text: "Your password is changed. Every other browser and terminal is signed out." };

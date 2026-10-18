@@ -8,17 +8,22 @@
 //   plan whatever the server's configuration, except that a plan bought in Stripe's test mode counts only while the
 //   key is a test key (inMode): a test purchase never carries over to live. A live plan always counts.
 // - Free has no dashboard (entitlement `dashboard`). Without a paid plan, an account has Pro's entitlements while
-//   accounts.comp_until (GenClass's own grant, set by hand) or accounts.trial_ends_at (its one trial, src/trial.ts) is
-//   in the future (accountAccess); otherwise its dashboards are locked. A paid plan always wins over a grant or trial.
+//   accounts.comp_until (GenClass's own grant, set by hand) or accounts.trial_ends_at (a trial started before trials
+//   needed a card; nothing writes it any more) is in the future (accountAccess); otherwise its dashboards are locked. A
+//   paid plan always wins over a grant or trial.
+// - The trial is a Pro subscription in Stripe's trialing status: it starts only on Stripe Checkout, with a card
+//   collected up front (src/billing.ts, src/stripe.ts checkoutSession), and gives Pro as a paid plan does. One per
+//   account (canTrial): never after a trial (accounts.trial_started_at, written by the webhook) or a GenClass
+//   subscription.
 // - A price names a plan only when it is provably GenClass's: a lookup key starting with genclass_ AND a product whose
 //   metadata genclass_plan names a paid plan (planForPrice). GenClass now has a Stripe account of its own; this rule
 //   is kept from when it shared daybot.ca's account with Polar Parts, as a defence in depth.
 // - A plan whose payment is overdue ends here, whatever the Stripe account's retry settings: past_due keeps the plan
 //   for PAST_DUE_GRACE_DAYS (14) after GenClass first saw it past due, then it is Free (the webhook, and the daily
 //   sweep below); unpaid is Free at once.
-// - The Free plan's app limit (3) applies to every account without a plan, grant or trial, whatever the Stripe key: a
-//   trial needs no Stripe. Ingest keeps collecting for those apps (the dashboard is locked, not the collector), so a
-//   trial or a plan starts with recent data. With a test key only the accounts in STRIPE_TEST_ACCOUNTS can buy (canBuy).
+// - The Free plan's app limit (3) applies to every account without a plan, grant or trial, whatever the Stripe key.
+//   Ingest keeps collecting for those apps (the dashboard is locked, not the collector), so a trial or a plan starts
+//   with recent data. With a test key only the accounts in STRIPE_TEST_ACCOUNTS can buy or start a trial (canBuy).
 // - Retention never deletes data newer than the plan allows, and never shortens what existing projects had: daily
 //   counters, recent rows and stored batches are kept RETENTION_DAYS (90) for every project, and longer for the apps
 //   of accounts on a plan with more history, a grant or a trial (and for GRACE_DAYS after a paid plan ends, so a
@@ -189,7 +194,10 @@ export async function accountBilling(db: D1Like, accountId: string, env?: Env): 
 
 // --------------------------------------------------------------------------------------------- access: plan, grant, trial
 
-/** Why an account has a plan's entitlements now: it pays, GenClass granted Pro (comp_until), or it is on its trial. */
+/**
+ * Why an account has a plan's entitlements now: a subscription (paid, or in its Stripe trial, which collected a card),
+ * GenClass granted Pro (comp_until), or a trial started before trials needed a card (trial_ends_at).
+ */
 export type AccessSource = "paid" | "comp" | "trial";
 
 export interface Access {
@@ -197,10 +205,12 @@ export interface Access {
   plan: Plan;
   /** Why; null when the account has none of them (its dashboards are locked). */
   source: AccessSource | null;
-  /** When the trial ends (ISO), while the account is on it. */
+  /** When the trial ends (ISO), while the account is on a trial started before trials needed a card. */
   trialEndsAt: string | null;
   /** The account already started its one trial (running or over). */
   trialUsed: boolean;
+  /** A GenClass subscription was recorded for the account under the current key's mode (now or before): no trial. */
+  subscribed: boolean;
 }
 
 /** The columns accountAccess reads (accounts, migrations 0004 to 0006). */
@@ -210,10 +220,11 @@ export interface AccessRow {
   trial_started_at: string | null;
   trial_ends_at: string | null;
   comp_until: string | null;
+  subscription_id?: string | null;
 }
 
-export const ACCESS_COLUMNS = "plan, stripe_mode, trial_started_at, trial_ends_at, comp_until";
-export const NO_ACCESS: Access = { plan: FREE, source: null, trialEndsAt: null, trialUsed: false };
+export const ACCESS_COLUMNS = "plan, stripe_mode, trial_started_at, trial_ends_at, comp_until, subscription_id";
+export const NO_ACCESS: Access = { plan: FREE, source: null, trialEndsAt: null, trialUsed: false, subscribed: false };
 
 const future = (iso: string | null | undefined, now: Date): boolean => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -227,12 +238,23 @@ const future = (iso: string | null | undefined, now: Date): boolean => {
 export function accessOf(row: AccessRow | null | undefined, mode: StripeMode | null, now: Date): Access {
   if (!row) return NO_ACCESS;
   const trialUsed = !!row.trial_started_at;
-  const paid = modeCounts(row.stripe_mode, mode) ? planById(row.plan) : FREE;
-  if (paid.id !== "free") return { plan: paid, source: "paid", trialEndsAt: null, trialUsed };
-  if (future(row.comp_until, now)) return { plan: TRIAL_PLAN, source: "comp", trialEndsAt: null, trialUsed };
-  if (future(row.trial_ends_at, now)) return { plan: TRIAL_PLAN, source: "trial", trialEndsAt: row.trial_ends_at, trialUsed };
-  return { plan: FREE, source: null, trialEndsAt: null, trialUsed };
+  const inMode = modeCounts(row.stripe_mode, mode);
+  const subscribed = inMode && !!row.subscription_id;
+  const paid = inMode ? planById(row.plan) : FREE;
+  if (paid.id !== "free") return { plan: paid, source: "paid", trialEndsAt: null, trialUsed, subscribed };
+  if (future(row.comp_until, now)) return { plan: TRIAL_PLAN, source: "comp", trialEndsAt: null, trialUsed, subscribed };
+  // a trial started before trials needed a card runs to its end; nothing starts one this way any more
+  if (future(row.trial_ends_at, now)) return { plan: TRIAL_PLAN, source: "trial", trialEndsAt: row.trial_ends_at, trialUsed, subscribed };
+  return { plan: FREE, source: null, trialEndsAt: null, trialUsed, subscribed };
 }
+
+/**
+ * The account may start its one trial of Pro now: it has no plan, grant or trial, never started a trial and never had
+ * a GenClass subscription in this Stripe mode, and it can buy (canBuy: the trial starts on Stripe Checkout, with a
+ * card). The checkout itself asks Stripe again (src/billing.ts checkout).
+ */
+export const canTrial = (a: Access, env: Env, account: { id: string; email: string | null }): boolean =>
+  a.source === null && !a.trialUsed && !a.subscribed && canBuy(env, account);
 
 /** The account's access at `now` under the current Stripe key (accessOf). */
 export async function accountAccess(db: D1Like, accountId: string, env: Env, now: Date): Promise<Access> {
@@ -254,16 +276,25 @@ export async function projectAccess(db: D1Like, project: { account_id?: string |
 }
 
 /**
- * How many days a trial lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7. The worker's pages say it ("Get a
- * 7-day free trial for analytics") from here; the site says it from billing/plans.json trial_days, and
- * test/trial.test.ts checks that the two agree.
+ * How many days a trial lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7; the trial's Checkout asks Stripe
+ * for this many trial days. The worker's pages say it ("Get a 7-day free trial for analytics") from here; the site says
+ * it from billing/plans.json trial_days, and test/trial.test.ts checks that the two agree.
  */
 export function trialDays(env: Env): number {
   const n = Math.floor(Number(String(env.TRIAL_DAYS ?? "").trim()));
   return Number.isFinite(n) && n >= 1 && n <= 60 ? n : 7;
 }
 
-/** Whole days left in a trial ending at `ends` (1 on its last day), for the dashboard's line. */
+/**
+ * The trial's terms, said next to every Start your trial button: a card is required, and when it is first charged.
+ * Plain text (the pages escape it); the site says the same from billing/plans.json (site/build.py).
+ */
+export function trialTerms(days: number): string {
+  const c = TRIAL_PLAN.price_usd_cents.monthly;
+  return `Card required. Nothing is charged for ${days} days; when they end, your card is charged $${c % 100 ? (c / 100).toFixed(2) : String(c / 100)} for the first month of ${TRIAL_PLAN.name}, then monthly, unless you cancel before.`;
+}
+
+/** Whole days left in a trial ending at `ends` (1 on its last day), for the dashboard's line (a trial from before cards). */
 export const trialDaysLeft = (ends: string, now: Date): number => Math.max(1, Math.ceil((Date.parse(ends) - now.getTime()) / DAY));
 
 // --------------------------------------------------------------------------------------------- apps
@@ -276,7 +307,7 @@ export interface AppLimit {
 
 /**
  * The app limit of the plan whose entitlements apply now (null: none; the caller's abuse cap still applies). Free's 3
- * apps apply to every account without a plan, grant or trial, whatever the Stripe key: a trial lifts it without Stripe.
+ * apps apply to every account without a plan, grant or trial, whatever the Stripe key.
  */
 export async function appLimit(db: D1Like, env: Env, accountId: string, now: Date): Promise<AppLimit> {
   const plan = await accountPlan(db, accountId, env, now);
