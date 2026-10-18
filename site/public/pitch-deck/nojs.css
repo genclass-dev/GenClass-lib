@@ -1,7 +1,0 @@
-/* Without JavaScript: every slide, one under the other, and the download button. */
-body { height: auto; overflow: auto; }
-.stage { display: block; padding: 16px; }
-.slide { display: block; max-width: 1280px; margin: 0 auto 16px; }
-.slide img { width: 100%; cursor: default; }
-.nav, #fs { display: none; }
-.bar { position: sticky; bottom: 0; }
