@@ -3,8 +3,8 @@ const $ = id => document.getElementById(id);
 
 document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(b.dataset.copy); } catch {}
-  const k = b.querySelector(".k"); b.classList.add("done"); k.textContent = "Copied";
-  setTimeout(() => { b.classList.remove("done"); k.textContent = "Copy"; }, 1600);
+  const k = b.querySelector(".k"); b.classList.add("done"); if (k) k.textContent = "Copied";
+  setTimeout(() => { b.classList.remove("done"); if (k) k.textContent = "Copy"; }, 1600);
 }));
 
 const tabs = [...document.querySelectorAll('.code [role="tab"]')];
@@ -28,6 +28,43 @@ if (mnav) {
   document.addEventListener("pointerdown", e => { if (mnav.open && !mnav.contains(e.target)) mnav.open = false; });
   mnav.querySelector(".panel").addEventListener("click", e => { if (e.target.closest("a")) mnav.open = false; });
 }
+
+// home "Set up in a minute": each step shows its own terminal, typed in
+document.querySelectorAll("[data-setup]").forEach(box => {
+  const items = [...box.querySelectorAll(".steps2 li")], srcs = [...box.querySelectorAll("[data-step-src]")];
+  const term = box.querySelector("[data-term]"), title = box.querySelector("[data-term-title]");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let run = 0;
+  function show(i) {
+    items.forEach((li, j) => { li.classList.toggle("on", i === j); li.querySelector("button").setAttribute("aria-expanded", i === j); });
+    const src = srcs[i]; if (!src || !term) return;
+    if (title) title.textContent = src.dataset.title || "";
+    const id = ++run, lines = src.innerHTML.split("\n");
+    if (still) { term.innerHTML = src.innerHTML; return; }
+    term.innerHTML = "";
+    const caret = document.createElement("span"); caret.className = "caret"; caret.setAttribute("aria-hidden", "true");
+    let n = 0;
+    const next = () => {
+      if (id !== run) return;
+      if (n >= lines.length) { term.append(caret); return; }
+      const line = lines[n++], tmp = document.createElement("div"); tmp.innerHTML = line;
+      const prompt = tmp.firstElementChild?.classList.contains("p") ? tmp.firstElementChild : null;
+      if (n > 1) term.append("\n");
+      if (!prompt) { term.insertAdjacentHTML("beforeend", line); term.append(caret); setTimeout(next, 90); return; }
+      const text = line.slice(line.indexOf("</span>") + 7).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+      term.append(prompt);
+      const typed = document.createTextNode(""); term.append(typed, caret);
+      let c = 0;
+      const type = () => { if (id !== run) return; typed.data = text.slice(0, ++c); if (c < text.length) setTimeout(type, 28); else setTimeout(next, 260); };
+      setTimeout(type, 200);
+    };
+    next();
+  }
+  items.forEach((li, i) => li.querySelector("button").addEventListener("click", () => show(i)));
+  let started = false;
+  new IntersectionObserver(es => { if (!started && es.some(e => e.isIntersecting)) { started = true; show(0); } }, { threshold: 0.4 }).observe(box);
+});
+
 
 const CITIES = ["San Francisco","San Diego","San Jose","San Antonio","Santa Fe","Santiago","Sapporo","Salvador","Paris","Panama City","Palermo","Perth","Porto","Prague","Lisbon","London","Los Angeles","Lima","Lagos","Toronto","Tokyo","Tallinn","Taipei","Berlin","Bergen","Bern","Boston","Bogotá","Mumbai","Munich","Montreal","Madrid","Melbourne","Seoul","Seattle","Singapore","Stockholm","Sydney","Vancouver","Vienna","Venice","Waterloo"];
 const q = $("q");
@@ -123,4 +160,67 @@ $("auto").addEventListener("click", () => {
       } finally { btn.disabled = false; }
     });
   });
+})();
+
+// Scroll: a progress line under the nav, sections and grids that arrive as they come into view (grids one card at a
+// time), result numbers that count up, and the home hero drifting away. Everything already on screen at load is shown
+// at once, so nothing blinks; under prefers-reduced-motion only the content shows, with no motion.
+(() => {
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const nav = document.querySelector(".nav"), hero = document.querySelector(".hero4");
+  let bar = null;
+  if (nav && !still) { bar = document.createElement("span"); bar.className = "prog"; bar.setAttribute("aria-hidden", "true"); nav.append(bar); }
+  let ticking = false;
+  const onScroll = () => {
+    ticking = false;
+    const y = scrollY;
+    if (nav) nav.classList.toggle("scrolled", y > 8);
+    if (bar) bar.style.setProperty("--p", Math.min(1, y / Math.max(1, document.documentElement.scrollHeight - innerHeight)).toFixed(4));
+    if (hero && !still) hero.style.setProperty("--hp", Math.min(1, y / Math.max(1, hero.offsetHeight * 0.9)).toFixed(4));
+  };
+  addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  onScroll();
+  if (still) return;
+
+  // tag what should arrive: section heads, intros, notes, panels; grids get their children staggered
+  const SOLO = "main section .sh, main section .intro, main section .note, main section .disclose, .lab, .app, .code, .ba-fig, .vspec-fig, .vnums-fig, .vfam-fig, .scanbox, .formcard, .arch";
+  const GRID = ".bento, .four, .fgrid, .cards3, .stats, .faq2 .list, .vspec, .vfam, .plans, .tiers, .pnotes, .ent, .principles, .duo, .flow";
+  const near = (el) => el.getBoundingClientRect().top < innerHeight * 0.92;
+  document.querySelectorAll(GRID).forEach((g) => { g.classList.add("reveal"); g.dataset.stagger = ""; [...g.children].forEach((c, i) => c.style.setProperty("--i", Math.min(i, 8))); });
+  document.querySelectorAll(SOLO).forEach((el) => { if (!el.closest("[data-stagger]")) el.classList.add("reveal"); });
+  const all = [...document.querySelectorAll(".reveal, .race")];
+  all.forEach((el) => { if (near(el)) el.classList.add("in"); });
+
+  // numbers count up the first time they arrive: "0.13%", "75%", "3 in 4", "10 MB" keep their format
+  const count = (el) => {
+    if (el.dataset.counted || el.children.length) return;
+    const m = el.textContent.match(/^(\D*?)(\d[\d,]*(?:\.\d+)?)(.*)$/s);
+    if (!m) return;
+    el.dataset.counted = "1";
+    const [, pre, num, post] = m, target = parseFloat(num.replace(/,/g, "")), dec = (num.split(".")[1] || "").length, comma = num.includes(",");
+    if (!target) return;
+    const t0 = performance.now(), dur = 1100;
+    const fmt = (v) => { let s = v.toFixed(dec); if (comma) s = Number(s).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }); return pre + s + post; };
+    const step = (now) => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(target * e); if (k < 1) requestAnimationFrame(step); else el.textContent = pre + num + post; };
+    el.textContent = fmt(0); requestAnimationFrame(step);
+  };
+  const NUMS = ".four .big, .stat .big, .vnums b";
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add("in"); io.unobserve(e.target);
+    e.target.querySelectorAll(NUMS).forEach(count);
+    if (e.target.matches(NUMS)) count(e.target);
+  }), { rootMargin: "0px 0px -10% 0px" });
+  all.forEach((el) => { if (!el.classList.contains("in")) io.observe(el); });
+  // belt and braces: if the observer is late (a throttled or backgrounded page), a plain scroll check shows what is in view
+  let pending = all.filter((el) => !el.classList.contains("in")), last = 0;
+  const sweep = () => {
+    const now = Date.now(); if (now - last < 120 || !pending.length) return; last = now;
+    pending = pending.filter((el) => {
+      if (el.getBoundingClientRect().top > innerHeight * 0.9) return true;
+      el.classList.add("in"); io.unobserve(el); el.querySelectorAll(NUMS).forEach(count); if (el.matches(NUMS)) count(el);
+      return false;
+    });
+  };
+  addEventListener("scroll", sweep, { passive: true });
 })();
