@@ -22,6 +22,8 @@ import type { DevtoolsHandle, DevtoolsOptions } from "../devtools/index.js";
 import type { InitOptions, ModelOptions, Runtime } from "../types.js";
 import type { VisualChunk } from "../visual/host.js";
 import { visualRegistry } from "../visual/registry.js";
+import type { AnalyticsChunk } from "../analytics/index.js";
+import { analyticsRegistry } from "../analytics/start.js";
 import { devtoolsOptions, fromDataset, isKilled, mergeConfig, readMetaConfig, readWindowConfig, splitConfig, whenBody, type PageConfig } from "./config.js";
 import { applySinks, type SinkResolver } from "./sinks.js";
 import { fanout, type SinkModule } from "./sinks-fanout.js";
@@ -116,6 +118,8 @@ function install(): void {
   const resolveSinks: SinkResolver = (names, warn) => fanout(names, (name) => load(`sinks/${name}.js`) as Promise<SinkModule>, warn);
   // the visual checks chunk comes from the same place as this file (never inlined into the script tag)
   visualRegistry.loader = () => load("visual/index.js") as Promise<VisualChunk>;
+  // interaction analytics too (docs/runtime/ANALYTICS.md), only when the app turned them on
+  analyticsRegistry.loader = () => load("analytics/index.js") as Promise<AnalyticsChunk>;
 
   const withCdnModel = (opts: InitOptions): InitOptions => {
     if (opts.decider !== undefined || opts.model === false) return opts;

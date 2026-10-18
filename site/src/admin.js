@@ -7,7 +7,10 @@ import { deckAdminApi } from "./deck.js";
 
 const COOKIE = "gc_admin";
 const SESSION_HOURS = 12;
-const TEST_HOST = /^(|localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|.*\.invalid|.*\.local|.*\.test|.*\.localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|genclass-site-staging\..*)$/;
+// Test traffic, and GenClass's own site: genclass.dev's lab runs guard with every gain margin at 0 and the eager
+// profile, and with interaction analytics on (docs/runtime/ANALYTICS.md section 7) its decisions reach the collector
+// too, so they stay out of the model numbers here unless "Include test traffic" is ticked.
+const TEST_HOST = /^(|localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|.*\.invalid|.*\.local|.*\.test|.*\.localhost|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|genclass-site-staging\..*|(www\.)?genclass\.dev)$/;
 const enc = new TextEncoder();
 let lastViewIngest = 0;
 const NOINDEX = {
@@ -215,6 +218,8 @@ export async function ingest(env, maxObjects = 150) {
       } else if (e.t === "breaker" && e.tripped) {
         bump(day, host, "breaker", String(e.reason || "?").slice(0, 60));
       }
+      // `interactions` (interaction analytics, docs/runtime/ANALYTICS.md): an app's own dashboard and export only, never
+      // model evaluation, so nothing here reads them
     }
     stmts.push(db.prepare("INSERT OR IGNORE INTO processed (key, at, events) VALUES (?,?,?)").bind(key, new Date().toISOString(), rows.length));
   }

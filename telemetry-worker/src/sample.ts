@@ -2,7 +2,8 @@
 // request relative to the current time, so the page always shows a full period. Nothing is stored and no real
 // project is involved; the project name says it is simulated. Deterministic per day (a seeded generator), so a
 // refresh does not reshuffle the chart. It shows the "possible issues" tier too (lower confidence, never counted as
-// problems), with its own simulated counts.
+// problems), with its own simulated counts, and interaction analytics (page views, time on page, scroll depth, clicks,
+// rage and dead clicks per element), as an app that turned them on would.
 
 import { dayKey, hourKey, RANGES, type Range, type Stats } from "./dashboard.js";
 
@@ -35,6 +36,40 @@ const POSSIBLE: [string, number, [string, number][]][] = [
   ["duplicate", 0.8, [["/cart", 0.6], ["/account", 0.4]]],
   ["overload", 0.5, [["/search", 1]]],
   ["failing", 0.3, [["/orders", 1]]],
+];
+
+/** Interaction analytics per page (simulated): share of page views, average engaged seconds, share reaching 25/50/75/100 %. */
+const IX_PAGES: [string, number, number, number[]][] = [
+  ["/", 0.27, 38, [0.88, 0.63, 0.41, 0.24]],
+  ["/products", 0.2, 52, [0.92, 0.74, 0.52, 0.31]],
+  ["/products/:id", 0.22, 71, [0.95, 0.78, 0.49, 0.27]],
+  ["/search", 0.11, 44, [0.83, 0.55, 0.3, 0.16]],
+  ["/cart", 0.09, 63, [0.97, 0.9, 0.81, 0.74]],
+  ["/checkout", 0.06, 118, [0.99, 0.94, 0.86, 0.79]],
+  ["/account", 0.03, 35, [0.9, 0.71, 0.5, 0.42]],
+  ["/orders", 0.02, 29, [0.93, 0.66, 0.45, 0.37]],
+];
+/** Clicks per 100 page views (simulated), and rage and dead clicks per 1,000, per page and element key. */
+const IX_CLICKS: [string, string, number][] = [
+  ["/", 'a[href="/products"]', 21],
+  ["/", '[data-genclass-name="hero-shop"]', 17],
+  ["/", "nav > ul > li:nth-of-type(3) > a", 6],
+  ["/products", 'a[href="/products/:id"]', 58],
+  ["/products", "button.filter-toggle", 9],
+  ["/products/:id", '[data-genclass-name="add-to-cart"]', 34],
+  ["/products/:id", "img.gallery-main", 26],
+  ["/search", "input#q", 41],
+  ["/cart", "button.qty-plus", 19],
+  ["/cart", "button.promo-apply", 8],
+  ["/checkout", "button#pay", 63],
+];
+const IX_RAGE: [string, string, number][] = [
+  ["/checkout", "button#pay", 4.1],
+  ["/products/:id", "img.gallery-main", 2.6],
+];
+const IX_DEAD: [string, string, number][] = [
+  ["/cart", "button.promo-apply", 6.2],
+  ["/account", "button#save-address", 1.4],
 ];
 
 function split(n: number, routes: [string, number][], into: (route: string, c: number) => void): void {
@@ -107,8 +142,18 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   }
   const perBucket = hourly ? 11 : 262;
   const r = rng(span * 17 + Math.floor(now.getTime() / 86_400_000));
-  const series = buckets.map((b, i) => ({ bucket: b, sessions: Math.round(perBucket * (0.82 + r() * 0.36)), decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]! }));
+  const series = buckets.map((b, i) => {
+    const sessions = Math.round(perBucket * (0.82 + r() * 0.36));
+    // a page load plus its in-app route changes
+    return { bucket: b, sessions, decisions: Math.round(perBucket * 0.66 * (0.8 + r() * 0.4)), detections: Object.values(typeSeries[i]!.counts).reduce((a, x) => a + x, 0), acted: 0, possible: possibleBy[i]!, ix_views: Math.round(sessions * 1.36) };
+  });
   const sessions = series.reduce((a, s) => a + s.sessions, 0);
+  const views = series.reduce((a, s) => a + s.ix_views, 0);
+  const ixViews = IX_PAGES.map(([route, share, secs, reach]) => ({ route, n: Math.round(views * share), secs, reach }));
+  const engagedMs = ixViews.reduce((a, p) => a + p.n * p.secs * 1000, 0);
+  const per = (list: [string, string, number][], unit: number) => list.map(([route, k, rate]) => ({ key: `${route}\t${k}`, count: Math.max(1, Math.round((views * rate) / unit)) }));
+  const ixClick = per(IX_CLICKS, 100), ixRage = per(IX_RAGE, 1000), ixDead = per(IX_DEAD, 1000);
+  const total = (l: { count: number }[]) => l.reduce((a, x) => a + x.count, 0);
   const coalesce = Math.round((tot.duplicate ?? 0) * 0.55), discard = Math.round((tot.stale ?? 0) * 0.4);
   const interventions = coalesce + discard;
   const undone = interventions > 6 ? 1 : 0;
@@ -148,6 +193,12 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     trigger: [{ key: "request", count: 610 }, { key: "delivery", count: 390 }, { key: "failure", count: 180 }],
     latency_bucket: [{ key: "<50 ms", count: 60 }, { key: "100-250 ms", count: 820 }, { key: "250-500 ms", count: 290 }],
     host: [{ key: "shop.example", count: sessions }],
+    ix_views: ixViews.map((p) => ({ key: p.route, count: p.n })),
+    ix_engaged_ms: ixViews.map((p) => ({ key: p.route, count: p.n * p.secs * 1000 })),
+    ix_scroll: ixViews.flatMap((p) => [25, 50, 75, 100].map((m, i) => ({ key: `${p.route}\t${m}`, count: Math.round(p.n * p.reach[i]!) }))),
+    ix_click: ixClick.sort((a, b) => b.count - a.count),
+    ix_rage: ixRage.sort((a, b) => b.count - a.count),
+    ix_dead: ixDead.sort((a, b) => b.count - a.count),
   };
   return {
     name: SAMPLE_PROJECT.name,
@@ -161,12 +212,13 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
       sessions, decisions: series.reduce((a, s) => a + s.decisions, 0), detections, acted: interventions, executed: interventions, interventions,
       model_ready: ready, model_load_failed: failed, modelLoadAvgMs: 1340, latency_ms_n: Math.round(sessions * 0.66), latencyAvgMs: 168, failOpens: Math.round(sessions * 0.011), modelErrors: failed,
       detectionsWithPage: detections, possible, possibleWithPage: possible, hidden_skipped: Math.round(sessions * 0.05), model_dropped: hourly ? 0 : Math.round(sessions * 0.002), telemetry_dropped: 0,
+      ix_views: views, ix_engaged_ms: engagedMs, ix_click: total(ixClick), ix_rage: total(ixRage), ix_dead: total(ixDead),
     },
     breakdowns,
     distinct: Object.fromEntries(Object.entries(breakdowns).map(([k, v]) => [k, v.length])),
     series,
     typeSeries,
-    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2) },
+    previous: { sessions: Math.round(sessions * 0.94), detections: Math.round(detections * 1.15), acted: Math.max(0, interventions - 2), ix_views: Math.round(views * 0.91) },
     recent,
   };
 }
