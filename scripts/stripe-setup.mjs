@@ -5,9 +5,9 @@
 //   STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs     then live
 //
 // The key is for GenClass's own Stripe account ("GenClass", in the Stripe organization "GenClass"). GenClass used to
-// bill through daybot.ca's account, shared with Polar Parts, and this script keeps the rules it had then: it creates,
+// bill through a Stripe account shared with another business, and this script keeps the rules it had then: it creates,
 // finds and edits only GenClass's own objects, and never lists, changes, archives or deletes anything else
-// (telemetry-worker/README.md, "Shared-account defences"):
+// (telemetry-worker/README.md, "Stripe object ownership"):
 // 1. the products GenClass Pro and GenClass Custom, with the ids genclass_pro and genclass_custom, metadata
 //    genclass_plan, the statement descriptor GENCLASS and the product tax code from billing/plans.json
 //    (stripe_tax_code: Pro's is eligible for Stripe Managed Payments, Custom's is not, since a person trains the
@@ -56,7 +56,7 @@ export const WEBHOOK_DESCRIPTION = "GenClass billing";
 export const STATEMENT_DESCRIPTOR = "GENCLASS";
 export const PORTAL_HEADLINE = "Manage your GenClass plan";
 const TAX_CODE_RE = /^txcd_\d{8}$/;
-/** metadata.genclass on everything GenClass creates in the shared account (the worker checks the same mark). */
+/** metadata.genclass on everything GenClass creates in the Stripe account (the worker checks the same mark). */
 const MARK = "1";
 const LOOKUP_PREFIX = "genclass_";
 

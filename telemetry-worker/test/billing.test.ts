@@ -144,7 +144,7 @@ describe("POST /api/billing/checkout and /api/billing/portal", () => {
     expect(prices!.url.searchParams.get("lookup_keys[0]")).toBe("genclass_pro_monthly");
     expect(prices!.url.searchParams.get("active")).toBe("true");
     expect(prices!.url.searchParams.get("expand[0]")).toBe("data.product");
-    // GenClass's own customer, marked as such: never one found by email (the Stripe account is shared with Polar Parts)
+    // GenClass's own customer, marked as such: never one found by email (the Stripe account is shared with the other business)
     expect(Object.fromEntries(customer!.form!)).toEqual({ email: "ada@example.com", description: "GenClass account", "metadata[genclass]": "1", "metadata[genclass_account]": account.id });
     expect(customer!.headers["idempotency-key"]).toBe(`genclass-customer-${account.id}`);
     expect(Object.fromEntries(session!.form!)).toMatchObject({
@@ -430,7 +430,7 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     expect(planForPrice(price("genclass_custom_monthly"))?.id).toBe("custom");
     expect(planForPrice({ ...price("genclass_pro_monthly"), product: "genclass_pro" })).toBeNull(); // product not expanded
     expect(planForPrice(price("genclass_pro_monthly", { plan: null }))).toBeNull(); // a product without the metadata
-    expect(planForPrice(price("polar_box_monthly", { plan: "pro" }))).toBeNull(); // not a GenClass lookup key
+    expect(planForPrice(price("other_box_monthly", { plan: "pro" }))).toBeNull(); // not a GenClass lookup key
     expect(planForPrice({ id: "price_1", lookup_key: null, metadata: { genclass_plan: "pro" }, product: { metadata: { genclass_plan: "pro" } } })).toBeNull();
     expect(planForPrice(price("genclass_pro_monthly", { plan: "custom" }))).toBeNull(); // the key and the product disagree
     // metadata can only name a paid plan in plans.json
@@ -439,7 +439,7 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
     for (const p of PLANS) for (const k of Object.values(p.stripe_lookup_keys)) if (k) expect(k.startsWith("genclass_")).toBe(true);
     // every price must be GenClass's for the subscription to be
     expect(isGenClassSubscription(base)).toBe(true);
-    expect(isGenClassSubscription({ ...base, items: { data: [...base.items.data, { price: price("polar_box_monthly") }] } })).toBe(false);
+    expect(isGenClassSubscription({ ...base, items: { data: [...base.items.data, { price: price("other_box_monthly") }] } })).toBe(false);
     expect(isGenClassSubscription({ ...base, items: { data: [] } })).toBe(false);
     // cancelled at once (deletion, a refund, dunning): the period ends when it ended, not at the paid period's end
     expect(subscriptionState({ ...base, status: "canceled", ended_at: 1_791_000_000 })).toMatchObject({ plan: "free", periodEnd: new Date(1_791_000_000_000).toISOString(), cancelAtPeriodEnd: false });
@@ -718,81 +718,81 @@ describe("POST /api/billing/webhook: the plan follows the subscription", () => {
 
 // ------------------------------------------------------------------------------------------------- shared account
 
-describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches only its own objects", () => {
-  // Polar Parts sells in the same Stripe account: its customers (one has the same email as a GenClass account), its
+describe("shared Stripe account (shared with another business): GenClass touches only its own objects", () => {
+  // the other business sells in the same Stripe account: its customers (one has the same email as a GenClass account), its
   // orders, subscriptions and invoices. None of it may change a plan, be fetched from Stripe, or be stored or logged
   // beyond an event's id and type.
-  const POLAR = "cus_polar0000001";
-  const polarCustomer = { id: POLAR, object: "customer", email: "ada@example.com", name: "Ada Lovelace", phone: "+14165550100", address: { line1: "1 Polar Way", city: "Toronto" }, metadata: { polar_id: "7781" } };
-  const PRIVATE = [POLAR, "ada@example.com", "Ada Lovelace", "Polar Way", "4165550100", "PP-1001", "sub_polar0000001", "in_polar0000001", "price_polar0000001"];
-  const polarSub = (status = "active") => ({
-    id: "sub_polar0000001",
+  const OTHER = "cus_other0000001";
+  const otherCustomer = { id: OTHER, object: "customer", email: "ada@example.com", name: "Ada Lovelace", phone: "+14165550100", address: { line1: "1 Other Way", city: "Toronto" }, metadata: { other_id: "7781" } };
+  const PRIVATE = [OTHER, "ada@example.com", "Ada Lovelace", "Other Way", "4165550100", "OS-1001", "sub_other0000001", "in_other0000001", "price_other0000001"];
+  const otherSub = (status = "active") => ({
+    id: "sub_other0000001",
     object: "subscription",
-    customer: POLAR,
+    customer: OTHER,
     status,
     created: 1_790_000_000,
-    metadata: { order: "PP-1001" },
+    metadata: { order: "OS-1001" },
     cancel_at_period_end: false,
-    items: { data: [{ id: "si_polar0000001", current_period_end: 1_792_000_000, price: { id: "price_polar0000001", object: "price", lookup_key: "polar_tires_monthly", product: "prod_polar0000001" } }] },
+    items: { data: [{ id: "si_other0000001", current_period_end: 1_792_000_000, price: { id: "price_other0000001", object: "price", lookup_key: "other_tires_monthly", product: "prod_other0000001" } }] },
   });
-  const polarInvoice = (sub: string | null) => ({
-    id: "in_polar0000001",
+  const otherInvoice = (sub: string | null) => ({
+    id: "in_other0000001",
     object: "invoice",
-    customer: POLAR,
+    customer: OTHER,
     customer_email: "ada@example.com",
     customer_name: "Ada Lovelace",
-    customer_address: { line1: "1 Polar Way", city: "Toronto" },
-    parent: sub ? { subscription_details: { subscription: sub, metadata: { order: "PP-1001" } } } : null,
-    lines: { data: [{ amount: 18900, pricing: { price_details: { price: "price_polar0000001" } } }] },
+    customer_address: { line1: "1 Other Way", city: "Toronto" },
+    parent: sub ? { subscription_details: { subscription: sub, metadata: { order: "OS-1001" } } } : null,
+    lines: { data: [{ amount: 18900, pricing: { price_details: { price: "price_other0000001" } } }] },
   });
 
   async function shop(over: Record<string, unknown> = {}) {
     const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify", ...over });
-    const a = await signedIn(t.env); // ada@example.com, like the Polar Parts customer
+    const a = await signedIn(t.env); // ada@example.com, like the the other business customer
     const s = fakeStripe();
-    s.customers.set(POLAR, structuredClone(polarCustomer));
-    s.subs.set("sub_polar0000001", polarSub());
+    s.customers.set(OTHER, structuredClone(otherCustomer));
+    s.subs.set("sub_other0000001", otherSub());
     const state = () => t.sql.rows("SELECT plan, stripe_customer_id, subscription_id, subscription_status, past_due_since FROM accounts");
     return { ...t, ...a, s, state };
   }
 
-  /** Polar Parts' webhook traffic, as GenClass's endpoint receives it for the whole account. */
-  const polarEvents = (accountId: string) => [
+  /** the other business's webhook traffic, as GenClass's endpoint receives it for the whole account. */
+  const otherEvents = (accountId: string) => [
     // a one-time order
     stripeEvent("checkout.session.completed", {
-      id: "cs_live_polar00001",
+      id: "cs_live_other00001",
       object: "checkout.session",
       mode: "payment",
       payment_status: "paid",
-      client_reference_id: "PP-1001",
-      customer: POLAR,
-      customer_details: { email: "ada@example.com", name: "Ada Lovelace", phone: "+14165550100", address: { line1: "1 Polar Way" } },
-      metadata: { order: "PP-1001" },
+      client_reference_id: "OS-1001",
+      customer: OTHER,
+      customer_details: { email: "ada@example.com", name: "Ada Lovelace", phone: "+14165550100", address: { line1: "1 Other Way" } },
+      metadata: { order: "OS-1001" },
     }),
-    // a Polar Parts subscription bought through Checkout
-    stripeEvent("checkout.session.completed", { id: "cs_live_polar00002", object: "checkout.session", mode: "subscription", payment_status: "paid", customer: POLAR, subscription: "sub_polar0000001", metadata: { order: "PP-1001" } }),
+    // a the other business subscription bought through Checkout
+    stripeEvent("checkout.session.completed", { id: "cs_live_other00002", object: "checkout.session", mode: "subscription", payment_status: "paid", customer: OTHER, subscription: "sub_other0000001", metadata: { order: "OS-1001" } }),
     // a Checkout whose client_reference_id happens to look like a GenClass account id, without GenClass's metadata
-    stripeEvent("checkout.session.completed", { id: "cs_live_polar00003", object: "checkout.session", mode: "subscription", payment_status: "paid", client_reference_id: accountId, customer: POLAR, subscription: "sub_polar0000001", metadata: { order: "PP-1001" } }),
+    stripeEvent("checkout.session.completed", { id: "cs_live_other00003", object: "checkout.session", mode: "subscription", payment_status: "paid", client_reference_id: accountId, customer: OTHER, subscription: "sub_other0000001", metadata: { order: "OS-1001" } }),
     // ... or with an account_id of its own
-    stripeEvent("checkout.session.completed", { id: "cs_live_polar00004", object: "checkout.session", mode: "subscription", payment_status: "paid", client_reference_id: accountId, customer: POLAR, subscription: "sub_polar0000001", metadata: { account_id: accountId, genclass_account: accountId } }),
-    stripeEvent("customer.subscription.created", polarSub()),
-    stripeEvent("customer.subscription.updated", { ...polarSub("past_due"), metadata: { account_id: accountId } }),
-    stripeEvent("customer.subscription.deleted", polarSub("canceled")),
-    stripeEvent("invoice.paid", polarInvoice("sub_polar0000001")),
-    stripeEvent("invoice.paid", polarInvoice(null)),
-    stripeEvent("invoice.payment_failed", polarInvoice("sub_polar0000001")),
-    stripeEvent("customer.created", polarCustomer),
-    stripeEvent("charge.refunded", { id: "ch_polar0000001", object: "charge", customer: POLAR, billing_details: { email: "ada@example.com" } }),
+    stripeEvent("checkout.session.completed", { id: "cs_live_other00004", object: "checkout.session", mode: "subscription", payment_status: "paid", client_reference_id: accountId, customer: OTHER, subscription: "sub_other0000001", metadata: { account_id: accountId, genclass_account: accountId } }),
+    stripeEvent("customer.subscription.created", otherSub()),
+    stripeEvent("customer.subscription.updated", { ...otherSub("past_due"), metadata: { account_id: accountId } }),
+    stripeEvent("customer.subscription.deleted", otherSub("canceled")),
+    stripeEvent("invoice.paid", otherInvoice("sub_other0000001")),
+    stripeEvent("invoice.paid", otherInvoice(null)),
+    stripeEvent("invoice.payment_failed", otherInvoice("sub_other0000001")),
+    stripeEvent("customer.created", otherCustomer),
+    stripeEvent("charge.refunded", { id: "ch_other0000001", object: "charge", customer: OTHER, billing_details: { email: "ada@example.com" } }),
   ];
 
-  it("Polar Parts orders, subscriptions and invoices change no plan, call Stripe for nothing, and leave nothing stored", async () => {
+  it("Other Store orders, subscriptions and invoices change no plan, call Stripe for nothing, and leave nothing stored", async () => {
     const t = await shop();
     // one GenClass account on Free, one paying for Pro
     const b = await signedIn(t.env, "bob@example.com");
     setPlan(t.sql, b.account.id, "pro", { stripe_customer_id: "cus_bob0000001", subscription_id: "sub_bob0000001", subscription_status: "active", stripe_mode: "live", current_period_end: "2026-11-13T12:00:00.000Z" });
     const before = t.state();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const events = [...polarEvents(t.account.id), ...polarEvents(b.account.id)];
+    const events = [...otherEvents(t.account.id), ...otherEvents(b.account.id)];
     for (const ev of events) {
       const r = await deliver(t.env, ev, t.s.fetch);
       expect(r.status, ev.type).toBe(200);
@@ -811,7 +811,7 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
       for (const x of PRIVATE) expect(line).not.toContain(x);
       expect(line).not.toContain(t.account.id);
     }
-    // stored: nothing, not even the event ids (a table of them would be a record of Polar Parts' sales)
+    // stored: nothing, not even the event ids (a table of them would be a record of the other business's sales)
     expect(t.sql.rows("SELECT * FROM billing_events")).toEqual([]);
     const dump = JSON.stringify([t.sql.rows("SELECT * FROM custom_requests"), t.sql.rows("SELECT plan, stripe_customer_id, subscription_id, subscription_status FROM accounts")]);
     for (const x of PRIVATE) expect(dump).not.toContain(x);
@@ -824,11 +824,11 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     const t = await shop();
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     // the account has no Stripe customer yet: the old code would have adopted the Checkout's customer
-    const ev = stripeEvent("checkout.session.completed", { id: "cs_live_lookalike1", mode: "subscription", payment_status: "paid", client_reference_id: t.account.id, customer: POLAR, subscription: "sub_polar0000001" });
+    const ev = stripeEvent("checkout.session.completed", { id: "cs_live_lookalike1", mode: "subscription", payment_status: "paid", client_reference_id: t.account.id, customer: OTHER, subscription: "sub_other0000001" });
     expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
     expect(log).toHaveBeenCalledWith(`stripe webhook: checkout.session.completed ${ev.id} ignored: event type not handled`);
     // GenClass's metadata naming an account, but not that account's GenClass customer
-    const forged = stripeEvent("checkout.session.completed", { id: "cs_live_lookalike2", mode: "subscription", payment_status: "paid", client_reference_id: t.account.id, metadata: { genclass: "1", genclass_account: t.account.id }, customer: POLAR, subscription: "sub_polar0000001" });
+    const forged = stripeEvent("checkout.session.completed", { id: "cs_live_lookalike2", mode: "subscription", payment_status: "paid", client_reference_id: t.account.id, metadata: { genclass: "1", genclass_account: t.account.id }, customer: OTHER, subscription: "sub_other0000001" });
     expect(await (await deliver(t.env, forged, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
     log.mockRestore();
     expect(t.state()).toEqual([{ plan: "free", stripe_customer_id: null, subscription_id: null, subscription_status: null, past_due_since: null }]);
@@ -845,8 +845,8 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
       return ((await (await deliver(t.env, stripeEvent("customer.subscription.updated", sub), t.s.fetch)).json()) as any).result;
     };
     const mine = (id: string, p: Record<string, unknown>) => ({ ...subscription(id, t.account.id, "cus_ada0000001", null), items: { data: [{ id: `si_${id.slice(4)}`, current_period_end: 1_792_000_000, price: p }] } });
-    // a Polar Parts price on the GenClass customer
-    expect(await send(mine("sub_foreign00001", price("polar_tires_monthly")))).toBe("ignored");
+    // a the other business price on the GenClass customer
+    expect(await send(mine("sub_foreign00001", price("other_tires_monthly")))).toBe("ignored");
     // a genclass_ lookup key on a product without genclass_plan, and GenClass's product under another lookup key
     expect(await send(mine("sub_foreign00002", price("genclass_pro_monthly", { plan: null })))).toBe("ignored");
     expect(await send(mine("sub_foreign00003", price("tires_pro_monthly", { plan: "pro" })))).toBe("ignored");
@@ -867,20 +867,20 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect(await send(t.s.subs.get("sub_ada0000009")!)).toBe("applied");
     log.mockRestore();
     expect(t.state()[0]).toMatchObject({ plan: "free", subscription_status: "canceled" });
-    // only GenClass's own subscriptions were fetched, and never a Polar Parts object
+    // only GenClass's own subscriptions were fetched, and never a the other business object
     for (const c of t.s.calls) for (const x of PRIVATE) expect(c.url.toString()).not.toContain(x);
   });
 
-  it("customers: GenClass makes its own, never looks one up by email, and never reads or changes Polar Parts' customer", async () => {
+  it("customers: GenClass makes its own, never looks one up by email, and never reads or changes the other business's customer", async () => {
     const t = await shop();
     const r = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: t.s.fetch });
     expect(r.status).toBe(200);
     const customerCalls = t.s.calls.filter((c) => c.url.pathname.startsWith("/v1/customers"));
     expect(customerCalls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual(["POST /v1/customers"]);
-    const made = [...t.s.customers.values()].find((c) => c.id !== POLAR)!;
+    const made = [...t.s.customers.values()].find((c) => c.id !== OTHER)!;
     expect(made).toMatchObject({ email: "ada@example.com", description: "GenClass account", metadata: { genclass: "1", genclass_account: t.account.id } });
     expect(t.state()[0]!.stripe_customer_id).toBe(made.id);
-    expect(t.s.customers.get(POLAR)).toEqual(polarCustomer);
+    expect(t.s.customers.get(OTHER)).toEqual(otherCustomer);
     // Checkout is for that customer only (no customer_email, so Stripe makes no customer of its own)
     const session = t.s.calls.find((c) => c.method === "POST" && c.url.pathname === "/v1/checkout/sessions")!;
     expect(session.form!.get("customer")).toBe(made.id);
@@ -892,14 +892,14 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect(((await second.json()) as any).url).not.toContain("cs_test_manual01");
     expect(t.s.sessions.get("cs_test_manual01")!.status).toBe("open");
     expect(t.s.calls.some((c) => c.url.pathname.includes("cs_test_manual01"))).toBe(false);
-    // no request at all names a Polar Parts object
+    // no request at all names a the other business object
     for (const c of t.s.calls) for (const x of PRIVATE.filter((p) => p !== "ada@example.com")) expect(`${c.url} ${c.form ?? ""}`).not.toContain(x);
   });
 
   it("checkout sells only a price on GenClass's product: a genclass_ lookup key on another product is refused", async () => {
     const t = await shop();
-    // someone moved GenClass's lookup key onto a Polar Parts price
-    const s = fakeStripe({ answer: (u) => (u.pathname === "/v1/prices" ? new Response(JSON.stringify({ data: [price("genclass_pro_monthly", { id: "price_polar0000001", plan: null })] }), { status: 200 }) : undefined) });
+    // someone moved GenClass's lookup key onto a the other business price
+    const s = fakeStripe({ answer: (u) => (u.pathname === "/v1/prices" ? new Response(JSON.stringify({ data: [price("genclass_pro_monthly", { id: "price_other0000001", plan: null })] }), { status: 200 }) : undefined) });
     const r = await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: s.fetch });
     expect(r.status).toBe(503);
     expect(((await r.json()) as any).error).toBe(
@@ -914,7 +914,7 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     t.s.genclassCustomer("cus_ada0000001", t.account.id);
     t.s.subs.set("sub_ada0000001", subscription("sub_ada0000001", t.account.id, "cus_ada0000001", "genclass_pro_monthly"));
     // something else on the GenClass customer (added by hand in the dashboard, say): not provably GenClass's
-    t.s.subs.set("sub_hand0000001", { ...subscription("sub_hand0000001", t.account.id, "cus_ada0000001", null, "active", { created: 1_790_000_500 }), items: { data: [{ id: "si_hand0000001", price: price("polar_tires_monthly") }] } });
+    t.s.subs.set("sub_hand0000001", { ...subscription("sub_hand0000001", t.account.id, "cus_ada0000001", null, "active", { created: 1_790_000_500 }), items: { data: [{ id: "si_hand0000001", price: price("other_tires_monthly") }] } });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const started = stripeEvent("customer.subscription.created", t.s.subs.get("sub_ada0000001")!);
     expect(await (await deliver(t.env, started, t.s.fetch)).json()).toEqual({ received: true, result: "applied" });
@@ -925,16 +925,16 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect((await call(t.env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(204);
     expect(t.s.calls.filter((c) => c.method === "DELETE").map((c) => c.url.pathname)).toEqual(["/v1/subscriptions/sub_ada0000001"]);
     expect(t.s.subs.get("sub_hand0000001")!.status).toBe("active");
-    expect(t.s.subs.get("sub_polar0000001")!.status).toBe("active");
+    expect(t.s.subs.get("sub_other0000001")!.status).toBe("active");
   });
 
-  it("Polar Parts billing on the GenClass customer: no portal session, no Checkout, no balance credit", async () => {
+  it("the other business billing on the GenClass customer: no portal session, no Checkout, no balance credit", async () => {
     const t = await shop();
     setPlan(t.sql, t.account.id, "pro", { stripe_customer_id: "cus_ada0000001", subscription_id: "sub_ada0000001", subscription_status: "active", stripe_mode: "live" });
     t.s.genclassCustomer("cus_ada0000001", t.account.id);
     t.s.subs.set("sub_ada0000001", subscription("sub_ada0000001", t.account.id, "cus_ada0000001", "genclass_pro_monthly"));
-    // Polar Parts' store found the newest customer with ada@example.com (GenClass's) and put a tire subscription on it
-    t.s.subs.set("sub_polar0000002", { ...polarSub(), id: "sub_polar0000002", customer: "cus_ada0000001", created: 1_790_000_300 });
+    // the other business's store found the newest customer with ada@example.com (GenClass's) and put a tire subscription on it
+    t.s.subs.set("sub_other0000002", { ...otherSub(), id: "sub_other0000002", customer: "cus_ada0000001", created: 1_790_000_300 });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const opened = () => t.s.calls.filter((c) => c.method === "POST" && /^\/v1\/(billing_portal\/sessions|checkout\/sessions)/.test(c.url.pathname));
     const portal = await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch });
@@ -944,38 +944,38 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     );
     for (const plan of ["pro", "custom"]) expect((await call(t.env, "POST", "/api/billing/checkout", { body: { plan }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(409);
     expect(opened()).toEqual([]);
-    // the Polar Parts subscription's own events: on a GenClass customer, but not fetched, not stored, no plan change
+    // the the other business subscription's own events: on a GenClass customer, but not fetched, not stored, no plan change
     for (const type of ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"]) {
-      const ev = stripeEvent(type, t.s.subs.get("sub_polar0000002")!);
+      const ev = stripeEvent(type, t.s.subs.get("sub_other0000002")!);
       expect(await (await deliver(t.env, ev, t.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
       expect(log).toHaveBeenCalledWith(`stripe webhook: ${type} ${ev.id} ignored: not a GenClass subscription`);
     }
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM billing_events")[0]!.n).toBe(0);
     expect(t.state()[0]).toMatchObject({ plan: "pro", subscription_id: "sub_ada0000001" });
-    // nothing about the Polar Parts subscription was fetched beyond the customer's subscription list
-    expect(t.s.calls.some((c) => c.url.pathname.includes("sub_polar") || c.url.pathname === "/v1/invoices")).toBe(false);
+    // nothing about the the other business subscription was fetched beyond the customer's subscription list
+    expect(t.s.calls.some((c) => c.url.pathname.includes("sub_other") || c.url.pathname === "/v1/invoices")).toBe(false);
     // the owner hears of it, with ids only
     const notices = t.s.other.map((o) => JSON.parse(o.body));
     expect(notices.map((n) => n.event)).toEqual(["shared_customer", "shared_customer", "shared_customer"]);
     expect(notices[0]).toMatchObject({ account_id: t.account.id, customer: "cus_ada0000001" });
     for (const o of t.s.other) for (const x of PRIVATE) expect(o.body).not.toContain(x);
 
-    // only an invoice of Polar Parts' (a one-off order invoiced to that customer): the portal would list it, so no portal
-    t.s.subs.delete("sub_polar0000002");
-    t.s.invoices.set("in_polar0000001", { ...polarInvoice(null), customer: "cus_ada0000001" });
+    // only an invoice of the other business's (a one-off order invoiced to that customer): the portal would list it, so no portal
+    t.s.subs.delete("sub_other0000002");
+    t.s.invoices.set("in_other0000001", { ...otherInvoice(null), customer: "cus_ada0000001" });
     expect((await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(409);
     // ... nor a switch, whose old plan's credit would go to that customer's balance
     expect((await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "custom" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(409);
     expect(opened()).toEqual([]);
-    // GenClass's own invoices are fine: with the Polar Parts one gone, Manage billing opens
-    t.s.invoices.delete("in_polar0000001");
+    // GenClass's own invoices are fine: with the the other business one gone, Manage billing opens
+    t.s.invoices.delete("in_other0000001");
     t.s.invoices.set("in_ada0000001", invoice("in_ada0000001", "cus_ada0000001", "sub_ada0000001", [["price_pro000001", 9900]]));
     expect((await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(200);
     expect(opened()).toHaveLength(1);
 
-    // a second GenClass subscription while a Polar Parts one is on the customer: the duplicate is refunded to its card
-    // and cancelled with no balance credit (a balance credit would pay Polar Parts' next invoice); Custom is kept
-    t.s.subs.set("sub_polar0000002", { ...polarSub(), id: "sub_polar0000002", customer: "cus_ada0000001", created: 1_790_000_300 });
+    // a second GenClass subscription while a the other business one is on the customer: the duplicate is refunded to its card
+    // and cancelled with no balance credit (a balance credit would pay the other business's next invoice); Custom is kept
+    t.s.subs.set("sub_other0000002", { ...otherSub(), id: "sub_other0000002", customer: "cus_ada0000001", created: 1_790_000_300 });
     t.s.subs.set("sub_ada0000002", subscription("sub_ada0000002", t.account.id, "cus_ada0000001", "genclass_custom_monthly", "active", { created: 1_790_000_400 }));
     t.s.calls.length = 0;
     t.s.other.length = 0;
@@ -984,7 +984,7 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     const cancels = t.s.calls.filter((c) => c.method === "DELETE");
     expect(cancels.map((c) => c.url.pathname)).toEqual(["/v1/subscriptions/sub_ada0000001"]);
     expect(cancels[0]!.url.search).toBe("");
-    expect(t.s.subs.get("sub_polar0000002")!.status).toBe("active");
+    expect(t.s.subs.get("sub_other0000002")!.status).toBe("active");
     const dup = JSON.parse(t.s.other[0]!.body);
     expect(dup).toMatchObject({ event: "duplicate_subscription", kept: "sub_ada0000002", cancelled: ["sub_ada0000001"] });
     expect(dup.refunds).toEqual([{ subscription: "sub_ada0000001", kind: "duplicate", refund: "re_test000001", amount: 9900, currency: "usd" }]);
@@ -994,21 +994,21 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
 
   it("a stored customer that is not GenClass's (a row from older code): checkout, the portal and deletion leave it alone", async () => {
     const t = await shop();
-    // Polar Parts' customer and subscription on record, as the code before customers were checked could have left
-    setPlan(t.sql, t.account.id, "pro", { stripe_customer_id: POLAR, subscription_id: "sub_polar0000001", subscription_status: "active", stripe_mode: "live" });
+    // the other business's customer and subscription on record, as the code before customers were checked could have left
+    setPlan(t.sql, t.account.id, "pro", { stripe_customer_id: OTHER, subscription_id: "sub_other0000001", subscription_status: "active", stripe_mode: "live" });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     expect((await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(409);
     expect((await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "custom" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(409);
     // the customer is read to find out, and nothing else
-    expect(t.s.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual([`GET /v1/customers/${POLAR}`, `GET /v1/customers/${POLAR}`]);
-    // deleting the account: Polar Parts' subscription is not GenClass's to cancel, so a person sorts it out
+    expect(t.s.calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual([`GET /v1/customers/${OTHER}`, `GET /v1/customers/${OTHER}`]);
+    // deleting the account: the other business's subscription is not GenClass's to cancel, so a person sorts it out
     const del = await call(t.env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: t.cookie, fetch: t.s.fetch });
     log.mockRestore();
     expect(del.status).toBe(409);
     expect(((await del.json()) as any).error).toBe("your paid plan could not be cancelled automatically, so the account was not deleted; email mehar@daybot.ca");
     expect(t.s.calls.some((c) => c.method !== "GET")).toBe(false);
-    expect(t.s.subs.get("sub_polar0000001")!.status).toBe("active");
-    expect(t.s.customers.get(POLAR)).toEqual(polarCustomer);
+    expect(t.s.subs.get("sub_other0000001")!.status).toBe("active");
+    expect(t.s.customers.get(OTHER)).toEqual(otherCustomer);
     // nothing recorded as live: the account goes, and still nothing is cancelled
     setPlan(t.sql, t.account.id, "free", { subscription_status: "canceled" });
     expect((await call(t.env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(204);
@@ -1022,13 +1022,13 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     for (let i = 0; i < 2; i++) expect((await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(200);
     const sessions = t.s.calls.filter((c) => c.url.pathname === "/v1/billing_portal/sessions");
     expect(sessions.map((c) => c.form!.get("configuration"))).toEqual([GENCLASS_PORTAL, GENCLASS_PORTAL]);
-    // fetched once (cached), by its id: Polar Parts' configurations are never listed or read
+    // fetched once (cached), by its id: the other business's configurations are never listed or read
     expect(t.s.calls.filter((c) => c.url.pathname.startsWith("/v1/billing_portal/configurations")).map((c) => `${c.method} ${c.url.pathname}`)).toEqual([
       `GET /v1/billing_portal/configurations/${GENCLASS_PORTAL}`,
     ]);
 
     // the setting names a configuration that is not GenClass's: the account's default one (even carrying the
-    // metadata), Polar Parts' other one, an inactive one, or none in this mode: 503, and no session
+    // metadata), the other business's other one, an inactive one, or none in this mode: 503, and no session
     const refused = async (over: Record<string, unknown>, edit?: (portal: Record<string, any>[]) => void) => {
       resetStripeCache();
       const u = await shop(over);
@@ -1041,8 +1041,8 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
       expect(u.s.calls.some((c) => c.method === "GET" && c.url.pathname === "/v1/billing_portal/configurations")).toBe(false);
       return ((await r.json()) as any).error as string;
     };
-    expect(await refused({ STRIPE_PORTAL_CONFIGURATION: "bpc_polardefault1" }, (p) => (p[0]!.metadata = { genclass: "1" }))).toMatch(
-      /bpc_polardefault1 \(STRIPE_PORTAL_CONFIGURATION\) is not GenClass's Billing Portal configuration/,
+    expect(await refused({ STRIPE_PORTAL_CONFIGURATION: "bpc_otherdefault1" }, (p) => (p[0]!.metadata = { genclass: "1" }))).toMatch(
+      /bpc_otherdefault1 \(STRIPE_PORTAL_CONFIGURATION\) is not GenClass's Billing Portal configuration/,
     );
     expect(await refused({ STRIPE_PORTAL_CONFIGURATION: "bpc_other00001" })).toMatch(/is not GenClass's Billing Portal configuration/);
     expect(await refused({}, (p) => (p[2]!.active = false))).toMatch(/is not GenClass's Billing Portal configuration/);
@@ -1051,11 +1051,11 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect(await refused({ STRIPE_PORTAL_CONFIGURATION: undefined })).toBe("Stripe: GenClass's Billing Portal configuration is not set (STRIPE_PORTAL_CONFIGURATION); run scripts/stripe-setup.mjs");
   });
 
-  it("test mode: the same isolation (Polar Parts' test-mode traffic is ignored the same way)", async () => {
+  it("test mode: the same isolation (the other business's test-mode traffic is ignored the same way)", async () => {
     const TESTING = { STRIPE_SECRET_KEY: "sk_test_fake", STRIPE_WEBHOOK_SECRET_TEST: TEST_SECRET, STRIPE_WEBHOOK_SECRET: undefined, STRIPE_TEST_ACCOUNTS: "ada@example.com" };
     const t = await shop(TESTING);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    for (const ev of polarEvents(t.account.id)) {
+    for (const ev of otherEvents(t.account.id)) {
       const r = await deliver(t.env, { ...ev, livemode: false }, t.s.fetch, { secret: TEST_SECRET });
       expect(await r.json(), ev.type).toEqual({ received: true, result: "ignored" });
     }
@@ -1065,7 +1065,7 @@ describe("shared Stripe account (daybot.ca, also Polar Parts): GenClass touches 
     expect((await call(t.env, "POST", "/api/billing/checkout", { body: { plan: "pro" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(200);
     expect(t.s.calls[0]!.form!.get("metadata[genclass_account]")).toBe(t.account.id);
     expect(t.s.calls.at(-1)!.form!.get("metadata[genclass]")).toBe("1");
-    expect(t.s.customers.get(POLAR)).toEqual(polarCustomer);
+    expect(t.s.customers.get(OTHER)).toEqual(otherCustomer);
   });
 });
 
@@ -1323,7 +1323,7 @@ describe("Managed Payments for Pro, flexible billing mode, switching between Pro
     expect(u.row()).toEqual({ plan: "pro", subscription_id: "sub_pro0000002", subscription_status: "active" });
     // an invoice of another business's subscription on that customer is not even fetched
     u.s.calls.length = 0;
-    const foreign = stripeEvent("invoice.paid", { ...invoice("in_polar0000009", "cus_sw00000001", "sub_polar0000009", [["price_polar0000001", 18900]]), parent: { subscription_details: { subscription: "sub_polar0000009", metadata: { order: "PP-1" } } } });
+    const foreign = stripeEvent("invoice.paid", { ...invoice("in_other0000009", "cus_sw00000001", "sub_other0000009", [["price_other0000001", 18900]]), parent: { subscription_details: { subscription: "sub_other0000009", metadata: { order: "OS-1" } } } });
     expect(await (await deliver(u.env, foreign, u.s.fetch)).json()).toEqual({ received: true, result: "ignored" });
     expect(u.s.calls).toEqual([]);
     log.mockRestore();
@@ -1479,7 +1479,7 @@ describe("Managed Payments for Pro, flexible billing mode, switching between Pro
     // an open Checkout page of the account's, one GenClass did not make, and something else on the customer
     t.s.sessions.set("cs_test_own00001", { id: "cs_test_own00001", object: "checkout.session", status: "open", customer: "cus_sw00000001", metadata: { genclass: "1", genclass_account: t.account.id, genclass_plan: "pro" }, url: "https://checkout.stripe.com/c/pay/cs_test_own00001" });
     t.s.sessions.set("cs_test_manual01", { id: "cs_test_manual01", object: "checkout.session", status: "open", customer: "cus_sw00000001", metadata: {}, url: "https://checkout.stripe.com/c/pay/cs_test_manual01" });
-    t.s.subs.set("sub_hand0000001", { ...subscription("sub_hand0000001", t.account.id, "cus_sw00000001", null), items: { data: [{ id: "si_hand0000001", price: price("polar_tires_monthly") }] } });
+    t.s.subs.set("sub_hand0000001", { ...subscription("sub_hand0000001", t.account.id, "cus_sw00000001", null), items: { data: [{ id: "si_hand0000001", price: price("other_tires_monthly") }] } });
     expect((await call(t.env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(204);
     expect(t.s.sessions.get("cs_test_own00001")!.status).toBe("expired");
     expect(t.s.sessions.get("cs_test_manual01")!.status).toBe("open");
@@ -1716,9 +1716,9 @@ describe("deleting an account with a paid plan", () => {
     const a = await signedIn(env);
     const s = fakeStripe();
     s.genclassCustomer("cus_swp0000001", a.account.id);
-    // the recorded subscription had a Polar Parts price swapped in (Polar Parts' default portal, or by hand): it is
+    // the recorded subscription had a the other business price swapped in (the other business's default portal, or by hand): it is
     // not GenClass's any more, and deleting the GenClass account leaves it to its business
-    s.subs.set("sub_swp0000001", { ...subscription("sub_swp0000001", a.account.id, "cus_swp0000001", null), items: { data: [{ id: "si_swp0000001", price: price("polar_tires_monthly") }] } });
+    s.subs.set("sub_swp0000001", { ...subscription("sub_swp0000001", a.account.id, "cus_swp0000001", null), items: { data: [{ id: "si_swp0000001", price: price("other_tires_monthly") }] } });
     setPlan(sql, a.account.id, "pro", { stripe_customer_id: "cus_swp0000001", subscription_id: "sub_swp0000001", subscription_status: "active", stripe_mode: "live" });
     expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: a.cookie, fetch: s.fetch })).status).toBe(204);
     expect(s.calls.some((c) => c.method === "DELETE")).toBe(false);
@@ -1733,12 +1733,12 @@ describe("deleting an account with a paid plan", () => {
     expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: b.cookie, fetch: s.fetch })).status).toBe(204);
     expect(s.subs.get("sub_old0000001")!.status).toBe("canceled");
     const c = await signedIn(env, "other@example.com");
-    setPlan(sql, c.account.id, "pro", { subscription_id: "sub_polar0000009", subscription_status: "active", stripe_mode: "live" });
-    s.subs.set("sub_polar0000009", { ...subscription("sub_polar0000009", "Z".repeat(22), "cus_polar0000009", "genclass_pro_monthly"), metadata: {} });
+    setPlan(sql, c.account.id, "pro", { subscription_id: "sub_other0000009", subscription_status: "active", stripe_mode: "live" });
+    s.subs.set("sub_other0000009", { ...subscription("sub_other0000009", "Z".repeat(22), "cus_other0000009", "genclass_pro_monthly"), metadata: {} });
     s.calls.length = 0;
     expect((await call(env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: c.cookie, fetch: s.fetch })).status).toBe(204);
-    expect(s.calls.map((x) => `${x.method} ${x.url.pathname}`)).toEqual(["GET /v1/subscriptions/sub_polar0000009"]);
-    expect(s.subs.get("sub_polar0000009")!.status).toBe("active");
+    expect(s.calls.map((x) => `${x.method} ${x.url.pathname}`)).toEqual(["GET /v1/subscriptions/sub_other0000009"]);
+    expect(s.subs.get("sub_other0000009")!.status).toBe("active");
   });
 
   it("refuses when payments are switched off but a paid plan is recorded; test-mode records need no Stripe call", async () => {
