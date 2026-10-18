@@ -9,6 +9,12 @@
 - **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
   password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
   GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).
+- **Release notes: the npm registry's empty `readme` field.** Since 0.3.0-beta.0 went to `beta`, the registry's
+  top-level `readme` for the package (`npm view @genclass/runtime readme`) is empty: the registry empties it on every
+  publish to a tag other than `latest` and fills it again on the next `latest` publish, as it does for react,
+  typescript, next and vitest. The npm and jsDelivr package pages are not affected; they show each version's full
+  README. `.github/workflows/release.yml` now says so. No package contents, runtime code or model-visible text
+  changed.
 
 ## 0.3.0-beta.0 (unreleased)
 
