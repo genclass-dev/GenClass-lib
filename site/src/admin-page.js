@@ -1,18 +1,53 @@
 // genclass.dev/admin: the login page, the dashboard shell and its script (served at /admin/app.js under a strict CSP).
 // Everything rendered from telemetry (hosts, routes, error text) is untrusted: the script only sets textContent.
 
-const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=Figtree:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">`;
+// The dashboard and /admin/deck (src/deck-page.js) share these: genclass.dev's black design (site/src/css/base.css):
+// black ground, bone text, square corners, 1px rules, Satoshi for text, JetBrains Mono for numbers and labels.
+export const FONTS = `<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">`;
 
-const BASE_CSS = `
-:root{--paper:#fff;--panel:#F5F8FB;--ink:#0E1F4D;--ink2:#3D4B6B;--ink3:#5A6684;--rule:#DFE4EC;--rule2:#C6CEDB;
---green:#14B86A;--green-d:#08794A;--green-t:#DCF5E8;--red:#F0451C;--red-d:#C42A12;--red-t:#FDE6E0;--amber:#D98A00;--amber-t:#FFF3D6;
---night:#0B1736;--night2:#13224A;--nline:#26355E;--ntext:#E8EDF8;--ndim:#97A3C2;
---display:"Outfit","Helvetica Neue",Arial,sans-serif;--sans:"Figtree","Helvetica Neue",Arial,sans-serif;--mono:"Geist Mono",ui-monospace,Menlo,monospace}
+export const BASE_CSS = `
+:root{color-scheme:dark;--ground:#000;--raised:#0B0B0A;--raised2:#131311;--bone:#F0F1E9;--dim:#A0A196;--faint:#88897F;
+--rule:#30312B;--rule-strong:#46463E;--line:#6E6F66;--accent:#2FD07F;--accent-ink:#02140A;
+--good:#5BE39B;--good-t:rgba(47,208,127,.08);--red:#FF5A36;--bad:#FF6B4A;--bad-t:rgba(255,90,54,.1);--warn:#F5C66A;
+--display:"Satoshi",ui-sans-serif,system-ui,sans-serif;--sans:"Satoshi",ui-sans-serif,system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--panel);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+html,body{background:var(--ground)}
+body{color:var(--bone);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 button,select,input{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--green);outline-offset:2px}`;
+a{color:inherit}
+code{font-family:var(--mono);font-size:.88em;color:var(--bone)}
+::selection{background:var(--accent);color:var(--accent-ink)}
+:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+.top{position:sticky;top:0;z-index:5;background:rgba(0,0,0,.75);backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);border-bottom:1px solid var(--rule)}
+@media (prefers-reduced-transparency:reduce){.top{background:var(--ground)}}
+.top .in{max-width:1400px;min-height:64px;margin:0 auto;padding:14px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.logo{display:flex;align-items:center;gap:10px;font:500 17px var(--display);letter-spacing:-.02em;text-decoration:none;color:var(--bone);flex:none}
+.logo img{width:24px;height:24px;display:block}
+.tag{font:500 11.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--faint);border:1px solid var(--rule-strong);padding:2px 7px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 12px;border:1px solid var(--rule-strong);border-radius:0;background:transparent;color:var(--dim);font:500 13px var(--sans);text-decoration:none;white-space:nowrap;cursor:pointer;transition:color .15s,border-color .15s,opacity .15s}
+.btn:hover{color:var(--bone);border-color:var(--faint)}
+.btn:disabled{opacity:.6;cursor:progress}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);cursor:pointer}
+.chk:hover{color:var(--bone)}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;width:16px;height:16px;margin:0;border:1px solid var(--line);border-radius:0;background:var(--ground);display:inline-grid;place-items:center;cursor:pointer;vertical-align:-3px}
+input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+input[type=checkbox]:checked::after{content:"";width:8px;height:4px;border:solid var(--accent-ink);border-width:0 0 1.6px 1.6px;transform:translateY(-1px) rotate(-45deg)}
+.empty{font-size:13.5px;color:var(--faint);border:1px dashed var(--rule-strong);padding:14px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font:500 11.5px var(--mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:8px 12px 8px 0;border-bottom:1px solid var(--rule-strong)}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--dim)}
+td:first-child{color:var(--bone)}
+th:last-child,td:last-child{padding-right:0}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.n{color:var(--bone);font-size:13px}
+td a{color:var(--bone);text-decoration-color:var(--rule-strong);text-underline-offset:3px}
+td a:hover{text-decoration-color:var(--bone)}
+.pill{display:inline-block;font:500 10.5px/1.6 var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:0 6px;border:1px solid var(--rule-strong);color:var(--dim);white-space:nowrap;vertical-align:1px}
+@media (max-width:720px){.top{position:static}}
+@media (max-width:620px){.top .in{padding:12px 16px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}`;
 
 // The sign-in page follows genclass.dev's black design system (site/src/css): form on the left, the self-healing
 // sphere from /signin-mesh.js on the right. Bump ?v= on /signin-mesh.js when site/public/signin-mesh.js changes
@@ -63,73 +98,67 @@ button:hover{opacity:.9}button:active{transform:scale(.985)}
 <button type="submit">Open dashboard</button>
 <p class="alt"><a href="/">Back to genclass.dev</a></p></form></div>
 <canvas data-mesh aria-hidden="true"></canvas>
-<script src="/signin-mesh.js?v=1" defer></script></body></html>`;
+<script src="/signin-mesh.js?v=2" defer></script></body></html>`;
 }
 
 export const ADMIN_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>GenClass Admin</title><link rel="icon" href="/brand/mark-32.png?v=2">${FONTS}
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000"><title>GenClass Admin</title><link rel="icon" href="/brand/mark-32.png?v=2">${FONTS}
 <style>${BASE_CSS}
-.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
-.top .in{max-width:1400px;margin:0 auto;padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-.top img{height:28px;display:block}.tag{font:500 12px var(--mono);color:var(--ink3);border:1px solid var(--rule);border-radius:999px;padding:2px 8px}
-.live{display:flex;align-items:center;gap:7px;font:12.5px var(--mono);color:var(--ink3)}
-.live i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-t)}
-.live.off i{background:var(--rule2);box-shadow:none}.live.err i{background:var(--red);box-shadow:0 0 0 3px var(--red-t)}
-.ctl{margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.seg{display:flex;border:1px solid var(--rule2);border-radius:8px;overflow:hidden}
-.seg button{border:0;background:#fff;padding:6px 11px;font-size:13px;cursor:pointer;color:var(--ink2)}
-.seg button[aria-pressed=true]{background:var(--ink);color:#fff}
-.btn{border:1px solid var(--rule2);background:#fff;border-radius:8px;padding:6px 11px;font-size:13px;cursor:pointer;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-.btn:hover{border-color:var(--ink)}
-.chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink2);cursor:pointer}
-main{max-width:1400px;margin:0 auto;padding:20px;display:grid;gap:16px}
-.banner{border:1px solid #F3D9A0;background:var(--amber-t);color:#6B4A00;border-radius:12px;padding:12px 14px;font-size:14px}
+.live{display:flex;align-items:center;gap:8px;font:12.5px var(--mono);color:var(--dim)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.live.off i{background:var(--faint)}.live.err{color:var(--bad)}.live.err i{background:var(--bad)}
+.ctl{margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.seg{display:flex;border:1px solid var(--rule-strong)}
+.seg button{border:0;border-radius:0;background:transparent;min-height:32px;padding:0 11px;font:400 12.5px var(--mono);cursor:pointer;color:var(--dim);transition:color .15s,background .15s}
+.seg button + button{border-left:1px solid var(--rule)}
+.seg button:hover{color:var(--bone)}
+.seg button[aria-pressed=true]{background:var(--bone);color:var(--ground)}
+.seg button:focus-visible{outline-offset:-1px}
+.btn[aria-pressed=true]{color:var(--bone);border-color:var(--faint)}
+main{max-width:1400px;margin:0 auto;padding:24px 20px 0;display:grid;gap:16px}
+.banner{border:1px solid var(--rule);border-left:2px solid var(--warn);background:var(--raised);color:var(--bone);padding:12px 16px;font-size:14px}
 .banner:empty{display:none}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,46%),1fr));gap:12px}
-.kpi{background:#fff;border:1px solid var(--rule);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
-.kpi .k{font:500 12px var(--mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}
-.kpi .v{font:700 30px/1.1 var(--display);letter-spacing:-.02em}
-.kpi .s{font-size:12.5px;color:var(--ink3)}
-.kpi svg{width:100%;height:34px;margin-top:4px}
-.kpi.good .v{color:var(--green-d)} .kpi.bad .v{color:var(--red-d)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,46%),1fr));border-top:1px solid var(--rule);border-left:1px solid var(--rule);background:var(--raised)}
+.kpi{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:16px 18px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi .k{font:500 11.5px var(--mono);color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+.kpi .v{font:400 32px/1.15 var(--display);letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--bone);margin-top:4px}
+.kpi .s{font-size:12.5px;color:var(--faint)}
+.kpi svg{width:100%;height:34px;margin-top:6px}
+.kpi.good .v{color:var(--accent)} .kpi.bad .v{color:var(--bad)}
 .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
-.card{background:#fff;border:1px solid var(--rule);border-radius:14px;padding:16px;min-width:0}
-.card h2{font:600 15px var(--sans);display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
-.card h2 small{font:12px var(--mono);color:var(--ink3);font-weight:400}
+.card{background:var(--raised);border:1px solid var(--rule);padding:18px 20px 20px;min-width:0}
+.card h2{font:500 15px var(--sans);letter-spacing:-.01em;color:var(--bone);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px;margin-bottom:14px}
+.card h2 small{font:400 12px var(--mono);color:var(--faint)}
 .c8{grid-column:span 8}.c6{grid-column:span 6}.c4{grid-column:span 4}.c12{grid-column:span 12}
 @media (max-width:1100px){.c8,.c6,.c4{grid-column:span 12}}
 .chart svg{width:100%;height:220px;display:block}
-.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--ink2);margin-top:8px}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.bars{display:flex;flex-direction:column;gap:7px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--dim);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px}
+.bars{display:flex;flex-direction:column;gap:8px}
 .bar{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:10px;align-items:center;font-size:13px}
-.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
-.bar div{height:8px;border-radius:4px;background:var(--panel);overflow:hidden}.bar div i{display:block;height:100%;border-radius:4px;background:var(--ink)}
-.bar b{font:500 12.5px var(--mono)}
-.bars.green .bar div i{background:var(--green)}.bars.red .bar div i{background:var(--red)}
-.empty{font-size:13.5px;color:var(--ink3);border:1px dashed var(--rule2);border-radius:10px;padding:14px}
-table{width:100%;border-collapse:collapse;font-size:13.5px}
-th{text-align:left;font:500 11.5px var(--mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid var(--rule)}
-td{padding:8px;border-bottom:1px solid var(--rule);vertical-align:top;overflow-wrap:anywhere}
-td.n,th.n{text-align:right;font-family:var(--mono)}
+.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+.bar div{height:6px;background:var(--raised2);overflow:hidden}.bar div i{display:block;height:100%;background:var(--bone)}
+.bar b{font:500 12.5px var(--mono);font-variant-numeric:tabular-nums;color:var(--bone)}
+.bars.green .bar div i{background:var(--accent)}.bars.red .bar div i{background:var(--bad)}
+td{overflow-wrap:anywhere}
+td.n,th.n{padding-right:28px}
 .scroll{overflow:auto;max-height:420px}.scroll table{min-width:620px}
-.pill{display:inline-block;font:500 11.5px var(--mono);border-radius:999px;padding:1px 7px;background:var(--panel);color:var(--ink2)}
-.pill.test{background:var(--amber-t);color:#7A5200}.pill.ok{background:var(--green-t);color:var(--green-d)}.pill.bad{background:var(--red-t);color:var(--red-d)}
-.feed{background:var(--night);color:var(--ntext);border-color:var(--night)}
-.feed h2 small{color:var(--ndim)}
+.pill.test{color:var(--warn);border-color:rgba(245,198,106,.4)}.pill.ok{color:var(--accent);border-color:rgba(47,208,127,.4)}.pill.bad{color:var(--bad);border-color:rgba(255,90,54,.45)}
 .feed ol{list-style:none;display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
-.feed li{display:grid;grid-template-columns:70px 1fr;gap:10px;font-size:13px;padding:8px 10px;border:1px solid var(--nline);border-radius:8px;background:var(--night2)}
-.feed li time{font:12px var(--mono);color:var(--ndim)}
-.feed li b{color:#fff;font-weight:600}.feed li .h{display:block;font:12px var(--mono);color:var(--ndim);overflow-wrap:anywhere}
-.feed li.detect{border-left:3px solid #F5A524}.feed li.action{border-left:3px solid var(--green)}
-.feed .empty{display:block;color:var(--ndim);border-color:var(--nline)}
-.mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
-.mini div{background:var(--panel);border-radius:10px;padding:10px 12px}.mini b{display:block;font:700 20px var(--display)}.mini span{font-size:12px;color:var(--ink3)}
-.foot{font:12px var(--mono);color:var(--ink3);text-align:center;padding:8px 0 24px}
-.notes{font-size:12.5px;line-height:1.5;padding-left:16px;display:flex;flex-direction:column;gap:6px}.notes b{font-weight:600}
+.feed li{display:grid;grid-template-columns:70px 1fr;gap:10px;font-size:13px;padding:9px 12px;border:1px solid var(--rule);border-left:2px solid var(--rule-strong);background:var(--ground)}
+.feed li time{font:12px var(--mono);color:var(--faint)}
+.feed li b{color:var(--bone);font-weight:500}.feed li .h{display:block;font:12px var(--mono);color:var(--faint);overflow-wrap:anywhere}
+.feed li.detect{border-left-color:var(--warn)}.feed li.action{border-left-color:var(--accent)}
+.feed li.empty{display:block;color:var(--faint);border:1px dashed var(--rule-strong);background:transparent}
+.mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.mini div{background:var(--raised2);border:1px solid var(--rule);padding:10px 12px}.mini b{display:block;font:400 22px/1.25 var(--display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--bone)}.mini span{font-size:12px;color:var(--faint)}
+.foot{font:12px var(--mono);color:var(--faint);text-align:center;padding:12px 0 32px}
+.notes{font-size:13px;line-height:1.55;color:var(--dim);padding-left:16px;display:flex;flex-direction:column;gap:8px}.notes b{font-weight:500;color:var(--bone)}.notes li::marker{color:var(--faint)}
+@media (max-width:720px){.ctl{margin-left:0;width:100%}}
+@media (max-width:620px){main{padding:16px 16px 0;gap:12px}.grid{gap:12px}.card{padding:16px}.kpi{padding:14px}.kpi .v{font-size:26px}}
 </style></head><body>
 <header class="top"><div class="in">
-<a href="/"><img src="/brand/lockup-h.png?v=2" alt="genclass"></a><span class="tag">admin</span>
+<a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a><span class="tag">admin</span>
 <span class="live off" id="live"><i></i><span id="live-t">connecting…</span></span>
 <div class="ctl">
 <div class="seg" role="group" aria-label="Range" id="range"><button data-d="1">24h</button><button data-d="7">7d</button><button data-d="14" aria-pressed="true">14d</button><button data-d="30">30d</button><button data-d="90">90d</button></div>
@@ -186,7 +215,10 @@ const E = (tag, attrs, kids) => { const e = tag.startsWith("svg:") ? document.cr
   return e; };
 const fmt = (n) => n === null || n === undefined ? "–" : n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e4 ? (n / 1e3).toFixed(1) + "k" : Number(n).toLocaleString();
 const ago = (iso) => { if (!iso) return "–"; const s = (Date.now() - Date.parse(iso)) / 1000; return s < 60 ? Math.max(0, Math.round(s)) + "s ago" : s < 3600 ? Math.round(s / 60) + "m ago" : s < 86400 ? Math.round(s / 3600) + "h ago" : Math.round(s / 86400) + "d ago"; };
-const C = { sessions: "#0E1F4D", detections: "#F5A524", acted: "#14B86A", undos: "#F0451C", decisions: "#8FA0C4" };
+// chart series on black: the site's validated dark palette (#3987E5 #E8552F #2AA3C7 #C98500 #B964C9, neutral #88897F;
+// telemetry-worker/src/pages.ts). The activity chart's four series (sessions, errors, fixes, undone) pass
+// validate_palette.js --mode dark on #0B0B0A; the brand green #2FD07F for fixes failed its lightness band (L .76)
+const C = { sessions: "#3987E5", detections: "#E8552F", acted: "#B964C9", undos: "#C98500", decisions: "#88897F", cdn: "#2AA3C7", npm: ["#3987E5", "#2AA3C7", "#88897F"], grid: "#1E1F1B", label: "#88897F", font: "JetBrains Mono, ui-monospace, monospace" };
 let days = 14, test = false, paused = false, timer = null, data = null;
 try { const s = JSON.parse(localStorage.getItem("gc-admin") || "{}"); if (s.days) days = s.days; test = !!s.test; } catch {}
 const save = () => { try { localStorage.setItem("gc-admin", JSON.stringify({ days, test })); } catch {} };
@@ -207,13 +239,13 @@ function kpi(label, value, sub, cls, sparkVals, color) {
 }
 function lineChart(el, legendEl, labels, series) {
   el.replaceChildren(); legendEl.replaceChildren();
-  const W = 800, H = 220, L = 40, B = 24, T = 10, R = 26, raw = Math.max(4, ...series.flatMap((s) => s.values)), mag = Math.pow(10, Math.floor(Math.log10(raw / 4))), max = Math.ceil(raw / 4 / mag) * mag * 4;
+  const W = Math.max(300, Math.round(el.clientWidth) || 800), H = 220, L = 40, B = 24, T = 10, R = 26, raw = Math.max(4, ...series.flatMap((s) => s.values)), mag = Math.pow(10, Math.floor(Math.log10(raw / 4))), max = Math.ceil(raw / 4 / mag) * mag * 4;
   const x = (i) => L + (labels.length > 1 ? i * (W - L - R) / (labels.length - 1) : (W - L - R) / 2), y = (v) => T + (H - T - B) * (1 - v / max);
   const svg = E("svg:svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none", role: "img", "aria-label": series.map((s) => s.name).join(", ") + " per day" });
   for (let g = 0; g <= 4; g++) { const v = max * g / 4, yy = y(v);
-    svg.append(E("svg:line", { x1: L, x2: W - R, y1: yy, y2: yy, stroke: "#DFE4EC" }), E("svg:text", { x: L - 6, y: yy + 4, "text-anchor": "end", "font-size": "11", fill: "#5A6684", "font-family": "Geist Mono, monospace", text: fmt(Math.round(v)) })); }
-  const every = Math.ceil(labels.length / 8);
-  labels.forEach((d, i) => { if (i % every === 0 || i === labels.length - 1) svg.append(E("svg:text", { x: x(i), y: H - 6, "text-anchor": "middle", "font-size": "11", fill: "#5A6684", "font-family": "Geist Mono, monospace", text: d.slice(5) })); });
+    svg.append(E("svg:line", { x1: L, x2: W - R, y1: yy, y2: yy, stroke: C.grid }), E("svg:text", { x: L - 6, y: yy + 4, "text-anchor": "end", "font-size": "11", fill: C.label, "font-family": C.font, text: fmt(Math.round(v)) })); }
+  const every = Math.ceil(labels.length / Math.max(2, Math.min(8, Math.floor((W - L - R) / 60)))), last = labels.length - 1;
+  labels.forEach((d, i) => { if ((i % every === 0 && (i === 0 || last - i >= every / 2)) || i === last) svg.append(E("svg:text", { x: x(i), y: H - 6, "text-anchor": "middle", "font-size": "11", fill: C.label, "font-family": C.font, text: d.slice(5) })); });
   for (const s of series) {
     const pts = s.values.map((v, i) => x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
     if (s.area) svg.append(E("svg:polygon", { points: x(0) + "," + y(0) + " " + pts + " " + x(s.values.length - 1) + "," + y(0), fill: s.color, "fill-opacity": ".08" }));
@@ -256,11 +288,11 @@ function render(d) {
   if (!test && !liveSites && d.testHosts.length) $("banner").append("No production sites have reported yet. Telemetry so far is test traffic only (" + d.testHosts.map((h) => h.host || "(no host)").slice(0, 5).join(", ") + "). Tick “Include test traffic” to see it.");
 
   $("kpis").replaceChildren(
-    kpi("npm downloads", fmt(npmTotal), "@genclass/runtime · " + range + (rtNpm.latest ? " · latest " + rtNpm.latest : ""), "", npmDaily.map((r) => r.downloads), "#0E1F4D"),
+    kpi("npm downloads", fmt(npmTotal), "@genclass/runtime · " + range + (rtNpm.latest ? " · latest " + rtNpm.latest : ""), "", npmDaily.map((r) => r.downloads), C.npm[0]),
     kpi("Live sites", fmt(liveSites), test ? "incl. " + d.hosts.filter((h) => h.test).length + " test hosts" : "production hosts with sessions", "", null),
-    kpi("Sessions", fmt(tot("sessions")), fmt(tot("decisions")) + " decisions by the model", "", S.sessions, "#0E1F4D"),
-    kpi("Errors found", fmt(tot("detections")), "detections above the report gate" + (tot("possible") ? " · " + fmt(tot("possible")) + " possible (below it)" : ""), tot("detections") ? "bad" : "", S.detections, "#F5A524"),
-    kpi("Errors resolved", fmt(resolved), fmt(tot("acted")) + " fixes applied · " + fmt(tot("undos")) + " undone", resolved ? "good" : "", S.acted, "#14B86A"),
+    kpi("Sessions", fmt(tot("sessions")), fmt(tot("decisions")) + " decisions by the model", "", S.sessions, C.sessions),
+    kpi("Errors found", fmt(tot("detections")), "detections above the report gate" + (tot("possible") ? " · " + fmt(tot("possible")) + " possible (below it)" : ""), tot("detections") ? "bad" : "", S.detections, C.detections),
+    kpi("Errors resolved", fmt(resolved), fmt(tot("acted")) + " fixes applied · " + fmt(tot("undos")) + " undone", resolved ? "good" : "", S.acted, C.acted),
     kpi("Waitlist", fmt(wlTotal), d.waitlist.map((r) => (r.plan || "?") + " " + r.n).join(" · ") || "no sign-ups yet", "", null));
 
   $("act-sub").textContent = range;
@@ -310,8 +342,8 @@ function render(d) {
     E("div", {}, [E("b", { text: optOut === null ? "–" : Math.round(optOut * 100) + "%" }), E("span", { text: "estimated share with telemetry off (loads minus sessions)" })]));
   $("ad-chart").className = cdnDays.length ? "chart" : "";
   if (cdnDays.length) lineChart($("ad-chart"), $("ad-leg"), cdnDays.map((r) => r.day), [
-    { name: "Model loads (CDN)", values: cdnDays.map((r) => r.hits), color: C.sessions, area: true },
-    { name: "Telemetry sessions", values: cdnDays.map((r) => S.sessions[labels.indexOf(r.day)] || 0), color: C.acted }]);
+    { name: "Model loads (CDN)", values: cdnDays.map((r) => r.hits), color: C.cdn, area: true },
+    { name: "Telemetry sessions", values: cdnDays.map((r) => S.sessions[labels.indexOf(r.day)] || 0), color: C.sessions }]);
   else { $("ad-chart").replaceChildren(E("p", { cls: "empty", text: "CDN stats unavailable right now." })); $("ad-leg").replaceChildren(); }
   const deps = ad.dependents;
   if (!deps) $("ad-deps").replaceChildren(E("p", { cls: "empty", text: "Public GitHub repos depending on @genclass/runtime: add the GITHUB_TOKEN secret (read-only, public repos) to list them here." }));
@@ -326,7 +358,7 @@ function render(d) {
   const npmSeries = ["@genclass/runtime", "@genclass/runtime-model", "genclass-runtime"].filter((p) => d.npm && d.npm[p] && d.npm[p].daily.length);
   const nl = (d.npm["@genclass/runtime"] || { daily: [] }).daily.slice(-d.days).map((r) => r.day);
   $("npm-sub").textContent = range + " · npm reports with ~1 day delay";
-  if (nl.length) lineChart($("npm"), $("npm-leg"), nl, npmSeries.map((p, i) => ({ name: p, values: d.npm[p].daily.slice(-d.days).map((r) => r.downloads), color: ["#0E1F4D", "#14B86A", "#8FA0C4"][i], area: i === 0 })));
+  if (nl.length) lineChart($("npm"), $("npm-leg"), nl, npmSeries.map((p, i) => ({ name: p, values: d.npm[p].daily.slice(-d.days).map((r) => r.downloads), color: C.npm[i], area: i === 0 })));
   else { $("npm").replaceChildren(E("p", { cls: "empty", text: "npm stats unavailable right now." })); $("npm-leg").replaceChildren(); }
   bars($("b-ver"), Object.entries(rtNpm.versions || {}), "No per-version data.", 10);
   bars($("b-rt"), byKey(d.breakdown, "runtime"), "No sessions.");
@@ -375,5 +407,7 @@ $("ingest").addEventListener("click", async () => {
   await load(); setTimeout(() => { b.disabled = false; b.textContent = "Sync telemetry"; }, 2500);
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !paused) load(); });
+let resized = 0;
+window.addEventListener("resize", () => { clearTimeout(resized); resized = setTimeout(() => { if (data) render(data); }, 200); });
 load(); schedule();
 })();`;
