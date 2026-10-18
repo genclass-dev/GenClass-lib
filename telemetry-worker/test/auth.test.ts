@@ -977,8 +977,9 @@ describe("accounts: Google sign-in (OIDC code flow, PKCE, confidential client)",
     expect(g).toContain("Continue with Google");
     expect(g).not.toContain("Continue with GitHub");
     const both = await (await call(setup({ ...GOOGLE, GITHUB_CLIENT_ID: "Iv1.x", GITHUB_CLIENT_SECRET: "y" }).env, "GET", "/login", {})).text();
-    expect(both.indexOf("Continue with Google")).toBeLessThan(both.indexOf("Continue with GitHub"));
-    expect(both.indexOf("Continue with GitHub")).toBeLessThan(both.indexOf("Use a passkey"));
+    // the owner's order (2026-10-18): GitHub above Google
+    expect(both.indexOf("Continue with GitHub")).toBeLessThan(both.indexOf("Continue with Google"));
+    expect(both.indexOf("Continue with Google")).toBeLessThan(both.indexOf("Use a passkey"));
   });
 
   it("claim checks (unit)", () => {
@@ -1089,8 +1090,8 @@ describe("accounts: GitHub sign-in (OAuth web flow)", () => {
 
 // ------------------------------------------------------------------------------------------------- Google first
 
-describe("accounts: Google first, an email and a password always; creating an account never needs a passkey", () => {
-  it("/signup and /login: Continue with Google, then the email and password form, then a small Continue with GitHub and Use a passkey", async () => {
+describe("accounts: GitHub and Google first, an email and a password always; creating an account never needs a passkey", () => {
+  it("/signup and /login: Continue with GitHub, then Continue with Google, then the email and password form, then a small Use a passkey", async () => {
     for (const over of [{}, GOOGLE, GITHUB, { ...GOOGLE, ...GITHUB }]) {
       const { env, sql } = setup(over);
       const google = "GOOGLE_CLIENT_ID" in over;
@@ -1104,11 +1105,12 @@ describe("accounts: Google first, an email and a password always; creating an ac
         expect(html, tag).toContain(path === "/signup" ? 'autocomplete="new-password"' : 'autocomplete="current-password"');
         expect(html, tag).toContain('autocomplete="username"');
         expect(html, tag).toContain('<button class="lnk" id="pk" type="button"><span>Use a passkey</span></button>');
-        // the owner's order: Google, the form, GitHub (small), the passkey link
-        const at = [google ? html.indexOf("Continue with Google") : -1, html.indexOf('id="pwf"'), github ? html.indexOf("Continue with GitHub") : -1, html.indexOf('id="pk"')].filter((i) => i >= 0);
+        // the owner's order (2026-10-18): GitHub, Google, the form, the passkey link
+        const at = [github ? html.indexOf("Continue with GitHub") : -1, google ? html.indexOf("Continue with Google") : -1, html.indexOf('id="pwf"'), html.indexOf('id="pk"')].filter((i) => i >= 0);
         expect(at, tag).toEqual([...at].sort((a, b) => a - b));
-        // GitHub is a small link next to the passkey one, not a full-width button
-        if (github) expect(html, tag).toMatch(/<p class="alt"><a href="\/auth\/github"><svg[^]*?<span>Continue with GitHub<\/span><\/a><button class="lnk" id="pk"/);
+        // GitHub is a full-width button like Google's; the small links are only Use a passkey
+        if (github) expect(html, tag).toMatch(/<a class="btn prov paper" href="\/auth\/github"><svg[^]*?<span>Continue with GitHub<\/span><\/a>/);
+        expect(html, tag).toContain('<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>');
         expect(html, tag).not.toContain("Create account with a passkey");
         expect(html, tag).not.toContain("Sign in with a passkey");
         expect(html, tag).toContain("Dashboards come with Pro. Get a 7-day free trial for analytics.");
