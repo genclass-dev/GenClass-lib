@@ -1608,7 +1608,7 @@ describe("GET /account/billing", () => {
     expect(page).toContain("the runtime and its on-device model, without the dashboard (you have 0 apps). Get a 7-day free trial for analytics.");
     expect(page).toContain('<button class="btn green" type="button" id="trial"><span>Start your 7-day free trial</span></button>');
     // the trial's terms next to it: a card, and when it is first charged
-    expect(page).toContain("Card required. Nothing is charged for 7 days; when they end, your card is charged $99 for the first month of Pro, then monthly, unless you cancel before.");
+    expect(page).toContain("Card required. Stripe checks it with a $1 hold that is released at once. Nothing is charged for 7 days; when they end, your card is charged $99 for the first month of Pro, then monthly, unless you cancel before.");
     const visible = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!doctype html>/gi, "");
     expect(visible).not.toMatch(/\u2014|!/);
 
@@ -1659,6 +1659,7 @@ describe("GET /account/billing", () => {
       access: null,
       trial_ends_at: null,
       can_trial: true,
+      trial_card_declined_at: null,
     });
     setPlan(sql, a.account.id, "custom", { subscription_id: "sub_c000000001", subscription_status: "active", current_period_end: "2026-11-13T12:00:00.000Z" });
     const html = await (await call(env, "GET", "/account/billing", { cookie: a.cookie })).text();

@@ -4,8 +4,10 @@
 // the page waits for the new plan. Same shell, tokens and rules as the account pages; server-rendered text goes through esc(),
 // scripts insert text with textContent. Buttons that need Stripe are shown only to an account that can buy (a live
 // STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS). Start a trial opens Stripe Checkout too
-// (a card is required, first charged when the trial ends; the terms are said next to it): it shows to an account that
-// may have one (src/plans.ts canTrial). The trial's days left are said only inside the dashboard, never here.
+// (a card is required, checked by Stripe with a $1 hold released at once, first charged when the trial ends; the terms
+// are said next to it): it shows to an account that may have one (src/plans.ts canTrial). A trial whose card failed
+// that check is said here, with the way to try another card. The trial's days left are said only inside the
+// dashboard, never here.
 
 import { ACCOUNT_CSS, CLIENT_JS, time } from "./account-pages.js";
 import type { Env } from "./collector.js";
@@ -60,6 +62,11 @@ export interface BillingView {
   canTrial: boolean;
   /** Back from the trial's Checkout (?done=1&trial=1). */
   trialDone?: boolean;
+  /**
+   * The $1 card check before a trial (src/stripe.ts cardCheck): how many of the account's cards failed it, when the
+   * latest trial attempt's did (null: it has not, or not yet), and how many failures end the trial offer.
+   */
+  cardCheck?: { failures: number; failedAt: string | null; max: number };
   now: Date;
 }
 
@@ -137,9 +144,14 @@ function planColumn(v: BillingView, p: Plan, current: Plan): string {
 /** Back from Checkout and the plan bought is not on the account yet: that plan ("paid": any paid plan), else null. */
 function awaited(v: BillingView, current: Plan): string | null {
   if (!v.done) return null;
+  // the trial's card failed the $1 check: nothing more is coming from Stripe
+  if (v.trialDone && declined(v, current)) return null;
   if (v.switchTo && v.switchTo !== current.id) return v.switchTo;
   return current.id === "free" ? "paid" : null;
 }
+
+/** The latest trial attempt's card failed the $1 check, and the account has no plan, grant or trial since. */
+const declined = (v: BillingView, current: Plan): boolean => !!v.cardCheck?.failedAt && current.id === "free" && v.access.source === null;
 
 export function billingPage(nonce: string, v: BillingView): string {
   const plan = planById(v.billing.plan);
@@ -149,7 +161,13 @@ export function billingPage(nonce: string, v: BillingView): string {
   const appsNav = v.apps.map((p) => `<a href="/account/apps/${esc(p.id)}">${esc(p.name)}</a>`).join("");
   const manage = v.live && v.billing.stripe_customer_id;
   let notice = "";
-  if (v.done) {
+  if (declined(v, plan)) {
+    const c = v.cardCheck!;
+    notice =
+      c.failures >= c.max
+        ? `<p class="notice n-bad" role="alert" id="declined"><b>Your card did not pass the $1 check.</b> The bank declined a $1 hold, so the trial did not start and nothing was charged. ${c.failures} cards on this account did not pass it, so no trial can start; email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.</p>`
+        : `<p class="notice n-bad" role="alert" id="declined"><b>Your card did not pass the $1 check.</b> The bank declined a $1 hold, so the trial did not start and nothing was charged. Try another card with Start your ${v.trialDays}-day free trial.</p>`;
+  } else if (v.done) {
     const to = want && want !== "paid" ? planById(want) : null;
     notice = to
       ? `<p class="notice n-ok" role="status" id="donemsg"><b>Thanks.</b> This page changes to ${esc(to.name)} as soon as Stripe confirms your payment, usually within a minute (a bank debit can take a few days). Your ${esc(plan.name)} plan stays until then, then ends, and its unused days are refunded to the card or account that paid for it.</p>`
@@ -247,7 +265,11 @@ status and renewal date, and your plan; never card details. <a href="https://gen
       if (++tries > 40) { clearInterval(timer); var m = document.getElementById("donemsg"); if (m) m.lastChild.textContent = " Stripe has not told us yet. Reload this page in a few minutes; if your plan still shows Free, email ${esc(CONTACT)}."; return; }
       fetch("/api/billing", { headers: { accept: "application/json" }, cache: "no-store", credentials: "same-origin" })
         .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(j){ if (j && j.plan && (cfg.want === "paid" ? j.plan !== "free" : j.plan === cfg.want)) { clearInterval(timer); location.reload(); } })
+        .then(function(j){
+          // the trial's card failed the $1 check: the page says so without ?done
+          if (j && j.trial_card_declined_at && j.plan === "free") { clearInterval(timer); location.href = "/account/billing"; return; }
+          if (j && j.plan && (cfg.want === "paid" ? j.plan !== "free" : j.plan === cfg.want)) { clearInterval(timer); location.reload(); }
+        })
         .catch(function(){});
     }, 3000);
   }

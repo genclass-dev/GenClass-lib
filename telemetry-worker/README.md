@@ -552,7 +552,19 @@ Pro shows 24 hours, 7 and 30 days, as before.
   `/account/billing?done=1&trial=1`. The route writes nothing: Pro comes from the webhook, as for a purchase, once
   Stripe has the `trialing` subscription, and a trialing subscription the account has not been granted yet counts
   only with a saved payment method (its `default_payment_method` or `default_source`, or the customer's default;
-  `src/stripe.ts` `cardOnFile`). The webhook then sets `trial_started_at` from the subscription's `trial_start`, once.
+  `src/stripe.ts` `cardOnFile`) that **holds $1** (`cardCheck`): before granting, the webhook asks Stripe for a USD 1
+  PaymentIntent on that card (`capture_method=manual`, `confirm`, `off_session`, idempotency key
+  `genclass-card-check-<subscription>`, metadata `genclass_card_check=<subscription>`) and cancels it at once, which
+  releases the hold; nothing is captured. Stripe's own check when Checkout saves a card is a USD 0 validation, which
+  does not show the card can pay. A card the bank declines gets no trial: the subscription gets metadata
+  `genclass_card_check=failed` (no later event about it is applied, and it does not count as a first plan) and is
+  cancelled at once, `accounts.trial_check_failures` goes up and `trial_check_failed_at` is set (migration 0008), and
+  the billing page says the card did not pass and offers the trial again with another card; after 3 failed cards the
+  trial is refused (409), against card testing. A bank asking for authentication counts as a pass (Checkout
+  authenticated the card when it saved it). The hold is only ever placed through Stripe, and only where GenClass may
+  place it: none for a Managed Payments subscription (Link is the merchant of record and only it may charge the card;
+  Stripe's own validation still runs) or a payment method that is not a card or Link. The webhook then sets
+  `trial_started_at` from the subscription's `trial_start`, once.
   Refused with 409: an account with a plan, a grant or a running trial, one that started a trial before
   (`trial_started_at`), and one that has had a GenClass subscription (recorded in `accounts.subscription_id`, or any
   GenClass subscription Stripe lists on its customer, in any status); 503 while the account cannot buy (`canBuy`),
@@ -565,6 +577,9 @@ Pro shows 24 hours, 7 and 30 days, as before.
   the site from `billing/plans.json` `trial_days`) and that a card is required. Afterwards, without a plan, the
   dashboard locks again ("Your trial has ended"), the account is Free (3 apps; the ones already there stay and are
   still collected), and its data older than 90 days goes with the next sweep.
+- **Migration 0008** (`migrations/0008_trial_card_check.sql`): additive, `accounts.trial_check_failures` (default 0)
+  and `accounts.trial_check_failed_at`. The billing routes read them, so apply it before deploying:
+  `npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`.
 - **Trials from before cards** (`trial_ends_at`): until this change, `POST /api/billing/trial` set `trial_started_at`
   and `trial_ends_at` with no card. Nothing writes `trial_ends_at` any more; a trial started that way keeps Pro until
   its `trial_ends_at` (at most `TRIAL_DAYS` after it started) and says its days left in the dashboard, then ends as
@@ -1022,7 +1037,10 @@ test-mode and a live copy unless the dashboard says it is shared):
     the subscription in the Stripe dashboard is `trialing` with a default payment method. With a test clock (Billing,
     Subscriptions, the subscription's test clock), or by ending the trial from the dashboard, check both ends: with
     `4242...` the first invoice is paid and the plan stays Pro; with the card replaced by `4000 0000 0000 0341` (attaches,
-    then declines) the subscription goes `past_due` and the billing page says the payment did not go through. Confirm
+    then declines) the subscription goes `past_due` and the billing page says the payment did not go through. The $1
+    check: Payments shows an uncaptured USD 1 authorization, cancelled, for each trial; a trial started with
+    `4000 0000 0000 0341` (it saves, then declines) is cancelled at once and the billing page says the card did not
+    pass, and `4000 0000 0000 9995` is declined by Checkout itself. Confirm
     the Checkout Session request carried `payment_method_collection=always`,
     `subscription_data[trial_period_days]=7` and `subscription_data[trial_settings][end_behavior][missing_payment_method]=cancel`,
     and that Stripe accepted them with `MANAGED_PAYMENTS` on (and off).

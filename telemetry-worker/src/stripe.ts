@@ -40,9 +40,11 @@
 //   Checkout GenClass makes collects a payment method up front (payment_method_collection "always", also when nothing
 //   is due today), a trial's subscription is cancelled by Stripe if it reaches the trial's end with no payment method
 //   (trial_settings), and a trialing subscription the account has not been granted yet counts only with a saved payment
-//   method (cardOnFile). The trial's end is the first charge: a card that fails then is a failed payment like any other
-//   (past_due, PAST_DUE_GRACE_DAYS, then Free). The webhook records when the account's trial started
-//   (accounts.trial_started_at), so it gets one trial.
+//   method (cardOnFile) that held $1 (cardCheck: a manual-capture PaymentIntent on that card, off session, cancelled at
+//   once, so nothing is charged; a card that cannot hold it gets no trial, its subscription is marked
+//   genclass_card_check=failed and cancelled, and the account may try another card, 3 times at most). The trial's end is
+//   the first charge: a card that fails then is a failed payment like any other (past_due, PAST_DUE_GRACE_DAYS, then
+//   Free). The webhook records when the account's trial started (accounts.trial_started_at), so it gets one trial.
 // - One subscription per account. Checkout asks Stripe (not the database, which a late webhook leaves behind) whether
 //   the customer already has one: the same plan is refused, the other plan is a switch (a Checkout whose subscription
 //   carries metadata genclass_switch_from naming the one it replaces); an account's older unpaid Checkout pages are
@@ -70,7 +72,7 @@
 import type { Env } from "./collector.js";
 import { randomBase62, sha256Hex, type D1Like } from "./dashboard.js";
 import { json } from "./http.js";
-import { LIVE_STATUSES, LOOKUP_PREFIX, pastDueLapsed, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
+import { LIVE_STATUSES, LOOKUP_PREFIX, pastDueLapsed, PLANS_FILE, planForPrice, stripeMode, TRIAL_PLAN, type Billing, type Plan, type PlanId } from "./plans.js";
 import { equalStrings } from "./webauthn.js";
 
 export const STRIPE_API = "https://api.stripe.com";
@@ -750,7 +752,92 @@ const granted = (account: BillingAccount, sub: Obj): boolean => !!account.subscr
  * event has passed the check that needs no Stripe call.
  */
 const fetchSubscription = (x: EventContext, id: string): Promise<Obj> =>
-  stripe(x.env, x.fetch, "GET", `/v1/subscriptions/${encodeURIComponent(id)}`, { expand: ["items.data.price.product", "customer", "latest_invoice"] });
+  stripe(x.env, x.fetch, "GET", `/v1/subscriptions/${encodeURIComponent(id)}`, { expand: ["items.data.price.product", "customer", "latest_invoice", "default_payment_method"] });
+
+/** The amount of the card check before a trial, in US cents (USD 1), held and released, never captured. */
+export const CARD_CHECK_CENTS = 100;
+/** subscription.metadata.genclass_card_check on a trial whose card failed the check: never granted, never counted. */
+export const CARD_CHECK_FAILED = "failed";
+
+/**
+ * Before a trial is granted: hold USD 1 on the subscription's card and release it at once, so the card is shown to
+ * be able to pay (Stripe's own check when Checkout saves a card is a USD 0 validation, which proves neither funds nor
+ * a working account). A PaymentIntent with capture_method manual, confirmed off session on the card Checkout saved
+ * (the buyer agreed to it being charged), with an idempotency key per subscription, so a redelivered event holds
+ * nothing twice; then cancelled, which releases the hold. "ok" once the hold went through, or when the issuer asked
+ * for authentication (the card exists; Checkout already authenticated it when it was saved). "failed" when the card
+ * was declined. "skipped" when there is nothing GenClass may hold: a payment method other than a card (or Link), or a
+ * Managed Payments subscription (Link is the merchant of record and only it may charge the card); Stripe's own
+ * validation at Checkout still ran. Any other error throws (the webhook answers 500 and Stripe retries).
+ */
+export async function cardCheck(x: EventContext, account: BillingAccount, sub: Obj): Promise<"ok" | "failed" | "skipped"> {
+  // the subscription's card (Checkout sets it), else the customer's default (the customer is expanded)
+  const pm: Obj | string | null = sub?.default_payment_method ?? (sub?.customer && typeof sub.customer === "object" ? (sub.customer.invoice_settings?.default_payment_method ?? null) : null);
+  const pmId = idOf(pm);
+  const pmType = pm && typeof pm === "object" && typeof pm.type === "string" ? pm.type : "card";
+  const mp = typeof sub?.managed_payments?.enabled === "boolean" ? sub.managed_payments.enabled === true : managedPayments(x.env, TRIAL_PLAN);
+  if (!pmId || mp || (pmType !== "card" && pmType !== "link")) {
+    console.log(`stripe webhook: account ${account.id}: trial ${String(sub?.id)}: no $1 card check (${mp ? "Managed Payments" : pmId ? `a ${pmType} payment method` : "no payment method on the subscription"})`);
+    return "skipped";
+  }
+  let pi: Obj;
+  try {
+    pi = await stripe(
+      x.env,
+      x.fetch,
+      "POST",
+      "/v1/payment_intents",
+      {
+        amount: CARD_CHECK_CENTS,
+        currency: "usd",
+        customer: account.stripe_customer_id,
+        payment_method: pmId,
+        payment_method_types: [pmType],
+        capture_method: "manual",
+        confirm: true,
+        off_session: true,
+        description: "GenClass card check before a free trial: a $1 hold, released at once, never charged",
+        metadata: { genclass: GENCLASS_MARK, genclass_account: account.id, genclass_card_check: String(sub.id) },
+      },
+      `genclass-card-check-${sub.id}`,
+    );
+  } catch (e) {
+    if (e instanceof StripeError && e.status === 402) {
+      if (e.code === "authentication_required") return "ok";
+      console.log(`stripe webhook: account ${account.id}: trial ${String(sub.id)}: the $1 card check was declined (${e.code ?? "card error"})`);
+      return "failed";
+    }
+    throw e;
+  }
+  const piId = idOf(pi?.id);
+  if (piId && (pi.status === "requires_capture" || pi.status === "requires_action" || pi.status === "requires_confirmation" || pi.status === "requires_payment_method")) {
+    const path = `/v1/payment_intents/${encodeURIComponent(piId)}/cancel`;
+    try {
+      await stripe(x.env, x.fetch, "POST", path, {});
+    } catch (e) {
+      // a retry after the hold was released: already cancelled is done
+      const now = e instanceof StripeError && e.status === 400 ? await stripe(x.env, x.fetch, "GET", `/v1/payment_intents/${encodeURIComponent(piId)}`).catch(() => null) : null;
+      if (now?.status !== "canceled") throw e;
+    }
+  }
+  if (pi?.status === "requires_payment_method") return "failed";
+  return "ok";
+}
+
+/**
+ * A trial whose card failed the check: its subscription is marked (metadata genclass_card_check=failed, so no later
+ * event about it is applied and it does not count as the account's subscription) and cancelled at once (nothing was
+ * charged: it is in its trial), and the account records the failure, so the billing page can say so and a fourth
+ * failed card is refused. Mark, cancel, then count: a retry after a failure in between finds the mark and stops.
+ */
+async function failTrial(x: EventContext, account: BillingAccount, sub: Obj): Promise<void> {
+  await stripe(x.env, x.fetch, "POST", `/v1/subscriptions/${encodeURIComponent(sub.id)}`, { metadata: { genclass_card_check: CARD_CHECK_FAILED } });
+  await cancelNow(x.env, x.fetch, sub.id);
+  await x.db
+    .prepare("UPDATE accounts SET trial_check_failures = trial_check_failures + 1, trial_check_failed_at = ? WHERE id = ?")
+    .bind(x.now.toISOString(), account.id)
+    .run();
+}
 
 /**
  * Apply one verified Stripe event. Throws on a Stripe or database error (the webhook then answers 500).
@@ -789,13 +876,19 @@ export async function handleEvent(x: EventContext, event: Obj): Promise<EventRes
   // the subscription as it is now, so the order events arrive in does not matter
   let sub = await fetchSubscription(x, subId);
   if (!accountsSubscription(account, sub)) return ignored("the subscription is not the account's", event, true);
+  // a trial whose card failed GenClass's $1 check stays out of the account for good
+  if (sub?.metadata?.genclass_card_check === CARD_CHECK_FAILED) return ignored("its card failed the $1 check", event, true);
   // the subscription already recorded for the account stays readable whatever its price now says (it then counts as
   // Free); any other must be provably GenClass's
   if (!isGenClassSubscription(sub) && idOf(sub?.id) !== account.subscription_id) return ignored("not a GenClass subscription", event, true);
   // a new subscription is granted only once its first payment cleared: never on "active" alone
   if (!granted(account, sub) && LIVE_STATUSES.has(sub?.status) && !paymentCleared(sub)) return ignored("its first payment has not cleared yet", event, true);
-  // and a trial only with a payment method saved to charge when it ends
+  // and a trial only with a payment method saved to charge when it ends, which holds $1
   if (!granted(account, sub) && !cardOnFile(sub)) return ignored("its trial has no saved payment method", event, true);
+  if (!granted(account, sub) && sub?.status === "trialing" && (await cardCheck(x, account, sub)) === "failed") {
+    await failTrial(x, account, sub);
+    return ignored("its card failed the $1 check; the trial was cancelled", event, true);
+  }
   // a subscription that starts billing (created, its status changed, or an invoice of it paid)
   const prev = event?.data?.previous_attributes;
   const started =

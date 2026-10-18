@@ -58,7 +58,7 @@ const error = async (r: Promise<Response> | Response) => ((await (await r).json(
 const OFFER = (days = 7) => `Get a ${days}-day free trial for analytics`;
 const START = (days = 7) => `Start your ${days}-day free trial`;
 /** What every offer of the trial says next to it (2026-10-17: the trial needs a card). */
-const TERMS = (days = 7) => `Card required. Nothing is charged for ${days} days; when they end, your card is charged $99 for the first month of Pro, then monthly, unless you cancel before.`;
+const TERMS = (days = 7) => `Card required. Stripe checks it with a $1 hold that is released at once. Nothing is charged for ${days} days; when they end, your card is charged $99 for the first month of Pro, then monthly, unless you cancel before.`;
 /** The copy before 2026-10-15, which hid the length. */
 const OLD = /trials available|start a trial/i;
 /** Any sentence about the trial that says it needs no card (the copy before 2026-10-17). */
@@ -422,6 +422,143 @@ describe("the webhook grants the trial only once Stripe has it with a saved paym
   });
 });
 
+describe("the $1 card check: Stripe holds $1 on the trial's card and releases it before the trial is granted", () => {
+  const holds = (s: ReturnType<typeof fakeStripe>) => s.calls.filter((c) => c.method === "POST" && c.url.pathname.startsWith("/v1/payment_intents"));
+  const failures = (t: Awaited<ReturnType<typeof trialing>>) => t.sql.rows("SELECT trial_check_failures, trial_check_failed_at, subscription_id, trial_started_at FROM accounts WHERE id = ?", t.account.id)[0]!;
+
+  it("a card that holds $1 gets the trial: a manual-capture PaymentIntent off session on that card, cancelled at once, made once", async () => {
+    const t = await trialing();
+    expect(await t.send("customer.subscription.created")).toBe("applied");
+    expect(t.state()).toMatchObject({ plan: "pro", subscription_status: "trialing" });
+    const [hold, release] = holds(t.s);
+    expect(hold!.url.pathname).toBe("/v1/payment_intents");
+    expect(Object.fromEntries(hold!.form!)).toMatchObject({
+      amount: "100",
+      currency: "usd",
+      customer: t.customer,
+      payment_method: "pm_card0000001",
+      "payment_method_types[0]": "card",
+      capture_method: "manual",
+      confirm: "true",
+      off_session: "true",
+      "metadata[genclass]": "1",
+      "metadata[genclass_account]": t.account.id,
+      "metadata[genclass_card_check]": "sub_trial00001",
+    });
+    expect(hold!.headers["idempotency-key"]).toBe("genclass-card-check-sub_trial00001");
+    // released: never captured, nothing charged
+    expect(release!.url.pathname).toBe("/v1/payment_intents/pi_test000001/cancel");
+    expect(t.s.paymentIntents.get("pi_test000001")).toMatchObject({ amount: 100, capture_method: "manual", status: "canceled" });
+    expect(t.s.calls.some((c) => /\/capture$/.test(c.url.pathname))).toBe(false);
+    // the subscription is the account's now: later events hold nothing again
+    expect(await t.send("customer.subscription.updated")).toBe("applied");
+    expect(holds(t.s)).toHaveLength(2);
+    expect(failures(t)).toMatchObject({ trial_check_failures: 0, trial_check_failed_at: null });
+  });
+
+  it("a declined card gets no trial: the subscription is marked and cancelled, the page says so, and another card can be tried, 3 times at most", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const t = await trialing();
+    t.sub.default_payment_method = "pm_cardDeclined01";
+    expect(await t.send("customer.subscription.created")).toBe("ignored");
+    expect(log.mock.calls.flat().join("\n")).toMatch(/the \$1 card check was declined \(card_declined\)/);
+    // nothing granted, no trial used, no subscription recorded
+    expect(t.state()).toMatchObject({ plan: "free", subscription_status: null, trial_started_at: null });
+    expect(failures(t)).toEqual({ trial_check_failures: 1, trial_check_failed_at: now().toISOString(), subscription_id: null, trial_started_at: null });
+    // the subscription is marked and cancelled at once (it was trialing: nothing to refund)
+    expect(t.sub.metadata.genclass_card_check).toBe("failed");
+    expect(t.sub.status).toBe("canceled");
+    expect(t.s.calls.filter((c) => c.method === "DELETE").map((c) => c.url.pathname)).toEqual(["/v1/subscriptions/sub_trial00001"]);
+    // no later event about it is applied (its end, its $0 invoice)
+    expect(await t.send("customer.subscription.deleted")).toBe("ignored");
+    expect(failures(t)).toMatchObject({ trial_check_failures: 1, subscription_id: null });
+    // back from Checkout the page says so at once, and stops waiting; the browser learns it from /api/billing too
+    const back = await text(call(t.env, "GET", "/account/billing?done=1&trial=1", { cookie: t.cookie }));
+    expect(back).toContain('<p class="notice n-bad" role="alert" id="declined"><b>Your card did not pass the $1 check.</b> The bank declined a $1 hold, so the trial did not start and nothing was charged. Try another card with Start your 7-day free trial.</p>');
+    expect(back).not.toContain('id="donemsg"');
+    expect(back).toContain('id="trial"');
+    expect(back).toContain('if (j && j.trial_card_declined_at && j.plan === "free") { clearInterval(timer); location.href = "/account/billing"; return; }');
+    expect(await (await call(t.env, "GET", "/api/billing", { cookie: t.cookie })).json()).toMatchObject({ plan: "free", can_trial: true, trial_card_declined_at: now().toISOString() });
+
+    // another card: the cancelled subscription does not count as a first plan; opening Checkout clears the last failure
+    for (const [n, pm] of [["2", "pm_cardDeclined02"], ["3", "pm_cardDeclined03"]] as const) {
+      advance(60_000);
+      expect((await trial(t.env, t.cookie, { fetch: t.s.fetch })).status, n).toBe(200);
+      expect(failures(t).trial_check_failed_at, n).toBeNull();
+      const id = `sub_trial0000${n}`;
+      t.s.subs.set(id, trialSub(id, t.account.id, t.customer, { default_payment_method: pm }));
+      expect((await deliver(t.env, stripeEvent("customer.subscription.created", t.s.subs.get(id)!), t.s.fetch)).status).toBe(200);
+      expect(t.s.subs.get(id)!.status, n).toBe("canceled");
+    }
+    expect(failures(t)).toMatchObject({ trial_check_failures: 3, subscription_id: null, trial_started_at: null });
+    // after 3 failed cards no trial starts (against card testing), and the page says why
+    const r = await trial(t.env, t.cookie, { fetch: t.s.fetch });
+    expect(r.status).toBe(409);
+    expect(await error(r)).toBe("3 cards on this account did not pass the $1 card check, so no trial can start; email mehar@daybot.ca");
+    const page = await text(call(t.env, "GET", "/account/billing", { cookie: t.cookie }));
+    expect(page).toContain("3 cards on this account did not pass it, so no trial can start");
+    expect(page).not.toContain('id="trial"');
+    expect(((await (await call(t.env, "GET", "/api/billing", { cookie: t.cookie })).json()) as any).can_trial).toBe(false);
+    log.mockRestore();
+  });
+
+  it("a card that passes after one that failed gets the trial; the failure notice goes", async () => {
+    const t = await trialing();
+    t.sub.default_payment_method = "pm_cardDeclined01";
+    await t.send("customer.subscription.created");
+    expect((await trial(t.env, t.cookie, { fetch: t.s.fetch })).status).toBe(200);
+    t.s.subs.set("sub_trial00002", trialSub("sub_trial00002", t.account.id, t.customer));
+    expect((await deliver(t.env, stripeEvent("customer.subscription.created", t.s.subs.get("sub_trial00002")!), t.s.fetch)).status).toBe(200);
+    expect(t.state()).toMatchObject({ plan: "pro", subscription_status: "trialing", trial_started_at: new Date(T0S * 1000).toISOString() });
+    expect(failures(t)).toMatchObject({ trial_check_failures: 1, trial_check_failed_at: null, subscription_id: "sub_trial00002" });
+    expect(await text(call(t.env, "GET", "/account/billing", { cookie: t.cookie }))).not.toContain('id="declined"');
+  });
+
+  it("a card whose bank asks for authentication counts as real (Checkout authenticated it when it was saved)", async () => {
+    const t = await trialing();
+    t.sub.default_payment_method = "pm_cardAuthRequired1";
+    expect(await t.send("customer.subscription.created")).toBe("applied");
+    expect(t.state()).toMatchObject({ plan: "pro", subscription_status: "trialing" });
+    expect(failures(t)).toMatchObject({ trial_check_failures: 0 });
+  });
+
+  it("only through Stripe, and only where GenClass may hold: none for Managed Payments (Link charges the card) or a payment method that is not a card", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const mp = await trialing({ MANAGED_PAYMENTS: "on" });
+    expect(await mp.send("customer.subscription.created")).toBe("applied");
+    expect(holds(mp.s)).toEqual([]);
+    const flagged = await trialing();
+    flagged.sub.managed_payments = { enabled: true };
+    expect(await flagged.send("customer.subscription.created")).toBe("applied");
+    expect(holds(flagged.s)).toEqual([]);
+    const bank = await trialing();
+    bank.sub.default_payment_method = "pm_bank00000001";
+    expect(await bank.send("customer.subscription.created")).toBe("applied");
+    expect(holds(bank.s)).toEqual([]);
+    expect(log.mock.calls.flat().join("\n")).toMatch(/no \$1 card check \(a us_bank_account payment method\)/);
+    // the card saved on the customer (not on the subscription) is held
+    const onCustomer = await trialing();
+    delete onCustomer.sub.default_payment_method;
+    onCustomer.s.customers.get(onCustomer.customer)!.invoice_settings = { default_payment_method: "pm_card0000009" };
+    expect(await onCustomer.send("customer.subscription.created")).toBe("applied");
+    expect(holds(onCustomer.s)[0]!.form!.get("payment_method")).toBe("pm_card0000009");
+    log.mockRestore();
+  });
+
+  it("a Stripe outage during the hold grants nothing and answers 500, so Stripe delivers the event again", async () => {
+    const t = await trialing();
+    const down = fakeStripe({ answer: (url) => (url.pathname === "/v1/payment_intents" ? new Response(JSON.stringify({ error: { message: "down" } }), { status: 500 }) : undefined) });
+    for (const [k, v] of t.s.customers) down.customers.set(k, v);
+    down.subs.set("sub_trial00001", t.sub);
+    const ev = stripeEvent("customer.subscription.created", t.sub);
+    expect((await deliver(t.env, ev, down.fetch)).status).toBe(500);
+    expect(t.state()).toMatchObject({ plan: "free", subscription_status: null });
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM billing_events")[0]!.n).toBe(0);
+    expect((await deliver(t.env, ev, t.s.fetch)).status).toBe(200);
+    expect(t.state()).toMatchObject({ plan: "pro", subscription_status: "trialing" });
+  });
+});
+
 describe("trials from before cards (trial_ends_at): they run to their end; nothing starts one any more", () => {
   it("a no-card trial already running keeps Pro and its days-left line to its end, then the dashboard locks for good", async () => {
     const { env, sql } = setup(LIVE);
@@ -636,13 +773,13 @@ describe("private links without Pro: sign in, add the app to the account, go to 
     const read = (f: string) => readFileSync(new URL(`../../site/${f}`, import.meta.url), "utf8");
     // the pricing page: the line under Start your trial, and the FAQ
     const pricing = read("public/pricing.html");
-    expect(pricing).toContain(`${START(days)}</a><p>Card required. Nothing is charged for ${days} days; when they end, your card is charged ${price} a month unless you cancel before.</p>`);
-    expect(pricing).toContain(`<summary><span>Is there a free trial?</span></summary><p>Yes. Get a ${days}-day free trial for analytics: sign in, choose Start your ${days}-day free trial and enter a card on Stripe's checkout. A card is required. Nothing is charged for ${days} days; when they end, your card is charged ${price} for the first month of Pro, then monthly.`);
+    expect(pricing).toContain(`${START(days)}</a><p>Card required, checked by Stripe with a $1 hold that is released at once. Nothing is charged for ${days} days; when they end, your card is charged ${price} a month unless you cancel before.</p>`);
+    expect(pricing).toContain(`<summary><span>Is there a free trial?</span></summary><p>Yes. Get a ${days}-day free trial for analytics: sign in, choose Start your ${days}-day free trial and enter a card on Stripe's checkout. A card is required: Stripe checks it with a $1 hold and releases the hold at once (your bank may show it as pending for a few days). Nothing is charged for ${days} days; when they end, your card is charged ${price} for the first month of Pro, then monthly.`);
     // the home page's FAQ (and its JSON-LD), and the terms
     const index = read("public/index.html");
     const faq = `${OFFER(days)}: a card is required, and it is first charged ${price} when the ${days} days end, unless you cancel before.`;
     expect(index.split(faq)).toHaveLength(3);
-    expect(read("public/terms.html")).toContain(`It needs a card, entered on Stripe's checkout when you start it. Nothing is charged during the trial. When it ends, Pro starts and the card is charged ${price} for the first month`);
+    expect(read("public/terms.html")).toContain(`It needs a card, entered on Stripe's checkout when you start it. Stripe checks the card with a temporary $1 authorization hold, released at once and never charged (your bank may show it as pending for a few days); a card that cannot hold $1 gets no trial. Nothing is charged during the trial. When it ends, Pro starts and the card is charged ${price} for the first month`);
     expect(read("public/llms.txt")).toContain("with a card that is first charged when the trial ends");
     // nothing the site builds from, or publishes, says the trial needs no card
     const files = ["build.py", ...readdirSync(new URL("../../site/src/pages/", import.meta.url)).filter((f) => f.endsWith(".html")).map((f) => `src/pages/${f}`)];

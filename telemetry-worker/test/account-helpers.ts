@@ -175,6 +175,8 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   const refunds = new Map<string, Record<string, any>>();
   const refundKeys = new Map<string, Record<string, any>>();
   const charges = new Map<string, Record<string, any>>();
+  const paymentIntents = new Map<string, Record<string, any>>();
+  const piKeys = new Map<string, Response>();
   const portal: Record<string, any>[] = PORTAL_CONFIGS.map((c) => ({ ...c, metadata: { ...c.metadata } }));
   /** A subscription's latest invoice as an expansion returns it. */
   const latest = (sub: Record<string, any>) =>
@@ -284,11 +286,39 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
       return c ? ok(c) : ok({ error: { code: "resource_missing", message: "No such configuration" } }, 404);
     }
     if (method === "POST" && p === "/v1/billing_portal/sessions") return ok({ url: "https://billing.stripe.com/p/session/test_000001" });
+    // PaymentIntents (the $1 card check before a trial): a payment method whose id contains "declined" (any case) is
+    // declined, one with "authRequired" asks for authentication, any other holds the amount; the same idempotency key gets the
+    // same answer again, as Stripe gives it
+    if (method === "POST" && p === "/v1/payment_intents") {
+      const key = headers["idempotency-key"];
+      if (key && piKeys.has(key)) return piKeys.get(key)!.clone();
+      const pm = form!.get("payment_method") ?? "";
+      const id = `pi_test${String(paymentIntents.size + 1).padStart(6, "0")}`;
+      const pi = { id, object: "payment_intent", amount: Number(form!.get("amount")), currency: form!.get("currency"), customer: form!.get("customer"), payment_method: pm, capture_method: form!.get("capture_method"), status: "requires_capture", metadata: formObject(form!, "metadata") };
+      const res = /declined/i.test(pm)
+        ? ok({ error: { type: "card_error", code: "card_declined", decline_code: "insufficient_funds", message: "Your card has insufficient funds.", payment_intent: { ...pi, status: "requires_payment_method" } } }, 402)
+        : /authRequired/i.test(pm)
+          ? ok({ error: { type: "card_error", code: "authentication_required", message: "This payment requires authentication.", payment_intent: { ...pi, status: "requires_payment_method" } } }, 402)
+          : (paymentIntents.set(id, pi), ok(pi));
+      if (key) piKeys.set(key, res.clone());
+      return res;
+    }
+    const pic = /^\/v1\/payment_intents\/([^/]+)(\/cancel)?$/.exec(p);
+    if (pic) {
+      const pi = paymentIntents.get(decodeURIComponent(pic[1]!));
+      if (!pi) return ok({ error: { code: "resource_missing", message: "No such payment_intent" } }, 404);
+      if (method === "POST" && pic[2]) {
+        if (pi.status === "canceled") return ok({ error: { code: "payment_intent_unexpected_state", message: "This PaymentIntent's status is canceled." } }, 400);
+        pi.status = "canceled";
+      }
+      return ok(pi);
+    }
     const sub = /^\/v1\/subscriptions\/([^/]+)$/.exec(p);
     if (sub) {
       const s = subs.get(decodeURIComponent(sub[1]!));
       if (!s) return ok({ error: { message: "No such subscription" } }, 404);
       if (method === "DELETE") s.status = "canceled";
+      if (method === "POST") s.metadata = { ...(s.metadata ?? {}), ...formObject(form!, "metadata") };
       if (method === "GET") {
         const out: Record<string, any> = { ...s };
         if (expands(url).includes("customer")) {
@@ -296,6 +326,10 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
           out.customer = customers.get(id) ?? { id, object: "customer", metadata: {} };
         }
         if (expands(url).includes("latest_invoice")) out.latest_invoice = latest(s);
+        // a payment method id containing "bank" is a bank account; any other, a card
+        if (expands(url).includes("default_payment_method") && typeof s.default_payment_method === "string") {
+          out.default_payment_method = { id: s.default_payment_method, object: "payment_method", type: /bank/.test(s.default_payment_method) ? "us_bank_account" : "card" };
+        }
         return ok(out);
       }
       return ok(s);
@@ -306,7 +340,7 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   const genclassCustomer = (id: string, accountId: string, email = "ada@example.com") => {
     customers.set(id, { id, object: "customer", email, description: "GenClass account", metadata: { genclass: "1", genclass_account: accountId } });
   };
-  return { fetch, calls, other, customers, subs, sessions, invoices, refunds, charges, portal, genclassCustomer };
+  return { fetch, calls, other, customers, subs, sessions, invoices, refunds, charges, paymentIntents, portal, genclassCustomer };
 }
 
 /** A price as a subscription fetched with its products expanded shows it: GenClass's carry product metadata genclass_plan. */
