@@ -116,6 +116,38 @@ describe("devtools: mount", () => {
     expect(host.style.top).toBe("16px");
     expect(host.style.left).toBe("16px");
   });
+
+  it('is black by default whatever the OS theme; "auto" follows prefers-color-scheme live, "light" is fixed', async () => {
+    const g = globalThis as { matchMedia?: unknown };
+    const saved = g.matchMedia;
+    let dark = false;
+    const listeners = new Set<() => void>();
+    g.matchMedia = (q: string) => ({
+      media: q,
+      get matches() {
+        return dark;
+      },
+      addEventListener: (_: string, f: () => void) => listeners.add(f),
+      removeEventListener: (_: string, f: () => void) => listeners.delete(f),
+    });
+    try {
+      const root = (o: DevtoolsOptions) => mount(new MockRuntime(), o).$(".root") as HTMLElement;
+      expect(root({}).dataset.theme).toBe("dark");
+      expect(root({ theme: "light" }).dataset.theme).toBe("light");
+      const auto = root({ theme: "auto" });
+      expect(auto.dataset.theme).toBe("light");
+      dark = true;
+      for (const f of listeners) f();
+      expect(auto.dataset.theme).toBe("dark");
+    } finally {
+      g.matchMedia = saved;
+    }
+  });
+
+  it("styles itself without a request: no url(), @import or @font-face, and no web font names", () => {
+    expect(CSS).not.toMatch(/url\(|@import|@font-face/i);
+    expect(CSS).not.toMatch(/\bInter\b|JetBrains/);
+  });
 });
 
 describe("devtools: feeds", () => {
