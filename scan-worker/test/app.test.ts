@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { clientOf, handle, targetFromPath, type AppDeps, type Env } from "../src/app.ts";
 import { REPORT_VERSION } from "../src/report.ts";
+import { scanPage } from "../src/page.ts";
 import { acquireSlot, BLOCKED_CACHE_MS, cachedReport, cacheKey, CACHE_MS, reportKey, sweep } from "../src/store.ts";
 import { FakeBrowser, fakeFetch, Limiter, MemBucket, ndjson, type PageScript } from "./helpers.ts";
 import { buildReport } from "../src/report.ts";
@@ -651,13 +652,39 @@ describe("a page the scanner could not see (a bot check answered 202, blank)", (
 });
 
 describe("pages", () => {
-  it("use the light palette only, like genclass.dev, whatever the visitor's colour scheme", async () => {
+  it("use the black palette only, like genclass.dev, whatever the visitor's colour scheme", async () => {
     const t = setup(SCRIPT);
     for (const p of ["/scan", "/scan/about", "/scan?url=shop.example.com"]) {
-      const body = await (await t.call(p)).text();
+      const res = await t.call(p);
+      const body = await res.text();
       assert.doesNotMatch(body, /prefers-color-scheme/, p);
-      assert.match(body, /color-scheme:light;/, p);
+      assert.match(body, /color-scheme:dark;/, p);
+      assert.match(body, /<meta name="theme-color" content="#000000">/, p);
+      assert.match(body, /--ground:#000;/, p);
+      assert.doesNotMatch(body, /lockup-(?:h|stack)\.png/, `${p}: the mark and the name, not the old lockup images`);
+      assert.match(body, /<a class="logo" href="https:\/\/genclass\.dev\/"[^>]*><img src="https:\/\/genclass\.dev\/brand\/mark-64\.png\?v=2" alt="" width="24" height="24">GenClass<\/a>/, p);
+      // Satoshi from Fontshare, JetBrains Mono from Google Fonts, both allowed by the CSP and nothing else added
+      assert.match(body, /href="https:\/\/api\.fontshare\.com\/v2\/css\?f\[\]=satoshi@1&amp;display=swap"/, p);
+      const csp = res.headers.get("content-security-policy")!;
+      assert.match(csp, /style-src 'nonce-[A-Za-z0-9]+' https:\/\/fonts\.googleapis\.com https:\/\/api\.fontshare\.com;/, p);
+      assert.match(csp, /font-src https:\/\/fonts\.gstatic\.com https:\/\/cdn\.fontshare\.com;/, p);
     }
+  });
+  it("keep every text colour at 4.5:1 or more on the page's grounds, and the input border and focus ring at 3:1", () => {
+    const body = scanPage("n0nce", { target: null, input: "", error: null, report: null, shareBase: "https://genclass.dev" });
+    const root = /:root\{([^}]*)\}/.exec(body)![1];
+    const token = (name: string): string => new RegExp(`--${name}:(#[0-9A-Fa-f]{3,6});`).exec(root)![1];
+    const lum = (hex: string): number => {
+      const h = hex.length === 4 ? hex.slice(1).split("").map((c) => c + c).join("") : hex.slice(1);
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: string, b: string): number => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+    for (const ground of ["ground", "raised", "raised2"])
+      for (const text of ["bone", "dim", "faint", "accent", "good", "bad", "warn"]) assert.ok(ratio(token(text), token(ground)) >= 4.5, `--${text} on --${ground}: ${ratio(token(text), token(ground)).toFixed(2)}`);
+    for (const ui of ["line", "accent"]) assert.ok(ratio(token(ui), token("ground")) >= 3, `--${ui} on --ground`);
+    assert.ok(ratio(token("accent-ink"), token("accent")) >= 4.5, "text on the green button");
+    assert.ok(ratio("#000000", token("red")) >= 4.5, "the black number on a finding's red tag");
   });
   it("GET /scan and /scan/about carry a nonce CSP, noindex, and no inline style attributes", async () => {
     const t = setup(SCRIPT);
