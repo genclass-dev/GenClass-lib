@@ -10,9 +10,9 @@
 //   subscriptions exist only through Checkout, cannot hold a non-eligible product and cannot be turned on for an
 //   existing subscription, so a switch between Pro and Custom is always a new Checkout for the other plan (README
 //   "Paid plans", "Stripe documentation notes"). Every subscription GenClass starts uses flexible billing mode.
-// - GenClass bills through a Stripe account of its own ("GenClass"). It used to share daybot.ca's account with Polar
-//   Parts, and keeps the defences from then: it touches only objects it can prove are its own (README "Shared-account
-//   defences"):
+// - GenClass bills through a Stripe account of its own ("GenClass"). It used to share a Stripe account with another
+//   business, and keeps the defences from then: it touches only objects it can prove are its own (README "Stripe object
+//   ownership"):
 //   - customers it created itself (description "GenClass account", metadata genclass=1 and genclass_account). They
 //     are never looked up by email, and accounts.stripe_customer_id is written only by ensureCustomer. Before
 //     GenClass opens a Stripe page for a stored customer, starts a Checkout on it or cancels anything on it, the
@@ -196,8 +196,8 @@ export const portalSetting = (env: Env): "STRIPE_PORTAL_CONFIGURATION" | "STRIPE
  * The Billing Portal configuration scripts/stripe-setup.mjs made, by the id it stored (STRIPE_PORTAL_CONFIGURATION,
  * or STRIPE_PORTAL_CONFIGURATION_TEST with a test key). Fetched by that id alone, so no other configuration in the
  * shared account is read, and it must be GenClass's: metadata genclass=1, active, never the account's default one
- * (Polar Parts may use that). Checked once and cached 10 minutes. Without it no portal session is made: the default
- * configuration would show Polar Parts' settings to GenClass customers.
+ * (another business may use that). Checked once and cached 10 minutes. Without it no portal session is made: the default
+ * configuration would show another business's settings to GenClass customers.
  */
 async function portalConfiguration(env: Env, f: Fetch, nowMs: number): Promise<string> {
   const setting = portalSetting(env);
@@ -238,7 +238,7 @@ export interface BillingAccount {
  * The account's Stripe customer in the current key's mode, created the first time it is needed: always a new customer
  * of GenClass's own (the account's email, description "GenClass account", metadata genclass=1 and genclass_account).
  * Never found by email: a shared account may have another business's customer with the same email, which GenClass
- * must not reuse or change (README "Shared-account defences", owner check 1). This is the only place
+ * must not reuse or change (README "Stripe object ownership"). This is the only place
  * accounts.stripe_customer_id is written with a customer id;
  * a stored customer is still checked (checkCustomer) before anything is done on it. `fresh`: created by this call,
  * so it has no subscriptions or Checkout pages yet.
@@ -324,7 +324,7 @@ export async function checkCustomer(env: Env, f: Fetch, accountId: string, custo
 
 /**
  * Something that is not GenClass's is on its customer: a subscription (any status) with a price that is not provably
- * GenClass's, for instance a Polar Parts subscription attached to the customer by an email lookup on Polar Parts' side.
+ * GenClass's, for instance another business's subscription attached to the customer by an email lookup on its side.
  * GenClass then opens no Stripe page for that customer.
  */
 export const sharedCustomer = (subs: Obj[]): boolean => subs.some((s) => !isGenClassSubscription(s));
@@ -1154,7 +1154,7 @@ async function recordCustom(x: EventContext, account: BillingAccount, subId: str
 /**
  * POST /api/billing/webhook: signature, mode, idempotency, then the event. `raw` is the body exactly as received.
  * Only an event about a GenClass customer is recorded in billing_events (its id and type, so a redelivery changes
- * nothing). Any other event (Polar Parts' subscriptions) is answered 200 and not stored: handling it again does
+ * nothing). Any other event (another business's subscriptions) is answered 200 and not stored: handling it again does
  * nothing, and a table of them would be a record of another business's sales.
  */
 export async function stripeWebhook(x: EventContext, raw: Uint8Array, signature: string | null): Promise<Response> {

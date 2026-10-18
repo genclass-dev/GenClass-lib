@@ -141,12 +141,12 @@ const formObject = (form: URLSearchParams, prefix: string): Record<string, strin
 export const expands = (url: URL): string[] => [...url.searchParams.entries()].filter(([k]) => /^expand\[\d*\]$/.test(k)).map(([, v]) => v);
 
 /**
- * The shared Stripe account's Billing Portal configurations: Polar Parts' default one, another of Polar Parts', and
+ * The shared Stripe account's Billing Portal configurations: the other business's default one, another of the other business's, and
  * GenClass's (metadata genclass=1), as scripts/stripe-setup.mjs leaves them. The worker reads GenClass's by the id in
  * STRIPE_PORTAL_CONFIGURATION (GENCLASS_PORTAL) and lists none.
  */
 export const PORTAL_CONFIGS = [
-  { id: "bpc_polardefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {} },
+  { id: "bpc_otherdefault1", object: "billing_portal.configuration", is_default: true, active: true, metadata: {} },
   { id: "bpc_other00001", object: "billing_portal.configuration", is_default: false, active: true, metadata: {} },
   { id: "bpc_genclass01", object: "billing_portal.configuration", is_default: false, active: true, metadata: { genclass: "1" } },
 ];
@@ -156,7 +156,7 @@ export const GENCLASS_PORTAL = "bpc_genclass01";
  * A fake fetch for api.stripe.com (and any other URL, recorded and answered 200 unless `answer` says otherwise; `answer`
  * runs first for every request, so a test can refuse a DELETE, fail a refund or watch the database at that moment). It
  * keeps customers (`customers`: created with their form fields, fetched by id, 404 resource_missing for any other id;
- * a subscription fetched with expand customer gets the stored one, or one with no metadata, like a Polar Parts
+ * a subscription fetched with expand customer gets the stored one, or one with no metadata, like a the other business
  * customer), subscriptions (`subs`, listed by customer; expand latest_invoice, or data.latest_invoice on the list,
  * swaps in the stored invoice, and a subscription stored without latest_invoice reads as one whose latest invoice is
  * paid with nothing due), invoices (`invoices`, listed by customer, subscription and status, newest first; a paid one
@@ -347,7 +347,7 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
 export function price(lookupKey: string | null, o: { id?: string; plan?: string | null; product?: string } = {}) {
   const plan = o.plan !== undefined ? o.plan : lookupKey === "genclass_custom_monthly" ? "custom" : lookupKey === "genclass_pro_monthly" ? "pro" : null;
   const id = o.id ?? (lookupKey === "genclass_custom_monthly" ? "price_custom0001" : lookupKey === "genclass_pro_monthly" ? "price_pro000001" : "price_x000001");
-  return { id, object: "price", lookup_key: lookupKey, product: { id: o.product ?? (plan ? `genclass_${plan}` : "prod_polar00001"), object: "product", metadata: plan ? { genclass_plan: plan } : {} } };
+  return { id, object: "price", lookup_key: lookupKey, product: { id: o.product ?? (plan ? `genclass_${plan}` : "prod_other00001"), object: "product", metadata: plan ? { genclass_plan: plan } : {} } };
 }
 
 /** A GenClass subscription as Stripe API 2025-03-31 returns it (the period end on the item; prices' products expanded). */

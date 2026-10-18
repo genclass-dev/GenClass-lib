@@ -17,7 +17,7 @@
 //   subscription.
 // - A price names a plan only when it is provably GenClass's: a lookup key starting with genclass_ AND a product whose
 //   metadata genclass_plan names a paid plan (planForPrice). GenClass now has a Stripe account of its own; this rule
-//   is kept from when it shared daybot.ca's account with Polar Parts, as a defence in depth.
+//   is kept from when it shared a Stripe account with another business, as a defence in depth.
 // - A plan whose payment is overdue ends here, whatever the Stripe account's retry settings: past_due keeps the plan
 //   for PAST_DUE_GRACE_DAYS (14) after GenClass first saw it past due, then it is Free (the webhook, and the daily
 //   sweep below); unpaid is Free at once.
