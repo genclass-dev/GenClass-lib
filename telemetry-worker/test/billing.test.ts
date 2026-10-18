@@ -1540,12 +1540,14 @@ describe("plans: the Free plan's limits (apps, dashboard ranges)", () => {
     expect((await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie })).status).toBe(200);
   });
 
-  it("without any Stripe key the Free plan's app limit applies too (a trial needs no Stripe and lifts it)", async () => {
-    const { env } = setup();
-    const { cookie } = await signedIn(env);
+  it("without any Stripe key the Free plan's app limit applies too, and no trial lifts it (a trial is a Stripe Checkout); a grant does", async () => {
+    const { env, sql } = setup();
+    const { cookie, account } = await signedIn(env);
     for (const n of ["a", "b", "c"]) await createApp(env, cookie, n);
     expect((await call(env, "POST", "/api/account/projects", { body: { name: "d" }, cookie })).status).toBe(409);
-    expect((await call(env, "POST", "/api/billing/trial", { body: {}, cookie })).status).toBe(200);
+    expect((await call(env, "POST", "/api/billing/trial", { body: {}, cookie })).status).toBe(503);
+    expect((await call(env, "POST", "/api/account/projects", { body: { name: "d" }, cookie })).status).toBe(409);
+    setPlan(sql, account.id, "free", { comp_until: "9999-12-31T00:00:00.000Z" });
     for (const n of ["d", "e"]) await createApp(env, cookie, n);
   });
 
@@ -1605,6 +1607,8 @@ describe("GET /account/billing", () => {
     expect(page).toContain('data-plan="custom"><span>Upgrade to Custom</span>');
     expect(page).toContain("the runtime and its on-device model, without the dashboard (you have 0 apps). Get a 7-day free trial for analytics.");
     expect(page).toContain('<button class="btn green" type="button" id="trial"><span>Start your 7-day free trial</span></button>');
+    // the trial's terms next to it: a card, and when it is first charged
+    expect(page).toContain("Card required. Stripe checks it with a $1 hold that is released at once. Nothing is charged for 7 days; when they end, your card is charged $99 for the first month of Pro, then monthly, unless you cancel before.");
     const visible = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!doctype html>/gi, "");
     expect(visible).not.toMatch(/\u2014|!/);
 
@@ -1655,6 +1659,7 @@ describe("GET /account/billing", () => {
       access: null,
       trial_ends_at: null,
       can_trial: true,
+      trial_card_declined_at: null,
     });
     setPlan(sql, a.account.id, "custom", { subscription_id: "sub_c000000001", subscription_status: "active", current_period_end: "2026-11-13T12:00:00.000Z" });
     const html = await (await call(env, "GET", "/account/billing", { cookie: a.cookie })).text();
@@ -1794,7 +1799,7 @@ describe("Stripe test and live mode", () => {
     expect(page).not.toContain("data-plan=");
     expect(page).not.toContain("Stripe test mode");
     expect(((await (await call(env, "GET", "/api/billing", { cookie: other.cookie })).json()) as any).on_sale).toBe(false);
-    // the Free plan's app limit applies whatever the key (a trial, which needs no Stripe, lifts it)
+    // the Free plan's app limit applies whatever the key (and no trial is offered to an account that cannot buy)
     for (const n of ["a", "b", "c"]) await createApp(env, other.cookie, n);
     expect((await call(env, "POST", "/api/account/projects", { body: { name: "d" }, cookie: other.cookie })).status).toBe(409);
   });

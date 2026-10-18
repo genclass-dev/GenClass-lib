@@ -2,6 +2,15 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
+  uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
+  red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the
+  current GenClass mark (drawn inline, no image request). It is black by default whatever the page's or the OS's
+  theme: `theme` defaulted to `"auto"` before and now defaults to `"dark"`; `"light"` gives the same design on white
+  and `"auto"` still follows `prefers-color-scheme`. Type is the system UI font and a system mono stack: the overlay
+  no longer names Inter or JetBrains Mono, so a page that declares either as a web font no longer downloads it for
+  the overlay. The tab row scrolls sideways instead of hiding Expectations and Now past the panel's edge, and the
+  header no longer clips the name. Every view, control and string is the same; no model-visible text changed.
 - **CLI copy: the dashboard needs Pro (get a 7-day free trial for analytics).** genclass.dev's dashboards now come
   with Pro; `init`'s dashboard notice and help, the top-level help and the README say so next to the private
   dashboard link, with the trial's length (7 days, the same as `trial_days` in `billing/plans.json`). A link made by
@@ -9,6 +18,14 @@
 - **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
   password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
   GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).
+- **Fix: on WASM, the first salient request of a page load was not held on CPUs a little slower than the train
+  VM's.** The model's warm-up timed a second, warm pass only on WebGPU (where the first compiles pipelines); on WASM
+  `status.latency` came from the first, cold pass. The runtime's estimate before any measured decision (that pass's
+  per-token cost × 1,200 tokens + 20 ms) then came to 4-7x a real decision (0.2.2, model 0.2.0, Chromium on the train
+  VM): 711 ms against about 160 ms at the VM's speed, 2.0-2.5 s against about 340 ms at half of it. A request is held only when the estimate fits the hold budget (at most 800 ms automatically), so in guard
+  and heal the first duplicate submit of every page load went through on a CPU about 15% slower than the VM's. The
+  warm-up now times a second pass on every device: `status.latency` comes from it, `status.warmupMs` is still the
+  first, cold pass. A load on WASM takes one more warm-up pass (a ~430-token situation, warm). No model-visible text
 - **Release notes: the npm registry's empty `readme` field.** Since 0.3.0-beta.0 went to `beta`, the registry's
   top-level `readme` for the package (`npm view @genclass/runtime readme`) is empty: the registry empties it on every
   publish to a tag other than `latest` and fills it again on the next `latest` publish, as it does for react,

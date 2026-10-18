@@ -32,5 +32,5 @@ jobs:
       - name: Check the live demo
         env:
           DEMO_URL: ${{ github.event.inputs.url || 'https://genclass.dev/' }}
-          NODE_PATH: /tmp/pw/node_modules
-        run: node site/check/live-demo.mjs
+        # ESM imports ignore NODE_PATH: run the script from next to the node_modules that has playwright
+        run: cp site/check/live-demo.mjs /tmp/pw/ && node /tmp/pw/live-demo.mjs
