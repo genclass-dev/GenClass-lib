@@ -248,13 +248,26 @@ export function accessOf(row: AccessRow | null | undefined, mode: StripeMode | n
   return { plan: FREE, source: null, trialEndsAt: null, trialUsed, subscribed };
 }
 
+/** A trial is refused after this many of the account's cards failed the $1 check (src/stripe.ts cardCheck), against card testing. */
+export const CARD_CHECK_MAX_FAILURES = 3;
+
+/**
+ * The account's failed $1 card checks before a trial (migration 0008): how many, and when the last one was, while it
+ * is the latest trial attempt's (opening a trial's Checkout clears it).
+ */
+export async function trialCardChecks(db: D1Like, accountId: string): Promise<{ failures: number; failedAt: string | null }> {
+  const row = await db.prepare("SELECT trial_check_failures, trial_check_failed_at FROM accounts WHERE id = ?").bind(accountId).first<{ trial_check_failures: number | null; trial_check_failed_at: string | null }>();
+  return { failures: Number(row?.trial_check_failures) || 0, failedAt: row?.trial_check_failed_at ?? null };
+}
+
 /**
  * The account may start its one trial of Pro now: it has no plan, grant or trial, never started a trial and never had
  * a GenClass subscription in this Stripe mode, and it can buy (canBuy: the trial starts on Stripe Checkout, with a
- * card). The checkout itself asks Stripe again (src/billing.ts checkout).
+ * card that holds $1), and fewer than CARD_CHECK_MAX_FAILURES of its cards failed that hold (`checkFailures`, where
+ * the caller read it). The checkout itself asks Stripe again (src/billing.ts checkout).
  */
-export const canTrial = (a: Access, env: Env, account: { id: string; email: string | null }): boolean =>
-  a.source === null && !a.trialUsed && !a.subscribed && canBuy(env, account);
+export const canTrial = (a: Access, env: Env, account: { id: string; email: string | null }, checkFailures = 0): boolean =>
+  a.source === null && !a.trialUsed && !a.subscribed && checkFailures < CARD_CHECK_MAX_FAILURES && canBuy(env, account);
 
 /** The account's access at `now` under the current Stripe key (accessOf). */
 export async function accountAccess(db: D1Like, accountId: string, env: Env, now: Date): Promise<Access> {
@@ -291,7 +304,7 @@ export function trialDays(env: Env): number {
  */
 export function trialTerms(days: number): string {
   const c = TRIAL_PLAN.price_usd_cents.monthly;
-  return `Card required. Nothing is charged for ${days} days; when they end, your card is charged $${c % 100 ? (c / 100).toFixed(2) : String(c / 100)} for the first month of ${TRIAL_PLAN.name}, then monthly, unless you cancel before.`;
+  return `Card required. Stripe checks it with a $1 hold that is released at once. Nothing is charged for ${days} days; when they end, your card is charged $${c % 100 ? (c / 100).toFixed(2) : String(c / 100)} for the first month of ${TRIAL_PLAN.name}, then monthly, unless you cancel before.`;
 }
 
 /** Whole days left in a trial ending at `ends` (1 on its last day), for the dashboard's line (a trial from before cards). */

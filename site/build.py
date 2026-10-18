@@ -50,7 +50,7 @@ BILLING_URL = "https://genclass.dev/account/billing"  # served by the telemetry 
 # (its key), so the button is live whatever PAID_OPEN says. Public copy states its length only from TRIAL_DAYS.
 TRIAL_URL = "https://genclass.dev/account/trial"
 # Said wherever the trial is offered (the worker's pages say the same: telemetry-worker src/plans.ts trialTerms).
-TRIAL_TERMS = f"Card required. Nothing is charged for {TRIAL_DAYS} days; when they end, your card is charged ${PLAN['pro']['price_usd_cents']['monthly'] // 100:,} a month unless you cancel before."
+TRIAL_TERMS = f"Card required, checked by Stripe with a $1 hold that is released at once. Nothing is charged for {TRIAL_DAYS} days; when they end, your card is charged ${PLAN['pro']['price_usd_cents']['monthly'] // 100:,} a month unless you cancel before."
 # The buttons under each plan: label, link (None: an inactive button), button style, the line under it.
 CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed. No dashboard."),
        "pro": (f"Start your {TRIAL_DAYS}-day free trial", TRIAL_URL, "btn green", TRIAL_TERMS)}
