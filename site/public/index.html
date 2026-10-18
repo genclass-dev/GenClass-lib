@@ -7,14 +7,15 @@
 <meta name="description" content="Add one line and GenClass tells you, with evidence, when users double-submit or an endpoint starts failing in production. A 10 MB model decides on the device, with no server, and the default mode never changes what your app does.">
 <link rel="canonical" href="https://genclass.dev/">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="author" content="GenClass">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="GenClass">
 <meta property="og:url" content="https://genclass.dev/">
 <meta property="og:title" content="GenClass: catch the bugs that never throw, then stop them">
 <meta property="og:description" content="Add one line and GenClass tells you, with evidence, when users double-submit or an endpoint starts failing in production. A 10 MB model decides on the device, with no server, and the default mode never changes what your app does.">
-<meta property="og:image" content="https://genclass.dev/og.png?v=5">
+<meta property="og:image" content="https://genclass.dev/og.png?v=6">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="GenClass: Catch the bugs that never throw. Then stop them.">
@@ -22,16 +23,18 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="GenClass: catch the bugs that never throw, then stop them">
 <meta name="twitter:description" content="Add one line and GenClass tells you, with evidence, when users double-submit or an endpoint starts failing in production. A 10 MB model decides on the device, with no server, and the default mode never changes what your app does.">
-<meta name="twitter:image" content="https://genclass.dev/og.png?v=5">
+<meta name="twitter:image" content="https://genclass.dev/og.png?v=6">
 <link rel="icon" href="/brand/mark-32.png?v=2" sizes="32x32" type="image/png">
 <link rel="icon" href="/brand/mark-64.png?v=2" sizes="64x64" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=d79c67c2">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="/styles.css?v=53f9292b">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "SoftwareApplication", "name": "GenClass Runtime", "alternateName": "@genclass/runtime", "applicationCategory": "DeveloperApplication", "applicationSubCategory": "Application reliability", "operatingSystem": "Web browser", "softwareVersion": "0.2.2", "license": "https://www.apache.org/licenses/LICENSE-2.0", "url": "https://genclass.dev/", "downloadUrl": "https://www.npmjs.com/package/@genclass/runtime", "installUrl": "https://genclass.dev/docs", "codeRepository": "https://github.com/genclass-dev/GenClass-lib", "programmingLanguage": ["TypeScript", "JavaScript"], "featureList": ["On-device model inference with WebGPU or WASM, no server", "Duplicate submit detection", "Stale response and write race detection", "Failure storm detection", "Automatic React and Redux state discovery, Zustand with its devtools middleware", "Plain-English reports with evidence, audit trail, explain and undo", "Opt-in guard mode that acts at the network boundary"], "description": "An open-source runtime for web apps that uses a 10 MB on-device model to report stale responses, race conditions, duplicate requests, inconsistent state and failure storms with evidence, and in opt-in guard mode can act on them.", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Open-source runtime, free"}, "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is GenClass free?", "acceptedAnswer": {"@type": "Answer", "text": "The runtime and its on-device model are: open source under Apache-2.0 and free, including in commercial apps, with no usage limits. The genclass.dev dashboard comes with Pro ($99 a month), with 1 year of history, data export and forwarding. Get a 7-day free trial for analytics. Custom ($599 a month) adds a model trained on your app."}}, {"@type": "Question", "name": "Does GenClass need an account or an API key?", "acceptedAnswer": {"@type": "Answer", "text": "No account or API key is needed to run it: one script tag or import \"@genclass/runtime/auto\" is all it takes, and the model runs on the device. With Pro (get a 7-day free trial for analytics), a dashboard at genclass.dev shows your app's detections. The dashboard fills from deployed pages with diagnostics on, so telemetry: false leaves it empty, and runtime 0.2.2 and earlier do not send to it."}}, {"@type": "Question", "name": "Will GenClass break my app?", "acceptedAnswer": {"@type": "Answer", "text": "The default mode only observes and changes nothing. Across 7 frameworks and 15 data layers, GenClass introduced no bugs in 3,510 test runs (runtime 0.1.0-beta.4, the code shipped as 0.2.1; model 0.2.0). Adding ?genclass=off to a URL turns it off on that page."}}, {"@type": "Question", "name": "Where do GenClass reports go in production?", "acceptedAnswer": {"@type": "Answer", "text": "By default to the end user's browser console, which you do not see. The sinks option forwards each report to your own logging or to an endpoint you own. On Pro, the genclass.dev collector can also forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook, with no code in your app. Anonymous diagnostics go to the GenClass maintainers to improve the model, and to your dashboard if you have one; telemetry: false turns them off."}}]}]}</script>
 <script>window.__gcRawFetch = window.fetch.bind(window);</script>
 <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2" data-manual></script>
@@ -40,31 +43,28 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="nav">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
+    <a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>
     <nav aria-label="Main"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a></nav>
-    <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <a class="gh signin" href="/login">Sign in</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
-    <a class="btn" href="/docs">Get started</a>
+    <div class="right">
+      <a class="gh" href="https://www.npmjs.com/package/@genclass/runtime">npm</a>
+      <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
+      <a class="gh signin" href="/login">Sign in</a>
+      <a class="btn" href="/docs">Get started</a>
+      <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
+    </div>
   </div>
 </header>
 <main id="main">
-<div class="hero3">
-  <div class="mend-stage">
+<div class="hero4 mend-stage">
   <div class="wrap">
-    <a class="announce" href="/visual"><b>0.3.0 beta</b>CSS bug checks →</a>
+    <a class="kicker" href="/visual"><b>0.3.0 beta</b>GenClass Vision now checks CSS bugs →</a>
     <h1>Catch the bugs that never throw. <em>Then stop them.</em></h1>
-    <p class="lede">Add one line. An on-device model reports double submits, stale responses and failing endpoints. Stopping them is opt-in.</p>
-    <div class="ctas">
-      <a class="btn green" href="#lab">Try the live demo</a>
-      <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
-    </div>
-    <div class="install-line"><button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button></div>
-    <div class="fw"><span>Works with</span><b>React</b><b>Next.js</b><b>Vue</b><i class="br" aria-hidden="true"></i><b>Svelte</b><b>Angular</b><b>Solid</b><b>plain HTML</b></div>
-  </div>
+    <p class="sub">Add one line. An on-device model reports double submits, stale responses and failing endpoints. Stopping them is opt-in.</p>
+    <div class="cta2"><a class="btn" href="#lab">Try the live demo <span class="arr" aria-hidden="true">→</span></a><a class="btn ghost" href="/docs">Docs</a></div>
+    <div class="install"><button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span>npm i @genclass/runtime</span><span class="k">Copy</span></button><a class="npm" href="https://www.npmjs.com/package/@genclass/runtime">npmjs.com/package/@genclass/runtime <span aria-hidden="true">↗</span></a></div>
+    <p class="agent">Or set it up with your coding agent: <button class="textlink" type="button" data-copy="Set up GenClass (@genclass/runtime) in this project with telemetry turned ON. First run `npx @genclass/runtime init --dry-run --telemetry` and show me the diff. Then run `npx @genclass/runtime init --yes --telemetry`. Telemetry must stay on: it sends GenClass&#x27;s anonymous diagnostics (its decisions and counts, no page text) from production to the GenClass team, so they can see what GenClass catches in this app. Do not use --no-telemetry, telemetry: false or data-telemetry=&quot;off&quot;. Keep the default observe mode, which only reports and changes nothing. When you are done, tell me which files changed, link me to https://genclass.dev/docs/telemetry for exactly what is sent, and remind me that `npx @genclass/runtime remove` undoes what init added.">copy the prompt</button><small>The prompt keeps GenClass telemetry on. <a href="/docs/telemetry">What it sends</a></small></p>
   </div>
 </div>
-
 <section id="visual" class="vis">
   <div class="wrap">
     <div class="sh"><span class="no">Visual bugs</span><h2>Check any page.</h2></div>
@@ -79,7 +79,7 @@
       <p class="scanbox-help" id="scan-home-help">Desktop and phone. Nothing is submitted to your site. <a href="/scan/about">How it works →</a></p>
     </form>
     <figure class="vspec-fig">
-      <div class="vspec"><div><h3>Invisible text</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A Sign up label drawn in nearly the same colour as its white button."><rect width="160" height="100" rx="8" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><rect x="18" y="28" width="70" height="6" rx="1.5" fill="#0E1F4D"/><rect x="18" y="40" width="104" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="47" width="86" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18.5" y="58.5" width="58" height="20" rx="4" fill="#fff" stroke="#E6EAF0"/><text x="47.5" y="71.6" font-size="9" font-weight="600" fill="#EEF1F5" text-anchor="middle" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Sign up</text><rect x="84.5" y="58.5" width="46" height="20" rx="4" fill="none" stroke="#C6CEDB"/><text x="107.5" y="71.6" font-size="9" font-weight="500" fill="#3D4B6B" text-anchor="middle" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Log in</text><rect x="14" y="54" width="67" height="29" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/></svg><p>A label in the same colour as its button.</p></div><div><h3>Broken images</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="An image box showing the broken-image glyph and its file name."><rect width="160" height="100" rx="8" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><rect x="18.5" y="27.5" width="123" height="40" rx="2" fill="#F5F8FB" stroke="#DFE4EC"/><path d="M73.5 36.5h10l4 4v10h-14z" fill="#fff" stroke="#5A6684" stroke-width="1.1" stroke-linejoin="round"/><path d="M83.5 36.5v4h4M75.5 48.5l3-3.4 2.4 2.4 2-2 3 3" fill="none" stroke="#5A6684" stroke-width="1.1" stroke-linejoin="round"/><text x="80" y="61" font-size="6.5" font-weight="400" fill="#5A6684" text-anchor="middle" style="font-family:'Geist Mono',ui-monospace,Menlo,monospace">team-photo.jpg</text><rect x="18" y="74" width="84" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="81" width="58" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="14" y="23" width="132" height="49" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/></svg><p>An image URL that was made up, or a host that went away.</p></div><div><h3>Layouts that break on phones</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A phone whose table runs past the right edge of the screen, with a sideways scroll bar."><rect width="160" height="100" rx="8" fill="#F5F8FB"/><rect x="46.5" y="5.5" width="50" height="89" rx="7" fill="#fff" stroke="#5A6684" stroke-width="1.2"/><rect x="63" y="9" width="17" height="2.6" rx="1.3" fill="#DFE4EC"/><rect x="52" y="17" width="28" height="5" rx="1.5" fill="#0E1F4D"/><rect x="52" y="27" width="38" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52" y="34" width="30" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52.5" y="40.5" width="44" height="24" rx="1" fill="#F5F8FB" stroke="#C6CEDB"/><path d="M52.5 48.5h44M52.5 56.5h44M67.5 40.5v24M82.5 40.5v24" stroke="#DFE4EC"/><rect x="96.5" y="40.5" width="50" height="24" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><path d="M97 48.5h49M97 56.5h49M112.5 41v23M127.5 41v23" stroke="#F9C7BA"/><rect x="52" y="70" width="38" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52" y="77" width="26" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52" y="86" width="38" height="2" rx="1" fill="#E6EAF0"/><rect x="52" y="86" width="19" height="2" rx="1" fill="#5A6684"/><path d="M106 75h32M134 72l4 3-4 3M110 72l-4 3 4 3" fill="none" stroke="#F0451C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><p>One fixed-width block and the whole page scrolls sideways.</p></div><div><h3>Template leaks</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A page reading Hi, undefined, with [object Object] and a price of $NaN per month."><rect width="160" height="100" rx="8" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><text x="18" y="36" font-size="11" font-weight="600" fill="#0E1F4D" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Hi,</text><text x="37" y="36" font-size="11" font-weight="600" fill="#0E1F4D" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">undefined</text><rect x="34" y="26" width="60" height="14" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><text x="18" y="50" font-size="7" font-weight="400" fill="#3D4B6B" text-anchor="start" style="font-family:'Geist Mono',ui-monospace,Menlo,monospace">[object Object]</text><rect x="15" y="43.5" width="71" height="9.5" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><rect x="18.5" y="57.5" width="66" height="27" rx="3" fill="#fff" stroke="#DFE4EC"/><text x="24" y="64.8" font-size="7" font-weight="400" fill="#3D4B6B" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Pro plan</text><text x="24" y="79.5" font-size="11" font-weight="700" fill="#0E1F4D" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">$NaN</text><text x="57" y="79.5" font-size="6.5" font-weight="400" fill="#5A6684" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">/ month</text><rect x="20" y="68" width="36" height="15.5" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><rect x="96" y="60" width="42" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="96" y="67" width="34" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="96" y="74" width="44" height="3.5" rx="1.75" fill="#C6CEDB"/></svg><p>undefined, NaN or [object Object] where the data should be.</p></div><div><h3>Covered buttons</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A Checkout button under an invisible layer; the cursor&#x27;s click lands on the layer."><rect width="160" height="100" rx="8" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><rect x="18" y="28" width="62" height="6" rx="1.5" fill="#0E1F4D"/><rect x="18" y="40" width="100" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="47" width="80" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="59" width="60" height="20" rx="4" fill="#0E1F4D"/><text x="48" y="72" font-size="8.5" font-weight="600" fill="#fff" text-anchor="middle" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Checkout</text><rect x="12.5" y="54.5" width="104" height="31" rx="3" fill="#F0451C" fill-opacity=".07" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><path d="M71 70v11.5l2.9-2.8 2.2 4.8 2-.9-2.2-4.7h4z" fill="#fff" stroke="#0E1F4D" stroke-width="1" stroke-linejoin="round"/></svg><p>An invisible layer on top takes the click.</p></div></div>
+      <div class="vspec"><div><h3>Invisible text</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A Sign up label drawn in nearly the same colour as its white button."><rect width="160" height="100" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><rect x="18" y="28" width="70" height="6" rx="1.5" fill="#0E1F4D"/><rect x="18" y="40" width="104" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="47" width="86" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18.5" y="58.5" width="58" height="20" rx="4" fill="#fff" stroke="#E6EAF0"/><text x="47.5" y="71.6" font-size="9" font-weight="600" fill="#EEF1F5" text-anchor="middle" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Sign up</text><rect x="84.5" y="58.5" width="46" height="20" rx="4" fill="none" stroke="#C6CEDB"/><text x="107.5" y="71.6" font-size="9" font-weight="500" fill="#3D4B6B" text-anchor="middle" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Log in</text><rect x="14" y="54" width="67" height="29" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/></svg><p>A label in the same colour as its button.</p></div><div><h3>Broken images</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="An image box showing the broken-image glyph and its file name."><rect width="160" height="100" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><rect x="18.5" y="27.5" width="123" height="40" rx="2" fill="#F5F8FB" stroke="#DFE4EC"/><path d="M73.5 36.5h10l4 4v10h-14z" fill="#fff" stroke="#5A6684" stroke-width="1.1" stroke-linejoin="round"/><path d="M83.5 36.5v4h4M75.5 48.5l3-3.4 2.4 2.4 2-2 3 3" fill="none" stroke="#5A6684" stroke-width="1.1" stroke-linejoin="round"/><text x="80" y="61" font-size="6.5" font-weight="400" fill="#5A6684" text-anchor="middle" style="font-family:'Geist Mono',ui-monospace,Menlo,monospace">team-photo.jpg</text><rect x="18" y="74" width="84" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="81" width="58" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="14" y="23" width="132" height="49" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/></svg><p>An image URL that was made up, or a host that went away.</p></div><div><h3>Layouts that break on phones</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A phone whose table runs past the right edge of the screen, with a sideways scroll bar."><rect width="160" height="100" fill="#F5F8FB"/><rect x="46.5" y="5.5" width="50" height="89" rx="7" fill="#fff" stroke="#5A6684" stroke-width="1.2"/><rect x="63" y="9" width="17" height="2.6" rx="1.3" fill="#DFE4EC"/><rect x="52" y="17" width="28" height="5" rx="1.5" fill="#0E1F4D"/><rect x="52" y="27" width="38" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52" y="34" width="30" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52.5" y="40.5" width="44" height="24" rx="1" fill="#F5F8FB" stroke="#C6CEDB"/><path d="M52.5 48.5h44M52.5 56.5h44M67.5 40.5v24M82.5 40.5v24" stroke="#DFE4EC"/><rect x="96.5" y="40.5" width="50" height="24" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><path d="M97 48.5h49M97 56.5h49M112.5 41v23M127.5 41v23" stroke="#F9C7BA"/><rect x="52" y="70" width="38" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52" y="77" width="26" height="3" rx="1.75" fill="#C6CEDB"/><rect x="52" y="86" width="38" height="2" rx="1" fill="#E6EAF0"/><rect x="52" y="86" width="19" height="2" rx="1" fill="#5A6684"/><path d="M106 75h32M134 72l4 3-4 3M110 72l-4 3 4 3" fill="none" stroke="#F0451C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><p>One fixed-width block and the whole page scrolls sideways.</p></div><div><h3>Template leaks</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A page reading Hi, undefined, with [object Object] and a price of $NaN per month."><rect width="160" height="100" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><text x="18" y="36" font-size="11" font-weight="600" fill="#0E1F4D" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Hi,</text><text x="37" y="36" font-size="11" font-weight="600" fill="#0E1F4D" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">undefined</text><rect x="34" y="26" width="60" height="14" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><text x="18" y="50" font-size="7" font-weight="400" fill="#3D4B6B" text-anchor="start" style="font-family:'Geist Mono',ui-monospace,Menlo,monospace">[object Object]</text><rect x="15" y="43.5" width="71" height="9.5" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><rect x="18.5" y="57.5" width="66" height="27" rx="3" fill="#fff" stroke="#DFE4EC"/><text x="24" y="64.8" font-size="7" font-weight="400" fill="#3D4B6B" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Pro plan</text><text x="24" y="79.5" font-size="11" font-weight="700" fill="#0E1F4D" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">$NaN</text><text x="57" y="79.5" font-size="6.5" font-weight="400" fill="#5A6684" text-anchor="start" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">/ month</text><rect x="20" y="68" width="36" height="15.5" rx="3" fill="none" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><rect x="96" y="60" width="42" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="96" y="67" width="34" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="96" y="74" width="44" height="3.5" rx="1.75" fill="#C6CEDB"/></svg><p>undefined, NaN or [object Object] where the data should be.</p></div><div><h3>Covered buttons</h3><svg class="vart" viewBox="0 0 160 100" role="img" aria-label="A Checkout button under an invisible layer; the cursor&#x27;s click lands on the layer."><rect width="160" height="100" fill="#F5F8FB"/><rect x="10.5" y="10.5" width="139" height="79" rx="4" fill="#fff" stroke="#DFE4EC"/><path d="M10.5 20.5h139" stroke="#DFE4EC"/><circle cx="16.0" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="21.5" cy="15.2" r="1.5" fill="#C6CEDB"/><circle cx="27.0" cy="15.2" r="1.5" fill="#C6CEDB"/><rect x="18" y="28" width="62" height="6" rx="1.5" fill="#0E1F4D"/><rect x="18" y="40" width="100" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="47" width="80" height="3.5" rx="1.75" fill="#C6CEDB"/><rect x="18" y="59" width="60" height="20" rx="4" fill="#0E1F4D"/><text x="48" y="72" font-size="8.5" font-weight="600" fill="#fff" text-anchor="middle" style="font-family:Figtree,'Helvetica Neue',Arial,sans-serif">Checkout</text><rect x="12.5" y="54.5" width="104" height="31" rx="3" fill="#F0451C" fill-opacity=".07" stroke="#F0451C" stroke-width="1.4" stroke-dasharray="3 2"/><path d="M71 70v11.5l2.9-2.8 2.2 4.8 2-.9-2.2-4.7h4z" fill="#fff" stroke="#0E1F4D" stroke-width="1" stroke-linejoin="round"/></svg><p>An invisible layer on top takes the click.</p></div></div>
       <figcaption>Drawn examples. <a href="/visual#families">Every bug family →</a></figcaption>
     </figure>
     <p class="note vnote">35 of 35 planted bugs found. 0 false alarms in 128 views of correct pages. <a href="/visual#numbers">How we measured →</a></p>
@@ -126,24 +126,11 @@
 </section>
 <script src="/before-after.js?v=1" defer></script>
 
-<section id="catches">
-  <div class="wrap">
-    <div class="sh"><span class="no">What it catches</span><h2>The worst bugs never throw an error.</h2></div>
-    <div class="fgrid">
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="12" height="12" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v10"/></svg></div><h3>Duplicate submits</h3><p>A double-tap on a slow checkout sends the order twice.</p><p class="fnum"><b>75%</b> detected on held-out real apps</p></div>
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg></div><h3>Stale responses</h3><p>Results for "pa" land under a search box that already says "paris".</p><p class="fnum"><b>30%</b> detected on held-out real apps</p></div>
-      <div class="fcard"><div class="ic n"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M4 15l4-4 4 3 7-8"/></svg></div><h3>Broken state</h3><p>A cart total stops matching its lines.</p><p class="fnum"><b>6%</b> detected on held-out real apps</p></div>
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h8l-1 8 10-12h-8z"/></svg></div><h3>Failure storms</h3><p>An endpoint starts failing and the app keeps polling it.</p></div>
-      <div class="fcard"><div class="ic r"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M10 3l4 4-4 4M20 17H10M14 13l-4 4 4 4"/></svg></div><h3>Write races</h3><p>A server echo overwrites what the user just typed.</p></div>
-      <div class="fcard"><div class="ic n"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Slow and flaky calls</h3><p>A call far slower than its usual self, or a failure one retry would survive.</p></div>
-    </div>
-    <p class="note">Detection rates: model 0.2.0 at the default balanced profile. <a href="/benchmarks">All results</a></p>
-  </div>
-</section>
 
 <section id="demo">
   <div class="wrap">
-    <div class="sh"><span class="no">Try it</span><h2>The real runtime, running on this page.</h2></div>
+    <div class="sh reveal"><h2>The real runtime, running on this page.</h2></div>
+    <p class="intro reveal">This is the package from npm, deciding on your device. Type fast in the search box or break the stock API, and watch what GenClass reports.</p>
 <div class="lab" id="lab" data-rt="0.2.2">
   <div class="lab-tabs">
     <b class="lab-title">Live demo</b>
@@ -152,7 +139,7 @@
   </div>
   <p class="lab-intro" id="lab-intro">This demo turns on guard with every gain margin at 0 and the eager profile, so you can see it act. The shipped defaults only report. Keep this tab in front: the model loads at idle and the stock poll pauses while the tab is hidden.</p>
 
-  <div class="dup">
+  <div class="dup" hidden>
     <div class="dup-head">
       <div>
         <h3>The double-click that emails your customer twice</h3>
@@ -201,89 +188,138 @@
   </div>
 </section>
 
-<section id="how">
+<section id="catches">
   <div class="wrap">
-    <div class="sh"><span class="no">How it works</span><h2>A model in the browser, deciding at the network boundary.</h2></div>
-    <div class="steps">
-      <div class="step"><span class="n">01</span><h3>Observe</h3><p>One line wraps fetch, XHR, WebSocket and EventSource, and finds React, Redux and Zustand (devtools) state.</p></div>
-      <div class="step"><span class="n">02</span><h3>Triage</h3><p>Cheap facts are computed for everything; only salient situations reach the model.</p></div>
-      <div class="step"><span class="n">03</span><h3>Decide on the device</h3><p>The model runs in a Web Worker and returns a diagnosis and an action, with no server call.</p></div>
-      <div class="step"><span class="n">04</span><h3>Report, or act</h3><p>Observe reports with the evidence. Guard can drop a stale write or merge a duplicate, with undo.</p></div>
+    <div class="sh reveal"><h2>The worst bugs never throw an error.</h2></div>
+    <p class="intro reveal">Nothing crashes, so error monitors see nothing. GenClass watches the timing and the data, not just the exceptions.</p>
+    <div class="bento reveal" data-stagger>
+      <div class="cell w2 top seam r split2">
+        <div>
+          <h3>Stale responses</h3>
+          <p>Results for "pa" land under a search box that already says "paris". GenClass sees the old response about to overwrite newer data and can drop its write.</p>
+          <p class="fnum"><b>30%</b> detected on held-out real apps</p>
+        </div>
+        <div class="race" role="img" aria-label="Two search requests: q=pa starts first but finishes last; q=paris finishes first. GenClass drops the late write.">
+          <div class="race-h"><b>search box</b><span>typed: paris</span></div>
+          <div class="race-b">
+            <div class="rl2 late"><span>q=pa</span><div class="t"><i style="left: 2%; width: 88%"></i></div></div>
+            <div class="rl2 ok"><span>q=paris</span><div class="t"><i style="left: 24%; width: 36%"></i></div></div>
+          </div>
+          <div class="race-f">[GenClass] Prevented a stale write: GET /search?q=pa landed after q=paris was shown (stale; discard)</div>
+        </div>
+      </div>
+      <div class="cell top">
+        <h3>Works with your stack</h3>
+        <p>It finds React, Redux and Zustand (devtools) state on its own. 350 of 351 compatibility cells pass.</p>
+        <ul class="stack"><li>React</li><li>Next.js</li><li>Vue</li><li>Svelte</li><li>Angular</li><li>Solid</li><li>TanStack Query</li><li>Plain HTML</li></ul>
+      </div>
+      <div class="cell seam r">
+        <h3>Duplicate submits and more</h3>
+        <p>A double-tap on a slow checkout sends the order twice. GenClass recognises the repeat and can merge it into the request already in flight.</p>
+        <p class="fnum"><b>75%</b> detected on held-out real apps</p>
+        <ul class="catches">
+          <li>Failure storms<span>flag the streak</span></li>
+          <li>Write races<span>keep the newer value</span></li>
+          <li>Broken state<span>6% detected</span></li>
+          <li>Slow and flaky calls<span>retry safely</span></li>
+        </ul>
+      </div>
+      <div class="cell w2 split2 rev">
+        <div class="term">
+          <div class="term-h">~/storefront · npm run dev</div>
+<pre><span class="s">[GenClass] Prevented a stale write: GET /search?q=pa landed after q=paris was shown (stale; discard)</span>
+<span class="s">[GenClass] Coalesced POST /api/orders with #212, so one order is placed</span>
+<span class="o">[GenClass] Failing request: GET /api/inventory failed 5 times in 8 s (failing)</span>
+[GenClass] Held the write to cart.total until the related in-flight operations finish, to decide again.<span class="caret" aria-hidden="true"></span></pre>
+        </div>
+        <div>
+          <h3>Every decision in plain English</h3>
+          <p>One console line per detection or action, with the evidence in a collapsed group. Observe, the default, only reports. Guard can act, with undo and an audit trail.</p>
+        </div>
+      </div>
     </div>
-    <p class="note"><a href="/how-it-works">How it works in detail</a> · <a href="/docs/interception">Everything it touches</a></p>
+    <p class="note reveal">Detection rates: model 0.2.0 at the default balanced profile. <a href="/benchmarks">All results</a> · <a href="/how-it-works">How it works</a></p>
   </div>
 </section>
 
 <section id="install">
   <div class="wrap">
-    <div class="sh"><span class="no">Install</span><h2>One line, first in your app.</h2></div>
-    <div class="code codetabs">
-      <div class="tabs" role="tablist" aria-label="Install by framework">
-        <button role="tab" aria-selected="true" aria-controls="i1" id="ib1">React · Vue · Svelte</button>
-        <button role="tab" aria-selected="false" aria-controls="i2" id="ib2">Next.js</button>
-        <button role="tab" aria-selected="false" aria-controls="i3" id="ib3">Plain HTML</button>
-        <button role="tab" aria-selected="false" aria-controls="i4" id="ib4">CLI</button>
+    <div class="sh reveal"><h2>Set up in a minute</h2></div>
+    <div class="setup reveal" data-setup>
+      <ol class="steps2">
+        <li class="on"><button type="button" aria-expanded="true" aria-controls="setup-term"><span class="n">01</span>Install the package</button><div class="body">One package. Its only runtime dependency is <code>onnxruntime-web</code>. Or run <code>npx @genclass/runtime init</code> and let the CLI wire it in.<br><a href="/docs">Quickstart</a></div></li>
+        <li><button type="button" aria-expanded="false" aria-controls="setup-term"><span class="n">02</span>Add one line</button><div class="body">Make it the first import of your app. It wraps fetch, XHR, WebSocket and EventSource. Next.js uses <code>instrumentation-client.ts</code>; plain HTML takes one script tag.<br><a href="/docs">Every framework</a></div></li>
+        <li><button type="button" aria-expanded="false" aria-controls="setup-term"><span class="n">03</span>Read what it reports</button><div class="body">Observe mode is the default: it reports in the console and changes nothing. <code>?genclass=off</code> turns it off on that page.<br><a href="/docs/api">API reference</a></div></li>
+        <li><button type="button" aria-expanded="false" aria-controls="setup-term"><span class="n">04</span>Let it act</button><div class="body">Switch to guard when you trust what it sees. It can drop a stale write or merge a duplicate, with undo.<br><a href="/docs/options">Options</a></div></li>
+      </ol>
+      <div class="term" id="setup-term">
+        <div class="term-h" data-term-title>~/my-app</div>
+<pre data-term><span class="p">$</span> npm i @genclass/runtime
+<span class="c"># or: detects your framework, shows the diff, asks, then writes</span>
+<span class="p">$</span> npx @genclass/runtime init</pre>
       </div>
-<pre role="tabpanel" id="i1" aria-labelledby="ib1"><span class="c">// npm i @genclass/runtime, then first line of src/main.ts</span>
-<span class="k">import</span> <span class="s">"@genclass/runtime/auto"</span>;          <span class="c">// observe: reports, changes nothing</span>
-<span class="c">// import "@genclass/runtime/auto/guard";   // let it act</span></pre>
-<pre role="tabpanel" id="i2" aria-labelledby="ib2" hidden><span class="c">// instrumentation-client.ts (project root)</span>
-<span class="k">import</span> <span class="s">"@genclass/runtime/auto"</span>;</pre>
-<pre role="tabpanel" id="i3" aria-labelledby="ib3" hidden><span class="c">&lt;!-- first in &lt;head&gt;, no build step; keep the version pinned --&gt;</span>
+<pre hidden data-step-src data-title="~/my-app"><span class="p">$</span> npm i @genclass/runtime
+<span class="c"># or: detects your framework, shows the diff, asks, then writes</span>
+<span class="p">$</span> npx @genclass/runtime init</pre>
+<pre hidden data-step-src data-title="src/main.ts"><span class="c">// first line of the app: React, Vue, Svelte, Angular, Solid</span>
+<span class="k">import</span> <span class="s">"@genclass/runtime/auto"</span>;
+
+<span class="c">// Next.js: instrumentation-client.ts at the project root</span>
+<span class="k">import</span> <span class="s">"@genclass/runtime/auto"</span>;
+
+<span class="c">&lt;!-- plain HTML: first in &lt;head&gt;, no build step; keep the version pinned --&gt;</span>
 &lt;<span class="k">script</span> src=<span class="s">"https://cdn.jsdelivr.net/npm/@genclass/runtime@0.2.2"</span>&gt;&lt;/<span class="k">script</span>&gt;</pre>
-<pre role="tabpanel" id="i4" aria-labelledby="ib4" hidden><span class="c"># detects your framework, shows the diff, asks, then writes</span>
-npx @genclass/runtime init
-npx @genclass/runtime init --mode guard
-npx @genclass/runtime remove   <span class="c"># undo exactly what init added</span></pre>
+<pre hidden data-step-src data-title="~/my-app · observe"><span class="p">$</span> npm run dev
+<span class="c">[GenClass] Flagged a stale response: search.results was written twice by other operations since its operation (#6) started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which started 0.09s after #6, from a later user action (#7). (stale, 0.96)</span></pre>
+<pre hidden data-step-src data-title="src/main.ts · guard"><span class="k">import</span> <span class="s">"@genclass/runtime/auto/guard"</span>;
+
+<span class="s">[GenClass] Prevented a stale response: search.results was written twice by other operations since its operation (#6) started (version 1 → 3), last 0.69s ago by GET /api/search?q=reac (#8), which started 0.09s after #6, from a later user action (#7). Delivered the response to GET /api/search?q=rea (#6) and dropped the state changes it makes over newer data (search.results). (stale, 0.97; discard 0.98)</span></pre>
     </div>
-    <p class="disclose">Anonymous diagnostics, with no page text, are on by default. Turn them off with <code>GenClass.init({ telemetry: false })</code> or <code>npx @genclass/runtime init --no-telemetry</code>. See <a href="/docs/telemetry">what is sent</a>.</p>
+    <p class="disclose reveal">Anonymous diagnostics, with no page text, are on by default. Turn them off with <code>GenClass.init({ telemetry: false })</code> or <code>npx @genclass/runtime init --no-telemetry</code>. See <a href="/docs/telemetry">what is sent</a>.</p>
   </div>
 </section>
 
 <section id="proof">
   <div class="wrap">
-    <div class="sh"><span class="no">Results</span><h2>Precise when it acts, and it rarely acts.</h2></div>
-    <div class="stats">
-      <div class="stat"><div class="big g">0 bugs</div><p>introduced in 3,510 compatibility runs across 7 frameworks and 15 data layers</p><small>runtime 0.1.0-beta.4 (shipped as 0.2.1), model 0.2.0, balanced</small></div>
-      <div class="stat"><div class="big">0.13%</div><p>false interventions in guard mode at the default profile; 0 on held-out real apps</p><small>model 0.2.0, balanced, held-out simulated apps</small></div>
-      <div class="stat"><div class="big">7.5%</div><p>of the cases where acting would help get an action from guard; it reports far more than it fixes</p><small>model 0.2.0, balanced, held-out real apps</small></div>
+    <div class="sh reveal"><h2>Precise when it acts, and it rarely acts.</h2></div>
+    <p class="intro reveal">Tested on held-out apps it never trained on, in real browsers. Every number links to its method.</p>
+    <div class="four reveal" data-stagger>
+      <div><div class="pic"><div class="big g">0 bugs</div><small>runtime 0.1.0-beta.4 (shipped as 0.2.1)<br>model 0.2.0, balanced</small></div><h3>Introduced in 3,510 runs</h3><p>Compatibility runs across 7 frameworks and 15 data layers.</p></div>
+      <div><div class="pic"><div class="big">0.13%</div><small>model 0.2.0, balanced<br>held-out simulated apps</small></div><h3>False interventions in guard</h3><p>At the default profile. On held-out real apps it was 0.</p></div>
+      <div><div class="pic"><div class="big">7.5%</div><small>model 0.2.0, balanced<br>held-out real apps</small></div><h3>Of the cases where acting helps</h3><p>get an action from guard. It reports far more than it fixes.</p></div>
+      <div><div class="pic"><div class="big g">75%</div><small>model 0.2.0, report threshold 0.90<br>held-out real apps</small></div><h3>Duplicate submits caught</h3><p>Detected in observe mode at the default setting.</p></div>
     </div>
-    <p class="note"><a href="/benchmarks">Every number with its full label, and where it still misses</a></p>
+    <p class="note reveal"><a href="/benchmarks">Every number with its full label, and where it still misses</a></p>
   </div>
 </section>
 
 <section id="faq">
-  <div class="wrap">
-    <div class="sh"><span class="no">FAQ</span><h2>Questions</h2></div>
-    <div class="faq">
-      <div>
-        <details><summary><span>Is GenClass free?</span></summary><p>The runtime and its on-device model are: open source under Apache-2.0 and free, including in commercial apps, with no usage limits. The genclass.dev dashboard comes with Pro ($99 a month), with 1 year of history, data export and forwarding. Get a 7-day free trial for analytics. Custom ($599 a month) adds a model trained on your app. See <a href="/pricing">pricing</a>.</p></details>
-        <details><summary><span>Does GenClass need an account or an API key?</span></summary><p>No account or API key is needed to run it: one script tag or <code>import "@genclass/runtime/auto"</code> is all it takes, and the model runs on the device. With Pro (get a 7-day free trial for analytics), a dashboard at genclass.dev shows your app's detections. The dashboard fills from deployed pages with diagnostics on, so <code>telemetry: false</code> leaves it empty, and runtime 0.2.2 and earlier do not send to it.</p></details>
-      </div>
-      <div>
-        <details><summary><span>Will GenClass break my app?</span></summary><p>The default mode only observes and changes nothing. Across 7 frameworks and 15 data layers, GenClass introduced no bugs in 3,510 test runs (runtime 0.1.0-beta.4, the code shipped as 0.2.1; model 0.2.0). Adding <code>?genclass=off</code> to a URL turns it off on that page.</p></details>
-        <details><summary><span>Where do GenClass reports go in production?</span></summary><p>By default to the end user's browser console, which you do not see. The <a href="/docs#reports"><code>sinks</code> option</a> forwards each report to your own logging or to an endpoint you own. On <a href="/pricing">Pro</a>, the genclass.dev collector can also forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook, with no code in your app. Anonymous diagnostics go to the GenClass maintainers to improve the model, and to your dashboard if you have one; <code>telemetry: false</code> turns them off.</p></details>
-      </div>
-    </div>
-    <div class="final">
-      <h2>Start in observe mode.</h2>
-      <p>It reports what it sees and changes nothing until you turn on guard.</p>
-      <div class="ctas"><button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button><a class="btn green" href="/docs">Read the docs</a></div>
+  <div class="wrap faq2">
+    <h2 class="reveal">Frequently asked questions</h2>
+    <div class="list reveal" data-stagger>
+      <details><summary><span>Is GenClass free?</span></summary><p>The runtime and its on-device model are: open source under Apache-2.0 and free, including in commercial apps, with no usage limits. The genclass.dev dashboard comes with Pro ($99 a month), with 1 year of history, data export and forwarding. Get a 7-day free trial for analytics. Custom ($599 a month) adds a model trained on your app. See <a href="/pricing">pricing</a>.</p></details><details><summary><span>Does GenClass need an account or an API key?</span></summary><p>No account or API key is needed to run it: one script tag or <code>import "@genclass/runtime/auto"</code> is all it takes, and the model runs on the device. With Pro (get a 7-day free trial for analytics), a dashboard at genclass.dev shows your app's detections. The dashboard fills from deployed pages with diagnostics on, so <code>telemetry: false</code> leaves it empty, and runtime 0.2.2 and earlier do not send to it.</p></details><details><summary><span>Will GenClass break my app?</span></summary><p>The default mode only observes and changes nothing. Across 7 frameworks and 15 data layers, GenClass introduced no bugs in 3,510 test runs (runtime 0.1.0-beta.4, the code shipped as 0.2.1; model 0.2.0). Adding <code>?genclass=off</code> to a URL turns it off on that page.</p></details><details><summary><span>Where do GenClass reports go in production?</span></summary><p>By default to the end user's browser console, which you do not see. The <a href="/docs#reports"><code>sinks</code> option</a> forwards each report to your own logging or to an endpoint you own. On <a href="/pricing">Pro</a>, the genclass.dev collector can also forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook, with no code in your app. Anonymous diagnostics go to the GenClass maintainers to improve the model, and to your dashboard if you have one; <code>telemetry: false</code> turns them off.</p></details>
     </div>
   </div>
 </section>
 
+<div class="cta-end">
+  <div class="wrap">
+    <div class="in reveal">
+      <h2>Start in observe mode.</h2>
+      <p>It reports what it sees and changes nothing until you turn on guard. Want the dashboard? Get a 7-day free trial for analytics, no card needed.</p>
+      <div class="cta2"><a class="btn" href="https://genclass.dev/account/trial">Start your 7-day free trial <span class="arr" aria-hidden="true">→</span></a><a class="btn ghost" href="/docs">Read the docs</a></div>
+      <div class="install"><button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span>npm i @genclass/runtime</span><span class="k">Copy</span></button><a class="npm" href="https://www.npmjs.com/package/@genclass/runtime">npmjs.com/package/@genclass/runtime <span aria-hidden="true">↗</span></a></div>
+      <p class="agent">Or set it up with your coding agent: <button class="textlink" type="button" data-copy="Set up GenClass (@genclass/runtime) in this project with telemetry turned ON. First run `npx @genclass/runtime init --dry-run --telemetry` and show me the diff. Then run `npx @genclass/runtime init --yes --telemetry`. Telemetry must stay on: it sends GenClass&#x27;s anonymous diagnostics (its decisions and counts, no page text) from production to the GenClass team, so they can see what GenClass catches in this app. Do not use --no-telemetry, telemetry: false or data-telemetry=&quot;off&quot;. Keep the default observe mode, which only reports and changes nothing. When you are done, tell me which files changed, link me to https://genclass.dev/docs/telemetry for exactly what is sent, and remind me that `npx @genclass/runtime remove` undoes what init added.">copy the prompt</button><small>The prompt keeps GenClass telemetry on. <a href="/docs/telemetry">What it sends</a></small></p>
+    </div>
+  </div>
+</div>
+
 <script src="/scan-box.js?v=d8034422" defer></script>
 </main>
-<footer class="end">
+<footer class="foot-wrap">
   <div class="wrap">
-    <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Add one line and read what it reports.</h2>
-    <div class="row">
-      <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
-    </div>
-    <div class="foot-cols">
+    <div class="foot-grid">
+      <div class="foot-brand"><a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a><p>Catch the bugs that never throw, with a model that runs in the browser.</p></div>
       <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
@@ -291,11 +327,12 @@ npx @genclass/runtime remove   <span class="c"># undo exactly what init added</s
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
+      <span>Made for developers who read the console.</span>
     </div>
   </div>
 </footer>
-<script src="/app.js?v=7e896e7d" defer></script>
+<script src="/app.js?v=69ea04e3" defer></script>
 <script src="/live.js?v=11" defer></script>
-<script src="/mend.js?v=5" defer></script>
+<script src="/mend.js?v=6" defer></script>
 </body>
 </html>

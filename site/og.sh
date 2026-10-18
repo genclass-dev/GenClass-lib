@@ -2,6 +2,8 @@
 # Renders src/og.svg to public/og.png (1200x630, the social card) with macOS QuickLook, no extra tools.
 # qlmanage rasterises a square SVG at 1:1 into a 1200x1200 PNG; the card sits in its middle 630 rows, so sips crops it.
 # Bump the ?v= on og.png in build.py after regenerating, and keep the headline equal to HEADLINE in build.py.
+# The card is set in Satoshi and JetBrains Mono: without them installed qlmanage falls back to Helvetica and Menlo.
+# og-render.mjs renders it in Chromium with the site's web fonts instead (run it on the train VM).
 set -eu
 cd "$(dirname "$0")"
 tmp=$(mktemp -d)

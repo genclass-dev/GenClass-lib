@@ -193,9 +193,8 @@ on either side that breaks the other fails CI.
 
 ### Ways to sign in
 
-`/signup` and `/login` offer, in this order: "Continue with Google" (when its secrets are set), an email and a password
-(always, so the site always has a way in), then a small "Continue with GitHub" (when its secrets are set) and "Use a
-passkey". Creating an account never needs a passkey, and there is no passkey sign-up: a passkey is extra security,
+`/signup` and `/login` offer, in this order: "Continue with GitHub" and "Continue with Google" (each when its secrets
+are set), an email and a password (always, so the site always has a way in), then a small "Use a passkey". Creating an account never needs a passkey, and there is no passkey sign-up: a passkey is extra security,
 added on `/account` (Security); once the account has one, every password, Google or GitHub sign-in also asks for it
 ([The passkey step](#the-passkey-step)).
 
@@ -337,7 +336,7 @@ minutes in a single-use row named by the `gc_pending` cookie).
 
 | route | auth | behaviour |
 |---|---|---|
-| `GET /signup`, `GET /login` | - | the pages (`?next=` only to `/account...` or `/login/device...`); a signed-in visitor is redirected. Google, the email and password form, then a small GitHub link and Use a passkey |
+| `GET /signup`, `GET /login` | - | the pages (`?next=` only to `/account...` or `/login/device...`); a signed-in visitor is redirected. GitHub, Google (each when its secrets are set), the email and password form, then a small Use a passkey |
 | `GET /login/forgot` | - | what to do about a forgotten password (no email reset yet) |
 | `POST /api/auth/password/signup` | Origin | `{ email, password, next? }` → `{ ok, account, next }` + session and device cookies; 400 with the rule a password breaks, 409 for an email that already signs in |
 | `POST /api/auth/password/login` | Origin | `{ email, password, next? }` → `{ ok, next }` + session (or `next: "/login/passkey"` and the step's cookie for an account with a passkey) + device cookie; 400 for a wrong password or an unknown email (one answer), 429 while the account's delay runs |

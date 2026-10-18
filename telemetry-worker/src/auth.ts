@@ -161,6 +161,21 @@ export interface AuthConfig {
   github: boolean;
 }
 
+/**
+ * A Google or GitHub credential as stored in the Worker's secrets, trimmed: a secret pasted with a trailing newline (an
+ * easy slip with `wrangler secret put`) would otherwise fail every code exchange while the start still worked.
+ */
+export const cred = (v: string | undefined): string => (v ?? "").trim();
+
+/**
+ * The provider's error code from a refused token exchange (`invalid_client`, `invalid_grant`,
+ * `incorrect_client_credentials`...), else the HTTP status. Codes only: never the description, never a secret.
+ */
+export function providerError(body: unknown, status: number): string {
+  const e = body && typeof body === "object" ? (body as Record<string, unknown>).error : undefined;
+  return typeof e === "string" && /^[a-z_]{1,64}$/.test(e) ? e : `HTTP ${status}`;
+}
+
 export function authConfig(env: Env): AuthConfig {
   const origin = (env.AUTH_ORIGIN || "https://genclass.dev").replace(/\/+$/, "");
   const secure = !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
@@ -172,8 +187,8 @@ export function authConfig(env: Env): AuthConfig {
     pending: secure ? PENDING_COOKIE : DEV_PENDING_COOKIE,
     mfa: secure ? MFA_COOKIE : DEV_MFA_COOKIE,
     device: secure ? DEVICE_COOKIE : DEV_DEVICE_COOKIE,
-    google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
-    github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
+    google: !!(cred(env.GOOGLE_CLIENT_ID) && cred(env.GOOGLE_CLIENT_SECRET)),
+    github: !!(cred(env.GITHUB_CLIENT_ID) && cred(env.GITHUB_CLIENT_SECRET)),
   };
 }
 
@@ -819,7 +834,7 @@ async function googleStart(c: C): Promise<Response> {
   const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
   const { state, cookie } = await saveOAuth(c, "google", st, { n: nonce, v: verifier });
   const q = new URLSearchParams({
-    client_id: c.env.GOOGLE_CLIENT_ID!,
+    client_id: cred(c.env.GOOGLE_CLIENT_ID),
     redirect_uri: `${c.cfg.origin}/auth/google/callback`,
     response_type: "code",
     scope: "openid email profile",
@@ -877,26 +892,33 @@ async function googleCallback(c: C): Promise<Response> {
   if (!code || code.length > 2048) return bad(400, "Google did not send a sign-in code. Start again.");
   const f = c.opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i));
   let tok: Record<string, unknown>;
+  let why = "no answer";
   try {
     const r = await f(GOOGLE_TOKEN_URL, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
       body: new URLSearchParams({
         code,
-        client_id: c.env.GOOGLE_CLIENT_ID!,
-        client_secret: c.env.GOOGLE_CLIENT_SECRET!,
+        client_id: cred(c.env.GOOGLE_CLIENT_ID),
+        client_secret: cred(c.env.GOOGLE_CLIENT_SECRET),
         redirect_uri: `${c.cfg.origin}/auth/google/callback`,
         grant_type: "authorization_code",
         code_verifier: st.v,
       }).toString(),
     });
-    if (!r.ok) throw new Error(`token endpoint ${r.status}`);
-    tok = (await r.json()) as Record<string, unknown>;
+    const body: unknown = await r.json().catch(() => null);
+    if (!r.ok || !body || typeof body !== "object") {
+      why = providerError(body, r.status);
+      throw new Error(why);
+    }
+    tok = body as Record<string, unknown>;
   } catch {
-    return bad(502, "Google did not accept the sign-in code. Start again.");
+    // the code only (invalid_client: the stored secret is not one of the client's; invalid_grant: a stale code)
+    console.warn(`google sign-in: the token endpoint refused the code: ${why}`);
+    return bad(502, "Google did not accept the sign-in code. Start again.", `Google answered: ${why}`);
   }
   const claims = jwtPayload(tok.id_token);
-  const err = checkGoogleClaims(claims, c.env.GOOGLE_CLIENT_ID!, st.n, c.now);
+  const err = checkGoogleClaims(claims, cred(c.env.GOOGLE_CLIENT_ID), st.n, c.now);
   if (err || !claims) {
     return bad(400, "Google's answer could not be checked. This happens when the sign-in took too long or was finished in another tab. Start again.", `Check that failed: ${err ?? "no id_token"}`);
   }
@@ -916,15 +938,15 @@ async function githubStart(c: C): Promise<Response> {
   const st = await oauthStart(c);
   if (st instanceof Response) return st;
   const { state, cookie } = await saveOAuth(c, "github", st);
-  const q = new URLSearchParams({ client_id: c.env.GITHUB_CLIENT_ID!, redirect_uri: `${c.cfg.origin}/auth/github/callback`, state, allow_signup: "true" });
+  const q = new URLSearchParams({ client_id: cred(c.env.GITHUB_CLIENT_ID), redirect_uri: `${c.cfg.origin}/auth/github/callback`, state, allow_signup: "true" });
   return redirect(`${GITHUB_AUTH_URL}?${q}`, [cookie]);
 }
 
 async function githubCallback(c: C): Promise<Response> {
   const clear = clearCookie(c, GITHUB_COOKIE, "/auth/github");
   const done = (r: Response): Response => withCookies(r, [clear]);
-  const bad = (status: number, text: string): Response =>
-    done(page(status, (n) => messagePage(n, { title: "GitHub sign-in did not finish", text, links: [["Try again", "/login"]] })));
+  const bad = (status: number, text: string, detail?: string): Response =>
+    done(page(status, (n) => messagePage(n, { title: "GitHub sign-in did not finish", text, detail, links: [["Try again", "/login"]] })));
   if (!c.cfg.github) return bad(404, "This GenClass server has no GitHub app configured.");
   const st = await takeOAuth(c, "github");
   if (c.url.searchParams.get("error")) return done(redirect("/login?error=github"));
@@ -936,21 +958,30 @@ async function githubCallback(c: C): Promise<Response> {
   if (!code || code.length > 2048) return bad(400, "GitHub did not send a sign-in code. Start again.");
   const f = c.opts.fetch ?? ((u: string, i?: RequestInit) => fetch(u, i));
   let user: Record<string, unknown>;
+  let why = "no answer";
   try {
     const r = await f(GITHUB_TOKEN_URL, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json", "user-agent": "genclass.dev" },
-      body: new URLSearchParams({ client_id: c.env.GITHUB_CLIENT_ID!, client_secret: c.env.GITHUB_CLIENT_SECRET!, code, redirect_uri: `${c.cfg.origin}/auth/github/callback` }).toString(),
+      body: new URLSearchParams({ client_id: cred(c.env.GITHUB_CLIENT_ID), client_secret: cred(c.env.GITHUB_CLIENT_SECRET), code, redirect_uri: `${c.cfg.origin}/auth/github/callback` }).toString(),
     });
-    const tok = (await r.json()) as Record<string, unknown>;
-    if (!r.ok || typeof tok.access_token !== "string") throw new Error("no access token");
+    const tok = ((await r.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+    // GitHub answers a refused code with 200 and an error field (incorrect_client_credentials, bad_verification_code)
+    if (!r.ok || typeof tok.access_token !== "string") {
+      why = providerError(tok, r.status);
+      throw new Error(why);
+    }
     const u = await f(GITHUB_USER_URL, {
       headers: { authorization: `Bearer ${tok.access_token}`, accept: "application/vnd.github+json", "user-agent": "genclass.dev", "x-github-api-version": "2022-11-28" },
     });
-    if (!u.ok) throw new Error(`user ${u.status}`);
+    if (!u.ok) {
+      why = `user lookup HTTP ${u.status}`;
+      throw new Error(why);
+    }
     user = (await u.json()) as Record<string, unknown>;
   } catch {
-    return bad(502, "GitHub did not accept the sign-in code. Start again.");
+    console.warn(`github sign-in: the code exchange failed: ${why}`);
+    return bad(502, "GitHub did not accept the sign-in code. Start again.", `GitHub answered: ${why}`);
   }
   const id = user.id;
   const login = typeof user.login === "string" && /^[A-Za-z0-9-]{1,39}$/.test(user.login) ? user.login : null;

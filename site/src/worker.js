@@ -12,16 +12,18 @@ const SECURITY = {
   "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   "x-frame-options": "DENY",
   "content-security-policy":
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com https://cdn.jsdelivr.net; " +
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; " +
+    "font-src https://fonts.gstatic.com https://cdn.fontshare.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com https://cdn.jsdelivr.net; " +
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 };
 
 // /pitch-deck is a standalone slide viewer (public/pitch-deck.html, its script and styles in public/pitch-deck/): nothing
-// but its own files, so a stricter policy than the site's, and never indexed (the page, the slides and the PDF).
+// but its own files and the site's two webfonts (Satoshi from Fontshare, JetBrains Mono from Google Fonts), so a stricter
+// policy than the site's, and never indexed (the page, the slides and the PDF).
 const DECK_PAGE = {
   "content-security-policy":
-    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; " +
+    "default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com https://api.fontshare.com; " +
+    "font-src https://fonts.gstatic.com https://cdn.fontshare.com; img-src 'self' data:; connect-src 'self'; " +
     "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   "x-robots-tag": "noindex, nofollow",
   "referrer-policy": "no-referrer",
