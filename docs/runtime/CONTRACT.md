@@ -569,3 +569,18 @@ Design, every check, threshold and exclusion: [VISUAL.md](VISUAL.md). Code: `pac
   global; session sampling hashes the session id.
 - **Telemetry.** None. Counts per check kind and route are a proposal (VISUAL.md section 10) that needs the owner's
   approval of the exact fields; selectors, element text, colours and URLs are never sent.
+
+## 15. Interaction analytics (added 2026-10-18; owner approved the design 2026-10-17)
+
+[ANALYTICS.md](ANALYTICS.md). Telemetry counts for the app's own dashboard, not a detector:
+
+- **Opt-in.** Off unless the app sets `analytics: true` (or calls `rt.analytics.start()`), and only while telemetry is
+  on with the app's token or a custom endpoint. Every telemetry opt-out and Global Privacy Control turn it off.
+- **Never model input (section 0 rules 1 and 2).** Its own passive listeners in a lazy chunk (`src/analytics/`); it
+  never calls `rt.user`, `rt.emit` or `rt.op`, never writes to the event log, and nothing it computes reaches a
+  situation, a fact, the gate or the model. Rage and dead clicks are counts with fixed thresholds, never a diagnosis
+  and never a reason to act. In every mode it only reads.
+- **What is sent.** `interactions` events per page view: the route, engaged time, scroll milestones, clicks, rage and
+  dead clicks per element key built from markup only (never element text). No visitor id, nothing stored on the
+  device. The maintainers use them only for the app's dashboard and export, never for model training or evaluation.
+- **Determinism (section 0 rule 3).** All timing uses the injected `Clock`; no randomness.

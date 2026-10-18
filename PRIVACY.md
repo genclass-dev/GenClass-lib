@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-15._
+_Last updated: 2026-10-18._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -39,6 +39,15 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
 - **Names of protected functions, only if the site set a token** (from runtime 0.3.0): the name the developer gave a
   function wrapped with `protect()`, on the decisions about what that function caused. A name that looks like data
   (an e-mail address, a URL, 4 or more digits in a row, a long hex id) is sent as `[redacted]`.
+- **How visitors use the site, only if the website's developer turned on interaction analytics** (`analytics: true`
+  with a token; from runtime 0.3.0-beta.1, off by default): for each page view, the page's path (as above), how long
+  the page was visible and in use (at most 30 seconds after the last mouse, key, scroll or touch input), how far down
+  the page the visitor scrolled (25, 50, 75 or 100 %), and how many times each element was clicked, clicked 3 or more
+  times within a second, or clicked without anything changing on the page. An element is named from the page's code
+  (a name the developer gave it, an id, a link's address on the same site, the other site's address only, class names
+  or its position on the page), never by its text. We do not collect what visitors type, where the mouse was, the
+  order of clicks, or anything that links one page load to another. We use this data only to show it on that
+  website's dashboard and in its export, never to train or evaluate the model.
 
 We do **not** store IP addresses, browser user-agent strings or cookies, and the runtime sets no cookies. Each page
 load gets a random session ID that is not saved anywhere.
@@ -52,7 +61,8 @@ works on their own site. We do not sell the data, use it for advertising, or try
 
 A website owner can get a private dashboard link for their site's token. While the site's app is in an account with
 Pro or a trial, whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
-routes, the names the developer gave to protected functions, model speed, versions) and a list of recent detections
+routes, the names the developer gave to protected functions, model speed, versions; with interaction analytics on,
+page views, time on page, scroll depth and clicks per page and element) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
