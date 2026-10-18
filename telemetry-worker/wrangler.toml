@@ -54,7 +54,7 @@ TRIAL_DAYS = "7"
 # Without a live STRIPE_SECRET_KEY nothing is on sale to the public, trials included (a trial is a Stripe Checkout);
 # the Free plan's limits apply anyway.
 # The key is for GenClass's own Stripe account ("GenClass"); the worker and the setup script still touch only
-# GenClass's own objects there, as when the account was shared with Polar Parts (README "Shared-account defences").
+# GenClass's own objects there, as when the account was shared with another business (README "Stripe object ownership").
 
 [observability]
 enabled = false

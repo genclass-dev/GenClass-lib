@@ -203,7 +203,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
 /**
  * GenClass opens no Stripe page for, and starts no Checkout on, a stored customer that is not provably its own or that
  * holds anything else (src/stripe.ts checkCustomer, sharedCustomer, foreignInvoice): a defence kept from when the
- * Stripe account was shared with Polar Parts. The buyer gets a 409 with the contact address, nothing is opened,
+ * Stripe account was shared with another business. The buyer gets a 409 with the contact address, nothing is opened,
  * and the owner gets a shared_customer notice with the ids (NOTIFY_WEBHOOK; worker logs are not kept).
  */
 async function refuseShared(c: C, f: Fetch, accountId: string, customer: string, why: string): Promise<Response> {
@@ -212,7 +212,7 @@ async function refuseShared(c: C, f: Fetch, accountId: string, customer: string,
     { env: c.env, fetch: f, now: c.now },
     {
       event: "shared_customer",
-      text: `${modeNote(c.env)}GenClass account ${accountId}: its Stripe customer ${customer} ${why}, so GenClass opened no Stripe page for it. Move the other objects to a customer of their own (telemetry-worker/README.md, "Shared-account defences").`,
+      text: `${modeNote(c.env)}GenClass account ${accountId}: its Stripe customer ${customer} ${why}, so GenClass opened no Stripe page for it. Move the other objects to a customer of their own (telemetry-worker/README.md, "Stripe object ownership").`,
       account_id: accountId,
       customer,
     },
