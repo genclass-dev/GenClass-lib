@@ -26,6 +26,11 @@
   and heal the first duplicate submit of every page load went through on a CPU about 15% slower than the VM's. The
   warm-up now times a second pass on every device: `status.latency` comes from it, `status.warmupMs` is still the
   first, cold pass. A load on WASM takes one more warm-up pass (a ~430-token situation, warm). No model-visible text
+- **Release notes: the npm registry's empty `readme` field.** Since 0.3.0-beta.0 went to `beta`, the registry's
+  top-level `readme` for the package (`npm view @genclass/runtime readme`) is empty: the registry empties it on every
+  publish to a tag other than `latest` and fills it again on the next `latest` publish, as it does for react,
+  typescript, next and vitest. The npm and jsDelivr package pages are not affected; they show each version's full
+  README. `.github/workflows/release.yml` now says so. No package contents, runtime code or model-visible text
   changed.
 
 ## 0.3.0-beta.0 (unreleased)
