@@ -14,25 +14,56 @@ body{background:var(--panel);color:var(--ink);font:15px/1.5 var(--sans);-webkit-
 button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--green);outline-offset:2px}`;
 
+// The sign-in page follows genclass.dev's black design system (site/src/css): form on the left, the self-healing
+// sphere from /signin-mesh.js on the right. Bump ?v= on /signin-mesh.js when site/public/signin-mesh.js changes
+// (assets are cached immutably).
+const LOGIN_FONTS = `<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">`;
+
 export function LOGIN_PAGE(msg) {
   const m = msg ? `<p class="err" role="alert">${String(msg).replace(/[<>&"]/g, "")}</p>` : "";
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>GenClass Admin</title><link rel="icon" href="/brand/mark-32.png?v=2">${FONTS}
-<style>${BASE_CSS}
-body{min-height:100vh;display:grid;place-items:center;padding:16px;background:radial-gradient(1200px 600px at 50% -10%,#E7F8EF,transparent),var(--panel)}
-.card{width:min(380px,100%);background:#fff;border:1px solid var(--rule);border-radius:16px;padding:28px;box-shadow:0 30px 60px -40px rgba(14,31,77,.4)}
-.brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}.brand img{height:30px}
-.brand span{font:500 12px var(--mono);color:var(--ink3);border:1px solid var(--rule);border-radius:999px;padding:2px 8px}
-h1{font:700 22px var(--display);letter-spacing:-.02em;margin-bottom:4px}p{color:var(--ink3);font-size:14px}
-label{display:block;font:500 13px var(--sans);color:var(--ink2);margin:18px 0 6px}
-input{width:100%;min-height:44px;border:1px solid var(--rule2);border-radius:8px;padding:0 12px;font-size:16px}
-button{width:100%;min-height:44px;margin-top:14px;border:0;border-radius:8px;background:var(--ink);color:#fff;font-weight:600;cursor:pointer}
-button:hover{background:#1B2F66}.err{color:var(--red-d);background:var(--red-t);border-radius:8px;padding:8px 10px;margin-top:14px;font-size:13.5px}</style></head>
-<body><form class="card" method="post" action="/admin/login">
-<div class="brand"><img src="/brand/lockup-h.png?v=2" alt="genclass"><span>admin</span></div>
-<h1>Sign in</h1><p>Usage, detections and fixes across every site running GenClass.</p>${m}
-<label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
-<button type="submit">Open dashboard</button></form></body></html>`;
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000"><title>Sign in · GenClass Admin</title><link rel="icon" href="/brand/mark-32.png?v=2">${LOGIN_FONTS}
+<style>
+:root{color-scheme:dark;--ground:#000;--bone:#F0F1E9;--dim:#A0A196;--faint:#88897F;--rule:#30312B;--rule-strong:#46463E;--accent:#2FD07F;--bad:#FF6B4A}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--ground)}
+body{color:var(--bone);font:16px/1.5 Satoshi,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,40%) 1fr;isolation:isolate}
+canvas{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+.side{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 24px}
+form{width:min(368px,100%)}
+form > *{animation:in .7s cubic-bezier(.2,.7,.2,1) both}
+form > :nth-child(2){animation-delay:.06s}form > :nth-child(3){animation-delay:.12s}form > :nth-child(4){animation-delay:.18s}form > :nth-child(5){animation-delay:.24s}form > :nth-child(6){animation-delay:.3s}
+@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.home{display:block;width:48px;height:48px;margin:0 auto 24px;background:url(/brand/mark-512.png) center/contain no-repeat;transition:opacity .15s}
+.home:hover{opacity:.8}
+h1{font-weight:600;font-size:28px;letter-spacing:-.02em;text-align:center}
+.lead{font-size:14px;color:var(--faint);text-align:center;margin-top:10px}
+.field{margin-top:28px}
+label{display:block;font-size:13px;font-weight:500;color:var(--dim);margin-bottom:8px}
+input{width:100%;min-height:42px;border:1px solid var(--rule);border-radius:0;background:var(--ground);color:var(--bone);padding:0 12px;font:inherit;font-size:14px;transition:border-color .15s}
+input:hover{border-color:var(--rule-strong)}input:focus{outline:0;border-color:var(--faint)}
+button{width:100%;min-height:42px;margin-top:16px;border:0;border-radius:0;background:var(--accent);color:#02140A;font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s,transform .1s}
+button:hover{opacity:.9}button:active{transform:scale(.985)}
+.err{color:var(--bad);border:1px solid rgba(255,90,54,.35);background:rgba(255,90,54,.1);padding:8px 10px;margin-top:18px;font-size:13.5px}
+.alt{font-size:13px;color:var(--faint);text-align:center;margin-top:22px}.alt a{color:var(--faint);text-underline-offset:3px}.alt a:hover{color:var(--bone)}
+.mesh-cap{position:fixed;right:16px;bottom:12px;margin:0;font:11px/1.4 "JetBrains Mono",ui-monospace,Menlo,monospace;color:var(--faint);pointer-events:none}
+.mesh-cap span+span::before{content:" · "}
+.mesh-cap span:empty{display:none}
+@media (max-width:900px){body{grid-template-columns:1fr}canvas{opacity:.32}.mesh-cap{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head>
+<body><div class="side"><form method="post" action="/admin/login">
+<a class="home" href="/" aria-label="genclass.dev"></a>
+<h1>Sign in to GenClass</h1>
+<p class="lead">Admin: usage, detections and fixes across every site running GenClass.</p>${m}
+<div class="field"><label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="current-password" required autofocus></div>
+<button type="submit">Open dashboard</button>
+<p class="alt"><a href="/">Back to genclass.dev</a></p></form></div>
+<canvas data-mesh aria-hidden="true"></canvas>
+<script src="/signin-mesh.js?v=1" defer></script></body></html>`;
 }
 
 export const ADMIN_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

@@ -83,30 +83,30 @@ JSV = hashlib.sha1((PUB / "app.js").read_bytes()).hexdigest()[:8]
 # worker, not built here; the header only links to /login. /cloud redirects to /pricing (src/worker.js).
 NAV = [("Docs", "/docs", "docs"), ("How it works", "/how-it-works", "how"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides"), ("Pricing", "/pricing", "pricing")]
 
+LOGO = '<a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>'
+
 def nav(active):
     links = "".join(f'<a href="{h}"{" class=\"on\" aria-current=\"page\"" if k == active else ""}>{t}</a>' for t, h, k in NAV)
     # Sign in: the optional accounts and their dashboards (genclass.dev/login, served by telemetry-worker/)
-    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{GH}">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a>'
+    mlinks = "".join(f'<a href="{h}">{t}</a>' for t, h, k in NAV) + f'<a href="{NPM}">npm</a><a href="{GH}">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a>'
     return f'''<header class="nav">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
+    {LOGO}
     <nav aria-label="Main">{links}</nav>
-    <a class="gh" href="{GH}">GitHub</a>
-    <a class="gh signin" href="/login">Sign in</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel">{mlinks}</div></details>
-    <a class="btn" href="/docs">Get started</a>
+    <div class="right">
+      <a class="gh" href="{NPM}">npm</a>
+      <a class="gh" href="{GH}">GitHub</a>
+      <a class="gh signin" href="/login">Sign in</a>
+      <a class="btn" href="/docs">Get started</a>
+      <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel">{mlinks}</div></details>
+    </div>
   </div>
 </header>'''
 
-FOOTER = f'''<footer class="end">
+FOOTER = f'''<footer class="foot-wrap">
   <div class="wrap">
-    <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Add one line and read what it reports.</h2>
-    <div class="row">
-      <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn ghost" href="{GH}">View on GitHub</a>
-    </div>
-    <div class="foot-cols">
+    <div class="foot-grid">
+      <div class="foot-brand">{LOGO}<p>Catch the bugs that never throw, with a model that runs in the browser.</p></div>
       <div><b>Product</b><a href="/">Runtime</a><a href="/visual">{V.FOOTER_LABEL}</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="{GH}">GitHub</a><a href="{NPM}">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
@@ -114,6 +114,7 @@ FOOTER = f'''<footer class="end">
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
+      <span>Made for developers who read the console.</span>
     </div>
   </div>
 </footer>'''
@@ -150,7 +151,8 @@ def page(meta, body):
 <meta name="description" content="{desc}">
 <link rel="canonical" href="{url}">
 <meta name="robots" content="{robots}">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="author" content="GenClass">
 <meta property="og:type" content="{og_type}">
 <meta property="og:site_name" content="GenClass">
@@ -171,9 +173,11 @@ def page(meta, body):
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add("js")</script>
 <link rel="stylesheet" href="/styles.css?v={CSSV}">
 <script type="application/ld+json">{json.dumps({"@context": "https://schema.org", "@graph": graph}, ensure_ascii=False)}</script>
 {meta.get("head_extra", "")}</head>

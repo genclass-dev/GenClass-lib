@@ -7,7 +7,8 @@
 <meta name="description" content="Held-out results for the shipped model 0.2.0: 75% of duplicate submits detected at the default setting, false-intervention rates per profile, 0 false interventions on held-out real apps, 0 bugs introduced in 3,510 compatibility runs, and where it still misses.">
 <link rel="canonical" href="https://genclass.dev/benchmarks">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="author" content="GenClass">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="GenClass">
@@ -28,22 +29,27 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=d79c67c2">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="/styles.css?v=53f9292b">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Benchmarks", "item": "https://genclass.dev/benchmarks"}]}, {"@type": "Dataset", "name": "GenClass real-app evaluation set", "description": "16,600 held-out runtime situations recorded from real web apps in headless Chromium, never used for training, labelled by counterfactual replay.", "creator": {"@id": "https://genclass.dev/#org"}, "license": "https://www.apache.org/licenses/LICENSE-2.0", "url": "https://genclass.dev/benchmarks", "isAccessibleForFree": true}, {"@type": "TechArticle", "headline": "GenClass benchmarks", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-12"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="nav">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="GenClass home"><img class="lk" src="/brand/lockup-h.png?v=2" alt="genclass" width="170" height="37"></a>
+    <a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a>
     <nav aria-label="Main"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks" class="on" aria-current="page">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a></nav>
-    <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
-    <a class="gh signin" href="/login">Sign in</a>
-    <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
-    <a class="btn" href="/docs">Get started</a>
+    <div class="right">
+      <a class="gh" href="https://www.npmjs.com/package/@genclass/runtime">npm</a>
+      <a class="gh" href="https://github.com/genclass-dev/GenClass-lib">GitHub</a>
+      <a class="gh signin" href="/login">Sign in</a>
+      <a class="btn" href="/docs">Get started</a>
+      <details class="mnav"><summary aria-label="Open menu">Menu</summary><div class="panel"><a href="/docs">Docs</a><a href="/how-it-works">How it works</a><a href="/benchmarks">Benchmarks</a><a href="/guides">Guides</a><a href="/pricing">Pricing</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="/login">Sign in</a><a href="/docs">Get started</a></div></details>
+    </div>
   </div>
 </header>
 <main id="main">
@@ -76,7 +82,7 @@
             <div class="colg"><div class="dx" style="height: 90.5%"><span>90.5</span></div><div class="ax" style="height: 81.9%"><span>81.9</span></div></div>
           </div>
           <div class="xl"><span>Base model, no runtime data</span><span>Curriculum, 1.2M rows</span><span>Simulator pilot, 224k rows</span><span>Round 1, 448k rows</span></div>
-          <div class="legend"><span><span class="key" style="background: #0E1F4D"></span>diagnosis %</span><span><span class="key" style="background: #14B86A"></span>action %</span></div>
+          <div class="legend"><span><span class="key" style="background: #F0F1E9"></span>diagnosis %</span><span><span class="key" style="background: #2FD07F"></span>action %</span></div>
         </div>
         <figcaption><b>Fig. 1</b> Round 1 used situation format v1. The stricter v2 format, with honest labels, scores 84.2% / 77.8% on simulated apps and 83.6% / 80.0% on real apps.</figcaption>
       </figure>
@@ -140,18 +146,18 @@
           <div class="ftitle">More caught at the same safety, each round</div>
           <div class="fsub">Heal-mode gain captured at a fixed false-intervention budget</div>
           <svg class="chart" viewBox="0 0 640 262" role="img" aria-label="Line chart. At false-intervention budgets of 0.05, 0.1, 0.2 and 0.5 percent, model v2dT captures 2.1, 3.4, 6.2 and 12.3 percent; v2d 1.6, 2.5, 5.3 and 10.0; v2c 1.6, 2.8, 4.6 and 8.3.">
-            <line x1="60" x2="540" y1="165.7" y2="165.7" stroke="#DFE4EC"></line>
-            <line x1="60" x2="540" y1="111.4" y2="111.4" stroke="#DFE4EC"></line>
-            <line x1="60" x2="540" y1="57.1" y2="57.1" stroke="#DFE4EC"></line>
-            <line x1="60" x2="540" y1="220" y2="220" stroke="#0E1F4D"></line>
+            <line x1="60" x2="540" y1="165.7" y2="165.7" stroke="#30312B"></line>
+            <line x1="60" x2="540" y1="111.4" y2="111.4" stroke="#30312B"></line>
+            <line x1="60" x2="540" y1="57.1" y2="57.1" stroke="#30312B"></line>
+            <line x1="60" x2="540" y1="220" y2="220" stroke="#F0F1E9"></line>
             <text x="50" y="224" text-anchor="end">0%</text><text x="50" y="169.7" text-anchor="end">4%</text><text x="50" y="115.4" text-anchor="end">8%</text><text x="50" y="61.1" text-anchor="end">12%</text>
             <text x="60" y="244" text-anchor="middle">0.05%</text><text x="220" y="244" text-anchor="middle">0.1%</text><text x="380" y="244" text-anchor="middle">0.2%</text><text x="540" y="244" text-anchor="middle">0.5%</text>
-            <path d="M60,198.3 L220,182 L380,157.6 L540,107.4" fill="none" stroke="#AAB4C8" stroke-width="2"></path>
-            <path d="M60,198.3 L220,186.1 L380,148.1 L540,84.3" fill="none" stroke="#0E1F4D" stroke-width="2"></path>
-            <path d="M60,191.5 L220,173.9 L380,135.9 L540,53.1" fill="none" stroke="#14B86A" stroke-width="3"></path>
-            <circle cx="60" cy="191.5" r="4" fill="#14B86A"></circle><circle cx="220" cy="173.9" r="4" fill="#14B86A"></circle><circle cx="380" cy="135.9" r="4" fill="#14B86A"></circle><circle cx="540" cy="53.1" r="4" fill="#14B86A"></circle>
-            <text x="552" y="57" style="fill: #08794A">v2dT 12.3%</text>
-            <text x="552" y="88" style="fill: #0E1F4D">v2d 10.0%</text>
+            <path d="M60,198.3 L220,182 L380,157.6 L540,107.4" fill="none" stroke="#46463E" stroke-width="2"></path>
+            <path d="M60,198.3 L220,186.1 L380,148.1 L540,84.3" fill="none" stroke="#F0F1E9" stroke-width="2"></path>
+            <path d="M60,191.5 L220,173.9 L380,135.9 L540,53.1" fill="none" stroke="#2FD07F" stroke-width="3"></path>
+            <circle cx="60" cy="191.5" r="4" fill="#2FD07F"></circle><circle cx="220" cy="173.9" r="4" fill="#2FD07F"></circle><circle cx="380" cy="135.9" r="4" fill="#2FD07F"></circle><circle cx="540" cy="53.1" r="4" fill="#2FD07F"></circle>
+            <text x="552" y="57" style="fill: #2FD07F">v2dT 12.3%</text>
+            <text x="552" y="88" style="fill: #F0F1E9">v2d 10.0%</text>
             <text x="552" y="111">v2c 8.3%</text>
           </svg>
         </div>
@@ -176,8 +182,8 @@
         <div class="ftitle">Never make a correct app worse</div>
         <div class="fsub">Plumbing test of the runtime with an always-passive model: real apps in headless Chromium, final page text and server state with and without the runtime installed</div>
         <div class="pair">
-          <div><div class="big" style="color: #C42A12">194 / 198</div><p>clean runs untouched by the v1 runtime, which held store writes. Not good enough: the React/Redux RealWorld app never rendered its home feed.</p></div>
-          <div><div class="big" style="color: #08794A">396 / 396</div><p>clean runs unchanged with the v2 runtime installed, which decides at the network boundary: 66 real apps × 6 seeds, always-passive model. With the real model, the compatibility matrix counts 0 non-passive actions on correct apps in 1,760 guard and heal runs.</p></div>
+          <div><div class="big" style="color: #FF6B4A">194 / 198</div><p>clean runs untouched by the v1 runtime, which held store writes. Not good enough: the React/Redux RealWorld app never rendered its home feed.</p></div>
+          <div><div class="big" style="color: #2FD07F">396 / 396</div><p>clean runs unchanged with the v2 runtime installed, which decides at the network boundary: 66 real apps × 6 seeds, always-passive model. With the real model, the compatibility matrix counts 0 non-passive actions on correct apps in 1,760 guard and heal runs.</p></div>
         </div>
       </div>
     </figure>
@@ -239,15 +245,10 @@
 </section>
 
 </main>
-<footer class="end">
+<footer class="foot-wrap">
   <div class="wrap">
-    <img class="lockup" src="/brand/lockup-stack.png?v=1" alt="genclass" width="220" height="183" loading="lazy">
-    <h2>Add one line and read what it reports.</h2>
-    <div class="row">
-      <button class="cmd" type="button" data-copy="npm install @genclass/runtime" aria-label="Copy the install command"><span><span class="p">$</span> npm i @genclass/runtime</span><span class="k">Copy</span></button>
-      <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
-    </div>
-    <div class="foot-cols">
+    <div class="foot-grid">
+      <div class="foot-brand"><a class="logo" href="/"><img src="/brand/mark-64.png?v=2" alt="" width="24" height="24">GenClass</a><p>Catch the bugs that never throw, with a model that runs in the browser.</p></div>
       <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
@@ -255,9 +256,10 @@
     </div>
     <div class="foot">
       <span>© 2026 Daybot Solutions Inc. GenClass runtime is open source under Apache-2.0.</span>
+      <span>Made for developers who read the console.</span>
     </div>
   </div>
 </footer>
-<script src="/app.js?v=7e896e7d" defer></script>
+<script src="/app.js?v=69ea04e3" defer></script>
 </body>
 </html>
