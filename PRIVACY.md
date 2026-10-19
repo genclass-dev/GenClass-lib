@@ -59,8 +59,7 @@ works on their own site. We do not sell the data, use it for advertising, or try
 
 ## Dashboards for website owners
 
-A website owner can get a private dashboard link for their site's token. While the site's app is in an account with
-Pro or a trial, whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
+A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
 routes, the names the developer gave to protected functions, model speed, versions; with interaction analytics on,
 page views, time on page, scroll depth and clicks per page and element) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
@@ -95,7 +94,6 @@ their apps in one place. An account stores:
 - **Your sign-in sessions:** for the browser and for each terminal you signed in with the CLI, a one-way hash of the
   session secret, when it was created, last used and expires, when it last used a passkey, and the name the CLI gave
   itself (such as "genclass-runtime 0.3.0").
-- **Your trial:** when it started and when it ends, if you start one.
 - **The apps you own:** which of the records above (token, name, times) belong to your account, and whether an
   app's private dashboard link still opens it.
 
@@ -112,17 +110,14 @@ yet); an account id alone is not enough, because it can be known to others.
 
 ## Paid plans, payments and Stripe
 
-The Pro and Custom plans are paid through Stripe, which processes payments for us. When you upgrade, we send Stripe
+The Individual plan is paid through Stripe, which processes payments for us. When you upgrade, we send Stripe
 your account's email (if it has one) and your GenClass account id, and you type your card or other payment details
 into Stripe's own checkout page: they go to Stripe and never reach GenClass. Stripe handles them under its own privacy
 policy (stripe.com/privacy) and keeps your invoices and receipts, which you can see under Manage billing on your
-billing page. When GenClass sells Pro through Stripe Managed Payments, Stripe is the merchant of record for Pro
-purchases: it sells Pro to you through Link, its checkout service, so Link's name is on your Pro receipts and card
-statement, and Stripe handles the sales tax and payment support. To work out the tax, its checkout page asks for your
-name and billing address, which Stripe keeps and GenClass does not store.
+billing page.
 
 GenClass stores only your Stripe customer id, your subscription id, the subscription's status and renewal or end date,
-and your plan. Never card numbers, bank details or billing addresses. When someone buys the Custom plan we also keep a
+and your plan. Never card numbers, bank details or billing addresses. When someone buys the Individual plan we also keep a
 record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to them
 to start the work.
 
