@@ -422,11 +422,11 @@ ${rows}
   }
 
   const html = `<style nonce="${nonce}">${EXTRA_CSS}</style>
-<section class="blk paid" id="forwarding">
+<section class="blk paid" id="forwarding" data-v="forwarding">
   <div class="blk-h"><h2>Forwarding</h2><span class="aside">${fw ? "New detections, sent where you already look" : esc(plansWith("forwarding"))}</span></div>
   ${forwarding}
 </section>
-<section class="blk paid" id="export">
+<section class="blk paid" id="export" data-v="export">
   <div class="blk-h"><h2>Export</h2><span class="aside">${ex ? "Every event, as a file or by API" : esc(plansWith("export"))}</span></div>
   ${exportHtml}
 </section>
