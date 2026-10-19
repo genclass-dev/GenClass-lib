@@ -59,8 +59,8 @@ works on their own site. We do not sell the data, use it for advertising, or try
 
 ## Dashboards for website owners
 
-A website owner can get a private dashboard link for their site's token. While the site's app is in an account with
-Pro or a trial, whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
+A website owner can get a private dashboard link for their site's token, free on every plan. Whoever holds that link
+can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
 routes, the names the developer gave to protected functions, model speed, versions; with interaction analytics on,
 page views, time on page, scroll depth and clicks per page and element) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or

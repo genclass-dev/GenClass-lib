@@ -42,8 +42,8 @@ RUNTIME_ON_NPM = "0.3.0-beta.0"
 # than the pinned one; README "Owner steps"). Then set "on" and deploy.
 MANAGED_PAYMENTS = "off"
 # How many days a trial of Pro lasts: one per account, on Stripe Checkout with a card collected up front and first
-# charged when the trial ends (src/billing.ts, src/stripe.ts checkoutSession). The pages say it ("Get a 7-day free
-# trial for analytics"). 1 to 60; anything else counts as 7. The site says the same number from billing/plans.json
+# charged when the trial ends (src/billing.ts, src/stripe.ts checkoutSession). Dashboards are free on every plan; the
+# billing page says it ("start your 7-day free trial"). 1 to 60; anything else counts as 7. The site says the same number from billing/plans.json
 # trial_days: change both together (test/trial.test.ts checks that they agree).
 TRIAL_DAYS = "7"
 

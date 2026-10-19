@@ -24,10 +24,15 @@
   changed (`situation-v2.3`), and nothing reaches a situation, a decision or the model. First-load cost of the stub:
   about 0.29 KB gzip on `/auto` and 0.27 KB on the main entry (TELEMETRY.md "Interaction analytics", README "Privacy
   and telemetry", API.md, INTERCEPTION.md).
-- **CLI copy: the dashboard needs Pro (get a 7-day free trial for analytics).** genclass.dev's dashboards now come
-  with Pro; `init`'s dashboard notice and help, the top-level help and the README say so next to the private
-  dashboard link, with the trial's length (7 days, the same as `trial_days` in `billing/plans.json`). A link made by
-  0.3.0-beta.0's `init` opens a page that leads to the trial. No runtime code and no model-visible text changed.
+- **Dashboards and analytics are free, and `dashboard` prints the link.** genclass.dev no longer locks a dashboard
+  behind Pro or a trial: every app's dashboard, interaction analytics included, opens on the Free plan, in an account
+  or by its private link, for any number of apps, over the 90 days every app's data is kept (Pro adds a year of
+  history, export and forwarding; `billing/plans.json`). A link made by 0.3.0-beta.0's `init` now opens the dashboard
+  itself. The CLI says so next to every dashboard link it prints (`init`, its help and the top-level help), and the
+  new `npx @genclass/runtime dashboard` prints the link to the dashboard of the app in the current folder: the private
+  link in `.genclass.local` (nothing is contacted), else the app's page in the signed-in account (one `GET /api/me`),
+  else the account's apps; `--open` also opens it in the browser. `whoami` and `login` point there too. No runtime
+  code, no telemetry and no model-visible text changed.
 - **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
   password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
   GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).

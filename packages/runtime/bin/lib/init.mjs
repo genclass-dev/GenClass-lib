@@ -40,6 +40,11 @@ export const INTERCEPTION_URL = "https://genclass.dev/docs/interception";
 export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
 /** The plans page: forwarding to Sentry, PostHog and Datadog is not part of the free runtime, and no plan offers it yet. */
 export const PRICING_URL = "https://genclass.dev/pricing";
+/** What a dashboard shows, said under every dashboard link the CLI prints: analytics are free on every plan. */
+export const FREE_LINES = [
+  "Free for every app: what GenClass found, on which pages, and what it did, and (with analytics: true)",
+  "how visitors use each page. Print this link again any time: npx @genclass/runtime dashboard",
+];
 
 export const USAGE = `Usage:
   genclass-runtime init   [--mode observe|guard|heal] [--token <gc_...> | --no-token]
@@ -58,8 +63,8 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --token <gc_...> use this app token (no network). By default, on a new setup and only once you
                    approve the changes (or pass --yes), init creates one at genclass.dev (sending
                    package.json's name), writes it into what it adds, and saves the token and your
-                   private dashboard link in ${LOCAL_FILE} (the dashboard needs Pro; get a
-                   7-day free trial for analytics). Signed in (\`login\`), init first asks
+                   private dashboard link in ${LOCAL_FILE} (the dashboard and its analytics are
+                   free; \`dashboard\` prints the link again). Signed in (\`login\`), init first asks
                    whether the new app goes into your GenClass account instead (--yes: it does)
   --no-token       no token, no network (no dashboard; you can add one later: ${START_URL})
   --no-telemetry   turn off GenClass's anonymous diagnostics (on by default; see TELEMETRY.md and
@@ -686,7 +691,7 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
     const link = tk.created?.dashboardUrl ?? tk.app?.dashboard_url ?? hostUrl("/account");
     out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
     out(`  ${c.gray(`In your GenClass account (${accountLabel(tk.account?.account)}): sign in at genclass.dev to open it.`)}`);
-    out(`  ${c.gray(`The dashboard needs Pro (get a 7-day free trial for analytics): ${hostUrl("/account/trial")}`)}`);
+    for (const l of FREE_LINES) out(`  ${c.gray(l)}`);
     out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
     out(`  ${c.gray("networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send")}`);
     out(`  ${c.gray("Global Privacy Control are not counted.")}`);
@@ -699,7 +704,7 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
   if (tk.created && saved?.error) err(`  ${c.yellow(sym.warn)} Could not write ${LOCAL_FILE} (${saved.error}): copy the link below now.`);
   out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
   out(`  ${c.yellow("Keep this link private; it is the only way to open your dashboard.")}`);
-  out(`  ${c.gray("The dashboard needs Pro (get a 7-day free trial for analytics); the link shows how to start one.")}`);
+  for (const l of FREE_LINES) out(`  ${c.gray(l)}`);
   if (tk.created && saved && !saved.error) out(`  ${c.gray(`Saved in ${LOCAL_FILE}${SAVED_WHERE[saved.gitignore] ?? ""}.`)}`);
   else if (tk.local) out(`  ${c.gray(`(from ${LOCAL_FILE})`)}`);
   out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);

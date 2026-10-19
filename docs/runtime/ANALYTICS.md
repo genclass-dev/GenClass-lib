@@ -109,8 +109,8 @@ Interaction counters get their own per-batch budget (200 counters), so they neve
 (`MAX_COUNTERS`). A batch that repeats one already counted is skipped as today. Retention is the dashboard's: 90 days
 (1 year on a paid plan), hourly rows 48 hours.
 
-**Dashboard.** A "How visitors use this app" section on the app dashboard (`src/pages.ts`, Pro, the same range
-picker), shown once the app has sent `interactions` events, using the page's existing table and card styles:
+**Dashboard.** A "How visitors use this app" section on the app dashboard (`src/pages.ts`, free on every plan, the
+same range picker), shown once the app has sent `interactions` events, using the page's existing table and card styles:
 
 - page views, average engaged time per view, clicks, rage clicks, dead clicks, with the change against the previous
   period, and page views on the timeline;
@@ -162,7 +162,8 @@ training or evaluation.
 analytics are on: "Interaction analytics are on: page views, time on page, scroll depth and clicks per element, never
 page text."), both READMEs, `packages/runtime/CHANGELOG.md`, `docs/runtime/API.md`, the JSDoc in `src/types.ts`,
 `PRIVACY.md` and `site/src/pages/privacy.html`, the dashboard footer, `telemetry-worker/README.md`, and
-`billing/plans.json` (Pro's "Interaction analytics (coming next)" becomes available once a runtime with it is on npm).
+`billing/plans.json` (Free's "Interaction analytics" line, every plan has it, becomes available once a runtime with it
+is on npm).
 
 ## 7. genclass.dev adopting it
 
@@ -243,5 +244,5 @@ What the build (2026-10-18) does where this note was not specific, or differs:
 - **Admin.** `site/src/admin.js` marks `genclass.dev` and `www.genclass.dev` as test hosts, so their sessions,
   decisions and detections stay out of the model numbers unless "Include test traffic" is ticked; it never reads
   `interactions` events.
-- **Not done here:** `billing/plans.json` still says "Interaction analytics (coming next)" for Pro; it becomes
-  available when a runtime with analytics is on npm. genclass.dev's own pages are unchanged (section 7).
+- **Not done here:** `billing/plans.json` still lists Free's "Interaction analytics" line as coming next (analytics
+  are free on every plan since 2026-10-19); it becomes available when a runtime with analytics is on npm. genclass.dev's own pages are unchanged (section 7).

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { CDN_SCRIPT, DASH_CSS, dashboardPage, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
-import { accountPage, devicePage, forgotPage, lockedLinkPage, loginPage, messagePage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
+import { accountPage, devicePage, forgotPage, loginPage, messagePage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
 
@@ -257,13 +257,11 @@ function everyPage(): [string, string][] {
     cli: [],
     password: null,
     providers: { google: true, github: true },
-    dashboards: "trial" as const,
   };
   const providers = { google: true, github: true };
   return [
     ["/start", startPage("n")],
     ["/dashboard", dashboardPage("n", project)],
-    ["/account/apps (locked)", dashboardPage("n", project, { account: acct, id: "0123456789abcdef", locked: { trialUsed: false, canTrial: true, trialDays: 7, terms: "Card required." } })],
     ["/account/apps", dashboardPage("n", project, { account: acct, id: "0123456789abcdef" })],
     ["/login", loginPage("n", { ...providers, next: null })],
     ["/signup", signupPage("n", { ...providers, next: null })],
@@ -273,7 +271,6 @@ function everyPage(): [string, string][] {
     ["/account", accountPage("n", view)],
     ["pending", pendingPage("n", { email: "ada@example.com", provider: "google" })],
     ["message", messagePage("n", { title: "T", text: "x", links: [["One", "/a"]] })],
-    ["/dashboard/<secret> (locked)", lockedLinkPage("n", { name: "a", signedIn: null, owner: "none", providers })],
   ];
 }
 
@@ -408,7 +405,7 @@ describe("pages: genclass.dev's palette, buttons, header and focus ring", () => 
 });
 
 describe("pages: the sign-in pages sit on genclass.dev's self-healing sphere, as /admin's sign-in does", () => {
-  const MESH = ["/login", "/signup", "/login/forgot", "/login/passkey", "/login/device", "pending", "message", "/dashboard/<secret> (locked)"];
+  const MESH = ["/login", "/signup", "/login/forgot", "/login/passkey", "/login/device", "pending", "message"];
 
   it("the sign-in and message pages load the site's mesh under the page's nonce; dashboards, /start and /account do not", () => {
     expect(MESH_SCRIPT).toBe("https://genclass.dev/signin-mesh.js?v=2");

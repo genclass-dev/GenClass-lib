@@ -4,9 +4,10 @@ Cloudflare Worker that receives the default-on diagnostics batches from `@gencla
 [`packages/runtime/TELEMETRY.md`](../packages/runtime/TELEMETRY.md)) and stores them in R2, that gives every web app
 a token and a private dashboard on genclass.dev, and that holds the optional accounts (Google, an email and a
 password, or GitHub, with passkeys as extra security) which keep several apps in one place and let `npx @genclass/runtime login` connect an app
-([Accounts](#accounts)). Dashboards come with Pro: Free is the open-source runtime and its on-device model; an
-account gets one trial of Pro, started on Stripe Checkout with a card that is first charged when the trial ends
-([Trials and grants](#trials-and-grants)).
+([Accounts](#accounts)). Analytics are free: every app's dashboard, interaction analytics included, opens on the Free
+plan, in an account or by its private link, for any number of apps, over the 90 days every app's data is kept. Pro
+adds a year of history, export and forwarding; an account gets one trial of Pro, started on Stripe Checkout with a
+card that is first charged when the trial ends ([Trials and grants](#trials-and-grants)).
 
 - **Deployed:** worker `genclass-telemetry`, account `144bd5f5270b51dbe7faf46227a154f0`.
   - `https://genclass-telemetry.mehar-144.workers.dev` (workers.dev). Runtime `0.2.1` and earlier send to this URL +
@@ -52,9 +53,9 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `src/auth.ts` | accounts: Google, email and password, GitHub, passkeys (sign-in, the passkey step, fresh confirmations), sessions, CSRF, the device flow, owned apps, their routes and their retention |
 | `src/password.ts` | passwords: the PBKDF2 hash string, the rules for a new password, the schedule of the delay after wrong ones |
 | `scripts/password-hash.mjs` | for the owner: a hash string for a manual password reset ([Owner steps: a forgotten password](#owner-steps-a-forgotten-password)) |
-| `src/trial.ts` | the pricing page's way to the one trial of Pro per account (`GET /account/trial`; the trial itself is a Stripe Checkout with a card, `POST /api/billing/trial` in `src/billing.ts`) and the locked private-link page |
+| `src/trial.ts` | the pricing page's way to the one trial of Pro per account (`GET /account/trial`; the trial itself is a Stripe Checkout with a card, `POST /api/billing/trial` in `src/billing.ts`) |
 | `src/webauthn.ts`, `src/cbor.ts` | WebAuthn verification with WebCrypto and a minimal CBOR decoder (no dependencies) |
-| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/forgot`, `/login/passkey`, `/login/device`, `/account`, the locked private-link page and the account message pages |
+| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/forgot`, `/login/passkey`, `/login/device`, `/account` and the account message pages |
 | `src/http.ts` | shared JSON response and capped body reader |
 | `../billing/plans.json` | the plans (prices, Stripe lookup keys, limits, entitlements, pricing-page lines); the site's build reads it too |
 | `src/plans.ts` | plans from `plans.json`, what an account may use now (paid plan, grant, trial or Free: `accountAccess`), the Free plan's limits, dashboard ranges per plan, the plan-aware retention sweep |
@@ -75,9 +76,9 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `OPTIONS /v1/events` | CORS preflight (`access-control-allow-origin: *`) |
 | `GET /v1/health` | `{ ok: true, schema }` |
 | `POST /api/projects` | body `{ name? }` (JSON object or empty; name sanitised, at most 80 chars, default "Untitled app"). 201 `{ token, dashboardUrl, name, created }`, `dashboardUrl` = `https://genclass.dev/dashboard/<32 base62>`. CORS `*`, no credentials. 429 JSON when rate-limited, 400 bad JSON, 413 over 4 KB. |
-| `GET /api/projects/<secret>?range=24h\|7d\|30d` | 402 `{ ok:false, error, locked:true }` unless the app's account has Pro (a plan, GenClass's grant or a trial; [Trials and grants](#trials-and-grants)). Otherwise dashboard stats JSON (default `7d`): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible, ix_views), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. Apps that turned on interaction analytics (runtime `interactions` events, [docs/runtime/ANALYTICS.md](../docs/runtime/ANALYTICS.md)) also get `ix_views`, `ix_engaged_ms`, `ix_click`, `ix_rage` and `ix_dead` totals and breakdowns (by route, or route TAB element key; `ix_scroll` by route TAB milestone; top 200 each), counted with their own per-batch budget. 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
+| `GET /api/projects/<secret>?range=24h\|7d\|30d` | dashboard stats JSON (default `7d`), whatever plan the app's account has, or with no account (analytics are free): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible, ix_views), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. Apps that turned on interaction analytics (runtime `interactions` events, [docs/runtime/ANALYTICS.md](../docs/runtime/ANALYTICS.md)) also get `ix_views`, `ix_engaged_ms`, `ix_click`, `ix_rage` and `ix_dead` totals and breakdowns (by route, or route TAB element key; `ix_scroll` by route TAB milestone; top 200 each), counted with their own per-batch budget. 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
 | `GET /start` | "Get a token" page |
-| `GET /dashboard/<secret>` | the dashboard while the app's account has Pro; otherwise the locked page ("Dashboards come with Pro. Get a 7-day free trial for analytics.": sign in, add the app to the account, start the trial; `src/trial.ts`). 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
+| `GET /dashboard/<secret>` | the dashboard, on every plan and with no account. 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
 
 Rate limits on batches: `LIMIT`, 1200 per 60 s per client IP (a ceiling for offices and campuses behind one address;
 since runtime 0.2.2 a page stops sending after 3 failed requests in a row, so a low per-IP limit would silence every
@@ -183,9 +184,9 @@ rate-limit key.
 
 ## Accounts
 
-Optional for the runtime and for collection: `/start`, secret dashboard links (locked until the app's account has
-Pro) and ingest keep working without one. An account keeps several apps in one place, holds the trial or the plan
-that opens their dashboards, and lets the CLI (`npx @genclass/runtime login`, in `packages/runtime/bin/lib/login.mjs`
+Optional for the runtime, for collection and for the dashboards: `/start`, secret dashboard links and ingest keep
+working without one. An account keeps several apps in one place, holds the plan or the trial (Pro's year of history,
+export and forwarding), and lets the CLI (`npx @genclass/runtime login`, in `packages/runtime/bin/lib/login.mjs`
 and `account.mjs`, from `@genclass/runtime` 0.3.0) connect an app without copying keys around. Code: `src/auth.ts`
 (routes and rules), `src/password.ts` (passwords), `src/webauthn.ts` + `src/cbor.ts` (passkeys),
 `src/account-pages.ts` (pages); tests in
@@ -344,8 +345,8 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `POST /api/auth/password` | cookie + Origin | change (`{ current, password }`, or `{ password }` after a fresh passkey) or add (`{ email?, password }`) the account's password → `{ ok, changed \| added }`; 403 `{ confirm: true }` when a passkey must answer first; 403 for a bearer token |
 | `GET /login/passkey` | `__Host-gc_mfa` | the passkey step after a password, Google or GitHub for an account with a passkey; 400 page when the step expired or is missing |
 | `POST /logout` | cookie + Origin | revokes the session, clears the cookie, 303 to `/login?signed_out=1` |
-| `GET /account` | cookie | the account page (302 to `/login?next=/account` without one): apps, "Dashboards come with Pro" with Start a trial (Stripe Checkout, card required) while locked and the account may have one, Security (sign-in methods, "Require a passkey at sign-in", Add a passkey), sessions. `?trial=1` focuses Start a trial; `?claim=1` returns to a locked private link this tab kept |
-| `GET /account/apps/<id>` | cookie | an owned app's dashboard with the Connect panel (on a trial from before cards: "Pro trial: N days left", the only place the length shows); without Pro, the locked page (the key, the Connect panel, Start a trial or See plans, no stats); 404 for an app of another account |
+| `GET /account` | cookie | the account page (302 to `/login?next=/account` without one): apps, Security (sign-in methods, "Require a passkey at sign-in", Add a passkey), sessions |
+| `GET /account/apps/<id>` | cookie | an owned app's dashboard with the Connect panel, on every plan (on a trial from before cards: "Pro trial: N days left", the only place the length shows); 404 for an app of another account |
 | `GET /login/device?code=ABCD-EFGH` | cookie optional | signed in: the code and the request, Approve and Deny; signed out: the code and the ways to sign in, whether or not the code is live |
 | `GET /auth/google`, `GET /auth/google/callback` | - | Google sign-in (404 page when not configured); `?link=1` needs a session |
 | `GET /auth/github`, `GET /auth/github/callback` | - | GitHub sign-in, same rules |
@@ -363,7 +364,7 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `GET /api/account/projects` | bearer or cookie | `{ projects: [project] }` (the Connect panel polls this every 5 s) |
 | `POST /api/account/projects` | bearer, or cookie + Origin | `{ name }` → 201 `{ project }`; at most 200 apps per account |
 | `POST /api/account/projects/claim` | bearer, or cookie + Origin | `{ dashboard_url }` or `{ secret }` → 200 `{ project }`: the secret-link app joins the account and its link keeps working; 409 when another account owns it or the account holds 200 apps, 404 for an unknown link |
-| `GET /api/account/projects/<id>/stats?range=` | cookie | the dashboard stats (same shape as `/api/projects/<secret>`), owned apps only; 402 `{ locked: true, upgrade_url }` without Pro; 403 for a bearer token |
+| `GET /api/account/projects/<id>/stats?range=` | cookie | the dashboard stats (same shape as `/api/projects/<secret>`), owned apps only, on every plan (Free: up to 90 days; a longer `range` is answered with 90 days); 403 for a bearer token |
 | `DELETE /api/account/projects/<id>/link` | cookie + Origin | turn off the app's private dashboard link (its hash is replaced by one nobody holds); 204 |
 | `DELETE /api/account/sessions/current` | bearer (CLI logout) or cookie + Origin | 204 |
 | `DELETE /api/account/sessions/<id>` | cookie + Origin | revoke one of this account's sessions; 204, 404 otherwise (403 for a bearer token) |
@@ -404,7 +405,7 @@ The daily cron also deletes expired challenges and device codes and expired or r
 | `RUNTIME_ON_NPM` | var (wrangler.toml) | `0.2.2` | the newest `@genclass/runtime` on npm, on any dist-tag; below `0.3.0-beta.0` the Connect panel, `/start` and private dashboards say first that keys and `login` are not published yet. Set it to `0.3.0-beta.0` once release.yml has published the beta and jsDelivr serves it, then deploy; at `0.3.0`, set it with `src/pages.ts` `SNIPPET_RUNTIME` and `RUNTIME_PKG` (the snippets pin the script tag to `SNIPPET_RUNTIME` and name the `@beta` dist-tag in their commands while it is a prerelease) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secret | unset | Google sign-in, the first way in; both needed. An email and a password are offered either way |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | secret | unset | GitHub sign-in; both needed |
-| `TRIAL_DAYS` | var (wrangler.toml) | `"7"` | how long a trial of Pro lasts (1 to 60; anything else counts as 7). The pages say it ("Get a 7-day free trial for analytics", "Start your 7-day free trial"); the site says the same number from `billing/plans.json` `trial_days`, and `test/trial.test.ts` fails when the two (or the CLI's copy) differ: change them together |
+| `TRIAL_DAYS` | var (wrangler.toml) | `"7"` | how long a trial of Pro lasts (1 to 60; anything else counts as 7). The billing page says it ("start your 7-day free trial", "Start your 7-day free trial"); the site says the same number from `billing/plans.json` `trial_days`, and `test/trial.test.ts` fails when the two differ: change them together |
 
 Production needs no other vars (the defaults are production). For local development see `.dev.vars.example`.
 
@@ -499,9 +500,9 @@ npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
 
 ## Paid plans
 
-The plans live in [`billing/plans.json`](../billing/plans.json): Free (US$0: the open-source runtime and its on-device
-model, no dashboard), Pro (US$99 a month: the dashboard, a year of history, export, forwarding; P0/P1 email alerts
-listed as not available yet) and Custom (US$599 a month), with their limits (`apps`, `history_days`), entitlements
+The plans live in [`billing/plans.json`](../billing/plans.json): Free (US$0: the open-source runtime, its on-device
+model, and the dashboard with interaction analytics for every app, 90 days), Pro (US$99 a month: a year of history,
+export, forwarding; P0/P1 email alerts listed as not available yet) and Custom (US$599 a month), with their limits (`apps`, `history_days`), entitlements
 (`dashboard`, `forwarding`, `export`, `analytics`, `custom_model`),
 Stripe lookup keys (`genclass_pro_monthly`, `genclass_custom_monthly`; a yearly price can be added later), product tax
 codes (`stripe_tax_code`) and whether the plan is sold through Stripe Managed Payments (`managed_payments`: Pro only).
@@ -520,29 +521,30 @@ settings; `unpaid` and anything else is Free. Entitlements follow the plan.
 
 The key's prefix sets the mode. With a live key (`sk_live_`) paid plans are on sale. With a test key (`sk_test_`) only the
 accounts listed in `STRIPE_TEST_ACCOUNTS` can buy and nobody else sees a button, so a test pass can run on the
-production worker. The Free plan (no dashboard, 3 apps) applies whatever the key; without a key that can sell to the
-account there is no trial either, since a trial is a Stripe Checkout. `accounts.stripe_mode` records which mode the
+production worker. The Free plan (the dashboard, any number of apps, 90 days) applies whatever the key; without a key
+that can sell to the account there is no trial either, since a trial is a Stripe Checkout. `accounts.stripe_mode` records which mode the
 Stripe ids belong to: a plan bought in test mode counts only while the key is a test key (it is Free once the key is
 live, and that account's next purchase gets a new live customer). A live plan always counts, whatever the key.
 
 | | Free (no plan, grant or trial) | Pro, Custom; a grant or a trial gives Pro's |
 |---|---|---|
-| dashboard | locked: the app's key and Connect panel, Start a trial or See plans; stats answer 402 | yes |
-| apps per account | 3 (a fourth is refused with 409 and a link to `/account/billing`; apps already there stay, and are all collected) | no plan limit; the 200-app abuse cap stays |
-| dashboard ranges | none (no dashboard) | 24 h, 7, 30, 90 days, 1 year |
+| dashboard, interaction analytics | yes | yes |
+| apps per account | no plan limit; the 200-app abuse cap stays | no plan limit; the 200-app abuse cap stays |
+| dashboard ranges | 24 h, 7, 30, 90 days | 24 h, 7, 30, 90 days, 1 year |
 | kept (daily counters, recent rows, stored batches) | 90 days, as every project before plans | 1 year, and 30 days of grace after a paid period ends |
 | forwarding, export | no | yes |
 | `custom_model` | no | Custom only |
 
 Apps without an account (private links, from `/start` or the CLI's `init`) are collected and kept 90 days, and their
-link opens the locked page until the app is added to an account with Pro. A private link to an app in an account with
-Pro shows 24 hours, 7 and 30 days, as before.
+link opens the dashboard (24 hours, 7 and 30 days), as does a private link to an app in an account on any plan.
+Nothing checks the `dashboard` and `analytics` entitlements any more: they are true in every plan, and
+`test/free-analytics.test.ts` fails if a plan loses them, a route answers 402, or a page says a dashboard needs Pro.
 
 ### Trials and grants
 
-- **Trial.** One per account, and only with a card: "Start your 7-day free trial" on the locked dashboard, on
-  `/account`, on `/account/billing`, or the pricing page's button (`/account/trial`, through sign-up when signed out;
-  a GET never starts one) posts to `POST /api/billing/trial`, which answers `{ url, trial: true }` of a Stripe
+- **Trial.** One per account, and only with a card: "Start your 7-day free trial" on `/account/billing` (the pricing
+  page's button, `/account/trial`, leads there with the button focused, through sign-up when signed out; a GET never
+  starts one) posts to `POST /api/billing/trial`, which answers `{ url, trial: true }` of a Stripe
   Checkout for Pro (the same path as `/api/billing/checkout`, so the same customer checks, rate limit and on-sale
   rule): `payment_method_collection=always` (the card is entered there, although nothing is due today),
   `subscription_data[trial_period_days]` = `TRIAL_DAYS` and
@@ -572,10 +574,10 @@ Pro shows 24 hours, 7 and 30 days, as before.
   When the trial ends Stripe charges the card for the first month: paid, the subscription is `active`; failed, it is
   `past_due` like any failed renewal (Pro for 14 days from then while Stripe retries, then Free; Revenue recovery's
   emails go to the buyer). Cancelled during the trial (Manage billing), it ends at the trial's end and nothing is
-  charged. Public copy says the length ("Get a 7-day free trial for analytics": the worker's pages from `TRIAL_DAYS`,
-  the site from `billing/plans.json` `trial_days`) and that a card is required. Afterwards, without a plan, the
-  dashboard locks again ("Your trial has ended"), the account is Free (3 apps; the ones already there stay and are
-  still collected), and its data older than 90 days goes with the next sweep.
+  charged. Public copy says the length ("start your 7-day free trial": the billing page from `TRIAL_DAYS`, the site
+  from `billing/plans.json` `trial_days`) and that a card is required. Afterwards, without a plan, the account is on
+  Free ("Your trial of Pro has ended" on the billing page): its dashboards stay open over 90 days, and its data older
+  than 90 days goes with the next sweep.
 - **Migration 0008** (`migrations/0008_trial_card_check.sql`): additive, `accounts.trial_check_failures` (default 0)
   and `accounts.trial_check_failed_at`. The billing routes read them, so apply it before deploying:
   `npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`.
@@ -601,10 +603,9 @@ Pro shows 24 hours, 7 and 30 days, as before.
 
   A paid plan wins over a grant, and a grant over a trial (`src/plans.ts` accessOf). The collector caches each app's
   plan for a minute, so a hand-made change reaches forwarding and export within one.
-- An anonymous app (a private link) gets Pro when it is added to an account that has it: the locked link page signs
-  the visitor in (Continue with Google, or Sign in and Create an account with every other way in), comes back to the link (`/account?claim=1`
-  returns to the link this browser tab kept in sessionStorage: the secret is never stored on the server), and one
-  button adds the app (`POST /api/account/projects/claim`, as on `/account`) and opens the trial's Checkout.
+- An anonymous app (a private link) gets Pro's extras when it is added to an account that has Pro ("Add an existing
+  dashboard" on `/account`, or `npx @genclass/runtime connect`: `POST /api/account/projects/claim`). Its dashboard is
+  open either way.
 
 ### How Pro and Custom are sold
 
@@ -764,7 +765,7 @@ does about it.
 | `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's own Stripe customer once (email, description `GenClass account`, metadata `genclass=1` and `genclass_account`); never looks one up by email. A stored customer is checked first (`GET /v1/customers/<id>`): its metadata must name the account, and every subscription on it must be GenClass's, else 409 with the contact address, nothing opened, and a `shared_customer` notice ("Stripe object ownership" below). Then it asks Stripe, not the database, whether that customer already has a GenClass subscription: one on this plan is a 409, one whose last payment failed (`past_due`, `unpaid`) is a 409 pointing to Manage billing, two at once (a switch still going through) or a paused one is a 409, and an active one on the other plan is a switch: after the same invoice check as Manage billing, `{ url, switch: true }` of a Checkout for the new plan whose session and subscription carry `genclass_switch_from=<the current subscription>` (success URL `...?done=1&to=<plan>`). Otherwise `{ url }` of a Checkout Session in subscription mode for that customer and the plan's lookup key (metadata `genclass=1`, `genclass_account`, `genclass_plan`; the subscription gets `genclass` and `genclass_account` and flexible billing mode; `client_reference_id` = account id; success `https://genclass.dev/account/billing?done=1`), with `managed_payments[enabled]=true` for Pro unless `MANAGED_PAYMENTS` is `off`, never for Custom. GenClass's open Checkout page of the account for the same plan (and the same switch) is reused, its other open pages are closed first, and any other open page is left alone. 503 unless the account can buy (above). |
 | `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, card, email and tax id, invoices; no plan switch, which is a new Checkout) on GenClass's own portal configuration: the one whose id `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` (test) names, fetched by that id and checked (metadata `genclass=1`, active, not the default; cached 10 minutes), never the account's default one: without it, 503 ("run scripts/stripe-setup.mjs"). The portal acts on everything on the customer, so first the customer must be the account's (metadata), every subscription on it GenClass's, and each of its latest 100 invoices for a GenClass subscription; otherwise 409 with the contact address, no session, and a `shared_customer` notice. 409 before a first purchase, and when Stripe no longer has the customer (the stored ids are then cleared). |
 | `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `customer.subscription.created`, `.updated` and `.deleted`, `invoice.paid`, `charge.refunded` and `charge.dispute.created`, and subscribes to nothing else: they arrive for the whole Stripe account, so first, with no Stripe call, the customer must be in `accounts.stripe_customer_id`, and the subscription must look like GenClass's (the one recorded for the account, metadata `genclass=1` on it or copied onto the invoice, or a `genclass_` lookup key on a price). From an invoice only its subscription id is read; a refund or dispute of a GenClass customer's charge sends the owner `charge_refunded` or `charge_disputed` (ids and amounts; a dispute names no customer, so its charge is read first). Then it fetches the subscription (its prices' products, its customer and its latest invoice expanded), which must be provably GenClass's (every price a `genclass_` lookup key on a `genclass_plan` product, or the subscription already recorded for the account) and the account's (its customer's `genclass_account` names the account), and writes the plan, status, `past_due_since`, period end (when it ended, for one cancelled at once), cancel flag and mode. A subscription the account has not been granted yet is written only once its latest invoice is paid (or asks for nothing), never on `active` alone; another subscription than the account's current one never overwrites a live plan unless it was chosen as below. When a subscription starts billing (`created`, `updated` with a status change, or `invoice.paid`), if the customer has two GenClass subscriptions that bill and are paid for (a switch, or two tabs paid), the account keeps one (a switch's new plan; otherwise a live one, then Custom over Pro, then the newest): it is written to the account first, then each other one is refunded to its payment method (a switch's old plan: its unused time; a duplicate: its latest payment in full; once, by the metadata `genclass_refund`) and cancelled at once with no proration, and `NOTIFY_WEBHOOK` gets `plan_switch` or `duplicate_subscription` with the refunds. A new subscription that is never paid (`incomplete`, `incomplete_expired`, or `active` with its invoice unpaid) changes nothing. The end of the subscription recorded for the account is applied even when its customer's metadata is gone (Stripe erasing a buyer's data on request). A Custom purchase is recorded (`custom_requests`, `NOTIFY_WEBHOOK`) only when Stripe reports the Custom price paid: the subscription's latest invoice is paid and has a positive Custom line (a first Custom invoice, a switch from Pro included, seen on `invoice.paid` or the subscription's own events). Every other event (another business's subscriptions, in a shared account) is answered 200, logged as `stripe webhook: <type> <id> ignored: <reason>`, not stored, and nothing about it is fetched. The ids of events about GenClass customers are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. |
-| `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale, access, trial_ends_at, can_trial }`; `access` is `paid` (a Stripe trial included), `comp`, `trial` (a trial from before cards) or null (locked); `can_trial` is `src/plans.ts` `canTrial` |
+| `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale, access, trial_ends_at, can_trial }`; `access` is `paid` (a Stripe trial included), `comp`, `trial` (a trial from before cards) or null (Free); `can_trial` is `src/plans.ts` `canTrial` |
 | `POST /api/billing/trial` | browser session and `Origin`: `{ url, trial: true }` of the Stripe Checkout for the account's one trial of Pro, with the card collected up front ([Trials and grants](#trials-and-grants)); 409 once a trial was used, after any GenClass subscription, or with a plan or a grant; 503 unless the account can buy; 403 for a CLI token |
 | `GET /account/trial` | the pricing page's Start a trial: `/account?trial=1`, through `/signup` when signed out |
 | `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade and Switch buttons and Manage billing (only to an account that can buy), and which plan is sold through Link (Managed Payments). `?plan=pro\|custom` (the pricing page's buttons) survives the sign-in redirect and highlights and focuses that plan's button. Back from Checkout (`?done=1`) while the plan still reads Free, or back from a switch (`?done=1&to=<plan>`) while the plan is still the old one, it shows no buttons and waits for the webhook. |

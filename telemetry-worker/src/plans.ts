@@ -7,10 +7,12 @@
 // - A plan comes from accounts.plan, which src/stripe.ts derives from the Stripe subscription. Entitlements follow the
 //   plan whatever the server's configuration, except that a plan bought in Stripe's test mode counts only while the
 //   key is a test key (inMode): a test purchase never carries over to live. A live plan always counts.
-// - Free has no dashboard (entitlement `dashboard`). Without a paid plan, an account has Pro's entitlements while
-//   accounts.comp_until (GenClass's own grant, set by hand) or accounts.trial_ends_at (a trial started before trials
-//   needed a card; nothing writes it any more) is in the future (accountAccess); otherwise its dashboards are locked. A
-//   paid plan always wins over a grant or trial.
+// - Analytics are free: every plan includes the dashboard and interaction analytics (entitlements `dashboard` and
+//   `analytics`, true in every plan), and no route checks them: every app's dashboard opens. Free shows the 90 days
+//   every app's data is kept anyway (RETENTION_DAYS) and has no app limit; Pro and Custom add a year of history, export
+//   and forwarding. Without a paid plan, an account has Pro's entitlements while accounts.comp_until (GenClass's own
+//   grant, set by hand) or accounts.trial_ends_at (a trial started before trials needed a card; nothing writes it any
+//   more) is in the future (accountAccess); otherwise it is on Free. A paid plan always wins over a grant or trial.
 // - The trial is a Pro subscription in Stripe's trialing status: it starts only on Stripe Checkout, with a card
 //   collected up front (src/billing.ts, src/stripe.ts checkoutSession), and gives Pro as a paid plan does. One per
 //   account (canTrial): never after a trial (accounts.trial_started_at, written by the webhook) or a GenClass
@@ -21,9 +23,9 @@
 // - A plan whose payment is overdue ends here, whatever the Stripe account's retry settings: past_due keeps the plan
 //   for PAST_DUE_GRACE_DAYS (14) after GenClass first saw it past due, then it is Free (the webhook, and the daily
 //   sweep below); unpaid is Free at once.
-// - The Free plan's app limit (3) applies to every account without a plan, grant or trial, whatever the Stripe key.
-//   Ingest keeps collecting for those apps (the dashboard is locked, not the collector), so a trial or a plan starts
-//   with recent data. With a test key only the accounts in STRIPE_TEST_ACCOUNTS can buy or start a trial (canBuy).
+// - A plan's app limit (limits.apps; null in every plan today) applies to every account on that plan, whatever the
+//   Stripe key; the abuse cap (MAX_APPS_PER_ACCOUNT, src/auth.ts) applies to all. With a test key only the accounts in
+//   STRIPE_TEST_ACCOUNTS can buy or start a trial (canBuy).
 // - Retention never deletes data newer than the plan allows, and never shortens what existing projects had: daily
 //   counters, recent rows and stored batches are kept RETENTION_DAYS (90) for every project, and longer for the apps
 //   of accounts on a plan with more history, a grant or a trial (and for GRACE_DAYS after a paid plan ends, so a
@@ -201,9 +203,9 @@ export async function accountBilling(db: D1Like, accountId: string, env?: Env): 
 export type AccessSource = "paid" | "comp" | "trial";
 
 export interface Access {
-  /** The plan whose entitlements apply now: the paid plan, Pro during a grant or a trial, else Free (no dashboard). */
+  /** The plan whose entitlements apply now: the paid plan, Pro during a grant or a trial, else Free. */
   plan: Plan;
-  /** Why; null when the account has none of them (its dashboards are locked). */
+  /** Why; null when the account has none of them (it is on Free). */
   source: AccessSource | null;
   /** When the trial ends (ISO), while the account is on a trial started before trials needed a card. */
   trialEndsAt: string | null;
@@ -280,17 +282,9 @@ export async function accountPlan(db: D1Like, accountId: string, env: Env, now: 
   return (await accountAccess(db, accountId, env, now)).plan;
 }
 
-/** This access opens dashboards (Pro, Custom, a grant or a trial). */
-export const hasDashboard = (a: Access): boolean => entitled(a.plan, "dashboard");
-
-/** The access behind an app: its account's, or none for an app known only by its private link. */
-export async function projectAccess(db: D1Like, project: { account_id?: string | null }, env: Env, now: Date): Promise<Access> {
-  return project.account_id ? accountAccess(db, project.account_id, env, now) : NO_ACCESS;
-}
-
 /**
- * How many days a trial lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7; the trial's Checkout asks Stripe
- * for this many trial days. The worker's pages say it ("Get a 7-day free trial for analytics") from here; the site says
+ * How many days a trial of Pro lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7; the trial's Checkout asks
+ * Stripe for this many trial days. The worker's pages say it ("Start your 7-day free trial") from here; the site says
  * it from billing/plans.json trial_days, and test/trial.test.ts checks that the two agree.
  */
 export function trialDays(env: Env): number {
@@ -319,22 +313,18 @@ export interface AppLimit {
 }
 
 /**
- * The app limit of the plan whose entitlements apply now (null: none; the caller's abuse cap still applies). Free's 3
- * apps apply to every account without a plan, grant or trial, whatever the Stripe key.
+ * The app limit of the plan whose entitlements apply now (null: none, as in every plan today; the caller's abuse cap
+ * still applies), whatever the Stripe key.
  */
 export async function appLimit(db: D1Like, env: Env, accountId: string, now: Date): Promise<AppLimit> {
   const plan = await accountPlan(db, accountId, env, now);
   return { plan, max: plan.limits.apps };
 }
 
-/** The 409 for an account at its plan's app limit: says the limit and where to go, for the page and the CLI. */
-export function appLimitBody(lim: AppLimit, origin: string, days: number): { ok: false; error: string; upgrade_url: string } {
+/** The 409 for an account at its plan's app limit: says the limit and where the plans are, for the page and the CLI. */
+export function appLimitBody(lim: AppLimit, origin: string): { ok: false; error: string; upgrade_url: string } {
   const url = `${origin}/account/billing`;
-  return {
-    ok: false,
-    error: `the ${lim.plan.name} plan holds ${lim.max} app${lim.max === 1 ? "" : "s"}; Pro has no app limit (get a ${days}-day free trial for analytics) at ${url}`,
-    upgrade_url: url,
-  };
+  return { ok: false, error: `the ${lim.plan.name} plan holds ${lim.max} app${lim.max === 1 ? "" : "s"}; see the plans at ${url}`, upgrade_url: url };
 }
 
 // --------------------------------------------------------------------------------------------- dashboard history
@@ -342,7 +332,7 @@ export function appLimitBody(lim: AppLimit, origin: string, days: number): { ok:
 /** Dashboard ranges an owned app can show, shortest first, with the days each one reaches back. */
 export const ACCOUNT_RANGES: Range[] = ["24h", "7d", "30d", "90d", "1y"];
 export const RANGE_DAYS: Record<Range, number> = { "24h": 1, "7d": 7, "30d": 30, "90d": 90, "1y": 365 };
-/** The ranges this plan's dashboard shows (Free has no dashboard; its ranges matter only to its limits). */
+/** The ranges this plan's dashboard shows (Free: up to 90 days; Pro and Custom: up to a year). */
 export function viewRanges(plan: Plan): Range[] {
   const out = ACCOUNT_RANGES.filter((r) => RANGE_DAYS[r] <= plan.limits.history_days);
   return out.length ? out : ["24h"];

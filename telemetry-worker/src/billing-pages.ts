@@ -56,12 +56,14 @@ export interface BillingView {
   switchTo?: string | null;
   /** The names of the plans sold through Stripe Managed Payments (src/stripe.ts managedPayments). */
   managedPlans?: string[];
-  /** How long a trial lasts (TRIAL_DAYS, src/plans.ts trialDays): "Get a 7-day free trial for analytics". */
+  /** How long a trial of Pro lasts (TRIAL_DAYS, src/plans.ts trialDays): "Start your 7-day free trial". */
   trialDays: number;
   /** The account may start its trial now (src/plans.ts canTrial: on Stripe Checkout, with a card). */
   canTrial: boolean;
   /** Back from the trial's Checkout (?done=1&trial=1). */
   trialDone?: boolean;
+  /** From the pricing page's Start a trial (/account/trial, ?trial=1 without done): focus the trial's button. */
+  focusTrial?: boolean;
   /**
    * The $1 card check before a trial (src/stripe.ts cardCheck): how many of the account's cards failed it, when the
    * latest trial attempt's did (null: it has not, or not yet), and how many failures end the trial offer.
@@ -94,8 +96,12 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
   if (plan.id === "free") {
     if (v.access.source === "comp") return `You have <b>${esc(v.access.plan.name)}</b>, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
     if (v.access.source === "trial") return `You are on a <b>${esc(v.access.plan.name)}</b> trial.${v.live ? "" : " Paid plans are not on sale yet."}`;
-    const offer = v.access.trialUsed ? " Your trial has ended." : v.canTrial ? ` Get a ${v.trialDays}-day free trial for analytics. ${esc(trialTerms(v.trialDays))}` : "";
-    const limits = `the runtime and its on-device model, without the dashboard (you have ${apps} app${apps === 1 ? "" : "s"}).${offer}`;
+    const offer = v.access.trialUsed
+      ? " Your trial of Pro has ended."
+      : v.canTrial
+        ? ` Pro adds a year of history, export and forwarding: start your ${v.trialDays}-day free trial. ${esc(trialTerms(v.trialDays))}`
+        : "";
+    const limits = `the dashboard and interaction analytics for every app, with 90 days of history (you have ${apps} app${apps === 1 ? "" : "s"}).${offer}`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
     const ended = overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
@@ -232,7 +238,7 @@ ${
 status and renewal date, and your plan; never card details. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
 </div>
-<script type="application/json" id="cfg">${embed({ want })}</script>`;
+<script type="application/json" id="cfg">${embed(v.focusTrial ? { want, focusTrial: true } : { want })}</script>`;
 
   const script = `
 (function(){
@@ -253,6 +259,7 @@ status and renewal date, and your plan; never card details. <a href="https://gen
     gcBusy(trial, true, "Opening Stripe...");
     gcPost("/api/billing/trial", {}).then(function(j){ location.href = j.url; }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
   });
+  if (cfg.focusTrial && trial) trial.focus();
   var portal = document.getElementById("portal");
   if (portal) portal.addEventListener("click", function(){
     var err = document.getElementById("portalerr"); err.textContent = "";

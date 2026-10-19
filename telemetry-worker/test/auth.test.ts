@@ -149,15 +149,6 @@ async function signedIn(env: Env, email = "ada@example.com", alg = -7) {
   return { auth, cookie: sessionOf(inn.res), account: up.json.account as { id: string; email: string } };
 }
 
-/**
- * Give the account Pro (dashboards come with Pro) the one way that needs no Stripe: GenClass's grant (comp_until, set
- * by hand in production). The trial is a Stripe Checkout with a card (test/trial.test.ts).
- */
-async function givePro(env: Env, cookie: string) {
-  const { json: me1 } = await me(env, { cookie });
-  await env.DB!.prepare("UPDATE accounts SET comp_until = ? WHERE id = ?").bind("9999-12-31T00:00:00.000Z", me1.account.id).run();
-}
-
 async function me(env: Env, o: CallOpts) {
   const r = await call(env, "GET", "/api/me", o);
   return { status: r.status, json: (await r.json()) as any };
@@ -608,9 +599,7 @@ describe("accounts: apps owned by an account", () => {
     await handle(new Request(`${ORIGIN}/api/v1/events`, { method: "POST", body: JSON.stringify(batch("bbbbbbbbbbbb")), headers: { "content-type": "text/plain" } }), env, { now: () => clock });
     const [p] = ((await (await call(env, "GET", "/api/account/projects", { cookie })).json()) as any).projects;
     expect(p).toMatchObject({ first_event: t1, last_event: clock.toISOString() });
-    // collected all along, shown once the account has Pro (here GenClass's grant)
-    expect((await call(env, "GET", `/api/account/projects/${project.id}/stats?range=24h`, { cookie })).status).toBe(402);
-    await givePro(env, cookie);
+    // shown on Free: analytics need no plan, grant or trial
     const st = await call(env, "GET", `/api/account/projects/${project.id}/stats?range=24h`, { cookie });
     expect(st.status).toBe(200);
     expect(((await st.json()) as any).totals.sessions).toBe(2);
@@ -641,8 +630,6 @@ describe("accounts: apps owned by an account", () => {
     const { env, sql } = setup();
     const a = await signedIn(env, "ada@example.com");
     const b = await signedIn(env, "bob@example.com");
-    await givePro(env, a.cookie);
-    await givePro(env, b.cookie);
     const { project } = (await (await call(env, "POST", "/api/account/projects", { body: { name: "Ada's app" }, cookie: a.cookie })).json()) as any;
     const own = await call(env, "GET", `/account/apps/${project.id}`, { cookie: a.cookie });
     expect(own.status).toBe(200);
@@ -1116,7 +1103,7 @@ describe("accounts: GitHub and Google first, an email and a password always; cre
         expect(html, tag).toContain('<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>');
         expect(html, tag).not.toContain("Create account with a passkey");
         expect(html, tag).not.toContain("Sign in with a passkey");
-        expect(html, tag).toContain("Dashboards come with Pro. Get a 7-day free trial for analytics.");
+        expect(html, tag).toContain("The runtime needs no account. The dashboard and its analytics are free for every app.");
       }
       expect(await (await call(env, "GET", "/login", {})).text()).toContain('<a href="/login/forgot">Forgot your password?</a>');
       // there is no passkey sign-up: options without a session are refused and store nothing
@@ -1642,7 +1629,6 @@ describe("accounts: what a CLI session may do", () => {
   it("lists and creates apps and claims, but cannot read stats, end other sessions, remove passkeys, change the password, turn off links or delete the account", async () => {
     const { env, sql } = setup();
     const { cookie } = await signedIn(env);
-    await givePro(env, cookie);
     const bearer = await cliToken(env, cookie);
     // nor start a trial (a browser decision, on Stripe's checkout)
     expect((await call(env, "POST", "/api/billing/trial", { body: {}, bearer, origin: null })).status).toBe(403);
@@ -1869,7 +1855,6 @@ describe("accounts: the Connect panel and the account-mode sidebar", () => {
   it("while an app waits for its first event the sidebar shows Connect only; more than 4 apps collapse to the current one", async () => {
     const { env } = setup();
     const { cookie } = await signedIn(env);
-    await givePro(env, cookie);
     const ids: string[] = [];
     let token = "";
     for (const name of ["a", "b", "c", "d", "e"]) {

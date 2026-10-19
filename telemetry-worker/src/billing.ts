@@ -153,7 +153,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
         current_period_end: b.current_period_end,
         cancel_at_period_end: !!b.cancel_at_period_end,
         on_sale: canBuy(env, a.account),
-        // what the account may use now: its paid plan, or Pro during GenClass's grant or the trial; null when locked
+        // what the account may use now: its paid plan, or Pro during GenClass's grant or the trial; null on Free
         access: access.source,
         trial_ends_at: access.trialEndsAt,
         can_trial: canTrial(access, env, a.account, checks.failures),
@@ -186,6 +186,8 @@ export async function routeBilling(request: Request, url: URL, path: string, env
           trialDays: trialDays(env),
           canTrial: canTrial(access, env, a.account, checks.failures),
           trialDone: url.searchParams.get("trial") === "1",
+          // the pricing page's Start a trial (/account/trial): the button is focused; back from Checkout it is not
+          focusTrial: url.searchParams.get("trial") === "1" && url.searchParams.get("done") !== "1",
           cardCheck: { ...checks, max: CARD_CHECK_MAX_FAILURES },
           now: c.now,
         }),

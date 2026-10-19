@@ -150,7 +150,8 @@ to `https://genclass.dev/api/projects`, writes the token it gets back into what 
 ```
   Your dashboard  https://genclass.dev/dashboard/...
   Keep this link private; it is the only way to open your dashboard.
-  The dashboard needs Pro (get a 7-day free trial for analytics); the link shows how to start one.
+  Free for every app: what GenClass found, on which pages, and what it did, and (with analytics: true)
+  how visitors use each page. Print this link again any time: npx @genclass/runtime dashboard
   Saved in .genclass.local (added to .gitignore).
 ```
 
@@ -335,11 +336,19 @@ where GenClass acts.
 
 ## Your dashboard
 
-**New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
+**New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami`, `logout` or `dashboard`). Each
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
-a GenClass account, or use one private link per app without an account. The dashboard needs Pro (get a 7-day free
-trial for analytics): until the app's account has Pro or a trial, its data is collected and the dashboard stays locked.
+a GenClass account, or use one private link per app without an account. The dashboard and its analytics are free for
+every app, with no plan, trial or card: what GenClass found, on which pages, what it did, and (with `analytics: true`)
+how visitors use each page, over the last 90 days. Pro adds a year of history, export and forwarding.
+
+```bash
+npx @genclass/runtime@beta dashboard # print the link to this app's dashboard (--open: open it in your browser)
+```
+
+`dashboard` reads the private link in `.genclass.local` without contacting anything; signed in, it finds the app in
+your account (one `GET /api/me`), or lists your apps' links.
 
 **With an account:**
 
@@ -415,8 +424,9 @@ token, each telemetry batch carries it and decisions about protected functions c
 changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
 
 **Which version:** the token option, `scope`, `protect()` and the `login`, `connect`, `whoami` and `logout` commands
-are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)). A key needs `@genclass/runtime`
-`0.3.0-beta.0` or later in your app.
+are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)); `dashboard` from `0.3.0-beta.1`. A key
+needs `@genclass/runtime` `0.3.0-beta.0` or later in your app. A dashboard opens on every plan, whichever runtime
+version sends to it.
 
 ## Automatic state discovery
 
@@ -1220,7 +1230,8 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
 - **The CLI** contacts genclass.dev only for the command you run: `init` creates a dashboard only after you approve its
   diff (it sends the `name` from `package.json`); `login` asks for a sign-in code with
   `client_name: "genclass-runtime <version>"` (shown on the approval page and in your account's session list) and
-  polls until you approve it; `whoami` and `connect` read your account's apps; `connect` sends a new app's name, or an
+  polls until you approve it; `whoami`, `connect` and (signed in, without a private link here) `dashboard` read your
+  account's apps; `connect` sends a new app's name, or an
   existing dashboard's link from `.genclass.local` to add it to your account; `logout` ends the CLI session. The
   account requests carry `user-agent: genclass-runtime-cli/<version>`. What an account stores: [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md).
 - Apps that ship GenClass may need to disclose this to their users (GDPR/CCPA). Full schema, storage and guidance: [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).

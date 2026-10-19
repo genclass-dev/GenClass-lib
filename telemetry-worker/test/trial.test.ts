@@ -16,7 +16,6 @@ import {
   fakeStripe,
   GENCLASS_PORTAL,
   now,
-  ORIGIN,
   price,
   resetClock,
   sendBatch,
@@ -29,15 +28,14 @@ import {
   type Fetch,
 } from "./account-helpers.js";
 
-// Dashboards come with Pro (src/plans.ts accountAccess), and the trial of Pro needs a card (src/billing.ts checkout,
-// src/stripe.ts checkoutSession and handleEvent, src/plans.ts canTrial): apps of an account without a plan, GenClass's
-// grant or a trial are collected but their dashboards are locked; one trial per account, which starts only on Stripe
-// Checkout with a payment method collected up front, is granted by the webhook only once Stripe has the trialing
-// subscription and its saved payment method, and ends in the first charge, whose failure is a failed payment like any
-// other. Private links from /start and the 0.3.0-beta.0 CLI's init open a locked page that leads to sign-in, adding the
-// app to an account and the trial's Checkout. Public copy says how long a trial lasts ("Get a 7-day free trial for
-// analytics") and that a card is required: the worker's pages from TRIAL_DAYS (wrangler.toml), the site from
-// billing/plans.json trial_days; they agree.
+// Analytics are free on every plan (test/free-analytics.test.ts); Pro adds a year of history, export and forwarding,
+// and the trial of Pro needs a card (src/billing.ts checkout, src/stripe.ts checkoutSession and handleEvent,
+// src/plans.ts canTrial): one trial per account, which starts only on Stripe Checkout with a payment method collected
+// up front, is granted by the webhook only once Stripe has the trialing subscription and its saved payment method, and
+// ends in the first charge, whose failure is a failed payment like any other. A dashboard never depends on it: it is
+// open before, during and after a trial. The billing page says how long a trial lasts ("start your 7-day free trial")
+// and that a card is required: the worker from TRIAL_DAYS (wrangler.toml), the site from billing/plans.json
+// trial_days; they agree.
 
 const DAY = 86_400_000;
 // a live-mode key: paid plans and the trial on sale to everyone (fetch is always the fake Stripe)
@@ -54,8 +52,8 @@ const trial = (env: Env, cookie: string, o: { origin?: string | null; fetch?: Fe
 const text = async (r: Promise<Response> | Response) => (await r).text();
 const error = async (r: Promise<Response> | Response) => ((await (await r).json()) as any).error as string;
 
-/** The trial's public line and button, with its length (the owner's copy, 2026-10-15). */
-const OFFER = (days = 7) => `Get a ${days}-day free trial for analytics`;
+/** The billing page's offer of the trial, with its length (analytics are free; the trial is of Pro's extras). */
+const OFFER = (days = 7) => `Pro adds a year of history, export and forwarding: start your ${days}-day free trial`;
 const START = (days = 7) => `Start your ${days}-day free trial`;
 /** What every offer of the trial says next to it (2026-10-17: the trial needs a card). */
 const TERMS = (days = 7) => `Card required. Stripe checks it with a $1 hold that is released at once. Nothing is charged for ${days} days; when they end, your card is charged $99 for the first month of Pro, then monthly, unless you cancel before.`;
@@ -101,42 +99,31 @@ async function trialing(over: Partial<Env> = {}) {
   return { ...t, ...a, s, customer, sub, state, send };
 }
 
-describe("dashboards come with Pro: a new account's apps are collected, and their dashboards locked", () => {
-  it("the app's page keeps its key and Connect panel and offers the trial with its card terms; its stats answer 402; ingest keeps counting", async () => {
+describe("Pro is an upgrade, not a lock: a new account's dashboards open, and the billing page offers the trial", () => {
+  it("the app's dashboard and stats open; only the billing page offers the trial, with its card terms, and its button follows Stripe's URL", async () => {
     const { env, sql } = setup(LIVE);
     const { cookie } = await signedIn(env);
     const app = await createApp(env, cookie, "Shop");
     await sendBatch(env, app.token, detection());
     expect(Number(sql.rows("SELECT COUNT(*) AS n FROM daily WHERE token = ?", app.token)[0]!.n)).toBeGreaterThan(0);
     const html = await text(call(env, "GET", `/account/apps/${app.id}`, { cookie }));
-    expect(html).toContain('<h2 id="lock-h">Dashboards come with Pro.</h2>');
-    expect(html).toContain(`<p>${OFFER()}. ${TERMS()}</p>`);
-    expect(html).toContain(`<button class="btn green" type="button" id="trial">${START()}</button>`);
-    expect(html).toContain("Connect this app");
+    expect(html).toContain(`/api/account/projects/${app.id}/stats`);
     expect(html).toContain(app.token);
-    expect(html).not.toContain(`/api/account/projects/${app.id}/stats`);
     expect(html).not.toMatch(/ style="/);
-    const st = await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie });
-    expect(st.status).toBe(402);
-    expect(await st.json()).toEqual({ ok: false, error: "dashboards come with Pro (get a 7-day free trial for analytics)", locked: true, upgrade_url: `${ORIGIN}/account/billing` });
+    expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie })).status).toBe(200);
     const acct = await text(call(env, "GET", "/account", { cookie }));
-    expect(acct).toContain('<section class="blk" id="plan">');
-    expect(acct).toContain(`<h2>Dashboards come with Pro</h2><span class="aside">${OFFER()}</span>`);
-    expect(acct).toContain(`<p class="intro">${TERMS()}</p>`);
-    expect(acct).toContain(`<button class="btn green" type="button" id="trial"><span>${START()}</span></button>`);
+    for (const page of [html, acct]) {
+      expect(page).not.toContain('id="trial"');
+      expect(page).not.toContain(TERMS());
+    }
     const billing = await text(call(env, "GET", "/account/billing", { cookie }));
     expect(billing).toContain(`${OFFER()}. ${TERMS()}`);
-    for (const page of [html, acct, billing]) {
-      expect(page).toContain(START());
-      expect(page).toContain(TERMS());
-      expect(page).not.toMatch(OLD);
-      expect(noCardTrialLines(page)).toEqual([]);
-      // every button posts to the trial's Checkout and follows Stripe's URL; none reloads into Pro
-      expect(page).toContain("/api/billing/trial");
-      expect(page).not.toMatch(/api\/billing\/trial", \{\}\)\.then\(function\(\)\{ location\.(reload|href = "\/account\?started)/);
-    }
-    expect(html).toContain("location.href = j.url;");
-    expect(acct).toContain("location.href = j.url;");
+    expect(billing).toContain(START());
+    expect(billing).not.toMatch(OLD);
+    expect(noCardTrialLines(billing)).toEqual([]);
+    // the button posts to the trial's Checkout and follows Stripe's URL; it never reloads into Pro
+    expect(billing).toContain("/api/billing/trial");
+    expect(billing).not.toMatch(/api\/billing\/trial", \{\}\)\.then\(function\(\)\{ location\.(reload|href = "\/account\?started)/);
     expect(billing).toContain("location.href = j.url;");
   });
 
@@ -192,9 +179,9 @@ describe("the trial needs a card: it starts only on Stripe Checkout, which colle
     });
     expect(session!.form!.has("subscription_data[metadata][genclass_trial]")).toBe(false);
     expect(session!.headers["idempotency-key"]).toMatch(new RegExp(`^genclass-checkout-${account.id}-pro-\\d+-trial$`));
-    // opening Stripe's page grants nothing: no trial dates, no plan, the dashboard still locked
+    // opening Stripe's page grants nothing: no trial dates, no plan, still Free's 90 days (the dashboard is open either way)
     expect(sql.rows("SELECT plan, trial_started_at, trial_ends_at, comp_until FROM accounts")).toEqual([{ plan: "free", trial_started_at: null, trial_ends_at: null, comp_until: null }]);
-    expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie })).status).toBe(402);
+    expect(((await (await call(env, "GET", `/api/account/projects/${app.id}/stats?range=1y`, { cookie })).json()) as any).range).toBe("90d");
 
     // a second click (or tab) gets the same page; Upgrade to Pro closes it and opens one without a trial; the trial
     // again closes that one
@@ -222,16 +209,15 @@ describe("the trial needs a card: it starts only on Stripe Checkout, which colle
     expect(back).not.toContain("data-plan=");
   });
 
-  it("TRIAL_DAYS is the trial's length on Stripe, and every page that offers the trial says it, with the card terms", async () => {
+  it("TRIAL_DAYS is the trial's length on Stripe, and the billing page, which offers the trial, says it with the card terms", async () => {
     const { env } = setup({ ...LIVE, TRIAL_DAYS: "3" });
     const { cookie } = await signedIn(env);
-    const app = await createApp(env, cookie);
-    for (const path of ["/account", "/account/billing", `/account/apps/${app.id}`]) {
-      const page = await text(call(env, "GET", path, { cookie }));
-      expect(page, path).toContain(START(3));
-      expect(page, path).toContain(TERMS(3));
-    }
-    for (const path of ["/start", "/login", "/signup"]) expect(await text(call(env, "GET", path, {})), path).toContain(OFFER(3));
+    const billing = await text(call(env, "GET", "/account/billing", { cookie }));
+    expect(billing).toContain(OFFER(3));
+    expect(billing).toContain(START(3));
+    expect(billing).toContain(TERMS(3));
+    // no other page offers it: the dashboard needs no trial
+    for (const path of ["/start", "/login", "/signup"]) expect(await text(call(env, "GET", path, {})), path).not.toMatch(/-day free trial/);
     const s = fakeStripe();
     expect((await trial(env, cookie, { fetch: s.fetch })).status).toBe(200);
     expect(sessionPosts(s)[0]!.form!.get("subscription_data[trial_period_days]")).toBe("3");
@@ -267,13 +253,11 @@ describe("the trial needs a card: it starts only on Stripe Checkout, which colle
         expect(page, path).not.toContain('id="trial"');
         expect(page, path).not.toContain(TERMS());
         expect(page, path).not.toContain("Your trial has ended");
-        if (path !== "/account/billing") expect(page, path).toContain('href="/account/billing">See plans</a>');
       }
-      expect(await text(call(env, "GET", `/account/apps/${app.id}`, { cookie }))).toContain("<p>Pick a plan to open it.</p>");
+      // the dashboard is open all the same, and Free has no app limit
+      expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie })).status).toBe(200);
       expect(((await (await call(env, "GET", "/api/billing", { cookie })).json()) as any).can_trial).toBe(false);
-      // the Free plan's app limit applies all the same
-      for (const n of ["b", "c"]) await createApp(env, cookie, n);
-      expect((await call(env, "POST", "/api/account/projects", { body: { name: "d" }, cookie })).status).toBe(409);
+      for (const n of ["b", "c", "d"]) await createApp(env, cookie, n);
     }
   });
 
@@ -393,7 +377,7 @@ describe("the webhook grants the trial only once Stripe has it with a saved paym
     await planRetention(t.sql.api, now());
     expect(t.state()).toMatchObject({ plan: "free", subscription_status: "past_due", past_due_since: failed });
     const ended = await text(call(t.env, "GET", "/account/billing", { cookie: t.cookie }));
-    expect(ended).toContain("Your trial has ended.");
+    expect(ended).toContain("Your trial of Pro has ended.");
     expect(ended).toContain("The last payment for your paid plan did not go through, so it has ended.");
     expect(ended).not.toContain('id="trial"');
     // paying the open invoice brings Pro back, as for any failed renewal; a new trial never does
@@ -415,9 +399,10 @@ describe("the webhook grants the trial only once Stripe has it with a saved paym
     t.sub.ended_at = T0S + 7 * 86_400;
     expect(await t.send("customer.subscription.deleted")).toBe("applied");
     expect(t.state()).toMatchObject({ plan: "free", subscription_status: "canceled", trial_started_at: new Date(T0S * 1000).toISOString() });
+    // back on Free: the dashboard stays open, over Free's 90 days
     const app = await createApp(t.env, t.cookie);
-    expect((await call(t.env, "GET", `/api/account/projects/${app.id}/stats`, { cookie: t.cookie })).status).toBe(402);
-    expect(await text(call(t.env, "GET", `/account/apps/${app.id}`, { cookie: t.cookie }))).toContain("<p>Your trial has ended.</p>");
+    expect(((await (await call(t.env, "GET", `/api/account/projects/${app.id}/stats?range=1y`, { cookie: t.cookie })).json()) as any).range).toBe("90d");
+    expect(await text(call(t.env, "GET", `/account/apps/${app.id}`, { cookie: t.cookie }))).not.toContain('id="trial"');
     expect((await trial(t.env, t.cookie, { fetch: t.s.fetch })).status).toBe(409);
   });
 });
@@ -560,7 +545,7 @@ describe("the $1 card check: Stripe holds $1 on the trial's card and releases it
 });
 
 describe("trials from before cards (trial_ends_at): they run to their end; nothing starts one any more", () => {
-  it("a no-card trial already running keeps Pro and its days-left line to its end, then the dashboard locks for good", async () => {
+  it("a no-card trial already running keeps Pro and its days-left line to its end, then the account is on Free: the dashboard stays open", async () => {
     const { env, sql } = setup(LIVE);
     const { cookie, account } = await signedIn(env);
     const app = await createApp(env, cookie);
@@ -572,12 +557,12 @@ describe("trials from before cards (trial_ends_at): they run to their end; nothi
     expect((await call(env, "GET", `/api/account/projects/${app.id}/events`, { cookie })).status).toBe(200);
     advance(6 * DAY + 1000);
     resetOwnerCache();
-    expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { cookie })).status).toBe(402);
-    const locked = await text(call(env, "GET", `/account/apps/${app.id}`, { cookie }));
-    expect(locked).toContain("<p>Your trial has ended.</p>");
-    expect(locked).not.toContain('id="trial"');
-    expect(locked).toContain('<a class="btn green" href="/account/billing">See plans</a>');
-    expect(await text(call(env, "GET", "/account", { cookie }))).toContain('<span class="aside">Your trial has ended</span>');
+    expect(((await (await call(env, "GET", `/api/account/projects/${app.id}/stats?range=1y`, { cookie })).json()) as any).range).toBe("90d");
+    const after = await text(call(env, "GET", `/account/apps/${app.id}`, { cookie }));
+    expect(after).toContain(`/api/account/projects/${app.id}/stats`);
+    expect(after).not.toContain('id="trialn"');
+    expect(after).not.toContain('id="trial"');
+    expect(await text(call(env, "GET", "/account/billing", { cookie }))).toContain("Your trial of Pro has ended.");
     expect((await trial(env, cookie, { fetch: fakeStripe().fetch })).status).toBe(409);
   });
 
@@ -626,8 +611,8 @@ describe("trials from before cards (trial_ends_at): they run to their end; nothi
   });
 });
 
-describe("private links without Pro: sign in, add the app to the account, go to the trial's Checkout", () => {
-  it("POST /api/projects (/start, and the 0.3.0-beta.0 CLI's init) answers as before; its link opens the locked page", async () => {
+describe("private links, the pricing page's Start a trial, and the copy about the trial", () => {
+  it("POST /api/projects (/start, and the 0.3.0-beta.0 CLI's init) answers as before; its link opens the dashboard, with no account", async () => {
     const { env } = setup();
     const r = await call(env, "POST", "/api/projects", { body: { name: "shop-web" }, origin: null });
     expect(r.status).toBe(201);
@@ -639,114 +624,79 @@ describe("private links without Pro: sign in, add the app to the account, go to 
       created: now().toISOString(),
     });
     const path = new URL(j.dashboardUrl).pathname;
-    const secret = path.split("/").pop()!;
     const page = await call(env, "GET", path, { origin: null });
     expect(page.status).toBe(200);
     expect(page.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await page.text();
-    expect(html).toContain("<h1>Dashboards come with Pro.</h1>");
-    expect(html).toContain(`<p class="lead">${OFFER()}.</p>`);
-    expect(html).toContain('<div class="eb">shop-web</div>');
-    // no OAuth on this server: sign in or sign up (an email and a password), then back here through /account?claim=1
-    expect(html).toContain('href="/login?next=%2Faccount%3Fclaim%3D1"');
-    expect(html).toContain('href="/signup?next=%2Faccount%3Fclaim%3D1"');
-    expect(html).toContain('sessionStorage.setItem("gc.claim", secret)');
-    expect(html).not.toContain(secret);
+    expect(html).toContain('id="content"');
+    expect(html).not.toContain('id="trial"');
     expect(html).not.toMatch(OLD);
-    // with Google: Continue with Google first, then Sign in (every other way in is on that page)
-    const g = setup({ GOOGLE_CLIENT_ID: "client-1", GOOGLE_CLIENT_SECRET: "s" });
-    const gj = (await (await call(g.env, "POST", "/api/projects", { body: {}, origin: null })).json()) as any;
-    const gh = await text(call(g.env, "GET", new URL(gj.dashboardUrl).pathname, { origin: null }));
-    expect(gh).toContain('href="/auth/google?next=%2Faccount%3Fclaim%3D1"');
-    expect(gh.indexOf("Continue with Google")).toBeLessThan(gh.indexOf('href="/login?next=%2Faccount%3Fclaim%3D1"'));
+    expect((await call(env, "GET", `/api/projects/${path.split("/").pop()}`, { origin: null })).status).toBe(200);
   });
 
-  it("signed in: the page adds the app to the account and opens the trial's Checkout; the link opens the dashboard once Stripe has the trial", async () => {
+  it("a link keeps opening the dashboard before, during and after its account's trial", async () => {
     const { env, sql } = setup(LIVE);
     const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old shop" }, origin: null })).json()) as any;
     const path = new URL(anon.dashboardUrl).pathname;
     const secret = path.split("/").pop()!;
     const { cookie, account } = await signedIn(env);
-    // back from signing in: /account?claim=1 returns to the link this tab kept
-    const back = await text(call(env, "GET", "/account?claim=1", { cookie }));
-    expect(back).toContain('"claim":true');
-    expect(back).toContain('location.replace("/dashboard/" + s)');
-    const html = await text(call(env, "GET", path, { cookie }));
-    expect(html).toContain(`<button class="btn prov green" id="claim" type="button" data-trial="1"><span>Add to my account and start your 7-day free trial</span></button>`);
-    expect(html).toContain(`<p class="opt">${TERMS()} The app keeps its key and its data.</p>`);
-    expect(html).toContain('gcPost("/api/account/projects/claim", { secret: secret })');
-    // what the button does: /account's claim, then the trial's Checkout (Stripe's page, where the card is entered)
-    expect(html).toContain('return gcPost("/api/billing/trial", {}).then(function(t){ if (t && t.url) location.href = t.url; else go(); }, go);');
     expect((await call(env, "POST", "/api/account/projects/claim", { body: { secret }, cookie })).status).toBe(200);
-    const mine = await text(call(env, "GET", path, { cookie }));
-    expect(mine).toContain('id="trial"');
-    expect(mine).toContain(`<p class="opt">${TERMS()}</p>`);
+    const open = async () => {
+      resetOwnerCache();
+      expect((await call(env, "GET", `/api/projects/${secret}`, { origin: null })).status).toBe(200);
+      expect(await text(call(env, "GET", path, { origin: null }))).toContain('id="content"');
+    };
+    await open();
     const s = fakeStripe();
     expect(await (await trial(env, cookie, { fetch: s.fetch })).json()).toMatchObject({ url: expect.stringMatching(/^https:\/\/checkout\.stripe\.com\//), trial: true });
-    // still locked: opening Checkout is not a trial
-    expect(await text(call(env, "GET", path, { origin: null }))).toContain("Dashboards come with Pro.");
-    // Stripe has the trialing subscription with its card: the link opens the dashboard for whoever holds it
     const customer = String(sql.rows("SELECT stripe_customer_id FROM accounts WHERE id = ?", account.id)[0]!.stripe_customer_id);
     s.subs.set("sub_trial00001", trialSub("sub_trial00001", account.id, customer));
     expect((await deliver(env, stripeEvent("customer.subscription.created", s.subs.get("sub_trial00001")!), s.fetch)).status).toBe(200);
-    resetOwnerCache();
-    expect(await text(call(env, "GET", path, { origin: null }))).not.toContain("Dashboards come with Pro.");
-    expect((await call(env, "GET", `/api/projects/${secret}`, { origin: null })).status).toBe(200);
+    await open();
     expect(sql.rows("SELECT account_id FROM projects WHERE token = ?", anon.token)).toEqual([{ account_id: account.id }]);
+    advance(8 * DAY);
+    s.subs.get("sub_trial00001")!.status = "canceled";
+    expect((await deliver(env, stripeEvent("customer.subscription.deleted", s.subs.get("sub_trial00001")!), s.fetch)).status).toBe(200);
+    await open();
   });
 
-  it("another account's app says so; an account whose trial ended can still add an app and is shown the plans", async () => {
-    const { env, sql } = setup(LIVE);
-    const anon = (await (await call(env, "POST", "/api/projects", { body: { name: "Old shop" }, origin: null })).json()) as any;
-    const path = new URL(anon.dashboardUrl).pathname;
-    const ada = await signedIn(env, "ada@example.com");
-    const bob = await signedIn(env, "bob@example.com");
-    sql.db.prepare("UPDATE accounts SET trial_started_at = ?, trial_ends_at = ? WHERE id = ?").run("2026-09-01T00:00:00.000Z", "2026-09-08T00:00:00.000Z", bob.account.id);
-    const bobPage = await text(call(env, "GET", path, { cookie: bob.cookie }));
-    expect(bobPage).toContain('data-trial="0"><span>Add to my account</span>');
-    expect(bobPage).toContain('<p class="opt">Your trial has ended. <a href="/account/billing">See plans</a></p>');
-    expect(bobPage).not.toContain(TERMS());
-    expect((await call(env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie: ada.cookie })).status).toBe(200);
-    expect(await text(call(env, "GET", path, { cookie: bob.cookie }))).toContain("This app is in another GenClass account.");
-    expect(await text(call(env, "GET", path, {}))).toContain("Then add this app to your account.");
-  });
-
-  it("GET /account/trial (the pricing page's button) leads to the account's Start your trial, through sign-up; a GET opens nothing", async () => {
+  it("GET /account/trial (the pricing page's button) leads to the billing page's Start your trial, through sign-up; a GET opens nothing", async () => {
     const { env, sql } = setup(LIVE);
     const s = fakeStripe();
-    expect((await call(env, "GET", "/account/trial", { fetch: s.fetch })).headers.get("location")).toBe("/signup?next=%2Faccount%3Ftrial%3D1");
+    expect((await call(env, "GET", "/account/trial", { fetch: s.fetch })).headers.get("location")).toBe("/signup?next=%2Faccount%2Fbilling%3Ftrial%3D1");
     const { cookie } = await signedIn(env);
-    expect((await call(env, "GET", "/signup?next=%2Faccount%3Ftrial%3D1", { cookie })).headers.get("location")).toBe("/account?trial=1");
-    expect((await call(env, "GET", "/account/trial", { cookie, fetch: s.fetch })).headers.get("location")).toBe("/account?trial=1");
+    expect((await call(env, "GET", "/signup?next=%2Faccount%2Fbilling%3Ftrial%3D1", { cookie })).headers.get("location")).toBe("/account/billing?trial=1");
+    expect((await call(env, "GET", "/account/trial", { cookie, fetch: s.fetch })).headers.get("location")).toBe("/account/billing?trial=1");
     expect(s.calls).toEqual([]);
     expect(sql.rows("SELECT trial_started_at FROM accounts")).toEqual([{ trial_started_at: null }]);
-    const page = await text(call(env, "GET", "/account?trial=1", { cookie }));
-    expect(page).toContain('"trial":true');
-    expect(page).toContain("if (cfg.trial) trial.focus();");
+    const page = await text(call(env, "GET", "/account/billing?trial=1", { cookie }));
+    expect(page).toContain('"focusTrial":true');
+    expect(page).toContain("if (cfg.focusTrial && trial) trial.focus();");
     expect(page).toContain(TERMS());
     expect((await trial(env, cookie, { fetch: s.fetch })).status).toBe(200);
     // the old "started" notice is gone: Stripe's success page comes back to the billing page
     expect(await text(call(env, "GET", "/account?started=1", { cookie }))).not.toContain("Your Pro trial has started.");
   });
 
-  it("public pages say how long a trial lasts, from TRIAL_DAYS, never the days left, and never that it needs no card", async () => {
+  it("only the billing page offers the trial, with its length from TRIAL_DAYS; no page says the days left or that it needs no card", async () => {
     const { env } = setup(LIVE);
     const pages = [await text(call(env, "GET", "/start", {})), await text(call(env, "GET", "/signup", {})), await text(call(env, "GET", "/login", {}))];
     const { cookie } = await signedIn(env);
-    pages.push(await text(call(env, "GET", "/account", { cookie })), await text(call(env, "GET", "/account/billing", { cookie })));
-    for (const p of pages) {
-      expect(p).toContain(OFFER());
+    pages.push(await text(call(env, "GET", "/account", { cookie })));
+    const billing = await text(call(env, "GET", "/account/billing", { cookie }));
+    for (const p of [...pages, billing]) {
       expect(p).not.toMatch(OLD);
       expect(p).not.toMatch(/days? left/i);
       expect(noCardTrialLines(p)).toEqual([]);
     }
-    expect(pages[0]).toContain(`Dashboards come with Pro. ${OFFER()}.`);
-    expect(pages[1]).toContain(`<p class="opt">The runtime needs no account. Dashboards come with Pro. ${OFFER()}.</p>`);
-    const fourteen = setup({ TRIAL_DAYS: "14" });
-    expect(await text(call(fourteen.env, "GET", "/login", {}))).toContain(OFFER(14));
+    for (const p of pages) expect(p).not.toMatch(/-day free trial/);
+    expect(billing).toContain(OFFER());
+    const fourteen = setup({ ...LIVE, TRIAL_DAYS: "14" });
+    const f = await signedIn(fourteen.env);
+    expect(await text(call(fourteen.env, "GET", "/account/billing", { cookie: f.cookie }))).toContain(OFFER(14));
   });
 
-  it("one number per side: wrangler.toml TRIAL_DAYS equals billing/plans.json trial_days, and the CLI's copy says the same", () => {
+  it("one number per side: wrangler.toml TRIAL_DAYS equals billing/plans.json trial_days; the CLI never says the dashboard needs Pro", () => {
     const toml = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
     const days = /^TRIAL_DAYS = "(\d+)"$/m.exec(toml)?.[1];
     expect(days).toBeDefined();
@@ -754,10 +704,11 @@ describe("private links without Pro: sign in, add the app to the account, go to 
     expect(plans.trial_days).toBe(Number(days));
     expect(trialDays({ BUCKET: { async put() {} }, TRIAL_DAYS: days })).toBe(plans.trial_days);
     // the site (genclass-dev/genclass-site) reads the same field from this file through its lib/ submodule
-    // the CLI states it in plain text (packages/runtime/bin): the same number
+    // the CLI (packages/runtime/bin) says the dashboard is free, and never that it needs Pro or a trial
     for (const f of ["../../packages/runtime/bin/genclass-runtime.mjs", "../../packages/runtime/bin/lib/init.mjs"]) {
       const cli = readFileSync(new URL(f, import.meta.url), "utf8");
-      expect(cli, f).toMatch(new RegExp(`get a ${plans.trial_days}-day free trial\\s+for\\s+analytics`));
+      expect(cli, f).not.toMatch(/needs\s+Pro|free\s+trial|trial\s+for\s+analytics/i);
+      expect(cli, f).toMatch(/free/i);
       expect(cli, f).not.toMatch(/trials available/i);
     }
   });
