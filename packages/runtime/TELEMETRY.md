@@ -272,7 +272,7 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.
 - **Use:** model evaluation and training by the GenClass maintainers (never `interactions` events: those are only for
-  the app's dashboard and export), and, for batches that carry a token, that app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
+  the app's dashboard and export), and, for batches that carry a token, that app's dashboard. For an app in a genclass.dev account (any plan, Free included), also what that account's owner
   turns on: an export of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
   trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
   advertising.
