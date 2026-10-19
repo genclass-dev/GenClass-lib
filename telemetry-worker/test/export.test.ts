@@ -1,10 +1,14 @@
 import { gzipSync } from "node:zlib";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetTokenCache } from "../src/dashboard.js";
 import { csvCell, decodeCursor, encodeCursor } from "../src/export.js";
 import { resetOwnerCache } from "../src/paid.js";
 import { longRetention, planRetention } from "../src/plans.js";
 import { call, cliToken, createApp, detection, now, resetClock, sendBatch, setPlan, setup, signedIn } from "./account-helpers.js";
+
+// On the plans as they were before 2026-10-19 (test/fixtures/plans-two-paid.json), where Free has neither export nor
+// forwarding, so the paid-only paths stay tested. With the real plans (test/plans.test.ts) every plan has both.
+vi.mock("../../billing/plans.json", async () => ({ default: (await import("./fixtures/plans-two-paid.json")).default }));
 
 // Export (src/export.ts) and plan-aware retention (src/plans.ts): every event of an owned app as JSONL or CSV from the
 // stored R2 batches, paid plans only, by browser session or export key, never another app's events; the daily sweep
@@ -42,7 +46,7 @@ describe("export: GET /api/account/projects/<id>/events", () => {
     expect(((await cli.json()) as any).error).toMatch(/command line session cannot read the export/);
     // Free has no dashboard: the app's page is locked, with no export form
     const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
-    expect(html).toContain("Dashboards come with Pro.");
+    expect(html).toContain("This app's plan has no dashboard.");
     expect(html).not.toContain('id="exf"');
   });
 

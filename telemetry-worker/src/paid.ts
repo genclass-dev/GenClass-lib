@@ -1,9 +1,9 @@
 // What the collector does after storing a batch from an app in an account, beyond the dashboard counters: index the
 // batch for the export (copied under export/ when the owner's plan keeps more than 90 days) when the owner's plan
 // includes export, and forward its detections when the owner's plan includes forwarding and a destination is on. The
-// owner's plan is what src/plans.ts accessOf says: the paid plan, or Pro during GenClass's grant or the trial. Apps
-// on Free and apps without an account (private links only) cannot export or forward, so their batches cost nothing
-// more: no index row, no copy. Runs in waitUntil; never affects the response.
+// owner's plan is what src/plans.ts accessOf says: the paid plan or GenClass's grant, else Free (which includes
+// export and forwarding today). Apps without an account (private links only) cannot export or forward, so their
+// batches cost nothing more: no index row, no copy. Runs in waitUntil; never affects the response.
 
 import type { BucketLike, Env } from "./collector.js";
 import { RETENTION_DAYS, type D1Like } from "./dashboard.js";
@@ -30,8 +30,8 @@ export const forgetOwner = (token: string): boolean => owners.delete(token);
 
 /**
  * The app behind a token, its owner's plan and how many destinations are on (cached a minute per isolate). `mode`: the
- * current Stripe key's; a plan bought in test mode counts only under a test key (src/plans.ts inMode). A grant or a
- * trial gives Pro's entitlements while it runs (accessOf).
+ * current Stripe key's; a plan bought in test mode counts only under a test key (src/plans.ts inMode). A grant gives
+ * its plan's entitlements while it runs (accessOf).
  */
 export async function ownerOf(db: D1Like, token: string, nowMs: number, mode: StripeMode | null = null): Promise<Owner | null> {
   const c = owners.get(token);

@@ -150,7 +150,7 @@ to `https://genclass.dev/api/projects`, writes the token it gets back into what 
 ```
   Your dashboard  https://genclass.dev/dashboard/...
   Keep this link private; it is the only way to open your dashboard.
-  The dashboard needs Pro (get a 7-day free trial for analytics); the link shows how to start one.
+  The dashboard is free; the link opens it.
   Saved in .genclass.local (added to .gitignore).
 ```
 
@@ -338,8 +338,8 @@ where GenClass acts.
 **New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
-a GenClass account, or use one private link per app without an account. The dashboard needs Pro (get a 7-day free
-trial for analytics): until the app's account has Pro or a trial, its data is collected and the dashboard stays locked.
+a GenClass account, or use one private link per app without an account. The dashboard is free for every app, with
+90 days of history; [Individual](https://genclass.dev/pricing) adds a classifier GenClass trains for you.
 
 **With an account:**
 

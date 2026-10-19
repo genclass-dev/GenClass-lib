@@ -1,8 +1,8 @@
 // HTML for https://genclass.dev/start (get a token) and https://genclass.dev/dashboard/<secret> (the dashboard), and
 // the shell and dashboard the account pages (src/account-pages.ts) reuse: /account/apps/<id> is this dashboard in its
-// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API). Dashboards come
-// with Pro: an app whose account has no plan, grant or trial gets the locked account mode (the key and the Connect
-// panel, a way to Pro, no stats); a locked private link is account-pages.ts lockedLinkPage.
+// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API). Every plan includes
+// the dashboard (billing/plans.json); a plan file that left it out would give the locked account mode (the key and
+// the Connect panel, the plans, no stats), and a locked private link is account-pages.ts lockedLinkPage.
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
@@ -274,14 +274,13 @@ export const SIGNED_IN_NAV =
 
 // ------------------------------------------------------------------------------------------------- /start
 
-export function startPage(nonce: string, opts: { runtimeReady?: boolean; trialDays?: number } = {}): string {
-  const days = opts.trialDays ?? 7;
+export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}): string {
   const notYet = opts.runtimeReady === true ? "" : `<p class="note small" id="notyet">${NOT_ON_NPM}</p>`;
   const body = `
 <section class="stack mt-xl">
   <h1>Get a token for your web app</h1>
   <p class="lead">One token per app. Add it to GenClass and every page load, detection and fix is collected for the
-  app's private dashboard. Dashboards come with Pro. Get a ${days}-day free trial for analytics.</p>
+  app's private dashboard. The dashboard is free.</p>
   <p class="muted small">To keep several apps in one place, <a href="/signup">create an account</a> or <a href="/login">sign in</a>.</p>
 </section>
 <section>
@@ -300,8 +299,7 @@ export function startPage(nonce: string, opts: { runtimeReady?: boolean; trialDa
   <div class="card stack">
     <h2>Your private dashboard link</h2>
     <div class="note"><strong>Save this link now.</strong> It is the only way back to your dashboard; we cannot recover it.
-    It opens the dashboard with Pro, and until then lets you add the app to your account and start your ${days}-day free trial. Do not
-    commit it to code.</div>
+    It opens the dashboard, and lets you add the app to your account. Do not commit it to code.</div>
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
     <div class="row"><a id="open" class="btn green" href="#">Open dashboard</a></div>
   </div>
@@ -506,8 +504,6 @@ main.wrap:has(.app){max-width:1360px}
 .connect .fine{font-size:13px;color:var(--ink3);margin-top:14px;max-width:90ch}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
-.trialn{font:500 12.5px var(--mono);color:var(--accent);margin-top:10px}
-.trialn a{color:var(--ink2)}
 .lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);max-width:72ch}
 .lock h2{font:500 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
 .lock p{font-size:16px;color:var(--ink2);margin-top:8px}
@@ -1073,19 +1069,6 @@ const CONNECT_JS = `
   document.addEventListener("visibilitychange", tick);
 })();`;
 
-// The locked account mode's one button: open the trial's Stripe Checkout, where the card is entered (src/billing.ts).
-const LOCK_JS = `
-(function(){
-  var b = document.getElementById("trial"); if (!b) return;
-  var err = document.getElementById("lockerr"), label = b.textContent;
-  b.addEventListener("click", function(){
-    err.textContent = ""; b.disabled = true; b.textContent = "Opening Stripe...";
-    fetch("/api/billing/trial", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json" }, body: "{}" })
-      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok || !j || !j.url) throw new Error((j && j.error) || ("HTTP " + r.status)); return j; }); })
-      .then(function(j){ location.href = j.url; }, function(e){ var m = e.message || "something went wrong"; err.textContent = m.charAt(0).toUpperCase() + m.slice(1) + "."; b.disabled = false; b.textContent = label; });
-  });
-})();`;
-
 export interface DashboardOptions {
   /** Owned-app mode (/account/apps/<id>): the account's apps in the sidebar, the Connect panel, account stats API. */
   account?: { apps: { id: string; name: string }[]; current: string; email: string | null };
@@ -1107,13 +1090,10 @@ export interface DashboardOptions {
   /** Account mode: plan-dependent sections (forwarding, export; src/billing-pages.ts) and their script. */
   extra?: { html: string; script: string };
   /**
-   * Account mode, locked: the account has no plan, grant or trial (dashboards come with Pro). The page keeps the app's
-   * key and the Connect panel and offers the trial (canTrial: on Stripe, with a card; `terms` says it, src/plans.ts
-   * trialTerms) or the plans; no stats are loaded.
+   * Account mode, locked: the account's plan has no dashboard (a plan file without it; none today). The page keeps
+   * the app's key and the Connect panel and links the plans; no stats are loaded.
    */
-  locked?: { trialUsed: boolean; canTrial: boolean; trialDays: number; terms: string };
-  /** Account mode, on the trial: whole days left, said here and nowhere else. */
-  trialDaysLeft?: number;
+  locked?: boolean;
 }
 
 const RANGE_LABELS: Record<string, string> = { "24h": "24 h", "7d": "7 days", "30d": "30 days", "90d": "90 days", "1y": "1 year" };
@@ -1179,7 +1159,7 @@ export function dashboardPage(
   opts: DashboardOptions = {},
 ): string {
   const acct = opts.account;
-  if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct, locked: opts.locked });
+  if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !!acct && !project.lastEvent;
   const data = acct ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true } : project;
   const apps = acct ? accountApps(acct) : "";
@@ -1243,7 +1223,6 @@ export function dashboardPage(
 <section class="dh" id="top">
   <h1 id="pname"></h1>
   <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button></div>
-  ${acct && opts.trialDaysLeft ? `<p class="trialn" id="trialn">Pro trial: ${opts.trialDaysLeft === 1 ? "last day" : `${opts.trialDaysLeft} days left`}. <a href="/account/billing">See plans</a></p>` : ""}
   <p class="summary" id="summary"></p>
 </section>
 ${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
@@ -1331,20 +1310,18 @@ function accountApps(acct: NonNullable<DashboardOptions["account"]>): string {
 }
 
 /**
- * /account/apps/<id> for an account without a plan, grant or trial: the app's name, "Dashboards come with Pro" with
- * the trial (when the account may start it, with its card terms) and the plans, then the Connect panel (connecting is
- * free: the app's data is collected so the dashboard starts with it). No stats are fetched.
+ * /account/apps/<id> for an account whose plan has no dashboard (a plan file without it; none today): the app's name,
+ * the plans, then the Connect panel (connecting is free: the app's data is collected so the dashboard starts with it).
+ * No stats are fetched.
  */
 function lockedDashboardPage(
   nonce: string,
   project: { name: string; token: string; created: string; lastEvent: string | null },
-  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]>; locked: NonNullable<DashboardOptions["locked"]> },
+  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]> },
 ): string {
   const data = { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, account: true, locked: true };
-  const offer = opts.locked.canTrial;
-  const line = offer ? `Get a ${opts.locked.trialDays}-day free trial for analytics. ${esc(opts.locked.terms)}` : opts.locked.trialUsed ? "Your trial has ended." : "Pick a plan to open it.";
   const privacy = opts.privateLink
-    ? "This app also has the private dashboard link it had before it joined your account; with Pro, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
+    ? "This app also has the private dashboard link it had before it joined your account; once its plan has the dashboard, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
     : "Only you can open this page, while signed in.";
   const body = `
 <script type="application/json" id="project">${embed(data)}</script>
@@ -1361,14 +1338,13 @@ function lockedDashboardPage(
   <h1 id="pname">${esc(project.name)}</h1>
 </section>
 <section class="lock" id="lock" aria-labelledby="lock-h">
-  <h2 id="lock-h">Dashboards come with Pro.</h2>
-  <p>${line}</p>
-  <div class="acts">${offer ? `<button class="btn green" type="button" id="trial">Start your ${opts.locked.trialDays}-day free trial</button>` : ""}<a class="btn ${offer ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
-  <p class="err" id="lockerr" role="alert"></p>
+  <h2 id="lock-h">This app's plan has no dashboard.</h2>
+  <p>Pick a plan to open it.</p>
+  <div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>
 </section>
 ${connectPanel(project.token, false, opts.runtimeReady === true)}
 <footer class="dfoot">${privacy} <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/account">All apps</a></footer>
 </div>
 </div>`;
-  return shell(nonce, `${project.name} | GenClass dashboard`, body, CONNECT_JS + LOCK_JS, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
+  return shell(nonce, `${project.name} | GenClass dashboard`, body, CONNECT_JS, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
 }

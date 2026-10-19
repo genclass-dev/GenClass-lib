@@ -62,8 +62,8 @@ const USAGE = `Usage:
   genclass-runtime info <dir>
 
 init sets GenClass up in the current project (shows the diff and asks first) and, once you approve, creates this
-app's token and private dashboard link at genclass.dev (the dashboard needs Pro; get a 7-day free trial for
-analytics; --no-token: no network); remove undoes it
+app's token and private dashboard link at genclass.dev (the dashboard is free; --no-token: no network); remove
+undoes it
 (\`genclass-runtime init --help\` for details).
 login signs you in to your GenClass account in the browser and connects the app in this folder; connect does the
 second half alone; whoami shows the account and its apps; logout ends the CLI session

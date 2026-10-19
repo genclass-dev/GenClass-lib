@@ -1,9 +1,13 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/collector.js";
 import { resetTokenCache } from "../src/dashboard.js";
 import { checkConfig, detectionRecords, HOURLY_CAP, maskConfig, openConfig, parseSentryDsn, publicHttpsUrl, sealConfig, webhookSignature } from "../src/forward.js";
 import { resetOwnerCache } from "../src/paid.js";
 import { advance, call, createApp, detection, resetClock, sendBatch, setPlan, setup, signedIn, now, type Fetch } from "./account-helpers.js";
+
+// On the plans as they were before 2026-10-19 (test/fixtures/plans-two-paid.json), where Free has neither export nor
+// forwarding, so the paid-only paths stay tested. With the real plans (test/plans.test.ts) every plan has both.
+vi.mock("../../billing/plans.json", async () => ({ default: (await import("./fixtures/plans-two-paid.json")).default }));
 
 // Forwarding (src/forward.ts): paid plans only, settings encrypted at rest with INTEGRATIONS_KEY, one request per
 // record to Sentry, PostHog, Datadog, Slack or a signed webhook, never page text, dedupe per (app, diagnosis and route,
@@ -150,7 +154,7 @@ describe("forwarding: paid plans only", () => {
     expect(await r.json()).toMatchObject({ upgrade_url: "https://genclass.dev/account/billing" });
     // Free has no dashboard: the app's page is locked, with no forwarding settings
     const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
-    expect(html).toContain("Dashboards come with Pro.");
+    expect(html).toContain("This app's plan has no dashboard.");
     expect(html).not.toContain('data-kind="slack"');
   });
 

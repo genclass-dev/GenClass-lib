@@ -24,10 +24,10 @@
   changed (`situation-v2.3`), and nothing reaches a situation, a decision or the model. First-load cost of the stub:
   about 0.29 KB gzip on `/auto` and 0.27 KB on the main entry (TELEMETRY.md "Interaction analytics", README "Privacy
   and telemetry", API.md, INTERCEPTION.md).
-- **CLI copy: the dashboard needs Pro (get a 7-day free trial for analytics).** genclass.dev's dashboards now come
-  with Pro; `init`'s dashboard notice and help, the top-level help and the README say so next to the private
-  dashboard link, with the trial's length (7 days, the same as `trial_days` in `billing/plans.json`). A link made by
-  0.3.0-beta.0's `init` opens a page that leads to the trial. No runtime code and no model-visible text changed.
+- **CLI copy: the dashboard is free.** genclass.dev's dashboard is free for every app (every plan in
+  `billing/plans.json` includes it, with analytics, export and forwarding; there is no trial): `init`'s dashboard
+  notice and help, the top-level help and the README say so next to the private dashboard link. A link made by
+  0.3.0-beta.0's `init` opens the dashboard. No runtime code and no model-visible text changed.
 - **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
   password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
   GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).

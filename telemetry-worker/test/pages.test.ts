@@ -257,13 +257,13 @@ function everyPage(): [string, string][] {
     cli: [],
     password: null,
     providers: { google: true, github: true },
-    dashboards: "trial" as const,
+    dashboards: "plans" as const,
   };
   const providers = { google: true, github: true };
   return [
     ["/start", startPage("n")],
     ["/dashboard", dashboardPage("n", project)],
-    ["/account/apps (locked)", dashboardPage("n", project, { account: acct, id: "0123456789abcdef", locked: { trialUsed: false, canTrial: true, trialDays: 7, terms: "Card required." } })],
+    ["/account/apps (locked)", dashboardPage("n", project, { account: acct, id: "0123456789abcdef", locked: true })],
     ["/account/apps", dashboardPage("n", project, { account: acct, id: "0123456789abcdef" })],
     ["/login", loginPage("n", { ...providers, next: null })],
     ["/signup", signupPage("n", { ...providers, next: null })],
@@ -309,7 +309,7 @@ describe("pages: one black theme everywhere, as on genclass.dev", () => {
       expect(contrast(token(t), panel), t).toBeGreaterThanOrEqual(4.5);
       expect(contrast(token(t), code), t).toBeGreaterThanOrEqual(4.5);
     }
-    // green and red-orange tints behind their own text (notices, the trial line, errors)
+    // green and red-orange tints behind their own text (notices, errors)
     expect(contrast(token("accent"), token("accent-t"))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token("warn"), token("warn-t"))).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token("ink3"), token("accent-t"))).toBeGreaterThanOrEqual(4.5);

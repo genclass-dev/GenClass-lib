@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { gunzipSync } from "node:zlib";
 import { createRequire } from "node:module";
 import worker from "../src/index.js";
@@ -6,6 +6,10 @@ import { handle, MAX_PROJECTS_PER_MINUTE, validate, type Env } from "../src/coll
 import { aggregate, RECENT_CAP, resetTokenCache, retention, sanitizeName, SESSION_KEEP_MS, sha256Hex, stats, TOKEN_RE, type D1Like, type D1Stmt } from "../src/dashboard.js";
 import { sampleStats } from "../src/sample.js";
 import { MIGRATIONS } from "./d1.js";
+
+// On the plans as they were before 2026-10-19 (test/fixtures/plans-two-paid.json), where Free has no dashboard, so the
+// locked private link stays tested. With the real plans (test/plans.test.ts) every private link opens its dashboard.
+vi.mock("../../billing/plans.json", async () => ({ default: (await import("./fixtures/plans-two-paid.json")).default }));
 
 // D1 stand-in backed by node:sqlite running the real migrations (all of them, in order), so the SQL itself is under test.
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");
@@ -102,9 +106,9 @@ function post(body: unknown) {
 const secretOf = (url: string) => url.split("/").pop()!;
 
 /**
- * Dashboards come with Pro: a private link opens its stats only while the app's account has a plan, GenClass's grant
- * or a trial. This puts the app in an account with GenClass's grant (accounts.comp_until), as the owner's own apps are,
- * so the tests below read the stats through the link as before.
+ * On the fixture's plans a private link opens its stats only while the app's account has a plan with the dashboard or
+ * GenClass's grant. This puts the app in an account with the grant (accounts.comp_until), so the tests below read the
+ * stats through the link as before.
  */
 let unlocked = 0;
 function unlock(sql: ReturnType<typeof d1>, token: string): void {
@@ -375,28 +379,29 @@ describe("dashboard pages", () => {
     expect(await st.json()).toEqual({ ok: false, error: "not found" });
   });
 
-  it("a private link without Pro opens the locked page, its stats answer 402, and ingest keeps collecting", async () => {
+  it("a private link whose plan has no dashboard opens the locked page, its stats answer 402, and ingest keeps collecting", async () => {
     const { env, sql } = setup();
     const { json } = await create(env, { name: "Old shop" });
     expect((await handle(post(pageBatch(json.token)), env, opts)).status).toBe(202);
-    // collected while locked, so a trial or a plan starts with recent data
+    // collected while locked, so a plan starts with recent data
     expect(sql.rows("SELECT COUNT(*) AS n FROM daily WHERE token = ?", json.token)[0]!.n).toBeGreaterThan(0);
     const page = await handle(new Request(json.dashboardUrl), env, opts);
     expect(page.status).toBe(200);
     expect(page.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await page.text();
-    expect(html).toContain("Dashboards come with Pro.");
-    expect(html).toContain("Get a 7-day free trial for analytics.");
+    expect(html).toContain("This app's plan has no dashboard.");
+    expect(html).toContain("See the plans to open it.");
+    expect(html).not.toMatch(/trial/i);
     expect(html).toContain("Old shop");
     expect(html).not.toContain(secretOf(json.dashboardUrl));
     expect(html).not.toContain("/api/projects/");
     expect(html).not.toMatch(/ style="/);
     const st = await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts);
     expect(st.status).toBe(402);
-    expect(await st.json()).toEqual({ ok: false, error: "dashboards come with Pro (get a 7-day free trial for analytics)", locked: true });
-    // GenClass's grant (or a plan, or a trial) on the app's account opens both
+    expect(await st.json()).toEqual({ ok: false, error: "this app's plan has no dashboard; see the plans at https://genclass.dev/account/billing", locked: true });
+    // GenClass's grant (or a plan with the dashboard) on the app's account opens both
     unlock(sql, json.token);
-    expect(await (await handle(new Request(json.dashboardUrl), env, opts)).text()).not.toContain("Dashboards come with Pro.");
+    expect(await (await handle(new Request(json.dashboardUrl), env, opts)).text()).not.toContain("This app's plan has no dashboard.");
     expect((await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts)).status).toBe(200);
     // the simulated sample stays open to everyone
     expect((await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).status).toBe(200);
@@ -408,7 +413,8 @@ describe("dashboard pages", () => {
     expect(start.status).toBe(200);
     const html = await start.text();
     expect(html).toContain("Get a token");
-    expect(html).toContain("Dashboards come with Pro. Get a 7-day free trial for analytics.");
+    expect(html).toContain("The dashboard is free.");
+    expect(html).not.toMatch(/trial/i);
     expect(html).not.toContain("Free, no account");
     expect(html).toContain('fetch("/api/projects"');
     expect(html).toContain("https://cdn.jsdelivr.net/npm/@genclass/runtime");
