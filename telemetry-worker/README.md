@@ -898,6 +898,49 @@ test-mode and a live copy unless the dashboard says it is shared):
     events from the test endpoint are answered 200 and ignored, or delete GenClass's endpoint ("GenClass billing") in
     Stripe's test mode.
 
+## Self-host the collector (private mode)
+
+Telemetry sent to genclass.dev passes through GenClass: the maintainers can read every batch (README of the runtime,
+TELEMETRY.md). An app that wants its diagnostics and dashboards to stay with it runs this same worker on its own
+Cloudflare account instead. Nothing then reaches GenClass: pages send to the app's own collector, which keeps the
+batches in the app's own R2 bucket and the dashboards in its own D1 database. Every plan's features work there
+(without a Stripe key every account is on Free: the dashboard, export and forwarding, 90 days of history).
+
+[`wrangler.selfhost.toml`](wrangler.selfhost.toml) is the configuration for it: no genclass.dev routes, no site
+binding, and the worker's own origin for dashboard links, cookies and passkeys. From `telemetry-worker/`, on any
+Cloudflare account (the free Workers plan is enough to start; R2 and D1 have free tiers):
+
+```sh
+npx --yes wrangler@4 login
+npx --yes wrangler@4 r2 bucket create genclass-telemetry
+npx --yes wrangler@4 r2 bucket lifecycle add genclass-telemetry expire-events-90d events/ --expire-days 90
+npx --yes wrangler@4 d1 create genclass-dashboard        # paste the database_id into wrangler.selfhost.toml
+# set AUTH_ORIGIN, AUTH_RP_ID and DASHBOARD_ORIGIN in wrangler.selfhost.toml to the worker's URL
+npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote -c wrangler.selfhost.toml
+npx --yes wrangler@4 deploy -c wrangler.selfhost.toml
+curl https://genclass-collector.<your-subdomain>.workers.dev/v1/health
+```
+
+Then open `https://<your worker>/start`: it gives an app a token and a private dashboard link, and its snippets
+already send to your worker. A collector whose origin is not genclass.dev names its own endpoint in every snippet it
+shows (`src/pages.ts` ownEndpoint), through `GenClass.init` or `window.GENCLASS_CONFIG` (a meta tag may only name
+same-origin URLs), and leaves out `npx @genclass/runtime init` and `login`, which make their token at genclass.dev. In
+an app wired by hand:
+
+```ts
+GenClass.init({ token: "gc_...", telemetry: { endpoint: "https://<your worker>/v1/events" } });
+```
+
+```html
+<script>window.GENCLASS_CONFIG = { telemetry: { endpoint: "https://<your worker>/v1/events" } };</script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@beta" data-token="gc_..."></script>
+```
+
+Accounts work on it as on genclass.dev (an email and a password, and passkeys; Google and GitHub with your own OAuth
+clients, "Google sign-in" and "GitHub sign-in" above), and so do export and forwarding (`INTEGRATIONS_KEY`, "Owner
+steps"). Updating is a `git pull` and the same `deploy` (new migrations first). `test/selfhost.test.ts` keeps the
+configuration in step with `wrangler.toml` and the snippets pointed at the collector itself.
+
 ## Develop / deploy
 
 ```sh

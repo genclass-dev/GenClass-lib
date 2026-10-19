@@ -39,7 +39,7 @@ import {
 import { routeBilling } from "./billing.js";
 import { json, readCapped } from "./http.js";
 import { afterBatch } from "./paid.js";
-import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages.js";
+import { dashboardPage, notFoundPage, ownEndpoint, securityHeaders, startPage } from "./pages.js";
 import { lockedLink } from "./locked.js";
 import { hasDashboard, projectAccess } from "./plans.js";
 import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
@@ -367,7 +367,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
   if (path === "/start") {
     if (m !== "GET" && m !== "HEAD") return null;
     const nonce = randomBase62(22);
-    return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env) }), nonce);
+    return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env), endpoint: ownEndpoint(env) }), nonce);
   }
 
   if (path === "/dashboard") {
@@ -385,7 +385,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     if (!p || !env.DB) return html(404, notFoundPage(nonce), nonce);
     // locked only while the app's plan leaves the dashboard out (none does today): sign in, add it, see the plans
     if (!hasDashboard(await projectAccess(env.DB, p, env, now))) return lockedLink(request, url, env, opts, p);
-    return html(200, dashboardPage(nonce, { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event }, { runtimeReady }), nonce);
+    return html(200, dashboardPage(nonce, { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event }, { runtimeReady, endpoint: ownEndpoint(env) }), nonce);
   }
 
   if (path.startsWith("/api/")) return json(404, { ok: false, error: "not found" });
