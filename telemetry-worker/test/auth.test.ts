@@ -37,6 +37,10 @@ import { derToRaw } from "../src/webauthn.js";
 import { b64url, cbor, FLAGS, makeAuthenticator, rawToDer } from "./authenticator.mjs";
 import { d1 } from "./d1.js";
 
+// On the plans as they were before 2026-10-19 (test/fixtures/plans-two-paid.json), where Free has no dashboard, so the
+// locked paths stay tested; givePro opens them. The real plans, where every plan has the dashboard: test/plans.test.ts.
+vi.mock("../../billing/plans.json", async () => ({ default: (await import("./fixtures/plans-two-paid.json")).default }));
+
 // Accounts (src/auth.ts, src/password.ts): email and password, passkeys, sessions, CSRF, the device flow, owned
 // projects, Google and GitHub sign-in. Requests go through the real router (handle) against node:sqlite running the
 // real migrations; passwords are hashed with the real 600,000 iterations.
@@ -150,8 +154,8 @@ async function signedIn(env: Env, email = "ada@example.com", alg = -7) {
 }
 
 /**
- * Give the account Pro (dashboards come with Pro) the one way that needs no Stripe: GenClass's grant (comp_until, set
- * by hand in production). The trial is a Stripe Checkout with a card (test/trial.test.ts).
+ * Give the account the fixture's Pro (the plan with the dashboard) the one way that needs no Stripe: GenClass's grant
+ * (comp_until, set by hand in production), which gives the fixture's grant_plan.
  */
 async function givePro(env: Env, cookie: string) {
   const { json: me1 } = await me(env, { cookie });
@@ -1116,7 +1120,9 @@ describe("accounts: GitHub and Google first, an email and a password always; cre
         expect(html, tag).toContain('<p class="alt"><button class="lnk" id="pk" type="button"><span>Use a passkey</span></button></p>');
         expect(html, tag).not.toContain("Create account with a passkey");
         expect(html, tag).not.toContain("Sign in with a passkey");
-        expect(html, tag).toContain("Dashboards come with Pro. Get a 7-day free trial for analytics.");
+        // the fixture's Free has no dashboard (the real plans' line is checked in test/plans.test.ts)
+        expect(html, tag).toContain("The runtime needs no account. Dashboards come with a paid plan.");
+        expect(html, tag).not.toMatch(/trial/i);
       }
       expect(await (await call(env, "GET", "/login", {})).text()).toContain('<a href="/login/forgot">Forgot your password?</a>');
       // there is no passkey sign-up: options without a session are refused and store nothing
@@ -1644,8 +1650,6 @@ describe("accounts: what a CLI session may do", () => {
     const { cookie } = await signedIn(env);
     await givePro(env, cookie);
     const bearer = await cliToken(env, cookie);
-    // nor start a trial (a browser decision, on Stripe's checkout)
-    expect((await call(env, "POST", "/api/billing/trial", { body: {}, bearer, origin: null })).status).toBe(403);
     const created = await call(env, "POST", "/api/account/projects", { body: { name: "x" }, bearer, origin: null });
     expect(created.status).toBe(201);
     const { project } = (await created.json()) as any;
@@ -2070,7 +2074,7 @@ describe("accounts: email and password sign-in", () => {
   it("the passkey step after a password: an account with a passkey gets no session from its password alone", async () => {
     const { env, sql } = setup();
     const ada = await signedIn(env);
-    const r = await pwLogin(env, "ada@example.com", PW, { next: "/account?trial=1" });
+    const r = await pwLogin(env, "ada@example.com", PW, { next: "/account?claim=1" });
     expect(r.res.status).toBe(200);
     expect(r.json).toEqual({ ok: true, next: "/login/passkey" });
     expect(cookieValue(r.res, "__Host-gc_session")).toBeNull();
@@ -2086,7 +2090,7 @@ describe("accounts: email and password sign-in", () => {
     expect((await call(env, "POST", "/api/auth/passkey/mfa/verify", { body: { id: o.id, credential: await bob.auth.assert(o.publicKey) }, cookie: mfa })).status).toBe(400);
     const step = await finishStep(env, mfa, ada.auth);
     expect(step.res.status).toBe(200);
-    expect(step.json).toMatchObject({ ok: true, next: "/account?trial=1", account: { id: ada.account.id } });
+    expect(step.json).toMatchObject({ ok: true, next: "/account?claim=1", account: { id: ada.account.id } });
     const session = sessionOf(step.res);
     expect((await me(env, { cookie: session })).json.account.id).toBe(ada.account.id);
     expect(sql.rows("SELECT passkey_at FROM auth_sessions WHERE hash = ?", await sha256Hex(session.split("=")[1]!))).toEqual([{ passkey_at: clock.toISOString() }]);

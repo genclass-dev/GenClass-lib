@@ -1,4 +1,4 @@
-// Shared by the paid-plan tests (billing, forward, export, trial): an env over node:sqlite with an R2 stand-in that keeps
+// Shared by the paid-plan tests (billing, forward, export, locked, plans): an env over node:sqlite with an R2 stand-in that keeps
 // the bytes, signed-in accounts made through the real email and password sign-up, apps, batches through the real
 // collector, a fake Stripe API, and Stripe-signed webhook deliveries.
 import { expect } from "vitest";
@@ -204,7 +204,7 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
     if (method === "GET" && p === "/v1/prices") {
       // GenClass's two prices, with their products expanded (the worker asks for data.product)
       const key = url.searchParams.get("lookup_keys[0]");
-      return ok({ data: key === "genclass_pro_monthly" || key === "genclass_custom_monthly" ? [price(key)] : [] });
+      return ok({ data: key && KNOWN_PRICES[key] ? [price(key)] : [] });
     }
     const cus = /^\/v1\/customers\/([^/]+)$/.exec(p);
     if (method === "GET" && cus) {
@@ -286,7 +286,7 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
       return c ? ok(c) : ok({ error: { code: "resource_missing", message: "No such configuration" } }, 404);
     }
     if (method === "POST" && p === "/v1/billing_portal/sessions") return ok({ url: "https://billing.stripe.com/p/session/test_000001" });
-    // PaymentIntents (the $1 card check before a trial): a payment method whose id contains "declined" (any case) is
+    // PaymentIntents (GenClass makes none since it dropped the trial's $1 card check; kept for tests that check so): a payment method whose id contains "declined" (any case) is
     // declined, one with "authRequired" asks for authentication, any other holds the amount; the same idempotency key gets the
     // same answer again, as Stripe gives it
     if (method === "POST" && p === "/v1/payment_intents") {
@@ -343,10 +343,18 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   return { fetch, calls, other, customers, subs, sessions, invoices, refunds, charges, paymentIntents, portal, genclassCustomer };
 }
 
+/** The GenClass prices the fake Stripe knows by lookup key: the fixture's (Pro, Custom) and the real plans' (Individual). */
+const KNOWN_PRICES: Record<string, { plan: string; id: string }> = {
+  genclass_pro_monthly: { plan: "pro", id: "price_pro000001" },
+  genclass_custom_monthly: { plan: "custom", id: "price_custom0001" },
+  genclass_individual_monthly: { plan: "individual", id: "price_indiv00001" },
+};
+
 /** A price as a subscription fetched with its products expanded shows it: GenClass's carry product metadata genclass_plan. */
 export function price(lookupKey: string | null, o: { id?: string; plan?: string | null; product?: string } = {}) {
-  const plan = o.plan !== undefined ? o.plan : lookupKey === "genclass_custom_monthly" ? "custom" : lookupKey === "genclass_pro_monthly" ? "pro" : null;
-  const id = o.id ?? (lookupKey === "genclass_custom_monthly" ? "price_custom0001" : lookupKey === "genclass_pro_monthly" ? "price_pro000001" : "price_x000001");
+  const known = lookupKey ? KNOWN_PRICES[lookupKey] : undefined;
+  const plan = o.plan !== undefined ? o.plan : (known?.plan ?? null);
+  const id = o.id ?? known?.id ?? "price_x000001";
   return { id, object: "price", lookup_key: lookupKey, product: { id: o.product ?? (plan ? `genclass_${plan}` : "prod_other00001"), object: "product", metadata: plan ? { genclass_plan: plan } : {} } };
 }
 

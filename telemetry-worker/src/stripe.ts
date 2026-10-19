@@ -4,12 +4,12 @@
 // subscription.
 //
 // Invariants:
-// - Pro is sold through Stripe Managed Payments (Stripe, through Link, is the merchant of record) when the Worker var
-//   MANAGED_PAYMENTS is "on" (off until the owner's test-mode Pro checkout showed Stripe accepts it); Custom never is
-//   (a person trains the model, so it is not an eligible fully automated digital product). Managed Payments
-//   subscriptions exist only through Checkout, cannot hold a non-eligible product and cannot be turned on for an
-//   existing subscription, so a switch between Pro and Custom is always a new Checkout for the other plan (README
-//   "Paid plans", "Stripe documentation notes"). Every subscription GenClass starts uses flexible billing mode.
+// - A plan marked managed_payments in billing/plans.json is sold through Stripe Managed Payments (Stripe, through Link,
+//   is the merchant of record) when the Worker var MANAGED_PAYMENTS is "on"; no plan is today (Individual is a
+//   person's work, so it is not an eligible fully automated digital product). Managed Payments subscriptions exist
+//   only through Checkout, cannot hold a non-eligible product and cannot be turned on for an existing subscription, so
+//   a switch between two paid plans is always a new Checkout for the other plan (README "Paid plans", "Stripe
+//   documentation notes"). Every subscription GenClass starts uses flexible billing mode.
 // - GenClass bills through a Stripe account of its own ("GenClass"). It used to share a Stripe account with another
 //   business, and keeps the defences from then: it touches only objects it can prove are its own (README "Stripe object
 //   ownership"):
@@ -36,21 +36,15 @@
 // - A plan is granted only once Stripe has the money: a subscription the account has not been granted yet counts only
 //   when its latest invoice is paid (or asks for nothing), not when Stripe calls it active while a bank debit is still
 //   processing; invoice.paid brings it back when the payment clears.
-// - The trial of Pro exists only as a Stripe subscription in its trial period, started on Checkout with a card: every
-//   Checkout GenClass makes collects a payment method up front (payment_method_collection "always", also when nothing
-//   is due today), a trial's subscription is cancelled by Stripe if it reaches the trial's end with no payment method
-//   (trial_settings), and a trialing subscription the account has not been granted yet counts only with a saved payment
-//   method (cardOnFile) that held $1 (cardCheck: a manual-capture PaymentIntent on that card, off session, cancelled at
-//   once, so nothing is charged; a card that cannot hold it gets no trial, its subscription is marked
-//   genclass_card_check=failed and cancelled, and the account may try another card, 3 times at most). The trial's end is
-//   the first charge: a card that fails then is a failed payment like any other (past_due, PAST_DUE_GRACE_DAYS, then
-//   Free). The webhook records when the account's trial started (accounts.trial_started_at), so it gets one trial.
+// - GenClass offers no trial. Every Checkout GenClass makes collects a payment method up front
+//   (payment_method_collection "always"), and a subscription in Stripe's trialing status (one made by hand in the
+//   Stripe dashboard) that the account has not been granted yet counts only with a saved payment method (cardOnFile).
 // - One subscription per account. Checkout asks Stripe (not the database, which a late webhook leaves behind) whether
 //   the customer already has one: the same plan is refused, the other plan is a switch (a Checkout whose subscription
 //   carries metadata genclass_switch_from naming the one it replaces); an account's older unpaid Checkout pages are
 //   closed when it opens another. When a subscription starts billing and the customer has more than one GenClass
 //   subscription that bills and is paid for (a switch paid, or two tabs paid at once), the one kept (a switch's new
-//   plan; for a duplicate, Custom over Pro) is written to the account first, and only then are the others refunded to
+//   plan; for a duplicate, the plan listed later in billing/plans.json) is written to the account first, and only then are the others refunded to
 //   their payment method (a switch's old plan: the unused time; a duplicate: its latest payment) and cancelled at once
 //   with no balance credit. So the account is never left without a plan, and is billed for both only until that
 //   cancellation (a failure answers 500 and Stripe's retry finishes it; the refund is made once). A switch whose new
@@ -64,15 +58,16 @@
 //   status decides whether it applies (active or trialing: yes; past_due: for 14 days from when GenClass first saw it
 //   past due, whatever the account's retry settings; anything else: free). An event about another subscription than
 //   the account's current one never overwrites a live plan unless oneSubscription chose it.
-// - A Custom purchase is recorded (custom_requests, NOTIFY_WEBHOOK) only once Stripe reports the Custom price paid:
-//   the subscription's latest invoice (fetched with it) is paid and has a positive Custom line (a first Custom
-//   invoice, which a switch from Pro is too), seen on invoice.paid or on the subscription's own events.
+// - A purchase of a plan with a custom model (Individual: a person trains it) is recorded (custom_requests,
+//   NOTIFY_WEBHOOK) only once Stripe reports that plan's price paid: the subscription's latest invoice (fetched with it)
+//   is paid and has a positive line on that price (a first invoice, which a switch from another plan is too), seen on
+//   invoice.paid or on the subscription's own events.
 // - Refunds and disputes of GenClass customers' charges are reported to the owner (NOTIFY_WEBHOOK), ids and amounts only.
 
 import type { Env } from "./collector.js";
 import { randomBase62, sha256Hex, type D1Like } from "./dashboard.js";
 import { json } from "./http.js";
-import { LIVE_STATUSES, LOOKUP_PREFIX, pastDueLapsed, PLANS_FILE, planForPrice, stripeMode, TRIAL_PLAN, type Billing, type Plan, type PlanId } from "./plans.js";
+import { entitled, LIVE_STATUSES, LOOKUP_PREFIX, pastDueLapsed, planById, PLANS, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
 import { equalStrings } from "./webauthn.js";
 
 export const STRIPE_API = "https://api.stripe.com";
@@ -344,10 +339,10 @@ export async function foreignInvoice(env: Env, f: Fetch, customer: string, subs:
 const ownSession = (x: Obj, accountId: string): boolean => x?.metadata?.genclass === GENCLASS_MARK && x?.metadata?.genclass_account === accountId;
 
 /**
- * This plan's Checkout uses Stripe Managed Payments: the plan is eligible (billing/plans.json managed_payments, Pro
- * only) and the Worker var MANAGED_PAYMENTS is "on" (or true, 1, yes). Unset, or anything else, is off: wrangler.toml
- * says "off" until the owner has accepted the Managed Payments terms and a test-mode Pro checkout with it on went
- * through with the pinned API version.
+ * This plan's Checkout uses Stripe Managed Payments: the plan is eligible (billing/plans.json managed_payments; no plan
+ * is today) and the Worker var MANAGED_PAYMENTS is "on" (or true, 1, yes). Unset, or anything else, is off:
+ * wrangler.toml says "off" until the owner has accepted the Managed Payments terms and a test-mode checkout of an
+ * eligible plan with it on went through with the pinned API version.
  */
 export function managedPayments(env: Env, plan: Plan): boolean {
   if (plan.managed_payments !== true) return false;
@@ -361,30 +356,25 @@ export function managedPayments(env: Env, plan: Plan): boolean {
  * and Managed Payments when managedPayments says so (then nothing Managed Payments refuses is sent: no automatic_tax,
  * tax_id_collection, payment_method_types, customer_update or invoice settings). `switchFrom`: the GenClass
  * subscription this one replaces (metadata genclass_switch_from on the session and the subscription; the webhook
- * cancels it once the new one is active). `trialDays`: the account's one trial (the caller checks it may have one):
- * the subscription starts trialing for that many days with the card already collected, nothing is charged until the
- * trial ends, and Stripe cancels it at the trial's end if it has no payment method by then (metadata genclass_trial=1
- * on the session). Returns Stripe's page URL. Unless the customer is `fresh`, its open Checkout pages are looked at
- * first: GenClass's page for this plan, this switch and this trial is reused (a second click, or a second tab), any
+ * cancels it once the new one is active). Returns Stripe's page URL. Unless the customer is `fresh`, its open Checkout
+ * pages are looked at first: GenClass's page for this plan and this switch is reused (a second click, or a second tab), any
  * other page of GenClass's is closed, so an abandoned tab cannot start a second subscription later. A page GenClass
  * did not make is left alone.
  */
 export async function checkoutSession(
   env: Env,
   f: Fetch,
-  o: { account: BillingAccount; customer: string; plan: Plan; origin: string; now: Date; fresh?: boolean; switchFrom?: string; trialDays?: number },
+  o: { account: BillingAccount; customer: string; plan: Plan; origin: string; now: Date; fresh?: boolean; switchFrom?: string },
 ): Promise<string> {
   const lookup = o.plan.stripe_lookup_keys.monthly;
   if (!lookup) throw new StripeError(`the ${o.plan.name} plan has no monthly price`, 400);
   if (o.switchFrom !== undefined && !idOf(o.switchFrom)) throw new StripeError("not a subscription id", 400);
-  const trial = o.trialDays !== undefined ? o.trialDays : null;
-  if (trial !== null && (!Number.isInteger(trial) || trial < 1 || trial > 60 || o.switchFrom !== undefined)) throw new StripeError("not a trial GenClass offers", 400);
   const closed: string[] = [];
   if (!o.fresh) {
     const open = await stripe(env, f, "GET", "/v1/checkout/sessions", { customer: o.customer, status: "open", limit: 20 });
     for (const x of Array.isArray(open?.data) ? (open.data as Obj[]) : []) {
       if (typeof x?.id !== "string" || !SESSION_ID_RE.test(x.id) || !ownSession(x, o.account.id)) continue;
-      const same = x.metadata?.genclass_plan === o.plan.id && (x.metadata?.genclass_switch_from ?? undefined) === o.switchFrom && (x.metadata?.genclass_trial === "1") === (trial !== null);
+      const same = x.metadata?.genclass_plan === o.plan.id && (x.metadata?.genclass_switch_from ?? undefined) === o.switchFrom && x.metadata?.genclass_trial !== "1";
       if (same && typeof x.url === "string" && x.url.startsWith("https://")) return x.url;
       await stripe(env, f, "POST", `/v1/checkout/sessions/${encodeURIComponent(x.id)}/expire`, {});
       closed.push(x.id);
@@ -396,7 +386,7 @@ export async function checkoutSession(
   // a double click within the same minute gets the same session; after closing pages, a new key (the old session
   // under the plain key may be one of those just closed); a switch has its own
   const after = closed.length ? `-after-${(await sha256Hex(closed.join(","))).slice(0, 16)}` : "";
-  const from = o.switchFrom ? `-from-${o.switchFrom}` : trial !== null ? "-trial" : "";
+  const from = o.switchFrom ? `-from-${o.switchFrom}` : "";
   let s: Obj;
   try {
     s = await stripe(
@@ -409,18 +399,13 @@ export async function checkoutSession(
         customer: o.customer,
         client_reference_id: o.account.id,
         line_items: [{ price, quantity: 1 }],
-        // back from a switch, the page waits for the new plan; back from a trial, for the trial
-        success_url: `${o.origin}/account/billing?done=1${o.switchFrom ? `&to=${o.plan.id}` : trial !== null ? "&trial=1" : ""}`,
+        // back from a switch, the page waits for the new plan
+        success_url: `${o.origin}/account/billing?done=1${o.switchFrom ? `&to=${o.plan.id}` : ""}`,
         cancel_url: `${o.origin}/account/billing`,
-        metadata: { ...mark, genclass_plan: o.plan.id, genclass_trial: trial !== null ? "1" : undefined },
-        // a card (or another payment method) up front, also when a trial makes today's total zero
+        metadata: { ...mark, genclass_plan: o.plan.id },
+        // a card (or another payment method) up front
         payment_method_collection: "always",
-        subscription_data: {
-          metadata: mark,
-          billing_mode: { type: "flexible" },
-          trial_period_days: trial ?? undefined,
-          trial_settings: trial !== null ? { end_behavior: { missing_payment_method: "cancel" } } : undefined,
-        },
+        subscription_data: { metadata: mark, billing_mode: { type: "flexible" } },
         managed_payments: managedPayments(env, o.plan) ? { enabled: true } : undefined,
       },
       `genclass-checkout-${o.account.id}-${o.plan.id}-${Math.floor(o.now.getTime() / 60_000)}${from}${after}`,
@@ -436,7 +421,7 @@ export async function checkoutSession(
 /**
  * A Billing Portal session on GenClass's own portal configuration (never the account's default): card, invoices,
  * email and tax id, cancel at period end. It offers no plan switch (scripts/stripe-setup.mjs): a Managed Payments
- * subscription cannot take the Custom price, so a switch is a new Checkout (src/billing.ts checkout). The portal shows
+ * subscription cannot take another plan's price, so a switch is a new Checkout (src/billing.ts checkout). The portal shows
  * and acts on everything on the customer, so the caller first checks that it all is GenClass's (src/billing.ts portal).
  */
 export async function portalSession(env: Env, f: Fetch, o: { customer: string; origin: string; now: Date }): Promise<string> {
@@ -697,23 +682,27 @@ const linePrice = (line: Obj): string | null => {
   return typeof v === "string" ? v : null;
 };
 
+/** A plan whose purchase a person from GenClass follows up (entitlement custom_model: Individual). */
+export const hasCustomModel = (plan: Plan | null): boolean => !!plan && entitled(plan, "custom_model");
+
 /**
- * The invoice charges for the Custom plan: a line with a positive amount on one of the subscription's Custom prices (a
- * first Custom invoice, a switch from Pro's included, or a Custom price swapped in by hand and invoiced at once).
- * Exported for tests.
+ * The invoice charges for a plan with a custom model: a line with a positive amount on one of the subscription's
+ * prices of such a plan (a first invoice, a switch from another plan included, or such a price swapped in by hand and
+ * invoiced at once). Exported for tests.
  */
 export function invoicePaysCustom(inv: Obj, sub: Obj): boolean {
   const custom = new Set<string>();
   for (const it of Array.isArray(sub?.items?.data) ? (sub.items.data as Obj[]) : []) {
-    if (planForPrice(it?.price)?.id === "custom" && typeof it?.price?.id === "string") custom.add(it.price.id);
+    if (hasCustomModel(planForPrice(it?.price)) && typeof it?.price?.id === "string") custom.add(it.price.id);
   }
   const lines: Obj[] = Array.isArray(inv?.lines?.data) ? inv.lines.data : [];
   return lines.some((l) => typeof l?.amount === "number" && l.amount > 0 && custom.has(linePrice(l) ?? ""));
 }
 
 /**
- * Stripe reports the subscription's Custom price paid: its latest invoice (expanded by fetchSubscription) is paid,
- * is the subscription's own, and charges a Custom price (invoicePaysCustom). Exported for tests.
+ * Stripe reports the price of the subscription's plan with a custom model paid: its latest invoice (expanded by
+ * fetchSubscription) is paid, is the subscription's own, and charges such a price (invoicePaysCustom). Exported for
+ * tests.
  */
 export function latestInvoicePaysCustom(sub: Obj): boolean {
   const inv = sub?.latest_invoice;
@@ -732,10 +721,10 @@ export function paymentCleared(sub: Obj): boolean {
 }
 
 /**
- * A trialing subscription has a saved payment method to charge when its trial ends: its own default payment method
- * (Checkout sets it from what the buyer entered) or default source, or, with the customer expanded, the customer's
- * default. Any other status: true (paymentCleared covers what was paid). A trial is never granted without one.
- * Exported for tests.
+ * A trialing subscription (GenClass offers no trial; one made by hand in the Stripe dashboard) has a saved payment
+ * method to charge when its trial ends: its own default payment method or default source, or, with the customer
+ * expanded, the customer's default. Any other status: true (paymentCleared covers what was paid). Such a subscription
+ * is never granted without one. Exported for tests.
  */
 export function cardOnFile(sub: Obj): boolean {
   if (sub?.status !== "trialing") return true;
@@ -748,96 +737,11 @@ const granted = (account: BillingAccount, sub: Obj): boolean => !!account.subscr
 
 /**
  * GET a subscription of a GenClass customer with its prices' products (whose metadata says the plan), its customer
- * (whose metadata says the account) and its latest invoice (whether the Custom price is paid). Only called once the
+ * (whose metadata says the account) and its latest invoice (whether a custom model's price is paid). Only called once the
  * event has passed the check that needs no Stripe call.
  */
 const fetchSubscription = (x: EventContext, id: string): Promise<Obj> =>
   stripe(x.env, x.fetch, "GET", `/v1/subscriptions/${encodeURIComponent(id)}`, { expand: ["items.data.price.product", "customer", "latest_invoice", "default_payment_method"] });
-
-/** The amount of the card check before a trial, in US cents (USD 1), held and released, never captured. */
-export const CARD_CHECK_CENTS = 100;
-/** subscription.metadata.genclass_card_check on a trial whose card failed the check: never granted, never counted. */
-export const CARD_CHECK_FAILED = "failed";
-
-/**
- * Before a trial is granted: hold USD 1 on the subscription's card and release it at once, so the card is shown to
- * be able to pay (Stripe's own check when Checkout saves a card is a USD 0 validation, which proves neither funds nor
- * a working account). A PaymentIntent with capture_method manual, confirmed off session on the card Checkout saved
- * (the buyer agreed to it being charged), with an idempotency key per subscription, so a redelivered event holds
- * nothing twice; then cancelled, which releases the hold. "ok" once the hold went through, or when the issuer asked
- * for authentication (the card exists; Checkout already authenticated it when it was saved). "failed" when the card
- * was declined. "skipped" when there is nothing GenClass may hold: a payment method other than a card (or Link), or a
- * Managed Payments subscription (Link is the merchant of record and only it may charge the card); Stripe's own
- * validation at Checkout still ran. Any other error throws (the webhook answers 500 and Stripe retries).
- */
-export async function cardCheck(x: EventContext, account: BillingAccount, sub: Obj): Promise<"ok" | "failed" | "skipped"> {
-  // the subscription's card (Checkout sets it), else the customer's default (the customer is expanded)
-  const pm: Obj | string | null = sub?.default_payment_method ?? (sub?.customer && typeof sub.customer === "object" ? (sub.customer.invoice_settings?.default_payment_method ?? null) : null);
-  const pmId = idOf(pm);
-  const pmType = pm && typeof pm === "object" && typeof pm.type === "string" ? pm.type : "card";
-  const mp = typeof sub?.managed_payments?.enabled === "boolean" ? sub.managed_payments.enabled === true : managedPayments(x.env, TRIAL_PLAN);
-  if (!pmId || mp || (pmType !== "card" && pmType !== "link")) {
-    console.log(`stripe webhook: account ${account.id}: trial ${String(sub?.id)}: no $1 card check (${mp ? "Managed Payments" : pmId ? `a ${pmType} payment method` : "no payment method on the subscription"})`);
-    return "skipped";
-  }
-  let pi: Obj;
-  try {
-    pi = await stripe(
-      x.env,
-      x.fetch,
-      "POST",
-      "/v1/payment_intents",
-      {
-        amount: CARD_CHECK_CENTS,
-        currency: "usd",
-        customer: account.stripe_customer_id,
-        payment_method: pmId,
-        payment_method_types: [pmType],
-        capture_method: "manual",
-        confirm: true,
-        off_session: true,
-        description: "GenClass card check before a free trial: a $1 hold, released at once, never charged",
-        metadata: { genclass: GENCLASS_MARK, genclass_account: account.id, genclass_card_check: String(sub.id) },
-      },
-      `genclass-card-check-${sub.id}`,
-    );
-  } catch (e) {
-    if (e instanceof StripeError && e.status === 402) {
-      if (e.code === "authentication_required") return "ok";
-      console.log(`stripe webhook: account ${account.id}: trial ${String(sub.id)}: the $1 card check was declined (${e.code ?? "card error"})`);
-      return "failed";
-    }
-    throw e;
-  }
-  const piId = idOf(pi?.id);
-  if (piId && (pi.status === "requires_capture" || pi.status === "requires_action" || pi.status === "requires_confirmation" || pi.status === "requires_payment_method")) {
-    const path = `/v1/payment_intents/${encodeURIComponent(piId)}/cancel`;
-    try {
-      await stripe(x.env, x.fetch, "POST", path, {});
-    } catch (e) {
-      // a retry after the hold was released: already cancelled is done
-      const now = e instanceof StripeError && e.status === 400 ? await stripe(x.env, x.fetch, "GET", `/v1/payment_intents/${encodeURIComponent(piId)}`).catch(() => null) : null;
-      if (now?.status !== "canceled") throw e;
-    }
-  }
-  if (pi?.status === "requires_payment_method") return "failed";
-  return "ok";
-}
-
-/**
- * A trial whose card failed the check: its subscription is marked (metadata genclass_card_check=failed, so no later
- * event about it is applied and it does not count as the account's subscription) and cancelled at once (nothing was
- * charged: it is in its trial), and the account records the failure, so the billing page can say so and a fourth
- * failed card is refused. Mark, cancel, then count: a retry after a failure in between finds the mark and stops.
- */
-async function failTrial(x: EventContext, account: BillingAccount, sub: Obj): Promise<void> {
-  await stripe(x.env, x.fetch, "POST", `/v1/subscriptions/${encodeURIComponent(sub.id)}`, { metadata: { genclass_card_check: CARD_CHECK_FAILED } });
-  await cancelNow(x.env, x.fetch, sub.id);
-  await x.db
-    .prepare("UPDATE accounts SET trial_check_failures = trial_check_failures + 1, trial_check_failed_at = ? WHERE id = ?")
-    .bind(x.now.toISOString(), account.id)
-    .run();
-}
 
 /**
  * Apply one verified Stripe event. Throws on a Stripe or database error (the webhook then answers 500).
@@ -876,19 +780,15 @@ export async function handleEvent(x: EventContext, event: Obj): Promise<EventRes
   // the subscription as it is now, so the order events arrive in does not matter
   let sub = await fetchSubscription(x, subId);
   if (!accountsSubscription(account, sub)) return ignored("the subscription is not the account's", event, true);
-  // a trial whose card failed GenClass's $1 check stays out of the account for good
-  if (sub?.metadata?.genclass_card_check === CARD_CHECK_FAILED) return ignored("its card failed the $1 check", event, true);
+  // a trial from before GenClass dropped trials whose card failed the $1 check stays out of the account for good
+  if (sub?.metadata?.genclass_card_check === "failed") return ignored("its card failed the $1 check", event, true);
   // the subscription already recorded for the account stays readable whatever its price now says (it then counts as
   // Free); any other must be provably GenClass's
   if (!isGenClassSubscription(sub) && idOf(sub?.id) !== account.subscription_id) return ignored("not a GenClass subscription", event, true);
   // a new subscription is granted only once its first payment cleared: never on "active" alone
   if (!granted(account, sub) && LIVE_STATUSES.has(sub?.status) && !paymentCleared(sub)) return ignored("its first payment has not cleared yet", event, true);
-  // and a trial only with a payment method saved to charge when it ends, which holds $1
+  // and a trialing one only with a payment method saved to charge when its trial ends
   if (!granted(account, sub) && !cardOnFile(sub)) return ignored("its trial has no saved payment method", event, true);
-  if (!granted(account, sub) && sub?.status === "trialing" && (await cardCheck(x, account, sub)) === "failed") {
-    await failTrial(x, account, sub);
-    return ignored("its card failed the $1 check; the trial was cancelled", event, true);
-  }
   // a subscription that starts billing (created, its status changed, or an invoice of it paid)
   const prev = event?.data?.previous_attributes;
   const started =
@@ -897,8 +797,8 @@ export async function handleEvent(x: EventContext, event: Obj): Promise<EventRes
   if (one) sub = one.keep;
   // the subscription kept is on the account before any other is cancelled: never without a plan
   const result = await applySubscription(x, account, sub, event, !!one);
-  // a Custom purchase counts once Stripe reports it paid
-  if (result.status === "applied" && result.plan === "custom" && latestInvoicePaysCustom(sub)) await recordCustom(x, account, idOf(sub.id)!);
+  // a purchase a person follows up (a custom model) counts once Stripe reports it paid
+  if (result.status === "applied" && hasCustomModel(planById(result.plan)) && latestInvoicePaysCustom(sub)) await recordCustom(x, account, idOf(sub.id)!, planById(result.plan));
   if (one?.extra.length && result.status === "applied") await settleOthers(x, account, one);
   return result;
 }
@@ -925,7 +825,7 @@ async function chargeNotice(x: EventContext, event: Obj, obj: Obj): Promise<Even
   await notifyOwner(x, {
     event: refund ? "charge_refunded" : "charge_disputed",
     text: refund
-      ? `${modeNote(x.env)}GenClass account ${account.id}: charge ${charge} refunded, ${money(amount, currency)} in all so far. A switch refunds the unused part of the old plan, and Stripe (Link support, for Pro) can refund a payment too: check that nothing is refunded twice.`
+      ? `${modeNote(x.env)}GenClass account ${account.id}: charge ${charge} refunded, ${money(amount, currency)} in all so far. A switch refunds the unused part of the old plan, and ${whoRefunds()} can refund a payment too: check that nothing is refunded twice.`
       : `${modeNote(x.env)}GenClass account ${account.id}: charge ${charge} disputed (${idOf(obj.id)}, ${money(amount, currency)}). Stripe answers disputes on payments sold through Managed Payments; for the others, answer it in the Stripe dashboard.`,
     account_id: account.id,
     charge,
@@ -948,17 +848,16 @@ interface OneSubscription {
   extra: { sub: Obj; kind: SettleKind }[];
 }
 
-/** The plan's rank when two subscriptions were bought by accident: Custom over Pro. */
-const rank = (s: Obj): number => PLAN_RANK[subscriptionState(s).priced ?? ""] ?? 0;
-const PLAN_RANK: Record<string, number> = { pro: 1, custom: 2 };
+/** The plan's rank when two subscriptions were bought by accident: the plan listed later in billing/plans.json. */
+const rank = (s: Obj): number => Math.max(0, PLANS.findIndex((p) => p.id === subscriptionState(s).priced));
 
 /**
  * When a subscription starts billing: if the account's GenClass customer now has more than one GenClass subscription
  * that bills and is either the account's granted one or paid for (a switch paid, two tabs paid, or an old Checkout
  * page completed after a purchase), the account keeps one. A switch keeps the subscription whose genclass_switch_from
  * names another of them (the newest such); the one it names is the switch's old plan. Otherwise (a duplicate) a live
- * one before one that is unpaid or paused, then the higher plan (Custom over Pro), then the newest. A new subscription
- * whose first payment has not cleared (or a trial without a saved payment method) is not counted: it neither replaces
+ * one before one that is unpaid or paused, then the higher plan (rank), then the newest. A new subscription
+ * whose first payment has not cleared (or a trialing one without a saved payment method) is not counted: it neither replaces
  * nor is cancelled until it clears. Only
  * GenClass subscriptions are counted. When it is the only one that bills, it is chosen with nothing to settle; null
  * when it is not live or not GenClass's. The caller applies `keep` first and then settles `extra` (settleOthers).
@@ -1000,8 +899,8 @@ interface Refunded {
 /**
  * Refund a subscription GenClass is about to cancel, to the payment method that paid it: for a switch, the unused part
  * of its latest paid invoice (its total times the share of the paid period left, counted from the current hour); for
- * a duplicate, that invoice in full. Never a balance credit: Pro's invoices are issued through Link (Managed Payments)
- * and Custom's by GenClass, so a credit could be stranded or pay the other issuer's invoice. Idempotent: a refund
+ * a duplicate, that invoice in full. Never a balance credit: a Managed Payments plan's invoices are issued through Link
+ * and the others' by GenClass, so a credit could be stranded or pay the other issuer's invoice. Idempotent: a refund
  * GenClass already made for it (metadata genclass_refund) is found and not made again, and the request carries an
  * idempotency key. A refusal (already refunded by Stripe or Link support, say) is reported, not retried.
  */
@@ -1064,7 +963,7 @@ async function settleOthers(x: EventContext, account: BillingAccount, o: OneSubs
     .join("; ");
   await notifyOwner(x, {
     event: switched ? "plan_switch" : "duplicate_subscription",
-    text: `${modeNote(x.env)}GenClass account ${account.id} ${switched ? "switched plans" : "paid for a second subscription"}. Kept ${o.keep.id}; cancelled ${ids}. ${each}. Stripe (Link support, for Pro) can also refund a payment within 60 days of it: a charge_refunded notice would show it.`,
+    text: `${modeNote(x.env)}GenClass account ${account.id} ${switched ? "switched plans" : "paid for a second subscription"}. Kept ${o.keep.id}; cancelled ${ids}. ${each}. ${whoRefunds()} can also refund a payment within 60 days of it: a charge_refunded notice would show it.`,
     account_id: account.id,
     kept: o.keep.id,
     cancelled: o.extra.map((e) => e.sub.id),
@@ -1075,8 +974,7 @@ async function settleOthers(x: EventContext, account: BillingAccount, o: OneSubs
 /**
  * Write a subscription's state to its account (the caller has checked that it is the account's GenClass
  * subscription). past_due_since keeps the time GenClass first saw this subscription past due, so the grace runs from
- * there whatever events follow. A subscription with a trial (trial_start) records when the account's trial started,
- * once (trial_started_at is never changed after), so the account gets no second trial. Another subscription than the
+ * there whatever events follow. Another subscription than the
  * account's current one is written only when oneSubscription chose it (`chosen`), or when it is live and the current
  * one has ended (a purchase after a cancelled plan): an event about an older or duplicate subscription never
  * overwrites a live plan.
@@ -1102,14 +1000,20 @@ export async function applySubscription(x: EventContext, account: BillingAccount
   await x.db
     .prepare(
       "UPDATE accounts SET plan = ?, subscription_id = ?, subscription_status = ?, past_due_since = ?, current_period_end = ?, cancel_at_period_end = ?, " +
-        "stripe_mode = ?, trial_started_at = COALESCE(trial_started_at, ?) WHERE id = ? AND stripe_customer_id = ?",
+        "stripe_mode = ? WHERE id = ? AND stripe_customer_id = ?",
     )
-    .bind(s.plan, subId, s.status, pastDueSince, s.periodEnd, s.cancelAtPeriodEnd ? 1 : 0, stripeMode(x.env), isoOf(sub?.trial_start), account.id, customer)
+    .bind(s.plan, subId, s.status, pastDueSince, s.periodEnd, s.cancelAtPeriodEnd ? 1 : 0, stripeMode(x.env), account.id, customer)
     .run();
   return { status: "applied", ours: true, account: account.id, plan: s.plan };
 }
 
 export const modeNote = (env: Env): string => (stripeMode(env) === "test" ? "[Stripe test mode, no real money] " : "");
+
+/** Who else can refund a GenClass payment, for the owner's notices: Stripe, and Link support for the Managed Payments plans. */
+function whoRefunds(): string {
+  const managed = PLANS.filter((p) => p.managed_payments).map((p) => p.name);
+  return managed.length ? `Stripe (Link support, for ${managed.join(" and ")})` : "Stripe";
+}
 
 /** POST a short JSON notice to NOTIFY_WEBHOOK (`text` suits Slack, `content` Discord). True when it was accepted. */
 export async function notifyOwner(x: Pick<EventContext, "env" | "fetch" | "now">, body: Record<string, unknown> & { text: string }): Promise<boolean> {
@@ -1129,10 +1033,11 @@ export async function notifyOwner(x: Pick<EventContext, "env" | "fetch" | "now">
 }
 
 /**
- * A paid Custom purchase: a custom_requests row (once per subscription) and, with NOTIFY_WEBHOOK, a short notice. The
+ * A paid purchase of a plan with a custom model (Individual): a custom_requests row (once per subscription) and, with
+ * NOTIFY_WEBHOOK, a short notice naming the plan. The
  * notice carries ids only; the buyer's email is in the row.
  */
-async function recordCustom(x: EventContext, account: BillingAccount, subId: string): Promise<void> {
+async function recordCustom(x: EventContext, account: BillingAccount, subId: string, plan: Plan): Promise<void> {
   const iso = x.now.toISOString();
   const mode = stripeMode(x.env) ?? "live";
   const row = await x.db
@@ -1140,10 +1045,10 @@ async function recordCustom(x: EventContext, account: BillingAccount, subId: str
     .bind(randomBase62(22), account.id, account.email, subId, iso, mode)
     .first<{ id: string }>();
   if (!row) return;
-  console.log(`custom plan bought: account ${account.id}, request ${row.id}`);
+  console.log(`${plan.id} plan bought: account ${account.id}, request ${row.id}`);
   const ok = await notifyOwner(x, {
     event: "custom_purchase",
-    text: `${modeNote(x.env)}GenClass Custom plan bought: request ${row.id}, account ${account.id}. The buyer's email is in custom_requests; write to them within 1 business day.`,
+    text: `${modeNote(x.env)}GenClass ${plan.name} plan bought: request ${row.id}, account ${account.id}. The buyer's email is in custom_requests; write to them within 1 business day.`,
     request_id: row.id,
     account_id: account.id,
     subscription_id: subId,

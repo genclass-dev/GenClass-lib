@@ -71,7 +71,7 @@ import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
 import { dashboardPage, securityHeaders } from "./pages.js";
 import { DEVICE_FAILURES, DEVICE_MS, DUMMY_HASH, FAILURE_WINDOW_MS, FREE_FAILURES, MAX_DELAY_MS, PASSWORD_MAX, delayAfter, hashPassword, needsRehash, passwordProblem, verifyPassword, waitText } from "./password.js";
-import { accountAccess, accountBilling, appLimit, appLimitBody, canTrial, hasDashboard, pickRange, trialDays, trialDaysLeft, trialTerms, viewRanges } from "./plans.js";
+import { accountAccess, accountBilling, appLimit, appLimitBody, hasDashboard, pickRange, viewRanges } from "./plans.js";
 import { cancelForDeletion } from "./stripe.js";
 import {
   b64url,
@@ -1489,7 +1489,7 @@ async function overAppLimit(c: C, accountId: string): Promise<Response | null> {
   const n = await appCount(c, accountId);
   if (n >= MAX_APPS_PER_ACCOUNT) return tooManyApps();
   const lim = await appLimit(c.db, c.env, accountId, c.now);
-  if (lim.max !== null && n >= lim.max) return json(409, appLimitBody(lim, c.cfg.origin, trialDays(c.env)));
+  if (lim.max !== null && n >= lim.max) return json(409, appLimitBody(lim, c.cfg.origin));
   return null;
 }
 
@@ -1695,12 +1695,10 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
     cli: rows(sessions).filter((r) => r.kind === "cli").map(session),
     password: rows(pw).map((r) => ({ email: String(r.email), created: String(r.created), updated: String(r.updated), lastUsed: (r.last_used as string | null) ?? null }))[0] ?? null,
     providers: { google: c.cfg.google, github: c.cfg.github },
-    // dashboards: open (a plan, GenClass's grant, or the trial), or locked with the trial to start on Stripe, or after
-    // it, or with the plans only (no trial: one is not on sale to this account, or it had a subscription)
-    dashboards: hasDashboard(access) ? "open" : canTrial(access, c.env, a.account) ? "trial" : access.trialUsed ? "ended" : "plans",
-    pick: { trial: c.url.searchParams.get("trial") === "1", claim: c.url.searchParams.get("claim") === "1" },
+    // dashboards: open (every plan today), or locked with the plans to see
+    dashboards: hasDashboard(access) ? "open" : "plans",
+    pick: { claim: c.url.searchParams.get("claim") === "1" },
     recovery: RECOVERY_CONTACT,
-    trialDays: trialDays(c.env),
   };
 }
 
@@ -1735,7 +1733,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       const next = safeNext(url.searchParams.get("next"));
       if (await webSession(c)) return redirect(next ?? "/account");
       const notice = path === "/login" ? loginNotice(url) : null;
-      const o = { google: c.cfg.google, github: c.cfg.github, next, notice, trialDays: trialDays(env) };
+      const o = { google: c.cfg.google, github: c.cfg.github, next, notice };
       return page(200, (n) => (path === "/login" ? loginPage(n, o) : signupPage(n, o)));
     }
     case "/login/forgot":
@@ -1860,7 +1858,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     if (a.via !== "cookie") return fail(403, "a command line session cannot read stats; open the dashboard in the browser");
     const p = await ownedProject(c, a.account.id, stat[1]!);
     if (!p) return fail(404, "not found");
-    // dashboards come with Pro (a plan, GenClass's grant or the trial; src/plans.ts accountAccess)
+    // the dashboard comes with the account's plan (every plan today; src/plans.ts accountAccess)
     const access = await accountAccess(c.db, a.account.id, env, c.now);
     if (!hasDashboard(access)) return lockedJson(c);
     // the ranges this account's plan shows; a longer one is answered with the longest it shows
@@ -1891,12 +1889,8 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       runtimeReady: runtimeHasTokens(env),
     };
     const project = { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event };
-    // locked: the app's key and Connect panel, and a way to Pro (the trial, or the plans); no stats
-    if (!hasDashboard(access)) {
-      const days = trialDays(env);
-      const locked = { trialUsed: access.trialUsed, canTrial: canTrial(access, env, a.account), trialDays: days, terms: trialTerms(days) };
-      return page(200, (n) => dashboardPage(n, project, { ...base, locked }));
-    }
+    // locked (a plan file without the dashboard): the app's key and Connect panel, and the plans; no stats
+    if (!hasDashboard(access)) return page(200, (n) => dashboardPage(n, project, { ...base, locked: true }));
     // plan-dependent parts: ranges, retention, forwarding and export (src/billing-pages.ts)
     const extras = await appExtrasData(c.db, env, a.account.id, p, c.now);
     return page(200, (n) =>
@@ -1905,8 +1899,6 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
         ranges: extras.ranges,
         keepDays: extras.keep,
         extra: appExtrasHtml(n, extras),
-        // the trial's days left are said here, inside the dashboard, and nowhere else
-        trialDaysLeft: access.source === "trial" && access.trialEndsAt ? trialDaysLeft(access.trialEndsAt, c.now) : undefined,
       }),
     );
   }
@@ -1915,14 +1907,14 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
   return null;
 }
 
-/** The answer to a stats request for an app whose account has no dashboard (no plan, grant or trial). */
+/** The answer to a stats request for an app whose plan has no dashboard (a plan file without it). */
 export function lockedJson(c: { cfg: AuthConfig; env: Env }): Response {
   const url = `${c.cfg.origin}/account/billing`;
   return json(402, { ok: false, error: lockedError(c.env), locked: true, upgrade_url: url });
 }
 
-/** Why a dashboard's stats are locked, with the trial's length (TRIAL_DAYS). */
-export const lockedError = (env: Env): string => `dashboards come with Pro (get a ${trialDays(env)}-day free trial for analytics)`;
+/** Why a dashboard's stats are locked. */
+export const lockedError = (env: Env): string => `this app's plan has no dashboard; see the plans at ${authConfig(env).origin}/account/billing`;
 
 function loginNotice(url: URL): string | null {
   if (url.searchParams.get("signed_out") === "1") return "You are signed out.";
