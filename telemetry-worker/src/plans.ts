@@ -139,10 +139,10 @@ export function canBuy(env: Env, account: { id: string; email: string | null }):
   return list.some((x) => x === account.id || (!!email && x.toLowerCase() === email));
 }
 
-/** "$29 / month", "$0", or "Talk to us" for a plan agreed by email. */
+/** "$29 / month", "$0", or "By agreement" for a plan agreed by email. */
 export function priceText(plan: Plan): string {
   const c = plan.price_usd_cents.monthly;
-  if (c === null) return "Talk to us";
+  if (c === null) return "By agreement";
   if (!c) return "$0";
   return `$${c % 100 ? (c / 100).toFixed(2) : String(c / 100)} / month`;
 }

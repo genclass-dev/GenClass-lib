@@ -66,7 +66,7 @@ describe("billing/plans.json: the one source of plans", () => {
     expect(FREE.id).toBe("free");
     expect(priceText(free!)).toBe("$0");
     expect(priceText(individual!)).toBe("$29 / month");
-    expect(priceText(enterprise!)).toBe("Talk to us");
+    expect(priceText(enterprise!)).toBe("By agreement");
     expect(planByLookupKey("genclass_individual_monthly")?.id).toBe("individual");
     expect(planByLookupKey("genclass_pro_monthly")).toBeNull();
     expect(viewRanges(free!)).toEqual(["24h", "7d", "30d", "90d"]);
@@ -233,7 +233,7 @@ describe("Individual on Stripe Checkout, Enterprise by email", () => {
     expect(page).toContain('<button class="btn" type="button" data-plan="individual"><span>Upgrade to Individual</span></button>');
     expect(page).not.toContain('data-plan="enterprise"');
     expect(page).toContain("$29 / month");
-    expect(page).toContain('<p class="price">Talk to us</p>');
+    expect(page).toContain('<p class="price">By agreement</p>');
     expect(page).toContain('Questions about Enterprise, self-hosting or invoices? Email <a href="mailto:mehar@daybot.ca">mehar@daybot.ca</a>.');
     expect(page).not.toMatch(/Switching between|To switch between/);
     expect(visible(page)).not.toMatch(/—|!/);
