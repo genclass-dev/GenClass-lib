@@ -55,12 +55,14 @@ describe("private mode: a self-hosted collector's snippets name its own endpoint
   it("the account Connect panel: the key with the endpoint, no npx login; a private link's setup passes the endpoint", () => {
     const project = { name: "Shop", token: "gc_TestToken0123456789abc", created: "", lastEvent: null };
     const account = { apps: [{ id: "0123456789abcdef", name: "Shop" }], current: "0123456789abcdef", email: "dev@example.com" };
-    const own = dashboardPage("n", project, { account, id: "0123456789abcdef", endpoint: EP });
+    // the Connect panel itself (every page also carries the client-side snippet code, which names GENCLASS_CONFIG)
+    const panel = (h: string) => /<section class="connect[\s\S]*?<\/section>/.exec(h)![0];
+    const own = panel(dashboardPage("n", project, { account, id: "0123456789abcdef", endpoint: EP }));
     expect(own).toContain(esc(`GenClass.init({ token: "gc_TestToken0123456789abc", telemetry: { endpoint: "${EP}" } });`));
     expect(own).toContain(esc(`<script>window.GENCLASS_CONFIG = { telemetry: { endpoint: "${EP}" } };</script>`));
     expect(own).toContain("Add the key and this collector's endpoint");
     expect(own).not.toContain(`npx ${RUNTIME_PKG} login`);
-    const plain = dashboardPage("n", project, { account, id: "0123456789abcdef" });
+    const plain = panel(dashboardPage("n", project, { account, id: "0123456789abcdef" }));
     expect(plain).toContain(`npx ${RUNTIME_PKG} login`);
     expect(plain).not.toContain("GENCLASS_CONFIG");
     // a private link's page embeds the endpoint for its setup snippets
