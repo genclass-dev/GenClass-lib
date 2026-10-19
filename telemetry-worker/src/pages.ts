@@ -511,6 +511,17 @@ main.wrap:has(.app){max-width:1360px}
 .lock .err{font-size:14px;color:var(--warn);margin-top:10px}
 .lock .err:empty{display:none}
 .mainc .dh{margin-top:32px}
+/* views: the sidebar shows one view at a time (DASH_JS show()); without the script every section shows */
+.vh{display:none!important}
+.side nav.snav a{justify-content:flex-start}
+.side nav.snav a span{margin-left:auto}
+.snav a::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.8;-webkit-mask:var(--ic) center/16px no-repeat;mask:var(--ic) center/16px no-repeat}
+.snav a[href="#top"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%223%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%2212%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%223%22 y=%2216%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3C/svg%3E")}.snav a[href="#found"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E")}.snav a[href="#where"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E")}.snav a[href="#did"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E")}.snav a[href="#recent-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 12h-4l-3 9L9 3l-3 9H2%22/%3E%3C/svg%3E")}.snav a[href="#visits"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9l5 12 1.8-5.2L21 14z%22/%3E%3Cpath d=%22M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2%22/%3E%3C/svg%3E")}.snav a[href="#health-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z%22/%3E%3C/svg%3E")}.snav a[href="#setup"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#connect"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#forwarding"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m22 2-7 20-4-9-9-4z%22/%3E%3Cpath d=%22M22 2 11 13%22/%3E%3C/svg%3E")}.snav a[href="#export"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3%22/%3E%3C/svg%3E")}
+.crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
+.crumbs a{color:var(--ink2);text-decoration:none}
+.crumbs a:hover{color:var(--ink)}
+.dh .meta .btn{margin-left:4px}
+@media (pointer:coarse){header.top{background:var(--paper);backdrop-filter:none;-webkit-backdrop-filter:none}}
 @media (max-width:920px){
   .app{grid-template-columns:minmax(0,1fr)}
   .side{position:sticky;top:65px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
@@ -978,22 +989,40 @@ const DASH_JS = `
 
   document.getElementById("pname").textContent = P.name;
   document.getElementById("sname").textContent = P.name;
+  var crumb = document.getElementById("crumb"); if (crumb) crumb.textContent = P.name;
+  // Views: each sidebar link opens one view (the sections marked data-v with it); the header stays. The hash names
+  // the link, so a view can be linked to and the back button works. While an app waits for its first event the view
+  // is Connect.
   (function(){
+    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
     var links = [].slice.call(document.querySelectorAll(".snav a"));
-    links.forEach(function(a){ a.addEventListener("click", function(){
-      if (a.getAttribute("href") === "#setup") { var d = document.getElementById("install"); if (d) d.open = true; }
-      if (a.getAttribute("href") === "#connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
-    }); });
-    if (!("IntersectionObserver" in window)) return;
-    var vis = {};
-    var io = new IntersectionObserver(function(es){
-      es.forEach(function(e){ vis[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0; });
-      var best = null, br = 0; Object.keys(vis).forEach(function(k){ if (vis[k] > br) { br = vis[k]; best = k; } });
-      // while an app waits for its first event the section links are hidden: the heading counts as Connect
-      var per = document.getElementById("period"); if (best === "top" && per && per.classList.contains("hidden")) best = "connect";
-      if (best) links.forEach(function(a){ a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + best)); });
-    }, { rootMargin: "-10% 0px -55% 0px", threshold: [0, 0.2, 0.5, 1] });
-    ["connect", "top", "trend", "found", "where", "did", "health-s", "recent-s", "visits", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
+    var parts = [].slice.call(document.querySelectorAll("[data-v]"));
+    function show(id, jump){
+      var v = VIEW[id];
+      if (!v || !parts.some(function(s){ return s.getAttribute("data-v") === v; })) return false;
+      if (id === "setup") { var d = document.getElementById("install"); if (d) d.open = true; }
+      if (id === "connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
+      parts.forEach(function(s){ s.classList.toggle("vh", s.getAttribute("data-v") !== v); });
+      var cur = links.filter(function(a){ return a.getAttribute("href") === "#" + id; })[0] || links.filter(function(a){ return VIEW[a.getAttribute("href").slice(1)] === v; })[0];
+      links.forEach(function(a){ a.setAttribute("aria-current", String(a === cur)); });
+      // the breadcrumb ends with the view's name (the link's label, without its count)
+      var cv = document.getElementById("crumbv");
+      if (cv) cv.textContent = cur && v !== "overview" ? " / " + (cur.firstChild && cur.firstChild.nodeType === 3 ? cur.firstChild.nodeValue : cur.textContent).trim() : "";
+      if (jump) { var t = document.getElementById(id); if (id === "did" && t) t.scrollIntoView(); else window.scrollTo(0, 0); }
+      return true;
+    }
+    function go(e, id){
+      if (!show(id, true)) return;
+      if (e) e.preventDefault();
+      try { history.replaceState(null, "", "#" + id); } catch (x) {}
+    }
+    links.concat([].slice.call(document.querySelectorAll("a[data-goto]"))).forEach(function(a){
+      a.addEventListener("click", function(e){ go(e, a.getAttribute("data-goto") || a.getAttribute("href").slice(1)); });
+    });
+    window.addEventListener("hashchange", function(){ show(location.hash.slice(1), true); });
+    var per = document.getElementById("period");
+    var first = location.hash.slice(1);
+    if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
   })();
   document.title = P.name + " | GenClass dashboard";
   if (document.getElementById("ptok")) {
@@ -1124,7 +1153,7 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
     return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
   };
   const notYet = runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
-  return `<section class="connect${connected ? " hidden" : ""}" id="connect" aria-labelledby="connect-h">
+  return `<section class="connect${connected ? " hidden" : ""}" id="connect" data-v="connect" aria-labelledby="connect-h">
   <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime ${KEY_RUNTIME} or later</span></div>
   ${notYet}
   <div class="keyrow">
@@ -1165,7 +1194,7 @@ export function dashboardPage(
   const apps = acct ? accountApps(acct) : "";
   const setup = acct
     ? ""
-    : `<section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
+    : `<section class="blk" id="setup" data-v="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
   <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
   ${opts.runtimeReady === true ? "" : `<p class="note small mt-s">${NOT_ON_NPM}</p>`}
   <p class="muted small mt-s">The token needs @genclass/runtime ${KEY_RUNTIME} or later. ${LOCAL_HOSTS}</p>
@@ -1185,31 +1214,33 @@ export function dashboardPage(
   </div>
   <div class="grp">This period</div>
   <nav class="snav" id="snav" aria-label="Sections">
-    <a href="#top">Overview</a>
-    <a href="#trend">Problems found <span id="c-trend"></span></a>
-    <a href="#found">What it found <span id="c-found"></span></a>
+    <a href="#top">Overview <span id="c-trend"></span></a>
+    <a href="#found">Problems <span id="c-found"></span></a>
     <a href="#where">Pages <span id="c-pages"></span></a>
-    <a href="#did">What GenClass did <span id="c-did"></span></a>
-    <a href="#health-s">Health</a>
-    <a href="#recent-s">Recent activity</a>
+    <a href="#did">Actions <span id="c-did"></span></a>
+    <a href="#recent-s">Activity</a>
     <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
+    <a href="#health-s">Health</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
   </nav>`;
-  const side = acct
-    ? `<div class="grp">Setup</div>
-  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a></nav>
-  <div id="period"${waiting ? ' class="hidden"' : ""}>
-  ${sections}
-  </div>
-  ${apps}`
-    : `${sections}
-  <div class="grp">Elsewhere</div>
+  const help = `<div class="grp">Help</div>
   <div class="out">
+    <a href="https://genclass.dev/docs/dashboard">Dashboard guide</a>
     <a href="https://genclass.dev/docs">Docs</a>
     <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a>
     ${report}
     <a href="https://discord.gg/kN9kRnFtZm">Discord</a>
   </div>`;
+  const side = acct
+    ? `<div class="grp">Setup</div>
+  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a>${opts.extra ? '<a href="#forwarding">Forwarding</a><a href="#export">Export</a>' : ""}</nav>
+  <div id="period"${waiting ? ' class="hidden"' : ""}>
+  ${sections}
+  </div>
+  ${apps}
+  ${help}`
+    : `${sections}
+  ${help}`;
   const body = `
 <script type="application/json" id="project">${embed(data)}</script>
 <style nonce="${nonce}">${DASH_CSS}</style>
@@ -1221,17 +1252,18 @@ export function dashboardPage(
 </aside>
 <div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
+  <nav class="crumbs" aria-label="Breadcrumb">${acct ? '<a href="/account">Apps</a>' : "<span>Private link</span>"}<span aria-hidden="true">/</span><span id="crumb"></span><span id="crumbv"></span></nav>
   <h1 id="pname"></h1>
-  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button></div>
-  <p class="summary" id="summary"></p>
+  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button>${acct ? '<a class="btn sm" href="#connect" data-goto="connect">Connect</a>' : ""}<a class="btn ghost sm" href="https://genclass.dev/docs/dashboard">Dashboard guide</a></div>
+  <p class="summary" id="summary" data-v="overview"></p>
 </section>
 ${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
-<section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
+<section id="nodata" class="first hidden" data-v="overview"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
 Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
 versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
 <div id="content" class="hidden">
-<div class="statrow" id="tiles"></div>
-<section class="blk" id="trend">
+<div class="statrow" id="tiles" data-v="overview"></div>
+<section class="blk" id="trend" data-v="overview">
   <div class="blk-h"><h2>Problems found</h2><span class="aside" id="trendn"></span></div>
   <figure>
     <div class="legend" id="legend"></div>
@@ -1245,7 +1277,7 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   </figure>
   <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
 </section>
-<section class="blk" id="found">
+<section class="blk" id="found" data-v="problems">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
@@ -1255,30 +1287,30 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
     <div class="finds" id="possible"></div>
   </div>
 </section>
-<section class="blk two" id="where">
+<section class="blk two" id="where" data-v="pages">
   <div><div class="blk-h"><h2>Pages</h2><span class="aside">Table 1. Pages with the most problems</span></div><div id="pages"></div></div>
   <div id="did"><div class="blk-h"><h2>What GenClass did</h2><span class="aside">Table 2. Actions it took</span></div><div id="acted"></div></div>
 </section>
-<section class="blk" id="health-s">
+<section class="blk" id="health-s" data-v="health">
   <div class="blk-h"><h2>Health</h2><span class="aside">Whether GenClass could watch your pages at all</span></div>
   <div id="health"></div>
 </section>
-<section class="blk" id="recent-s">
+<section class="blk" id="recent-s" data-v="activity">
   <div class="blk-h"><h2>Recent activity</h2><span class="aside">Table 3. The latest 50 detections and interventions</span></div>
   <div class="tablewrap"><table class="dt"><thead><tr><th>Time</th><th>Page / function</th><th>What</th><th class="num">Confidence</th><th>GenClass</th><th>Mode</th></tr></thead>
   <tbody id="recent"></tbody></table></div>
   <p class="quiet hidden" id="recent0">Nothing detected in this period.</p>
 </section>
-<section class="blk hidden" id="visits">
+<section class="blk hidden" id="visits" data-v="visitors">
   <div class="blk-h"><h2>How visitors use this app</h2><span class="aside">Interaction analytics, for apps that turn them on</span></div>
   <div id="ixsum"></div>
   <div id="ixpages" class="mt-l"></div>
 </section>
-<section class="blk two hidden" id="clicks">
+<section class="blk two hidden" id="clicks" data-v="visitors">
   <div><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></div>
   <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
 </section>
-<section class="blk"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
+<section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 </div>
 ${setup}
 ${opts.extra?.html ?? ""}
