@@ -268,6 +268,46 @@ export function fanOutSibling(
   return !!w && x.cause !== undefined && x.cause !== null && w.cause === x.cause && w.kind === x.kind && Math.abs(w.start - x.start) <= FANOUT_WINDOW_MS;
 }
 
+// Steady timer ticks (CONTRACT §6 Triage, owner to confirm): a field that one timer writes with the same numeric step
+// on that timer's own schedule (an elapsed-seconds counter, a countdown) carries the non-neutral identical-change fact
+// on every tick. Once the field's last TICK_MIN writes were such ticks, mutation triage stops counting that one fact
+// (the fact, its text and every situation still built are unchanged; any other non-neutral fact still asks). Stateless:
+// a write that breaks the pattern (another writer, a user write, another step, an off-schedule gap) asks again until
+// TICK_MIN clean ticks follow. Values as learn/cadence.ts (4 starts, TOLERANCE, MIN_PERIOD_MS).
+/** Consistent earlier ticks of a field before its identical-change fact stops making a timer's write salient. */
+const TICK_MIN = 4;
+/** Each gap between ticks is within this share of the timer's own delay. */
+const TICK_TOLERANCE = 0.25;
+/** Timers with a shorter delay are never learned. */
+const TICK_MIN_DELAY_MS = 250;
+
+/**
+ * True when write `m` (a mutation decided now, on `rt`'s clock, not a deferred re-decision) is a learned steady tick:
+ * its cause is a timer op of delay ≥ TICK_MIN_DELAY_MS, every change is numeric, and each changed field's last TICK_MIN
+ * writes were writes of the same step by ticks of the same timer (the same delay, and sharing their cause or each
+ * caused by the one before), each tick (its timer op's start; now for `m`) within TICK_TOLERANCE of the delay after the
+ * previous one. Reads the field histories and the op registry only; keeps nothing.
+ */
+function steadyTick(m: MutationRec, rt: { clock: Clock; hub: StoreHub; ops: OpRegistry }): boolean {
+  // Only timer ops have a delay, so every writer below is a timer tick (never a user or GenClass write); the
+  // identical-change fact exists only for a write with changes.
+  const C = m.cause;
+  const d = C?.delay ?? 0;
+  return d >= TICK_MIN_DELAY_MS && !m.defers && m.changes.every((c) => {
+    const h = rt.hub.field(c.path)?.hist ?? [];
+    let next = C!;
+    let t = rt.clock.now();
+    if (!c.delta.startsWith("n:") || h.length < TICK_MIN) return false;
+    for (const e of h.slice(-TICK_MIN).reverse()) {
+      const w = rt.ops.get(e.writer);
+      if (!w || e.delta !== c.delta || w.delay !== d || (next.cause !== w.cause && next.cause !== w.id) || Math.abs(t - w.start - d) > d * TICK_TOLERANCE) return false;
+      next = w;
+      t = w.start;
+    }
+    return true;
+  });
+}
+
 export class RuntimeImpl implements Runtime {
   readonly clock: Clock;
   readonly global: Record<string, unknown>;
@@ -1360,7 +1400,12 @@ export class RuntimeImpl implements Runtime {
     return {
       global: this.global,
       ctx: this.ctx,
-      lazyTimer: (parent: OpRec | null, label: string) => new LazyOp(parent, (cause) => this.startOp("timer", label, { cause, instant: true })),
+      lazyTimer: (parent: OpRec | null, label: string, delay: number) =>
+        new LazyOp(parent, (cause) => {
+          const op = this.startOp("timer", label, { cause, instant: true });
+          op.delay = delay; // after startOp: never in its op.start event
+          return op;
+        }),
     };
   }
 
@@ -1583,7 +1628,9 @@ export class RuntimeImpl implements Runtime {
       // cheap first pass: facts only; the full situation is built only when it will be used
       const facts = computeFacts(this.env, spec);
       const forced = this.standing.some((q) => q.always && q.on.includes(spec.trigger));
-      if (this.triage === "salient" && !forced && facts.every((f) => f.neutral)) return passive();
+      // a learned steady timer tick's identical-change fact does not count (steadyTick; computed once, when needed)
+      let tick: boolean | undefined;
+      if (this.triage === "salient" && !forced && facts.every((f) => f.neutral || (spec.trigger === "mutation" && f.kind === "repetition" && (tick ??= steadyTick(spec.m, this))))) return passive();
       built = buildSituation(this.env, spec, this.buildOpts(), facts);
     } catch (e) {
       this.log("situation build failed", e);

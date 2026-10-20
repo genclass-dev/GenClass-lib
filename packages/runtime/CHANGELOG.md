@@ -2,6 +2,29 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **Fewer model calls on steady timer ticks (mutation triage; CONTRACT §6 amendment, owner to confirm).** A field that
+  one timer writes with the same numeric step on that timer's own schedule (an elapsed-seconds counter, a countdown)
+  carried the identical-change fact on every tick, its only non-neutral fact, so `triage: "salient"` asked the model
+  about nearly every tick: 59 of 60 writes a minute for a 1 Hz `+1` counter, and in Troy Bot (0.3.0-beta.0, a
+  `useSyncExternalStore` call timer) 87 of 116 decisions, all `expected`, about 100 ms of worker time each, counted
+  against the built-in model's 30 decisions a minute. Once the field's last 4 writes were such ticks (a timer of at
+  least 250 ms, the same step, each tick within ±25% of the timer's delay after the previous one, the same timer:
+  sharing its cause or each tick caused by the one before), that one fact no longer makes the write salient: the
+  counter is asked about on its 2nd to 4th ticks, then not again while it keeps its step and schedule. A user write,
+  another writer, a second timer, another step or an off-schedule gap asks again for the next 4 writes. Any other
+  non-neutral fact (a pending local change, a newer-data conflict) still asks, and `triage: "always"` and standing
+  `always` questions are unchanged. The timer's delay is kept on the internal op record only. No model-visible text
+  changed (`situation-v2.3`): asked situations keep their wording, and the telemetry payload is the same (there are
+  just fewer decisions). Later situations can show slightly older timeline events, because fewer decision events
+  take places in the event log. Not learned, so still asked as before: wrapping counters (a carousel index is asked
+  again at each wrap and the 4 ticks after it, so an index over 5 or fewer items is never learned),
+  `requestAnimationFrame`, `MessageChannel` and `requestIdleCallback` loops (no timer cause), ticks written through
+  `runtime.op` or a `protect()`ed function (their cause is the task), timers under 250 ms, and ticks that append
+  items (unbounded growth may be the bug). Possibly learned by mistake: two intervals registered in one React effect
+  whose `useState` updates React batches into one `+2` commit a second look like one steady timer (not verified with
+  real React). Not measured yet: FIR and recall on the sim eval, the realapps sweep and the demos bench. In guard and
+  heal, fewer queued tick decisions can let other salient subjects be held or decided where they failed open before,
+  so FIR can move either way until measured.
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the

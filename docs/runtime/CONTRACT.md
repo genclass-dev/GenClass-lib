@@ -312,6 +312,20 @@ streak or failure, a baseline ratio beyond 3×, an invariant violation, an error
 runs with no model call and no decision record. `triage: "always"` consults on every trigger. Triage is a
 cost filter, not a classifier: it never chooses a diagnosis or a non-passive action.
 
+**Steady timer ticks** (amendment 2026-10-20, from Troy Bot's 1 Hz elapsed-seconds counter; **owner to confirm
+before merge**): a triage override of the identical-change fact, nothing else. For a `mutation` under
+`triage: "salient"` (no standing `always` question for it, not a deferred re-decision), the non-neutral
+identical-change fact (kind `repetition`, "An identical change to … was applied …") does not count as salient when
+the write is a learned steady tick: its cause is a timer op with a scheduled delay of at least `TICK_MIN_DELAY_MS`
+= 250 ms, every change is numeric, and for each changed field the last `TICK_MIN` = 4 writes were non-user writes of
+the same step by ticks of the same timer (the same delay, sharing their cause or each caused by the tick
+before), each tick (its timer op's start, and the current time for this write) within `TICK_TOLERANCE` = ±25% of
+that delay after the previous one. The fact keeps its text and `neutral: false`, every situation that is still
+built is unchanged in wording, and any other non-neutral fact still asks. The check keeps no state of its own: a
+write that breaks the pattern (another writer, a user write, another step, an off-schedule gap, a second timer)
+asks again until 4 clean ticks follow. The timer's delay is kept on the internal op record only, never in an op's
+`meta` or `detail`, an event or any text. Constants and the check: `src/runtime.ts` (`steadyTick`).
+
 **Standing questions** (exact qids; plugins may add more):
 
 - `action` (choice): one option per applicable action, `name: description` (descriptions in section 7).

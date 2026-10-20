@@ -25,6 +25,11 @@ export interface OpRec extends Op {
   errorText?: string;
   /** Instantaneous op (user action, timer tick, ws message). */
   instant?: boolean;
+  /**
+   * A timer tick's scheduled delay in ms (observe/timers.ts). Internal: read only by mutation triage's steady-tick
+   * check (runtime.ts steadyTick); never in `meta`, `detail`, an event or any situation text.
+   */
+  delay?: number;
   /** Number of mutations applied with this op as the direct cause. */
   wrote: number;
   /** Stores written with this op as the direct cause. */

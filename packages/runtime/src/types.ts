@@ -828,7 +828,11 @@ export interface InitOptions {
    * synthetic DOM events (isTrusted false) as user actions too, for in-page test harnesses.
    */
   observe?: Partial<Record<ObserverName | "untrustedEvents", boolean>>;
-  /** Default "salient". */
+  /**
+   * Default "salient": the model is asked only when some fact is non-neutral (CONTRACT §6); a learned steady timer
+   * tick (one timer writing the same numeric step on its own schedule, 4 ticks in a row) does not count as salient for
+   * its identical-change fact alone. "always": every trigger is asked.
+   */
   triage?: "salient" | "always";
   /**
    * Which detections are reported (CONTRACT §8). "likely": a top diagnosis other than `expected` at or above the
