@@ -803,3 +803,47 @@ them, measured on the train VM (not CI):
 `test/bundle.test.ts` measures the same build at 108.53 / 100.39 KB (script tag 128.83 KB). The
 recording itself is `dist/analytics/index.js` (12.5 KB minified, not gzipped), loaded only when an app turns
 analytics on. No detection numbers: analytics never feed a decision, so recall and FIR do not change.
+
+## 16. One app's browser cost (0.3.0-beta.0; measured by the app's owner, 2026-10-17)
+
+**Cost only.** Observe mode took no action and these numbers are not detections, so no recall or false-intervention
+rate applies. **Not GenClass's own bench and not GenClass's defaults:** one Next.js 16.3 app (the pilot app of §5 and
+of the package README's "Costs"), measured by its owner on a desktop Mac. GenClass's own tests measure the first-load
+size (§10, §13, §15) but no load times or memory in a browser.
+
+**Method.** Production build (Turbopack), served by `next start` on `localhost`; Chromium with a phone-sized viewport
+and 4× CPU throttling; 5 cold and 5 warm runs per arm, medians. GenClass is behind a build-time switch (package
+README, "Only in some builds (Next.js)"). With it on, `@genclass/runtime/auto/observe` loads first and synchronously
+in `instrumentation-client.ts`, before hydration, with options that are not the defaults: telemetry with
+`decisionSample: 1` and `maxDecisions: Infinity` (an options object, so it also sends from `localhost`) and
+`include.situation: false`, `detect: "possible"`, `visual: true`, `learn: { expectations: true }`, `debug` on
+`localhost`, and the model self-hosted (WASM q8, `device: "wasm"`, 1 thread). Being on `localhost`,
+development-host defaults applied too. The app wraps GenClass in a small module of its own (it keeps the last 500
+events for its tests), which is in the JavaScript numbers. Control: the same commit with the switch off, which the
+first table shows ships no GenClass code.
+
+**Builds** (`next build`, gzip -9 of every chunk; deltas against the commit before GenClass was added):
+
+| before GenClass was added | GenClass added, switch off | GenClass added, switch on |
+|---|---|---|
+| 52 JS chunks, 773,548 B gzip | 52 JS chunks, 773,612 B gzip (+64 B; +161 B raw), the only addition the empty `instrumentation-client` hook; 0 files that mention GenClass (`grep -ril genclass .next/static`) | 67 files, 1,048,345 B gzip (+274,797 B; +806,550 B raw) with the lazy worker, ONNX Runtime and visual chunks; 0 `.wasm` files in `.next` |
+
+**Pages** (switch off against switch on, the same server setup):
+
+| | off | on | how |
+|---|---|---|---|
+| JavaScript before the load event (on the wire) | `/` 346.0 KB, `/menu` 285.7 KB | `/` 457.4 KB, `/menu` 397.1 KB (+111.4 KB each) | resource timing, cold, median of 5 |
+| load event | `/` 222 ms, `/menu` 213 ms | `/` 295 ms, `/menu` 369 ms (+73 to +156 ms) | medians of 5 |
+| first long task | `/` 57-71 ms | `/` 116-132 ms (about +55 ms); warm loads: none off, 1 or 2 of 50-62 ms on | PerformanceObserver `longtask` |
+| LCP | `/` 156 ms, `/menu` 136 ms | `/` 116 ms, `/menu` 148 ms (no regression above the noise) | medians of 5 |
+| main-thread JS heap | | +1.5 to 1.8 MB | |
+| memory per renderer process (renderer and model worker) | `/` 77 MB cold, 86 MB warm; `/menu` 49 MB cold, 58 MB warm | `/` 249 / 208 MB; `/menu` 224 / 175 MB (+117 to +175 MB) | macOS `top -stats mem` 12 s after load, median of 5 (RSS was too noisy to use) |
+| first visit download | | 13,708 KiB (about 14.0 MB) from the app's own origin, of which the q8 model is 9,922 KiB (10.2 MB, sent uncompressed); about 1 KB on later visits | Playwright `requestfinished` sizes, worker requests included |
+| model ready | | 1.25 to 1.5 s cold, 0.75 to 0.94 s warm (WASM q8, 1 thread) | the status `ready` event against `rt.summary().startedAt` |
+| model latency per decision | | 97 to 127 ms | `Decision.latencyMs`: from the call to the worker to its answer, on the main thread's clock (not the worker's compute time alone) |
+
+Sizes in MB and KB are decimal except where KiB is written; the app's own report gave the download in KiB. Not
+measured: what made the first long task longer (evaluating the entry before hydration, or the runtime's install
+work), GenClass's defaults on a deployed host, and phones. The `0.1.0-beta.3` numbers in the package README (same app,
+2026-10-09) used the same build loaded with `?genclass=off` as the control, which still loads GenClass's code, and
+renderer RSS for memory; they are not comparable with these.

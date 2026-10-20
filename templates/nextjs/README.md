@@ -53,6 +53,9 @@ if (process.env.NODE_ENV === "development") {
 - For one page load: add `?genclass=off` to the URL (nothing is installed).
 - For a browser: `localStorage.genclass = "off"`.
 - For good: delete `instrumentation-client.ts` (or run `npx @genclass/runtime remove`).
+- For a build: the import above ships GenClass (about 108 KB gzip) to every page even while it is off at run time.
+  To leave it out of some builds entirely, use the build-time switch in the package README
+  ([Only in some builds (Next.js)](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#only-in-some-builds-nextjs)).
 
 ## Privacy
 

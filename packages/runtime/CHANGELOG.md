@@ -66,6 +66,20 @@
   typescript, next and vitest. The npm and jsDelivr package pages are not affected; they show each version's full
   README. `.github/workflows/release.yml` now says so. No package contents, runtime code or model-visible text
   changed.
+- **Docs: what GenClass costs a page, `init --telemetry`, and a Next.js switch that ships nothing when off** (from a
+  check of 0.3.0-beta.0 in the pilot app, 2026-10-17). README "Costs" said the main thread showed "no measurable
+  change": that was `0.1.0-beta.3` against the same build with `?genclass=off`, which still loads GenClass's code.
+  Costs now puts it next to `0.3.0-beta.0` in the same app against a build without GenClass, on `localhost` with
+  options that are not the defaults (first long task about 55 ms longer, load event 73 to 156 ms later at 4× CPU
+  throttling, +111.4 KB per page, +117 to 175 MB per process by `top`), each with its own control; the "Why it's an
+  easy yes" bullet and the Performance section's first-load limits (now 108.6 / 100.48 KB) are corrected, and
+  docs/runtime/RESULTS.md §16 has the method (cost only: no recall or FIR applies). The README no longer calls
+  `init --telemetry` "explicitly on": as since 0.2.2, it undoes `--no-telemetry` and writes no telemetry option, so
+  local hosts stay off. Install has a new "Only in some builds (Next.js)" part: an always-defined `NEXT_PUBLIC_*`
+  value in `next.config.ts` and a synchronous `require` of your own module in `instrumentation-client.ts`, so a build
+  without GenClass ships none of its code (the weaker `import()` variant installs after hydration); the Next.js
+  starter's README links to it. No runtime code, CLI behaviour or model-visible text changed (test/readme.test.ts,
+  test/install/cli.test.ts).
 
 ## 0.3.0-beta.0 (unreleased)
 
