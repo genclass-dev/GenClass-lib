@@ -60,8 +60,8 @@ The package is **ESM only** (no `require`). Jest users need `transformIgnorePatt
 - On a deployed page, one console line saying anonymous diagnostics are on (`[GenClass] Sends anonymous diagnostics
   (decisions and counts, no page text) to improve the model. Opt out: …`). With the app token `init` creates, they
   also feed `npx @genclass/runtime@beta stats` (from `0.3.0-beta.1`, not yet on npm), a free summary in your
-  terminal, and the app's dashboard (Pro; get a 7-day free trial for analytics); with telemetry off, both stay
-  empty. Since `0.2.2`
+  terminal, and the app's dashboard (free as well; it fills from pages that run runtime 0.3.0 or later with
+  diagnostics on); with telemetry off, both stay empty. Since `0.2.2`
   the line does not appear on `localhost` or other local hosts (`0.2.1` sends and shows it there too, by mistake).
 - `[GenClass] Model ready (genclass-runtime-r17, wasm, q8, 0.4s). Mode: observe.` once the model has loaded at idle.
 - Then possibly nothing for a while. Observe mode reports only salient situations (a response landing over newer
@@ -90,17 +90,26 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 ```
 
 - **Token and dashboard.** A token (`gc_` plus 22 letters and digits, public) groups your app's diagnostics under a
-  private dashboard link (`https://genclass.dev/dashboard/...`). Dashboards come with Pro (get a 7-day free trial for
-  analytics): the link shows the stats once the app is in an account with Pro or a trial, and until then leads there.
+  private dashboard link (`https://genclass.dev/dashboard/...`). The dashboard is free and needs no plan: the
+  private link shows the stats, and an optional genclass.dev account keeps your apps in one place.
   Get one at [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. Or
   keep the dashboards in an optional genclass.dev account: `npx @genclass/runtime@beta login` signs in from the
   terminal (device flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
   dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`,
   private networks) do not send by default; `telemetry: true` or any telemetry options object (`telemetry: { ... }`)
-  is an explicit opt-in that sends from them too, with the token. Data is kept for 90 days. Without Pro,
+  is an explicit opt-in that sends from them too, with the token. GenClass keeps an app's data for 1 year while the
+  app is in a genclass.dev account, and for 90 days for an app known only by its private link.
   `npx @genclass/runtime@beta stats` (from `0.3.0-beta.1`) prints a free summary of the last 24 hours or 7 days in the
   terminal: page loads, problems found by type, the pages most affected
   ([package README](packages/runtime/README.md#install), Stats in the terminal).
+- **Plans.** Everything GenClass makes is free: the runtime, its on-device model, the dashboard for every app with a
+  year of history, export, forwarding to Sentry, PostHog, Datadog, Slack or a signed webhook, the page check, and the
+  closed-loop MCP server, which you run on your own machine. What costs money is running the closed-loop MCP for you:
+  Individual ($20 a month) hosts it on genclass.dev; Enterprise runs it inside your own network. The loop: GenClass
+  finds the bug on the deployed app; the MCP server hands the finding, with its evidence and the pages affected, to
+  your coding agent; the agent fixes it; after the fix ships, GenClass reports whether the problem came back. The MCP
+  server, local, hosted or on-prem, is coming next
+  ([design](docs/runtime/ARCHITECTURE.md#the-closed-loop-the-mcp-server), [plans](https://genclass.dev/pricing)).
 - **`protect(name, fn)`** returns a function with the same signature (same `this`, arguments, return value and
   errors); decisions about what it causes carry `fn: name`. Without a runtime it just calls `fn`.
   [Package README](packages/runtime/README.md#function-specific-protect).
@@ -190,6 +199,12 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
   your app's public token, so the same diagnostics also show on your app's private dashboard (whoever holds its link
   can open it), and decisions about `protect()`ed functions carry the function's name (`fn`, the label you chose).
   Without a token neither is sent; without telemetry, a token does nothing.
+- **Forwarding and the closed loop.** The runtime has no Sentry, PostHog or Datadog adapter. The genclass.dev
+  collector forwards detections to them, free, once you turn it on in the app's dashboard
+  (https://genclass.dev/docs#dashboard): problem type, confidence, trigger, route, versions and time, never page text.
+  The closed-loop MCP server (coming next) hands the same findings to your coding agent; it reads only what the
+  collector already keeps and sends no page text
+  ([architecture](docs/runtime/ARCHITECTURE.md#the-closed-loop-the-mcp-server)).
 - **Possible detections** (`0.3.0`, observe): their `detect` events carry `tier: "possible"` (a likely detection
   has no `tier`, as before), and the page-load summary counts them apart from detections (`possibleDetections`). They
   say which tier a detection was in; nothing new about the page is sent.

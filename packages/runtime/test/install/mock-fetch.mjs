@@ -4,9 +4,9 @@
 // appended to the file GENCLASS_TEST_FETCH_LOG as one JSON line.
 //
 // The summary modes answer GET /api/projects/<secret>/summary the way telemetry-worker/src/summary.ts does (the
-// shape is the contract in its header): "summary" (200 with data, the dashboard locked, the app in an account that
-// can still start its trial), "summary-open" (the same, the dashboard open), "summary-unclaimed" (locked, an app in no
-// account: trialUrl is the private link), "summary-trial-used" (locked, the account's trial was used),
+// shape is the contract in its header): "summary" (200 with data; dashboard { url, locked: false }: the dashboard is
+// free on every plan), "summary-old" (the same data in the shape an older worker sent, locked true with trialUrl and
+// trialAvailable: fields the CLI no longer reads), "summary-nodash" (200 with data and no dashboard object),
 // "summary-empty" (200, nothing at all), "summary-late" (no page loads in the range, but problems from a tab opened
 // before it), "summary-escape" (keys with terminal escape, bidi and zero-width characters, as anyone holding the public
 // token can send), "summary-404", "summary-429" (the worker's body; Retry-After 42 instead of its 60, to show the CLI
@@ -28,7 +28,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (!secret) return json(404, { ok: false, error: "not found" });
     if (mode === "summary-404") return json(404, { ok: false, error: "not found" });
     if (mode === "summary-429") return json(429, { ok: false, error: "too many summary requests; try again in a minute" }, { "retry-after": "42" });
-    if (mode === "summary-402") return json(402, { ok: false, error: "the dashboard needs Pro" }); // the worker never sends it today; the CLI still words it
+    if (mode === "summary-402") return json(402, { ok: false, error: "payment required" }); // the summary routes never answer it; the CLI still words it as a fault
     if (mode === "summary-bad") return json(200, { hello: "world" });
     return json(200, summary(u, secret, mode));
   }
@@ -53,12 +53,13 @@ function summary(u, secret, mode) {
   const late = mode === "summary-late";
   const esc = mode === "summary-escape";
   const link = `${u.origin}/dashboard/${secret}`;
+  // JSON.stringify drops an undefined dashboard (summary-nodash)
   const dashboard =
-    mode === "summary-open"
-      ? { url: link, locked: false, trialUrl: `${u.origin}/account/trial`, trialAvailable: false }
-      : mode === "summary-unclaimed"
-        ? { url: link, locked: true, trialUrl: link, trialAvailable: true }
-        : { url: link, locked: true, trialUrl: `${u.origin}/account/trial`, trialAvailable: mode !== "summary-trial-used" };
+    mode === "summary-nodash"
+      ? undefined
+      : mode === "summary-old"
+        ? { url: link, locked: true, trialUrl: `${u.origin}/account/trial`, trialAvailable: true }
+        : { url: link, locked: false };
   if (late) {
     return {
       ok: true,

@@ -599,15 +599,13 @@ describe("stats with a signed-in account (GET /api/account/projects/<id>/summary
     ]);
   });
 
-  it("a locked dashboard: the trial lines; no page loads: the empty summary; --json: the answer only", () => {
+  it("an older worker's summary (locked true, trial fields): the same dashboard line, no plan or trial named; no page loads: the empty summary; --json: the answer only", () => {
     const dir = viteApp();
     const { config, env } = AFTER_CONNECT(dir, [SHOP]);
-    const locked = run(["stats", "--cwd", dir], { config, env: { ...env, GENCLASS_TEST_SUMMARY: "locked" } });
-    expect(locked.code, locked.out).toBe(0);
-    expect(lines(locked).slice(-2)).toEqual(["Get a 7-day free trial for analytics: https://genclass.dev/account/trial (no card needed)", "See one filled in: https://genclass.dev/dashboard/sample"]);
-    const used = run(["stats", "--cwd", dir], { config, env: { ...env, GENCLASS_TEST_SUMMARY: "trial-used" } });
-    expect(used.code, used.out).toBe(0);
-    expect(lines(used).slice(-2)).toEqual(["Your trial has ended; the dashboard comes with Pro: https://genclass.dev/account/billing", "See one filled in: https://genclass.dev/dashboard/sample"]);
+    const old = run(["stats", "--cwd", dir], { config, env: { ...env, GENCLASS_TEST_SUMMARY: "old" } });
+    expect(old.code, old.out).toBe(0);
+    expect(lines(old).slice(-1)).toEqual(["Dashboard: https://genclass.dev/account/apps/p_shop"]);
+    expect(old.out).not.toMatch(/trial|\bPro\b|locked|plan/);
     const empty = run(["stats", "--cwd", dir], { config, env: { ...env, GENCLASS_TEST_SUMMARY: "empty" } });
     expect(empty.code, empty.out).toBe(0);
     expect(lines(empty)[0]).toBe("No diagnostics received for shop-web in the last 7 days.");

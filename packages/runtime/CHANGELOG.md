@@ -2,6 +2,21 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **Plans: everything GenClass makes is free; the paid plans sell the closed-loop MCP** (2026-10-20; the plan copy
+  in the bullets below is superseded). The runtime, its on-device model, the dashboard for every app with 1 year of
+  history, export, forwarding, the page check and the closed-loop MCP server (run on your own machine) are free; the
+  earlier paid plans (Pro, Custom), never on sale, are gone. Individual (US$20 a month) hosts the closed-loop MCP on
+  genclass.dev and Enterprise runs it inside the customer's own network; the MCP server is designed
+  (docs/runtime/ARCHITECTURE.md, "The closed loop: the MCP server") and coming next, so Individual is not on sale
+  yet. The CLI's copy no longer mentions trials, Pro or locked dashboards: `init` says the dashboard is free and
+  needs no plan (the private link shows the stats once pages with diagnostics on have sent data), `stats` prints
+  `Dashboard: <url>` (or where the private link is) after the free summary, and `init --sink sentry|posthog|datadog`
+  says the runtime has no Sentry, PostHog or Datadog adapter and that the genclass.dev collector forwards detections
+  to them, free, once you turn it on in the app's dashboard (https://genclass.dev/docs#dashboard). The page's sinks
+  warning reads `Ignored sink <names>: the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev
+  collector forwards detections to them, free, from the app's dashboard: https://genclass.dev/docs#dashboard`. The
+  summary endpoint's `dashboard` object is `{ url, locked: false }` (`trialUrl` and `trialAvailable` are gone;
+  `locked` stays, always false, for older CLIs). No runtime behaviour and no model-visible text changed.
 - **New CLI command: `npx @genclass/runtime stats`** (`bin/lib/stats.mjs`). It prints a free summary of what GenClass
   found on the deployed app in the last 7 days (`--range 24h`: 24 hours, UTC): page loads and the change from the
   range before, problems found by type, possible issues, the pages most affected, the mode, how often the model

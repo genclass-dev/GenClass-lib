@@ -1,8 +1,9 @@
 // What the collector does after storing a batch from an app in an account, beyond the dashboard counters: index the
 // batch for the export (copied under export/ when the owner's plan keeps more than 90 days) when the owner's plan
 // includes export, and forward its detections when the owner's plan includes forwarding and a destination is on. The
-// owner's plan is what src/plans.ts accessOf says: the paid plan, or Pro during GenClass's grant or the trial. Apps
-// on Free and apps without an account (private links only) cannot export or forward, so their batches cost nothing
+// owner's plan is what src/plans.ts accessOf says: the paid plan, Individual during GenClass's grant or the trial, else
+// Free. Every plan includes export and forwarding (they are free), so every app in an account is indexed and, with a
+// destination on, forwarded. Apps without an account (private links only) have neither, so their batches cost nothing
 // more: no index row, no copy. Runs in waitUntil; never affects the response.
 
 import type { BucketLike, Env } from "./collector.js";
@@ -31,7 +32,7 @@ export const forgetOwner = (token: string): boolean => owners.delete(token);
 /**
  * The app behind a token, its owner's plan and how many destinations are on (cached a minute per isolate). `mode`: the
  * current Stripe key's; a plan bought in test mode counts only under a test key (src/plans.ts inMode). A grant or a
- * trial gives Pro's entitlements while it runs (accessOf).
+ * trial gives Individual's entitlements while it runs (accessOf).
  */
 export async function ownerOf(db: D1Like, token: string, nowMs: number, mode: StripeMode | null = null): Promise<Owner | null> {
   const c = owners.get(token);
@@ -67,8 +68,8 @@ export async function afterBatch(env: Env & { BUCKET: BucketLike }, db: D1Like, 
   const owner = await ownerOf(db, b.token, now.getTime(), stripeMode(env));
   if (!owner?.accountId) return;
   const tasks: Promise<unknown>[] = [];
-  // the export covers the batches received while the account's plan includes it (one index row per batch, so not for
-  // Free apps, which could never read them)
+  // the export covers the batches received while the account's plan includes it (one index row per batch; every plan
+  // does today, so this is every batch of an app in an account)
   if (entitled(owner.plan, "export")) {
     tasks.push(
       storeForExport(db, env.BUCKET, {

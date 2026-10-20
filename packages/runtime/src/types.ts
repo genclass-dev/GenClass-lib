@@ -806,10 +806,10 @@ export interface InitOptions {
    * record on the console) and `@genclass/runtime/sinks/webhook` (batched POSTs to a URL you configure). The zero-code
    * entries also take them by name (`console-json:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = {
    * sinks: ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=console-json">`, `data-sink="console-json"`
-   * on the script tag, or `npx @genclass/runtime init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
-   * Datadog is not part of the free runtime (on Pro the GenClass collector forwards to them once turned on:
-   * https://genclass.dev/pricing); a page config that names `sentry`, `posthog` or `datadog` gets one console warning
-   * that says so and nothing else.
+   * on the script tag, or `npx @genclass/runtime init --sink webhook:/genclass`. The runtime has no Sentry, PostHog or
+   * Datadog adapter; the genclass.dev collector forwards detections to them, free, once you turn it on in the app's
+   * dashboard (https://genclass.dev/docs#dashboard); a page config that names `sentry`, `posthog` or `datadog` gets one
+   * console warning that says so and nothing else.
    */
   sinks?: Sink[];
   /** Session id and tags stamped on records (never shown to the model). */
@@ -881,8 +881,8 @@ export interface InitOptions {
    * Node/SSR and with `createRuntime()` unless set here. Off with `false`, `?genclass=no-telemetry` (or `off`),
    * `localStorage["genclass.telemetry"] = "off"`, or when the browser sends Global Privacy Control
    * (`navigator.globalPrivacyControl === true`). With a `token`, the same diagnostics feed
-   * `npx @genclass/runtime stats` (a free summary in the terminal) and the app's dashboard (Pro); with telemetry off,
-   * both stay empty.
+   * `npx @genclass/runtime stats` (a free summary in the terminal) and the app's dashboard (free too, no plan needed);
+   * with telemetry off, both stay empty.
    */
   telemetry?: boolean | TelemetryOptions;
   /**

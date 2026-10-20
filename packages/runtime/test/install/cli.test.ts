@@ -1105,7 +1105,7 @@ describe("stats: the free summary in the terminal (summary endpoint mocked; neve
     "1 year of history, export, and forwarding to Sentry, PostHog, Datadog or Slack.",
   ];
   const SAMPLE = "See one filled in: https://genclass.dev/dashboard/sample";
-  const TRIAL = [...FREE, "Get a 7-day free trial for analytics: https://genclass.dev/account/trial (no card needed)", SAMPLE];
+  const DASH_LINE = "Dashboard: open the private link in .genclass.local (keep it out of code, docs and pull requests)";
   const BODY = [
     "GenClass stats for shop-web (last 7 days, UTC)",
     "  Page loads        1,234   +12% vs the 7 days before",
@@ -1118,38 +1118,26 @@ describe("stats: the free summary in the terminal (summary endpoint mocked; neve
     "",
   ];
 
-  it("(1) the private link in .genclass.local: one GET of its summary, sending only the secret; the exact summary", () => {
+  it("(1) the private link in .genclass.local: one GET of its summary, sending only the secret; the exact summary, with where the dashboard is but never the private link itself", () => {
     const r = stats("summary", project({ ".genclass.local": LOCAL }));
     expect(r.code, r.out).toBe(0);
     expect(r.calls).toEqual([{ url: `https://genclass.dev/api/projects/${SECRET}/summary?range=7d`, method: "GET", body: null }]);
-    expect(r.lines).toEqual([...BODY, ...TRIAL]);
-  });
-
-  it("an open dashboard: where it is instead of the trial lines, never the private link itself", () => {
-    const r = stats("summary-open", project({ ".genclass.local": LOCAL }));
-    expect(r.code, r.out).toBe(0);
-    expect(r.lines).toEqual([...BODY, ...FREE, "Dashboard: open the private link in .genclass.local (keep it out of code, docs and pull requests)"]);
+    expect(r.lines).toEqual([...BODY, ...FREE, DASH_LINE]);
     expect(r.out).not.toContain(SECRET);
   });
 
-  it("an app in no account: the trial goes through the private link (which adds the app), without printing it", () => {
-    const r = stats("summary-unclaimed", project({ ".genclass.local": LOCAL }));
+  it("an older worker's summary (locked true, trialUrl, trialAvailable): those fields are ignored, the dashboard line is the same; no plan or trial is named", () => {
+    const r = stats("summary-old", project({ ".genclass.local": LOCAL }));
     expect(r.code, r.out).toBe(0);
-    expect(r.lines).toEqual([
-      ...BODY,
-      ...FREE,
-      "Get a 7-day free trial for analytics (no card needed): open the private link in .genclass.local,",
-      "sign in, add this app to your account and start the trial there.",
-      SAMPLE,
-    ]);
+    expect(r.lines).toEqual([...BODY, ...FREE, DASH_LINE]);
     expect(r.out).not.toContain(SECRET);
+    expect(r.out).not.toMatch(/trial|\bPro\b|locked|plan/);
   });
 
-  it("an account whose trial was used: no trial offer, the way to Pro instead", () => {
-    const r = stats("summary-trial-used", project({ ".genclass.local": LOCAL }));
+  it("a summary without a dashboard address: the sample dashboard instead", () => {
+    const r = stats("summary-nodash", project({ ".genclass.local": LOCAL }));
     expect(r.code, r.out).toBe(0);
-    expect(r.lines).toEqual([...BODY, ...FREE, "Your trial has ended; the dashboard comes with Pro: https://genclass.dev/account/billing", SAMPLE]);
-    expect(r.out).not.toMatch(/free trial/);
+    expect(r.lines).toEqual([...BODY, ...FREE, SAMPLE]);
   });
 
   it("strips terminal escapes, bidi and zero-width characters from the server's keys (anyone with the public token sends them)", () => {
@@ -1201,7 +1189,7 @@ describe("stats: the free summary in the terminal (summary endpoint mocked; neve
     const j = stats("summary", dir, "--json");
     expect(j.code, j.out).toBe(0);
     const parsed = JSON.parse(j.out);
-    expect(parsed).toMatchObject({ ok: true, name: "shop-web", range: "7d", totals: { sessions: 1234 }, dashboard: { locked: true } });
+    expect(parsed).toMatchObject({ ok: true, name: "shop-web", range: "7d", totals: { sessions: 1234 }, dashboard: { locked: false } });
     expect(Object.keys(parsed.top)).toEqual(["diagnoses", "routes"]);
   });
 
@@ -1210,15 +1198,15 @@ describe("stats: the free summary in the terminal (summary endpoint mocked; neve
     const cases: [string, string][] = [
       ["summary-429", "try again in 42 s"],
       ["summary-404", "The private dashboard link in .genclass.local no longer works at https://genclass.dev (HTTP 404): it was turned off or replaced"],
-      ["summary-402", "https://genclass.dev refused this app's summary (HTTP 402: the dashboard needs Pro). The summary is meant to be free on every plan;"],
+      ["summary-402", "https://genclass.dev refused this app's summary (HTTP 402: payment required). The summary is meant to be free on every plan;"],
       ["summary-bad", "answer was not one"],
       ["fail", "Could not reach https://genclass.dev (network error (ENOTFOUND))"],
     ];
     for (const [mode, text] of cases) {
       const r = stats(mode, dir);
       expect(r.code, `${mode}: ${r.out}`).toBe(1);
-      // a 402 is a fault to report: the free summary never turns into a trial offer
-      if (mode === "summary-402") expect(r.out).not.toMatch(/trial/i);
+      // a 402 is a fault to report: the free summary never turns into an offer of a plan or a trial
+      if (mode === "summary-402") expect(r.out).not.toMatch(/trial|\bPro\b|upgrade/i);
       expect(r.out, mode).toContain(text);
       expect(r.out, mode).not.toContain("GenClass stats for");
       // --json: nothing on stdout (the message goes to stderr)
@@ -1299,7 +1287,8 @@ describe("stats: the free summary in the terminal (summary endpoint mocked; neve
     const notice = r.out.replace(/\s+/g, " ");
     expect(notice).toContain("not from localhost or private hosts unless you set telemetry: true.");
     expect(notice).not.toContain("never from localhost");
-    expect(notice).toContain("What you get: with it on and this app's token, npx @genclass/runtime stats prints a free summary of what GenClass found on your deployed site, and this app's private dashboard fills (the dashboard needs Pro; get a 7-day free trial for analytics).");
+    expect(notice).toContain("What you get: with it on and this app's token, npx @genclass/runtime stats prints a free summary of what GenClass found on your deployed site, and this app's private dashboard fills (the dashboard is free: the private link shows the stats once pages with diagnostics on have sent data).");
+    expect(notice).not.toMatch(/trial|\bPro\b|locked/);
     expect(notice).toContain("Turn it off: npx @genclass/runtime init --no-telemetry (no token: stats and the dashboard stay empty), or GenClass.init({ telemetry: false }), or ?genclass=no-telemetry in the URL.");
     expect(notice).toContain("Setting GenClass up for someone else? Telemetry is their decision: tell them it is on, what it sends (link below), and that stats and the dashboard depend on it; turn it off only if they ask.");
     // the dry run says what applying it sends

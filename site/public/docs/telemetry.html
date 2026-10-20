@@ -31,8 +31,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Telemetry", "item": "https://genclass.dev/docs/telemetry"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime telemetry", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-16", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md"}]}</script>
+<link rel="stylesheet" href="/styles.css?v=05186b9c">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Telemetry", "item": "https://genclass.dev/docs/telemetry"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime telemetry", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-20", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -60,8 +60,8 @@ Details under <a href="#opting-out">Opting out</a>.</p>
 reach you, the app's developer. <code>npx @genclass/runtime stats</code> (<code>0.3.0-beta.1</code>) prints a free summary of what
 GenClass found on your deployed site in the last 24 hours or 7 days: page loads, problems found by type, the pages
 most affected, the mode and how often the model loaded. The app's private dashboard shows all of it page by page,
-with what GenClass did, up to 1 year of history, export and forwarding; it needs Pro (get a 7-day free trial for
-analytics). With <code>telemetry: false</code> or <code>init --no-telemetry</code>, the summary and the dashboard stay empty; visitors who
+with what GenClass did, up to 1 year of history, export and forwarding; it is free and needs no plan. With
+<code>telemetry: false</code> or <code>init --no-telemetry</code>, the summary and the dashboard stay empty; visitors who
 opt out are not counted. Neither sends anything more from the page: both read the counters
 the collector keeps from the batches described below (<a href="#app-tokens-and-dashboards">App tokens and dashboards</a>).</p>
 <h2 id="when-it-is-on">When it is on</h2>
@@ -291,7 +291,8 @@ typical volumes.</p>
 <li>Whoever holds the app's private dashboard link (<code>https://genclass.dev/dashboard/&lt;secret&gt;</code>, given once when the
   token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, possible
   detections (the <code>detect</code> events with <code>tier: "possible"</code>, shown apart), actions, the app's hostnames, top routes and
-  protected functions, model load, backend and latency, versions) and its recent detections. Dashboard data is also deleted after 90 days.</li>
+  protected functions, model load, backend and latency, versions) and its recent detections. Dashboard data is kept
+  for 1 year while the app is in a genclass.dev account, and for 90 days for an app known only by its private link.</li>
 <li>A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
   Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
   console says so once when a token is set; otherwise only with <code>debug: true</code>.</li>
@@ -306,7 +307,8 @@ typical volumes.</p>
   <code>{ "name": &lt;package.json name, at most 80 characters&gt; }</code>. The collector keeps one record per project: the token,
   that name, the creation time, the times of the first and the last batch, a SHA-256 hash of the dashboard secret
   (never the secret itself) and, when the app belongs to a genclass.dev account, that account. Project records have
-  no automatic expiry; the aggregated dashboard data does (90 days). To delete a project and its dashboard data,
+  no automatic expiry; the aggregated dashboard data does (1 year for an app in a genclass.dev account, 90 days for
+  one known only by its private link). To delete a project and its dashboard data,
   write to the contact in PRIVACY.md with the token.</li>
 <li>An app can also belong to an optional <strong>genclass.dev account</strong> (passkey, Google or GitHub sign-in), which opens its
   dashboard at <code>https://genclass.dev/account/apps/&lt;id&gt;</code> for the signed-in owner; an existing dashboard link can be
@@ -332,10 +334,11 @@ typical volumes.</p>
   and when its last batch arrived; for the range, page loads, detections, possible detections, actions, the pages
   with a detection out of the pages that sent data, the share of page loads that loaded the model and its average
   load time; page loads and detections in the range before; the top 3 problem types and the top 3 routes; the mode;
-  and whether the dashboard is locked, where its trial starts (for an app in no account, its private link, whose page
-  adds the app to an account first) and whether the account can still start one. Route and problem-type keys are
+  and the dashboard's address (<code>dashboard: { url, locked: false }</code>: <code>url</code> is the app's page in its account, or the
+  private link for an app in no account; <code>locked</code> is always <code>false</code>, kept for older CLIs, since the dashboard is free
+  for every app). Route and problem-type keys are
   returned without control, bidi or zero-width characters. It is computed from the daily and hourly counters the collector already keeps
-  for the dashboard, so nothing new is collected for it. It is not gated by Pro; any other <code>range</code> is read as <code>7d</code>;
+  for the dashboard, so nothing new is collected for it. It needs no plan; any other <code>range</code> is read as <code>7d</code>;
   it answers 404 for an unknown secret or app and 429 (with <code>Retry-After</code>) past 30 requests a minute for one link or
   one account. <code>https://genclass.dev/api/projects/sample/summary</code> returns the made-up sample app's summary.</li>
 <li><code>npx @genclass/runtime stats</code> reads that summary and prints it. With <code>--app</code>, signed in, it sends <code>GET /api/me</code> and
@@ -358,14 +361,15 @@ typical volumes.</p>
   batch and the visitor's coarse <strong>country</strong> (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.</li>
 <li><strong>Use:</strong> model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
-  app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
-  turns on: an export of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
+  app's dashboard. For an app in a genclass.dev account, also what that account's owner turns on, free: an export
+  of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
   trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
   advertising.</li>
 <li><strong>Retention:</strong> 90 days. An R2 lifecycle rule (<code>expire-90d</code>, prefix <code>events/</code>) deletes every stored batch 90 days after it
-  was written. For an app on a paid plan, a copy of each batch is kept for its export under <code>export/&lt;token&gt;/</code> for up to
-  1 year (another lifecycle rule, 366 days), and its dashboard data for 1 year; both are deleted 30 days after the paid
-  plan ends, and at once when the app or its account is deleted. The maintainers may change this later; changes are
+  was written. For an app in a genclass.dev account, a copy of each batch is kept for its export under
+  <code>export/&lt;token&gt;/</code> for up to 1 year (another lifecycle rule, 366 days), and its dashboard data for 1 year; an app
+  known only by its private link keeps 90 days of dashboard data and has no export copy (export needs an account).
+  Both are deleted at once when the app or its account is deleted. The maintainers may change this later; changes are
   recorded in the CHANGELOG.</li>
 <li><strong>Your own endpoint:</strong> <code>telemetry: { endpoint: "https://…" }</code> sends the same batches to a collector you run
   instead (the worker in <code>telemetry-worker/</code> deploys to any Cloudflare account).</li>
@@ -431,8 +435,9 @@ the session event names your hostname. Depending on your users and jurisdiction 
 <li>if you add a webhook sink (<code>@genclass/runtime/sinks/webhook</code>, <code>init --sink webhook:&lt;url&gt;</code>, 0.3.0) that posts to an
   endpoint run by someone else, disclose that recipient too: the webhook sends the redacted evidence by default (the
   console line, subject and timeline, which can hold short fragments of what users typed) to the URL you configure
-  (<code>evidence: false</code> sends the structured fields only). The free runtime forwards nothing to Sentry, PostHog or
-  Datadog. Sinks are your configuration, not
+  (<code>evidence: false</code> sends the structured fields only). The runtime itself forwards nothing to Sentry, PostHog or
+  Datadog: it has no adapter for them; the genclass.dev collector's forwarding is turned on in the app's dashboard
+  and sends no page text. Sinks are your configuration, not
   telemetry: the telemetry opt-outs (<code>telemetry: false</code>, <code>?genclass=no-telemetry</code>, the <code>localStorage</code> switch) and
   Global Privacy Control do not turn them off; <code>?genclass=off</code> turns GenClass off altogether.</li>
 </ul>
@@ -448,7 +453,7 @@ the session event names your hostname. Depending on your users and jurisdiction 
       <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Enterprise: the MCP in your network, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>

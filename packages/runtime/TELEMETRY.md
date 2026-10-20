@@ -13,8 +13,8 @@ Details under [Opting out](#opting-out).
 reach you, the app's developer. `npx @genclass/runtime stats` (`0.3.0-beta.1`) prints a free summary of what
 GenClass found on your deployed site in the last 24 hours or 7 days: page loads, problems found by type, the pages
 most affected, the mode and how often the model loaded. The app's private dashboard shows all of it page by page,
-with what GenClass did, up to 1 year of history, export and forwarding; it needs Pro (get a 7-day free trial for
-analytics). With `telemetry: false` or `init --no-telemetry`, the summary and the dashboard stay empty; visitors who
+with what GenClass did, up to 1 year of history, export and forwarding; it is free and needs no plan. With
+`telemetry: false` or `init --no-telemetry`, the summary and the dashboard stay empty; visitors who
 opt out are not counted. Neither sends anything more from the page: both read the counters
 the collector keeps from the batches described below ([App tokens and dashboards](#app-tokens-and-dashboards)).
 
@@ -178,7 +178,8 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
 - Whoever holds the app's private dashboard link (`https://genclass.dev/dashboard/<secret>`, given once when the
   token is created) can see aggregated diagnostics for that token (decisions, detections by diagnosis, possible
   detections (the `detect` events with `tier: "possible"`, shown apart), actions, the app's hostnames, top routes and
-  protected functions, model load, backend and latency, versions) and its recent detections. Dashboard data is also deleted after 90 days.
+  protected functions, model load, backend and latency, versions) and its recent detections. Dashboard data is kept
+  for 1 year while the app is in a genclass.dev account, and for 90 days for an app known only by its private link.
 - A token changes nothing about when data is collected: with telemetry off (any opt-out, or Global Privacy
   Control, or a local host) nothing is sent and the dashboard gets nothing from that page. On a local host the
   console says so once when a token is set; otherwise only with `debug: true`.
@@ -193,7 +194,8 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,
   that name, the creation time, the times of the first and the last batch, a SHA-256 hash of the dashboard secret
   (never the secret itself) and, when the app belongs to a genclass.dev account, that account. Project records have
-  no automatic expiry; the aggregated dashboard data does (90 days). To delete a project and its dashboard data,
+  no automatic expiry; the aggregated dashboard data does (1 year for an app in a genclass.dev account, 90 days for
+  one known only by its private link). To delete a project and its dashboard data,
   write to the contact in PRIVACY.md with the token.
 - An app can also belong to an optional **genclass.dev account** (passkey, Google or GitHub sign-in), which opens its
   dashboard at `https://genclass.dev/account/apps/<id>` for the signed-in owner; an existing dashboard link can be
@@ -219,10 +221,11 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   and when its last batch arrived; for the range, page loads, detections, possible detections, actions, the pages
   with a detection out of the pages that sent data, the share of page loads that loaded the model and its average
   load time; page loads and detections in the range before; the top 3 problem types and the top 3 routes; the mode;
-  and whether the dashboard is locked, where its trial starts (for an app in no account, its private link, whose page
-  adds the app to an account first) and whether the account can still start one. Route and problem-type keys are
+  and the dashboard's address (`dashboard: { url, locked: false }`: `url` is the app's page in its account, or the
+  private link for an app in no account; `locked` is always `false`, kept for older CLIs, since the dashboard is free
+  for every app). Route and problem-type keys are
   returned without control, bidi or zero-width characters. It is computed from the daily and hourly counters the collector already keeps
-  for the dashboard, so nothing new is collected for it. It is not gated by Pro; any other `range` is read as `7d`;
+  for the dashboard, so nothing new is collected for it. It needs no plan; any other `range` is read as `7d`;
   it answers 404 for an unknown secret or app and 429 (with `Retry-After`) past 30 requests a minute for one link or
   one account. `https://genclass.dev/api/projects/sample/summary` returns the made-up sample app's summary.
 - `npx @genclass/runtime stats` reads that summary and prints it. With `--app`, signed in, it sends `GET /api/me` and
@@ -245,14 +248,15 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.
 - **Use:** model evaluation and training by the GenClass maintainers, and, for batches that carry a token, that
-  app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
-  turns on: an export of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
+  app's dashboard. For an app in a genclass.dev account, also what that account's owner turns on, free: an export
+  of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
   trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
   advertising.
 - **Retention:** 90 days. An R2 lifecycle rule (`expire-90d`, prefix `events/`) deletes every stored batch 90 days after it
-  was written. For an app on a paid plan, a copy of each batch is kept for its export under `export/<token>/` for up to
-  1 year (another lifecycle rule, 366 days), and its dashboard data for 1 year; both are deleted 30 days after the paid
-  plan ends, and at once when the app or its account is deleted. The maintainers may change this later; changes are
+  was written. For an app in a genclass.dev account, a copy of each batch is kept for its export under
+  `export/<token>/` for up to 1 year (another lifecycle rule, 366 days), and its dashboard data for 1 year; an app
+  known only by its private link keeps 90 days of dashboard data and has no export copy (export needs an account).
+  Both are deleted at once when the app or its account is deleted. The maintainers may change this later; changes are
   recorded in the CHANGELOG.
 - **Your own endpoint:** `telemetry: { endpoint: "https://…" }` sends the same batches to a collector you run
   instead (the worker in `telemetry-worker/` deploys to any Cloudflare account).
@@ -307,8 +311,9 @@ the session event names your hostname. Depending on your users and jurisdiction 
 - if you add a webhook sink (`@genclass/runtime/sinks/webhook`, `init --sink webhook:<url>`, 0.3.0) that posts to an
   endpoint run by someone else, disclose that recipient too: the webhook sends the redacted evidence by default (the
   console line, subject and timeline, which can hold short fragments of what users typed) to the URL you configure
-  (`evidence: false` sends the structured fields only). The free runtime forwards nothing to Sentry, PostHog or
-  Datadog. Sinks are your configuration, not
+  (`evidence: false` sends the structured fields only). The runtime itself forwards nothing to Sentry, PostHog or
+  Datadog: it has no adapter for them; the genclass.dev collector's forwarding is turned on in the app's dashboard
+  and sends no page text. Sinks are your configuration, not
   telemetry: the telemetry opt-outs (`telemetry: false`, `?genclass=no-telemetry`, the `localStorage` switch) and
   Global Privacy Control do not turn them off; `?genclass=off` turns GenClass off altogether.
 

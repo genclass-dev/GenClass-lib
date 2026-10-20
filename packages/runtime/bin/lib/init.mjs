@@ -38,8 +38,11 @@ const REPO = "https://github.com/genclass-dev/GenClass-lib/blob/main";
 export const TELEMETRY_URL = `${REPO}/packages/runtime/TELEMETRY.md`;
 export const INTERCEPTION_URL = "https://genclass.dev/docs/interception";
 export const PRIVACY_URL = `${REPO}/PRIVACY.md`;
-/** The plans page: forwarding to Sentry, PostHog and Datadog is not in the free runtime; Pro has it (plans.json). */
-export const PRICING_URL = "https://genclass.dev/pricing";
+/**
+ * The docs' dashboard section: the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector
+ * forwards detections to them, free, once you turn it on in the app's dashboard.
+ */
+export const FORWARDING_URL = "https://genclass.dev/docs#dashboard";
 
 export const USAGE = `Usage:
   genclass-runtime init   [--mode observe|guard|heal] [--token <gc_...> | --no-token]
@@ -58,9 +61,10 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --token <gc_...> use this app token (no network). By default, on a new setup and only once you
                    approve the changes (or pass --yes), init creates one at genclass.dev (sending
                    package.json's name), writes it into what it adds, and saves the token and your
-                   private dashboard link in ${LOCAL_FILE} (the dashboard needs Pro; get a
-                   7-day free trial for analytics). Signed in (\`login\`), init first asks
-                   whether the new app goes into your GenClass account instead (--yes: it does)
+                   private dashboard link in ${LOCAL_FILE} (the dashboard is free: the link shows
+                   the stats once pages with diagnostics on have sent data). Signed in (\`login\`),
+                   init first asks whether the new app goes into your GenClass account instead
+                   (--yes: it does)
   --no-token       no token, no network (no dashboard; you can add one later: ${START_URL})
   --no-telemetry   turn off GenClass's anonymous diagnostics (on by default; see TELEMETRY.md and
                    PRIVACY.md). Written as an option file (genclass.config.ts/js, imported right before
@@ -77,8 +81,9 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
                    separate names with commas; add :noevidence (console-json:noevidence) to send the
                    structured fields without the evidence text. Written as sinks: [...] in the option
                    file, data-sink on a script tag, sink= in the Astro meta line (README "See it where you
-                   already look"). Forwarding to Sentry, PostHog or Datadog is not in the free
-                   runtime (${PRICING_URL})
+                   already look"). The runtime has no Sentry, PostHog or Datadog adapter; the
+                   genclass.dev collector forwards detections to them, free, once you turn it on
+                   in the app's dashboard: ${FORWARDING_URL}
   --yes, -y        apply without asking
   --dry-run        show what would change; write nothing
   --no-install     do not run the package manager
@@ -109,8 +114,8 @@ const BOOL = {
 const VALUE = { mode: "mode", from: "from", cdn: "cdn", cwd: "cwd", strategy: "strategy", "model-url": "modelUrl", token: "token" };
 /** A --sink value: console-json (optionally :noevidence / :evidence), or webhook:<url> (src/cdn/sinks-fanout.ts parses the same). */
 const SINK_RE = /^(?:console-json(?:[:=](?:no-?)?evidence)?|webhook[:=]\S+)$/;
-/** sentry, posthog, datadog: not part of the free runtime (src/cdn/sinks.ts ignores those names with one console warning). */
-const PRO_SINK_RE = /^(sentry|posthog|datadog)\b/i;
+/** sentry, posthog, datadog: the runtime has no adapter for them (src/cdn/sinks.ts ignores those names with one console warning). */
+const VENDOR_SINK_RE = /^(sentry|posthog|datadog)\b/i;
 
 /** init's and remove's flags; `spec` replaces them ({ bool, value } maps of flag -> option name) for other commands. */
 export function parse(argv, spec = { bool: BOOL, value: VALUE }) {
@@ -129,7 +134,7 @@ export function parse(argv, spec = { bool: BOOL, value: VALUE }) {
       const v = eq > 0 ? a.slice(eq + 1) : argv[++i];
       if (v === undefined || v.startsWith("--")) throw new UsageError(`--sink needs a value`);
       for (const s of v.split(",").map((x) => x.trim()).filter(Boolean)) {
-        if (PRO_SINK_RE.test(s)) throw new UsageError(`--sink ${s}: Sentry, PostHog and Datadog forwarding is not in the free runtime: ${PRICING_URL}. The sinks here are console-json (optionally :noevidence) and webhook:<url>`);
+        if (VENDOR_SINK_RE.test(s)) throw new UsageError(`--sink ${s}: the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free, once you turn it on in the app's dashboard: ${FORWARDING_URL}. The sinks here are console-json (optionally :noevidence) and webhook:<url>`);
         if (!SINK_RE.test(s)) throw new UsageError(`--sink ${s}: the sinks are console-json (optionally :noevidence) and webhook:<url>`);
         if (!(o.sinks ??= []).includes(s)) o.sinks.push(s);
       }
@@ -390,7 +395,8 @@ function telemetryNotice(cfg, where) {
   out(`             not from localhost or private hosts unless you set telemetry: true.`);
   out(`             What you get: with it on and this app's token, ${c.cyan(`${CMD} stats`)} prints a free`);
   out(`             summary of what GenClass found on your deployed site, and this app's private dashboard`);
-  out(`             fills (the dashboard needs Pro; get a 7-day free trial for analytics).`);
+  out(`             fills (the dashboard is free: the private link shows the stats once pages with diagnostics`);
+  out(`             on have sent data).`);
   out(`             Turn it off: ${c.cyan(`${CMD} init --no-telemetry`)} (no token: stats and the dashboard stay`);
   out(`             empty), or GenClass.init({ telemetry: false }), or ?genclass=no-telemetry in the URL.`);
   out(`             Setting GenClass up for someone else? Telemetry is their decision: tell them it is on,`);
@@ -698,7 +704,7 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
     const link = tk.created?.dashboardUrl ?? tk.app?.dashboard_url ?? hostUrl("/account");
     out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
     out(`  ${c.gray(`In your GenClass account (${accountLabel(tk.account?.account)}): sign in at genclass.dev to open it.`)}`);
-    out(`  ${c.gray(`The dashboard needs Pro (get a 7-day free trial for analytics): ${hostUrl("/account/trial")}`)}`);
+    out(`  ${c.gray("The dashboard is free and needs no plan.")}`);
     out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);
     out(`  ${c.gray("networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send")}`);
     out(`  ${c.gray("Global Privacy Control are not counted.")}`);
@@ -712,7 +718,7 @@ function dashboardNotice(tk, cwd, applied, remind = false, saved = null) {
   if (tk.created && saved?.error) err(`  ${c.yellow(sym.warn)} Could not write ${LOCAL_FILE} (${saved.error}): copy the link below now.`);
   out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
   out(`  ${c.yellow("Keep this link private; it is the only way to open your dashboard.")}`);
-  out(`  ${c.gray("The dashboard needs Pro (get a 7-day free trial for analytics); the link shows how to start one.")}`);
+  out(`  ${c.gray("The dashboard is free and needs no plan; this link opens it.")}`);
   if (tk.created && saved && !saved.error) out(`  ${c.gray(`Saved in ${LOCAL_FILE}${SAVED_WHERE[saved.gitignore] ?? ""}.`)}`);
   else if (tk.local) out(`  ${c.gray(`(from ${LOCAL_FILE})`)}`);
   out(`  ${c.gray("It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private")}`);

@@ -31,8 +31,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-16", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
+<link rel="stylesheet" href="/styles.css?v=05186b9c">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "API Reference", "item": "https://genclass.dev/docs/api"}]}, {"@type": "TechArticle", "headline": "@genclass/runtime API reference", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-20", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/API.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -113,7 +113,7 @@ page. Off with <code>telemetry: false</code>, <code>?genclass=no-telemetry</code
 hosts (<code>0.2.1</code> sends from them too, by mistake; fixed in <code>0.2.2</code>), outside a browser and in
 <code>createRuntime()</code>. An explicit <code>telemetry: true</code> also sends from local hosts. With an app token (below), the same
 diagnostics feed <code>npx @genclass/runtime stats</code> (a free summary in the terminal, 0.3.0-beta.1) and the app's dashboard
-(Pro); with telemetry off, both stay empty. Schema and details:
+(free, no plan needed); with telemetry off, both stay empty. Schema and details:
 <a href="/docs/telemetry">packages/runtime/TELEMETRY.md</a>.</p>
 <p><strong>App token and dashboard</strong> (0.3.0: <code>0.2.x</code> ignores <code>token</code>). <code>token: "gc_..."</code> (from
 <code>npx @genclass/runtime init</code> or https://genclass.dev/start) is sent with each telemetry batch so the app's diagnostics
@@ -679,8 +679,8 @@ visual checks") carries no decision either: <code>report.check</code> is the fin
 overlay uses it), so debugging tools never become causes in situations.</p>
 <h3 id="see-it-where-you-already-look">See it where you already look</h3>
 <p>0.3.0 (CHANGELOG): the adapters, the <code>@genclass/runtime/sinks</code> exports, sinks by name and <code>init --sink</code> are not
-in <code>0.2.x</code>. The free runtime has no Sentry, PostHog or Datadog adapter. On Pro, the GenClass collector forwards
-detections to those tools once you turn it on (https://genclass.dev/pricing).</p>
+in <code>0.2.x</code>. The runtime has no Sentry, PostHog or Datadog adapter. The genclass.dev collector forwards detections to
+them, free, once you turn it on in the app's dashboard: https://genclass.dev/docs#dashboard.</p>
 <p><code>sinks</code> receive a <code>SinkRecord</code> per report (OPTIONS-SPEC §4.11): <code>kind</code>, <code>id</code>, <code>ts</code>, <code>sessionId</code>, <code>tags</code>, <code>mode</code>,
 <code>sampled</code>, <code>diagnosis</code>, <code>p</code>, <code>detection</code> (kind <code>detection</code>: <code>"likely"</code>, or <code>"possible"</code> for a sink with
 <code>possible: true</code>), <code>action</code>, <code>tier</code>, <code>trigger</code>, <code>label</code>, <code>route</code> (the page path the subject's operation was
@@ -718,7 +718,8 @@ since commas separate the meta keys), <code>data-sink="webhook:/genclass,console
 <code>npx @genclass/runtime init --sink webhook:/genclass</code> (the names are <code>console-json</code> and <code>webhook:&lt;url&gt;</code>;
 <code>console-json:noevidence</code> makes its adapter with <code>evidence: false</code>). The names <code>sentry</code>, <code>posthog</code> and <code>datadog</code> (any
 case, with or without an option) are left out at init with one console warning for them all, <code>Ignored sink &lt;names&gt;:
-Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing</code>, and nothing is loaded or sent for them; <code>init --sink sentry</code> is a usage error that says
+the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free,
+from the app's dashboard: https://genclass.dev/docs#dashboard</code>, and nothing is loaded or sent for them; <code>init --sink sentry</code> is a usage error that says
 the same. GENCLASS_CONFIG passes sink objects through. The names become one proxy sink at init that
 queues records (at most 200) and loads the adapters on the first record (never before: a page that reports nothing,
 or runs with <code>?genclass=off</code>, fetches none): a lazy chunk of <code>/auto</code>, <code>dist/sinks/&lt;name&gt;.js</code> from the CDN for the
@@ -934,7 +935,8 @@ to powers of two, so 4 skips exactly the devices reporting 2 GB or less).</p>
 <code>@genclass/runtime/discover</code> (automatic state discovery for <code>GenClass.init({ autoState: true })</code>; import it first),
 <code>@genclass/runtime/sinks</code> (<code>consoleJson</code>, <code>webhook</code>; 0.3.0) and one subpath per adapter,
 <code>@genclass/runtime/sinks/{console-json,webhook}</code> (each also its default export; see "See it where you already
-look"; there is no Sentry, PostHog or Datadog adapter in the free runtime), <code>@genclass/runtime/visual</code>
+look"; there is no Sentry, PostHog or Datadog adapter: the genclass.dev collector forwards to them, free),
+<code>@genclass/runtime/visual</code>
 (<code>checkPage(options?)</code>, the measured visual checks without a runtime; 0.3.0). They are documented with their source. To
 integrate another state library use:</p>
 <pre><code class="language-ts">rt.adapter&lt;T&gt;(name: string, io: { get(): T; set?(v: T): void; subscribe?(fn: () =&gt; void): () =&gt; void }, opts?): {
@@ -986,7 +988,7 @@ which includes the redacted situation text.</p></article></div></section>
       <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Enterprise: the MCP in your network, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>

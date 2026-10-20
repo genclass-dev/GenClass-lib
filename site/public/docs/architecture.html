@@ -31,8 +31,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Figtree:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=d79c67c2">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Architecture", "item": "https://genclass.dev/docs/architecture"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime: architecture", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-16", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ARCHITECTURE.md"}]}</script>
+<link rel="stylesheet" href="/styles.css?v=05186b9c">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "Organization", "@id": "https://genclass.dev/#org", "name": "GenClass", "url": "https://genclass.dev/", "logo": "https://genclass.dev/icon-512.png", "sameAs": ["https://github.com/genclass-dev/GenClass-lib", "https://www.npmjs.com/package/@genclass/runtime"]}, {"@type": "WebSite", "@id": "https://genclass.dev/#site", "url": "https://genclass.dev/", "name": "GenClass", "publisher": {"@id": "https://genclass.dev/#org"}}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://genclass.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://genclass.dev/docs"}, {"@type": "ListItem", "position": 3, "name": "Architecture", "item": "https://genclass.dev/docs/architecture"}]}, {"@type": "TechArticle", "headline": "GenClass Runtime: architecture", "author": {"@id": "https://genclass.dev/#org"}, "publisher": {"@id": "https://genclass.dev/#org"}, "dateModified": "2026-10-20", "isBasedOn": "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ARCHITECTURE.md"}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -49,7 +49,7 @@
 <main id="main">
 <div class="page-hero"><div class="wrap"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><a href="/docs">Docs</a><span aria-hidden="true">/</span><span>Architecture</span></nav><h1>GenClass Runtime: architecture</h1>
 <p class="lede">Rendered from <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ARCHITECTURE.md"><code>docs/runtime/ARCHITECTURE.md</code></a> in the GenClass repository.</p></div></div>
-<section style="padding-top: 24px"><div class="wrap doc"><nav class="toc" aria-label="Reference"><b>Reference</b><a href="/docs/api">API Reference</a><a href="/docs/options">Options Reference</a><a href="/docs/architecture">Architecture</a><a href="/docs/telemetry">Telemetry</a><a href="/docs/interception">Interception surface</a><a href="/docs/threat-model">Threat model</a><a href="/security">Security</a><a href="/docs/compatibility">Compatibility</a><b>On this page</b><a href="#design-principles">Design principles</a><a href="#data-flow">Data flow</a><a href="#the-model-and-how-it-is-trained">The model and how it is trained</a><a href="#evaluation">Evaluation</a></nav><article class="prose"><p>GenClass Runtime is a client-side intelligence layer. It runs inside the page, watches what the application does,
+<section style="padding-top: 24px"><div class="wrap doc"><nav class="toc" aria-label="Reference"><b>Reference</b><a href="/docs/api">API Reference</a><a href="/docs/options">Options Reference</a><a href="/docs/architecture">Architecture</a><a href="/docs/telemetry">Telemetry</a><a href="/docs/interception">Interception surface</a><a href="/docs/threat-model">Threat model</a><a href="/security">Security</a><a href="/docs/compatibility">Compatibility</a><b>On this page</b><a href="#design-principles">Design principles</a><a href="#data-flow">Data flow</a><a href="#the-closed-loop-the-mcp-server">The closed loop: the MCP server</a><a href="#the-model-and-how-it-is-trained">The model and how it is trained</a><a href="#evaluation">Evaluation</a></nav><article class="prose"><p>GenClass Runtime is a client-side intelligence layer. It runs inside the page, watches what the application does,
 and uses a small local model to decide, in real time, whether something is going wrong and whether to step in.
 This document explains how the parts fit together and why they are built this way. The binding spec is
 <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/CONTRACT.md">CONTRACT.md</a> and the API is in <a href="/docs/api">API.md</a>.</p>
@@ -92,6 +92,13 @@ This document explains how the parts fit together and why they are built this wa
                                                                     │
                                                                     ▼
                                     action (or passive) ──► report / explain / undo / events
+                                                                    │
+                                                 (anonymous diagnostics, with the app token; no page text)
+                                                                    ▼
+                         collector (genclass.dev, or one you run) ──► dashboard / stats / forwarding
+                                                                    │
+                                                                    ▼
+                    MCP server (local, hosted or on-prem) ──► coding agent ──► fix ──► recurrence check
 </code></pre>
 <h3 id="observers-and-the-trace-srcobserve-srctrace">Observers and the trace (<code>src/observe</code>, <code>src/trace</code>)</h3>
 <ul>
@@ -156,6 +163,55 @@ This document explains how the parts fit together and why they are built this wa
 <li><strong>Loading:</strong> the model loads at idle and is verified with sha256 and cached in Cache Storage. While it loads,
   every decision fails open at once.</li>
 </ul>
+<h2 id="the-closed-loop-the-mcp-server">The closed loop: the MCP server</h2>
+<p>The runtime finds a problem on the deployed app and reports it; the dashboard and <code>npx @genclass/runtime stats</code>
+show it. The closed loop is what happens next: a Model Context Protocol server hands what GenClass found, with its
+evidence and the pages affected, to the developer's coding agent (Claude Code, Cursor, Codex or any MCP client); the
+agent fixes it; after the fix ships, GenClass reports whether the problem came back. This section is its design. It
+is not built yet: every plan surface lists it as coming next.</p>
+<ul>
+<li><strong>What it is.</strong> An MCP server with a small read-only surface over what the collector already keeps for an app.
+  Its tools:</li>
+<li>list the open findings, each with its kind (the diagnosis), route, counts, first and last seen, confidence and
+    the action GenClass took;</li>
+<li>one finding with its evidence as the collector has it: diagnosis, confidence, trigger, route, runtime and model
+    versions, time, action. Never page text;</li>
+<li>the free summary, as <code>stats</code> prints it;</li>
+<li>a recurrence check: whether a finding came back since a time or a version (the step that closes the loop);</li>
+<li>the fix guides (how each kind of problem is fixed, the text the dashboard shows) as resources;</li>
+<li>one prompt that asks the agent to fix the open findings, with the guides and the evidence in hand.</li>
+<li><strong>Where it reads from.</strong> The collector, through credentials that already exist, each keeping the scope it has
+  today. The summary (the open findings as <code>stats</code> lists them, and the recurrence check) comes from the summary API
+  with the CLI's login token (the session <code>npx @genclass/runtime login</code> creates) or an app's private link. Neither
+  reads more than that, and the MCP does not widen them: the approval page at <code>genclass.dev/login/device</code>, the terms
+  and the worker (<code>telemetry-worker/src/billing.ts</code>, which refuses a CLI session on the export) all promise that a
+  CLI session reads each app's short summary and never its dashboard or its events, and a private link reads only
+  its own app. Per-finding evidence comes from the export API with an export key the owner creates on the billing
+  page (<code>genclass.dev/account/billing</code>): it reads the events of that account's apps and nothing else, and the owner
+  revokes it on the same page. An app known only by its private link has no export, so for it the server serves the
+  summary alone. Locally it also reads the <code>@genclass/playwright</code> race files (<code>test-results/genclass/*.json</code>, format
+  <code>genclass-races/1</code>) and the output of the <code>console-json</code> sink, so what the test suite and a local run found
+  reaches the agent the same way as what production found.</li>
+<li><strong>Three ways to run it.</strong></li>
+<li><em>Local, free:</em> a dependency-free CLI subcommand over stdio, like the rest of the CLI. The agent's MCP
+    configuration starts it; it reads the summary with the developer's own CLI session or private link, and the
+    evidence with an export key when the developer sets one.</li>
+<li><em>Hosted on genclass.dev</em> (the Individual plan, entitlement <code>hosted_mcp</code>): the same server as a Streamable HTTP
+    endpoint, one URL per account. The bearer is an export key from the billing page, not the CLI token: it is the
+    one credential that already reaches the evidence, it is scoped to that account's apps, and it asks nothing new
+    of the CLI session. Inside the worker the key resolves to its account, and the server reads that account's
+    summary and events, which the export already covers. It notifies connected agents when a new detection arrives,
+    so the agent is prompted as problems are found instead of polling.</li>
+<li><em>On-prem</em> (the Enterprise plan, entitlement <code>onprem_mcp</code>): the same worker code, the collector, the dashboard and
+    the MCP server, deployed in the customer's own Cloudflare account or network. Nothing leaves it.</li>
+<li><strong>What it never does.</strong> It never feeds the runtime, the model, the facts, the situations, the policy gate or the
+  event log: the loop runs through the developer and their agent, never back into the page. Nothing new is collected
+  for it; it reads only what the collector already keeps (<a href="/docs/telemetry">TELEMETRY.md</a>), and
+  it never sends page text (the situation text an app can opt in to sending is not served through it). The agent
+  decides what to change; GenClass only reports. The runtime carries none of it: no dependency, no code path and no
+  first-load bytes (<code>onnxruntime-web</code> stays the only runtime dependency).</li>
+<li><strong>Status.</strong> Designed, not built. The plans say coming next; Individual is not on sale until the hosted form ships.</li>
+</ul>
 <h2 id="the-model-and-how-it-is-trained">The model and how it is trained</h2>
 <p>GenClass is a Jev-style typed-decision encoder: one forward pass reads the state and answers several typed
 questions (choice, yes/no, score). Each option attends only to the state and its own question, so option order
@@ -197,7 +253,7 @@ sizes, R17 (17M parameters) and R32 (32M), both with a pruned 16k vocabulary and
       <a class="btn ghost" href="https://github.com/genclass-dev/GenClass-lib">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">Visual bugs</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Enterprise: the MCP in your network, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="https://github.com/genclass-dev/GenClass-lib">GitHub</a><a href="https://www.npmjs.com/package/@genclass/runtime">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="https://github.com/genclass-dev/GenClass-lib/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/LICENSE">License (Apache-2.0)</a><a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>

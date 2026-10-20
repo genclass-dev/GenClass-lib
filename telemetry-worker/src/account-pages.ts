@@ -10,6 +10,7 @@
 // Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
 import { DASH_CSS, embed, esc, LOGO, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
+import { TRIAL_PLAN } from "./plans.js";
 
 // --------------------------------------------------------------------------------------------- styles, icons
 
@@ -257,11 +258,10 @@ export interface AuthPageOptions {
   next: string | null;
   /** A fixed message to show above the options (never text from the request). */
   notice?: string | null;
-  /** How long a trial of Pro lasts (TRIAL_DAYS). */
-  trialDays?: number;
 }
 
-const optional = (days = 7): string => `<p class="opt">The runtime needs no account. Dashboards come with Pro. Get a ${days}-day free trial for analytics.</p>`;
+/** Under the sign-in ways: what an account is for (the runtime and the dashboard need none). */
+const OPTIONAL = '<p class="opt">The runtime needs no account. The dashboard is free: the private link shows the stats, and an account keeps your apps in one place.</p>';
 
 /** The passkey sign-in button's script: sign in, then go to `next` (or reload, on the device page). */
 const PASSKEY_LOGIN_JS = `
@@ -294,7 +294,7 @@ ${o.notice ? `<p class="notice" role="status">${esc(o.notice)}</p>` : ""}
 ${signInWays(o)}
 </div>
 <p class="swap"><a href="/signup${q(o.next)}">Create an account instead</a></p>
-${optional(o.trialDays)}
+${OPTIONAL}
 <script type="application/json" id="cfg">${embed({ next: o.next })}</script>`;
   return authPage(nonce, "Sign in | GenClass", inner, waysJs("/api/auth/password/login", 0));
 }
@@ -308,7 +308,7 @@ ${signInWays({ ...o, signup: true })}
 <p class="hint">Want extra security? Add a passkey on your account page once you are in. Use a passkey signs in to an account that already has one.</p>
 </div>
 <p class="swap"><a href="/login${q(o.next)}">Sign in instead</a></p>
-${optional(o.trialDays)}
+${OPTIONAL}
 <script type="application/json" id="cfg">${embed({ next: o.next })}</script>`;
   return authPage(nonce, "Create an account | GenClass", inner, waysJs("/api/auth/password/signup", 10));
 }
@@ -539,14 +539,16 @@ export interface AccountView {
   password?: { email: string; created: string; updated: string; lastUsed: string | null } | null;
   providers: { google: boolean; github: boolean };
   notice?: { kind: "ok" | "bad"; text: string };
-  /** Dashboards: open (a plan, GenClass's grant or the trial), or locked with the trial still to start, or after it. */
-  dashboards?: "open" | "trial" | "ended";
-  /** From the query: the pricing page's Start a trial (?trial=1), the locked dashboard's sign-in (?claim=1). */
-  pick?: { trial: boolean; claim: boolean };
+  /**
+   * The account's one free trial of Individual (src/trial.ts), with its length in days, when it can start: the plan
+   * is on sale and the account has no paid plan, grant or trial. Null or absent: no trial block (the dashboard is
+   * free either way; the plans are on /account/billing).
+   */
+  trial?: { days: number } | null;
+  /** From the query: the pricing page's Start a trial (?trial=1) focuses the trial button, when there is one. */
+  pick?: { trial: boolean };
   /** Where to write when every passkey is lost. */
   recovery?: string;
-  /** How long a trial of Pro lasts (TRIAL_DAYS). */
-  trialDays?: number;
 }
 
 const TRANSPORT_WORDS: Record<string, string> = {
@@ -591,16 +593,15 @@ ${v.projects
   const passkeyRule = required
     ? "<b>Require a passkey at sign-in: on.</b> After your password, Google or GitHub, GenClass asks for one of your passkeys. Removing the last one turns this off."
     : "<b>Require a passkey at sign-in: off.</b> Add a passkey and GenClass asks for it after your password, Google or GitHub.";
-  const days = v.trialDays ?? 7;
-  const dash = v.dashboards ?? "open";
-  const planBlock =
-    dash === "open"
-      ? ""
-      : `<section class="blk" id="plan">
-  <div class="blk-h"><h2>Dashboards come with Pro</h2><span class="aside">${dash === "trial" ? `Get a ${days}-day free trial for analytics` : "Your trial has ended"}</span></div>
-  <div class="acct-form">${dash === "trial" ? `<button class="btn green" type="button" id="trial"><span>Start your ${days}-day free trial</span></button>` : ""}<a class="btn ${dash === "trial" ? "ghost" : "green"}" href="/account/billing">See plans</a></div>
+  // the trial of Individual, only while it can start (src/auth.ts accountView); the dashboard itself is free
+  const planBlock = v.trial
+    ? `<section class="blk" id="plan">
+  <div class="blk-h"><h2>Try ${esc(TRIAL_PLAN.name)}</h2><span class="aside">${v.trial.days} days free, no card</span></div>
+  <p class="intro">${esc(TRIAL_PLAN.summary)} Everything else GenClass makes is free.</p>
+  <div class="acct-form"><button class="btn green" type="button" id="trial"><span>Start your ${v.trial.days}-day free trial</span></button><a class="btn ghost" href="/account/billing">See plans</a></div>
   <p class="err" id="trialerr" role="alert"></p>
-</section>`;
+</section>`
+    : "";
   // the password: the email it signs in with; below the table, Change password (or Add a password)
   const pw = v.password ?? null;
   const pwRow = `<tr><td>Password</td><td>${pw ? `Signs in as ${esc(pw.email)}` : '<span class="muted">Not set</span>'}</td><td data-l="Set">${pw ? time(pw.updated) : ""}</td><td data-l="Last used">${pw ? time(pw.lastUsed, "ago") : ""}</td><td class="act"></td></tr>`;
@@ -712,7 +713,7 @@ hash of your password if you set one (never the password), your passkeys' public
 you link them, your sign-in sessions and the browsers where your password was right, your trial's dates, and the apps you own. Nothing else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
 </div>
-<script type="application/json" id="acfg">${embed({ trial: !!v.pick?.trial, claim: !!v.pick?.claim })}</script>`;
+<script type="application/json" id="acfg">${embed({ trial: !!v.pick?.trial })}</script>`;
 
   const script = `
 (function(){
@@ -793,91 +794,6 @@ you link them, your sign-in sessions and the browsers where your password was ri
     });
     if (cfg.trial) trial.focus();
   }
-  // back from signing in on a locked dashboard link: return to it (its link was kept in this tab only), where the app
-  // can be added to this account; otherwise the link field below is ready for it
-  if (cfg.claim) {
-    var s = null;
-    try { s = sessionStorage.getItem("gc.claim"); sessionStorage.removeItem("gc.claim"); } catch (e) {}
-    if (s && /^[A-Za-z0-9]{32}$/.test(s)) { location.replace("/dashboard/" + s); return; }
-    var link = document.getElementById("link"); if (link) link.focus();
-  }
 })();`;
   return shell(nonce, "Account | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
-}
-
-// --------------------------------------------------------------------------------------------- a locked private link
-
-export interface LockedLinkView {
-  /** The app's name. */
-  name: string;
-  /** The visitor's account, when signed in: whether it has Pro now (a plan, grant or trial) and can still start its trial. */
-  signedIn: { pro: boolean; canTrial: boolean } | null;
-  /** Where the app is: in no account yet, in the visitor's account, or in another one. */
-  owner: "none" | "mine" | "other";
-  providers: { google: boolean; github: boolean };
-  /** How long a trial of Pro lasts (TRIAL_DAYS). */
-  trialDays?: number;
-}
-
-/**
- * /dashboard/<secret> while the app has no Pro (no account, or an account without a plan, grant or trial):
- * "Dashboards come with Pro. Get a 7-day free trial for analytics." Signed out: Continue with Google (when configured),
- * then Sign in and Create an account (every other way in is there); the link is kept in this tab's sessionStorage only, and /account?claim=1 brings the
- * visitor back here once signed in. Signed in: add the app to the account (POST /api/account/projects/claim, as on
- * /account) and start the trial in one click, or start the trial, or see the plans. Served with the private link's own
- * headers (no referrer); the page's fetch() calls still carry our Origin.
- */
-export function lockedLinkPage(nonce: string, v: LockedLinkView): string {
-  const back = "/account?claim=1";
-  const days = v.trialDays ?? 7;
-  const s = v.signedIn;
-  let acts: string;
-  if (!s) {
-    acts = `<div class="ways">
-${googleButton(v.providers, back)}
-<a class="btn prov green" href="/login${q(back)}"><span>Sign in</span></a><a class="btn prov ghost" href="/signup${q(back)}"><span>Create an account</span></a>
-</div>
-<p class="opt">Then add this app to your account. It keeps its key and its data.</p>`;
-  } else if (v.owner === "other") {
-    acts = `<p class="lead">This app is in another GenClass account.</p><div class="acts"><a class="btn ghost" href="/account">Your apps</a></div>`;
-  } else if (v.owner === "none") {
-    const label = s.canTrial ? `Add to my account and start your ${days}-day free trial` : "Add to my account";
-    acts = `<div class="ways"><button class="btn prov green" id="claim" type="button" data-trial="${s.canTrial ? "1" : "0"}"><span>${label}</span></button>
-<p class="err" id="err" role="alert"></p></div>
-${!s.pro && !s.canTrial ? '<p class="opt">Your trial has ended. <a href="/account/billing">See plans</a></p>' : '<p class="opt">The app keeps its key and its data.</p>'}`;
-  } else {
-    acts = s.canTrial
-      ? `<div class="ways"><button class="btn prov green" id="trial" type="button"><span>Start your ${days}-day free trial</span></button><p class="err" id="err" role="alert"></p></div>`
-      : `<p class="lead">Your trial has ended.</p><div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>`;
-  }
-  const inner = `
-<div class="eb">${esc(v.name)}</div>
-<h1>Dashboards come with Pro.</h1>
-<p class="lead">Get a ${days}-day free trial for analytics.</p>
-${acts}
-<p class="swap">Keep this link private: it is the only way back to this app without an account.</p>
-<script type="application/json" id="cfg">${embed({ signedIn: !!s })}</script>`;
-  const script = `
-(function(){
-  var secret = location.pathname.split("/").filter(Boolean)[1] || "";
-  var cfg = JSON.parse(document.getElementById("cfg").textContent);
-  // signed out: keep the link in this tab for the way back from signing in (/account?claim=1), never on a server
-  if (!cfg.signedIn) { try { sessionStorage.setItem("gc.claim", secret); } catch (e) {} return; }
-  var err = document.getElementById("err");
-  var claim = document.getElementById("claim");
-  if (claim) claim.addEventListener("click", function(){
-    err.textContent = ""; gcBusy(claim, true, "Adding...");
-    gcPost("/api/account/projects/claim", { secret: secret }).then(function(j){
-      function go(){ location.href = "/account/apps/" + encodeURIComponent(j.project.id); }
-      if (claim.getAttribute("data-trial") !== "1") { go(); return; }
-      return gcPost("/api/billing/trial", {}).then(go, go);
-    }, function(e){ err.textContent = gcWhy(e); gcBusy(claim, false); });
-  });
-  var trial = document.getElementById("trial");
-  if (trial) trial.addEventListener("click", function(){
-    err.textContent = ""; gcBusy(trial, true, "Starting...");
-    gcPost("/api/billing/trial", {}).then(function(){ location.reload(); }, function(e){ err.textContent = gcWhy(e); gcBusy(trial, false); });
-  });
-})();`;
-  return shell(nonce, `${v.name} | GenClass`, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style>${LATTICE}<div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true });
 }

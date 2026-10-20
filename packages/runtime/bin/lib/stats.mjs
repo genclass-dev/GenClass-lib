@@ -22,15 +22,13 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchMe, readCredentialsFor } from "./account.mjs";
-import { apiHost, hostConfig, hostUrl } from "./host.mjs";
+import { apiHost, hostConfig } from "./host.mjs";
 import { UsageError, accountLabel, currentConfig, hostNotice, inspectProject, parse } from "./init.mjs";
 import { LOCAL_FILE } from "./token.mjs";
 import { c, err, out, sym } from "./ui.mjs";
 
 const CMD = "npx @genclass/runtime";
 const TIMEOUT_MS = 10_000;
-/** The trial's length: billing/plans.json trial_days (telemetry-worker/test/trial.test.ts checks the CLI's copy). */
-const TRIAL_DAYS = 7;
 const TELEMETRY_DOCS = "https://genclass.dev/docs/telemetry";
 const SAMPLE_URL = "https://genclass.dev/dashboard/sample";
 const ISSUES_URL = "https://github.com/genclass-dev/GenClass-lib/issues";
@@ -65,10 +63,11 @@ stats    prints a free summary of what GenClass found on your deployed app: page
   --cwd <dir>      the project directory (default: the current directory)
 
 stats sends genclass.dev only the private link's secret, or your CLI session and the app's id, with the
-range: nothing from your code or your pages. The summary is free and deliberately short; the dashboard
-(every page and problem, what GenClass did, 1 year of history, export, forwarding) needs Pro: get a
-${TRIAL_DAYS}-day free trial for analytics. --json includes the dashboard's address, which on the private-link
-path is the private link: keep its output out of code, docs, issues and pull requests.`;
+range: nothing from your code or your pages. The summary is deliberately short; the dashboard (every page
+and problem, what GenClass did, 1 year of history, export, forwarding) is free too and needs no plan: the
+private link in ${LOCAL_FILE} opens it, and an optional genclass.dev account keeps your apps in one place.
+--json includes the dashboard's address, which on the private-link path is the private link: keep its
+output out of code, docs, issues and pull requests.`;
 
 const SPEC = { bool: { json: "json", help: "help", h: "help" }, value: { range: "range", app: "app", cwd: "cwd" } };
 
@@ -183,20 +182,13 @@ export function render(s) {
   lines.push("");
   lines.push("This is the free summary. The dashboard shows every page and problem, what GenClass did, how to fix each kind,");
   lines.push("1 year of history, export, and forwarding to Sentry, PostHog, Datadog or Slack.");
+  // the dashboard is free on every plan, so only its address is read: `locked` (always false now) and an older
+  // worker's `trialUrl` and `trialAvailable` are ignored whether they are there or not (telemetry-worker/src/summary.ts)
   const url = typeof dash.url === "string" ? clean(dash.url, 300) : null;
   // the private link (/dashboard/<secret>) is a password: name where it is instead of printing it
   const isLink = (u) => typeof u === "string" && /\/dashboard\/(?!sample$)[^/]+$/.test(u);
-  if (dash.locked === false && url) lines.push(isLink(url) ? `Dashboard: open the private link in ${LOCAL_FILE} (keep it out of code, docs and pull requests)` : `Dashboard: ${c.cyan(url)}`);
-  else {
-    const trialUrl = typeof dash.trialUrl === "string" ? clean(dash.trialUrl, 300) : hostUrl("/account/trial");
-    if (dash.trialAvailable === false) lines.push(`Your trial has ended; the dashboard comes with Pro: ${c.cyan(hostUrl("/account/billing"))}`);
-    else if (isLink(trialUrl)) {
-      // an app in no account: its locked private link adds it to an account and starts the trial there
-      lines.push(`Get a ${TRIAL_DAYS}-day free trial for analytics (no card needed): open the private link in ${LOCAL_FILE},`);
-      lines.push(`sign in, add this app to your account and start the trial there.`);
-    } else lines.push(`Get a ${TRIAL_DAYS}-day free trial for analytics: ${c.cyan(trialUrl)} (no card needed)`);
-    lines.push(`See one filled in: ${c.cyan(SAMPLE_URL)}`);
-  }
+  if (url) lines.push(isLink(url) ? `Dashboard: open the private link in ${LOCAL_FILE} (keep it out of code, docs and pull requests)` : `Dashboard: ${c.cyan(url)}`);
+  else lines.push(`See one filled in: ${c.cyan(SAMPLE_URL)}`);
   return lines;
 }
 

@@ -20,46 +20,54 @@ HEADLINE = "Catch the bugs that never throw. Then stop them."  # the one line: H
 
 # The plans: billing/plans.json at the repo root is the one source (the telemetry worker imports the same file).
 # In src/, "{{plan.<id>.price|apps|history|name}}", "{{plans.apps_cap}}", "{{plans.contact}}" and "{{plans.trial_days}}"
-# render from it.
+# render from it. Everything GenClass makes is free; the paid plans sell running the closed-loop MCP for the customer:
+# Individual (sale "stripe") hosts it on genclass.dev, Enterprise (sale "contact", no card price) runs it inside the
+# customer's network. A stripe plan with on_sale false (Individual, until the hosted MCP ships) shows its price with an
+# inactive button, is left out of the Product JSON-LD and is "not on sale yet" in llms.txt.
 PLANS = json.loads((ROOT.parent / "billing/plans.json").read_text())
 PLAN = {p["id"]: p for p in PLANS["plans"]}
-# How long Pro's trial lasts, the only source of the number in public copy ("a {TRIAL_DAYS}-day free trial"). The telemetry worker
-# reads TRIAL_DAYS in telemetry-worker/wrangler.toml, and a telemetry-worker test checks that the two agree.
+# How long the trial of Individual lasts, the only source of the number in public copy ("a {TRIAL_DAYS}-day free trial").
+# The telemetry worker reads TRIAL_DAYS in telemetry-worker/wrangler.toml, and a telemetry-worker test checks that the two agree.
 TRIAL_DAYS = PLANS.get("trial_days")
 if type(TRIAL_DAYS) is not int or not 1 <= TRIAL_DAYS <= 60:
     raise SystemExit(f"billing/plans.json: trial_days must be a whole number of days from 1 to 60, not {TRIAL_DAYS!r}")
 APPS_CAP = 200  # the abuse cap on apps per account, whatever the plan (MAX_APPS_PER_ACCOUNT in telemetry-worker/src/auth.ts)
 SOON = "(coming next)"  # shown after a feature line whose "available" is false
-# Paid plans go on sale on this site only when the pinned runtime sends to the dashboard: DASH_RT is the first version
-# that sends app tokens (earlier ones ignore them, so a paid dashboard, its export and its forwarding would stay empty).
-# build.sh refuses an RT the CDN does not have, so raising RT to DASH_RT or later is what opens them. Until then the
-# paid plans show their prices with an inactive button, and the Product JSON-LD and llms.txt offer only Free.
-# Deploy order for paid plans: (1) the telemetry worker with billing deployed, migration 0004 applied and
-# scripts/stripe-setup.mjs run, so genclass.dev/account/billing sells; (2) runtime DASH_RT published to npm;
-# (3) RT raised above, then ./build.sh and deploy the site.
+# The first runtime version that sends app tokens, so the first whose pages fill a dashboard (earlier ones ignore the
+# token). Only the "{{dash_rt}}" copy about when the dashboard fills reads it; nothing is gated on it any more.
 DASH_RT = "0.3.0"
-
-def semver(v):
-    core, _, pre = v.partition("-")
-    return tuple(int(x) for x in core.split(".")) + ((0,) if pre else (1,))
-
-PAID_OPEN = semver(RT) >= semver(DASH_RT)
 BILLING_URL = "https://genclass.dev/account/billing"  # served by the telemetry worker; it asks the visitor to sign in
-# Pro's trial (telemetry-worker src/trial.ts): sign in (or up), then start the trial on the account page. A trial needs no
-# Stripe, so its button is live whatever PAID_OPEN says. Public copy states its length only from TRIAL_DAYS.
+# The trial of Individual (telemetry-worker src/trial.ts): sign in (or up), then start it on the account page. It needs no
+# Stripe. Public copy states its length only from TRIAL_DAYS. Its button shows only while Individual is on sale.
 TRIAL_URL = "https://genclass.dev/account/trial"
-# The buttons under each plan: label, link (None: an inactive button), button style, the line under it.
-CTA = {"free": ("Install", "/docs", "btn ghost", "No account needed. No dashboard."),
-       "pro": (f"Start your {TRIAL_DAYS}-day free trial", TRIAL_URL, "btn green", f"Get a {TRIAL_DAYS}-day free trial for analytics. No card needed.")}
+CONTACT_SUBJECT = "GenClass%20Enterprise"  # the mailto subject on every "Email us" link for the contact plan
 
 def cta(p):
-    if p["id"] == "pro": return CTA["pro"]
-    if p["id"] != "free" and not PAID_OPEN:
-        return (f"Opens with runtime {DASH_RT}", None, "btn ghost off", f"On sale when runtime {DASH_RT}, the first version that sends to the dashboard, is on npm.")
-    return CTA.get(p["id"], (f'Start {p["name"]}', BILLING_URL, "btn", "Sign in first, then pay on Stripe."))
+    """The button under a plan: label, link (None: an inactive button), button style, the line under it. Chosen by the
+    plan's sale ("free", "stripe", "contact") and, for a stripe plan, whether it is on sale (billing/plans.json)."""
+    if p["sale"] == "free":
+        return ("Install", "/docs", "btn ghost", "No account needed.")
+    if p["sale"] == "contact":
+        return ("Email us", f'mailto:{PLANS["contact"]}?subject={CONTACT_SUBJECT}', "btn", "A person answers within 1 business day.")
+    if p["on_sale"]:
+        monthly = usd(p["price_usd_cents"]["monthly"])
+        return (f"Start your {TRIAL_DAYS}-day free trial", TRIAL_URL, "btn green", f"{TRIAL_DAYS} days free, no card. Then {monthly} a month, paid by card on Stripe.")
+    return ("Opens with the hosted MCP", None, "btn ghost off", "On sale when the hosted closed-loop MCP ships. Until then run it yourself, free.")
 
 def usd(cents):
+    """The card price as "$20" or "$0.50"; "Contact us" for a plan with no card price (monthly null: sale "contact")."""
+    if cents is None: return "Contact us"
     return f"${cents // 100:,}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
+
+def price_token(p):
+    """What "{{plan.<id>.price}}" renders: the monthly card price, or "by arrangement" for a plan with none."""
+    cents = p["price_usd_cents"]["monthly"]
+    return "by arrangement" if cents is None else usd(cents)
+
+def price_block(cents):
+    """The big price in a plan column: the amount with its period, or just "Contact us" for a plan with no card price."""
+    if cents is None: return f'<b class="txt">{usd(cents)}</b>'
+    return f'<b>{usd(cents)}</b><span>{"per month" if cents else "no card needed"}</span>'
 
 def apps(n):
     return "Unlimited" if n is None else str(n)
@@ -70,7 +78,7 @@ def history(days):
 def plan_tokens(s):
     s = s.replace("{{plans.apps_cap}}", str(APPS_CAP)).replace("{{plans.trial_days}}", str(TRIAL_DAYS))
     s = s.replace("{{plans.contact}}", PLANS["contact"]).replace("{{dash_rt}}", DASH_RT)
-    pick = {"name": lambda p: p["name"], "price": lambda p: usd(p["price_usd_cents"]["monthly"]),
+    pick = {"name": lambda p: p["name"], "price": price_token,
             "apps": lambda p: apps(p["limits"]["apps"]), "history": lambda p: history(p["limits"]["history_days"])}
     return re.sub(r"\{\{plan\.(\w+)\.(\w+)\}\}", lambda m: pick[m.group(2)](PLAN[m.group(1)]), s)
 
@@ -79,7 +87,7 @@ css = (SRC / "css/base.css").read_text() + "\n" + (SRC / "css/components.css").r
 CSSV = hashlib.sha1(css.encode()).hexdigest()[:8]
 JSV = hashlib.sha1((PUB / "app.js").read_bytes()).hexdigest()[:8]
 
-# /login, /signup and /account (with /account/billing, where Pro and Custom are bought) are served by the telemetry
+# /login, /signup and /account (with /account/billing, where Individual is bought) are served by the telemetry
 # worker, not built here; the header only links to /login. /cloud redirects to /pricing (src/worker.js).
 NAV = [("Docs", "/docs", "docs"), ("How it works", "/how-it-works", "how"), ("Benchmarks", "/benchmarks", "benchmarks"), ("Guides", "/guides", "guides"), ("Pricing", "/pricing", "pricing")]
 
@@ -107,7 +115,7 @@ FOOTER = f'''<footer class="end">
       <a class="btn ghost" href="{GH}">View on GitHub</a>
     </div>
     <div class="foot-cols">
-      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">{V.FOOTER_LABEL}</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Self-hosting, SSO, invoices</a></div>
+      <div><b>Product</b><a href="/">Runtime</a><a href="/visual">{V.FOOTER_LABEL}</a><a href="/docs/compatibility">Where it has been run</a><a href="/benchmarks">Benchmarks</a><a href="/pricing">Pricing</a><a href="/enterprise">Enterprise: the MCP in your network, SSO, invoices</a></div>
       <div><b>Developers</b><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/options">Options</a><a href="/how-it-works">How it works</a><a href="/docs/interception">Interception surface</a><a href="{GH}">GitHub</a><a href="{NPM}">npm</a><a href="https://discord.gg/kN9kRnFtZm">Discord</a></div>
       <div><b>Guides</b><a href="/guides/race-conditions-react">Race conditions in React</a><a href="/guides/prevent-duplicate-submissions">Duplicate submissions</a><a href="/guides/stale-responses-out-of-order">Out-of-order responses</a></div>
       <div><b>Company</b><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a><a href="{GH}/issues/new?title=False%20detection%3A%20">Report a false detection</a><a href="{GH}/blob/main/LICENSE">License (Apache-2.0)</a><a href="{GH}/blob/main/packages/runtime-model/MODEL_CARD.md">Model card</a></div>
@@ -199,13 +207,13 @@ def plans_block():
         cols.append(f'''<article class="plan" aria-labelledby="plan-{p["id"]}">
       <p class="plan-k">{i + 1:02d}</p>
       <h3 id="plan-{p["id"]}">{p["name"]}</h3>
-      <p class="plan-price"><b>{usd(cents)}</b><span>{"per month" if cents else "no card needed"}</span></p>
+      <p class="plan-price">{price_block(cents)}</p>
       <p class="plan-sum">{p["summary"]}</p>
       <div class="plan-cta">{f'<a class="{btn}" href="{href}">{label}</a>' if href else f'<span class="{btn}" aria-disabled="true">{label}</span>'}<p>{note}</p></div>
       <ul class="plan-feat">{"".join(line(f) for f in p["features"])}</ul>
     </article>''')
     c = PLANS["contact"]
-    more = PLANS["footer"].replace(c, f'<a href="mailto:{c}?subject=GenClass%20self-hosting%2C%20SSO%20or%20invoices">{c}</a>')
+    more = PLANS["footer"].replace(c, f'<a href="mailto:{c}?subject={CONTACT_SUBJECT}">{c}</a>')
     return '<div class="plans">\n    ' + "\n    ".join(cols) + f'\n    </div>\n    <p class="plans-more">{more}</p>'
 
 def faq_jsonld(body):
@@ -217,18 +225,19 @@ def faq_jsonld(body):
     return {"@type": "FAQPage", "mainEntity": qa}
 
 def offers_jsonld():
-    """Product JSON-LD with one Offer per plan in billing/plans.json."""
+    """Product JSON-LD with one Offer per plan on sale in billing/plans.json: Free always, a stripe plan only while it is
+    on_sale, never a contact plan (no card price)."""
     offers = []
     for p in PLANS["plans"]:
+        if p["sale"] == "contact" or (p["sale"] == "stripe" and not p["on_sale"]): continue
         cents = p["price_usd_cents"]["monthly"]; price = f"{cents / 100:g}"
-        if cents and not PAID_OPEN: continue  # not on sale on this site yet (DASH_RT)
         o = {"@type": "Offer", "name": p["name"], "price": price, "priceCurrency": "USD", "url": f"{SITE}/pricing",
              "availability": "https://schema.org/InStock", "description": p["summary"]}
         if cents:
             o["priceSpecification"] = {"@type": "UnitPriceSpecification", "price": price, "priceCurrency": "USD", "unitText": "MONTH", "billingDuration": "P1M"}
         offers.append(o)
     return {"@type": "Product", "name": "GenClass", "brand": {"@type": "Brand", "name": "GenClass"}, "image": f"{SITE}/icon-512.png", "url": f"{SITE}/pricing",
-            "description": "An open-source runtime that reports, and can prevent, the web app bugs that never throw, with a dashboard at genclass.dev.", "offers": offers}
+            "description": "An open-source runtime that reports, and can prevent, the web app bugs that never throw, with a free dashboard at genclass.dev.", "offers": offers}
 
 def blocks(s):
     s = s.replace("<!--@plans-->", plans_block())
@@ -324,29 +333,37 @@ sm.append("</urlset>")
 # ---------- llms.txt: generated here so the version and the numbers cannot drift from the pages ----------
 # Sources: docs/runtime/RESULTS.md (model numbers), compat/RESULTS.md (matrix), packages/runtime/README.md (costs, telemetry).
 def llms_plans():
-    out = []
+    out = ["- Everything GenClass makes is free: the runtime, its on-device model, the dashboard for every app with a year of history, export, forwarding, the page check, and the closed-loop MCP server, which you run on your own machine. What costs money is running the closed-loop MCP for you: Individual hosts it on genclass.dev; Enterprise runs it inside your own network. The MCP server is coming next.",
+           "- The closed loop: GenClass finds the bug on the deployed app. The MCP server hands the finding, with its evidence and the pages affected, to your coding agent. The agent fixes it. After the fix ships, GenClass reports whether the problem came back."]
     for p in PLANS["plans"]:
         cents = p["price_usd_cents"]["monthly"]
-        sale = f"billed monthly through Stripe Checkout; sign in, then {BILLING_URL}" if PAID_OPEN else f"not on sale yet: it opens with runtime {DASH_RT}, the first version that sends to the dashboard"
-        if p["id"] == "pro": sale = f"get a {TRIAL_DAYS}-day free trial for analytics at {TRIAL_URL}; " + sale
-        head = f'- {p["name"]}, ' + (f"US{usd(cents)} per month ({sale})" if cents else "US$0")
+        if p["sale"] == "contact":
+            head = f'- {p["name"]}, by arrangement (no card price; email {PLANS["contact"]})'
+        elif p["sale"] == "stripe":
+            sale = (f"a {TRIAL_DAYS}-day free trial without a card at {TRIAL_URL}, then billed monthly through Stripe Checkout; sign in, then {BILLING_URL}" if p["on_sale"]
+                    else f"not on sale yet: it opens when the hosted closed-loop MCP ships, then with a {TRIAL_DAYS}-day free trial without a card")
+            head = f'- {p["name"]}, US{usd(cents)} per month ({sale})'
+        else:
+            head = f'- {p["name"]}, US{usd(cents)}'
         feats = "; ".join(f["text"] if f["available"] or SOON in f["text"] else f'{f["text"]} {SOON}' for f in p["features"])
         out.append(f"{head}: {feats}.")
-    out.append(f"- Unlimited apps means no plan limit; one account holds at most {APPS_CAP} apps as an abuse limit. The runtime is free in every plan.")
+    out.append(f"- No plan sets an app limit; one account holds at most {APPS_CAP} apps as an abuse limit. The runtime is free in every plan.")
     out.append(f'- {PLANS["footer"]} https://genclass.dev/enterprise')
     return "\n".join(out)
 
+IND_PRICE = usd(PLAN["individual"]["price_usd_cents"]["monthly"])  # "$20": Individual's card price, for the llms.txt intro
+
 LLMS = f"""# GenClass
 
-> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. The runtime and its on-device model are free; the genclass.dev dashboard comes with Pro (get a {TRIAL_DAYS}-day free trial for analytics), with history, data export and forwarding, and Custom adds a model trained on the customer's app.
+> GenClass Runtime (`@genclass/runtime`, Apache-2.0, free) is a browser library that runs a 10 MB model on the user's device and reports, with evidence, the timing bugs that never throw: duplicate submits, stale responses landing over newer data, write races, broken relations between fields and failure storms. Observe mode, the default, reports and never changes what the app does. Guard mode (opt-in) can act at the network boundary; heal is experimental. No server, no API key. Everything GenClass makes is free: the runtime, its on-device model, the dashboard for every app with a year of history, export, forwarding to Sentry, PostHog, Datadog, Slack or a signed webhook, the page check, and the closed-loop MCP server, which you run on your own machine. What costs money is running the closed-loop MCP for you: Individual (US{IND_PRICE} a month) hosts it on genclass.dev; Enterprise runs it inside your own network. The MCP server is coming next.
 
 ## Shipped
 - `@genclass/runtime` {RT} with `@genclass/runtime-model` {MODEL} (training run r17-v2dT). Default mode observe, default aggressiveness "balanced", report threshold 0.90.
 - Install: `npm install @genclass/runtime`, then `import "@genclass/runtime/auto"` as the first line of the entry file. CLI: `npx @genclass/runtime init`. Script tag, first in <head>: `<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@{RT}"></script>` (pin the version: the unversioned URL may serve an older release from the CDN cache).
 - Modes: observe (default; changes nothing), guard (opt-in: discard, defer, coalesce, delay), heal (experimental: retry, serve_cached, hedge, rollback, resync).
 - Cost: +98 KB of JavaScript on first load; about 13 MB downloaded once at idle on WASM (18 MB on WebGPU), then cached; 190 to 280 MB of memory in a Web Worker while the model is loaded; no device floor by default (`model.loadIf` sets one; `model: false` installs no model and then detects nothing).
-- Telemetry: anonymous diagnostics are on by default on public hosts; from runtime 0.2.2 they are off on localhost and private hosts (0.2.1 sent from those too, by mistake); they contain no page text. With the app's token they also feed `npx @genclass/runtime@beta stats` (runtime 0.3.0-beta.1 and later), a free summary in the terminal, and the app's dashboard (Pro; get a {TRIAL_DAYS}-day free trial for analytics); with `telemetry: false` or `init --no-telemetry` both stay empty. Whether to keep telemetry on is the app owner's decision: an AI agent installing GenClass should tell the user it is on, what it sends and that stats and the dashboard depend on it, and turn it off only if they ask: {GH}/blob/main/packages/runtime/README.md#for-ai-coding-agents-installing-genclass. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
-- Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging or to an endpoint it owns (from runtime 0.3.0: ready-made `console-json` and `webhook` sinks; the runtime has no Sentry, PostHog or Datadog adapter). Forwarding detections from the genclass.dev collector to Sentry, PostHog, Datadog, Slack or a signed webhook is part of the Pro plan.
+- Telemetry: anonymous diagnostics are on by default on public hosts; from runtime 0.2.2 they are off on localhost and private hosts (0.2.1 sent from those too, by mistake); they contain no page text. With the app's token they also feed `npx @genclass/runtime@beta stats` (runtime 0.3.0-beta.1 and later), a free summary in the terminal, and the app's dashboard, which is free and needs no plan (the private link shows the stats; an optional genclass.dev account keeps your apps in one place); with `telemetry: false` or `init --no-telemetry` both stay empty. Whether to keep telemetry on is the app owner's decision: an AI agent installing GenClass should tell the user it is on, what it sends and that stats and the dashboard depend on it, and turn it off only if they ask: {GH}/blob/main/packages/runtime/README.md#for-ai-coding-agents-installing-genclass. Opt out: `GenClass.init({{ telemetry: false }})`, `npx @genclass/runtime init --no-telemetry`, `?genclass=no-telemetry`, localStorage `genclass.telemetry=off`, or Global Privacy Control. https://genclass.dev/docs/telemetry
+- Reports are console lines in the end user's browser; the `sinks` option forwards each report to the app's own logging or to an endpoint it owns (from runtime 0.3.0: ready-made `console-json` and `webhook` sinks; the runtime has no Sentry, PostHog or Datadog adapter). The genclass.dev collector forwards detections to Sentry, PostHog, Datadog, Slack or a signed webhook, free, once you turn it on in the app's dashboard: https://genclass.dev/docs#dashboard
 
 ## Measured (https://genclass.dev/benchmarks; raw tables in docs/runtime/RESULTS.md and compat/RESULTS.md)
 - Model {MODEL} at the shipped setting (balanced), held-out real apps: detects 75% of duplicate submits, 30% of stale overwrites and 6% of broken state; guard acts on 7.5% of the cases where acting would help.

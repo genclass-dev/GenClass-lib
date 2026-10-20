@@ -56,7 +56,7 @@ page. Off with `telemetry: false`, `?genclass=no-telemetry` (or `?genclass=off`)
 hosts (`0.2.1` sends from them too, by mistake; fixed in `0.2.2`), outside a browser and in
 `createRuntime()`. An explicit `telemetry: true` also sends from local hosts. With an app token (below), the same
 diagnostics feed `npx @genclass/runtime stats` (a free summary in the terminal, 0.3.0-beta.1) and the app's dashboard
-(Pro); with telemetry off, both stay empty. Schema and details:
+(free, no plan needed); with telemetry off, both stay empty. Schema and details:
 [packages/runtime/TELEMETRY.md](../../packages/runtime/TELEMETRY.md).
 
 **App token and dashboard** (0.3.0: `0.2.x` ignores `token`). `token: "gc_..."` (from
@@ -614,8 +614,8 @@ overlay uses it), so debugging tools never become causes in situations.
 ### See it where you already look
 
 0.3.0 (CHANGELOG): the adapters, the `@genclass/runtime/sinks` exports, sinks by name and `init --sink` are not
-in `0.2.x`. The free runtime has no Sentry, PostHog or Datadog adapter. On Pro, the GenClass collector forwards
-detections to those tools once you turn it on (https://genclass.dev/pricing).
+in `0.2.x`. The runtime has no Sentry, PostHog or Datadog adapter. The genclass.dev collector forwards detections to
+them, free, once you turn it on in the app's dashboard: https://genclass.dev/docs#dashboard.
 
 `sinks` receive a `SinkRecord` per report (OPTIONS-SPEC §4.11): `kind`, `id`, `ts`, `sessionId`, `tags`, `mode`,
 `sampled`, `diagnosis`, `p`, `detection` (kind `detection`: `"likely"`, or `"possible"` for a sink with
@@ -658,7 +658,8 @@ since commas separate the meta keys), `data-sink="webhook:/genclass,console-json
 `npx @genclass/runtime init --sink webhook:/genclass` (the names are `console-json` and `webhook:<url>`;
 `console-json:noevidence` makes its adapter with `evidence: false`). The names `sentry`, `posthog` and `datadog` (any
 case, with or without an option) are left out at init with one console warning for them all, `Ignored sink <names>:
-Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing`, and nothing is loaded or sent for them; `init --sink sentry` is a usage error that says
+the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free,
+from the app's dashboard: https://genclass.dev/docs#dashboard`, and nothing is loaded or sent for them; `init --sink sentry` is a usage error that says
 the same. GENCLASS_CONFIG passes sink objects through. The names become one proxy sink at init that
 queues records (at most 200) and loads the adapters on the first record (never before: a page that reports nothing,
 or runs with `?genclass=off`, fetches none): a lazy chunk of `/auto`, `dist/sinks/<name>.js` from the CDN for the
@@ -895,7 +896,8 @@ Subpath exports: `@genclass/runtime/react` (`useGenClassState(name, initial, opt
 `@genclass/runtime/discover` (automatic state discovery for `GenClass.init({ autoState: true })`; import it first),
 `@genclass/runtime/sinks` (`consoleJson`, `webhook`; 0.3.0) and one subpath per adapter,
 `@genclass/runtime/sinks/{console-json,webhook}` (each also its default export; see "See it where you already
-look"; there is no Sentry, PostHog or Datadog adapter in the free runtime), `@genclass/runtime/visual`
+look"; there is no Sentry, PostHog or Datadog adapter: the genclass.dev collector forwards to them, free),
+`@genclass/runtime/visual`
 (`checkPage(options?)`, the measured visual checks without a runtime; 0.3.0). They are documented with their source. To
 integrate another state library use:
 
