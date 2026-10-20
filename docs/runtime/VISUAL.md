@@ -124,9 +124,11 @@ every browser test asserts `visibilityState === "visible"`.
 
 ### 2.3 Settle and persistence gates
 
-- **Page settle**: after the `load` event (capped at 5 s), a further 1,500 ms on the Clock, `document.fonts.ready`
-  (capped at 3 s), network quiet (no in-flight request known to the runtime for 500 ms, capped at 10 s), and 500 ms
-  without DOM mutations (capped at 10 s).
+- **Page settle**: after the `load` event (capped at 5 s in this design; 6.5 s after init as built, section 19), a
+  further 1,500 ms on the Clock, `document.fonts.ready` (capped at 3 s), then network quiet and DOM quiet together:
+  500 ms with nothing the runtime tracks in flight (requests, socket connects, `rt.op()` and `protect()` calls)
+  and no counted DOM mutation (section 8 step 6; nothing inside `[data-genclass-ignore]`). The two share one 10 s cap,
+  which starts after the fonts wait. Section 8 gives what this means end to end.
 - **Persistence**: a layout or colour finding is reported only when two measurements at least 1,000 ms apart (on the
   Clock) give the same verdict, and no running `Animation` (CSS animation or transition, from
   `document.getAnimations()`, collected once per pass into a set of targets) targets the element or an ancestor.
@@ -721,6 +723,7 @@ breakage. Each needs bench numbers (section 15) before it ships, and some belong
 | tiny tap targets (WCAG 2.5.8), missing focus indicator | accessibility linting, opt-in tier |
 | invisible icon-only control, popover clipped by `overflow`, fixed panel taller than the viewport, utility class missing in production | expected medium to high; each needs its own false-report numbers |
 | runtime fixes for `click-blocked`, `focus-obscured` (`scroll-padding-top`), `control-unreachable` (`padding-bottom`) | narrow and reversible, but each changes layout or hit testing; measure the false-fix rate first |
+| `tap-target-swapped`: the second tap of a double tap (proposed: within 500 ms, and 16 px on touch or 8 px with a mouse) lands on a different control that was inserted or revealed under the pointer after the first tap. Seen in a pilot app (2026-10-17): Start's slot gets the failure card's "Browse the menu" when the call fails fast, or the call bar's End when the call starts; both are insertions, which the existing MutationObserver sees. The model path cannot see it (taps carry no position, no diagnosis fits, and a new fact is a new situation tag); report only, never a runtime fix | it judges intent from timing, and whether a correct design counts as a misfire is the owner's labelling policy: a stepper whose Add becomes "+", an Undo snackbar under the finger, a confirm button that replaces its trigger, a menu that opens over its trigger without `aria-haspopup`, `aria-expanded` or `aria-controls`. Before it could be on by default, a clean-page double-tap driver for the demos, templates and compat apps must count its false reports (public sites get no clicks). Its click recorder would start when the chunk installs, not after the settle wait; taps before the chunk loads (at least 1.5 s after `load`) are always missed, never false |
 
 ## 5. v2: learned per-app visual expectations
 
@@ -882,8 +885,10 @@ All timers are Clock timers; idle callbacks come from the injected global (secti
    an idle callback (timeout 3 s; without `requestIdleCallback`, a 0 ms Clock timer); then import the chunk. As built
    (section 19): no idle callback in the stub, a 6.5 s cap, and no import while the tab is hidden or the page
    prerenders (checked every 5 s).
-3. **Chunk gates**: `fonts.ready` (cap 3 s), a visible tab, not prerendering, network quiet for 500 ms (the host
-   exposes the in-flight count, cap 10 s), 500 ms without DOM mutations (cap 10 s).
+3. **Chunk gates**: `fonts.ready` (cap 3 s), a visible tab, not prerendering, then network quiet and DOM quiet
+   together for 500 ms: the host's in-flight count (requests, socket connects until open, `rt.op()` and `protect()`
+   calls; a fetch counts until its headers arrive, not while its body streams) at zero and no mutation counted by
+   step 6. One 10 s cap covers both, from the end of the fonts wait.
 4. **Pass 1**: cheap reads first (images, links, fonts, media, buffered layout shifts, the CSP buffer, viewport meta,
    the page overflow fact, `pointer-events` and scroll-lock state), then text and layout measurements, viewport first.
 5. **Confirmation**: candidates are re-measured at least 1,000 ms later (persistence) and reported then.
@@ -905,6 +910,23 @@ All timers are Clock timers; idle callbacks come from the injected global (secti
    jumps, the end-of-page scan, dialogs, page-blank) runs in an idle callback, never in the app's event handlers or a
    plain timer, and is timed and counted in the summary's cost and the session budget.
 
+**When the first pass runs, end to end.** On a quiet page, about 2 s after `load`: 1.5 s, the chunk, then 500 ms of
+quiet (RESULTS.md section 14: 2.07 s at the median on the compat apps). On a page that is never quiet for 500 ms the
+settle wait runs to its cap, and the first pass starts about 11.5 s after `load` (1.5 s, the chunk, 10 s), or about
+14.5 s when web fonts also take their full 3 s. Two kinds of page do that: one that always has something in flight (a
+long poll, a request that hangs, a long `rt.op()`), and one whose DOM changes at least every 500 ms while staying
+below the 3,000-records-a-second rest of step 6, such as a `requestAnimationFrame` loop that writes an inline `style`
+on every frame (a pilot app's 30 fps mascot, 2026-10-17: no pass 6.2 s after `load`, one by 12.2 s). The interaction
+checks (step 7) start when the settle wait ends, the periodic read (step 8) and `page-blank` (3.17) after the first
+pass, and from then on they run whether or not the page is quiet (some, such as `click-blocked`, stay silent when the
+DOM changed between the clicks, section 19). The incremental and route-change re-checks of step 6 do not: on a page
+whose DOM changes at least once a second, each counted mutation restarts their 1,000 ms quiet wait, which has no
+maximum, so they do not run while such an animation lasts (a known gap; a maximum wait would be a default change and
+needs the bench's false-report numbers first). An animation above 3,000 records a second rests the observer instead,
+and its re-checks run during the rest. Marking a purely decorative animation `data-genclass-ignore` keeps its changes
+out of both waits, so the first pass lands as on a quiet page. It also means the checks never measure that subtree,
+and the runtime does not record taps and inputs inside it as user actions, nor does interaction analytics count them.
+
 Budgets:
 
 | budget | default | notes |
@@ -919,11 +941,13 @@ Budgets:
 | `css-var-undefined` | 5,000 rules | once per stylesheet set, in steps of 200 rules and one reference per step; a cross-origin sheet stops it before any walk |
 | event handlers | no page reads | an event records what it needs (the target, the point); the read runs in the next idle callback |
 
-Back-off: if one step takes more than 16 ms (a forced layout on a huge DOM), the pass ends, the settle wait doubles
-and `maxElements` halves for the session. No step is exempt. A slice is meant never to run long enough to be a long
-task (50 ms), which matters because `observe/perf.ts` records long tasks as `perf` events the model reads; a step can
-still pass 50 ms when the browser must first lay out a page whose own layout takes that long (section 1). The design's
-"wait after a long task" counter on the host is not built.
+Back-off: if one step takes more than 16 ms (a forced layout on a huge DOM), the pass ends, later persistence waits
+double (2x at most) and `maxElements` halves for the session. The settle wait runs once, before the first pass, so the
+back-off reaches it only when a manual pass (`rt.checkNow()`) hit a slow read before that wait ended. No step is
+exempt. A slice is meant never to run long enough to be a long task (50 ms), which matters because `observe/perf.ts`
+records long tasks as `perf` events the model reads; a step can still pass 50 ms when the browser must first lay out a
+page whose own layout takes that long (section 1). The design's "wait after a long task" counter on the host is not
+built.
 
 Estimated costs (to be measured by the bench and written to RESULTS.md with date and commit): 10 to 20 microseconds
 per candidate with clean layout on a desktop CI runner, 0.1 to 0.4 ms per `text-invisible` element on a 4x throttled

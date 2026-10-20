@@ -2,7 +2,12 @@
 // Scheduling and budgets of the measured visual checks (docs/runtime/VISUAL.md sections 2.2, 2.3 and 8;
 // src/visual/engine.ts) on the injected FakeClock: no layout engine means zero findings and nothing installed; slices
 // end at budgetMs; a pass ends as partial at passBudgetMs; one slow read backs off; the session budget stops
-// incremental checks; GenClass's own attribute writes are not app mutations; a hidden tab waits.
+// incremental checks; GenClass's own attribute writes are not app mutations; a hidden tab waits; the settle wait
+// ends after 500 ms of quiet, or at its 10 s cap on a page animating inline styles unless the animation is inside
+// [data-genclass-ignore]. Text checks: the first-pass schedule in VISUAL.md, API.md and the README names the delays
+// and caps src/visual/start.ts and engine.ts use (the wording is not pinned).
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { VisualHost } from "../src/visual/host.js";
 import { Visual } from "../src/visual/engine.js";
@@ -23,6 +28,7 @@ type Internals = {
   moResting: boolean;
   whenVisible(): Promise<void>;
   pass(roots: Element[] | null, manual?: boolean): Promise<unknown[]>;
+  settledAt: number | null;
 };
 
 const realRect = document.documentElement.getBoundingClientRect.bind(document.documentElement);
@@ -117,7 +123,7 @@ describe("visual scheduling (VISUAL.md 8)", () => {
     v.stop();
   });
 
-  it("one read over 16 ms ends the pass, doubles the settle wait and halves maxElements", async () => {
+  it("one read over 16 ms ends the pass, doubles later persistence waits (slow 2) and halves maxElements", async () => {
     withLayout();
     const clock = new FakeClock();
     const v = new Visual(host(clock), { on: true, maxElements: 2000 }, [], false);
@@ -208,5 +214,106 @@ describe("visual scheduling (VISUAL.md 8)", () => {
     await drain();
     expect(done).toBe(true);
     v.stop();
+  });
+});
+
+describe("the settle wait before the first pass (VISUAL.md 2.3 and 8 step 3)", () => {
+  /** What a requestAnimationFrame loop writing `el.style.transform` on every frame gives the MutationObserver. */
+  const styleWrite = (el: Element): MutationRecord =>
+    ({ type: "attributes", attributeName: "style", target: el, addedNodes: [] as unknown as NodeList, removedNodes: [] as unknown as NodeList }) as unknown as MutationRecord;
+
+  /**
+   * Boot an engine (its automatic first pass) on `html` and return how long after construction it settled. When
+   * `animate` names an element, it gets an inline style write every 33 ms (30 fps) until then, for 12 s at most.
+   */
+  async function settleAfter(html: string, animate?: string): Promise<number> {
+    withLayout();
+    document.body.innerHTML = html;
+    const clock = new FakeClock();
+    const t0 = clock.now();
+    const v = new Visual(host(clock), { on: true });
+    const i = v as unknown as Internals;
+    const el = animate ? document.querySelector(animate)! : null;
+    try {
+      while (i.settledAt === null && clock.now() - t0 < 12_000) {
+        if (el) i.onMutations([styleWrite(el)]);
+        await clock.advance(33);
+      }
+      return i.settledAt === null ? Infinity : i.settledAt - t0;
+    } finally {
+      v.stop();
+    }
+  }
+
+  it("a quiet page settles after 500 ms with nothing in flight and no DOM change", async () => {
+    const t = await settleAfter("<p>Hi</p>");
+    expect(t).toBeGreaterThanOrEqual(500);
+    expect(t).toBeLessThan(700);
+  });
+
+  it("a 30 fps animation writing inline styles (below the 3,000-records-a-second rest) holds it to the 10 s cap", async () => {
+    const t = await settleAfter('<div class="mascot"><svg><g></g></svg></div><p>Hi</p>', ".mascot g");
+    expect(t).toBeGreaterThanOrEqual(10_000);
+    expect(t).toBeLessThan(10_200);
+  });
+
+  it("the same animation inside [data-genclass-ignore] does not hold it", async () => {
+    const t = await settleAfter('<div class="mascot" data-genclass-ignore><svg><g></g></svg></div><p>Hi</p>', ".mascot g");
+    expect(t).toBeGreaterThanOrEqual(500);
+    expect(t).toBeLessThan(700);
+  });
+});
+
+describe("the documented first-pass schedule names the delays and caps the code uses (VISUAL.md 2.3 and 8, API.md, README)", () => {
+  const PKG = resolve(__dirname, "..");
+  const DOCS = resolve(PKG, "..", "..", "docs", "runtime");
+  const read = (p: string): string => readFileSync(p, "utf8");
+  const START = read(join(PKG, "src", "visual", "start.ts"));
+  const ENGINE = read(join(PKG, "src", "visual", "engine.ts"));
+  const VISUAL = read(join(DOCS, "VISUAL.md"));
+  const API = read(join(DOCS, "API.md"));
+  const README = read(join(PKG, "README.md"));
+
+  /** A number literal (`10_000` too) the code uses, found by the code around it. */
+  function constant(src: string, re: RegExp, what: string): number {
+    const m = re.exec(src);
+    expect(m, `${what}: ${re}`).not.toBeNull();
+    return Number(m![1].replace(/_/g, ""));
+  }
+  const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  /** `doc` names `ms` as "1.5 s" or "1,500 ms", not as part of a longer number. */
+  const names = (doc: string, ms: number): boolean =>
+    new RegExp(`(?<![\\d.,])(?:${esc(String(ms / 1000))} s|${esc(ms.toLocaleString("en-US"))} ms)(?!\\d)`).test(doc.replace(/\s+/g, " "));
+  /** The text from `from` up to the next `to` (the end of the file without one). */
+  function part(doc: string, from: string, to: string): string {
+    const a = doc.indexOf(from);
+    expect(a, `"${from}"`).toBeGreaterThan(-1);
+    const b = doc.indexOf(to, a + from.length);
+    return doc.slice(a, b === -1 ? undefined : b);
+  }
+
+  const chunk = constant(START, /const soon = \(\) => clock\.setTimeout\(go, ([\d_]+)\)/, "start.ts: the chunk import after load");
+  const loadCap = constant(START, /addEventListener\?\.\("load", soon\);\s*clock\.setTimeout\(go, ([\d_]+)\)/, "start.ts: the cap when load is late");
+  const fonts = constant(ENGINE, /private async fontsReady\(\)[\s\S]*?this\.sleep\(([\d_]+)\)/, "engine.ts fontsReady: the fonts cap");
+  const quiet = constant(ENGINE, /private async settle\(\)[\s\S]*?t - busy >= ([\d_]+) \* this\.slow/, "engine.ts settle: the quiet window");
+  const cap = constant(ENGINE, /private async settle\(\)[\s\S]*?t - start >= ([\d_]+)\)/, "engine.ts settle: the cap");
+  // a page that never goes quiet: the chunk, then the settle cap, which starts after the fonts wait
+  const never = chunk + cap;
+  const longest = chunk + fonts + cap;
+
+  const all = { "the chunk delay": chunk, "the load cap": loadCap, "the fonts cap": fonts, "the quiet window": quiet, "the settle cap": cap };
+  const endToEnd = { "the never-quiet first pass": never, "its longest case": longest };
+  const cases: [string, string, Record<string, number>][] = [
+    ["VISUAL.md 2.3 Page settle", part(VISUAL, "- **Page settle**", "- **Persistence**"), all],
+    ["VISUAL.md 8 Scheduling and budgets", part(VISUAL, "## 8. Scheduling and budgets", "\n## 9. "), { ...all, ...endToEnd }],
+    ["API.md When they run", part(API, "- **When they run.**", "\n- **"), { ...all, ...endToEnd }],
+    ["README visual checks Cost", part(README, "**Cost.** About 0.5 KB", "\n\n"), { "the chunk delay": chunk, "the fonts cap": fonts, "the quiet window": quiet, "the settle cap": cap, ...endToEnd }],
+  ];
+
+  it.each(cases)("%s", (_name, doc, want) => {
+    const missing = Object.entries(want)
+      .filter(([, ms]) => !names(doc, ms))
+      .map(([what, ms]) => `${what} (${ms / 1000} s)`);
+    expect(missing, "durations the code uses that this text does not name").toEqual([]);
   });
 });

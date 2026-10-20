@@ -489,10 +489,18 @@ every observer and restores the globals it wrapped.
 | `mutation` | a salient state write not covered by a delivery decision (decided in the background unless `holdWrites`) | `apply`, `discard`, `defer` |
 | `request` | a fetch/XHR is about to be sent | `send`, `coalesce`, `delay`, `block`, `serve_cached` |
 | `failure` | a request failed (network, timeout, 5xx, 429, 408) before the app sees it | `deliver`, `retry`, `serve_cached` |
-| `stall` | a request is far past its usual latency, or has been in flight 10 s without a latency baseline yet | `wait`, `hedge`, `serve_cached` |
+| `stall` | a request has been in flight longer than max(4 × median, 2 × p95, 500 ms) of its signature's successful completions in this page load (a baseline needs 5), or 10 s while it has no baseline yet | `wait`, `hedge`, `serve_cached` |
 | `inconsistency` | a learned relation between fields broke | `ignore`, `rollback`, `resync` |
 | `transition` | an operation changed state unlike it usually does | `ignore`, `rollback`, `resync` |
 | `error` | an uncaught error or unhandled rejection | `ignore`, `rollback` |
+
+A slow request is asked about through `stall`, not `delivery`. A `delivery` decision is about a response overwriting
+newer, pending or typed state: a response with no such conflict is delivered without a decision however long it took
+(unless `triage: "always"` or a standing question with `always` asks), and so is the first response of a signature,
+which has no learned write set yet (its store writes still go through mutation triage). Latency baselines
+(`src/learn/baselines.ts`) are per signature and per page load, never stored: the last 64 successful completions, used
+once there are 5. Slow successes stay in the window, so below 20 samples the slowest one sets the p95 and the stall
+threshold is at least twice it.
 
 | action | tier | effect |
 |---|---|---|
@@ -745,10 +753,18 @@ interface CheckFinding {
   the script tag, `window.GENCLASS_CONFIG = { visual: { ... } }`.
 - **When they run.** Nothing loads until 1.5 s after `load` (6.5 s at most), while `enabled` is false or pending, or
   while the tab is hidden or the page prerenders, and nothing is measured in a hidden tab. Every page read runs in an
-  idle callback, never in your event handlers. Then fonts, network quiet and DOM quiet (500 ms each, 10 s at most), one pass in
-  idle slices, persistence re-checks 1 to 2 s later, and incremental re-checks of the subtrees that changed (a full
-  pass at most every 30 s). Interaction checks run on clicks, hover, focus, anchor jumps, scrolling and a 2 s
-  computed-style read of `html` and `body`. A route whose mode is `"off"` gets no checks.
+  idle callback, never in your event handlers. Then `document.fonts.ready` (3 s at most), then 500 ms with nothing the
+  runtime tracks in flight (requests, socket connects, `rt.op()` and `protect()` calls) and no DOM change outside
+  `[data-genclass-ignore]` (one 10 s cap for both), one pass in idle slices, persistence re-checks 1 to 2 s later, and
+  incremental re-checks of the subtrees that changed, after 1 s without DOM changes (a full pass at most every 30 s).
+  Interaction checks run on clicks, hover, focus, anchor jumps, scrolling and a 2 s computed-style read of `html` and
+  `body`. A route whose mode is `"off"` gets no checks. The first pass runs about 2 s after `load` on a quiet page, and
+  about 11.5 s after it (14.5 s when web fonts take their full 3 s too) on a page whose DOM or network is never quiet
+  for 500 ms, such as a `requestAnimationFrame` loop writing inline styles or a long poll. While such an animation
+  runs, the incremental and route-change re-checks wait for a quiet second that does not come; the interaction
+  checks, the 2 s read and `page-blank` still run. `data-genclass-ignore` on a purely decorative animation keeps it out
+  of both waits; the checks then never measure it, and taps and inputs inside it are not recorded as user actions or
+  counted by interaction analytics.
 - **Reports.** The console line starts `[GenClass] Check (measured):` and ends with the suggested CSS (or what to
   change when CSS is not the fix). `report: "silent"` prints nothing, `"interventions"` prints only applied and undone
   fixes, a `report` function and `rt.on("report")` listeners receive every `Report` of kind `"check"` (`r.check` is

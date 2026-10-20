@@ -680,7 +680,7 @@ relation, an error) reach the model; everything else is a cheap fact computation
 | `delivery` | a fetch/XHR response or a WebSocket/EventSource message is about to reach the app | `deliver` | `discard` (guard): deliver, but drop the writes it makes over newer data · `defer` (guard): wait for related in-flight work, then decide again |
 | `request` | a request is about to be sent | `send` | `coalesce`, `delay` (guard) · `block`, `serve_cached` (heal) |
 | `failure` | a request failed (network error, timeout, 5xx/429/408) | `deliver` | `retry`, `serve_cached` (heal) |
-| `stall` | a request is far slower than usual | `wait` | `hedge`, `serve_cached` (heal) |
+| `stall` | a request is far slower than usual (or in flight 10 s before it has a baseline; see below) | `wait` | `hedge`, `serve_cached` (heal) |
 | `mutation` | a salient store write that no delivery decision covered | `apply` | `discard`, `defer` (guard), decided in the background |
 | `inconsistency` | a learned relation (`total == sum(items[*].price × qty)`) broke at a settled point | `ignore` | `rollback`, `resync` (heal) |
 | `transition` | an operation wrote different fields than it usually does | `ignore` | `rollback`, `resync` (heal) |
@@ -721,6 +721,18 @@ cover:
 - latency against learned baselines;
 - values known to be stale;
 - read-your-writes.
+
+**Slow is `stall`, not `delivery`.** A delivery decision is about a response overwriting newer, pending or typed
+state, never about how long it took: a response with no such conflict is delivered without a model call however slow
+it was (unless `triage: "always"` or a standing question with `always` asks), and so is the first response of each
+kind, which has no earlier writes to compare with (its store writes still go through the mutation triage). A slow
+request is asked about through `stall`, against latency baselines learned per page load and never stored: once 5
+requests with the same signature (method and path pattern, such as `POST /api/sessions/:id/offer`) have succeeded in
+this page load, each later one becomes a stall when it is in flight longer than the largest of 4× their median, 2×
+their p95 and 0.5 s, so a 6 s request after five 70 ms ones is asked about after 0.5 s. Slow successes stay in the
+window: below 20 samples the slowest sets the p95, so after one slow request, later ones are held to at least twice
+its time. Without a baseline, a request becomes a stall only after 10 s in flight. A 4 s call made once per page load,
+or a 6 s call before its signature's fifth success, therefore gets no stall decision.
 
 It catches runtime failures that leave evidence: ordering, staleness, duplicates, broken relations, failure patterns.
 The model does not catch logic that is consistently wrong, CSS or security bugs, and it never rewrites your code. A
@@ -775,9 +787,15 @@ them with a sink or `rt.on("check", f => ...)`; `?genclass-visual=on` turns on r
 opened the link; `visual: false` or `?genclass-visual=off` turns them off.
 
 **Cost.** About 0.5 KB gzip of first load (550 B on `/auto`, 524 B on the main entry; see Performance). The checks are a separate file loaded 1.5 s after the page's `load` event
-in a visible tab, and all their page reads (passes, the 2 s read of `html` and `body`, the click, hover, focus and
-scroll checks) run in idle callbacks: slices of 8 ms, at most 100 ms per pass and 1 s per 10 minutes. One step can
-still take longer than a slice when the browser has to lay out a heavy page first (measured in RESULTS.md section 14).
+in a visible tab. The first pass then waits for web fonts (at most 3 s), then for 500 ms with nothing in flight
+(requests, socket connects, `rt.op()` and `protect()` calls) and no DOM change (at most 10 s): it runs about 2 s after
+`load` on a quiet page, and about 11.5 s after it (14.5 s when fonts take their full 3 s too) on a page that is never
+quiet, such as one with a JavaScript animation that writes inline styles on every frame. While that animation runs,
+re-checks of content that changed wait too. Marking a purely decorative animation `data-genclass-ignore` keeps it out
+of both waits (GenClass then also ignores taps and inputs inside it). All their page reads (passes, the 2 s read of
+`html` and `body`, the click, hover, focus and scroll checks) run in idle callbacks: slices of 8 ms, at most 100 ms per
+pass and 1 s per 10 minutes. One step can still take longer than a slice when the browser has to lay out a heavy page
+first (measured in RESULTS.md section 14).
 Low-end devices run only the near-free checks (failed assets, CSP, layout shifts, the interaction checks). Nothing
 about the checks is sent anywhere.
 
