@@ -1,7 +1,8 @@
 // README claims that code or a measurement pins (Troy Bot check of 0.3.0-beta.0, 2026-10-17): the first-load limits
 // the README quotes are the ones test/bundle.test.ts enforces, the Costs section keeps every main-thread result next
 // to its own control, and Install's Next.js build-time switch is linked, placed after the numbered steps and shaped
-// so a bundler can drop it. Text checks only: no build, no browser, no network. The wording is not pinned.
+// so a bundler can drop it. Text checks only: no build, no browser, no network. The wording is not pinned beyond the
+// anchors that find each part: the section and subsection headings, the "**N. " step leads and "**ESM only.**".
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -86,19 +87,25 @@ describe("README Install: only in some builds (Next.js), a build-time switch tha
     const install = section("Install");
     const at = install.indexOf(`\n### ${HEADING}\n`);
     expect(at, `Install has a "### ${HEADING}" subsection`).toBeGreaterThan(-1);
-    // a heading before "**3. One script tag**" or "**ESM only.**" would put them under it
-    for (const step of ["**2. One import**", "**3. One script tag**", "**4. By hand:**", "**ESM only.**"]) {
-      expect(install.indexOf(step), step).toBeGreaterThan(-1);
-      expect(install.indexOf(step), `${step} comes before the subsection`).toBeLessThan(at);
-    }
-    expect((install.match(/\n### /g) ?? []).length, "the only ### heading in Install").toBe(1);
+    // the numbered steps by their "**N. " leads (their titles are not pinned) and the ESM-only note
+    const steps = [...install.matchAll(/^\*\*\d+\. /gm)].map((m) => m.index!);
+    expect(steps.length, "Install's numbered steps (**1. , **2. , ...)").toBeGreaterThanOrEqual(2);
+    const esm = install.indexOf("**ESM only.**");
+    expect(esm, "**ESM only.**").toBeGreaterThan(-1);
+    const leads = [...steps, esm];
+    for (const i of leads) expect(i, `${install.slice(i, i + 24)}... comes before the subsection`).toBeLessThan(at);
+    // a ### heading before a step or the ESM-only note would put them under it; one after the subsection would make
+    // it no longer the last part
+    const h3 = [...install.matchAll(/\n### /g)].map((m) => m.index!);
+    expect(h3.filter((i) => i < Math.max(...leads)), "no ### heading before the last step or the ESM-only note").toEqual([]);
+    expect(h3[h3.length - 1], "the last ### heading in Install").toBe(at);
     // linked from the one-line install at the top, from step 2 and from the ESM-only note (which say "no require")
     expect(README.slice(0, README.indexOf("\n## Contents")), "the top of the README links to it").toContain(`(${ANCHOR})`);
     const paragraphs = install.slice(0, at).split(/\n\n/);
-    for (const lead of ["**2. One import**", "**ESM only.**"]) {
-      const p = paragraphs.find((x) => x.startsWith(lead));
-      expect(p, lead).toBeDefined();
-      expect(p, lead).toContain(`(${ANCHOR})`);
+    for (const [what, lead] of [["step 2", /^\*\*2\. /], ["the ESM-only note", /^\*\*ESM only\.\*\*/]] as const) {
+      const p = paragraphs.find((x) => lead.test(x));
+      expect(p, what).toBeDefined();
+      expect(p, what).toContain(`(${ANCHOR})`);
     }
     // the Next.js starter points at it from "Turning it off"
     const tpl = join(REPO, "templates", "nextjs", "README.md");
@@ -112,10 +119,12 @@ describe("README Install: only in some builds (Next.js), a build-time switch tha
     expect(config, "a next.config block with env").toBeDefined();
     expect(config).toMatch(/env\s*:\s*\{\s*NEXT_PUBLIC_GENCLASS\s*:/);
     expect(config, "never undefined").toMatch(/NEXT_PUBLIC_GENCLASS\s*:[^,}\n]*(\?\?\s*""|:\s*"")/);
-    // instrumentation-client: a comparison with a literal, then require (synchronous) of the app's own module
+    // instrumentation-client: a comparison with a literal, and inside that if-block (comments aside) a synchronous
+    // require of the app's own module; a require after the block's closing brace would ship and run in every build
     const client = blocks.find((b) => /\brequire\(/.test(b));
     expect(client, "an instrumentation-client block with require").toBeDefined();
-    expect(client).toMatch(/if\s*\(\s*process\.env\.NEXT_PUBLIC_GENCLASS\s*===\s*"[^"]+"\s*\)\s*\{[\s\S]*?\brequire\(\s*"\.\.?\/[^"]+"\s*\)/);
+    const code = client!.replace(/\/\/[^\n]*/g, "");
+    expect(code, "the require sits inside the build-time if").toMatch(/if\s*\(\s*process\.env\.NEXT_PUBLIC_GENCLASS\s*===\s*"[^"]+"\s*\)\s*\{[^{}]*\brequire\(\s*"\.\.?\/[^"]+"\s*\)[^{}]*\}/);
     expect(client, "the package is ESM only: never required by name").not.toMatch(/require\(\s*["']@genclass/);
     // the local module imports the runtime with import, first
     const local = blocks.find((b) => /from "@genclass\/runtime\/auto"|import "@genclass\/runtime\/auto"/.test(b) && !/\brequire\(/.test(b));

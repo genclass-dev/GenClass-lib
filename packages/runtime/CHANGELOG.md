@@ -95,8 +95,9 @@
   `tap-target-swapped` (a second tap landing on a control inserted under the pointer) as a candidate that waits for a
   labelling policy and a clean-page double-tap driver. No runtime behaviour or model-visible text changed (two
   comments in `src/visual/engine.ts`; test/visual-scheduler.test.ts checks that the documented delays and caps are
-  the ones `src/visual/start.ts` and `engine.ts` use, and pins the settle wait on a quiet page, an animated one and
-  one whose animation is inside `[data-genclass-ignore]`).
+  the ones `src/visual/start.ts` and `engine.ts` use, and pins the settle wait on a quiet page, an animated one, one
+  whose animation is inside `[data-genclass-ignore]`, one with a request in flight or one that never ends, and one
+  whose web fonts never load, where the quiet window and the 10 s cap start after the 3 s fonts wait).
 
 ## 0.3.0-beta.0 (unreleased)
 

@@ -3,9 +3,11 @@
 // src/visual/engine.ts) on the injected FakeClock: no layout engine means zero findings and nothing installed; slices
 // end at budgetMs; a pass ends as partial at passBudgetMs; one slow read backs off; the session budget stops
 // incremental checks; GenClass's own attribute writes are not app mutations; a hidden tab waits; the settle wait
-// ends after 500 ms of quiet, or at its 10 s cap on a page animating inline styles unless the animation is inside
-// [data-genclass-ignore]. Text checks: the first-pass schedule in VISUAL.md, API.md and the README names the delays
-// and caps src/visual/start.ts and engine.ts use (the wording is not pinned).
+// ends after 500 ms with nothing in flight and no DOM change, or at its 10 s cap on a page animating inline styles
+// (unless the animation is inside [data-genclass-ignore]) or with a request that never ends, and both the quiet
+// window and the cap start after the fonts wait. Text checks: the first-pass schedule in VISUAL.md, API.md and the
+// README names the delays and caps src/visual/start.ts and engine.ts use (each text is found by its heading or bold
+// lead; the rest of the wording is not pinned).
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -222,28 +224,39 @@ describe("the settle wait before the first pass (VISUAL.md 2.3 and 8 step 3)", (
   const styleWrite = (el: Element): MutationRecord =>
     ({ type: "attributes", attributeName: "style", target: el, addedNodes: [] as unknown as NodeList, removedNodes: [] as unknown as NodeList }) as unknown as MutationRecord;
 
-  /**
-   * Boot an engine (its automatic first pass) on `html` and return how long after construction it settled. When
-   * `animate` names an element, it gets an inline style write every 33 ms (30 fps) until then, for 12 s at most.
-   */
-  async function settleAfter(html: string, animate?: string): Promise<number> {
+  type SettleOptions = {
+    /** An element that gets an inline style write every 33 ms (30 fps) until the engine settles. */
+    animate?: string;
+    /** The host's in-flight count, by ms since construction (nothing in flight when unset). */
+    inflight?: (ms: number) => number;
+    /** `document.fonts.ready` never resolves (happy-dom has no `document.fonts`, so the fonts wait ends at once). */
+    fontsNeverLoad?: boolean;
+  };
+
+  /** Boot an engine (its automatic first pass) on `html` and return how long after construction it settled (16 s at most). */
+  async function settleAfter(html: string, o: SettleOptions = {}): Promise<number> {
     withLayout();
     document.body.innerHTML = html;
     const clock = new FakeClock();
     const t0 = clock.now();
-    const v = new Visual(host(clock), { on: true });
+    const inflight = o.inflight ?? (() => 0);
+    if (o.fontsNeverLoad) Object.defineProperty(document, "fonts", { configurable: true, value: { ready: new Promise(() => undefined) } });
+    const v = new Visual({ ...host(clock), inflight: () => inflight(clock.now() - t0) }, { on: true });
     const i = v as unknown as Internals;
-    const el = animate ? document.querySelector(animate)! : null;
+    const el = o.animate ? document.querySelector(o.animate)! : null;
     try {
-      while (i.settledAt === null && clock.now() - t0 < 12_000) {
+      while (i.settledAt === null && clock.now() - t0 < 16_000) {
         if (el) i.onMutations([styleWrite(el)]);
         await clock.advance(33);
       }
       return i.settledAt === null ? Infinity : i.settledAt - t0;
     } finally {
       v.stop();
+      if (o.fontsNeverLoad) delete (document as unknown as { fonts?: unknown }).fonts;
     }
   }
+
+  const MASCOT = '<div class="mascot"><svg><g></g></svg></div><p>Hi</p>';
 
   it("a quiet page settles after 500 ms with nothing in flight and no DOM change", async () => {
     const t = await settleAfter("<p>Hi</p>");
@@ -252,15 +265,40 @@ describe("the settle wait before the first pass (VISUAL.md 2.3 and 8 step 3)", (
   });
 
   it("a 30 fps animation writing inline styles (below the 3,000-records-a-second rest) holds it to the 10 s cap", async () => {
-    const t = await settleAfter('<div class="mascot"><svg><g></g></svg></div><p>Hi</p>', ".mascot g");
+    const t = await settleAfter(MASCOT, { animate: ".mascot g" });
     expect(t).toBeGreaterThanOrEqual(10_000);
     expect(t).toBeLessThan(10_200);
   });
 
   it("the same animation inside [data-genclass-ignore] does not hold it", async () => {
-    const t = await settleAfter('<div class="mascot" data-genclass-ignore><svg><g></g></svg></div><p>Hi</p>', ".mascot g");
+    const t = await settleAfter('<div class="mascot" data-genclass-ignore><svg><g></g></svg></div><p>Hi</p>', { animate: ".mascot g" });
     expect(t).toBeGreaterThanOrEqual(500);
     expect(t).toBeLessThan(700);
+  });
+
+  it("a request in flight holds it until 500 ms after the request ends (in-flight is sampled every 100 ms)", async () => {
+    // in flight until 3 s: the last busy sample is at 2.9 s, so it settles at 3.4 s, not 500 ms
+    const t = await settleAfter("<p>Hi</p>", { inflight: (ms) => (ms < 3_000 ? 1 : 0) });
+    expect(t).toBeGreaterThanOrEqual(3_400);
+    expect(t).toBeLessThan(3_700);
+  });
+
+  it("a request that never ends (a long poll, a hung request) holds it to the 10 s cap", async () => {
+    const t = await settleAfter("<p>Hi</p>", { inflight: () => 1 });
+    expect(t).toBeGreaterThanOrEqual(10_000);
+    expect(t).toBeLessThan(10_200);
+  });
+
+  it("the 10 s cap starts after the fonts wait: web fonts that never load add their 3 s (the documented 14.5 s)", async () => {
+    const t = await settleAfter(MASCOT, { animate: ".mascot g", fontsNeverLoad: true });
+    expect(t).toBeGreaterThanOrEqual(13_000);
+    expect(t).toBeLessThan(13_200);
+  });
+
+  it("the 500 ms of quiet start after the fonts wait too", async () => {
+    const t = await settleAfter("<p>Hi</p>", { fontsNeverLoad: true });
+    expect(t).toBeGreaterThanOrEqual(3_500);
+    expect(t).toBeLessThan(3_700);
   });
 });
 
@@ -292,26 +330,35 @@ describe("the documented first-pass schedule names the delays and caps the code 
     return doc.slice(a, b === -1 ? undefined : b);
   }
 
-  const chunk = constant(START, /const soon = \(\) => clock\.setTimeout\(go, ([\d_]+)\)/, "start.ts: the chunk import after load");
-  const loadCap = constant(START, /addEventListener\?\.\("load", soon\);\s*clock\.setTimeout\(go, ([\d_]+)\)/, "start.ts: the cap when load is late");
-  const fonts = constant(ENGINE, /private async fontsReady\(\)[\s\S]*?this\.sleep\(([\d_]+)\)/, "engine.ts fontsReady: the fonts cap");
-  const quiet = constant(ENGINE, /private async settle\(\)[\s\S]*?t - busy >= ([\d_]+) \* this\.slow/, "engine.ts settle: the quiet window");
-  const cap = constant(ENGINE, /private async settle\(\)[\s\S]*?t - start >= ([\d_]+)\)/, "engine.ts settle: the cap");
-  // a page that never goes quiet: the chunk, then the settle cap, which starts after the fonts wait
-  const never = chunk + cap;
-  const longest = chunk + fonts + cap;
+  /**
+   * The delays and caps the code uses, and the end-to-end times they give. Read inside each case, not while the file
+   * is collected, so a miss fails the doc cases only and the behaviour tests above still run.
+   */
+  function durations() {
+    const chunk = constant(START, /const soon = \(\) => clock\.setTimeout\(go, ([\d_]+)\)/, "start.ts: the chunk import after load");
+    const loadCap = constant(START, /addEventListener\?\.\("load", soon\);\s*clock\.setTimeout\(go, ([\d_]+)\)/, "start.ts: the import when load is late");
+    const fonts = constant(ENGINE, /private async fontsReady\(\)[\s\S]*?this\.sleep\(([\d_]+)\)/, "engine.ts fontsReady: the fonts cap");
+    const quiet = constant(ENGINE, /private async settle\(\)[\s\S]*?t - busy >= ([\d_]+) \* this\.slow/, "engine.ts settle: the quiet window");
+    const cap = constant(ENGINE, /private async settle\(\)[\s\S]*?t - start >= ([\d_]+)\)/, "engine.ts settle: the cap");
+    // a page that never goes quiet: the chunk, then the settle cap, which starts after the fonts wait (pinned by "the
+    // 10 s cap starts after the fonts wait" above)
+    const endToEnd = { "the never-quiet first pass": chunk + cap, "its longest case": chunk + fonts + cap };
+    const core = { "the chunk delay": chunk, "the fonts cap": fonts, "the quiet window": quiet, "the settle cap": cap };
+    return { all: { ...core, "the import when load is late": loadCap }, core, endToEnd };
+  }
+  type Durations = ReturnType<typeof durations>;
 
-  const all = { "the chunk delay": chunk, "the load cap": loadCap, "the fonts cap": fonts, "the quiet window": quiet, "the settle cap": cap };
-  const endToEnd = { "the never-quiet first pass": never, "its longest case": longest };
-  const cases: [string, string, Record<string, number>][] = [
-    ["VISUAL.md 2.3 Page settle", part(VISUAL, "- **Page settle**", "- **Persistence**"), all],
-    ["VISUAL.md 8 Scheduling and budgets", part(VISUAL, "## 8. Scheduling and budgets", "\n## 9. "), { ...all, ...endToEnd }],
-    ["API.md When they run", part(API, "- **When they run.**", "\n- **"), { ...all, ...endToEnd }],
-    ["README visual checks Cost", part(README, "**Cost.** About 0.5 KB", "\n\n"), { "the chunk delay": chunk, "the fonts cap": fonts, "the quiet window": quiet, "the settle cap": cap, ...endToEnd }],
+  // each text is found by its own heading or bold lead, nothing more
+  const cases: [string, () => string, (d: Durations) => Record<string, number>][] = [
+    ["VISUAL.md 2.3 Page settle", () => part(VISUAL, "- **Page settle**", "- **Persistence**"), (d) => d.all],
+    ["VISUAL.md 8 Scheduling and budgets", () => part(VISUAL, "## 8. Scheduling and budgets", "\n## 9. "), (d) => ({ ...d.all, ...d.endToEnd })],
+    ["API.md When they run", () => part(API, "- **When they run.**", "\n- **"), (d) => ({ ...d.all, ...d.endToEnd })],
+    ["README visual checks Cost", () => part(README, "**Cost.**", "\n\n"), (d) => ({ ...d.core, ...d.endToEnd })],
   ];
 
-  it.each(cases)("%s", (_name, doc, want) => {
-    const missing = Object.entries(want)
+  it.each(cases)("%s", (_name, text, want) => {
+    const doc = text();
+    const missing = Object.entries(want(durations()))
       .filter(([, ms]) => !names(doc, ms))
       .map(([what, ms]) => `${what} (${ms / 1000} s)`);
     expect(missing, "durations the code uses that this text does not name").toEqual([]);

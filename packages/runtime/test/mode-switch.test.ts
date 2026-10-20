@@ -94,7 +94,11 @@ describe("URL and localStorage switches only lower the mode, debug or not (CONTR
   });
 
   // production for some apps: a bare intranet name, private addresses (even with a dev server's port), Capacitor
-  // (https://localhost), port 80 on localhost, Tauri on Windows, *.internal, *.local, Electron (file:)
+  // (https://localhost), port 80 on localhost, Tauri on Windows, *.internal, *.local, Electron (file:). Then
+  // look-alikes that pin each part of devHost (src/devhost.ts), through the call in GenClass.init: a "test" label that
+  // is not the last one (the `$` in `\.test$`), a loopback name followed by more labels (the `$` after the loopback
+  // names), 127.0.0.1 and [::1] without a port (the port rule), and a loopback name with a port under a scheme other
+  // than http(s) (the protocol check)
   it.each([
     "http://intranet/",
     "https://10.1.2.3/",
@@ -106,6 +110,13 @@ describe("URL and localStorage switches only lower the mode, debug or not (CONTR
     "http://printer.local/",
     "http://myapp.local:8080/",
     "file:///app/index.html",
+    "https://app.testrail.io/",
+    "https://shop.test.example.com/",
+    "http://localhost.example.com:8080/",
+    "http://127.0.0.1.nip.io:8080/",
+    "http://127.0.0.1/",
+    "http://[::1]/",
+    "capacitor://localhost:8100/",
   ])("%s only looks local: ?genclass=heal does not raise it", (href) => {
     g.location = loc(`${href}?genclass=heal`);
     expect(GenClass.init(opts).mode).toBe("observe");
