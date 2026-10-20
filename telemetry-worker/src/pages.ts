@@ -172,17 +172,21 @@ footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
 `;
 
 const SNIPPETS_JS = `
-function snippets(tok){
+// ep: this collector's own ingest URL when it is not genclass.dev's (a self-hosted collector, private mode). Then every
+// snippet names it, through window.GENCLASS_CONFIG or GenClass.init (a meta tag may only name same-origin URLs), and
+// the CLI's init, which makes its token at genclass.dev, is left out.
+function snippets(tok, ep){
+  var cfg = function(o){ return '<script>window.GENCLASS_CONFIG = { ' + o + 'telemetry: { endpoint: "' + ep + '" } };</' + 'script>'; };
   return [
     ["Easy: one script tag", "Paste into your HTML. GenClass starts itself and protects the whole app.",
-     '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
-    ["Easy: with a bundler", "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
-     '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
+     (ep ? cfg("") + "\\n" : "") + '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
+    ["Easy: with a bundler", ep ? "One line in your HTML head plus one import (npm i ${RUNTIME_PKG})." : "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
+     ep ? "<!-- in your HTML <head> -->\\n" + cfg('token: "' + tok + '", ') + '\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'
+        : '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
     ["Function-specific", "Protect only the functions you choose; the dashboard shows each by name.",
-     'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions" });\\nconst save = protect("saveCart", saveCartImpl);'],
-    ["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
-     'npx ${RUNTIME_PKG} init']
-  ];
+     'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions"' + (ep ? ', telemetry: { endpoint: "' + ep + '" }' : "") + ' });\\nconst save = protect("saveCart", saveCartImpl);']
+  ].concat(ep ? [] : [["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
+     'npx ${RUNTIME_PKG} init']]);
 }
 function gcSelect(node){
   try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
@@ -203,9 +207,9 @@ function copyBtn(getText, name, getNode){
   return b;
 }
 function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function renderSnippets(host, tok){
+function renderSnippets(host, tok, ep){
   host.textContent = "";
-  snippets(tok).forEach(function(s){
+  snippets(tok, ep || "").forEach(function(s){
     var box = el("div", "snip"), pre = el("pre", "code", s[2]);
     var head = el("div", "row between"); var h = el("h2", null, s[0]); h.style.marginBottom = "0";
     head.appendChild(h); head.appendChild(copyBtn(function(){ return s[2]; }, s[0], function(){ return pre; })); box.appendChild(head);
@@ -274,7 +278,7 @@ export const SIGNED_IN_NAV =
 
 // ------------------------------------------------------------------------------------------------- /start
 
-export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}): string {
+export function startPage(nonce: string, opts: { runtimeReady?: boolean; endpoint?: string | null } = {}): string {
   const notYet = opts.runtimeReady === true ? "" : `<p class="note small" id="notyet">${NOT_ON_NPM}</p>`;
   const body = `
 <section class="stack mt-xl">
@@ -324,7 +328,7 @@ See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">
         var d = document.getElementById("dash"); d.textContent = j.dashboardUrl; d.href = j.dashboardUrl;
         document.getElementById("dashc").appendChild(copyBtn(function(){ return j.dashboardUrl; }, "dashboard link", function(){ return d; }));
         document.getElementById("open").href = j.dashboardUrl;
-        renderSnippets(document.getElementById("snips"), j.token);
+        renderSnippets(document.getElementById("snips"), j.token, ${JSON.stringify(opts.endpoint ?? "")});
         f.classList.add("hidden");
         var out = document.getElementById("out"); out.classList.remove("hidden"); out.scrollIntoView({ behavior: "smooth" });
       })
@@ -1028,7 +1032,7 @@ const DASH_JS = `
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
-    renderSnippets(document.getElementById("snips"), P.token);
+    renderSnippets(document.getElementById("snips"), P.token, P.endpoint || "");
   }
   var btn = document.getElementById("refresh");
   function load(){
@@ -1099,6 +1103,8 @@ const CONNECT_JS = `
 })();`;
 
 export interface DashboardOptions {
+  /** This collector's own ingest URL when it is self-hosted (ownEndpoint): the snippets name it. */
+  endpoint?: string | null;
   /** Owned-app mode (/account/apps/<id>): the account's apps in the sidebar, the Connect panel, account stats API. */
   account?: { apps: { id: string; name: string }[]; current: string; email: string | null };
   /** The project's id (account mode). */
@@ -1142,11 +1148,26 @@ function rangeButtons(ranges: string[]): string {
 /** More apps than this and the sidebar lists only the current one, with a link to all of them. */
 const SIDEBAR_APPS = 4;
 
-function connectPanel(token: string, connected: boolean, runtimeReady: boolean): string {
+/**
+ * This collector's own ingest URL when it is not genclass.dev's: a collector self-hosted from wrangler.selfhost.toml
+ * (private mode), or `wrangler dev`. Its snippets then name it, or the pages would send to genclass.dev.
+ */
+export function ownEndpoint(env: { DASHBOARD_ORIGIN?: string; AUTH_ORIGIN?: string }): string | null {
+  const o = (env.DASHBOARD_ORIGIN || env.AUTH_ORIGIN || "").trim().replace(/\/+$/, "");
+  return /^https?:\/\/[^/\s"'<>]+$/.test(o) && o !== "https://genclass.dev" ? `${o}/v1/events` : null;
+}
+
+function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null): string {
   const t = esc(token);
-  const init = `import { GenClass } from "@genclass/runtime";\n\nGenClass.init({ token: "${token}" });`;
-  const tag = `<script src="${CDN_SCRIPT}" data-token="${token}"></script>`;
-  const meta = `<meta name="genclass" content="token=${token}">\n\n// in your entry file\nimport "@genclass/runtime/auto";`;
+  // a self-hosted collector's endpoint goes in GenClass.init or window.GENCLASS_CONFIG (a meta tag may only name
+  // same-origin URLs, src/cdn/config.ts)
+  const ep = endpoint ? `, telemetry: { endpoint: "${endpoint}" }` : "";
+  const cfg = (o: string) => `<script>window.GENCLASS_CONFIG = { ${o}telemetry: { endpoint: "${endpoint}" } };</script>`;
+  const init = `import { GenClass } from "@genclass/runtime";\n\nGenClass.init({ token: "${token}"${ep} });`;
+  const tag = `${endpoint ? `${cfg("")}\n` : ""}<script src="${CDN_SCRIPT}" data-token="${token}"></script>`;
+  const meta = endpoint
+    ? `<!-- in your HTML <head> -->\n${cfg(`token: "${token}", `)}\n\n// in your entry file\nimport "@genclass/runtime/auto";`
+    : `<meta name="genclass" content="token=${token}">\n\n// in your entry file\nimport "@genclass/runtime/auto";`;
   let n = 0;
   const snip = (label: string, name: string, code: string) => {
     const id = `csnip${++n}`;
@@ -1163,18 +1184,22 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
   </div>
   <p class="cstat" id="cstatus" aria-live="polite"><i></i><span id="cstatust">Waiting for the first event from this app</span></p>
   <div class="ways">
-    <div class="way">
+    ${
+      endpoint
+        ? ""
+        : `<div class="way">
       <div class="eb">1 · Run in your project</div>
       <h3>Sign in from the terminal</h3>
       ${snip("In the app's folder", "the login command", `npx ${RUNTIME_PKG} login`)}
       <p>Signs you in and connects the app in that folder: you pick this app, it shows the change to your files, and writes the key after you agree.</p>
-    </div>
+    </div>`
+    }
     <div class="way">
-      <div class="eb">2 · Or add the key yourself</div>
+      <div class="eb">${endpoint ? "Add the key and this collector's endpoint" : "2 · Or add the key yourself"}</div>
       <h3>Paste one of these</h3>
       ${snip("In code", "the init code", init)}
       ${snip("Script tag", "the script tag", tag)}
-      ${snip("Meta tag, with a bundler", "the meta tag", meta)}
+      ${snip(endpoint ? "With a bundler" : "Meta tag, with a bundler", endpoint ? "the bundler setup" : "the meta tag", meta)}
     </div>
   </div>
   <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
@@ -1190,7 +1215,11 @@ export function dashboardPage(
   const acct = opts.account;
   if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !!acct && !project.lastEvent;
-  const data = acct ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true } : project;
+  const data = acct
+    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true }
+    : opts.endpoint
+      ? { ...project, endpoint: opts.endpoint }
+      : project;
   const apps = acct ? accountApps(acct) : "";
   const setup = acct
     ? ""
@@ -1257,7 +1286,7 @@ export function dashboardPage(
   <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button>${acct ? '<a class="btn sm" href="#connect" data-goto="connect">Connect</a>' : ""}<a class="btn ghost sm" href="https://genclass.dev/docs/dashboard">Dashboard guide</a></div>
   <p class="summary" id="summary" data-v="overview"></p>
 </section>
-${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
+${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true, opts.endpoint ?? null) : ""}
 <section id="nodata" class="first hidden" data-v="overview"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
 Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
 versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
@@ -1374,7 +1403,7 @@ function lockedDashboardPage(
   <p>Pick a plan to open it.</p>
   <div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>
 </section>
-${connectPanel(project.token, false, opts.runtimeReady === true)}
+${connectPanel(project.token, false, opts.runtimeReady === true, opts.endpoint ?? null)}
 <footer class="dfoot">${privacy} <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/account">All apps</a></footer>
 </div>
 </div>`;

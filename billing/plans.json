@@ -25,7 +25,8 @@
         { "text": "Full data export: every event GenClass received for your apps, as JSONL or CSV, by download or API", "available": true },
         { "text": "Forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook", "available": true },
         { "text": "Interaction analytics: clicks, scrolls and time on page (coming next)", "available": false },
-        { "text": "The genclass.dev page check", "available": true }
+        { "text": "The genclass.dev page check", "available": true },
+        { "text": "Private mode: run the open-source collector on your own Cloudflare account, so your data never passes through us", "available": true }
       ]
     },
     {

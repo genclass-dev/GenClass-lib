@@ -69,7 +69,7 @@ import {
 import { appExtrasData, appExtrasHtml } from "./billing-pages.js";
 import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
-import { dashboardPage, securityHeaders } from "./pages.js";
+import { dashboardPage, ownEndpoint, securityHeaders } from "./pages.js";
 import { DEVICE_FAILURES, DEVICE_MS, DUMMY_HASH, FAILURE_WINDOW_MS, FREE_FAILURES, MAX_DELAY_MS, PASSWORD_MAX, delayAfter, hashPassword, needsRehash, passwordProblem, verifyPassword, waitText } from "./password.js";
 import { accountAccess, accountBilling, appLimit, appLimitBody, hasDashboard, pickRange, viewRanges } from "./plans.js";
 import { cancelForDeletion } from "./stripe.js";
@@ -1887,6 +1887,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       firstEvent: p.first_event,
       privateLink: !!p.private_link,
       runtimeReady: runtimeHasTokens(env),
+      endpoint: ownEndpoint(env),
     };
     const project = { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event };
     // locked (a plan file without the dashboard): the app's key and Connect panel, and the plans; no stats
