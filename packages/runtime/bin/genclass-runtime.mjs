@@ -65,7 +65,7 @@ const USAGE = `Usage:
   genclass-runtime info <dir>
 
 init sets GenClass up in the current project (shows the diff and asks first) and, once you approve, creates this
-app's token and private dashboard link at genclass.dev (the dashboard and its analytics are free; --no-token: no
+app's token and private dashboard link at genclass.dev (the dashboard is free, analytics included; --no-token: no
 network); remove undoes it
 (\`genclass-runtime init --help\` for details).
 dashboard prints the link to this app's free dashboard: what GenClass found, on which pages, what it did, and how

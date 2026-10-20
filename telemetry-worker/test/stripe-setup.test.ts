@@ -168,7 +168,7 @@ function onlyGenClass(calls: { method: string; url: URL; body: Obj }[]) {
 }
 
 describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with another business)", () => {
-  it("first run: two GenClass products, their prices, one endpoint, one portal configuration; nothing of the other business's read or changed", async () => {
+  it("first run: GenClass Individual and its price, one endpoint, one portal configuration; nothing of the other business's read or changed", async () => {
     const a = account();
     const before = a.snapshot();
     const r = await run(a);
@@ -176,18 +176,15 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with ano
     onlyGenClass(r.calls);
     expect(r.calls.some((c) => c.method === "DELETE")).toBe(false);
 
-    // products: GenClass's ids, metadata, statement descriptor and tax codes (Pro's is eligible for Managed Payments:
-    // SaaS, business use; Custom's is custom software, business use, which is not)
-    expect(a.products.get("genclass_pro")).toMatchObject({ name: "GenClass Pro", statement_descriptor: "GENCLASS", tax_code: "txcd_10103001", metadata: { genclass: "1", genclass_plan: "pro" } });
-    expect(a.products.get("genclass_custom")).toMatchObject({ name: "GenClass Custom", statement_descriptor: "GENCLASS", tax_code: "txcd_10203001", metadata: { genclass: "1", genclass_plan: "custom" } });
-    expect(a.products.size).toBe(3);
-    // prices under GenClass's lookup keys, which the worker reads as the plans
+    // the one product of a plan priced above 0 (Free costs nothing, Enterprise is agreed by email): GenClass's id,
+    // metadata, statement descriptor and tax code (custom software, business use: a person trains the classifier)
+    expect(a.products.get("genclass_individual")).toMatchObject({ name: "GenClass Individual", statement_descriptor: "GENCLASS", tax_code: "txcd_10203001", metadata: { genclass: "1", genclass_plan: "individual" } });
+    expect(a.products.size).toBe(2);
+    expect(a.products.has("genclass_enterprise")).toBe(false);
+    // its price under GenClass's lookup key, which the worker reads as the plan
     const made = [...a.prices.values()].filter((x) => x.id !== "price_other0000001");
-    expect(made.map((x) => [x.lookup_key, x.product, x.unit_amount, x.currency, x.recurring.interval])).toEqual([
-      ["genclass_pro_monthly", "genclass_pro", 9900, "usd", "month"],
-      ["genclass_custom_monthly", "genclass_custom", 59900, "usd", "month"],
-    ]);
-    for (const x of made) expect(planForPrice({ ...x, product: a.products.get(x.product) })?.id).toBe(x.lookup_key === "genclass_pro_monthly" ? "pro" : "custom");
+    expect(made.map((x) => [x.lookup_key, x.product, x.unit_amount, x.currency, x.recurring.interval])).toEqual([["genclass_individual_monthly", "genclass_individual", 2900, "usd", "month"]]);
+    for (const x of made) expect(planForPrice({ ...x, product: a.products.get(x.product) })?.id).toBe("individual");
 
     // one webhook endpoint: GenClass's URL and description, the worker's events and API version only
     const ours = [...a.endpoints.values()].filter((w) => w.id !== "we_other0000001");
@@ -200,7 +197,7 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with ano
     const f = configs[0]!.form as Obj;
     expect(configs[0]).toMatchObject({ is_default: false, metadata: { genclass: "1" } });
     expect(f["business_profile[headline]"]).toMatch(/GenClass/);
-    // switching between Pro and Custom is a new Checkout: a Managed Payments subscription cannot take the Custom price
+    // switching between paid plans is a new Checkout: a Managed Payments subscription cannot take another plan's price
     expect(f["features[subscription_update][enabled]"]).toBe("false");
     expect(Object.keys(f).some((k) => /^features\[subscription_update\]\[(products|default_allowed_updates|proration_behavior)/.test(k))).toBe(false);
     expect(Object.keys(f).some((k) => /is_default/.test(k))).toBe(false);
@@ -220,13 +217,14 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with ano
 
     // no account-wide setting is changed by the script; the owner's dashboard steps for GenClass's own account are
     // printed instead, and the the other business checks of the shared account are gone
-    expect(r.out).toMatch(/Settings, Managed Payments: accept the terms and turn it on/);
+    expect(r.out).not.toMatch(/Managed Payments: accept/);
     expect(r.out).toMatch(/Smart Retries on, failed-payment emails on, and when all retries for a payment fail,\s+cancel the subscription/);
     expect(r.out).toMatch(/past due for 14 days/);
     expect(r.out).toMatch(/receipts for successful payments on/);
     expect(r.out).toMatch(/Settings, Branding/);
     expect(r.out).toMatch(/Stripe Tax: the head office address, and threshold monitoring on/);
-    expect(r.out).toMatch(/Switch to Custom: a second Checkout/);
+    expect(r.out).toMatch(/choose Upgrade to Individual and pay with card 4242 4242 4242 4242/);
+    expect(r.out).not.toMatch(/\bPro\b|Custom\b|trial/);
     expect(r.out).not.toMatch(/the other business/);
     expect(r.out).toMatch(/SELECT COUNT\(\*\) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL/);
   });
@@ -239,7 +237,7 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with ano
     expect(again.writes.map((c) => `${c.method} ${c.url.pathname}`)).toEqual([`POST /v1/billing_portal/configurations/${config}`]);
     // its id is stored again (the worker may have lost it); no new webhook secret
     expect(again.secrets).toEqual([["STRIPE_PORTAL_CONFIGURATION_TEST", config]]);
-    expect(again.out).toMatch(/product GenClass Pro: genclass_pro, unchanged/);
+    expect(again.out).toMatch(/product GenClass Individual: genclass_individual, unchanged/);
     expect(again.out).toMatch(/webhook endpoint we_gc\d+: unchanged/);
     const fresh = account();
     const dry = await run(fresh, { argv: ["--dry-run"] });
@@ -247,34 +245,38 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with ano
     expect(dry.secrets).toEqual([]);
     onlyGenClass(dry.calls);
     expect(dry.out).toMatch(/would store its id as STRIPE_PORTAL_CONFIGURATION_TEST/);
-    expect(dry.out).toMatch(/would create product GenClass Pro \(genclass_pro, statement descriptor GENCLASS, tax code txcd_10103001\)/);
+    expect(dry.out).toMatch(/would create product GenClass Individual \(genclass_individual, statement descriptor GENCLASS, tax code txcd_10203001\)/);
     expect(dry.out).toMatch(/would create GenClass's Billing Portal configuration/);
   });
 
   it("a product whose tax code differs gets plans.json's; an expanded tax code that matches is left alone", async () => {
     const a = account();
     await run(a);
-    a.products.get("genclass_pro")!.tax_code = "txcd_10000000";
-    a.products.get("genclass_custom")!.tax_code = { id: "txcd_10203001", object: "tax_code" };
+    // an expanded tax code that matches is left alone
+    a.products.get("genclass_individual")!.tax_code = { id: "txcd_10203001", object: "tax_code" };
+    const same = await run(a);
+    expect(same.writes.filter((c) => c.url.pathname.startsWith("/v1/products"))).toEqual([]);
+    expect(same.out).toMatch(/product GenClass Individual: genclass_individual, unchanged/);
+    // another one gets plans.json's
+    a.products.get("genclass_individual")!.tax_code = "txcd_10000000";
     const r = await run(a);
     onlyGenClass(r.calls);
-    expect(r.writes.filter((c) => c.url.pathname.startsWith("/v1/products")).map((c) => [c.url.pathname, c.body.tax_code])).toEqual([["/v1/products/genclass_pro", "txcd_10103001"]]);
-    expect(a.products.get("genclass_pro")!.tax_code).toBe("txcd_10103001");
-    expect(r.out).toMatch(/update product GenClass Pro \(genclass_pro, tax code txcd_10103001\)/);
-    expect(r.out).toMatch(/product GenClass Custom: genclass_custom, unchanged/);
+    expect(r.writes.filter((c) => c.url.pathname.startsWith("/v1/products")).map((c) => [c.url.pathname, c.body.tax_code])).toEqual([["/v1/products/genclass_individual", "txcd_10203001"]]);
+    expect(a.products.get("genclass_individual")!.tax_code).toBe("txcd_10203001");
+    expect(r.out).toMatch(/update product GenClass Individual \(genclass_individual, tax code txcd_10203001\)/);
   });
 
   it("a price change retires the old price under a genclass_ key, so its subscribers keep their plan", async () => {
     const a = account();
     await run(a);
-    const old = [...a.prices.values()].find((x) => x.lookup_key === "genclass_pro_monthly")!;
+    const old = [...a.prices.values()].find((x) => x.lookup_key === "genclass_individual_monthly")!;
     old.unit_amount = 4900; // as if plans.json had said US$49 when it was made
     const r = await run(a);
     onlyGenClass(r.calls);
-    expect(old).toMatchObject({ active: false, lookup_key: `genclass_pro_monthly_retired_${old.id}` });
-    const current = [...a.prices.values()].find((x) => x.lookup_key === "genclass_pro_monthly")!;
-    expect(current).toMatchObject({ unit_amount: 9900, product: "genclass_pro", active: true });
-    expect(planForPrice({ ...old, product: a.products.get("genclass_pro") })?.id).toBe("pro");
+    expect(old).toMatchObject({ active: false, lookup_key: `genclass_individual_monthly_retired_${old.id}` });
+    const current = [...a.prices.values()].find((x) => x.lookup_key === "genclass_individual_monthly")!;
+    expect(current).toMatchObject({ unit_amount: 2900, product: "genclass_individual", active: true });
+    expect(planForPrice({ ...old, product: a.products.get("genclass_individual") })?.id).toBe("individual");
     // the other business's price is never archived
     expect(a.prices.get("price_other0000001")!.active).toBe(true);
   });
@@ -303,28 +305,28 @@ describe("scripts/stripe-setup.mjs on the shared Stripe account (shared with ano
 
   it("a product with GenClass's id but not its metadata, or a GenClass lookup key on another product, stops the script unchanged", async () => {
     const a = account();
-    a.products.set("genclass_pro", { id: "genclass_pro", name: "Someone else's", active: true, metadata: {} });
-    await expect(run(a)).rejects.toThrow(/a product with the id genclass_pro exists without metadata genclass_plan=pro/);
+    a.products.set("genclass_individual", { id: "genclass_individual", name: "Someone else's", active: true, metadata: {} });
+    await expect(run(a)).rejects.toThrow(/a product with the id genclass_individual exists without metadata genclass_plan=individual/);
     expect(a.calls.filter((c) => c.method !== "GET")).toEqual([]);
-    expect(a.products.get("genclass_pro")).toEqual({ id: "genclass_pro", name: "Someone else's", active: true, metadata: {} });
+    expect(a.products.get("genclass_individual")).toEqual({ id: "genclass_individual", name: "Someone else's", active: true, metadata: {} });
 
     const b = account();
-    b.prices.get("price_other0000001")!.lookup_key = "genclass_pro_monthly";
-    await expect(run(b)).rejects.toThrow(/the lookup key genclass_pro_monthly is on price price_other0000001 of product prod_other0000001/);
+    b.prices.get("price_other0000001")!.lookup_key = "genclass_individual_monthly";
+    await expect(run(b)).rejects.toThrow(/the lookup key genclass_individual_monthly is on price price_other0000001 of product prod_other0000001/);
     expect(b.calls.filter((c) => c.method !== "GET")).toEqual([]);
-    expect(b.prices.get("price_other0000001")).toMatchObject({ active: true, lookup_key: "genclass_pro_monthly" });
+    expect(b.prices.get("price_other0000001")).toMatchObject({ active: true, lookup_key: "genclass_individual_monthly" });
   });
 
   it("an earlier run's product (an id Stripe chose) is found by its metadata; the default portal configuration is never used", async () => {
     const a = account();
-    a.products.set("prod_earlier00001", { id: "prod_earlier00001", name: "GenClass Pro", description: "old", active: true, metadata: { genclass_plan: "pro" } });
+    a.products.set("prod_earlier00001", { id: "prod_earlier00001", name: "GenClass Individual", description: "old", active: true, metadata: { genclass_plan: "individual" } });
     // the account's default configuration carrying GenClass's metadata (copied by hand, say) is still not GenClass's
     a.portal.get("bpc_otherdefault1")!.metadata = { genclass: "1" };
     const before = JSON.stringify(a.portal.get("bpc_otherdefault1"));
     const r = await run(a);
-    expect(a.products.has("genclass_pro")).toBe(false);
-    expect(a.products.get("prod_earlier00001")).toMatchObject({ statement_descriptor: "GENCLASS", metadata: { genclass: "1", genclass_plan: "pro" } });
-    expect([...a.prices.values()].find((x) => x.lookup_key === "genclass_pro_monthly")!.product).toBe("prod_earlier00001");
+    expect(a.products.has("genclass_individual")).toBe(false);
+    expect(a.products.get("prod_earlier00001")).toMatchObject({ statement_descriptor: "GENCLASS", metadata: { genclass: "1", genclass_plan: "individual" } });
+    expect([...a.prices.values()].find((x) => x.lookup_key === "genclass_individual_monthly")!.product).toBe("prod_earlier00001");
     expect(JSON.stringify(a.portal.get("bpc_otherdefault1"))).toBe(before);
     expect(r.calls.some((c) => c.url.pathname.includes("bpc_otherdefault1"))).toBe(false);
     expect([...a.portal.values()].filter((c) => !c.is_default && !c.id.startsWith("bpc_other"))).toHaveLength(1);

@@ -69,9 +69,9 @@ import {
 import { appExtrasData, appExtrasHtml } from "./billing-pages.js";
 import { forgetExports } from "./export.js";
 import { json, mediaType, readCapped } from "./http.js";
-import { dashboardPage, securityHeaders } from "./pages.js";
+import { dashboardPage, ownEndpoint, securityHeaders } from "./pages.js";
 import { DEVICE_FAILURES, DEVICE_MS, DUMMY_HASH, FAILURE_WINDOW_MS, FREE_FAILURES, MAX_DELAY_MS, PASSWORD_MAX, delayAfter, hashPassword, needsRehash, passwordProblem, verifyPassword, waitText } from "./password.js";
-import { accountAccess, accountBilling, appLimit, appLimitBody, pickRange, trialDaysLeft, viewRanges } from "./plans.js";
+import { accountAccess, accountBilling, appLimit, appLimitBody, hasDashboard, pickRange, viewRanges } from "./plans.js";
 import { cancelForDeletion } from "./stripe.js";
 import {
   b64url,
@@ -1655,6 +1655,7 @@ async function deleteAccount(c: C): Promise<Response> {
 
 async function accountView(c: C, a: Auth): Promise<AccountView> {
   const iso = c.now.toISOString();
+  const access = await accountAccess(c.db, a.account.id, c.env, c.now);
   const [creds, sessions, pw] = await c.db.batch([
     c.db.prepare("SELECT id, created, last_used, transports FROM credentials WHERE account_id = ? ORDER BY created").bind(a.account.id),
     c.db
@@ -1694,6 +1695,9 @@ async function accountView(c: C, a: Auth): Promise<AccountView> {
     cli: rows(sessions).filter((r) => r.kind === "cli").map(session),
     password: rows(pw).map((r) => ({ email: String(r.email), created: String(r.created), updated: String(r.updated), lastUsed: (r.last_used as string | null) ?? null }))[0] ?? null,
     providers: { google: c.cfg.google, github: c.cfg.github },
+    // dashboards: open (every plan today), or locked with the plans to see
+    dashboards: hasDashboard(access) ? "open" : "plans",
+    pick: { claim: c.url.searchParams.get("claim") === "1" },
     recovery: RECOVERY_CONTACT,
   };
 }
@@ -1854,9 +1858,10 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     if (a.via !== "cookie") return fail(403, "a command line session cannot read stats; open the dashboard in the browser");
     const p = await ownedProject(c, a.account.id, stat[1]!);
     if (!p) return fail(404, "not found");
-    // every plan has the dashboard (src/plans.ts); the ranges this account's plan shows, a longer one answered with
-    // the longest it shows (Free: 90 days)
+    // the dashboard comes with the account's plan (every plan today; src/plans.ts accountAccess)
     const access = await accountAccess(c.db, a.account.id, env, c.now);
+    if (!hasDashboard(access)) return lockedJson(c);
+    // the ranges this account's plan shows; a longer one is answered with the longest it shows
     const range = pickRange(url.searchParams.get("range"), viewRanges(access.plan));
     return json(200, await stats(c.db, p, range, c.now));
   }
@@ -1882,8 +1887,11 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       firstEvent: p.first_event,
       privateLink: !!p.private_link,
       runtimeReady: runtimeHasTokens(env),
+      endpoint: ownEndpoint(env),
     };
     const project = { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event };
+    // locked (a plan file without the dashboard): the app's key and Connect panel, and the plans; no stats
+    if (!hasDashboard(access)) return page(200, (n) => dashboardPage(n, project, { ...base, locked: true }));
     // plan-dependent parts: ranges, retention, forwarding and export (src/billing-pages.ts)
     const extras = await appExtrasData(c.db, env, a.account.id, p, c.now);
     return page(200, (n) =>
@@ -1892,8 +1900,6 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
         ranges: extras.ranges,
         keepDays: extras.keep,
         extra: appExtrasHtml(n, extras),
-        // the trial's days left are said here, inside the dashboard, and nowhere else
-        trialDaysLeft: access.source === "trial" && access.trialEndsAt ? trialDaysLeft(access.trialEndsAt, c.now) : undefined,
       }),
     );
   }
@@ -1901,6 +1907,15 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
   if (path.startsWith("/api/")) return fail(404, "not found");
   return null;
 }
+
+/** The answer to a stats request for an app whose plan has no dashboard (a plan file without it). */
+export function lockedJson(c: { cfg: AuthConfig; env: Env }): Response {
+  const url = `${c.cfg.origin}/account/billing`;
+  return json(402, { ok: false, error: lockedError(c.env), locked: true, upgrade_url: url });
+}
+
+/** Why a dashboard's stats are locked. */
+export const lockedError = (env: Env): string => `this app's plan has no dashboard; see the plans at ${authConfig(env).origin}/account/billing`;
 
 function loginNotice(url: URL): string | null {
   if (url.searchParams.get("signed_out") === "1") return "You are signed out.";

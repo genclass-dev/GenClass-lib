@@ -272,17 +272,20 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   batch and the visitor's coarse **country** (two letters, from Cloudflare). It does not store IP addresses, user
   agents, cookies or any request header, and it drops unknown fields.
 - **Use:** model evaluation and training by the GenClass maintainers (never `interactions` events: those are only for
-  the app's dashboard and export), and, for batches that carry a token, that app's dashboard. For an app in a genclass.dev account on a paid plan (Pro or Custom), also what that account's owner
+  the app's dashboard and export), and, for batches that carry a token, that app's dashboard. For an app in a genclass.dev account (any plan, Free included), also what that account's owner
   turns on: an export of the app's stored batches, and forwarding of each likely detection (problem type, confidence,
   trigger, page route, versions, time; never page text) to the services the owner chose. Not sold, not used for
   advertising.
 - **Retention:** 90 days. An R2 lifecycle rule (`expire-90d`, prefix `events/`) deletes every stored batch 90 days after it
-  was written. For an app on a paid plan, a copy of each batch is kept for its export under `export/<token>/` for up to
-  1 year (another lifecycle rule, 366 days), and its dashboard data for 1 year; both are deleted 30 days after the paid
-  plan ends, and at once when the app or its account is deleted. The maintainers may change this later; changes are
+  was written. For an app on a plan with a year of history (Individual, or GenClass's own grant), a copy of each batch is
+  kept for its export under `export/<token>/` for up to 1 year (another lifecycle rule, 366 days), and its dashboard
+  data for 1 year; both are deleted 30 days after the paid plan ends, and at once when the app or its account is
+  deleted. The maintainers may change this later; changes are
   recorded in the CHANGELOG.
-- **Your own endpoint:** `telemetry: { endpoint: "https://…" }` sends the same batches to a collector you run
-  instead (the worker in `telemetry-worker/` deploys to any Cloudflare account).
+- **Your own endpoint (private mode):** `telemetry: { endpoint: "https://…" }` sends the same batches to a
+  collector you run instead, so nothing reaches GenClass: the worker in `telemetry-worker/` deploys to any Cloudflare
+  account with `wrangler.selfhost.toml`, dashboards and accounts included (telemetry-worker/README.md, "Self-host the
+  collector (private mode)").
 
 ## Options
 

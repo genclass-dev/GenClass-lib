@@ -10,6 +10,7 @@
 // Copy buttons use gcCopy (pages.ts): the Clipboard API, else the text is selected for the person to copy.
 
 import { DASH_CSS, embed, esc, LOGO, RUNTIME_PKG, shell, SIGNED_IN_NAV } from "./pages.js";
+import { entitled, FREE } from "./plans.js";
 
 // --------------------------------------------------------------------------------------------- styles, icons
 
@@ -270,7 +271,9 @@ export interface AuthPageOptions {
   notice?: string | null;
 }
 
-const optional = (): string => `<p class="opt">The runtime needs no account. The dashboard and its analytics are free for every app.</p>`;
+/** Under the sign-in ways: the runtime needs no account, and what an account's Free plan gives (billing/plans.json). */
+const optional = (): string =>
+  `<p class="opt">The runtime needs no account. ${entitled(FREE, "dashboard") ? "The dashboard is free for every app." : "Dashboards come with a paid plan."}</p>`;
 
 /** The passkey sign-in button's script: sign in, then go to `next` (or reload, on the device page). */
 const PASSKEY_LOGIN_JS = `
@@ -548,6 +551,10 @@ export interface AccountView {
   password?: { email: string; created: string; updated: string; lastUsed: string | null } | null;
   providers: { google: boolean; github: boolean };
   notice?: { kind: "ok" | "bad"; text: string };
+  /** Dashboards: open (every plan today), or locked, with the plans to see (a plan file without the dashboard). */
+  dashboards?: "open" | "plans";
+  /** From the query: the locked dashboard's sign-in (?claim=1). */
+  pick?: { claim: boolean };
   /** Where to write when every passkey is lost. */
   recovery?: string;
 }
@@ -594,6 +601,13 @@ ${v.projects
   const passkeyRule = required
     ? "<b>Require a passkey at sign-in: on.</b> After your password, Google or GitHub, GenClass asks for one of your passkeys. Removing the last one turns this off."
     : "<b>Require a passkey at sign-in: off.</b> Add a passkey and GenClass asks for it after your password, Google or GitHub.";
+  const planBlock =
+    (v.dashboards ?? "open") === "open"
+      ? ""
+      : `<section class="blk" id="plan">
+  <div class="blk-h"><h2>Your plan has no dashboard</h2></div>
+  <div class="acct-form"><a class="btn green" href="/account/billing">See plans</a></div>
+</section>`;
   // the password: the email it signs in with; below the table, Change password (or Add a password)
   const pw = v.password ?? null;
   const pwRow = `<tr><td>Password</td><td>${pw ? `Signs in as ${esc(pw.email)}` : '<span class="muted">Not set</span>'}</td><td data-l="Set">${pw ? time(pw.updated) : ""}</td><td data-l="Last used">${pw ? time(pw.lastUsed, "ago") : ""}</td><td class="act"></td></tr>`;
@@ -650,6 +664,7 @@ ${rows.map((s, i) => sessionRow(s, kind, i)).join("\n")}
   <p class="who">Signed in as ${who} · account since ${time(a.created)} · id ${esc(a.id)}</p>
 </section>
 ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.kind === "ok" ? "Done." : "Not changed."}</b> ${esc(v.notice.text)}</p>` : ""}
+${planBlock}
 <section class="blk" id="apps">
   <div class="blk-h"><h2>Apps</h2><span class="aside">Table 1. Apps in this account</span></div>
   ${apps}
@@ -701,9 +716,10 @@ ${v.notice ? `<p class="notice n-${v.notice.kind}" role="status"><b>${v.notice.k
 </section>
 <footer class="dfoot">Your account stores your email (as you typed it, or as Google returned it) and whether it is verified, a salted
 hash of your password if you set one (never the password), your passkeys' public keys, your Google account id and your GitHub id and login if
-you link them, your sign-in sessions and the browsers where your password was right, your trial's dates, and the apps you own. Nothing else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
+you link them, your sign-in sessions and the browsers where your password was right, and the apps you own. Nothing else. <a href="https://genclass.dev/privacy">Privacy</a> · <a href="https://genclass.dev/terms">Terms</a></footer>
 </div>
-</div>`;
+</div>
+<script type="application/json" id="acfg">${embed({ claim: !!v.pick?.claim })}</script>`;
 
   const script = `
 (function(){
@@ -774,6 +790,79 @@ you link them, your sign-in sessions and the browsers where your password was ri
     gcBusy(add, true, "Waiting for your passkey...");
     gcFresh(function(){ return gcRegister(); }).then(function(){ location.reload(); }, function(e){ pkerr.textContent = gcWhy(e); gcBusy(add, false); });
   });
+  var cfg = JSON.parse(document.getElementById("acfg").textContent);
+  // back from signing in on a locked dashboard link: return to it (its link was kept in this tab only), where the app
+  // can be added to this account; otherwise the link field below is ready for it
+  if (cfg.claim) {
+    var s = null;
+    try { s = sessionStorage.getItem("gc.claim"); sessionStorage.removeItem("gc.claim"); } catch (e) {}
+    if (s && /^[A-Za-z0-9]{32}$/.test(s)) { location.replace("/dashboard/" + s); return; }
+    var link = document.getElementById("link"); if (link) link.focus();
+  }
 })();`;
   return shell(nonce, "Account | GenClass", body, CLIENT_JS + script, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
+}
+
+// --------------------------------------------------------------------------------------------- a locked private link
+
+export interface LockedLinkView {
+  /** The app's name. */
+  name: string;
+  /** The visitor's account, when signed in: whether its plan opens dashboards now (src/plans.ts hasDashboard). */
+  signedIn: { open: boolean } | null;
+  /** Where the app is: in no account yet, in the visitor's account, or in another one. */
+  owner: "none" | "mine" | "other";
+  providers: { google: boolean; github: boolean };
+}
+
+/**
+ * /dashboard/<secret> while the app's plan leaves the dashboard out (no plan in billing/plans.json does today; the
+ * tests run it on a fixture). Signed out: Continue with Google (when configured), then Sign in and Create an account
+ * (every other way in is there); the link is kept in this tab's sessionStorage only, and /account?claim=1 brings the
+ * visitor back here once signed in. Signed in: add the app to the account (POST /api/account/projects/claim, as on
+ * /account) and go to its page, or see the plans. Served with the private link's own headers (no referrer); the
+ * page's fetch() calls still carry our Origin.
+ */
+export function lockedLinkPage(nonce: string, v: LockedLinkView): string {
+  const back = "/account?claim=1";
+  const s = v.signedIn;
+  let acts: string;
+  if (!s) {
+    acts = `<div class="ways">
+${providerButtons(v.providers, back)}
+<a class="btn prov green" href="/login${q(back)}"><span>Sign in</span></a><a class="btn prov ghost" href="/signup${q(back)}"><span>Create an account</span></a>
+</div>
+<p class="opt">Then add this app to your account. It keeps its key and its data.</p>`;
+  } else if (v.owner === "other") {
+    acts = `<p class="lead">This app is in another GenClass account.</p><div class="acts"><a class="btn ghost" href="/account">Your apps</a></div>`;
+  } else if (v.owner === "none") {
+    acts = `<div class="ways"><button class="btn prov green" id="claim" type="button"><span>Add to my account</span></button>
+<p class="err" id="err" role="alert"></p></div>
+${s.open ? '<p class="opt">The app keeps its key and its data.</p>' : '<p class="opt"><a href="/account/billing">See plans</a></p>'}`;
+  } else {
+    acts = `<div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>`;
+  }
+  const inner = `
+<div class="eb">${esc(v.name)}</div>
+<h1>This app's plan has no dashboard.</h1>
+<p class="lead">See the plans to open it.</p>
+${acts}
+<p class="swap">Keep this link private: it is the only way back to this app without an account.</p>
+<script type="application/json" id="cfg">${embed({ signedIn: !!s })}</script>`;
+  const script = `
+(function(){
+  var secret = location.pathname.split("/").filter(Boolean)[1] || "";
+  var cfg = JSON.parse(document.getElementById("cfg").textContent);
+  // signed out: keep the link in this tab for the way back from signing in (/account?claim=1), never on a server
+  if (!cfg.signedIn) { try { sessionStorage.setItem("gc.claim", secret); } catch (e) {} return; }
+  var err = document.getElementById("err");
+  var claim = document.getElementById("claim");
+  if (claim) claim.addEventListener("click", function(){
+    err.textContent = ""; gcBusy(claim, true, "Adding...");
+    gcPost("/api/account/projects/claim", { secret: secret }).then(function(j){
+      location.href = "/account/apps/" + encodeURIComponent(j.project.id);
+    }, function(e){ err.textContent = gcWhy(e); gcBusy(claim, false); });
+  });
+})();`;
+  return shell(nonce, `${v.name} | GenClass`, `<style nonce="${nonce}">${DASH_CSS}${ACCOUNT_CSS}</style><div class="auth">${LOGO}${inner}</div>`, CLIENT_JS + script, { bare: true, mesh: true });
 }

@@ -1,7 +1,8 @@
 // HTML for https://genclass.dev/start (get a token) and https://genclass.dev/dashboard/<secret> (the dashboard), and
 // the shell and dashboard the account pages (src/account-pages.ts) reuse: /account/apps/<id> is this dashboard in its
-// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API). Analytics are
-// free: every app's dashboard opens on every plan, in an account or by its private link (src/plans.ts).
+// account mode (the account's apps in the sidebar, the Connect panel, stats from the account API). Every plan includes
+// the dashboard (billing/plans.json); a plan file that left it out would give the locked account mode (the key and
+// the Connect panel, the plans, no stats), and a locked private link is account-pages.ts lockedLinkPage.
 // No external scripts; styles and fonts only from Google Fonts. Inline <script>/<style> run under a per-response CSP
 // nonce; dynamic text is inserted with textContent in scripts and escaped (esc) in server-rendered HTML.
 
@@ -171,17 +172,21 @@ footer{margin:36px 0 28px;color:var(--ink3);font-size:13px}
 `;
 
 const SNIPPETS_JS = `
-function snippets(tok){
+// ep: this collector's own ingest URL when it is not genclass.dev's (a self-hosted collector, private mode). Then every
+// snippet names it, through window.GENCLASS_CONFIG or GenClass.init (a meta tag may only name same-origin URLs), and
+// the CLI's init, which makes its token at genclass.dev, is left out.
+function snippets(tok, ep){
+  var cfg = function(o){ return '<script>window.GENCLASS_CONFIG = { ' + o + 'telemetry: { endpoint: "' + ep + '" } };</' + 'script>'; };
   return [
     ["Easy: one script tag", "Paste into your HTML. GenClass starts itself and protects the whole app.",
-     '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
-    ["Easy: with a bundler", "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
-     '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
+     (ep ? cfg("") + "\\n" : "") + '<script src="${CDN_SCRIPT}" data-token="' + tok + '"></' + 'script>'],
+    ["Easy: with a bundler", ep ? "One line in your HTML head plus one import (npm i ${RUNTIME_PKG})." : "A meta tag plus one import (npm i ${RUNTIME_PKG}).",
+     ep ? "<!-- in your HTML <head> -->\\n" + cfg('token: "' + tok + '", ') + '\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'
+        : '<meta name="genclass" content="token=' + tok + '">\\n\\n// in your entry file\\nimport "@genclass/runtime/auto";'],
     ["Function-specific", "Protect only the functions you choose; the dashboard shows each by name.",
-     'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions" });\\nconst save = protect("saveCart", saveCartImpl);'],
-    ["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
-     'npx ${RUNTIME_PKG} init']
-  ];
+     'import { GenClass, protect } from "@genclass/runtime";\\n\\nGenClass.init({ token: "' + tok + '", scope: "functions"' + (ep ? ', telemetry: { endpoint: "' + ep + '" }' : "") + ' });\\nconst save = protect("saveCart", saveCartImpl);']
+  ].concat(ep ? [] : [["Automatic setup", "Run in your project folder: it detects your setup and wires GenClass (and a token) in for you.",
+     'npx ${RUNTIME_PKG} init']]);
 }
 function gcSelect(node){
   try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
@@ -202,9 +207,9 @@ function copyBtn(getText, name, getNode){
   return b;
 }
 function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function renderSnippets(host, tok){
+function renderSnippets(host, tok, ep){
   host.textContent = "";
-  snippets(tok).forEach(function(s){
+  snippets(tok, ep || "").forEach(function(s){
     var box = el("div", "snip"), pre = el("pre", "code", s[2]);
     var head = el("div", "row between"); var h = el("h2", null, s[0]); h.style.marginBottom = "0";
     head.appendChild(h); head.appendChild(copyBtn(function(){ return s[2]; }, s[0], function(){ return pre; })); box.appendChild(head);
@@ -273,13 +278,13 @@ export const SIGNED_IN_NAV =
 
 // ------------------------------------------------------------------------------------------------- /start
 
-export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}): string {
+export function startPage(nonce: string, opts: { runtimeReady?: boolean; endpoint?: string | null } = {}): string {
   const notYet = opts.runtimeReady === true ? "" : `<p class="note small" id="notyet">${NOT_ON_NPM}</p>`;
   const body = `
 <section class="stack mt-xl">
   <h1>Get a token for your web app</h1>
   <p class="lead">One token per app. Add it to GenClass and every page load, detection and fix is collected for the
-  app's private dashboard. The dashboard and its analytics are free.</p>
+  app's private dashboard. The dashboard is free.</p>
   <p class="muted small">To keep several apps in one place, <a href="/signup">create an account</a> or <a href="/login">sign in</a>.</p>
 </section>
 <section>
@@ -298,7 +303,7 @@ export function startPage(nonce: string, opts: { runtimeReady?: boolean } = {}):
   <div class="card stack">
     <h2>Your private dashboard link</h2>
     <div class="note"><strong>Save this link now.</strong> It is the only way back to your dashboard; we cannot recover it.
-    It opens this app's dashboard and analytics, free, for anyone who has it. Do not commit it to code.</div>
+    It opens the dashboard, and lets you add the app to your account. Do not commit it to code.</div>
     <div class="row"><a id="dash" class="mono brk"></a><span id="dashc"></span></div>
     <div class="row"><a id="open" class="btn green" href="#">Open dashboard</a></div>
   </div>
@@ -323,7 +328,7 @@ See <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md">
         var d = document.getElementById("dash"); d.textContent = j.dashboardUrl; d.href = j.dashboardUrl;
         document.getElementById("dashc").appendChild(copyBtn(function(){ return j.dashboardUrl; }, "dashboard link", function(){ return d; }));
         document.getElementById("open").href = j.dashboardUrl;
-        renderSnippets(document.getElementById("snips"), j.token);
+        renderSnippets(document.getElementById("snips"), j.token, ${JSON.stringify(opts.endpoint ?? "")});
         f.classList.add("hidden");
         var out = document.getElementById("out"); out.classList.remove("hidden"); out.scrollIntoView({ behavior: "smooth" });
       })
@@ -503,9 +508,24 @@ main.wrap:has(.app){max-width:1360px}
 .connect .fine{font-size:13px;color:var(--ink3);margin-top:14px;max-width:90ch}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
 .mainc{min-width:0;padding-bottom:20px}
-.trialn{font:500 12.5px var(--mono);color:var(--accent);margin-top:10px}
-.trialn a{color:var(--ink2)}
+.lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);max-width:72ch}
+.lock h2{font:500 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
+.lock p{font-size:16px;color:var(--ink2);margin-top:8px}
+.lock .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.lock .err{font-size:14px;color:var(--warn);margin-top:10px}
+.lock .err:empty{display:none}
 .mainc .dh{margin-top:32px}
+/* views: the sidebar shows one view at a time (DASH_JS show()); without the script every section shows */
+.vh{display:none!important}
+.side nav.snav a{justify-content:flex-start}
+.side nav.snav a span{margin-left:auto}
+.snav a::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.8;-webkit-mask:var(--ic) center/16px no-repeat;mask:var(--ic) center/16px no-repeat}
+.snav a[href="#top"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%223%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%2212%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%223%22 y=%2216%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3C/svg%3E")}.snav a[href="#found"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E")}.snav a[href="#where"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E")}.snav a[href="#did"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E")}.snav a[href="#recent-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 12h-4l-3 9L9 3l-3 9H2%22/%3E%3C/svg%3E")}.snav a[href="#visits"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9l5 12 1.8-5.2L21 14z%22/%3E%3Cpath d=%22M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2%22/%3E%3C/svg%3E")}.snav a[href="#health-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z%22/%3E%3C/svg%3E")}.snav a[href="#setup"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#connect"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#forwarding"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m22 2-7 20-4-9-9-4z%22/%3E%3Cpath d=%22M22 2 11 13%22/%3E%3C/svg%3E")}.snav a[href="#export"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3%22/%3E%3C/svg%3E")}
+.crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
+.crumbs a{color:var(--ink2);text-decoration:none}
+.crumbs a:hover{color:var(--ink)}
+.dh .meta .btn{margin-left:4px}
+@media (pointer:coarse){header.top{background:var(--paper);backdrop-filter:none;-webkit-backdrop-filter:none}}
 @media (max-width:920px){
   .app{grid-template-columns:minmax(0,1fr)}
   .side{position:sticky;top:65px;z-index:5;max-height:none;min-height:0;overflow:visible;padding:10px 0;margin-left:0;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
@@ -973,28 +993,46 @@ const DASH_JS = `
 
   document.getElementById("pname").textContent = P.name;
   document.getElementById("sname").textContent = P.name;
+  var crumb = document.getElementById("crumb"); if (crumb) crumb.textContent = P.name;
+  // Views: each sidebar link opens one view (the sections marked data-v with it); the header stays. The hash names
+  // the link, so a view can be linked to and the back button works. While an app waits for its first event the view
+  // is Connect.
   (function(){
+    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
     var links = [].slice.call(document.querySelectorAll(".snav a"));
-    links.forEach(function(a){ a.addEventListener("click", function(){
-      if (a.getAttribute("href") === "#setup") { var d = document.getElementById("install"); if (d) d.open = true; }
-      if (a.getAttribute("href") === "#connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
-    }); });
-    if (!("IntersectionObserver" in window)) return;
-    var vis = {};
-    var io = new IntersectionObserver(function(es){
-      es.forEach(function(e){ vis[e.target.id] = e.isIntersecting ? e.intersectionRatio : 0; });
-      var best = null, br = 0; Object.keys(vis).forEach(function(k){ if (vis[k] > br) { br = vis[k]; best = k; } });
-      // while an app waits for its first event the section links are hidden: the heading counts as Connect
-      var per = document.getElementById("period"); if (best === "top" && per && per.classList.contains("hidden")) best = "connect";
-      if (best) links.forEach(function(a){ a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + best)); });
-    }, { rootMargin: "-10% 0px -55% 0px", threshold: [0, 0.2, 0.5, 1] });
-    ["connect", "top", "trend", "found", "where", "did", "health-s", "recent-s", "visits", "setup"].forEach(function(id){ var e = document.getElementById(id); if (e) io.observe(e); });
+    var parts = [].slice.call(document.querySelectorAll("[data-v]"));
+    function show(id, jump){
+      var v = VIEW[id];
+      if (!v || !parts.some(function(s){ return s.getAttribute("data-v") === v; })) return false;
+      if (id === "setup") { var d = document.getElementById("install"); if (d) d.open = true; }
+      if (id === "connect") { var cn = document.getElementById("connect"); if (cn) cn.classList.remove("hidden"); }
+      parts.forEach(function(s){ s.classList.toggle("vh", s.getAttribute("data-v") !== v); });
+      var cur = links.filter(function(a){ return a.getAttribute("href") === "#" + id; })[0] || links.filter(function(a){ return VIEW[a.getAttribute("href").slice(1)] === v; })[0];
+      links.forEach(function(a){ a.setAttribute("aria-current", String(a === cur)); });
+      // the breadcrumb ends with the view's name (the link's label, without its count)
+      var cv = document.getElementById("crumbv");
+      if (cv) cv.textContent = cur && v !== "overview" ? " / " + (cur.firstChild && cur.firstChild.nodeType === 3 ? cur.firstChild.nodeValue : cur.textContent).trim() : "";
+      if (jump) { var t = document.getElementById(id); if (id === "did" && t) t.scrollIntoView(); else window.scrollTo(0, 0); }
+      return true;
+    }
+    function go(e, id){
+      if (!show(id, true)) return;
+      if (e) e.preventDefault();
+      try { history.replaceState(null, "", "#" + id); } catch (x) {}
+    }
+    links.concat([].slice.call(document.querySelectorAll("a[data-goto]"))).forEach(function(a){
+      a.addEventListener("click", function(e){ go(e, a.getAttribute("data-goto") || a.getAttribute("href").slice(1)); });
+    });
+    window.addEventListener("hashchange", function(){ show(location.hash.slice(1), true); });
+    var per = document.getElementById("period");
+    var first = location.hash.slice(1);
+    if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
   })();
   document.title = P.name + " | GenClass dashboard";
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
-    renderSnippets(document.getElementById("snips"), P.token);
+    renderSnippets(document.getElementById("snips"), P.token, P.endpoint || "");
   }
   var btn = document.getElementById("refresh");
   function load(){
@@ -1065,6 +1103,8 @@ const CONNECT_JS = `
 })();`;
 
 export interface DashboardOptions {
+  /** This collector's own ingest URL when it is self-hosted (ownEndpoint): the snippets name it. */
+  endpoint?: string | null;
   /** Owned-app mode (/account/apps/<id>): the account's apps in the sidebar, the Connect panel, account stats API. */
   account?: { apps: { id: string; name: string }[]; current: string; email: string | null };
   /** The project's id (account mode). */
@@ -1084,8 +1124,11 @@ export interface DashboardOptions {
   keepDays?: number;
   /** Account mode: plan-dependent sections (forwarding, export; src/billing-pages.ts) and their script. */
   extra?: { html: string; script: string };
-  /** Account mode, on the trial: whole days left, said here and nowhere else. */
-  trialDaysLeft?: number;
+  /**
+   * Account mode, locked: the account's plan has no dashboard (a plan file without it; none today). The page keeps
+   * the app's key and the Connect panel and links the plans; no stats are loaded.
+   */
+  locked?: boolean;
 }
 
 const RANGE_LABELS: Record<string, string> = { "24h": "24 h", "7d": "7 days", "30d": "30 days", "90d": "90 days", "1y": "1 year" };
@@ -1105,18 +1148,33 @@ function rangeButtons(ranges: string[]): string {
 /** More apps than this and the sidebar lists only the current one, with a link to all of them. */
 const SIDEBAR_APPS = 4;
 
-function connectPanel(token: string, connected: boolean, runtimeReady: boolean): string {
+/**
+ * This collector's own ingest URL when it is not genclass.dev's: a collector self-hosted from wrangler.selfhost.toml
+ * (private mode), or `wrangler dev`. Its snippets then name it, or the pages would send to genclass.dev.
+ */
+export function ownEndpoint(env: { DASHBOARD_ORIGIN?: string; AUTH_ORIGIN?: string }): string | null {
+  const o = (env.DASHBOARD_ORIGIN || env.AUTH_ORIGIN || "").trim().replace(/\/+$/, "");
+  return /^https?:\/\/[^/\s"'<>]+$/.test(o) && o !== "https://genclass.dev" ? `${o}/v1/events` : null;
+}
+
+function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null): string {
   const t = esc(token);
-  const init = `import { GenClass } from "@genclass/runtime";\n\nGenClass.init({ token: "${token}" });`;
-  const tag = `<script src="${CDN_SCRIPT}" data-token="${token}"></script>`;
-  const meta = `<meta name="genclass" content="token=${token}">\n\n// in your entry file\nimport "@genclass/runtime/auto";`;
+  // a self-hosted collector's endpoint goes in GenClass.init or window.GENCLASS_CONFIG (a meta tag may only name
+  // same-origin URLs, src/cdn/config.ts)
+  const ep = endpoint ? `, telemetry: { endpoint: "${endpoint}" }` : "";
+  const cfg = (o: string) => `<script>window.GENCLASS_CONFIG = { ${o}telemetry: { endpoint: "${endpoint}" } };</script>`;
+  const init = `import { GenClass } from "@genclass/runtime";\n\nGenClass.init({ token: "${token}"${ep} });`;
+  const tag = `${endpoint ? `${cfg("")}\n` : ""}<script src="${CDN_SCRIPT}" data-token="${token}"></script>`;
+  const meta = endpoint
+    ? `<!-- in your HTML <head> -->\n${cfg(`token: "${token}", `)}\n\n// in your entry file\nimport "@genclass/runtime/auto";`
+    : `<meta name="genclass" content="token=${token}">\n\n// in your entry file\nimport "@genclass/runtime/auto";`;
   let n = 0;
   const snip = (label: string, name: string, code: string) => {
     const id = `csnip${++n}`;
     return `<div><div class="sh"><span>${label}</span><button class="btn sm ghost" type="button" data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${name}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
   };
   const notYet = runtimeReady ? "" : `<p class="cnote" id="cnote">${NOT_ON_NPM} So this line keeps waiting.</p>`;
-  return `<section class="connect${connected ? " hidden" : ""}" id="connect" aria-labelledby="connect-h">
+  return `<section class="connect${connected ? " hidden" : ""}" id="connect" data-v="connect" aria-labelledby="connect-h">
   <div class="blk-h"><h2 id="connect-h">Connect this app</h2><span class="aside">Needs @genclass/runtime ${KEY_RUNTIME} or later</span></div>
   ${notYet}
   <div class="keyrow">
@@ -1126,18 +1184,22 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean):
   </div>
   <p class="cstat" id="cstatus" aria-live="polite"><i></i><span id="cstatust">Waiting for the first event from this app</span></p>
   <div class="ways">
-    <div class="way">
+    ${
+      endpoint
+        ? ""
+        : `<div class="way">
       <div class="eb">1 · Run in your project</div>
       <h3>Sign in from the terminal</h3>
       ${snip("In the app's folder", "the login command", `npx ${RUNTIME_PKG} login`)}
       <p>Signs you in and connects the app in that folder: you pick this app, it shows the change to your files, and writes the key after you agree.</p>
-    </div>
+    </div>`
+    }
     <div class="way">
-      <div class="eb">2 · Or add the key yourself</div>
+      <div class="eb">${endpoint ? "Add the key and this collector's endpoint" : "2 · Or add the key yourself"}</div>
       <h3>Paste one of these</h3>
       ${snip("In code", "the init code", init)}
       ${snip("Script tag", "the script tag", tag)}
-      ${snip("Meta tag, with a bundler", "the meta tag", meta)}
+      ${snip(endpoint ? "With a bundler" : "Meta tag, with a bundler", endpoint ? "the bundler setup" : "the meta tag", meta)}
     </div>
   </div>
   <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
@@ -1151,12 +1213,17 @@ export function dashboardPage(
   opts: DashboardOptions = {},
 ): string {
   const acct = opts.account;
+  if (acct && opts.locked) return lockedDashboardPage(nonce, project, { ...opts, account: acct });
   const waiting = !!acct && !project.lastEvent;
-  const data = acct ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true } : project;
+  const data = acct
+    ? { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, statsUrl: `/api/account/projects/${opts.id}/stats`, account: true }
+    : opts.endpoint
+      ? { ...project, endpoint: opts.endpoint }
+      : project;
   const apps = acct ? accountApps(acct) : "";
   const setup = acct
     ? ""
-    : `<section class="blk" id="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
+    : `<section class="blk" id="setup" data-v="setup"><details class="more" id="install"><summary>Setup: your token and install snippets</summary>
   <div class="row small mt-s"><span class="muted">Token</span><code id="ptok" class="mono brk"></code><span id="ptokc"></span></div>
   ${opts.runtimeReady === true ? "" : `<p class="note small mt-s">${NOT_ON_NPM}</p>`}
   <p class="muted small mt-s">The token needs @genclass/runtime ${KEY_RUNTIME} or later. ${LOCAL_HOSTS}</p>
@@ -1176,31 +1243,33 @@ export function dashboardPage(
   </div>
   <div class="grp">This period</div>
   <nav class="snav" id="snav" aria-label="Sections">
-    <a href="#top">Overview</a>
-    <a href="#trend">Problems found <span id="c-trend"></span></a>
-    <a href="#found">What it found <span id="c-found"></span></a>
+    <a href="#top">Overview <span id="c-trend"></span></a>
+    <a href="#found">Problems <span id="c-found"></span></a>
     <a href="#where">Pages <span id="c-pages"></span></a>
-    <a href="#did">What GenClass did <span id="c-did"></span></a>
-    <a href="#health-s">Health</a>
-    <a href="#recent-s">Recent activity</a>
+    <a href="#did">Actions <span id="c-did"></span></a>
+    <a href="#recent-s">Activity</a>
     <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
+    <a href="#health-s">Health</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
   </nav>`;
-  const side = acct
-    ? `<div class="grp">Setup</div>
-  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a></nav>
-  <div id="period"${waiting ? ' class="hidden"' : ""}>
-  ${sections}
-  </div>
-  ${apps}`
-    : `${sections}
-  <div class="grp">Elsewhere</div>
+  const help = `<div class="grp">Help</div>
   <div class="out">
+    <a href="https://genclass.dev/docs/dashboard">Dashboard guide</a>
     <a href="https://genclass.dev/docs">Docs</a>
     <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a>
     ${report}
     <a href="https://discord.gg/kN9kRnFtZm">Discord</a>
   </div>`;
+  const side = acct
+    ? `<div class="grp">Setup</div>
+  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a>${opts.extra ? '<a href="#forwarding">Forwarding</a><a href="#export">Export</a>' : ""}</nav>
+  <div id="period"${waiting ? ' class="hidden"' : ""}>
+  ${sections}
+  </div>
+  ${apps}
+  ${help}`
+    : `${sections}
+  ${help}`;
   const body = `
 <script type="application/json" id="project">${embed(data)}</script>
 <style nonce="${nonce}">${DASH_CSS}</style>
@@ -1212,18 +1281,18 @@ export function dashboardPage(
 </aside>
 <div class="mainc" id="mc" tabindex="-1">
 <section class="dh" id="top">
+  <nav class="crumbs" aria-label="Breadcrumb">${acct ? '<a href="/account">Apps</a>' : "<span>Private link</span>"}<span aria-hidden="true">/</span><span id="crumb"></span><span id="crumbv"></span></nav>
   <h1 id="pname"></h1>
-  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button></div>
-  ${acct && opts.trialDaysLeft ? `<p class="trialn" id="trialn">Pro trial: ${opts.trialDaysLeft === 1 ? "last day" : `${opts.trialDaysLeft} days left`}. <a href="/account/billing">See plans</a></p>` : ""}
-  <p class="summary" id="summary"></p>
+  <div class="meta"><span id="updated"></span><button class="btn ghost sm" id="refresh" type="button">Refresh</button>${acct ? '<a class="btn sm" href="#connect" data-goto="connect">Connect</a>' : ""}<a class="btn ghost sm" href="https://genclass.dev/docs/dashboard">Dashboard guide</a></div>
+  <p class="summary" id="summary" data-v="overview"></p>
 </section>
-${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true) : ""}
-<section id="nodata" class="first hidden"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
+${acct ? connectPanel(project.token, !!project.lastEvent, opts.runtimeReady === true, opts.endpoint ?? null) : ""}
+<section id="nodata" class="first hidden" data-v="overview"><p>No data yet. Add the snippet under Setup to your app, load a page, and come back in a minute.
 Events arrive in batches every 10 seconds and when a tab is hidden. The token needs @genclass/runtime ${KEY_RUNTIME} or later; earlier
 versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></section>
 <div id="content" class="hidden">
-<div class="statrow" id="tiles"></div>
-<section class="blk" id="trend">
+<div class="statrow" id="tiles" data-v="overview"></div>
+<section class="blk" id="trend" data-v="overview">
   <div class="blk-h"><h2>Problems found</h2><span class="aside" id="trendn"></span></div>
   <figure>
     <div class="legend" id="legend"></div>
@@ -1237,7 +1306,7 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   </figure>
   <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
 </section>
-<section class="blk" id="found">
+<section class="blk" id="found" data-v="problems">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
   <div class="finds" id="issues"></div>
   <p class="quiet hidden" id="issuesempty">No problems found in this period.</p>
@@ -1247,30 +1316,30 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
     <div class="finds" id="possible"></div>
   </div>
 </section>
-<section class="blk two" id="where">
+<section class="blk two" id="where" data-v="pages">
   <div><div class="blk-h"><h2>Pages</h2><span class="aside">Table 1. Pages with the most problems</span></div><div id="pages"></div></div>
   <div id="did"><div class="blk-h"><h2>What GenClass did</h2><span class="aside">Table 2. Actions it took</span></div><div id="acted"></div></div>
 </section>
-<section class="blk" id="health-s">
+<section class="blk" id="health-s" data-v="health">
   <div class="blk-h"><h2>Health</h2><span class="aside">Whether GenClass could watch your pages at all</span></div>
   <div id="health"></div>
 </section>
-<section class="blk" id="recent-s">
+<section class="blk" id="recent-s" data-v="activity">
   <div class="blk-h"><h2>Recent activity</h2><span class="aside">Table 3. The latest 50 detections and interventions</span></div>
   <div class="tablewrap"><table class="dt"><thead><tr><th>Time</th><th>Page / function</th><th>What</th><th class="num">Confidence</th><th>GenClass</th><th>Mode</th></tr></thead>
   <tbody id="recent"></tbody></table></div>
   <p class="quiet hidden" id="recent0">Nothing detected in this period.</p>
 </section>
-<section class="blk hidden" id="visits">
+<section class="blk hidden" id="visits" data-v="visitors">
   <div class="blk-h"><h2>How visitors use this app</h2><span class="aside">Interaction analytics, for apps that turn them on</span></div>
   <div id="ixsum"></div>
   <div id="ixpages" class="mt-l"></div>
 </section>
-<section class="blk two hidden" id="clicks">
+<section class="blk two hidden" id="clicks" data-v="visitors">
   <div><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></div>
   <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
 </section>
-<section class="blk"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
+<section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 </div>
 ${setup}
 ${opts.extra?.html ?? ""}
@@ -1299,4 +1368,44 @@ function accountApps(acct: NonNullable<DashboardOptions["account"]>): string {
   <nav class="apps" aria-label="Your apps">${links}<a class="new" href="/account#new-app">New app</a></nav>
   <div class="grp">Account</div>
   <div class="out"><a href="/account">Account</a><a href="/account/billing">Plan and billing</a><form method="post" action="/logout"><button class="lnk" type="submit">Sign out</button></form></div>`;
+}
+
+/**
+ * /account/apps/<id> for an account whose plan has no dashboard (a plan file without it; none today): the app's name,
+ * the plans, then the Connect panel (connecting is free: the app's data is collected so the dashboard starts with it).
+ * No stats are fetched.
+ */
+function lockedDashboardPage(
+  nonce: string,
+  project: { name: string; token: string; created: string; lastEvent: string | null },
+  opts: DashboardOptions & { account: NonNullable<DashboardOptions["account"]> },
+): string {
+  const data = { ...project, id: opts.id, firstEvent: opts.firstEvent ?? null, account: true, locked: true };
+  const privacy = opts.privateLink
+    ? "This app also has the private dashboard link it had before it joined your account; once its plan has the dashboard, anyone with that link can see its stats. You can turn the link off on your <a href=\"/account#apps\">account page</a>."
+    : "Only you can open this page, while signed in.";
+  const body = `
+<script type="application/json" id="project">${embed(data)}</script>
+<style nonce="${nonce}">${DASH_CSS}</style>
+<div class="app">
+<aside class="side" aria-label="Dashboard">
+  <div class="proj"><span id="sname">${esc(project.name)}</span><small>Dashboard</small></div>
+  <div class="grp">Setup</div>
+  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect" aria-current="true">Connect</a></nav>
+  ${accountApps(opts.account)}
+</aside>
+<div class="mainc" id="mc" tabindex="-1">
+<section class="dh" id="top">
+  <h1 id="pname">${esc(project.name)}</h1>
+</section>
+<section class="lock" id="lock" aria-labelledby="lock-h">
+  <h2 id="lock-h">This app's plan has no dashboard.</h2>
+  <p>Pick a plan to open it.</p>
+  <div class="acts"><a class="btn green" href="/account/billing">See plans</a></div>
+</section>
+${connectPanel(project.token, false, opts.runtimeReady === true, opts.endpoint ?? null)}
+<footer class="dfoot">${privacy} <a href="https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md">What is collected</a> · <a href="/account">All apps</a></footer>
+</div>
+</div>`;
+  return shell(nonce, `${project.name} | GenClass dashboard`, body, CONNECT_JS, { nav: SIGNED_IN_NAV, account: true, skip: "mc" });
 }

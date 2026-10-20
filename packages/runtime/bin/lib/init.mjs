@@ -63,8 +63,8 @@ remove   takes out exactly what init added (the lines and blocks marked "${MARK}
   --token <gc_...> use this app token (no network). By default, on a new setup and only once you
                    approve the changes (or pass --yes), init creates one at genclass.dev (sending
                    package.json's name), writes it into what it adds, and saves the token and your
-                   private dashboard link in ${LOCAL_FILE} (the dashboard and its analytics are
-                   free; \`dashboard\` prints the link again). Signed in (\`login\`), init first asks
+                   private dashboard link in ${LOCAL_FILE} (the dashboard is free, analytics
+                   included; \`dashboard\` prints the link again). Signed in (\`login\`), init first asks
                    whether the new app goes into your GenClass account instead (--yes: it does)
   --no-token       no token, no network (no dashboard; you can add one later: ${START_URL})
   --no-telemetry   turn off GenClass's anonymous diagnostics (on by default; see TELEMETRY.md and

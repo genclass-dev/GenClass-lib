@@ -1,0 +1,74 @@
+# Your own GenClass collector ("private mode"): the same worker that runs genclass.dev's dashboards, on your own
+# Cloudflare account, so your apps' telemetry and dashboards never pass through GenClass. Your pages send to it with
+# `telemetry: { endpoint: "https://<your worker>/v1/events" }`; its /start gives each app a token and a private
+# dashboard link, and its accounts (passwords and passkeys; Google and GitHub with your own OAuth clients) keep several
+# apps in one place. Nothing is for sale on it: without a Stripe key every account is on the Free plan, which includes
+# the dashboard, export and forwarding (billing/plans.json).
+#
+# Deploy (README "Self-host the collector (private mode)"), from telemetry-worker/:
+#   1. npx --yes wrangler@4 login
+#   2. npx --yes wrangler@4 r2 bucket create genclass-telemetry
+#      npx --yes wrangler@4 r2 bucket lifecycle add genclass-telemetry expire-events-90d events/ --expire-days 90
+#   3. npx --yes wrangler@4 d1 create genclass-dashboard        (paste the database_id it prints below)
+#   4. set the three origins below to your worker's URL (its workers.dev address, or your own domain)
+#   5. npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote -c wrangler.selfhost.toml
+#   6. npx --yes wrangler@4 deploy -c wrangler.selfhost.toml
+#   7. open https://<your worker>/start, get a token and its private dashboard link
+name = "genclass-collector"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = true
+# Never log request contents: no observability/logpush of request bodies or headers.
+logpush = false
+
+[vars]
+# Your worker's URL: dashboard links, account cookies, the CSRF Origin check and passkeys use it.
+AUTH_ORIGIN = "https://genclass-collector.YOUR-SUBDOMAIN.workers.dev"
+AUTH_RP_ID = "genclass-collector.YOUR-SUBDOMAIN.workers.dev"
+DASHBOARD_ORIGIN = "https://genclass-collector.YOUR-SUBDOMAIN.workers.dev"
+# The newest @genclass/runtime on npm that sends app tokens (the Connect panel says so until it is published).
+RUNTIME_ON_NPM = "0.3.0-beta.0"
+MANAGED_PAYMENTS = "off"
+
+[observability]
+enabled = false
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "genclass-telemetry"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "genclass-dashboard"
+database_id = "PASTE-THE-ID-FROM-wrangler-d1-create"
+migrations_dir = "migrations"
+
+# The same limits as genclass.dev's collector (wrangler.toml says what each one bounds).
+[[ratelimits]]
+name = "CREATE_LIMITER"
+namespace_id = "7301"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "LIMIT"
+namespace_id = "4802"
+simple = { limit = 1200, period = 60 }
+
+[[ratelimits]]
+name = "SESSION_LIMIT"
+namespace_id = "4803"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "AUTH_LIMIT"
+namespace_id = "7302"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "EXPORT_LIMIT"
+namespace_id = "7303"
+simple = { limit = 120, period = 60 }
+
+# Daily retention sweep of dashboard rows (03:17 UTC).
+[triggers]
+crons = ["17 3 * * *"]

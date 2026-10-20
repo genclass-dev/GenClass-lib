@@ -8,10 +8,12 @@
 // bill through a Stripe account shared with another business, and this script keeps the rules it had then: it creates,
 // finds and edits only GenClass's own objects, and never lists, changes, archives or deletes anything else
 // (telemetry-worker/README.md, "Stripe object ownership"):
-// 1. the products GenClass Pro and GenClass Custom, with the ids genclass_pro and genclass_custom, metadata
-//    genclass_plan, the statement descriptor GENCLASS and the product tax code from billing/plans.json
-//    (stripe_tax_code: Pro's is eligible for Stripe Managed Payments, Custom's is not, since a person trains the
-//    model). A product from an earlier run with an id Stripe chose is found by a search on metadata genclass_plan
+// 1. a product for each plan billing/plans.json prices above 0 (today GenClass Individual, id genclass_individual),
+//    with metadata genclass_plan, the statement descriptor GENCLASS and the product tax code from billing/plans.json
+//    (stripe_tax_code; Individual's is custom software, which Stripe Managed Payments does not sell, since a person
+//    trains the model). Free costs nothing and Enterprise is agreed by email, so neither has a product. A product
+//    from an earlier run (genclass_pro or genclass_custom, from the plans before 2026-10-19) is left as it is. A
+//    product from an earlier run with an id Stripe chose is found by a search on metadata genclass_plan
 //    (which returns only such products). A product with GenClass's id but without that metadata is not GenClass's:
 //    the script stops and changes nothing;
 // 2. each plan's monthly price under its lookup key from billing/plans.json (all start with genclass_). Prices are
@@ -29,8 +31,8 @@
 //    deletes GenClass's endpoint, the one with that exact URL and description, and makes a new one);
 // 4. its own Billing Portal configuration (metadata genclass=1, a headline naming GenClass): cancel at the end of the
 //    period, update the card, invoices, and change the email or tax id on the GenClass customer (no address: GenClass
-//    has no use for one). It offers no plan switch: a Pro subscription sold through Managed Payments cannot take the
-//    Custom price, so the billing page switches plans with a new Checkout (telemetry-worker/src/billing.ts). To find
+//    has no use for one). It offers no plan switch: a subscription sold through Managed Payments cannot take another
+//    plan's price, so the billing page switches plans with a new Checkout (telemetry-worker/src/billing.ts). To find
 //    it the script lists the non-default configurations (is_default=false), reading their settings and changing none
 //    but its own: the account's default configuration is never read or changed, and GenClass's is never made the
 //    default. Its id goes to the worker with `npx wrangler secret put` (STRIPE_PORTAL_CONFIGURATION in live mode,
@@ -221,7 +223,7 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
     const result = {};
     for (const { plan, id, product: found, prices } of state) {
       const name = `GenClass ${plan.name}`;
-      // the tax code: Managed Payments sells only products with an eligible one (Pro's), Stripe Tax reads it for Custom
+      // the tax code: Managed Payments sells only products with an eligible one, and Stripe Tax reads it
       const want = { name, description: plan.summary, statement_descriptor: STATEMENT_DESCRIPTOR, tax_code: plan.stripe_tax_code };
       const taxCode = (x) => (x && typeof x === "object" ? x.id : x) ?? null;
       let product = found;
@@ -321,8 +323,8 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
           mode: "at_period_end",
           cancellation_reason: { enabled: true, options: ["too_expensive", "missing_features", "switched_service", "unused", "other"] },
         },
-        // no plan switch here: a Managed Payments subscription (Pro) cannot take the Custom price, and Pro must not move
-        // onto a Custom subscription outside Managed Payments; the billing page switches with a new Checkout
+        // no plan switch here: a Managed Payments subscription cannot take another plan's price, and must not move
+        // onto a subscription outside Managed Payments; the billing page switches with a new Checkout
         subscription_update: { enabled: false },
       },
       metadata: { genclass: MARK },
@@ -356,14 +358,12 @@ export async function main({ argv = process.argv.slice(2), env = process.env, fe
   const dashboard = `
 Dashboard steps for GenClass's Stripe account, in this mode, before the worker gets its key (the reasons are in
 telemetry-worker/README.md, "Paid plans"):
-a. Settings, Managed Payments: accept the terms and turn it on. The worker's var MANAGED_PAYMENTS stays "off"
-   until one test-mode Pro checkout with it "on" went through (step 5); Custom never uses it.
-b. Billing, Revenue recovery: Smart Retries on, failed-payment emails on, and when all retries for a payment fail,
+a. Billing, Revenue recovery: Smart Retries on, failed-payment emails on, and when all retries for a payment fail,
    cancel the subscription. The worker also ends a plan that stays past due for 14 days, or goes unpaid.
-c. Settings, Customer emails: receipts for successful payments on (Custom's; Link sends Pro's receipts itself).
-d. Settings, Branding: icon, logo and colours (Checkout, the customer portal, receipts and invoices).
-e. Stripe Tax: the head office address, and threshold monitoring on (Custom is sold without Managed Payments, so its
-   sales count towards GenClass's own registration thresholds).`;
+b. Settings, Customer emails: receipts for successful payments on.
+c. Settings, Branding: icon, logo and colours (Checkout, the customer portal, receipts and invoices).
+d. Stripe Tax: the head office address, and threshold monitoring on (no plan is sold through Managed Payments, so
+   every sale counts towards GenClass's own registration thresholds).`;
   // before the worker's first key: rows written for an earlier account must not name a Stripe object
   const clean = `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "SELECT COUNT(*) AS n FROM accounts WHERE stripe_customer_id IS NOT NULL OR subscription_id IS NOT NULL"`;
   say(
@@ -373,18 +373,15 @@ Done in test mode. Next (from telemetry-worker/; the full list is in telemetry-w
 1. If not done yet: the migrations, the export lifecycle rule, INTEGRATIONS_KEY, NOTIFY_WEBHOOK and a deploy. Before
    the worker's first Stripe key, this must print n = 0 (nothing was ever on sale; if not, see the README):
      ${clean}
-2. If not done yet (the README lists them before this script): the dashboard steps below (a to e), in test mode.
+2. If not done yet (the README lists them before this script): the dashboard steps below (a to d), in test mode.
 3. Only the accounts you list can buy while the key is a test key (your email or account id, comma-separated):
      npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS
 4. The test key (paste it when asked). Nothing changes for anyone else: no limits, no buttons.
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
-5. Test with MANAGED_PAYMENTS = "on" in wrangler.toml (and a deploy): on ${SITE}/account/billing choose Upgrade
-   to Pro and pay with card 4242 4242 4242 4242, any future date and any CVC (the Checkout page is Link's). Check
-   in Developers, Logs that Stripe accepted the Checkout Session with managed_payments and billing_mode flexible; if
-   it rejected the parameter, set MANAGED_PAYMENTS back to "off" and deploy. The page shows Pro within a minute.
-   Then Switch to Custom: a second Checkout; once it is paid the page shows Custom, the Pro subscription is
-   cancelled and its unused time refunded to the card, and a custom_requests row and test-mode notices appear.
-   Then Manage billing, and cancel.
+5. Test: on ${SITE}/account/billing choose Upgrade to Individual and pay with card 4242 4242 4242 4242, any future
+   date and any CVC. Check in Developers, Logs that Stripe accepted the Checkout Session with billing_mode flexible.
+   The page shows Individual within a minute, and a custom_requests row and test-mode notices appear. Then Manage
+   billing, and cancel.
 6. Then live: the reset in the README, this script with STRIPE_SECRET_KEY=sk_live_..., and step 4 with the live key.
 ${dashboard}`
       : `
@@ -393,8 +390,8 @@ Done in live mode. Next (from telemetry-worker/; the full list is in telemetry-w
    live, but this keeps the tables clean):
      npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"
    With no test pass before, this must print n = 0 instead: ${clean}
-2. If not done yet: the dashboard steps below (a to e), live this time.
-3. Put paid plans on sale (paste the live key when asked). From then on the Free plan's limits apply.
+2. If not done yet: the dashboard steps below (a to d), live this time.
+3. Put Individual on sale (paste the live key when asked).
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
 4. Check ${SITE}/account/billing while signed in.
 ${dashboard}`,

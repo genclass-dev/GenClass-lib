@@ -85,12 +85,11 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 ```
 
 - **Token and dashboard.** A token (`gc_` plus 22 letters and digits, public) groups your app's diagnostics under a
-  private dashboard link (`https://genclass.dev/dashboard/...`). The dashboard and its analytics are free for every
-  app, with no plan, trial or card: what GenClass found, on which pages, what it did, and (with `analytics: true`) how
-  visitors use each page, over 90 days. Get one at [genclass.dev/start](https://genclass.dev/start), or let `init`
-  create it after you approve its diff; `npx @genclass/runtime@beta dashboard` prints the link again. Or keep the
-  dashboards in an optional genclass.dev account: `npx @genclass/runtime@beta login` signs in from the terminal
-  (device flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
+  private dashboard link (`https://genclass.dev/dashboard/...`). The dashboard is free for every app, with or
+  without an account.
+  Get one at [genclass.dev/start](https://genclass.dev/start), or let `init` create it after you approve its diff. Or
+  keep the dashboards in an optional genclass.dev account: `npx @genclass/runtime@beta login` signs in from the
+  terminal (device flow) and connects the app in the current folder; `connect`, `whoami` and `logout` do the rest. The
   dashboard fills from deployed pages with telemetry on. Local and private hosts (`localhost`, `*.local`, `*.test`,
   private networks) do not send by default; `telemetry: true` or any telemetry options object (`telemetry: { ... }`)
   is an explicit opt-in that sends from them too, with the token. Data is kept for 90 days.

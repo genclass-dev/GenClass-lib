@@ -117,8 +117,8 @@ newer data (search.results). (stale, 0.97; discard 0.98)
 In production these lines print in your users' browsers. From `0.3.0` you can send them to your own endpoint or your
 log shipper as well: `npx @genclass/runtime@beta init --sink webhook:/genclass`, or `data-sink="webhook:/genclass"` on
 the script tag ([See it where you already look](#see-it-where-you-already-look)). Forwarding to Sentry, PostHog or
-Datadog is not part of the free runtime; on Pro, the GenClass collector forwards detections to them once you turn it on
-([genclass.dev/pricing](https://genclass.dev/pricing)).
+Datadog is not part of the runtime; on every genclass.dev plan, Free included, the GenClass collector forwards detections
+to them once you turn it on ([genclass.dev/pricing](https://genclass.dev/pricing)).
 
 ## Install
 
@@ -339,9 +339,8 @@ where GenClass acts.
 **New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami`, `logout` or `dashboard`). Each
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
-a GenClass account, or use one private link per app without an account. The dashboard and its analytics are free for
-every app, with no plan, trial or card: what GenClass found, on which pages, what it did, and (with `analytics: true`)
-how visitors use each page, over the last 90 days. Pro adds a year of history, export and forwarding.
+a GenClass account, or use one private link per app without an account. The dashboard is free for every app, with
+90 days of history; [Individual](https://genclass.dev/pricing) adds a classifier GenClass trains for you.
 
 ```bash
 npx @genclass/runtime@beta dashboard # print the link to this app's dashboard (--open: open it in your browser)
@@ -839,8 +838,8 @@ intervention, undo, breaker trip and runtime error to your own side as well: one
 for a log shipper (`console-json`), batched POSTs to an endpoint you own (`webhook`), or a function or `{ send }` object
 of yours. The records go only where you point them. The console default does not change.
 
-**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime. On Pro, the
-GenClass collector forwards detections to them (or Slack, or a signed webhook) once you turn it on in the dashboard
+**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the runtime. On every
+genclass.dev plan, Free included, the GenClass collector forwards detections to them (or Slack, or a signed webhook) once you turn it on in the dashboard
 ([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime itself has no adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
 so, and nothing is loaded or sent for those names; `init --sink sentry` stops with a usage error that says the same.
 

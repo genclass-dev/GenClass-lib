@@ -4,10 +4,8 @@ Cloudflare Worker that receives the default-on diagnostics batches from `@gencla
 [`packages/runtime/TELEMETRY.md`](../packages/runtime/TELEMETRY.md)) and stores them in R2, that gives every web app
 a token and a private dashboard on genclass.dev, and that holds the optional accounts (Google, an email and a
 password, or GitHub, with passkeys as extra security) which keep several apps in one place and let `npx @genclass/runtime login` connect an app
-([Accounts](#accounts)). Analytics are free: every app's dashboard, interaction analytics included, opens on the Free
-plan, in an account or by its private link, for any number of apps, over the 90 days every app's data is kept. Pro
-adds a year of history, export and forwarding; an account gets one trial of Pro, started on Stripe Checkout with a
-card that is first charged when the trial ends ([Trials and grants](#trials-and-grants)).
+([Accounts](#accounts)). The dashboard is free: every plan includes it, analytics, export and forwarding, and
+Individual adds a classifier GenClass trains for the buyer ([Paid plans](#paid-plans)). There is no trial.
 
 - **Deployed:** worker `genclass-telemetry`, account `144bd5f5270b51dbe7faf46227a154f0`.
   - `https://genclass-telemetry.mehar-144.workers.dev` (workers.dev). Runtime `0.2.1` and earlier send to this URL +
@@ -53,12 +51,12 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `src/auth.ts` | accounts: Google, email and password, GitHub, passkeys (sign-in, the passkey step, fresh confirmations), sessions, CSRF, the device flow, owned apps, their routes and their retention |
 | `src/password.ts` | passwords: the PBKDF2 hash string, the rules for a new password, the schedule of the delay after wrong ones |
 | `scripts/password-hash.mjs` | for the owner: a hash string for a manual password reset ([Owner steps: a forgotten password](#owner-steps-a-forgotten-password)) |
-| `src/trial.ts` | the pricing page's way to the one trial of Pro per account (`GET /account/trial`; the trial itself is a Stripe Checkout with a card, `POST /api/billing/trial` in `src/billing.ts`) |
+| `src/locked.ts` | the locked private-link page, for a plan file whose plan leaves the dashboard out (none today; the tests run it on a fixture) |
 | `src/webauthn.ts`, `src/cbor.ts` | WebAuthn verification with WebCrypto and a minimal CBOR decoder (no dependencies) |
-| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/forgot`, `/login/passkey`, `/login/device`, `/account` and the account message pages |
+| `src/account-pages.ts` | HTML for `/signup`, `/login`, `/login/forgot`, `/login/passkey`, `/login/device`, `/account`, the locked private-link page and the account message pages |
 | `src/http.ts` | shared JSON response and capped body reader |
 | `../billing/plans.json` | the plans (prices, Stripe lookup keys, limits, entitlements, pricing-page lines); the site's build reads it too |
-| `src/plans.ts` | plans from `plans.json`, what an account may use now (paid plan, grant, trial or Free: `accountAccess`), the Free plan's limits, dashboard ranges per plan, the plan-aware retention sweep |
+| `src/plans.ts` | plans from `plans.json`, what an account may use now (paid plan, grant or Free: `accountAccess`), the Free plan's limits, dashboard ranges per plan, the plan-aware retention sweep |
 | `src/stripe.ts` | Stripe over `fetch`: Checkout, Billing Portal, cancellation, webhook signature and events, plan from a subscription |
 | `src/billing.ts`, `src/billing-pages.ts` | the billing, forwarding, export and export-key routes; `/account/billing` and the app page's Forwarding and Export sections |
 | `src/forward.ts`, `src/paid.ts` | forwarding to Sentry, PostHog, Datadog, Slack and webhooks (encrypted settings, dedupe, hourly cap); what runs after each stored batch |
@@ -66,7 +64,7 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `../scripts/stripe-setup.mjs` | for the owner: Stripe products, prices, webhook endpoint and Billing Portal from `plans.json` |
 | `test/billing.test.ts`, `test/forward.test.ts`, `test/export.test.ts` | paid plans: Stripe mocked (`test/account-helpers.ts`), the rest as below |
 | `migrations/*.sql` | D1 schema |
-| `test/index.test.ts`, `test/dashboard.test.ts`, `test/auth.test.ts`, `test/trial.test.ts`, `test/pages.test.ts` | unit tests (R2 mocked; D1 = `node:sqlite` running the real migrations, `test/d1.ts`; passkeys from a software authenticator, `test/authenticator.mjs`; Google and GitHub mocked; the dashboard page's script rendered in happy-dom) |
+| `test/index.test.ts`, `test/dashboard.test.ts`, `test/auth.test.ts`, `test/locked.test.ts`, `test/plans.test.ts`, `test/pages.test.ts` | unit tests (R2 mocked; D1 = `node:sqlite` running the real migrations, `test/d1.ts`; passkeys from a software authenticator, `test/authenticator.mjs`; Google and GitHub mocked; the dashboard page's script rendered in happy-dom) |
 
 ## Endpoints
 
@@ -76,9 +74,9 @@ genclass.dev/dashboard/<secret> --> dashboard page --GET /api/projects/<secret>?
 | `OPTIONS /v1/events` | CORS preflight (`access-control-allow-origin: *`) |
 | `GET /v1/health` | `{ ok: true, schema }` |
 | `POST /api/projects` | body `{ name? }` (JSON object or empty; name sanitised, at most 80 chars, default "Untitled app"). 201 `{ token, dashboardUrl, name, created }`, `dashboardUrl` = `https://genclass.dev/dashboard/<32 base62>`. CORS `*`, no credentials. 429 JSON when rate-limited, 400 bad JSON, 413 over 4 KB. |
-| `GET /api/projects/<secret>?range=24h\|7d\|30d` | dashboard stats JSON (default `7d`), whatever plan the app's account has, or with no account (analytics are free): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible, ix_views), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. Apps that turned on interaction analytics (runtime `interactions` events, [docs/runtime/ANALYTICS.md](../docs/runtime/ANALYTICS.md)) also get `ix_views`, `ix_engaged_ms`, `ix_click`, `ix_rage` and `ix_dead` totals and breakdowns (by route, or route TAB element key; `ix_scroll` by route TAB milestone; top 200 each), counted with their own per-batch budget. 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
+| `GET /api/projects/<secret>?range=24h\|7d\|30d` | dashboard stats JSON (every plan includes the dashboard; a plan file that left it out would answer 402 `{ ok:false, error, locked:true }`) (default `7d`): `name, token, created, lastEvent, range, from, generated, totals, breakdowns{metric: [{key,count}]}` (top 25 each; 200 for `detect_issue` and `possible_issue`), `distinct{metric: n}` (distinct keys before that cut, e.g. pages with a problem), `series` (24 hourly or 7/30 daily buckets: sessions, decisions, detections, acted, possible, ix_views), `recent` (last 50 detections/interventions in the window; possible ones are not listed). `totals` also has `latencyAvgMs`, `modelLoadAvgMs`, `failOpens`, `modelErrors`, `interventions`, `actionLimits`, `detectionsWithPage` and `possibleWithPage`. Apps that turned on interaction analytics (runtime `interactions` events, [docs/runtime/ANALYTICS.md](../docs/runtime/ANALYTICS.md)) also get `ix_views`, `ix_engaged_ms`, `ix_click`, `ix_rage` and `ix_dead` totals and breakdowns (by route, or route TAB element key; `ix_scroll` by route TAB milestone; top 200 each), counted with their own per-batch budget. 404 `{ ok:false, error:"not found" }` for an unknown or malformed secret. Same-origin only (no CORS). |
 | `GET /start` | "Get a token" page |
-| `GET /dashboard/<secret>` | the dashboard, on every plan and with no account. 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
+| `GET /dashboard/<secret>` | the dashboard (for an app with no account too: it is on Free), in views a sidebar switches between: Overview (the summary, the tiles, the trend), Problems, Pages and Actions, Activity, Visitors, Health, and Setup on a private link (Connect, Forwarding and Export in account mode); the hash names the view (`#found`, `#recent-s`), the header has a breadcrumb and the Dashboard guide (genclass.dev/docs/dashboard), and without the script every section shows. With a plan file that left the dashboard out, the locked page (sign in, add the app to the account, see the plans; `src/locked.ts`). 404 page for an unknown secret; `GET /dashboard` redirects to `/start`. `/dashboard/sample` stays open |
 
 Rate limits on batches: `LIMIT`, 1200 per 60 s per client IP (a ceiling for offices and campuses behind one address;
 since runtime 0.2.2 a page stops sending after 3 failed requests in a row, so a low per-IP limit would silence every
@@ -184,9 +182,8 @@ rate-limit key.
 
 ## Accounts
 
-Optional for the runtime, for collection and for the dashboards: `/start`, secret dashboard links and ingest keep
-working without one. An account keeps several apps in one place, holds the plan or the trial (Pro's year of history,
-export and forwarding), and lets the CLI (`npx @genclass/runtime login`, in `packages/runtime/bin/lib/login.mjs`
+Optional for the runtime and for collection: `/start`, secret dashboard links and ingest keep working without
+one. An account keeps several apps in one place, holds its plan, and lets the CLI (`npx @genclass/runtime login`, in `packages/runtime/bin/lib/login.mjs`
 and `account.mjs`, from `@genclass/runtime` 0.3.0) connect an app without copying keys around. Code: `src/auth.ts`
 (routes and rules), `src/password.ts` (passwords), `src/webauthn.ts` + `src/cbor.ts` (passkeys),
 `src/account-pages.ts` (pages); tests in
@@ -318,8 +315,8 @@ minutes in a single-use row named by the `gc_pending` cookie).
   when the session last proved a passkey (sign-in, the passkey step, a confirmation).
 - What a CLI session (bearer) may do is what the CLI needs and the approval page says: `GET /api/me`,
   `GET /api/account/projects`, `POST /api/account/projects`, `POST /api/account/projects/claim` and
-  `DELETE /api/account/sessions/current`. Stats, other sessions, passkeys, private links, starting a trial and
-  deleting the account answer 403 to a bearer token.
+  `DELETE /api/account/sessions/current`. Stats, other sessions, passkeys, private links and deleting the
+  account answer 403 to a bearer token.
 - CSRF: every state-changing request authenticated by the cookie must send `Origin` equal to `AUTH_ORIGIN` (403
   otherwise); the passkey endpoints require it even without a session. The JSON endpoints the pages call require
   `Content-Type: application/json` (415 otherwise). Bearer requests carry no ambient credentials and need no Origin.
@@ -345,8 +342,8 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `POST /api/auth/password` | cookie + Origin | change (`{ current, password }`, or `{ password }` after a fresh passkey) or add (`{ email?, password }`) the account's password → `{ ok, changed \| added }`; 403 `{ confirm: true }` when a passkey must answer first; 403 for a bearer token |
 | `GET /login/passkey` | `__Host-gc_mfa` | the passkey step after a password, Google or GitHub for an account with a passkey; 400 page when the step expired or is missing |
 | `POST /logout` | cookie + Origin | revokes the session, clears the cookie, 303 to `/login?signed_out=1` |
-| `GET /account` | cookie | the account page (302 to `/login?next=/account` without one): apps, Security (sign-in methods, "Require a passkey at sign-in", Add a passkey), sessions |
-| `GET /account/apps/<id>` | cookie | an owned app's dashboard with the Connect panel, on every plan (on a trial from before cards: "Pro trial: N days left", the only place the length shows); 404 for an app of another account |
+| `GET /account` | cookie | the account page (302 to `/login?next=/account` without one): apps (and "Your plan has no dashboard" with See plans, for a plan file that left it out), Security (sign-in methods, "Require a passkey at sign-in", Add a passkey), sessions. `?claim=1` returns to a locked private link this tab kept |
+| `GET /account/apps/<id>` | cookie | an owned app's dashboard with the Connect panel; for a plan without the dashboard (none today), the locked page (the key, the Connect panel, See plans, no stats); 404 for an app of another account |
 | `GET /login/device?code=ABCD-EFGH` | cookie optional | signed in: the code and the request, Approve and Deny; signed out: the code and the ways to sign in, whether or not the code is live |
 | `GET /auth/google`, `GET /auth/google/callback` | - | Google sign-in (404 page when not configured); `?link=1` needs a session |
 | `GET /auth/github`, `GET /auth/github/callback` | - | GitHub sign-in, same rules |
@@ -364,7 +361,7 @@ minutes in a single-use row named by the `gc_pending` cookie).
 | `GET /api/account/projects` | bearer or cookie | `{ projects: [project] }` (the Connect panel polls this every 5 s) |
 | `POST /api/account/projects` | bearer, or cookie + Origin | `{ name }` → 201 `{ project }`; at most 200 apps per account |
 | `POST /api/account/projects/claim` | bearer, or cookie + Origin | `{ dashboard_url }` or `{ secret }` → 200 `{ project }`: the secret-link app joins the account and its link keeps working; 409 when another account owns it or the account holds 200 apps, 404 for an unknown link |
-| `GET /api/account/projects/<id>/stats?range=` | cookie | the dashboard stats (same shape as `/api/projects/<secret>`), owned apps only, on every plan (Free: up to 90 days; a longer `range` is answered with 90 days); 403 for a bearer token |
+| `GET /api/account/projects/<id>/stats?range=` | cookie | the dashboard stats (same shape as `/api/projects/<secret>`), owned apps only; 402 `{ locked: true, upgrade_url }` for a plan without the dashboard (none today); 403 for a bearer token |
 | `DELETE /api/account/projects/<id>/link` | cookie + Origin | turn off the app's private dashboard link (its hash is replaced by one nobody holds); 204 |
 | `DELETE /api/account/sessions/current` | bearer (CLI logout) or cookie + Origin | 204 |
 | `DELETE /api/account/sessions/<id>` | cookie + Origin | revoke one of this account's sessions; 204, 404 otherwise (403 for a bearer token) |
@@ -405,7 +402,6 @@ The daily cron also deletes expired challenges and device codes and expired or r
 | `RUNTIME_ON_NPM` | var (wrangler.toml) | `0.2.2` | the newest `@genclass/runtime` on npm, on any dist-tag; below `0.3.0-beta.0` the Connect panel, `/start` and private dashboards say first that keys and `login` are not published yet. Set it to `0.3.0-beta.0` once release.yml has published the beta and jsDelivr serves it, then deploy; at `0.3.0`, set it with `src/pages.ts` `SNIPPET_RUNTIME` and `RUNTIME_PKG` (the snippets pin the script tag to `SNIPPET_RUNTIME` and name the `@beta` dist-tag in their commands while it is a prerelease) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secret | unset | Google sign-in, the first way in; both needed. An email and a password are offered either way |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | secret | unset | GitHub sign-in; both needed |
-| `TRIAL_DAYS` | var (wrangler.toml) | `"7"` | how long a trial of Pro lasts (1 to 60; anything else counts as 7). The billing page says it ("start your 7-day free trial", "Start your 7-day free trial"); the site says the same number from `billing/plans.json` `trial_days`, and `test/trial.test.ts` fails when the two differ: change them together |
 
 Production needs no other vars (the defaults are production). For local development see `.dev.vars.example`.
 
@@ -439,8 +435,8 @@ In the Google Cloud console, project of your choice, open **Google Auth Platform
 
 ### Migration 0006 (`migrations/0006_trials_passkey_step.sql`)
 
-Additive: `accounts.trial_started_at`, `accounts.trial_ends_at` (the one trial; NULL until started), `accounts.comp_until`
-(GenClass's own grant of Pro; NULL, set only by hand) and `auth_sessions.passkey_at` (when the session last proved a
+Additive: `accounts.trial_started_at`, `accounts.trial_ends_at` (the trial GenClass had until 2026-10-19; unused
+since), `accounts.comp_until` (GenClass's own grant, today of Enterprise; NULL, set only by hand) and `auth_sessions.passkey_at` (when the session last proved a
 passkey; NULL for every existing session). No existing value changes. The code reads these columns, so apply it before
 deploying:
 
@@ -500,13 +496,26 @@ npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "
 
 ## Paid plans
 
-The plans live in [`billing/plans.json`](../billing/plans.json): Free (US$0: the open-source runtime, its on-device
-model, and the dashboard with interaction analytics for every app, 90 days), Pro (US$99 a month: a year of history,
-export, forwarding; P0/P1 email alerts listed as not available yet) and Custom (US$599 a month), with their limits (`apps`, `history_days`), entitlements
-(`dashboard`, `forwarding`, `export`, `analytics`, `custom_model`),
-Stripe lookup keys (`genclass_pro_monthly`, `genclass_custom_monthly`; a yearly price can be added later), product tax
-codes (`stripe_tax_code`) and whether the plan is sold through Stripe Managed Payments (`managed_payments`: Pro only).
-Change a price or a limit there; `src/plans.ts` imports the file and `scripts/stripe-setup.mjs` makes Stripe match it.
+The plans live in [`billing/plans.json`](../billing/plans.json) (version 2, 2026-10-19):
+
+- **Free** (US$0): the open-source runtime and its on-device model, and the dashboard for every app, with 90 days of
+  history, export and forwarding. Interaction analytics is listed as coming next.
+- **Individual** (US$29 a month, lookup key `genclass_individual_monthly`): everything in Free, a year of history, and
+  a classifier a person from GenClass trains for the buyer (`custom_model`).
+- **Enterprise** (no price: agreed by email with the contact address): GenClass's models run in GenClass's cloud for
+  the buyer's apps, on terms agreed together. It has no Stripe product; an account gets it from GenClass's own grant
+  (below).
+
+Each plan has its limits (`apps`, `history_days`), entitlements (`dashboard`, `forwarding`, `export`, `analytics`,
+`custom_model`), Stripe lookup keys (a yearly price can be added later), product tax code (`stripe_tax_code`) and
+whether it is sold through Stripe Managed Payments (`managed_payments`: no plan is). `grant_plan` names the plan the
+grant gives. Change a price or a limit there; `src/plans.ts` imports the file and `scripts/stripe-setup.mjs` makes
+Stripe match it for the plans priced above 0. Nothing in `src/` names a plan but Free and the grant's: every check reads
+an entitlement or a limit, so the pages say which plans include something from the file. Until 2026-10-19 the plans
+were Free without a dashboard, Pro (US$99, the dashboard) and Custom (US$599, a trained classifier), with a 7-day
+trial of Pro; the tests keep that file as a fixture (`test/fixtures/plans-two-paid.json`, loaded with `vi.mock`), so
+the code that only two paid plans or a locked dashboard reach (switches, duplicates, Managed Payments, the locked
+pages) stays tested. `test/plans.test.ts` checks the real file.
 
 GenClass bills through a Stripe account of its own, "GenClass" (Canada). The worker and the setup script touch only
 objects they can prove are GenClass's ("Stripe object ownership" below).
@@ -517,164 +526,94 @@ price names a plan only when it is provably GenClass's: a lookup key starting wi
 `genclass_<plan>_monthly_retired_<price id>` and its subscribers stay on it, on the same product, so they keep their
 plan. `active` and `trialing` give the plan; `past_due` keeps it for 14 days from when GenClass first saw the
 subscription past due (`accounts.past_due_since`), then the account is on Free, whatever the Stripe account's retry
-settings; `unpaid` and anything else is Free. Entitlements follow the plan.
+settings; `unpaid` and anything else is Free. Entitlements follow the plan. A test-mode `pro` or `custom` plan from
+before 2026-10-19 counts as Free.
 
-The key's prefix sets the mode. With a live key (`sk_live_`) paid plans are on sale. With a test key (`sk_test_`) only the
-accounts listed in `STRIPE_TEST_ACCOUNTS` can buy and nobody else sees a button, so a test pass can run on the
-production worker. The Free plan (the dashboard, any number of apps, 90 days) applies whatever the key; without a key
-that can sell to the account there is no trial either, since a trial is a Stripe Checkout. `accounts.stripe_mode` records which mode the
-Stripe ids belong to: a plan bought in test mode counts only while the key is a test key (it is Free once the key is
-live, and that account's next purchase gets a new live customer). A live plan always counts, whatever the key.
+The key's prefix sets the mode. With a live key (`sk_live_`) Individual is on sale. With a test key (`sk_test_`) only
+the accounts listed in `STRIPE_TEST_ACCOUNTS` can buy and nobody else sees a button, so a test pass can run on the
+production worker. The Free plan applies whatever the key. `accounts.stripe_mode` records which mode the Stripe ids
+belong to: a plan bought in test mode counts only while the key is a test key (it is Free once the key is live, and
+that account's next purchase gets a new live customer). A live plan always counts, whatever the key.
 
-| | Free (no plan, grant or trial) | Pro, Custom; a grant or a trial gives Pro's |
-|---|---|---|
-| dashboard, interaction analytics | yes | yes |
-| apps per account | no plan limit; the 200-app abuse cap stays | no plan limit; the 200-app abuse cap stays |
-| dashboard ranges | 24 h, 7, 30, 90 days | 24 h, 7, 30, 90 days, 1 year |
-| kept (daily counters, recent rows, stored batches) | 90 days, as every project before plans | 1 year, and 30 days of grace after a paid period ends |
-| forwarding, export | no | yes |
-| `custom_model` | no | Custom only |
+| | Free (no plan or grant) | Individual | Enterprise (a grant) |
+|---|---|---|---|
+| dashboard, interaction analytics | yes | yes | yes |
+| apps per account | no plan limit; the 200-app abuse cap stays | the same | the same |
+| dashboard ranges | 24 h, 7, 30, 90 days | and 1 year | and 1 year |
+| kept (daily counters, recent rows, stored batches) | 90 days, as every project before plans | 1 year, and 30 days of grace after a paid period ends | 1 year while the grant runs |
+| forwarding, export | yes | yes | yes |
+| `custom_model` | no | yes (a person from GenClass follows up each purchase: `custom_requests`) | yes |
 
-Apps without an account (private links, from `/start` or the CLI's `init`) are collected and kept 90 days, and their
-link opens the dashboard (24 hours, 7 and 30 days), as does a private link to an app in an account on any plan.
-Nothing checks the `dashboard` and `analytics` entitlements any more: they are true in every plan, and
-`test/free-analytics.test.ts` fails if a plan loses them, a route answers 402, or a page says a dashboard needs Pro.
+Apps without an account (private links, from `/start` or the CLI's `init`) are on Free: collected, kept 90 days, and
+their link opens the dashboard (24 hours, 7 and 30 days).
 
-### Trials and grants
+### Grants (Enterprise) and no trial
 
-- **Trial.** One per account, and only with a card: "Start your 7-day free trial" on `/account/billing` (the pricing
-  page's button, `/account/trial`, leads there with the button focused, through sign-up when signed out; a GET never
-  starts one) posts to `POST /api/billing/trial`, which answers `{ url, trial: true }` of a Stripe
-  Checkout for Pro (the same path as `/api/billing/checkout`, so the same customer checks, rate limit and on-sale
-  rule): `payment_method_collection=always` (the card is entered there, although nothing is due today),
-  `subscription_data[trial_period_days]` = `TRIAL_DAYS` and
-  `subscription_data[trial_settings][end_behavior][missing_payment_method]=cancel` (a trial that reaches its end with
-  no payment method is cancelled, not invoiced), metadata `genclass_trial=1` on the session, success URL
-  `/account/billing?done=1&trial=1`. The route writes nothing: Pro comes from the webhook, as for a purchase, once
-  Stripe has the `trialing` subscription, and a trialing subscription the account has not been granted yet counts
-  only with a saved payment method (its `default_payment_method` or `default_source`, or the customer's default;
-  `src/stripe.ts` `cardOnFile`) that **holds $1** (`cardCheck`): before granting, the webhook asks Stripe for a USD 1
-  PaymentIntent on that card (`capture_method=manual`, `confirm`, `off_session`, idempotency key
-  `genclass-card-check-<subscription>`, metadata `genclass_card_check=<subscription>`) and cancels it at once, which
-  releases the hold; nothing is captured. Stripe's own check when Checkout saves a card is a USD 0 validation, which
-  does not show the card can pay. A card the bank declines gets no trial: the subscription gets metadata
-  `genclass_card_check=failed` (no later event about it is applied, and it does not count as a first plan) and is
-  cancelled at once, `accounts.trial_check_failures` goes up and `trial_check_failed_at` is set (migration 0008), and
-  the billing page says the card did not pass and offers the trial again with another card; after 3 failed cards the
-  trial is refused (409), against card testing. A bank asking for authentication counts as a pass (Checkout
-  authenticated the card when it saved it). The hold is only ever placed through Stripe, and only where GenClass may
-  place it: none for a Managed Payments subscription (Link is the merchant of record and only it may charge the card;
-  Stripe's own validation still runs) or a payment method that is not a card or Link. The webhook then sets
-  `trial_started_at` from the subscription's `trial_start`, once.
-  Refused with 409: an account with a plan, a grant or a running trial, one that started a trial before
-  (`trial_started_at`), and one that has had a GenClass subscription (recorded in `accounts.subscription_id`, or any
-  GenClass subscription Stripe lists on its customer, in any status); 503 while the account cannot buy (`canBuy`),
-  403 for a CLI token. Pages show the button only when `src/plans.ts` `canTrial` holds, and say next to it that a card
-  is required and when it is first charged (`trialTerms`); the billing page says the trial's end date while it runs.
-  When the trial ends Stripe charges the card for the first month: paid, the subscription is `active`; failed, it is
-  `past_due` like any failed renewal (Pro for 14 days from then while Stripe retries, then Free; Revenue recovery's
-  emails go to the buyer). Cancelled during the trial (Manage billing), it ends at the trial's end and nothing is
-  charged. Public copy says the length ("start your 7-day free trial": the billing page from `TRIAL_DAYS`, the site
-  from `billing/plans.json` `trial_days`) and that a card is required. Afterwards, without a plan, the account is on
-  Free ("Your trial of Pro has ended" on the billing page): its dashboards stay open over 90 days, and its data older
-  than 90 days goes with the next sweep.
-- **Migration 0008** (`migrations/0008_trial_card_check.sql`): additive, `accounts.trial_check_failures` (default 0)
-  and `accounts.trial_check_failed_at`. The billing routes read them, so apply it before deploying:
-  `npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`.
-- **Trials from before cards** (`trial_ends_at`): until this change, `POST /api/billing/trial` set `trial_started_at`
-  and `trial_ends_at` with no card. Nothing writes `trial_ends_at` any more; a trial started that way keeps Pro until
-  its `trial_ends_at` (at most `TRIAL_DAYS` after it started) and says its days left in the dashboard, then ends as
-  before. To end those at once instead:
-  `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET trial_ends_at = NULL WHERE trial_ends_at IS NOT NULL"`.
-- **Grant** (`comp_until`): Pro's entitlements until that time, for the owner's own apps or a partner, set only by hand:
+- **Grant** (`comp_until`): the plan `billing/plans.json` `grant_plan` names (Enterprise) until that time, set only by
+  hand, to the end of the agreement:
 
   ```sh
   # the account by email; 9999-12-31 means until revoked
   npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET comp_until = '9999-12-31T00:00:00.000Z' WHERE email = 'mehar@daybot.ca'"
   # revoke it
   npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET comp_until = NULL WHERE email = 'mehar@daybot.ca'"
-  # give an account that had a trial another one (it then has Start a trial again, still on Checkout with a card;
-  # an account that has had a subscription gets none: Stripe lists it on the customer)
-  npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET trial_started_at = NULL, trial_ends_at = NULL WHERE id = '<account id>'"
   ```
 
-  Apart from the trials from before cards (above), a grant is the one way to Pro without a card, and only the owner
-  makes one, by hand.
+  When an account has both a paid plan and a grant, the plan listed later in `billing/plans.json` applies (the paid
+  one when they are the same; `src/plans.ts` accessOf), so an Enterprise grant covers an account that also pays for
+  Individual (cancel that subscription in Stripe if the agreement replaces it). The collector caches each app's plan
+  for a minute, so a hand-made change reaches forwarding and export within one.
+- **No trial.** GenClass dropped the 7-day trial of Pro on 2026-10-19, when the dashboard became free. Nothing starts
+  one: `POST /api/billing/trial` answers 410, `GET /account/trial` (genclass.dev's pricing page linked it until
+  then) leads to `/account`, and Checkout never asks Stripe for trial days. The columns the trial used stay (migrations 0006
+  and 0008: `trial_started_at`, `trial_ends_at`, `trial_check_failures`, `trial_check_failed_at`) and nothing reads or
+  writes them. A subscription in Stripe's `trialing` status (one made by hand in the Stripe dashboard) counts like an
+  active one once it has a saved payment method (`src/stripe.ts` `cardOnFile`); a trial from before whose card failed
+  the $1 check (`genclass_card_check=failed`) is never applied.
 
-  A paid plan wins over a grant, and a grant over a trial (`src/plans.ts` accessOf). The collector caches each app's
-  plan for a minute, so a hand-made change reaches forwarding and export within one.
-- An anonymous app (a private link) gets Pro's extras when it is added to an account that has Pro ("Add an existing
-  dashboard" on `/account`, or `npx @genclass/runtime connect`: `POST /api/account/projects/claim`). Its dashboard is
-  open either way.
+### How Individual is sold
 
-### How Pro and Custom are sold
+A flat monthly price paid up front on Stripe-hosted Checkout, for the account's own GenClass customer, with flexible
+billing mode (`subscription_data[billing_mode][type]=flexible`) and a payment method always collected. Stripe's
+implementation planner recommended this set-up for the account; the reasons and the documentation behind each point
+are in "Stripe documentation notes" below.
 
-Both are flat monthly prices paid up front on Stripe-hosted Checkout, for the account's own GenClass customer, with
-flexible billing mode (`subscription_data[billing_mode][type]=flexible`). Stripe's implementation planner recommended
-this set-up for the account; the reasons and the documentation behind each point are in "Stripe documentation notes"
-below.
-
-**Pro: Stripe Managed Payments, once the owner turns it on.** With `MANAGED_PAYMENTS = "on"` in `wrangler.toml`,
-Pro's Checkout Session carries `managed_payments[enabled]=true`, which makes Stripe the merchant of record for Pro.
-The var is `"off"` (and unset counts as off) until the owner has accepted the Managed Payments terms and one test-mode
-Pro checkout with it on went through ("Owner steps" below): Stripe's changelog lists the parameter under a newer API
-version than the one the worker pins. Off, Pro is sold on standard Checkout like Custom. On, Stripe sells Pro to the
-buyer through Link, its checkout and wallet service:
-
-- The Checkout page is Link's, and the buyer sees the purchase as "Sold through Link". Link sends the receipts,
-  invoices and refund notices for Pro (the dashboard's receipt settings do not apply to them), and the card statement
-  reads `LINK.COM* <statement descriptor>`, Link's name and not GenClass's.
-- Stripe works out, collects and remits the sales tax, VAT or GST on Pro in more than 80 countries. To do that the
-  Checkout page asks the buyer for a name and billing address and Stripe keeps them on the customer; the worker reads
-  a customer only for its metadata and stores none of it. Whether tax is added on top of US$99 or included in it
-  follows the price's tax behaviour, by default the account's "Include tax in prices" setting (Managed Payments adds
-  it on top unless that says otherwise).
-- Stripe handles fraud screening, disputes (it may accept one it expects to lose) and payment support through Link
-  support. It may refund a Pro payment within 60 days of the transaction in some cases, and may refund without asking
-  when it escalates a question to GenClass's support email (Settings, Business details) and gets no answer within 48
-  hours.
-- A Pro buyer can also cancel, change the card or update the billing address on link.com; those changes reach the
-  webhook as `customer.subscription.*` events like any other. If a buyer asks Stripe to delete their data, Stripe
-  cancels their Managed Payments subscriptions and erases their data from the customer; the webhook then still ends
-  the recorded plan ("Routes", webhook).
-- It costs 3.5% of each successful Pro payment on top of Stripe's payment fees (stripe.com/pricing). That is the
-  owner's choice: `MANAGED_PAYMENTS = "off"` in `wrangler.toml` (then a deploy) sells new Pro subscriptions on standard
-  Checkout, with GenClass as the seller and responsible for the tax; subscriptions already sold through Managed
-  Payments stay so until they end.
-
-**Custom: standard Checkout.** Managed Payments takes only fully automated digital products, and Custom is a person
-training a model for the buyer, so Custom never uses it, whatever `MANAGED_PAYMENTS` says. GenClass is the seller of
-Custom; Stripe Tax's threshold monitoring tells the owner when Custom's sales reach a registration threshold. Custom's
-Checkout collects no tax (no `automatic_tax`); once the owner registers somewhere, turning automatic tax on for Custom
-is a small change in `checkoutSession` (`src/stripe.ts`).
+**Standard Checkout, GenClass the seller.** Managed Payments takes only fully automated digital products, and
+Individual is a person training a model for the buyer, so no plan uses it (`managed_payments` false; `MANAGED_PAYMENTS`
+stays `"off"`). The worker keeps the Managed Payments path for a plan marked `managed_payments` (Pro was, until
+2026-10-19): with `MANAGED_PAYMENTS = "on"` that plan's Checkout Session carries `managed_payments[enabled]=true`,
+Stripe sells it through Link as the merchant of record (Link's Checkout page, receipts and statement name; Stripe
+collects the tax, handles fraud and disputes and may refund within 60 days; 3.5% of each payment on top of Stripe's
+fees), and nothing Managed Payments refuses is sent. Stripe Tax's threshold monitoring tells the owner when sales reach
+a registration threshold. Individual's Checkout collects no tax (no `automatic_tax`); once the owner registers
+somewhere, turning automatic tax on is a small change in `checkoutSession` (`src/stripe.ts`).
 
 **Tax codes** (set on the products by `scripts/stripe-setup.mjs` from `billing/plans.json`):
 
 | plan | code | why |
 |---|---|---|
-| Pro | `txcd_10103001` Software as a service (SaaS), business use | eligible for Managed Payments. What Pro sells is hosted software for businesses (dashboards, a year of history, export, forwarding); the classifier runs in the buyer's own pages from the free open-source runtime, so the AI-as-a-service codes (`txcd_10105002`, `txcd_10105004`, also eligible) describe Pro less well |
-| Custom | `txcd_10203001` Downloadable Software, custom, business use | not eligible, as Custom is not. Custom's deliverable is a model trained for one buyer that their runtime downloads; `txcd_20060000` Professional Services is the other candidate. The owner's accountant has the last word on both |
+| Individual | `txcd_10203001` Downloadable Software, custom, business use | Individual's deliverable is a model trained for one buyer that their runtime downloads; `txcd_20060000` Professional Services is the other candidate. Not eligible for Managed Payments. The owner's accountant has the last word |
 
 **A plan is granted once Stripe has the money.** Stripe can make a subscription `active` while its first payment is
 still processing (a bank debit can take days). So a subscription the account has not been granted yet counts only
 when its latest invoice is paid, or asks for nothing; until then the webhook changes nothing. The endpoint takes
 `invoice.paid` for this: when the payment clears, the worker reads the invoice's subscription id (nothing else of the
 invoice, which carries the buyer's name, email and address), fetches the subscription again and grants the plan. A
-Custom purchase is recorded on that same event.
+purchase of a plan with a custom model (Individual) is recorded on that same event.
 
-**Switching between Pro and Custom** is a new Checkout for the other plan, never a price change in the portal: a
-Managed Payments subscription can only hold eligible products and only authorises Managed Payments to charge the
-card, so Pro's subscription cannot take the Custom price, and moving Custom's subscription to Pro would sell Pro
-outside Managed Payments (and Checkout is the one path either way). The billing page's Switch button posts to
-`/api/billing/checkout`, which opens a Checkout whose subscription carries `genclass_switch_from=<the current
-subscription>`. When the new subscription's first payment has cleared, the webhook:
+**Switching between paid plans** (there is one paid plan today, so there is nothing to switch to; the code stays for
+a second one, and the tests run it on the fixture) is a new Checkout for the other plan, never a price change in the
+portal: a Managed Payments subscription can only hold eligible products and only authorises Managed Payments to charge
+the card, so it cannot take another plan's price (and Checkout is the one path either way). The billing page's Switch
+button posts to `/api/billing/checkout`, which opens a Checkout whose subscription carries `genclass_switch_from=<the
+current subscription>`. When the new subscription's first payment has cleared, the webhook:
 
 1. writes the new plan to the account, so the account is never without one;
 2. refunds the unused part of the old plan to the payment method that paid it: a refund on the payment intent (or
    charge) of the old subscription's latest paid invoice, of that invoice's total times the share of its paid period
    left (counted from the current hour). It is made once: the refund carries `genclass_refund=switch:<old
-   subscription>` in its metadata and an idempotency key, and a retry finds it. No balance credit: Pro's invoices are
-   issued through Link (Managed Payments) and Custom's by GenClass, so a credit on the customer's balance could be
+   subscription>` in its metadata and an idempotency key, and a retry finds it. No balance credit: a Managed Payments
+   plan's invoices are issued through Link and the others' by GenClass, so a credit on the customer's balance could be
    stranded, or pay the other issuer's invoice;
 3. cancels the old subscription at once, with no proration and no final invoice (Stripe's defaults);
 4. tells the owner (`plan_switch`, with the refund, or why there was none: a refusal, such as a payment Stripe or Link
@@ -682,11 +621,11 @@ subscription>`. When the new subscription's first payment has cleared, the webho
 
 The account is billed for both only until step 3 (a failure answers 500 and Stripe's retry finishes the job). If the
 new payment never clears (it fails, or the subscription expires unpaid), the old plan stays and nothing is refunded or
-cancelled. Note for refunds: Stripe can refund a Pro payment through Link support within 60 days of it, also after a
-switch refunded its unused part; every refund of a GenClass customer's charge reaches the owner as `charge_refunded`,
-so a double refund shows. An accidental second purchase that is not a switch (two tabs paid, an old Checkout page
-completed later) keeps the higher plan (Custom over Pro, then the newest) and refunds the other's latest payment in
-full, then cancels it; the owner gets `duplicate_subscription`. GenClass's portal configuration offers no plan switch.
+cancelled. Every refund of a GenClass customer's charge reaches the owner as `charge_refunded`, so a double refund
+shows. An accidental second purchase that is not a switch (two tabs paid, an old Checkout page completed later) keeps
+the higher plan (the one listed later in `billing/plans.json`, then the newest) and refunds the other's latest payment
+in full, then cancels it; the owner gets `duplicate_subscription`. GenClass's portal configuration offers no plan
+switch.
 
 ### Stripe documentation notes
 
@@ -699,7 +638,7 @@ does about it.
   [update-checkout](https://docs.stripe.com/payments/managed-payments/update-checkout). The changelog lists the
   parameter under `2026-02-25.preview`
   ([changelog](https://docs.stripe.com/changelog/clover/2026-02-25/managed-payments)); the integration guide's
-  `2025-03-31.basil` is what the integration guide asks for, but until a test-mode Pro checkout with
+  `2025-03-31.basil` is what the integration guide asks for, but until a test-mode checkout of an eligible plan with
   `MANAGED_PAYMENTS = "on"` has gone through with the pinned `2025-06-30.basil` (and `billing_mode` flexible beside
   it), the var stays `"off"` (a refusal would show as "Stripe: ..." on the billing page).
 - **Not allowed with it (subscription mode):** `adaptive_pricing`, `automatic_tax`, `tax_id_collection`,
@@ -721,7 +660,7 @@ does about it.
 - **Eligible products.** Fully automated digital products sold directly, with an eligible product tax code;
   professional services and services with human involvement are not
   ([eligibility](https://docs.stripe.com/payments/managed-payments/eligibility), which lists `txcd_10103001` among
-  the eligible codes; Canada is a supported business location). Custom stays on standard Checkout.
+  the eligible codes; Canada is a supported business location). Individual stays on standard Checkout.
 - **Changing and cancelling.** Buyers manage Managed Payments orders on link.com (cancel or update subscriptions,
   payment methods, billing address); the Customer Portal can be offered too; `subscription.default_payment_method`
   cannot be changed through the API for these subscriptions, only by the buyer in the portal
@@ -750,30 +689,30 @@ does about it.
 - **Flexible billing mode.** `subscription_data.billing_mode[type]=flexible` on a Checkout Session; it needs API
   version `2025-06-30.basil` or later, and before `2025-09-30.clover` the default is `classic`
   ([billing mode](https://docs.stripe.com/billing/subscriptions/billing-mode)). It is not on Managed Payments' list of
-  refused parameters, so both plans use it, and the worker's pinned version moved from `2025-03-31.basil` to
+  refused parameters, so every plan uses it, and the worker's pinned version moved from `2025-03-31.basil` to
   `2025-06-30.basil`: monthly releases within a major release add no breaking changes
   ([versioning](https://docs.stripe.com/api-versions)). With flexible mode a cancellation at period end sets `cancel_at`
   rather than `cancel_at_period_end` ([compare](https://docs.stripe.com/billing/subscriptions/billing-mode/compare));
   the worker reads both.
-- **Tax for Custom.** Stripe Tax threshold monitoring ([monitoring](https://docs.stripe.com/tax/monitoring)); the codes
+- **Tax for Individual.** Stripe Tax threshold monitoring ([monitoring](https://docs.stripe.com/tax/monitoring)); the codes
   are in the [tax code list](https://docs.stripe.com/tax/tax-codes).
 
 ### Routes
 
 | route | behaviour |
 |---|---|
-| `POST /api/billing/checkout` | `{ plan: "pro" \| "custom" }`, browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's own Stripe customer once (email, description `GenClass account`, metadata `genclass=1` and `genclass_account`); never looks one up by email. A stored customer is checked first (`GET /v1/customers/<id>`): its metadata must name the account, and every subscription on it must be GenClass's, else 409 with the contact address, nothing opened, and a `shared_customer` notice ("Stripe object ownership" below). Then it asks Stripe, not the database, whether that customer already has a GenClass subscription: one on this plan is a 409, one whose last payment failed (`past_due`, `unpaid`) is a 409 pointing to Manage billing, two at once (a switch still going through) or a paused one is a 409, and an active one on the other plan is a switch: after the same invoice check as Manage billing, `{ url, switch: true }` of a Checkout for the new plan whose session and subscription carry `genclass_switch_from=<the current subscription>` (success URL `...?done=1&to=<plan>`). Otherwise `{ url }` of a Checkout Session in subscription mode for that customer and the plan's lookup key (metadata `genclass=1`, `genclass_account`, `genclass_plan`; the subscription gets `genclass` and `genclass_account` and flexible billing mode; `client_reference_id` = account id; success `https://genclass.dev/account/billing?done=1`), with `managed_payments[enabled]=true` for Pro unless `MANAGED_PAYMENTS` is `off`, never for Custom. GenClass's open Checkout page of the account for the same plan (and the same switch) is reused, its other open pages are closed first, and any other open page is left alone. 503 unless the account can buy (above). |
+| `POST /api/billing/checkout` | `{ plan: "individual" }` (a plan priced above 0; Enterprise has no Checkout), browser session and our `Origin` (403 otherwise, also for a CLI token). Creates the account's own Stripe customer once (email, description `GenClass account`, metadata `genclass=1` and `genclass_account`); never looks one up by email. A stored customer is checked first (`GET /v1/customers/<id>`): its metadata must name the account, and every subscription on it must be GenClass's, else 409 with the contact address, nothing opened, and a `shared_customer` notice ("Stripe object ownership" below). Then it asks Stripe, not the database, whether that customer already has a GenClass subscription: one on this plan is a 409, one whose last payment failed (`past_due`, `unpaid`) is a 409 pointing to Manage billing, two at once (a switch still going through) or a paused one is a 409, and an active one on another paid plan is a switch: after the same invoice check as Manage billing, `{ url, switch: true }` of a Checkout for the new plan whose session and subscription carry `genclass_switch_from=<the current subscription>` (success URL `...?done=1&to=<plan>`). Otherwise `{ url }` of a Checkout Session in subscription mode for that customer and the plan's lookup key (metadata `genclass=1`, `genclass_account`, `genclass_plan`; the subscription gets `genclass` and `genclass_account` and flexible billing mode; `client_reference_id` = account id; success `https://genclass.dev/account/billing?done=1`), with `managed_payments[enabled]=true` for a plan marked `managed_payments` (none today) when `MANAGED_PAYMENTS` is `on`. GenClass's open Checkout page of the account for the same plan (and the same switch) is reused, its other open pages are closed first, and any other open page is left alone. 503 unless the account can buy (above). |
 | `POST /api/billing/portal` | browser session and `Origin`; `{ url }` of a Billing Portal session (cancel at period end, card, email and tax id, invoices; no plan switch, which is a new Checkout) on GenClass's own portal configuration: the one whose id `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` (test) names, fetched by that id and checked (metadata `genclass=1`, active, not the default; cached 10 minutes), never the account's default one: without it, 503 ("run scripts/stripe-setup.mjs"). The portal acts on everything on the customer, so first the customer must be the account's (metadata), every subscription on it GenClass's, and each of its latest 100 invoices for a GenClass subscription; otherwise 409 with the contact address, no session, and a `shared_customer` notice. 409 before a first purchase, and when Stripe no longer has the customer (the stored ids are then cleared). |
-| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `customer.subscription.created`, `.updated` and `.deleted`, `invoice.paid`, `charge.refunded` and `charge.dispute.created`, and subscribes to nothing else: they arrive for the whole Stripe account, so first, with no Stripe call, the customer must be in `accounts.stripe_customer_id`, and the subscription must look like GenClass's (the one recorded for the account, metadata `genclass=1` on it or copied onto the invoice, or a `genclass_` lookup key on a price). From an invoice only its subscription id is read; a refund or dispute of a GenClass customer's charge sends the owner `charge_refunded` or `charge_disputed` (ids and amounts; a dispute names no customer, so its charge is read first). Then it fetches the subscription (its prices' products, its customer and its latest invoice expanded), which must be provably GenClass's (every price a `genclass_` lookup key on a `genclass_plan` product, or the subscription already recorded for the account) and the account's (its customer's `genclass_account` names the account), and writes the plan, status, `past_due_since`, period end (when it ended, for one cancelled at once), cancel flag and mode. A subscription the account has not been granted yet is written only once its latest invoice is paid (or asks for nothing), never on `active` alone; another subscription than the account's current one never overwrites a live plan unless it was chosen as below. When a subscription starts billing (`created`, `updated` with a status change, or `invoice.paid`), if the customer has two GenClass subscriptions that bill and are paid for (a switch, or two tabs paid), the account keeps one (a switch's new plan; otherwise a live one, then Custom over Pro, then the newest): it is written to the account first, then each other one is refunded to its payment method (a switch's old plan: its unused time; a duplicate: its latest payment in full; once, by the metadata `genclass_refund`) and cancelled at once with no proration, and `NOTIFY_WEBHOOK` gets `plan_switch` or `duplicate_subscription` with the refunds. A new subscription that is never paid (`incomplete`, `incomplete_expired`, or `active` with its invoice unpaid) changes nothing. The end of the subscription recorded for the account is applied even when its customer's metadata is gone (Stripe erasing a buyer's data on request). A Custom purchase is recorded (`custom_requests`, `NOTIFY_WEBHOOK`) only when Stripe reports the Custom price paid: the subscription's latest invoice is paid and has a positive Custom line (a first Custom invoice, a switch from Pro included, seen on `invoice.paid` or the subscription's own events). Every other event (another business's subscriptions, in a shared account) is answered 200, logged as `stripe webhook: <type> <id> ignored: <reason>`, not stored, and nothing about it is fetched. The ids of events about GenClass customers are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. |
-| `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale, access, trial_ends_at, can_trial }`; `access` is `paid` (a Stripe trial included), `comp`, `trial` (a trial from before cards) or null (Free); `can_trial` is `src/plans.ts` `canTrial` |
-| `POST /api/billing/trial` | browser session and `Origin`: `{ url, trial: true }` of the Stripe Checkout for the account's one trial of Pro, with the card collected up front ([Trials and grants](#trials-and-grants)); 409 once a trial was used, after any GenClass subscription, or with a plan or a grant; 503 unless the account can buy; 403 for a CLI token |
-| `GET /account/trial` | the pricing page's Start a trial: `/account?trial=1`, through `/signup` when signed out |
-| `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade and Switch buttons and Manage billing (only to an account that can buy), and which plan is sold through Link (Managed Payments). `?plan=pro\|custom` (the pricing page's buttons) survives the sign-in redirect and highlights and focuses that plan's button. Back from Checkout (`?done=1`) while the plan still reads Free, or back from a switch (`?done=1&to=<plan>`) while the plan is still the old one, it shows no buttons and waits for the webhook. |
+| `POST /api/billing/webhook` | Stripe only. The raw body must carry a valid `Stripe-Signature` (HMAC-SHA256 of `t.body`, any `v1`, within 5 minutes) under `STRIPE_WEBHOOK_SECRET` with a live key or `STRIPE_WEBHOOK_SECRET_TEST` with a test key; else 400. An event signed with the other mode's secret, or whose `livemode` is not the key's mode, is answered 200 and ignored (a test endpoint left over after going live). Handles `customer.subscription.created`, `.updated` and `.deleted`, `invoice.paid`, `charge.refunded` and `charge.dispute.created`, and subscribes to nothing else: they arrive for the whole Stripe account, so first, with no Stripe call, the customer must be in `accounts.stripe_customer_id`, and the subscription must look like GenClass's (the one recorded for the account, metadata `genclass=1` on it or copied onto the invoice, or a `genclass_` lookup key on a price). From an invoice only its subscription id is read; a refund or dispute of a GenClass customer's charge sends the owner `charge_refunded` or `charge_disputed` (ids and amounts; a dispute names no customer, so its charge is read first). Then it fetches the subscription (its prices' products, its customer and its latest invoice expanded), which must be provably GenClass's (every price a `genclass_` lookup key on a `genclass_plan` product, or the subscription already recorded for the account) and the account's (its customer's `genclass_account` names the account), and writes the plan, status, `past_due_since`, period end (when it ended, for one cancelled at once), cancel flag and mode. A subscription the account has not been granted yet is written only once its latest invoice is paid (or asks for nothing), never on `active` alone; another subscription than the account's current one never overwrites a live plan unless it was chosen as below. When a subscription starts billing (`created`, `updated` with a status change, or `invoice.paid`), if the customer has two GenClass subscriptions that bill and are paid for (a switch, or two tabs paid), the account keeps one (a switch's new plan; otherwise a live one, then the plan listed later in `billing/plans.json`, then the newest): it is written to the account first, then each other one is refunded to its payment method (a switch's old plan: its unused time; a duplicate: its latest payment in full; once, by the metadata `genclass_refund`) and cancelled at once with no proration, and `NOTIFY_WEBHOOK` gets `plan_switch` or `duplicate_subscription` with the refunds. A new subscription that is never paid (`incomplete`, `incomplete_expired`, or `active` with its invoice unpaid) changes nothing. The end of the subscription recorded for the account is applied even when its customer's metadata is gone (Stripe erasing a buyer's data on request). A purchase of a plan with `custom_model` (Individual) is recorded (`custom_requests`, `NOTIFY_WEBHOOK`, naming the plan) only when Stripe reports that plan's price paid: the subscription's latest invoice is paid and has a positive line on it (a first invoice, a switch included, seen on `invoice.paid` or the subscription's own events). Every other event (another business's subscriptions, in a shared account) is answered 200, logged as `stripe webhook: <type> <id> ignored: <reason>`, not stored, and nothing about it is fetched. The ids of events about GenClass customers are kept 30 days (`billing_events`), so a redelivery changes nothing; a failure answers 500 and Stripe retries. |
+| `GET /api/billing` | browser session: `{ plan, subscription_status, current_period_end, cancel_at_period_end, on_sale, access }`; `access` is `paid`, `comp` (GenClass's grant) or null (Free) |
+| `POST /api/billing/trial` | 410: GenClass has no trial any more ([Grants and no trial](#grants-enterprise-and-no-trial)) |
+| `GET /account/trial` | `/account`, through `/signup` when signed out (genclass.dev's pricing page linked here until 2026-10-19) |
+| `GET /account/billing` | the plan, its renewal or end date, the three plans, Upgrade (and Switch, with two paid plans) buttons and Manage billing (only to an account that can buy), Talk to us (a mailto link) for Enterprise, and which plan is sold through Link (Managed Payments; none today). `?plan=individual` (the pricing page's button) survives the sign-in redirect and highlights and focuses that plan's button. Back from Checkout (`?done=1`) while the plan still reads Free, or back from a switch (`?done=1&to=<plan>`) while the plan is still the old one, it shows no buttons and waits for the webhook. |
 | `GET /api/account/projects/<id>/integrations` | browser session: the app's forwarding destinations, masked |
-| `PUT /api/account/projects/<id>/integrations/<kind>` | browser session and `Origin`, paid plan, `INTEGRATIONS_KEY` set (503 otherwise). `kind` is `sentry` `{dsn}` (a `sentry.io` host), `posthog` `{key, host}`, `datadog` `{api_key, site}`, `slack` `{url}` or `webhook` `{url}` (https, public host name, default port, not genclass.dev or workers.dev); a new webhook gets a signing secret, returned once as `secret` |
+| `PUT /api/account/projects/<id>/integrations/<kind>` | browser session and `Origin`, a plan with forwarding (every plan), `INTEGRATIONS_KEY` set (503 otherwise). `kind` is `sentry` `{dsn}` (a `sentry.io` host), `posthog` `{key, host}`, `datadog` `{api_key, site}`, `slack` `{url}` or `webhook` `{url}` (https, public host name, default port, not genclass.dev or workers.dev); a new webhook gets a signing secret, returned once as `secret` |
 | `PATCH`, `DELETE` same path; `POST .../<kind>/test` | turn a destination on or off (`{enabled}`), remove it, or send it one test record (502 with the reason when it fails). A test record counts against the app's 60 records an hour (429 when they are used up) |
-| `GET /api/account/projects/<id>/events?from&to&format&limit&cursor` | export, paid plans: an export key (`Authorization: Bearer gce_...`) or the browser session; a CLI token is refused. `from`/`to` take a date or an ISO time (default the last 7 days; `from` is moved up to the plan's history), `format` `jsonl` (default) or `csv`, `limit` 1 to 200 batches. The next page's cursor is in `x-genclass-next-cursor` and `Link: rel="next"`. 120 pages a minute per account (`EXPORT_LIMIT`; 429 with `retry-after: 60`) |
-| `GET`, `POST /api/account/export-keys`; `DELETE .../<id>` | browser session: list, create (paid plans, at most 10; the key is shown once, only its SHA-256 is stored) and revoke export keys |
+| `GET /api/account/projects/<id>/events?from&to&format&limit&cursor` | export (every plan): an export key (`Authorization: Bearer gce_...`) or the browser session; a CLI token is refused. `from`/`to` take a date or an ISO time (default the last 7 days; `from` is moved up to the plan's history), `format` `jsonl` (default) or `csv`, `limit` 1 to 200 batches. The next page's cursor is in `x-genclass-next-cursor` and `Link: rel="next"`. 120 pages a minute per account (`EXPORT_LIMIT`; 429 with `retry-after: 60`) |
+| `GET`, `POST /api/account/export-keys`; `DELETE .../<id>` | browser session: list, create (a plan with export, at most 10; the key is shown once, only its SHA-256 is stored) and revoke export keys |
 
 Checkout, the portal, Send test and new export keys share `AUTH_LIMIT`'s 20 a minute per account and route (keyed by a
 hash of the route and the account id), so one account cannot use up GenClass's Stripe API budget or post through Send
@@ -783,9 +722,9 @@ test at request rate.
 
 Additive. `accounts` gains `plan` (default `'free'`), `stripe_customer_id`, `subscription_id`, `subscription_status`,
 `current_period_end`, `cancel_at_period_end` and `stripe_mode`. New tables: `billing_events` (ids of the Stripe events handled for GenClass customers),
-`custom_requests` (one row per paid Custom subscription, with its mode: the owner starts the training work from it),
+`custom_requests` (one row per paid subscription of a plan with a custom model, Individual (Custom before 2026-10-19), with its mode: the owner starts the training work from it),
 `integrations` (forwarding destinations, AES-GCM ciphertext only), `forward_log` (dedupe and the hourly cap, kept 2
-hours), `event_batches` (which stored batch belongs to which paid app, for the export) and `export_keys` (hashes only).
+hours), `event_batches` (which stored batch belongs to which app in an account, for the export) and `export_keys` (hashes only).
 0005 adds `accounts.past_due_since`: when GenClass first saw the subscription `past_due` (NULL in any other status).
 The webhook, and the daily sweep for accounts no event arrives for, put an account on Free once that is more than 14
 days ago, or when the subscription is `unpaid`.
@@ -800,8 +739,8 @@ What GenClass creates in the account, in each mode, and nothing else:
 
 | object | how GenClass recognises it | made by |
 |---|---|---|
-| 2 products: GenClass Pro (id `genclass_pro`) and GenClass Custom (id `genclass_custom`), active | metadata `genclass_plan` (`pro`, `custom`) and `genclass=1`; statement descriptor `GENCLASS`; tax codes `txcd_10103001` and `txcd_10203001` | `scripts/stripe-setup.mjs` |
-| their prices, active: `genclass_pro_monthly` (US$99 a month) and `genclass_custom_monthly` (US$599 a month); after a price change, the archived old price keeps `genclass_<plan>_monthly_retired_<price id>` | a lookup key starting with `genclass_`, on a product with `genclass_plan`; metadata `genclass=1`, `genclass_plan` | the script |
+| a product per plan priced above 0: GenClass Individual (id `genclass_individual`), active (GenClass Pro and GenClass Custom, `genclass_pro` and `genclass_custom`, from before 2026-10-19, may exist in test mode and are left alone) | metadata `genclass_plan` (`individual`) and `genclass=1`; statement descriptor `GENCLASS`; tax code `txcd_10203001` | `scripts/stripe-setup.mjs` |
+| its price, active: `genclass_individual_monthly` (US$29 a month); after a price change, the archived old price keeps `genclass_<plan>_monthly_retired_<price id>` | a lookup key starting with `genclass_`, on a product with `genclass_plan`; metadata `genclass=1`, `genclass_plan` | the script |
 | 1 webhook endpoint, `https://genclass.dev/api/billing/webhook` | that URL and the description `GenClass billing` (metadata `genclass=1`); only `customer.subscription.created`, `.updated`, `.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created` | the script |
 | 1 Billing Portal configuration | metadata `genclass=1`; never the default; headline "Manage your GenClass plan"; no plan switch; its id in `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` | the script |
 | customers, one per GenClass account that buys | description `GenClass account`, metadata `genclass=1` and `genclass_account=<account id>`; the id in `accounts.stripe_customer_id`, which nothing else writes | the worker (checkout) |
@@ -867,7 +806,7 @@ Database check before the first Stripe key: Rows written by the code before thes
 
 ### Forwarding
 
-After a batch from an app whose owner is on Pro or Custom, each new likely detection (`detect` without
+After a batch from an app in an account whose plan includes forwarding (every plan), each new likely detection (`detect` without
 `tier: "possible"`) goes to every enabled destination of that app: the diagnosis, confidence, trigger, page route,
 runtime and model versions, the time and a link to the app's dashboard. Never page text. Sentry gets an event through
 the envelope endpoint of the DSN, PostHog a `genclass detection` capture (no person profiles), Datadog a log through
@@ -884,8 +823,8 @@ Every batch from an app whose account's plan includes export gets an `event_batc
 only by a private link get none, so they cost no D1 row), and is written to `export/<token>/dt=<day>/<uuid>.jsonl.gz`;
 the row points there. That prefix needs its own R2 lifecycle rule of 366 days (owner step 2 below), since `events/`
 expires after 90 days. The export streams the stored lines of the app's batches (each line is checked against the
-app's token), so it covers the batches received while the account was on Pro or Custom. The daily sweep deletes the
-export copies of apps no longer on a paid plan once they pass 90 days, and every copy past the longest plan's history,
+app's token), so it covers the batches received while the account's plan included export (every plan since 2026-10-19; Pro and
+Custom before). The daily sweep deletes the export copies of apps no longer on a plan with more history once they pass 90 days, and every copy past the longest plan's history,
 in rounds of 1,000 keys (40 rounds a pass), and any index row older than 367 days in one statement (R2's rule has
 removed its object by then).
 
@@ -893,18 +832,18 @@ removed its object by then).
 
 | name | kind | what |
 |---|---|---|
-| `STRIPE_SECRET_KEY` | secret | `sk_live_...`: paid plans on sale. `sk_test_...`: only `STRIPE_TEST_ACCOUNTS` can buy. Without it the buttons are hidden and checkout answers 503; trials and the Free plan's limits apply with or without it |
+| `STRIPE_SECRET_KEY` | secret | `sk_live_...`: paid plans on sale. `sk_test_...`: only `STRIPE_TEST_ACCOUNTS` can buy. Without it the buttons are hidden and checkout answers 503; the Free plan applies with or without it |
 | `STRIPE_WEBHOOK_SECRET` | secret | the live webhook endpoint's signing secret (`whsec_...`); `scripts/stripe-setup.mjs` with a live key stores it |
 | `STRIPE_WEBHOOK_SECRET_TEST` | secret | the test endpoint's signing secret; the script with a test key stores it, so a test run never replaces the live one |
 | `STRIPE_PORTAL_CONFIGURATION` | secret (an id, not secret) | GenClass's live Billing Portal configuration (`bpc_...`); the script with a live key stores it. The portal answers 503 without it, or when it does not name a configuration with metadata `genclass=1` that is active and not the default |
 | `STRIPE_PORTAL_CONFIGURATION_TEST` | secret (an id) | the same for test mode; the script with a test key stores it |
 | `STRIPE_TEST_ACCOUNTS` | secret | emails or account ids, comma-separated, that can buy while the key is a test key |
-| `MANAGED_PAYMENTS` | var (`wrangler.toml`) | `"off"` there, and unset counts as off: Pro is sold on standard Checkout. `"on"` (or `true`, `1`, `yes`): Pro's Checkout uses Stripe Managed Payments, Stripe (through Link) the merchant of record, 3.5% of each Pro payment on top of Stripe's fees; the owner sets it after accepting the Managed Payments terms and one test-mode Pro checkout with it on (Owner steps). Custom never uses it |
+| `MANAGED_PAYMENTS` | var (`wrangler.toml`) | `"off"` there, and unset counts as off: every plan is sold on standard Checkout. `"on"` (or `true`, `1`, `yes`): the Checkout of a plan marked `managed_payments` in `billing/plans.json` uses Stripe Managed Payments (none is today; Individual is a person's work, which Managed Payments does not sell) |
 | `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
-| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a Custom plan is paid, `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
+| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a plan with a custom model (Individual) is paid, `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
 | `EXPORT_LIMIT` | rate limit binding | export pages per account per minute (120) |
 
-A Custom buyer's email, for the notice above:
+An Individual buyer's email, for the notice above:
 `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "SELECT email, created, mode FROM custom_requests WHERE id = '<request_id>'"`.
 
 ### Owner steps, in order
@@ -915,77 +854,92 @@ test-mode and a live copy unless the dashboard says it is shared):
 1. **Activate the account** (Settings, Business): business details, the bank account for payouts, the public business
    name (GenClass) and statement descriptor (GENCLASS), and the support email and phone. Managed Payments sends its
    escalations to that support email; answer within 48 hours, or Stripe may refund the buyer without asking.
-2. **Managed Payments** (Settings, Managed Payments): accept its terms and turn it on, in test mode first. The
-   worker's `MANAGED_PAYMENTS` stays `"off"` until step 12 shows Stripe accepts it. Optionally add GenClass's terms
-   (`https://genclass.dev/terms`) and privacy policy (`https://genclass.dev/privacy`) in Settings, Checkout: the
-   Managed Payments page shows them in its footer.
+2. **Checkout settings** (Settings, Checkout): optionally add GenClass's terms (`https://genclass.dev/terms`) and
+   privacy policy (`https://genclass.dev/privacy`). Managed Payments is not needed: no plan uses it.
 3. **Revenue recovery** (Billing, Revenue recovery): Smart Retries on; failed-payment emails on (and the expiring-card
    ones); when all retries for a payment fail, **cancel the subscription**. The worker's 14-day past-due limit stays
-   as a backstop. The first charge after a trial is retried and ended the same way.
-   **Trial reminders** (Settings, Billing, Subscriptions and emails, Manage free trial messaging): turn on the email
-   that reminds a buyer before their trial ends, with the link to a Stripe-hosted page: card networks require it for
-   trials that convert to a paid plan, and for a 7-day trial Stripe sends it when the trial starts. Link sends its own
-   trial emails for Pro sold through Managed Payments.
-4. **Receipts** (Settings, Customer emails): successful payments on, refunds on. These are Custom's; Link sends Pro's
-   receipts itself whatever this says.
+   as a backstop.
+4. **Receipts** (Settings, Customer emails): successful payments on, refunds on.
 5. **Branding** (Settings, Branding): icon, logo, colours, for Checkout, the customer portal, receipts and invoices.
-6. **Stripe Tax** (Settings, Tax): the head office address, and "Include tax in prices" as the owner wants it (the
-   default adds tax on top of US$99 for Managed Payments buyers). Turn on threshold monitoring (Tax, Registrations)
-   so the owner hears when Custom's sales, which GenClass sells itself, reach a registration threshold. No
-   registration and no automatic tax are needed to start.
+6. **Stripe Tax** (Settings, Tax): the head office address. Turn on threshold monitoring (Tax, Registrations) so the
+   owner hears when Individual's sales, which GenClass sells itself, reach a registration threshold. No registration
+   and no automatic tax are needed to start.
 7. In `telemetry-worker/`: `npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`, then the export
    copies' lifecycle rule:
    `npx --yes wrangler@4 r2 bucket lifecycle add genclass-telemetry expire-export-366d export/ --expire-days 366`.
 8. `openssl rand -base64 32 | npx --yes wrangler@4 secret put INTEGRATIONS_KEY` (once), and optionally
-   `npx --yes wrangler@4 secret put NOTIFY_WEBHOOK` (a Slack or Discord incoming webhook URL for Custom purchases and
+   `npx --yes wrangler@4 secret put NOTIFY_WEBHOOK` (a Slack or Discord incoming webhook URL for Individual purchases and
    billing notices, since worker logs are not kept).
-9. `npx --yes wrangler@4 deploy`. Nothing is on sale yet, trials included (they start on Stripe Checkout).
+9. `npx --yes wrangler@4 deploy`. Nothing is on sale yet; the dashboard is free for everyone already.
 10. Before any Stripe key: the database check ("Stripe object ownership") must print 0.
 11. **Test mode**, on the production worker: `npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS` with your own
     account's email, then from the repo root `STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs` (signed in
     to wrangler; a test key of GenClass's account; `--dry-run` first, which only reads and says what it would do). It
-    creates GenClass Pro and GenClass Custom with their tax codes and monthly prices, the test webhook endpoint
+    creates GenClass Individual with its tax code and monthly price, the test webhook endpoint
     `https://genclass.dev/api/billing/webhook` "GenClass billing" (its secret goes straight into
     `STRIPE_WEBHOOK_SECRET_TEST`, never printed) and GenClass's own Billing Portal configuration (no plan switch; its id
     goes into `STRIPE_PORTAL_CONFIGURATION_TEST`). Running it again changes only what differs. Then
     `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the test key. Only your account can buy.
-12. **The test card, with Managed Payments**: set `MANAGED_PAYMENTS = "on"` in `wrangler.toml` and deploy (only
-    `STRIPE_TEST_ACCOUNTS` can buy while the key is a test key). On `https://genclass.dev/account/billing` choose
-    Upgrade to Pro and pay on Link's Checkout page with `4242 4242 4242 4242`, any future expiry date and any CVC (try a
-    few billing addresses to see the tax). Confirm that Stripe accepted the Checkout Session with both
-    `managed_payments[enabled]` and `subscription_data[billing_mode][type]=flexible` (Developers, Logs: the
-    `POST /v1/checkout/sessions` request answered 200, and the subscription shows billing mode flexible). **If Stripe
-    rejects the parameter, set `MANAGED_PAYMENTS` back to `"off"`, deploy, and sell Pro on standard Checkout** (or ask
-    for a newer pinned API version). The page shows Pro within a minute. In the Stripe dashboard (Transactions) the
-    payment shows the tax Managed Payments withheld and the statement descriptor. Then Switch to Custom: a second
-    Checkout; once paid, the page shows Custom, the Pro subscription is cancelled and its unused time refunded to the
-    card (`plan_switch` notice), and a `custom_requests` row with mode `test` and a test-mode notice appear. Then
-    Manage billing (card, invoices) and cancel. Developers, Webhooks shows no failed deliveries. In test mode Link sends
-    no receipt emails by itself; the payment's page has Send receipt.
-    **The trial**, with a second test account (one that has never bought: add it to `STRIPE_TEST_ACCOUNTS`): Start your
-    7-day free trial. Stripe's Checkout must ask for a card although nothing is due today (it shows the trial and the
-    first charge's date); pay with `4242 4242 4242 4242`. The billing page shows Pro "in a trial until" that date, and
-    the subscription in the Stripe dashboard is `trialing` with a default payment method. With a test clock (Billing,
-    Subscriptions, the subscription's test clock), or by ending the trial from the dashboard, check both ends: with
-    `4242...` the first invoice is paid and the plan stays Pro; with the card replaced by `4000 0000 0000 0341` (attaches,
-    then declines) the subscription goes `past_due` and the billing page says the payment did not go through. The $1
-    check: Payments shows an uncaptured USD 1 authorization, cancelled, for each trial; a trial started with
-    `4000 0000 0000 0341` (it saves, then declines) is cancelled at once and the billing page says the card did not
-    pass, and `4000 0000 0000 9995` is declined by Checkout itself. Confirm
-    the Checkout Session request carried `payment_method_collection=always`,
-    `subscription_data[trial_period_days]=7` and `subscription_data[trial_settings][end_behavior][missing_payment_method]=cancel`,
-    and that Stripe accepted them with `MANAGED_PAYMENTS` on (and off).
+12. **The test card**: on `https://genclass.dev/account/billing` (only `STRIPE_TEST_ACCOUNTS` can buy while the key
+    is a test key) choose Upgrade to Individual and pay with `4242 4242 4242 4242`, any future expiry date and any CVC.
+    Confirm that Stripe accepted the Checkout Session with `subscription_data[billing_mode][type]=flexible` and
+    `payment_method_collection=always` (Developers, Logs: the `POST /v1/checkout/sessions` request answered 200, and
+    the subscription shows billing mode flexible). The page shows Individual within a minute, and a `custom_requests`
+    row with mode `test` and a test-mode `custom_purchase` notice appear. Then Manage billing (card, invoices) and
+    cancel. Developers, Webhooks shows no failed deliveries. Enterprise shows Talk to us, a mailto link, and no
+    Checkout.
 13. Before going live, clear the test records (once the key is live they no longer count, but this keeps the tables
     clean):
     `npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"`
-14. **Live**: steps 2 to 6 in live mode if the dashboard keeps them per mode (Managed Payments' terms included, if
-    `MANAGED_PAYMENTS` stays on), then
+14. **Live**: steps 2 to 6 in live mode if the dashboard keeps them per mode, then
     `STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs` (`--dry-run` first; live products, prices, webhook
     endpoint and `STRIPE_WEBHOOK_SECRET`, portal configuration and `STRIPE_PORTAL_CONFIGURATION`), then
-    `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the live key. Paid plans are on sale and the Free plan's
-    limits apply. Optionally remove `STRIPE_TEST_ACCOUNTS` (`npx --yes wrangler@4 secret delete STRIPE_TEST_ACCOUNTS`);
+    `npx --yes wrangler@4 secret put STRIPE_SECRET_KEY` with the live key. Individual is on sale. Optionally remove `STRIPE_TEST_ACCOUNTS` (`npx --yes wrangler@4 secret delete STRIPE_TEST_ACCOUNTS`);
     events from the test endpoint are answered 200 and ignored, or delete GenClass's endpoint ("GenClass billing") in
     Stripe's test mode.
+
+## Self-host the collector (private mode)
+
+Telemetry sent to genclass.dev passes through GenClass: the maintainers can read every batch (README of the runtime,
+TELEMETRY.md). An app that wants its diagnostics and dashboards to stay with it runs this same worker on its own
+Cloudflare account instead. Nothing then reaches GenClass: pages send to the app's own collector, which keeps the
+batches in the app's own R2 bucket and the dashboards in its own D1 database. Every plan's features work there
+(without a Stripe key every account is on Free: the dashboard, export and forwarding, 90 days of history).
+
+[`wrangler.selfhost.toml`](wrangler.selfhost.toml) is the configuration for it: no genclass.dev routes, no site
+binding, and the worker's own origin for dashboard links, cookies and passkeys. From `telemetry-worker/`, on any
+Cloudflare account (the free Workers plan is enough to start; R2 and D1 have free tiers):
+
+```sh
+npx --yes wrangler@4 login
+npx --yes wrangler@4 r2 bucket create genclass-telemetry
+npx --yes wrangler@4 r2 bucket lifecycle add genclass-telemetry expire-events-90d events/ --expire-days 90
+npx --yes wrangler@4 d1 create genclass-dashboard        # paste the database_id into wrangler.selfhost.toml
+# set AUTH_ORIGIN, AUTH_RP_ID and DASHBOARD_ORIGIN in wrangler.selfhost.toml to the worker's URL
+npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote -c wrangler.selfhost.toml
+npx --yes wrangler@4 deploy -c wrangler.selfhost.toml
+curl https://genclass-collector.<your-subdomain>.workers.dev/v1/health
+```
+
+Then open `https://<your worker>/start`: it gives an app a token and a private dashboard link, and its snippets
+already send to your worker. A collector whose origin is not genclass.dev names its own endpoint in every snippet it
+shows (`src/pages.ts` ownEndpoint), through `GenClass.init` or `window.GENCLASS_CONFIG` (a meta tag may only name
+same-origin URLs), and leaves out `npx @genclass/runtime init` and `login`, which make their token at genclass.dev. In
+an app wired by hand:
+
+```ts
+GenClass.init({ token: "gc_...", telemetry: { endpoint: "https://<your worker>/v1/events" } });
+```
+
+```html
+<script>window.GENCLASS_CONFIG = { telemetry: { endpoint: "https://<your worker>/v1/events" } };</script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@beta" data-token="gc_..."></script>
+```
+
+Accounts work on it as on genclass.dev (an email and a password, and passkeys; Google and GitHub with your own OAuth
+clients, "Google sign-in" and "GitHub sign-in" above), and so do export and forwarding (`INTEGRATIONS_KEY`, "Owner
+steps"). Updating is a `git pull` and the same `deploy` (new migrations first). `test/selfhost.test.ts` keeps the
+configuration in step with `wrangler.toml` and the snippets pointed at the collector itself.
 
 ## Develop / deploy
 

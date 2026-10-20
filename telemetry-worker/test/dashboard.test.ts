@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { gunzipSync } from "node:zlib";
 import { createRequire } from "node:module";
 import worker from "../src/index.js";
@@ -6,6 +6,10 @@ import { handle, MAX_PROJECTS_PER_MINUTE, validate, type Env } from "../src/coll
 import { aggregate, RECENT_CAP, resetTokenCache, retention, sanitizeName, SESSION_KEEP_MS, sha256Hex, stats, TOKEN_RE, type D1Like, type D1Stmt } from "../src/dashboard.js";
 import { sampleStats } from "../src/sample.js";
 import { MIGRATIONS } from "./d1.js";
+
+// On the plans as they were before 2026-10-19 (test/fixtures/plans-two-paid.json), where Free has no dashboard, so the
+// locked private link stays tested. With the real plans (test/plans.test.ts) every private link opens its dashboard.
+vi.mock("../../billing/plans.json", async () => ({ default: (await import("./fixtures/plans-two-paid.json")).default }));
 
 // D1 stand-in backed by node:sqlite running the real migrations (all of them, in order), so the SQL itself is under test.
 const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");
@@ -100,6 +104,18 @@ function post(body: unknown) {
 }
 
 const secretOf = (url: string) => url.split("/").pop()!;
+
+/**
+ * On the fixture's plans a private link opens its stats only while the app's account has a plan with the dashboard or
+ * GenClass's grant. This puts the app in an account with the grant (accounts.comp_until), so the tests below read the
+ * stats through the link as before.
+ */
+let unlocked = 0;
+function unlock(sql: ReturnType<typeof d1>, token: string): void {
+  const id = `Comped${String(++unlocked).padStart(16, "0")}`;
+  sql.db.prepare("INSERT INTO accounts (id, email, created, comp_until) VALUES (?, ?, ?, '9999-12-31T00:00:00.000Z')").run(id, `owner${unlocked}@example.com`, NOW.toISOString());
+  sql.db.prepare("UPDATE projects SET account_id = ? WHERE token = ?").run(id, token);
+}
 
 /** A realistic page load, shaped like packages/runtime/src/telemetry/client.ts emits it. */
 function pageBatch(token: string | undefined, sid = "3f9c0a1b2c3d4e5f60718293", extra: Record<string, unknown>[] = []) {
@@ -221,6 +237,7 @@ describe("token on telemetry batches", () => {
     expect(sql.rows("SELECT last_event FROM projects")[0]!.last_event).toBe(NOW.toISOString());
 
     // collected without an account; its link shows the stats once the app's account has Pro (here GenClass's grant)
+    unlock(sql, json.token);
     const st = await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts);
     expect(st.status).toBe(200);
     expect(st.headers.get("referrer-policy")).toBe("no-referrer");
@@ -275,6 +292,7 @@ describe("token on telemetry batches", () => {
   it("counts cumulative summaries once per page load (deltas) and aggregates in one D1 batch", async () => {
     const { env, sql } = setup();
     const { json } = await create(env);
+    unlock(sql, json.token);
     await handle(post(pageBatch(json.token)), env, opts);
     const before = sql.batches();
     // the same page later sends a bigger cumulative summary
@@ -338,6 +356,7 @@ describe("dashboard pages", () => {
   it("serves the dashboard for a valid secret with strict headers; 404 otherwise", async () => {
     const { env, sql } = setup();
     const { json } = await create(env, { name: "</script><img src=x onerror=alert(1)>" });
+    unlock(sql, json.token);
     const res = await handle(new Request(json.dashboardUrl), env, opts);
     expect(res.status).toBe(200);
     const csp = res.headers.get("content-security-policy")!;
@@ -360,22 +379,30 @@ describe("dashboard pages", () => {
     expect(await st.json()).toEqual({ ok: false, error: "not found" });
   });
 
-  it("a private link with no account opens the dashboard and its stats (analytics are free), and ingest collects", async () => {
+  it("a private link whose plan has no dashboard opens the locked page, its stats answer 402, and ingest keeps collecting", async () => {
     const { env, sql } = setup();
     const { json } = await create(env, { name: "Old shop" });
     expect((await handle(post(pageBatch(json.token)), env, opts)).status).toBe(202);
+    // collected while locked, so a plan starts with recent data
     expect(sql.rows("SELECT COUNT(*) AS n FROM daily WHERE token = ?", json.token)[0]!.n).toBeGreaterThan(0);
-    expect(sql.rows("SELECT account_id FROM projects WHERE token = ?", json.token)).toEqual([{ account_id: null }]);
     const page = await handle(new Request(json.dashboardUrl), env, opts);
     expect(page.status).toBe(200);
     expect(page.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await page.text();
-    expect(html).toContain('id="content"');
+    expect(html).toContain("This app's plan has no dashboard.");
+    expect(html).toContain("See the plans to open it.");
+    expect(html).not.toMatch(/trial/i);
+    expect(html).toContain("Old shop");
     expect(html).not.toContain(secretOf(json.dashboardUrl));
+    expect(html).not.toContain("/api/projects/");
     expect(html).not.toMatch(/ style="/);
     const st = await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts);
-    expect(st.status).toBe(200);
-    expect(((await st.json()) as any).totals.sessions).toBeGreaterThan(0);
+    expect(st.status).toBe(402);
+    expect(await st.json()).toEqual({ ok: false, error: "this app's plan has no dashboard; see the plans at https://genclass.dev/account/billing", locked: true });
+    // GenClass's grant (or a plan with the dashboard) on the app's account opens both
+    unlock(sql, json.token);
+    expect(await (await handle(new Request(json.dashboardUrl), env, opts)).text()).not.toContain("This app's plan has no dashboard.");
+    expect((await handle(new Request(`https://genclass.dev/api/projects/${secretOf(json.dashboardUrl)}?range=7d`), env, opts)).status).toBe(200);
     // the simulated sample stays open to everyone
     expect((await handle(new Request("https://genclass.dev/api/projects/sample?range=7d"), env, opts)).status).toBe(200);
   });
@@ -386,7 +413,8 @@ describe("dashboard pages", () => {
     expect(start.status).toBe(200);
     const html = await start.text();
     expect(html).toContain("Get a token");
-    expect(html).toContain("The dashboard and its analytics are free.");
+    expect(html).toContain("The dashboard is free.");
+    expect(html).not.toMatch(/trial/i);
     expect(html).not.toContain("Free, no account");
     expect(html).toContain('fetch("/api/projects"');
     expect(html).toContain("https://cdn.jsdelivr.net/npm/@genclass/runtime");
@@ -679,6 +707,7 @@ describe("possible issues: runtime 0.3.0's lower tier (detect events with tier \
   it("through the collector: a page batch with a possible, a likely and a tier-less detection", async () => {
     const { env, sql } = setup();
     const { json } = await create(env);
+    unlock(sql, json.token);
     const extra = [
       { t: "decision", seq: 9, at: 4100, id: "d3", trigger: "delivery", route: "/cart/:id", model: "genclass-2", latencyMs: 90, diagnosis: "stale", diagnosisConfidence: 0.8, action: "deliver", confidence: 0.9, tier: "passive", ran: "deliver", executed: true, acted: false, effectiveMode: "observe" },
       { t: "detect", seq: 10, at: 4101, decision: "d3", trigger: "delivery", diagnosis: "stale", p: 0.8, tier: "possible" },
@@ -720,6 +749,7 @@ describe("dashboard counts (display fixes)", () => {
     const { env, sql } = setup();
     const start = await (await handle(new Request("https://genclass.dev/start"), env, opts)).text();
     const { json } = await create(env);
+    unlock(sql, json.token);
     const dash = await (await handle(new Request(json.dashboardUrl), env, opts)).text();
     for (const html of [start, dash]) {
       expect(html).toContain("needs @genclass/runtime 0.3.0-beta.0 or later");
@@ -732,6 +762,7 @@ describe("dashboard counts (display fixes)", () => {
     ready.RUNTIME_ON_NPM = "0.3.0-beta.0";
     expect(await (await handle(new Request("https://genclass.dev/start"), ready, opts)).text()).not.toContain("Not on npm yet.");
     const made = await create(ready);
+    unlock(readySql, made.json.token);
     expect(await (await handle(new Request(made.json.dashboardUrl), ready, opts)).text()).not.toContain("Not on npm yet.");
   });
 });

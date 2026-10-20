@@ -13,13 +13,14 @@
 // Per-app tokens and dashboards (src/dashboard.ts, src/pages.ts; also routed on genclass.dev/{api/*,start*,dashboard*}):
 // POST /api/projects, GET /api/projects/<secret>, GET /start, GET /dashboard/<secret>. A batch with a known top-level
 // `token` is also aggregated into D1 for that app's dashboard; without one it is stored in R2 only, exactly as before.
-// Analytics are free (src/plans.ts): a private link opens its app's dashboard and stats whatever plan the app's
-// account has, or with no account at all. Every known token is aggregated.
+// Every plan includes the dashboard (billing/plans.json), so a private link opens it, also for an app with no account
+// (Free). A plan file that left the dashboard out would open the locked page instead (src/locked.ts) and its stats
+// would answer 402. Collection never depends on it: every known token is aggregated.
 //
 // Accounts (src/auth.ts, src/account-pages.ts; routed on genclass.dev/{login*,signup*,logout*,account*,auth/*} and
 // /api/{auth,device,me,account}*): passkeys, Google and GitHub sign-in, sessions, the CLI's device flow, owned apps.
 
-import { routeAuth, runtimeHasTokens } from "./auth.js";
+import { lockedError, routeAuth, runtimeHasTokens } from "./auth.js";
 import {
   aggregate,
   createProject,
@@ -38,7 +39,9 @@ import {
 import { routeBilling } from "./billing.js";
 import { json, readCapped } from "./http.js";
 import { afterBatch } from "./paid.js";
-import { dashboardPage, notFoundPage, securityHeaders, startPage } from "./pages.js";
+import { dashboardPage, notFoundPage, ownEndpoint, securityHeaders, startPage } from "./pages.js";
+import { lockedLink } from "./locked.js";
+import { hasDashboard, projectAccess } from "./plans.js";
 import { SAMPLE_PROJECT, SAMPLE_SECRET, sampleStats } from "./sample.js";
 
 export const SCHEMA = "genclass-telemetry/1";
@@ -99,9 +102,9 @@ export interface Env {
    * stores the one for its key's mode. Without it the portal answers 503. */
   STRIPE_PORTAL_CONFIGURATION?: string;
   STRIPE_PORTAL_CONFIGURATION_TEST?: string;
-  /** Worker var (wrangler.toml, "off" until verified): "on" makes Pro's Checkout use Stripe Managed Payments (Stripe,
-   * through Link, is the merchant of record). Unset or "off" sells Pro on standard Checkout, as Custom always is
-   * (src/stripe.ts managedPayments). */
+  /** Worker var (wrangler.toml, "off" until verified): "on" makes the Checkout of a plan marked managed_payments in
+   * billing/plans.json (none today) use Stripe Managed Payments (Stripe, through Link, is the merchant of record).
+   * Unset or "off" sells every plan on standard Checkout (src/stripe.ts managedPayments). */
   MANAGED_PAYMENTS?: string;
   /** Export pages per account per minute (src/billing.ts); without it the export is not rate-limited. */
   EXPORT_LIMIT?: RateLimiterLike;
@@ -110,8 +113,6 @@ export interface Env {
   /** Optional https URL that gets short JSON notices: a Custom purchase, a duplicate subscription, a plan switch
    * that needs a refund by hand, a billing record holding something that is not GenClass's. */
   NOTIFY_WEBHOOK?: string;
-  /** How many days a trial of Pro lasts (a var in wrangler.toml, "7"; src/plans.ts trialDays). The pages say it. */
-  TRIAL_DAYS?: string;
 }
 
 const CORS: Record<string, string> = {
@@ -357,6 +358,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     if (api[1] === SAMPLE_SECRET) return json(200, sampleStats(url.searchParams.get("range"), now));
     const p = env.DB ? await projectBySecret(env.DB, api[1]!) : null;
     if (!p || !env.DB) return json(404, { ok: false, error: "not found" });
+    if (!hasDashboard(await projectAccess(env.DB, p, env, now))) return json(402, { ok: false, error: lockedError(env), locked: true });
     const r = url.searchParams.get("range") as Range | null;
     const range: Range = r && RANGES.includes(r) ? r : "7d";
     return json(200, await stats(env.DB, p, range, now));
@@ -365,7 +367,7 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
   if (path === "/start") {
     if (m !== "GET" && m !== "HEAD") return null;
     const nonce = randomBase62(22);
-    return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env) }), nonce);
+    return html(200, startPage(nonce, { runtimeReady: runtimeHasTokens(env), endpoint: ownEndpoint(env) }), nonce);
   }
 
   if (path === "/dashboard") {
@@ -381,7 +383,9 @@ async function routeSite(request: Request, url: URL, path: string, env: Env, opt
     if (dash[1] === SAMPLE_SECRET) return html(200, dashboardPage(nonce, { ...SAMPLE_PROJECT, lastEvent: new Date(now.getTime() - 180_000).toISOString() }, { runtimeReady }), nonce);
     const p = env.DB ? await projectBySecret(env.DB, dash[1]!) : null;
     if (!p || !env.DB) return html(404, notFoundPage(nonce), nonce);
-    return html(200, dashboardPage(nonce, { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event }, { runtimeReady }), nonce);
+    // locked only while the app's plan leaves the dashboard out (none does today): sign in, add it, see the plans
+    if (!hasDashboard(await projectAccess(env.DB, p, env, now))) return lockedLink(request, url, env, opts, p);
+    return html(200, dashboardPage(nonce, { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event }, { runtimeReady, endpoint: ownEndpoint(env) }), nonce);
   }
 
   if (path.startsWith("/api/")) return json(404, { ok: false, error: "not found" });

@@ -89,7 +89,7 @@ gate, or run hostile code.
   ([README](../../packages/runtime/README.md#content-security-policy-and-self-hosting)). The script-tag build pins
   every URL it loads later to its own version ([cdn/config.ts](../../packages/runtime/src/cdn/config.ts)).
 - The release workflow (`.github/workflows/release.yml`) builds from a tag and publishes with npm provenance once the
-  owner has configured npm trusted publishing; [RELEASE.md](../../RELEASE.md#verifying-a-published-tarball) shows how to
+  owner has configured npm trusted publishing; [SECURITY.md](../../SECURITY.md#verifying-a-published-tarball) shows how to
   check a tarball against the repository.
 
 **Residual.**
