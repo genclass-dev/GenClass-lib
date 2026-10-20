@@ -2,6 +2,27 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **Security: a link can no longer raise the mode through `debug: true` or a host that only looks local.** In
+  0.3.0-beta.0 and earlier, `debug: true` let a crafted link raise any site: `?genclass=guard|heal` and
+  `localStorage.genclass` raised the mode, `?genclass-mode=` raised it too (in `GenClass.init()` and
+  `createRuntime()`), `?genclass-aggr=` raised the aggressiveness and `?genclass-sample=1` put a sampled-out session
+  into the acting group (a raised mode or acting session also lets visual runtime fixes run where `visual.fix` is
+  set). With debug on, a lowering link could even be undone (`?genclass=observe&genclass-mode=heal`). Separately, `?genclass=` treated every
+  host telemetry counts as local as a development host, so without debug a link raised production apps on intranet
+  bare names, private addresses, `*.internal`, `*.local`, Capacitor (`https://localhost`), Tauri (`tauri.localhost`)
+  and Electron (`file:`). Exposed: sites that left `debug` on in production (from `GenClass.init`,
+  `window.GENCLASS_CONFIG`, `<meta name="genclass" content="debug">` or `data-debug`), and apps on those hosts. Now
+  `debug` is console logging only, as documented. `?genclass-mode`, `?genclass-aggr` and `?genclass-sample` only
+  lower, on every host (`?genclass-sample=1` does nothing). `?genclass=` and `localStorage.genclass` may raise the
+  mode only on a development host (new `src/devhost.ts`, the visual checks' narrow test moved out of
+  `src/visual/start.ts`: http(s) on `localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an explicit port, or
+  `*.test`). Lowering (`?genclass=off|observe|guard`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample=0`,
+  `localStorage.genclass`) works on every host as before; telemetry and its opt-outs are unchanged. The debug-based
+  QA recipe (`?genclass-sample=1` with `debug: true`, or `?genclass=heal` with `debug: true`) is gone: set `mode` /
+  `sample` per environment, call `rt.setMode()`, or use the devtools overlay. Remaining residual: a production app
+  served from a loopback name with an explicit port (an Electron app with an embedded server) counts as a development
+  host (THREAT-MODEL T8). No model-visible text changed. Docs: CONTRACT §2 and §13, THREAT-MODEL T8, OPTIONS-SPEC §3
+  and §4.2, API.md, README, INTERCEPTION.md (test/mode-switch.test.ts).
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the

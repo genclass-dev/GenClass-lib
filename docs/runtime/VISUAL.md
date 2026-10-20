@@ -850,7 +850,8 @@ Why on for development hosts: the developer is the person who benefits, the cons
 and it is the cheapest place to catch the bug. The devtools overlay also turns it on, since mounting it means someone
 is looking.
 
-A development host (`devHost` in `src/visual/start.ts`) is http(s) on `localhost`, `127.0.0.1`, `[::1]` or a
+A development host (`devHost` in `src/devhost.ts`, re-exported by `src/visual/start.ts`; the same test decides where
+`?genclass=` may raise the mode) is http(s) on `localhost`, `127.0.0.1`, `[::1]` or a
 `*.localhost` name with an explicit port (a dev server), or any `*.test` name. It is narrower than telemetry's
 `isLocalHost` on purpose: there a false "local" sends less, here it would run the checks for a production app's
 visitors. Not development hosts: Capacitor (`https://localhost`, `capacitor://localhost`), Tauri

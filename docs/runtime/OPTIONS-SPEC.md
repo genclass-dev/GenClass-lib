@@ -9,13 +9,13 @@ Status: ready for implementation. Branch `runtime`, package `packages/runtime`. 
 3. **One effective-mode function, and every term can only demote:**
 ```
 effectiveMode(op) = state ∈ {disabled} ? off
-                  : min( globalMode        // InitOptions.mode / rt.setMode / URL param (URL may only demote unless debug:true)
+                  : min( globalMode        // InitOptions.mode / rt.setMode / URL param (URL may only demote, debug or not)
                        , sample cap        // 'observe' if sampled out
                        , breaker cap       // breaker.downgradeTo once tripped
                        , route rule.mode ) // first matching routes[] rule
 order: off < observe < guard < heal
 ```
-   `effectiveAggressiveness` is the min of the global value (including `?genclass-aggr`, which may only demote unless `debug:true`) and the route value. Explicit `policy.thresholds` still win. The scope is **snapshotted when an op or mutation is created** (`OpRec.scope`) and is never re-classified later. `status.mode` keeps reporting the *requested* mode. `status.effectiveMode`, `Report.mode` and `SinkRecord.mode` report the effective mode.
+   `effectiveAggressiveness` is the min of the global value (including `?genclass-aggr`, which may only demote, with or without `debug:true`) and the route value. Explicit `policy.thresholds` still win. The scope is **snapshotted when an op or mutation is created** (`OpRec.scope`) and is never re-classified later. `status.mode` keeps reporting the *requested* mode. `status.effectiveMode`, `Report.mode` and `SinkRecord.mode` report the effective mode.
 4. **Gate order per decision** (`decide/policy.ts gate()`). The first step that stops the action wins, and its reason goes into `Decision.reason` and `explain()`:
    1. the subject, or the action's target op, is `protected` → passive, `protected`
    2. the subject is cross-origin → passive, `cross-origin` (not configurable)
@@ -210,7 +210,7 @@ Runtime API:
   - Results go in an LRU cache keyed by `method+" "+url`, 256 entries. Matchers are compiled once, in the `runtime.ts` constructor.
 - **`OpRec.scope`**: `{ mode, aggressiveness, protected, crossOrigin, label?, route?, correlationId? }`, set in `NetHost.startOp`.
 - **`runtime.ts computeScope()`** runs on init, on nav, on `setMode`/`setAggressiveness`, on a breaker trip or reset, and when `enabled` changes. It stores `this.scope`, which is snapshotted per op or mutation.
-- **URL overrides** (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample=0|1`) may only demote. With `debug:true` they may also raise the value, for QA. `?genclass-sample=1` under debug forces the session into the act cohort.
+- **URL overrides** (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample=0`) may only demote, on every host, with or without `debug:true` (debug is console logging only). `?genclass-sample=1` has no effect: no URL value puts a session in the act cohort. Before 0.3.0-beta.1, `debug:true` let them raise the value and `?genclass-sample=1` under debug forced the act cohort; a link could then raise any site that left debug on in production. The page's own `?genclass=` / `localStorage.genclass` (src/index.ts) may raise the mode only on a development host (src/devhost.ts: http(s) on a loopback name with an explicit port, or `*.test`). For QA on a staging or production host, set `mode` / `sample` per environment, call `rt.setMode()`, or use the devtools overlay.
 
 ## 4. Options
 
@@ -238,7 +238,7 @@ Runtime API:
 ### 4.2 `sample`
 **Type** `number` in [0,1], clamped with a warning. **Default** `1`.
 
-**Semantics.** Sessions outside the fraction get an `observe` cap. The model still loads, so they form the comparison group. The bucket is **decided once at init** as `hash(session.id)/2^32 < sample`, then frozen and stored in `sessionStorage["genclass:bucket"]` (wrapped in try/catch). A later `setSession({id})` does not change it. An app that passes a stable user id gets the same bucket in every tab, which is the intended behaviour. `?genclass-sample=0` always forces observe, and `=1` only works under debug.
+**Semantics.** Sessions outside the fraction get an `observe` cap. The model still loads, so they form the comparison group. The bucket is **decided once at init** as `hash(session.id)/2^32 < sample`, then frozen and stored in `sessionStorage["genclass:bucket"]` (wrapped in try/catch). A later `setSession({id})` does not change it. An app that passes a stable user id gets the same bucket in every tab, which is the intended behaviour. `?genclass-sample=0` always forces observe, and `=1` has no effect (since 0.3.0-beta.1; before, it forced the act cohort under debug).
 
 **Precedence.** It is one term of the min. `setMode` cannot lift it.
 
@@ -565,7 +565,7 @@ Design, every check and threshold: [VISUAL.md](VISUAL.md). Types: `VisualOptions
 
 **Semantics.**
 - `false` (or `?genclass-visual=off`): nothing is installed, no listener, no timer, no download.
-- `"local"`: on for development hosts (`devHost` in `src/visual/start.ts`: http(s) on `localhost`, `127.0.0.1`,
+- `"local"`: on for development hosts (`devHost` in `src/devhost.ts`: http(s) on `localhost`, `127.0.0.1`,
   `[::1]` or a `*.localhost` name with an explicit port, or a `*.test` name; narrower than telemetry's `isLocalHost`,
   so Capacitor, Tauri, Electron and intranet hosts are off) and when the devtools overlay mounts or `rt.checkNow()`
   is called; off otherwise. `?genclass-visual=on` turns it on for that page load, report-only.
@@ -605,7 +605,7 @@ cross-origin            → passive always
 op scope off/observe    → never an action target (notOffered)
 effectiveMode           = min(mode|setMode|URL*, sample cap, breaker cap, route rule)  (snapshot per op)
 effectiveAggressiveness = min(global|setAggressiveness|URL*, route rule); explicit policy.thresholds win
-                          *URL overrides (mode, aggr, sample) demote only unless debug:true
+                          *URL overrides (mode, aggr, sample) demote only, on every host, debug or not
 policy.allow/deny       → unchanged, at effective mode
 policy.actionLimits     → limit:perMinute / perSubject / perSession
 onBeforeAction          → final sync veto (vetoMode "report" = record only); over hold budget → limit:hold
@@ -631,7 +631,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
 > - **Telemetry**: `sinks` (structured, redacted records), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
 > - **Loading and cost**: `model.loadIf`, `model.threads`, `model.timeoutMs`, `model.maxDecisionsPerMinute`, `model.unloadAfterIdleMs`.
 >
-> URL overrides (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample`) can only lower settings, unless `debug: true` is set.
+> URL overrides (`?genclass-mode`, `?genclass-aggr`, `?genclass-sample`) can only lower settings, with or without `debug: true`.
 >
 > ```ts
 > import { init } from "@genclass/runtime";
@@ -687,7 +687,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
 > **Recommended `requests.protect` starter** (it is not built in; adapt it to your endpoints):
 > `[/\/(auth|login|logout|oauth|token|session)\b/, /\/(payment|checkout|billing)\b/]`
 >
-> **Rollout recipe:** start with `mode: "observe", shadow: "guard"`, and compare the shadow records with your undo and complaint rates. Then switch to `mode: "guard", sample: 0.05`. Watch `rt.summary().undos` and `breaker` events, and widen `sample` as they stay quiet. For QA, `?genclass-sample=1` together with `debug: true` forces a session into the acting group.
+> **Rollout recipe:** start with `mode: "observe", shadow: "guard"`, and compare the shadow records with your undo and complaint rates. Then switch to `mode: "guard", sample: 0.05`. Watch `rt.summary().undos` and `breaker` events, and widen `sample` as they stay quiet. For QA, set `sample: 1` in the QA environment's config (no URL puts a session into the acting group).
 
 ## 8. Migration and compatibility
 
@@ -699,7 +699,7 @@ status.mode = requested; status.effectiveMode / Report.mode / SinkRecord.mode = 
   4. `model.loadIf` defaults to a device floor: no model on devices reporting 2 GB or less or on Save-Data connections (`{ minDeviceMemoryGB: 4, saveData: "skip" }`; the earlier draft said `saveData:"lazy"`).
   5. Hidden tabs skip background evaluation and release held items immediately (counted in `summary.model.hiddenSkipped`). 0.3.0: in observe they are deferred and decided when the tab is visible again (§5.1, §5.3).
   6. Query and fragment values in recorded URLs are now `…` in situation text. **Model input changes, so add this to the eval plan and re-measure accuracy before release.** Sent URLs are unchanged.
-  7. URL overrides can no longer raise mode or aggressiveness without `debug:true`.
+  7. URL overrides can no longer raise mode or aggressiveness without `debug:true`. (Since 0.3.0-beta.1 not with it either: `debug` is console logging only.)
   8. Ops created under `off`/`observe` route scope can no longer be action targets.
 - **Renames from the earlier draft:**
 
