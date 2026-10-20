@@ -3,12 +3,12 @@
 ## 0.3.0-beta.1 (unreleased)
 
 - **Fewer model calls on steady timer ticks (mutation triage; CONTRACT §6 amendment, owner to confirm).** A field that
-  one timer writes with the same numeric step on that timer's own schedule (an elapsed-seconds counter, a countdown)
-  carried the identical-change fact on every tick, its only non-neutral fact, so `triage: "salient"` asked the model
+  one timer writes with the same finite numeric step on that timer's own schedule (an elapsed-seconds counter, a
+  countdown) carried the identical-change fact on every tick, its only non-neutral fact, so `triage: "salient"` asked the model
   about nearly every tick: 59 of 60 writes a minute for a 1 Hz `+1` counter, and in Troy Bot (0.3.0-beta.0, a
   `useSyncExternalStore` call timer) 87 of 116 decisions, all `expected`, about 100 ms of worker time each, counted
   against the built-in model's 30 decisions a minute. Once the field's last 4 writes were such ticks (a timer of at
-  least 250 ms, the same step, each tick within ±25% of the timer's delay after the previous one, the same timer:
+  least 250 ms, the same finite step, each tick within ±25% of the timer's delay after the previous one, the same timer:
   sharing its cause or each tick caused by the one before), that one fact no longer makes the write salient: the
   counter is asked about on its 2nd to 4th ticks, then not again while it keeps its step and schedule. A user write,
   another writer, a second timer, another step or an off-schedule gap asks again for the next 4 writes. Any other
@@ -19,8 +19,9 @@
   take places in the event log. Not learned, so still asked as before: wrapping counters (a carousel index is asked
   again at each wrap and the 4 ticks after it, so an index over 5 or fewer items is never learned),
   `requestAnimationFrame`, `MessageChannel` and `requestIdleCallback` loops (no timer cause), ticks written through
-  `runtime.op` or a `protect()`ed function (their cause is the task), timers under 250 ms, and ticks that append
-  items (unbounded growth may be the bug). Possibly learned by mistake: two intervals registered in one React effect
+  `runtime.op` or a `protect()`ed function (their cause is the task), timers under 250 ms, ticks that append
+  items (unbounded growth may be the bug), and a field flipping to or from `NaN` (every such change has the step
+  `NaN` whatever the values: no step at all, so it is asked about on every tick as before). Possibly learned by mistake: two intervals registered in one React effect
   whose `useState` updates React batches into one `+2` commit a second look like one steady timer (not verified with
   real React). Not measured yet: FIR and recall on the sim eval, the realapps sweep and the demos bench. In guard and
   heal, fewer queued tick decisions can let other salient subjects be held or decided where they failed open before,
@@ -30,17 +31,26 @@
   identical-request fact ("… neither from a user action"), its only non-neutral fact, so the model was asked about
   each re-fetch and read them as `overload` at up to 0.98 (Troy Bot, 0.3.0-beta.0: 9 false reports in its
   back/forward run). The nav observer now tells a back/forward traversal from a new history entry: a `popstate` or
-  `hashchange` with `history.length` unchanged since the last navigation it saw and another route. Fragment
-  navigations (Chromium fires `popstate` for them too), `pushState`, `replaceState` and a click on the current hash
-  link are not traversals. The first GET or HEAD of a request with no user action in its chain, started within 2 s
-  after a traversal, is no longer asked about for its identical-request fact alone. A hot request rate or a failure
-  streak still asks, and so do user-caused requests, other methods (a re-sent POST) and a second identical request
-  after the same traversal; `triage: "always"` and standing `always` questions are unchanged. In guard and heal such a
-  re-fetch is sent at once instead of being held for the model. The `nav` event is unchanged, no listener or wrapper
-  was added (the observer also reads `history.length`), no model-visible text changed (`situation-v2.3`) and the
-  telemetry payload is the same (there are fewer decisions). Counted as traversals by mistake, so their first re-fetch
-  is not asked about either: `location.replace("#x")` and a fragment push once session history is at the browser's
-  cap (Chrome: 50 entries). Not covered: back/forward restores from the bfcache (`pageshow`), and a page whose own
+  `hashchange` to another route than the last navigation it saw that, where the Navigation API exists, lands on an
+  entry it saw at an earlier navigation (by `navigation.currentEntry.key`; the last 64 are kept), and elsewhere leaves
+  `history.length` unchanged since that navigation. Fragment navigations (Chromium fires `popstate` for them too),
+  `pushState`, `replaceState` and a click on the current hash link are not traversals. The first GET or HEAD of a
+  request with no user action in its chain, started within 2 s after a traversal, is no longer asked about for its
+  identical-request fact alone, while its request has been sent at most 7 times (this one included) in the last
+  10 s. A hot request rate against a learned usual rate or a failure streak still asks, and so do user-caused
+  requests, other methods (a re-sent POST), a second identical request after the same traversal and a loop: a page's
+  own `history.back()`/`go()` cycle (a redirect ping-pong) looks like the back button, so its re-fetches are exempt up
+  to their 7th in 10 s and asked from the 8th; `triage: "always"` and standing `always` questions are unchanged. In
+  guard and heal such a re-fetch is sent at once instead of being held for the model. The `nav` event is unchanged,
+  no listener or wrapper was added (the observer also reads `history.length` and, where it exists,
+  `navigation.currentEntry.key`), no model-visible text changed (`situation-v2.3`) and the telemetry payload is the
+  same (there are fewer decisions). Where the Navigation API is missing (the `history.length` fallback), these count
+  as traversals by mistake, so their first re-fetch is not asked about either: `location.replace("#x")`, a fragment
+  push once session history is at the browser's cap (Chrome: 50 entries), and any new entry made while forward
+  entries exist (typically right after a back: a fragment navigation, or a `pushState` whose patch, installed before
+  GenClass, dispatches `popstate` inside the call). With the Navigation API, a traversal to an entry made before
+  GenClass was installed, or not among the last 64 it saw, is not counted (its re-fetch is asked, as before). Not
+  covered: back/forward restores from the bfcache (`pageshow`), and a page whose own
   `popstate` listener, registered before GenClass, fetches synchronously (that fetch starts before the traversal is
   seen). Not measured yet: Troy Bot's back/forward run and the realapps sweep of the hash-routed conduit apps (FIR
   and recall).
@@ -52,7 +62,8 @@
   ORT's own require shim, so an esbuild app no longer adds a dynamic-require shim chunk to every entry (Rollup and
   webpack builds never did); `hash32` reuses `fnv1a` (the same values); and one helper pushes the runtime's `custom`
   events (the same events). The script-tag file, which carries the flow layer inline, grows by 0.05 KB (128.85 KB).
-  No model-visible text changed.
+  With the exemptions' finite-step, loop and entry-identity conditions, the first load is 108.09 / 99.92 KB (script
+  tag 128.96 KB). No model-visible text changed.
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the

@@ -100,7 +100,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // shared with it and split out of the first load (-0.51 / -0.64 KB); dist/cdn reads `require` as globalThis.require,
   // so an app's esbuild adds no dynamic-require shim chunk (-0.20 / -0.20 KB); hash32 reuses util.ts fnv1a and one
   // helper pushes the runtime's "custom" events (-0.06 / -0.02 KB): 107.94 / 99.77 KB in 2 files, script tag 128.85 KB
-  // (+0.06 KB: it inlines the flow chunk). Both sizes are printed before either is asserted.
+  // (+0.06 KB: it inlines the flow chunk); with the exemptions' review follow-ups (finite steps, the loop cap, entry
+  // identity) 108.09 / 99.92 KB, script tag 128.96 KB. Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 108.6, "index.js": 100.48 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");

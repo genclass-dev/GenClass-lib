@@ -816,8 +816,10 @@ the local build after each step (the script tag gzipped at level 9 the same way)
 | + `dist/cdn` reads `require` as `globalThis.require` (ORT's own shim): an app's esbuild adds no dynamic-require shim chunk | 107.997 KB | 99.787 KB | 128.895 KB |
 | + `hash32` (util/match.ts) returns `parseInt(fnv1a(s), 16)`, the same values | 107.959 KB | 99.790 KB | not measured |
 | + one private helper pushes the runtime's `custom` events | **107.938 KB** (105.21 + 2.73) | **99.771 KB** (97.04 + 2.73) | 128.848 KB |
+| + review follow-ups to the exemptions: finite steps only, a loop cap on back/forward re-fetches, traversals told by Navigation API entry key | **108.093 KB** (105.36 + 2.73) | **99.924 KB** (97.20 + 2.73) | 128.965 KB |
 
-The script tag has no code splitting, so the flow layer is inline there and passing the helpers costs it 0.10 KB.
-The `require` cut is measured on an esbuild bundle (this test's and an esbuild app's); a Rollup or webpack build never
-added that shim to the first load. No detection numbers: nothing a decision reads changed, so recall and FIR do not
-move.
+That leaves 0.51 KB under the `/auto` limit and 0.56 KB under the main entry's. The script tag has no code
+splitting, so the flow layer is inline there and passing the helpers costs it 0.10 KB. The `require` cut is measured
+on an esbuild bundle (this test's and an esbuild app's); a Rollup or webpack build never added that shim to the first
+load. No detection numbers for the four cuts: nothing a decision reads changed, so recall and FIR do not move. The
+last row changes triage (CONTRACT §6 amendments); its FIR and recall are not measured yet.

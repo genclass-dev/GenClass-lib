@@ -283,10 +283,10 @@ const TICK_MIN_DELAY_MS = 250;
 
 /**
  * True when write `m` (a mutation decided now, on `rt`'s clock, not a deferred re-decision) is a learned steady tick:
- * its cause is a timer op of delay ≥ TICK_MIN_DELAY_MS, every change is numeric, and each changed field's last TICK_MIN
- * writes were writes of the same step by ticks of the same timer (the same delay, and sharing their cause or each
- * caused by the one before), each tick (its timer op's start; now for `m`) within TICK_TOLERANCE of the delay after the
- * previous one. Reads the field histories and the op registry only; keeps nothing.
+ * its cause is a timer op of delay ≥ TICK_MIN_DELAY_MS, every change is a finite numeric step, and each changed field's
+ * last TICK_MIN writes were writes of the same step by ticks of the same timer (the same delay, and sharing their
+ * cause or each caused by the one before), each tick (its timer op's start; now for `m`) within TICK_TOLERANCE of the
+ * delay after the previous one. Reads the field histories and the op registry only; keeps nothing.
  */
 function steadyTick(m: MutationRec, rt: { clock: Clock; hub: StoreHub; ops: OpRegistry }): boolean {
   // Only timer ops have a delay, so every writer below is a timer tick (never a user or GenClass write); the
@@ -297,7 +297,8 @@ function steadyTick(m: MutationRec, rt: { clock: Clock; hub: StoreHub; ops: OpRe
     const h = rt.hub.field(c.path)?.hist ?? [];
     let next = C!;
     let t = rt.clock.now();
-    if (!c.delta.startsWith("n:") || h.length < TICK_MIN) return false;
+    // a finite step only: a change into or out of NaN is "n:NaN" whatever the values (no step at all)
+    if (!c.delta.startsWith("n:") || !Number.isFinite(Number(c.delta.slice(2))) || h.length < TICK_MIN) return false;
     for (const e of h.slice(-TICK_MIN).reverse()) {
       const w = rt.ops.get(e.writer);
       if (!w || e.delta !== c.delta || w.delay !== d || (next.cause !== w.cause && next.cause !== w.id) || Math.abs(t - w.start - d) > d * TICK_TOLERANCE) return false;
@@ -311,10 +312,18 @@ function steadyTick(m: MutationRec, rt: { clock: Clock; hub: StoreHub; ops: OpRe
 // Re-fetches after back/forward (CONTRACT §6 Triage, owner to confirm): a page that fetches on mount, re-mounted by a
 // history traversal (observe/nav.ts), repeats the request it made a moment ago, so the identical-request fact is
 // non-neutral although nothing went wrong. Request triage stops counting that one fact for the first cause-less
-// GET/HEAD of an identity started within TRAVERSAL_MS of the traversal (RuntimeImpl.refetch; any other non-neutral
-// fact, a user-caused request, another method or a second identical request still asks).
+// GET/HEAD of an identity started within TRAVERSAL_MS of the traversal, while that identity has at most
+// TRAVERSAL_LOOP_MAX requests in the last TRAVERSAL_LOOP_WINDOW_MS (RuntimeImpl.refetch; any other non-neutral fact, a
+// user-caused request, another method, a second identical request or a loop of traversals still asks).
 /** How long after a back/forward traversal a page's first re-fetch of a request is not asked about for repeating it. */
 const TRAVERSAL_MS = 2000;
+/**
+ * A re-fetch is exempt only while its identity has at most this many requests (itself included) in the last
+ * TRAVERSAL_LOOP_WINDOW_MS: a person's fast back/forward clicks stay under it (Troy Bot: 6 after the first load), a
+ * page's own history.back()/go() loop, one traversal per cycle, is asked again from its 8th request.
+ */
+const TRAVERSAL_LOOP_MAX = 7;
+const TRAVERSAL_LOOP_WINDOW_MS = 10_000;
 
 export class RuntimeImpl implements Runtime {
   readonly clock: Clock;
@@ -1529,12 +1538,21 @@ export class RuntimeImpl implements Runtime {
 
   /**
    * True when request `op` is a page's re-fetch after a back/forward traversal: a GET or HEAD with no user action in its
-   * chain, started within TRAVERSAL_MS of the traversal, the first request of its identity since then.
+   * chain, started within TRAVERSAL_MS of the traversal, the first request of its identity since then, and at most
+   * TRAVERSAL_LOOP_MAX requests of its identity (itself included) started in the TRAVERSAL_LOOP_WINDOW_MS before it.
    */
   private refetch(op: OpRec, req: ReqMeta): boolean {
     const t = this.trav;
     const d = op.start - t;
-    return d >= 0 && d <= TRAVERSAL_MS && /^(GET|HEAD)$/.test(req.method) && !this.ops.userOf(op) && !this.identicalMap.get(req.identity)?.some((o) => o !== op && o.start >= t);
+    const same = this.identicalMap.get(req.identity) ?? [];
+    return (
+      d >= 0 &&
+      d <= TRAVERSAL_MS &&
+      /^(GET|HEAD)$/.test(req.method) &&
+      !this.ops.userOf(op) &&
+      !same.some((o) => o !== op && o.start >= t) &&
+      same.filter((o) => op.start - o.start <= TRAVERSAL_LOOP_WINDOW_MS).length <= TRAVERSAL_LOOP_MAX
+    );
   }
 
   private queueProfile(op: OpRec): void {

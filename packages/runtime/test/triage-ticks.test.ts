@@ -260,6 +260,22 @@ describe("mutation triage: steady timer ticks are learned (CONTRACT §6 Triage)"
     b.s.rt.destroy();
   });
 
+  it("only a finite step is learned: a field flipping to and from NaN at 1 Hz stays salient", async () => {
+    // every change into or out of NaN has the delta "n:NaN", whatever the values: no step at all (0.3.0-beta.0 asked
+    // 29 of these 30 writes, the identical-change fact being their only non-neutral fact)
+    for (const next of [(k: number) => (k % 2 ? NaN : 60), (k: number) => (k % 2 ? NaN : 50 + k), (k: number) => (k % 2 ? 0 / 0 : 3000 / 50)]) {
+      const { s, every } = start();
+      const stats = s.rt.atom("stats", { fps: 0 });
+      let k = 0;
+      every(() => stats.set({ fps: next(++k) }), 1000);
+      await s.clock.advance(30_000);
+      expect(k).toBe(30);
+      expect(asked(s).length).toBe(29);
+      expect(facts(asked(s)[28])[0]).toMatch(/^An identical change to stats\.fps \(NaN\) was applied 10 times in the last 10s/);
+      s.rt.destroy();
+    }
+  });
+
   it("a steady tick written through a task op, a 100 ms interval and a timer appending identical items stay salient", async () => {
     const a = start();
     a.every(() => void a.s.rt.op("tick", () => a.call.set((v) => ({ ...v, elapsedS: v.elapsedS + 1 }))), 1000);

@@ -3,9 +3,12 @@
 // requests in the last 10s: …; #22 started 0.12s before this one, neither from a user action."), its only non-neutral
 // fact, so the model was asked about every re-fetch and called them "overload" at up to 0.98 (Troy Bot, 0.3.0-beta.0,
 // back_forward_during_loads: 9 false alarms). The first cause-less GET/HEAD of an identity within 2 s after a
-// traversal no longer counts that one fact. Fragment navigations (which also fire popstate in Chromium) and pushState
-// navigations are not traversals; user-caused requests, non-GET methods, a second identical request after the same
-// traversal and every other non-neutral fact still ask. The nav event and every asked situation keep their exact text.
+// traversal no longer counts that one fact, up to the identity's 7th request in 10 s (a page's own history.back() loop
+// is asked again from its 8th). Fragment navigations (which also fire popstate in Chromium) and pushState navigations
+// are not traversals: by the Navigation API's entry key where it exists (a new entry has a fresh key, even when it
+// pruned forward entries), else by history.length. User-caused requests, non-GET methods, a second identical request
+// after the same traversal and every other non-neutral fact still ask. The nav event and every asked situation keep
+// their exact text.
 import { describe, expect, it } from "vitest";
 import type { EvaluateRequest } from "../src/types.js";
 import { ManualDecider, setup, type Setup } from "./helpers.js";
@@ -63,6 +66,90 @@ function page(o: Parameters<typeof setup>[0] = {}, opts: { length?: boolean; rep
   /** The page's fetch-on-mount (cause-less: React and Next run it in a later task). */
   const load = (init?: RequestInit, url = "/api/orders/current") => void s.fetch(url, init);
   return { s, hist, back, hashNav, sameHash, load };
+}
+
+/**
+ * A session history as a browser keeps it: entries and an index. A new entry (pushState, a fragment navigation) prunes
+ * the forward entries, so `history.length` does not grow right after a back; `history.back()`/`go()` traverse
+ * (popstate, then hashchange when only the fragment differs). With `navigation`, the Navigation API's `currentEntry`:
+ * a fresh `key` for each new entry, kept by replaceState and location.replace. With `dispatchOnPush`, pushState is a
+ * router patch installed before GenClass that dispatches its own popstate inside the call (as single-spa's does).
+ */
+function session(o: Parameters<typeof setup>[0] = {}, opts: { navigation?: boolean; dispatchOnPush?: boolean } = {}) {
+  const win = new EventTarget();
+  const loc = { href: "http://app.test/", pathname: "/", search: "", hash: "" };
+  const go = (to: string) => {
+    const u = new URL(to, loc.href);
+    Object.assign(loc, { href: u.href, pathname: u.pathname, search: u.search, hash: u.hash });
+  };
+  let keys = 0;
+  const entries = [{ url: loc.href, key: `k${++keys}` }];
+  let index = 0;
+  const fire = (type: string) => win.dispatchEvent(new Event(type));
+  const add = (to: string) => {
+    go(to);
+    entries.splice(index + 1);
+    entries.push({ url: loc.href, key: `k${++keys}` });
+    index = entries.length - 1;
+  };
+  const traverse = (d: number) => {
+    const to = entries[index + d];
+    if (!to) return;
+    const from = new URL(loc.href);
+    const u = new URL(to.url);
+    index += d;
+    go(to.url);
+    fire("popstate");
+    if (u.pathname === from.pathname && u.search === from.search && u.hash !== from.hash) fire("hashchange");
+  };
+  const hist = {
+    get length() {
+      return entries.length;
+    },
+    pushState: (_s: unknown, _t: string, url?: string | URL | null) => {
+      add(String(url));
+      if (opts.dispatchOnPush) fire("popstate");
+    },
+    replaceState: (_s: unknown, _t: string, url?: string | URL | null) => {
+      go(String(url));
+      entries[index].url = loc.href;
+    },
+    back: () => traverse(-1),
+    forward: () => traverse(1),
+    go: (d: number) => traverse(d),
+  };
+  const navigation = {
+    get currentEntry() {
+      return { key: entries[index].key, url: entries[index].url };
+    },
+  };
+  const s = setup({
+    mode: undefined /* observe */,
+    observe: OBSERVE,
+    extraGlobal: {
+      location: loc,
+      history: hist,
+      ...(opts.navigation ? { navigation } : {}),
+      addEventListener: win.addEventListener.bind(win),
+      removeEventListener: win.removeEventListener.bind(win),
+    },
+    ...o,
+  });
+  /** A click on a link to fragment `h`: a new entry (popstate, then hashchange, as Chromium fires them). */
+  const hashNav = (h: string) => {
+    add(h);
+    fire("popstate");
+    fire("hashchange");
+  };
+  /** location.replace("#x"): the current entry's URL changes, its key does not. */
+  const replaceHash = (h: string) => {
+    go(h);
+    entries[index].url = loc.href;
+    fire("popstate");
+    fire("hashchange");
+  };
+  const load = (url: string) => void s.fetch(url);
+  return { s, hist, hashNav, replaceHash, load };
 }
 
 const asked = (s: Setup) => s.decider.calls.filter((c) => c.trigger === "request");
@@ -252,8 +339,9 @@ describe("request triage after a back/forward traversal (CONTRACT §6 Triage)", 
       load();
       await s.clock.advance(105);
     }
-    // was 11: now only the second GET of each pair
-    expect(asked(s)).toHaveLength(6);
+    // was 11: now the second GET of each pair, and from the 4th traversal on the first one too (the identity then has
+    // more than 7 requests in 10 s: a loop, not a person's clicks)
+    expect(asked(s)).toHaveLength(9);
     s.rt.destroy();
   });
 
@@ -307,6 +395,119 @@ describe("request triage after a back/forward traversal (CONTRACT §6 Triage)", 
     decider.answer();
     await s.clock.advance(100);
     expect(s.server.log).toHaveLength(3);
+    s.rt.destroy();
+  });
+});
+
+describe("request triage after a traversal: loops and entry identity (CONTRACT §6 Triage)", () => {
+  /** Asked situations whose identical-request fact is about `GET <path>`. */
+  const askedFor = (s: Setup, path: string) => asked(s).filter((c) => facts(c).some((f) => f.includes(` identical GET ${path} requests `))).length;
+
+  for (const navigation of [false, true]) {
+    it(`a page's own pushState + history.back() loop keeps being asked once an identity passes 7 requests in 10 s (${navigation ? "Navigation API" : "history.length"})`, async () => {
+      // redirect ping-pong: /a pushes /b, /b's guard calls history.back(); each page fetches on mount (cause-less)
+      const { s, hist, load } = session({}, { navigation });
+      s.server.on("GET", "/api/a", { body: { a: 1 }, latency: 300 });
+      s.server.on("GET", "/api/b", { body: { b: 1 }, latency: 300 });
+      load("/api/a");
+      await s.clock.advance(3000);
+      for (let i = 0; i < 20; i++) {
+        hist.pushState(null, "", "/b");
+        await s.clock.advance(5);
+        load("/api/b");
+        await s.clock.advance(70);
+        hist.back(); // history.length stays 2: the push pruned the forward entry
+        expect(hist.length).toBe(2);
+        await s.clock.advance(5);
+        load("/api/a");
+        await s.clock.advance(70);
+      }
+      await s.clock.advance(2000);
+      expect(s.server.log).toHaveLength(41);
+      // up to its 7th request within 10 s, each re-fetch is exempt (the 1st /api/b has no identical one, the 2nd /api/a
+      // none close enough); from the 8th on every one is asked: /api/a's 8th to 21st, /api/b's 8th to 20th (was 0)
+      expect(askedFor(s, "/api/a")).toBe(14);
+      expect(askedFor(s, "/api/b")).toBe(13);
+      s.rt.destroy();
+    });
+  }
+
+  it("Navigation API: 6 fast back/forward traversals to entries seen before are not asked", async () => {
+    const { s, hist, load } = session({}, { navigation: true });
+    s.server.on("GET", "/api/orders/current", { body: { order: null }, latency: 10 });
+    load("/api/orders/current");
+    hist.pushState(null, "", "/menu");
+    hist.pushState(null, "", "/talk");
+    await s.clock.advance(3400);
+    for (const d of [-1, -1, 1, 1, -1, -1]) {
+      hist.go(d);
+      await s.clock.advance(5);
+      load("/api/orders/current");
+      await s.clock.advance(145);
+    }
+    await s.clock.advance(2000);
+    expect(s.server.log).toHaveLength(7);
+    expect(asked(s)).toHaveLength(0);
+    s.rt.destroy();
+  });
+
+  /** On #/feed, open #/article, back; > 2 s later, with a cause-less prefetch of the article in flight, the user clicks the #/article link again (a new entry: the forward one is pruned, history.length does not grow) and the route fetches it. */
+  async function fragmentAfterBack(navigation: boolean) {
+    const { s, hist, hashNav, load } = session({}, { navigation });
+    s.server.on("GET", "/api/article", { body: { title: "x" }, latency: 5000 });
+    hashNav("#/feed");
+    hashNav("#/article");
+    await s.clock.advance(1000);
+    hist.back();
+    await s.clock.advance(2500);
+    load("/api/article"); // the prefetch, still in flight below
+    await s.clock.advance(100);
+    const len = hist.length;
+    hashNav("#/article");
+    expect(hist.length).toBe(len);
+    await s.clock.advance(5);
+    load("/api/article"); // the route's own fetch, from its hashchange handler (a later task, no user action)
+    await s.clock.advance(6000);
+    const n = asked(s).length;
+    s.rt.destroy();
+    return n;
+  }
+
+  it("Navigation API: a fragment navigation right after a back is a new entry, not a traversal: its duplicate GET is asked", async () => {
+    expect(await fragmentAfterBack(true)).toBe(1);
+  });
+
+  it("history.length fallback (no Navigation API): that fragment navigation counts as a traversal (documented misread)", async () => {
+    expect(await fragmentAfterBack(false)).toBe(0);
+  });
+
+  it("Navigation API: a pushState whose earlier patch dispatches popstate inside the call is not a traversal", async () => {
+    const { s, hist, load } = session({}, { navigation: true, dispatchOnPush: true });
+    s.server.on("GET", "/api/a", { body: { a: 1 }, latency: 5000 });
+    hist.pushState(null, "", "/a");
+    await s.clock.advance(1000);
+    hist.back();
+    await s.clock.advance(2500);
+    load("/api/a"); // a prefetch, in flight
+    await s.clock.advance(100);
+    hist.pushState(null, "", "/a"); // the router's push: its patch fires popstate before GenClass's wrapper returns
+    await s.clock.advance(5);
+    load("/api/a");
+    await s.clock.advance(6000);
+    expect(asked(s)).toHaveLength(1);
+    s.rt.destroy();
+  });
+
+  it("Navigation API: location.replace(\"#x\") keeps the entry's key, so it is not a traversal", async () => {
+    const { s, replaceHash, load } = session({}, { navigation: true });
+    s.server.on("GET", "/api/article", { body: { title: "x" }, latency: 5000 });
+    load("/api/article");
+    await s.clock.advance(100);
+    replaceHash("#/article");
+    await s.clock.advance(5);
+    load("/api/article");
+    await s.clock.advance(6000);
+    expect(asked(s)).toHaveLength(1);
     s.rt.destroy();
   });
 });
