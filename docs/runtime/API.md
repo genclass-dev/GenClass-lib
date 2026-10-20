@@ -496,8 +496,10 @@ every observer and restores the globals it wrapped.
 
 A slow request is asked about through `stall`, not `delivery`. A `delivery` decision is about a response overwriting
 newer, pending or typed state: a response with no such conflict is delivered without a decision however long it took
-(unless `triage: "always"` or a standing question with `always` asks), and so is the first response of a signature,
-which has no learned write set yet (its store writes still go through mutation triage). Latency baselines
+(unless `triage: "always"` or a standing question with `always` asks), and so is the first response of a signature
+in a page load, which has no learned write set yet (its store writes still go through mutation triage). With an
+explicit `learn.persist`, a transition profile restored from an earlier page load gives that first response a write
+set, and it is triaged like any other. Latency baselines
 (`src/learn/baselines.ts`) are per signature and per page load, never stored: the last 64 successful completions, used
 once there are 5. Slow successes stay in the window, so below 20 samples the slowest one sets the p95 and the stall
 threshold is at least twice it.

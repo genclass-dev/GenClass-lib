@@ -87,17 +87,19 @@
   inline styles; while such an animation runs, incremental and route-change re-checks do not run. `data-genclass-ignore`
   around a decorative animation keeps it out of both waits (and hides taps and inputs inside it from user-action
   recording and analytics). The README said only "loaded 1.5 s after load", API.md gave the fonts wait a 10 s cap,
-  VISUAL.md 2.3 still gave the design's 5 s load cap (6.5 s as built), and VISUAL.md 8 said a slow read doubles the
-  settle wait (it doubles later persistence waits). README and API.md now say what triggers a decision about a slow
-  request: `stall`, against latency baselines learned per page load (5 successful completions of the signature, then
-  max(4× median, 2× p95, 0.5 s)), else after 10 s in flight; a `delivery` decision is about overwriting newer, pending
-  or typed state, so a slow first response with no conflict gets none, by design. VISUAL.md section 4 lists
-  `tap-target-swapped` (a second tap landing on a control inserted under the pointer) as a candidate that waits for a
-  labelling policy and a clean-page double-tap driver. No runtime behaviour or model-visible text changed (two
-  comments in `src/visual/engine.ts`; test/visual-scheduler.test.ts checks that the documented delays and caps are
-  the ones `src/visual/start.ts` and `engine.ts` use, and pins the settle wait on a quiet page, an animated one, one
-  whose animation is inside `[data-genclass-ignore]`, one with a request in flight or one that never ends, and one
-  whose web fonts never load, where the quiet window and the 10 s cap start after the 3 s fonts wait).
+  and VISUAL.md 8 said a slow read doubles the settle wait (it doubles later persistence waits). VISUAL.md 2.3 and 8
+  now also give the as-built deadline when `load` is late: the chunk is imported at the latest 6.5 s after init, the
+  1.5 s included (the design's 5 s `load` cap plus 1.5 s gives the same). README and API.md now say what triggers a
+  decision about a slow request: `stall`, against latency baselines learned per page load (5 successful completions
+  of the signature, then max(4× median, 2× p95, 0.5 s)), else after 10 s in flight; a `delivery` decision is about
+  overwriting newer, pending or typed state, so a slow first response with no conflict gets none, by design.
+  VISUAL.md section 4 lists `tap-target-swapped` (a second tap landing on a control inserted under the pointer) as a
+  candidate that waits for a labelling policy and a clean-page double-tap driver. No runtime behaviour or
+  model-visible text changed (two comments in `src/visual/engine.ts`; test/visual-scheduler.test.ts checks that the
+  documented delays and caps are the ones `src/visual/start.ts` and `engine.ts` use, and pins the settle wait on a
+  quiet page, an animated one, one whose animation is inside `[data-genclass-ignore]`, one with a request in flight
+  or one that never ends, and one whose web fonts never load, where the quiet window and the 10 s cap start after the
+  3 s fonts wait).
 
 ## 0.3.0-beta.0 (unreleased)
 

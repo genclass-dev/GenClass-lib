@@ -839,11 +839,14 @@ first table shows ships no GenClass code.
 | main-thread JS heap | | +1.5 to 1.8 MB | |
 | memory per renderer process (renderer and model worker) | `/` 77 MB cold, 86 MB warm; `/menu` 49 MB cold, 58 MB warm | `/` 249 / 208 MB; `/menu` 224 / 175 MB (+117 to +175 MB) | macOS `top -stats mem` 12 s after load, median of 5 (RSS was too noisy to use) |
 | first visit download | | 13,708 KiB (about 14.0 MB) from the app's own origin, of which the q8 model is 9,922 KiB (10.2 MB, sent uncompressed); about 1 KB on later visits | Playwright `requestfinished` sizes, worker requests included |
-| model ready | | 1.25 to 1.5 s cold, 0.75 to 0.94 s warm (WASM q8, 1 thread) | the status `ready` event against `rt.summary().startedAt` |
+| model load | | `/` 0.85 s, `/menu` 1.01 s cold (runs 0.78 to 1.24 s); `/` 0.37 s, `/menu` 0.39 s warm (runs 0.36 to 0.57 s) (WASM q8, 1 thread) | `status.loadMs`: from the start of the model load (its card) to `ready`, on the runtime's clock; medians of 5 |
+| model ready | | 1.25 to 1.5 s cold, 0.75 to 0.94 s warm (WASM q8, 1 thread) | the status `ready` event's time after navigation (the page's time origin, page startup included): `rt.summary().startedAt` plus the event's offset from the start of the app's wrapper, which starts just after the runtime, so about `performance.now()` at `ready` (not `ready` minus `startedAt`) |
 | model latency per decision | | 97 to 127 ms | `Decision.latencyMs`: from the call to the worker to its answer, on the main thread's clock (not the worker's compute time alone) |
 
-Sizes in MB and KB are decimal except where KiB is written; the app's own report gave the download in KiB. Not
-measured: what made the first long task longer (evaluating the entry before hydration, or the runtime's install
+Units are binary, as the app's harness computed them, though the Pages table writes KB and MB: the JavaScript sizes
+are KiB (resource timing `transferSize` / 1,024), the heap and the memory per process are MiB (`JSHeapUsedSize` /
+1,048,576; macOS `top` counts in binary units), and the download is in KiB as written, with decimal MB in parentheses
+(the app's own report labelled those KiB values KB). The Builds table counts bytes. Not measured: what made the first long task longer (evaluating the entry before hydration, or the runtime's install
 work), GenClass's defaults on a deployed host, and phones. The `0.1.0-beta.3` numbers in the package README (same app,
 2026-10-09) used the same build loaded with `?genclass=off` as the control, which still loads GenClass's code, and
 renderer RSS for memory; they are not comparable with these.

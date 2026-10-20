@@ -124,8 +124,9 @@ every browser test asserts `visibilityState === "visible"`.
 
 ### 2.3 Settle and persistence gates
 
-- **Page settle**: after the `load` event (capped at 5 s in this design; 6.5 s after init as built, section 19), a
-  further 1,500 ms on the Clock, `document.fonts.ready` (capped at 3 s), then network quiet and DOM quiet together:
+- **Page settle**: after the `load` event (capped at 5 s in this design), a further 1,500 ms on the Clock (as built,
+  section 19: the chunk is imported 1.5 s after `load`, and at the latest 6.5 s after init when `load` is late, those
+  1.5 s included), `document.fonts.ready` (capped at 3 s), then network quiet and DOM quiet together:
   500 ms with nothing the runtime tracks in flight (requests, socket connects, `rt.op()` and `protect()` calls)
   and no counted DOM mutation (section 8 step 6; nothing inside `[data-genclass-ignore]`). The two share one 10 s cap,
   which starts after the fonts wait. Section 8 gives what this means end to end.
@@ -883,8 +884,9 @@ All timers are Clock timers; idle callbacks come from the injected global (secti
    register the `securitypolicyviolation` buffer (section 3.7).
 2. **Load**: wait for `document.readyState === "complete"` or `load`, capped at 5 s; then 1,500 ms on the Clock; then
    an idle callback (timeout 3 s; without `requestIdleCallback`, a 0 ms Clock timer); then import the chunk. As built
-   (section 19): no idle callback in the stub, a 6.5 s cap, and no import while the tab is hidden or the page
-   prerenders (checked every 5 s).
+   (section 19): no idle callback in the stub, the import at the latest 6.5 s after init when `load` is late (the
+   1.5 s included, the same deadline as the 5 s cap plus 1.5 s here), and no import while the tab is hidden or the
+   page prerenders (checked every 5 s).
 3. **Chunk gates**: `fonts.ready` (cap 3 s), a visible tab, not prerendering, then network quiet and DOM quiet
    together for 500 ms: the host's in-flight count (requests, socket connects until open, `rt.op()` and `protect()`
    calls; a fetch counts until its headers arrive, not while its body streams) at zero and no mutation counted by

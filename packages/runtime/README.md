@@ -725,7 +725,8 @@ cover:
 **Slow is `stall`, not `delivery`.** A delivery decision is about a response overwriting newer, pending or typed
 state, never about how long it took: a response with no such conflict is delivered without a model call however slow
 it was (unless `triage: "always"` or a standing question with `always` asks), and so is the first response of each
-kind, which has no earlier writes to compare with (its store writes still go through the mutation triage). A slow
+kind in a page load, which has no earlier writes to compare with, unless an explicit `learn.persist` restored what
+that kind of request writes from an earlier page load (its store writes still go through the mutation triage). A slow
 request is asked about through `stall`, against latency baselines learned per page load and never stored: once 5
 requests with the same signature (method and path pattern, such as `POST /api/sessions/:id/offer`) have succeeded in
 this page load, each later one becomes a stall when it is in flight longer than the largest of 4× their median, 2×
@@ -1249,7 +1250,7 @@ each column only with its own control, and read them as one app's numbers, not a
 | **Memory: per process (`top`, renderer and worker, 12 s after load)** | not measured | **+117 to 175 MB** while the model is loaded |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build | **about 14.0 MB** from the app's own origin (the same 10.2 MB q8 model, sent uncompressed) |
 | Later visits | about 1 KB (`model.json` revalidated); the rest comes from Cache Storage, checked with sha256 | about 1 KB |
-| Model load | WASM (1 thread): 0.9 to 1.3 s cold, 0.4 s warm. WebGPU (Apple M-series): 12 s cold, 2 s warm (1.5 s in a later `0.1.0-beta.4` check, cache state unknown) | WASM q8 (1 thread): 1.25 to 1.5 s cold, 0.75 to 0.94 s warm, from the runtime's start (`rt.summary().startedAt`) to `ready` |
+| Model load | WASM (1 thread): 0.9 to 1.3 s cold, 0.4 s warm. WebGPU (Apple M-series): 12 s cold, 2 s warm (1.5 s in a later `0.1.0-beta.4` check, cache state unknown) | WASM q8 (1 thread): 0.85 to 1.0 s cold, about 0.4 s warm (`status.loadMs`, medians). The status `ready` event came 1.25 to 1.5 s cold, 0.75 to 0.94 s warm after navigation (the page's time origin, so page startup is included) |
 | Model latency per decision | not measured | 97 to 127 ms (`Decision.latencyMs`: from the call to the worker to its answer, on the main thread's clock) |
 | App build output | +41 MB of unused ONNX Runtime files (none since `0.2.0`) | no `.wasm` files |
 
@@ -1417,7 +1418,8 @@ GenClass.init({ model: { baseUrl: "/genclass-model/", ortWasmPaths: "/genclass-m
   Discovered React state has no variable names (`Comp.state0`), production builds minify component names (the store
   is then named after the element the component renders), and a component's store appears on its first state change.
   A response is checked against newer data only once GenClass has seen what that request writes, so the first
-  response of each kind after a page load is never a delivery decision. See
+  response of each kind after a page load is never a delivery decision, unless an explicit `learn.persist` stored
+  what it writes on an earlier page load. See
   [Automatic state discovery](#automatic-state-discovery).
 - **Install and CDN.**
   - **Read the diff.** Always read the diff `init` and `remove` show before you confirm.
