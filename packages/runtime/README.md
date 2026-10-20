@@ -1250,7 +1250,7 @@ each column only with its own control, and read them as one app's numbers, not a
 | **Memory: per process (`top`, renderer and worker, 12 s after load)** | not measured | **+117 to 175 MB** while the model is loaded |
 | **First visit download** | **about 13 MB** after the load event (q8 model 10.2 MB, ONNX Runtime wasm 3.07 MB brotli, tokenizer 207 KB); WebGPU devices: 13.6 MB fp16 model plus the larger ONNX Runtime build | **about 14.0 MB** from the app's own origin (the same 10.2 MB q8 model, sent uncompressed) |
 | Later visits | about 1 KB (`model.json` revalidated); the rest comes from Cache Storage, checked with sha256 | about 1 KB |
-| Model load | WASM (1 thread): 0.9 to 1.3 s cold, 0.4 s warm. WebGPU (Apple M-series): 12 s cold, 2 s warm (1.5 s in a later `0.1.0-beta.4` check, cache state unknown) | WASM q8 (1 thread): 0.85 to 1.0 s cold, about 0.4 s warm (`status.loadMs`, medians). The status `ready` event came 1.25 to 1.5 s cold, 0.75 to 0.94 s warm after navigation (the page's time origin, so page startup is included) |
+| Model load | WASM (1 thread): 0.9 to 1.3 s cold, 0.4 s warm. WebGPU (Apple M-series): 12 s cold, 2 s warm (1.5 s in a later `0.1.0-beta.4` check, cache state unknown) | WASM q8 (1 thread): 0.85 to 1.0 s cold, about 0.4 s warm (`status.loadMs`, medians). The status `ready` event came 1.25 to 1.5 s cold, 0.75 to 0.85 s warm (medians) after navigation (the page's time origin, so page startup is included) |
 | Model latency per decision | not measured | 97 to 127 ms (`Decision.latencyMs`: from the call to the worker to its answer, on the main thread's clock) |
 | App build output | +41 MB of unused ONNX Runtime files (none since `0.2.0`) | no `.wasm` files |
 
