@@ -44,6 +44,15 @@
   `popstate` listener, registered before GenClass, fetches synchronously (that fetch starts before the traversal is
   seen). Not measured yet: Troy Bot's back/forward run and the realapps sweep of the hash-routed conduit apps (FIR
   and recall).
+- **A smaller first load, with no behaviour change.** The two triage exemptions above took the first load over the
+  limits in `test/bundle.test.ts`; four cuts that change no behaviour pay for them (`/auto` 108.71 to 107.94 KB gzip,
+  the main entry 100.62 to 99.77 KB, the limits unchanged; [RESULTS.md](../../docs/runtime/RESULTS.md) section 15).
+  The lazy flow-expectations chunk takes util.ts's helpers from the runtime instead of importing util.ts, which an
+  app's bundler had split into a first-load chunk of its own; `dist/cdn` reads `require` as `globalThis.require` in
+  ORT's own require shim, so an esbuild app no longer adds a dynamic-require shim chunk to every entry (Rollup and
+  webpack builds never did); `hash32` reuses `fnv1a` (the same values); and one helper pushes the runtime's `custom`
+  events (the same events). The script-tag file, which carries the flow layer inline, grows by 0.05 KB (128.85 KB).
+  No model-visible text changed.
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the

@@ -35,6 +35,11 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       expect(src).not.toMatch(/\b[\w$]+\s*=\s*import\.meta\.url\s*[;,]/);
       expect(src).toContain("ort-wasm-simd-threaded"); // still the real ORT (it names its files)
     }
+    // no free `require` in dist/cdn (tsup.config.ts defines it as globalThis.require): an app's esbuild would otherwise
+    // add its dynamic-require shim as a chunk of every entry's first load
+    for (const f of files(join(DIST, "cdn")).filter((x) => /\.js$/.test(x.path))) {
+      expect(readFileSync(f.path, "utf8"), f.path).not.toMatch(/typeof require\b/);
+    }
   });
 
   it("Vite: no .wasm and nothing over 25 MiB is emitted for `import \"@genclass/runtime/auto\"`", async () => {
@@ -67,8 +72,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // about 0.8 KB on /auto (102.94 / 94.79 KB, CI run 38462380432). Sinks by name: only the proxy (src/cdn/sinks.ts) is
   // in /auto's first load; the name table, the fan-out and the adapters are lazy chunks (asserted below). The flow
   // expectations (src/learn/flows.ts, opt-in: learn.expectations) are a lazy chunk too, imported only when the option
-  // is on; their runtime side (learned-state persistence, the report line, the hooks) and the util chunk it shares
-  // with them add about 3.3 KB. 0.3.0-beta.0 measures 106.24 / 98.21 KB (CI run 38465242176); the limits are those
+  // is on; their runtime side (learned-state persistence, the report line, the hooks) and the util chunk it shared
+  // with them (until the flow chunk took util's helpers through FlowEnv.util, below) add about 3.3 KB. 0.3.0-beta.0 measures 106.24 / 98.21 KB (CI run 38465242176); the limits are those
   // plus 1.5 KB, as the owner approved for 0.3.0 (README "Performance", docs/runtime/RESULTS.md §10). Observe's
   // detection tiers and deferred situations (wave2/detect-observe) took 1.42 / 1.48 KB of that: 107.66 / 99.69 KB (CI
   // run 38471973596, RESULTS.md §11); merged with release/0.3.0 (its 429 back-off is this branch's), 107.65 / 99.68 KB
@@ -88,7 +93,14 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // runtime.analytics with start()/stop(), the telemetry client's `pre` hook, the analytics page-config key) adds about
   // 0.29 KB to /auto and 0.27 KB to the main entry over main (108.25 / 100.13 KB; 108.53 / 100.40 KB with it, measured
   // with test/first-load-size.mjs on the train VM, 2026-10-18); the recording itself is a lazy chunk (dist/analytics/index.js, asserted below). The
-  // limits are the measured sizes plus 0.05 / 0.07 KB, as before. Both sizes are printed before either is asserted.
+  // limits are the measured sizes plus 0.05 / 0.07 KB, as before. The steady-tick and back/forward triage exemptions
+  // (fix/troybot-triage) brought /auto to 108.71 KB in 4 files and the main entry to 100.62 KB, over the limits; four
+  // cuts with no behaviour change paid for them, the limits unchanged (test/first-load-size.mjs, docs/runtime/RESULTS.md
+  // section 10): the lazy flow chunk takes util.ts's four helpers through FlowEnv.util, so util.ts is no longer a chunk
+  // shared with it and split out of the first load (-0.51 / -0.64 KB); dist/cdn reads `require` as globalThis.require,
+  // so an app's esbuild adds no dynamic-require shim chunk (-0.20 / -0.20 KB); hash32 reuses util.ts fnv1a and one
+  // helper pushes the runtime's "custom" events (-0.06 / -0.02 KB): 107.94 / 99.77 KB in 2 files, script tag 128.85 KB
+  // (+0.06 KB: it inlines the flow chunk). Both sizes are printed before either is asserted.
   const LIMIT_KB: Record<string, number> = { "auto.js": 108.6, "index.js": 100.48 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
@@ -171,6 +183,18 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
     expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
     expect(code).toContain("https://genclass.dev/pricing"); // the one warning for sentry / posthog / datadog by name
     expect(gz).toBeGreaterThan(0);
+  });
+
+  it("the flow expectations chunk (dist/flows-*.js) imports no shared chunk: util.ts stays in the first-load chunk", async () => {
+    const { readFileSync } = await import("node:fs");
+    const flows = readdirSync(DIST).filter((f) => /^flows-[\w-]+\.js$/.test(f));
+    expect(flows).toHaveLength(1);
+    const chunk = readFileSync(join(DIST, flows[0]), "utf8");
+    expect(chunk).toContain("Expected a follow-up on"); // src/learn/flows.ts
+    // an import here (src/learn/flows.ts importing ../util.js) makes the imported module a chunk shared with this lazy
+    // one, which an app's bundler splits out of every first load (FlowEnv.util passes the helpers instead)
+    expect(chunk).not.toMatch(/^\s*import\s[^;]*?from\s*["']\.{1,2}\//m);
+    expect(chunk).not.toMatch(/^\s*import\s*["']\.{1,2}\//m);
   });
 
   // strings only the interaction analytics chunk has (src/analytics/index.ts)

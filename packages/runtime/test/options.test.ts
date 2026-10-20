@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { defaultScript, FakeClock, FakeServer, makeGlobal, setup } from "./helpers.js";
 import { createRuntime, DEFAULT_LOAD_IF, deviceEnv, evalLoadIf, IdleUnloadProvider } from "../src/index.js";
 import type { DecisionProvider, ModelStatus, SinkRecord } from "../src/types.js";
+import { hash32 } from "../src/util/match.js";
 
 const DELAY = defaultScript({ request: { diagnosis: "overload", action: "delay" } });
 
@@ -49,6 +50,33 @@ describe("sample", () => {
     s.server.on("GET", "/api/x", { body: 1, latency: 5 });
     await hit(s);
     expect(s.rt.interventions().length).toBe(1);
+  });
+  it("the bucket hash (hash32: session sample, sink sampleRate, fallback session id) keeps its FNV-1a values", () => {
+    // pinned from the loop hash32 had before it reused util.ts fnv1a: empty, ASCII (leading zero hex digit), non-ASCII,
+    // a surrogate pair and lone surrogates (UTF-16 code units, as charCodeAt reads them)
+    const pinned: [string, number][] = [
+      ["", 2166136261],
+      ["a", 3826002220],
+      ["s1:0", 261027131],
+      ["café", 856211068],
+      ["日本語", 1409693518],
+      ["😀", 3409036472],
+      ["\ud800", 75617567],
+      ["\udfff x", 167870742],
+    ];
+    for (const [str, h] of pinned) expect(hash32(str), JSON.stringify(str)).toBe(h);
+    // and the same value as that loop over deterministic pseudo-random UTF-16 strings
+    const loop = (str: string) => {
+      let h = 0x811c9dc5;
+      for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193);
+      return h >>> 0;
+    };
+    let x = 1;
+    const next = () => (x = Math.imul(x, 1103515245) + 12345) >>> 0;
+    for (let n = 0; n < 2000; n++) {
+      const str = String.fromCharCode(...Array.from({ length: next() % 24 }, () => next() % 0x10000));
+      expect(hash32(str)).toBe(loop(str));
+    }
   });
 });
 

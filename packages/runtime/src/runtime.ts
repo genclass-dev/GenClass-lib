@@ -109,7 +109,7 @@ import { installPerf } from "./observe/perf.js";
 import { installWebSocket } from "./observe/websocket.js";
 import { deviceEnv, memoryFloor, skippedMessage } from "./model/device.js";
 import { installTimers } from "./observe/timers.js";
-import { defaultRedact, normalizeFieldPath, normalizePath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
+import { defaultRedact, fnv1a, normalizeFieldPath, normalizePath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
 import { blockedMessage } from "./model/blocked.js";
 import type { ReactDiscovery } from "./discover/react.js";
 import type { ReduxDiscovery } from "./discover/redux.js";
@@ -1403,7 +1403,7 @@ export class RuntimeImpl implements Runtime {
         req.identity = identity;
         this.registerIdentity(op);
       },
-      emit: (name, data, op) => this.events.push(this.clock.now(), "custom", name, { ...(op ? { op: op.id } : {}), ...(data ? { data } : {}) }),
+      emit: (name, data, op) => this.custom(name, data, op),
     };
   }
 
@@ -1429,7 +1429,7 @@ export class RuntimeImpl implements Runtime {
       baseHref: () => (this.global.location as { href?: string } | undefined)?.href,
       startOp: (name: string, o: Omit<StartOpts, "startSeq" | "t">) => this.startOp("ws", name, o),
       endOp: (op: OpRec, status: OpStatus, eo?: EndOpts) => this.endOp(op, status, eo),
-      event: (name: string, data: Record<string, unknown>, op?: OpRec) => this.events.push(this.clock.now(), "custom", name, { ...(op ? { op: op.id } : {}), data }),
+      event: (name: string, data: Record<string, unknown>, op?: OpRec) => this.custom(name, data, op),
       deliverMessage: (
         o: { op: OpRec; channel: "websocket" | "eventsource"; message: { path: string; summary: string }; queuedAhead: number; body?: () => Promise<unknown>; bodyNow?: () => unknown },
         release: () => void,
@@ -2547,7 +2547,7 @@ export class RuntimeImpl implements Runtime {
         // text typed since the request started: only when the response would replace it (F2)
         const liveTyped = typed.filter((p) => by.has(p) && !by.get(p)!.same);
         const salient = liveNewer.length > 0 || livePending.length > 0 || liveTyped.length > 0;
-        if (!salient && conflicts.length && conflicts.every((c) => by.get(c.path)?.same)) this.events.push(this.clock.now(), "custom", "delivery.unchanged", { op: op.id, data: { paths: conflicts.map((c) => c.path) } });
+        if (!salient && conflicts.length && conflicts.every((c) => by.get(c.path)?.same)) this.custom("delivery.unchanged", { paths: conflicts.map((c) => c.path) }, op);
         return settle(salient);
       } catch (e) {
         this.log("content analysis failed", e);
@@ -3190,6 +3190,7 @@ export class RuntimeImpl implements Runtime {
       changed: () => {
         if (this.learnStore) this.saveProfilesSoon();
       },
+      util: { defaultRedact, fnv1a, normalizePath, plural },
     };
     import("./learn/flows.js")
       .then((m) => {
@@ -3687,7 +3688,12 @@ export class RuntimeImpl implements Runtime {
         80,
       );
     }
-    this.events.push(this.clock.now(), "custom", name, { ...(op ? { op: op.id } : {}), ...(data ? { data: d } : {}) });
+    this.custom(name, data ? d : undefined, op);
+  }
+
+  /** A `custom` event (observers' notes, rt.emit): EventLog.push leaves out an undefined op or data. */
+  private custom(name: string, data?: Record<string, unknown>, op?: OpRec | null): void {
+    this.events.push(this.clock.now(), "custom", name, { op: op?.id, data });
   }
 
   user<T>(action: UserAction, handler?: () => T): T | undefined {

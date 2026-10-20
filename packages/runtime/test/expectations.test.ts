@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FlowProfiles, type FlowEnv } from "../src/learn/flows.js";
 import { webhook } from "../src/sinks/webhook.js";
 import type { Expectation, Report, SinkRecord } from "../src/types.js";
+import { defaultRedact, fnv1a, normalizePath, plural } from "../src/util.js";
 import { RUNTIME_VERSION } from "../src/version.js";
 import { setup, type Setup } from "./helpers.js";
 
@@ -290,6 +291,7 @@ function learner() {
     startedSince: () => false,
     report: () => undefined,
     changed: () => undefined,
+    util: { defaultRedact, fnv1a, normalizePath, plural },
   };
   const f = new FlowProfiles(env, { minSupport: 8, minStoredSupport: 20, minShare: 0.95, minSessions: 1 });
   let id = 0;

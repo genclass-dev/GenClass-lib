@@ -3,6 +3,8 @@
 // with "/", also against the path. RegExps are used as given. Predicates run in try/catch: `onThrow` says whether a
 // throw counts as a match (protect) or not (ignore, labels, routes). Results are cached (LRU, 256 entries).
 
+import { fnv1a } from "../util.js";
+
 export type Channel = "fetch" | "xhr" | "ws" | "sse";
 export interface MatchInput {
   url: string;
@@ -116,12 +118,7 @@ export function sanitizeLabel(s: string): { label: string; changed: boolean } {
   return { label: words, changed: words !== s };
 }
 
-/** FNV-1a 32-bit of a string as an unsigned number (sample buckets, sink sampling). */
+/** FNV-1a 32-bit of a string as an unsigned number (sample buckets, sink sampling): util.ts fnv1a's value. */
 export function hash32(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
+  return parseInt(fnv1a(s), 16);
 }
