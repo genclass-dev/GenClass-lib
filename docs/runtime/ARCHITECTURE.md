@@ -82,7 +82,9 @@ This document explains how the parts fit together and why they are built this wa
   from a later user action".
 - **Triage:** the model is asked only when some fact is non-neutral (concurrency, repetition, failure, an anomaly
   against a baseline, a broken relation, an error). Plain traffic never reaches it, nor does a learned steady timer
-  tick whose only non-neutral fact is the identical-change one (CONTRACT §6, `steadyTick` in `src/runtime.ts`).
+  tick whose only non-neutral fact is the identical-change one (CONTRACT §6, `steadyTick` in `src/runtime.ts`), nor
+  a page's first cause-less GET/HEAD re-fetch after back/forward whose only non-neutral fact is the identical-request
+  one (`refetch`; `src/observe/nav.ts` tells a traversal from a new history entry).
 - **Device-sized budget:** 3,200 characters on WebGPU, 2,000 with WASM threads, 1,000 on single-thread WASM. Small
   budgets also use compact questions (bare labels).
 

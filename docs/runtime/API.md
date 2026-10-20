@@ -92,7 +92,9 @@ interface InitOptions {
   observe?: Partial<Record<"fetch"|"xhr"|"user"|"errors"|"nav"|"storage"|"perf"|"websocket"|"eventsource"|"timers"|"untrustedEvents", boolean>>;
                                                         // untrustedEvents (default false): record synthetic DOM events (isTrusted false) as user actions (test harnesses)
   triage?: "salient" | "always";                        // default "salient": ask only when a fact is non-neutral; a learned steady
-                                                        // timer tick's identical change alone does not count (CONTRACT §6)
+                                                        // timer tick's identical change alone does not count, nor does a page's
+                                                        // first cause-less GET/HEAD re-fetch within 2 s of back/forward repeating
+                                                        // an identical request (CONTRACT §6)
   detect?: "likely" | "possible";                       // (0.3.0) which detections are reported; default "possible" in observe
                                                         // without policy.thresholds.report, else "likely" (see "Reports, explain and undo");
                                                         // set explicitly, "possible" also sends them to rt.on("detect"/"report") and report: fn

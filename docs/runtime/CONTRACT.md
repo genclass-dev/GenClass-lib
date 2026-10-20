@@ -326,6 +326,23 @@ write that breaks the pattern (another writer, a user write, another step, an of
 asks again until 4 clean ticks follow. The timer's delay is kept on the internal op record only, never in an op's
 `meta` or `detail`, an event or any text. Constants and the check: `src/runtime.ts` (`steadyTick`).
 
+**Re-fetches after back/forward** (amendment 2026-10-20, from Troy Bot's back/forward run: 9 false `overload`
+reports at up to 0.98, one GET per navigation; **owner to confirm before merge**): a triage override of the
+identical-request fact, nothing else. The nav observer (`src/observe/nav.ts`) marks a `popstate` or `hashchange` as a
+traversal when `history.length` has not grown since the last navigation it saw (an unknown length counts as
+unchanged) and the route differs from that navigation's; `pushState`, `replaceState`, fragment navigations (Chromium
+fires `popstate` for them too, but they add an entry) and a click on the current hash link are not traversals. For a
+`request` under `triage: "salient"` (no standing `always` question for it), the non-neutral identical-request fact
+(kind `repetition`, "N identical … requests in the last 10s: …") does not count as salient when the request is a GET
+or HEAD with no user action in its causal chain, started within `TRAVERSAL_MS` = 2000 ms after the last traversal,
+and no other request of its identity started since that traversal. The fact keeps its text and `neutral: false`,
+every situation that is still built is unchanged in wording, the `nav` event is unchanged, and any other
+non-neutral fact (a hot request rate against a learned one, a failure streak) still asks; so do user-caused
+requests, other methods and a second identical request after the same traversal. Known misreads (they count as
+traversals): `location.replace("#x")`, and a fragment push once session history is at the browser's cap. The
+traversal's time is kept on the runtime only, never in an event or any text. Constant and the check:
+`src/runtime.ts` (`refetch`).
+
 **Standing questions** (exact qids; plugins may add more):
 
 - `action` (choice): one option per applicable action, `name: description` (descriptions in section 7).

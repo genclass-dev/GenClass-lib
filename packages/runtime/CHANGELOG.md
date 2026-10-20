@@ -25,6 +25,25 @@
   real React). Not measured yet: FIR and recall on the sim eval, the realapps sweep and the demos bench. In guard and
   heal, fewer queued tick decisions can let other salient subjects be held or decided where they failed open before,
   so FIR can move either way until measured.
+- **Fewer false "overload" reports after back/forward (request triage; CONTRACT §6 amendment, owner to confirm).** A
+  page that fetches on mount, re-mounted by fast back/forward clicks, sends one GET per navigation; each carried the
+  identical-request fact ("… neither from a user action"), its only non-neutral fact, so the model was asked about
+  each re-fetch and read them as `overload` at up to 0.98 (Troy Bot, 0.3.0-beta.0: 9 false reports in its
+  back/forward run). The nav observer now tells a back/forward traversal from a new history entry: a `popstate` or
+  `hashchange` with `history.length` unchanged since the last navigation it saw and another route. Fragment
+  navigations (Chromium fires `popstate` for them too), `pushState`, `replaceState` and a click on the current hash
+  link are not traversals. The first GET or HEAD of a request with no user action in its chain, started within 2 s
+  after a traversal, is no longer asked about for its identical-request fact alone. A hot request rate or a failure
+  streak still asks, and so do user-caused requests, other methods (a re-sent POST) and a second identical request
+  after the same traversal; `triage: "always"` and standing `always` questions are unchanged. In guard and heal such a
+  re-fetch is sent at once instead of being held for the model. The `nav` event is unchanged, no listener or wrapper
+  was added (the observer also reads `history.length`), no model-visible text changed (`situation-v2.3`) and the
+  telemetry payload is the same (there are fewer decisions). Counted as traversals by mistake, so their first re-fetch
+  is not asked about either: `location.replace("#x")` and a fragment push once session history is at the browser's
+  cap (Chrome: 50 entries). Not covered: back/forward restores from the bfcache (`pageshow`), and a page whose own
+  `popstate` listener, registered before GenClass, fetches synchronously (that fetch starts before the traversal is
+  seen). Not measured yet: Troy Bot's back/forward run and the realapps sweep of the hash-routed conduit apps (FIR
+  and recall).
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the

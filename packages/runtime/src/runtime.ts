@@ -308,6 +308,14 @@ function steadyTick(m: MutationRec, rt: { clock: Clock; hub: StoreHub; ops: OpRe
   });
 }
 
+// Re-fetches after back/forward (CONTRACT §6 Triage, owner to confirm): a page that fetches on mount, re-mounted by a
+// history traversal (observe/nav.ts), repeats the request it made a moment ago, so the identical-request fact is
+// non-neutral although nothing went wrong. Request triage stops counting that one fact for the first cause-less
+// GET/HEAD of an identity started within TRAVERSAL_MS of the traversal (RuntimeImpl.refetch; any other non-neutral
+// fact, a user-caused request, another method or a second identical request still asks).
+/** How long after a back/forward traversal a page's first re-fetch of a request is not asked about for repeating it. */
+const TRAVERSAL_MS = 2000;
+
 export class RuntimeImpl implements Runtime {
   readonly clock: Clock;
   readonly global: Record<string, unknown>;
@@ -434,6 +442,8 @@ export class RuntimeImpl implements Runtime {
   private storeWriters = new Map<string, Map<string, number>>();
   private lastChainMap = new Map<string, string[]>();
   private identicalMap = new Map<string, OpRec[]>();
+  /** When the last back/forward traversal happened (request triage, `refetch`). */
+  private trav = -Infinity;
   private errorsRecent: { key: string; t: number; op?: number }[] = [];
   private settleTimer: unknown = null;
   private toProfile: OpRec[] = [];
@@ -1219,8 +1229,9 @@ export class RuntimeImpl implements Runtime {
     if (on("errors")) tryAdd("errors", () => installErrors(g, this));
     if (on("nav"))
       tryAdd("nav", () =>
-        installNav(g, this, (route) => {
+        installNav(g, this, (route, traversal) => {
           this.events.push(this.clock.now(), "nav", route, { data: { route } });
+          if (traversal) this.trav = this.clock.now();
           this.computeScope();
           // the flow whose causal chain navigated (peek: a lazy timer op is not materialised for this)
           const amb = this.ctx.peek();
@@ -1516,6 +1527,16 @@ export class RuntimeImpl implements Runtime {
     }
   }
 
+  /**
+   * True when request `op` is a page's re-fetch after a back/forward traversal: a GET or HEAD with no user action in its
+   * chain, started within TRAVERSAL_MS of the traversal, the first request of its identity since then.
+   */
+  private refetch(op: OpRec, req: ReqMeta): boolean {
+    const t = this.trav;
+    const d = op.start - t;
+    return d >= 0 && d <= TRAVERSAL_MS && /^(GET|HEAD)$/.test(req.method) && !this.ops.userOf(op) && !this.identicalMap.get(req.identity)?.some((o) => o !== op && o.start >= t);
+  }
+
   private queueProfile(op: OpRec): void {
     this.toProfile.push(op);
     if (this.toProfile.length > 2000) this.toProfile.shift();
@@ -1628,9 +1649,11 @@ export class RuntimeImpl implements Runtime {
       // cheap first pass: facts only; the full situation is built only when it will be used
       const facts = computeFacts(this.env, spec);
       const forced = this.standing.some((q) => q.always && q.on.includes(spec.trigger));
-      // a learned steady timer tick's identical-change fact does not count (steadyTick; computed once, when needed)
-      let tick: boolean | undefined;
-      if (this.triage === "salient" && !forced && facts.every((f) => f.neutral || (spec.trigger === "mutation" && f.kind === "repetition" && (tick ??= steadyTick(spec.m, this))))) return passive();
+      // triage exemptions, one non-neutral "repetition" fact each (computed once, when needed): the identical-change
+      // fact of a learned steady timer tick (steadyTick), the identical-request fact of a re-fetch after back/forward
+      // (refetch)
+      let ex: boolean | undefined;
+      if (this.triage === "salient" && !forced && facts.every((f) => f.neutral || (f.kind === "repetition" && (ex ??= spec.trigger === "mutation" ? steadyTick(spec.m, this) : spec.trigger === "request" && this.refetch(spec.op, spec.req))))) return passive();
       built = buildSituation(this.env, spec, this.buildOpts(), facts);
     } catch (e) {
       this.log("situation build failed", e);
