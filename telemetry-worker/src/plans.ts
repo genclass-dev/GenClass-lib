@@ -1,28 +1,36 @@
 // Plans and what they allow: limits (apps, dashboard history), entitlements (dashboard, forwarding, export, analytics,
-// custom_model), what an account may use now (a paid plan, GenClass's own grant, a trial, or Free), the dashboard
-// ranges a plan shows, and the plan-aware retention sweep.
+// hosted_mcp, onprem_mcp, custom_model), what an account may use now (a paid plan, GenClass's own grant, a trial, or
+// Free), the dashboard ranges a plan shows, and the plan-aware retention sweep.
 //
 // - The plans live in billing/plans.json at the repo root (the site's pricing page reads the same file). Change a
-//   price or a limit there, not here.
+//   price, a limit or whether a plan is on sale there, not here.
+// - Everything GenClass makes is free: Free has the dashboard, a year of history, export and forwarding, with no app
+//   limit beyond the abuse cap (MAX_APPS_PER_ACCOUNT, src/auth.ts), and the closed-loop MCP server run on the
+//   developer's own machine. The paid plans sell running that MCP for the customer: Individual (sale "stripe", bought
+//   by card) hosts it on genclass.dev (entitlement `hosted_mcp`); Enterprise (sale "contact", never through Stripe,
+//   no card price) runs it inside the customer's network (`onprem_mcp`), with a model trained on their app by
+//   arrangement (`custom_model`). A plan with on_sale false (Individual, until the hosted MCP ships) cannot be
+//   bought or tried: checkout and the trial refuse it, and the billing page shows it without buttons.
 // - A plan comes from accounts.plan, which src/stripe.ts derives from the Stripe subscription. Entitlements follow the
 //   plan whatever the server's configuration, except that a plan bought in Stripe's test mode counts only while the
-//   key is a test key (inMode): a test purchase never carries over to live. A live plan always counts.
-// - Free has no dashboard (entitlement `dashboard`). Without a paid plan, an account has Pro's entitlements while
-//   accounts.comp_until (GenClass's own grant, set by hand) or accounts.trial_ends_at (its one trial, src/trial.ts) is
-//   in the future (accountAccess); otherwise its dashboards are locked. A paid plan always wins over a grant or trial.
+//   key is a test key (inMode): a test purchase never carries over to live. A live plan always counts. An id this file
+//   no longer knows (the old "pro" and "custom", never sold) reads as Free (planById).
+// - Without a paid plan, an account has Individual's entitlements while accounts.comp_until (GenClass's own grant, set
+//   by hand) or accounts.trial_ends_at (its one trial, src/trial.ts) is in the future (accountAccess). A paid plan
+//   always wins over a grant or trial. Nothing locks a dashboard any more: Free opens every one.
 // - A price names a plan only when it is provably GenClass's: a lookup key starting with genclass_ AND a product whose
-//   metadata genclass_plan names a paid plan (planForPrice). GenClass now has a Stripe account of its own; this rule
-//   is kept from when it shared daybot.ca's account with Polar Parts, as a defence in depth.
+//   metadata genclass_plan names a plan sold through Stripe (planForPrice). GenClass now has a Stripe account of its
+//   own; this rule is kept from when it shared daybot.ca's account with Polar Parts, as a defence in depth.
 // - A plan whose payment is overdue ends here, whatever the Stripe account's retry settings: past_due keeps the plan
 //   for PAST_DUE_GRACE_DAYS (14) after GenClass first saw it past due, then it is Free (the webhook, and the daily
 //   sweep below); unpaid is Free at once.
-// - The Free plan's app limit (3) applies to every account without a plan, grant or trial, whatever the Stripe key: a
-//   trial needs no Stripe. Ingest keeps collecting for those apps (the dashboard is locked, not the collector), so a
-//   trial or a plan starts with recent data. With a test key only the accounts in STRIPE_TEST_ACCOUNTS can buy (canBuy).
+// - With a test key only the accounts in STRIPE_TEST_ACCOUNTS can buy (canBuy). A trial needs no Stripe.
 // - Retention never deletes data newer than the plan allows, and never shortens what existing projects had: daily
 //   counters, recent rows and stored batches are kept RETENTION_DAYS (90) for every project, and longer for the apps
-//   of accounts on a plan with more history, a grant or a trial (and for GRACE_DAYS after a paid plan ends, so a
-//   lapsed card does not cost a year of data at once).
+//   of accounts on a plan with more history. Free keeps a year, so every app in an account keeps a year, whatever the
+//   account's plan, Stripe mode, grant or trial (longRetention); the plan-by-plan rule, with GRACE_DAYS after a paid
+//   plan ends so a lapsed card does not cost a year of data at once, stays for a plans.json where Free is short. Apps
+//   known only by a private link, in no account, keep RETENTION_DAYS.
 
 import PLANS_JSON from "../../billing/plans.json";
 import type { Env } from "./collector.js";
@@ -32,18 +40,24 @@ import { exportSweep, type BucketOps } from "./export.js";
 const DAY = 86_400_000;
 export const GRACE_DAYS = 30;
 
-export type PlanId = "free" | "pro" | "custom";
-export type Entitlement = "dashboard" | "forwarding" | "export" | "analytics" | "custom_model";
+export type PlanId = "free" | "individual" | "enterprise";
+export type Entitlement = "dashboard" | "forwarding" | "export" | "analytics" | "hosted_mcp" | "onprem_mcp" | "custom_model";
+/** How a plan is had: installed (free), bought by card on the billing page (stripe), or arranged with a person (contact). */
+export type Sale = "free" | "stripe" | "contact";
 
 export interface Plan {
   id: PlanId;
   name: string;
   summary: string;
-  price_usd_cents: { monthly: number; yearly: number | null };
+  sale: Sale;
+  /** False keeps a stripe plan off sale everywhere until what it sells has shipped: no checkout, no trial, no buttons. */
+  on_sale: boolean;
+  /** US cents a month; null for a contact plan (no card price) and, yearly, when there is no yearly option yet. */
+  price_usd_cents: { monthly: number | null; yearly: number | null };
   stripe_lookup_keys: { monthly: string | null; yearly: string | null };
-  /** The Stripe product tax code scripts/stripe-setup.mjs sets on the plan's product (null for Free). */
+  /** The Stripe product tax code scripts/stripe-setup.mjs sets on the plan's product (null unless sold through Stripe). */
   stripe_tax_code: string | null;
-  /** Sold through Stripe Managed Payments (src/stripe.ts managedPayments): Pro only; Custom is a person's work. */
+  /** Sold through Stripe Managed Payments (src/stripe.ts managedPayments): a fully automated plan only (Individual). */
   managed_payments: boolean;
   limits: { apps: number | null; history_days: number };
   entitlements: Record<Entitlement, boolean>;
@@ -55,15 +69,21 @@ export interface PlansFile {
   currency: string;
   contact: string;
   footer: string;
+  trial_days: number;
   plans: Plan[];
 }
 
 export const PLANS_FILE = PLANS_JSON as unknown as PlansFile;
 export const PLANS: Plan[] = PLANS_FILE.plans;
 export const FREE: Plan = PLANS.find((p) => p.id === "free")!;
-/** The plan a trial or GenClass's own grant gives (Pro). */
-export const TRIAL_PLAN: Plan = PLANS.find((p) => p.id === "pro")!;
-export const PAID_PLANS: Plan[] = PLANS.filter((p) => p.price_usd_cents.monthly > 0);
+/** The plan a trial or GenClass's own grant gives (Individual: the hosted closed-loop MCP). */
+export const TRIAL_PLAN: Plan = PLANS.find((p) => p.id === "individual")!;
+/** The plans sold through Stripe (a card price and lookup keys): Individual. Enterprise is arranged, never bought here. */
+export const PAID_PLANS: Plan[] = PLANS.filter((p) => p.sale === "stripe");
+/** The plans a person arranges (sale "contact"): Enterprise. */
+export const CONTACT_PLANS: Plan[] = PLANS.filter((p) => p.sale === "contact");
+/** This plan can be bought or tried now (billing/plans.json on_sale): a stripe plan whose product has shipped. */
+export const onSale = (plan: Plan): boolean => plan.sale === "stripe" && plan.on_sale === true;
 
 export function planById(id: unknown): Plan {
   return PLANS.find((p) => p.id === id) ?? FREE;
@@ -128,9 +148,10 @@ export function canBuy(env: Env, account: { id: string; email: string | null }):
   return list.some((x) => x === account.id || (!!email && x.toLowerCase() === email));
 }
 
-/** "$99 / month", or "$0". */
+/** "$20 / month", "$0", or "Contact us" for a plan with no card price (sale "contact"). */
 export function priceText(plan: Plan): string {
   const c = plan.price_usd_cents.monthly;
+  if (c === null) return "Contact us";
   if (!c) return "$0";
   return `$${c % 100 ? (c / 100).toFixed(2) : String(c / 100)} / month`;
 }
@@ -189,13 +210,13 @@ export async function accountBilling(db: D1Like, accountId: string, env?: Env): 
 
 // --------------------------------------------------------------------------------------------- access: plan, grant, trial
 
-/** Why an account has a plan's entitlements now: it pays, GenClass granted Pro (comp_until), or it is on its trial. */
+/** Why an account has a plan's entitlements now: it pays, GenClass granted Individual's (comp_until), or it is on its trial. */
 export type AccessSource = "paid" | "comp" | "trial";
 
 export interface Access {
-  /** The plan whose entitlements apply now: the paid plan, Pro during a grant or a trial, else Free (no dashboard). */
+  /** The plan whose entitlements apply now: the paid plan, Individual during a grant or a trial, else Free. */
   plan: Plan;
-  /** Why; null when the account has none of them (its dashboards are locked). */
+  /** Why; null when the account has none of them (it is on Free, which has the dashboard like every plan). */
   source: AccessSource | null;
   /** When the trial ends (ISO), while the account is on it. */
   trialEndsAt: string | null;
@@ -240,12 +261,12 @@ export async function accountAccess(db: D1Like, accountId: string, env: Env, now
   return accessOf(row, stripeMode(env), now);
 }
 
-/** The account's plan for its entitlements at `now`: the paid plan, Pro during a grant or a trial, else Free. */
+/** The account's plan for its entitlements at `now`: the paid plan, Individual during a grant or a trial, else Free. */
 export async function accountPlan(db: D1Like, accountId: string, env: Env, now: Date): Promise<Plan> {
   return (await accountAccess(db, accountId, env, now)).plan;
 }
 
-/** This access opens dashboards (Pro, Custom, a grant or a trial). */
+/** This access opens dashboards: true for every plan since 2026-10-20 (kept for a plan without the dashboard). */
 export const hasDashboard = (a: Access): boolean => entitled(a.plan, "dashboard");
 
 /** The access behind an app: its account's, or none for an app known only by its private link. */
@@ -254,9 +275,9 @@ export async function projectAccess(db: D1Like, project: { account_id?: string |
 }
 
 /**
- * How many days a trial lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7. The worker's pages say it ("Get a
- * 7-day free trial for analytics") from here; the site says it from billing/plans.json trial_days, and
- * test/trial.test.ts checks that the two agree.
+ * How many days a trial lasts: the TRIAL_DAYS var (wrangler.toml), 1 to 60, default 7. The worker's pages say it ("Start
+ * your 7-day free trial") from here; the site says it from billing/plans.json trial_days, and test/trial.test.ts
+ * checks that the two agree.
  */
 export function trialDays(env: Env): number {
   const n = Math.floor(Number(String(env.TRIAL_DAYS ?? "").trim()));
@@ -275,20 +296,23 @@ export interface AppLimit {
 }
 
 /**
- * The app limit of the plan whose entitlements apply now (null: none; the caller's abuse cap still applies). Free's 3
- * apps apply to every account without a plan, grant or trial, whatever the Stripe key: a trial lifts it without Stripe.
+ * The app limit of the plan whose entitlements apply now (null: none; the caller's abuse cap still applies). No plan in
+ * billing/plans.json sets one since 2026-10-20; a plan with one would apply whatever the Stripe key.
  */
 export async function appLimit(db: D1Like, env: Env, accountId: string, now: Date): Promise<AppLimit> {
   const plan = await accountPlan(db, accountId, env, now);
   return { plan, max: plan.limits.apps };
 }
 
-/** The 409 for an account at its plan's app limit: says the limit and where to go, for the page and the CLI. */
-export function appLimitBody(lim: AppLimit, origin: string, days: number): { ok: false; error: string; upgrade_url: string } {
+/**
+ * The 409 for an account at its plan's app limit: says the limit and where to go, for the page and the CLI. No plan in
+ * billing/plans.json sets one today (limits.apps null); the abuse cap has its own message (src/auth.ts).
+ */
+export function appLimitBody(lim: AppLimit, origin: string, _days: number): { ok: false; error: string; upgrade_url: string } {
   const url = `${origin}/account/billing`;
   return {
     ok: false,
-    error: `the ${lim.plan.name} plan holds ${lim.max} app${lim.max === 1 ? "" : "s"}; Pro has no app limit (get a ${days}-day free trial for analytics) at ${url}`,
+    error: `the ${lim.plan.name} plan holds ${lim.max} app${lim.max === 1 ? "" : "s"}; see the plans at ${url}`,
     upgrade_url: url,
   };
 }
@@ -298,7 +322,7 @@ export function appLimitBody(lim: AppLimit, origin: string, days: number): { ok:
 /** Dashboard ranges an owned app can show, shortest first, with the days each one reaches back. */
 export const ACCOUNT_RANGES: Range[] = ["24h", "7d", "30d", "90d", "1y"];
 export const RANGE_DAYS: Record<Range, number> = { "24h": 1, "7d": 7, "30d": 30, "90d": 90, "1y": 365 };
-/** The ranges this plan's dashboard shows (Free has no dashboard; its ranges matter only to its limits). */
+/** The ranges this plan's dashboard shows (every plan reaches a year today; the rule stays for a shorter one). */
 export function viewRanges(plan: Plan): Range[] {
   const out = ACCOUNT_RANGES.filter((r) => RANGE_DAYS[r] <= plan.limits.history_days);
   return out.length ? out : ["24h"];
@@ -318,14 +342,20 @@ export const keepDays = (plan: Plan): number => Math.max(RETENTION_DAYS, plan.li
 // --------------------------------------------------------------------------------------------- retention
 
 /**
- * The apps kept longer than RETENTION_DAYS: those of accounts on a plan with more history, of accounts whose paid
- * period ended less than GRACE_DAYS ago, and of accounts in a grant or a trial (Pro's history; no grace after a trial).
- * `days` is the longest such plan's history. With `mode` (the current key's, null without one), a plan bought in test
- * mode counts only under a test key.
+ * The apps kept longer than RETENTION_DAYS, as a SELECT of their tokens; `days` is the longest such plan's history.
+ * While Free itself keeps more than RETENTION_DAYS (a year, today) that is every app in an account, whatever the
+ * account's plan, Stripe mode, grant or trial: the sweep must agree with accessOf and keepDays, which read any row the
+ * Stripe mode discounts (a test-mode purchase under a live key or no key) and any plan id plans.json no longer knows
+ * as Free, with Free's year. Otherwise (a plans.json where Free is short): the apps of accounts on a plan with more
+ * history, of accounts whose paid period ended less than GRACE_DAYS ago, and of accounts in a grant or a trial
+ * (Individual's history; no grace after a trial), where, with `mode` (the current key's, null without one), a plan
+ * bought in test mode counts only under a test key.
  */
 export function longRetention(now: Date, mode?: StripeMode | null): { tokens: string; params: unknown[]; days: number } | undefined {
   const long = PLANS.filter((p) => p.limits.history_days > RETENTION_DAYS);
   if (!long.length) return undefined;
+  const days = Math.max(...long.map((p) => p.limits.history_days));
+  if (FREE.limits.history_days > RETENTION_DAYS) return { tokens: "SELECT p.token FROM projects p WHERE p.account_id IS NOT NULL", params: [], days };
   const grace = new Date(now.getTime() - GRACE_DAYS * DAY).toISOString();
   const iso = now.toISOString();
   const granted = TRIAL_PLAN.limits.history_days > RETENTION_DAYS;
@@ -337,7 +367,7 @@ export function longRetention(now: Date, mode?: StripeMode | null): { tokens: st
       (mode !== undefined ? ` AND ${MODE_OK_SQL}` : "") +
       ")",
     params: [...(granted ? [iso, iso] : []), ...long.map((p) => p.id), grace, ...(mode !== undefined ? [mode ?? ""] : [])],
-    days: Math.max(...long.map((p) => p.limits.history_days)),
+    days,
   };
 }
 

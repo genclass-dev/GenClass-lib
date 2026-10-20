@@ -44,8 +44,8 @@ GenClass at a few functions instead of the whole app. See [Your dashboard](#your
 > decisions and counts, without any text from your page, to the GenClass maintainers, who use them to improve the
 > model. With the app token `init` creates, the same diagnostics also feed `npx @genclass/runtime@beta stats` (from
 > `0.3.0-beta.1`; run it inside the project, so npx uses the installed version), a free summary of what GenClass
-> found on your deployed site, and the app's private dashboard (the dashboard needs Pro; get a 7-day free trial for
-> analytics). Diagnostics are off on `localhost` and other local hosts unless you set `telemetry: true` (`0.2.1`
+> found on your deployed site, and the app's private dashboard, which is free and needs no plan. Diagnostics are off
+> on `localhost` and other local hosts unless you set `telemetry: true` (`0.2.1`
 > sends from them too, by mistake; fixed in `0.2.2`), and the situation text is sent only if you opt in. Opt out with
 > `npx @genclass/runtime@beta init --no-telemetry`, `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry`, or
 > `localStorage["genclass.telemetry"] = "off"`;
@@ -123,9 +123,9 @@ newer data (search.results). (stale, 0.97; discard 0.98)
 
 In production these lines print in your users' browsers. From `0.3.0` you can send them to your own endpoint or your
 log shipper as well: `npx @genclass/runtime@beta init --sink webhook:/genclass`, or `data-sink="webhook:/genclass"` on
-the script tag ([See it where you already look](#see-it-where-you-already-look)). Forwarding to Sentry, PostHog or
-Datadog is not part of the free runtime; on Pro, the GenClass collector forwards detections to them once you turn it on
-([genclass.dev/pricing](https://genclass.dev/pricing)).
+the script tag ([See it where you already look](#see-it-where-you-already-look)). The runtime has no Sentry, PostHog
+or Datadog adapter; the genclass.dev collector forwards detections to them, free, once you turn it on in the app's
+dashboard ([genclass.dev/docs#dashboard](https://genclass.dev/docs#dashboard)).
 
 ## Install
 
@@ -157,7 +157,7 @@ to `https://genclass.dev/api/projects`, writes the token it gets back into what 
 ```
   Your dashboard  https://genclass.dev/dashboard/...
   Keep this link private; it is the only way to open your dashboard.
-  The dashboard needs Pro (get a 7-day free trial for analytics); the link shows how to start one.
+  The dashboard is free and needs no plan; this link opens it.
   Saved in .genclass.local (added to .gitignore).
 ```
 
@@ -182,8 +182,8 @@ reached, `init` says so, sets GenClass up without a token, and points you to
 network.
 
 **Stats in the terminal** (`0.3.0-beta.1`; earlier versions have no `stats` command). Once the app runs on a deployed
-host with telemetry on, `stats` prints a short summary of what GenClass found there. It is free: it needs no Pro and
-no trial.
+host with telemetry on, `stats` prints a short summary of what GenClass found there, in the terminal, without
+opening the dashboard. Like the dashboard it is free and needs no plan.
 
 ```bash
 npx @genclass/runtime@beta stats                       # the last 7 days (UTC)
@@ -206,14 +206,13 @@ GenClass stats for shop-web (last 7 days, UTC)
 
 This is the free summary. The dashboard shows every page and problem, what GenClass did, how to fix each kind,
 1 year of history, export, and forwarding to Sentry, PostHog, Datadog or Slack.
-Get a 7-day free trial for analytics: https://genclass.dev/account/trial (no card needed)
-See one filled in: https://genclass.dev/dashboard/sample
+Dashboard: https://genclass.dev/account/apps/12
 ```
 
-With Pro or a trial, the trial lines become `Dashboard:` and the app's page in your account, or, for an app with only
-a private link, a pointer to the link in `.genclass.local` (`stats` never prints that link). An app with only a
-private link gets its trial through that link's page, which adds the app to an account first; an account that had its
-one trial is pointed to the plans instead. `stats` finds the app in this order: `--app`; the private link in
+For an app in your account the `Dashboard:` line is the app's page there; for an app with only a private link it
+points to the link in `.genclass.local` (`stats` never prints that link); when the summary carries no dashboard
+address it names the made-up sample dashboard (`https://genclass.dev/dashboard/sample`) instead. `stats` finds the
+app in this order: `--app`; the private link in
 `.genclass.local` in this folder (when its token is the one in the setup); signed in (`login`), the app in your
 account whose token this project's GenClass setup carries; signed in with one app, that app. A private link that no
 longer works (turned off or replaced on the account page) falls through to the signed-in account. Otherwise it stops
@@ -333,7 +332,8 @@ app. Working on GenClass itself is a different guide: [AGENTS.md](https://github
   - applying `init` creates this app at genclass.dev and sends the `name` from `package.json` (the dry run's Token
     row shows it); `--no-token` sets GenClass up with no network call (then `stats` and the dashboard stay empty
     until a token is added);
-  - `npx @genclass/runtime@beta stats` and the app's dashboard depend on the diagnostics;
+  - `npx @genclass/runtime@beta stats` and the app's dashboard depend on the diagnostics; both are free and need no
+    plan, account or card;
   - their app may need to mention GenClass in its privacy policy or ask for consent:
     [If you ship GenClass in your app](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md#if-you-ship-genclass-in-your-app).
 - Use `--yes` (it applies the changes without questions) only once they agree.
@@ -345,6 +345,19 @@ app. Working on GenClass itself is a different guide: [AGENTS.md](https://github
   or pull requests; `init` adds the file to `.gitignore`. `stats --json` prints that link too (`dashboard.url`):
   do not paste its output into code, docs, issues or pull requests. The token (`gc_...`) is public and belongs in
   the code.
+- Everything GenClass makes is free: the runtime, its on-device model, the dashboard for every app with a year of
+  history, export, forwarding, the page check, and the closed-loop MCP server, which runs on the developer's own
+  machine. Do not tell the user that GenClass needs a plan, a trial or a card. What the paid plans sell is running
+  the closed-loop MCP for them (Individual hosts it on genclass.dev, Enterprise runs it inside their own network):
+  https://genclass.dev/pricing.
+- The closed-loop MCP server (it hands what GenClass found on the deployed app, with the evidence and the pages
+  affected, to you, and reports whether a fix held) is designed but not shipped: it cannot be installed or connected
+  yet, so do not add an MCP entry for it to the user's agent configuration. Its design:
+  [ARCHITECTURE.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ARCHITECTURE.md#the-closed-loop-the-mcp-server).
+- If the user wants findings in Sentry, PostHog or Datadog: the runtime has no adapter for them, and `init --sink
+  sentry` is a usage error. The genclass.dev collector forwards detections to them, free, once the user turns it on
+  in the app's dashboard: https://genclass.dev/docs#dashboard. The runtime's own sinks are `init --sink
+  webhook:<url>` and `console-json`.
 
 ## Function-specific: protect()
 
@@ -418,10 +431,12 @@ where GenClass acts.
 **New in `0.3.0`** (`0.2.x` ignores a token and has no `login`, `connect`, `whoami` or `logout`). Each
 web app gets a **project key** (token: `gc_` + 22 letters and digits) that groups its diagnostics on a dashboard at
 genclass.dev. The key is public: it ships in your page and can only add telemetry to its app. Keep the dashboards in
-a GenClass account, or use one private link per app without an account. The dashboard needs Pro (get a 7-day free
-trial for analytics): until the app's account has Pro or a trial, its data is collected and the dashboard stays locked.
-Without Pro, `npx @genclass/runtime@beta stats` prints a free summary of the same data in the terminal
-([Install](#install), Stats in the terminal).
+a GenClass account, or use one private link per app without an account. The dashboard is free and needs no plan: the
+private link shows the stats, and an optional genclass.dev account keeps your apps in one place. It fills from pages
+that run runtime 0.3.0 or later with diagnostics on. `npx @genclass/runtime@beta stats` prints a free summary of the
+same data in the terminal ([Install](#install), Stats in the terminal). Everything GenClass makes is free, the
+dashboard included; what the paid plans sell is running the closed-loop MCP server for you (coming next;
+[genclass.dev/pricing](https://genclass.dev/pricing)).
 
 **With an account:**
 
@@ -492,8 +507,9 @@ example `telemetry: { decisionSample: 1 }`) is an explicit opt-in that sends fro
 `debug: true` the console says so once). Visitors who opt out (`?genclass=no-telemetry`,
 `localStorage["genclass.telemetry"] = "off"`) or whose browser sends Global Privacy Control are not counted. With a
 token, each telemetry batch carries it and decisions about protected functions carry their `fn` name; nothing else
-changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days,
-or 1 year for an app on a paid plan ([PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md)).
+changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). GenClass keeps an app's data for 1 year
+while the app is in a genclass.dev account, and for 90 days for an app known only by its private link
+([PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md)).
 
 **Which version:** the token option, `scope`, `protect()` and the `login`, `connect`, `whoami` and `logout` commands
 are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)), and `stats` from `0.3.0-beta.1`. A key
@@ -910,10 +926,13 @@ intervention, undo, breaker trip and runtime error to your own side as well: one
 for a log shipper (`console-json`), batched POSTs to an endpoint you own (`webhook`), or a function or `{ send }` object
 of yours. The records go only where you point them. The console default does not change.
 
-**Sentry, PostHog and Datadog.** Forwarding findings to those tools is not part of the free runtime. On Pro, the
-GenClass collector forwards detections to them (or Slack, or a signed webhook) once you turn it on in the dashboard
-([genclass.dev/pricing](https://genclass.dev/pricing)). The runtime itself has no adapter for them. A page config that still names `sentry`, `posthog` or `datadog` gets one console warning that says
-so, and nothing is loaded or sent for those names; `init --sink sentry` stops with a usage error that says the same.
+**Sentry, PostHog and Datadog.** The runtime has no Sentry, PostHog or Datadog adapter. The genclass.dev collector
+forwards detections to them (or Slack, or a signed webhook), free, once you turn it on in the app's dashboard
+([genclass.dev/docs#dashboard](https://genclass.dev/docs#dashboard)). A page config that still names `sentry`,
+`posthog` or `datadog` gets one console warning that says so (`Ignored sink <names>: the runtime has no Sentry,
+PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free, from the app's dashboard:
+https://genclass.dev/docs#dashboard`), and nothing is loaded or sent for those names; `init --sink sentry` stops with
+a usage error that says the same.
 
 With `/auto` or the script tag you write no adapter code yourself:
 
@@ -998,7 +1017,7 @@ GenClass runs with safe defaults (`mode: "observe"`, a `"balanced"` gate that ap
 - **Activation**: `enabled` (a boolean, a predicate, or a subscribable feature flag; while it is false the model is never downloaded), `rt.disable({ undo: true })` (remote kill that also rolls back recent actions), `sample` (the fraction of sessions allowed to act; the rest only observe).
 - **Scope**: `routes` (per-route mode and aggressiveness, which can only be lowered), `requests.ignore` (analytics traffic), `requests.protect` (endpoints that are never held, retried, cached or discarded), `requests.labels` (endpoint names for reports), `requests.correlate` (attach your trace id to records).
 - **Safety**: `breaker` (automatic downgrade after undos, or after errors that follow an action), `shadow` (records what a higher mode would have done), `onBeforeAction` + `vetoMode` (a synchronous veto, or a report-only trial of one), `policy.actionLimits` (per-minute, per-subject and per-session caps), `policy.holdBudgetMs` (a hard ceiling on added latency).
-- **Your own telemetry**: `sinks` (structured, redacted records; ready-made adapters in `@genclass/runtime/sinks` for JSON console lines and a webhook to your own endpoint, see "See it where you already look"; forwarding to Sentry, PostHog or Datadog is not in the free runtime), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
+- **Your own telemetry**: `sinks` (structured, redacted records; ready-made adapters in `@genclass/runtime/sinks` for JSON console lines and a webhook to your own endpoint, see "See it where you already look"; the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards to them, free), `session` (id and tags, never shown to the model), `report: "interventions"` (a quiet production console), `rt.summary()`, `rt.on("shadow" | "breaker" | "limit" | "modelBudget", cb)`.
 - **Loading and cost**: `model.loadIf`, `model.threads`, `model.timeoutMs`, `model.maxDecisionsPerMinute`, `model.unloadAfterIdleMs`.
 
 Action limits default to 60 per minute overall, 10 per minute on the same subject (store field or endpoint), and 200 per session.

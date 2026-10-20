@@ -1,5 +1,5 @@
-// The free summary behind `npx @genclass/runtime stats`: a few totals, the top 3 problem types and pages, and whether
-// the app's dashboard is open, for the last 24 hours or 7 days.
+// The free summary behind `npx @genclass/runtime stats`: a few totals, the top 3 problem types and pages, and where
+// the app's dashboard is, for the last 24 hours or 7 days.
 //
 // Routes (src/collector.ts, src/auth.ts):
 //   GET /api/projects/<secret>/summary?range=24h|7d         the private link's secret (or `sample`); anyone with it
@@ -9,8 +9,9 @@
 // - It reads only counters the collector already keeps (D1 `daily` for 7d, `hourly` for 24h, written by
 //   dashboard.ts aggregate()) and the `projects` row (name, created, last_event). Nothing new is collected for it.
 // - It is deliberately smaller than the dashboard: totals, at most SUMMARY_TOP diagnoses and pages, two ranges. No
-//   series, recent rows, breakdowns or distinct-key lists; those are the dashboard's (Pro).
-// - It is not gated by the plan: `dashboard.locked` says whether the dashboard opens. Any other range is answered for 7d.
+//   series, recent rows, breakdowns or distinct-key lists; those are the dashboard's.
+// - Nothing about it depends on a plan: the dashboard is free for every app, and `dashboard.locked` is always false
+//   (kept for CLIs from before 2026-10-20, which read it). Any other range is answered for 7d.
 // - Rate limited per IP (LIMIT, its own key) and per secret or account (SUMMARY_LIMIT, 30 / 60 s); both are best effort.
 // - Route and diagnosis keys come from any page that holds the public app token, so they are printed in a terminal
 //   only after printable() strips control, bidi and zero-width characters (`stats` does the same on its side).
@@ -28,16 +29,16 @@ const MODES = ["observe", "guard", "heal"];
 export interface SummaryDashboard {
   /** The private link (/dashboard/<secret>) or the account's app page (/account/apps/<id>). */
   url: string;
-  /** True while the app's account has no Pro (a plan, GenClass's grant or a trial): the dashboard is locked. */
-  locked: boolean;
   /**
-   * Where the 7-day free trial for analytics starts: /account/trial for an app in an account; for an app with only a
-   * private link, that link (its locked page signs in, adds the app to an account and starts the trial there).
+   * Always false: the dashboard is free and opens for every app. Kept so a `stats` command from before 2026-10-20,
+   * which printed the dashboard line only when this was false, still prints it. The trial fields of that time
+   * (`trialUrl`, `trialAvailable`) are gone; a CLI that reads them treats their absence as no trial to offer.
    */
-  trialUrl: string;
-  /** False when the app's account already had its one trial, or has Pro now; true for an app in no account. */
-  trialAvailable: boolean;
+  locked: false;
 }
+
+/** The summary's dashboard object for a URL (src/collector.ts, src/auth.ts). */
+export const summaryDashboard = (url: string): SummaryDashboard => ({ url, locked: false });
 
 export interface Summary {
   ok: true;

@@ -5,7 +5,8 @@ import { checkConfig, detectionRecords, HOURLY_CAP, maskConfig, openConfig, pars
 import { resetOwnerCache } from "../src/paid.js";
 import { advance, call, createApp, detection, resetClock, sendBatch, setPlan, setup, signedIn, now, type Fetch } from "./account-helpers.js";
 
-// Forwarding (src/forward.ts): paid plans only, settings encrypted at rest with INTEGRATIONS_KEY, one request per
+// Forwarding (src/forward.ts): free for every app in an account (every plan includes it; an app known only by its
+// private link has no settings page), settings encrypted at rest with INTEGRATIONS_KEY, one request per
 // record to Sentry, PostHog, Datadog, Slack or a signed webhook, never page text, dedupe per (app, diagnosis and route,
 // hour) and at most 60 records per app per hour, failures in last_error and never in the collector's answer.
 
@@ -35,7 +36,7 @@ function recorder(status = 200) {
   return { sent, f };
 }
 
-async function paidApp(over: Partial<Env> = {}, plan = "pro") {
+async function paidApp(over: Partial<Env> = {}, plan = "individual") {
   const t = setup({ ...LIVE, ...over });
   const a = await signedIn(t.env);
   setPlan(t.sql, a.account.id, plan);
@@ -142,26 +143,34 @@ describe("forwarding settings: encrypted at rest, masked on the way out", () => 
   });
 });
 
-describe("forwarding: paid plans only", () => {
-  it("Free cannot save, test or turn on a destination; the page offers the plans instead", async () => {
+describe("forwarding: free for every app in an account", () => {
+  it("Free saves, tests and turns on a destination; the app's page has the settings and says it is free", async () => {
     const t = await paidApp({}, "free");
     const r = await t.put("slack");
-    expect(r.status).toBe(403);
-    expect(await r.json()).toMatchObject({ upgrade_url: "https://genclass.dev/account/billing" });
-    // Free has no dashboard: the app's page is locked, with no forwarding settings
+    expect(r.status).toBe(200);
     const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
-    expect(html).toContain("Dashboards come with Pro.");
-    expect(html).not.toContain('data-kind="slack"');
+    expect(html).toContain('data-kind="slack"');
+    expect(html).toContain('<h2>Forwarding</h2><span class="aside">New detections, sent where you already look</span>');
+    expect(html).not.toMatch(/come with pro\b|pro and custom|See plans<\/a>/i);
+    const out = recorder();
+    await sendBatch(t.env, t.app.token, detection(), { fetch: out.f });
+    expect(out.sent.map((s) => s.url)).toEqual(["https://hooks.slack.com/services/T000/B000/XXXXXXXXXXXX"]);
   });
 
-  it("an app whose owner went back to Free stops forwarding, even with a destination still on", async () => {
+  it("an app that leaves its account (its private link only) stops forwarding, even with a destination still on", async () => {
     const t = await paidApp();
     expect((await t.put("slack")).status).toBe(200);
-    setPlan(t.sql, t.account.id, "free");
+    t.sql.db.prepare("UPDATE projects SET account_id = NULL WHERE id = ?").run(t.app.id);
     resetOwnerCache();
     const out = recorder();
     await sendBatch(t.env, t.app.token, detection(), { fetch: out.f });
     expect(out.sent).toEqual([]);
+    // a plan id from before 2026-10-20 reads as Free, which forwards
+    t.sql.db.prepare("UPDATE projects SET account_id = ? WHERE id = ?").run(t.account.id, t.app.id);
+    setPlan(t.sql, t.account.id, "pro");
+    resetOwnerCache();
+    await sendBatch(t.env, t.app.token, detection("stale", "/cart"), { fetch: out.f });
+    expect(out.sent).toHaveLength(1);
   });
 
   it("CSRF and sessions: settings change only from the browser with our Origin; another account gets 404", async () => {
@@ -170,7 +179,7 @@ describe("forwarding: paid plans only", () => {
     expect((await call(t.env, "PUT", path, { body: SETTINGS.slack, cookie: t.cookie, origin: "https://evil.example" })).status).toBe(403);
     expect((await call(t.env, "PUT", path, { body: SETTINGS.slack })).status).toBe(401);
     const b = await signedIn(t.env, "bob@example.com");
-    setPlan(t.sql, b.account.id, "pro");
+    setPlan(t.sql, b.account.id, "individual");
     expect((await call(t.env, "PUT", path, { body: SETTINGS.slack, cookie: b.cookie })).status).toBe(404);
     expect((await call(t.env, "GET", `/api/account/projects/${t.app.id}/integrations`, { cookie: b.cookie })).status).toBe(404);
     expect((await call(t.env, "PUT", `/api/account/projects/${t.app.id}/integrations/email`, { body: {}, cookie: t.cookie })).status).toBe(404);

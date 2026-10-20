@@ -594,6 +594,10 @@ kbd{font:500 12.5px var(--mono);border:1px solid var(--rule2);border-bottom-widt
   .plan:last-child{border-bottom:1px solid var(--ink)}
   .plan-sum,.plan-cta p{max-width:none}
 }
+.plan-price b.txt{font-size:34px;letter-spacing:-.02em;line-height:1.2}
+.loop .steps{margin-top:32px}
+.loop .step p{max-width:42ch}
+.steps + .callout{margin-top:28px}
 .pnotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));border-top:1px solid var(--ink);margin-top:32px}
 .pnotes > div{padding:20px 24px 20px 0}
 .pnotes > div + div{padding-left:24px;border-left:1px solid var(--rule)}

@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-15._
+_Last updated: 2026-10-20._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -45,19 +45,20 @@ load gets a random session ID that is not saved anywhere.
 
 ## Why we collect it
 
-To measure how well the model works and to train better versions of it, and to show website owners how GenClass
-works on their own site. We do not sell the data, use it for advertising, or try to identify individual people.
+To measure how well the model works and to train better versions of it, to show website owners how GenClass
+works on their own site, and, for an Enterprise customer who asks for a model trained on their app, to train that
+model, which only they receive. We do not sell the data, use it for advertising, or try to identify individual people.
 
 ## Dashboards for website owners
 
-A website owner can get a private dashboard link for their site's token. While the site's app is in an account with
-Pro or a trial, whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
+A website owner can get a private dashboard link for their site's token. The dashboard is free and needs no plan:
+whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
 routes, the names the developer gave to protected functions, model speed, versions) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
 A shorter summary of the same counts (totals for the last 24 hours or 7 days, the top 3 problem types and routes) is
-available without Pro, at `genclass.dev/api/projects/<secret>/summary` to whoever holds the link, and to the
+also available, at `genclass.dev/api/projects/<secret>/summary` to whoever holds the link, and to the
 account's owner, signed in to genclass.dev in the browser or with the command line (`npx @genclass/runtime stats`, runtime
 0.3.0-beta.1 and later). It is computed from the counts the dashboard already keeps; nothing more is collected for it.
 
@@ -65,7 +66,8 @@ When a developer creates a token with `npx @genclass/runtime init`, after approv
 the name in their project's `package.json`. We keep one record per token: the token, that name, when it was created,
 when data first and last arrived, a one-way hash of the dashboard link's secret, and the account it belongs to, if
 any. These records are kept until the owner
-asks us to delete them (contact below, with the token); the dashboard data itself is deleted after 90 days.
+asks us to delete them (contact below, with the token); the dashboard data itself is kept for 1 year while the app
+is in a genclass.dev account, and for 90 days for an app known only by its private link.
 
 ## Accounts on genclass.dev
 
@@ -90,7 +92,7 @@ their apps in one place. An account stores:
 - **Your sign-in sessions:** for the browser and for each terminal you signed in with the CLI, a one-way hash of the
   session secret, when it was created, last used and expires, when it last used a passkey, and the name the CLI gave
   itself (such as "genclass-runtime 0.3.0").
-- **Your trial:** when it started and when it ends, if you start one.
+- **Your trial of the Individual plan:** when it started and when it ends, if you start one.
 - **The apps you own:** which of the records above (token, name, times) belong to your account, and whether an
   app's private dashboard link still opens it.
 
@@ -107,39 +109,45 @@ yet); an account id alone is not enough, because it can be known to others.
 
 ## Paid plans, payments and Stripe
 
-The Pro and Custom plans are paid through Stripe, which processes payments for us. When you upgrade, we send Stripe
-your account's email (if it has one) and your GenClass account id, and you type your card or other payment details
-into Stripe's own checkout page: they go to Stripe and never reach GenClass. Stripe handles them under its own privacy
-policy (stripe.com/privacy) and keeps your invoices and receipts, which you can see under Manage billing on your
-billing page. When GenClass sells Pro through Stripe Managed Payments, Stripe is the merchant of record for Pro
-purchases: it sells Pro to you through Link, its checkout service, so Link's name is on your Pro receipts and card
+Everything GenClass makes is free, and nothing this policy describes needs a plan. What costs money is running the
+closed-loop MCP server for you. The Individual plan (the closed-loop MCP hosted on genclass.dev) is paid through
+Stripe, which processes payments for us. When you buy it, we send Stripe your account's email (if it has one) and
+your GenClass account id, and you type your card or other payment details into Stripe's own checkout page: they go
+to Stripe and never reach GenClass. Stripe handles them under its own privacy policy (stripe.com/privacy) and keeps
+your invoices and receipts, which you can see under Manage billing on your billing page. When GenClass sells
+Individual through Stripe Managed Payments, Stripe is the merchant of record for Individual purchases: it sells
+Individual to you through Link, its checkout service, so Link's name is on your Individual receipts and card
 statement, and Stripe handles the sales tax and payment support. To work out the tax, its checkout page asks for your
-name and billing address, which Stripe keeps and GenClass does not store.
+name and billing address, which Stripe keeps and GenClass does not store. A trial of Individual needs no card.
+
+The Enterprise plan (the closed-loop MCP inside your own network) is arranged with a person from GenClass by email
+and paid by invoice or purchase order, never by card through genclass.dev; Stripe is not involved.
 
 GenClass stores only your Stripe customer id, your subscription id, the subscription's status and renewal or end date,
-and your plan. Never card numbers, bank details or billing addresses. When someone buys the Custom plan we also keep a
-record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to them
-to start the work.
+and your plan. Never card numbers, bank details or billing addresses.
 
-**Forwarding** is off unless an account on a paid plan turns it on for one of its apps. Then, for each new detection
+**Forwarding** is free and off unless an account turns it on for one of its apps. Then, for each new detection
 from that app, GenClass sends a short record to the services that account chose (Sentry, PostHog, Datadog, Slack or
 its own webhook URL): the kind of problem, the model's confidence, what triggered the check, the page path, the
 runtime and model versions, the time and a link to the app's dashboard. Never text from the page. Those services
 handle the records under their own terms with the account owner. The keys and URLs for them are stored encrypted.
 
-**Export** lets an account on a paid plan download, or read with an export key, the events GenClass received for its
+**Export** is free: it lets an account download, or read with an export key, the events GenClass received for its
 own apps, as stored. Export keys are stored as one-way hashes.
 
-For apps on a paid plan, the dashboard data and the stored events are kept for 1 year instead of 90 days, and for 30
-days after the paid period ends; then they are deleted as for every other app. Deleting your account cancels a paid
-plan at once and deletes the forwarding settings, export keys and stored copies made for your apps; Stripe keeps its
-own records of past payments as the law requires.
+GenClass keeps an app's dashboard data, and the copy of its events kept for export, for 1 year while the app is in
+a genclass.dev account; an app known only by its private link keeps 90 days of dashboard data and has no export
+copy. Then they are deleted.
+Deleting your account cancels a paid plan at once and deletes the forwarding settings, export keys and stored copies
+made for your apps; Stripe keeps its own records of past payments as the law requires.
 
 ## Where it goes and how long we keep it
 
-Data is sent to our collector on Cloudflare and stored in Cloudflare R2. It is deleted automatically after
-**90 days**; dashboard data is deleted after 90 days too. Only GenClass maintainers can access the stored data, and
-the owner of a website's dashboard link can see that website's dashboard. Cloudflare processes it on our behalf.
+Data is sent to our collector on Cloudflare and stored in Cloudflare R2. The raw batches are deleted automatically
+after **90 days**. The dashboard data is kept for 1 year while the app is in a genclass.dev account (with the copy
+of its events kept for export), and for 90 days for an app known only by its private link. Only GenClass
+maintainers can access the stored data, and the owner of a website's dashboard link can see that website's
+dashboard. Cloudflare processes it on our behalf.
 
 ## How to turn it off
 

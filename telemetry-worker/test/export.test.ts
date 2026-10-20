@@ -7,8 +7,9 @@ import { longRetention, planRetention } from "../src/plans.js";
 import { call, cliToken, createApp, detection, now, resetClock, sendBatch, setPlan, setup, signedIn } from "./account-helpers.js";
 
 // Export (src/export.ts) and plan-aware retention (src/plans.ts): every event of an owned app as JSONL or CSV from the
-// stored R2 batches, paid plans only, by browser session or export key, never another app's events; the daily sweep
-// keeps what each plan allows and never shortens what existing projects had.
+// stored R2 batches, free for every app in an account (every plan includes it; an app known only by its private link
+// has none), by browser session or export key, never another app's events; the daily sweep keeps what each plan
+// allows (a year, for every plan) and never shortens what existing projects had (90 days, for link-only apps).
 
 const LIVE = { STRIPE_SECRET_KEY: "sk_test_fake" };
 const DAY = 86_400_000;
@@ -19,7 +20,7 @@ beforeEach(() => {
   resetOwnerCache();
 });
 
-async function proApp(plan = "pro") {
+async function proApp(plan = "individual") {
   const t = setup(LIVE);
   const a = await signedIn(t.env);
   setPlan(t.sql, a.account.id, plan);
@@ -30,23 +31,25 @@ async function proApp(plan = "pro") {
 const lines = async (r: Response) => (await r.text()).split("\n").filter(Boolean);
 
 describe("export: GET /api/account/projects/<id>/events", () => {
-  it("Free is refused with a link to the plans; signed-out and command line sessions are refused", async () => {
+  it("Free exports too (it is free for every plan); signed-out and command line sessions are refused", async () => {
     const t = await proApp("free");
+    await sendBatch(t.env, t.app.token, [{ t: "session", seq: 0, host: "shop.example", route: "/" }]);
     const r = await call(t.env, "GET", `/api/account/projects/${t.app.id}/events`, { cookie: t.cookie });
-    expect(r.status).toBe(403);
-    expect(await r.json()).toMatchObject({ error: "export is part of the Pro and Custom plans; see https://genclass.dev/account/billing" });
+    expect(r.status).toBe(200);
+    expect(await lines(r)).toHaveLength(1);
     expect((await call(t.env, "GET", `/api/account/projects/${t.app.id}/events`, {})).status).toBe(401);
     const bearer = await cliToken(t.env, t.cookie);
     const cli = await call(t.env, "GET", `/api/account/projects/${t.app.id}/events`, { bearer, origin: null });
     expect(cli.status).toBe(403);
     expect(((await cli.json()) as any).error).toMatch(/command line session cannot read the export/);
-    // Free has no dashboard: the app's page is locked, with no export form
+    // the app's page has the export form and says it is free
     const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
-    expect(html).toContain("Dashboards come with Pro.");
-    expect(html).not.toContain('id="exf"');
+    expect(html).toContain('id="exf"');
+    expect(html).toContain("Free. Every event GenClass received for this app while it was in this account, kept 1 year");
+    expect(html).not.toMatch(/come with pro\b|pro (or|and) custom/i);
   });
 
-  it("JSONL: every event of the app's batches, as the collector stored them; a Pro app's batches are kept under export/", async () => {
+  it("JSONL: every event of the app's batches, as the collector stored them; an owned app's batches are kept under export/", async () => {
     const t = await proApp();
     await sendBatch(t.env, t.app.token, [{ t: "session", seq: 0, host: "shop.example", route: "/" }]);
     await sendBatch(t.env, t.app.token, detection("duplicate", "/checkout"), { sid: "dddddddddddd" });
@@ -105,7 +108,6 @@ describe("export: GET /api/account/projects/<id>/events", () => {
     expect(t.sql.rows("SELECT last_used FROM export_keys")).toEqual([{ last_used: now().toISOString() }]);
     // another account's app: not found with this key
     const b = await signedIn(t.env, "bob@example.com");
-    setPlan(t.sql, b.account.id, "pro");
     const bobApp = await createApp(t.env, b.cookie, "Bob's");
     expect((await call(t.env, "GET", `/api/account/projects/${bobApp.id}/events`, { bearer: key, origin: null })).status).toBe(404);
     // listing never shows the key; revoking needs the browser and our Origin
@@ -113,9 +115,9 @@ describe("export: GET /api/account/projects/<id>/events", () => {
     expect((await call(t.env, "DELETE", `/api/account/export-keys/${id}`, { cookie: t.cookie, origin: "https://evil.example" })).status).toBe(403);
     expect((await call(t.env, "DELETE", `/api/account/export-keys/${id}`, { cookie: t.cookie })).status).toBe(204);
     expect((await call(t.env, "GET", `/api/account/projects/${t.app.id}/events`, { bearer: key, origin: null })).status).toBe(401);
-    // Free cannot make one
+    // Free makes one too
     const c = await signedIn(t.env, "cy@example.com");
-    expect((await call(t.env, "POST", "/api/account/export-keys", { body: {}, cookie: c.cookie })).status).toBe(403);
+    expect((await call(t.env, "POST", "/api/account/export-keys", { body: {}, cookie: c.cookie })).status).toBe(201);
   });
 
   it("never another app's events, even when an index row points at another app's batch", async () => {
@@ -142,31 +144,38 @@ describe("export: GET /api/account/projects/<id>/events", () => {
     expect(html).toContain(`https://genclass.dev/api/account/projects/${t.app.id}/events?from=2026-10-01&#38;to=2026-10-14&#38;format=jsonl`);
   });
 
-  it("only apps whose plan includes export are indexed: a Free app and an app without an account cost no D1 row", async () => {
+  it("every app in an account is indexed, on any plan; an app without an account costs no D1 row and no copy", async () => {
     const t = await proApp("free");
-    await sendBatch(t.env, t.app.token, [{ t: "session", seq: 0 }]);
     const anon = (await (await call(t.env, "POST", "/api/projects", { body: { name: "Anon" }, origin: null })).json()) as any;
     await sendBatch(t.env, anon.token, [{ t: "session", seq: 0 }]);
     expect(t.sql.rows("SELECT COUNT(*) AS n FROM event_batches")[0]!.n).toBe(0);
     expect([...t.r2.objects.keys()].some((k) => k.startsWith("export/"))).toBe(false);
-    // the export covers what arrives after the upgrade
-    setPlan(t.sql, t.account.id, "pro");
-    resetOwnerCache();
+    // the Free app: an index row and a copy under export/ (kept a year, Free's history)
     await sendBatch(t.env, t.app.token, [{ t: "session", seq: 0 }]);
     expect(t.sql.rows("SELECT token FROM event_batches")).toEqual([{ token: t.app.token }]);
     expect(String(t.sql.rows("SELECT key FROM event_batches")[0]!.key)).toMatch(new RegExp(`^export/${t.app.token}/`));
-    const html = await (await call(t.env, "GET", `/account/apps/${t.app.id}`, { cookie: t.cookie })).text();
-    expect(html).toContain("Every event GenClass received for this app while this account was on Pro or Custom");
+    // the export covers what arrived while the app was in the account: the link-only app's batch stays out of it
+    const { cookie } = await signedIn(t.env, "late@example.com");
+    expect((await call(t.env, "POST", "/api/account/projects/claim", { body: { dashboard_url: anon.dashboardUrl }, cookie })).status).toBe(200);
+    resetOwnerCache();
+    await sendBatch(t.env, anon.token, [{ t: "session", seq: 1 }], { sid: "dddddddddddd" });
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM event_batches WHERE token = ?", anon.token)[0]!.n).toBe(1);
+    const claimed = ((await (await call(t.env, "GET", "/api/account/projects", { cookie })).json()) as any).projects[0];
+    const r = await call(t.env, "GET", `/api/account/projects/${claimed.id}/events`, { cookie });
+    expect(r.status).toBe(200);
+    expect(await lines(r)).toHaveLength(1);
   });
 
-  it("a plan bought in Stripe's test mode does not export once the key is live", async () => {
+  it("a plan bought in Stripe's test mode reads as Free under a live key (src/plans.ts inMode): Free's export, Free's year", async () => {
     const t = setup({ STRIPE_SECRET_KEY: "sk_live_fake" });
     const a = await signedIn(t.env);
-    setPlan(t.sql, a.account.id, "pro", { stripe_mode: "test" });
+    setPlan(t.sql, a.account.id, "individual", { stripe_mode: "test" });
     const app = await createApp(t.env, a.cookie);
     await sendBatch(t.env, app.token, [{ t: "session", seq: 0 }]);
-    expect(t.sql.rows("SELECT COUNT(*) AS n FROM event_batches")[0]!.n).toBe(0);
-    expect((await call(t.env, "GET", `/api/account/projects/${app.id}/events`, { cookie: a.cookie })).status).toBe(403);
+    expect(t.sql.rows("SELECT COUNT(*) AS n FROM event_batches")[0]!.n).toBe(1);
+    expect((await call(t.env, "GET", `/api/account/projects/${app.id}/events`, { cookie: a.cookie })).status).toBe(200);
+    expect(await (await call(t.env, "GET", `/account/apps/${app.id}`, { cookie: a.cookie })).text()).toContain("kept 1 year");
+    expect(await (await call(t.env, "GET", "/api/billing", { cookie: a.cookie })).json()).toMatchObject({ plan: "free" });
   });
 });
 
@@ -183,22 +192,24 @@ describe("retention by plan (the daily sweep)", () => {
   const ages = (sql: ReturnType<typeof setup>["sql"], token: string) =>
     sql.rows("SELECT day FROM daily WHERE token = ? ORDER BY day DESC", token).map((r) => Math.round((Date.parse(now().toISOString().slice(0, 10)) - Date.parse(String(r.day))) / DAY));
 
-  it("keeps 90 days for every project that had it (no account, Free), a year for Pro and Custom, and 30 days of grace after a plan ends", async () => {
+  it("keeps 90 days for an app in no account, and a year for every account's apps (every plan: Free, Individual, Enterprise, and after a paid plan ends)", async () => {
     const { env, sql, r2 } = setup(LIVE);
     const free = await signedIn(env, "free@example.com");
-    const pro = await signedIn(env, "pro@example.com");
-    const custom = await signedIn(env, "custom@example.com");
+    const pro = await signedIn(env, "individual@example.com");
+    const custom = await signedIn(env, "enterprise@example.com");
     const lapsed = await signedIn(env, "lapsed@example.com");
     const gone = await signedIn(env, "gone@example.com");
-    setPlan(sql, pro.account.id, "pro");
-    setPlan(sql, custom.account.id, "custom");
+    setPlan(sql, pro.account.id, "individual");
+    setPlan(sql, custom.account.id, "enterprise");
     setPlan(sql, lapsed.account.id, "free", { subscription_id: "sub_lapsed0001", subscription_status: "canceled", current_period_end: new Date(now().getTime() - 10 * DAY).toISOString() });
     setPlan(sql, gone.account.id, "free", { subscription_id: "sub_gone000001", subscription_status: "canceled", current_period_end: new Date(now().getTime() - 40 * DAY).toISOString() });
     const apps: Record<string, string> = {};
     for (const [k, a] of Object.entries({ free, pro, custom, lapsed, gone })) apps[k] = (await createApp(env, a.cookie, k)).token;
     const anon = ((await (await call(env, "POST", "/api/projects", { body: { name: "Anon" }, origin: null })).json()) as any).token as string;
     for (const tok of [...Object.values(apps), anon]) seed(sql, tok, [1, 89, 91, 200, 364, 366]);
-    // export copies and index rows: 200 days old, for Pro and for the account that lapsed 40 days ago
+    // export copies and index rows: 200 days old, for Individual and for the account that lapsed 40 days ago (on
+    // Free, which keeps a year like every plan); the free app's 91-day events/ index row is past the 90 days the
+    // events/ prefix keeps (R2's own lifecycle rule removes those objects)
     const put = (tok: string, a: number, prefix: string) => {
       const key = prefix === "export" ? `export/${tok}/dt=${day(a * DAY)}/x${a}.jsonl.gz` : `events/dt=${day(a * DAY)}/rt=0.3.0/model=none/${tok}-${a}.jsonl.gz`;
       r2.objects.set(key, gzipSync("{}\n"));
@@ -216,34 +227,58 @@ describe("retention by plan (the daily sweep)", () => {
 
     await planRetention(sql.api, now(), r2);
 
-    for (const k of ["free", "gone"]) expect(ages(sql, apps[k]!), k).toEqual([1, 89]);
     expect(ages(sql, anon)).toEqual([1, 89]);
-    for (const k of ["pro", "custom", "lapsed"]) expect(ages(sql, apps[k]!), k).toEqual([1, 89, 91, 200, 364]);
+    for (const k of ["free", "pro", "custom", "lapsed", "gone"]) expect(ages(sql, apps[k]!), k).toEqual([1, 89, 91, 200, 364]);
     expect(sql.rows("SELECT COUNT(*) AS n FROM recent WHERE token = ?", apps.pro)[0]!.n).toBe(5);
-    expect(sql.rows("SELECT COUNT(*) AS n FROM recent WHERE token = ?", apps.free)[0]!.n).toBe(2);
-    // export copies: Pro's 200-day copy stays, its 370-day one and the lapsed account's go (from R2 too)
+    expect(sql.rows("SELECT COUNT(*) AS n FROM recent WHERE token = ?", apps.free)[0]!.n).toBe(5);
+    expect(sql.rows("SELECT COUNT(*) AS n FROM recent WHERE token = ?", anon)[0]!.n).toBe(2);
+    // export copies: the 200-day copies stay (a year for every account), the 370-day one goes (from R2 too)
     expect(r2.objects.has(proCopy)).toBe(true);
-    expect(r2.deleted.sort()).toEqual([goneCopy, proOld].sort());
-    expect(sql.rows("SELECT key FROM event_batches ORDER BY key").map((r) => r.key)).toEqual([freeNew, proCopy].sort());
+    expect(r2.objects.has(goneCopy)).toBe(true);
+    expect(r2.deleted).toEqual([proOld]);
+    expect(sql.rows("SELECT key FROM event_batches ORDER BY key").map((r) => r.key)).toEqual([freeNew, goneCopy, proCopy].sort());
     expect(sql.rows("SELECT COUNT(*) AS n FROM forward_log")[0]!.n).toBe(1);
     expect(sql.rows("SELECT id FROM billing_events")).toEqual([{ id: "evt_new" }]);
   });
 
-  it("a test-mode plan keeps data longer only while the key is a test key", () => {
-    const at = now();
-    for (const mode of ["live", null] as const) {
-      const l = longRetention(at, mode)!;
-      expect(l.tokens).toContain("(a.stripe_mode IS NULL OR a.stripe_mode <> 'test' OR ? = 'test')");
-      expect(l.params[l.params.length - 1]).toBe(mode ?? "");
+  it("an account whose only Stripe record is test-mode reads as Free under a live key or no key (accessOf), and Free keeps a year: the sweep keeps its app a year too", async () => {
+    for (const [mode, over] of [
+      ["live", { STRIPE_SECRET_KEY: "sk_live_fake" }],
+      [null, {}],
+    ] as const) {
+      resetClock();
+      resetTokenCache();
+      resetOwnerCache();
+      const { env, sql, r2 } = setup(over);
+      const a = await signedIn(env, "tested@example.com");
+      setPlan(sql, a.account.id, "free", { stripe_mode: "test" });
+      const app = (await createApp(env, a.cookie, "Tested")).token;
+      const anon = ((await (await call(env, "POST", "/api/projects", { body: { name: "Anon" }, origin: null })).json()) as any).token as string;
+      seed(sql, app, [1, 89, 91, 200, 364, 366]);
+      seed(sql, anon, [1, 89, 91, 200, 364, 366]);
+      // the mode as index.ts passes it (stripeMode(env)): what the dashboard footer and the export page promise
+      await planRetention(sql.api, now(), r2, mode);
+      expect(ages(sql, app), String(mode)).toEqual([1, 89, 91, 200, 364]);
+      expect(sql.rows("SELECT COUNT(*) AS n FROM recent WHERE token = ?", app)[0]!.n, String(mode)).toBe(5);
+      expect(ages(sql, anon), String(mode)).toEqual([1, 89]);
     }
-    expect(longRetention(at)!.tokens).not.toContain("stripe_mode");
   });
 
-  it("export copies of a lapsed app go in rounds of 1000, and index rows past 367 days in one statement", async () => {
+  it("the Stripe mode does not decide retention while Free keeps a year: the kept set is every app in an account, under any key", () => {
+    const at = now();
+    for (const mode of ["live", "test", null, undefined] as const) {
+      const l = longRetention(at, mode)!;
+      expect(l.tokens, String(mode)).toBe("SELECT p.token FROM projects p WHERE p.account_id IS NOT NULL");
+      expect(l.tokens).not.toContain("stripe_mode");
+      expect(l.params).toEqual([]);
+      expect(l.days).toBe(365);
+    }
+  });
+
+  it("export copies of an app that left its account go in rounds of 1000, and index rows past 367 days in one statement", async () => {
     const { env, sql, r2 } = setup(LIVE);
-    const lapsed = await signedIn(env, "lapsed@example.com");
-    setPlan(sql, lapsed.account.id, "free", { subscription_id: "sub_lapsed0002", subscription_status: "canceled", current_period_end: new Date(now().getTime() - 60 * DAY).toISOString() });
-    const tok = (await createApp(env, lapsed.cookie, "Lapsed")).token;
+    // an app known only by its private link (it left a deleted account with its copies): 90 days, like every such app
+    const tok = ((await (await call(env, "POST", "/api/projects", { body: { name: "Left" }, origin: null })).json()) as any).token as string;
     const ins = sql.db.prepare("INSERT INTO event_batches (token, received, key, events) VALUES (?, ?, ?, 1)");
     const keys: string[] = [];
     for (let i = 0; i < 1500; i++) {

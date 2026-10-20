@@ -74,9 +74,12 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // run 38471973596, RESULTS.md §11); merged with release/0.3.0 (its 429 back-off is this branch's), 107.65 / 99.68 KB
   // (CI run 38477575339); with the review fixes, paid for by moving the expectation report's console text into the lazy
   // flow chunk, 107.56 / 99.59 KB (CI run 38482297879). The Sentry, PostHog and Datadog adapters were removed (never
-  // shipped: forwarding to those tools is not in the free runtime); the one warning for those names in /auto's page
+  // shipped: forwarding to those tools was not in the free runtime then); the one warning for those names in /auto's page
   // config (src/cdn/sinks.ts applySinks) brings /auto to 107.73 KB, the main entry unchanged at 99.61 KB (CI run
   // 38491077597, wave2/no-vendor-sinks 31ddc98); reworded so it names no paid feature, 107.71 KB (CI run 38494904699).
+  // With the 2026-10-20 plans change (everything free) that warning says the runtime has no adapter and the collector
+  // forwards, free, from the dashboard (docs#dashboard instead of the plans page): +0.03 KB on /auto, 108.08 KB, the
+  // main entry unchanged (local run, 2026-10-20).
   // Merged with wave2/visual (release/0.3.0-visual), limits approved by the owner 2026-10-15: the measured visual checks' first-load
   // stub (src/visual/start.ts with its development-host rule, the "check" listener set, rt.checks()/checkNow(), the
   // "check" sink filter, the visual page-config key) adds 550 B to /auto and 524 B to the main entry, past the limits
@@ -135,9 +138,11 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
       expect(code, entry).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
       expect(code, entry).not.toContain("console-json"); // src/cdn/sinks-fanout.ts SINK_NAMES, src/cdn/sinks-load.ts
       expect(code, entry).not.toContain("unknown sink"); // src/cdn/sinks-fanout.ts
-      // the one warning for the names sentry / posthog / datadog (src/cdn/sinks.ts applySinks) is /auto's alone
-      if (entry === "auto.js") expect(code, entry).toContain("https://genclass.dev/pricing");
-      else expect(code, entry).not.toContain("https://genclass.dev/pricing");
+      // the one warning for the names sentry / posthog / datadog (src/cdn/sinks.ts applySinks) is /auto's alone: it
+      // names where the collector's forwarding is turned on, and no entry names the plans page
+      if (entry === "auto.js") expect(code, entry).toContain("https://genclass.dev/docs#dashboard");
+      else expect(code, entry).not.toContain("https://genclass.dev/docs#dashboard");
+      expect(code, entry).not.toContain("https://genclass.dev/pricing");
       // the flow expectations (src/learn/flows.ts) are a lazy chunk, loaded only with learn.expectations
       expect(code, entry).not.toContain("Expected a follow-up on"); // src/learn/flows.ts
       expect(code, entry).not.toContain("Expected a response:"); // src/learn/flows.ts
@@ -163,7 +168,8 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
     const code = buf.toString("utf8");
     expect(code).not.toContain("genclass-sink/1"); // src/sinks/webhook.ts
     expect(code).toContain("sinks/"); // the adapters' path on the CDN (dist/sinks/<name>.js)
-    expect(code).toContain("https://genclass.dev/pricing"); // the one warning for sentry / posthog / datadog by name
+    expect(code).toContain("https://genclass.dev/docs#dashboard"); // the one warning for sentry / posthog / datadog by name
+    expect(code).not.toContain("https://genclass.dev/pricing");
     expect(gz).toBeGreaterThan(0);
   });
 

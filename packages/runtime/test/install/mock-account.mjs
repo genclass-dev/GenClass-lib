@@ -13,8 +13,9 @@
 //   GENCLASS_TEST_ME        "401": GET /api/me answers 401 (a revoked session)
 //   GENCLASS_TEST_CLAIM     "ok" (default) or an HTTP status for POST /api/account/projects/claim
 //   GENCLASS_TEST_TTY       "1": stdin counts as a terminal (answers are piped on stdin)
-//   GENCLASS_TEST_SUMMARY   GET /api/account/projects/<id>/summary: "open" (default: the app's dashboard is open),
-//                           "locked" (a trial still available), "trial-used" (locked, the account's trial was used),
+//   GENCLASS_TEST_SUMMARY   GET /api/account/projects/<id>/summary: "open" (default: dashboard { url, locked: false },
+//                           the worker's shape today: the dashboard is free on every plan), "old" (an older worker's
+//                           shape: locked true with trialUrl and trialAvailable, fields the CLI no longer reads),
 //                           "empty" (no page loads), or an HTTP status ("403", "429", ...). The id must be one
 //                           of GENCLASS_TEST_PROJECTS (else 404), and the bearer the session (else 401)
 //   GENCLASS_TEST_TIMERS    divide every setTimeout delay by this (default 100: a 5 s poll interval takes 50 ms)
@@ -127,7 +128,7 @@ globalThis.fetch = async (input, init = {}) => {
       previous: { sessions: empty ? 0 : 100, detections: 0 },
       top: empty ? { diagnoses: [], routes: [] } : { diagnoses: [{ key: "slow", count: 2 }, { key: "made_up", count: 1 }], routes: [{ key: "/search", count: 3 }] },
       mode: empty ? null : "guard",
-      dashboard: { url: app.dashboard_url, locked: mode === "locked" || mode === "trial-used", trialUrl: `${origin}/account/trial`, trialAvailable: mode === "locked" },
+      dashboard: mode === "old" ? { url: app.dashboard_url, locked: true, trialUrl: `${origin}/account/trial`, trialAvailable: true } : { url: app.dashboard_url, locked: false },
       limits: { ranges: ["24h", "7d"], top: 3 },
     });
   }

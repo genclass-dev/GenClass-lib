@@ -3,6 +3,7 @@
 // collector, a fake Stripe API, and Stripe-signed webhook deliveries.
 import { expect } from "vitest";
 import { handle, type Env, type HandleOptions } from "../src/collector.js";
+import { PAID_PLANS, planByLookupKey } from "../src/plans.js";
 import { d1 } from "./d1.js";
 
 export const ORIGIN = "https://genclass.dev";
@@ -200,9 +201,10 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
     if (custom) return custom;
     const p = url.pathname;
     if (method === "GET" && p === "/v1/prices") {
-      // GenClass's two prices, with their products expanded (the worker asks for data.product)
+      // GenClass's prices (one per plan sold through Stripe, billing/plans.json), with their products expanded (the
+      // worker asks for data.product)
       const key = url.searchParams.get("lookup_keys[0]");
-      return ok({ data: key === "genclass_pro_monthly" || key === "genclass_custom_monthly" ? [price(key)] : [] });
+      return ok({ data: PAID_PLANS.some((pl) => pl.stripe_lookup_keys.monthly === key || pl.stripe_lookup_keys.yearly === key) ? [price(key)] : [] });
     }
     const cus = /^\/v1\/customers\/([^/]+)$/.exec(p);
     if (method === "GET" && cus) {
@@ -309,10 +311,15 @@ export function fakeStripe(o: { answer?: (url: URL, init: RequestInit) => Respon
   return { fetch, calls, other, customers, subs, sessions, invoices, refunds, charges, portal, genclassCustomer };
 }
 
-/** A price as a subscription fetched with its products expanded shows it: GenClass's carry product metadata genclass_plan. */
+/**
+ * A price as a subscription fetched with its products expanded shows it: GenClass's carry product metadata
+ * genclass_plan. A lookup key from billing/plans.json names its plan (price id `price_<plan id padded>`); any other
+ * key is some other product's price.
+ */
 export function price(lookupKey: string | null, o: { id?: string; plan?: string | null; product?: string } = {}) {
-  const plan = o.plan !== undefined ? o.plan : lookupKey === "genclass_custom_monthly" ? "custom" : lookupKey === "genclass_pro_monthly" ? "pro" : null;
-  const id = o.id ?? (lookupKey === "genclass_custom_monthly" ? "price_custom0001" : lookupKey === "genclass_pro_monthly" ? "price_pro000001" : "price_x000001");
+  const named = planByLookupKey(lookupKey)?.id ?? null;
+  const plan = o.plan !== undefined ? o.plan : named;
+  const id = o.id ?? (named ? `price_${named.slice(0, 8).padEnd(10, "0")}` : "price_x000001");
   return { id, object: "price", lookup_key: lookupKey, product: { id: o.product ?? (plan ? `genclass_${plan}` : "prod_polar00001"), object: "product", metadata: plan ? { genclass_plan: plan } : {} } };
 }
 

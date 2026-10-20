@@ -1,12 +1,12 @@
-<!--meta {"path":"/enterprise","nav":"","priority":"0.4","crumbs":[["Self-hosting, SSO, invoices","/enterprise"]],
-"title":"GenClass for Companies: Self-Hosting, SSO and Invoices",
-"description":"What GenClass offers a company today: a runtime that runs in the browser, a collector you can host yourself, and the Pro and Custom plans. For self-hosting, SSO or invoices, email {{plans.contact}}."} -->
+<!--meta {"path":"/enterprise","nav":"","priority":"0.4","crumbs":[["Enterprise","/enterprise"]],
+"title":"GenClass Enterprise: The Closed-Loop MCP in Your Network, SSO and Invoices",
+"description":"GenClass Enterprise runs the closed-loop MCP inside your own cloud or network, with the collector and the dashboard beside it, plus SSO, invoices, a security review and a model trained on your app. No card price: email {{plans.contact}}."} -->
 <div class="page-hero">
   <div class="wrap">
     <!--@crumbs-->
-    <h1>Self-hosting, SSO or invoices? <em>Email us.</em></h1>
-    <p class="lede">Pro and Custom are bought by card on genclass.dev and used through genclass.dev accounts. If your company needs something else, write to {{plans.contact}} and a person answers.</p>
-    <div class="ctas"><a class="btn" href="mailto:{{plans.contact}}?subject=GenClass%20self-hosting%2C%20SSO%20or%20invoices">Email {{plans.contact}}</a><a class="btn ghost" href="/pricing">Compare plans</a></div>
+    <h1>The closed loop, <em>inside your own network.</em></h1>
+    <p class="lede">Everything GenClass makes is free, and Individual runs the closed-loop MCP for you on genclass.dev. Enterprise runs it inside your own cloud or network, with the collector and the dashboard beside it, so your findings and your code never leave. SSO, invoices and a security review come with it. There is no card price: write to {{plans.contact}} and a person answers within 1 business day.</p>
+    <div class="ctas"><a class="btn" href="mailto:{{plans.contact}}?subject=GenClass%20Enterprise">Email {{plans.contact}}</a><a class="btn ghost" href="/pricing">Compare plans</a></div>
   </div>
 </div>
 
@@ -15,10 +15,12 @@
     <div class="sh"><span class="no">Today, and by arrangement</span><h2>What exists now, and what to ask us about.</h2></div>
     <div class="ent">
       <div class="ent-h" aria-hidden="true"><span>Need</span><span>What exists today</span><span>Ask us about</span></div>
-      <div class="ent-r"><h3>Self-hosting</h3><p><span class="ent-l">Today</span>The runtime and its model run in your users' browsers, and you can <a href="/docs#selfhost">serve the model from your own origin</a>. The diagnostics collector is open source (<code>telemetry-worker/</code> in the repository): deploy it to your own Cloudflare account and point your pages at it with <code>telemetry: { endpoint }</code>.</p><p><span class="ent-l">Ask us about</span>Running the dashboard and the paid features in your own cloud.</p></div>
+      <div class="ent-r"><h3>The closed-loop MCP</h3><p><span class="ent-l">Today</span>The runtime and its model run in your users' browsers and decide there; nothing decides on a server. The closed-loop MCP server, which hands what GenClass found, with the evidence and the pages affected, to your coding agent and reports whether a fix held, is coming next: free to run on your own machine, and hosted on genclass.dev for Individual.</p><p><span class="ent-l">Ask us about</span>The MCP, the collector and the dashboard deployed inside your own cloud or network: the same code as genclass.dev, in your own Cloudflare account or network, so nothing leaves it.</p></div>
+      <div class="ent-r"><h3>Self-hosting</h3><p><span class="ent-l">Today</span>You can <a href="/docs#selfhost">serve the model from your own origin</a>. The diagnostics collector is open source (<code>telemetry-worker/</code> in the repository): deploy it to your own Cloudflare account and point your pages at it with <code>telemetry: { endpoint }</code>.</p><p><span class="ent-l">Ask us about</span>Running the dashboard, forwarding, export and the MCP beside your own collector, set up and kept up to date by us.</p></div>
       <div class="ent-r"><h3>SSO</h3><p><span class="ent-l">Today</span>Accounts sign in with Google, an email and a password, or GitHub, with passkeys as extra security.</p><p><span class="ent-l">Ask us about</span>SAML or OIDC sign-in with your identity provider. It is not built yet; tell us which provider you use.</p></div>
-      <div class="ent-r"><h3>Invoices</h3><p><span class="ent-l">Today</span>Pro ({{plan.pro.price}} a month) and Custom ({{plan.custom.price}} a month) are charged monthly to a card through Stripe, with a receipt for each payment.</p><p><span class="ent-l">Ask us about</span>Paying by invoice or purchase order, or for a year at once.</p></div>
+      <div class="ent-r"><h3>Invoices</h3><p><span class="ent-l">Today</span>Individual ({{plan.individual.price}} a month, on sale when the hosted MCP ships) is charged monthly to a card through Stripe, with a receipt for each payment. Enterprise has no card price.</p><p><span class="ent-l">Ask us about</span>Paying by invoice or purchase order, and for a year at once.</p></div>
       <div class="ent-r"><h3>Security review</h3><p><span class="ent-l">Today</span>The runtime is Apache-2.0. Every field it sends is listed under <a href="/docs/telemetry">telemetry</a>, the <a href="/docs/threat-model">threat model</a> is public, and <code>telemetry: false</code> turns sending off.</p><p><span class="ent-l">Ask us about</span>Answers to your security questionnaire.</p></div>
+      <div class="ent-r"><h3>A model trained on your app</h3><p><span class="ent-l">Today</span>Every app gets the same on-device model, trained in a simulated world and on real apps, and measured on held-out real apps: the <a href="/benchmarks">benchmarks</a>.</p><p><span class="ent-l">Ask us about</span>A GenClass model trained on your own app. Together we pick the bugs that matter, the data to train on (your app's events in GenClass and the bug reports you share with us) and when it ships. We measure its false reports on your app's normal traffic and ship it as private model files your runtime loads with <code>model.baseUrl</code>. Only you receive it.</p></div>
     </div>
   </div>
 </section>

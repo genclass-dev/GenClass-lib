@@ -2,8 +2,8 @@
 // it where you already look"; OPTIONS-SPEC §4.11): the names in the meta tag, the script tag's data-sink or
 // window.GENCLASS_CONFIG become one lazy proxy, the records queued while the adapters load are handed over, each
 // adapter gets the kinds and evidence it asks for, and a webhook URL joins requests.ignore (same-origin only from a
-// meta tag). The names sentry, posthog and datadog are not part of the free runtime: one console warning says that
-// forwarding to those tools is not in the free runtime, and nothing else happens.
+// meta tag). The names sentry, posthog and datadog have no adapter in the runtime: one console warning says that the
+// genclass.dev collector forwards detections to those tools, free, from the app's dashboard, and nothing else happens.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveSinks } from "../src/cdn/auto-start.js";
 import { fromDataset, fromPairs, mergeConfig, parsePairs, readMetaConfig, sameOriginUrl, splitConfig } from "../src/cdn/config.js";
@@ -30,7 +30,7 @@ afterEach(() => {
 describe("sink names (cdn/sinks-fanout.ts, cdn/sinks.ts)", () => {
   it("parseSinkSpec: the two names, case and spelling variants, webhook:<url> / webhook=<url>; anything else is null", () => {
     expect(SINK_NAMES).toEqual(["console-json", "webhook"]);
-    // no vendor adapter in the free runtime (applySinks warns about these names before they get here)
+    // no vendor adapter in the runtime (applySinks warns about these names before they get here)
     for (const v of ["sentry", " PostHog ", "datadog", "sentry:noevidence"]) expect(parseSinkSpec(v), v).toBeNull();
     for (const v of ["console-json", "console_json", "consoleJson", "CONSOLE-JSON", " Console-Json "]) expect(parseSinkSpec(v), v).toEqual({ name: "console-json" });
     expect(parseSinkSpec("webhook:/genclass")).toEqual({ name: "webhook", arg: "/genclass" });
@@ -467,7 +467,7 @@ describe("applySinks: page config → InitOptions", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("sentry, posthog and datadog are not in the free runtime: one warning for them all says so with the pricing link, and nothing else happens", async () => {
+  it("sentry, posthog and datadog have no adapter: one warning for them all says the collector forwards to them, free, with the docs link, and nothing else happens", async () => {
     const warn = vi.fn();
     const resolver = vi.fn<SinkResolver>(() => Promise.resolve({ send: vi.fn() }));
     const init = { mode: "observe" as const };
@@ -475,19 +475,19 @@ describe("applySinks: page config → InitOptions", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     const text = String(warn.mock.calls[0][0]);
     expect(text).toBe(
-      "Ignored sink sentry, PostHog, datadog:noevidence, Sentry=evidence: Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing",
+      "Ignored sink sentry, PostHog, datadog:noevidence, Sentry=evidence: the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free, from the app's dashboard: https://genclass.dev/docs#dashboard",
     );
-    expect(text).not.toMatch(/GenClass Pro|on the dashboard/);
+    expect(text).not.toMatch(/GenClass Pro|\bPro\b|trial|not in the free runtime|genclass\.dev\/pricing/);
     expect(text).not.toMatch(/\u2014|!/);
     // no proxy, no requests.ignore, nothing loaded now or later
     expect(out).toEqual({ mode: "observe", sinks: [] });
     await drain();
     expect(resolver).not.toHaveBeenCalled();
-    // next to sinks that are in the free runtime: those work as before, still one warning for the vendor names
+    // next to sinks the runtime has: those work as before, still one warning for the vendor names
     const w2 = vi.fn();
     const mixed = applySinks({}, ["webhook:/genclass", "sentry", "console-json", "posthog"], resolver, w2, {});
     expect(w2).toHaveBeenCalledTimes(1);
-    expect(String(w2.mock.calls[0][0])).toMatch(/^Ignored sink sentry, posthog: Sentry, PostHog and Datadog forwarding is not in the free runtime: https:\/\/genclass\.dev\/pricing$/);
+    expect(String(w2.mock.calls[0][0])).toBe("Ignored sink sentry, posthog: the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free, from the app's dashboard: https://genclass.dev/docs#dashboard");
     expect(mixed.sinks!.length).toBe(1);
     expect(mixed.requests!.ignore!.length).toBe(1);
     (mixed.sinks![0] as SinkObject).send(rec());
@@ -512,9 +512,9 @@ describe("applySinks: page config → InitOptions", () => {
     await drain(8);
     expect(s.rt.interventions().length).toBe(1);
     expect(resolver).not.toHaveBeenCalled();
-    const pro = warn.mock.calls.filter((c) => /not in the free runtime/.test(String(c[0])));
-    expect(pro).toHaveLength(1);
-    expect(String(pro[0][0])).toContain("https://genclass.dev/pricing");
+    const vendor = warn.mock.calls.filter((c) => /has no Sentry, PostHog or Datadog adapter/.test(String(c[0])));
+    expect(vendor).toHaveLength(1);
+    expect(String(vendor[0][0])).toContain("https://genclass.dev/docs#dashboard");
     expect(warn.mock.calls.some((c) => /sink .* (is neither|could not load)|unknown sink/.test(String(c[0])))).toBe(false);
   });
 

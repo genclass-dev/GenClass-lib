@@ -6,9 +6,10 @@
 //   window.GENCLASS_CONFIG = { sinks: ["webhook:/genclass"] }
 //   npx @genclass/runtime init --sink webhook:/genclass
 //
-// Names: console-json (optionally `:noevidence`), webhook:<url>. The names sentry, posthog and datadog are not part of
-// the free runtime (no plan offers forwarding to those tools yet): `applySinks` leaves them out with one console
-// warning that says so, and nothing is loaded or sent for them.
+// Names: console-json (optionally `:noevidence`), webhook:<url>. The runtime has no Sentry, PostHog or Datadog
+// adapter (the genclass.dev collector forwards detections to them, free, once turned on in the app's dashboard):
+// `applySinks` leaves the names sentry, posthog and datadog out with one console warning that says so, and nothing
+// is loaded or sent for them.
 //
 // This module is the part in the first load, and it is kept small on purpose: `applySinks` turns the names of a page
 // configuration into ONE proxy sink (`namedSinks`) that queues records until the entry's resolver has loaded the
@@ -85,9 +86,10 @@ export function namedSinks(names: string[], resolve: SinkResolver, warn: (messag
 /**
  * Page-config `sinks` → InitOptions: the names become one `namedSinks` proxy, functions and objects pass through
  * (GenClass.init checks them), blanks are skipped. The names sentry, posthog and datadog (any case, with or without an
- * option) are left out with one warning for them all: forwarding to those tools is not in the free runtime. A webhook URL is made absolute against `g`'s document.baseURI (else its location) and its endpoint
- * joins `requests.ignore` as an exact match (origin and path). Returns `init` unchanged when the list is empty or not
- * a list. An unknown name warns once the resolver has loaded.
+ * option) are left out with one warning for them all: the runtime has no adapter for those tools; the genclass.dev
+ * collector forwards detections to them, free, from the app's dashboard. A webhook URL is made absolute against `g`'s
+ * document.baseURI (else its location) and its endpoint joins `requests.ignore` as an exact match (origin and path).
+ * Returns `init` unchanged when the list is empty or not a list. An unknown name warns once the resolver has loaded.
  *
  * Total: in /auto this runs while the app's entry module is being evaluated, before GenClass.init's own guard, so it
  * never throws. A `requests.ignore` that is not a list (one RegExp by mistake) stays as the page wrote it, for
@@ -98,7 +100,7 @@ export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolv
     if (!Array.isArray(list) || !list.length) return init;
     const sinks: Sink[] = [];
     const names: string[] = [];
-    const pro: string[] = [];
+    const vendor: string[] = [];
     const ignore: NonNullable<NonNullable<InitOptions["requests"]>["ignore"]> = [];
     let base: string | undefined;
     try {
@@ -120,7 +122,7 @@ export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolv
         let v = s.trim();
         if (!v) continue;
         if (/^(sentry|posthog|datadog)\b/i.test(v)) {
-          pro.push(v);
+          vendor.push(v);
           continue;
         }
         const u = webhookUrl(v);
@@ -132,7 +134,7 @@ export function applySinks(init: InitOptions, list: unknown, resolve: SinkResolv
         names.push(v);
       } else if (s) sinks.push(s as Sink);
     }
-    if (pro.length) warn(`Ignored sink ${pro.join(", ")}: Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing`);
+    if (vendor.length) warn(`Ignored sink ${vendor.join(", ")}: the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free, from the app's dashboard: https://genclass.dev/docs#dashboard`);
     if (names.length) sinks.push(namedSinks(names, resolve, warn));
     const out: InitOptions = { ...init, sinks };
     // an ignore that is not a list (one RegExp by mistake) stays as written: GenClass.init reports it, sinks or not

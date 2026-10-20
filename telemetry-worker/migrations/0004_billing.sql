@@ -26,8 +26,9 @@ CREATE TABLE billing_events (
 );
 CREATE INDEX billing_events_received ON billing_events (received);
 
--- A paid Custom plan purchase (written when Stripe reports the Custom price paid), so the owner can start the training
--- work: one row per subscription.
+-- A purchase of the custom-model plan of that time (written when Stripe reported its price paid), so the owner could
+-- start the training work: one row per subscription. Unused since the plans changed on 2026-10-20 (that plan is gone
+-- and was never sold, so the table is empty); it stays because migrations are additive and this one is applied.
 CREATE TABLE custom_requests (
   id              TEXT PRIMARY KEY,
   account_id      TEXT NOT NULL,

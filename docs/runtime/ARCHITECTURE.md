@@ -46,6 +46,13 @@ This document explains how the parts fit together and why they are built this wa
                                                                     │
                                                                     ▼
                                     action (or passive) ──► report / explain / undo / events
+                                                                    │
+                                                 (anonymous diagnostics, with the app token; no page text)
+                                                                    ▼
+                         collector (genclass.dev, or one you run) ──► dashboard / stats / forwarding
+                                                                    │
+                                                                    ▼
+                    MCP server (local, hosted or on-prem) ──► coding agent ──► fix ──► recurrence check
 ```
 
 ### Observers and the trace (`src/observe`, `src/trace`)
@@ -111,6 +118,56 @@ This document explains how the parts fit together and why they are built this wa
   unavailable.
 - **Loading:** the model loads at idle and is verified with sha256 and cached in Cache Storage. While it loads,
   every decision fails open at once.
+
+## The closed loop: the MCP server
+
+The runtime finds a problem on the deployed app and reports it; the dashboard and `npx @genclass/runtime stats`
+show it. The closed loop is what happens next: a Model Context Protocol server hands what GenClass found, with its
+evidence and the pages affected, to the developer's coding agent (Claude Code, Cursor, Codex or any MCP client); the
+agent fixes it; after the fix ships, GenClass reports whether the problem came back. This section is its design. It
+is not built yet: every plan surface lists it as coming next.
+
+- **What it is.** An MCP server with a small read-only surface over what the collector already keeps for an app.
+  Its tools:
+  - list the open findings, each with its kind (the diagnosis), route, counts, first and last seen, confidence and
+    the action GenClass took;
+  - one finding with its evidence as the collector has it: diagnosis, confidence, trigger, route, runtime and model
+    versions, time, action. Never page text;
+  - the free summary, as `stats` prints it;
+  - a recurrence check: whether a finding came back since a time or a version (the step that closes the loop);
+  - the fix guides (how each kind of problem is fixed, the text the dashboard shows) as resources;
+  - one prompt that asks the agent to fix the open findings, with the guides and the evidence in hand.
+- **Where it reads from.** The collector, through credentials that already exist, each keeping the scope it has
+  today. The summary (the open findings as `stats` lists them, and the recurrence check) comes from the summary API
+  with the CLI's login token (the session `npx @genclass/runtime login` creates) or an app's private link. Neither
+  reads more than that, and the MCP does not widen them: the approval page at `genclass.dev/login/device`, the terms
+  and the worker (`telemetry-worker/src/billing.ts`, which refuses a CLI session on the export) all promise that a
+  CLI session reads each app's short summary and never its dashboard or its events, and a private link reads only
+  its own app. Per-finding evidence comes from the export API with an export key the owner creates on the billing
+  page (`genclass.dev/account/billing`): it reads the events of that account's apps and nothing else, and the owner
+  revokes it on the same page. An app known only by its private link has no export, so for it the server serves the
+  summary alone. Locally it also reads the `@genclass/playwright` race files (`test-results/genclass/*.json`, format
+  `genclass-races/1`) and the output of the `console-json` sink, so what the test suite and a local run found
+  reaches the agent the same way as what production found.
+- **Three ways to run it.**
+  - *Local, free:* a dependency-free CLI subcommand over stdio, like the rest of the CLI. The agent's MCP
+    configuration starts it; it reads the summary with the developer's own CLI session or private link, and the
+    evidence with an export key when the developer sets one.
+  - *Hosted on genclass.dev* (the Individual plan, entitlement `hosted_mcp`): the same server as a Streamable HTTP
+    endpoint, one URL per account. The bearer is an export key from the billing page, not the CLI token: it is the
+    one credential that already reaches the evidence, it is scoped to that account's apps, and it asks nothing new
+    of the CLI session. Inside the worker the key resolves to its account, and the server reads that account's
+    summary and events, which the export already covers. It notifies connected agents when a new detection arrives,
+    so the agent is prompted as problems are found instead of polling.
+  - *On-prem* (the Enterprise plan, entitlement `onprem_mcp`): the same worker code, the collector, the dashboard and
+    the MCP server, deployed in the customer's own Cloudflare account or network. Nothing leaves it.
+- **What it never does.** It never feeds the runtime, the model, the facts, the situations, the policy gate or the
+  event log: the loop runs through the developer and their agent, never back into the page. Nothing new is collected
+  for it; it reads only what the collector already keeps ([TELEMETRY.md](../../packages/runtime/TELEMETRY.md)), and
+  it never sends page text (the situation text an app can opt in to sending is not served through it). The agent
+  decides what to change; GenClass only reports. The runtime carries none of it: no dependency, no code path and no
+  first-load bytes (`onnxruntime-web` stays the only runtime dependency).
+- **Status.** Designed, not built. The plans say coming next; Individual is not on sale until the hosted form ships.
 
 ## The model and how it is trained
 

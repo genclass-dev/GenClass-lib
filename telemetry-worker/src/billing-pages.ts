@@ -1,11 +1,13 @@
-// HTML for the paid plans: /account/billing (the plan, its renewal or end, the plans side by side, Upgrade, Switch and
-// Manage billing buttons) and the plan-dependent sections of an owned app's dashboard (forwarding and export, and the
-// note on the time ranges). A switch between Pro and Custom is a new Checkout (src/billing.ts checkout); back from it
-// the page waits for the new plan. Same shell, tokens and rules as the account pages; server-rendered text goes through esc(),
-// scripts insert text with textContent. Buttons that need Stripe are shown only to an account that can buy (a live
+// HTML for the plans: /account/billing (the account's plan, its renewal or end, the plans side by side from
+// billing/plans.json, Upgrade, Switch and Manage billing buttons) and the plan-dependent sections of an owned app's
+// dashboard (forwarding and export, and the note on the time ranges). Each plan column follows its `sale`: Free has no
+// button; a plan sold through Stripe gets Upgrade (or Switch, a new Checkout; src/billing.ts checkout) while it is on
+// sale, and only a "Coming next" tag while billing/plans.json keeps it off sale; a contact plan (Enterprise) gets an
+// Email us link. Same shell, tokens and rules as the account pages; server-rendered text goes through esc(), scripts
+// insert text with textContent. Buttons that need Stripe are shown only to an account that can buy (a live
 // STRIPE_SECRET_KEY, or a test key and the account in STRIPE_TEST_ACCOUNTS). Start a trial needs no Stripe: it shows
-// to an account without a paid plan or grant that has not had its trial. The trial's days left are said only inside the
-// dashboard, never here.
+// to an account without a paid plan or grant that has not had its trial, while the trial's plan is on sale. The
+// trial's days left are said only inside the dashboard, never here.
 
 import { ACCOUNT_CSS, CLIENT_JS, time } from "./account-pages.js";
 import type { Env } from "./collector.js";
@@ -19,11 +21,14 @@ import {
   GRACE_DAYS,
   keepDays,
   LIVE_STATUSES,
+  onSale,
+  PAID_PLANS,
   PAST_DUE_GRACE_DAYS,
   PLANS,
   PLANS_FILE,
   planById,
   priceText,
+  TRIAL_PLAN,
   viewRanges,
   type Access,
   type Billing,
@@ -39,7 +44,7 @@ export interface BillingView {
   account: { id: string; email: string | null; githubLogin: string | null };
   apps: { id: string; name: string }[];
   billing: Billing;
-  /** What the account may use now: its paid plan, or Pro during GenClass's grant or the trial (src/plans.ts). */
+  /** What the account may use now: its paid plan, or Individual during GenClass's grant or the trial (src/plans.ts). */
   access: Access;
   /** This account can buy (src/plans.ts canBuy). */
   live: boolean;
@@ -47,13 +52,13 @@ export interface BillingView {
   testMode: boolean;
   /** Back from Stripe Checkout (?done=1). */
   done: boolean;
-  /** The plan chosen on the pricing page (?plan=pro|custom). */
+  /** The plan chosen on the pricing page (?plan=<id of a plan sold through Stripe>). */
   picked: string | null;
-  /** Back from a switch's Checkout (?to=pro|custom): the plan it bought. */
+  /** Back from a switch's Checkout (?to=<plan id>): the plan it bought. */
   switchTo?: string | null;
   /** The names of the plans sold through Stripe Managed Payments (src/stripe.ts managedPayments). */
   managedPlans?: string[];
-  /** How long a trial lasts (TRIAL_DAYS, src/plans.ts trialDays): "Get a 7-day free trial for analytics". */
+  /** How long a trial lasts (TRIAL_DAYS, src/plans.ts trialDays): "Start your 7-day free trial". */
   trialDays: number;
   now: Date;
 }
@@ -76,20 +81,24 @@ const BILLING_CSS = `
 @media (max-width:860px){.plans{grid-template-columns:1fr}}
 `;
 
+/** What the paid plans sell, after the Free line: the hosted and the on-prem closed-loop MCP. */
+const SOLD = `What costs money is running the closed-loop MCP for you: ${TRIAL_PLAN.name} (${priceText(TRIAL_PLAN).replace(" / month", " a month")}) hosts it on genclass.dev; Enterprise runs it inside your own network.`;
+
 function statusLine(v: BillingView, plan: Plan, apps: number): string {
   const b = v.billing;
   const name = `<b>${esc(plan.name)}</b>`;
   if (plan.id === "free") {
     if (v.access.source === "comp") return `You have <b>${esc(v.access.plan.name)}</b>, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
-    if (v.access.source === "trial") return `You are on a <b>${esc(v.access.plan.name)}</b> trial.${v.live ? "" : " Paid plans are not on sale yet."}`;
-    const limits = `the runtime and its on-device model, without the dashboard (you have ${apps} app${apps === 1 ? "" : "s"}). ${v.access.trialUsed ? "Your trial has ended." : `Get a ${v.trialDays}-day free trial for analytics.`}`;
+    if (v.access.source === "trial") return `You are on a free trial of <b>${esc(v.access.plan.name)}</b>.${v.live ? "" : " Paid plans are not on sale yet."}`;
+    const free = `everything GenClass makes, for every app (you have ${apps} app${apps === 1 ? "" : "s"}): the runtime, its on-device model, the dashboard with a year of history, export, forwarding and the closed-loop MCP server, run on your own machine. ${esc(SOLD)}`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
     const ended = overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
       : b.subscription_id && b.current_period_end && b.subscription_status === "canceled" && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
-        ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
+        ? ` Your paid plan ended on ${day(b.current_period_end)}. Nothing of yours is lost: Free keeps every app and its year of history.`
         : "";
-    return `You are on the ${name} plan: ${limits}${ended}${v.live ? "" : " Paid plans are not on sale yet."}`;
+    const trial = v.access.trialUsed ? ` Your free trial of ${esc(TRIAL_PLAN.name)} has ended.` : "";
+    return `You are on the ${name} plan: ${free}${ended}${trial}${v.live ? "" : " Paid plans are not on sale yet."}`;
   }
   if (!b.subscription_id) return `You are on the ${name} plan, set up by GenClass. Questions: <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`;
   if (b.subscription_status === "past_due") {
@@ -103,21 +112,26 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
 }
 
 function planColumn(v: BillingView, p: Plan, current: Plan): string {
-  // the column marked as the account's: its paid plan, or Pro during a grant or the trial (which can still be bought)
+  // the column marked as the account's: its paid plan, or Individual during a grant or the trial (which can still be
+  // bought)
   const granted = v.access.source === "comp" || v.access.source === "trial";
   const cur = p.id === (granted ? v.access.plan.id : current.id);
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && current.id !== "free";
   // back from Checkout (a purchase or a switch) and still waiting for Stripe's word: no buttons, so a second purchase
   // or switch cannot start
   const waiting = !!awaited(v, current);
-  const pick = !(cur && v.access.source !== "trial") && v.picked === p.id && v.live && !waiting;
-  // the trial: no card and no Stripe, once per account
-  const trial = p.id === "pro" && v.access.source === null && !v.access.trialUsed && !waiting;
-  const buy = `<button class="btn${(p.id === "custom" && !pick) || trial ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"${pick ? " data-pick" : ""}><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
+  // a plan sold through Stripe can be bought only while billing/plans.json has it on sale
+  const sold = onSale(p);
+  const pick = sold && !(cur && v.access.source !== "trial") && v.picked === p.id && v.live && !waiting;
+  // the trial: no card and no Stripe, once per account, while its plan is on sale
+  const trial = p.id === TRIAL_PLAN.id && sold && v.access.source === null && !v.access.trialUsed && !waiting;
+  const buy = `<button class="btn${trial ? " ghost" : ""}" type="button" data-plan="${esc(p.id)}"${pick ? " data-pick" : ""}><span>${subscribed ? "Switch to" : "Upgrade to"} ${esc(p.name)}</span></button>`;
   let act = "";
-  if (cur && v.access.source === "trial") act = `<span class="tag">Your trial</span>${v.live && !waiting ? ` ${buy}` : ""}`;
+  if (cur && v.access.source === "trial") act = `<span class="tag">Your trial</span>${sold && v.live && !waiting ? ` ${buy}` : ""}`;
   else if (cur) act = `<span class="tag">${v.access.source === "comp" ? "Set up by GenClass" : "Your plan"}</span>`;
-  else if (p.id === "free") act = subscribed && v.live ? '<span class="muted">To go back to Free, cancel in Manage billing.</span>' : "";
+  else if (p.sale === "free") act = subscribed && v.live ? '<span class="muted">To go back to Free, cancel in Manage billing.</span>' : "";
+  else if (p.sale === "contact") act = `<a class="btn ghost" href="mailto:${esc(CONTACT)}?subject=${encodeURIComponent(`GenClass ${p.name}`)}"><span>Email us</span></a>`;
+  else if (!sold) act = '<span class="tag">Coming next</span>';
   else if (v.live && !waiting) act = buy;
   if (trial) act = `<button class="btn green" type="button" id="trial"><span>Start your ${v.trialDays}-day free trial</span></button>${act ? ` ${act}` : ""}`;
   const features = p.features
@@ -150,17 +164,15 @@ export function billingPage(nonce: string, v: BillingView): string {
         : `<p class="notice n-ok" role="status"><b>Thanks.</b> You are on the ${esc(plan.name)} plan now.</p>`;
   }
   const subscribed = !!v.billing.subscription_id && LIVE_STATUSES.has(v.billing.subscription_status ?? "") && plan.id !== "free";
+  // a switch exists only between plans sold through Stripe; with one such plan there is nothing to switch to
+  const switching = PAID_PLANS.length > 1;
   const switchNote =
-    subscribed && v.live && !want
-      ? '<p class="intro">Switching between Pro and Custom opens Stripe\'s checkout for the new plan. Your current plan stays until that payment goes through, then ends at once, and its unused days are refunded to the card or account that paid for it.</p>'
+    switching && subscribed && v.live && !want
+      ? '<p class="intro">Switching between paid plans opens Stripe\'s checkout for the new plan. Your current plan stays until that payment goes through, then ends at once, and its unused days are refunded to the card or account that paid for it.</p>'
       : "";
   const managed = v.live && v.managedPlans?.length
     ? ` ${esc(v.managedPlans.join(" and "))} ${v.managedPlans.length > 1 ? "are" : "is"} sold through Link, Stripe's merchant of record service: Link's name is on the receipt and on your card statement, it adds sales tax or VAT where it applies, and it answers questions about the payment.`
     : "";
-  const custom =
-    plan.id === "custom"
-      ? `<p class="status">A person from GenClass emails ${a.email ? esc(a.email) : "you"} within 1 business day of your purchase to start training your classifier. You can also write to <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.</p>`
-      : "";
   const test =
     v.testMode && v.live
       ? '<p class="notice" role="note"><b>Stripe test mode.</b> Only accounts listed in STRIPE_TEST_ACCOUNTS can buy, and no real money moves. Pay with card 4242 4242 4242 4242, any future date and any CVC.</p>'
@@ -180,7 +192,6 @@ export function billingPage(nonce: string, v: BillingView): string {
   <div class="eb">Account</div>
   <h1>Plan and billing</h1>
   <p class="status" id="status">${statusLine(v, plan, v.apps.length)}</p>
-  ${custom}
 </section>
 ${notice}${test}
 <section class="blk" id="plans">
@@ -194,7 +205,7 @@ ${
   manage
     ? `<section class="blk" id="manage">
   <div class="blk-h"><h2>Manage billing</h2><span class="aside">On Stripe</span></div>
-  <p class="intro">Change your card, see and download invoices, or cancel. A cancelled plan stays until the end of the period you paid for. To switch between Pro and Custom, use the buttons under Plans.</p>
+  <p class="intro">Change your card, see and download invoices, or cancel. A cancelled plan stays until the end of the period you paid for.${switching ? " To switch between paid plans, use the buttons under Plans." : ""}</p>
   <div class="acct-form"><button class="btn ghost" type="button" id="portal"><span>Manage billing</span></button></div>
   <p class="err" id="portalerr" role="alert"></p>
 </section>`
@@ -260,7 +271,7 @@ export interface AppExtras {
   keep: number;
 }
 
-/** Everything the app page's plan-dependent sections show, read for one owned app (a grant or a trial gives Pro's). */
+/** Everything the app page's plan-dependent sections show, read for one owned app (a grant or a trial gives Individual's). */
 export async function appExtrasData(db: D1Like, env: Env, accountId: string, p: Project, now: Date): Promise<AppExtras> {
   const plan = await accountPlan(db, accountId, env, now);
   const projectId = p.id ?? "";
@@ -362,7 +373,8 @@ export function appExtrasHtml(nonce: string, d: AppExtras): { html: string; scri
   const ex = entitled(d.plan, "export");
   let forwarding: string;
   if (!fw) {
-    forwarding = `<p class="intro">On Pro and Custom, GenClass sends each new detection from this app to Sentry, PostHog, Datadog, Slack or your own webhook. It is sent from our server, so nothing changes in your app. ${SEE_PLANS}</p>`;
+    // unreachable today (every plan in billing/plans.json includes forwarding); kept in case a plan without it returns
+    forwarding = `<p class="intro">Forwarding sends each new detection from this app to Sentry, PostHog, Datadog, Slack or your own webhook, from our server, so nothing changes in your app. It is not part of this account's plan. ${SEE_PLANS}</p>`;
   } else {
     const byKind = new Map(d.destinations.map((x) => [x.kind, x]));
     const rows = KINDS.map((k) => {
@@ -375,7 +387,7 @@ export function appExtrasHtml(nonce: string, d: AppExtras): { html: string; scri
         : `<a href="#fw-${k}" data-open="${k}">Set up</a>`;
       return `<tr><td>${KIND_NAMES[k]}${x ? `<div class="muted">${esc(x.summary)}</div>` : ""}</td><td data-l="Status">${status}</td><td data-l="Last sent">${x ? time(x.lastSent, "ago", "never") : ""}</td><td class="e" data-l="Last error">${x?.lastError ? esc(x.lastError) : ""}</td><td class="act">${acts}</td></tr>`;
     }).join("\n");
-    forwarding = `<p class="intro">Each new detection is sent from our server to the destinations you turn on: the problem type, confidence, trigger, page route, runtime and model versions, the time and a link to this dashboard. Never text from your pages. The same problem on the same page is sent at most once an hour, and at most 60 records an hour for this app.</p>
+    forwarding = `<p class="intro">Free. Each new detection is sent from our server to the destinations you turn on: the problem type, confidence, trigger, page route, runtime and model versions, the time and a link to this dashboard. Never text from your pages. The same problem on the same page is sent at most once an hour, and at most 60 records an hour for this app.</p>
   ${d.canSave ? "" : '<p class="caution"><b>Not available on this server yet.</b> Forwarding settings are stored encrypted, and this server has no encryption key set, so they cannot be saved.</p>'}
   <div class="tablewrap"><table class="dt rows"><thead><tr><th>Destination</th><th>Status</th><th>Last sent</th><th>Last error</th><th></th></tr></thead><tbody>
 ${rows}
@@ -386,7 +398,8 @@ ${rows}
 
   let exportHtml: string;
   if (!ex) {
-    exportHtml = `<p class="intro">On Pro and Custom you can download every event GenClass receives for this app from the day you upgrade, kept a year, as JSON Lines or CSV, or read it with an API key. ${SEE_PLANS}</p>`;
+    // unreachable today (every plan in billing/plans.json includes export); kept in case a plan without it returns
+    exportHtml = `<p class="intro">The export lets you download every event GenClass receives for this app, kept a year, as JSON Lines or CSV, or read it with an API key. It is not part of this account's plan. ${SEE_PLANS}</p>`;
   } else {
     const keys = d.exportKeys.length
       ? `<div class="tablewrap"><table class="dt rows"><thead><tr><th>Export key</th><th>Created</th><th>Last used</th><th></th></tr></thead><tbody>${d.exportKeys
@@ -394,7 +407,7 @@ ${rows}
           .join("")}</tbody></table></div>`
       : '<p class="intro">No export keys yet.</p>';
     const curl = `curl -H "Authorization: Bearer gce_..." \\\n  "https://genclass.dev/api/account/projects/${d.projectId}/events?from=2026-10-01&to=2026-10-14&format=jsonl"`;
-    exportHtml = `<p class="intro">Every event GenClass received for this app while this account was on Pro or Custom, kept ${d.keep >= 365 ? "1 year" : `${d.keep} days`}: one JSON object per line as the collector stored it (the batch's session id, versions, time received, country and the event), or one CSV row per event.</p>
+    exportHtml = `<p class="intro">Free. Every event GenClass received for this app while it was in this account, kept ${d.keep >= 365 ? "1 year" : `${d.keep} days`}: one JSON object per line as the collector stored it (the batch's session id, versions, time received, country and the event), or one CSV row per event.</p>
   <form class="xf" id="exf" novalidate>
     <div class="f sm"><label for="exfrom">From</label><input id="exfrom" type="date"></div>
     <div class="f sm"><label for="exto">To (inclusive)</label><input id="exto" type="date"></div>
@@ -413,18 +426,19 @@ ${rows}
 
   const html = `<style nonce="${nonce}">${EXTRA_CSS}</style>
 <section class="blk paid" id="forwarding">
-  <div class="blk-h"><h2>Forwarding</h2><span class="aside">${fw ? "New detections, sent where you already look" : "Pro and Custom"}</span></div>
+  <div class="blk-h"><h2>Forwarding</h2><span class="aside">${fw ? "New detections, sent where you already look" : "Not in this plan"}</span></div>
   ${forwarding}
 </section>
 <section class="blk paid" id="export">
-  <div class="blk-h"><h2>Export</h2><span class="aside">${ex ? "Every event, as a file or by API" : "Pro and Custom"}</span></div>
+  <div class="blk-h"><h2>Export</h2><span class="aside">${ex ? "Every event, as a file or by API" : "Not in this plan"}</span></div>
   ${exportHtml}
 </section>
 <script type="application/json" id="paidcfg">${embed({
     id: d.projectId,
     name: d.projectName,
     keep: d.keep,
-    note: d.plan.id === "free" && d.live && d.plan.limits.history_days < 30 ? `The ${d.plan.name} plan shows ${d.plan.limits.history_days} days.` : null,
+    // a note under the range buttons when the plan shows less than a year (no plan does today)
+    note: d.plan.limits.history_days < 365 ? `The ${d.plan.name} plan shows ${d.plan.limits.history_days} days.` : null,
   })}</script>`;
 
   const script = `
@@ -448,7 +462,7 @@ ${rows}
     t.title = d.toLocaleString();
   });
   // the plan's ranges: a short note under the range buttons
-  if (C.note) document.querySelectorAll(".seg").forEach(function(s){ var p = el("p", "rnote", C.note + " "); var a = el("a", null, "Pro shows a year."); a.href = "/account/billing"; p.appendChild(a); s.parentNode.insertBefore(p, s.nextSibling); });
+  if (C.note) document.querySelectorAll(".seg").forEach(function(s){ var p = el("p", "rnote", C.note + " "); var a = el("a", null, "See plans."); a.href = "/account/billing"; p.appendChild(a); s.parentNode.insertBefore(p, s.nextSibling); });
   // forwarding
   var fwerr = document.getElementById("fwerr"), fwok = document.getElementById("fwok");
   document.querySelectorAll("form[data-kind]").forEach(function(f){

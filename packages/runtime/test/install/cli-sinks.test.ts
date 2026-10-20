@@ -1,7 +1,8 @@
 // `genclass-runtime init --sink <name>`: findings on the developer's own side (console-json, webhook:<url>), written
-// into the project with no code (the option file, data-sink on a script tag, sink= in the Astro meta line). Forwarding
-// to Sentry, PostHog or Datadog is not part of the free runtime, and no plan offers it yet:
-// `--sink sentry` is a usage error that says so, and init suggests no sink for a project that depends on those SDKs.
+// into the project with no code (the option file, data-sink on a script tag, sink= in the Astro meta line). The runtime
+// has no Sentry, PostHog or Datadog adapter (the genclass.dev collector forwards detections to them, free, from the
+// app's dashboard): `--sink sentry` is a usage error that says so, and init suggests no sink for a project that depends
+// on those SDKs.
 // Fixture projects, no network, no package manager (--no-install).
 
 import { execFileSync } from "node:child_process";
@@ -13,7 +14,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 // @ts-expect-error plain ESM module without types
 import { configLiteral, isEmptyConfig, metaContent, tagWithConfig, updateConfigText } from "../../bin/lib/edit.mjs";
 // @ts-expect-error plain ESM module without types
-import { PRICING_URL, USAGE, configOf } from "../../bin/lib/init.mjs";
+import { FORWARDING_URL, USAGE, configOf } from "../../bin/lib/init.mjs";
 import { fromDataset, readMetaConfig } from "../../src/cdn/config.js";
 import { parseSinkSpec } from "../../src/cdn/sinks-fanout.js";
 import { applySinks } from "../../src/cdn/sinks.js";
@@ -98,8 +99,8 @@ const astro = (deps: Record<string, string> = {}) =>
   });
 
 /** The usage error init prints for a --sink value that names a vendor (the first line of its output). */
-const proError = (value: string) =>
-  `genclass-runtime init: --sink ${value}: Sentry, PostHog and Datadog forwarding is not in the free runtime: https://genclass.dev/pricing. The sinks here are console-json (optionally :noevidence) and webhook:<url>`;
+const vendorError = (value: string) =>
+  `genclass-runtime init: --sink ${value}: the runtime has no Sentry, PostHog or Datadog adapter; the genclass.dev collector forwards detections to them, free, once you turn it on in the app's dashboard: https://genclass.dev/docs#dashboard. The sinks here are console-json (optionally :noevidence) and webhook:<url>`;
 
 describe("init --sink: findings on the developer's own side", () => {
   it("Vite: --sink webhook:/genclass writes sinks: [\"webhook:/genclass\"] to genclass.config.js, imported right before /auto; remove restores everything", () => {
@@ -138,20 +139,20 @@ describe("init --sink: findings on the developer's own side", () => {
     expect(configOf({})).toEqual({});
   });
 
-  it("--sink sentry, posthog or datadog: a usage error that forwarding to them is not in the free runtime; nothing is written", () => {
-    expect(PRICING_URL).toBe("https://genclass.dev/pricing");
+  it("--sink sentry, posthog or datadog: a usage error that the runtime has no adapter for them and that the collector forwards, free, from the dashboard; nothing is written", () => {
+    expect(FORWARDING_URL).toBe("https://genclass.dev/docs#dashboard");
     for (const value of ["sentry", "posthog", "datadog", "Sentry:noevidence", "posthog=evidence"]) {
       const dir = viteVue({ "@sentry/vue": "^9" });
       const before = snapshot(dir);
       const r = cli(dir, "init", "--yes", "--no-install", "--sink", value);
       expect(r.code, `${value}: ${r.out}`).toBe(2);
-      expect(r.out.split("\n")[0], value).toBe(proError(value));
+      expect(r.out.split("\n")[0], value).toBe(vendorError(value));
       expect(snapshot(dir), value).toEqual(before);
     }
     // in a comma list too, after a sink that is fine
     const mixed = cli(viteVue(), "init", "--dry-run", "--no-install", "--sink", "webhook:/genclass,datadog");
     expect(mixed.code).toBe(2);
-    expect(mixed.out.split("\n")[0]).toBe(proError("datadog"));
+    expect(mixed.out.split("\n")[0]).toBe(vendorError("datadog"));
   });
 
   it("a project that depends on @sentry/*, posthog-js or @datadog/browser-rum gets no --sink suggestion and no vendor sink", () => {
@@ -233,12 +234,12 @@ describe("init --sink: findings on the developer's own side", () => {
     expect(cli(astro(), "init", "--dry-run", "--no-install", "--sink", "webhook:/genclass").out).not.toContain("same-origin webhook URL");
   });
 
-  it("USAGE documents --sink and that vendor forwarding is not in the free runtime; package.json exports the two adapters with types, and no vendor adapter", () => {
+  it("USAGE documents --sink and that the collector, not the runtime, forwards to Sentry, PostHog and Datadog, free; package.json exports the two adapters with types, and no vendor adapter", () => {
     expect(USAGE).toContain("--sink console-json|webhook:<url>");
     expect(USAGE).toContain("--sink <name>");
-    expect(USAGE).toContain("Forwarding to Sentry, PostHog or Datadog is not in the free\n                   runtime (https://genclass.dev/pricing)");
-    expect(USAGE).not.toMatch(/GenClass Pro|on the dashboard/);
-    expect(USAGE).toContain("https://genclass.dev/pricing");
+    expect(USAGE).toContain("The runtime has no Sentry, PostHog or Datadog adapter; the\n                   genclass.dev collector forwards detections to them, free, once you turn it on\n                   in the app's dashboard: https://genclass.dev/docs#dashboard");
+    expect(USAGE).not.toMatch(/GenClass Pro|\bPro\b|trial|not in the free runtime|genclass\.dev\/pricing/);
+    expect(USAGE).toContain(FORWARDING_URL);
     const map = PKG_JSON.typesVersions?.["*"] ?? {};
     for (const name of ["index", "console-json", "webhook"]) {
       const key = name === "index" ? "./sinks" : `./sinks/${name}`;

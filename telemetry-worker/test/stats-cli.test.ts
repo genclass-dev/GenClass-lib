@@ -1,7 +1,8 @@
 // `npx @genclass/runtime stats` (packages/runtime/bin/lib/stats.mjs) against this worker: the CLI half was built against
 // the contract with fake servers (packages/runtime/test/install/mock-fetch.mjs and mock-account.mjs). Here its request
 // function, its printing and the whole command run against the real router, over batches sent through the real
-// collector, and the numbers it prints are the ones those batches made.
+// collector, and the numbers it prints are the ones those batches made. The lines after the numbers (the free summary's
+// note and the dashboard pointer) are the CLI's own copy: checked loosely here, exactly in the CLI's own tests.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -91,6 +92,7 @@ function threeMinutesLater() {
   vi.useFakeTimers({ toFake: ["Date"], now: t });
 }
 
+/** The numbers: what the worker's counters made of traffic(). */
 const body = (name: string) => [
   `GenClass stats for ${name} (last 7 days, UTC)`,
   "  Page loads            3   +50% vs the 7 days before",
@@ -101,18 +103,25 @@ const body = (name: string) => [
   "  Model loaded      67% of page loads, 412 ms on average",
   "  Last event        3 minutes ago",
   "",
-  "This is the free summary. The dashboard shows every page and problem, what GenClass did, how to fix each kind,",
-  "1 year of history, export, and forwarding to Sentry, PostHog, Datadog or Slack.",
 ];
-const SAMPLE = "See one filled in: https://genclass.dev/dashboard/sample";
-/** An app in an account: the trial page. */
-const TRIAL = ["Get a 7-day free trial for analytics: https://genclass.dev/account/trial (no card needed)", SAMPLE];
-/** An app with only a private link: its locked page adds it to an account first; the CLI names the link, never prints it. */
-const LINK_TRIAL = [
-  "Get a 7-day free trial for analytics (no card needed): open the private link in .genclass.local,",
-  "sign in, add this app to your account and start the trial there.",
-  SAMPLE,
-];
+
+/**
+ * After the numbers: the CLI says this is the free summary and where the dashboard is. For an app in an account that
+ * is the app page's address; for a private link the CLI names where the link is (.genclass.local) and never prints it.
+ * Nothing about plans, trials or a dashboard that does not open: the dashboard is free.
+ */
+function expectTail(lines: string[], name: string, o: { url?: string; secret?: string }) {
+  expect(lines.slice(0, body(name).length)).toEqual(body(name));
+  const tail = lines.slice(body(name).length).join("\n");
+  expect(tail).toMatch(/^This is the free summary\./);
+  expect(tail).toContain("Dashboard:");
+  if (o.url) expect(tail).toContain(o.url);
+  if (o.secret) {
+    expect(tail).toContain(".genclass.local");
+    expect(tail).not.toContain(o.secret);
+  }
+  expect(tail).not.toMatch(/trial|\bpro\b|\bcustom\b|\blocked\b|See one filled in/i);
+}
 
 async function linkApp(env: Env, name: string) {
   const r = await call(env, "POST", "/api/projects", { body: { name }, origin: null });
@@ -122,7 +131,7 @@ async function linkApp(env: Env, name: string) {
 }
 
 describe("stats: the CLI's request function and output against this worker", () => {
-  it("a private link: the summary the batches made, printed with the trial lines while the dashboard is locked", async () => {
+  it("a private link: the summary the batches made, then where the dashboard is, without printing the link", async () => {
     const { env } = setup();
     const app = await linkApp(env, "Acme checkout");
     await traffic(env, app.token);
@@ -137,10 +146,10 @@ describe("stats: the CLI's request function and output against this worker", () 
       totals: { sessions: 3, detections: 3, possible: 1, acted: 0, pagesAffected: 2, pagesSeen: 4, modelLoadedShare: 0.667, modelLoadMsAvg: 412 },
       previous: { sessions: 2, detections: 1 },
       mode: "observe",
-      dashboard: { url: `${ORIGIN}/dashboard/${app.secret}`, locked: true, trialUrl: `${ORIGIN}/dashboard/${app.secret}`, trialAvailable: true },
+      dashboard: { url: `${ORIGIN}/dashboard/${app.secret}`, locked: false },
     });
-    expect(stats.render(r.summary)).toEqual([...body("Acme checkout"), ...LINK_TRIAL]);
-    expect(stats.render(r.summary).join("\n")).not.toContain(app.secret);
+    expect(Object.keys(r.summary.dashboard).sort()).toEqual(["locked", "url"]);
+    expectTail(stats.render(r.summary), "Acme checkout", { secret: app.secret });
 
     // what the CLI sent: the secret in the path and the range, no session, no body
     expect(log).toHaveLength(1);
@@ -168,35 +177,33 @@ describe("stats: the CLI's request function and output against this worker", () 
     const app = await linkApp(env, "Quiet app");
     const { fetchFn } = wire(env);
     const r = await stats.fetchSummary({ secret: app.secret }, { host: ORIGIN, fetchFn });
-    expect(stats.render(r.summary)).toEqual([
-      "No diagnostics received for Quiet app in the last 7 days.",
-      "GenClass sends them from public hosts when the app runs with telemetry on (the default) and this app's token:",
-      'the deployed page logs "[GenClass] Sends anonymous diagnostics …" in the browser console. Just ran init?',
-      "Deploy the change (the token needs @genclass/runtime 0.3.0 or later) and check again after some page loads.",
-      "Local and private hosts (localhost, *.local, *.test, private networks) do not send unless telemetry: true is set.",
-      "telemetry: false turns it off for the whole app; ?genclass=no-telemetry, localStorage genclass.telemetry=off",
-      "and Global Privacy Control turn it off for one visitor.",
-      "What is sent: https://genclass.dev/docs/telemetry",
-    ]);
+    const lines = stats.render(r.summary);
+    expect(lines[0]).toBe("No diagnostics received for Quiet app in the last 7 days.");
+    expect(lines.join("\n")).toContain("What is sent: https://genclass.dev/docs/telemetry");
+    expect(lines.join("\n")).not.toMatch(/trial|\bpro\b|\blocked\b/i);
     const gone = await stats.fetchSummary({ secret: "AbsentSecret0123456789abcdefghij" }, { host: ORIGIN, fetchFn });
     expect(gone).toMatchObject({ ok: false, status: 404, json: { ok: false, error: "not found" }, summary: null });
   });
 
-  it("an account app with the CLI session's bearer: the same numbers, and the dashboard line once the account has Pro", async () => {
+  it("an account app with the CLI session's bearer: the same numbers, and the app page's address, whatever the plan", async () => {
     const { env, sql } = setup();
     const { cookie, account } = await signedIn(env);
     const app = await createApp(env, cookie, "Shop");
     const bearer = await cliToken(env, cookie);
     await traffic(env, app.token);
-    sql.db.prepare("UPDATE accounts SET comp_until = ? WHERE id = ?").run(new Date(T0.getTime() + DAY).toISOString(), account.id);
     threeMinutesLater();
     const { log, fetchFn } = wire(env);
 
     const r = await stats.fetchSummary({ id: app.id, token: bearer }, { host: ORIGIN, fetchFn });
     expect(r.status).toBe(200);
-    expect(stats.render(r.summary)).toEqual([...body("Shop"), `Dashboard: ${ORIGIN}/account/apps/${app.id}`]);
+    expect(r.summary.dashboard).toEqual({ url: `${ORIGIN}/account/apps/${app.id}`, locked: false });
+    expectTail(stats.render(r.summary), "Shop", { url: `${ORIGIN}/account/apps/${app.id}` });
     expect(log[0]).toMatchObject({ method: "GET", url: `${ORIGIN}/api/account/projects/${app.id}/summary?range=7d`, body: null });
     expect(log[0]!.headers.authorization).toBe(`Bearer ${bearer}`);
+    // the same with GenClass's grant on the account (the dashboard was free already)
+    sql.db.prepare("UPDATE accounts SET comp_until = ? WHERE id = ?").run(new Date(T0.getTime() + DAY).toISOString(), account.id);
+    const granted = await stats.fetchSummary({ id: app.id, token: bearer }, { host: ORIGIN, fetchFn });
+    expect(stats.render(granted.summary)).toEqual(stats.render(r.summary));
 
     // the bearer still cannot read the dashboard's stats, and another account's session cannot read this summary
     expect((await call(env, "GET", `/api/account/projects/${app.id}/stats`, { bearer, origin: null })).status).toBe(403);
@@ -259,13 +266,13 @@ describe("stats: the whole command, in-process, against this worker", () => {
 
     const r = await runStats(env, ["--cwd", dir]);
     expect(r.code, r.stderr).toBe(0);
-    expect(r.lines).toEqual([...body("Acme checkout"), ...LINK_TRIAL]);
+    expectTail(r.lines, "Acme checkout", { secret: app.secret });
     expect(r.stdout).not.toContain(app.secret);
     expect(r.log.map((x) => x.url)).toEqual([`${ORIGIN}/api/projects/${app.secret}/summary?range=7d`]);
 
     const j = await runStats(env, ["--cwd", dir, "--json", "--range", "24h"]);
     expect(j.code, j.stderr).toBe(0);
-    expect(JSON.parse(j.stdout)).toMatchObject({ ok: true, name: "Acme checkout", range: "24h", totals: { sessions: 3, detections: 3 } });
+    expect(JSON.parse(j.stdout)).toMatchObject({ ok: true, name: "Acme checkout", range: "24h", totals: { sessions: 3, detections: 3 }, dashboard: { url: app.dashboardUrl, locked: false } });
   });
 
   it("signed in, the token in the setup: GET /api/me, then the account app's summary with the bearer", async () => {
@@ -282,7 +289,7 @@ describe("stats: the whole command, in-process, against this worker", () => {
 
     const r = await runStats(env, ["--cwd", dir]);
     expect(r.code, r.stderr).toBe(0);
-    expect(r.lines).toEqual([...body("Shop"), ...TRIAL]);
+    expectTail(r.lines, "Shop", { url: `${ORIGIN}/account/apps/${app.id}` });
     expect(r.log.map((x) => [x.url, x.status])).toEqual([
       [`${ORIGIN}/api/me`, 200],
       [`${ORIGIN}/api/account/projects/${app.id}/summary?range=7d`, 200],

@@ -4,8 +4,9 @@
 // Never in the first load of /auto (it is reached through cdn/sinks-load.ts, a lazy chunk); the script tag carries it
 // and loads the adapters themselves from the CDN (dist/sinks/<name>.js). Every adapter is made with its own options
 // (a webhook gets its URL; `console-json:noevidence` gets `evidence: false`) and gets the records it asks for: its
-// `kinds`, and the evidence only with `evidence`. The names are console-json and webhook: forwarding to Sentry, PostHog
-// or Datadog is not part of the free runtime (cdn/sinks.ts applySinks warns about those names before they get here).
+// `kinds`, and the evidence only with `evidence`. The names are console-json and webhook: the runtime has no Sentry,
+// PostHog or Datadog adapter (cdn/sinks.ts applySinks warns about those names before they get here; the genclass.dev
+// collector forwards detections to those tools, free, from the app's dashboard).
 // Never throws: an unknown name or an adapter that cannot load is one warning each, and the others still work.
 
 import type { SinkObject, SinkRecord } from "../types.js";

@@ -1,11 +1,13 @@
 // The free summary behind `npx @genclass/runtime stats` (src/summary.ts): its JSON shape, that it reads only the
-// existing counters (daily for 7d, hourly for 24h), that it stays smaller than the dashboard, that it is open whatever
-// the plan (dashboard.locked says), who may read it (the link's secret; a browser or CLI session for the account's
-// apps) and its rate limits.
+// existing counters (daily for 7d, hourly for 24h), that it stays smaller than the dashboard, that nothing in it
+// depends on a plan (the dashboard is free: `dashboard` is the dashboard's address and `locked: false`, kept for
+// older CLIs), who may read it (the link's secret; a browser or CLI session for the account's apps) and its rate
+// limits.
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetTokenCache } from "../src/dashboard.js";
 import { sampleStats } from "../src/sample.js";
-import { advance, call, cliToken, createApp, now, ORIGIN, refusingLimiter, resetClock, sendBatch, setNow, setup, signedIn, T0 } from "./account-helpers.js";
+import { summaryDashboard } from "../src/summary.js";
+import { advance, call, cliToken, createApp, now, ORIGIN, refusingLimiter, resetClock, sendBatch, setNow, setPlan, setup, signedIn, T0 } from "./account-helpers.js";
 import type { Env } from "../src/collector.js";
 
 beforeEach(() => {
@@ -49,15 +51,15 @@ async function get(env: Env, path: string, o: { cookie?: string; bearer?: string
 }
 
 describe("summary: GET /api/projects/<secret>/summary", () => {
-  it("answers the contract's shape from the existing counters, for an app whose dashboard is locked", async () => {
+  it("answers the contract's shape from the existing counters, for an app known by its private link", async () => {
     const { env } = setup();
     const app = await linkApp(env);
     await sendBatch(env, app.token, pageLoad({ route: "/checkout", loadMs: 400, detect: [["duplicate", "/checkout"], ["duplicate", "/checkout"], ["stale", "/cart"]] }), { sid: sid() });
     await sendBatch(env, app.token, pageLoad({ route: "/cart", loadMs: 424, possible: [["slow", "/search"]] }), { sid: sid() });
     await sendBatch(env, app.token, pageLoad({ route: "/account", loadMs: null }), { sid: sid() });
 
-    // the dashboard's stats stay locked without Pro; the summary does not
-    expect((await get(env, `/api/projects/${app.secret}`)).status).toBe(402);
+    // the dashboard's stats and the summary are both open to whoever holds the link
+    expect((await get(env, `/api/projects/${app.secret}`)).status).toBe(200);
     const r = await get(env, `/api/projects/${app.secret}/summary?range=7d`);
     expect(r.status).toBe(200);
     expect(r.headers.get("cache-control")).toBe("no-store");
@@ -75,13 +77,15 @@ describe("summary: GET /api/projects/<secret>/summary", () => {
       previous: { sessions: 0, detections: 0 },
       top: { diagnoses: [{ key: "duplicate", count: 2 }, { key: "stale", count: 1 }], routes: [{ key: "/checkout", count: 2 }, { key: "/cart", count: 1 }] },
       mode: "observe",
-      // an app in no account: the trial goes through the private link's locked page, which adds the app first
-      dashboard: { url: `${ORIGIN}/dashboard/${app.secret}`, locked: true, trialUrl: `${ORIGIN}/dashboard/${app.secret}`, trialAvailable: true },
+      // the dashboard is free: its address, and locked false for CLIs from before 2026-10-20 (no trial fields)
+      dashboard: { url: `${ORIGIN}/dashboard/${app.secret}`, locked: false },
       limits: { ranges: ["24h", "7d"], top: 3 },
     });
+    expect(Object.keys(r.json.dashboard).sort()).toEqual(["locked", "url"]);
+    expect(summaryDashboard("https://x.example/d")).toEqual({ url: "https://x.example/d", locked: false });
     // nothing the dashboard has beyond it, no app token, no page text
     const text = JSON.stringify(r.json);
-    for (const s of ["series", "typeSeries", "recent", "breakdowns", "distinct", app.token, "SECRET PAGE TEXT"]) expect(text).not.toContain(s);
+    for (const s of ["series", "typeSeries", "recent", "breakdowns", "distinct", "trial", app.token, "SECRET PAGE TEXT"]) expect(text).not.toContain(s);
   });
 
   it("24h reads the hourly counters, 7d the daily ones; any other range is 7d; previous is the period before", async () => {
@@ -119,28 +123,23 @@ describe("summary: GET /api/projects/<secret>/summary", () => {
     expect(s.totals).toMatchObject({ detections: 9, pagesAffected: 5 });
   });
 
-  it("is open once the app's account has Pro: locked false, and the link stays the dashboard", async () => {
+  it("the dashboard object is the same whatever the app's account, plan, grant or trial: the link, locked false", async () => {
     const { env, sql } = setup();
     const app = await linkApp(env);
     const { account } = await signedIn(env);
+    const dashboard = { url: `${ORIGIN}/dashboard/${app.secret}`, locked: false };
+    expect((await get(env, `/api/projects/${app.secret}/summary`)).json.dashboard).toEqual(dashboard);
     sql.db.prepare("UPDATE projects SET account_id = ? WHERE token = ?").run(account.id, app.token);
+    expect((await get(env, `/api/projects/${app.secret}/summary`)).json.dashboard).toEqual(dashboard);
     sql.db.prepare("UPDATE accounts SET comp_until = ? WHERE id = ?").run(new Date(T0.getTime() + 86_400_000).toISOString(), account.id);
-    const s = (await get(env, `/api/projects/${app.secret}/summary`)).json;
-    expect(s.dashboard).toEqual({ url: `${ORIGIN}/dashboard/${app.secret}`, locked: false, trialUrl: `${ORIGIN}/account/trial`, trialAvailable: false });
-    expect(s.totals.sessions).toBe(0);
-  });
-
-  it("says when the account's one trial was used: trialAvailable false, and the dashboard stays locked", async () => {
-    const { env, sql } = setup();
-    const app = await linkApp(env);
-    const { account } = await signedIn(env);
-    sql.db.prepare("UPDATE projects SET account_id = ? WHERE token = ?").run(account.id, app.token);
-    const before = (await get(env, `/api/projects/${app.secret}/summary`)).json;
-    expect(before.dashboard).toEqual({ url: `${ORIGIN}/dashboard/${app.secret}`, locked: true, trialUrl: `${ORIGIN}/account/trial`, trialAvailable: true });
+    expect((await get(env, `/api/projects/${app.secret}/summary`)).json.dashboard).toEqual(dashboard);
     const ended = new Date(T0.getTime() - 86_400_000).toISOString();
-    sql.db.prepare("UPDATE accounts SET trial_started_at = ?, trial_ends_at = ? WHERE id = ?").run(new Date(T0.getTime() - 8 * 86_400_000).toISOString(), ended, account.id);
-    const after = (await get(env, `/api/projects/${app.secret}/summary`)).json;
-    expect(after.dashboard).toMatchObject({ locked: true, trialAvailable: false });
+    sql.db.prepare("UPDATE accounts SET comp_until = NULL, trial_started_at = ?, trial_ends_at = ? WHERE id = ?").run(new Date(T0.getTime() - 8 * 86_400_000).toISOString(), ended, account.id);
+    expect((await get(env, `/api/projects/${app.secret}/summary`)).json.dashboard).toEqual(dashboard);
+    setPlan(sql, account.id, "individual");
+    const s = (await get(env, `/api/projects/${app.secret}/summary`)).json;
+    expect(s.dashboard).toEqual(dashboard);
+    expect(s.totals.sessions).toBe(0);
   });
 
   it("compares like with like: flat traffic is about the same as the range before, though the range ends now", async () => {
@@ -215,7 +214,7 @@ describe("summary: GET /api/projects/<secret>/summary", () => {
       totals: { sessions: st.totals.sessions, detections: st.totals.detections, possible: st.totals.possible, acted: st.totals.acted, pagesSeen: 8, modelLoadMsAvg: 1340 },
       previous: { sessions: st.previous.sessions, detections: st.previous.detections },
       mode: "guard",
-      dashboard: { url: `${ORIGIN}/dashboard/sample`, locked: false, trialUrl: `${ORIGIN}/account/trial`, trialAvailable: true },
+      dashboard: { url: `${ORIGIN}/dashboard/sample`, locked: false },
       limits: { ranges: ["24h", "7d"], top: 3 },
     });
     expect(r.json.totals.sessions).toBeGreaterThan(1000);
@@ -224,7 +223,7 @@ describe("summary: GET /api/projects/<secret>/summary", () => {
     expect(r.json.top.diagnoses).toHaveLength(3);
     expect(r.json.top.diagnoses[0].key).toBe("duplicate");
     expect(r.json.top.routes.length).toBeLessThanOrEqual(3);
-    expect(JSON.stringify(r.json)).not.toMatch(/series|recent|breakdowns|distinct/);
+    expect(JSON.stringify(r.json)).not.toMatch(/series|recent|breakdowns|distinct|trial/);
     expect((await get(env, "/api/projects/sample/summary?range=24h")).json.range).toBe("24h");
     expect((await get(env, "/api/projects/sample/summary?range=30d")).json.range).toBe("7d");
   });
@@ -246,17 +245,16 @@ describe("summary: GET /api/account/projects/<id>/summary", () => {
       range: "7d",
       totals: { sessions: 1, detections: 1, pagesAffected: 1, pagesSeen: 1 },
       top: { diagnoses: [{ key: "duplicate", count: 1 }], routes: [{ key: "/checkout", count: 1 }] },
-      dashboard: { url: `${ORIGIN}/account/apps/${app.id}`, locked: true, trialUrl: `${ORIGIN}/account/trial`, trialAvailable: true },
+      dashboard: { url: `${ORIGIN}/account/apps/${app.id}`, locked: false },
     });
+    expect(Object.keys(web.json.dashboard).sort()).toEqual(["locked", "url"]);
     const cli = await get(env, `/api/account/projects/${app.id}/summary?range=24h`, { bearer });
     expect(cli.status).toBe(200);
-    expect(cli.json).toMatchObject({ range: "24h", totals: { sessions: 1, detections: 1 } });
+    expect(cli.json).toMatchObject({ range: "24h", totals: { sessions: 1, detections: 1 }, dashboard: { url: `${ORIGIN}/account/apps/${app.id}`, locked: false } });
     const stats = await get(env, `/api/account/projects/${app.id}/stats`, { bearer });
     expect(stats.status).toBe(403);
-
-    // with the trial the dashboard opens: locked false
-    expect((await call(env, "POST", "/api/billing/trial", { body: {}, cookie })).status).toBe(200);
-    expect((await get(env, `/api/account/projects/${app.id}/summary`, { bearer })).json.dashboard).toMatchObject({ locked: false, trialAvailable: false });
+    // the browser session reads the stats (the dashboard is free)
+    expect((await get(env, `/api/account/projects/${app.id}/stats`, { cookie })).status).toBe(200);
   });
 
   it("answers 401 signed out, 404 for another account's app or a malformed id, and 405 for anything but GET", async () => {

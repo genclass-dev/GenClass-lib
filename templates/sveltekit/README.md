@@ -63,7 +63,7 @@ and 0.2.1 also send from localhost)
 ([TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md)).
 With an app token (runtime 0.3.0 or later; `npx @genclass/runtime@beta init` creates one), the same diagnostics also
 feed `npx @genclass/runtime@beta stats` (runtime 0.3.0-beta.1 and later), a free summary in your terminal, and the
-app's dashboard (Pro; get a 7-day free trial for analytics); with diagnostics off, the summary and the dashboard stay
+app's dashboard (free, no plan needed); with diagnostics off, the summary and the dashboard stay
 empty.
 To turn diagnostics off, add to `src/app.html`'s `<head>`:
 
