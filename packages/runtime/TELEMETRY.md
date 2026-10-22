@@ -34,6 +34,10 @@ When it is on, the console shows one notice per page:
 
 ## What is sent
 
+(The coding-agent link, `connectAgent` from `@genclass/runtime/agent`, is not telemetry: it runs in development builds
+on development hosts and sends its recording only to a bridge on the same machine, `http://127.0.0.1:47357`. It changes
+nothing below. [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md) section 6.)
+
 Only data the runtime already computes for its own decisions. **By default, no text from the page is sent:**
 decision events carry the trigger kind, the diagnosis and its confidence, the chosen action, the gate, the outcome,
 latency and counts, plus the app's hostname and the id-normalised route (no query or fragment; from 0.3.0 a path

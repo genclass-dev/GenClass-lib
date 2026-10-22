@@ -919,6 +919,61 @@ rt.adapter<T>(name: string, io: { get(): T; set?(v: T): void; subscribe?(fn: () 
 }
 ```
 
+## Coding agents: `@genclass/runtime/agent`
+
+Design: [AGENT.md](AGENT.md). Development builds only; one file with no imports of runtime code, so it adds nothing to
+the first load. Pairs with the `@genclass/mcp` server.
+
+```ts
+import { connectAgent } from "@genclass/runtime/agent";
+
+connectAgent(runtime, opts?: {
+  url?: string;              // the bridge, loopback only (default __GENCLASS_AGENT_URL__, else http://127.0.0.1:47357)
+  schedule?: ScheduleSpec | string;  // this page load's schedule; default __GENCLASS_SCHEDULE__, then ?genclass-schedule=,
+                                     // then the bridge's answer to hello
+  anyHost?: boolean;         // also on pages not served from this machine (LAN, *.local; default false: inert there)
+  settleMs?: number;         // quiet time before a snapshot (default 400)
+  dom?: boolean;             // page text and form values in snapshots (default true)
+  helloTimeoutMs?: number;   // how long a page load's first responses wait for the bridge's hello (default 600)
+  hold?: boolean;            // false: never hold, even with a schedule (default true)
+  holdProtected?: boolean;   // also hold requests.protect and mode-"off" routes (default false: recorded, never held)
+}): AgentConnection;
+
+interface ScheduleSpec {
+  order: "natural" | "fifo" | "seeded" | "given";
+  seed?: number;             // seeded: the seed (also seeds delay)
+  given?: string[];          // given: request keys ("GET /api/search#3") in delivery order
+  focus?: string[];          // seeded: signatures delivered after every overlapping response
+  delay?: { minMs: number; maxMs: number };   // extra latency per response, hashed from seed and key
+  maxHoldMs?: number;        // default 1500, beyond the response's own delay: then delivered, and the run is marked forced
+  gapMs?: number;            // default 30: time between two releases
+}
+
+interface AgentConnection {
+  readonly url: string;
+  readonly reason: string | null;    // "not-dev-host" | "not-loopback" | "no-runtime" | "disconnected" | null
+  readonly connected: boolean;       // the bridge answered hello
+  readonly run: string | null;       // the bridge's id for this page load
+  readonly schedule: ScheduleSpec | null;
+  readonly settled: boolean;         // at a quiet point
+  recorded(): RecordedSchedule;      // { schema: "genclass-schedule/1", route, spec, steps, order, forced, truncated }
+  witnesses(): Witness[];            // overwrote-newer and identical-in-flight facts
+  errors(): ErrorRec[];              // uncaught errors with stack and causal chain
+  snapshot(): Snapshot;              // store fields, page text, form values, requests per signature
+  whenSettled(timeoutMs?: number): Promise<boolean>;
+  disconnect(): void;                // deliver anything held, restore the runtime
+}
+```
+
+Connected only on pages served from this machine (localhost, 127.x, [::1], `*.localhost`) unless `anyHost` (then the
+bridge needs the exact origin in `GENCLASS_AGENT_ORIGINS`).
+Without a schedule only a page load's first responses wait for the bridge's hello (`helloTimeoutMs`); a response counts
+as delivered when the app receives it. Also exported: `parseSpec(v)` (a schedule from a URL form, `"fifo"`,
+`"seeded:7"`, `"given:[...]"`, or JSON), `hash32`,
+`AGENT_SCHEMA` (`"genclass-agent/1"`), `SCHEDULE_SCHEMA` (`"genclass-schedule/1"`), `DEFAULT_AGENT_URL`,
+`isLoopbackUrl`, `isDevHost`. While connected, the page has `window.__GENCLASS_AGENT__` (the connection), which
+generated regression tests read.
+
 ## Types
 
 ```ts

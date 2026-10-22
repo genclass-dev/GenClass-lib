@@ -803,3 +803,32 @@ them, measured on the train VM (not CI):
 `test/bundle.test.ts` measures the same build at 108.53 / 100.39 KB (script tag 128.83 KB). The
 recording itself is `dist/analytics/index.js` (12.5 KB minified, not gzipped), loaded only when an app turns
 analytics on. No detection numbers: analytics never feed a decision, so recall and FIR do not change.
+
+## 16. Coding agents: explore and replay on a real page (train VM, 2026-10-20, branch `feat/agent-loop`)
+
+[AGENT.md](AGENT.md) section 7. `packages/mcp/test/e2e/race.e2e.mjs` on the train VM: Node 22, headless Chromium
+through Playwright 1.63.0, `@genclass/runtime` and `@genclass/mcp` built from the branch, `GenClass.init({ model: false
+})` (no model: the agent loop does not need it). The page: a search box whose results are written by each response,
+without a staleness guard (buggy) or keeping only the answer to the latest query (fixed). The backend answers every
+query in 40 ms, in order; the steps type "react" at 80 ms a keystroke. Every step goes through the real MCP server
+(`tools/call`) and the real bridge. Measured before and again after the review fixes, with the same results.
+
+| measurement | buggy page | fixed page |
+|---|---|---|
+| natural runs (the two explore baselines, responses in request order) | 2 of 2 right (the race never shows on this backend) | 2 of 2 right |
+| `genclass_explore`, 6 seeded orders, `slow_ms: 600` | **5 of 6** ended with results for an older query ("reac", "rea", "r"); the 6th ended right after an older response overwrote newer data along the way | **0 of 6** differ from the baseline (no false report) |
+| `genclass_replay` of the race finding | reproduced | not reproduced |
+| the generated Playwright regression test | fails (expected the results for "react", received "reac") | passes |
+
+One page and one bug class: this proves the mechanism end to end, not a recall figure. Next: explore on the six demos
+and the real-apps sweep, races found next to false reports on their correct variants.
+
+Review: an adversarial review (six reviewers, a skeptic per serious finding, 55 agents) confirmed 43 defects in the
+new code; all are fixed and tested, and a second verification pass confirmed 6 more issues, also fixed (AGENT.md
+section 7). It also found a pre-existing XHR delivery defect, fixed in
+`src/observe/xhr.ts` (CHANGELOG).
+
+First load: `test/bundle.test.ts` on the branch measures `/auto` 108.54 KB and the main entry 100.40 KB (minified +
+gzip; limits 108.6 / 100.48 KB): the agent link is its own entry (`dist/agent.js`, no imports), never part of the first
+load; the XHR fix adds about 10 bytes. Tests: 36 in `test/agent.test.ts`, 57 in `packages/mcp`; the runtime suite
+passes (1,101 tests, 14 model-parity skips); `review-perf` 4 of 4.
