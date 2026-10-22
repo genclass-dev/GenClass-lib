@@ -8,7 +8,9 @@
 // approved, and writes its token exactly the way init does (init.mjs: the same snippet edits, the same diff and
 // question; --yes skips it). An app init made without an account (its private link in .genclass.local) can be added
 // to the account instead of replaced. whoami prints the account and its apps; logout revokes the session at
-// genclass.dev and deletes the file. Running one of these commands is the agreement to contact genclass.dev for it;
+// genclass.dev and deletes the file. dashboard prints the link to the free dashboard of the app in this folder: its
+// private link from .genclass.local (no network), else its page in the signed-in account (GET /api/me), else the
+// account's apps; --open opens it. Running one of these commands is the agreement to contact genclass.dev for it;
 // creating an app or writing a file is asked first. A private dashboard link is only ever sent to the host it belongs
 // to: with GENCLASS_HOST set to another host, a genclass.dev link in .genclass.local stays on this computer.
 
@@ -26,7 +28,7 @@ import {
   startDeviceLogin,
 } from "./account.mjs";
 import { apiHost, hostConfig, hostUrl } from "./host.mjs";
-import { UsageError, accountLabel, hostNotice, init, inspectProject, parse } from "./init.mjs";
+import { FREE_LINES, UsageError, accountLabel, hostNotice, init, inspectProject, parse } from "./init.mjs";
 import { AUTO } from "./plan.mjs";
 import { LOCAL_FILE, tokenInFiles } from "./token.mjs";
 import { banner, c, choose, confirm, err, interactive, out, row, sym } from "./ui.mjs";
@@ -39,6 +41,7 @@ export const USAGE = `Usage:
   genclass-runtime connect [--app <id|name>] [--name <name>] [--yes] [--dry-run] [--no-install] [--cwd <dir>]
   genclass-runtime whoami
   genclass-runtime logout
+  genclass-runtime dashboard [--open] [--cwd <dir>]
 
 login    signs this computer in to your GenClass account. It prints a code and a link to
          https://genclass.dev/login/device and opens it in your browser; you sign in there (Google, email
@@ -51,10 +54,16 @@ connect  connects the app in this folder to your account: pick one of your apps,
          link is in ${LOCAL_FILE}) can be added to your account instead.
 whoami   shows the signed-in account and its apps.
 logout   ends the CLI session at genclass.dev and deletes the saved file.
+dashboard
+         prints the link to this app's dashboard, free for every app: what GenClass found, on which pages,
+         what it did, and (with analytics: true) how visitors use each page. It reads the private link in
+         ${LOCAL_FILE} without contacting anything; signed in, it finds the app in your account (or lists
+         your apps).
 
   --yes, -y        no questions: login connects this folder's app; connect uses your app named like
                    package.json (or creates it) and applies the changes
   --no-browser     login: print the link only, do not open a browser
+  --open           dashboard: also open the link in your browser
   --no-connect     login: do not offer to connect the app in this folder
   --app <id|name>  use this app of your account
   --name <name>    create a new app with this name (default: package.json's name)
@@ -77,6 +86,7 @@ const SPECS = {
   },
   whoami: { bool: { help: "help", h: "help" }, value: { cwd: "cwd" } },
   logout: { bool: { help: "help", h: "help" }, value: { cwd: "cwd" } },
+  dashboard: { bool: { open: "open", help: "help", h: "help" }, value: { cwd: "cwd" } },
 };
 
 // ----------------------------------------------------------------------------------------------- helpers
@@ -346,6 +356,7 @@ async function afterLogin(o, creds, me) {
   const st = inspectProject(o);
   if (st.project.refused || !st.project.framework) {
     out(`  Next: run ${c.cyan(`${CMD} connect`)} in your web app's folder to connect it to your account.`);
+    out(`  ${c.gray(`Your apps' dashboards, free: ${hostUrl("/account")}`)}`);
     out();
     return 0;
   }
@@ -470,8 +481,70 @@ async function whoami() {
   for (const p of me.projects) {
     out(`    ${c.bold(p.name.padEnd(w))}  ${p.token}  ${c.gray((p.last_event ? `last event ${when(p.last_event)}` : "no events yet").padEnd(31))}  ${p.dashboard_url ? c.cyan(p.dashboard_url) : ""}`.trimEnd());
   }
+  if (me.projects.length) out(`  ${c.gray(`Each app's dashboard is free: open its link above, or run ${CMD} dashboard in the app's folder.`)}`);
   out();
   return 0;
+}
+
+// ------------------------------------------------------------------------------------------------- dashboard
+
+/** Prints a dashboard link with what it shows (FREE_LINES); --open also opens it. */
+function showDashboard(o, link, notes = []) {
+  out(`  ${c.bold("Your dashboard")}  ${c.bold(c.cyan(link))}`);
+  for (const n of notes) out(`  ${n}`);
+  for (const l of FREE_LINES) out(`  ${c.gray(l)}`);
+  if (o.open && openBrowser(link, o)) out(`  ${c.gray("Opening it in your browser.")}`);
+  out();
+}
+
+/**
+ * The link to the free dashboard of the app in this folder: the private link in .genclass.local when it is this
+ * app's (nothing is contacted), else the app's page in the signed-in account (one GET /api/me), else the account's
+ * apps. Without either, how to get one. Exit 0 when a link was printed.
+ */
+async function dashboard(o) {
+  banner("dashboard");
+  hostNotice();
+  const st = inspectProject(o);
+  if (st.local?.dashboardUrl && (!st.token || st.local.token === st.token)) {
+    showDashboard(o, st.local.dashboardUrl, [`${c.yellow("Keep this link private; it is the only way to open your dashboard.")} ${c.gray(`(from ${LOCAL_FILE})`)}`]);
+    return 0;
+  }
+  const { creds } = readCredentialsFor();
+  if (creds) {
+    const me = await fetchMe(creds);
+    if (!me.ok) {
+      if (me.status === 401) sessionGone();
+      else err(`  ${c.red(sym.cross)} Could not reach ${apiHost()} (${me.reason}).`);
+      out();
+      return 1;
+    }
+    const app = st.token ? me.projects.find((p) => p.token === st.token) : null;
+    if (app?.dashboard_url) {
+      showDashboard(o, app.dashboard_url, [c.gray(`${app.name}, in your GenClass account (${accountLabel(me.account)}): sign in at ${apiHost()} to open it.`)]);
+      return 0;
+    }
+    if (st.token) out(`  This folder's project key (${st.token}) is not one of your account's apps; add it with ${c.cyan(`${CMD} connect`)}.`);
+    out(`  ${c.bold("Your apps")}  ${c.bold(c.cyan(hostUrl("/account")))}`);
+    if (!me.projects.length) out(`    None yet. In your app's folder: ${c.cyan(`${CMD} connect`)}`);
+    const w = Math.min(28, Math.max(4, ...me.projects.map((p) => p.name.length)));
+    for (const p of me.projects) out(`    ${c.bold(p.name.padEnd(w))}  ${p.dashboard_url ? c.cyan(p.dashboard_url) : ""}`.trimEnd());
+    for (const l of FREE_LINES) out(`  ${c.gray(l)}`);
+    if (o.open && openBrowser(hostUrl("/account"), o)) out(`  ${c.gray("Opening it in your browser.")}`);
+    out();
+    return st.token ? 1 : 0;
+  }
+  if (st.token) {
+    out(`  This app's project key is ${st.token}. Its dashboard is in the GenClass account it belongs to`);
+    out(`  (${c.cyan(hostUrl("/account"))}), or behind the private link you got with the key.`);
+    out(`  Sign in to print its link here: ${c.cyan(`${CMD} login`)}`);
+    out();
+    return 1;
+  }
+  out(`  No GenClass project key in ${relative(process.cwd(), st.cwd) || "this folder"}. Get a free dashboard for this app: ${c.cyan(`${CMD} init`)}`);
+  out(`  ${c.gray(`(or ${CMD} login, then ${CMD} connect, to keep it in a GenClass account)`)}`);
+  out();
+  return 1;
 }
 
 async function logout() {
@@ -526,5 +599,6 @@ export async function run(cmd, argv) {
   if (cmd === "login") return login(o);
   if (cmd === "connect") return connect(o);
   if (cmd === "whoami") return whoami(o);
+  if (cmd === "dashboard") return dashboard(o);
   return logout(o);
 }

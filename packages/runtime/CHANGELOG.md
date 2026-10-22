@@ -32,6 +32,11 @@
   (`billing/plans.json`): Free now includes the classifier GenClass trains on your app's traffic, bug reports or
   labelled examples and ships as a private model your runtime loads, and nothing is sold on the site. The README's
   dashboard section and TELEMETRY.md's retention note say so. No runtime code and no model-visible text changed.
+- **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime dashboard` prints the link
+  to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
+  else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in
+  the browser. `init`'s dashboard notice says what the dashboard shows and how to print the link again, and `whoami`
+  and `login` point to the dashboards too. No runtime code, no telemetry and no model-visible text changed.
 - **CLI copy: `login` lists email and password sign-in.** genclass.dev accounts also sign in with an email and a
   password now; `login`'s help, the line it prints with the link, and the README say "Google, email and password,
   GitHub or a passkey". The device flow is unchanged (the browser half signs in; the CLI only polls).

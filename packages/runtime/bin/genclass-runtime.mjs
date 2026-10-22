@@ -7,6 +7,8 @@
 //       and private dashboard link from genclass.dev) and take it out again. Implemented in bin/lib/ (owner: INSTALL).
 //   genclass-runtime login [--yes] [--no-browser] [--no-connect] | connect [--app <id|name>] [--name <name>] | whoami | logout
 //       A GenClass account for the CLI (device sign-in, the app's token from the account): bin/lib/login.mjs.
+//   genclass-runtime dashboard [--open]
+//       The link to this app's dashboard, free for every app (bin/lib/login.mjs).
 //   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
 //       Download a GenClass model directory (model.json + model files) so an app can self-host it, plus the
 //       onnxruntime-web files the runtime loads (into <dir>/ort/, the version the runtime bundles):
@@ -58,13 +60,16 @@ const USAGE = `Usage:
   genclass-runtime connect [--app <id|name>] [--name <name>] [--yes] [--dry-run] [--no-install]
   genclass-runtime whoami
   genclass-runtime logout
+  genclass-runtime dashboard [--open] [--cwd <dir>]
   genclass-runtime fetch-model <dir> [--from <baseUrl>] [--variant q8|fp16|all] [--ort wasm|webgpu|all|none] [--ort-from <url>] [--force] [--quiet]
   genclass-runtime info <dir>
 
 init sets GenClass up in the current project (shows the diff and asks first) and, once you approve, creates this
-app's token and private dashboard link at genclass.dev (the dashboard is free; --no-token: no network); remove
-undoes it
+app's token and private dashboard link at genclass.dev (the dashboard is free, analytics included; --no-token: no
+network); remove undoes it
 (\`genclass-runtime init --help\` for details).
+dashboard prints the link to this app's free dashboard: what GenClass found, on which pages, what it did, and how
+visitors use each page (--open also opens it in your browser).
 login signs you in to your GenClass account in the browser and connects the app in this folder; connect does the
 second half alone; whoami shows the account and its apps; logout ends the CLI session
 (\`genclass-runtime login --help\` for details).
@@ -494,7 +499,7 @@ async function main() {
     process.exitCode = await run(argv[0], argv.slice(1));
     return;
   }
-  if (["login", "connect", "whoami", "logout"].includes(argv[0])) {
+  if (["login", "connect", "whoami", "logout", "dashboard"].includes(argv[0])) {
     const { run } = await import("./lib/login.mjs");
     process.exitCode = await run(argv[0], argv.slice(1));
     return;
