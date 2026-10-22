@@ -13,4 +13,5 @@
   only from the developer's machine (or origins listed in `GENCLASS_AGENT_ORIGINS`), binds each run to the page that
   registered it (origin and token), guards its agent API with a per-user token, quotes every page string it shows the
   agent and strips invisible characters. A Claude Code plugin (`plugin/`: the server, the prompt hook and a skill) and
-  an MCP Registry entry (`server.json`) ship with it.
+  an MCP Registry entry (`server.json`) ship with it. Needs `@genclass/runtime` 0.3.0-beta.1 or later in the app
+  (`@genclass/runtime/agent`). Released by `.github/workflows/release-mcp.yml` from a `mcp-v<version>` tag.

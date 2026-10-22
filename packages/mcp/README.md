@@ -35,7 +35,8 @@ claude mcp add genclass -- npx -y @genclass/mcp
 #                     npx @genclass/mcp init --hook   (also a prompt hook that brings new findings to the agent)
 ```
 
-Then connect the app's development build (once):
+Then connect the app's development build (once). The agent link needs `@genclass/runtime` 0.3.0-beta.1 or later
+(`npm install @genclass/runtime@beta` until 0.3.0 is `latest`):
 
 ```ts
 import { GenClass } from "@genclass/runtime";

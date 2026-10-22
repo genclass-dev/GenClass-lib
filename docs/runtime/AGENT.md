@@ -46,7 +46,7 @@ it): `/plugin marketplace add genclass-dev/GenClass-lib`, then `/plugin install 
 `packages/mcp/server.json` is the entry for the official MCP Registry (published with `mcp-publisher` after the npm
 package).
 
-In the app's browser entry, development builds only:
+In the app's browser entry, development builds only (`@genclass/runtime` 0.3.0-beta.1 or later):
 
 ```ts
 import { GenClass } from "@genclass/runtime";

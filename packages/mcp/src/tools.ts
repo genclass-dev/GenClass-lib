@@ -481,13 +481,19 @@ export function setupText(cwd: string): string {
   }
   const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
   const has = (n: string) => n in deps;
-  const installed = has("@genclass/runtime");
+  // the agent entry (@genclass/runtime/agent) ships from 0.3.0-beta.1; until 0.3.0 is `latest`, it is on the beta tag
+  const range = String(deps["@genclass/runtime"] ?? "");
+  const m = /(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?/.exec(range);
+  const tooOld = !!m && (Number(m[1]) === 0 && (Number(m[2]) < 3 || (Number(m[2]) === 3 && Number(m[3]) === 0 && m[4] !== undefined && Number(m[4]) < 1)));
+  const installed = has("@genclass/runtime") && !tooOld && range !== "latest";
   const next = has("next");
   const vite = has("vite") || existsSync(join(cwd, "vite.config.ts")) || existsSync(join(cwd, "vite.config.js"));
   const guard = next ? `process.env.NODE_ENV === "development"` : vite ? "import.meta.env.DEV" : `process.env.NODE_ENV !== "production"`;
   const where = next ? "a client component loaded once from the root layout (\"use client\")" : vite ? "the app's entry (src/main.tsx or src/main.ts), before the app renders" : "the app's browser entry, before the app starts";
   const lines = [
-    installed ? "@genclass/runtime is installed." : "1. Install the runtime: npm install @genclass/runtime",
+    installed
+      ? "@genclass/runtime is installed."
+      : `1. Install the runtime with the agent entry (0.3.0-beta.1 or later${has("@genclass/runtime") ? `; this project has ${JSON.stringify(range)}` : ""}): npm install @genclass/runtime@beta`,
     `${installed ? "1" : "2"}. In ${where}:`,
     "```ts",
     `import { GenClass } from "@genclass/runtime";`,
