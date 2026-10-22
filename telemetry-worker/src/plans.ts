@@ -5,7 +5,10 @@
 // - The plans live in billing/plans.json at the repo root (genclass.dev's pricing page reads the same file). Change a
 //   price, a limit or an entitlement there, not here. Every check below reads the plan's entitlements and limits, so
 //   nothing here names a plan but Free and the grant's (plans.json grant_plan).
-// - Today every plan includes the dashboard, analytics, export and forwarding (Free with 90 days of history); the
+// - Today there are two plans, Free and Enterprise, and every one includes the dashboard, analytics, export, forwarding
+//   and a classifier a person trains (custom_model; Free with 90 days of history). None is sold on the site (PAID_PLANS
+//   is empty; Individual, US$29 a month, ended on 2026-10-22, and a stored "individual" reads as Free, while its Stripe
+//   prices stay GenClass's: ownedPrice, plans.json retired_plans); the
 //   locked paths (hasDashboard false) are kept for a plan file that leaves one out, and the tests run them on a fixture
 //   (test/fixtures/plans-two-paid.json). There is no trial.
 // - A plan comes from accounts.plan, which src/stripe.ts derives from the Stripe subscription. Entitlements follow the
@@ -37,7 +40,7 @@ import { exportSweep, type BucketOps } from "./export.js";
 const DAY = 86_400_000;
 export const GRACE_DAYS = 30;
 
-export type PlanId = "free" | "individual" | "enterprise";
+export type PlanId = "free" | "enterprise";
 export type Entitlement = "dashboard" | "forwarding" | "export" | "analytics" | "custom_model";
 
 export interface Plan {
@@ -49,7 +52,7 @@ export interface Plan {
   stripe_lookup_keys: { monthly: string | null; yearly: string | null };
   /** The Stripe product tax code scripts/stripe-setup.mjs sets on the plan's product (null for Free). */
   stripe_tax_code: string | null;
-  /** Sold through Stripe Managed Payments (src/stripe.ts managedPayments): none today; Individual is a person's work. */
+  /** Sold through Stripe Managed Payments (src/stripe.ts managedPayments): none today. */
   managed_payments: boolean;
   limits: { apps: number | null; history_days: number };
   entitlements: Record<Entitlement, boolean>;
@@ -62,6 +65,8 @@ export interface PlansFile {
   contact: string;
   /** The plan GenClass's own grant (accounts.comp_until) gives. */
   grant_plan: PlanId;
+  /** Plan ids GenClass sold before: their Stripe prices stay GenClass's (ownedPrice) but give no plan. */
+  retired_plans?: string[];
   footer: string;
   plans: Plan[];
 }
@@ -79,6 +84,9 @@ export const byAgreement = (plan: Plan): boolean => plan.price_usd_cents.monthly
 export function planById(id: unknown): Plan {
   return PLANS.find((p) => p.id === id) ?? FREE;
 }
+
+/** Plan ids GenClass sold before (plans.json retired_plans; Individual until 2026-10-22). */
+export const RETIRED_PLAN_IDS: readonly string[] = Array.isArray(PLANS_FILE.retired_plans) ? PLANS_FILE.retired_plans : [];
 
 /** Every GenClass lookup key starts with this: plans.json's, and those of prices scripts/stripe-setup.mjs retired. */
 export const LOOKUP_PREFIX = "genclass_";
@@ -111,6 +119,21 @@ export function planForPrice(price: unknown): Plan | null {
   if (!plan) return null;
   const named = planByLookupKey(p.lookup_key);
   return named && named.id !== plan.id ? null : plan;
+}
+
+/**
+ * The Stripe price is provably GenClass's, whether or not it gives a plan now: planForPrice's rule, with a product whose
+ * genclass_plan names a plan sold now or one GenClass sold before (RETIRED_PLAN_IDS). Ownership only: a subscription to a
+ * retired plan is cancelled with its account, opens the Billing Portal and reaches the owner, but counts as Free.
+ */
+export function ownedPrice(price: unknown): boolean {
+  if (planForPrice(price)) return true;
+  if (!price || typeof price !== "object") return false;
+  const p = price as Record<string, unknown>;
+  if (typeof p.lookup_key !== "string" || !p.lookup_key.startsWith(LOOKUP_PREFIX) || planByLookupKey(p.lookup_key)) return false;
+  const product = p.product && typeof p.product === "object" ? (p.product as Record<string, unknown>) : null;
+  const meta = product?.metadata && typeof product.metadata === "object" ? (product.metadata as Record<string, unknown>) : null;
+  return typeof meta?.genclass_plan === "string" && RETIRED_PLAN_IDS.includes(meta.genclass_plan);
 }
 
 export const entitled = (plan: Plan, e: Entitlement): boolean => plan.entitlements[e] === true;

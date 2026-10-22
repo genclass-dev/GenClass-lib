@@ -1,15 +1,20 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { planForPrice } from "../src/plans.js";
 import { STRIPE_VERSION, WEBHOOK_EVENTS } from "../src/stripe.js";
 
 // scripts/stripe-setup.mjs against a fake Stripe account that also holds another business's objects (the other business's
 // products, prices, webhook endpoint, default Billing Portal configuration and another, non-default, one), as
 // a shared account would. GenClass now has an account of its own; the script still must create, find and edit
-// only GenClass's own objects, never change anything else, and never touch account-wide settings.
+// only GenClass's own objects, never change anything else, and never touch account-wide settings. The real plans sell
+// nothing on the site, so the script runs on the plans as they were on 2026-10-21 (test/fixtures/plans-individual.json,
+// one paid plan, Individual), named by GENCLASS_PLANS_FILE; the worker's planForPrice reads the same file.
+vi.mock("../../billing/plans.json", async () => ({ default: (await import("./fixtures/plans-individual.json")).default }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let setup: any;
 beforeAll(async () => {
+  process.env.GENCLASS_PLANS_FILE = fileURLToPath(new URL("./fixtures/plans-individual.json", import.meta.url));
   setup = await import("../../scripts/stripe-setup.mjs");
 });
 
