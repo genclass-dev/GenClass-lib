@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.3.0-beta.1 (unreleased)
+## 0.3.0-beta.1 (2026-10-22)
+
+The second 0.3.0 prerelease, on the `beta` dist-tag (`latest` stays 0.2.2). It adds the coding-agent link
+(`@genclass/runtime/agent`, used by `@genclass/mcp` 0.1.0) and carries everything below since 0.3.0-beta.0. No
+model-visible text changed (`situation-v2.3`); the default model is still `@genclass/runtime-model@0.2.0`.
+
 
 - **Coding agents: record, replay and explore (`@genclass/runtime/agent`, new; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)).**
   `connectAgent(rt)` in an app's development build connects the page to `@genclass/mcp`, a local MCP server for
