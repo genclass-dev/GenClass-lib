@@ -14,12 +14,13 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 
 | path | what |
 |---|---|
-| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk), `analytics/` (interaction analytics, opt-in: `start.ts` stub, `index.ts` lazy chunk; `docs/runtime/ANALYTICS.md`)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
+| `packages/runtime/` | the library: `src/` (incl. `auto.ts`, `cdn/`, `situation/`, `decide/`, `model/`, `devtools/`, `visual/` (measured visual checks: `start.ts` is the first-load stub, the rest is the lazy chunk), `analytics/` (interaction analytics, opt-in: `start.ts` stub, `index.ts` lazy chunk; `docs/runtime/ANALYTICS.md`), `agent/` (`@genclass/runtime/agent`, the coding-agent link: recording, delivery schedules, the bridge link; its own entry, never in the first load; `docs/runtime/AGENT.md`)), `test/` (vitest; `test/install/`, `test/browser/`, `test/browser/visual/` (Playwright, the CI `visual-browser` job)), `bin/` (CLI: `init`, `remove`, `login`, `connect`, `whoami`, `logout`, `fetch-model`, `info`), `CHANGELOG.md`, `TELEMETRY.md`, `INTERCEPTION.md` |
 | `packages/runtime-model/` | the data-only model package (`files/` is gitignored, filled at release) and `MODEL_CARD.md` |
 | `sim/` | deterministic training-data simulator driving the real runtime (`SEPARABILITY.md`, `README.md`) |
 | `realapps/` | 128 real apps run in headless Chromium with the real runtime: training rows and the never-worse sweep |
 | `training/` | vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's situation renderer), Azure training, ONNX export, `EVAL.md` |
 | `demos/` | six demo apps with a chaos backend and Playwright trials; `bench/heal/` runs them per mode |
+| `packages/mcp/` | `@genclass/mcp`: the MCP server for coding agents (bridge on 127.0.0.1:47357, store, explore verdicts, replays, regression-test generation, 8 tools); no runtime deps; `test/e2e/race.e2e.mjs` is the real-browser check (not in CI's main job) |
 | `packages/playwright/` | `@genclass/playwright`: Playwright reporter + pure summariser that read the GenClass fixture's `test-results/genclass/*.json` (`genclass-races/1`) and write `genclass-report.md` for the PR; injects nothing, no runtime deps |
 | `bench/visual/` | the visual checks' bench (GitHub Actions only, `.github/workflows/visual-measure.yml`): false reports on the demos, templates, compat apps and about 40 public sites, recall on faults planted from the harness, cost; public sites are counted per check kind only, never named in the repo, its run logs or plain artifacts (per-site results only encrypted with the `VISUAL_BENCH_KEY` secret) |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
@@ -41,6 +42,10 @@ NODE_OPTIONS=--expose-gc npx vitest run --exclude "test/browser/**" --exclude te
 NODE_OPTIONS=--expose-gc npx vitest run test/review-perf.test.ts --retry=2   # timing budgets; reported, not blocking
 ```
 
+`packages/mcp/` (`@genclass/mcp`) has its own workflow, `mcp.yml` (typecheck, build, vitest; then the e2e in Chromium):
+`npm run typecheck -w @genclass/mcp && npm run build -w @genclass/mcp && (cd packages/mcp && npx vitest run)`; the e2e
+needs both packages built: `node packages/mcp/test/e2e/race.e2e.mjs`.
+
 `packages/playwright/` (`@genclass/playwright`, the race-file reporter) has its own workflow,
 `playwright-reporter.yml` (typecheck, build, vitest; no browser; never blocks `ci.yml`):
 `npm run typecheck -w @genclass/playwright && npm run build -w @genclass/playwright && (cd packages/playwright && npx vitest run)`.
@@ -58,6 +63,12 @@ Azure, `git push`, `npm publish`.
 1. **Never make a correct app worse.** Observe never holds, delays or changes anything. An action runs only when the
    policy gate (`src/decide/policy.ts`) clears and the top diagnosis is not `expected`; model missing, late or
    erroring means the passive action. Report FIR (false interventions on clean runs) next to every recall number.
+   Exception (owner request, 2026-10-19; CONTRACT.md §16): the coding-agent link (`src/agent/`,
+   `docs/runtime/AGENT.md` section 9) is a test harness a developer imports in development builds, inert on pages not
+   served from their machine. With a schedule they or their agent set, it holds response deliveries (each at most its
+   delay plus `maxHoldMs`, never changed); without one it holds only a page load's first responses until the bridge's
+   hello (at most `helloTimeoutMs`, 600 ms); `hold: false` turns every hold off; protected requests are never held (unless `holdProtected`).
+   Report explore results with the false-report rate on the correct variant next to the races found.
 2. **No hardcoded bug patterns.** The runtime computes facts and triages (`runtime.ts` → `trigger`); it never maps a
    fact pattern to a diagnosis or action with an if/then. `situation/build.ts` → `builtinApplicable` only says
    whether an action *can* run. Exception (owner, 2026-10-13): visual checks in `src/visual/` are measured checks,

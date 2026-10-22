@@ -34,3 +34,7 @@ internal/
 # visual bench (bench/visual): harness bundle and work directories
 bench/visual/.out/
 bench/visual/.work/
+
+# @genclass/mcp e2e: generated regression test
+packages/mcp/test/e2e/.gen/
+.genclass/

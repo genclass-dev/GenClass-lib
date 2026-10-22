@@ -78,7 +78,7 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 
 ## Contents
 
-[Install](#install) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
+[Install](#install) · [Your coding agent](#your-coding-agent-replay-and-explore) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-030) ·
@@ -265,6 +265,37 @@ The unscoped `genclass-runtime` alias is deprecated; use `@genclass/runtime`.
 
 **ESM only.** The package ships ES modules (no `require`). Jest users need a `transformIgnorePatterns` entry that lets
 `@genclass/runtime` be transformed, for example `["/node_modules/(?!@genclass/runtime)"]`.
+
+## Your coding agent: replay and explore
+
+A race depends on the network's timing, so it rarely shows on your fast machine and never in a test where mocked APIs
+answer in order. `@genclass/runtime/agent` connects your development build to `@genclass/mcp`, an MCP server for
+Claude Code and other coding agents, and lets the agent:
+
+- **see what happened, in order:** clicks, requests, the order their responses were delivered, the state each one
+  wrote, errors with the click and request behind them, and this runtime's detections;
+- **replay** the exact delivery order that produced a bug, on any machine, before the fix (reproduced) and after it
+  (not reproduced);
+- **explore**: run the same steps with overlapping responses delivered in different seeded orders, optionally slower,
+  and report what ends differently from the run where responses came back in order;
+- **keep the proof:** a generated Playwright test that sets the same order and fails while the bug is there.
+
+```bash
+claude mcp add genclass -- npx -y @genclass/mcp
+```
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
+
+const rt = GenClass.init();
+if (import.meta.env.DEV) connectAgent(rt); // development builds only
+```
+
+`connectAgent` is its own entry (no first-load cost), runs only on pages served from your machine, talks only to a
+loopback address, and holds a response only when you or your agent set a schedule (each at most 1.5 s beyond its
+emulated delay; never changed; protected requests never). Without one it only records (a page load's first responses
+wait for the bridge's hello, at most 0.6 s). Design and measurements: [AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md).
 
 ## Function-specific: protect()
 

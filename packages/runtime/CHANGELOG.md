@@ -2,6 +2,27 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **Coding agents: record, replay and explore (`@genclass/runtime/agent`, new; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)).**
+  `connectAgent(rt)` in an app's development build connects the page to `@genclass/mcp`, a local MCP server for
+  Claude Code and other coding agents. It records the run (user actions; requests by key, `GET /api/search#3`; the
+  order their responses were delivered; state writes; errors with their stack and causal chain; two happens-before
+  facts as witnesses: a response that overwrote newer data, identical requests in flight from two separate clicks) and
+  snapshots the app's state at quiet points. With a schedule (`fifo`, `seeded`, `given`, set by the agent, a test's
+  `__GENCLASS_SCHEDULE__` or `?genclass-schedule=`) it delivers responses in that order, optionally slower: the same
+  responses, unchanged, each held at most `maxHoldMs` (1.5 s), so a race shows up on a fast machine and replays
+  exactly. Without a schedule it holds only a page load's first responses until the bridge's hello (at most 0.6 s);
+  `hold: false` turns every hold off; protected requests are never held (unless `holdProtected`). Only on pages served from the developer's
+  machine by default; it talks only to a loopback address; it is its own entry (`dist/agent.js`, no imports), so the
+  first load stays within its limits (108.54 / 100.40 KB).
+  It wraps the runtime's delivery gate and request ignore list while connected and restores both on `disconnect()`;
+  nothing it records reaches a situation, a decision, the event log or the model (no model-visible text changed,
+  `situation-v2.3`), and telemetry is unchanged. INTERCEPTION.md, THREAT-MODEL.md (T10), API.md, CONTRACT.md §16,
+  RESULTS.md section 16.
+- **Fix: a reused XHR object could get the next request's response early.** When the app aborted an XHR whose
+  completion listeners the runtime held for a delivery decision (guard or heal) and sent a new request on the same
+  object, releasing the old, held delivery ran the listeners queued for the new request before its own decision. The
+  release now checks that it still belongs to the request it was made for (`src/observe/xhr.ts`). No model-visible
+  text changed. Found by the coding-agent link's review.
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the
