@@ -110,8 +110,8 @@ $("theme").addEventListener("click", () => {
   }
 });
 
-// welcome offer, once per visit
-setTimeout(() => {
+// welcome offer, once per visit, a few seconds in
+const offer = () => setTimeout(() => {
   const back = document.createElement("div");
   back.className = "promo-back";
   back.innerHTML = `<div class="promo" role="dialog" aria-modal="true" aria-labelledby="promo-t"><h2 id="promo-t">Free delivery this week</h2>
@@ -121,4 +121,6 @@ setTimeout(() => {
   const close = () => back.remove();
   back.querySelector("button").addEventListener("click", close);
   setTimeout(close, 2500);
-}, 800);
+}, 3000);
+if (document.readyState === "complete") offer();
+else addEventListener("load", offer);

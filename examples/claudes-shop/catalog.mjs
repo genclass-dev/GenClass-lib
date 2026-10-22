@@ -28,4 +28,4 @@ export const byId = (id) => PRODUCTS.find((p) => p.id === id) ?? null;
 export const GENCLASS_TOKEN = "gc_JwpFSIbVSI0OmysXBTNm6O";
 export const GENCLASS_ON = (base) =>
   `<script src="${base}genclass.global.min.js" data-manual></script>
-<script>window.SHOP_GENCLASS = true; GenClass.init({ token: "${GENCLASS_TOKEN}", mode: "guard", aggressiveness: "eager", visual: { on: true, fix: true }, model: { preload: "eager" } });</script>`;
+<script>window.SHOP_GENCLASS = true; GenClass.init({ token: "${GENCLASS_TOKEN}", mode: "guard", aggressiveness: "eager", visual: { on: true, fix: true, lowEnd: "full" }, model: { preload: "eager" } });</script>`;

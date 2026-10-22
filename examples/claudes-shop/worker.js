@@ -63,7 +63,8 @@ export class Visitor extends DurableObject {
   }
 }
 
-const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+const SECURITY = { "strict-transport-security": "max-age=31536000", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "strict-origin-when-cross-origin" };
+const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...SECURITY } });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function body(req) {
   try {
@@ -82,7 +83,7 @@ export default {
     if (p === "/" || p === "/index.html" || p === "/genclass-on") {
       const page = await env.ASSETS.fetch(new URL("/", url)); // the assets binding answers "/" with index.html
       const html = (await page.text()).replace("<!--GENCLASS-->", p === "/genclass-on" ? GENCLASS_ON("/genclass/") : "");
-      const headers = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" };
+      const headers = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...SECURITY };
       if (!visitorOf(req)) headers["set-cookie"] = `shop=${crypto.randomUUID().replaceAll("-", "")}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`;
       return new Response(html, { headers });
     }
