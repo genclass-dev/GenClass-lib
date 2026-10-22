@@ -2,7 +2,7 @@
 // through packages/runtime): what a developer reads on the page, the possible-issues tier and the display fixes.
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { CDN_SCRIPT, DASH_CSS, dashboardPage, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
+import { AGENT_RUNTIME, CDN_SCRIPT, DASH_CSS, dashboardPage, esc, KEY_RUNTIME, MCP_ADD, MCP_ADD_DASHBOARD, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
 import { accountPage, devicePage, forgotPage, lockedLinkPage, loginPage, messagePage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
@@ -15,11 +15,11 @@ const nf = new Intl.NumberFormat();
  * mode, the Connect panel's app list). `opts` as dashboardPage takes them: with `account` the account-mode page
  * (/account/apps/<id>: the Connect panel, the period controls in #period, no #setup).
  */
-async function render(stats: Stats, opts: DashboardOptions = {}) {
+async function render(stats: Stats, opts: DashboardOptions = {}, url?: string) {
   const html = dashboardPage("NONCE", { name: stats.name, token: stats.token, created: stats.created, lastEvent: stats.lastEvent }, opts);
   const main = /<main class="wrap"[^>]*>([\s\S]*)<\/main>/.exec(html)![1]!; // the shell's <main> also has id="main"
   const script = /<script nonce="NONCE">([\s\S]*?)<\/script>/.exec(html)![1]!;
-  const win = new Window({ url: opts.account ? `https://genclass.dev/account/apps/${opts.id}` : "https://genclass.dev/dashboard/sample" });
+  const win = new Window({ url: url ?? (opts.account ? `https://genclass.dev/account/apps/${opts.id}` : "https://genclass.dev/dashboard/sample") });
   const doc = win.document;
   doc.body.innerHTML = main;
   const urls: string[] = [];
@@ -33,7 +33,7 @@ async function render(stats: Stats, opts: DashboardOptions = {}) {
   const text = (sel: string) => (doc.querySelector(sel)?.textContent ?? "").replace(/\s+/g, " ").trim();
   const hidden = (id: string) => doc.getElementById(id)!.classList.contains("hidden");
   const heads = (sel: string) => [...doc.querySelectorAll(`${sel} th`)].map((x) => x.textContent);
-  return { doc, text, hidden, heads, urls, close: () => win.happyDOM.close() };
+  return { doc, win, html, text, hidden, heads, urls, close: () => win.happyDOM.close() };
 }
 
 describe("dashboard page: possible issues tier", () => {
@@ -462,6 +462,174 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     expect(hidden("nav-visits")).toBe(true);
     expect(doc.querySelector(".dfoot")!.textContent).toContain("never its text");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("No text from your pages, no IP addresses and no user agents are stored.");
+    await close();
+  });
+});
+
+describe("dashboard page: sessions and problem rate (Fig. 3)", () => {
+  it("two line charts on one time axis after Fig. 1, each with its own aria-label, a caption and a table view", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, html, text, heads, close } = await render(st);
+    // on the Overview view, after the Problems found section
+    expect(doc.getElementById("rate")!.getAttribute("data-v")).toBe("overview");
+    expect(html.indexOf('id="rate"')).toBeGreaterThan(html.indexOf('id="trend"'));
+    expect(html.indexOf('id="rate"')).toBeLessThan(html.indexOf('id="found"'));
+    expect(text("#rate .blk-h h2")).toBe("Sessions and problem rate");
+    expect(text("#rate figcaption")).toMatch(/^Fig\. 3\. Sessions \(page loads\) per day/);
+    // two svgs (never one with two y axes), each named, each one line
+    const svgs = [...doc.querySelectorAll("#rateplot svg")];
+    expect(svgs).toHaveLength(2);
+    expect(svgs.map((g) => g.getAttribute("aria-label"))).toEqual(["Sessions per day", "Problems found per 1,000 sessions, per day; no value where there were no sessions"]);
+    for (const g of svgs) {
+      expect(g.querySelectorAll("path")).toHaveLength(1);
+      expect(g.querySelector("path")!.getAttribute("stroke-width")).toBe("2");
+      expect(g.querySelector("path")!.getAttribute("stroke-linejoin")).toBe("round");
+    }
+    // y axes from 0; the x labels only on the bottom chart (3 y ticks each, 3 x labels)
+    expect(svgs[0]!.querySelector("text")!.textContent).toBe("0");
+    expect(svgs[0]!.querySelectorAll("text")).toHaveLength(3);
+    expect(svgs[1]!.querySelectorAll("text")).toHaveLength(6);
+    // the table view: every bucket, the rate as detections / sessions * 1000
+    expect(heads("#ratetable")).toEqual(["Day", "Sessions", "Problems", "Per 1,000 sessions"]);
+    const trs = [...doc.querySelectorAll("#ratetable tbody tr")];
+    expect(trs).toHaveLength(st.series.length);
+    const b0 = st.series[0]!;
+    expect([...trs[0]!.querySelectorAll("td")].map((x) => x.textContent).slice(1)).toEqual([nf.format(b0.sessions), nf.format(b0.detections), new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format((1000 * b0.detections) / b0.sessions)]);
+    // keyboard: only the top chart's buckets take focus; focus shows the crosshair in both charts and one tooltip
+    const keys = [...doc.querySelectorAll("#rateplot rect[tabindex]")];
+    expect(keys).toHaveLength(st.series.length);
+    expect(svgs[1]!.querySelectorAll("rect[tabindex]")).toHaveLength(0);
+    keys[1]!.dispatchEvent(new (doc.defaultView as any).Event("focus"));
+    expect(doc.querySelectorAll('#rateplot line[visibility="visible"]')).toHaveLength(2);
+    expect(doc.querySelectorAll('#rateplot circle[visibility="visible"]')).toHaveLength(2);
+    expect(doc.querySelectorAll("#rateplot .tip:not(.hidden)")).toHaveLength(1);
+    expect(text("#rateplot .tip")).toContain(`Sessions${nf.format(st.series[1]!.sessions)}`);
+    expect(text("#rateplot .tip")).toContain("Per 1,000 sessions");
+    keys[1]!.dispatchEvent(new (doc.defaultView as any).Event("blur"));
+    expect(doc.querySelectorAll('#rateplot line[visibility="visible"]')).toHaveLength(0);
+    expect(doc.querySelectorAll("#rateplot .tip.hidden")).toHaveLength(1);
+    await close();
+  });
+
+  it("a bucket with no sessions has no rate: a gap in the line, '-' in the table, 'no sessions' in the tooltip", async () => {
+    const st = sampleStats("7d", NOW);
+    st.series = st.series.map((b, i) => (i === 3 ? { ...b, sessions: 0, detections: 2 } : b));
+    const { doc, text, close } = await render(st);
+    const rate = doc.querySelectorAll("#rateplot svg")[1]!.querySelector("path")!.getAttribute("d")!;
+    expect(rate.match(/M/g)).toHaveLength(2);
+    expect(rate).not.toMatch(/NaN|Infinity/);
+    expect(doc.querySelectorAll("#ratetable tbody tr")[3]!.querySelectorAll("td")[3]!.textContent).toBe("-");
+    // the sessions line itself has no gap: 0 sessions is a value
+    expect(doc.querySelectorAll("#rateplot svg")[0]!.querySelector("path")!.getAttribute("d")!.match(/M/g)).toHaveLength(1);
+    doc.querySelectorAll("#rateplot rect[tabindex]")[3]!.dispatchEvent(new (doc.defaultView as any).Event("focus"));
+    expect(text("#rateplot .tip")).toContain("no sessions");
+    expect(doc.querySelectorAll('#rateplot circle[visibility="visible"]')).toHaveLength(1);
+    await close();
+  });
+
+  it("a point between two gaps is still drawn (a zero-length round segment)", async () => {
+    const st = sampleStats("7d", NOW);
+    st.series = st.series.map((b, i) => (i === 2 || i === 4 ? { ...b, sessions: 0 } : b));
+    const { doc, close } = await render(st);
+    const rate = doc.querySelectorAll("#rateplot svg")[1]!.querySelector("path")!;
+    expect(rate.getAttribute("d")).toContain("h0");
+    expect(rate.getAttribute("stroke-linecap")).toBe("round");
+    await close();
+  });
+
+  it("24 hours: hourly buckets, labels and table", async () => {
+    const st = sampleStats("24h", NOW);
+    const { doc, text, heads, close } = await render(st);
+    expect(heads("#ratetable")[0]).toBe("Hour");
+    expect(doc.querySelectorAll("#ratetable tbody tr")).toHaveLength(24);
+    expect(text("#rate figcaption")).toContain("per hour");
+    expect(doc.querySelectorAll("#rateplot svg")[0]!.getAttribute("aria-label")).toBe("Sessions per hour");
+    await close();
+  });
+
+  it("no sessions in the period: a short empty-state line instead of axes", async () => {
+    const st = sampleStats("7d", NOW);
+    st.series = st.series.map((b) => ({ ...b, sessions: 0 }));
+    const { doc, text, close } = await render(st);
+    expect(doc.querySelectorAll("#rateplot svg")).toHaveLength(0);
+    expect(text("#rateplot")).toBe("No sessions in this period, so there is nothing to draw.");
+    expect(text("#raten")).toBe("");
+    await close();
+  });
+});
+
+describe("dashboard page: the AI agent view (docs/runtime/AGENT.md sections 1 and 4)", () => {
+  const account = { apps: [{ id: "0123456789abcdef", name: "Shop" }], current: "0123456789abcdef", email: "dev@example.com" };
+  const filled = (url: string) => MCP_ADD_DASHBOARD.replace("<this dashboard's URL>", url);
+
+  it("private link: the sidebar link, the install steps and the command with this dashboard's URL (no query or fragment)", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, html, text, close } = await render(st, {}, "https://genclass.dev/dashboard/sample?range=24h#agent");
+    const link = doc.querySelector('#snav a[href="#agent"]')!;
+    expect(link.textContent).toBe("AI agent");
+    expect(DASH_CSS).toContain('.snav a[href="#agent"]{--ic:url(');
+    expect(doc.getElementById("agent")!.getAttribute("data-v")).toBe("agent");
+    // the hash opened the view: the agent section shows, the overview does not, the link is current
+    expect(doc.getElementById("agent")!.classList.contains("vh")).toBe(false);
+    expect(doc.getElementById("rate")!.classList.contains("vh")).toBe(true);
+    expect(link.getAttribute("aria-current")).toBe("true");
+    expect(text("#crumbv")).toBe("/ AI agent");
+    // step 1: the command and the plugin; the optional dashboard command is rendered with its placeholder (escaped)
+    // and filled in from the page's URL
+    expect(html).toContain(esc(MCP_ADD_DASHBOARD));
+    expect(text("#agent")).toContain(MCP_ADD);
+    expect(text("#agent")).toContain("/plugin marketplace add genclass-dev/GenClass-lib");
+    expect(text("#agent")).toContain("/plugin install genclass@genclass");
+    const cmd = filled("https://genclass.dev/dashboard/sample");
+    expect(doc.getElementById("asnipd")!.textContent).toBe(cmd);
+    expect(doc.getElementById("asnipdb")!.getAttribute("data-copy")).toBe(cmd);
+    expect(cmd).not.toMatch(/[?#]/);
+    expect(text("#agentwarn")).toContain("stores this dashboard's private link in your Claude configuration, and anyone with the link can see these stats");
+    expect(doc.getElementById("agentprod")).toBeNull();
+    // steps 2 and 3, and the docs
+    expect(text("#agent")).toContain(`npm install ${RUNTIME_PKG}`);
+    expect(text("#agent")).toContain(`needs @genclass/runtime ${AGENT_RUNTIME} or later`);
+    expect([...doc.querySelectorAll("#agent pre")].map((p) => p.textContent)).toContain('import { GenClass } from "@genclass/runtime";\nimport { connectAgent } from "@genclass/runtime/agent";\n\nconst rt = GenClass.init();\nif (import.meta.env.DEV) connectAgent(rt);');
+    expect(text("#agent")).toContain('Next.js uses process.env.NODE_ENV === "development"');
+    expect(doc.querySelectorAll("#agent ul.asks li")).toHaveLength(3);
+    expect(doc.querySelector('#agent a[href="https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md"]')).not.toBeNull();
+    // every copy button carries the text of its block and names it; no inline handlers
+    for (const b of doc.querySelectorAll("#agent button[data-copy]")) {
+      expect(b.getAttribute("data-copy")).toBe(doc.getElementById(b.getAttribute("data-target")!)!.textContent);
+      expect(b.getAttribute("aria-label")).toMatch(/^Copy /);
+    }
+    expect(/<[^>]+\son[a-z]+=/i.test(/<section class="blk connect agent"[\s\S]*?<\/section>/.exec(html)![0])).toBe(false);
+    await close();
+  });
+
+  it("account mode: the link under Setup and the steps, without the GENCLASS_DASHBOARD command", async () => {
+    const st = sampleStats("7d", NOW);
+    const r = await render(st, { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true });
+    expect(r.doc.querySelector('#cnav a[href="#agent"]')!.textContent).toBe("AI agent");
+    expect(r.doc.getElementById("agent")!.getAttribute("data-v")).toBe("agent");
+    expect(r.html).not.toContain("GENCLASS_DASHBOARD");
+    expect(r.doc.getElementById("asnipd")).toBeNull();
+    expect(r.doc.getElementById("agentwarn")).toBeNull();
+    expect(r.text("#agentprod")).toBe("Production numbers in the agent are available for private-link dashboards for now.");
+    expect(r.text("#agent")).toContain(MCP_ADD);
+    // the page's script still ran to the end
+    expect(r.text("#updated")).toMatch(/^Updated /);
+    await r.close();
+    // while the app waits for its first event the link stays reachable (the period links are hidden)
+    const w = await render({ ...st, lastEvent: null }, { account, id: "0123456789abcdef", firstEvent: null });
+    expect(w.hidden("period")).toBe(true);
+    expect(w.doc.querySelector('#cnav a[href="#agent"]')).not.toBeNull();
+    await w.close();
+  });
+
+  it("the sample dashboard keeps working with the view: stats load, the overview is the first view", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, text, close } = await render(st);
+    expect(text("#updated")).toMatch(/^Updated /);
+    expect(text("#summary")).toContain(`found ${nf.format(st.totals.detections!)} problems`);
+    expect(doc.getElementById("agent")!.classList.contains("vh")).toBe(true);
+    expect(doc.getElementById("trend")!.classList.contains("vh")).toBe(false);
+    expect(doc.getElementById("asnipd")!.textContent).toBe(filled("https://genclass.dev/dashboard/sample"));
     await close();
   });
 });

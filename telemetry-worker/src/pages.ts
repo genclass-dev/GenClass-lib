@@ -17,6 +17,15 @@ export const KEY_RUNTIME = "0.3.0-beta.0";
 export const SNIPPET_RUNTIME = "0.3.0-beta.0";
 export const RUNTIME_PKG = "@genclass/runtime@beta";
 export const CDN_SCRIPT = `https://cdn.jsdelivr.net/npm/@genclass/runtime@${SNIPPET_RUNTIME}`;
+/** The first @genclass/runtime with the coding-agent link (`connectAgent`, `@genclass/runtime/agent`). */
+export const AGENT_RUNTIME = "0.3.0-beta.1";
+/** The AI agent view's commands (docs/runtime/AGENT.md section 1): @genclass/mcp in Claude Code. */
+export const MCP_ADD = "claude mcp add genclass -- npx -y @genclass/mcp";
+/** Where the page puts its own URL (location.origin + location.pathname, never a query or fragment) at runtime. */
+export const MCP_DASHBOARD_PLACEHOLDER = "<this dashboard's URL>";
+/** Private-link dashboards only: the same server, with GENCLASS_DASHBOARD for genclass_analytics `production`. */
+export const MCP_ADD_DASHBOARD = `claude mcp add genclass -e GENCLASS_DASHBOARD=${MCP_DASHBOARD_PLACEHOLDER} -- npx -y @genclass/mcp`;
+const AGENT_DOCS = "https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md";
 /** What local and private hosts do, as the runtime behaves (src/telemetry/config.ts) and PRIVACY.md says. */
 const LOCAL_HOSTS =
   "Local hosts (localhost, *.local, *.test and private networks) do not send by default, token or not; telemetry: true or a telemetry options object opts them in.";
@@ -354,8 +363,10 @@ export function notFoundPage(nonce: string): string {
 // ------------------------------------------------------------------------------------------------- dashboard
 
 // ---------------------------------------------------------------------------------------------- /dashboard
-// The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, one card per kind of
-// problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity.
+// The per-app dashboard: a one-sentence summary, four tiles, problems over time by type, sessions and the problem rate
+// (Fig. 3: two line charts on one time axis, in the neutral --bar ink, one series each), one card per kind of
+// problem (what it means, where it happened, how to fix it), pages, what GenClass did, model health, recent activity,
+// and the AI agent view (@genclass/mcp setup).
 // Chart colours come from genclass.dev's own hues, stepped into the dark chart lightness band (OKLCH L .48-.67): blue,
 // the red-orange the site uses for bugs, a sky blue, amber (the site's warning colour) and violet, in that order (dark
 // only, like the rest of the page). No green, which the brand keeps for "GenClass fixed it". Validated with the dataviz
@@ -404,6 +415,8 @@ h1,h2,h3{letter-spacing:-.03em}
 .poss-h h3{font:500 17px var(--sans);letter-spacing:-.01em}
 .poss-h .aside{font-size:13.5px;color:var(--ink3)}
 .poss-note{font-size:14px;color:var(--ink2);margin-top:12px;max-width:72ch}
+.mini-t{font:500 13px var(--sans);color:var(--ink2);margin-bottom:6px}
+.plot svg+.mini-t{margin-top:18px}
 .find.poss .n{font-weight:500;color:var(--ink2)}
 table.dt td.poss-n{color:var(--ink3)}
 figure{margin:0}
@@ -507,6 +520,9 @@ main.wrap:has(.app){max-width:1360px}
 @media (prefers-reduced-motion:reduce){.cstat i{animation:none}}
 .connect .fine{font-size:13px;color:var(--ink3);margin-top:14px;max-width:90ch}
 @media (max-width:560px){.connect .keyrow{grid-template-columns:1fr}.connect .kn{grid-column:1}.connect .keyrow .k{padding-top:0;margin-bottom:6px}}
+.agent .what{font-size:15.5px;color:var(--ink2);max-width:72ch;margin-top:18px}
+.agent ul.asks{list-style:none;display:grid;gap:8px}
+.agent ul.asks li{background:var(--code);color:var(--codeink);padding:10px 14px;font:13px/1.6 var(--mono);overflow-wrap:anywhere}
 .mainc{min-width:0;padding-bottom:20px}
 .lock{margin-top:28px;padding:22px 0;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule);max-width:72ch}
 .lock h2{font:500 clamp(22px,3vw,28px)/1.15 var(--display);letter-spacing:-.02em;margin:0}
@@ -521,6 +537,7 @@ main.wrap:has(.app){max-width:1360px}
 .side nav.snav a span{margin-left:auto}
 .snav a::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.8;-webkit-mask:var(--ic) center/16px no-repeat;mask:var(--ic) center/16px no-repeat}
 .snav a[href="#top"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%223%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%2212%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%223%22 y=%2216%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3C/svg%3E")}.snav a[href="#found"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E")}.snav a[href="#where"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E")}.snav a[href="#did"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E")}.snav a[href="#recent-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 12h-4l-3 9L9 3l-3 9H2%22/%3E%3C/svg%3E")}.snav a[href="#visits"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9l5 12 1.8-5.2L21 14z%22/%3E%3Cpath d=%22M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2%22/%3E%3C/svg%3E")}.snav a[href="#health-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z%22/%3E%3C/svg%3E")}.snav a[href="#setup"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#connect"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#forwarding"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m22 2-7 20-4-9-9-4z%22/%3E%3Cpath d=%22M22 2 11 13%22/%3E%3C/svg%3E")}.snav a[href="#export"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3%22/%3E%3C/svg%3E")}
+.snav a[href="#agent"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m4 17 6-6-6-6M12 19h8%22/%3E%3C/svg%3E")}
 .crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
 .crumbs a{color:var(--ink2);text-decoration:none}
 .crumbs a:hover{color:var(--ink)}
@@ -748,6 +765,97 @@ const DASH_JS = `
       g.appendChild(hit);
     });
     host.appendChild(g); host.appendChild(tip);
+  }
+
+  // ---------- sessions and problem rate (Fig. 3): two small line charts on one time axis, never one chart with two
+  // y axes. The rate is detections / sessions * 1000; a bucket with no sessions has no rate (a gap, not a zero).
+  var nf1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }), nfc = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+  function yTick(v){ return v >= 10000 ? nfc.format(v) : nf1.format(v); }
+  function rateTrend(S){
+    var host = document.getElementById("rateplot"), tbl = document.getElementById("ratetable"), aside = document.getElementById("raten");
+    host.textContent = ""; tbl.textContent = ""; aside.textContent = "";
+    var hourly = S.range === "24h", unit = hourly ? "hour" : "day";
+    [].forEach.call(document.querySelectorAll(".unit3"), function(u){ u.textContent = unit; });
+    var rows = (S.series || []).map(function(b){
+      var s = b.sessions || 0, d = b.detections || 0;
+      return { bucket: b.bucket, s: s, d: d, r: s > 0 ? 1000 * d / s : null };
+    });
+    var ts = rows.reduce(function(a, r){ return a + r.s; }, 0), td = rows.reduce(function(a, r){ return a + r.d; }, 0);
+    if (!ts) { host.appendChild(el("p", "quiet", "No sessions in this period, so there is nothing to draw.")); return; }
+    aside.textContent = plural(ts, "session", "sessions") + ", " + nf1.format(1000 * td / ts) + " problems per 1,000";
+    var tb = el("table", "dt"), hr = el("tr");
+    [hourly ? "Hour" : "Day", "Sessions", "Problems", "Per 1,000 sessions"].forEach(function(h, i){ hr.appendChild(el("th", i ? "num" : null, h)); });
+    var thd = el("thead"); thd.appendChild(hr); tb.appendChild(thd); var body = el("tbody");
+    rows.forEach(function(r){
+      var tr = el("tr"); tr.appendChild(el("td", null, label(r.bucket, hourly))); tr.appendChild(el("td", "num", fmt(r.s))); tr.appendChild(el("td", "num", fmt(r.d)));
+      tr.appendChild(el("td", "num", r.r == null ? "-" : nf1.format(r.r))); body.appendChild(tr);
+    });
+    tb.appendChild(body); var wrap = el("div", "tablewrap"); wrap.appendChild(tb); tbl.appendChild(wrap);
+    var W = 720, PL = 30, PT = 8, n = rows.length, step = (W - PL) / n, tip = el("div", "tip hidden"), charts = [];
+    function xAt(i){ return PL + i * step + step / 2; }
+    function point(i){
+      var r = rows[i], x = xAt(i);
+      charts.forEach(function(c){
+        c.cross.setAttribute("x1", x); c.cross.setAttribute("x2", x); c.cross.setAttribute("visibility", "visible");
+        var v = c.vals[i];
+        if (v == null) c.dot.setAttribute("visibility", "hidden");
+        else { c.dot.setAttribute("cx", x); c.dot.setAttribute("cy", c.yAt(v)); c.dot.setAttribute("visibility", "visible"); }
+      });
+      tip.textContent = ""; tip.appendChild(el("div", "t", label(r.bucket, hourly)));
+      [["Sessions", fmt(r.s)], ["Problems", fmt(r.d)], ["Per 1,000 sessions", r.r == null ? "no sessions" : nf1.format(r.r)]].forEach(function(p){
+        var row = el("div", "r"); row.appendChild(el("span", null, p[0])); row.appendChild(el("b", null, p[1])); tip.appendChild(row);
+      });
+      tip.classList.remove("hidden");
+      // beside the crosshair, so the highlighted points stay in view
+      var box = host.getBoundingClientRect(), left = x / W * box.width, tw = tip.offsetWidth || 180, at = left + 14;
+      if (at + tw > box.width) at = left - 14 - tw;
+      tip.style.left = Math.max(0, at) + "px"; tip.style.top = "0px";
+    }
+    function unpoint(){
+      tip.classList.add("hidden");
+      charts.forEach(function(c){ c.cross.setAttribute("visibility", "hidden"); c.dot.setAttribute("visibility", "hidden"); });
+    }
+    // one small chart: a single series (the title above names it), y from 0, its own nice ticks; only the top chart's
+    // buckets take keyboard focus (focus shows the crosshair in both), only the bottom one carries the x labels
+    function chart(title, aria, vals, H, PB, xlabels, keys){
+      var plotH = H - PB - PT, max = niceMax(Math.max.apply(null, vals.filter(function(v){ return v != null; }).concat([0])));
+      function yAt(v){ return PT + plotH - plotH * v / max; }
+      host.appendChild(el("div", "mini-t", title));
+      var g = svg("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": aria });
+      [0, max / 2, max].forEach(function(v){
+        var y = yAt(v);
+        g.appendChild(svg("line", { x1: PL, x2: W, y1: y, y2: y, stroke: v ? "var(--grid)" : "var(--rule2)", "stroke-width": 1 }));
+        var t = svg("text", { x: PL - 6, y: y + 4, "text-anchor": "end" }); t.textContent = yTick(v); g.appendChild(t);
+      });
+      // the line breaks at a missing value; a point with no neighbours is a zero-length segment (a round dot)
+      var d = "";
+      vals.forEach(function(v, i){
+        if (v == null) return;
+        var lone = (i === 0 || vals[i - 1] == null) && (i === n - 1 || vals[i + 1] == null);
+        d += (i === 0 || vals[i - 1] == null ? "M" : "L") + xAt(i).toFixed(1) + " " + yAt(v).toFixed(1) + (lone ? "h0" : "");
+      });
+      if (d) g.appendChild(svg("path", { d: d, fill: "none", stroke: "var(--bar)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round", "vector-effect": "non-scaling-stroke" }));
+      if (xlabels) rows.forEach(function(r, i){
+        if (i !== 0 && i !== n - 1 && i !== Math.floor(n / 2)) return;
+        var lt = svg("text", { x: xAt(i), y: H - 6, "text-anchor": i === 0 ? "start" : i === n - 1 ? "end" : "middle" }); lt.textContent = label(r.bucket, hourly); g.appendChild(lt);
+      });
+      var cross = svg("line", { x1: 0, x2: 0, y1: PT, y2: PT + plotH, stroke: "var(--ink3)", "stroke-width": 1, visibility: "hidden", "pointer-events": "none" });
+      var dot = svg("circle", { cx: 0, cy: 0, r: 4, fill: "var(--bar)", stroke: "var(--paper)", "stroke-width": 2, visibility: "hidden", "pointer-events": "none" });
+      g.appendChild(cross); g.appendChild(dot);
+      rows.forEach(function(r, i){
+        var a = { x: PL + i * step, y: PT, width: step, height: plotH, fill: "transparent" };
+        if (keys) a.tabindex = 0;
+        var hit = svg("rect", a);
+        hit.addEventListener("mouseenter", function(){ point(i); }); hit.addEventListener("mouseleave", unpoint);
+        if (keys) { hit.addEventListener("focus", function(){ point(i); }); hit.addEventListener("blur", unpoint); }
+        g.appendChild(hit);
+      });
+      host.appendChild(g);
+      charts.push({ cross: cross, dot: dot, vals: vals, yAt: yAt });
+    }
+    chart("Sessions per " + unit, "Sessions per " + unit, rows.map(function(r){ return r.s; }), 120, 8, false, true);
+    chart("Problems per 1,000 sessions", "Problems found per 1,000 sessions, per " + unit + "; no value where there were no sessions", rows.map(function(r){ return r.r; }), 140, 24, true, false);
+    host.appendChild(tip);
   }
 
   // ---------- one card per kind of problem
@@ -983,7 +1091,7 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
     if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); visits(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); rateTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
@@ -998,7 +1106,7 @@ const DASH_JS = `
   // the link, so a view can be linked to and the back button works. While an app waits for its first event the view
   // is Connect.
   (function(){
-    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
+    var VIEW = { top: "overview", trend: "overview", rate: "overview", agent: "agent", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
     var links = [].slice.call(document.querySelectorAll(".snav a"));
     var parts = [].slice.call(document.querySelectorAll("[data-v]"));
     function show(id, jump){
@@ -1029,6 +1137,23 @@ const DASH_JS = `
     if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
   })();
   document.title = P.name + " | GenClass dashboard";
+  // the AI agent view: copy buttons, and on a private link the command that names this dashboard, filled in from the
+  // page's own URL (origin and path only: never a query or fragment)
+  (function(){
+    var ag = document.getElementById("agent"); if (!ag) return;
+    var dc = document.getElementById("asnipd"), db = document.getElementById("asnipdb");
+    if (dc && db) {
+      // the server rendered the command with its placeholder (private links only, so account pages never carry it)
+      var url = location.origin + location.pathname, cmd = dc.textContent.replace(${embed(MCP_DASHBOARD_PLACEHOLDER)}, function(){ return url; });
+      dc.textContent = cmd; db.setAttribute("data-copy", cmd);
+    }
+    ag.querySelectorAll("[data-copy]").forEach(function(b){
+      b.addEventListener("click", function(){
+        var at = b.getAttribute("data-target");
+        gcCopy(b, b.getAttribute("data-copy"), at ? document.getElementById(at) : null);
+      });
+    });
+  })();
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
@@ -1207,6 +1332,58 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean, 
 </section>`;
 }
 
+/**
+ * The AI agent view (docs/runtime/AGENT.md sections 1 and 4): @genclass/mcp in Claude Code, the agent link in the app's
+ * development build, what to ask. On a private link only (`privateLink`), the optional command with GENCLASS_DASHBOARD
+ * for genclass_analytics `production`: the server renders MCP_ADD_DASHBOARD with its placeholder and DASH_JS fills in
+ * the page's own URL. Copy buttons carry their text in data-copy (escaped), wired by DASH_JS; no inline handlers.
+ */
+function agentPanel(privateLink: boolean): string {
+  let n = 0;
+  const snip = (label: string, name: string, code: string, ids?: { pre: string; btn: string }) => {
+    const id = ids?.pre ?? `asnip${++n}`;
+    return `<div><div class="sh"><span>${esc(label)}</span><button class="btn sm ghost" type="button"${ids ? ` id="${ids.btn}"` : ""} data-copy="${esc(code)}" data-target="${id}" aria-label="Copy ${esc(name)}">Copy</button></div><pre class="code" id="${id}" tabindex="0" aria-label="${esc(label)}">${esc(code)}</pre></div>`;
+  };
+  const connect = `import { GenClass } from "@genclass/runtime";\nimport { connectAgent } from "@genclass/runtime/agent";\n\nconst rt = GenClass.init();\nif (import.meta.env.DEV) connectAgent(rt);`;
+  const asks = [
+    "Use GenClass to find race conditions on /checkout and fix them.",
+    "The search results are sometimes wrong. Use GenClass to reproduce it, fix it and prove the fix.",
+    "After my change, run genclass_explore on this page.",
+  ];
+  const prod = privateLink
+    ? `${snip("Optional, with this dashboard's numbers", "the install command with this dashboard", MCP_ADD_DASHBOARD, { pre: "asnipd", btn: "asnipdb" })}
+      <p>Use this instead of the first command to let Claude also read this dashboard's production numbers, through genclass_analytics.</p>
+      <p class="cnote" id="agentwarn"><b>Private link.</b> This stores this dashboard's private link in your Claude configuration, and anyone with the link can see these stats.</p>`
+    : `<p id="agentprod">Production numbers in the agent are available for private-link dashboards for now.</p>`;
+  return `<section class="blk connect agent" id="agent" data-v="agent" aria-labelledby="agent-h">
+  <div class="blk-h"><h2 id="agent-h">AI agent</h2><span class="aside">For Claude Code and other coding agents</span></div>
+  <p class="what">GenClass's MCP server lets a coding agent see what happens in your app's pages in causal order, find race conditions by replaying responses in different orders, reproduce a bug exactly and prove the fix with a generated Playwright test.</p>
+  <div class="ways">
+    <div class="way">
+      <div class="eb">1 · Install in Claude Code</div>
+      <h3>Add the MCP server</h3>
+      ${snip("In a terminal", "the install command", MCP_ADD)}
+      ${snip("Or as a plugin, in Claude Code", "the plugin commands", "/plugin marketplace add genclass-dev/GenClass-lib\n/plugin install genclass@genclass")}
+      ${prod}
+    </div>
+    <div class="way">
+      <div class="eb">2 · In your app's development build</div>
+      <h3>Connect your pages</h3>
+      ${snip("In the app's folder", "the npm command", `npm install ${RUNTIME_PKG}`)}
+      <p>The agent link needs @genclass/runtime ${esc(AGENT_RUNTIME)} or later.</p>
+      ${snip("In your browser entry", "the connect code", connect)}
+      <p>Next.js uses <code>process.env.NODE_ENV === "development"</code> instead of <code>import.meta.env.DEV</code>.</p>
+    </div>
+    <div class="way">
+      <div class="eb">3 · Ask Claude</div>
+      <h3>For example</h3>
+      <ul class="asks">${asks.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>
+    </div>
+  </div>
+  <p class="fine">By default the agent link runs only on pages served from your machine (localhost) and talks only to the MCP server there. <a href="${AGENT_DOCS}">How it works</a></p>
+</section>`;
+}
+
 export function dashboardPage(
   nonce: string,
   project: { name: string; token: string; created: string; lastEvent: string | null },
@@ -1250,7 +1427,7 @@ export function dashboardPage(
     <a href="#recent-s">Activity</a>
     <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
     <a href="#health-s">Health</a>
-    ${acct ? "" : '<a href="#setup">Setup</a>'}
+    ${acct ? "" : '<a href="#setup">Setup</a><a href="#agent">AI agent</a>'}
   </nav>`;
   const help = `<div class="grp">Help</div>
   <div class="out">
@@ -1262,7 +1439,7 @@ export function dashboardPage(
   </div>`;
   const side = acct
     ? `<div class="grp">Setup</div>
-  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a>${opts.extra ? '<a href="#forwarding">Forwarding</a><a href="#export">Export</a>' : ""}</nav>
+  <nav class="snav" id="cnav" aria-label="Setup"><a href="#connect"${waiting ? ' aria-current="true"' : ""}>Connect</a>${opts.extra ? '<a href="#forwarding">Forwarding</a><a href="#export">Export</a>' : ""}<a href="#agent">AI agent</a></nav>
   <div id="period"${waiting ? ' class="hidden"' : ""}>
   ${sections}
   </div>
@@ -1306,6 +1483,14 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   </figure>
   <details class="more"><summary>Table view</summary><div id="trendtable" class="mt-s"></div></details>
 </section>
+<section class="blk" id="rate" data-v="overview">
+  <div class="blk-h"><h2>Sessions and problem rate</h2><span class="aside" id="raten"></span></div>
+  <figure>
+    <div class="plot" id="rateplot"></div>
+    <figcaption>Fig. 3. Sessions (page loads) per <span class="unit3">day</span>, and problems found per 1,000 sessions, on the same time axis. A <span class="unit3">day</span> with no sessions has no rate, so the line breaks there. Hover or focus the top chart for a <span class="unit3">day</span>'s numbers.</figcaption>
+  </figure>
+  <details class="more"><summary>Table view</summary><div id="ratetable" class="mt-s"></div></details>
+</section>
 <section class="blk" id="found" data-v="problems">
   <div class="blk-h"><h2>What GenClass found</h2><span class="aside">Each kind of problem, where it happened and how to fix it</span></div>
   <div class="finds" id="issues"></div>
@@ -1342,6 +1527,7 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
 <section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 </div>
 ${setup}
+${agentPanel(!acct)}
 ${opts.extra?.html ?? ""}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
 decided, and, for apps that turn on interaction analytics, page views, time on page, scroll depth and clicks per element (named by a

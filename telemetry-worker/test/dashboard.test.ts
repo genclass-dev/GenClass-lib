@@ -473,6 +473,9 @@ describe("sample dashboard", () => {
     const html = await page.text();
     expect(html).toContain("simulated data");
     expect(html).not.toMatch(/ style="/);
+    // the AI agent view is there (a private-link page: with the GENCLASS_DASHBOARD command the script fills in)
+    expect(html).toContain('<section class="blk connect agent" id="agent" data-v="agent"');
+    expect(html).toContain("GENCLASS_DASHBOARD=&#60;this dashboard&#39;s URL&#62;");
     for (const range of ["24h", "7d", "30d"]) {
       const res = await handle(new Request(`https://genclass.dev/api/projects/sample?range=${range}`), env, opts);
       expect(res.status).toBe(200);
