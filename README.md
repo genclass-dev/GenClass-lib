@@ -13,7 +13,7 @@ prevent, stale responses, races, duplicate requests, inconsistent state and fail
 One line, first in `<head>` or first in your entry file:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
 ```
 
 ```ts
@@ -35,7 +35,7 @@ generic facts about each write, request and response, and asks a small GenClass 
 The model runs in the browser (WebGPU or WASM, in a Web Worker). It answers two questions: what is happening, and
 which available action is best. There is no list of known bugs in the code.
 
-**Status: `@genclass/runtime@0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable
+**Status: `@genclass/runtime@0.3.0-beta.1` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable
 line is `0.2.x`) with model `@genclass/runtime-model@0.2.0`.** Observe by default; `guard` is
 opt-in; `heal` is experimental. Measured false-intervention and recall rates are under
 [Measured behaviour](#measured-behaviour). AI coding agents: start at [AGENTS.md](AGENTS.md).
@@ -163,7 +163,7 @@ export const submitOrder = protect("checkout submit", (cart) => fetch("/api/orde
 
 ## Measured behaviour
 
-> **`@genclass/runtime@0.3.0-beta.0` with the model `@genclass/runtime-model@0.2.0`.** The model and the situation
+> **`@genclass/runtime@0.3.0-beta.1` with the model `@genclass/runtime-model@0.2.0`.** The model and the situation
 > text it reads (`situation-v2.3`) are the same as in 0.2.x; the numbers below were measured with them.
 >
 > - **Runtime:** works and is unit-tested (situation format tag `situation-v2.3`). Install with

@@ -19,7 +19,7 @@ runtime has no list of known bugs: triage picks the situations, the model decide
 **One line covers the whole app.** First in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
 ```
 
 (pin the version: the unversioned URL may serve an older release from the CDN cache) or first in your entry file (any bundler; Next.js: `instrumentation-client.ts`):
@@ -48,7 +48,7 @@ GenClass at a few functions instead of the whole app. See [Your dashboard](#your
 > browsers sending Global Privacy Control are never collected. Details: [Privacy and telemetry](#privacy-and-telemetry)
 > and [TELEMETRY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
-> **Status: `0.3.0-beta.0` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
+> **Status: `0.3.0-beta.1` (npm `beta` dist-tag: `npm install @genclass/runtime@beta`; the stable line is `0.2.x`),
 > with model `@genclass/runtime-model@0.2.0`.**
 >
 > - **The model loads by default.** A default `GenClass.init()` loads `@genclass/runtime-model@0.2.0` (10.2 MB q8,
@@ -242,7 +242,7 @@ It exposes `window.GenClass`, discovers the app's state like the import does, an
 Runtime Web and the overlay on demand from the same version on the CDN. `data-mode` takes `observe` (the default), `guard` or `heal`; `data-devtools="local"` shows the
 overlay only on localhost; `data-manual` skips the automatic `GenClass.init()`. Since `0.3.0`: `data-token="gc_..."`
 (your app's token), `data-scope="functions"` and `window.GenClass.protect`. Pin a version in production
-(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0`); the plain-HTML path of `init` writes a pinned
+(`https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1`); the plain-HTML path of `init` writes a pinned
 jsDelivr URL with SRI.
 
 **4. By hand:**
@@ -873,7 +873,7 @@ npx @genclass/runtime@beta init --sink webhook:/genclass   # or console-json; re
 
 ```html
 <meta name="genclass" content="sink=webhook:/genclass+console-json">     <!-- + joins names: commas separate the meta keys -->
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0" data-sink="webhook:/genclass,console-json"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1" data-sink="webhook:/genclass,console-json"></script>
 <script>window.GENCLASS_CONFIG = { sinks: ["webhook:https://collector.example/genclass"] };</script>
 ```
 
