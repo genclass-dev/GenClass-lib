@@ -512,7 +512,8 @@ of history and a classifier a person trained for the buyer) was sold from 2026-1
 stored on `individual` reads as Free, and its data keeps the 30 days of grace after its paid period ends. Its Stripe
 product and prices stay GenClass's own (`billing/plans.json` `retired_plans`, `src/plans.ts` ownedPrice): a
 subscription to it is cancelled when its account is deleted, opens Manage billing, shows on the billing page as still
-billing, and sends the owner a `retired_plan_billing` notice each time it starts or renews, but gives no plan. Its
+billing (or as cancelled, once it is), and sends the owner a `retired_plan_billing` notice each time a payment of it
+clears (`invoice.paid`: its start and each renewal), but gives no plan. Its
 classifier is in Free now. The Stripe code and `scripts/stripe-setup.mjs` stay for a plan given a monthly price above
 0; the tests run them on Individual's plans file (`test/fixtures/plans-individual.json`, `test/one-paid.test.ts` and
 `test/stripe-setup.test.ts`).
@@ -854,7 +855,7 @@ removed its object by then).
 | `STRIPE_TEST_ACCOUNTS` | secret | emails or account ids, comma-separated, that can buy while the key is a test key |
 | `MANAGED_PAYMENTS` | var (`wrangler.toml`) | `"off"` there, and unset counts as off: every plan is sold on standard Checkout. `"on"` (or `true`, `1`, `yes`): the Checkout of a plan marked `managed_payments` in `billing/plans.json` uses Stripe Managed Payments (none is today) |
 | `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
-| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a paid plan with a custom model is paid (Individual until 2026-10-22), `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing, `retired_plan_billing` (`account_id`, `subscription_id`, `lookup_key`) each time a subscription to a plan GenClass no longer sells starts or renews (the account reads as Free: cancel and refund it). Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
+| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a paid plan with a custom model is paid (Individual until 2026-10-22), `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing, `retired_plan_billing` (`account_id`, `subscription_id`, `lookup_key`) each time a payment of a subscription to a plan GenClass no longer sells clears (`invoice.paid`; the account reads as Free: cancel and refund it). Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
 | `EXPORT_LIMIT` | rate limit binding | export pages per account per minute (120) |
 
 An Individual buyer's email, for the notice above:
@@ -872,8 +873,8 @@ Individual, in order:
    privacy).
 2. In the Stripe dashboard (live, and test if used): expire any open Checkout Session for Individual (Payments,
    Checkout sessions; they expire by themselves after 24 hours), archive the `genclass_individual` product and its
-   price, and cancel and refund every Individual subscription (a `retired_plan_billing` notice names any that still
-   bills). The worker keeps counting them as GenClass's, so their accounts can still cancel in Manage billing and a
+   price, and cancel and refund every Individual subscription (filter Subscriptions by the product; a
+   `retired_plan_billing` notice also names one each time a payment of it clears). The worker keeps counting them as GenClass's, so their accounts can still cancel in Manage billing and a
    deleted account's subscription is cancelled.
 
 For GenClass's own Stripe account ("GenClass"), dashboard first, in test mode and then live (each setting below has a

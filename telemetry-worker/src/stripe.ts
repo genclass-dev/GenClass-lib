@@ -805,8 +805,8 @@ export async function handleEvent(x: EventContext, event: Obj): Promise<EventRes
   // a purchase a person follows up (a custom model) counts once Stripe reports it paid
   if (result.status === "applied" && hasCustomModel(planById(result.plan)) && latestInvoicePaysCustom(sub)) await recordCustom(x, account, idOf(sub.id)!, planById(result.plan));
   // a retired plan that still bills (bought before it ended, or a Checkout opened before then and paid after) gives
-  // Free: the owner hears each time it starts or renews, to cancel and refund it
-  if (result.status === "applied" && started && LIVE_STATUSES.has(sub?.status) && retiredSubscription(sub)) await retiredNotice(x, account, sub);
+  // Free: the owner hears once per payment that clears (invoice.paid: its start and each renewal), to cancel and refund it
+  if (result.status === "applied" && type === "invoice.paid" && retiredSubscription(sub)) await retiredNotice(x, account, sub);
   if (one?.extra.length && result.status === "applied") await settleOthers(x, account, one);
   return result;
 }
@@ -1015,12 +1015,12 @@ export async function applySubscription(x: EventContext, account: BillingAccount
   return { status: "applied", ours: true, account: account.id, plan: s.plan };
 }
 
-/** The owner's notice for a retired plan's subscription that still bills (handleEvent). */
+/** The owner's notice for a payment of a retired plan's subscription (handleEvent, on invoice.paid). */
 async function retiredNotice(x: EventContext, account: BillingAccount, sub: Obj): Promise<void> {
   const key = subscriptionState(sub).lookupKey;
   await notifyOwner(x, {
     event: "retired_plan_billing",
-    text: `${modeNote(x.env)}GenClass account ${account.id}: subscription ${idOf(sub.id)} (${key ?? "no lookup key"}) is for a plan GenClass no longer sells and still bills; the account reads as Free. Cancel and refund it in Stripe.`,
+    text: `${modeNote(x.env)}GenClass account ${account.id}: a payment of subscription ${idOf(sub.id)} (${key ?? "no lookup key"}) cleared, for a plan GenClass no longer sells; the account reads as Free. Cancel and refund it in Stripe.`,
     account_id: account.id,
     subscription_id: idOf(sub.id),
     lookup_key: key,

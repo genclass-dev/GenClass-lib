@@ -22,6 +22,7 @@ import {
   LIVE_STATUSES,
   PAID_PLANS,
   PAST_DUE_GRACE_DAYS,
+  RETIRED_PLAN_IDS,
   PLANS,
   PLANS_FILE,
   planById,
@@ -97,11 +98,17 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
       : "the runtime and its on-device model, without the dashboard";
     const limits = `${has} (you have ${apps} app${apps === 1 ? "" : "s"}).`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
-    // a subscription that still bills while the account reads as Free: one to a plan GenClass no longer sells
-    // (plans.json retired_plans; the webhook stores its plan as free)
-    const retired = !!b.subscription_id && (b.subscription_status === "active" || b.subscription_status === "trialing");
+    // a subscription not ended while the account reads as Free, with nothing sold on the site (or a stored plan GenClass
+    // no longer sells): one to a retired plan (plans.json retired_plans; the webhook stores its plan as free). Paying it
+    // gives no plan, so the page says to cancel it, never to pay it
+    const retired =
+      !!b.subscription_id &&
+      ["active", "trialing", "past_due", "unpaid"].includes(b.subscription_status ?? "") &&
+      (!PAID_PLANS.length || RETIRED_PLAN_IDS.includes(b.plan));
     const ended = retired
-      ? ` Your subscription to a plan GenClass no longer sells is still active in Stripe: cancel it in Manage billing, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
+      ? b.cancel_at_period_end
+        ? ` Your subscription to a plan GenClass no longer sells is cancelled and ends on ${day(b.current_period_end)}, without another charge.`
+        : ` Your subscription to a plan GenClass no longer sells is still open in Stripe and can bill again: cancel it in Manage billing, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
       : overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
       : b.subscription_id && b.current_period_end && b.subscription_status === "canceled" && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000

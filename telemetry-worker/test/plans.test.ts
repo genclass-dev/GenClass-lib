@@ -279,12 +279,27 @@ describe("a retired plan's subscription (Individual until 2026-10-22): GenClass'
       const page = await text(call(t.env, "GET", "/account/billing", { cookie: t.cookie }));
       expect(page).toContain('id="portal"');
       expect(page).not.toContain("within 1 business day");
-      if (status === "active") expect(page).toContain("Your subscription to a plan GenClass no longer sells is still active in Stripe: cancel it in Manage billing");
+      if (status === "active") expect(page).toContain("Your subscription to a plan GenClass no longer sells is still open in Stripe and can bill again: cancel it in Manage billing");
       else expect(page).not.toContain("no longer sells");
     }
   });
 
-  it("one that starts billing (a Checkout opened before the plan ended) is recorded as Free, and the owner hears to refund it", async () => {
+  it("the billing page never asks to pay it: past due or unpaid says cancel; cancelled at period end says when it ends", async () => {
+    for (const status of ["past_due", "unpaid", "trialing"]) {
+      const t = await subscriber(status);
+      setPlan(t.sql, t.account.id, "free", { subscription_status: status });
+      const page = await text(call(t.env, "GET", "/account/billing", { cookie: t.cookie }));
+      expect(page, status).toContain("Your subscription to a plan GenClass no longer sells is still open in Stripe and can bill again: cancel it in Manage billing");
+      expect(page, status).not.toMatch(/get the plan back|Update your card/);
+    }
+    const t = await subscriber();
+    setPlan(t.sql, t.account.id, "free", { cancel_at_period_end: 1, current_period_end: "2026-11-19T12:00:00.000Z" });
+    const page = await text(call(t.env, "GET", "/account/billing", { cookie: t.cookie }));
+    expect(page).toContain('Your subscription to a plan GenClass no longer sells is cancelled and ends on <time datetime="2026-11-19T12:00:00.000Z" data-f="date">2026-11-19</time>, without another charge.');
+    expect(page).not.toContain("can bill again");
+  });
+
+  it("one that starts billing (a Checkout opened before the plan ended) is recorded as Free, and the owner hears once per payment", async () => {
     const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify" });
     const a = await signedIn(t.env);
     const s = fakeStripe();
@@ -294,7 +309,14 @@ describe("a retired plan's subscription (Individual until 2026-10-22): GenClass'
     s.subs.set("sub_ada0000001", sub);
     s.invoices.set("in_ada0000001", invoice("in_ada0000001", "cus_ada0000001", "sub_ada0000001", [["price_indiv00001", 2900]]));
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(await (await deliver(t.env, stripeEvent("customer.subscription.created", sub), s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    // one start sends created, a status change and invoice.paid: the owner hears once, for the payment
+    for (const ev of [
+      stripeEvent("customer.subscription.created", sub),
+      stripeEvent("customer.subscription.updated", sub, undefined, { data: { object: sub, previous_attributes: { status: "incomplete" } } }),
+      stripeEvent("invoice.paid", s.invoices.get("in_ada0000001")!),
+    ]) {
+      expect(await (await deliver(t.env, ev, s.fetch)).json(), ev.type).toEqual({ received: true, result: "applied" });
+    }
     log.mockRestore();
     expect(t.sql.rows("SELECT plan, subscription_id, subscription_status FROM accounts")).toEqual([{ plan: "free", subscription_id: "sub_ada0000001", subscription_status: "active" }]);
     // no custom_requests row: the classifier is free and asked for by email, not bought
@@ -303,7 +325,7 @@ describe("a retired plan's subscription (Individual until 2026-10-22): GenClass'
     const notice = JSON.parse(s.other[0]!.body);
     expect(notice).toMatchObject({ event: "retired_plan_billing", account_id: a.account.id, subscription_id: "sub_ada0000001", lookup_key: "genclass_individual_monthly", mode: "live" });
     expect(notice.text).toBe(
-      `GenClass account ${a.account.id}: subscription sub_ada0000001 (genclass_individual_monthly) is for a plan GenClass no longer sells and still bills; the account reads as Free. Cancel and refund it in Stripe.`,
+      `GenClass account ${a.account.id}: a payment of subscription sub_ada0000001 (genclass_individual_monthly) cleared, for a plan GenClass no longer sells; the account reads as Free. Cancel and refund it in Stripe.`,
     );
     expect(((await (await call(t.env, "GET", "/api/billing", { cookie: a.cookie })).json()) as any)).toMatchObject({ plan: "free", subscription_status: "active", on_sale: false, access: null });
   });
