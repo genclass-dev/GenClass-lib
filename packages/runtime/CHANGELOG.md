@@ -28,6 +28,10 @@
   `billing/plans.json` includes it, with analytics, export and forwarding; there is no trial): `init`'s dashboard
   notice and help, the top-level help and the README say so next to the private dashboard link. A link made by
   0.3.0-beta.0's `init` opens the dashboard. No runtime code and no model-visible text changed.
+- **Docs: your own classifier is free; the Individual plan is gone.** genclass.dev has two plans, Free and Enterprise
+  (`billing/plans.json`): Free now includes the classifier GenClass trains on your app's traffic, bug reports or
+  labelled examples and ships as a private model your runtime loads, and nothing is sold on the site. The README's
+  dashboard section and TELEMETRY.md's retention note say so. No runtime code and no model-visible text changed.
 - **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime dashboard` prints the link
   to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
   else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in

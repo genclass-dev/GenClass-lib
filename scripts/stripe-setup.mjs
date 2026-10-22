@@ -8,11 +8,11 @@
 // bill through a Stripe account shared with another business, and this script keeps the rules it had then: it creates,
 // finds and edits only GenClass's own objects, and never lists, changes, archives or deletes anything else
 // (telemetry-worker/README.md, "Stripe object ownership"):
-// 1. a product for each plan billing/plans.json prices above 0 (today GenClass Individual, id genclass_individual),
-//    with metadata genclass_plan, the statement descriptor GENCLASS and the product tax code from billing/plans.json
-//    (stripe_tax_code; Individual's is custom software, which Stripe Managed Payments does not sell, since a person
-//    trains the model). Free costs nothing and Enterprise is agreed by email, so neither has a product. A product
-//    from an earlier run (genclass_pro or genclass_custom, from the plans before 2026-10-19) is left as it is. A
+// 1. a product for each plan billing/plans.json prices above 0 (none today: Free costs nothing and Enterprise is
+//    agreed by email, so neither has a product; GENCLASS_PLANS_FILE names another plans file, for the tests), with
+//    metadata genclass_plan, the statement descriptor GENCLASS and the product tax code from the plans file
+//    (stripe_tax_code). A product from an earlier run (genclass_pro or genclass_custom, from the plans before
+//    2026-10-19, and genclass_individual, sold until 2026-10-22) is left as it is. A
 //    product from an earlier run with an id Stripe chose is found by a search on metadata genclass_plan
 //    (which returns only such products). A product with GenClass's id but without that metadata is not GenClass's:
 //    the script stops and changes nothing;
@@ -66,7 +66,9 @@ const LOOKUP_PREFIX = "genclass_";
 const stripeTs = readFileSync(join(WORKER, "src/stripe.ts"), "utf8");
 export const API_VERSION = /export const STRIPE_VERSION = "([^"]+)"/.exec(stripeTs)?.[1];
 export const EVENTS = [...(/export const WEBHOOK_EVENTS = \[([^\]]+)\]/.exec(stripeTs)?.[1] ?? "").matchAll(/"([a-z_.]+)"/g)].map((m) => m[1]);
-const PLANS = JSON.parse(readFileSync(join(ROOT, "billing/plans.json"), "utf8"));
+const PLANS = JSON.parse(readFileSync(process.env.GENCLASS_PLANS_FILE ? resolve(process.env.GENCLASS_PLANS_FILE) : join(ROOT, "billing/plans.json"), "utf8"));
+/** The names of the plans sold on the site (a monthly price above 0), for the printed steps. */
+const SOLD = PLANS.plans.filter((p) => p.price_usd_cents.monthly > 0).map((p) => p.name);
 
 export class SetupError extends Error {}
 function fail(msg) {
@@ -378,10 +380,15 @@ Done in test mode. Next (from telemetry-worker/; the full list is in telemetry-w
      npx --yes wrangler@4 secret put STRIPE_TEST_ACCOUNTS
 4. The test key (paste it when asked). Nothing changes for anyone else: no limits, no buttons.
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
-5. Test: on ${SITE}/account/billing choose Upgrade to Individual and pay with card 4242 4242 4242 4242, any future
+5. Test: ${
+          SOLD.length
+            ? `on ${SITE}/account/billing choose Upgrade to ${SOLD[0]} and pay with card 4242 4242 4242 4242, any future
    date and any CVC. Check in Developers, Logs that Stripe accepted the Checkout Session with billing_mode flexible.
-   The page shows Individual within a minute, and a custom_requests row and test-mode notices appear. Then Manage
-   billing, and cancel.
+   The page shows ${SOLD[0]} within a minute, and a custom_requests row and test-mode notices appear. Then Manage
+   billing, and cancel.`
+            : `no plan is sold on the site (billing/plans.json prices none above 0), so ${SITE}/account/billing shows no
+   Upgrade button and there is nothing to buy.`
+        }
 6. Then live: the reset in the README, this script with STRIPE_SECRET_KEY=sk_live_..., and step 4 with the live key.
 ${dashboard}`
       : `
@@ -391,7 +398,7 @@ Done in live mode. Next (from telemetry-worker/; the full list is in telemetry-w
      npx --yes wrangler@4 d1 execute genclass-dashboard --remote --command "UPDATE accounts SET plan = 'free', stripe_customer_id = NULL, subscription_id = NULL, subscription_status = NULL, past_due_since = NULL, current_period_end = NULL, cancel_at_period_end = 0, stripe_mode = NULL WHERE stripe_mode = 'test'; DELETE FROM custom_requests WHERE mode = 'test';"
    With no test pass before, this must print n = 0 instead: ${clean}
 2. If not done yet: the dashboard steps below (a to d), live this time.
-3. Put Individual on sale (paste the live key when asked).
+3. ${SOLD.length ? `Put ${SOLD.join(" and ")} on sale` : "The live key; nothing goes on sale while billing/plans.json prices no plan above 0"} (paste the live key when asked).
      npx --yes wrangler@4 secret put STRIPE_SECRET_KEY
 4. Check ${SITE}/account/billing while signed in.
 ${dashboard}`,
