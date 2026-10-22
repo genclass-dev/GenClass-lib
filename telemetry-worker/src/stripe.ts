@@ -5,8 +5,8 @@
 //
 // Invariants:
 // - A plan marked managed_payments in billing/plans.json is sold through Stripe Managed Payments (Stripe, through Link,
-//   is the merchant of record) when the Worker var MANAGED_PAYMENTS is "on"; no plan is today (Individual is a
-//   person's work, so it is not an eligible fully automated digital product). Managed Payments subscriptions exist
+//   is the merchant of record) when the Worker var MANAGED_PAYMENTS is "on"; no plan is today (no plan is sold on
+//   the site, and Individual, sold until 2026-10-22, was a person's work, not a fully automated digital product). Managed Payments subscriptions exist
 //   only through Checkout, cannot hold a non-eligible product and cannot be turned on for an existing subscription, so
 //   a switch between two paid plans is always a new Checkout for the other plan (README "Paid plans", "Stripe
 //   documentation notes"). Every subscription GenClass starts uses flexible billing mode.
@@ -58,7 +58,7 @@
 //   status decides whether it applies (active or trialing: yes; past_due: for 14 days from when GenClass first saw it
 //   past due, whatever the account's retry settings; anything else: free). An event about another subscription than
 //   the account's current one never overwrites a live plan unless oneSubscription chose it.
-// - A purchase of a plan with a custom model (Individual: a person trains it) is recorded (custom_requests,
+// - A purchase of a paid plan with a custom model (a person trains it; Individual until 2026-10-22) is recorded (custom_requests,
 //   NOTIFY_WEBHOOK) only once Stripe reports that plan's price paid: the subscription's latest invoice (fetched with it)
 //   is paid and has a positive line on that price (a first invoice, which a switch from another plan is too), seen on
 //   invoice.paid or on the subscription's own events.
@@ -682,7 +682,7 @@ const linePrice = (line: Obj): string | null => {
   return typeof v === "string" ? v : null;
 };
 
-/** A plan whose purchase a person from GenClass follows up (entitlement custom_model: Individual). */
+/** A plan whose purchase a person from GenClass follows up (entitlement custom_model; Individual until 2026-10-22). */
 export const hasCustomModel = (plan: Plan | null): boolean => !!plan && entitled(plan, "custom_model");
 
 /**
@@ -1033,7 +1033,7 @@ export async function notifyOwner(x: Pick<EventContext, "env" | "fetch" | "now">
 }
 
 /**
- * A paid purchase of a plan with a custom model (Individual): a custom_requests row (once per subscription) and, with
+ * A paid purchase of a plan with a custom model (Individual until 2026-10-22): a custom_requests row (once per subscription) and, with
  * NOTIFY_WEBHOOK, a short notice naming the plan. The
  * notice carries ids only; the buyer's email is in the row.
  */

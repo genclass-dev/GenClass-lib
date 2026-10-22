@@ -1,7 +1,8 @@
 // Routes for the paid plans. Checked before the account routes (src/auth.ts); null for any other path.
 //
-//   POST /api/billing/checkout {plan: "individual"}    browser session + Origin; {url} of Stripe Checkout (with
-//                                                       switch: true when it replaces the plan already paid)
+//   POST /api/billing/checkout {plan: "<id>"}          browser session + Origin; {url} of Stripe Checkout (with
+//                                                       switch: true when it replaces the plan already paid); no
+//                                                       plan is sold on the site today, so a 400
 //   POST /api/billing/trial                            410: GenClass has no trial any more (the dashboard is free)
 //   POST /api/billing/portal                           browser session + Origin; {url} of the Billing Portal
 //   POST /api/billing/webhook                          Stripe only: signature, no session (src/stripe.ts)
@@ -92,7 +93,7 @@ async function overBudget(lim: RateLimiterLike | undefined, bucket: string, acco
 }
 const tooMany = (): Response => fail(429, "too many requests from this account; try again in a minute", { "retry-after": "60" });
 
-/** The plan a link names (?plan=individual, from the pricing page), if it is a paid plan. */
+/** The plan a link names (?plan=<id>, from the pricing page), if it is a paid plan. */
 const pickedPlan = (v: string | null): Plan | null => PAID_PLANS.find((p) => p.id === v) ?? null;
 
 /** A browser-only write: a cookie session with our Origin. */
@@ -150,7 +151,7 @@ export async function routeBilling(request: Request, url: URL, path: string, env
         subscription_status: b.subscription_status,
         current_period_end: b.current_period_end,
         cancel_at_period_end: !!b.cancel_at_period_end,
-        on_sale: canBuy(env, a.account),
+        on_sale: PAID_PLANS.length > 0 && canBuy(env, a.account),
         // why the account has its plan now: "paid", "comp" (GenClass's own grant), or null on Free
         access: access.source,
       });
@@ -223,7 +224,10 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
   if (body instanceof Response) return body;
   if (!canBuy(c.env, a.account)) return fail(503, "paid plans are not on sale yet");
   const plan = PAID_PLANS.find((p) => p.id === body.plan);
-  if (!plan) return fail(400, `choose a plan: ${PAID_PLANS.map((p) => p.id).join(" or ")}`);
+  if (!plan) {
+    if (!PAID_PLANS.length) return fail(400, `no plan is sold on genclass.dev: Free has everything, and Enterprise is agreed by email with ${PLANS_FILE.contact}`);
+    return fail(400, `choose a plan: ${PAID_PLANS.map((p) => p.id).join(" or ")}`);
+  }
   if (await overBudget(c.env.AUTH_LIMIT, "checkout", a.account.id)) return tooMany();
   // as stored: ensureCustomer decides what to do with a customer from the other Stripe mode
   const account = { id: a.account.id, email: a.account.email, ...(await accountBilling(c.db, a.account.id)) };

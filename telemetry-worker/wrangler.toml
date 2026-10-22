@@ -36,7 +36,7 @@ routes = [
 RUNTIME_ON_NPM = "0.3.0-beta.0"
 # "on" sells the plans marked managed_payments in billing/plans.json through Stripe Managed Payments (Stripe, through
 # Link, is the merchant of record, for 3.5% of each payment on top of Stripe's fees). No plan is marked today
-# (Individual is a person's work, which Managed Payments does not sell), so it stays "off"; README "Paid plans".
+# (no plan is sold on the site today), so it stays "off"; README "Paid plans".
 MANAGED_PAYMENTS = "off"
 
 # Paid plans (README "Paid plans"), Worker secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,

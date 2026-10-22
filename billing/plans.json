@@ -1,24 +1,25 @@
 {
-  "_about": "The one place GenClass plans are defined. telemetry-worker/src/plans.ts imports this file (limits, entitlements, Stripe lookup keys, the billing page) and genclass.dev's site reads it (the pricing page). scripts/stripe-setup.mjs creates the Stripe products and prices from it, for the plans with a price above 0. Prices are US cents. A null yearly price means no yearly option yet; a null monthly price means the plan is not sold on the site: it is agreed by email with the contact address, and an account gets it from GenClass's own grant (grant_plan, accounts.comp_until, set by hand to the end of the agreement). limits.apps null means no plan limit (the worker still caps an account at 200 apps against abuse). Every plan includes the dashboard, analytics, export and forwarding: Free keeps 90 days of history; Individual adds a classifier a person from GenClass trains for the buyer. There is no trial. Feature lines with available false are shown as coming next. stripe_tax_code is the Stripe product tax code scripts/stripe-setup.mjs sets on the plan's product; managed_payments true would sell the plan through Stripe Managed Payments (only for fully automated digital products, so Individual, which a person trains, is false; telemetry-worker/README.md, Paid plans).",
+  "_about": "The one place GenClass plans are defined. telemetry-worker/src/plans.ts imports this file (limits, entitlements, Stripe lookup keys, the billing page) and genclass.dev's site reads it (the pricing page). Two plans: Free and Enterprise. Free has the runtime, its on-device model, the dashboard, analytics, export and forwarding with 90 days of history, and your own classifier, which a person from GenClass trains when you email the contact address. Enterprise is agreed by email: a null monthly price means the plan is not sold on the site, and an account gets it from GenClass's own grant (grant_plan, accounts.comp_until, set by hand to the end of the agreement). No plan is sold on Stripe Checkout today (the Individual plan, US$29 a month, ended on 2026-10-22); the worker's Stripe code and scripts/stripe-setup.mjs still sell any plan given a monthly price above 0, its stripe_lookup_keys and a stripe_tax_code. Prices are US cents; a null yearly price means no yearly option. limits.apps null means no plan limit (the worker still caps an account at 200 apps against abuse). There is no trial. Feature lines with available false are shown as coming next. managed_payments true would sell a plan through Stripe Managed Payments (only for fully automated digital products; telemetry-worker/README.md, Paid plans).",
   "version": 2,
   "currency": "usd",
   "contact": "mehar@daybot.ca",
   "grant_plan": "enterprise",
-  "footer": "Questions about Enterprise, self-hosting or invoices? Email mehar@daybot.ca.",
+  "footer": "Questions about your classifier, Enterprise, self-hosting or invoices? Email mehar@daybot.ca.",
   "plans": [
     {
       "id": "free",
       "name": "Free",
-      "summary": "The open-source runtime, its on-device model and the dashboard, for every app.",
+      "summary": "The open-source runtime, its on-device model, the dashboard and your own classifier, for every app.",
       "price_usd_cents": { "monthly": 0, "yearly": null },
       "stripe_lookup_keys": { "monthly": null, "yearly": null },
       "stripe_tax_code": null,
       "managed_payments": false,
       "limits": { "apps": null, "history_days": 90 },
-      "entitlements": { "dashboard": true, "forwarding": true, "export": true, "analytics": true, "custom_model": false },
+      "entitlements": { "dashboard": true, "forwarding": true, "export": true, "analytics": true, "custom_model": true },
       "features": [
         { "text": "The open-source runtime (Apache-2.0) with every mode: observe, guard and heal", "available": true },
         { "text": "The on-device model", "available": true },
+        { "text": "Your own classifier: we train a GenClass model on your app's traffic, bug reports or labelled examples and ship it as a private model your runtime loads", "available": true },
         { "text": "The dashboard for every app: what GenClass found, on which pages, and what it did", "available": true },
         { "text": "Unlimited apps", "available": true },
         { "text": "90 days of dashboard history", "available": true },
@@ -26,25 +27,8 @@
         { "text": "Forward detections to Sentry, PostHog, Datadog, Slack or a signed webhook", "available": true },
         { "text": "Interaction analytics: clicks, scrolls and time on page (coming next)", "available": false },
         { "text": "The genclass.dev page check", "available": true },
-        { "text": "Private mode: run the open-source collector on your own Cloudflare account, so your data never passes through us", "available": true }
-      ]
-    },
-    {
-      "id": "individual",
-      "name": "Individual",
-      "summary": "Everything in Free, plus your own classifier, trained by GenClass.",
-      "price_usd_cents": { "monthly": 2900, "yearly": null },
-      "stripe_lookup_keys": { "monthly": "genclass_individual_monthly", "yearly": null },
-      "stripe_tax_code": "txcd_10203001",
-      "managed_payments": false,
-      "limits": { "apps": null, "history_days": 365 },
-      "entitlements": { "dashboard": true, "forwarding": true, "export": true, "analytics": true, "custom_model": true },
-      "features": [
-        { "text": "Everything in Free", "available": true },
-        { "text": "Your own classifier: we train a GenClass model on your app's traffic, bug reports or labelled examples and ship it as a private model your runtime loads", "available": true },
-        { "text": "A person from GenClass emails you within 1 business day of purchase to start", "available": true },
-        { "text": "1 year of dashboard history", "available": true },
-        { "text": "Email support from mehar@daybot.ca", "available": true }
+        { "text": "Private mode: run the open-source collector on your own Cloudflare account, so your data never passes through us", "available": true },
+        { "text": "Email mehar@daybot.ca to start your classifier", "available": true }
       ]
     },
     {
@@ -58,9 +42,10 @@
       "limits": { "apps": null, "history_days": 365 },
       "entitlements": { "dashboard": true, "forwarding": true, "export": true, "analytics": true, "custom_model": true },
       "features": [
-        { "text": "Everything in Individual", "available": true },
+        { "text": "Everything in Free", "available": true },
         { "text": "GenClass's models run in our cloud for your apps, for pages and devices that cannot run them on-device", "available": true },
         { "text": "A classifier for each of your products", "available": true },
+        { "text": "1 year of dashboard history", "available": true },
         { "text": "Self-hosting, invoices and a contract, by agreement", "available": true },
         { "text": "Priority support", "available": true }
       ]

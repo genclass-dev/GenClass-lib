@@ -110,18 +110,20 @@ yet); an account id alone is not enough, because it can be known to others.
 
 ## Paid plans, payments and Stripe
 
-The Individual plan is paid through Stripe, which processes payments for us. When you upgrade, we send Stripe
+No plan is sold on genclass.dev today: Free includes everything, your own classifier too, and Enterprise is agreed by
+email. A paid plan (the Individual plan was one until 22 October 2026) is paid through Stripe, which processes payments
+for us. When you upgrade, we send Stripe
 your account's email (if it has one) and your GenClass account id, and you type your card or other payment details
 into Stripe's own checkout page: they go to Stripe and never reach GenClass. Stripe handles them under its own privacy
 policy (stripe.com/privacy) and keeps your invoices and receipts, which you can see under Manage billing on your
 billing page.
 
 GenClass stores only your Stripe customer id, your subscription id, the subscription's status and renewal or end date,
-and your plan. Never card numbers, bank details or billing addresses. When someone buys the Individual plan we also keep a
-record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to them
+and your plan. Never card numbers, bank details or billing addresses. For a purchase of the Individual plan we also keep a
+record of the purchase (account id, email, subscription id, time) so that a person from GenClass can write to the buyer
 to start the work.
 
-**Forwarding** is off unless an account on a paid plan turns it on for one of its apps. Then, for each new detection
+**Forwarding** is off unless an account turns it on for one of its apps. Then, for each new detection
 from that app, GenClass sends a short record to the services that account chose (Sentry, PostHog, Datadog, Slack or
 its own webhook URL): the kind of problem, the model's confidence, what triggered the check, the page path, the
 runtime and model versions, the time and a link to the app's dashboard. Never text from the page. Those services
