@@ -1,7 +1,13 @@
-# Design note: TanStack Query / SWR adapters (not built)
+# GenClass design note: TanStack Query and SWR adapters (not built)
 
-Status: proposal, 2026-10-10 (COMPAT workstream). Nothing here is implemented. Evidence: `compat/RESULTS.md`
-(run of 2026-10-10).
+This note asks whether `@genclass/runtime` should ship adapters that expose the TanStack Query and SWR caches as
+stores, and recommends not building them yet: in the compatibility matrix of 2026-10-10 those libraries' keyed caches
+already prevented the stale typeahead without GenClass, and the double submits that still happen are visible without
+an adapter. If one is built, the SWR cache provider comes first.
+
+Status: proposal, 2026-10-10 (COMPAT workstream). Nothing here is implemented in any version (0.2.2, 0.3.0-beta.0 or
+`main`). Evidence: [`compat/RESULTS.md`](../../compat/RESULTS.md) (run of 2026-10-10; summary in
+[RESULTS.md section 16](RESULTS.md#compatibility)).
 
 ## Question
 
@@ -51,8 +57,12 @@ like the Redux and Zustand adapters. Apollo's `InMemoryCache` could follow varia
 ## Open problems (why it is not built now)
 
 - **Query keys in the situation text.** A field path built from a query key carries what the user typed
-  (`search.san francisco`), and situation text is sent with telemetry. Keys would have to be normalised to a shape
-  (`search.:q`) or hashed. Choosing that is a privacy and telemetry decision for the owner (AGENTS.md rule 9).
+  (`search.san francisco`), and situation text reaches telemetry when an app turns that on
+  (`telemetry: { include: { situation: true } }`, off by default since 0.2.1). A webhook sink (0.3.0) carries the
+  same field paths without that opt-in: in the subject and timeline of the redacted evidence it sends by default
+  (`evidence: false` leaves those out) and in the changed paths of an intervention record (sent either way); the
+  telemetry opt-outs and Global Privacy Control do not stop sinks (`packages/runtime/TELEMETRY.md`, webhook sink;
+  `packages/runtime/src/sinks/webhook.ts`). Keys would have to be normalised to a shape (`search.:q`) or hashed. Choosing that is a privacy and telemetry decision for the owner (AGENTS.md rule 8).
 - **Distribution shift.** No SIM or REAL row has key-shaped cache paths; the model has not seen this kind of store.
   Before enabling it by default, generate REAL rows from the TanStack and SWR apps already in `realapps/` (not from
   `compat/`, which stays evaluation-only) and check false interventions on them.

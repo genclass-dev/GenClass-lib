@@ -1,7 +1,7 @@
 {
   "name": "@genclass/playwright",
   "version": "0.1.0",
-  "description": "A Playwright reporter for GenClass race files: reads what the GenClass fixture flagged in each test (duplicate submits, stale responses, failing endpoints, with the evidence line and the model's confidence) and writes one markdown report your CI can post on the pull request. No runtime dependencies.",
+  "description": "Playwright reporter for GenClass race files (written by the GenClass Playwright fixture, not yet released): one pull-request report listing the duplicate submits, stale responses and failing endpoints GenClass flagged in each e2e test. No runtime dependencies.",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
@@ -9,7 +9,7 @@
     "url": "git+https://github.com/genclass-dev/GenClass-lib.git",
     "directory": "packages/playwright"
   },
-  "homepage": "https://genclass.dev",
+  "homepage": "https://github.com/genclass-dev/GenClass-lib/tree/main/packages/playwright#readme",
   "bugs": { "url": "https://github.com/genclass-dev/GenClass-lib/issues" },
   "keywords": [
     "playwright",
@@ -19,7 +19,12 @@
     "stale-response",
     "duplicate-request",
     "genclass",
-    "e2e"
+    "e2e",
+    "reporter",
+    "test-reporter",
+    "github-actions",
+    "pull-request",
+    "ci"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

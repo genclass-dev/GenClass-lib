@@ -1,7 +1,7 @@
 {
   "name": "@genclass/runtime-model",
   "version": "0.2.0",
-  "description": "The GenClass runtime model (8.8M parameters, ONNX) for @genclass/runtime.",
+  "description": "The on-device model of @genclass/runtime: an 8.8M-parameter ONNX encoder (10.2 MB q8 for WASM, 13.6 MB fp16 for WebGPU with shader-f16) that diagnoses stale responses, duplicate requests and race conditions in the browser.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -15,11 +15,17 @@
   "keywords": [
     "genclass",
     "onnx",
-    "model",
+    "onnxruntime-web",
     "webgpu",
     "wasm",
-    "onnxruntime-web",
-    "runtime"
+    "web-worker",
+    "on-device-ai",
+    "browser-ai",
+    "encoder",
+    "race-condition",
+    "stale-response",
+    "duplicate-request",
+    "model-card"
   ],
   "files": [
     "files/",
