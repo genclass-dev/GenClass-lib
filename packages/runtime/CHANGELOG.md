@@ -2,6 +2,27 @@
 
 ## 0.3.0-beta.1 (unreleased)
 
+- **Security: a link can no longer raise the mode through `debug: true` or a host that only looks local.** In
+  0.3.0-beta.0 and earlier, `debug: true` let a crafted link raise any site: `?genclass=guard|heal` and
+  `localStorage.genclass` raised the mode, `?genclass-mode=` raised it too (in `GenClass.init()` and
+  `createRuntime()`), `?genclass-aggr=` raised the aggressiveness and `?genclass-sample=1` put a sampled-out session
+  into the acting group (a raised mode or acting session also lets visual runtime fixes run where `visual.fix` is
+  set). With debug on, a lowering link could even be undone (`?genclass=observe&genclass-mode=heal`). Separately, `?genclass=` treated every
+  host telemetry counts as local as a development host, so without debug a link raised production apps on intranet
+  bare names, private addresses, `*.internal`, `*.local`, Capacitor (`https://localhost`), Tauri (`tauri.localhost`)
+  and Electron (`file:`). Exposed: sites that left `debug` on in production (from `GenClass.init`,
+  `window.GENCLASS_CONFIG`, `<meta name="genclass" content="debug">` or `data-debug`), and apps on those hosts. Now
+  `debug` is console logging only, as documented. `?genclass-mode`, `?genclass-aggr` and `?genclass-sample` only
+  lower, on every host (`?genclass-sample=1` does nothing). `?genclass=` and `localStorage.genclass` may raise the
+  mode only on a development host (new `src/devhost.ts`, the visual checks' narrow test moved out of
+  `src/visual/start.ts`: http(s) on `localhost`, `127.0.0.1`, `[::1]` or `*.localhost` with an explicit port, or
+  `*.test`). Lowering (`?genclass=off|observe|guard`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample=0`,
+  `localStorage.genclass`) works on every host as before; telemetry and its opt-outs are unchanged. The debug-based
+  QA recipe (`?genclass-sample=1` with `debug: true`, or `?genclass=heal` with `debug: true`) is gone: set `mode` /
+  `sample` per environment, call `rt.setMode()`, or use the devtools overlay. Remaining residual: a production app
+  served from a loopback name with an explicit port (an Electron app with an embedded server) counts as a development
+  host (THREAT-MODEL T8). No model-visible text changed. Docs: CONTRACT §2 and §13, THREAT-MODEL T8, OPTIONS-SPEC §3
+  and §4.2, API.md, README, INTERCEPTION.md (test/mode-switch.test.ts).
 - **The devtools overlay is in genclass.dev's black design.** `@genclass/runtime/devtools` (and `devtools: true`) now
   uses the site's black ground and raised panels, bone text, the mark's green for what GenClass changed and
   red-orange for the bugs it catches, amber for warnings, square corners and 1px rules without shadows, and the
@@ -49,6 +70,40 @@
   typescript, next and vitest. The npm and jsDelivr package pages are not affected; they show each version's full
   README. `.github/workflows/release.yml` now says so. No package contents, runtime code or model-visible text
   changed.
+- **Docs: what GenClass costs a page, `init --telemetry`, and a Next.js switch that ships nothing when off** (from a
+  check of 0.3.0-beta.0 in the pilot app, 2026-10-17). README "Costs" said the main thread showed "no measurable
+  change": that was `0.1.0-beta.3` against the same build with `?genclass=off`, which still loads GenClass's code.
+  Costs now puts it next to `0.3.0-beta.0` in the same app against a build without GenClass, on `localhost` with
+  options that are not the defaults (first long task about 55 ms longer, load event 73 to 156 ms later at 4× CPU
+  throttling, +111.4 KB per page, +117 to 175 MB per process by `top`), each with its own control; the "Why it's an
+  easy yes" bullet and the Performance section's first-load limits (now 108.6 / 100.48 KB) are corrected, and
+  docs/runtime/RESULTS.md §16 has the method (cost only: no recall or FIR applies). The README no longer calls
+  `init --telemetry` "explicitly on": as since 0.2.2, it undoes `--no-telemetry` and writes no telemetry option, so
+  local hosts stay off. Install has a new "Only in some builds (Next.js)" part: an always-defined `NEXT_PUBLIC_*`
+  value in `next.config.ts` and a synchronous `require` of your own module in `instrumentation-client.ts`, so a build
+  without GenClass ships none of its code (the weaker `import()` variant installs after hydration); the Next.js
+  starter's README links to it. No runtime code, CLI behaviour or model-visible text changed (test/readme.test.ts,
+  test/install/cli.test.ts).
+- **Docs: when the first visual pass runs, what a stall needs, and a double-tap candidate** (from the same check of
+  0.3.0-beta.0 in the pilot app, 2026-10-17). The visual checks' first pass waits for web fonts (at most 3 s), then
+  for 500 ms with nothing in flight and no DOM change, under one 10 s cap: about 2 s after `load` on a quiet page,
+  about 11.5 s (14.5 s with slow fonts) on a page that is never quiet, such as a `requestAnimationFrame` loop writing
+  inline styles; while such an animation runs, incremental and route-change re-checks do not run. `data-genclass-ignore`
+  around a decorative animation keeps it out of both waits (and hides taps and inputs inside it from user-action
+  recording and analytics). The README said only "loaded 1.5 s after load", API.md gave the fonts wait a 10 s cap,
+  and VISUAL.md 8 said a slow read doubles the settle wait (it doubles later persistence waits). VISUAL.md 2.3 and 8
+  now also give the as-built deadline when `load` is late: the chunk is imported at the latest 6.5 s after init, the
+  1.5 s included (the design's 5 s `load` cap plus 1.5 s gives the same). README and API.md now say what triggers a
+  decision about a slow request: `stall`, against latency baselines learned per page load (5 successful completions
+  of the signature, then max(4× median, 2× p95, 0.5 s)), else after 10 s in flight; a `delivery` decision is about
+  overwriting newer, pending or typed state, so a slow first response with no conflict gets none, by design.
+  VISUAL.md section 4 lists `tap-target-swapped` (a second tap landing on a control inserted under the pointer) as a
+  candidate that waits for a labelling policy and a clean-page double-tap driver. No runtime behaviour or
+  model-visible text changed (two comments in `src/visual/engine.ts`; test/visual-scheduler.test.ts checks that the
+  documented delays and caps are the ones `src/visual/start.ts` and `engine.ts` use, and pins the settle wait on a
+  quiet page, an animated one, one whose animation is inside `[data-genclass-ignore]`, one with a request in flight
+  or one that never ends, and one whose web fonts never load, where the quiet window and the 10 s cap start after the
+  3 s fonts wait).
 
 ## 0.3.0-beta.0 (unreleased)
 

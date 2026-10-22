@@ -129,7 +129,7 @@ interface InitOptions {
   redact?: (path: string, value: unknown) => unknown;   // default redacts keys matching /pass|token|secret|card|cvv|ssn|auth/i
   plugins?: Plugin[];
   historySize?: number;                      // events kept, default 500
-  debug?: boolean;                           // console logging of decisions
+  debug?: boolean;                           // console logging of decisions, nothing else (no URL raise)
 }
 
 interface Runtime {
@@ -175,8 +175,11 @@ interface Runtime {
 ```
 
 Kill switch: `?genclass=off` in the page URL or `localStorage.genclass = "off"` makes `init` install nothing
-(one console line says so); `?genclass=observe|guard|heal` overrides the mode. This is for "is my app broken or
-did GenClass change something?" debugging.
+(one console line says so); `?genclass=observe|guard|heal` (or that `localStorage.genclass` value) may only lower the
+mode, from the app's `mode` or `observe` when it sets none, and may raise it only on a development host (`src/devhost.ts`:
+http(s) on a loopback name with an explicit port, or `*.test`). `debug` never lets it raise (since 0.3.0-beta.1).
+`?genclass-mode`, `?genclass-aggr` and `?genclass-sample` only lower, on every host. This is for "is my app broken
+or did GenClass change something?" debugging.
 
 `StoreOptions<T>`: `{ resync?: () => Promise<unknown> | unknown; hold?: boolean (default true); describe?: (v: T) => string }`.
 `resync` is an app capability ("reload this store from its source"); it enables the `resync` action for that store.
@@ -537,7 +540,7 @@ genuinely different failures or decisions):
 - Devtools and adapters are owned by UI (`src/devtools/**`, `src/adapters/**`).
 - **Default mode is `observe`** (approved by the owner 2026-10-08, MVP): `GenClass.init()` and `createRuntime()` start
   in `observe` when no `mode` is given, so a fresh install reports findings and never holds, delays or changes
-  anything. `guard` is opt-in (`mode: "guard"`; `?genclass=guard` only with `debug: true` or on a development host since 0.2.2); `heal` is experimental. Situation text,
+  anything. `guard` is opt-in (`mode: "guard"`; `?genclass=guard` only on a development host: since 0.2.2 not on a production host, and since 0.3.0-beta.1 neither with `debug: true` nor on hosts that only look local); `heal` is experimental. Situation text,
   facts and questions are unchanged (they do not depend on the mode), so `situation-v1` training data stays valid.
 
 ## 14. Measured visual checks (added 2026-10-13; owner to confirm before merge)

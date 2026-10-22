@@ -40,10 +40,13 @@ isValidToken(v: unknown): v is string
 Kill switch, for "is my app broken or did GenClass change something?":
 
 - `?genclass=off` in the page URL, or `localStorage.genclass = "off"`: `init` installs nothing and logs one line.
-- `?genclass=observe|guard|heal`: overrides the mode, within limits (`src/index.ts` -> `initUnsafe`; a missing
-  `mode` counts as `guard` there): `observe` always; `guard` when no mode, `guard` or `heal` is configured (the
-  default `/auto` and script tag included, not `/auto/observe`); `heal` only when `heal` is configured, or with
-  `debug: true`.
+- `?genclass=observe|guard|heal` (or the same `localStorage.genclass` value): may only lower the mode, from the app's
+  `mode` or from `observe` when it sets none (`src/index.ts` -> `initUnsafe`), with or without `debug: true`. It may
+  raise the mode only on a development host (`src/devhost.ts`: http(s) on `localhost`, `127.0.0.1`, `[::1]` or
+  `*.localhost` with an explicit port, or `*.test`), never on hosts that only look local (Capacitor's
+  `https://localhost`, Tauri's `tauri.localhost`, Electron's `file:`, intranet names, private addresses, `*.internal`,
+  `*.local`). Since 0.3.0-beta.1; before, `debug: true` also let it raise, and every telemetry-local host counted as
+  a development host.
 
 Outside a browser (no `window`/`document`, e.g. SSR), `GenClass.init()` returns an inert runtime: no observers,
 no model. Use [`createRuntime`](#headless-use-tests-ssr-simulation) for headless work.
@@ -99,7 +102,7 @@ interface InitOptions {
   redact?: (path: string, value: unknown) => unknown;   // default: values whose leaf field names a secret (password, token, card number, cvv, ssn, iban, ...); never a whole store by its name
   plugins?: Plugin[];
   historySize?: number;                                 // events kept, default 500
-  debug?: boolean;                                      // console.debug every decision
+  debug?: boolean;                                      // console.debug every decision; logging only (never lets a URL raise anything)
   learn?: LearnOptions;                                 // learned state and flow expectations; see "Learned flows and expectations"
   aggressiveness?: "cautious" | "balanced" | "eager" | number; // how eagerly to act (default "balanced"; see Policy)
   vocabulary?: { diagnoses?: Record<string, string>; actions?: Record<string, string> };
@@ -181,9 +184,11 @@ mode/allow/deny/requireDiagnosis (at the effective mode) → thresholds → `pol
 (`limit:perMinute|perSubject|perSession`; defaults 60/min global, 10/min per subject, 200 per session) → `onBeforeAction` (`vetoed`, `would-veto`, or
 `limit:hold` past the budget) → execute. effectiveMode = min(mode, sample cap, breaker cap, route rule); URL overrides
 (`?genclass`, `?genclass-mode`, `?genclass-aggr`, `?genclass-sample`, `localStorage.genclass`) only demote, from the
-app's mode or from `observe` when it sets none; they may raise only with `debug: true` or on a development host
-(`localhost`, `*.local`, `*.test`, private networks). Before 0.2.2, `?genclass=guard` opted a visitor into guard when
-the app set no mode. `policy.holdBudgetMs` is a hard ceiling that includes defers, the
+app's mode or from `observe` when it sets none, with or without `debug: true`. `?genclass-mode`, `?genclass-aggr` and
+`?genclass-sample` are demote-only on every host (`?genclass-sample=0` makes the session observe; no value makes it
+act); only `?genclass=` and `localStorage.genclass` may raise, and only on a development host (see the kill switch
+above). Before 0.2.2, `?genclass=guard` opted a visitor into guard when the app set no mode; before 0.3.0-beta.1,
+`debug: true` let every URL override raise. `policy.holdBudgetMs` is a hard ceiling that includes defers, the
 wait for a response or request body, a held write's deferred re-decisions and the veto hook.
 
 Protected requests (`requests.protect`) are never held, never wait for their body to be read, and neither they nor
@@ -484,10 +489,20 @@ every observer and restores the globals it wrapped.
 | `mutation` | a salient state write not covered by a delivery decision (decided in the background unless `holdWrites`) | `apply`, `discard`, `defer` |
 | `request` | a fetch/XHR is about to be sent | `send`, `coalesce`, `delay`, `block`, `serve_cached` |
 | `failure` | a request failed (network, timeout, 5xx, 429, 408) before the app sees it | `deliver`, `retry`, `serve_cached` |
-| `stall` | a request is far past its usual latency, or has been in flight 10 s without a latency baseline yet | `wait`, `hedge`, `serve_cached` |
+| `stall` | a request has been in flight longer than max(4 × median, 2 × p95, 500 ms) of its signature's successful completions in this page load (a baseline needs 5), or 10 s while it has no baseline yet | `wait`, `hedge`, `serve_cached` |
 | `inconsistency` | a learned relation between fields broke | `ignore`, `rollback`, `resync` |
 | `transition` | an operation changed state unlike it usually does | `ignore`, `rollback`, `resync` |
 | `error` | an uncaught error or unhandled rejection | `ignore`, `rollback` |
+
+A slow request is asked about through `stall`, not `delivery`. A `delivery` decision is about a response overwriting
+newer, pending or typed state: a response with no such conflict is delivered without a decision however long it took
+(unless `triage: "always"` or a standing question with `always` asks), and so is the first response of a signature
+in a page load, which has no learned write set yet (its store writes still go through mutation triage). With an
+explicit `learn.persist`, a transition profile restored from an earlier page load gives that first response a write
+set, and it is triaged like any other. Latency baselines
+(`src/learn/baselines.ts`) are per signature and per page load, never stored: the last 64 successful completions, used
+once there are 5. Slow successes stay in the window, so below 20 samples the slowest one sets the p95 and the stall
+threshold is at least twice it.
 
 | action | tier | effect |
 |---|---|---|
@@ -553,7 +568,7 @@ meta.json, visible as `runtime.status.gate`). Two gate kinds exist:
   cost units; a runs when ĝ(a) is above its tier's margin (defaults 2 / 2; tauGain default 1). Probabilities are
   clamped to ≥ 1e-6; when the model gives no probability for the passive action, the mass it left over is used.
 Aggressiveness (`InitOptions.aggressiveness`: "cautious" | "balanced" | "eager" | 0–1, default "balanced";
-`runtime.setAggressiveness(x)`; URL `?genclass-aggr=…`) selects the gate: when meta.json has `gate.profiles: {
+`runtime.setAggressiveness(x)`; URL `?genclass-aggr=…`, which may only lower it) selects the gate: when meta.json has `gate.profiles: {
 cautious, balanced, eager }` (each a gate of either kind, report included), a named level uses its profile and a
 number interpolates thresholds/margins, report and tauGain linearly between the neighbouring profiles (the nearer
 profile's kind when they differ). Without profiles the single gate (or the defaults) is shifted: cautious +0.05 on
@@ -740,10 +755,18 @@ interface CheckFinding {
   the script tag, `window.GENCLASS_CONFIG = { visual: { ... } }`.
 - **When they run.** Nothing loads until 1.5 s after `load` (6.5 s at most), while `enabled` is false or pending, or
   while the tab is hidden or the page prerenders, and nothing is measured in a hidden tab. Every page read runs in an
-  idle callback, never in your event handlers. Then fonts, network quiet and DOM quiet (500 ms each, 10 s at most), one pass in
-  idle slices, persistence re-checks 1 to 2 s later, and incremental re-checks of the subtrees that changed (a full
-  pass at most every 30 s). Interaction checks run on clicks, hover, focus, anchor jumps, scrolling and a 2 s
-  computed-style read of `html` and `body`. A route whose mode is `"off"` gets no checks.
+  idle callback, never in your event handlers. Then `document.fonts.ready` (3 s at most), then 500 ms with nothing the
+  runtime tracks in flight (requests, socket connects, `rt.op()` and `protect()` calls) and no DOM change outside
+  `[data-genclass-ignore]` (one 10 s cap for both), one pass in idle slices, persistence re-checks 1 to 2 s later, and
+  incremental re-checks of the subtrees that changed, after 1 s without DOM changes (a full pass at most every 30 s).
+  Interaction checks run on clicks, hover, focus, anchor jumps, scrolling and a 2 s computed-style read of `html` and
+  `body`. A route whose mode is `"off"` gets no checks. The first pass runs about 2 s after `load` on a quiet page, and
+  about 11.5 s after it (14.5 s when web fonts take their full 3 s too) on a page whose DOM or network is never quiet
+  for 500 ms, such as a `requestAnimationFrame` loop writing inline styles or a long poll. While such an animation
+  runs, the incremental and route-change re-checks wait for a quiet second that does not come; the interaction
+  checks, the 2 s read and `page-blank` still run. `data-genclass-ignore` on a purely decorative animation keeps it out
+  of both waits; the checks then never measure it, and taps and inputs inside it are not recorded as user actions or
+  counted by interaction analytics.
 - **Reports.** The console line starts `[GenClass] Check (measured):` and ends with the suggested CSS (or what to
   change when CSS is not the fix). `report: "silent"` prints nothing, `"interventions"` prints only applied and undone
   fixes, a `report` function and `rt.on("report")` listeners receive every `Report` of kind `"check"` (`r.check` is
