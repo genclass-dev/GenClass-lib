@@ -1,14 +1,10 @@
-// The Terrible Vibe Coder on Cloudflare: the same API as server.mjs, but every visitor gets their own network switch,
-// orders and note (a Durable Object per visitor, keyed by a cookie), so one visitor's train never slows another's
-// Wi-Fi. public/ is served as static assets; GenClass is served from /genclass/ (packages/runtime/dist, copied there
-// by deploy.sh). Deploy: examples/terrible-vibe-coder/deploy.sh
+// Claude's Shop on Cloudflare: the same API as server.mjs, with each visitor's orders, note and network switch in their
+// own Durable Object (keyed by a cookie). "/" is the shop as it is; "/genclass-on" is the same page with GenClass
+// (served from /genclass/: packages/runtime/dist, copied there by deploy.sh). Deploy: examples/claudes-shop/deploy.sh
 
 import { DurableObject } from "cloudflare:workers";
+import { GENCLASS_ON, search } from "./catalog.mjs";
 
-const PRODUCTS = [
-  "VibePods", "VibePods Pro", "Vibe Watch", "Vibe Watch Ultra", "Vibe Lamp", "Vibe Mug", "Vibe Hoodie", "Vibe Socks",
-  "Vibe Keyboard", "Vibe Mouse", "Vibe Desk", "Vibe Chair", "Vibe Plant", "Vibe Candle", "Vibe Backpack", "Vibe Bottle",
-];
 
 /** 0..1 from a counter (FNV-1a), so a visitor's shuffle can be repeated. */
 function rnd(k) {
@@ -77,17 +73,17 @@ async function body(req) {
     return {};
   }
 }
-const visitorOf = (req) => /(?:^|;\s*)vibe=([a-z0-9]{16,40})/.exec(req.headers.get("cookie") ?? "")?.[1] ?? null;
+const visitorOf = (req) => /(?:^|;\s*)shop=([a-z0-9]{16,40})/.exec(req.headers.get("cookie") ?? "")?.[1] ?? null;
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     const p = url.pathname;
-    if (p === "/" || p === "/index.html") {
+    if (p === "/" || p === "/index.html" || p === "/genclass-on") {
       const page = await env.ASSETS.fetch(new URL("/", url)); // the assets binding answers "/" with index.html
-      const html = (await page.text()).replaceAll("%GENCLASS_BASE%", "/genclass/");
+      const html = (await page.text()).replace("<!--GENCLASS-->", p === "/genclass-on" ? GENCLASS_ON("/genclass/") : "");
       const headers = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" };
-      if (!visitorOf(req)) headers["set-cookie"] = `vibe=${crypto.randomUUID().replaceAll("-", "")}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`;
+      if (!visitorOf(req)) headers["set-cookie"] = `shop=${crypto.randomUUID().replaceAll("-", "")}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`;
       return new Response(html, { headers });
     }
     if (!p.startsWith("/api/")) return env.ASSETS.fetch(req);
@@ -95,10 +91,9 @@ export default {
     if (!id) return json({ error: "reload the page" }, 400);
     const v = env.VISITOR.get(env.VISITOR.idFromName(id));
     if (p === "/api/search") {
-      const q = (url.searchParams.get("q") ?? "").trim().toLowerCase().slice(0, 100);
-      const items = q ? PRODUCTS.filter((x) => x.toLowerCase().includes(q)) : [];
+      const r = search(url.searchParams.get("q"));
       await wait(await v.latency(100, 1500));
-      return json({ q, items });
+      return json(r);
     }
     if (p === "/api/orders" && req.method === "POST") {
       const b = await body(req);

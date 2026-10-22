@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude's Shop</title>
+<meta name="description" content="Small things for long thinking. A demo shop for GenClass; nothing is sold or charged.">
+<!--GENCLASS-->
+<script>
+  // theme: the visitor's choice, else the system's
+  (() => {
+    let t = null;
+    try { t = localStorage.getItem("theme"); } catch {}
+    const dark = t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  })();
+</script>
+<style>
+  :root {
+    --bg: #f7f4ef; --surface: #ffffff; --text: #1f1c19; --muted: #6d665e; --line: #e7e1d8;
+    --accent: #c4623a; --accent-ink: #ffffff; --chip: #efe9e0;
+  }
+  [data-theme="dark"] {
+    --bg: #161412; --surface: #1f1c19; --text: #efeae3; --muted: #a59d93; --line: #34302b;
+    --accent: #e07a50; --accent-ink: #1a0f0a; --chip: #2a2622;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+
+  header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; gap: 16px; height: 64px; }
+  .logo { font: 600 21px/1 "Iowan Old Style", "Palatino Linotype", Georgia, serif; letter-spacing: -0.01em; text-decoration: none; white-space: nowrap; }
+  .logo span { color: var(--accent); }
+  .search { flex: 1; max-width: 460px; position: relative; }
+  .search input { width: 100%; height: 40px; padding: 0 14px 0 38px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; }
+  .search svg { position: absolute; left: 13px; top: 12px; width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 2; }
+  .spacer { flex: 1; }
+  @media (max-width: 600px) {
+    .bar { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
+    .search { order: 3; flex: 1 1 100%; max-width: none; }
+    .spacer { display: none; }
+    .logo { margin-right: auto; }
+  }
+  .icon-btn { height: 40px; min-width: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  .icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .gc-btn { background: var(--text); color: var(--bg); border-color: transparent; font-weight: 600; text-decoration: none; }
+  .gc-btn.on { background: #1f7a4d; color: #fff; }
+
+  .hero { padding: 40px 0 8px; }
+  .hero h1 { margin: 0; font: 600 clamp(28px, 4vw, 40px)/1.15 "Iowan Old Style", "Palatino Linotype", Georgia, serif; letter-spacing: -0.02em; }
+  .hero p { margin: 8px 0 0; color: var(--muted); max-width: 52ch; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; padding: 24px 0 64px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .results-for { color: var(--muted); font-size: 14px; min-height: 21px; margin-bottom: 12px; }
+  .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+  /* product cards */
+  .product { background: #fff; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); display: flex; flex-direction: column; }
+  .art { aspect-ratio: 4 / 3; display: grid; place-items: center; }
+  .art svg { width: 44%; height: auto; stroke: #3b332c; stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .info { padding: 12px 14px 14px; display: grid; gap: 2px; }
+  .name { font-weight: 600; color: var(--text); }
+  .price { color: var(--text); font-size: 14px; }
+  .add { margin-top: 8px; justify-self: start; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid #e3ddd4; background: #fff; color: #1f1c19; font: inherit; font-size: 13px; cursor: pointer; }
+
+  .bag { position: sticky; top: 88px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 14px; }
+  .bag h2 { margin: 0; font-size: 17px; }
+  .line { display: flex; justify-content: space-between; gap: 12px; }
+  .line b { font-weight: 600; }
+  .bag label { font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+  .bag textarea { min-height: 70px; resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; }
+  .saved, .orders { font-size: 13px; color: var(--muted); min-height: 20px; }
+  .order { height: 44px; border-radius: 999px; border: 0; background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
+
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; padding: 20px 0 40px; }
+
+  .promo-back { position: fixed; inset: 0; background: rgba(20, 16, 12, 0.45); display: grid; place-items: center; z-index: 40; }
+  .promo { background: var(--surface); color: var(--text); border-radius: 16px; padding: 24px; width: min(360px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .promo h2 { margin: 0 0 6px; font: 600 22px/1.2 "Iowan Old Style", Georgia, serif; }
+  .promo p { margin: 0 0 16px; color: var(--muted); }
+  .promo button { height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="/">Claude<span>'</span>s Shop</a>
+    <div class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="search" type="search" placeholder="Search lamps, mugs, chairs…" autocomplete="off" aria-label="Search products">
+    </div>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="theme" aria-label="Switch light or dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></svg></button>
+    <a class="icon-btn gc-btn" id="gc-btn" href="/genclass-on">Turn on GenClass</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Small things for long thinking.</h1>
+    <p>Lamps, mugs and chairs for the desk where the good ideas happen. Free delivery this week.</p>
+  </section>
+
+  <div class="layout">
+    <section aria-label="Products">
+      <div class="results-for" id="results-for"></div>
+      <ul class="grid" id="results"></ul>
+    </section>
+
+    <aside class="bag" aria-label="Your bag">
+      <h2>Your bag</h2>
+      <div class="line"><span id="bag-item">Over-ear Headphones</span><b id="bag-price">$129</b></div>
+      <div class="line"><span>Delivery</span><span>Free</span></div>
+      <label>Delivery note
+        <textarea id="note" placeholder="Leave it with the neighbour…"></textarea>
+      </label>
+      <div class="saved" id="saved"></div>
+      <button class="order" id="buy">Place order</button>
+      <div class="orders" id="orders"></div>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">Claude's Shop is a demo for <a href="https://github.com/genclass-dev/GenClass-lib">GenClass</a>. Nothing is sold or charged.
+  <span id="gc-note"></span></div>
+</footer>
+
+<script type="module">
+  await import("/shop.js");
+  await import("/demo.js");
+</script>
+</body>
+</html>

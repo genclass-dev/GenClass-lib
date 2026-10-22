@@ -1,5 +1,5 @@
-# The Terrible Vibe Coder on Cloudflare (worker.js). Deploy with ./deploy.sh (it copies GenClass into public/genclass/).
-name = "terrible-vibe-coder"
+# Claude's Shop on Cloudflare (worker.js). Deploy with ./deploy.sh (it copies GenClass into public/genclass/).
+name = "claudes-shop"
 main = "worker.js"
 compatibility_date = "2026-09-01"
 account_id = "144bd5f5270b51dbe7faf46227a154f0"
@@ -12,7 +12,7 @@ enabled = false
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/", "/index.html", "/api/*"]
+run_worker_first = ["/", "/index.html", "/genclass-on", "/api/*"]
 
 [[durable_objects.bindings]]
 name = "VISITOR"

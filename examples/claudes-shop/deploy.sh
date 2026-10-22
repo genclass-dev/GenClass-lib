@@ -1,8 +1,8 @@
 #!/bin/bash
-# Deploys The Terrible Vibe Coder to Cloudflare (worker.js, wrangler.toml). GenClass is served from the same origin:
+# Deploys Claude's Shop to Cloudflare (worker.js, wrangler.toml). GenClass is served from the same origin:
 # pass the built runtime's dist/ (npm run build -w @genclass/runtime) and it is copied into public/genclass/.
 #
-#   examples/terrible-vibe-coder/deploy.sh [path/to/packages/runtime/dist]
+#   examples/claudes-shop/deploy.sh [path/to/packages/runtime/dist]
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 dist="${1:-$here/../../packages/runtime/dist}"
