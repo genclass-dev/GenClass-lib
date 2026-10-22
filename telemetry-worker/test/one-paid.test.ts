@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetTokenCache } from "../src/dashboard.js";
 import { resetOwnerCache } from "../src/paid.js";
+import { accessOf } from "../src/plans.js";
 import { resetStripeCache } from "../src/stripe.js";
 import {
   call,
@@ -38,6 +39,13 @@ const text = async (r: Promise<Response> | Response) => (await r).text();
 const visible = (html: string) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!doctype html>/gi, "");
 
 describe("Individual on Stripe Checkout, Enterprise by email", () => {
+  it("accessOf: a paid Individual, and GenClass's grant (Enterprise, listed after it) over it while the grant runs", () => {
+    const at = new Date("2026-10-19T12:00:00Z");
+    const row = (o: Record<string, unknown> = {}) => ({ plan: "free", stripe_mode: null, comp_until: null, ...o });
+    expect(accessOf(row({ plan: "individual" }), "live", at)).toMatchObject({ source: "paid", plan: { id: "individual" } });
+    expect(accessOf(row({ plan: "individual", comp_until: "2026-12-31T00:00:00.000Z" }), "live", at)).toMatchObject({ source: "comp", plan: { id: "enterprise" } });
+  });
+
   it("checkout sells Individual by its lookup key on standard Checkout; Enterprise and the old plans have no Checkout", async () => {
     const { env } = setup(LIVE);
     const { cookie, account } = await signedIn(env);

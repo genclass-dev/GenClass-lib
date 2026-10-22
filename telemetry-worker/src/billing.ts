@@ -225,7 +225,7 @@ async function checkout(c: C, f: Fetch): Promise<Response> {
   if (!canBuy(c.env, a.account)) return fail(503, "paid plans are not on sale yet");
   const plan = PAID_PLANS.find((p) => p.id === body.plan);
   if (!plan) {
-    if (!PAID_PLANS.length) return fail(400, `no plan is sold on genclass.dev: Free has everything, and Enterprise is agreed by email with ${PLANS_FILE.contact}`);
+    if (!PAID_PLANS.length) return fail(400, `no plan is sold on genclass.dev: Free costs nothing, and Enterprise is agreed by email with ${PLANS_FILE.contact}`);
     return fail(400, `choose a plan: ${PAID_PLANS.map((p) => p.id).join(" or ")}`);
   }
   if (await overBudget(c.env.AUTH_LIMIT, "checkout", a.account.id)) return tooMany();

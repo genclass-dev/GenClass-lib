@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-18._
+_Last updated: 2026-10-22._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -110,7 +110,7 @@ yet); an account id alone is not enough, because it can be known to others.
 
 ## Paid plans, payments and Stripe
 
-No plan is sold on genclass.dev today: Free includes everything, your own classifier too, and Enterprise is agreed by
+No plan is sold on genclass.dev today: Free costs nothing and includes your own classifier, and Enterprise is agreed by
 email. A paid plan (the Individual plan was one until 22 October 2026) is paid through Stripe, which processes payments
 for us. When you upgrade, we send Stripe
 your account's email (if it has one) and your GenClass account id, and you type your card or other payment details
@@ -129,12 +129,13 @@ its own webhook URL): the kind of problem, the model's confidence, what triggere
 runtime and model versions, the time and a link to the app's dashboard. Never text from the page. Those services
 handle the records under their own terms with the account owner. The keys and URLs for them are stored encrypted.
 
-**Export** lets an account on a paid plan download, or read with an export key, the events GenClass received for its
-own apps, as stored. Export keys are stored as one-way hashes.
+**Export** lets an account download, or read with an export key, the events GenClass received for its own apps, as
+stored. Export keys are stored as one-way hashes.
 
-For apps on a paid plan, the dashboard data and the stored events are kept for 1 year instead of 90 days, and for 30
-days after the paid period ends; then they are deleted as for every other app. Deleting your account cancels a paid
-plan at once and deletes the forwarding settings, export keys and stored copies made for your apps; Stripe keeps its
+For apps on a plan with a year of history (Enterprise, and the Individual plan while it was paid for), the dashboard
+data and the stored events are kept for 1 year instead of 90 days: for Individual, also for 30 days after the paid
+period ends; for Enterprise, until the agreement ends. Then they are deleted as for every other app. Deleting your
+account cancels a paid plan at once and deletes the forwarding settings, export keys and stored copies made for your apps; Stripe keeps its
 own records of past payments as the law requires.
 
 ## Where it goes and how long we keep it

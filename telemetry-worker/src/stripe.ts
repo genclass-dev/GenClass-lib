@@ -67,7 +67,7 @@
 import type { Env } from "./collector.js";
 import { randomBase62, sha256Hex, type D1Like } from "./dashboard.js";
 import { json } from "./http.js";
-import { entitled, LIVE_STATUSES, LOOKUP_PREFIX, pastDueLapsed, planById, PLANS, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
+import { entitled, LIVE_STATUSES, LOOKUP_PREFIX, ownedPrice, pastDueLapsed, planById, PLANS, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
 import { equalStrings } from "./webauthn.js";
 
 export const STRIPE_API = "https://api.stripe.com";
@@ -288,12 +288,17 @@ export async function customerSubscriptions(env: Env, f: Fetch, customer: string
 
 /**
  * Every price of the subscription is provably GenClass's (a genclass_ lookup key and a product with metadata
- * genclass_plan; the product must be expanded). A subscription mixing in any other price is not GenClass's.
+ * genclass_plan naming a plan GenClass sells or sold: src/plans.ts ownedPrice; the product must be expanded). A
+ * subscription mixing in any other price is not GenClass's. A retired plan's subscription is GenClass's (it is
+ * cancelled with the account and opens the portal) but gives no plan: retiredSubscription.
  */
 export function isGenClassSubscription(sub: Obj): boolean {
   const items: Obj[] = Array.isArray(sub?.items?.data) ? sub.items.data : [];
-  return items.length > 0 && items.every((it) => planForPrice(it?.price) !== null);
+  return items.length > 0 && items.every((it) => ownedPrice(it?.price));
 }
+
+/** GenClass's subscription to a plan it no longer sells (plans.json retired_plans): no price of it gives a plan. */
+export const retiredSubscription = (sub: Obj): boolean => isGenClassSubscription(sub) && subscriptionState(sub).priced === null;
 
 /** A stored customer as Stripe has it: GenClass's for this account (with its subscriptions), gone, or not GenClass's. */
 export type CustomerCheck = { state: "ok"; subs: Obj[] } | { state: "missing" } | { state: "not_genclass" };
@@ -799,6 +804,9 @@ export async function handleEvent(x: EventContext, event: Obj): Promise<EventRes
   const result = await applySubscription(x, account, sub, event, !!one);
   // a purchase a person follows up (a custom model) counts once Stripe reports it paid
   if (result.status === "applied" && hasCustomModel(planById(result.plan)) && latestInvoicePaysCustom(sub)) await recordCustom(x, account, idOf(sub.id)!, planById(result.plan));
+  // a retired plan that still bills (bought before it ended, or a Checkout opened before then and paid after) gives
+  // Free: the owner hears each time it starts or renews, to cancel and refund it
+  if (result.status === "applied" && started && LIVE_STATUSES.has(sub?.status) && retiredSubscription(sub)) await retiredNotice(x, account, sub);
   if (one?.extra.length && result.status === "applied") await settleOthers(x, account, one);
   return result;
 }
@@ -1005,6 +1013,18 @@ export async function applySubscription(x: EventContext, account: BillingAccount
     .bind(s.plan, subId, s.status, pastDueSince, s.periodEnd, s.cancelAtPeriodEnd ? 1 : 0, stripeMode(x.env), account.id, customer)
     .run();
   return { status: "applied", ours: true, account: account.id, plan: s.plan };
+}
+
+/** The owner's notice for a retired plan's subscription that still bills (handleEvent). */
+async function retiredNotice(x: EventContext, account: BillingAccount, sub: Obj): Promise<void> {
+  const key = subscriptionState(sub).lookupKey;
+  await notifyOwner(x, {
+    event: "retired_plan_billing",
+    text: `${modeNote(x.env)}GenClass account ${account.id}: subscription ${idOf(sub.id)} (${key ?? "no lookup key"}) is for a plan GenClass no longer sells and still bills; the account reads as Free. Cancel and refund it in Stripe.`,
+    account_id: account.id,
+    subscription_id: idOf(sub.id),
+    lookup_key: key,
+  });
 }
 
 export const modeNote = (env: Env): string => (stripeMode(env) === "test" ? "[Stripe test mode, no real money] " : "");

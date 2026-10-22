@@ -1,19 +1,24 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import PLANS_JSON from "../../billing/plans.json";
 import { resetTokenCache } from "../src/dashboard.js";
 import { resetOwnerCache } from "../src/paid.js";
-import { accessOf, byAgreement, FREE, GRANT_PLAN, PAID_PLANS, PLANS, planByLookupKey, priceText, viewRanges } from "../src/plans.js";
-import { resetStripeCache } from "../src/stripe.js";
+import { accessOf, byAgreement, FREE, GRANT_PLAN, ownedPrice, PAID_PLANS, PLANS, planByLookupKey, planForPrice, priceText, RETIRED_PLAN_IDS, viewRanges } from "../src/plans.js";
+import { isGenClassSubscription, resetStripeCache, retiredSubscription, subscriptionState } from "../src/stripe.js";
 import {
   call,
   createApp,
+  deliver,
   fakeStripe,
   GENCLASS_PORTAL,
+  invoice,
+  price,
   resetClock,
   setPlan,
   setup,
   signedIn,
+  stripeEvent,
+  subscription,
   WEBHOOK_SECRET,
 } from "./account-helpers.js";
 
@@ -197,7 +202,7 @@ describe("nothing sold on the site: Free with your own classifier, Enterprise by
     for (const plan of ["individual", "enterprise", "free", "pro", "custom"]) {
       const r = await call(env, "POST", "/api/billing/checkout", { body: { plan }, cookie, fetch: s.fetch });
       expect(r.status, plan).toBe(400);
-      expect(((await r.json()) as any).error).toBe("no plan is sold on genclass.dev: Free has everything, and Enterprise is agreed by email with mehar@daybot.ca");
+      expect(((await r.json()) as any).error).toBe("no plan is sold on genclass.dev: Free costs nothing, and Enterprise is agreed by email with mehar@daybot.ca");
     }
     expect(s.calls).toEqual([]);
   });
@@ -228,5 +233,78 @@ describe("nothing sold on the site: Free with your own classifier, Enterprise by
     const granted = await text(call(t.env, "GET", "/account/billing", { cookie: b.cookie }));
     expect(granted).toContain("You have <b>Enterprise</b>, set up by GenClass.");
     expect(granted).toContain('<span class="tag">Set up by GenClass</span>');
+  });
+});
+
+describe("a retired plan's subscription (Individual until 2026-10-22): GenClass's, but Free", () => {
+  // an Individual subscriber from before the plan ended, with the real plans
+  const subscriber = async (status = "active") => {
+    const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify" });
+    const a = await signedIn(t.env);
+    const s = fakeStripe();
+    setPlan(t.sql, a.account.id, "individual", { stripe_customer_id: "cus_ada0000001", subscription_id: "sub_ada0000001", subscription_status: status, current_period_end: "2026-11-19T12:00:00.000Z", stripe_mode: "live" });
+    s.genclassCustomer("cus_ada0000001", a.account.id);
+    s.subs.set("sub_ada0000001", subscription("sub_ada0000001", a.account.id, "cus_ada0000001", "genclass_individual_monthly", status, { latest_invoice: "in_ada0000001" }));
+    s.invoices.set("in_ada0000001", invoice("in_ada0000001", "cus_ada0000001", "sub_ada0000001", [["price_indiv00001", 2900]]));
+    return { ...t, ...a, s };
+  };
+
+  it("its price is GenClass's (ownership) but names no plan; another business's price is still not GenClass's", () => {
+    expect(RETIRED_PLAN_IDS).toEqual(["pro", "custom", "individual"]);
+    const indiv = price("genclass_individual_monthly");
+    expect(planForPrice(indiv)).toBeNull();
+    expect(ownedPrice(indiv)).toBe(true);
+    // both halves still needed: a genclass_ lookup key and the product's genclass_plan
+    expect(ownedPrice(price("other_tires_monthly", { plan: "individual" }))).toBe(false);
+    expect(ownedPrice(price("genclass_individual_monthly", { plan: null }))).toBe(false);
+    expect(ownedPrice(price("genclass_x_monthly", { plan: "someone_else" }))).toBe(false);
+    const sub = subscription("sub_ada0000001", "A".repeat(22), "cus_ada0000001", "genclass_individual_monthly");
+    expect(isGenClassSubscription(sub)).toBe(true);
+    expect(retiredSubscription(sub)).toBe(true);
+    expect(subscriptionState(sub)).toMatchObject({ plan: "free", priced: null, status: "active", lookupKey: "genclass_individual_monthly" });
+  });
+
+  it("deleting the account cancels it, so a deleted account is never charged again", async () => {
+    const t = await subscriber();
+    expect((await call(t.env, "DELETE", "/api/account", { body: { confirm: "delete" }, cookie: t.cookie, fetch: t.s.fetch })).status).toBe(204);
+    expect(t.s.calls.filter((c) => c.method === "DELETE").map((c) => c.url.pathname)).toEqual(["/v1/subscriptions/sub_ada0000001"]);
+  });
+
+  it("Manage billing opens the portal for it, active or cancelled; the page says it still bills", async () => {
+    for (const status of ["active", "canceled"]) {
+      const t = await subscriber(status);
+      const r = await call(t.env, "POST", "/api/billing/portal", { body: {}, cookie: t.cookie, fetch: t.s.fetch });
+      expect(r.status, status).toBe(200);
+      expect(t.s.other, status).toEqual([]);
+      const page = await text(call(t.env, "GET", "/account/billing", { cookie: t.cookie }));
+      expect(page).toContain('id="portal"');
+      expect(page).not.toContain("within 1 business day");
+      if (status === "active") expect(page).toContain("Your subscription to a plan GenClass no longer sells is still active in Stripe: cancel it in Manage billing");
+      else expect(page).not.toContain("no longer sells");
+    }
+  });
+
+  it("one that starts billing (a Checkout opened before the plan ended) is recorded as Free, and the owner hears to refund it", async () => {
+    const t = setup({ ...LIVE, NOTIFY_WEBHOOK: "https://hooks.example.com/notify" });
+    const a = await signedIn(t.env);
+    const s = fakeStripe();
+    t.sql.db.prepare("UPDATE accounts SET stripe_customer_id = 'cus_ada0000001', stripe_mode = 'live' WHERE id = ?").run(a.account.id);
+    s.genclassCustomer("cus_ada0000001", a.account.id);
+    const sub = subscription("sub_ada0000001", a.account.id, "cus_ada0000001", "genclass_individual_monthly", "active", { latest_invoice: "in_ada0000001" });
+    s.subs.set("sub_ada0000001", sub);
+    s.invoices.set("in_ada0000001", invoice("in_ada0000001", "cus_ada0000001", "sub_ada0000001", [["price_indiv00001", 2900]]));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(await (await deliver(t.env, stripeEvent("customer.subscription.created", sub), s.fetch)).json()).toEqual({ received: true, result: "applied" });
+    log.mockRestore();
+    expect(t.sql.rows("SELECT plan, subscription_id, subscription_status FROM accounts")).toEqual([{ plan: "free", subscription_id: "sub_ada0000001", subscription_status: "active" }]);
+    // no custom_requests row: the classifier is free and asked for by email, not bought
+    expect(t.sql.rows("SELECT id FROM custom_requests")).toEqual([]);
+    expect(s.other).toHaveLength(1);
+    const notice = JSON.parse(s.other[0]!.body);
+    expect(notice).toMatchObject({ event: "retired_plan_billing", account_id: a.account.id, subscription_id: "sub_ada0000001", lookup_key: "genclass_individual_monthly", mode: "live" });
+    expect(notice.text).toBe(
+      `GenClass account ${a.account.id}: subscription sub_ada0000001 (genclass_individual_monthly) is for a plan GenClass no longer sells and still bills; the account reads as Free. Cancel and refund it in Stripe.`,
+    );
+    expect(((await (await call(t.env, "GET", "/api/billing", { cookie: a.cookie })).json()) as any)).toMatchObject({ plan: "free", subscription_status: "active", on_sale: false, access: null });
   });
 });

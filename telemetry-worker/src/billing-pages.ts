@@ -97,7 +97,12 @@ function statusLine(v: BillingView, plan: Plan, apps: number): string {
       : "the runtime and its on-device model, without the dashboard";
     const limits = `${has} (you have ${apps} app${apps === 1 ? "" : "s"}).`;
     const overdue = !!b.subscription_id && (b.subscription_status === "past_due" || b.subscription_status === "unpaid");
-    const ended = overdue
+    // a subscription that still bills while the account reads as Free: one to a plan GenClass no longer sells
+    // (plans.json retired_plans; the webhook stores its plan as free)
+    const retired = !!b.subscription_id && (b.subscription_status === "active" || b.subscription_status === "trialing");
+    const ended = retired
+      ? ` Your subscription to a plan GenClass no longer sells is still active in Stripe: cancel it in Manage billing, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
+      : overdue
       ? ` The last payment for your paid plan did not go through, so it has ended. Update your card in Manage billing to pay it and get the plan back, or email <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.`
       : b.subscription_id && b.current_period_end && b.subscription_status === "canceled" && Date.parse(b.current_period_end) > v.now.getTime() - GRACE_DAYS * 86_400_000
         ? ` Your paid plan ended on ${day(b.current_period_end)}. Data older than 90 days stays for ${GRACE_DAYS} days after that, in case you come back.`
@@ -172,7 +177,7 @@ export function billingPage(nonce: string, v: BillingView): string {
     ? ` ${esc(v.managedPlans.join(" and "))} ${v.managedPlans.length > 1 ? "are" : "is"} sold through Link, Stripe's merchant of record service: Link's name is on the receipt and on your card statement, it adds sales tax or VAT where it applies, and it answers questions about the payment.`
     : "";
   const custom =
-    entitled(plan, "custom_model") && !!v.billing.subscription_id
+    PAID_PLANS.includes(plan) && entitled(plan, "custom_model") && !!v.billing.subscription_id
       ? `<p class="status">A person from GenClass emails ${a.email ? esc(a.email) : "you"} within 1 business day of your purchase to start training your classifier. You can also write to <a href="mailto:${esc(CONTACT)}">${esc(CONTACT)}</a>.</p>`
       : "";
   const test =

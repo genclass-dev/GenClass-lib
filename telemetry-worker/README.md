@@ -509,7 +509,10 @@ The plans live in [`billing/plans.json`](../billing/plans.json) (version 2, 2026
 
 No plan is sold on Stripe Checkout today. Individual (US$29 a month, lookup key `genclass_individual_monthly`, a year
 of history and a classifier a person trained for the buyer) was sold from 2026-10-19 to 2026-10-22; an account still
-stored on `individual` reads as Free, and its data keeps the 30 days of grace after its paid period ends. Its
+stored on `individual` reads as Free, and its data keeps the 30 days of grace after its paid period ends. Its Stripe
+product and prices stay GenClass's own (`billing/plans.json` `retired_plans`, `src/plans.ts` ownedPrice): a
+subscription to it is cancelled when its account is deleted, opens Manage billing, shows on the billing page as still
+billing, and sends the owner a `retired_plan_billing` notice each time it starts or renews, but gives no plan. Its
 classifier is in Free now. The Stripe code and `scripts/stripe-setup.mjs` stay for a plan given a monthly price above
 0; the tests run them on Individual's plans file (`test/fixtures/plans-individual.json`, `test/one-paid.test.ts` and
 `test/stripe-setup.test.ts`).
@@ -603,7 +606,7 @@ somewhere, turning automatic tax on is a small change in `checkoutSession` (`src
 
 | plan | code | why |
 |---|---|---|
-| Individual | `txcd_10203001` Downloadable Software, custom, business use | Individual's deliverable is a model trained for one buyer that their runtime downloads; `txcd_20060000` Professional Services is the other candidate. Not eligible for Managed Payments. The owner's accountant has the last word |
+| Individual (retired 2026-10-22) | `txcd_10203001` Downloadable Software, custom, business use | Individual's deliverable is a model trained for one buyer that their runtime downloads; `txcd_20060000` Professional Services is the other candidate. Not eligible for Managed Payments. The owner's accountant has the last word |
 
 **A plan is granted once Stripe has the money.** Stripe can make a subscription `active` while its first payment is
 still processing (a bank debit can take days). So a subscription the account has not been granted yet counts only
@@ -612,8 +615,8 @@ when its latest invoice is paid, or asks for nothing; until then the webhook cha
 invoice, which carries the buyer's name, email and address), fetches the subscription again and grants the plan. A
 purchase of a plan with a custom model (Individual) is recorded on that same event.
 
-**Switching between paid plans** (there is one paid plan today, so there is nothing to switch to; the code stays for
-a second one, and the tests run it on the fixture) is a new Checkout for the other plan, never a price change in the
+**Switching between paid plans** (no plan is sold today, so there is nothing to switch to; the code stays for a
+second paid plan, and the tests run it on the fixture) is a new Checkout for the other plan, never a price change in the
 portal: a Managed Payments subscription can only hold eligible products and only authorises Managed Payments to charge
 the card, so it cannot take another plan's price (and Checkout is the one path either way). The billing page's Switch
 button posts to `/api/billing/checkout`, which opens a Checkout whose subscription carries `genclass_switch_from=<the
@@ -750,8 +753,8 @@ What GenClass creates in the account, in each mode, and nothing else:
 
 | object | how GenClass recognises it | made by |
 |---|---|---|
-| a product per plan priced above 0: GenClass Individual (id `genclass_individual`), active (GenClass Pro and GenClass Custom, `genclass_pro` and `genclass_custom`, from before 2026-10-19, may exist in test mode and are left alone) | metadata `genclass_plan` (`individual`) and `genclass=1`; statement descriptor `GENCLASS`; tax code `txcd_10203001` | `scripts/stripe-setup.mjs` |
-| its price, active: `genclass_individual_monthly` (US$29 a month); after a price change, the archived old price keeps `genclass_<plan>_monthly_retired_<price id>` | a lookup key starting with `genclass_`, on a product with `genclass_plan`; metadata `genclass=1`, `genclass_plan` | the script |
+| a product per plan priced above 0 (none today). From plans GenClass no longer sells (`billing/plans.json` `retired_plans`): GenClass Individual (id `genclass_individual`, sold until 2026-10-22; archive it), and GenClass Pro and GenClass Custom (`genclass_pro`, `genclass_custom`, before 2026-10-19, test mode only). The script leaves them alone; the worker still counts their subscriptions as GenClass's (cancelled with the account, Manage billing opens) but gives them no plan | metadata `genclass_plan` (the plan id) and `genclass=1`; statement descriptor `GENCLASS`; tax code `txcd_10203001` | `scripts/stripe-setup.mjs` |
+| its price (none today; `genclass_individual_monthly`, US$29 a month, until 2026-10-22); after a price change, the archived old price keeps `genclass_<plan>_monthly_retired_<price id>` | a lookup key starting with `genclass_`, on a product with `genclass_plan`; metadata `genclass=1`, `genclass_plan` | the script |
 | 1 webhook endpoint, `https://genclass.dev/api/billing/webhook` | that URL and the description `GenClass billing` (metadata `genclass=1`); only `customer.subscription.created`, `.updated`, `.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created` | the script |
 | 1 Billing Portal configuration | metadata `genclass=1`; never the default; headline "Manage your GenClass plan"; no plan switch; its id in `STRIPE_PORTAL_CONFIGURATION` (live) or `STRIPE_PORTAL_CONFIGURATION_TEST` | the script |
 | customers, one per GenClass account that buys | description `GenClass account`, metadata `genclass=1` and `genclass_account=<account id>`; the id in `accounts.stripe_customer_id`, which nothing else writes | the worker (checkout) |
@@ -851,7 +854,7 @@ removed its object by then).
 | `STRIPE_TEST_ACCOUNTS` | secret | emails or account ids, comma-separated, that can buy while the key is a test key |
 | `MANAGED_PAYMENTS` | var (`wrangler.toml`) | `"off"` there, and unset counts as off: every plan is sold on standard Checkout. `"on"` (or `true`, `1`, `yes`): the Checkout of a plan marked `managed_payments` in `billing/plans.json` uses Stripe Managed Payments (none is today) |
 | `INTEGRATIONS_KEY` | secret | 32 random bytes, base64; encrypts forwarding settings. Set it once: another key makes saved settings unreadable (owners then save them again) |
-| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a paid plan with a custom model is paid (Individual until 2026-10-22), `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing. Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
+| `NOTIFY_WEBHOOK` | secret, optional | an https URL that gets `{ text, content, event, mode, at, ... }`: `custom_purchase` (`request_id`, `account_id`, `subscription_id`) when a paid plan with a custom model is paid (Individual until 2026-10-22), `plan_switch` after every switch and `duplicate_subscription` after an accidental second purchase (`kept`, `cancelled`, and `refunds`: each with the refund id and amount, or a `note` saying why nothing was refunded), `charge_refunded` and `charge_disputed` (`charge`, `dispute`, `amount`, `currency`) for a GenClass customer's charge, `shared_customer` (`account_id`, `customer`) when checkout or Manage billing found something that is not GenClass's on the account's Stripe customer and opened nothing, `retired_plan_billing` (`account_id`, `subscription_id`, `lookup_key`) each time a subscription to a plan GenClass no longer sells starts or renews (the account reads as Free: cancel and refund it). Ids only: the buyer's email stays in `custom_requests`. `text` suits Slack, `content` Discord; test-mode notices start with `[Stripe test mode, no real money]` |
 | `EXPORT_LIMIT` | rate limit binding | export pages per account per minute (120) |
 
 An Individual buyer's email, for the notice above:
@@ -860,9 +863,18 @@ An Individual buyer's email, for the notice above:
 ### Owner steps, in order
 
 No plan is sold on the site today, so none of this is needed to run GenClass; the steps were for Individual and apply
-again to any plan `billing/plans.json` prices above 0 (where they name Individual, read that plan). If anyone bought
-Individual in live mode, cancel and refund that subscription in Stripe and archive the `genclass_individual` product:
-the worker reads its price as no plan any more.
+again to any plan `billing/plans.json` prices above 0 (where they name Individual, read that plan). Retiring
+Individual, in order:
+
+1. Deploy the worker (`npx --yes wrangler@4 deploy`), then bump genclass-site's `lib/` submodule to the same commit and
+   deploy the site, so the pricing page stops offering Individual (its button linked `/account/billing?plan=individual`,
+   which now shows Free and Enterprise only). Drop any Individual mention in the site's own copy (pricing, terms,
+   privacy).
+2. In the Stripe dashboard (live, and test if used): expire any open Checkout Session for Individual (Payments,
+   Checkout sessions; they expire by themselves after 24 hours), archive the `genclass_individual` product and its
+   price, and cancel and refund every Individual subscription (a `retired_plan_billing` notice names any that still
+   bills). The worker keeps counting them as GenClass's, so their accounts can still cancel in Manage billing and a
+   deleted account's subscription is cancelled.
 
 For GenClass's own Stripe account ("GenClass"), dashboard first, in test mode and then live (each setting below has a
 test-mode and a live copy unless the dashboard says it is shared):
