@@ -803,3 +803,23 @@ them, measured on the train VM (not CI):
 `test/bundle.test.ts` measures the same build at 108.53 / 100.39 KB (script tag 128.83 KB). The
 recording itself is `dist/analytics/index.js` (12.5 KB minified, not gzipped), loaded only when an app turns
 analytics on. No detection numbers: analytics never feed a decision, so recall and FIR do not change.
+
+**First-load cuts with no behaviour change (branch `fix/troybot-triage`, 2026-10-20, local, not CI).** The steady-tick
+and back/forward triage exemptions (0.3.0-beta.1) took the first load over the `bundle.test.ts` limits (108.6 /
+100.48 KB). Four cuts that change no behaviour paid for them, the limits unchanged; `test/first-load-size.mjs` on
+the local build after each step (the script tag gzipped at level 9 the same way):
+
+| step | `/auto` | main entry | script tag |
+|---|---|---|---|
+| with the two exemptions (`683e4b6`) | 108.707 KB (102.76 + 3.03 + 2.73 + 0.19) | 100.622 KB | 128.795 KB |
+| + the lazy flow chunk takes util.ts's four helpers through `FlowEnv.util`: util.ts is no longer a chunk shared with it, split out of the first load | 108.197 KB | 99.985 KB | 128.895 KB |
+| + `dist/cdn` reads `require` as `globalThis.require` (ORT's own shim): an app's esbuild adds no dynamic-require shim chunk | 107.997 KB | 99.787 KB | 128.895 KB |
+| + `hash32` (util/match.ts) returns `parseInt(fnv1a(s), 16)`, the same values | 107.959 KB | 99.790 KB | not measured |
+| + one private helper pushes the runtime's `custom` events | **107.938 KB** (105.21 + 2.73) | **99.771 KB** (97.04 + 2.73) | 128.848 KB |
+| + review follow-ups to the exemptions: finite steps only, a loop cap on back/forward re-fetches, traversals told by Navigation API entry key | **108.093 KB** (105.36 + 2.73) | **99.924 KB** (97.20 + 2.73) | 128.965 KB |
+
+That leaves 0.51 KB under the `/auto` limit and 0.56 KB under the main entry's. The script tag has no code
+splitting, so the flow layer is inline there and passing the helpers costs it 0.10 KB. The `require` cut is measured
+on an esbuild bundle (this test's and an esbuild app's); a Rollup or webpack build never added that shim to the first
+load. No detection numbers for the four cuts: nothing a decision reads changed, so recall and FIR do not move. The
+last row changes triage (CONTRACT §6 amendments); its FIR and recall are not measured yet.

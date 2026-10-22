@@ -109,7 +109,7 @@ import { installPerf } from "./observe/perf.js";
 import { installWebSocket } from "./observe/websocket.js";
 import { deviceEnv, memoryFloor, skippedMessage } from "./model/device.js";
 import { installTimers } from "./observe/timers.js";
-import { defaultRedact, normalizeFieldPath, normalizePath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
+import { defaultRedact, fnv1a, normalizeFieldPath, normalizePath, plural, ratio, secs, truncate, type Redactor } from "./util.js";
 import { blockedMessage } from "./model/blocked.js";
 import type { ReactDiscovery } from "./discover/react.js";
 import type { ReduxDiscovery } from "./discover/redux.js";
@@ -268,6 +268,63 @@ export function fanOutSibling(
   return !!w && x.cause !== undefined && x.cause !== null && w.cause === x.cause && w.kind === x.kind && Math.abs(w.start - x.start) <= FANOUT_WINDOW_MS;
 }
 
+// Steady timer ticks (CONTRACT §6 Triage, owner to confirm): a field that one timer writes with the same numeric step
+// on that timer's own schedule (an elapsed-seconds counter, a countdown) carries the non-neutral identical-change fact
+// on every tick. Once the field's last TICK_MIN writes were such ticks, mutation triage stops counting that one fact
+// (the fact, its text and every situation still built are unchanged; any other non-neutral fact still asks). Stateless:
+// a write that breaks the pattern (another writer, a user write, another step, an off-schedule gap) asks again until
+// TICK_MIN clean ticks follow. Values as learn/cadence.ts (4 starts, TOLERANCE, MIN_PERIOD_MS).
+/** Consistent earlier ticks of a field before its identical-change fact stops making a timer's write salient. */
+const TICK_MIN = 4;
+/** Each gap between ticks is within this share of the timer's own delay. */
+const TICK_TOLERANCE = 0.25;
+/** Timers with a shorter delay are never learned. */
+const TICK_MIN_DELAY_MS = 250;
+
+/**
+ * True when write `m` (a mutation decided now, on `rt`'s clock, not a deferred re-decision) is a learned steady tick:
+ * its cause is a timer op of delay ≥ TICK_MIN_DELAY_MS, every change is a finite numeric step, and each changed field's
+ * last TICK_MIN writes were writes of the same step by ticks of the same timer (the same delay, and sharing their
+ * cause or each caused by the one before), each tick (its timer op's start; now for `m`) within TICK_TOLERANCE of the
+ * delay after the previous one. Reads the field histories and the op registry only; keeps nothing.
+ */
+function steadyTick(m: MutationRec, rt: { clock: Clock; hub: StoreHub; ops: OpRegistry }): boolean {
+  // Only timer ops have a delay, so every writer below is a timer tick (never a user or GenClass write); the
+  // identical-change fact exists only for a write with changes.
+  const C = m.cause;
+  const d = C?.delay ?? 0;
+  return d >= TICK_MIN_DELAY_MS && !m.defers && m.changes.every((c) => {
+    const h = rt.hub.field(c.path)?.hist ?? [];
+    let next = C!;
+    let t = rt.clock.now();
+    // a finite step only: a change into or out of NaN is "n:NaN" whatever the values (no step at all)
+    if (!c.delta.startsWith("n:") || !Number.isFinite(Number(c.delta.slice(2))) || h.length < TICK_MIN) return false;
+    for (const e of h.slice(-TICK_MIN).reverse()) {
+      const w = rt.ops.get(e.writer);
+      if (!w || e.delta !== c.delta || w.delay !== d || (next.cause !== w.cause && next.cause !== w.id) || Math.abs(t - w.start - d) > d * TICK_TOLERANCE) return false;
+      next = w;
+      t = w.start;
+    }
+    return true;
+  });
+}
+
+// Re-fetches after back/forward (CONTRACT §6 Triage, owner to confirm): a page that fetches on mount, re-mounted by a
+// history traversal (observe/nav.ts), repeats the request it made a moment ago, so the identical-request fact is
+// non-neutral although nothing went wrong. Request triage stops counting that one fact for the first cause-less
+// GET/HEAD of an identity started within TRAVERSAL_MS of the traversal, while that identity has at most
+// TRAVERSAL_LOOP_MAX requests in the last TRAVERSAL_LOOP_WINDOW_MS (RuntimeImpl.refetch; any other non-neutral fact, a
+// user-caused request, another method, a second identical request or a loop of traversals still asks).
+/** How long after a back/forward traversal a page's first re-fetch of a request is not asked about for repeating it. */
+const TRAVERSAL_MS = 2000;
+/**
+ * A re-fetch is exempt only while its identity has at most this many requests (itself included) in the last
+ * TRAVERSAL_LOOP_WINDOW_MS: a person's fast back/forward clicks stay under it (Troy Bot: 6 after the first load), a
+ * page's own history.back()/go() loop, one traversal per cycle, is asked again from its 8th request.
+ */
+const TRAVERSAL_LOOP_MAX = 7;
+const TRAVERSAL_LOOP_WINDOW_MS = 10_000;
+
 export class RuntimeImpl implements Runtime {
   readonly clock: Clock;
   readonly global: Record<string, unknown>;
@@ -394,6 +451,8 @@ export class RuntimeImpl implements Runtime {
   private storeWriters = new Map<string, Map<string, number>>();
   private lastChainMap = new Map<string, string[]>();
   private identicalMap = new Map<string, OpRec[]>();
+  /** When the last back/forward traversal happened (request triage, `refetch`). */
+  private trav = -Infinity;
   private errorsRecent: { key: string; t: number; op?: number }[] = [];
   private settleTimer: unknown = null;
   private toProfile: OpRec[] = [];
@@ -1179,8 +1238,9 @@ export class RuntimeImpl implements Runtime {
     if (on("errors")) tryAdd("errors", () => installErrors(g, this));
     if (on("nav"))
       tryAdd("nav", () =>
-        installNav(g, this, (route) => {
+        installNav(g, this, (route, traversal) => {
           this.events.push(this.clock.now(), "nav", route, { data: { route } });
+          if (traversal) this.trav = this.clock.now();
           this.computeScope();
           // the flow whose causal chain navigated (peek: a lazy timer op is not materialised for this)
           const amb = this.ctx.peek();
@@ -1352,7 +1412,7 @@ export class RuntimeImpl implements Runtime {
         req.identity = identity;
         this.registerIdentity(op);
       },
-      emit: (name, data, op) => this.events.push(this.clock.now(), "custom", name, { ...(op ? { op: op.id } : {}), ...(data ? { data } : {}) }),
+      emit: (name, data, op) => this.custom(name, data, op),
     };
   }
 
@@ -1360,7 +1420,12 @@ export class RuntimeImpl implements Runtime {
     return {
       global: this.global,
       ctx: this.ctx,
-      lazyTimer: (parent: OpRec | null, label: string) => new LazyOp(parent, (cause) => this.startOp("timer", label, { cause, instant: true })),
+      lazyTimer: (parent: OpRec | null, label: string, delay: number) =>
+        new LazyOp(parent, (cause) => {
+          const op = this.startOp("timer", label, { cause, instant: true });
+          op.delay = delay; // after startOp: never in its op.start event
+          return op;
+        }),
     };
   }
 
@@ -1373,7 +1438,7 @@ export class RuntimeImpl implements Runtime {
       baseHref: () => (this.global.location as { href?: string } | undefined)?.href,
       startOp: (name: string, o: Omit<StartOpts, "startSeq" | "t">) => this.startOp("ws", name, o),
       endOp: (op: OpRec, status: OpStatus, eo?: EndOpts) => this.endOp(op, status, eo),
-      event: (name: string, data: Record<string, unknown>, op?: OpRec) => this.events.push(this.clock.now(), "custom", name, { ...(op ? { op: op.id } : {}), data }),
+      event: (name: string, data: Record<string, unknown>, op?: OpRec) => this.custom(name, data, op),
       deliverMessage: (
         o: { op: OpRec; channel: "websocket" | "eventsource"; message: { path: string; summary: string }; queuedAhead: number; body?: () => Promise<unknown>; bodyNow?: () => unknown },
         release: () => void,
@@ -1469,6 +1534,25 @@ export class RuntimeImpl implements Runtime {
       const first = this.identicalMap.keys().next().value;
       if (first !== undefined) this.identicalMap.delete(first);
     }
+  }
+
+  /**
+   * True when request `op` is a page's re-fetch after a back/forward traversal: a GET or HEAD with no user action in its
+   * chain, started within TRAVERSAL_MS of the traversal, the first request of its identity since then, and at most
+   * TRAVERSAL_LOOP_MAX requests of its identity (itself included) started in the TRAVERSAL_LOOP_WINDOW_MS before it.
+   */
+  private refetch(op: OpRec, req: ReqMeta): boolean {
+    const t = this.trav;
+    const d = op.start - t;
+    const same = this.identicalMap.get(req.identity) ?? [];
+    return (
+      d >= 0 &&
+      d <= TRAVERSAL_MS &&
+      /^(GET|HEAD)$/.test(req.method) &&
+      !this.ops.userOf(op) &&
+      !same.some((o) => o !== op && o.start >= t) &&
+      same.filter((o) => op.start - o.start <= TRAVERSAL_LOOP_WINDOW_MS).length <= TRAVERSAL_LOOP_MAX
+    );
   }
 
   private queueProfile(op: OpRec): void {
@@ -1583,7 +1667,11 @@ export class RuntimeImpl implements Runtime {
       // cheap first pass: facts only; the full situation is built only when it will be used
       const facts = computeFacts(this.env, spec);
       const forced = this.standing.some((q) => q.always && q.on.includes(spec.trigger));
-      if (this.triage === "salient" && !forced && facts.every((f) => f.neutral)) return passive();
+      // triage exemptions, one non-neutral "repetition" fact each (computed once, when needed): the identical-change
+      // fact of a learned steady timer tick (steadyTick), the identical-request fact of a re-fetch after back/forward
+      // (refetch)
+      let ex: boolean | undefined;
+      if (this.triage === "salient" && !forced && facts.every((f) => f.neutral || (f.kind === "repetition" && (ex ??= spec.trigger === "mutation" ? steadyTick(spec.m, this) : spec.trigger === "request" && this.refetch(spec.op, spec.req))))) return passive();
       built = buildSituation(this.env, spec, this.buildOpts(), facts);
     } catch (e) {
       this.log("situation build failed", e);
@@ -2477,7 +2565,7 @@ export class RuntimeImpl implements Runtime {
         // text typed since the request started: only when the response would replace it (F2)
         const liveTyped = typed.filter((p) => by.has(p) && !by.get(p)!.same);
         const salient = liveNewer.length > 0 || livePending.length > 0 || liveTyped.length > 0;
-        if (!salient && conflicts.length && conflicts.every((c) => by.get(c.path)?.same)) this.events.push(this.clock.now(), "custom", "delivery.unchanged", { op: op.id, data: { paths: conflicts.map((c) => c.path) } });
+        if (!salient && conflicts.length && conflicts.every((c) => by.get(c.path)?.same)) this.custom("delivery.unchanged", { paths: conflicts.map((c) => c.path) }, op);
         return settle(salient);
       } catch (e) {
         this.log("content analysis failed", e);
@@ -3120,6 +3208,7 @@ export class RuntimeImpl implements Runtime {
       changed: () => {
         if (this.learnStore) this.saveProfilesSoon();
       },
+      util: { defaultRedact, fnv1a, normalizePath, plural },
     };
     import("./learn/flows.js")
       .then((m) => {
@@ -3617,7 +3706,12 @@ export class RuntimeImpl implements Runtime {
         80,
       );
     }
-    this.events.push(this.clock.now(), "custom", name, { ...(op ? { op: op.id } : {}), ...(data ? { data: d } : {}) });
+    this.custom(name, data ? d : undefined, op);
+  }
+
+  /** A `custom` event (observers' notes, rt.emit): EventLog.push leaves out an undefined op or data. */
+  private custom(name: string, data?: Record<string, unknown>, op?: OpRec | null): void {
+    this.events.push(this.clock.now(), "custom", name, { op: op?.id, data });
   }
 
   user<T>(action: UserAction, handler?: () => T): T | undefined {
