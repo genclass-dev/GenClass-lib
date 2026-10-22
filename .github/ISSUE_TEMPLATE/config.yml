@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and answers (FAQ)
+    url: https://github.com/genclass-dev/GenClass-lib/blob/main/FAQ.md
+    about: Short answers to common questions (race conditions in React, stale responses, double submits, what it sends, what it costs), with links to the details.
+  - name: Ask a question in Discussions
+    url: https://github.com/genclass-dev/GenClass-lib/discussions/categories/q-a
+    about: Questions about installing, configuring or reading GenClass Runtime's reports.
+  - name: GenClass Discord
+    url: https://discord.gg/kN9kRnFtZm
+    about: Talk with the maintainers and other users.
+  - name: Report a security vulnerability
+    url: https://github.com/genclass-dev/GenClass-lib/blob/main/SECURITY.md
+    about: Please report security issues privately, not in a public issue; SECURITY.md says how.

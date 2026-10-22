@@ -1,12 +1,19 @@
 # @genclass/playwright
 
-### Explain your flaky e2e test: which click submitted twice, which response landed late.
+`@genclass/playwright` is a Playwright reporter for
+[`@genclass/runtime`](https://www.npmjs.com/package/@genclass/runtime) ([genclass.dev](https://genclass.dev)): it
+turns what GenClass flagged in each e2e test (which click submitted twice, which response landed late) into one
+markdown report for the pull request. GenClass Runtime is an open-source (Apache-2.0) browser library that reports
+race conditions in web apps while they happen: stale responses, duplicate requests, inconsistent state and failure
+storms, each diagnosed by a small model on the device and reported with its evidence.
 
-A Playwright reporter for [GenClass Runtime](https://github.com/genclass-dev/GenClass-lib). When your suite ends, it
-reads what GenClass flagged in each test (duplicate submits, stale responses, failing endpoints, each with the
-evidence line the runtime printed and the model's confidence), marks what reproduced across seeds, writes one
-markdown file, `genclass-report.md`, and prints it. A short GitHub Actions step posts that file as one pull-request
-comment that updates in place.
+This page covers `@genclass/playwright` 0.1.0, which is not on npm yet, and the `genclass-races/1` file format it
+reads.
+
+When your suite ends, the reporter reads what GenClass flagged in each test (duplicate submits, stale responses,
+failing endpoints, each with the evidence line the runtime printed and the model's confidence), marks what
+reproduced across seeds, writes one markdown file, `genclass-report.md`, and prints it. A short GitHub Actions step
+posts that file as one pull-request comment that updates in place.
 
 It reads files; it does not inject anything. The files come from the GenClass Playwright fixture, which puts the
 runtime on the page under test, adds seeded network chaos with `page.route` and writes one file per test. **The
@@ -28,6 +35,8 @@ npm install -D @genclass/playwright
 
 ```ts
 // playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
 export default defineConfig({
   reporter: [["list"], ["@genclass/playwright/reporter"]],
 });
@@ -132,8 +141,9 @@ What it does so the comment is safe to post:
 
 ## What the comment looks like
 
-This is the exact output for the unit-test fixture in [`test/fixtures/races`](test/fixtures/races): two tests, two
-seeds each, one signature flagged in both seeds and one in a single seed. The fixture is synthetic (the evidence
+This is the exact output for the unit-test fixture in
+[`test/fixtures/races`](https://github.com/genclass-dev/GenClass-lib/tree/main/packages/playwright/test/fixtures/races):
+two tests, two seeds each, one signature flagged in both seeds and one in a single seed. The fixture is synthetic (the evidence
 lines are written for the test, not taken from a real run); `test/package.test.ts` fails if this block and the
 summariser drift apart. Each `#` of a request id below is followed by the invisible zero-width space described
 above.
@@ -257,13 +267,19 @@ fixture writes `test-results/genclass/<test-id>.json`, and the report marks what
 ## What to expect
 
 This reporter only passes on what the runtime flagged. What the runtime flags in observe mode was measured on the
-framework compatibility matrix ([`compat/RESULTS.md`](../../compat/RESULTS.md), run of 2026-10-10: headless Chromium,
-10 seeds per cell, model `genclass-runtime-r17` 2.0.0-rc4t, the default of `@genclass/runtime-model` 0.2.0, WASM,
-balanced profile, whose report threshold is 0.90 per [`docs/runtime/RESULTS.md`](../../docs/runtime/RESULTS.md)):
+framework compatibility matrix
+([`compat/RESULTS.md`](https://github.com/genclass-dev/GenClass-lib/blob/main/compat/RESULTS.md), run of
+2026-10-10; headless Chromium, 10 seeds per cell, model `genclass-runtime-r17` 2.0.0-rc4t, the default of
+`@genclass/runtime-model` 0.2.0, WASM, balanced profile, whose report threshold is 0.90). The runtime was
+`@genclass/runtime` packed at commit `d04eff3` (version string 0.1.0-beta.4, never published): the 0.1.0-beta.4 code
+plus the "Model ready" log fix. 0.2.0's audit trail, protect presets, hold-budget ceilings and invariant fixes, 0.2.1's
+first-request hold and telemetry defaults and every later release were not run through the matrix
+([`docs/runtime/RESULTS.md`](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/RESULTS.md) §16):
 
 - **Double submit** (scenario b, a create form clicked twice): 10 `request:duplicate` detections over 10 seeds in
-  each of the 14 data layers where the scenario applies (React state, TanStack Query, Zustand, Redux, Apollo,
-  Next.js, SWR, Pinia, Svelte stores, Angular fetch and XHR, Solid, plain fetch).
+  each of the 14 data layers where the scenario applies (React state, TanStack Query, Zustand with its devtools
+  middleware at the default and with `enabled: true`, Redux, Apollo, Next.js state, SWR, Pinia, Svelte stores,
+  Angular fetch, Angular XHR, Solid, plain fetch).
 - **Stale typeahead** (scenario a; the app showed stale results on 10 of 10 seeds without GenClass in 11 data
   layers): `delivery:stale` detections over 10 seeds were 2 (React state), 5 (Zustand with its devtools middleware
   set to `enabled: true`), 1 (Redux) and 2 (Next.js state), and 0 in the other 7 layers with the bug (Zustand with
@@ -282,11 +298,15 @@ This package reads files on the machine that runs it and writes one; it makes no
 anywhere. The files hold test titles, operation names and the runtime's evidence lines (the runtime replaces URL
 query values with "…"), and the comment you post contains the same.
 
-The runtime's own anonymous diagnostics are off by design on local hosts (`localhost`, `*.localhost`, `127.0.0.1`,
-private networks; [`TELEMETRY.md`](../runtime/TELEMETRY.md)), which is where e2e suites usually run. One exception:
-`@genclass/runtime` 0.2.1 sent from local hosts by mistake when started with `GenClass.init()`, `/auto` or the
-script tag (fixed in 0.2.2). With 0.2.1, or with a test server on a non-local host name, pass `telemetry: false`
-to the runtime under test.
+The runtime under test sends **anonymous diagnostics by default** on public hosts: GenClass's decisions and counts,
+no text from your page unless the app opts in, to the GenClass maintainers to improve the model. They are off on
+`localhost` and other local hosts (`*.localhost`, `*.local`, `*.test`, `127.0.0.1`, private networks) from
+`@genclass/runtime` 0.2.2, which is where e2e suites usually run. Earlier versions (`0.1.0-beta.3` to `0.2.1`) send
+from local hosts too, and `0.1.0-beta.3` to `0.2.0` include the redacted situation text by default. With those
+versions, or with a test server on a non-local host name, pass `telemetry: false` to the runtime under test; the
+other opt-outs are `?genclass=no-telemetry`, `localStorage.setItem("genclass.telemetry", "off")` and Global Privacy
+Control. Details:
+[`TELEMETRY.md`](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md).
 
 ## Development
 

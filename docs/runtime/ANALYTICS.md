@@ -1,11 +1,23 @@
-# Interaction analytics: design
+# GenClass interaction analytics: design
 
-Status: design written 2026-10-17 and **approved by the owner the same day** with every recommendation in
+GenClass interaction analytics count page views, engaged time, scroll depth and clicks (including rage and dead
+clicks) per element, for an app's own dashboard on genclass.dev. They are off by default, need telemetry on and the
+app's token (or a custom telemetry endpoint), are turned off by every telemetry opt-out and Global Privacy Control,
+never record element text, and never reach the model or a decision. Status: merged
+into `main` on 2026-10-18, in the unreleased 0.3.0-beta.1; no published version of `@genclass/runtime` has them yet.
+
+Design written 2026-10-17 and **approved by the owner the same day** with every recommendation in
 [section 9](#9-decisions-for-the-owner) (AGENTS.md rule 8: widening what telemetry sends needs that OK). **Built**
 2026-10-18 on branch `feat/interaction-analytics`: the runtime (`packages/runtime/src/analytics/`), the collector
 and the dashboard (`telemetry-worker/`), and the admin filter for genclass.dev (`site/src/admin.js`); the differences
-from this note are in [section 10](#10-implementation-notes). Not released: genclass.dev needs a runtime release
-first (section 7).
+from this note are in [section 10](#10-implementation-notes). First-load cost:
+[RESULTS.md section 15](RESULTS.md#analytics). Adopting them on genclass.dev itself needs a runtime release first
+(section 7).
+
+**Where the genclass.dev paths are now.** Since 2026-10-18 the website and its admin (`site/`) live in the private
+repository `genclass-dev/genclass-site`, which includes this repository as its `lib/` submodule. The paths `site/...`
+in sections 6, 7 and 10 (`site/src/admin.js`, `site/src/worker.js`, `site/src/pages/privacy.html`) are in that
+repository; `telemetry-worker/` and `billing/plans.json` stay here.
 
 The owner asked on 2026-10-17: "can genclass please track all the clicks, and scrolls, time spent everywhere, and then
 we'll put genclass on our own website to track everything." This note says what the runtime would record, how the
@@ -107,7 +119,7 @@ adds counters for `interactions` events, in the existing `daily` and `hourly` ta
 
 Interaction counters get their own per-batch budget (200 counters), so they never push out the diagnostics counters
 (`MAX_COUNTERS`). A batch that repeats one already counted is skipped as today. Retention is the dashboard's: 90 days
-(1 year on a paid plan), hourly rows 48 hours.
+(1 year on the Enterprise plan), hourly rows 48 hours.
 
 **Dashboard.** A "How visitors use this app" section on the app dashboard (`src/pages.ts`, every plan, the same range
 picker), shown once the app has sent `interactions` events, using the page's existing table and card styles:
@@ -207,8 +219,9 @@ a consent banner (section 7 step 4).
    default-on clickstream from every app using GenClass would change what the library is.
 3. **Element key sources**: data attributes, then ids, then link targets, then stable class names, then a structural
    path. Recommended. The stricter alternative drops ids and class names (more `nth-of-type` paths, less readable).
-4. **Storage**: `interactions` events stored in R2 with the batch (90 days, and in the paid export), but never used
-   for model training. The alternative strips them from R2 and keeps only the dashboard counters.
+4. **Storage**: `interactions` events stored in R2 with the batch (90 days, 1 year on the Enterprise plan, and in
+   the data export, which was a paid feature when this was written and is on every plan since 2026-10-19), but never
+   used for model training. The alternative strips them from R2 and keeps only the dashboard counters.
 5. **genclass.dev**: which of the two options in section 7 step 3, and how to handle consent for EU, EEA and UK
    visitors (section 7 step 4).
 

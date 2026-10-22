@@ -1,10 +1,17 @@
 # GenClass visual checks: design (v1, with v2 and v3 outlined)
 
-Status: design written 2026-10-13; **v1 implemented** the same day on branch `wave2/visual`
-(`packages/runtime/src/visual/`), with the differences listed in [section 19](#19-v1-implementation-notes); **measured**
-the same day by the bench of section 15 ([RESULTS.md section 14](RESULTS.md)), which tightened four checks; then a review
-of the checks (section 19, "Review of 2026-10-13") found correct pages that looked broken and costs outside the slices,
-and the code changed again (measured as run 5). The open owner decisions are in
+GenClass measured visual checks find visual and CSS bugs that throw no error, such as unreadable text, broken images,
+fonts and stylesheets, sideways scrolling on phones, and invisible layers that swallow clicks (23 kinds, section 3).
+They are deterministic measurements with documented thresholds; the model is not involved and does not look at
+pixels. In `@genclass/runtime` 0.3.0-beta.0 they are on by default on development hosts (`visual: "local"`), three
+narrow runtime fixes run only when the app opts in and the mode is guard or heal, and the measurements are in
+RESULTS.md, [section 13](RESULTS.md#visual-checks) and [section 14](RESULTS.md#visual-bench).
+
+Status: v1 shipped in 0.3.0-beta.0 (npm `beta`). Design written 2026-10-13 and implemented the same day on branch
+`wave2/visual` (`packages/runtime/src/visual/`), with the differences listed in
+[section 19](#19-v1-implementation-notes); measured the same day by the bench of section 15, which tightened four
+checks; then a review of the checks (section 19, "Review of 2026-10-13") found correct pages that looked broken and
+costs outside the slices, and the code changed again (measured as run 5). The open owner decisions are in
 [section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) section 14,
 [API.md](API.md), [OPTIONS-SPEC.md](OPTIONS-SPEC.md) section 4.20 and the CHANGELOG have the matching entries.
 
@@ -195,8 +202,12 @@ labelled "likely source rule", because rule order only approximates the cascade.
 
 ## 3. v1 checks
 
-Only checks expected to be high precision are in v1. "Expected" is the honest word: no precision figure below is
-measured yet. Each check must pass the gates in section 15 before it is on by default anywhere.
+Only checks expected to be high precision are in v1. False reports on clean local pages and recall on planted faults
+were measured after this was written (RESULTS.md sections 13 and 14). Precision on public sites was measured for runs 1
+to 4 (run 4: 8 findings in 96 loads, 5 confirmed real, 0 check errors, 3 unconfirmed) but not for the code after the
+review (run 5's 6 findings were not looked at), and the planted faults are the checks' author's own forms, so
+"expected" below still means expected. Each check must pass the gates in section 15 before it is on by default
+anywhere.
 
 Severity: **high** means content or controls the visitor needs cannot be read, seen or used; **medium** means visibly
 wrong but usable; **low** means a defect with a small visible effect.
@@ -1151,7 +1162,8 @@ packages/runtime/src/visual/
   narrow development-host rule and the hidden-tab gate account for about 100 B of it. The owner decides the ceiling.
   Merged into 0.3.0-beta.0 (`release/0.3.0-visual`, CI run 38676978903, RESULTS.md sections 10 and 13): the stub adds
   550 B to `/auto` (108.25 KB) and 524 B to the main entry (100.13 KB) against `release/0.3.0`, over its 107.74 /
-  99.71 KB limits; the owner approved 108.30 / 100.20 KB for 0.3.0-beta.0 (2026-10-15), which `bundle.test.ts` carries.
+  99.71 KB limits; the owner approved 108.30 / 100.20 KB for 0.3.0-beta.0 (2026-10-15), and `bundle.test.ts` carried
+  them until interaction analytics raised them to 108.6 / 100.48 KB on 2026-10-18 (RESULTS.md section 15).
 
 ## 14. Test plan
 
@@ -1215,9 +1227,9 @@ Browser job (new, `visual-browser` in `.github/workflows/ci.yml`, in parallel wi
 ## 15. Measurement plan in CI
 
 **Status: built** (2026-10-13): [`bench/visual/`](../../bench/visual/README.md) and
-`.github/workflows/visual-measure.yml`. The numbers are in [RESULTS.md section 14](RESULTS.md); what the bench changed
-in the checks is in section 19. Where the bench differs from the plan below: the workflow is `visual-measure.yml`,
-started by hand (and by pushes to `bench/visual/` on the visual branch), not weekly; the public sites' run logs and plain
+`.github/workflows/visual-measure.yml`. The numbers are in [RESULTS.md section 14](RESULTS.md#visual-bench); what
+the bench changed in the checks is in section 19. Where the bench differs from the plan below: the workflow is
+`visual-measure.yml`, started by hand (and by pushes to `bench/visual/` on the visual branch), not weekly; the public sites' run logs and plain
 artifacts hold counts only (no site is named next to a finding or a kind: the repository and its runs are public), and
 their per-load results and crops are uploaded only encrypted with the `VISUAL_BENCH_KEY` secret (not at all without
 it, so their findings then count as unconfirmed); the public sites run without `bypassCSP` (Playwright's
@@ -1240,7 +1252,7 @@ A workflow `visual-bench.yml` (manual dispatch and weekly, not on pull requests)
   Every finding on an unmodified page is a candidate false report. A committed `bench/visual/labels.json` (page, kind,
   selector) records a person's verdict, real or false; unlabelled findings are listed separately and never counted as
   correct. If a check finds a real issue in a demo, it is labelled and the demo is left alone.
-- **Seeded faults for recall**: `bench/visual/faults.mjs` (a seeded RNG; `Math.random` is fine in harness code)
+- **Seeded faults for recall**: `bench/visual/faults.ts` (a seeded RNG; `Math.random` is fine in harness code)
   picks visible candidates and applies each fault through a harness stylesheet plus a `data-bench-fault` marker: text
   colour equal to its resolved background, contrast 1.3:1, `pointer-events: none` left on `body`, `overflow: hidden`
   left on `body`, a transparent overlay over a button, a block with `min-width: 130vw`, an image routed to a 404, an
@@ -1269,7 +1281,7 @@ A workflow `visual-bench.yml` (manual dispatch and weekly, not on pull requests)
 
 ## 16. Product wording
 
-What to say once v1 ships (README and genclass.dev), in this voice:
+What to say about v1, which shipped in 0.3.0-beta.0 (README and genclass.dev), in this voice:
 
 > GenClass also measures visual bugs that never throw an error: text you cannot read because it is the same colour as
 > its background, images, fonts and stylesheets that failed to load, pages that scroll sideways on a phone, invisible
@@ -1308,14 +1320,15 @@ Owner decisions:
 3. **Telemetry**: the fields in section 10 (counts per kind and normalised route), under rule 8.
 4. **Sinks**: `"check"` records only for sinks that list it in `kinds`.
 5. **Gates**: the numbers in section 15. Measured on 2026-10-13 (RESULTS.md section 14): the false-report and fix gates
-   are met; the 4x-throttling gate is not reliably met (pass 1 inside 100 ms on 78.1% of clean local pages in runs 1
-   to 3 and 100% in run 4, against at least 90%, with no change to cost between runs 3 and 4); recall is below 0.7 for
+   are met in run 4; in run 5 the public-site false-report gate is not known (6 findings, none looked at); the
+   4x-throttling gate is not reliably met (pass 1 inside 100 ms on 78.1% of clean local pages in runs 1 to 3 and 100%
+   in run 4, against at least 90%, with no change to cost between runs 3 and 4); recall is below 0.7 for
    `click-blocked` and `scroll-lock-stuck` (0.67, pages whose DOM changes all the time); the cost gates were not met on
    public sites (p95 pass time 97.8 ms and p95 longest slice 57.1 ms in run 4; 95.2 ms and 18.9 ms in run 5, after the
    stylesheet walk became a sliced step; 78.1% at 4x throttling in run 5). Whether kinds that miss a gate stay on by
    default on development hosts is open.
-6. **CONTRACT.md**: the same rule 2 exception added to CONTRACT section 0 rule 1, and a new section for visual checks,
-   when implementation starts.
+6. **CONTRACT.md**: done. CONTRACT section 0 rule 1 carries the same rule 2 exception and section 14 describes the
+   visual checks; both still say the owner confirms the wording.
 7. **Public-site bench**: the list of about 40 sites and loading them weekly from GitHub runners. The list is
    `bench/visual/sites.json`; the workflow runs on manual dispatch and on pushes that change `bench/visual/` on the
    visual branch (runs 1 to 3 were push-triggered), with no schedule, until this is decided. Runs on 2026-10-13
@@ -1383,8 +1396,8 @@ What the code does where it differs from the design above (2026-10-13, branch `w
 - **Not built yet:** the explain step (likely source rule, 2.6), the "inserted content" cause tag of `layout-shift`,
   `genclass-runtime init --no-visual`, Firefox and WebKit in the browser job (it runs Chromium only), v2 and v3.
 
-What the bench (section 15, [RESULTS.md section 14](RESULTS.md)) changed, 2026-10-13. Every finding on a public site was
-looked at from its element crop; each check error led to an exclusion with a unit test in
+What the bench (section 15, [RESULTS.md section 14](RESULTS.md#visual-bench)) changed, 2026-10-13. Every finding on
+a public site was looked at from its element crop; each check error led to an exclusion with a unit test in
 `test/visual-checks.test.ts` ("bench regressions") and a fixture in `test/browser/visual/fixtures/regress-*.html` that
 reproduces the pattern, asserts that it happened, and asserts that nothing but the planted faults is reported:
 

@@ -1,11 +1,21 @@
 # GenClass Runtime telemetry
 
+GenClass Runtime (`@genclass/runtime`), an open-source browser library that reports race conditions in web apps,
+sends anonymous diagnostics about its own decisions to its maintainers, by default on public websites; this page lists
+every event and field it sends, where they are stored and for how long, and every way to turn it off.
+
+> **Version.** Written for `@genclass/runtime` 0.3.0 as it is on GitHub `main`: the CHANGELOG's unreleased
+> 0.3.0-beta.1 section, while `package.json` and the `runtime` field of every batch still say 0.3.0-beta.0 until it
+> is released. The copy in an npm package describes that package's version. As of 2026-10-22,
+> `npm i @genclass/runtime` installs 0.2.2 (`latest`) and `npm i @genclass/runtime@beta` installs 0.3.0-beta.0. Items
+> marked 0.3.0 are not in 0.2.x; items marked 0.3.0-beta.1 (interaction analytics) are not on npm yet.
+
 Since **`0.1.0-beta.3`**, `GenClass.init()` in a browser sends **anonymous diagnostics** about GenClass's own
 decisions to the GenClass maintainers (Daybot Solutions Inc.). We use them to measure and improve the GenClass
-model (accuracy, false interventions, latency, which situations it sees in real apps). This page lists exactly what
-is sent, where it goes, and how to turn it off.
+model (accuracy, false interventions, latency, which situations it sees in real apps).
 
-**Turn it off:** `GenClass.init({ telemetry: false })`, `?genclass=no-telemetry` in the URL, or
+**Turn it off:** `GenClass.init({ telemetry: false })` (or `npx @genclass/runtime@beta init --no-telemetry` while
+0.3.0 is in beta; on 0.2.x, the same without `@beta`), `?genclass=no-telemetry` in the URL, or
 `localStorage.setItem("genclass.telemetry", "off")`. Browsers that send Global Privacy Control are never collected.
 Details under [Opting out](#opting-out).
 
@@ -14,13 +24,13 @@ Details under [Opting out](#opting-out).
 | how GenClass starts | default |
 |---|---|
 | `GenClass.init()`, `import "@genclass/runtime/auto"` (and `/auto/*`), the CDN script tag, `npx @genclass/runtime init` setups | **on** in a browser on a public host |
-| the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` (`0.2.1`: on, by mistake; fixed in `0.2.2`, see the CHANGELOG) |
+| the same, on a local or private host (`localhost`, `*.localhost`, `*.local`, `*.test`, `*.internal`, `127.0.0.1`, `::1`, `10/8`, `172.16/12`, `192.168/16`, link-local, `file:`) | off unless `telemetry: true` / `{ ... }` (`0.1.0-beta.3` to `0.2.0`: on, with no local-host rule yet; `0.2.1`: on, by mistake; fixed in `0.2.2`, see the CHANGELOG) |
 | `GenClass.init()` outside a browser (Node, SSR, workers) | off unless `telemetry: true` / `{ ... }` |
 | `createRuntime()` (headless, tests, the simulator) | off unless `telemetry: true` / `{ ... }` |
 
 In `0.2.1` the local-host row did not apply to `GenClass.init()` (and so to `/auto` and the script tag): it passed
 an explicit `telemetry: true` internally, so local and private hosts sent too. Fixed in `0.2.2`
-([CHANGELOG](CHANGELOG.md)).
+([CHANGELOG](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/CHANGELOG.md)).
 
 When it is on, the console shows one notice per page:
 
@@ -42,7 +52,7 @@ segment holding an `@`, such as an e-mail address, is `:id` too).
 - **The situation text the model read is sent only with `include: { situation: true }`** (default off since
   `0.2.1`). It is the text exactly as built for the model, after the redactor (`InitOptions.redact`, default:
   secret-named fields such as passwords, tokens, card numbers, API keys are replaced by `[redacted]`; see the
-  README's [Privacy](README.md#privacy-and-telemetry) section for the rules and their known gaps). It describes
+  README's [Privacy](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#privacy-and-telemetry) section for the rules and their known gaps). It describes
   operations (e.g. `GET /api/items/:id`), store fields and short value summaries, timing and the facts GenClass
   computed. **Before enabling it, know what it can contain:** request names with their query strings (parameter
   values are redacted only when the parameter name looks secret), route changes with query string and fragment,
@@ -51,13 +61,13 @@ segment holding an `@`, such as an e-mail address, is `:id` too).
   (up to 60 characters) and store leaf values up to 48 characters, including state the runtime discovered on its
   own (`autoState`: React, Redux or Zustand state the app never registered; those decisions carry
   `autoState: true`). Add a `redact` function for fields with ordinary names and personal values.
-- **Interaction analytics** (new in `0.3.0-beta.1`; [design](../../docs/runtime/ANALYTICS.md)): **off unless the app
+- **Interaction analytics** (new in `0.3.0-beta.1`; [design](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/ANALYTICS.md)): **off unless the app
   turns them on** with `analytics: true`, and only with the app's token (or your own `telemetry.endpoint`). Then the
   page also sends `interactions` events: per page view, the route, engaged time, scroll depth milestones and clicks,
   rage clicks and dead clicks per element, the element named from markup (a `data-genclass-name`, a `data-testid`, an
   id, a link's target, stable class names or a short structural path), never its text. See
   [Interaction analytics](#interaction-analytics).
-- **Measured visual checks** ([VISUAL.md](../../docs/runtime/VISUAL.md); new in `0.3.0`): nothing about
+- **Measured visual checks** ([VISUAL.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/VISUAL.md); new in `0.3.0`): nothing about
   them is sent. Their findings stay in the page (the console, `rt.checks()`, your own sinks). Counts per check kind
   are a proposal that needs the maintainers' approval of the exact fields first; this file will list them if that
   happens.
@@ -87,22 +97,176 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 
 | `t` | when | fields |
 |---|---|---|
-| `session` | once, at init | `runtime`, `host` (the page's hostname, which identifies the app using GenClass), `route` (the page path with id-like segments replaced by `:id`, and from 0.3.0 any segment holding an `@` or `%40`, such as an e-mail address; no query or fragment), `mode`, `effectiveMode`, `aggressiveness`, `sampled`, `model` (`local` / `custom` / `off`), `modelState`, `modelVersion`, `triage`, `shadow`, `holdWrites`, `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`, `effectiveType`, `saveData`), `sample`, `situation` (whether situation text is included). Not the page's `decisionSample` or `maxDecisions` setting: `summary.telemetry` says how many records were sent and withheld ([Volume](#volume)) |
-| `model` | model state changes, and once right after `session` when the model was skipped or failed before telemetry started (the device floor: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`; with `model.inlineFallback: false` and no worker, `reason` `worker-unavailable`) | `state`, `version`, `model`, `variant`, `device` (webgpu/wasm), `threads`, `worker`, `workerError` (why the model worker was not used, URLs replaced by `<url>`), `gpu` (WebGPU probe summary), `ort`, `loadMs`, `warmupMs`, `fromCache`, `bytes`, `phase`, `reason`, `error` (GenClass model-host error text, ≤ 200 chars, URLs replaced by `<url>`), `attempts` (variant, device and error per load attempt, URLs replaced by `<url>`) |
+| `session` | once, at init | see [`session` event](#session-event) |
+| `model` | model state changes, and (0.3.0) once right after `session` when the model was skipped or failed before telemetry started | see [`model` event](#model-event) |
 | `status` | mode, aggressiveness or breaker changes | `mode`, `effectiveMode`, `aggressiveness`, `breaker` |
-| `decision` | a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted or was vetoed, always; a `decisionSample` share (default 1 in 4) of the routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page load ([Volume](#volume)); all are counted in `summary` | `id`, `trigger`, `route` (the page path, normalised; for a decision deferred until the model loaded or the tab was visible again, 0.3.0, the path at its trigger), `model`, `latencyMs`, `held` (the subject waited for the answer; false = decided in the background), `situation` (text, see above), `autoState` (true when discovered state was recorded on the page), `budget`, `compact`, `questions` (question ids), `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`), `diagnosis`, `diagnosisConfidence`, `action` (chosen), `confidence`, `tier`, `candidate`, `ran`, `executed`, `acted`, `reason` (why the passive action ran), `mass`, `gateKind`, `threshold` / `gain` / `margin`, `thresholdSource`, `gates` (report/guard/heal thresholds, aggressiveness, level and sources), `effectiveMode`, `shadow`, `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran inside, the outermost one; omitted otherwise) |
-| `detect` | a decision reported as a detection: every one, never sampled or capped, with its `decision` record; since 0.3.0 also observe's "possible" ones (`InitOptions.detect`: below the report gate, at or above the eager profile's report value) | `decision`, `trigger`, `diagnosis`, `p`, `tier` (0.3.0: `"possible"` on a possible detection; absent on a likely one, as from earlier runtimes. It cannot be derived from the decision record: a possible detection is one whose `p` is below `gates.report` and at least the eager profile's report value (`gates().possible`, 0.70 with model 0.2.0), which the record does not carry, so `tier` says which side of that threshold a near-miss fell on. A decision deferred until the model loaded or the tab was visible again is `"possible"` whatever its `p`, until the false-report rate of those late decisions is measured. Nothing about the page) |
+| `decision` | a model decision: always when its top diagnosis is not `expected`, it acted, it would have acted in shadow mode or it was vetoed; a sample of the routine ones (0.3.0; [Volume](#volume)) | see [`decision` event](#decision-event) |
+| `detect` | a decision reported as a detection (from 0.3.0 also a "possible" one): every one, never sampled or capped | see [`detect` event](#detect-event) |
 | `action` | an action ran, failed or was undone | `id`, `decision`, `action`, `tier`, `trigger`, `outcome` (`applied` / `failed` / `undone`), `late` (a late revert), `reversible`, `droppedFields` (count) |
 | `veto` | `onBeforeAction` vetoed an action (every one) | `decision`, `action`, `enforced` |
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars, URLs replaced by `<url>`: a model host's message can quote the browser's worker error, which names the script and the page origin) |
-| `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart), actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
-| `interactions` | only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction analytics](#interaction-analytics)) | `view` (page view number in this page load), `route` (normalised as on `session`), `start` (the view's first event: a page view), `engagedMs`, `scroll` (milestones 25 / 50 / 75 / 100 first reached since the previous event), `clicks`, `rage`, `dead` (counts per element key, at most 50 / 20 / 20 keys, the rest under `(other)`), `end` (the view ended). Counts are deltas since the view's previous event |
+| `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | see [`summary` event](#summary-event) |
+| `interactions` | only with `analytics: true` and a token (or a custom endpoint; 0.3.0-beta.1): when a page view ends, when the tab is hidden and before a `summary`, if anything changed | see [`interactions` event](#interactions-event) |
 
-Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
+Not sent: `expectation` reports (a learned step that did not happen,
+[EXPECTATIONS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/EXPECTATIONS.md)) and anything
 else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
 
-Numbers are rounded to 4 decimals. The source of truth is `packages/runtime/src/telemetry/client.ts`.
+Numbers are rounded to 4 decimals. The source of truth is
+[`packages/runtime/src/telemetry/client.ts`](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/src/telemetry/client.ts).
+
+#### `session` event
+
+**When:** once, at init.
+
+**Fields:**
+
+- `runtime`
+- `host` (the page's hostname, which identifies the app using GenClass)
+- `route` (the page path with id-like segments replaced by `:id`, and from 0.3.0 any segment holding an `@` or `%40`,
+  such as an e-mail address; no query or fragment)
+- `mode`
+- `effectiveMode`
+- `aggressiveness`
+- `sampled`
+- `model` (`local` / `custom` / `off`)
+- `modelState`
+- `modelVersion`
+- `triage`
+- `shadow`
+- `holdWrites`
+- `device` (`webgpu` available, `cores`, `memoryGB` (the browser's coarse deviceMemory), `crossOriginIsolated`,
+  `effectiveType`, `saveData`)
+- `sample`
+- `situation` (whether situation text is included)
+
+Not the page's `decisionSample` or `maxDecisions` setting: `summary.telemetry` says how many records were sent and
+withheld ([Volume](#volume)).
+
+#### `model` event
+
+**When:** model state changes, and (0.3.0) once right after `session` when the model was skipped or failed before
+telemetry started (the device floor, 0.3.0: `state` `skipped`, `reason` `device-memory` / `save-data` / `loadIf`;
+with `model.inlineFallback: false` and no worker, also 0.3.0, `reason` `worker-unavailable`). On 0.2.x the model is
+skipped only when the app sets `model.loadIf` to skip, and a skip before telemetry started shows only as
+`modelState` on the `session` event, with no `model` event.
+
+**Fields:**
+
+- `state`
+- `version`
+- `model`
+- `variant`
+- `device` (webgpu/wasm)
+- `threads`
+- `worker`
+- `workerError` (why the model worker was not used, URLs replaced by `<url>`)
+- `gpu` (WebGPU probe summary)
+- `ort`
+- `loadMs`
+- `warmupMs`
+- `fromCache`
+- `bytes`
+- `phase`
+- `reason`
+- `error` (GenClass model-host error text, ≤ 200 chars, URLs replaced by `<url>`)
+- `attempts` (variant, device and error per load attempt, URLs replaced by `<url>`)
+
+#### `decision` event
+
+**When:** a model decision: every one whose top diagnosis is not `expected` (detections and near-misses), that acted,
+that would have acted in shadow mode, or that was vetoed, always; a `decisionSample` share (default 1 in 4) of the
+routine ones (top diagnosis `expected`, nothing acted), at most `maxDecisions` (default 200) routine ones per page
+load (0.3.0; 0.2.x sends every decision record; [Volume](#volume)); all are counted in `summary`.
+
+**Fields:**
+
+- `id`
+- `trigger`
+- `route` (the page path, normalised; for a decision deferred until the model loaded or the tab was visible again,
+  0.3.0, the path at its trigger)
+- `model`
+- `latencyMs`
+- `held` (the subject waited for the answer; false = decided in the background)
+- `situation` (text, see above)
+- `autoState` (true when discovered state was recorded on the page)
+- `budget`
+- `compact`
+- `questions` (question ids)
+- `answers` (per question: calibrated `probabilities` per label, `choice`, `confidence`; or `p` / `score`)
+- `diagnosis`
+- `diagnosisConfidence`
+- `action` (chosen)
+- `confidence`
+- `tier`
+- `candidate`
+- `ran`
+- `executed`
+- `acted`
+- `reason` (why the passive action ran)
+- `mass`
+- `gateKind`
+- `threshold` / `gain` / `margin`
+- `thresholdSource`
+- `gates` (report/guard/heal thresholds, aggressiveness, level and sources)
+- `effectiveMode`
+- `shadow`
+- `fn` (only on batches with a token: the name the app gave the `protect()`ed function the decision's subject ran
+  inside, the outermost one; omitted otherwise)
+
+#### `detect` event
+
+**When:** a decision reported as a detection: every one, never sampled or capped, with its `decision` record; since
+0.3.0 also observe's "possible" ones (`InitOptions.detect`: below the report gate, at or above the eager profile's
+report value).
+
+**Fields:**
+
+- `decision`
+- `trigger`
+- `diagnosis`
+- `p`
+- `tier` (0.3.0: `"possible"` on a possible detection; absent on a likely one, as from earlier runtimes. It cannot be
+  derived from the decision record: a possible detection is one whose `p` is below `gates.report` and at least the eager
+  profile's report value (`gates().possible`, 0.70 with model 0.2.0), which the record does not carry, so `tier` says
+  which side of that threshold a near-miss fell on. A decision deferred until the model loaded or the tab was visible
+  again is `"possible"` whatever its `p`, until the false-report rate of those late decisions is measured. Nothing about
+  the page)
+
+#### `summary` event
+
+**When:** about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide
+and on destroy.
+
+**Fields:**
+
+- `reason`
+- `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart),
+  actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections
+  per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger)
+- `runtime` (model state, p50/p95 latency, decisions, dropped, hidden-tab skips; held time total and max; denied and
+  shadow counts; error count)
+- `telemetry` (queued, dropped, send failures, events sent; and, 0.3.0, `decisionRecords` (decisions whose records
+  were sent), `decisionsSampledOut` and `decisionsCapped` (routine ones sampled out and capped))
+
+#### `interactions` event
+
+**When:** only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page
+exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction
+analytics](#interaction-analytics)).
+
+**Fields:**
+
+- `view` (page view number in this page load)
+- `route` (normalised as on `session`)
+- `start` (the view's first event: a page view)
+- `engagedMs`
+- `scroll` (milestones 25 / 50 / 75 / 100 first reached since the previous event)
+- `clicks`, `rage`, `dead` (counts per element key, at most 50 / 20 / 20 keys, the rest under `(other)`)
+- `end` (the view ended)
+
+Counts are deltas since the view's previous event.
 
 ### Volume
 
@@ -218,7 +382,8 @@ your consent banner), `runtime.analytics.stop()` turns them off and drops the co
 
 New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An app can set a **token**
 (`InitOptions.token`, `data-token`, `<meta name="genclass" content="token=...">` or `window.GENCLASS_CONFIG.token`):
-`gc_` followed by 22 letters or digits, created by `npx @genclass/runtime init` or at https://genclass.dev/start.
+`gc_` followed by 22 letters or digits, created by `init` (`npx @genclass/runtime@beta init` while 0.3.0 is in beta)
+or at https://genclass.dev/start.
 
 - The token is public (it is in the page). It is sent as the batch envelope's top-level `token` and nowhere else; it
   lets the collector group the batches of one app. A malformed token logs one console warning and is not sent.
@@ -235,21 +400,26 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   `[redacted]`, so use fixed names. Without a token `fn` is never sent.
 - With a token, the console notice ends with one more sentence: `With this app's token they also feed its private
   GenClass dashboard.`
-- `npx @genclass/runtime init` creates a token (a "project") only on a new setup and only after the developer
+- `init` creates a token (a "project") only on a new setup and only after the developer
   approved its changes (or passed `--yes`): it sends one request, `POST https://genclass.dev/api/projects` with
   `{ "name": <package.json name, at most 80 characters> }`. The collector keeps one record per project: the token,
   that name, the creation time, the times of the first and the last batch, a SHA-256 hash of the dashboard secret
   (never the secret itself) and, when the app belongs to a genclass.dev account, that account. Project records have
   no automatic expiry; the aggregated dashboard data does (90 days). To delete a project and its dashboard data,
-  write to the contact in PRIVACY.md with the token.
-- An app can also belong to an optional **genclass.dev account** (passkey, Google or GitHub sign-in), which opens its
+  write to the contact in [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md) with the
+  token.
+- An app can also belong to an optional **genclass.dev account** (a passkey, Google, an email and password, or GitHub
+  sign-in), which opens its
   dashboard at `https://genclass.dev/account/apps/<id>` for the signed-in owner; an existing dashboard link can be
   added to an account and keeps working until the owner turns that link off on the account page. This changes
   nothing the runtime sends: pages send the same batches with the same token, and nothing in a batch identifies a
-  person or an account. What an account itself stores (an email as typed or as Google returned it and whether it is
-  verified, passkey public keys, the Google `sub` and the GitHub id and login if used, session records, the apps it
-  owns) is listed in PRIVACY.md. Deleting the account on its account page deletes the apps created in it with their
-  dashboard data.
+  person or an account. What an account itself stores is listed in full in
+  [PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md); among other things, an email as
+  typed or as Google returned it and whether it is verified; a salted one-way hash of the password if one is set,
+  with when it was set and last used and the count of wrong passwords in a row; a one-way hash of the device cookie
+  of each browser where the password was right; passkey public keys; the Google `sub` and the GitHub id and login if
+  used; session records; and the apps it owns. Deleting the account on its account page deletes the apps created in
+  it with their dashboard data.
 - The CLI's account commands send nothing until they are run. `login` sends `POST https://genclass.dev/api/device/code`
   with `{ "client_name": "genclass-runtime <version>" }` (the approval page shows that name and the account page lists
   the CLI session under it), then polls `POST /api/device/token` with the code until the sign-in is approved, denied
@@ -264,7 +434,9 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
 
 - **Endpoint:** `https://genclass.dev/api/v1/events` (`DEFAULT_TELEMETRY_ENDPOINT`; before 0.2.2 the same worker's
   `https://genclass-telemetry.mehar-144.workers.dev/v1/events`, which still works), a Cloudflare Worker operated by the
-  GenClass maintainers (source: `telemetry-worker/` in the repository). With a Content-Security-Policy, allow
+  GenClass maintainers (source:
+  [`telemetry-worker/`](https://github.com/genclass-dev/GenClass-lib/tree/main/telemetry-worker) in the repository).
+  With a Content-Security-Policy, allow
   `https://genclass.dev` in `connect-src` or turn telemetry off; after 3 failed requests in a row a page stops sending
   (a 429 is a back-off, not a failure, since 0.3.0).
 - **Storage:** a private Cloudflare R2 bucket (`genclass-telemetry`), gzip JSON Lines, one object per batch,
@@ -281,11 +453,11 @@ New in `0.3.0` (`0.2.x` ignores a token and sends neither `token` nor `fn`). An 
   batch is kept for its export under `export/<token>/` for up to 1 year (another lifecycle rule, 366 days), and its
   dashboard data for 1 year; both are deleted when the grant ends (30 days after the paid period ends, for a paid
   plan), and at once when the app or its account is deleted. The maintainers may change this later; changes are
-  recorded in the CHANGELOG.
+  recorded in the [CHANGELOG](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/CHANGELOG.md).
 - **Your own endpoint (private mode):** `telemetry: { endpoint: "https://…" }` sends the same batches to a
   collector you run instead, so nothing reaches GenClass: the worker in `telemetry-worker/` deploys to any Cloudflare
-  account with `wrangler.selfhost.toml`, dashboards and accounts included (telemetry-worker/README.md, "Self-host the
-  collector (private mode)").
+  account with `wrangler.selfhost.toml`, dashboards and accounts included (telemetry-worker/README.md,
+  ["Self-host the collector (private mode)"](https://github.com/genclass-dev/GenClass-lib/blob/main/telemetry-worker/README.md#self-host-the-collector-private-mode)).
 
 ## Options
 
@@ -294,13 +466,13 @@ GenClass.init({
   telemetry: {
     endpoint: "https://…",          // default DEFAULT_TELEMETRY_ENDPOINT
     sample: 0.25,                    // fraction of page loads that send (default 1)
-    decisionSample: 1,               // share of routine decisions whose record is sent (default 0.25; counts stay exact)
-    maxDecisions: 1_000,             // most routine decisions' records per page load (default 200; Infinity: no cap; detections never capped)
+    decisionSample: 1,               // 0.3.0: share of routine decisions whose record is sent (default 0.25; counts stay exact)
+    maxDecisions: 1_000,             // 0.3.0: most routine decisions' records per page load (default 200; Infinity: no cap; detections never capped; 0.2.x sends every record)
     flushMs: 10_000,                 // batch interval
     maxBatch: 100,                   // events per request
     include: { situation: true },    // also send the redacted situation text (default: off)
   },
-  analytics: true,                   // interaction analytics for the app's dashboard (default: off; needs the token)
+  analytics: true,                   // 0.3.0-beta.1, not on npm yet: interaction analytics for the app's dashboard (default: off; needs the token)
 });
 ```
 
@@ -313,8 +485,9 @@ Any one of these turns telemetry off for the page:
 | how | who |
 |---|---|
 | `GenClass.init({ telemetry: false })` (or `window.GENCLASS_CONFIG = { telemetry: false }`, `<meta name="genclass" content="telemetry=off">`, `data-telemetry="off"` on the script tag) | the app developer |
+| `npx @genclass/runtime@beta init --no-telemetry` (0.2.x: `npx @genclass/runtime init --no-telemetry`). It writes the opt-out into what `init` adds: `telemetry: false` in its option file, `telemetry=off` in its `<meta name="genclass">` line (Astro), or `data-telemetry="off"` on a plain HTML script tag; from 0.3.0 it implies `--no-token`. One exception: in an Astro layout whose `</head>` shares its line with other markup, `init` puts GenClass inline in `<head>`, cannot write the meta line there and prints a note instead; add `<meta name="genclass" content="telemetry=off">` yourself | the app developer |
 | `?genclass=no-telemetry` in the page URL (`?genclass=off` turns GenClass off entirely) | anyone, for one page load |
-| `localStorage.setItem("genclass.telemetry", "off")` | a user or tester, persistent per origin |
+| `localStorage.setItem("genclass.telemetry", "off")` (`localStorage.setItem("genclass", "off")` turns GenClass off entirely, unless the URL has its own `?genclass=` value, which takes precedence) | a user or tester, persistent per origin |
 | **Global Privacy Control**: `navigator.globalPrivacyControl === true` | the user's browser setting |
 
 **Global Privacy Control (GPC).** California law (CCPA as amended by the CPRA, and its regulations) requires
