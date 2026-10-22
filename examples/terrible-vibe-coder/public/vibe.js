@@ -192,7 +192,8 @@ robot.addEventListener("click", async () => {
   const v = await run();
   tally(v);
   const n = [v.search, v.buy, v.note].filter(Boolean).length;
-  $("robot-status").textContent = n ? `${n} of 3 things went wrong.` : "Nothing went wrong.";
+  const gcSaid = rt && V.gc === "eager" && !v.gc?.interventions ? " GenClass did not step in this time: it acts only when its model is sure." : "";
+  $("robot-status").textContent = (n ? `${n} of 3 things went wrong.` : "Nothing went wrong.") + gcSaid;
   robot.disabled = false;
 });
 
