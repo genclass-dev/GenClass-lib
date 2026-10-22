@@ -587,7 +587,7 @@ describe("dashboard page: the AI agent view (docs/runtime/AGENT.md sections 1 an
     expect(text("#agentwarn")).toContain("stores this dashboard's private link in your Claude configuration, and anyone with the link can see these stats");
     expect(doc.getElementById("agentprod")).toBeNull();
     // steps 2 and 3, and the docs
-    expect(text("#agent")).toContain(`npm install ${RUNTIME_PKG}`);
+    expect(text("#agent")).toContain(`npm install @genclass/runtime@${AGENT_RUNTIME}`);
     expect(text("#agent")).toContain(`needs @genclass/runtime ${AGENT_RUNTIME} or later`);
     expect([...doc.querySelectorAll("#agent pre")].map((p) => p.textContent)).toContain('import { GenClass } from "@genclass/runtime";\nimport { connectAgent } from "@genclass/runtime/agent";\n\nconst rt = GenClass.init();\nif (import.meta.env.DEV) connectAgent(rt);');
     expect(text("#agent")).toContain('Next.js uses process.env.NODE_ENV === "development"');

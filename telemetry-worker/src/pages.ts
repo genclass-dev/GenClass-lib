@@ -1369,7 +1369,7 @@ function agentPanel(privateLink: boolean): string {
     <div class="way">
       <div class="eb">2 · In your app's development build</div>
       <h3>Connect your pages</h3>
-      ${snip("In the app's folder", "the npm command", `npm install ${RUNTIME_PKG}`)}
+      ${snip("In the app's folder", "the npm command", `npm install @genclass/runtime@${AGENT_RUNTIME}`)}
       <p>The agent link needs @genclass/runtime ${esc(AGENT_RUNTIME)} or later.</p>
       ${snip("In your browser entry", "the connect code", connect)}
       <p>Next.js uses <code>process.env.NODE_ENV === "development"</code> instead of <code>import.meta.env.DEV</code>.</p>
@@ -1487,7 +1487,7 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <div class="blk-h"><h2>Sessions and problem rate</h2><span class="aside" id="raten"></span></div>
   <figure>
     <div class="plot" id="rateplot"></div>
-    <figcaption>Fig. 3. Sessions (page loads) per <span class="unit3">day</span>, and problems found per 1,000 sessions, on the same time axis. A <span class="unit3">day</span> with no sessions has no rate, so the line breaks there. Hover or focus the top chart for a <span class="unit3">day</span>'s numbers.</figcaption>
+    <figcaption>Fig. 3. Sessions (page loads) per <span class="unit3">day</span>, and problems found per 1,000 sessions, on the same time axis. Where there were no sessions there is no rate, so the line breaks there. Hover or focus the top chart for each <span class="unit3">day</span>'s numbers.</figcaption>
   </figure>
   <details class="more"><summary>Table view</summary><div id="ratetable" class="mt-s"></div></details>
 </section>
