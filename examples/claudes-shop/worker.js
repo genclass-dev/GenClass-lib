@@ -63,7 +63,19 @@ export class Visitor extends DurableObject {
   }
 }
 
-const SECURITY = { "strict-transport-security": "max-age=31536000", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "strict-origin-when-cross-origin" };
+// GenClass needs: its model worker (a blob: module), WebAssembly, onnxruntime-web and the model from jsDelivr, and
+// telemetry to genclass.dev. Inline scripts: the theme switch and GenClass.init.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net",
+  "worker-src 'self' blob:",
+  "connect-src 'self' https://genclass.dev https://cdn.jsdelivr.net blob: data:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+].join("; ");
+const SECURITY = { "strict-transport-security": "max-age=31536000", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "strict-origin-when-cross-origin", "content-security-policy": CSP };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...SECURITY } });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function body(req) {

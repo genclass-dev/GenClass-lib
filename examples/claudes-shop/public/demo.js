@@ -25,15 +25,20 @@ if (!rt) {
     .gcp ul { list-style: none; margin: 0; padding: 0 14px 14px; display: grid; gap: 8px; max-height: 45vh; overflow: auto; }
     .gcp li { padding: 8px 10px; border-radius: 10px; background: var(--bg); overflow-wrap: anywhere; }
     .gcp li b { display: block; font-size: 12px; margin-bottom: 2px; }
-    .gcp li.fixed b { color: #1f9d5c; }
-    .gcp li.seen b { color: #b7791f; }
+    .gcp li.fixed b { color: #17703f; }
+    [data-theme=dark] .gcp li.fixed b { color: #6fd39a; }
+    .gcp li.seen b { color: #8a5a00; }
+    [data-theme=dark] .gcp li.seen b { color: #f2c46d; }
     .gcp .empty { color: var(--muted); padding: 0 14px 14px; }`;
   document.head.append(Object.assign(document.createElement("style"), { textContent: css }));
+  const host = document.createElement("aside");
+  host.setAttribute("aria-label", "GenClass");
+  host.setAttribute("data-genclass-ignore", "");
   const panel = document.createElement("details");
   panel.className = "gcp";
-  panel.setAttribute("data-genclass-ignore", "");
+  host.append(panel);
   panel.innerHTML = `<summary><span class="dot"></span>GenClass <span class="count">watching</span></summary><p class="empty">Nothing yet. Problems appear here as GenClass finds them.</p><ul></ul>`;
-  document.body.append(panel);
+  document.body.append(host);
   const list = panel.querySelector("ul");
   let n = 0;
   let fixed = 0;
@@ -49,11 +54,17 @@ if (!rt) {
     li.append(Object.assign(document.createElement("b"), { textContent: title }), String(text).replace(/^\[GenClass\]\s*/, ""));
     list.prepend(li);
     panel.querySelector(".count").textContent = `${n} found${fixed ? `, ${fixed} fixed` : ""}`;
-    if (n === 1) panel.open = true;
   };
-  rt.on("check", (f) => add(f.id + (f.fix?.applied ? "+" : ""), f.fix?.applied ? "fixed" : "seen", f.fix?.applied ? "Fixed on this page" : "Found", f.message));
-  rt.on("decide", (d) => d.detection && add(d.id, "seen", "Found", rt.explain(d.id)?.message ?? d.diagnosis));
-  rt.on("act", (a) => add(a.id, "fixed", "Prevented", rt.explain(a.id)?.message ?? a.changed));
+  const on = (type, fn) => {
+    try {
+      rt.on(type, fn);
+    } catch {
+      /* an older runtime without this event */
+    }
+  };
+  on("check", (f) => add(f.id + (f.fix?.applied ? "+" : ""), f.fix?.applied ? "fixed" : "seen", f.fix?.applied ? "Fixed on this page" : "Found", f.message));
+  on("decide", (d) => d.detection && add(d.id, "seen", "Found", rt.explain(d.id)?.message ?? d.diagnosis));
+  on("act", (a) => add(a.id, "fixed", "Prevented", rt.explain(a.id)?.message ?? a.changed));
 
   // the coding-agent link, on your own machine only (an inert no-op on a public host)
   import(`${window.GenClass.base}agent.js`).then((m) => m.connectAgent(rt)).catch(() => {});

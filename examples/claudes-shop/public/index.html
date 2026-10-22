@@ -82,11 +82,23 @@
 
   footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; padding: 20px 0 40px; }
 
-  .promo-back { position: fixed; inset: 0; background: rgba(20, 16, 12, 0.45); display: grid; place-items: center; z-index: 40; }
+  .promo-back { position: fixed; left: 0; right: 0; bottom: 16px; display: grid; place-items: center; z-index: 40; pointer-events: none; }
+  .promo { pointer-events: auto; }
   .promo { background: var(--surface); color: var(--text); border-radius: 16px; padding: 24px; width: min(360px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.25); }
   .promo h2 { margin: 0 0 6px; font: 600 22px/1.2 "Iowan Old Style", Georgia, serif; }
   .promo p { margin: 0 0 16px; color: var(--muted); }
   .promo button { height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
+  /* phones: a compact three-column grid, so the featured products fit on one screen */
+  @media (max-width: 600px) {
+    .hero { padding: 18px 0 0; }
+    .hero h1 { font-size: 26px; }
+    .layout { padding-top: 14px; }
+    .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .art { aspect-ratio: 16 / 11; }
+    .info { padding: 6px 8px 8px; }
+    .name, .price { font-size: 12px; line-height: 1.3; }
+    .add { height: 26px; padding: 0 8px; font-size: 11px; margin-top: 4px; }
+  }
 </style>
 </head>
 <body>

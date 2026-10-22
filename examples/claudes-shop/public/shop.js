@@ -53,7 +53,7 @@ function card(p) {
 async function load(q) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
   const data = await res.json();
-  store.set((s) => ({ ...s, results: data.items, resultsFor: data.q }));
+  store.set((s) => ({ ...s, results: data.q ? data.items : data.items.slice(0, 6), resultsFor: data.q }));
 }
 
 search.addEventListener("input", async () => {
@@ -88,7 +88,7 @@ note.addEventListener("input", () => {
 });
 
 store.subscribe((s) => {
-  $("results-for").textContent = s.resultsFor ? `${s.results.length} result${s.results.length === 1 ? "" : "s"} for "${s.resultsFor}"` : "Everything in the shop";
+  $("results-for").textContent = s.resultsFor ? `${s.results.length} result${s.results.length === 1 ? "" : "s"} for "${s.resultsFor}"` : "Featured this week";
   $("results").replaceChildren(...s.results.map(card));
   $("bag-item").textContent = s.item.name;
   $("bag-price").textContent = `$${s.item.price}`;
@@ -120,7 +120,7 @@ const offer = () => setTimeout(() => {
   document.body.style.overflow = "hidden";
   const close = () => back.remove();
   back.querySelector("button").addEventListener("click", close);
-  setTimeout(close, 2500);
-}, 3000);
+  setTimeout(close, 1200);
+}, 1800);
 if (document.readyState === "complete") offer();
 else addEventListener("load", offer);
