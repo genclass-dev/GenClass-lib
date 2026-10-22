@@ -5,8 +5,8 @@
 //
 // Invariants:
 // - A plan marked managed_payments in billing/plans.json is sold through Stripe Managed Payments (Stripe, through Link,
-//   is the merchant of record) when the Worker var MANAGED_PAYMENTS is "on"; no plan is today (Individual is a
-//   person's work, so it is not an eligible fully automated digital product). Managed Payments subscriptions exist
+//   is the merchant of record) when the Worker var MANAGED_PAYMENTS is "on"; no plan is today (no plan is sold on
+//   the site, and Individual, sold until 2026-10-22, was a person's work, not a fully automated digital product). Managed Payments subscriptions exist
 //   only through Checkout, cannot hold a non-eligible product and cannot be turned on for an existing subscription, so
 //   a switch between two paid plans is always a new Checkout for the other plan (README "Paid plans", "Stripe
 //   documentation notes"). Every subscription GenClass starts uses flexible billing mode.
@@ -58,7 +58,7 @@
 //   status decides whether it applies (active or trialing: yes; past_due: for 14 days from when GenClass first saw it
 //   past due, whatever the account's retry settings; anything else: free). An event about another subscription than
 //   the account's current one never overwrites a live plan unless oneSubscription chose it.
-// - A purchase of a plan with a custom model (Individual: a person trains it) is recorded (custom_requests,
+// - A purchase of a paid plan with a custom model (a person trains it; Individual until 2026-10-22) is recorded (custom_requests,
 //   NOTIFY_WEBHOOK) only once Stripe reports that plan's price paid: the subscription's latest invoice (fetched with it)
 //   is paid and has a positive line on that price (a first invoice, which a switch from another plan is too), seen on
 //   invoice.paid or on the subscription's own events.
@@ -67,7 +67,7 @@
 import type { Env } from "./collector.js";
 import { randomBase62, sha256Hex, type D1Like } from "./dashboard.js";
 import { json } from "./http.js";
-import { entitled, LIVE_STATUSES, LOOKUP_PREFIX, pastDueLapsed, planById, PLANS, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
+import { entitled, LIVE_STATUSES, LOOKUP_PREFIX, ownedPrice, pastDueLapsed, planById, PLANS, PLANS_FILE, planForPrice, stripeMode, type Billing, type Plan, type PlanId } from "./plans.js";
 import { equalStrings } from "./webauthn.js";
 
 export const STRIPE_API = "https://api.stripe.com";
@@ -288,12 +288,17 @@ export async function customerSubscriptions(env: Env, f: Fetch, customer: string
 
 /**
  * Every price of the subscription is provably GenClass's (a genclass_ lookup key and a product with metadata
- * genclass_plan; the product must be expanded). A subscription mixing in any other price is not GenClass's.
+ * genclass_plan naming a plan GenClass sells or sold: src/plans.ts ownedPrice; the product must be expanded). A
+ * subscription mixing in any other price is not GenClass's. A retired plan's subscription is GenClass's (it is
+ * cancelled with the account and opens the portal) but gives no plan: retiredSubscription.
  */
 export function isGenClassSubscription(sub: Obj): boolean {
   const items: Obj[] = Array.isArray(sub?.items?.data) ? sub.items.data : [];
-  return items.length > 0 && items.every((it) => planForPrice(it?.price) !== null);
+  return items.length > 0 && items.every((it) => ownedPrice(it?.price));
 }
+
+/** GenClass's subscription to a plan it no longer sells (plans.json retired_plans): no price of it gives a plan. */
+export const retiredSubscription = (sub: Obj): boolean => isGenClassSubscription(sub) && subscriptionState(sub).priced === null;
 
 /** A stored customer as Stripe has it: GenClass's for this account (with its subscriptions), gone, or not GenClass's. */
 export type CustomerCheck = { state: "ok"; subs: Obj[] } | { state: "missing" } | { state: "not_genclass" };
@@ -682,7 +687,7 @@ const linePrice = (line: Obj): string | null => {
   return typeof v === "string" ? v : null;
 };
 
-/** A plan whose purchase a person from GenClass follows up (entitlement custom_model: Individual). */
+/** A plan whose purchase a person from GenClass follows up (entitlement custom_model; Individual until 2026-10-22). */
 export const hasCustomModel = (plan: Plan | null): boolean => !!plan && entitled(plan, "custom_model");
 
 /**
@@ -799,6 +804,9 @@ export async function handleEvent(x: EventContext, event: Obj): Promise<EventRes
   const result = await applySubscription(x, account, sub, event, !!one);
   // a purchase a person follows up (a custom model) counts once Stripe reports it paid
   if (result.status === "applied" && hasCustomModel(planById(result.plan)) && latestInvoicePaysCustom(sub)) await recordCustom(x, account, idOf(sub.id)!, planById(result.plan));
+  // a retired plan that still bills (bought before it ended, or a Checkout opened before then and paid after) gives
+  // Free: the owner hears once per payment that clears (invoice.paid: its start and each renewal), to cancel and refund it
+  if (result.status === "applied" && type === "invoice.paid" && retiredSubscription(sub)) await retiredNotice(x, account, sub);
   if (one?.extra.length && result.status === "applied") await settleOthers(x, account, one);
   return result;
 }
@@ -1007,6 +1015,18 @@ export async function applySubscription(x: EventContext, account: BillingAccount
   return { status: "applied", ours: true, account: account.id, plan: s.plan };
 }
 
+/** The owner's notice for a payment of a retired plan's subscription (handleEvent, on invoice.paid). */
+async function retiredNotice(x: EventContext, account: BillingAccount, sub: Obj): Promise<void> {
+  const key = subscriptionState(sub).lookupKey;
+  await notifyOwner(x, {
+    event: "retired_plan_billing",
+    text: `${modeNote(x.env)}GenClass account ${account.id}: a payment of subscription ${idOf(sub.id)} (${key ?? "no lookup key"}) cleared, for a plan GenClass no longer sells; the account reads as Free. Cancel and refund it in Stripe.`,
+    account_id: account.id,
+    subscription_id: idOf(sub.id),
+    lookup_key: key,
+  });
+}
+
 export const modeNote = (env: Env): string => (stripeMode(env) === "test" ? "[Stripe test mode, no real money] " : "");
 
 /** Who else can refund a GenClass payment, for the owner's notices: Stripe, and Link support for the Managed Payments plans. */
@@ -1033,7 +1053,7 @@ export async function notifyOwner(x: Pick<EventContext, "env" | "fetch" | "now">
 }
 
 /**
- * A paid purchase of a plan with a custom model (Individual): a custom_requests row (once per subscription) and, with
+ * A paid purchase of a plan with a custom model (Individual until 2026-10-22): a custom_requests row (once per subscription) and, with
  * NOTIFY_WEBHOOK, a short notice naming the plan. The
  * notice carries ids only; the buyer's email is in the row.
  */
