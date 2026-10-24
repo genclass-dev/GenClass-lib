@@ -38,3 +38,7 @@ bench/visual/.work/
 # @genclass/mcp e2e: generated regression test
 packages/mcp/test/e2e/.gen/
 .genclass/
+
+# bench/hunt: a login's storage state holds a session (cookies, local storage); never commit one
+bench/hunt/.storage/
+bench/hunt/**/storage-state*.json

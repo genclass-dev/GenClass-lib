@@ -1,0 +1,114 @@
+
+== run 1 (reference, no delay): 
+{
+  "query": "bug",
+  "urlQuery": "bug",
+  "main": [
+    "Back",
+    "Article",
+    "Learn more on our documentation",
+    "Create new entry",
+    "1 entry found",
+    "Search for Article",
+    "Clear",
+    "Filters",
+    "View settings",
+    "ID",
+    "TITLE",
+    "DESCRIPTION",
+    "SLUG",
+    "STATUS",
+    "3",
+    "A bug is becoming a meme on the internet",
+    "How a bug on MySQL is becoming a meme on the internet",
+    "a-bug-is-becoming-a-meme-on-the-internet",
+    "Draft",
+    "Row actions"
+  ]
+}
+
+== run 2 (delayed: GET /content-manager/collection-types/api::article.article +2000 ms): SAME end state as the reference
+{
+  "query": "bug",
+  "urlQuery": "bug",
+  "main": [
+    "Back",
+    "Article",
+    "Learn more on our documentation",
+    "Create new entry",
+    "1 entry found",
+    "Search for Article",
+    "Clear",
+    "Filters",
+    "View settings",
+    "ID",
+    "TITLE",
+    "DESCRIPTION",
+    "SLUG",
+    "STATUS",
+    "3",
+    "A bug is becoming a meme on the internet",
+    "How a bug on MySQL is becoming a meme on the internet",
+    "a-bug-is-becoming-a-meme-on-the-internet",
+    "Draft",
+    "Row actions"
+  ]
+}
+
+== run 3 (delayed: GET /content-manager/collection-types/api::article.article +2000 ms): SAME end state as the reference
+{
+  "query": "bug",
+  "urlQuery": "bug",
+  "main": [
+    "Back",
+    "Article",
+    "Learn more on our documentation",
+    "Create new entry",
+    "1 entry found",
+    "Search for Article",
+    "Clear",
+    "Filters",
+    "View settings",
+    "ID",
+    "TITLE",
+    "DESCRIPTION",
+    "SLUG",
+    "STATUS",
+    "3",
+    "A bug is becoming a meme on the internet",
+    "How a bug on MySQL is becoming a meme on the internet",
+    "a-bug-is-becoming-a-meme-on-the-internet",
+    "Draft",
+    "Row actions"
+  ]
+}
+
+== run 4 (delayed: GET /content-manager/collection-types/api::article.article +2000 ms): SAME end state as the reference
+{
+  "query": "bug",
+  "urlQuery": "bug",
+  "main": [
+    "Back",
+    "Article",
+    "Learn more on our documentation",
+    "Create new entry",
+    "1 entry found",
+    "Search for Article",
+    "Clear",
+    "Filters",
+    "View settings",
+    "ID",
+    "TITLE",
+    "DESCRIPTION",
+    "SLUG",
+    "STATUS",
+    "3",
+    "A bug is becoming a meme on the internet",
+    "How a bug on MySQL is becoming a meme on the internet",
+    "a-bug-is-becoming-a-meme-on-the-internet",
+    "Draft",
+    "Row actions"
+  ]
+}
+
+0 of 3 delayed run(s) ended differently from the reference, with no GenClass on the page.
