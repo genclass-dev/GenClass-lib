@@ -38,3 +38,11 @@ bench/visual/.work/
 # @genclass/mcp e2e: generated regression test
 packages/mcp/test/e2e/.gen/
 .genclass/
+
+# framework build output (templates, packages/nuxt, packages/astro)
+.nuxt/
+.output/
+.astro/
+.react-router/
+.angular/
+templates/react-router/build/

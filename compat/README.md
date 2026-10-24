@@ -17,7 +17,7 @@ whether to install GenClass). This directory is separate from the training data:
 | `harness/apps.mjs` | the apps, how to build and serve them, their data layers and expected state discovery |
 | `harness/report.mjs` | results JSON → `RESULTS.md` (`npm run report -- results/<date>.json`) |
 | `apps/*` | React 19 + Vite (useState, TanStack Query, Zustand ×2, Redux Toolkit + RTK Query, Apollo), Next.js 16 App Router (useState, SWR), Vue 3 + Pinia, SvelteKit 3 (Svelte stores), Angular 22 (HttpClient on fetch and on XHR), Solid (createResource), plain HTML with the CDN script tag (fetch; WebSocket + EventSource) |
-| `templates-check.mjs` | builds and boots the starter templates in `../templates/` against the packed runtime |
+| `templates-check.mjs` | builds and boots the starter templates in `../templates/` against the packed runtime; for the astro and nuxt templates it also builds and packs `@genclass/astro` and `@genclass/nuxt` from `../packages/` (Astro 7, Nuxt 4.6 and Angular 22 want Node 22.23 or 24.15 and later) |
 | `results/` | one JSON per published run; `<date>.notes.json`: analysis of a ✗ written after the run (shown as *Analysis* on the page); `templates-<date>.json`: the template check |
 | `scripts/vm-setup.sh` | one-time setup on the Linux VM; `scripts/summarize-dev.cjs` prints one line per trial; `scripts/debug-template.mjs` prints a served page's console |
 
