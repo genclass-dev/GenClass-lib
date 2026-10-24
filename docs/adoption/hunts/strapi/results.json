@@ -186,6 +186,34 @@
     ]
   },
   {
+    "file": "load-edit-600-fixed.json",
+    "scenario": "load-edit",
+    "slow_ms": 600,
+    "tag": "fixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 5 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 5,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f985"
+    ],
+    "msMedian": 6407,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 5 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
     "file": "load-edit-600-unfixed.json",
     "scenario": "load-edit",
     "slow_ms": 600,
@@ -282,6 +310,34 @@
     ]
   },
   {
+    "file": "load-list-600-fixed.json",
+    "scenario": "load-list",
+    "slow_ms": 600,
+    "tag": "fixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 1,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 2 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 2,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f26"
+    ],
+    "msMedian": 5699,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 2 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
     "file": "load-list-600-unfixed.json",
     "scenario": "load-list",
     "slow_ms": 600,
@@ -313,6 +369,34 @@
     "msMedian": 6094,
     "reportHead": [
       "RACE: 2 of 6 reordered run(s) ended in a different state than the baseline (responses in request order)."
+    ]
+  },
+  {
+    "file": "load-list-900-fixed.json",
+    "scenario": "load-list",
+    "slow_ms": 900,
+    "tag": "fixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 1,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 1 of 6 ended differently, 2 more witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 2,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "not reproduced",
+    "replayWhy": "not reproduced · ended with the values of the request-order baseline",
+    "findings": [
+      "f28"
+    ],
+    "msMedian": 7096,
+    "reportHead": [
+      "RACE: 1 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 2 more ended right but had an older response overwrite newer data along the way."
     ]
   },
   {

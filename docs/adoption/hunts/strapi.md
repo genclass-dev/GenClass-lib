@@ -10,10 +10,12 @@ to Strapi's repository, forum or maintainers.
 GenClass: when the response to `GET /admin/users/me/permissions` lands after the Content Manager's two init responses,
 a logged-in super admin who opens a Content Manager URL is sent to `/admin/content-manager/403`, "You don't have the
 permissions to access that content", and stays there. Explore reported it in 2 of 6 reordered loads at each of the
-three latencies; its replay reproduced it; a Playwright script that only delays that one response reproduces it in
-3 of 3 loads (0 of 3 without the delay). A 12-line fix in `useContentManagerInitData.ts` makes the replay say
-"not reproduced", the regression test pass, and explore report no such difference over 6 reordered loads at each
-latency. The five interaction scenarios (search, sort and filter, relation picker, double Save and Publish,
+three latencies (and in 2 of 6 on the edit view); its replay reproduced it; a Playwright script that only delays
+that one response reproduces it in 3 of 3 loads (0 of 3 without the delay). A 12-line fix in
+`useContentManagerInitData.ts` makes the replay say "not reproduced", the regression test pass (it failed before),
+the delayed-response script reach the list in 3 of 3 loads, and no reordered load end on the 403 page in 24 more
+loads (6 at each latency on the list, 6 on the edit view); explore's own verdict on those fixed sessions still names
+"races", every one of them on internal bookkeeping fields (section 6, the false-report rate of this run). The five interaction scenarios (search, sort and filter, relation picker, double Save and Publish,
 pagination) showed no order-dependent page: their verdicts, with the false reports GenClass produced on them, are in
 section 3.
 
@@ -224,7 +226,9 @@ could see. In the fifo baselines `/admin/users/me/permissions#1` (requested at a
 loaded permissions.
 
 The replay (`genclass_replay arm` with the finding, one load, `result`): "REPRODUCED · ended with the same wrong
-values as the failing run", at 300 ms (run r9 of finding f2) and 600 ms (run r18 of finding f3).
+values as the failing run", at 300 ms (run r9 of finding f2), 600 ms (run r18 of finding f3) and 900 ms (run r36 of
+finding f13); the bridge later deduplicated the three into one finding (f2, seen three times), which the fixed
+variant's replay in section 4.5 refers to.
 
 ### 4.2 Reproduction without GenClass
 
@@ -281,9 +285,30 @@ pre-bundled from `node_modules` rather than built from the monorepo.
 through `docs/adoption/hunts/strapi/e2e/` (the spec unchanged; Strapi's `login` and `dts-import` helpers replaced by
 two stand-ins, since the monorepo's harness was not installed):
 
-<!-- E2E RESULTS -->
+| variant | `npx playwright test` on the spec | the delayed-response script (`repro-403.mjs`, 1,500 ms, 3 trials) |
+|---|---|---|
+| 5.59.0 as installed | **1 failed**: `getByRole('heading', { name: 'Article' })` never visible; the page is `/admin/content-manager/403` | 403 page in 3 of 3 (list in 3 of 3 without the delay) |
+| with the patch | **1 passed** (5.7 s) | list in 3 of 3 (and 3 of 3 without the delay) |
 
-<!-- FIXED RESULTS -->
+The same explore sessions on the fixed variant (the check that the fix does not trade the race for a false report;
+the unfixed rows are in section 3):
+
+| scenario | slow_ms | explore verdict (as reported) | DOM oracle: seeded loads differing | loads on the 403 page | replay | forced |
+|---|---|---|---|---|---|---|
+| load-list | 300 | race: 0 of 6 ended differently, 2 witness only | 0 of 6 | none | f2 (the unfixed finding): **not reproduced** · ended with the values of the request-order baseline | 0 |
+| load-list | 600 | race: 0 of 6 ended differently, 2 witness only | 0 of 6 | none | (f2 covers it: the three sessions' findings deduplicated into one) | 1 |
+| load-list | 900 | race: 1 of 6 ended differently, 2 more witness only | 0 of 6 | none | the new finding (a `requestId` redaction flip, section 6): not reproduced | 1 |
+| load-edit | 600 | race: 0 of 6 ended differently, 5 witness only | 0 of 6 | none | its witness finding: "reproduced" (the same bookkeeping witness again) | 0 |
+
+So: no reordered load of the fixed variant ended on the 403 page or with a different page (0 of 24, against 8 of 24
+before the fix); the replay of the unfixed finding says "not reproduced · ended with the values of the request-order
+baseline". The "witness only" counts are `overwrote-newer` witnesses on `redux.adminApi.queries.getInitialData(undefined).status`,
+`Layout.external1.isFetching`, `Layout.external1.status` and `NpsSurvey.state7`, written by the permissions and `users/me`
+responses after the init response: RTK Query marking a query pending and fulfilled, the same internal bookkeeping as
+in section 6 item 1, with the page unchanged. The one "ended differently" run (900 ms, seed 6) differs in
+`AuthProvider.external1.requestId`, redacted in the baseline and plain in that run (section 6 item 2). Read as the
+false-report rate of GenClass on a page that is now order-independent: 4 of 4 sessions got a race-like verdict, 0 of
+24 loads showed a different page.
 
 ## 5. A second observation: a double click on Publish sends two publish requests
 
@@ -294,8 +319,14 @@ the double click on Save sent one `PUT` (its second click hit a disabled button 
 Both buttons are disabled through the form's `isSubmitting` (`DocumentActions.tsx`: `PublishAction` line 1067,
 `UpdateAction` line 1293) and both handlers call `setSubmitting(true)` first (`performPublish` line 857,
 `handleUpdate` line 1297), so the difference was not expected from the source and is reported as observed, without
-a root cause. <!-- PUBLISH PROBE --> The final state is the same whatever the order, so it is not a race; a second
-publish does fire the `entry.publish` webhook again. It is in `strapi-issue.md` as a note, not in the patch.
+a root cause from the source alone. A probe without GenClass settled it: after one click on Publish the button is
+`disabled` at once (and still 60 ms later), and a second click 60 ms after the first sends nothing; Playwright's
+`dblclick`, whose two clicks reach the page 12 ms apart, sends the two `POST`s (both answered "Published document").
+So the second request needs a second click inside the few milliseconds before React re-renders the button, which
+synthetic input produces and a human double click (tens of milliseconds apart) does not. The final state is the
+same whatever the order, so it is not a race, and it is reported as an observation about synthetic input rather
+than as a Strapi bug; the only effect of a second publish would be a duplicate notification and a second
+`entry.publish` webhook. It is in `strapi-issue.md` as a note, not in the patch.
 
 ## 6. Problems with GenClass itself
 
@@ -355,4 +386,11 @@ Recorded as they were hit; none changed the finding. Items 1 to 5 are about GenC
 
 ## 7. Time spent
 
-<!-- TIME -->
+About 1 hour 45 minutes of session time, from the first `npm ci` at 18:44 UTC to the final commit, of which roughly:
+15 minutes to install Strapi, write the content types and seed; 25 minutes to read the agent docs and Strapi's admin
+sources, write the harness and get the first connected load (the Local Network Access check and the guided tour's
+backdrop cost two of those); 10 minutes from the first explore report to the root cause, the GenClass-free
+reproduction and the patch; 50 minutes of explore sessions (29 sessions of 8 loads, 3 to 65 s a load, one batch
+discarded for the expired admin session and run again); 10 minutes for the fixed-variant checks; the rest writing.
+The racing page was the first page the harness was pointed at: the finding took one explore session; the other
+scenarios and the fixed-variant check took the rest.

@@ -148,11 +148,11 @@ the permissions have arrived. Fixes (issue number).
 
 ## A second, smaller observation (not in the patch)
 
-A double click on **Publish** in the edit view sends two `POST /content-manager/collection-types/<uid>/<id>/actions/publish`
-requests (24 of 24 tries) and shows "Published document" twice; the same double click on **Save** sends one `PUT`
-(24 of 24). Both buttons are
-disabled through the form's `isSubmitting` (`DocumentActions.tsx`: `isDisabled` of `PublishAction` at line 1067 and
-of `UpdateAction` at line 1293), and both handlers call `setSubmitting(true)` first (`performPublish` at line 857,
-`handleUpdate` at line 1297), so the second publish request was not expected; it is reported as observed, without a
-root cause. Its visible effect is the duplicate notification; a second publish also fires the `entry.publish` webhook
-again.
+With Playwright's `dblclick` on **Publish** in the edit view, the two clicks reach the page about 12 ms apart and two
+`POST /content-manager/collection-types/<uid>/<id>/actions/publish` requests go out (24 of 24 tries), both answered
+"Published document"; the same `dblclick` on **Save** sends one `PUT`. Two clicks 60 ms apart send one publish request:
+the button is `disabled` right after the first click (`performPublish` sets the form's `isSubmitting` first,
+`DocumentActions.tsx` line 857). So this needs a second click inside the few milliseconds before React re-renders
+the button, which synthetic input produces and a human double click does not; it is noted here for completeness,
+not reported as a bug. If wanted, a ref set at the start of `performPublish` and cleared in its `finally` would
+close the window without a render in between.
