@@ -19,7 +19,11 @@ for (const f of readdirSync(OUT).filter((f) => /^[a-z-]+-\d+(-[a-z]+)?\.json$/.t
   // "RACE: no reordered run ended differently, but 6 of 6 had an older response overwrite newer data ..."
   const m = /RACE: (\d+) of (\d+) reordered run\(s\) ended in a different state[^.;]*[.;](?:[^.]*?(\d+) more ended right but had an older response overwrite newer data)?/.exec(d.report);
   const witnessOnly = /RACE: no reordered run ended differently, but (\d+) of (\d+) had an older response overwrite newer data/.exec(d.report);
-  const noRace = /no race|No race|ended as the baseline/i.test(d.report) && !m && !witnessOnly;
+  // "No race found: all N reordered run(s) ended in the baseline's state." is vacuous when N is 0 (the baselines'
+  // group held no seeded run: the scenario fingerprints differed between loads)
+  const noRaceM = /No race found: all (\d+) reordered run\(s\) ended in the baseline's state/.exec(d.report);
+  const noRace = !!noRaceM && !m && !witnessOnly;
+  const groups = (d.report.match(/^## /gm) ?? []).length;
   const loads = d.loads ?? [];
   const seeded = loads.filter((l) => l.schedule?.order === "seeded");
   const fifo = loads.filter((l) => l.schedule?.order === "fifo");
@@ -42,7 +46,9 @@ for (const f of readdirSync(OUT).filter((f) => /^[a-z-]+-\d+(-[a-z]+)?\.json$/.t
     unsettled,
     forced,
     forbiddenRuns,
-    verdict: m ? `race: ${m[1]} of ${m[2]} ended differently${m[3] ? `, ${m[3]} more witness only` : ""}` : witnessOnly ? `race: 0 of ${witnessOnly[2]} ended differently, ${witnessOnly[1]} witness only` : d.report.includes("RACE:") ? "race (see report)" : noRace ? "no race" : "no verdict",
+    groups,
+    verdict: m ? `race: ${m[1]} of ${m[2]} ended differently${m[3] ? `, ${m[3]} more witness only` : ""}` : witnessOnly ? `race: 0 of ${witnessOnly[2]} ended differently, ${witnessOnly[1]} witness only` : d.report.includes("RACE:") ? "race (see report)" : noRace ? (Number(noRaceM[1]) === 0 ? "no race over 0 compared runs (vacuous)" : `no race over ${noRaceM[1]} runs`) : "no verdict",
+    noVerdictWhy: groups > 1 ? `${groups} scenario groups (the recorded actions differed between loads)` : "",
     witnessOnly: m?.[3] ? Number(m[3]) : witnessOnly ? Number(witnessOnly[1]) : 0,
     oracleBaselinesAgree: d.oracle?.baselinesAgree,
     oracleSeededDiffering: (d.oracle?.seededDiffering ?? []).map((x) => `seed ${x.seed}`),
@@ -55,6 +61,6 @@ for (const f of readdirSync(OUT).filter((f) => /^[a-z-]+-\d+(-[a-z]+)?\.json$/.t
 }
 writeFileSync(join(here, "results.json"), JSON.stringify(rows, null, 2));
 const cell = (v) => String(v ?? "").replace(/\|/g, "\\|");
-console.log("| scenario | slow_ms | variant | explore verdict (as reported) | DOM oracle: seeded loads differing | replay | 403 loads | failed loads | forced |");
+console.log("| scenario | slow_ms | variant | explore verdict (as reported) | groups | DOM oracle: seeded loads differing | replay of the first finding | loads on the 403 page | forced deliveries |");
 console.log("|---|---|---|---|---|---|---|---|---|");
-for (const r of rows) console.log(`| ${cell(r.scenario)} | ${r.slow_ms} | ${cell(r.tag)} | ${cell(r.verdict)} | ${r.oracleSeededDiffering.length} of ${r.seeded}${r.oracleBaselinesAgree === false ? " (baselines differ)" : ""} | ${cell(r.replay)}${r.replayWhy ? ` (${cell(r.replayWhy)})` : ""} | ${r.forbiddenRuns.join(", ") || "none"} | ${r.failed} | ${r.forced} |`);
+for (const r of rows) console.log(`| ${cell(r.scenario)} | ${r.slow_ms} | ${cell(r.tag)} | ${cell(r.verdict)} | ${r.groups} | ${r.oracleSeededDiffering.length} of ${r.seeded}${r.oracleBaselinesAgree === false ? " (baselines differ)" : ""} | ${cell(r.replay) || "none"} | ${r.forbiddenRuns.join(", ") || "none"} | ${r.forced} |`);

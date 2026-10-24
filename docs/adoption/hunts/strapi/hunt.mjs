@@ -211,15 +211,15 @@ const rows = async (page) => page.locator("table tbody tr").evaluateAll((trs) =>
 const listOracle = async (page) => ({
   path: new URL(page.url()).pathname,
   query: new URL(page.url()).search,
-  heading: await page.locator("main h1").first().textContent().catch(() => null),
+  heading: await page.locator("main h1").first().textContent({ timeout: 1500 }).catch(() => null),
   forbidden: await forbidden(page),
-  count: await page.getByText(/entr(y|ies) found/).first().textContent().catch(() => null),
+  count: await page.getByText(/entr(y|ies) found/).first().textContent({ timeout: 1500 }).catch(() => null),
   rows: await rows(page),
 });
 const pickerOracle = async (page) => ({
   path: new URL(page.url()).pathname,
   forbidden: await forbidden(page),
-  value: await page.getByRole("combobox", { name: /author/i }).first().inputValue().catch(() => null),
+  value: await page.getByRole("combobox", { name: /author/i }).first().inputValue({ timeout: 1500 }).catch(() => null),
   options: await page.getByRole("option").allTextContents(),
 });
 
@@ -335,10 +335,10 @@ const SCENARIOS = {
     },
     oracle: async (page) => ({
       path: new URL(page.url()).pathname,
-      title: await page.getByRole("textbox", { name: /^title/i }).inputValue().catch(() => null),
-      status: await page.locator("main").getByText(/^(Draft|Published|Modified)$/).first().textContent().catch(() => null),
-      saveDisabled: await page.getByRole("button", { name: "Save", exact: true }).isDisabled().catch(() => null),
-      publishDisabled: await page.getByRole("button", { name: "Publish", exact: true }).isDisabled().catch(() => null),
+      title: await page.getByRole("textbox", { name: /^title/i }).inputValue({ timeout: 1500 }).catch(() => null),
+      status: await page.locator("main").getByText(/^(Draft|Published|Modified)$/).first().textContent({ timeout: 1500 }).catch(() => null),
+      saveDisabled: await page.getByRole("button", { name: "Save", exact: true }).isDisabled({ timeout: 1500 }).catch(() => null),
+      publishDisabled: await page.getByRole("button", { name: "Publish", exact: true }).isDisabled({ timeout: 1500 }).catch(() => null),
       notifications: await page.locator("[role=status], [role=alert]").allTextContents(),
     }),
   },

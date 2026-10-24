@@ -1,5 +1,253 @@
 [
   {
+    "file": "double-save-300-unfixed.json",
+    "scenario": "double-save",
+    "slow_ms": 300,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 9,
+    "forbiddenRuns": [],
+    "groups": 8,
+    "verdict": "no verdict",
+    "noVerdictWhy": "8 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": false,
+    "oracleSeededDiffering": [
+      "seed 1",
+      "seed 2",
+      "seed 3",
+      "seed 4",
+      "seed 5",
+      "seed 6"
+    ],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 9696,
+    "reportHead": [
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page.",
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page."
+    ]
+  },
+  {
+    "file": "double-save-600-unfixed.json",
+    "scenario": "double-save",
+    "slow_ms": 600,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 6,
+    "forbiddenRuns": [],
+    "groups": 8,
+    "verdict": "no verdict",
+    "noVerdictWhy": "8 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": false,
+    "oracleSeededDiffering": [
+      "seed 1",
+      "seed 2",
+      "seed 3",
+      "seed 4",
+      "seed 5",
+      "seed 6"
+    ],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 12062,
+    "reportHead": [
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page.",
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page."
+    ]
+  },
+  {
+    "file": "double-save-900-unfixed.json",
+    "scenario": "double-save",
+    "slow_ms": 900,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 6,
+    "forbiddenRuns": [],
+    "groups": 8,
+    "verdict": "no verdict",
+    "noVerdictWhy": "8 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": false,
+    "oracleSeededDiffering": [
+      "seed 1",
+      "seed 2",
+      "seed 3",
+      "seed 4",
+      "seed 5",
+      "seed 6"
+    ],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 14568,
+    "reportHead": [
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page.",
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page."
+    ]
+  },
+  {
+    "file": "filter-300-unfixed.json",
+    "scenario": "filter",
+    "slow_ms": 300,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 1 of 6 ended differently, 1 more witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 1,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "not reproduced",
+    "replayWhy": "not reproduced · ended with the values of the request-order baseline",
+    "findings": [
+      "f184"
+    ],
+    "msMedian": 7740,
+    "reportHead": [
+      "RACE: 1 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 1 more ended right but had an older response overwrite newer data along the way."
+    ]
+  },
+  {
+    "file": "filter-600-unfixed.json",
+    "scenario": "filter",
+    "slow_ms": 600,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 1,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 2 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 2,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f187"
+    ],
+    "msMedian": 9123,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 2 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
+    "file": "filter-900-unfixed.json",
+    "scenario": "filter",
+    "slow_ms": 900,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 3 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 3,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f187"
+    ],
+    "msMedian": 10734,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 3 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
+    "file": "load-edit-600-unfixed.json",
+    "scenario": "load-edit",
+    "slow_ms": 600,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [
+      "seeded 2",
+      "seeded 3"
+    ],
+    "groups": 1,
+    "verdict": "race: 3 of 6 ended differently, 3 more witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 3,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [
+      "seed 2",
+      "seed 3"
+    ],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · ended with the same wrong values as the failing run",
+    "findings": [
+      "f617"
+    ],
+    "msMedian": 6151,
+    "reportHead": [
+      "RACE: 3 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 3 more ended right but had an older response overwrite newer data along the way."
+    ]
+  },
+  {
+    "file": "load-list-300-fixed.json",
+    "scenario": "load-list",
+    "slow_ms": 300,
+    "tag": "fixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 2 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 2,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f26"
+    ],
+    "msMedian": 4360,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 2 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
     "file": "load-list-300-unfixed.json",
     "scenario": "load-list",
     "slow_ms": 300,
@@ -14,7 +262,9 @@
       "seeded 2",
       "seeded 3"
     ],
+    "groups": 1,
     "verdict": "race: 2 of 6 ended differently",
+    "noVerdictWhy": "",
     "witnessOnly": 0,
     "oracleBaselinesAgree": true,
     "oracleSeededDiffering": [
@@ -46,7 +296,9 @@
       "seeded 2",
       "seeded 3"
     ],
+    "groups": 1,
     "verdict": "race: 2 of 6 ended differently",
+    "noVerdictWhy": "",
     "witnessOnly": 0,
     "oracleBaselinesAgree": true,
     "oracleSeededDiffering": [
@@ -71,31 +323,30 @@
     "loads": 8,
     "baselines": 2,
     "seeded": 6,
-    "failed": 3,
+    "failed": 0,
     "unsettled": 0,
     "forced": 0,
     "forbiddenRuns": [
       "seeded 2",
       "seeded 3"
     ],
-    "verdict": "race: 5 of 6 ended differently",
+    "groups": 1,
+    "verdict": "race: 2 of 6 ended differently",
+    "noVerdictWhy": "",
     "witnessOnly": 0,
     "oracleBaselinesAgree": true,
     "oracleSeededDiffering": [
       "seed 2",
-      "seed 3",
-      "seed 4",
-      "seed 5",
-      "seed 6"
+      "seed 3"
     ],
-    "replay": "inconclusive",
-    "replayWhy": "inconclusive · ended with other values: redux.adminApi.queries.getContentTypeCo… = \"(absent)\", redux.adminApi.queries.getContentTypeCo… = \"(absent)\", redux.adminApi.queries.getContentTypeCo… = \"(absent)\", redux.adminApi.queries.getContentTypeCo… = \"(absent)\", redux.adminApi.queries.getAllDocuments(… = \"(absent)\",…",
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · ended with the same wrong values as the failing run",
     "findings": [
-      "f12"
+      "f13"
     ],
-    "msMedian": 60955,
+    "msMedian": 7248,
     "reportHead": [
-      "RACE: 5 of 6 reordered run(s) ended in a different state than the baseline (responses in request order)."
+      "RACE: 2 of 6 reordered run(s) ended in a different state than the baseline (responses in request order)."
     ]
   },
   {
@@ -110,7 +361,9 @@
     "unsettled": 0,
     "forced": 0,
     "forbiddenRuns": [],
+    "groups": 1,
     "verdict": "race: 1 of 6 ended differently, 5 more witness only",
+    "noVerdictWhy": "",
     "witnessOnly": 5,
     "oracleBaselinesAgree": true,
     "oracleSeededDiffering": [],
@@ -136,7 +389,9 @@
     "unsettled": 0,
     "forced": 0,
     "forbiddenRuns": [],
+    "groups": 1,
     "verdict": "race: 0 of 6 ended differently, 6 witness only",
+    "noVerdictWhy": "",
     "witnessOnly": 6,
     "oracleBaselinesAgree": true,
     "oracleSeededDiffering": [],
@@ -158,26 +413,352 @@
     "loads": 8,
     "baselines": 2,
     "seeded": 6,
-    "failed": 3,
+    "failed": 0,
     "unsettled": 0,
     "forced": 0,
     "forbiddenRuns": [],
-    "verdict": "race: 1 of 3 ended differently, 2 more witness only",
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 6 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 6,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f103"
+    ],
+    "msMedian": 10040,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 6 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
+    "file": "relation-search-300-unfixed.json",
+    "scenario": "relation-search",
+    "slow_ms": 300,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 3,
+    "verdict": "no race over 0 compared runs (vacuous)",
+    "noVerdictWhy": "3 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 6647,
+    "reportHead": [
+      "No race found: all 0 reordered run(s) ended in the baseline's state."
+    ]
+  },
+  {
+    "file": "relation-search-600-unfixed.json",
+    "scenario": "relation-search",
+    "slow_ms": 600,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 3,
+    "verdict": "no verdict",
+    "noVerdictWhy": "3 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 8305,
+    "reportHead": [
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page.",
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 3 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page."
+    ]
+  },
+  {
+    "file": "relation-search-900-unfixed.json",
+    "scenario": "relation-search",
+    "slow_ms": 900,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 2,
+    "verdict": "race: 0 of 5 ended differently, 5 witness only",
+    "noVerdictWhy": "2 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 5,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f476"
+    ],
+    "msMedian": 9772,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 5 of 5 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
+    "file": "relation-search-fast-300-unfixed.json",
+    "scenario": "relation-search-fast",
+    "slow_ms": 300,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 3,
+    "verdict": "no race over 0 compared runs (vacuous)",
+    "noVerdictWhy": "3 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 6805,
+    "reportHead": [
+      "No race found: all 0 reordered run(s) ended in the baseline's state."
+    ]
+  },
+  {
+    "file": "relation-search-fast-600-unfixed.json",
+    "scenario": "relation-search-fast",
+    "slow_ms": 600,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 2,
+    "verdict": "no verdict",
+    "noVerdictWhy": "2 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 8049,
+    "reportHead": [
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 6 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page.",
+      "Only one baseline in this group (another page load took the other baseline slot), so noise (clocks, ids) cannot be told from a race: no verdict. 0 run(s) differed unfiltered. Run genclass_explore again with `route` set to this page."
+    ]
+  },
+  {
+    "file": "relation-search-fast-900-unfixed.json",
+    "scenario": "relation-search-fast",
+    "slow_ms": 900,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 6 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 6,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f554"
+    ],
+    "msMedian": 9497,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 6 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
+    "file": "search-300-unfixed.json",
+    "scenario": "search",
+    "slow_ms": 300,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 1 of 6 ended differently, 2 more witness only",
+    "noVerdictWhy": "",
     "witnessOnly": 2,
     "oracleBaselinesAgree": true,
-    "oracleSeededDiffering": [
-      "seed 4",
-      "seed 5",
-      "seed 6"
-    ],
-    "replay": "inconclusive",
-    "replayWhy": "inconclusive · no user actions were recorded in this run yet: do the steps, await whenSettled(), then ask again (the replay's user actions differ from the original run's: do the same steps)",
+    "oracleSeededDiffering": [],
+    "replay": "not reproduced",
+    "replayWhy": "not reproduced · ended with the values of the request-order baseline",
     "findings": [
-      "f114"
+      "f122"
     ],
-    "msMedian": 12020,
+    "msMedian": 8092,
     "reportHead": [
-      "RACE: 1 of 3 reordered run(s) ended in a different state than the baseline (responses in request order); 2 more ended right but had an older response overwrite newer data along the way."
+      "RACE: 1 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 2 more ended right but had an older response overwrite newer data along the way."
+    ]
+  },
+  {
+    "file": "search-600-unfixed.json",
+    "scenario": "search",
+    "slow_ms": 600,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 0 of 6 ended differently, 2 witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 2,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again",
+    "findings": [
+      "f123"
+    ],
+    "msMedian": 9337,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 2 of 6 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
+    "file": "search-900-unfixed.json",
+    "scenario": "search",
+    "slow_ms": 900,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 1,
+    "verdict": "race: 1 of 6 ended differently, 3 more witness only",
+    "noVerdictWhy": "",
+    "witnessOnly": 3,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "not reproduced",
+    "replayWhy": "not reproduced · ended with the values of the request-order baseline",
+    "findings": [
+      "f131"
+    ],
+    "msMedian": 11011,
+    "reportHead": [
+      "RACE: 1 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 3 more ended right but had an older response overwrite newer data along the way."
+    ]
+  },
+  {
+    "file": "sort-300-unfixed.json",
+    "scenario": "sort",
+    "slow_ms": 300,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 3,
+    "verdict": "race: 1 of 2 ended differently, 1 more witness only",
+    "noVerdictWhy": "3 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 1,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "not reproduced",
+    "replayWhy": "not reproduced · ended with the values of the request-order baseline",
+    "findings": [
+      "f150"
+    ],
+    "msMedian": 6992,
+    "reportHead": [
+      "RACE: 1 of 2 reordered run(s) ended in a different state than the baseline (responses in request order); 1 more ended right but had an older response overwrite newer data along the way."
+    ]
+  },
+  {
+    "file": "sort-600-unfixed.json",
+    "scenario": "sort",
+    "slow_ms": 600,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 3,
+    "verdict": "race: 0 of 2 ended differently, 2 witness only",
+    "noVerdictWhy": "3 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 2,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "reproduced",
+    "replayWhy": "REPRODUCED · the older response overwrote newer data again (1 response(s) were delivered only when their hold ran out: the run did not follow the order exactly)",
+    "findings": [
+      "f162"
+    ],
+    "msMedian": 8512,
+    "reportHead": [
+      "RACE: no reordered run ended differently, but 2 of 2 had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker)."
+    ]
+  },
+  {
+    "file": "sort-900-unfixed.json",
+    "scenario": "sort",
+    "slow_ms": 900,
+    "tag": "unfixed",
+    "loads": 8,
+    "baselines": 2,
+    "seeded": 6,
+    "failed": 0,
+    "unsettled": 0,
+    "forced": 0,
+    "forbiddenRuns": [],
+    "groups": 2,
+    "verdict": "no race over 0 compared runs (vacuous)",
+    "noVerdictWhy": "2 scenario groups (the recorded actions differed between loads)",
+    "witnessOnly": 0,
+    "oracleBaselinesAgree": true,
+    "oracleSeededDiffering": [],
+    "replay": "",
+    "replayWhy": "",
+    "findings": [],
+    "msMedian": 9924,
+    "reportHead": [
+      "No race found: all 0 reordered run(s) ended in the baseline's state."
     ]
   }
 ]

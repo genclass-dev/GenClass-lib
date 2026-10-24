@@ -149,7 +149,8 @@ the permissions have arrived. Fixes (issue number).
 ## A second, smaller observation (not in the patch)
 
 A double click on **Publish** in the edit view sends two `POST /content-manager/collection-types/<uid>/<id>/actions/publish`
-requests and shows "Published document" twice; the same double click on **Save** sends one `PUT`. Both buttons are
+requests (24 of 24 tries) and shows "Published document" twice; the same double click on **Save** sends one `PUT`
+(24 of 24). Both buttons are
 disabled through the form's `isSubmitting` (`DocumentActions.tsx`: `isDisabled` of `PublishAction` at line 1067 and
 of `UpdateAction` at line 1293), and both handlers call `setSubmitting(true)` first (`performPublish` at line 857,
 `handleUpdate` at line 1297), so the second publish request was not expected; it is reported as observed, without a
