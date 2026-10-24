@@ -199,8 +199,27 @@ start), `clear`. Local processes of the same user only (section 6).
 
 ### 5.1 The explore verdict (`src/compare.ts`)
 
-Runs of one explore session are grouped by page and **scenario** (their user actions, in order, typing bursts with their
-final value). In each group, the two `fifo` runs are the baseline; with `slow_ms` they get the same extra latency as the
+Runs of one explore session are grouped by page and **scenario**: their user actions in order (kind, element
+description, typed or chosen value, click count). What a run records of its actions can itself depend on the response
+order (a label that shows a count once a response lands, a sorted table header drawn in another element, a title typed
+with a counter so Save is enabled), so the scenario is normalised before runs are grouped:
+
+- tokens holding a digit are blanked in typed values, as in page text (`Post 17` → `Post N`);
+- a trailing parenthesised count is dropped from an element's name (`combobox "author (1)"` → `combobox "author"`);
+- consecutive typing bursts on the same field (after that) are one burst with its final value: the runtime starts a new
+  burst when the field's description changes mid-burst (`src/runtime.ts` `user()`, which `record.ts` follows), so
+  `r` on `"author"` then `re` on `"author (1)"` is `type combobox "author" = re`.
+
+When names or values still differ, runs fall back to grouping by **action kinds and element roles** in order (`click
+generic`, `type combobox`; elements the runtime names by their tag because they have no role of their own, `div`,
+`span` and the like, are one role, `generic`, as in ARIA). The group's scenario is its first baseline's; the runs
+whose scenario differs from it are listed as variants (which actions differed), and a variant's difference from the
+baseline says it was matched by kinds and roles only. A run with other actions (another kind, another role, one more
+click) is another scenario. When the baselines' group holds no reordered run, the report says that 0 reordered runs
+could be compared (their recorded actions differed from the baselines', none settled after its steps, or none was
+recorded yet), never "No race found".
+
+In each group, the two `fifo` runs are the baseline; with `slow_ms` they get the same extra latency as the
 seeded runs, so timing alone never separates them. Anything that differs between the two baselines is **noise** and is
 ignored: a store field whose value differs; the records under a store object whose keys differ (new ids on every run:
 compared by their values, not their keys); a page line whose shape differs (tokens holding a digit blanked: times,
@@ -219,7 +238,9 @@ order as `given`. When the recorded run is gone, it refuses to arm rather than r
 the replay run with the finding: the same witness (field by shape, signature), the same error (by name and shape), the
 failing run's values, page text, error or witness again = reproduced; the baseline's = not reproduced. It is
 inconclusive, and says why, until the run has settled and recorded user actions, when its steps differ from the
-original run's, and when the original run is gone; it also says when holds ran out.
+original run's (the normalised scenario of section 5.1; the kinds-and-roles fallback does not apply, so a replay that
+typed another word or clicked another element is inconclusive, never "not reproduced"), and when the original run is
+gone; it also says when holds ran out.
 
 ### 5.3 Regression tests (`src/testgen.ts`)
 

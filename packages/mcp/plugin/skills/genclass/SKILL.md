@@ -39,7 +39,8 @@ shows which pages and endpoints the GenClass dashboard flagged.
    `--repeat-each 8 --workers 1`, or with a browser tool. After the steps, wait for
    `window.__GENCLASS_AGENT__.whenSettled()`.
 3. `genclass_explore {action:"report"}`. "No race found" for every scenario: done. "RACE": `genclass_explain` the
-   race finding and go to section 1, step 3.
+   race finding and go to section 1, step 3. "0 reordered runs could be compared" is no verdict: make the steps the
+   same on every load and explore again.
 
 ## Rules
 

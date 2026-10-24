@@ -1,5 +1,8 @@
 // The explore verdict (docs/runtime/AGENT.md section 5). Runs of the same scenario (the same user actions on the same
-// route) differ only in when their responses were delivered. The two fifo runs are the baseline: responses in the
+// route) differ only in when their responses were delivered. What a run records of its actions can depend on that
+// timing too (a label that shows a count once a response lands, a sorted header drawn in another element, a value typed
+// with a counter), so the scenario is a normalised fingerprint, and runs whose names still differ are grouped by their
+// action kinds and element roles in order (listed as variants). The two fifo runs are the baseline: responses in the
 // order their requests started, as on a fast, serial network. Whatever differs between the two baselines is noise and
 // is ignored, by shape as well as by value:
 //   - a store field whose value differs between the baselines;
@@ -10,13 +13,63 @@
 // definition, whatever the app does. A group without two baselines cannot tell noise from a race and gives no verdict.
 // No pattern of any kind is matched here.
 
-import type { ActStep, Run, Snapshot } from "./types.js";
+import type { Run, Snapshot } from "./types.js";
+import { parseTarget } from "./testgen.js";
 import { pathShape, sigOf } from "./text.js";
 
-/** The scenario a run performed: its user actions, in order (typing bursts with their final value). */
+/** A user action as the fingerprints see it. */
+interface Act {
+  kind: string;
+  /** The element description with a trailing count dropped from its name: 'combobox "author"'. */
+  target: string;
+  role: string;
+  /** The typed or chosen value with tokens holding a digit blanked. */
+  value?: string;
+  clicks: number;
+}
+
+/** Tags the runtime names an element by when it has no role of its own: their ARIA role is generic, one role here. */
+const GENERIC = new Set(["generic", "div", "span", "b", "i", "u", "small", "bdi", "bdo", "data", "pre", "q", "samp"]);
+
+/**
+ * A run's user actions, normalised: a name's trailing count dropped ('combobox "author (1)"' → 'combobox "author"'),
+ * digits blanked in values ("Post 17" → "Post N", as lineShape), and consecutive typing bursts on the same field
+ * merged into one with the final value (the runtime starts a new burst when the field's description changes).
+ */
+function actsOf(run: Run): Act[] {
+  const out: Act[] = [];
+  for (const a of run.steps) {
+    if (a.k !== "act") continue;
+    const { role, name: full } = parseTarget(a.target);
+    // a name that is only a count keeps it
+    const name = full?.replace(/\s*\(\d[\d,.]*\)$/, "") || full;
+    const target = name !== undefined ? `${role} "${name}"` : role;
+    const value = a.value !== undefined ? lineShape(a.value) : undefined;
+    const prev = out[out.length - 1];
+    if (a.kind === "type" && prev?.kind === "type" && prev.target === target) {
+      if (value !== undefined) prev.value = value;
+      continue;
+    }
+    out.push({ kind: a.kind, target, role, ...(value !== undefined ? { value } : {}), clicks: a.clicks ?? 1 });
+  }
+  return out;
+}
+
+/**
+ * The scenario a run performed: its user actions, in order (typing bursts with their final value), normalised so that
+ * what the response order changes in an element's name or a typed counter does not make two runs different scenarios.
+ */
 export function scenarioOf(run: Run): string {
-  const acts = run.steps.filter((s): s is ActStep => s.k === "act");
-  return acts.map((a) => `${a.kind} ${a.target ?? ""}${a.value !== undefined ? ` = ${a.value}` : ""}${a.clicks && a.clicks > 1 ? ` ×${a.clicks}` : ""}`).join("\n");
+  return actsOf(run)
+    .map((a) => `${a.kind} ${a.target}${a.value !== undefined ? ` = ${a.value}` : ""}${a.clicks > 1 ? ` ×${a.clicks}` : ""}`)
+    .join("\n");
+}
+
+/** The fallback fingerprint: action kinds and element roles in order ("click generic", "type combobox"). */
+export function scenarioShapeOf(run: Run): string {
+  return actsOf(run)
+    .map((a) => `${a.kind} ${GENERIC.has(a.role) ? "generic" : a.role}${a.clicks > 1 ? ` ×${a.clicks}` : ""}`)
+    .join("\n");
 }
 
 export interface FieldDiff {
@@ -69,7 +122,10 @@ export function endedDifferently(d: RunDiff): boolean {
 
 export interface GroupReport {
   route: string;
+  /** The first baseline's scenario (the first run's when there is no baseline). */
   scenario: string;
+  /** Runs in the group whose scenario still differs from `scenario` (grouped by action kinds and element roles). */
+  variants: { scenario: string; runs: string[] }[];
   baselines: string[];
   runs: number;
   /** Baseline-vs-baseline differences, ignored as noise. */
@@ -161,24 +217,34 @@ function witnessesOf(run: Run): string[] {
   return run.witnesses.map((w) => `${w.kind} ${pathShape(w.subject)} by ${sigOf(w.by)}`);
 }
 
-/** Compare a set of runs (one explore session). Groups by route and scenario; each group needs two fifo baselines. */
+/**
+ * Compare a set of runs (one explore session). Groups by route and scenario, falling back to action kinds and element
+ * roles when names still differ (a run of the same steps whose element names differ is compared with the baselines,
+ * and listed as a variant); each group needs two fifo baselines.
+ */
 export function compareRuns(runs: Run[]): GroupReport[] {
   const groups = new Map<string, Run[]>();
+  const scenarios = new Map<Run, string>();
   for (const r of runs) {
     if (!settledAfterActs(r)) continue;
-    const k = `${r.page.route}\n${scenarioOf(r)}`;
+    scenarios.set(r, scenarioOf(r));
+    const k = `${r.page.route}\n${scenarioShapeOf(r)}`;
     const g = groups.get(k) ?? [];
     g.push(r);
     groups.set(k, g);
   }
   const out: GroupReport[] = [];
   for (const [k, g] of groups) {
-    const nl = k.indexOf("\n");
-    const route = k.slice(0, nl);
-    const scenario = k.slice(nl + 1);
+    const route = k.slice(0, k.indexOf("\n"));
     const base = g.filter((r) => r.schedule?.order === "fifo");
     const rest = g.filter((r) => r.schedule?.order !== "fifo");
-    const rep: GroupReport = { route, scenario, baselines: base.map((r) => r.id), runs: g.length, noise: [], diffs: [], missingBaseline: base.length === 0, insufficientBaselines: base.length === 1, unfiltered: [] };
+    const scenario = scenarios.get(base[0] ?? g[0]) ?? "";
+    const variants = new Map<string, string[]>();
+    for (const r of g) {
+      const s = scenarios.get(r) ?? "";
+      if (s !== scenario) variants.set(s, [...(variants.get(s) ?? []), r.id]);
+    }
+    const rep: GroupReport = { route, scenario, variants: [...variants].map(([s, ids]) => ({ scenario: s, runs: ids })), baselines: base.map((r) => r.id), runs: g.length, noise: [], diffs: [], missingBaseline: base.length === 0, insufficientBaselines: base.length === 1, unfiltered: [] };
     if (!base.length) {
       out.push(rep);
       continue;

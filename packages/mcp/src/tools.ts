@@ -278,7 +278,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         const r = (await ctx.api("explore.report", { id: args.id })) as null | {
           session: { id: string; plan: ScheduleSpec[]; runs: string[]; state: string };
           runs: { id: string; route: string; schedule: ScheduleSpec | null; settled: boolean; forced: number; scenario: string }[];
-          groups: { route: string; scenario: string; baselines: string[]; runs: number; noise: string[]; missingBaseline: boolean; insufficientBaselines: boolean; diffs: { run: string; label: string; fields: { where: string; name: string; baseline: string; run: string }[]; textOnlyBaseline: string[]; textOnlyRun: string[]; errors: string[]; witnesses: string[]; forced: number }[]; unfiltered: unknown[] }[];
+          groups: { route: string; scenario: string; variants?: { scenario: string; runs: string[] }[]; baselines: string[]; runs: number; noise: string[]; missingBaseline: boolean; insufficientBaselines: boolean; diffs: { run: string; label: string; fields: { where: string; name: string; baseline: string; run: string }[]; textOnlyBaseline: string[]; textOnlyRun: string[]; errors: string[]; witnesses: string[]; forced: number }[]; unfiltered: unknown[] }[];
           findings: { id: string }[];
         };
         if (!r) return { text: "No explore session yet: genclass_explore {action:\"start\"} first.", isError: true };
@@ -289,6 +289,18 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         if (!r.groups.length) out.push("No run reached a quiet point yet: wait for whenSettled() after the steps.");
         for (const g of r.groups) {
           out.push("", `## ${clean(g.route, 80)} · ${g.runs} run(s) · scenario ${PAGE_DATA}:`, ...(g.scenario ? g.scenario.split("\n").map((l) => `  ${clean(l, 160)}`) : ["  (no user actions: a page load)"]));
+          // runs of the same action kinds and element roles whose names or values differed (older bridges send none)
+          const variants = g.variants ?? [];
+          const shapeOnly = new Set(variants.flatMap((v) => v.runs));
+          if (variants.length) {
+            const main = g.scenario.split("\n");
+            out.push(`Grouped by action kinds and element roles: ${shapeOnly.size} run(s) recorded other elements, element names or typed values ${PAGE_DATA}:`);
+            for (const v of variants.slice(0, 4)) {
+              const lines = v.scenario.split("\n").flatMap((l, i) => (l === main[i] ? [] : [`action ${i + 1} ${q(l, 120)}`]));
+              out.push(`  ${v.runs.slice(0, 6).join(", ")}${v.runs.length > 6 ? ` and ${v.runs.length - 6} more` : ""}: ${lines.slice(0, 3).join(", ")}${lines.length > 3 ? ` and ${lines.length - 3} more` : ""}`);
+            }
+            if (variants.length > 4) out.push(`  and ${variants.length - 4} more variant(s)`);
+          }
           if (g.missingBaseline) {
             out.push("No baseline run in this group (the first two armed loads are the baselines): nothing to compare with.");
             continue;
@@ -299,6 +311,19 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
           }
           if (g.noise.length) out.push(`Ignored as noise (differs between the two baselines): ${g.noise.slice(0, 8).map((n) => clean(n, 60)).join(", ")}`);
           const seeded = g.runs - g.baselines.length;
+          if (!seeded) {
+            // nothing was compared: never a negative result
+            const elsewhere = r.groups.filter((y) => y !== g).reduce((n, y) => n + y.runs - y.baselines.length, 0);
+            const unsettled = r.runs.filter((x) => !x.settled && x.schedule?.order !== "fifo").length;
+            out.push(
+              elsewhere
+                ? `0 reordered runs could be compared: their recorded actions differed from the baselines' (${elsewhere} reordered run(s) are in the other group(s) of this report). No verdict: do the same steps on every load, then explore again.`
+                : unsettled
+                  ? `0 reordered runs could be compared: ${unsettled} reordered run(s) did not reach a quiet point after their steps (await whenSettled() after the steps). No verdict yet.`
+                  : "0 reordered runs could be compared: none was recorded yet (run the scenario for the remaining armed loads). No verdict yet.",
+            );
+            continue;
+          }
           if (!g.diffs.length) {
             out.push(`No race found: all ${seeded} reordered run(s) ended in the baseline's state.`);
             continue;
@@ -311,7 +336,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
               : `RACE: no reordered run ended differently, but ${along} of ${seeded} had an older response overwrite newer data along the way (a later response repaired it, so users would see it flicker).`,
           );
           for (const d of g.diffs.slice(0, 6)) {
-            out.push(`- run ${d.run} (${clean(d.label, 60)})${d.forced ? ` (${d.forced} hold(s) ran out)` : ""}:`);
+            out.push(`- run ${d.run} (${clean(d.label, 60)})${d.forced ? ` (${d.forced} hold(s) ran out)` : ""}${shapeOnly.has(d.run) ? " (its recorded elements, names or values differed: matched by action kinds and roles)" : ""}:`);
             for (const x of d.fields.slice(0, 6)) out.push(`    ${x.where === "requests" ? "requests sent to" : x.where} ${q(x.name, 80)}: baseline ${q(x.baseline, 80)}, this run ${q(x.run, 80)}`);
             if (d.textOnlyBaseline.length) out.push(`    page text only in the baseline: ${d.textOnlyBaseline.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);
             if (d.textOnlyRun.length) out.push(`    page text only in this run: ${d.textOnlyRun.slice(0, 4).map((l) => q(l, 80)).join(", ")}`);

@@ -15,3 +15,9 @@
   agent and strips invisible characters. A Claude Code plugin (`plugin/`: the server, the prompt hook and a skill) and
   an MCP Registry entry (`server.json`) ship with it. Needs `@genclass/runtime` 0.3.0-beta.1 or later in the app
   (`@genclass/runtime/agent`). Released by `.github/workflows/release-mcp.yml` from a `mcp-v<version>` tag.
+- Explore grouping (AGENT.md section 5.1): the scenario is normalised (digits blanked in typed values, a trailing
+  `(N)` count dropped from element names, consecutive typing bursts on one field merged), and runs whose names still
+  differ are grouped by action kinds and element roles and listed as variants (`GroupReport.variants`), so runs of the
+  same steps are compared even when the response order changed what they recorded (found on Strapi 5.59.0's admin).
+  A baselines' group with no reordered run now reports "0 reordered runs could be compared" instead of "No race found".
+  Replays compare the normalised scenario too.

@@ -175,8 +175,10 @@ summary.fixedRuns = [];
 for (let i = 0; i < 8; i++) summary.fixedRuns.push(await scenario());
 const report2 = await tool("genclass_explore", { action: "report" });
 console.log(report2);
-summary.exploreFixed = /RACE:/.test(report2) ? "race" : "no race";
+summary.exploreFixed = /RACE:/.test(report2) ? "race" : /No race found: all 6 reordered/.test(report2) ? "no race" : "not compared";
 if (/RACE:/.test(report2)) fail("explore reported a race on the fixed page (a false report)");
+// "no race" only counts when the reordered runs were compared (not "0 reordered runs could be compared")
+if (summary.exploreFixed !== "no race") fail("explore on the fixed page compared no reordered run with the baselines");
 
 await browser.close();
 await served.close();
