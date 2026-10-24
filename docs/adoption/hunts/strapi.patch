@@ -1,0 +1,73 @@
+diff --git a/packages/core/content-manager/admin/src/hooks/useContentManagerInitData.ts b/packages/core/content-manager/admin/src/hooks/useContentManagerInitData.ts
+index cec87e5..f7f1469 100644
+--- a/packages/core/content-manager/admin/src/hooks/useContentManagerInitData.ts
++++ b/packages/core/content-manager/admin/src/hooks/useContentManagerInitData.ts
+@@ -73,6 +73,7 @@ const useContentManagerInitData = (): AppState => {
+     'useContentManagerInitData',
+     (state) => state.checkUserHasPermissions
+   );
++  const isLoadingPermissions = useAuth('useContentManagerInitData', (state) => state.isLoading);
+ 
+   const state = useTypedSelector((state) => state['content-manager'].app);
+ 
+@@ -183,6 +184,16 @@ const useContentManagerInitData = (): AppState => {
+   );
+ 
+   useEffect(() => {
++    /**
++     * The links are authorised against the user's permissions, which the AuthProvider loads with
++     * a request of its own. Until that request has answered, `checkUserHasPermissions` matches
++     * against an empty list: every content type would be refused, and the Layout would send the
++     * user to the 403 page, where nothing brings them back once the permissions arrive.
++     */
++    if (isLoadingPermissions) {
++      return;
++    }
++
+     if (initialDataQuery.data && contentTypeSettingsQuery.data) {
+       formatData(
+         initialDataQuery.data.components,
+@@ -202,6 +213,7 @@ const useContentManagerInitData = (): AppState => {
+     formatData,
+     initialDataQuery.data,
+     contentTypeSettingsQuery.data,
++    isLoadingPermissions,
+     toggleNotification,
+   ]);
+ 
+diff --git a/tests/e2e/tests/content-manager/permissions-loading.spec.ts b/tests/e2e/tests/content-manager/permissions-loading.spec.ts
+new file mode 100644
+index 0000000..dcd40b3
+--- /dev/null
++++ b/tests/e2e/tests/content-manager/permissions-loading.spec.ts
+@@ -0,0 +1,30 @@
++import { test, expect } from '@playwright/test';
++import { login } from '../../../utils/login';
++import { resetDatabaseAndImportDataFromPath } from '../../../utils/dts-import';
++
++test.describe('Content Manager while the permissions are loading', () => {
++  test.beforeEach(async ({ page }) => {
++    await resetDatabaseAndImportDataFromPath('with-admin');
++    await page.goto('/admin');
++    await login({ page });
++  });
++
++  test('A collection type opened by its URL shows its list, not the 403 page, when the permissions answer last', async ({
++    page,
++  }) => {
++    // Only the user's permissions are delayed, as on a slow network: they now arrive after the
++    // content manager's own init and content-types-settings responses.
++    await page.route('**/admin/users/me/permissions', async (route) => {
++      await new Promise((resolve) => setTimeout(resolve, 1500));
++      await route.continue();
++    });
++
++    await page.goto('/admin/content-manager/collection-types/api::article.article');
++
++    await expect(page.getByRole('heading', { name: 'Article', exact: true })).toBeVisible();
++    await expect(page).not.toHaveURL(/\/content-manager\/403/);
++    await expect(
++      page.getByText("You don't have the permissions to access that content")
++    ).not.toBeVisible();
++  });
++});
