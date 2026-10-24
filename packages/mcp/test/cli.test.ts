@@ -3,7 +3,9 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { hookCmd, init } from "../src/cli.js";
+import { CLIENTS } from "../src/clients.js";
+import { configCmd, hookCmd, init } from "../src/cli.js";
+import { VERSION } from "../src/http.js";
 import { startBridge, type Bridge } from "../src/http.js";
 import { Store } from "../src/store.js";
 import { makeApi } from "../src/api.js";
@@ -30,13 +32,42 @@ describe("cli (AGENT.md §4.4)", () => {
     expect(init(x, true)).toBe(0);
     const mcp = JSON.parse(readFileSync(join(dir, ".mcp.json"), "utf8"));
     expect(Object.keys(mcp.mcpServers)).toEqual(["other", "genclass"]);
-    expect(mcp.mcpServers.genclass).toEqual({ command: "npx", args: ["-y", "@genclass/mcp"] });
+    // pinned to the version that ran init, like every other launcher of the package
+    expect(mcp.mcpServers.genclass).toEqual({ command: "npx", args: ["-y", `@genclass/mcp@${VERSION}`] });
     const settings = JSON.parse(readFileSync(join(dir, ".claude", "settings.json"), "utf8"));
-    expect(settings.hooks.UserPromptSubmit[0].hooks[0].command).toBe("npx -y @genclass/mcp hook");
+    expect(settings.hooks.UserPromptSubmit[0].hooks[0].command).toBe(`npx -y @genclass/mcp@${VERSION} hook`);
     expect(x.o.join("")).toContain("import.meta.env.DEV");
     // twice: no duplicates
     expect(init(io(dir), true)).toBe(0);
     expect(JSON.parse(readFileSync(join(dir, ".claude", "settings.json"), "utf8")).hooks.UserPromptSubmit).toHaveLength(1);
+  });
+
+  it("init recognizes a prompt hook it added before, pinned or not, and does not add a second", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gc-init-"));
+    mkdirSync(join(dir, ".claude"));
+    for (const command of ["npx -y @genclass/mcp hook", "npx -y @genclass/mcp@0.0.9 hook"]) {
+      writeFileSync(join(dir, ".claude", "settings.json"), JSON.stringify({ hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command }] }] } }));
+      const x = io(dir);
+      expect(init(x, true)).toBe(0);
+      expect(x.o.join("")).toContain("already in .claude/settings.json");
+      expect(JSON.parse(readFileSync(join(dir, ".claude", "settings.json"), "utf8")).hooks.UserPromptSubmit).toHaveLength(1);
+    }
+  });
+
+  it("config prints one client's block, every block without an argument, and refuses an unknown client", () => {
+    const one = io(tmpdir());
+    expect(configCmd(one, "cursor")).toBe(0);
+    expect(one.o.join("")).toContain(`"@genclass/mcp@${VERSION}"`);
+    expect(one.o.join("")).toContain("cursor://anysphere.cursor-deeplink/mcp/install?name=genclass&config=");
+    const named = io(tmpdir());
+    expect(configCmd(named, "Claude Code")).toBe(0);
+    expect(named.o.join("")).toContain("/plugin install genclass@genclass");
+    const all = io(tmpdir());
+    expect(configCmd(all, undefined)).toBe(0);
+    for (const c of CLIENTS) expect(all.o.join("")).toContain(`### ${c.label}`);
+    const bad = io(tmpdir());
+    expect(configCmd(bad, "notepad")).toBe(2);
+    expect(bad.e.join("")).toContain("unknown client");
   });
 
   it("init refuses to rewrite a .mcp.json it cannot parse", () => {

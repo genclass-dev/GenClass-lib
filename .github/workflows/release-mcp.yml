@@ -10,9 +10,16 @@ name: Release MCP
 #   as the `mcp-tarball` artifact, and its publish step fails without a trusted publisher. Publish that exact tarball
 #   once from your own npm login (`npm publish genclass-mcp-<version>.tgz --access public`), then on npmjs.com:
 #   @genclass/mcp → Settings → Trusted publishing → GitHub Actions: organization genclass-dev, repository GenClass-lib,
-#   workflow filename release-mcp.yml, environment npm-publish. Later versions publish from here.
+#   workflow filename release-mcp.yml, environment npm-publish. Later versions publish from here. Then run this
+#   workflow by hand on the same tag: it publishes server.json to the MCP Registry only (the `registry` job).
 # - The npm-publish GitHub environment (shared with release.yml) asks its reviewers to approve each run.
-# - After a release: `mcp-publisher publish` (packages/mcp/server.json) lists it in the official MCP Registry.
+# - The official MCP Registry: the `registry` job publishes packages/mcp/server.json after npm has the version, with
+#   `mcp-publisher login github-oidc` (this workflow's OIDC token; no secret). OIDC grants the namespace of the
+#   repository's owner (io.github.<owner>/*), so it must run in genclass-dev/GenClass-lib for
+#   io.github.genclass-dev/genclass; `mcp-publisher login github` (device flow) cannot publish to an organization
+#   namespace (modelcontextprotocol/registry#1468). If that job fails, re-run it alone: npm is already done.
+# - The MCP Bundle (`mcp-bundle` artifact, genclass-<version>.mcpb and its sha256) is built and uploaded, never
+#   published: Claude Desktop installs it from the file, Smithery from `smithery mcp publish <file>` by the owner.
 #
 # The server is useful only with a runtime that has the agent entry (@genclass/runtime >= 0.3.0-beta.1,
 # `@genclass/runtime/agent`); release that first (release.yml).
@@ -20,6 +27,10 @@ name: Release MCP
 on:
   push:
     tags: ["mcp-v*"]
+  # Run it by hand on a mcp-v* tag ("Use workflow from: Tags") to publish only server.json to the MCP Registry, for a
+  # version already on npm: the first one, which the owner publishes from the tarball by hand, or a registry job that
+  # failed after npm succeeded.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -31,6 +42,7 @@ concurrency:
 jobs:
   publish:
     name: "@genclass/mcp: verify, build, test, publish with provenance"
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: npm-publish
@@ -62,6 +74,10 @@ jobs:
           test "$TAG" = "$PKG"
           grep -q "\"$PKG\"" packages/mcp/src/http.ts
           grep -q "\"version\": \"$PKG\"" packages/mcp/server.json
+          # every pinned launcher names this version (plugin, root manifests, README); test/manifests.test.ts checks it
+          # fully in the unit tests below, this fails before anything is built
+          grep -q "@genclass/mcp@$PKG" packages/mcp/plugin/.mcp.json
+          grep -q "@genclass/mcp@$PKG hook" packages/mcp/plugin/hooks/hooks.json
 
       - name: Install
         run: npm ci --no-audit --no-fund
@@ -98,6 +114,20 @@ jobs:
           grep -q "package/bin/genclass-mcp.mjs" "$FILE.files.txt"
           ! grep -q "package/test/" "$FILE.files.txt"
 
+      - name: MCP Bundle (.mcpb, an artifact only)
+        working-directory: packages/mcp
+        run: |
+          npm run bundle
+          cat .mcpb/*.mcpb.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp-bundle
+          path: |
+            packages/mcp/.mcpb/*.mcpb
+            packages/mcp/.mcpb/*.mcpb.sha256
+          if-no-files-found: error
+
       - uses: actions/upload-artifact@v4
         with:
           name: mcp-tarball
@@ -127,3 +157,75 @@ jobs:
           # the published command answers an MCP initialize on stdio
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
             | GENCLASS_STATE_DIR=none timeout 10 npx --no-install genclass-mcp | head -1 | grep -q '"serverInfo":{"name":"genclass"'
+
+  registry:
+    name: "Official MCP Registry: publish server.json (GitHub OIDC)"
+    needs: publish
+    # after this run's npm publish, or alone when run by hand on a tag
+    if: ${{ !cancelled() && (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/mcp-v'))) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # OIDC token for `mcp-publisher login github-oidc`
+    env:
+      # pinned and checksummed (registry_1.8.1_checksums.txt of modelcontextprotocol/registry v1.8.1); bump both together
+      MCP_PUBLISHER_VERSION: v1.8.1
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: The namespace belongs to this repository's owner
+        run: |
+          NAME=$(node -p "require('./packages/mcp/server.json').name")
+          echo "server.json name $NAME, repository owner $GITHUB_REPOSITORY_OWNER"
+          case "$NAME" in
+            "io.github.$GITHUB_REPOSITORY_OWNER/"*) ;;
+            *) echo "::error::github-oidc grants io.github.$GITHUB_REPOSITORY_OWNER/* only; $NAME must be published from its owner's repository"; exit 1 ;;
+          esac
+          test "$(node -p "require('./packages/mcp/server.json').version")" = "${GITHUB_REF_NAME#mcp-v}"
+
+      - name: npm serves this version (the registry checks it and its mcpName)
+        run: |
+          VERSION=$(node -p "require('./packages/mcp/package.json').version")
+          for i in $(seq 1 20); do
+            test "$(npm view "@genclass/mcp@$VERSION" mcpName --prefer-online 2>/dev/null)" = "$(node -p "require('./packages/mcp/server.json').name")" && exit 0
+            sleep 15
+          done
+          echo "::error::npm does not serve @genclass/mcp@$VERSION with mcpName $(node -p "require('./packages/mcp/server.json').name")"
+          exit 1
+
+      - name: mcp-publisher ${{ env.MCP_PUBLISHER_VERSION }} (checksum verified)
+        run: |
+          curl -fsSL -o mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          ./mcp-publisher --version
+
+      - name: Validate server.json against the registry
+        run: ./mcp-publisher validate packages/mcp/server.json
+
+      - name: Log in with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: |
+          # the registry checks that npm serves @genclass/mcp@<version> with a matching mcpName; a fresh version can
+          # take a moment to appear there, so retry a few times
+          for i in 1 2 3 4 5; do
+            ./mcp-publisher publish packages/mcp/server.json && exit 0
+            echo "publish attempt $i failed; retrying in 30 s"
+            sleep 30
+          done
+          exit 1
+
+      - name: Listed
+        run: |
+          URL=$(node -p "const s = require('./packages/mcp/server.json'); 'https://registry.modelcontextprotocol.io/v0/servers/' + encodeURIComponent(s.name) + '/versions/' + s.version")
+          for i in $(seq 1 10); do
+            curl -fsS "$URL" > entry.json && node -e "const e = require('./entry.json'); if (e.server.description !== require('./packages/mcp/server.json').description) process.exit(1)" && { echo "listed: $URL"; exit 0; }
+            sleep 15
+          done
+          echo "::warning::not visible yet at $URL"

@@ -6,6 +6,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Api } from "./api.js";
+import { CLIENTS, clientFor, pinned } from "./clients.js";
+import { VERSION } from "./http.js";
 import { dashboardTarget, fetchProduction, type ProdStats } from "./production.js";
 import { ago, clean, cleanBlock, ms, q } from "./text.js";
 import type { ActStep, Finding, ScheduleSpec, Step } from "./types.js";
@@ -43,7 +45,7 @@ export const TOOLS: ToolDef[] = [
     title: "GenClass status",
     description: "Which pages on this machine are connected to GenClass (route, schedule, model state), counts of findings by kind, the explore session and armed replays. Call it first in a web project, and before you test a page.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { title: "GenClass status", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     name: "genclass_findings",
@@ -60,7 +62,7 @@ export const TOOLS: ToolDef[] = [
       },
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { title: "GenClass findings", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     name: "genclass_explain",
@@ -68,7 +70,7 @@ export const TOOLS: ToolDef[] = [
     description:
       "Everything about one finding: what happened in causal order (click → request → response → state write), the recorded steps and delivery order, what differed from the request-order baseline, the model's facts, how to replay it exactly, and a Playwright regression test that fails while the bug is there.",
     inputSchema: { type: "object", properties: { id: { type: "string", description: "Finding id, e.g. f3." } }, required: ["id"], additionalProperties: false },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { title: "Explain a GenClass finding", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: { "anthropic/maxResultSizeChars": 120000 },
   },
   {
@@ -90,7 +92,7 @@ export const TOOLS: ToolDef[] = [
       required: ["action"],
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    annotations: { title: "Explore response orders", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   },
   {
     name: "genclass_replay",
@@ -103,7 +105,7 @@ export const TOOLS: ToolDef[] = [
       required: ["action", "id"],
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    annotations: { title: "Replay a finding", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   },
   {
     name: "genclass_analytics",
@@ -115,21 +117,21 @@ export const TOOLS: ToolDef[] = [
       properties: { source: { type: "string", enum: ["local", "production", "both"] }, route: { type: "string" }, range: { type: "string", enum: ["24h", "7d", "30d", "90d"] } },
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: true, openWorldHint: true },
+    annotations: { title: "GenClass analytics", readOnlyHint: true, destructiveHint: false, openWorldHint: true },
   },
   {
     name: "genclass_setup",
     title: "Set up GenClass",
-    description: "The lines to add so this project's dev build connects to GenClass (detects Vite, Next.js and others from package.json), and how to check it works. It changes no file.",
+    description: "The lines to add so this project's dev build connects to GenClass (detects Vite, Next.js and others from package.json), how to check it works, and this MCP client's config lines for keeping the server in the project. It changes no file.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: { title: "Set up GenClass", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     name: "genclass_clear",
     title: "Clear GenClass records",
     description: "Forget recorded runs and findings on this machine (all, findings or runs), e.g. after a fix to start clean.",
     inputSchema: { type: "object", properties: { what: { type: "string", enum: ["all", "findings", "runs"] } }, additionalProperties: false },
-    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    annotations: { title: "Clear GenClass records", readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   },
 ];
 
@@ -139,6 +141,8 @@ export interface ToolContext {
   cwd: string;
   env: Record<string, string | undefined>;
   fetch?: typeof fetch;
+  /** The client's `clientInfo.name` from initialize, when it sent one (genclass_setup shows its config block). */
+  client?: string | null;
 }
 
 export interface ToolResult {
@@ -373,7 +377,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     }
 
     case "genclass_setup":
-      return { text: setupText(ctx.cwd) };
+      return { text: setupText(ctx.cwd, ctx.client) };
 
     case "genclass_clear": {
       await ctx.api("clear", { what: args.what });
@@ -472,7 +476,8 @@ function prodLines(p: ProdStats, route?: string): string[] {
   return out;
 }
 
-export function setupText(cwd: string): string {
+/** The dev-build lines for the project in `cwd`, then, when `client` names a known MCP client, its config block. */
+export function setupText(cwd: string, client?: string | null): string {
   let pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> } = {};
   try {
     pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf8"));
@@ -507,5 +512,8 @@ export function setupText(cwd: string): string {
     "",
     "Notes: connectAgent runs only on pages served from this machine (localhost, 127.0.0.1, *.localhost); for a *.test or *.local name or a LAN address use connectAgent(rt, { anyHost: true }) and allow the origin with GENCLASS_AGENT_ORIGINS=http://host:port in the MCP server's environment. It talks only to this machine's bridge (http://127.0.0.1:47357; GENCLASS_AGENT_PORT changes it, and the page then needs connectAgent(rt, { url })). A Content-Security-Policy in development needs connect-src http://127.0.0.1:47357; a mock service worker (MSW) should let 127.0.0.1:47357 through. Production: GenClass.init() alone, unchanged.",
   ];
+  const c = clientFor(client);
+  if (c) lines.push("", `To keep GenClass configured for everyone who opens this project in ${c.label}:`, "", c.block(VERSION));
+  else lines.push("", `To add GenClass to another MCP client: npx -y ${pinned(VERSION)} config <client> (${CLIENTS.map((x) => x.id).join(", ")}).`);
   return lines.join("\n");
 }

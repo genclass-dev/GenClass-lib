@@ -38,3 +38,6 @@ bench/visual/.work/
 # @genclass/mcp e2e: generated regression test
 packages/mcp/test/e2e/.gen/
 .genclass/
+
+# @genclass/mcp: the MCP Bundle build (scripts/mcpb.mjs)
+packages/mcp/.mcpb/

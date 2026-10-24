@@ -15,6 +15,13 @@ on:
       - "packages/runtime/src/runtime.ts"
       - "package-lock.json"
       - ".github/workflows/mcp.yml"
+      - ".github/workflows/release-mcp.yml"
+      - ".claude-plugin/**"
+      - ".cursor-plugin/**"
+      - "gemini-extension.json"
+      - "glama.json"
+      - "llms-install.md"
+      - "docs/adoption/listings/mcp.md"
   pull_request:
     paths:
       - "packages/mcp/**"
@@ -22,6 +29,13 @@ on:
       - "packages/runtime/src/runtime.ts"
       - "package-lock.json"
       - ".github/workflows/mcp.yml"
+      - ".github/workflows/release-mcp.yml"
+      - ".claude-plugin/**"
+      - ".cursor-plugin/**"
+      - "gemini-extension.json"
+      - "glama.json"
+      - "llms-install.md"
+      - "docs/adoption/listings/mcp.md"
   workflow_dispatch:
 
 permissions:
@@ -60,6 +74,17 @@ jobs:
       - name: Unit tests
         working-directory: packages/mcp
         run: npx vitest run
+
+      - name: MCP Bundle (built, validated, unpacked server answers initialize; not uploaded)
+        working-directory: packages/mcp
+        run: npm run bundle
+
+      # Claude Code's own validator, pinned to a release older than two weeks (2.1.310 adds --profile directory, which
+      # also checks the directory's README rule; test/manifests.test.ts covers that rule meanwhile)
+      - name: Claude Code plugin and marketplace manifests
+        run: |
+          npx -y @anthropic-ai/claude-code@2.1.296 plugin validate packages/mcp/plugin --strict
+          npx -y @anthropic-ai/claude-code@2.1.296 plugin validate . --strict
 
       - name: Chromium
         run: npx playwright install --with-deps chromium

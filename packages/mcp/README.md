@@ -19,21 +19,239 @@ Everything stays on your machine. No dependencies.
 
 ## Install
 
-As a Claude Code plugin (the server, a prompt hook that brings new findings to each prompt, and a skill that tells
-Claude when to use it):
+Pick your client. Every block pins this release, so the client starts exactly this version;
+`npx -y @genclass/mcp@0.1.0 config <client>` prints the same lines, and `genclass_setup` prints the block for the
+client it runs in.
+
+<!-- install:start (generated from src/clients.ts by `npm run sync -w @genclass/mcp`; edit it there) -->
+
+### Claude Code
+
+As a plugin (the server, a prompt hook that brings new findings to each prompt, and a skill that tells Claude when to use it):
 
 ```
 /plugin marketplace add genclass-dev/GenClass-lib
 /plugin install genclass@genclass
 ```
 
-Or the server alone:
+Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project):
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp
-# or, in the project: npx @genclass/mcp init          (adds it to .mcp.json)
-#                     npx @genclass/mcp init --hook   (also a prompt hook that brings new findings to the agent)
+claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.1.0
+# or: npx -y @genclass/mcp@0.1.0 init --hook   (.mcp.json, plus the prompt hook in .claude/settings.json)
 ```
+
+### Claude Desktop
+
+`claude_desktop_config.json` (Settings, Developer, Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "genclass": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### Cursor
+
+[Add to Cursor](https://cursor.com/en/install-mcp?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D) (the app's own link: `cursor://anysphere.cursor-deeplink/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D`), or `.cursor/mcp.json` in the project (`~/.cursor/mcp.json` for all projects):
+
+```json
+{
+  "mcpServers": {
+    "genclass": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### VS Code
+
+[Install in VS Code](https://insiders.vscode.dev/redirect/mcp/install?name=genclass&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40genclass%2Fmcp%400.1.0%22%5D%7D), or from a terminal:
+
+```bash
+code --add-mcp '{"name":"genclass","command":"npx","args":["-y","@genclass/mcp@0.1.0"]}'
+```
+
+or `.vscode/mcp.json` in the project:
+
+```json
+{
+  "servers": {
+    "genclass": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### Codex CLI
+
+```bash
+codex mcp add genclass -- npx -y @genclass/mcp@0.1.0
+```
+
+or `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.genclass]
+command = "npx"
+args = ["-y", "@genclass/mcp@0.1.0"]
+```
+
+### Gemini CLI
+
+```bash
+gemini mcp add genclass npx -y @genclass/mcp@0.1.0
+# or the extension (the server and a context file): gemini extensions install https://github.com/genclass-dev/GenClass-lib
+```
+
+or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all projects):
+
+```json
+{
+  "mcpServers": {
+    "genclass": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### Windsurf
+
+`~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "genclass": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### Cline
+
+MCP Servers, Configure, `cline_mcp_settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "genclass": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### Goose
+
+[Add to Goose](goose://extension?cmd=npx&arg=-y&arg=%40genclass%2Fmcp%400.1.0&id=genclass&name=GenClass&description=Find%20race%20conditions%20by%20reordering%20responses%2C%20replay%20one%2C%20prove%20the%20fix), or `goose configure` (Add Extension, Command-line Extension, command `npx -y @genclass/mcp@0.1.0`), or `~/.config/goose/config.yaml`:
+
+```yaml
+extensions:
+  genclass:
+    name: genclass
+    type: stdio
+    cmd: npx
+    args: ["-y", "@genclass/mcp@0.1.0"]
+    enabled: true
+    timeout: 300
+```
+
+### Zed
+
+`settings.json` (Zed, Settings, Open Settings):
+
+```json
+{
+  "context_servers": {
+    "genclass": {
+      "source": "custom",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### JetBrains IDEs
+
+AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, As JSON:
+
+```json
+{
+  "mcpServers": {
+    "genclass": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ]
+    }
+  }
+}
+```
+
+### OpenCode
+
+`opencode.json` in the project:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "genclass": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@genclass/mcp@0.1.0"
+      ],
+      "enabled": true
+    }
+  }
+}
+```
+
+<!-- install:end -->
+
+Any other MCP client: a stdio server, command `npx`, arguments `-y @genclass/mcp@0.1.0`, no environment variables
+required.
 
 Then connect the app's development build (once). The agent link needs `@genclass/runtime` 0.3.0-beta.1 or later
 (`npm install @genclass/runtime@beta` until 0.3.0 is `latest`):
@@ -76,7 +294,7 @@ on the fixed one, and explore on the fixed page reported nothing. Details: [docs
 | `genclass_explore` | `start` / `report` / `stop`: find what depends on response order |
 | `genclass_replay` | `arm` / `result`: reproduce one finding exactly |
 | `genclass_analytics` | per-endpoint latency, error rates and request counts, learned relations and flows; production numbers from your GenClass dashboard |
-| `genclass_setup` | the lines to add for your framework |
+| `genclass_setup` | the lines to add for your framework, and the config lines for the client it runs in |
 | `genclass_clear` | forget recorded runs and findings |
 
 ## New findings without asking
@@ -84,8 +302,8 @@ on the fixed one, and explore on the fixed page reported nothing. Details: [docs
 - **Channels** (Claude Code research preview): start Claude Code with
   `claude --dangerously-load-development-channels server:genclass` and new findings arrive in the session as they
   happen (`notifications/claude/channel`).
-- **Prompt hook**: `npx @genclass/mcp init --hook` adds a `UserPromptSubmit` hook; each prompt then carries the findings
-  that changed since the last one.
+- **Prompt hook** (part of the Claude Code plugin): `npx -y @genclass/mcp@0.1.0 init --hook` adds a `UserPromptSubmit`
+  hook to `.claude/settings.json`; each prompt then carries the findings that changed since the last one.
 
 ## Environment
 
@@ -106,6 +324,15 @@ The agent API refuses browsers and needs a token only your user can read. Everyt
 capped, stripped of invisible characters and shown to the agent as quoted data, never as instructions. Nothing leaves
 your machine. See section 6 of
 [AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md).
+
+## Privacy
+
+The server collects nothing and sends nothing to GenClass or anyone else. Findings stay on your machine, in
+`.genclass/agent/` in the project (the server gitignores it) and in the bridge's memory; the bridge's token is in
+`~/.genclass`. The one request that leaves the machine is `genclass_analytics` `{source: "production"}`, which reads
+your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its private link. The runtime in your app has its
+own disclosed diagnostics ([PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md)), which
+`GenClass.init({ telemetry: false })` turns off; the agent link is not part of them.
 
 ## License
 
