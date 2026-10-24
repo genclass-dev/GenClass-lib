@@ -21,6 +21,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `training/` | vocabulary pruning, curriculum (`curriculum/rt.py` mirrors the runtime's situation renderer), Azure training, ONNX export, `EVAL.md` |
 | `demos/` | six demo apps with a chaos backend and Playwright trials; `bench/heal/` runs them per mode |
 | `packages/mcp/` | `@genclass/mcp`: the MCP server for coding agents (bridge on 127.0.0.1:47357, store, explore verdicts, replays, regression-test generation, 8 tools); no runtime deps; `test/e2e/race.e2e.mjs` is the real-browser check (not in CI's main job) |
+| `packages/sv/` | `@genclass/sv`: the Svelte CLI community add-on (`npx sv add @genclass`): adds the runtime, the `/auto` import first in `src/hooks.client`, the dev-only overlay and (default) the telemetry opt-out meta in `src/app.html`, all with the `genclass:init` marker so `remove` undoes it; bundles `@sveltejs/sv-utils`, `sv` is a peer; `test/e2e/` runs sv's add-on harness (pnpm, Chromium) |
 | `packages/playwright/` | `@genclass/playwright`: Playwright reporter + pure summariser that read the GenClass fixture's `test-results/genclass/*.json` (`genclass-races/1`) and write `genclass-report.md` for the PR; injects nothing, no runtime deps |
 | `bench/visual/` | the visual checks' bench (GitHub Actions only, `.github/workflows/visual-measure.yml`): false reports on the demos, templates, compat apps and about 40 public sites, recall on faults planted from the harness, cost; public sites are counted per check kind only, never named in the repo, its run logs or plain artifacts (per-site results only encrypted with the `VISUAL_BENCH_KEY` secret) |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
@@ -49,6 +50,10 @@ needs both packages built: `node packages/mcp/test/e2e/race.e2e.mjs`.
 `packages/playwright/` (`@genclass/playwright`, the race-file reporter) has its own workflow,
 `playwright-reporter.yml` (typecheck, build, vitest; no browser; never blocks `ci.yml`):
 `npm run typecheck -w @genclass/playwright && npm run build -w @genclass/playwright && (cd packages/playwright && npx vitest run)`.
+
+`packages/sv/` (`@genclass/sv`, the Svelte CLI add-on) has its own workflow, `sv-addon.yml` (never blocks `ci.yml`):
+`npm run typecheck -w @genclass/sv && npm run build -w @genclass/sv && (cd packages/sv && npx vitest run --project unit)`;
+the e2e (`npx vitest run --project e2e`) needs the runtime built, pnpm, Chromium and the network (npm, jsDelivr).
 
 One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tests are model-parity tests that need
 `GENCLASS_MODEL_DIR`. CI also runs the `visual-browser` job: the first-load size against the release line (`FIRST_LOAD_BASE`, release/0.3.0 until 0.3.0 is on main; `test/first-load-size.mjs`, fails at 0.6 KB
