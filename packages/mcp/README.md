@@ -34,7 +34,7 @@ As a plugin (the server, a prompt hook that brings new findings to each prompt, 
 /plugin install genclass@genclass
 ```
 
-Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project):
+Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects):
 
 ```bash
 claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.1.0
@@ -43,7 +43,7 @@ claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.1.0
 
 ### Claude Desktop
 
-`claude_desktop_config.json` (Settings, Developer, Edit Config):
+Settings, Developer, Edit Config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -61,7 +61,9 @@ claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.1.0
 
 ### Cursor
 
-[Add to Cursor](https://cursor.com/en/install-mcp?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D) (the app's own link: `cursor://anysphere.cursor-deeplink/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D`), or `.cursor/mcp.json` in the project (`~/.cursor/mcp.json` for all projects):
+[![Add genclass MCP server to Cursor](https://cursor.com/deeplink/mcp-install-dark.png)](https://cursor.com/link/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D) or `cursor://anysphere.cursor-deeplink/mcp/install?name=genclass&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBnZW5jbGFzcy9tY3BAMC4xLjAiXX0%3D`
+
+Or `.cursor/mcp.json` in the project (`~/.cursor/mcp.json` for all projects):
 
 ```json
 {
@@ -79,19 +81,18 @@ claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.1.0
 
 ### VS Code
 
-[Install in VS Code](https://insiders.vscode.dev/redirect/mcp/install?name=genclass&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40genclass%2Fmcp%400.1.0%22%5D%7D), or from a terminal:
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF)](https://vscode.dev/redirect/mcp/install?name=genclass&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40genclass%2Fmcp%400.1.0%22%5D%7D) or from a terminal:
 
 ```bash
 code --add-mcp '{"name":"genclass","command":"npx","args":["-y","@genclass/mcp@0.1.0"]}'
 ```
 
-or `.vscode/mcp.json` in the project:
+Or `.mcp.json` at the workspace root (the portable format; `.vscode/mcp.json` takes the same entry under `servers`):
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "genclass": {
-      "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
@@ -108,22 +109,22 @@ or `.vscode/mcp.json` in the project:
 codex mcp add genclass -- npx -y @genclass/mcp@0.1.0
 ```
 
-or `~/.codex/config.toml`:
+Or `~/.codex/config.toml` (`.codex/config.toml` in a trusted project). The first start downloads the package, so allow more than the default 10 seconds:
 
 ```toml
 [mcp_servers.genclass]
 command = "npx"
 args = ["-y", "@genclass/mcp@0.1.0"]
+startup_timeout_sec = 30
 ```
 
 ### Gemini CLI
 
 ```bash
-gemini mcp add genclass npx -y @genclass/mcp@0.1.0
-# or the extension (the server and a context file): gemini extensions install https://github.com/genclass-dev/GenClass-lib
+gemini mcp add genclass npx -- -y @genclass/mcp@0.1.0   # -s user: for all projects
 ```
 
-or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all projects):
+Or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all projects):
 
 ```json
 {
@@ -139,9 +140,9 @@ or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all pro
 }
 ```
 
-### Windsurf
+### Windsurf (Devin Desktop)
 
-`~/.codeium/windsurf/mcp_config.json`:
+`~/.codeium/windsurf/mcp_config.json` (Windsurf), `~/.config/devin/mcp_config.json` (Devin Desktop's Cascade agent; `%APPDATA%\devin\mcp_config.json` on Windows):
 
 ```json
 {
@@ -155,11 +156,21 @@ or `.gemini/settings.json` in the project (`~/.gemini/settings.json` for all pro
     }
   }
 }
+```
+
+Devin CLI and Devin Desktop's Devin Local agent:
+
+```bash
+devin mcp add -s user genclass -- npx -y @genclass/mcp@0.1.0
 ```
 
 ### Cline
 
-MCP Servers, Configure, `cline_mcp_settings.json`:
+```bash
+cline mcp add genclass --yes -- npx -y @genclass/mcp@0.1.0
+```
+
+Or MCP Servers, Configure, Configure MCP Servers (`~/.cline/data/settings/cline_mcp_settings.json`):
 
 ```json
 {
@@ -177,28 +188,29 @@ MCP Servers, Configure, `cline_mcp_settings.json`:
 
 ### Goose
 
-[Add to Goose](goose://extension?cmd=npx&arg=-y&arg=%40genclass%2Fmcp%400.1.0&id=genclass&name=GenClass&description=Find%20race%20conditions%20by%20reordering%20responses%2C%20replay%20one%2C%20prove%20the%20fix), or `goose configure` (Add Extension, Command-line Extension, command `npx -y @genclass/mcp@0.1.0`), or `~/.config/goose/config.yaml`:
+`goose://extension?cmd=npx&arg=-y&arg=%40genclass%2Fmcp%400.1.0&id=genclass&name=genclass&description=Find%20race%20conditions%20by%20reordering%20responses%2C%20replay%20one%2C%20prove%20the%20fix` (open it to install), or `goose configure` (Add Extension, Command-line Extension, command `npx -y @genclass/mcp@0.1.0`), or `~/.config/goose/config.yaml`:
 
 ```yaml
 extensions:
   genclass:
-    name: genclass
     type: stdio
+    name: genclass
+    enabled: true
     cmd: npx
     args: ["-y", "@genclass/mcp@0.1.0"]
-    enabled: true
+    env_keys: []
+    envs: {}
     timeout: 300
 ```
 
 ### Zed
 
-`settings.json` (Zed, Settings, Open Settings):
+`~/.config/zed/settings.json` (`.zed/settings.json` in the project), or Settings, AI, MCP Servers, Add Server:
 
 ```json
 {
   "context_servers": {
     "genclass": {
-      "source": "custom",
       "command": "npx",
       "args": [
         "-y",
@@ -211,7 +223,7 @@ extensions:
 
 ### JetBrains IDEs
 
-AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, As JSON:
+AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, then this JSON. Junie: `.junie/mcp/mcp.json` in the project (`~/.junie/mcp/mcp.json` for all projects), same JSON:
 
 ```json
 {
@@ -229,7 +241,7 @@ AI Assistant: Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, 
 
 ### OpenCode
 
-`opencode.json` in the project:
+`opencode.json` in the project (`~/.config/opencode/opencode.json` for all projects), or `opencode mcp add`:
 
 ```json
 {
