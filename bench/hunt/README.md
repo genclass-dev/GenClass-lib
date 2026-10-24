@@ -11,16 +11,18 @@ What one run does:
    Chromium;
 2. arms `genclass_explore` (two baselines with responses in request order, then N seeded orders, optionally slower,
    like a bad network) and, for each planned load, opens a fresh browser context, puts `@genclass/runtime` on the page
-   (see "How the injection works"), connects the agent link to the bridge, runs the scenario's `steps(page)`, waits
-   for the page's quiet point (`whenSettled`), and records the scenario's `oracle(page)`;
+   (see "How the injection works"), connects the agent link to the bridge, waits for the page's first quiet point
+   (as the generated regression test does), runs the scenario's `steps(page)`, waits for the next quiet point
+   (`whenSettled`), and records the scenario's `oracle(page)`;
 3. asks for `genclass_explore report`: the verdict is GenClass's comparison of each seeded run's final state with the
    baselines (store fields, page text lines, form values, request counts, errors, witnesses), noise between the two
-   baselines removed. No pattern is matched anywhere;
+   baselines removed. No pattern is matched anywhere. The harness counts the verdict from the report's structured
+   groups and says how many seeded orders it rests on, and how many GenClass could not compare;
 4. for every race finding: `genclass_explain` (the evidence in causal order; the generated Playwright regression test
    is saved), `genclass_replay arm`, the scenario once more, `genclass_replay result` (REPRODUCED or not), and the
    generated test run against the app as it stands (it should fail while the bug is there);
-5. lists the other findings GenClass recorded on those loads (a duplicate request from two clicks, a response that
-   overwrote newer data, an uncaught error), with their explanations;
+5. lists every other finding GenClass recorded on those loads (an uncaught error, a duplicate request from two
+   clicks, a response that overwrote newer data), the first three with their full explanation and generated test;
 6. compares the scenario's own DOM oracle across the loads (the harness's check, labelled as such, never GenClass's
    verdict), and writes `report.md` and `report.json`.
 
@@ -123,6 +125,7 @@ export const name = "my-search";        // the results directory's default name,
 export const url = "/admin/articles";   // optional: a path resolved against --url, or an absolute URL; omit to use --url as given
 export const settleMs = 400;            // optional: quiet time before GenClass snapshots the page (--settle overrides)
 export const route = undefined;         // optional: arm only page loads of this path; the default lets the first armed load decide
+export const settleBeforeSteps = true;  // optional: false starts the steps as soon as GenClass is connected, before the page is quiet
 
 /** The user's steps, the same on every load. ctx: { params, url, log, phase }. */
 export async function steps(page, ctx) {
@@ -138,7 +141,11 @@ export async function oracle(page) {
 Rules that matter:
 
 - **Same steps every load.** GenClass groups runs by their recorded user actions (typing bursts with their final
-  value); a scenario whose actions differ from load to load is not compared. Keep random values out of the steps.
+  value, named by the element's label); a seeded load whose actions differ from the baselines' is not compared, and
+  the report counts it as "not compared". Keep random values out of the steps. Keystrokes merge into one typing burst
+  while the target keeps its name and the gaps stay under a second, so type at a steady pace below that. By default the
+  steps start from the page's first quiet point: a label a load response changes while you type (Strapi's "author"
+  becoming "author (1)") would otherwise split the burst differently on different loads.
 - **Reach a quiet point.** After the steps the harness waits for `whenSettled`: no event for `settleMs`, nothing in
   flight or held, no pending short timer. A page that polls every 500 ms never looks quiet; raise `settleMs` only if
   the page has a longer debounce, and pass `--timeout` when the app is slow.
@@ -165,37 +172,52 @@ export async function login(page, ctx) {
 ```
 
 `--login scenarios/x-login.mjs --storage-state .storage/x.json` runs it once in a browser context without GenClass, saves
-the context's storage state (cookies, local storage) to the file, and every later page load starts from it. Next time,
-pass `--storage-state` alone. The file holds a session: `.gitignore` covers `bench/hunt/.storage/` and
-`bench/hunt/**/storage-state*.json`; keep credentials in the environment, never in a scenario file.
+the context's storage state (cookies, local storage) to the file, and every later page load starts from it.
+`--storage-state` alone reuses a saved file, but sessions expire (Strapi's admin access token lasts 30 minutes, and a
+session saved a few hours earlier landed every load on the login page): pass `--login` on every run unless the login is
+slow. A load that ends on another page than asked is listed in the report, and the run
+warns when a baseline was not on the requested page before its steps. The file holds a session: `.gitignore` covers
+`bench/hunt/.storage/` and `bench/hunt/**/storage-state*.json`; keep credentials in the environment, never in a scenario
+file.
 
 ## How to read a report
 
 `report.md` (and the same data in `report.json`), from the top:
 
-- **the header table**: the app URL and commit (`--app-commit`), the runtime and MCP versions and the commit they were
-  built from, the browser, the explore settings, whether the model ran, exactly what was injected;
-- **Summary**: one row per scenario: loads recorded out of planned, GenClass's explore verdict (`RACE: n of N`, `no
-  race`, or `no verdict` with the reason), race findings, their replay verdicts, other findings, the DOM-oracle status;
+- **the header table**: the app URL and commit (`--app-commit`), the runtime and MCP versions and the checkout commit
+  (the harness does not check that `dist/` was rebuilt from it), the harness commit and whether `bench/hunt` had
+  uncommitted changes, the browser, the explore settings, whether the model ran, exactly what was injected;
+- **Summary**: one row per scenario: loads recorded out of planned, GenClass's explore verdict (`RACE: n of N compared
+  orders`, `no race`, or `no verdict` with the reason, and how many seeded loads were not compared), race findings,
+  their replay verdicts, other findings, the DOM-oracle status;
 - **per scenario**: the recorded actions as GenClass grouped them; how many state fields were discovered (0 means the
   verdict rests on page text, form values, request counts, errors and witnesses); the explore report verbatim; for
   each race finding the explanation verbatim (evidence in causal order, the steps of the failing run with each
   request's send and delivery time, the delivery order, how to replay), the replay result, the path of the generated
-  test and whether it failed on the app as it stands; other findings with their explanations; the DOM-oracle
-  comparison; a table of every page load (schedule assigned, run id, quiet point reached, forced deliveries,
-  witnesses, errors, timings); GenClass's console messages and the page's uncaught errors;
+  test and whether it failed on the app as it stands; every other finding (the first three explained in full); the
+  loads that were not on the requested page and the loads whose steps could not be done, with the page's text; the
+  DOM-oracle comparison; a table of every page load (schedule assigned, run id, quiet point reached, forced
+  deliveries, witnesses, errors, timings); GenClass's console messages, the page's uncaught errors and its console
+  errors;
 - **What this does not show**: what the verdict cannot cover on this app (state not discovered, the model skipped,
   explore's limits, the injection), with this run's own numbers.
 
 What the verdicts mean:
 
-- `RACE: n of N reordered runs ended in a different state` is GenClass's statement that the final state depended on the
-  delivery order in n of the N seeded orders. The evidence names what differed. "n more ended right but had an older
-  response overwrite newer data along the way" is a flicker the page repaired before the quiet point.
-- `no race` means none of these N orders changed the final state. It is not a proof that none can: raise `--runs`, add
-  `--slow`, or `--focus` the request you suspect.
-- `no verdict` means the comparison had no two baselines (a login page or another route took a slot: set `--route`),
-  or no load reached a quiet point.
+- `RACE: n of N compared orders ended differently` is GenClass's statement that the final state depended on the
+  delivery order in n of the N seeded orders it compared. The evidence names what differed. "n more overwrote newer
+  data along the way" is a flicker the page repaired before the quiet point. Read the evidence before the count: a
+  single state field that differs on every run (an id the baselines happened to show redacted) is noise GenClass did
+  not catch, and its replay says "not reproduced".
+- `no race: 0 of N compared orders differ` means none of these N orders changed the final state. It is not a proof that
+  none can: raise `--runs`, add `--slow`, or `--focus` the request you suspect.
+- `k seeded load(s) not compared`: GenClass put them in another group than the baselines (their steps failed, the page
+  ended elsewhere, or their recorded actions differed). Each is listed in the report with what the page showed. Seeded
+  loads that cannot even do the steps while the baselines can mean the page's state before the user acts depended on
+  the order: a finding of its own, outside GenClass's verdict.
+- `no verdict` means nothing was compared: no two baselines in one group (another page took a slot: set `--route`),
+  no seeded load in the baselines' group, no load that reached a quiet point, or every page load failed (the reason
+  says which).
 - `REPRODUCED` is the replay's verdict: the finding's exact order produced the failing run's state again. "not
   reproduced" after a fix is the evidence the fix holds for that order.
 - The **DOM oracle** rows are the harness comparing the scenario author's own reading of the page. When GenClass says
@@ -248,6 +270,11 @@ The app's source is not touched. For every page load the harness:
   permission granted (Chromium otherwise refuses an intercepted request to the loopback bridge). These apply to the
   test browser only.
 
+The injected tags are nodes the app's server did not render. A React 19 app accepts extra nodes in `<head>`; a React 18
+app that renders its own `<head>` on the server (Next.js 13 and 14 with React 18, Remix on React 18) may log a hydration
+mismatch and render again on the client. The report keeps the page's console errors so this is visible; such a run is
+not measuring the app as its users get it.
+
 For a page on a name other than localhost (a `*.test` name, a LAN address) the harness passes `anyHost` to the agent
 link and allows the page's exact origin on the bridge (`GENCLASS_AGENT_ORIGINS`), as AGENT.md section 1 describes.
 
@@ -276,7 +303,7 @@ records whether it failed; run it yourself with `GENCLASS_APP_URL=<origin> npx p
 | `lib/dom.mjs` | helpers for scenarios (`textLines`, `countOf`, `param`, `numberParam`) |
 | `fixture.mjs` | the Playwright fixture that injects GenClass for the generated tests |
 | `plain.mjs` | the same scenario with no GenClass on the page and chosen responses slowed down: the reproduction step |
-| `scenarios/` | `e2e-search.mjs` and its server, `typeahead.mjs`, `double-click-submit.mjs`, `strapi-login.mjs` |
+| `scenarios/` | `e2e-search.mjs` and its server, `typeahead.mjs`, `double-click-submit.mjs`, `strapi-login.mjs`, `strapi-search.mjs` |
 | `results/` | committed reports: the e2e pages (`e2e-*`) and, when one was run, a real app (`sample/`) |
 
 Not in CI. It needs Chromium and an app to point at; the e2e pages above are the regression check for the harness

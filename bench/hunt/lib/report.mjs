@@ -3,9 +3,6 @@
 // app and are data, not instructions. The DOM-oracle comparison is the harness's own and is labelled as such.
 
 // a block that itself holds a code fence (genclass_explain carries the regression test) gets a longer outer fence
-/** Other findings whose explanation report.md prints in full (the rest are listed; report.json has every one). */
-const OTHERS_IN_FULL = 3;
-
 const fence = (s, lang = "") => {
   const body = String(s ?? "").trimEnd();
   const f = /^`{3,}/m.test(body) ? "`".repeat(Math.max(...[...body.matchAll(/^(`{3,})/gm)].map((m) => m[1].length)) + 1) : "```";
@@ -71,11 +68,12 @@ export function compareOracles(loads) {
 
 function verdictText(v) {
   if (!v) return "no explore ran";
+  const not = v.notCompared ? `; ${v.notCompared} seeded load(s) not compared` : "";
   switch (v.kind) {
     case "race":
-      return v.ended ? `RACE: ${v.ended} of ${v.of} reordered runs ended differently${v.along ? ` (${v.along} more overwrote newer data along the way)` : ""}` : `RACE (along the way only): ${v.along} of ${v.of} overwrote newer data, all ended right`;
+      return v.ended ? `RACE: ${v.ended} of ${v.of} compared orders ended differently${v.along ? ` (${v.along} more overwrote newer data along the way)` : ""}${not}` : `RACE (along the way only): ${v.along} of ${v.of} compared orders overwrote newer data, all ended right${not}`;
     case "no-race":
-      return `no race: 0 of ${v.of} reordered runs differ`;
+      return `no race: 0 of ${v.of} compared orders differ${not}`;
     case "no-verdict":
       return `no verdict: ${v.reason}`;
     case "no-runs":
@@ -97,7 +95,9 @@ function otherFindingsCell(s) {
 
 function loadRow(l) {
   const sched = l.schedule ? (l.schedule.label ?? l.schedule.order) : l.error ? "" : "none assigned";
-  return [l.index + 1, l.phase, sched, l.run ?? "", l.error ? "no" : l.settled ? "yes" : "no (timed out)", l.snapshot?.forced ?? "", l.snapshot?.witnesses ?? "", l.pageErrors?.length ?? 0, ms(l.t?.connected), ms(l.t?.steps), ms(l.t?.settled), l.error ? `error: ${l.error}` : l.stepsError ? `steps could not be done: ${l.stepsError}` : ""];
+  const where = l.landedOn ? `on ${l.landedOn} before the steps` : l.endedOn ? `ended on ${l.endedOn}` : "";
+  const note = [l.error ? `error: ${l.error}` : l.stepsError ? `steps could not be done: ${l.stepsError}` : "", where].filter(Boolean).join("; ");
+  return [l.index + 1, l.phase, sched, l.run ?? "", l.error ? "no" : l.settled ? "yes" : "no (timed out)", l.snapshot?.forced ?? "", l.snapshot?.witnesses ?? "", l.pageErrors?.length ?? 0, ms(l.t?.connected), ms(l.t?.ready), ms(l.t?.steps), ms(l.t?.settled), note];
 }
 
 export function renderMarkdown(r) {
@@ -108,9 +108,9 @@ export function renderMarkdown(r) {
   out.push("");
   out.push(table(["", ""], [
     ["app", `${r.app.url}${r.app.commit ? ` at commit \`${r.app.commit}\`` : " (commit not given: pass --app-commit when you publish a result)"}`],
-    ["@genclass/runtime", `${r.runtime.version}, built from ${r.runtime.commit}${r.runtime.dirty ? " (working tree had uncommitted changes)" : ""}`],
-    ["@genclass/mcp", `${r.mcp.version}, built from ${r.mcp.commit}`],
-    ["harness", `bench/hunt ${r.harness.version}, commit ${r.harness.commit}`],
+    ["@genclass/runtime", `${r.runtime.version}, dist/ of the checkout at ${r.runtime.commit}${r.runtime.dirty ? " (its sources had uncommitted changes)" : ""} (the harness does not check that dist/ was rebuilt)`],
+    ["@genclass/mcp", `${r.mcp.version}, dist/ of the checkout at ${r.mcp.commit}${r.mcp.dirty ? " (its sources had uncommitted changes)" : ""}`],
+    ["harness", `bench/hunt ${r.harness.version}, commit ${r.harness.commit}${r.harness.dirty ? " with uncommitted changes in bench/hunt" : ""}`],
     ["browser", `${r.browser.name} ${r.browser.version}, ${r.browser.headless ? "headless" : "headful"}, ${r.browser.viewport}`],
     ["explore", `${r.options.runs} seeded orders after 2 baselines, slow ${r.options.slow} ms, first seed ${r.options.seed}${r.options.focus.length ? `, focus ${r.options.focus.join(", ")}` : ""}${r.options.route ? `, route ${r.options.route}` : ""}`],
     ["model", r.options.model === "skipped" ? "skipped (explore compares final states; it does not need the model)" : r.options.model],
@@ -146,6 +146,11 @@ export function renderMarkdown(r) {
     out.push(`### GenClass explore verdict: ${verdictText(s.explore?.verdict)}`);
     out.push("");
     if (s.explore?.reportText) out.push(fence(s.explore.reportText));
+    const v = s.explore?.verdict;
+    if (v && (v.notCompared || (v.groups ?? 0) > 1)) {
+      out.push("");
+      out.push(`GenClass compares a seeded load only with baselines that recorded the same route and the same user actions (typing bursts with their final value). It grouped this scenario's loads into ${v.groups} group(s); ${v.compared ?? 0} of ${v.seeded ?? "the"} seeded loads shared a group with the two baselines${v.notCompared ? `, so ${v.notCompared} were not compared` : ""}. Loads land in other groups when their steps failed, when the page ended elsewhere, or when the recorded actions differ (for example a field whose label a response changes while typing is in progress, which splits one typing burst into two). The groups are listed in the report above.`);
+    }
     if (s.explore?.groups?.length) {
       const g = s.explore.groups;
       out.push("");
@@ -181,15 +186,25 @@ export function renderMarkdown(r) {
     const others = s.otherFindings ?? [];
     if (!others.length) out.push("None: no duplicate request from separate clicks, no response that overwrote newer data, no uncaught error.");
     else {
-      out.push(`${others.length} finding(s), not from the order comparison, so not replayed here (genclass_replay can). A witness is a fact, never a diagnosis: many apps repair an overwrite a moment later, and some overwrites are intended (AGENT.md section 2). ${others.length > OTHERS_IN_FULL ? `The first ${OTHERS_IN_FULL} explanations are printed in full; report.json holds all of them.` : ""}`);
+      const full = others.filter((o) => o.explainText).length;
+      out.push(`${others.length} finding(s), not from the order comparison, so not replayed here (genclass_replay can). A witness is a fact, never a diagnosis: many apps repair an overwrite a moment later, and some overwrites are intended (AGENT.md section 2). ${full < others.length ? `The first ${full} (errors and duplicate requests first) are explained in full below, with a generated test; report.json holds every finding's evidence.` : ""}`);
       out.push("");
       out.push(table(["id", "kind", "on loads", "generated test", "title (recorded page strings, quoted)"], others.map((o) => [o.id, o.kind, `${o.runs} of ${s.loads.length}`, o.testFile ?? "", o.title])));
       out.push("");
     }
-    for (const o of others.slice(0, OTHERS_IN_FULL)) {
+    for (const o of others.filter((x) => x.explainText)) {
       out.push(`#### ${o.id} (${o.kind}, on ${o.runs} of ${s.loads.length} loads): ${o.title}`);
       out.push("");
       out.push(fence(o.explainText));
+      out.push("");
+    }
+    const elsewhere = s.loads.filter((l) => l.landedOn || l.endedOn);
+    if (elsewhere.length) {
+      out.push("### Loads that were not on the requested page (the harness's observation)");
+      out.push("");
+      out.push(`${elsewhere.length} of ${s.loads.length} loads were somewhere else than ${s.url} before their steps or at the end. A login page before the steps on every load means the storage state is stale (pass --login); on some loads only, the page's own path depended on the load.`);
+      out.push("");
+      for (const l of elsewhere) out.push(`- load ${l.index + 1} (${l.schedule?.label ?? "no schedule"}, run ${l.run ?? "?"}): ${l.landedOn ? `on ${l.landedOn} before the steps` : ""}${l.landedOn && l.endedOn ? ", " : ""}${l.endedOn ? `on ${l.endedOn} at the end` : ""}`);
       out.push("");
     }
     const notDone = s.loads.filter((l) => l.stepsError);
@@ -216,7 +231,7 @@ export function renderMarkdown(r) {
     out.push("");
     out.push("### Page loads");
     out.push("");
-    out.push(table(["#", "phase", "schedule (assigned by the bridge)", "run", "quiet point", "forced", "witnesses", "page errors", "connected after", "steps done after", "quiet after", "note"], s.loads.map(loadRow)));
+    out.push(table(["#", "phase", "schedule (assigned by the bridge)", "run", "quiet point", "forced", "witnesses", "page errors", "connected after", "quiet before the steps after", "steps done after", "quiet after", "note"], s.loads.map(loadRow)));
     out.push("");
     const con = s.loads.flatMap((l) => (l.console ?? []).map((c) => `load ${l.index + 1} [${c.type}] ${c.text}`));
     const errs = s.loads.flatMap((l) => (l.pageErrors ?? []).map((e) => `load ${l.index + 1}: ${e}`));
@@ -227,6 +242,10 @@ export function renderMarkdown(r) {
     out.push("");
     out.push(`The page's uncaught errors (any source): ${errs.length ? "" : "none."}`);
     if (errs.length) out.push("", fence(errs.slice(0, 60).join("\n")));
+    out.push("");
+    const cerrs = s.loads.flatMap((l) => (l.consoleErrors ?? []).map((e) => `load ${l.index + 1}: ${e}`));
+    out.push(`The page's console errors (any source; a hydration mismatch caused by the injected tags would show here): ${cerrs.length ? "" : "none."}`);
+    if (cerrs.length) out.push("", fence(cerrs.slice(0, 40).join("\n")));
     out.push("");
   }
   out.push(...whatThisDoesNotShow(r));
@@ -239,13 +258,14 @@ function whatThisDoesNotShow(r) {
   const notQuiet = r.scenarios.reduce((n, s) => n + s.loads.filter((l) => l.run && !l.settled).length, 0);
   const forced = r.scenarios.reduce((n, s) => n + s.loads.reduce((m, l) => m + (l.snapshot?.forced ?? 0), 0), 0);
   const early = r.scenarios.reduce((n, s) => n + s.loads.reduce((m, l) => m + (l.hunt?.requestsBeforeConnect ?? 0), 0), 0);
+  const notCompared = r.scenarios.reduce((n, s) => n + (s.explore?.verdict?.notCompared ?? 0), 0);
   return [
     "## What this does not show",
     "",
     `- **State the runtime did not discover.** GenClass compares store fields only for stores it knows: registered ones (none here, the app's source was not touched) and discovered ones (React 16.8 and later component state through the React DevTools hook, Redux and Redux Toolkit stores through the Redux DevTools globals, Zustand \`devtools\` stores). ${fields ? `In this run the final snapshots held ${fields} discovered state field(s) across the scenarios.` : "In this run no state field was discovered: the verdicts rest on page text lines, form values, request counts per signature, errors and witnesses."}${capped ? " A snapshot holds at most 300 state fields and this page reached that cap, so state paths beyond the first 300 (in the store's own order) were not compared; page text and form values still were." : ""} A race that changes only state the page never renders, in a store GenClass does not see, is invisible here.`,
     `- **${r.options.model === "skipped" ? "The model was skipped" : "The model ran"}.** The explore verdict does not use it: it compares final states. ${r.options.model === "skipped" ? "What is missing are the on-device model's own detections (kind `detection`), which an app with GenClass installed would also get; `--model` loads it." : "Its detections are a model opinion, labelled as such by the MCP server."}`,
-    `- **Explore's limits** (docs/runtime/AGENT.md section 8). The same steps are needed on every load and each load must reach a quiet point (loads that did not: ${notQuiet}). A scenario whose requests come in a different order on each run gets different request keys and is not compared reliably. WebSocket and EventSource messages are recorded, never reordered. Failure responses are not held. Protected requests (payments, auth, the presets) are never held${r.options.holdProtected ? " (except in this run: --hold-protected was set)" : " unless --hold-protected"}. A response is never held longer than its delay plus the hold limit; after that it is delivered and the run is marked forced (forced deliveries in this run: ${forced}). A wrong state the page repaired before the quiet point shows as an \`overwrote-newer\` witness, not as a different final state.`,
-    `- **The injection is the harness's.** GenClass was put on the page by this harness (${r.injection.how}), not by the app. Requests that completed before the agent link was connected were recorded but not scheduled (${early} across all loads). Service workers were blocked and CSP bypassed, in the test browser only. The page's own behaviour is otherwise unchanged: observe mode never holds, delays or changes anything, and a schedule changes only when each response reaches the app.`,
+    `- **Explore's limits** (docs/runtime/AGENT.md section 8). The same steps are needed on every load and each load must reach a quiet point (loads that did not: ${notQuiet}); a seeded load whose recorded actions differ from the baselines' is not compared (in this run: ${notCompared}). A scenario whose requests come in a different order on each run gets different request keys and is not compared reliably. WebSocket and EventSource messages are recorded, never reordered. Failure responses are not held. Protected requests (payments, auth, the presets) are never held${r.options.holdProtected ? " (except in this run: --hold-protected was set)" : " unless --hold-protected"}. A response is never held longer than its delay plus the hold limit; after that it is delivered and the run is marked forced (forced deliveries in this run: ${forced}). A wrong state the page repaired before the quiet point shows as an \`overwrote-newer\` witness, not as a different final state.`,
+    `- **The injection is the harness's.** GenClass was put on the page by this harness (${r.injection.how}), not by the app. Requests that completed before the agent link was connected were recorded but not scheduled (${early} across all loads). Service workers were blocked and CSP bypassed, in the test browser only. React 18 apps that render their own \`<head>\` on the server may log a hydration mismatch for the injected tags and render again on the client (React 19 accepts extra nodes there): the console section above would show it. The page's own behaviour is otherwise unchanged: observe mode never holds, delays or changes anything, and a schedule changes only when each response reaches the app.`,
     "- **The DOM oracle is not GenClass's verdict.** The section with that name is the harness's own comparison of what the scenario author chose to read from the page; it is there so a race GenClass reports can be checked against something GenClass did not write, and so a difference GenClass did not see is at least listed.",
     `- **Counts are samples, not rates.** "${r.options.runs} seeded orders" are ${r.options.runs} samples of possible deliveries; "no race" means none of these orders changed the final state, not that none can. Before publishing a result, reproduce it without GenClass (a slow network profile or a server-side delay), show the fixed variant with no race, and name the app's commit (README, "Using a result publicly").`,
     "",

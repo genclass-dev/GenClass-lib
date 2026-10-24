@@ -28,10 +28,10 @@ import { compareOracles, renderMarkdown } from "./lib/report.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../..");
-/** Other (non-race) findings whose explanation is kept in full; later ones are cut to OTHERS_CUT characters. */
+/** Other (non-race) findings explained in full, with their generated test; the rest are listed with their evidence. */
 const OTHERS_IN_FULL = 3;
-const OTHERS_CUT = 4000;
-const OTHERS_CUT_MARK = "[cut by the harness: genclass_explain {id} gives the whole text]";
+/** The order other findings are listed in: errors and duplicate requests before witnesses of overwrites. */
+const OTHER_RANK = { error: 0, "duplicate-request": 1, "stale-write": 2, detection: 3, check: 4, expectation: 5, intervention: 6 };
 const rtDist = resolve(repo, "packages/runtime/dist");
 const mcpDist = resolve(repo, "packages/mcp/dist");
 const HARNESS_VERSION = JSON.parse(readFileSync(join(here, "package.json"), "utf8")).version;
@@ -104,7 +104,7 @@ async function loadScenario(spec) {
   const s = m.default && typeof m.default === "object" ? { ...m.default, ...m } : { ...m };
   if (typeof s.steps !== "function") throw new Error(`${spec} must export steps(page, ctx)`);
   const name = String(s.name ?? spec.replace(/^.*[\\/]/, "").replace(/\.m?js$/, ""));
-  return { name, file: relative(repo, path), steps: s.steps, oracle: typeof s.oracle === "function" ? s.oracle : null, url: s.url, route: s.route, settleMs: Math.max(50, Math.round(args.settle ?? s.settleMs ?? 400)), configure: typeof s.configure === "function" ? s.configure : null };
+  return { name, file: relative(repo, path), steps: s.steps, oracle: typeof s.oracle === "function" ? s.oracle : null, url: s.url, route: s.route, settleMs: Math.max(50, Math.round(args.settle ?? s.settleMs ?? 400)), settleBeforeSteps: s.settleBeforeSteps !== false };
 }
 const scenarios = [];
 for (const spec of args.scenario) scenarios.push(await loadScenario(spec));
@@ -128,7 +128,10 @@ function git(...a) {
   }
 }
 const commit = git("rev-parse", "--short=12", "HEAD") || "unknown";
+// uncommitted changes in what ran: the packages' sources (dist/ is built from the checkout, which is not checked), and
+// the harness itself (its results directory aside)
 const dirty = git("status", "--porcelain", "--", "packages/runtime/src", "packages/mcp/src") !== "";
+const harnessDirty = git("status", "--porcelain", "--", "bench/hunt", ":(exclude)bench/hunt/results") !== "";
 const version = (p) => JSON.parse(readFileSync(join(repo, p, "package.json"), "utf8")).version;
 
 // ----------------------------------------------------------------------------------------------- start
@@ -170,7 +173,7 @@ try {
 // ----------------------------------------------------------------------------------------------- one page load
 async function loadOnce(sc, url, phase, index) {
   const t0 = Date.now();
-  const rec = { index, phase, url, run: null, schedule: null, connected: false, settled: null, error: null, console: [], pageErrors: [], t: {}, hunt: null, snapshot: null };
+  const rec = { index, phase, url, run: null, schedule: null, connected: false, settled: null, error: null, console: [], consoleErrors: [], pageErrors: [], t: {}, hunt: null, snapshot: null };
   const ctx = await browser.newContext({ bypassCSP: true, serviceWorkers: "block", ignoreHTTPSErrors: true, viewport, ...(storageState ? { storageState } : {}) });
   try {
     const injLog = await injectGenClass(ctx, { ...injectOpts, agentUrl: mcp.url, settleMs: sc.settleMs, onLog: log });
@@ -178,7 +181,10 @@ async function loadOnce(sc, url, phase, index) {
     page.setDefaultTimeout(timeout);
     page.on("console", (m) => {
       const text = m.text();
-      if (/genclass/i.test(text) && rec.console.length < 50) rec.console.push({ type: m.type(), text: text.slice(0, 500) });
+      // GenClass's own messages, and the page's console errors from any source (a hydration mismatch shows only there)
+      if (/genclass/i.test(text)) {
+        if (rec.console.length < 50) rec.console.push({ type: m.type(), text: text.slice(0, 500) });
+      } else if (m.type() === "error" && rec.consoleErrors.length < 20) rec.consoleErrors.push(text.slice(0, 300));
     });
     page.on("pageerror", (e) => rec.pageErrors.length < 50 && rec.pageErrors.push(String(e.message ?? e).slice(0, 500)));
     await page.goto(url, { timeout });
@@ -189,6 +195,14 @@ async function loadOnce(sc, url, phase, index) {
     if (!h.connected) throw new Error(`GenClass did not connect to the bridge: ${h.reason ?? h.error ?? "no hello"}${h.reason === "not-dev-host" ? " (the page is not on localhost; the harness passes anyHost for such URLs, so this should not happen)" : ""}`);
     rec.t.connected = Date.now() - t0;
     rec.connected = true;
+    // the steps start from the page's first quiet point, as the generated regression test does (testgen.ts): actions
+    // that race the page's own loading record differently from load to load (a label that a load response changes
+    // splits a typing burst), and GenClass compares only loads whose recorded actions match
+    if (sc.settleBeforeSteps !== false) {
+      rec.readyBeforeSteps = await page.evaluate((ms) => window.__GENCLASS_AGENT__.whenSettled(ms), timeout);
+      rec.t.ready = Date.now() - t0;
+    }
+    rec.routeBeforeSteps = await page.evaluate(() => location.pathname);
     const sctx = { params, url, log, phase };
     try {
       await sc.steps(page, sctx);
@@ -226,9 +240,18 @@ async function loadOnce(sc, url, phase, index) {
     rec.run = st.run;
     rec.schedule = st.schedule;
     rec.route = st.route;
+    // a page that ended somewhere else than asked: a login redirect (a stale storage state), an error or permission
+    // page, a client-side redirect. Recorded as seen, never interpreted
+    const asked = new URL(url).pathname.replace(/\/+$/, "") || "/";
+    const norm = (p) => String(p ?? "").replace(/\/+$/, "") || "/";
+    if (norm(rec.routeBeforeSteps) !== asked) rec.landedOn = rec.routeBeforeSteps;
+    if (norm(st.route) !== asked) rec.endedOn = st.route;
     rec.snapshot = st.snapshot;
     rec.actions = st.actions;
     rec.hunt.requestsBeforeConnect = st.requestsBeforeConnect;
+    // files the page asked for under the virtual path that dist/ does not have (a harness problem when not empty)
+    rec.hunt.missing = injLog.missing.slice(0, 10);
+    rec.hunt.served = injLog.served;
     await page.waitForTimeout(500); // the last batch (the snapshot) reaches the bridge before the page goes away
   } catch (e) {
     rec.error = String(e?.message ?? e).split("\n")[0].slice(0, 400);
@@ -240,19 +263,39 @@ async function loadOnce(sc, url, phase, index) {
   return rec;
 }
 
-// ----------------------------------------------------------------------------------------------- parsing the tools' text
-function parseVerdict(text) {
-  const ids = [...(/Race finding\(s\): ([^.]+)\./.exec(text)?.[1] ?? "").matchAll(/f\d+/g)].map((m) => m[0]);
-  const race = /^RACE: (\d+) of (\d+) reordered run\(s\) ended in a different state than the baseline \(responses in request order\)(?:; (\d+) more ended right)?/m.exec(text);
-  if (race) return { kind: "race", ended: Number(race[1]), of: Number(race[2]), along: Number(race[3] ?? 0), findingIds: ids };
-  const along = /^RACE: no reordered run ended differently, but (\d+) of (\d+)/m.exec(text);
-  if (along) return { kind: "race", ended: 0, of: Number(along[2]), along: Number(along[1]), findingIds: ids };
-  const none = /^No race found: all (\d+) reordered run\(s\)/m.exec(text);
-  if (none) return { kind: "no-race", of: Number(none[1]), findingIds: [] };
-  if (/Only one baseline in this group/.test(text)) return { kind: "no-verdict", reason: "only one baseline run in the group (another page load took the other baseline slot)", findingIds: [] };
-  if (/No baseline run in this group/.test(text)) return { kind: "no-verdict", reason: "no baseline run in the group", findingIds: [] };
-  if (/No run reached a quiet point/.test(text)) return { kind: "no-runs", findingIds: [] };
-  return { kind: "no-verdict", reason: "the report text matched no known verdict line", findingIds: ids };
+// ----------------------------------------------------------------------------------------------- GenClass's verdict
+/** packages/mcp/src/compare.ts endedDifferently: the run ended in another state (not only a witness along the way). */
+const endedDifferently = (d) => d.fields.length > 0 || d.textOnlyBaseline.length > 0 || d.textOnlyRun.length > 0 || d.errors.length > 0;
+
+/**
+ * GenClass's verdict, counted from the structured explore report (the data genclass_explore report renders as text).
+ * Runs are compared only inside a group (the same route and the same recorded user actions) that holds the two
+ * baselines; a seeded load GenClass grouped apart, or that never reached a quiet point after its steps, is counted as
+ * not compared, so "no race" always says how many orders it rests on and is never "0 of 0".
+ */
+function verdictOf(rep, loads) {
+  const findingIds = (rep?.findings ?? []).map((f) => f.id);
+  const groups = rep?.groups ?? [];
+  const judged = groups.filter((g) => !g.missingBaseline && !g.insufficientBaselines);
+  let compared = 0;
+  let ended = 0;
+  let along = 0;
+  for (const g of judged) {
+    compared += g.runs - g.baselines.length;
+    for (const d of g.diffs) endedDifferently(d) ? ended++ : along++;
+  }
+  const seeded = loads.filter((l) => l.phase === "explore" && l.run && l.schedule?.order === "seeded").length;
+  const out = { compared, notCompared: Math.max(0, seeded - compared), seeded, groups: groups.length, findingIds };
+  if (ended || along) return { kind: "race", ended, along, of: compared, ...out };
+  if (compared) return { kind: "no-race", of: compared, ...out };
+  let reason;
+  const failed = loads.filter((l) => l.phase === "explore" && l.error);
+  if (!groups.length && failed.length && failed.length === loads.filter((l) => l.phase === "explore").length) reason = `every page load failed (first: ${failed[0].error})`;
+  else if (!groups.length) reason = "no load reached a quiet point after its steps";
+  else if (judged.length) reason = `none of the ${seeded} seeded loads recorded the same user actions as the baselines (GenClass grouped them apart), so nothing was compared`;
+  else if (groups.some((g) => g.insufficientBaselines)) reason = "only one baseline load in the group (another page load took the other baseline slot: set --route)";
+  else reason = "no group holds the baseline loads (their steps recorded different actions, or they never reached a quiet point)";
+  return { kind: "no-verdict", reason, ...out };
 }
 
 function parsePlan(text) {
@@ -295,15 +338,21 @@ async function huntScenario(sc) {
     for (let i = 0; i < plan.length; i++) {
       const l = await loadOnce(sc, url, "explore", S.loads.length);
       S.loads.push(l);
-      log(`load ${i + 1}/${plan.length}: ${l.error ? `error ${l.error}` : `${l.schedule?.label ?? "no schedule assigned"} · run ${l.run} · ${l.settled ? "quiet" : "not quiet"} · ${l.snapshot?.stateFields ?? 0} state fields, ${l.snapshot?.textLines ?? 0} text lines`}`);
+      log(`load ${i + 1}/${plan.length}: ${l.error ? `error ${l.error}` : `${l.schedule?.label ?? "no schedule assigned"} · run ${l.run} · ${l.settled ? "quiet" : "not quiet"} · ${l.snapshot?.stateFields ?? 0} state fields, ${l.snapshot?.textLines ?? 0} text lines${l.stepsError ? ` · steps failed: ${l.stepsError}` : ""}${l.landedOn ? ` · was on ${l.landedOn} before the steps` : l.endedOn ? ` · ended on ${l.endedOn}` : ""}`}`);
+      if (i < 2 && l.landedOn) log(`WARNING: baseline ${i + 1} was on ${l.landedOn} before its steps, not on ${new URL(url).pathname}. If that is a login page, the storage state is stale: pass --login.`);
     }
     const report = await mcp.tool("genclass_explore", { action: "report", id: session });
     S.explore.reportText = report.text;
-    S.explore.verdict = parseVerdict(report.text);
+    // the same session reported again through the API: reportExplore is idempotent for runs already counted
     const structured = await mcp.api("explore.report", { id: session });
-    S.explore.groups = (structured?.groups ?? []).map((g) => ({ route: g.route, scenario: g.scenario, baselines: g.baselines, runs: g.runs, noise: g.noise, diffs: g.diffs, missingBaseline: g.missingBaseline, insufficientBaselines: g.insufficientBaselines }));
-    S.explore.scenario = S.explore.groups[0]?.scenario ?? null;
-    log(`verdict: ${S.explore.verdict.kind}${S.explore.verdict.findingIds.length ? ` (${S.explore.verdict.findingIds.join(", ")})` : ""}`);
+    S.explore.groups = (structured?.groups ?? []).map((g) => ({ route: g.route, scenario: g.scenario, baselines: g.baselines, runs: g.runs, noise: g.noise, diffs: g.diffs, missingBaseline: g.missingBaseline, insufficientBaselines: g.insufficientBaselines, unfiltered: g.unfiltered?.length ?? 0 }));
+    S.explore.verdict = verdictOf(structured, S.loads);
+    const explored = S.loads.filter((l) => l.phase === "explore");
+    if (explored.length && explored.every((l) => l.error)) throw new Error(`every page load failed (first: ${explored[0].error})`);
+    const withBaselines = S.explore.groups.find((g) => g.baselines.length >= 2) ?? S.explore.groups[0];
+    S.explore.scenario = withBaselines?.scenario ?? null;
+    const v = S.explore.verdict;
+    log(`verdict: ${v.kind}${v.kind === "no-verdict" ? ` (${v.reason})` : ` on ${v.compared} compared order(s)`}${v.notCompared ? `, ${v.notCompared} seeded load(s) not compared` : ""}${v.findingIds.length ? ` (${v.findingIds.join(", ")})` : ""}`);
 
     for (const id of S.explore.verdict.findingIds) {
       const F = { id, kind: "race", title: "", explainText: "", testFile: null, huntTestFile: null, replay: null, testRun: null };
@@ -344,27 +393,34 @@ async function huntScenario(sc) {
       }
       S.findings.push(F);
     }
-    // what else GenClass recorded on this scenario's loads (a duplicate request from two clicks, a stale write, an
-    // error): not from the order comparison, so no replay here; the explanation and its test are kept
+    // what else GenClass recorded on this scenario's loads (an uncaught error, a duplicate request from two clicks, a
+    // stale write): not from the order comparison, so no replay here. Every one is listed with its evidence (read from
+    // the in-process store, so no tool's list limit applies); the first OTHERS_IN_FULL, errors and duplicates first,
+    // get genclass_explain's full text and their generated test
     const mine = new Set(S.loads.map((l) => l.run).filter(Boolean));
-    const list = (await mcp.api("findings", { limit: 50 })) ?? [];
-    for (const item of list) {
-      if (item.kind === "race") continue;
-      const detail = await mcp.api("finding", { id: item.id });
-      const f = detail?.finding;
-      if (!f || !f.runs.some((r) => mine.has(r))) continue;
-      const explain = await mcp.tool("genclass_explain", { id: f.id });
-      // the first few explanations in full; the rest cut (each carries the whole step log, tens of kilobytes)
-      const text = S.otherFindings.length < OTHERS_IN_FULL || explain.text.length <= OTHERS_CUT ? explain.text : `${explain.text.slice(0, OTHERS_CUT)}\n${OTHERS_CUT_MARK}`;
-      const O = { id: f.id, kind: f.kind, title: f.title, count: f.count, runs: f.runs.filter((r) => mine.has(r)).length, explainText: text, testFile: null };
-      if (detail.test) {
-        mkdirSync(testsDir, { recursive: true });
-        O.testFile = relative(out, join(testsDir, `${slug(sc.name)}-${f.id}.spec.ts`));
-        writeFileSync(join(out, O.testFile), detail.test);
+    const num = (id) => Number(String(id).slice(1)) || 0;
+    const others = [...mcp.store.findings.values()]
+      .filter((f) => f.kind !== "race" && f.runs.some((r) => mine.has(r)))
+      .map((f) => ({ f, n: f.runs.filter((r) => mine.has(r)).length }))
+      .sort((a, b) => (OTHER_RANK[a.f.kind] ?? 9) - (OTHER_RANK[b.f.kind] ?? 9) || b.n - a.n || num(a.f.id) - num(b.f.id));
+    for (const [i, { f, n }] of others.entries()) {
+      const O = { id: f.id, kind: f.kind, title: f.title, count: f.count, runs: n, evidence: f.evidence, explainText: null, testFile: null };
+      if (i < OTHERS_IN_FULL) {
+        O.explainText = (await mcp.tool("genclass_explain", { id: f.id })).text;
+        const detail = await mcp.api("finding", { id: f.id });
+        if (detail?.test) {
+          mkdirSync(testsDir, { recursive: true });
+          O.testFile = relative(out, join(testsDir, `${slug(sc.name)}-${f.id}.spec.ts`));
+          writeFileSync(join(out, O.testFile), detail.test);
+        }
       }
       S.otherFindings.push(O);
     }
-    if (S.otherFindings.length) log(`other findings on these loads: ${S.otherFindings.map((o) => `${o.id} ${o.kind}`).join(", ")}`);
+    if (others.length) {
+      const byKind = {};
+      for (const { f } of others) byKind[f.kind] = (byKind[f.kind] ?? 0) + 1;
+      log(`other findings on these loads: ${Object.entries(byKind).map(([k, c]) => `${c} ${k}`).join(", ")}`);
+    }
   } catch (e) {
     S.error = String(e?.message ?? e).slice(0, 500);
     log(`scenario ${sc.name} stopped: ${S.error}`);
@@ -392,7 +448,7 @@ const report = {
   started: started.toISOString(),
   finished: finished.toISOString(),
   durationMs: finished - started,
-  harness: { version: HARNESS_VERSION, commit },
+  harness: { version: HARNESS_VERSION, commit, dirty: harnessDirty },
   app: { url: appUrl.href, origin: appOrigin, commit: args.appCommit ?? null },
   runtime: { version: version("packages/runtime"), commit, dirty },
   mcp: { version: version("packages/mcp"), commit, dirty },
@@ -413,7 +469,11 @@ const report = {
 };
 writeFileSync(join(out, "report.json"), JSON.stringify(report, null, 2));
 writeFileSync(join(out, "report.md"), renderMarkdown(report));
-for (const s of results) console.log(`${s.name}: ${s.explore?.verdict ? s.explore.verdict.kind : "no explore"}${s.findings.length ? ` · ${s.findings.map((f) => `${f.id} replay ${f.replay?.verdict}${f.testRun ? `, test ${f.testRun.status}` : ""}`).join("; ")}` : ""}${s.otherFindings.length ? ` · other findings ${s.otherFindings.map((o) => `${o.id} ${o.kind}`).join(", ")}` : ""} · oracle ${s.oracle?.status}${s.error ? ` · stopped: ${s.error}` : ""}`);
+for (const s of results) {
+  const v = s.explore?.verdict;
+  const verdict = !v ? "no explore" : v.kind === "no-verdict" ? `no verdict (${v.reason})` : `${v.kind} on ${v.compared} compared order(s)${v.notCompared ? `, ${v.notCompared} not compared` : ""}`;
+  console.log(`${s.name}: ${verdict}${s.findings.length ? ` · ${s.findings.map((f) => `${f.id} replay ${f.replay?.verdict}${f.testRun ? `, test ${f.testRun.status}` : ""}`).join("; ")}` : ""}${s.otherFindings.length ? ` · ${s.otherFindings.length} other finding(s)` : ""} · oracle ${s.oracle?.status}${s.error ? ` · stopped: ${s.error}` : ""}`);
+}
 console.log(`report: ${join(out, "report.md")}`);
 if (args.expect) {
   const want = args.expect;

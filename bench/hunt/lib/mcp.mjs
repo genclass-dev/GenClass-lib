@@ -66,6 +66,8 @@ export async function startMcp(mod, o) {
       const text = r.result?.content?.map((c) => c.text ?? "").join("\n") ?? "";
       return { text, isError: !!r.result?.isError };
     },
+    /** The in-process store itself (read-only use: every finding, without a tool's list limit). */
+    store: served.store,
     /** The structured agent API of the same store (what the tools render). */
     api: (m, p) => Promise.resolve(api(m, p)),
     async close() {
