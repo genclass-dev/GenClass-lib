@@ -45,6 +45,7 @@ This file indexes the Markdown sources in the GenClass-lib repository, for `@gen
 - [VISUAL.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/VISUAL.md): design of the measured visual and CSS checks, which are deterministic checks, not the model
 - [EXPECTATIONS.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/EXPECTATIONS.md): design of the opt-in flow expectations, whose false-report rate is not measured yet
 - [ANALYTICS.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/ANALYTICS.md): design of the opt-in interaction analytics, not yet in a published version
+- [AGENT.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/AGENT.md): the coding-agent link (`@genclass/runtime/agent`, 0.3.0-beta.1) and the `@genclass/mcp` server, which record a page's run, replay one delivery order, explore others to find races, and generate a Playwright test; neither on npm yet
 - [QUERY-CACHE-ADAPTERS.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/QUERY-CACHE-ADAPTERS.md): a proposal for TanStack Query and SWR adapters, not built
 - [CONTRACT.md](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/docs/runtime/CONTRACT.md): the binding rules for people changing the runtime and its training pipeline
 - [CHANGELOG](https://raw.githubusercontent.com/genclass-dev/GenClass-lib/main/packages/runtime/CHANGELOG.md): what changed in each release of `@genclass/runtime`

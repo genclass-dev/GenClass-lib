@@ -178,7 +178,7 @@ export function installXHR(host: NetHost): (() => void) | null {
     st.dlv = "held";
     let sync = true;
     host.deliver({ op, req: st.req, status, body }, () => {
-      if (st.dlv !== "held") return; // aborted meanwhile
+      if (st.op !== op || st.dlv !== "held") return; // aborted (and maybe reused for another request) meanwhile
       st.dlv = "open";
       if (sync) return;
       host.ctx.stick(op);

@@ -43,6 +43,7 @@ round 1, `r17-v2a` to `r17-v2c` and model 0.1.0 (`r17-v2b`) are superseded and k
 | Telemetry volume, one tab at the model's maximum decision rate for an hour (scripted decider, observe mode, situation text off as by default; release review commit `9d567a0`, not the published build) | 251.9 KB in 165 requests when every decision is routine; 2,068.5 KB in 361 requests when every decision is a detection | §10 |
 | Measured visual checks (deterministic, not the model) | fixture pages: 35 of 35 planted faults found, 0 false reports. Bench: 0 false reports and 0 fixes in 128 page views of the demos, templates and compat apps; recall 1.00 on 20 of 23 planted fault kinds (run 4), 19 of 23 (run 5); public sites: 8 findings in 96 loads in run 4 (5 confirmed real, 0 check errors, 3 unconfirmed), 6 findings in 97 loads in run 5 (after the review; not looked at) | §13, §14 |
 | Flow expectations (opt-in) | false-report rate not measured yet | §5 |
+| Coding agents: `genclass_explore` and `genclass_replay` on one real page (train VM, headless Chromium, 2026-10-20; one page, one bug class, not a recall figure) | explore found the stale-results race in 5 of 6 reordered runs of the buggy page and reported nothing on the fixed page (0 of 6 differ: no false report); replay reproduced it before the fix and not after; the generated Playwright test failed before and passed after | §18 |
 
 ## 1. Model stages compared (held-out simulated apps)
 
@@ -996,3 +997,34 @@ line, against the same build with `autoState: false`; Playwright Chromium, 390×
 | React commit walk, no throttling, 54 bench trials (about 2,000 commits) | p50 below 0.1 ms (the timer's resolution), p95 0.8 to 0.9 ms, max 3.8 ms |
 | Main-thread JS heap (after GC, 4× throttling) | 5.7 MB vs 5.2 MB without discovery |
 | Long tasks (> 50 ms) | unchanged (1 per run, 65 to 70 ms, with and without) |
+
+<a id="agents"></a>
+
+## 18. Coding agents: explore and replay on a real page (train VM, 2026-10-20, branch `feat/agent-loop`)
+
+[AGENT.md](AGENT.md) section 7. `packages/mcp/test/e2e/race.e2e.mjs` on the train VM: Node 22, headless Chromium
+through Playwright 1.63.0, `@genclass/runtime` and `@genclass/mcp` built from the branch, `GenClass.init({ model: false
+})` (no model: the agent loop does not need it). The page: a search box whose results are written by each response,
+without a staleness guard (buggy) or keeping only the answer to the latest query (fixed). The backend answers every
+query in 40 ms, in order; the steps type "react" at 80 ms a keystroke. Every step goes through the real MCP server
+(`tools/call`) and the real bridge. Measured before and again after the review fixes, with the same results.
+
+| measurement | buggy page | fixed page |
+|---|---|---|
+| natural runs (the two explore baselines, responses in request order) | 2 of 2 right (the race never shows on this backend) | 2 of 2 right |
+| `genclass_explore`, 6 seeded orders, `slow_ms: 600` | **5 of 6** ended with results for an older query ("reac", "rea", "r"); the 6th ended right after an older response overwrote newer data along the way | **0 of 6** differ from the baseline (no false report) |
+| `genclass_replay` of the race finding | reproduced | not reproduced |
+| the generated Playwright regression test | fails (expected the results for "react", received "reac") | passes |
+
+One page and one bug class: this proves the mechanism end to end, not a recall figure. Next: explore on the six demos
+and the real-apps sweep, races found next to false reports on their correct variants.
+
+Review: an adversarial review (six reviewers, a skeptic per serious finding, 55 agents) confirmed 43 defects in the
+new code; all are fixed and tested, and a second verification pass confirmed 6 more issues, also fixed (AGENT.md
+section 7). It also found a pre-existing XHR delivery defect, fixed in
+`src/observe/xhr.ts` (CHANGELOG).
+
+First load: `test/bundle.test.ts` on the branch measures `/auto` 108.54 KB and the main entry 100.40 KB (minified +
+gzip; limits 108.6 / 100.48 KB): the agent link is its own entry (`dist/agent.js`, no imports), never part of the first
+load; the XHR fix adds about 10 bytes. Tests: 36 in `test/agent.test.ts`, 57 in `packages/mcp`; the runtime suite
+passes (1,101 tests, 14 model-parity skips); `review-perf` 4 of 4.

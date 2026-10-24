@@ -18,7 +18,8 @@ Angular, Solid and plain-HTML apps (measured in Chromium with an unpublished 0.1
 2026-10-10, not re-run on 0.2.2 or 0.3.0:
 [compatibility matrix](https://github.com/genclass-dev/GenClass-lib/blob/main/compat/RESULTS.md)).
 
-Versions (npm dist-tags on 2026-10-22): `0.2.2` is `latest`; `0.3.0-beta.0` is `beta`, and this README describes it.
+Versions (npm dist-tags on 2026-10-24): `0.2.2` is `latest` and `0.3.0-beta.0` is `beta`. This README describes the
+`0.3.0` line; what is marked `0.3.0-beta.1` (the coding-agent link, interaction analytics) is tagged and not on npm yet.
 Both load the model `@genclass/runtime-model@0.2.0`. AI coding agents working on this repository: start at
 [AGENTS.md](AGENTS.md).
 
@@ -44,7 +45,7 @@ import "@genclass/runtime/auto";
 Or with no build step, first in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
 ```
 
 - **That covers network, user actions, errors and timing in the whole app, and its state where it can be found.**
@@ -127,6 +128,30 @@ The full tables, with every false-intervention rate next to its recall, are unde
   everywhere and only lazily on Save-Data). For phones and strict Content-Security-Policies see
   [self-hosting](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#content-security-policy-and-self-hosting)
   and [`loadIf`](https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/README.md#costs).
+
+## New: your coding agent can see the race, replay it, and prove the fix
+
+`@genclass/mcp` (unreleased) is an MCP server for Claude Code and other coding agents. Your app's development build
+(`@genclass/runtime` `0.3.0-beta.1` or later) connects to it with one line, and the agent gets every click, request, the order the responses arrived and what they
+wrote, uncaught errors with the click and request behind them, and the on-device model's detections. It can run your
+steps again with the network answering in different orders (and slower) to find what depends on timing, replay the
+exact order that broke, and write a Playwright test that fails until the fix is in. Everything stays on your machine.
+
+```bash
+claude mcp add genclass -- npx -y @genclass/mcp
+```
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
+
+const rt = GenClass.init();
+if (import.meta.env.DEV) connectAgent(rt); // development builds only
+```
+
+On a real page in headless Chromium, it found a stale-results race in 5 of 6 reordered runs of a page that never
+showed it on the developer's fast backend, with no false report on the fixed page ([AGENT.md](docs/runtime/AGENT.md),
+[RESULTS.md](docs/runtime/RESULTS.md) section 18).
 
 ## New in 0.3.0: app dashboards and `protect()`
 
@@ -390,8 +415,9 @@ a new tag and regenerated data (`training/curriculum/rt.py` mirrors the renderer
 |---|---|
 | [`packages/runtime`](packages/runtime) | `@genclass/runtime`, the library: observers, causality, stores and adapters, learned baselines, relations and profiles, facts, triage, policy gate, actions, model host (Web Worker, ONNX Runtime Web on WebGPU or WASM), measured visual checks, devtools overlay. [README](packages/runtime/README.md) · [CHANGELOG](packages/runtime/CHANGELOG.md) |
 | [`packages/runtime-model`](packages/runtime-model) | `@genclass/runtime-model`, the default model package (data only; `files/` is gitignored and filled at release time) and its [model card](packages/runtime-model/MODEL_CARD.md) |
+| [`packages/mcp`](packages/mcp) | `@genclass/mcp` (unreleased), the MCP server for coding agents: pages connect through `@genclass/runtime/agent`; the agent gets findings in causal order, replays, explore verdicts and generated regression tests ([AGENT.md](docs/runtime/AGENT.md)). [README](packages/mcp/README.md) |
 | [`packages/playwright`](packages/playwright) | `@genclass/playwright` (unreleased), a Playwright reporter: reads what the GenClass fixture flagged per test (`test-results/genclass/*.json`) and writes one markdown report for the pull request. [README](packages/playwright/README.md) |
-| [`docs/runtime`](docs/runtime) | [Docs index](docs/runtime/README.md) · [Results](docs/runtime/RESULTS.md) · [API](docs/runtime/API.md) · [Architecture](docs/runtime/ARCHITECTURE.md) · [Build contract](docs/runtime/CONTRACT.md) · [Threat model](docs/runtime/THREAT-MODEL.md) |
+| [`docs/runtime`](docs/runtime) | [Docs index](docs/runtime/README.md) · [Results](docs/runtime/RESULTS.md) · [Coding agents](docs/runtime/AGENT.md) · [API](docs/runtime/API.md) · [Architecture](docs/runtime/ARCHITECTURE.md) · [Build contract](docs/runtime/CONTRACT.md) · [Threat model](docs/runtime/THREAT-MODEL.md) |
 | [`compat`](compat), [`templates`](templates) | Framework compatibility matrix (7 apps, 15 data layers, every mode; [RESULTS.md](compat/RESULTS.md)) and starter templates with the one line |
 | [`demos`](demos), [`bench`](bench) | Six demo apps (typeahead, autosave, checkout, flaky dashboard, live kanban, real-time decisions) with a Service Worker chaos backend and Playwright trials; [`bench/heal`](bench/heal) runs them per mode, [`bench/visual`](bench/visual) measures the visual checks |
 

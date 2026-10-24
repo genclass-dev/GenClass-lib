@@ -48,7 +48,7 @@ import "@genclass/runtime/auto"; // first line of your entry file (Next.js 15.3+
 Or with no build step, first in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1"></script>
 ```
 
 That is the whole setup. Network traffic, user actions, errors and timing are observed, and so is your app's state:
@@ -75,6 +75,7 @@ script tag: the unversioned URL serves `latest`, and `0.2.x` ignores a token and
 [Model quality](#model-quality) · [Costs](#costs) · [Privacy and telemetry](#privacy-and-telemetry) ·
 [Known limitations](#known-limitations) · [Install](#install) ·
 [For AI coding agents](#for-ai-coding-agents-installing-genclass) ·
+[Your coding agent](#your-coding-agent-replay-and-explore) ·
 [protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) · [State it can protect](#state-it-can-protect) ·
 [Visual and CSS checks](#visual-and-css-checks-new-in-030) · [Observability](#observability) ·
@@ -423,7 +424,7 @@ Options go in `window.GENCLASS_CONFIG = { ... }` (any `InitOptions`, set before 
 **3. One script tag** (no build step), first in `<head>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.0" data-mode="observe" data-devtools="local"></script>
+<script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1" data-mode="observe" data-devtools="local"></script>
 ```
 
 It exposes `window.GenClass` and loads the model worker and the overlay on demand from the same version; `data-mode`,
@@ -461,6 +462,37 @@ or import `@genclass/runtime/discover` first and pass `autoState: true`.
    `npx @genclass/runtime@beta remove`.
 
 To change GenClass itself, read [AGENTS.md](https://github.com/genclass-dev/GenClass-lib/blob/main/AGENTS.md).
+
+## Your coding agent: replay and explore
+
+A race depends on the network's timing, so it rarely shows on your fast machine and never in a test where mocked APIs
+answer in order. `@genclass/runtime/agent` connects your development build to `@genclass/mcp`, an MCP server for
+Claude Code and other coding agents, and lets the agent:
+
+- **see what happened, in order:** clicks, requests, the order their responses were delivered, the state each one
+  wrote, errors with the click and request behind them, and this runtime's detections;
+- **replay** the exact delivery order that produced a bug, on any machine, before the fix (reproduced) and after it
+  (not reproduced);
+- **explore**: run the same steps with overlapping responses delivered in different seeded orders, optionally slower,
+  and report what ends differently from the run where responses came back in order;
+- **keep the proof:** a generated Playwright test that sets the same order and fails while the bug is there.
+
+```bash
+claude mcp add genclass -- npx -y @genclass/mcp
+```
+
+```ts
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
+
+const rt = GenClass.init();
+if (import.meta.env.DEV) connectAgent(rt); // development builds only
+```
+
+`connectAgent` is its own entry (no first-load cost), runs only on pages served from your machine, talks only to a
+loopback address, and holds a response only when you or your agent set a schedule (each at most 1.5 s beyond its
+emulated delay; never changed; protected requests never). Without one it only records (a page load's first responses
+wait for the bridge's hello, at most 0.6 s). Design and measurements: [AGENT.md](https://github.com/genclass-dev/GenClass-lib/blob/main/docs/runtime/AGENT.md).
 
 ## Function-specific: protect()
 

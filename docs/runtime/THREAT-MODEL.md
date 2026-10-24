@@ -1,8 +1,8 @@
 # GenClass threat model
 
 What could go wrong, or be made to go wrong, when `@genclass/runtime` runs in a web app; what the code does about it;
-and what remains. It covers the runtime on `main` (version string 0.3.0-beta.0, plus the changes the CHANGELOG
-lists under 0.3.0-beta.1, unreleased; npm `latest` is 0.2.2, `beta` is 0.3.0-beta.0), its default model package
+and what remains. It covers the runtime on `main` (version string 0.3.0-beta.1; on 2026-10-24 npm `latest` was 0.2.2
+and `beta` was 0.3.0-beta.0), its default model package
 (`@genclass/runtime-model` 0.2.0), the telemetry collector and the CLI's account commands. Items marked 0.3.0 are in
 the 0.3.0 line (0.3.0-beta.0 and later) and not in 0.2.x. Companion documents:
 [INTERCEPTION.md](../../packages/runtime/INTERCEPTION.md) (the full list of what GenClass wraps and what each action
@@ -13,7 +13,8 @@ changes of 2026-10-10; T4, T5 and T8 were later updated for 0.2.2 and 0.3.0, and
 The gate guidance (T2, T3, residual 2, the recommended setup), the telemetry and URL wording (the trust table's
 telemetry row, T5's forwarding paragraph, T6's residual, T8's local and private hosts, residuals 5, 8 and 10) and
 T10 to T12 were written on 2026-10-22 against the code on `main` at commit 902f529: the measured visual checks
-(0.3.0, T10), interaction analytics (0.3.0-beta.1, T11) and the CLI account commands (0.3.0, T12).
+(0.3.0, T10), interaction analytics (0.3.0-beta.1, T11) and the CLI account commands (0.3.0, T12). T13, the
+coding-agent bridge (0.3.0-beta.1), was written on 2026-10-22 with that feature (commit d20d64e).
 
 ## Contents
 
@@ -31,6 +32,7 @@ T10 to T12 were written on 2026-10-22 against the code on `main` at commit 902f5
 - [T10. Measured visual checks and their fixes](#t10-measured-visual-checks-and-their-fixes)
 - [T11. Interaction analytics](#t11-interaction-analytics)
 - [T12. CLI account credentials](#t12-cli-account-credentials)
+- [T13. The coding-agent bridge](#t13-the-coding-agent-bridge)
 - [Residual risks, in one list](#residual-risks-in-one-list)
 - [Recommended production setup](#recommended-production-setup)
 
@@ -383,6 +385,40 @@ by design (T5).
 use the session until it expires or is revoked. On Windows the CLI sets no file mode, so the file has the user
 profile's permissions.
 
+## T13. The coding-agent bridge
+
+`@genclass/mcp` runs a bridge on the developer's machine (127.0.0.1:47357) that pages with `connectAgent`
+(`@genclass/runtime/agent`, development builds) send their recording to, and that a coding agent reads through MCP
+tools ([AGENT.md](AGENT.md) section 6).
+
+- **A public website, a router or a captive portal planting findings for the agent.** A page on any site can send a
+  CORS "simple" POST to a loopback address. The bridge accepts page traffic only with an `Origin` on this machine
+  (localhost, 127.x, [::1], `*.localhost`) or listed exactly in `GENCLASS_AGENT_ORIGINS`; `*.test`, LAN, `*.local` and
+  `*.internal` pages (DNS names a hostile network can point anywhere), `null` and missing origins get 403. DNS rebinding (a public name resolving to 127.0.0.1) is
+  refused by the `Host` check (it must be the loopback address and port).
+- **Another page rewriting a run's evidence** (a replay's verdict, an explore run's final state). A run's events are
+  accepted only from the origin that registered it, with the token it got at hello.
+- **A page or another user driving the agent API (arming replays, clearing findings, reading them).** `/v1/api`
+  refuses any request with an `Origin` and requires `x-genclass-api: 1` (a browser cannot send it cross-origin without
+  a preflight, which the bridge refuses) and the bridge's token, readable only by the user who started it
+  (`~/.genclass/bridge-<port>.token`, mode 0600).
+- **Prompt injection through recorded data.** Whoever controls a page's text or an API's response controls the strings
+  the bridge records (error messages, values, page lines). The bridge validates and caps every field, strips control
+  characters, ANSI escapes, bidi overrides and invisible characters (tag characters, variation selectors), prints
+  page strings JSON-quoted (in titles, channel events and the prompt hook too) under headers that say they are
+  recorded data, re-validates its own state file on load, and the server's instructions tell the agent they are never
+  instructions. Residual: a model may still be
+  swayed by quoted text; keep the agent's own permissions as they are for any untrusted input.
+- **Code injection into generated tests.** Page strings enter a generated Playwright test only as JSON string literals.
+- **A development page on another device of the network.** Its `connectAgent` is inert there (not this machine's
+  host), and would talk to its own device's loopback anyway.
+- **Running in production by mistake.** The link is a separate entry imported from a development-only branch; on any
+  page not served from the developer's machine it is inert unless `anyHost: true`, and it only ever talks to a loopback
+  URL.
+- **Files.** The bridge writes its state directory (`state.json`, a `.gitignore` inside it, the hook's cursor) with
+  fresh temporary names and mode 0600, never through a planted link, and its token file; `init` merges into
+  `.mcp.json` and `.claude/settings.json` and refuses to rewrite a file it cannot parse.
+
 ## Residual risks, in one list
 
 1. Same-origin scripts have full access to GenClass and its data (as to the rest of the page).
@@ -409,6 +445,8 @@ profile's permissions.
     with EU, EEA or UK visitors need consent first (T11).
 13. The CLI's session file grants access to the genclass.dev account's apps to whoever can read it, until it
     expires (90 days) or is revoked (T12).
+14. The coding-agent bridge shows the agent text recorded from development pages; quoting and the server's
+    instructions reduce, but cannot remove, the chance that a model follows instructions inside that text (T13).
 
 ## Recommended production setup
 
