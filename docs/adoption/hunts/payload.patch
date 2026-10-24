@@ -1,0 +1,155 @@
+--- a/packages/ui/src/elements/Table/RelationshipProvider/index.tsx
++++ b/packages/ui/src/elements/Table/RelationshipProvider/index.tsx
+@@ -49,13 +49,19 @@
+   const { code: locale } = useLocale()
+   const prevLocale = useRef(locale)
+ 
++  // IDs whose request is still in flight, per collection. A requested document stays `null` until its response
++  // arrives, and `documents` changes while it is pending (more cells mount, another collection's batch comes back),
++  // so without this the pending IDs would be requested again on every one of those changes.
++  const inFlightIDs = useRef<Record<string, Set<string>>>({})
++
+   const loadRelationshipDocs = useCallback(
+     (reloadAll = false) => {
+       Object.entries(debouncedDocuments).forEach(async ([slug, docs]) => {
+         const idsToLoad: (number | string)[] = []
++        const inFlight = (inFlightIDs.current[slug] ??= new Set())
+ 
+         Object.entries(docs).forEach(([id, value]) => {
+-          if (value === null || reloadAll) {
++          if ((value === null && !inFlight.has(id)) || reloadAll) {
+             idsToLoad.push(id)
+           }
+         })
+@@ -89,25 +95,31 @@
+ 
+           const query = `?${params.toString()}&${qs.stringify({ select })}`
+ 
+-          const result = await fetch(`${url}${query}`, {
+-            credentials: 'include',
+-            headers: {
+-              'Accept-Language': i18n.language,
+-            },
+-          })
+-
+-          if (result.ok) {
+-            const json = await result.json()
+-            if (json.docs) {
+-              dispatchDocuments({
+-                type: 'ADD_LOADED',
+-                docs: json.docs,
+-                idsToLoad,
+-                relationTo: slug,
+-              })
++          idsToString.forEach((id) => inFlight.add(id))
++
++          try {
++            const result = await fetch(`${url}${query}`, {
++              credentials: 'include',
++              headers: {
++                'Accept-Language': i18n.language,
++              },
++            })
++
++            if (result.ok) {
++              const json = await result.json()
++              if (json.docs) {
++                dispatchDocuments({
++                  type: 'ADD_LOADED',
++                  docs: json.docs,
++                  idsToLoad,
++                  relationTo: slug,
++                })
++              }
++            } else {
++              dispatchDocuments({ type: 'ADD_LOADED', docs: [], idsToLoad, relationTo: slug })
+             }
+-          } else {
+-            dispatchDocuments({ type: 'ADD_LOADED', docs: [], idsToLoad, relationTo: slug })
++          } finally {
++            idsToString.forEach((id) => inFlight.delete(id))
+           }
+         }
+       })
+--- /dev/null
++++ b/test/fields/collections/Relationship/relationshipCells.e2e.spec.ts	2026-10-24 19:48:38.952171184 +0000
+@@ -0,0 +1,79 @@
++import type { Page } from '@playwright/test'
++
++import { expect, test } from '@playwright/test'
++import * as path from 'path'
++import { fileURLToPath } from 'url'
++
++import { ensureCompilationIsDone, initPageConsoleErrorCatch } from '../../../helpers.js'
++import { AdminUrlUtil } from '../../../helpers/adminUrlUtil.js'
++import { initPayloadE2ENoConfig } from '../../../helpers/initPayloadE2ENoConfig.js'
++import { reInitializeDB } from '../../../helpers/reInitializeDB.js'
++import { TEST_TIMEOUT_LONG } from '../../../playwright.config.js'
++import { relationshipFieldsSlug } from '../../slugs.js'
++
++const filename = fileURLToPath(import.meta.url)
++const dirname = path.dirname(filename)
++
++const { beforeAll, beforeEach, describe } = test
++
++describe('Relationship cells in the list view', () => {
++  let page: Page
++  let serverURL: string
++  let url: AdminUrlUtil
++
++  beforeAll(async ({ browser }, testInfo) => {
++    testInfo.setTimeout(TEST_TIMEOUT_LONG)
++    ;({ serverURL } = await initPayloadE2ENoConfig({ dirname }))
++    url = new AdminUrlUtil(serverURL, relationshipFieldsSlug)
++
++    const context = await browser.newContext()
++    page = await context.newPage()
++    initPageConsoleErrorCatch(page)
++    await ensureCompilationIsDone({ page, serverURL })
++  })
++
++  beforeEach(async () => {
++    await reInitializeDB({
++      serverURL,
++      snapshotKey: 'fieldsTest',
++      uploadsDir: path.resolve(dirname, './collections/Upload/uploads'),
++    })
++  })
++
++  test('should request each related document once while an earlier batch is still pending', async () => {
++    // RelationshipProvider loads the documents the relationship cells show in one batch per collection
++    // (`GET /api/<slug>?where[id][in]=...`). A requested id stays `null` in its state until the response arrives,
++    // and the loader runs again on every change of that state, so a slow batch used to be requested again each time
++    // another batch came back or more cells mounted. Here the first collection's batch is slowed down; every other
++    // batch answers at once, and no id may be requested twice.
++    const batches: { ids: string[]; slug: string }[] = []
++    let slowSlug: string | undefined
++
++    await page.route(
++      (requestURL) => requestURL.searchParams.has('where[id][in]'),
++      async (route, request) => {
++        const requestURL = new URL(request.url())
++        const slug = requestURL.pathname.split('/').pop()
++        batches.push({ slug, ids: requestURL.searchParams.get('where[id][in]').split(',') })
++        slowSlug ??= slug
++        if (slug === slowSlug) {
++          await new Promise((resolve) => setTimeout(resolve, 1500))
++        }
++        await route.continue()
++      },
++    )
++
++    await page.goto(url.list)
++    await expect(page.locator('.table table tbody tr').first()).toBeVisible()
++    // the slow batch has answered and the debounced loader has run once more
++    await page.waitForTimeout(3000)
++
++    const requested = batches.flatMap(({ ids, slug }) => ids.map((id) => `${slug}:${id}`))
++    const requestedOnce = new Set(requested)
++
++    expect(batches.length).toBeGreaterThan(0)
++    expect(requested).toHaveLength(requestedOnce.size)
++
++    await page.unroute((requestURL) => requestURL.searchParams.has('where[id][in]'))
++  })
++})

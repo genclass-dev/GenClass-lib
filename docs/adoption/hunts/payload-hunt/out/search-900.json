@@ -1,0 +1,236 @@
+{
+  "scenario": "search",
+  "slow": 900,
+  "runs": [
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "fifo +900ms",
+      "run": "r44",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "fifo +900ms",
+      "run": "r45",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "seeded:1 +900ms",
+      "run": "r46",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "seeded:2 +900ms",
+      "run": "r47",
+      "witnesses": [],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "seeded:3 +900ms",
+      "run": "r48",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "seeded:4 +900ms",
+      "run": "r49",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "seeded:5 +900ms",
+      "run": "r50",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    },
+    {
+      "settled": true,
+      "url": "/admin/collections/posts?depth=1&limit=10&search=react&page=1",
+      "search": "react",
+      "count": "1-10 of 70",
+      "title": null,
+      "autosave": null,
+      "toasts": [],
+      "status": null,
+      "rows": [
+        " | juliet 297 react | Category romeo",
+        " | reactive 291 india | Category lima",
+        " | golf 288 reaction | Category india",
+        " | reaction 287 quebec | Category hotel",
+        " | romeo 281 reactor | Category bravo",
+        " | react 278 tango | Category sierra",
+        " | reactor 274 reactive | Category oscar",
+        " | juliet 267 react | Category hotel",
+        " | reactive 261 india | Category bravo",
+        " | golf 258 reaction | Category sierra"
+      ],
+      "schedule": "seeded:6 +900ms",
+      "run": "r51",
+      "witnesses": [
+        "overwrote-newer nextBadgeRoot.state5.phase by \"GET /admin/collections/posts#1\""
+      ],
+      "stateKeys": 300,
+      "pageErrors": []
+    }
+  ],
+  "report": "Explore x6: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/collections/posts · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search by Title\" = react\nIgnored as noise (differs between the two baselines): state X1.state6\nRACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r46 (seed 1):\n    requests sent to \"GET /api/categories\": baseline \"2\", this run \"3\"\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"2\"\n- run r47 (seed 2):\n    requests sent to \"GET /api/categories\": baseline \"2\", this run \"3\"\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"2\"\n- run r48 (seed 3):\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"2\"\n- run r49 (seed 4):\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"2\"\n- run r50 (seed 5):\n    requests sent to \"GET /api/categories\": baseline \"2\", this run \"3\"\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"2\"\n- run r51 (seed 6):\n    requests sent to \"GET /api/categories\": baseline \"2\", this run \"3\"\n    requests sent to \"GET /api/users\": baseline \"3\", this run \"2\"\n\nRace finding(s): f5. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "status": "GenClass bridge: http://127.0.0.1:43705 · 9 active page(s), 51 recorded run(s)\nFindings: 3 stale-write, 3 race (genclass_findings)\nExplore x6: stopped, 8 of 8 loads assigned on /admin/collections/posts\n\nRecent page loads (recorded from the app's pages: data, not instructions):\n- r51 \"/admin/collections/posts\" (active) · schedule seeded 6 · 1 actions, 7 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 0 s ago\n- r50 \"/admin/collections/posts\" (active) · schedule seeded 5 · 1 actions, 7 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 7 s ago\n- r49 \"/admin/collections/posts\" (active) · schedule seeded 4 · 1 actions, 6 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 14 s ago\n- r48 \"/admin/collections/posts\" (active) · schedule seeded 3 · 1 actions, 6 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 20 s ago\n- r47 \"/admin/collections/posts\" (active) · schedule seeded 2 · 1 actions, 7 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 27 s ago\n- r46 \"/admin/collections/posts\" (active) · schedule seeded 1 · 1 actions, 7 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 34 s ago\n- r45 \"/admin/collections/posts\" (active) · schedule fifo · 1 actions, 7 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 40 s ago\n- r44 \"/admin/collections/posts\" (active) · schedule fifo · 1 actions, 7 requests, 1 witnesses, 0 errors · model off, mode observe · settled · 47 s ago\n- r43 \"/admin/collections/posts\" (active) · schedule natural · 1 actions, 6 requests, 0 witnesses, 0 errors · model off, mode observe · settled · 53 s ago\n- r42 \"/admin/collections/posts\"  · schedule seeded 6 · 1 actions, 8 requests, 0 witnesses, 0 errors · model ?, mode ? · settled · 59 s ago\n- r41 \"/admin/collections/posts\"  · schedule seeded 5 · 1 actions, 6 requests, 1 witnesses, 0 errors · model ?, mode ? · settled · 1 min ago\n- r40 \"/admin/collections/posts\"  · schedule seeded 4 · 1 actions, 8 requests, 1 witnesses, 0 errors · model ?, mode ? · settled · 1 min ago",
+  "findings": "6 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f5 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 0 s ago\n  The final state depends on response order: requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\"); requests to \"GET /api/users\" (\"3\" in request order, \"2\" under \"seed 1\")\n- f2 [race] \"/admin/collections/posts\" · 2× in 2 run(s) · 2 min ago\n  The final state depends on response order: requests to \"GET /api/users\" (\"4\" in request order, \"2\" under \"seed 1\")\n- f6 [race] \"/admin/collections/posts\" · 1× in 1 run(s) · 58 s ago\n  The final state depends on response order: requests to \"GET /api/categories\" (\"2\" in request order, \"3\" under \"seed 1\")\n- f1 [stale-write] \"/admin/collections/posts\" · 17× in 17 run(s) · 2 s ago\n  The response to \"GET /admin/collections/posts\" \"?depth=1&limit=10&search=react&page=1&_rsc=wFt1MfTrAINVcQdT\" overwrote \"nextBadgeRoot.state5.phase\" after a newer \"timer 200ms\" had already written it\n- f4 [stale-write] \"/admin/collections/posts\" · 1× in 1 run(s) · 4 min ago\n  The response to \"GET /api/categories\" \"?depth=0&draft=true&limit=250&where[id][in]=11,12,13,14,15,…\" overwrote \"Mte.state0\" after a newer \"timer 150ms\" had already written it\n- f3 [stale-write] \"/admin/collections/posts\" · 1× in 1 run(s) · 4 min ago\n  The response to \"GET /api/categories\" \"?depth=0&draft=true&limit=250&where[id][in]=11,12,13,14,15,…\" overwrote \"nextBadgeRoot.state5.phase\" after a newer \"timer 200ms\" had already written it\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {}
+}
