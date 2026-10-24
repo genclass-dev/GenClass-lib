@@ -1,0 +1,44 @@
+{
+  "scenario": "publish",
+  "slow_ms": 600,
+  "runs": 6,
+  "seed": 1,
+  "autoState": false,
+  "started": "2026-10-24T19:18:14.488Z",
+  "loads": [
+    {
+      "dom": {
+        "url": "#/editor/post/6add03e40bf36d052b0bb044",
+        "title": "Hunt post C live again",
+        "body": "Initial body of Hunt post C.",
+        "status": "Published",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r1",
+          "schedule": {
+            "order": "natural"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt post C live again",
+        "plaintext": "Initial body of Hunt post C.",
+        "status": "published",
+        "updated_at": "2026-10-24T19:18:22.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt post C live again",
+        "status": "published"
+      }
+    }
+  ]
+}

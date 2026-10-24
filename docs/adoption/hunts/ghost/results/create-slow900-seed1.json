@@ -1,0 +1,356 @@
+{
+  "scenario": "create",
+  "slow_ms": 900,
+  "runs": 6,
+  "seed": 1,
+  "autoState": false,
+  "started": "2026-10-24T19:41:51.602Z",
+  "loads": [
+    {
+      "n": 1,
+      "dom": {
+        "url": "#/editor/post/6add0a040bf36d052b0bb2f3",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r1",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:42:06.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    },
+    {
+      "n": 2,
+      "dom": {
+        "url": "#/editor/post/6add0a160bf36d052b0bb2fc",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r2",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "witnesses": 2,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:42:24.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    },
+    {
+      "n": 3,
+      "dom": {
+        "url": "#/editor/post/6add0a2a0bf36d052b0bb305",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r3",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:42:44.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    },
+    {
+      "n": 4,
+      "dom": {
+        "url": "#/editor/post/6add0a3c0bf36d052b0bb30e",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r4",
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "witnesses": 2,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:43:02.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    },
+    {
+      "n": 5,
+      "dom": {
+        "url": "#/editor/post/6add0a4f0bf36d052b0bb317",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r5",
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "witnesses": 1,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:43:21.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    },
+    {
+      "n": 6,
+      "dom": {
+        "url": "#/editor/post/6add0a610bf36d052b0bb320",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r6",
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:43:39.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    },
+    {
+      "n": 7,
+      "dom": {
+        "url": "#/editor/post/6add0a740bf36d052b0bb329",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r7",
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:43:58.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    },
+    {
+      "n": 8,
+      "dom": {
+        "url": "#/editor/post/6add0a870bf36d052b0bb332",
+        "title": "Hunt created post done",
+        "body": "Body typed while the create is out. Second burst.",
+        "status": "Draft - Saved",
+        "stores": [
+          "atom:ghost"
+        ],
+        "agent": {
+          "run": "r8",
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 900
+            },
+            "maxHoldMs": 2400,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "witnesses": 0,
+          "errors": 0,
+          "forced": 0
+        }
+      },
+      "api": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst.",
+        "status": "draft",
+        "updated_at": "2026-10-24T19:44:17.000Z",
+        "tags": [],
+        "authors": [
+          "Hunt Owner"
+        ]
+      },
+      "expect": {
+        "title": "Hunt created post done",
+        "plaintext": "Body typed while the create is out. Second burst."
+      }
+    }
+  ],
+  "exploreStart": "Explore x1 armed: the next 8 page loads of \"/ghost/\" get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+  "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /ghost/ · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click textarea \"Post title\"\n  type textarea \"Post title\" = Hunt created post\n  click textbox\n  type textbox \"Bo\" = Bo\n  type textbox \"Bod\" = Bod\n  type textbox \"Body\" = Body\n  type textbox \"Body t\" = Body t\n  type textbox \"Body ty\" = Body ty\n  type textbox \"Body typ\" = Body typ\n  type textbox \"Body type\" = Body type\n  type textbox \"Body typed\" = Body typed\n  type textbox \"Body typed w\" = Body typed w\n  type textbox \"Body typed wh\" = Body typed wh\n  type textbox \"Body typed whi\" = Body typed whi\n  type textbox \"Body typed whil\" = Body typed whil\n  type textbox \"Body typed while\" = Body typed while\n  type textbox \"Body typed while t\" = Body typed while t\n  type textbox \"Body typed while th\" = Body typed while th\n  type textbox \"Body typed while the\" = Body typed while the\n  type textbox \"Body typed while the c\" = Body typed while the c\n  type textbox \"Body typed while the cr\" = Body typed while the cr\n  type textbox \"Body typed while the cre\" = Body typed while the cre\n  type textbox \"Body typed while the crea\" = Body typed while the crea\n  type textbox \"Body typed while the creat\" = Body typed while the creat\n  type textbox \"Body typed while the create\" = Body typed while the create\n  type textbox \"Body typed while the create i\" = Body typed while the create i\n  type textbox \"Body typed while the create is\" = Body typed while the create is\n  type textbox \"Body typed while the create is o\" = Body typed while the create is o\n  type textbox \"Body typed while the create is ou\" = Body typed while the create is ou\n  type textbox \"Body typed while the create is out\" = Body typed while the create is out\n  type textbox \"Body typed while the create is out.\" = Body typed while the create is out.\n  click textarea \"Post title\"\n  type textarea \"Post title\" = Hunt created post done\n  click textbox \"Body typed while the create is out.\"\n  type textbox \"Body typed while the create is out.\" = Body typed while the create is out.\n  type textbox \"Body typed while the create is out. S\" = Body typed while the create is out. S\n  type textbox \"Body typed while the create is out. Se\" = Body typed while the create is out. Se\n  type textbox \"Body typed while the create is out. Sec\" = Body typed while the create is out. Sec\n  type textbox \"Body typed while the create is out. Seco\" = Body typed while the create is out. Seco\n  type textbox \"Body typed while the create is out. Sec…\" = Body typed while the create is out. Second burst.\nIgnored as noise (differs between the two baselines): state ghost.cache.* (record ids), state ghost.cache.*.updated_at\nRACE: 2 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 1 more ended right but had an older response overwrite newer data along the way.\n- run r3 (seed 1):\n    requests sent to \"GET /ghost/api/admin/email_previews/posts/:id/\": baseline \"5\", this run \"4\"\n- run r4 (seed 2):\n    witness only here: overwrote-newer ghost.cache.post 6add0a3c0bf36d052b0bb30e.lexical by PUT /ghost/api/admin/posts/:id/\n    witness only here: overwrote-newer ghost.cache.post 6add0a3c0bf36d052b0bb30e.updated_at by PUT /ghost/api/admin/posts/:id/\n- run r5 (seed 3):\n    requests sent to \"GET /ghost/api/admin/email_previews/posts/:id/\": baseline \"5\", this run \"4\"\n    witness only here: overwrote-newer ghost.cache.post 6add0a4f0bf36d052b0bb317.lexical by PUT /ghost/api/admin/posts/:id/\n\nRace finding(s): f6. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "findings": "6 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f6 [race] \"/ghost/\" · 1× in 1 run(s) · 0 s ago\n  The final state depends on response order: requests to \"GET /ghost/api/admin/email_previews/posts/:id/\" (\"5\" in request order, \"4\" under \"seed 1\")\n- f5 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 1 min ago\n  The response to \"PUT /ghost/api/admin/posts/:id/\" \"?formats=mobiledoc,lexical&include=tags,authors,authors.rol…\" overwrote \"ghost.cache.post 6add0a4f0bf36d052b0bb317.lexical\" after a newer \"POST /ghost/api/admin/posts/\" had already written it\n- f3 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 1 min ago\n  The response to \"PUT /ghost/api/admin/posts/:id/\" \"?formats=mobiledoc,lexical&include=tags,authors,authors.rol…\" overwrote \"ghost.cache.post 6add0a3c0bf36d052b0bb30e.lexical\" after a newer \"POST /ghost/api/admin/posts/\" had already written it\n- f4 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 1 min ago\n  The response to \"PUT /ghost/api/admin/posts/:id/\" \"?formats=mobiledoc,lexical&include=tags,authors,authors.rol…\" overwrote \"ghost.cache.post 6add0a3c0bf36d052b0bb30e.updated_at\" after a newer \"POST /ghost/api/admin/posts/\" had already written it\n- f1 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 2 min ago\n  The response to \"PUT /ghost/api/admin/posts/:id/\" \"?formats=mobiledoc,lexical&include=tags,authors,authors.rol…\" overwrote \"ghost.cache.post 6add0a160bf36d052b0bb2fc.lexical\" after a newer \"POST /ghost/api/admin/posts/\" had already written it\n- f2 [stale-write] \"/ghost/\" · 1× in 1 run(s) · 2 min ago\n  The response to \"PUT /ghost/api/admin/posts/:id/\" \"?formats=mobiledoc,lexical&include=tags,authors,authors.rol…\" overwrote \"ghost.cache.post 6add0a160bf36d052b0bb2fc.updated_at\" after a newer \"POST /ghost/api/admin/posts/\" had already written it\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "explains": {}
+}
