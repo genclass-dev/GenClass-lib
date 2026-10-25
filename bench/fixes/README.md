@@ -27,7 +27,7 @@ From the repository root, Node 20 or newer, Linux or macOS:
 
 ```bash
 ./bench/fixes/run.sh --conditions off --seeds 20      # a quick look: no GenClass, 20 seeds, a few minutes
-./bench/fixes/run.sh                                  # everything at 200 seeds: 35,000 runs, many hours on 4 vCPU
+./bench/fixes/run.sh                                  # everything at 200 seeds: 33,600 runs, many hours on 4 vCPU
 ```
 
 `run.sh` installs what is missing (`npm ci` at the root and here), builds `@genclass/runtime` from this repository,

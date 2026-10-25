@@ -69,7 +69,7 @@ function summarizeCell(cell) {
   const strategy = STRATEGIES.find((s) => s.id === cell.strategy);
   const runs = cell.runs;
   const n = runs.length;
-  const out = { condition: cell.condition, strategy: cell.strategy, profile: cell.profile, kind: strategy.kind, correct: strategy.correct, n, harnessErrors: cell.harnessErrors.length, capped: runs.filter((r) => r.capped).length, pageErrors: runs.filter((r) => r.pageErrors > 0).length };
+  const out = { condition: cell.condition, strategy: cell.strategy, profile: cell.profile, kind: strategy.kind, correctFix: strategy.correct, n, harnessErrors: cell.harnessErrors.length, capped: runs.filter((r) => r.capped).length, pageErrors: runs.filter((r) => r.pageErrors > 0).length };
   out.wrong = runs.filter((r) => r.wrong).length;
   out.requests = { mean: mean(runs.map((r) => r.requests)), p50: quantile(runs.map((r) => r.requests), 0.5) };
   if (strategy.kind === "search") {
@@ -87,8 +87,10 @@ function summarizeCell(cell) {
     out.gapDrift = { p95: quantile(runs.map((r) => Math.abs((r.gapActualMs ?? r.gapMs) - r.gapMs)), 0.95) };
   }
   if (runs.some((r) => r.gc)) {
+    // bug: the run ended wrong; clean: it ended right and older results never replaced newer ones on screen. A run
+    // that ended right after such an overwrite had a real stale write, so it is neither (counted under overwriteRuns).
     const bug = runs.filter((r) => r.wrong);
-    const clean = runs.filter((r) => !r.wrong);
+    const clean = runs.filter((r) => !r.wrong && !(r.overwrites > 0));
     const hit = (rs, tier) => rs.filter((r) => raceDetections(r, tier).length > 0).length;
     out.gc = {
       states: Object.entries(runs.reduce((m, r) => ((m[r.gc.status.state] = (m[r.gc.status.state] ?? 0) + 1), m), {})),
@@ -187,13 +189,13 @@ export function report(raw = RAW, outDir = null) {
   const pools = {};
   for (const cond of conds.filter((c) => c !== "off")) {
     pools[cond] = {
-      staleBuggy: pooled(summaries, cond, (s) => s.kind === "search" && !s.correct),
-      staleCorrect: pooled(summaries, cond, (s) => s.kind === "search" && s.correct),
-      submitBuggy: pooled(summaries, cond, (s) => s.kind === "submit" && !s.correct),
-      submitCorrect: pooled(summaries, cond, (s) => s.kind === "submit" && s.correct),
-      submitCorrectNoIdem: pooled(summaries, cond, (s) => s.kind === "submit" && s.correct && s.strategy !== "m"),
-      allCorrect: pooled(summaries, cond, (s) => s.correct),
-      buggyAll: pooled(summaries, cond, (s) => !s.correct),
+      staleBuggy: pooled(summaries, cond, (s) => s.kind === "search" && !s.correctFix),
+      staleCorrect: pooled(summaries, cond, (s) => s.kind === "search" && s.correctFix),
+      submitBuggy: pooled(summaries, cond, (s) => s.kind === "submit" && !s.correctFix),
+      submitCorrect: pooled(summaries, cond, (s) => s.kind === "submit" && s.correctFix),
+      submitCorrectNoIdem: pooled(summaries, cond, (s) => s.kind === "submit" && s.correctFix && s.strategy !== "m"),
+      allCorrect: pooled(summaries, cond, (s) => s.correctFix),
+      buggyAll: pooled(summaries, cond, (s) => !s.correctFix),
     };
   }
   const agree = Object.fromEntries(conds.filter((c) => c !== "off").map((c) => [c, agreement(cells, c)]));
@@ -256,11 +258,11 @@ export function report(raw = RAW, outDir = null) {
     const P = pools[cond];
     L.push(`## GenClass: ${CONDITIONS[cond].label}`);
     L.push("");
-    L.push("A run counts as detected when GenClass reported at least one race diagnosis (stale, duplicate, conflict, inconsistent) during it: **likely** is what observe reports by default (console, `rt.on(\"detect\")`), **likely + possible** adds the lower tier observe prints with `console.debug`. A report on a run that did not end wrong is a false report: on a correct fix every report is false.");
+    L.push("A run counts as detected when GenClass reported at least one race diagnosis (stale, duplicate, conflict, inconsistent) during it: **likely** is what observe reports by default (console, `rt.on(\"detect\")`), **likely + possible** adds the lower tier observe prints with `console.debug`. A report on a clean run (it ended right and older results never replaced newer ones on screen) is a false report; on the correct fixes every run that ended right is clean. Runs that ended right after an overwrite are counted apart.");
     L.push("");
     L.push("**Pooled.**");
     L.push("");
-    L.push("| pages | runs | runs that ended wrong | detected, likely | detected, likely + possible | false reports on the other runs, likely | likely + possible |");
+    L.push("| pages | runs | runs that ended wrong | detected, likely | detected, likely + possible | false reports on clean runs, likely | likely + possible |");
     L.push("|---|---|---|---|---|---|---|");
     const row = (name, x) => `| ${name} | ${x.runs} | ${x.bugRuns} | ${rateCi(x.detectedLikely, x.bugRuns)} | ${rateCi(x.detectedAny, x.bugRuns)} | ${rateCi(x.falseLikely, x.cleanRuns)} | ${rateCi(x.falseAny, x.cleanRuns)} |`;
     L.push(row("search, buggy fixes (a, b)", P.staleBuggy));
@@ -276,13 +278,13 @@ export function report(raw = RAW, outDir = null) {
     }
     L.push("**Per strategy and profile.**");
     L.push("");
-    L.push("| strategy | profile | runs that ended wrong | detected, likely | likely + possible | false reports, likely | likely + possible | runs with a likely non-race report (slow, failing, ...) |");
-    L.push("|---|---|---|---|---|---|---|---|");
+    L.push("| strategy | profile | runs that ended wrong | detected, likely | likely + possible | clean runs | false reports, likely | likely + possible | runs with a likely non-race report (slow, failing, ...) |");
+    L.push("|---|---|---|---|---|---|---|---|---|");
     for (const s of STRATEGIES) for (const p of profiles) {
       const c = get(cond, s.id, p);
       if (!c?.gc) continue;
       const g = c.gc;
-      L.push(`| ${label(s)} | ${p} | ${g.bugRuns}/${c.n} | ${g.bugRuns ? rate(g.detectedLikely, g.bugRuns) : "-"} | ${g.bugRuns ? rate(g.detectedAny, g.bugRuns) : "-"} | ${rate(g.falseLikely, g.cleanRuns)} | ${rate(g.falseAny, g.cleanRuns)} | ${rate(g.otherLikelyRuns, c.n)} |`);
+      L.push(`| ${label(s)} | ${p} | ${g.bugRuns}/${c.n} | ${g.bugRuns ? rate(g.detectedLikely, g.bugRuns) : "-"} | ${g.bugRuns ? rate(g.detectedAny, g.bugRuns) : "-"} | ${g.cleanRuns} | ${g.cleanRuns ? rate(g.falseLikely, g.cleanRuns) : "-"} | ${g.cleanRuns ? rate(g.falseAny, g.cleanRuns) : "-"} | ${rate(g.otherLikelyRuns, c.n)} |`);
     }
     L.push("");
     const gcs = summaries.filter((s) => s.condition === cond && s.gc);

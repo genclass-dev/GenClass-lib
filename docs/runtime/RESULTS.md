@@ -832,3 +832,105 @@ First load: `test/bundle.test.ts` on the branch measures `/auto` 108.54 KB and t
 gzip; limits 108.6 / 100.48 KB): the agent link is its own entry (`dist/agent.js`, no imports), never part of the first
 load; the XHR fix adds about 10 bytes. Tests: 36 in `test/agent.test.ts`, 57 in `packages/mcp`; the runtime suite
 passes (1,101 tests, 14 model-parity skips); `review-perf` 4 of 4.
+
+## 17. Fix bench: the usual race-condition fixes, and GenClass observe on each (cloud VM, 2026-10-25, branch `claude/exciting-dijkstra-dpxgen`)
+
+[`bench/fixes`](../../bench/fixes/README.md), written for this measurement (no `demos/` or `sim/` code, AGENTS.md rule
+4): 14 small pages, one per common fix. Search, one request per keystroke unless noted: (a) no guard, (b) debounce
+300 ms only, (c) ignore flag in the `useEffect` cleanup, (d) `AbortController`, (e) request id, (f) TanStack Query with
+the term in the key, (g) SWR, (h) RxJS `switchMap`, (i) Vue `watch` with `onCleanup`, (j) Svelte 5 `$effect` with
+`AbortController`. Double submit: (k) no guard, (l) button disabled while pending, (m) idempotency key checked by the
+server, (n) TanStack `useMutation` disabled while `isPending`. A local HTTP/2 server draws each request's latency from
+the seed, the profile and the request (the same request takes the same time on every page): **fast** 20 to 60 ms in
+request order; **jittery** 50 to 900 ms, any order; **lossy** jittery with 5% of requests answered 503 and not
+processed; **tail** jittery except 10% of requests take 1.5 to 4 s. Playwright (headless Chromium) types a two-word
+query at 60 to 150 ms per key with a 150 to 1,200 ms pause before the second word, or double-clicks Create with 0 to
+150 ms between real mouse clicks. A run ends when nothing is in flight and the page is quiet and not busy for 1 s (at
+most 15 s). **Wrong final state:** results for another query, an error although the typed query's last answer
+succeeded, or nothing (search); more than one ticket (submit). One 4 vCPU cloud VM, one runner at a time (with three at
+once the keystroke gaps drifted by up to 260 ms, so those cells were dropped and measured again).
+
+Versions: `@genclass/runtime` 0.3.0-beta.1 built from commit `3fcdac5` (the script tag, first in `<head>`),
+model `@genclass/runtime-model@0.2.0` (genclass-runtime-r17 2.0.0-rc4t, WASM, served locally, sha256 checked), React
+19.3.1, TanStack Query 5.104.5, SWR 2.5.1, RxJS 7.8.2, Vue 3.5.44, Svelte 5.57.2,
+Playwright 1.63.0, Chromium 153.0.8010.12, Node v22.22.0. Full tables: [bench/fixes/RESULTS.md](../../bench/fixes/RESULTS.md);
+every run: `bench/fixes/results/raw/`.
+
+**The fixes, no GenClass** (200 seeds per cell; share of runs that ended wrong):
+
+| search fix | fast | jittery | lossy | tail | requests per query | time to correct p50, jittery |
+|---|---|---|---|---|---|---|
+| (a) no guard | 0% (0/200) | 52.5% (105/200) | 49.5% (99/200) | 74.5% (149/200) | 11.0 | 695 ms |
+| (b) debounce 300 ms only | 0% (0/200) | 0% (0/200) | 0% (0/200) | 7.5% (15/200) | 1.9 | 778 ms |
+| (c) ignore flag | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 478 ms |
+| (d) AbortController | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 477 ms |
+| (e) request id | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 479 ms |
+| (f) TanStack Query, term in key | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 478 ms |
+| (g) SWR, term in key | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 478 ms |
+| (h) RxJS switchMap | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 475 ms |
+| (i) Vue watch + onCleanup | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 476 ms |
+| (j) Svelte 5 $effect + AbortController | 0% (0/200) | 0% (0/200) | 0% (0/200) | 0% (0/200) | 11.0 | 478 ms |
+
+| submit fix | more than one ticket: fast | jittery | lossy | POSTs per double-click, fast |
+|---|---|---|---|---|
+| (k) no guard | 100% (200/200) | 100% (200/200) | 94% (188/200) | 2.00 |
+| (l) disabled while pending | 72.5% (145/200) | 2.5% (5/200) | 5% (10/200) | 1.73 |
+| (m) idempotency key | 0% (0/200) | 0% (0/200) | 0% (0/200) | 2.00 |
+| (n) TanStack useMutation, isPending | 43.5% (87/200) | 4% (8/200) | 4.5% (9/200) | 1.44 |
+
+- Every guard (c to j) ended right in every run on every profile (8,000 runs). On lossy, 6.5% of runs ended on the
+  page's error message for the typed query (its own request failed), except TanStack Query (f), whose default
+  retries recovered all of them (0%, for 15 extra requests in 200 runs: it retries only the query on screen).
+- No guard (a) was wrong in 0 of 200 runs on the fast in-order profile: the bug does not show on a local server.
+- Debounce alone (b) was never wrong while every answer came within 900 ms (the user's typing after the pause outlasted
+  the first request) and wrong in 15 of 200 runs (7.5%) on the slow tail.
+- The disabled button (l) failed on the fast profile in 145 of 200 double-clicks: in every one of them the first POST
+  had already been answered when the second click landed (none while it was in flight). `useMutation` with
+  `isPending` (n): 87 of 200 on fast (86 after the first answer); on jittery and lossy its 17 duplicates all came from
+  clicks a median 3 ms apart, while the first POST was in flight and before `isPending` had disabled the button; the
+  React-state button (l) had none of those. Only the idempotency key (m) held everywhere (0 of 600).
+- Run health: no harness errors, no run hit the 15 s cap; the gap between keystrokes as the page saw it was within
+  20 ms of the plan in the median cell's 95th-percentile run (worst cell 47 ms).
+
+**GenClass observe on every page** (50 seeds per cell on fast, jittery and lossy; telemetry off; the user starts once
+the model is ready; default profile, balanced). A run counts as detected when GenClass reported at least one race
+diagnosis (stale, duplicate, conflict, inconsistent). A report on a clean run (it ended right and older results never
+replaced newer ones on screen) is a false report; runs that ended right after such an overwrite count as neither.
+Recall next to the false-report rate:
+
+| pages (fast, jittery, lossy) | runs that ended wrong | detected, likely | detected, likely + possible | false reports, likely | false reports, likely + possible | model skipped |
+|---|---|---|---|---|---|---|
+| search, buggy fixes a and b | 50 of 300 | 70% (35) | 88% (44) | 27.5% (55/200) | 45% (90/200) | 0 of 300 runs with a report |
+| search, correct fixes c to j | 0 of 1200 | n/a (0) | n/a (0) | 0% (0/1200) | 3.8% (45/1200) | 0 of 1200 runs with a report |
+| submit, no guard k | 148 of 150 | 100% (148) | 100% (148) | 100% (2/2) | 100% (2/2) | 0 of 150 runs with a report |
+| submit, disabled button l and useMutation n | 60 of 300 | 100% (60) | 100% (60) | 0% (0/240) | 0% (0/240) | 0 of 300 runs with a report |
+| submit, idempotency key m | 0 of 150 | n/a (0) | n/a (0) | 100% (150/150) | 100% (150/150) | 0 of 150 runs with a report |
+
+- **Stale results:** on the no-guard page (a) GenClass reported 35 of the 50 runs that ended wrong (70.0%, 95% CI 56.2
+  to 80.9) at the likely tier and 44 (88.0%) with the possible tier; of the 100 runs in which older results replaced
+  newer ones at any point, 57 and 69. **False reports on the correct search fixes (c to j): 0 of 1,200 runs at the
+  likely tier (95% CI 0 to 0.3%)**, 45 (3.8%) with the possible tier, all on pages where a stale answer still reaches
+  the page and app code drops it (c, e, f, g); none on the pages that abort (d, h, j) or on Vue (i).
+- **The debounce page (b)**, which ended right in all 150 runs, got a likely stale report in 55 (36.7%: fast 3,
+  jittery 28, lossy 24): the first word's results land while the input already holds more text. Counted as false
+  reports; it is the case where the model's reading (an older query's results written over newer input) and the app's
+  intent differ.
+- **Double submits:** every run with two tickets was reported: 148 of 148 on (k), 60 of 60 on (l) and (n); 0 likely
+  false reports on the 240 runs of (l) and (n) with one ticket (the 2 counted against (k) are lossy runs where the first
+  POST failed, so two real submits made one ticket). On (m) every run (150 of 150) was reported as a
+  duplicate: the second POST really goes out and the idempotency key makes it harmless, so the report is right about
+  the network and wrong about the app.
+- Non-race reports (transient, failing, slow) came on the lossy profile, where requests really failed; they are not
+  counted as false reports here.
+- **Model skipped** (`loadIf: () => false`): 0 reports in 2,100 runs.
+- Cost on this VM (4 vCPU, 5 pages at once): model load p50 2.1 s per page from the browser cache, decision latency
+  p50 416 ms, 0.9 model decisions per run, none dropped by the per-minute budget.
+- Final state against the run without GenClass (same strategy, profile, seed): the same in 2,079 of 2,100 runs with the
+  model and 2,081 of 2,100 with it skipped. Every difference is a race decided by a few milliseconds (which stale answer
+  lands last on (a); whether the first POST's answer beats the second click on (l) and (n)), in both directions; the
+  skipped pass shared the CPU with the model pass. Not a controlled comparison.
+
+These are synthetic pages with clear cases, so the recall here is not comparable with the held-out real-app numbers
+of section 1 (75% / 30% / 6% at the shipped threshold). **Not measured:** a cold start (typing before the model is
+ready; deferred situations are capped at the possible tier, section 11), guard and heal, other browsers, real networks,
+the 200-seed GenClass passes (50 here, to fit the session).

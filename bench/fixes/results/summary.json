@@ -1,0 +1,7186 @@
+{
+ "generatedAt": "2026-10-25T01:34:15.451Z",
+ "versions": {
+  "runtime": "0.3.0-beta.1",
+  "commit": "3fcdac5",
+  "react": "19.3.1",
+  "@tanstack/react-query": "5.104.5",
+  "swr": "2.5.1",
+  "rxjs": "7.8.2",
+  "vue": "3.5.44",
+  "svelte": "5.57.2",
+  "playwright": "1.63.0",
+  "node": "v22.22.0",
+  "cpus": 4,
+  "chromium": "153.0.8010.12",
+  "model": "@genclass/runtime-model@0.2.0 (genclass-runtime-r17 2.0.0-rc4t)"
+ },
+ "seeds": [
+  1,
+  50
+ ],
+ "profiles": {
+  "fast": {
+   "label": "20 to 60 ms, answered in request order",
+   "latency": [
+    20,
+    60
+   ],
+   "inOrder": true,
+   "failRate": 0
+  },
+  "jittery": {
+   "label": "50 to 900 ms, any order",
+   "latency": [
+    50,
+    900
+   ],
+   "inOrder": false,
+   "failRate": 0
+  },
+  "lossy": {
+   "label": "50 to 900 ms, any order, 5% of requests fail",
+   "latency": [
+    50,
+    900
+   ],
+   "inOrder": false,
+   "failRate": 0.05
+  },
+  "tail": {
+   "label": "50 to 900 ms, 10% of requests take 1.5 to 4 s, any order",
+   "latency": [
+    50,
+    900
+   ],
+   "inOrder": false,
+   "failRate": 0,
+   "slow": {
+    "rate": 0.1,
+    "latency": [
+     1500,
+     4000
+    ]
+   }
+  }
+ },
+ "user": {
+  "keyDelayMs": [
+   60,
+   150
+  ],
+  "wordPauseMs": [
+   150,
+   1200
+  ],
+  "doubleClickGapMs": [
+   0,
+   150
+  ]
+ },
+ "settle": {
+  "quietMs": 1000,
+  "capMs": 15000
+ },
+ "cells": [
+  {
+   "condition": "model",
+   "strategy": "a",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 61,
+    "p95": 94.19999999999999
+   },
+   "keyDrift": {
+    "p95": 101.64999999999999,
+    "max": 116
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 2884,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "a",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 26,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 24,
+   "stale": 26,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 50,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 24,
+    "p50": 726.5,
+    "p95": 902
+   },
+   "keyDrift": {
+    "p95": 90.29999999999998,
+    "max": 156
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 26,
+    "cleanRuns": 0,
+    "detectedLikely": 18,
+    "detectedAny": 22,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 50,
+    "overwriteDetectedLikely": 27,
+    "overwriteDetectedAny": 32,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "stale (possible)": 20,
+     "stale (likely)": 41
+    },
+    "decisionsPerRun": 1.56,
+    "decisionLatencyP50": 408.5,
+    "loadMsP50": 2317.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "a",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 24,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 24,
+   "stale": 23,
+   "wrong-error": 1,
+   "missing": 0,
+   "error": 2,
+   "overwriteRuns": 50,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 24,
+    "p50": 801,
+    "p95": 913.55
+   },
+   "keyDrift": {
+    "p95": 96.1,
+    "max": 185
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 24,
+    "cleanRuns": 0,
+    "detectedLikely": 17,
+    "detectedAny": 22,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 50,
+    "overwriteDetectedLikely": 30,
+    "overwriteDetectedAny": 37,
+    "otherLikelyRuns": 24,
+    "byDiagnosis": {
+     "transient (likely)": 27,
+     "stale (possible)": 29,
+     "stale (likely)": 47,
+     "transient (possible)": 6,
+     "slow (likely)": 1,
+     "failing (possible)": 2
+    },
+    "decisionsPerRun": 2.7,
+    "decisionLatencyP50": 494,
+    "loadMsP50": 2348,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "b",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.84,
+    "p50": 2
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 364.5,
+    "p95": 394.59999999999997
+   },
+   "keyDrift": {
+    "p95": 62.29999999999998,
+    "max": 86
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 3,
+    "falseAny": 15,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "stale (possible)": 12,
+     "stale (likely)": 3
+    },
+    "decisionsPerRun": 1,
+    "decisionLatencyP50": 390,
+    "loadMsP50": 2195,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "b",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.84,
+    "p50": 2
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 809.5,
+    "p95": 1176.6499999999999
+   },
+   "keyDrift": {
+    "p95": 74.94999999999997,
+    "max": 116
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 28,
+    "falseAny": 41,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "stale (possible)": 13,
+     "stale (likely)": 28
+    },
+    "decisionsPerRun": 1,
+    "decisionLatencyP50": 387,
+    "loadMsP50": 2183.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "b",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.84,
+    "p50": 2
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 928.5,
+    "p95": 1203.75
+   },
+   "keyDrift": {
+    "p95": 71.55,
+    "max": 80
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 24,
+    "falseAny": 34,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 7,
+    "byDiagnosis": {
+     "stale (possible)": 10,
+     "stale (likely)": 24,
+     "transient (likely)": 7
+    },
+    "decisionsPerRun": 1.22,
+    "decisionLatencyP50": 377,
+    "loadMsP50": 2112,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "c",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 62,
+    "p95": 91.29999999999998
+   },
+   "keyDrift": {
+    "p95": 116.29999999999998,
+    "max": 128
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 2170.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "c",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 525,
+    "p95": 875.9999999999999
+   },
+   "keyDrift": {
+    "p95": 72.84999999999998,
+    "max": 115
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 8,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 1,
+    "byDiagnosis": {
+     "slow (likely)": 1,
+     "stale (possible)": 12
+    },
+    "decisionsPerRun": 0.98,
+    "decisionLatencyP50": 423,
+    "loadMsP50": 2207,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "c",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 635.5,
+    "p95": 906.5
+   },
+   "keyDrift": {
+    "p95": 76.29999999999993,
+    "max": 96
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 8,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 23,
+    "byDiagnosis": {
+     "transient (likely)": 26,
+     "stale (possible)": 10,
+     "transient (possible)": 7,
+     "slow (likely)": 1,
+     "failing (possible)": 2
+    },
+    "decisionsPerRun": 1.76,
+    "decisionLatencyP50": 407,
+    "loadMsP50": 2117.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "d",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 57.5,
+    "p95": 95.29999999999998
+   },
+   "keyDrift": {
+    "p95": 88.29999999999998,
+    "max": 104
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 2025.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "d",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.62
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 502.5,
+    "p95": 872.4
+   },
+   "keyDrift": {
+    "p95": 44.64999999999999,
+    "max": 59
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 1860,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "d",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.58
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 628.5,
+    "p95": 911.75
+   },
+   "keyDrift": {
+    "p95": 115.99999999999994,
+    "max": 140
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 5,
+    "byDiagnosis": {
+     "transient (likely)": 5,
+     "transient (possible)": 4
+    },
+    "decisionsPerRun": 0.2,
+    "decisionLatencyP50": 354,
+    "loadMsP50": 1988,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "e",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 60,
+    "p95": 100.29999999999998
+   },
+   "keyDrift": {
+    "p95": 71.55,
+    "max": 85
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 2032,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "e",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 501,
+    "p95": 863.8
+   },
+   "keyDrift": {
+    "p95": 72.74999999999999,
+    "max": 84
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 9,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 1,
+    "byDiagnosis": {
+     "slow (likely)": 1,
+     "stale (possible)": 13
+    },
+    "decisionsPerRun": 0.98,
+    "decisionLatencyP50": 388,
+    "loadMsP50": 2093,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "e",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 634,
+    "p95": 903.75
+   },
+   "keyDrift": {
+    "p95": 70.55,
+    "max": 103
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 8,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 24,
+    "byDiagnosis": {
+     "transient (likely)": 27,
+     "stale (possible)": 10,
+     "transient (possible)": 6,
+     "slow (likely)": 1,
+     "failing (possible)": 1
+    },
+    "decisionsPerRun": 1.8,
+    "decisionLatencyP50": 436.5,
+    "loadMsP50": 2147.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "f",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 60,
+    "p95": 100.55
+   },
+   "keyDrift": {
+    "p95": 80.14999999999996,
+    "max": 87
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 2170.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "f",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 508.5,
+    "p95": 865.8
+   },
+   "keyDrift": {
+    "p95": 84,
+    "max": 104
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 2,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 1,
+    "byDiagnosis": {
+     "slow (likely)": 1,
+     "stale (possible)": 2
+    },
+    "decisionsPerRun": 1.7,
+    "decisionLatencyP50": 446,
+    "loadMsP50": 2187,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "f",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.22,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 654,
+    "p95": 1690.3499999999992
+   },
+   "keyDrift": {
+    "p95": 98.19999999999999,
+    "max": 126
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 23,
+    "byDiagnosis": {
+     "transient (likely)": 26,
+     "transient (possible)": 7,
+     "slow (likely)": 1,
+     "failing (possible)": 1,
+     "failing (likely)": 3
+    },
+    "decisionsPerRun": 2.16,
+    "decisionLatencyP50": 432,
+    "loadMsP50": 2377,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "g",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 61,
+    "p95": 85.1
+   },
+   "keyDrift": {
+    "p95": 71.1,
+    "max": 109
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 1971,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "g",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 527,
+    "p95": 857.1
+   },
+   "keyDrift": {
+    "p95": 91.34999999999995,
+    "max": 150
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 7,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 1,
+    "byDiagnosis": {
+     "slow (likely)": 1,
+     "stale (possible)": 13
+    },
+    "decisionsPerRun": 1.12,
+    "decisionLatencyP50": 355,
+    "loadMsP50": 2120.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "g",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 628.5,
+    "p95": 903.75
+   },
+   "keyDrift": {
+    "p95": 108.84999999999998,
+    "max": 244
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 3,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 23,
+    "byDiagnosis": {
+     "transient (likely)": 26,
+     "stale (possible)": 3,
+     "transient (possible)": 7,
+     "slow (likely)": 1,
+     "failing (possible)": 1
+    },
+    "decisionsPerRun": 1.58,
+    "decisionLatencyP50": 397,
+    "loadMsP50": 2096.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "h",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 56,
+    "p95": 91.1
+   },
+   "keyDrift": {
+    "p95": 73.94999999999997,
+    "max": 90
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 2131,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "h",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.64
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 502,
+    "p95": 880.3499999999999
+   },
+   "keyDrift": {
+    "p95": 60.099999999999994,
+    "max": 86
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 1969.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "h",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.6
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 627,
+    "p95": 888.5
+   },
+   "keyDrift": {
+    "p95": 74.19999999999999,
+    "max": 100
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 5,
+    "byDiagnosis": {
+     "transient (likely)": 5,
+     "transient (possible)": 5
+    },
+    "decisionsPerRun": 0.2,
+    "decisionLatencyP50": 344.5,
+    "loadMsP50": 2020,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "i",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 51,
+    "p95": 71.55
+   },
+   "keyDrift": {
+    "p95": 51.55,
+    "max": 108
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 1843,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "i",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 505,
+    "p95": 856.55
+   },
+   "keyDrift": {
+    "p95": 28.549999999999997,
+    "max": 37
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 1,
+    "byDiagnosis": {
+     "slow (likely)": 1
+    },
+    "decisionsPerRun": 0.02,
+    "decisionLatencyP50": 281,
+    "loadMsP50": 1903.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "i",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 619.5,
+    "p95": 893.5
+   },
+   "keyDrift": {
+    "p95": 36.39999999999998,
+    "max": 103
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 24,
+    "byDiagnosis": {
+     "transient (likely)": 28,
+     "failing (possible)": 1,
+     "slow (likely)": 1,
+     "failing (likely)": 1,
+     "transient (possible)": 5
+    },
+    "decisionsPerRun": 0.74,
+    "decisionLatencyP50": 360,
+    "loadMsP50": 1951.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "j",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 55.5,
+    "p95": 76.55
+   },
+   "keyDrift": {
+    "p95": 35.64999999999999,
+    "max": 43
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 1877.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "j",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.62
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 500.5,
+    "p95": 861.1999999999999
+   },
+   "keyDrift": {
+    "p95": 29.549999999999997,
+    "max": 32
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": 1921.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "j",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.66
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 628,
+    "p95": 890.75
+   },
+   "keyDrift": {
+    "p95": 35.55,
+    "max": 51
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 5,
+    "byDiagnosis": {
+     "transient (likely)": 5,
+     "transient (possible)": 5
+    },
+    "decisionsPerRun": 0.2,
+    "decisionLatencyP50": 296,
+    "loadMsP50": 1851,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "k",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 50,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 0,
+   "duplicate": 50,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 66.5,
+    "p95": 105.1
+   },
+   "gapDrift": {
+    "p95": 1.5499999999999972
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 50,
+    "cleanRuns": 0,
+    "detectedLikely": 50,
+    "detectedAny": 50,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 55,
+     "duplicate (possible)": 31
+    },
+    "decisionsPerRun": 2.06,
+    "decisionLatencyP50": 792,
+    "loadMsP50": 2674,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "k",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 50,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 0,
+   "duplicate": 50,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 319.5,
+    "p95": 788.25
+   },
+   "gapDrift": {
+    "p95": 2.549999999999997
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 50,
+    "cleanRuns": 0,
+    "detectedLikely": 50,
+    "detectedAny": 50,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 60,
+     "duplicate (possible)": 31
+    },
+    "decisionsPerRun": 2.64,
+    "decisionLatencyP50": 558,
+    "loadMsP50": 2265.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "k",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 48,
+   "requests": {
+    "mean": 4.96,
+    "p50": 5
+   },
+   "one": 2,
+   "duplicate": 48,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 370,
+    "p95": 791.8499999999998
+   },
+   "gapDrift": {
+    "p95": 1
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 48,
+    "cleanRuns": 2,
+    "detectedLikely": 48,
+    "detectedAny": 48,
+    "falseLikely": 2,
+    "falseAny": 2,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 2,
+    "byDiagnosis": {
+     "duplicate (likely)": 59,
+     "duplicate (possible)": 30,
+     "transient (likely)": 2,
+     "failing (likely)": 1,
+     "transient (possible)": 3
+    },
+    "decisionsPerRun": 2.58,
+    "decisionLatencyP50": 457,
+    "loadMsP50": 2181.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "l",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 32,
+   "requests": {
+    "mean": 4.28,
+    "p50": 5
+   },
+   "one": 18,
+   "duplicate": 32,
+   "none": 0,
+   "posts": {
+    "mean": 1.64
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 63.5,
+    "p95": 86.49999999999997
+   },
+   "gapDrift": {
+    "p95": 2.0999999999999943
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 32,
+    "cleanRuns": 18,
+    "detectedLikely": 32,
+    "detectedAny": 32,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 32,
+     "duplicate (possible)": 24
+    },
+    "decisionsPerRun": 1.28,
+    "decisionLatencyP50": 801.5,
+    "loadMsP50": 2566.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "l",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 1,
+   "requests": {
+    "mean": 3.04,
+    "p50": 3
+   },
+   "one": 49,
+   "duplicate": 1,
+   "none": 0,
+   "posts": {
+    "mean": 1.02
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 500,
+    "p95": 873.65
+   },
+   "gapDrift": {
+    "p95": 1
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 1,
+    "cleanRuns": 49,
+    "detectedLikely": 1,
+    "detectedAny": 1,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 1,
+     "duplicate (possible)": 1
+    },
+    "decisionsPerRun": 0.04,
+    "decisionLatencyP50": 644,
+    "loadMsP50": 1974.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "l",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 4,
+   "requests": {
+    "mean": 3.14,
+    "p50": 3
+   },
+   "one": 45,
+   "duplicate": 4,
+   "none": 1,
+   "posts": {
+    "mean": 1.08
+   },
+   "timeToConfirm": {
+    "n": 49,
+    "p50": 444,
+    "p95": 856.6
+   },
+   "gapDrift": {
+    "p95": 3
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 4,
+    "cleanRuns": 46,
+    "detectedLikely": 4,
+    "detectedAny": 4,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 1,
+    "byDiagnosis": {
+     "transient (likely)": 1,
+     "duplicate (likely)": 4,
+     "transient (possible)": 2
+    },
+    "decisionsPerRun": 0.26,
+    "decisionLatencyP50": 327,
+    "loadMsP50": 1977,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "m",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 50,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 62.5,
+    "p95": 91.55
+   },
+   "gapDrift": {
+    "p95": 1
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 50,
+    "falseAny": 50,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 50,
+     "duplicate (possible)": 18
+    },
+    "decisionsPerRun": 2,
+    "decisionLatencyP50": 846.5,
+    "loadMsP50": 2669.5,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "m",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 50,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 315.5,
+    "p95": 776.2
+   },
+   "gapDrift": {
+    "p95": 1
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 50,
+    "falseAny": 50,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 58,
+     "duplicate (possible)": 18
+    },
+    "decisionsPerRun": 2.26,
+    "decisionLatencyP50": 442,
+    "loadMsP50": 2076,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "m",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 4.96,
+    "p50": 5
+   },
+   "one": 50,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 370.5,
+    "p95": 789.2999999999998
+   },
+   "gapDrift": {
+    "p95": 1
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 50,
+    "falseAny": 50,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 2,
+    "byDiagnosis": {
+     "duplicate (likely)": 57,
+     "duplicate (possible)": 17,
+     "transient (likely)": 2,
+     "failing (likely)": 1,
+     "transient (possible)": 3
+    },
+    "decisionsPerRun": 2.38,
+    "decisionLatencyP50": 435,
+    "loadMsP50": 2090,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "n",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 20,
+   "requests": {
+    "mean": 3.8,
+    "p50": 3
+   },
+   "one": 30,
+   "duplicate": 20,
+   "none": 0,
+   "posts": {
+    "mean": 1.4
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 118,
+    "p95": 151.59999999999997
+   },
+   "gapDrift": {
+    "p95": 1.5499999999999972
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 20,
+    "cleanRuns": 30,
+    "detectedLikely": 20,
+    "detectedAny": 20,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 35,
+     "duplicate (possible)": 3
+    },
+    "decisionsPerRun": 1.16,
+    "decisionLatencyP50": 876,
+    "loadMsP50": 2242,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "n",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 1,
+   "requests": {
+    "mean": 3.04,
+    "p50": 3
+   },
+   "one": 49,
+   "duplicate": 1,
+   "none": 0,
+   "posts": {
+    "mean": 1.02
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 977.5,
+    "p95": 1426.05
+   },
+   "gapDrift": {
+    "p95": 2.0999999999999943
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 1,
+    "cleanRuns": 49,
+    "detectedLikely": 1,
+    "detectedAny": 1,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {
+     "duplicate (likely)": 1
+    },
+    "decisionsPerRun": 0.08,
+    "decisionLatencyP50": 510.5,
+    "loadMsP50": 1907,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "model",
+   "strategy": "n",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 2,
+   "requests": {
+    "mean": 3.12,
+    "p50": 3
+   },
+   "one": 47,
+   "duplicate": 2,
+   "none": 1,
+   "posts": {
+    "mean": 1.04
+   },
+   "timeToConfirm": {
+    "n": 48,
+    "p50": 949,
+    "p95": 1313
+   },
+   "gapDrift": {
+    "p95": 3.549999999999997
+   },
+   "gc": {
+    "states": [
+     [
+      "ready",
+      50
+     ]
+    ],
+    "bugRuns": 2,
+    "cleanRuns": 48,
+    "detectedLikely": 2,
+    "detectedAny": 2,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 1,
+    "byDiagnosis": {
+     "transient (likely)": 1,
+     "failing (likely)": 1,
+     "transient (possible)": 2,
+     "duplicate (likely)": 2
+    },
+    "decisionsPerRun": 0.34,
+    "decisionLatencyP50": 356,
+    "loadMsP50": 1931,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "a",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 46,
+    "p95": 65
+   },
+   "keyDrift": {
+    "p95": 18,
+    "max": 39
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "a",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 105,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 95,
+   "stale": 105,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 200,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 95,
+    "p50": 695,
+    "p95": 891.9
+   },
+   "keyDrift": {
+    "p95": 17,
+    "max": 88
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "a",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 99,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 94,
+   "stale": 97,
+   "wrong-error": 2,
+   "missing": 0,
+   "error": 7,
+   "overwriteRuns": 200,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 94,
+    "p50": 727.5,
+    "p95": 896
+   },
+   "keyDrift": {
+    "p95": 16,
+    "max": 42
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "a",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 149,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 51,
+   "stale": 149,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 200,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 51,
+    "p50": 687,
+    "p95": 2698.5
+   },
+   "keyDrift": {
+    "p95": 23.099999999999966,
+    "max": 81
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "b",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.865,
+    "p50": 2
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 346.5,
+    "p95": 367
+   },
+   "keyDrift": {
+    "p95": 16,
+    "max": 36
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "b",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.86,
+    "p50": 2
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 777.5,
+    "p95": 1166.5499999999997
+   },
+   "keyDrift": {
+    "p95": 16.049999999999983,
+    "max": 34
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "b",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.86,
+    "p50": 2
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 808,
+    "p95": 1187.6
+   },
+   "keyDrift": {
+    "p95": 17,
+    "max": 74
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "b",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 15,
+   "requests": {
+    "mean": 1.86,
+    "p50": 2
+   },
+   "correct": 185,
+   "stale": 15,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 15,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 185,
+    "p50": 825,
+    "p95": 2605.999999999998
+   },
+   "keyDrift": {
+    "p95": 17,
+    "max": 53
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "c",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 48.5,
+    "p95": 69
+   },
+   "keyDrift": {
+    "p95": 45.14999999999995,
+    "max": 156
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "c",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 477.5,
+    "p95": 866.4999999999998
+   },
+   "keyDrift": {
+    "p95": 26.049999999999983,
+    "max": 157
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "c",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 506,
+    "p95": 889.7
+   },
+   "keyDrift": {
+    "p95": 30.749999999999744,
+    "max": 71
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "c",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 528,
+    "p95": 2236.4999999999986
+   },
+   "keyDrift": {
+    "p95": 16.049999999999983,
+    "max": 27
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "d",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 48,
+    "p95": 67.09999999999997
+   },
+   "keyDrift": {
+    "p95": 27.049999999999983,
+    "max": 52
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "d",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.585
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 477,
+    "p95": 863.6499999999997
+   },
+   "keyDrift": {
+    "p95": 34.04999999999998,
+    "max": 71
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "d",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.6
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 508,
+    "p95": 886.6999999999998
+   },
+   "keyDrift": {
+    "p95": 20,
+    "max": 30
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "d",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.67
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 527.5,
+    "p95": 2235.5999999999985
+   },
+   "keyDrift": {
+    "p95": 18,
+    "max": 38
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "e",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 46.5,
+    "p95": 66.04999999999998
+   },
+   "keyDrift": {
+    "p95": 29,
+    "max": 58
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "e",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 478.5,
+    "p95": 866.4999999999998
+   },
+   "keyDrift": {
+    "p95": 22.049999999999983,
+    "max": 57
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "e",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 511,
+    "p95": 886.8999999999999
+   },
+   "keyDrift": {
+    "p95": 36.04999999999998,
+    "max": 206
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "e",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 525.5,
+    "p95": 2235.6499999999983
+   },
+   "keyDrift": {
+    "p95": 15,
+    "max": 33
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "f",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 48,
+    "p95": 66.04999999999998
+   },
+   "keyDrift": {
+    "p95": 26,
+    "max": 46
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "f",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 478,
+    "p95": 867.4999999999998
+   },
+   "keyDrift": {
+    "p95": 22,
+    "max": 68
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "f",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.045,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 546.5,
+    "p95": 1758.8999999999994
+   },
+   "keyDrift": {
+    "p95": 26,
+    "max": 40
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "f",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 525,
+    "p95": 2234.6499999999983
+   },
+   "keyDrift": {
+    "p95": 17,
+    "max": 32
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "g",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 47.5,
+    "p95": 68
+   },
+   "keyDrift": {
+    "p95": 28,
+    "max": 49
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "g",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 478,
+    "p95": 866.4499999999998
+   },
+   "keyDrift": {
+    "p95": 22.099999999999966,
+    "max": 37
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "g",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 504,
+    "p95": 889.0999999999999
+   },
+   "keyDrift": {
+    "p95": 20.049999999999983,
+    "max": 32
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "g",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 528.5,
+    "p95": 2235.5999999999985
+   },
+   "keyDrift": {
+    "p95": 23,
+    "max": 49
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "h",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 46,
+    "p95": 64
+   },
+   "keyDrift": {
+    "p95": 17.049999999999983,
+    "max": 30
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "h",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.595
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 474.5,
+    "p95": 868.3499999999999
+   },
+   "keyDrift": {
+    "p95": 17,
+    "max": 52
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "h",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.6
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 506,
+    "p95": 887.6999999999998
+   },
+   "keyDrift": {
+    "p95": 27,
+    "max": 59
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "h",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.685
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 525.5,
+    "p95": 2232.6999999999985
+   },
+   "keyDrift": {
+    "p95": 18,
+    "max": 47
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "i",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 48,
+    "p95": 66.04999999999998
+   },
+   "keyDrift": {
+    "p95": 25.049999999999983,
+    "max": 96
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "i",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 475.5,
+    "p95": 862.5999999999998
+   },
+   "keyDrift": {
+    "p95": 17,
+    "max": 33
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "i",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 506,
+    "p95": 890.4
+   },
+   "keyDrift": {
+    "p95": 17.049999999999983,
+    "max": 24
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "i",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 526,
+    "p95": 2236.199999999998
+   },
+   "keyDrift": {
+    "p95": 19.049999999999983,
+    "max": 45
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "j",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 46.5,
+    "p95": 66
+   },
+   "keyDrift": {
+    "p95": 47.04999999999998,
+    "max": 279
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "j",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.595
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 477.5,
+    "p95": 867.4999999999998
+   },
+   "keyDrift": {
+    "p95": 21,
+    "max": 34
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "j",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 187,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 13,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.605
+   },
+   "timeToCorrect": {
+    "n": 187,
+    "p50": 505,
+    "p95": 886.5999999999999
+   },
+   "keyDrift": {
+    "p95": 16,
+    "max": 46
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "j",
+   "profile": "tail",
+   "kind": "search",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 10.97,
+    "p50": 11
+   },
+   "correct": 200,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.685
+   },
+   "timeToCorrect": {
+    "n": 200,
+    "p50": 527,
+    "p95": 2236.6999999999985
+   },
+   "keyDrift": {
+    "p95": 18,
+    "max": 63
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "k",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 200,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 0,
+   "duplicate": 200,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 49,
+    "p95": 75.04999999999998
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "k",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 200,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 0,
+   "duplicate": 200,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 333,
+    "p95": 765
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "k",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 188,
+   "requests": {
+    "mean": 4.935,
+    "p50": 5
+   },
+   "one": 11,
+   "duplicate": 188,
+   "none": 1,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 199,
+    "p50": 359,
+    "p95": 748.2
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "l",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 145,
+   "requests": {
+    "mean": 4.45,
+    "p50": 5
+   },
+   "one": 55,
+   "duplicate": 145,
+   "none": 0,
+   "posts": {
+    "mean": 1.725
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 50,
+    "p95": 70.09999999999997
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "l",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 5,
+   "requests": {
+    "mean": 3.05,
+    "p50": 3
+   },
+   "one": 195,
+   "duplicate": 5,
+   "none": 0,
+   "posts": {
+    "mean": 1.025
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 482,
+    "p95": 860.2499999999999
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "l",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 10,
+   "requests": {
+    "mean": 3.07,
+    "p50": 3
+   },
+   "one": 183,
+   "duplicate": 10,
+   "none": 7,
+   "posts": {
+    "mean": 1.055
+   },
+   "timeToConfirm": {
+    "n": 193,
+    "p50": 474,
+    "p95": 834.4
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "m",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 200,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 50.5,
+    "p95": 69
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "m",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 200,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 338,
+    "p95": 762.1999999999999
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "m",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 4.935,
+    "p50": 5
+   },
+   "one": 199,
+   "duplicate": 0,
+   "none": 1,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 199,
+    "p50": 363,
+    "p95": 750
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "n",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 87,
+   "requests": {
+    "mean": 3.87,
+    "p50": 3
+   },
+   "one": 113,
+   "duplicate": 87,
+   "none": 0,
+   "posts": {
+    "mean": 1.435
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 101,
+    "p95": 139.04999999999998
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "n",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 8,
+   "requests": {
+    "mean": 3.08,
+    "p50": 3
+   },
+   "one": 192,
+   "duplicate": 8,
+   "none": 0,
+   "posts": {
+    "mean": 1.04
+   },
+   "timeToConfirm": {
+    "n": 200,
+    "p50": 947.5,
+    "p95": 1504.1
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "off",
+   "strategy": "n",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 200,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 9,
+   "requests": {
+    "mean": 3.11,
+    "p50": 3
+   },
+   "one": 184,
+   "duplicate": 9,
+   "none": 7,
+   "posts": {
+    "mean": 1.045
+   },
+   "timeToConfirm": {
+    "n": 191,
+    "p50": 973,
+    "p95": 1579
+   },
+   "gapDrift": {
+    "p95": 1
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "a",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 56,
+    "p95": 73.29999999999998
+   },
+   "keyDrift": {
+    "p95": 53.749999999999986,
+    "max": 238
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "a",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 26,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 24,
+   "stale": 26,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 50,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 24,
+    "p50": 710.5,
+    "p95": 879.3
+   },
+   "keyDrift": {
+    "p95": 58.19999999999999,
+    "max": 112
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 26,
+    "cleanRuns": 0,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 50,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "a",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 25,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 24,
+   "stale": 24,
+   "wrong-error": 1,
+   "missing": 0,
+   "error": 1,
+   "overwriteRuns": 50,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 24,
+    "p50": 799,
+    "p95": 901.85
+   },
+   "keyDrift": {
+    "p95": 44.749999999999986,
+    "max": 63
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 25,
+    "cleanRuns": 0,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 50,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "b",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.84,
+    "p50": 2
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 352.5,
+    "p95": 371
+   },
+   "keyDrift": {
+    "p95": 44.29999999999998,
+    "max": 124
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "b",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.84,
+    "p50": 2
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 808,
+    "p95": 1156.65
+   },
+   "keyDrift": {
+    "p95": 41.949999999999974,
+    "max": 57
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "b",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 1.84,
+    "p50": 2
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 936,
+    "p95": 1191.25
+   },
+   "keyDrift": {
+    "p95": 31.749999999999986,
+    "max": 61
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "c",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 52,
+    "p95": 74.74999999999999
+   },
+   "keyDrift": {
+    "p95": 62.69999999999996,
+    "max": 120
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "c",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 501,
+    "p95": 855.05
+   },
+   "keyDrift": {
+    "p95": 66.34999999999995,
+    "max": 205
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "c",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 620.5,
+    "p95": 892
+   },
+   "keyDrift": {
+    "p95": 35,
+    "max": 56
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "d",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 55,
+    "p95": 76.1
+   },
+   "keyDrift": {
+    "p95": 45.55,
+    "max": 56
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "d",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.64
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 501.5,
+    "p95": 853.9499999999999
+   },
+   "keyDrift": {
+    "p95": 54.599999999999966,
+    "max": 91
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "d",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.68
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 625,
+    "p95": 894
+   },
+   "keyDrift": {
+    "p95": 43,
+    "max": 65
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "e",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 55.5,
+    "p95": 72.55
+   },
+   "keyDrift": {
+    "p95": 46.55,
+    "max": 65
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "e",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 501,
+    "p95": 855.5999999999999
+   },
+   "keyDrift": {
+    "p95": 52.29999999999998,
+    "max": 57
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "e",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 623.5,
+    "p95": 889.25
+   },
+   "keyDrift": {
+    "p95": 41.55,
+    "max": 123
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "f",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 53.5,
+    "p95": 72
+   },
+   "keyDrift": {
+    "p95": 49.55,
+    "max": 74
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "f",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 502.5,
+    "p95": 852.9499999999999
+   },
+   "keyDrift": {
+    "p95": 38.099999999999994,
+    "max": 68
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "f",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.22,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 640,
+    "p95": 1668.9499999999991
+   },
+   "keyDrift": {
+    "p95": 51.19999999999999,
+    "max": 70
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "g",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 53,
+    "p95": 71.55
+   },
+   "keyDrift": {
+    "p95": 41.099999999999994,
+    "max": 55
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "g",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 499.5,
+    "p95": 853.5
+   },
+   "keyDrift": {
+    "p95": 47.69999999999996,
+    "max": 68
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "g",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 623,
+    "p95": 890.25
+   },
+   "keyDrift": {
+    "p95": 47.64999999999999,
+    "max": 60
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "h",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0.02
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 51,
+    "p95": 67.55
+   },
+   "keyDrift": {
+    "p95": 45,
+    "max": 60
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "h",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.72
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 502,
+    "p95": 854.9499999999999
+   },
+   "keyDrift": {
+    "p95": 41.949999999999974,
+    "max": 89
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "h",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.7
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 619.5,
+    "p95": 890.5
+   },
+   "keyDrift": {
+    "p95": 36,
+    "max": 41
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "i",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 49,
+    "p95": 69.55
+   },
+   "keyDrift": {
+    "p95": 31,
+    "max": 32
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "i",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 498,
+    "p95": 856.85
+   },
+   "keyDrift": {
+    "p95": 37.55,
+    "max": 56
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "i",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 626,
+    "p95": 889.5
+   },
+   "keyDrift": {
+    "p95": 43.949999999999974,
+    "max": 71
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "j",
+   "profile": "fast",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 0
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 49,
+    "p95": 69.55
+   },
+   "keyDrift": {
+    "p95": 47.29999999999998,
+    "max": 57
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "j",
+   "profile": "jittery",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 50,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 0,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.72
+   },
+   "timeToCorrect": {
+    "n": 50,
+    "p50": 501.5,
+    "p95": 857.3499999999999
+   },
+   "keyDrift": {
+    "p95": 41.84999999999998,
+    "max": 65
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "j",
+   "profile": "lossy",
+   "kind": "search",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 11.12,
+    "p50": 11
+   },
+   "correct": 46,
+   "stale": 0,
+   "wrong-error": 0,
+   "missing": 0,
+   "error": 4,
+   "overwriteRuns": 0,
+   "aborted": {
+    "mean": 8.7
+   },
+   "timeToCorrect": {
+    "n": 46,
+    "p50": 623.5,
+    "p95": 890.5
+   },
+   "keyDrift": {
+    "p95": 33,
+    "max": 44
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "k",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 50,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 0,
+   "duplicate": 50,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 63,
+    "p95": 102.94999999999997
+   },
+   "gapDrift": {
+    "p95": 7.6499999999999915
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 50,
+    "cleanRuns": 0,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "k",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 50,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 0,
+   "duplicate": 50,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 312.5,
+    "p95": 762.3
+   },
+   "gapDrift": {
+    "p95": 1
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 50,
+    "cleanRuns": 0,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "k",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": false,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 48,
+   "requests": {
+    "mean": 4.96,
+    "p50": 5
+   },
+   "one": 2,
+   "duplicate": 48,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 364.5,
+    "p95": 780.7999999999998
+   },
+   "gapDrift": {
+    "p95": 1
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 48,
+    "cleanRuns": 2,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "l",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 34,
+   "requests": {
+    "mean": 4.36,
+    "p50": 5
+   },
+   "one": 16,
+   "duplicate": 34,
+   "none": 0,
+   "posts": {
+    "mean": 1.68
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 62,
+    "p95": 95.04999999999997
+   },
+   "gapDrift": {
+    "p95": 8.84999999999998
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 34,
+    "cleanRuns": 16,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "l",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 2,
+   "requests": {
+    "mean": 3.08,
+    "p50": 3
+   },
+   "one": 48,
+   "duplicate": 2,
+   "none": 0,
+   "posts": {
+    "mean": 1.04
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 493,
+    "p95": 858.5999999999999
+   },
+   "gapDrift": {
+    "p95": 3.6499999999999915
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 2,
+    "cleanRuns": 48,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "l",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 5,
+   "requests": {
+    "mean": 3.18,
+    "p50": 3
+   },
+   "one": 44,
+   "duplicate": 5,
+   "none": 1,
+   "posts": {
+    "mean": 1.1
+   },
+   "timeToConfirm": {
+    "n": 49,
+    "p50": 438,
+    "p95": 846
+   },
+   "gapDrift": {
+    "p95": 3.0999999999999943
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 5,
+    "cleanRuns": 45,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "m",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 50,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 60,
+    "p95": 86.64999999999999
+   },
+   "gapDrift": {
+    "p95": 8.099999999999994
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "m",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 5,
+    "p50": 5
+   },
+   "one": 50,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 314.5,
+    "p95": 769.4
+   },
+   "gapDrift": {
+    "p95": 4.199999999999989
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "m",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 0,
+   "requests": {
+    "mean": 4.96,
+    "p50": 5
+   },
+   "one": 50,
+   "duplicate": 0,
+   "none": 0,
+   "posts": {
+    "mean": 2
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 368,
+    "p95": 780.1999999999998
+   },
+   "gapDrift": {
+    "p95": 1.5499999999999972
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 0,
+    "cleanRuns": 50,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "n",
+   "profile": "fast",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 17,
+   "requests": {
+    "mean": 3.68,
+    "p50": 3
+   },
+   "one": 33,
+   "duplicate": 17,
+   "none": 0,
+   "posts": {
+    "mean": 1.34
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 105.5,
+    "p95": 146
+   },
+   "gapDrift": {
+    "p95": 5.6499999999999915
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 17,
+    "cleanRuns": 33,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "n",
+   "profile": "jittery",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 4,
+   "requests": {
+    "mean": 3.16,
+    "p50": 3
+   },
+   "one": 46,
+   "duplicate": 4,
+   "none": 0,
+   "posts": {
+    "mean": 1.08
+   },
+   "timeToConfirm": {
+    "n": 50,
+    "p50": 1005,
+    "p95": 1404.4
+   },
+   "gapDrift": {
+    "p95": 5.399999999999977
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 4,
+    "cleanRuns": 46,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  },
+  {
+   "condition": "skipped",
+   "strategy": "n",
+   "profile": "lossy",
+   "kind": "submit",
+   "correctFix": true,
+   "n": 50,
+   "harnessErrors": 0,
+   "capped": 0,
+   "pageErrors": 0,
+   "wrong": 3,
+   "requests": {
+    "mean": 3.14,
+    "p50": 3
+   },
+   "one": 46,
+   "duplicate": 3,
+   "none": 1,
+   "posts": {
+    "mean": 1.06
+   },
+   "timeToConfirm": {
+    "n": 49,
+    "p50": 941,
+    "p95": 1322.1999999999998
+   },
+   "gapDrift": {
+    "p95": 2.549999999999997
+   },
+   "gc": {
+    "states": [
+     [
+      "skipped",
+      50
+     ]
+    ],
+    "bugRuns": 3,
+    "cleanRuns": 47,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0,
+    "otherLikelyRuns": 0,
+    "byDiagnosis": {},
+    "decisionsPerRun": 0,
+    "decisionLatencyP50": null,
+    "loadMsP50": null,
+    "dropped": 0
+   }
+  }
+ ],
+ "pooled": {
+  "model": {
+   "staleBuggy": {
+    "cells": 6,
+    "runs": 300,
+    "bugRuns": 50,
+    "cleanRuns": 200,
+    "detectedLikely": 35,
+    "detectedAny": 44,
+    "falseLikely": 55,
+    "falseAny": 90,
+    "overwriteRuns": 100,
+    "overwriteDetectedLikely": 57,
+    "overwriteDetectedAny": 69
+   },
+   "staleCorrect": {
+    "cells": 24,
+    "runs": 1200,
+    "bugRuns": 0,
+    "cleanRuns": 1200,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 45,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "submitBuggy": {
+    "cells": 3,
+    "runs": 150,
+    "bugRuns": 148,
+    "cleanRuns": 2,
+    "detectedLikely": 148,
+    "detectedAny": 148,
+    "falseLikely": 2,
+    "falseAny": 2,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "submitCorrect": {
+    "cells": 9,
+    "runs": 450,
+    "bugRuns": 60,
+    "cleanRuns": 390,
+    "detectedLikely": 60,
+    "detectedAny": 60,
+    "falseLikely": 150,
+    "falseAny": 150,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "submitCorrectNoIdem": {
+    "cells": 6,
+    "runs": 300,
+    "bugRuns": 60,
+    "cleanRuns": 240,
+    "detectedLikely": 60,
+    "detectedAny": 60,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "allCorrect": {
+    "cells": 33,
+    "runs": 1650,
+    "bugRuns": 60,
+    "cleanRuns": 1590,
+    "detectedLikely": 60,
+    "detectedAny": 60,
+    "falseLikely": 150,
+    "falseAny": 195,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "buggyAll": {
+    "cells": 9,
+    "runs": 450,
+    "bugRuns": 198,
+    "cleanRuns": 202,
+    "detectedLikely": 183,
+    "detectedAny": 192,
+    "falseLikely": 57,
+    "falseAny": 92,
+    "overwriteRuns": 100,
+    "overwriteDetectedLikely": 57,
+    "overwriteDetectedAny": 69
+   }
+  },
+  "skipped": {
+   "staleBuggy": {
+    "cells": 6,
+    "runs": 300,
+    "bugRuns": 51,
+    "cleanRuns": 200,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 100,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "staleCorrect": {
+    "cells": 24,
+    "runs": 1200,
+    "bugRuns": 0,
+    "cleanRuns": 1200,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "submitBuggy": {
+    "cells": 3,
+    "runs": 150,
+    "bugRuns": 148,
+    "cleanRuns": 2,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "submitCorrect": {
+    "cells": 9,
+    "runs": 450,
+    "bugRuns": 65,
+    "cleanRuns": 385,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "submitCorrectNoIdem": {
+    "cells": 6,
+    "runs": 300,
+    "bugRuns": 65,
+    "cleanRuns": 235,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "allCorrect": {
+    "cells": 33,
+    "runs": 1650,
+    "bugRuns": 65,
+    "cleanRuns": 1585,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 0,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   },
+   "buggyAll": {
+    "cells": 9,
+    "runs": 450,
+    "bugRuns": 199,
+    "cleanRuns": 202,
+    "detectedLikely": 0,
+    "detectedAny": 0,
+    "falseLikely": 0,
+    "falseAny": 0,
+    "overwriteRuns": 100,
+    "overwriteDetectedLikely": 0,
+    "overwriteDetectedAny": 0
+   }
+  }
+ },
+ "agreement": {
+  "model": {
+   "total": 2100,
+   "same": 2079,
+   "diffs": [
+    {
+     "strategy": "a",
+     "profile": "jittery",
+     "seed": 3,
+     "off": "stale:form sch",
+     "with": "stale:form sche",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "a",
+     "profile": "jittery",
+     "seed": 31,
+     "off": "stale:color picke",
+     "with": "correct",
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "a",
+     "profile": "jittery",
+     "seed": 38,
+     "off": "stale:auth to",
+     "with": "stale:auth toke",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "a",
+     "profile": "lossy",
+     "seed": 13,
+     "off": "stale:react que",
+     "with": "error",
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "a",
+     "profile": "lossy",
+     "seed": 14,
+     "off": "stale:toast que",
+     "with": "stale:toast queu",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "a",
+     "profile": "lossy",
+     "seed": 34,
+     "off": "stale:virtual ",
+     "with": "stale:virtual lis",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "l",
+     "profile": "fast",
+     "seed": 5,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "l",
+     "profile": "fast",
+     "seed": 25,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "l",
+     "profile": "fast",
+     "seed": 38,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "l",
+     "profile": "fast",
+     "seed": 44,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "l",
+     "profile": "lossy",
+     "seed": 48,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 3,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 31,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 40,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 45,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 49,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "jittery",
+     "seed": 8,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "jittery",
+     "seed": 22,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "jittery",
+     "seed": 31,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "lossy",
+     "seed": 8,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "lossy",
+     "seed": 22,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    }
+   ],
+   "onCorrect": 15,
+   "onBuggy": 6,
+   "becameWrong": 3,
+   "becameRight": 14
+  },
+  "skipped": {
+   "total": 2100,
+   "same": 2081,
+   "diffs": [
+    {
+     "strategy": "a",
+     "profile": "jittery",
+     "seed": 3,
+     "off": "stale:form sch",
+     "with": "stale:form sche",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "a",
+     "profile": "jittery",
+     "seed": 31,
+     "off": "stale:color picke",
+     "with": "correct",
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "a",
+     "profile": "jittery",
+     "seed": 38,
+     "off": "stale:auth to",
+     "with": "stale:auth toke",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "a",
+     "profile": "lossy",
+     "seed": 14,
+     "off": "stale:toast que",
+     "with": "stale:toast queu",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "a",
+     "profile": "lossy",
+     "seed": 34,
+     "off": "stale:virtual ",
+     "with": "stale:virtual lis",
+     "offWrong": true,
+     "withWrong": true
+    },
+    {
+     "strategy": "l",
+     "profile": "fast",
+     "seed": 5,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "l",
+     "profile": "fast",
+     "seed": 38,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "l",
+     "profile": "jittery",
+     "seed": 36,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 3,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 7,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 35,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 40,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 45,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "fast",
+     "seed": 49,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "jittery",
+     "seed": 1,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "jittery",
+     "seed": 49,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "lossy",
+     "seed": 6,
+     "off": 1,
+     "with": 2,
+     "offWrong": false,
+     "withWrong": true
+    },
+    {
+     "strategy": "n",
+     "profile": "lossy",
+     "seed": 8,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    },
+    {
+     "strategy": "n",
+     "profile": "lossy",
+     "seed": 49,
+     "off": 2,
+     "with": 1,
+     "offWrong": true,
+     "withWrong": false
+    }
+   ],
+   "onCorrect": 14,
+   "onBuggy": 5,
+   "becameWrong": 5,
+   "becameRight": 10
+  }
+ }
+}
