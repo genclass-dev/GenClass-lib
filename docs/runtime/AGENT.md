@@ -310,6 +310,8 @@ replays its run's seeded schedule (with its delay); anything recorded in a natur
 order as `given`. When the recorded run is gone, it refuses to arm rather than replay something else. `result` compares
 the replay run with the finding: the same witness (field by shape, signature), the same error (by name and shape), the
 failing run's page text, form values, request counts or error again = reproduced; the baseline's = not reproduced
+(page lines count: a line the page always shows once and the failing run showed twice, a product card and a stale
+result, is reproduced only when the replay shows it twice too; the finding's evidence keeps the counts, `textCounts`)
 (store values decide only for a finding recorded with nothing else, and a redaction matches any value); a replay whose
 element names changed with the order still counts as the same steps when its actions match by kind and role. It is
 inconclusive, and says why, until the run has settled and recorded user actions, when its steps differ from the

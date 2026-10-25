@@ -1,0 +1,51 @@
+~/tiny-shop % diff -u ../steps/02-main.js src/main.js | tail -n +3
+@@ -8,11 +8,15 @@
+ 
+ const $ = (s) => document.querySelector(s);
+ 
+-// Search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
++// Search: every keystroke fetches; only the response to the latest query may write the results (the fix: a sequence
++// number per request; an older response that arrives later is ignored).
++let searchSeq = 0;
+ $("#q").addEventListener("input", async (e) => {
+   const q = e.target.value;
++  const mine = ++searchSeq;
+   const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+   const data = await r.json();
++  if (mine !== searchSeq) return; // a newer query is in flight or done: this response is stale
+   store.set("search.results", data.results);
+   store.set("search.query", data.q);
+ });
+@@ -26,12 +30,18 @@
+   }
+ });
+ 
+-// Cart: each click posts; two quick clicks post twice.
++// Cart: the button is disabled while its request is in flight (the fix: a double click adds once).
+ for (const b of document.querySelectorAll("button.add")) {
+   b.addEventListener("click", async () => {
+-    const r = await fetch("/api/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: b.dataset.item }) });
+-    const data = await r.json();
+-    store.set("cart.count", data.count);
++    if (b.disabled) return;
++    b.disabled = true;
++    try {
++      const r = await fetch("/api/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: b.dataset.item }) });
++      const data = await r.json();
++      store.set("cart.count", data.count);
++    } finally {
++      b.disabled = false;
++    }
+   });
+ }
+ store.subscribe("cart.count", (n) => ($("#cartcount").textContent = String(n)));
+@@ -64,7 +74,7 @@
+ $("#profile").addEventListener("click", async () => {
+   const r = await fetch("/api/profile");
+   const profile = await r.json();
+-  $("#profilemsg").textContent = `Ships to ${profile.address.city}`;
++  $("#profilemsg").textContent = profile.address ? `Ships to ${profile.address.city}` : "No address on file yet."; // the fix
+ });
+ 
+ // Newsletter: the form posts; a 503 now and then is shown as is.
+

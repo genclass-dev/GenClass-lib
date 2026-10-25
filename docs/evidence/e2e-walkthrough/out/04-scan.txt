@@ -1,0 +1,52 @@
+~/tiny-shop % node ../../../../packages/runtime/bin/genclass-runtime.mjs scan http://localhost:5173
+
+  GenClass scan • http://localhost:5173/
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+
+  Visual score 8/100  •  10 problems (6 high, 3 medium, 1 low)
+
+  HIGH
+  ✖ control-unreachable (desktop, phone)
+      button "OK"  #ok
+      #ok "OK" cannot be clicked: div.cover (position: fixed) covers all 5 of its hit points even at the end of the page.
+      fix: body { padding-bottom: 106px; }  (Reserves space for div.cover, or move it on small screens: @media (max-width: 640px) { div.cover { bottom: 114px; } })
+  ✖ dialog-covered (desktop, phone)
+      dialog "We use cookies."  dialog.cookie
+      the open dialog dialog.cookie "We use cookies." is covered by div.cover: 10 of 10 points, including #ok "OK" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).
+  ✖ page-overflow-x (desktop, phone)
+      div "This promotional strip is wider than an…"  div.wide
+      the page scrolls sideways on a 1280 px viewport: div.wide "This promotional strip is wider than an…" ends at 2606 px (1326 px too wide, a width wider than the viewport).
+      fix: div.wide { max-width: 100%; }
+  ✖ text-invisible (desktop, phone)
+      div "Free shipping on every order over 50 â‚…"  div.banner
+      text contrast 1.26:1 on div.banner "Free shipping on every order over 50 â‚…", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner.
+      fix: div.banner { color: #060606; }  (Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.)
+  ✖ text-template-leak (desktop, phone)
+      p "{{price}}"  p.price
+      the page shows an unrendered {{ }} placeholder in p.price "{{price}}": "{{price}}".
+      fix: [v-cloak] { display: none; }  (Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.)
+  ✖ viewport-meta-missing (phone)
+      html "Tiny Shop Free shipping on every order …"  html
+      the page is laid out 980 px wide on a 390 px phone screen: there is no viewport meta tag. Fix: add <meta name="viewport" content="width=device-width, initial-scale=1"> to <head> (HTML, not CSS).
+
+  MEDIUM
+  ✖ image-broken (desktop, phone)
+      img  img.logo
+      an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px.
+      fix: img.logo { background-color: #f3f4f6; }  (This only makes a failed image look neutral; add width and height attributes too.)
+  ✖ text-encoding (desktop, phone)
+      div "Free shipping on every order over 50 â‚…"  div.banner
+      the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner "Free shipping on every order over 50 â‚…": "...y order over 50 â‚¬ â€” today only". Fix: serve Content-Type: text/html; charset=utf-8, put <meta charset="utf-8"> first in <head>, store text as utf8mb4 and escape once.
+  ✖ text-placeholder (desktop, phone)
+      p "Lorem ipsum dolor sit amet, consectetur…"  p.blurb
+      the page shows placeholder text (lorem ipsum) in p.blurb "Lorem ipsum dolor sit amet, consectetur…": "Lorem ipsum dolor sit amet, co...". Fix: replace the placeholder copy and images; a CI grep for lorem ipsum and the placeholder hosts keeps them out.
+
+  LOW
+  ✖ font-failed x26 (desktop, phone)
+      div "Free shipping on every order over 50 â‚…"  div.banner
+      the web font "shopsans" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another font, for example div.banner "Free shipping on every order over 50 â‚…".
+      fix: @font-face { font-family: "shopsans"; src: url("/fonts/shopsans.woff2") format("woff2"); font-display: swap; }  (With a size-adjusted fallback font the swap does not move the layout.)
+
+  Score: the visual checks scored like the Visual bugs category of the genclass.dev page check (scan-score/4). Accessibility, speed and security too: add --hosted.
+
+

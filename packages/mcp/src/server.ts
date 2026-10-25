@@ -111,6 +111,8 @@ export async function serve(o: ServeOptions): Promise<Served> {
   let realPort = port;
   let offFind: (() => void) | null = null;
   let reporter: Reporter | null = null;
+  /** The in-process API once this session owns the bridge: wrapped by reportingApi when GENCLASS_REPORT is set, so the tools' own calls are mirrored like the bridge's. */
+  let localApi: ReturnType<typeof makeApi> | null = null;
   let poll: NodeJS.Timeout | null = null;
   let why = "";
 
@@ -158,6 +160,7 @@ export async function serve(o: ServeOptions): Promise<Served> {
       local = reportingApi(local, s, reporter);
       log(`mirroring the loop's log (findings, replays, tests, explores) to the dashboard at ${target.origin} (GENCLASS_REPORT)`);
     }
+    localApi = local;
     store = s;
     mode = "local";
     if (poll) clearInterval(poll);
@@ -220,7 +223,7 @@ export async function serve(o: ServeOptions): Promise<Served> {
     if (await takeOver()) return makeApiFor(m, p);
     throw new Error(`the GenClass bridge is not running: ${why}`);
   };
-  const makeApiFor = (m: string, p?: unknown): unknown => makeApi(store!, { url: bridge!.url, port: bridge!.port })(m, p);
+  const makeApiFor = (m: string, p?: unknown): unknown => localApi!(m, p);
 
   if (!(await tryLocal())) {
     if (why.includes("taken") && (await probeBridge(port))) {

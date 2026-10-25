@@ -1,0 +1,67 @@
+~/tiny-shop % npx @genclass/runtime@beta init --yes
+
+  GenClass Runtime • init
+
+  ✔ Project    tiny-shop (Vite + vanilla)
+  ✔ Packages   npm
+  ✔ Entry      src/main.js
+  ✔ Mode       observe (default: reports only, never changes anything; --mode guard lets it act)
+  ✔ Telemetry  on (the default)
+             GenClass sends anonymous diagnostics to its maintainers: its decisions, action outcomes,
+             model status and counts. No text from the page (the situation text the model read is sent
+             only with telemetry: { include: { situation: true } }); never cookies or IP addresses;
+             never from localhost or private hosts. Turn it off: npx @genclass/runtime init --no-telemetry
+             (or GenClass.init({ telemetry: false }), ?genclass=no-telemetry in the URL).
+             What is sent: https://github.com/genclass-dev/GenClass-lib/blob/main/packages/runtime/TELEMETRY.md
+             Privacy policy: https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md
+  ✔ Token      a new one for this app, created at genclass.dev once you apply these changes
+             init then sends this app's name (tiny-shop) to https://genclass.dev/api/projects and gets back
+             a public token and your private dashboard link. --no-token: no token, no network.
+
+  Changes
+
+  src/main.js (modify)
+    @@ -1,3 +1,5 @@
+    + import "./genclass.config"; // genclass:init
+    + import genclass from "@genclass/runtime/auto"; // genclass:init
+      // Tiny Shop's page script, as a small shop might write it: fetch on every keystroke with no cancellation, add-to-cart
+      // without an idempotency key, a checkout that does not handle a failure well, and a profile handler that trusts the
+      // response's shape. The store is a plain object with get/set so the page has one place its state lives.
+    @@ -73,3 +75,4 @@
+      });
+      
+      $("#ok").addEventListener("click", () => $("dialog.cookie").close());
+    + if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.mountDevtools(genclass)); // genclass:init
+
+  src/genclass.config.js (new file)
+    @@ -0,0 +1,4 @@
+    + // genclass:init start: GenClass Runtime, added by `npx @genclass/runtime init` (`npx @genclass/runtime remove` takes it out)
+    + // Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).
+    + globalThis.GENCLASS_CONFIG = { token: "gc_new-token-created-when-you-apply" };
+    + // genclass:init end
+
+  Install  npm install @genclass/runtime@^0.3.0-beta.1 --no-audit --no-fund
+
+  → npm install @genclass/runtime@^0.3.0-beta.1 --no-audit --no-fund
+
+added 19 packages in 2s
+
+  ✔ GenClass Runtime is set up. (src/main.js, src/genclass.config.js)
+
+  Your dashboard  https://genclass.dev/dashboard/<redacted>
+  Keep this link private; it is the only way to open your dashboard.
+  The dashboard is free; the link opens it.
+  Saved in .genclass.local (git already ignores it).
+  It fills once your deployed app runs with telemetry on. Local hosts (localhost, *.local, *.test, private
+  networks) do not send by default (telemetry: true opts them in), and visitors who opt out or send
+  Global Privacy Control are not counted.
+
+  Next
+    • Run npm run dev and open the app.
+    • Detections and actions appear in the browser console as [GenClass] ... lines.
+    • In development an overlay shows what GenClass sees (bottom-right, Alt+Shift+G).
+    • Rule it out while debugging: add ?genclass=off to the URL.
+
+  Undo: npx @genclass/runtime remove
+
+

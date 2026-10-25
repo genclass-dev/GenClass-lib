@@ -1,0 +1,7 @@
+agent % genclass_explore {"action":"report"}
+Explore x2: 5 of 5 planned loads recorded (5 reached a quiet point).
+Compared: 3 of 3 reordered run(s) against two baselines.
+
+## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):
+  type input "Search the shop" = react
+No race found: none of the 3 compared reordered run(s) ended with a different page, form values, writes or errors than the baseline.
