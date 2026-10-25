@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Checks the starter templates (templates/*) against this checkout's packed runtime (compat/.pack, from run.mjs):
-// copy, point @genclass/runtime at the tarball, npm install, npm run build (each template's own build, type check
-// included), then in headless Chromium:
+// copy, point @genclass/runtime at the tarball (and @genclass/nuxt / @genclass/astro at tarballs this script packs
+// from packages/nuxt and packages/astro, for the templates that use them), npm install, npm run build (each template's
+// own build, type check included), then in headless Chromium:
 //   prod  the production server: the model loads, the search box works, no console errors, no overlay;
 //         with ?genclass=off nothing is installed
 //   dev   the dev server: the devtools overlay mounts, no console errors
@@ -12,27 +13,51 @@
 
 import { chromium } from "@playwright/test";
 import { execSync, spawn } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..");
-const TGZ = join(HERE, ".pack/genclass-runtime.tgz");
+const PACK = join(HERE, ".pack");
+const TGZ = join(PACK, "genclass-runtime.tgz");
 const MODEL = process.env.COMPAT_MODEL_DIR || "/data/compat/model/runtime-model-0.2.0";
 const WORK = process.env.COMPAT_TEMPLATES_DIR || "/data/compat/templates";
 const argv = process.argv.slice(2);
 const opt = (n, d) => (argv.includes(`--${n}`) ? argv[argv.indexOf(`--${n}`) + 1] : d);
 const ONLY = opt("only", null)?.split(",");
 const OUT = opt("out", join(WORK, "templates-check.json"));
-const ENV = { ...process.env, CI: "1", NO_COLOR: "1", NEXT_TELEMETRY_DISABLED: "1", SVELTEKIT_TELEMETRY_DISABLED: "1" };
+const ENV = {
+  ...process.env,
+  CI: "1",
+  NO_COLOR: "1",
+  NEXT_TELEMETRY_DISABLED: "1",
+  SVELTEKIT_TELEMETRY_DISABLED: "1",
+  NUXT_TELEMETRY_DISABLED: "1",
+  ASTRO_TELEMETRY_DISABLED: "1",
+  NG_CLI_ANALYTICS: "false",
+};
 
+// The server command per template and kind; {port} is replaced. Servers that take the address from the environment
+// get it on the command line as HOST= / PORT= (the commands run through a shell).
 const TEMPLATES = {
   "react-vite": { prod: "npx vite preview --host 127.0.0.1 --strictPort --port {port}", dev: "npx vite --host 127.0.0.1 --strictPort --port {port}" },
   nextjs: { prod: "npx next start -H 127.0.0.1 -p {port}", dev: "npx next dev -H 127.0.0.1 -p {port}" },
   "vue-vite": { prod: "npx vite preview --host 127.0.0.1 --strictPort --port {port}", dev: "npx vite --host 127.0.0.1 --strictPort --port {port}" },
   sveltekit: { prod: "npx vite preview --host 127.0.0.1 --strictPort --port {port}", dev: "npx vite dev --host 127.0.0.1 --strictPort --port {port}" },
+  // Astro 7's dev server keeps a background process that outlives the command (`astro dev status`): stopped after the visit
+  astro: { prod: "HOST=127.0.0.1 PORT={port} node ./dist/server/entry.mjs", dev: "npx astro dev --host 127.0.0.1 --port {port}", afterDev: "npx astro dev stop" },
+  nuxt: { prod: "HOST=127.0.0.1 PORT={port} node .output/server/index.mjs", dev: "npx nuxt dev --host 127.0.0.1 --port {port}" },
+  "react-router": { prod: "HOST=127.0.0.1 PORT={port} npx react-router-serve ./build/server/index.js", dev: "npx react-router dev --host 127.0.0.1 --port {port}" },
+  angular: { prod: "HOST=127.0.0.1 PORT={port} node dist/genclass-angular-starter/server/server.mjs", dev: "npx ng serve --host 127.0.0.1 --port {port}" },
+};
+
+// The framework packages of this repository a template may depend on: packed from their workspace (built first) into
+// compat/.pack/<file>, and pointed at from the copied template's package.json like the runtime.
+const INTEGRATIONS = {
+  "@genclass/nuxt": { dir: join(REPO, "packages/nuxt"), file: "genclass-nuxt.tgz" },
+  "@genclass/astro": { dir: join(REPO, "packages/astro"), file: "genclass-astro.tgz" },
 };
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -120,15 +145,34 @@ async function visit(browser, url, { type = false, wantOverlay = null }) {
   return r;
 }
 
+/** Builds and packs a framework package of this repository into compat/.pack (once per run); returns the tarball path. */
+const packed = new Map();
+function packIntegration(pkgName) {
+  if (packed.has(pkgName)) return packed.get(pkgName);
+  const { dir, file } = INTEGRATIONS[pkgName];
+  const out = join(PACK, file);
+  rmSync(out, { force: true });
+  packed.set(pkgName, out);
+  log(`packing ${pkgName}`);
+  const b = sh(`npm run build -w ${pkgName}`, REPO);
+  if (!b.ok) throw new Error(`build of ${pkgName} failed\n${b.out.slice(-2000)}`);
+  const p = sh(`npm pack --silent --pack-destination ${JSON.stringify(PACK)}`, dir);
+  if (!p.ok) throw new Error(`npm pack of ${pkgName} failed\n${p.out.slice(-2000)}`);
+  renameSync(join(PACK, p.out.trim().split("\n").pop()), out);
+  return out;
+}
+
 async function checkTemplate(name, browser) {
   const t = TEMPLATES[name];
   const dir = join(WORK, name);
   const rec = { name };
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  cpSync(join(REPO, "templates", name), dir, { recursive: true, filter: (s) => !/node_modules|\.next|\.svelte-kit|dist/.test(s) });
+  // whole path segments only: `.astro` is also the extension of Astro's page files
+  cpSync(join(REPO, "templates", name), dir, { recursive: true, filter: (s) => !/(^|\/)(node_modules|\.next|\.svelte-kit|\.nuxt|\.output|\.astro|\.react-router|\.angular|dist|build)(\/|$)/.test(s) });
   const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
   pkg.dependencies["@genclass/runtime"] = `file:${TGZ}`;
+  for (const dep of Object.keys(INTEGRATIONS)) if (pkg.dependencies[dep]) pkg.dependencies[dep] = `file:${packIntegration(dep)}`;
   writeFileSync(join(dir, "package.json"), JSON.stringify(pkg, null, 2));
   const inst = sh("npm install --no-audit --no-fund --loglevel=error", dir);
   rec.install = inst.ok ? "ok" : inst.out.slice(-1500);
@@ -156,6 +200,7 @@ async function checkTemplate(name, browser) {
       rec[kind] = { pass: false, error: String(e?.message ?? e).slice(0, 1500) };
     } finally {
       await s?.stop();
+      if (kind === "dev" && t.afterDev) sh(t.afterDev, dir);
     }
     log(`${name} ${kind}: ${rec[kind].pass ? "ok" : "FAIL"}`);
   }

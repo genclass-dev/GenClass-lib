@@ -41,3 +41,10 @@ packages/mcp/test/e2e/.gen/
 
 # @genclass/mcp: the MCP Bundle build (scripts/mcpb.mjs)
 packages/mcp/.mcpb/
+# framework build output (templates, packages/nuxt, packages/astro)
+.nuxt/
+.output/
+.astro/
+.react-router/
+.angular/
+templates/react-router/build/

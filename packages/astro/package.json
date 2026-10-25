@@ -1,0 +1,65 @@
+{
+  "name": "@genclass/astro",
+  "version": "0.1.0",
+  "description": "GenClass for Astro: an integration that reports your site's race conditions, stale responses and duplicate submits while they happen, in the browser only. A small local model, observe mode by default, nothing on the server.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/genclass-dev/GenClass-lib.git",
+    "directory": "packages/astro"
+  },
+  "homepage": "https://genclass.dev",
+  "bugs": { "url": "https://github.com/genclass-dev/GenClass-lib/issues" },
+  "keywords": [
+    "astro-integration",
+    "withastro",
+    "astro",
+    "genclass",
+    "race-condition",
+    "stale-response",
+    "duplicate-request",
+    "frontend-reliability",
+    "error-detection",
+    "tooling"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@genclass/runtime": ">=0.2.0 || ^0.3.0-beta.0",
+    "astro": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "astro": "^7.4.2",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
