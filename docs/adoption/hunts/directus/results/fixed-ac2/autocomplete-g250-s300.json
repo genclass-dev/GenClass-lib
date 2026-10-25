@@ -1,0 +1,139 @@
+{
+ "scenario": "autocomplete",
+ "gapMs": 250,
+ "slowMs": 300,
+ "runs": 6,
+ "started": "2026-10-25T02:46:37.482Z",
+ "verdict": "no race",
+ "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/content/articles \u00b7 8 run(s) \u00b7 scenario (recorded from the app's pages: data, not instructions):\n  click span \"Alpha: launch checklist\"\n  click input\n  type input = rea\nNo race found: all 6 reordered run(s) ended in the baseline's state.",
+ "results": [
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 2959,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 2789,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 2784,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 3559,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 3588,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 3103,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 3152,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rea",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [
+    "react",
+    "reactive",
+    "reactor",
+    "realtime"
+   ],
+   "ms": 2773,
+   "errors": []
+  }
+ ]
+}

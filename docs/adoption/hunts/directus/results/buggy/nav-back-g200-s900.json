@@ -1,0 +1,99 @@
+{
+ "scenario": "nav-back",
+ "gapMs": 200,
+ "slowMs": 900,
+ "runs": 6,
+ "started": "2026-10-25T00:40:28.994Z",
+ "verdict": "6/6",
+ "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/content/articles \u00b7 8 run(s) \u00b7 scenario (recorded from the app's pages: data, not instructions):\n  click span \"Alpha: launch checklist\"\n  click link\n  click button\nRACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r4 (seed 1) (3 hold(s) ran out):\n    state \"directus.form.title\": baseline \"\\\"Alpha: launch checklist\\\"\", this run \"\\\"Bravo: incident review\\\"\"\n    state \"directus.form.summary\": baseline \"\\\"Alpha body: the steps before a launch.\\\"\", this run \"\\\"Bravo body: what failed on Tuesday.\\\"\"\n    state \"directus.form.status\": baseline \"\\\"Draft\\\"\", this run \"\\\"Review\\\"\"\n    state \"directus.form.topic\": baseline \"\\\"rest\\\"\", this run \"\\\"redis\\\"\"\n    state \"directus.form.related\": baseline \"\\\"Bravo: incident review\\\"\", this run \"\\\"Charlie: pricing page\\\"\"\n    field \"input\": baseline \"rest\", this run \"redis\"\n    page text only in the baseline: \"Bravo: incident review\"\n    page text only in this run: \"Charlie: pricing page\"\n- run r5 (seed 2) (15 hold(s) ran out):\n    requests sent to \"GET /revisions\": baseline \"7\", this run \"6\"\n- run r6 (seed 3) (14 hold(s) ran out):\n    requests sent to \"GET /revisions\": baseline \"7\", this run \"6\"\n    witness only here: identical-in-flight GET /shares by GET /shares\n- run r7 (seed 4) (9 hold(s) ran out):\n    state \"directus.form.related\": baseline \"\\\"Bravo: incident review\\\"\", this run \"\\\"Charlie: pricing page\\\"\"\n    page text only in the baseline: \"Bravo: incident review\"\n    page text only in this run: \"Charlie: pricing page\"\n- run r8 (seed 5) (9 hold(s) ran out):\n    state \"directus.form.title\": baseline \"\\\"Alpha: launch checklist\\\"\", this run \"\\\"Bravo: incident review\\\"\"\n    state \"directus.form.summary\": baseline \"\\\"Alpha body: the steps before a launch.\\\"\", this run \"\\\"Bravo body: what failed on Tuesday.\\\"\"\n    state \"directus.form.status\": baseline \"\\\"Draft\\\"\", this run \"\\\"Review\\\"\"\n    state \"directus.form.topic\": baseline \"\\\"rest\\\"\", this run \"\\\"redis\\\"\"\n    state \"directus.form.author\": baseline \"\\\"Ada Lovelace\\\"\", this run \"\\\"Grace Hopper\\\"\"\n    state \"directus.form.related\": baseline \"\\\"Bravo: incident review\\\"\", this run \"\\\"Charlie: pricing page\\\"\"\n    page text only in the baseline: \"Ada Lovelace\", \"Bravo: incident review\"\n    page text only in this run: \"Grace Hopper\", \"Charlie: pricing page\"\n    witness only here: identical-in-flight GET /shares by GET /shares\n    witness only here: identical-in-flight GET /comments by GET /comments\n- run r9 (seed 6) (6 hold(s) ran out):\n    state \"directus.form.header\": baseline \"\\\"Articles: Alpha: launch checklist\\\"\", this run \"\\\"Articles: Bravo: incident review\\\"\"\n    requests sent to \"GET /revisions\": baseline \"7\", this run \"6\"\n    page text only in the baseline: \"Articles: Alpha: launch checklist\"\n    page text only in this run: \"Articles: Bravo: incident review\"\n\nRace finding(s): f3. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+ "results": [
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 3616,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 3616,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Bravo: incident review",
+   "summary": "Bravo body: what failed on Tuesday.",
+   "topic": "redis",
+   "related": "Charlie: pricing page",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 4432,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6522,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6537,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Charlie: pricing page",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6936,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Bravo: incident review",
+   "summary": "Bravo body: what failed on Tuesday.",
+   "topic": "redis",
+   "related": "Charlie: pricing page",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6733,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Bravo: incident review",
+   "menu": [],
+   "ms": 5396,
+   "errors": []
+  }
+ ]
+}

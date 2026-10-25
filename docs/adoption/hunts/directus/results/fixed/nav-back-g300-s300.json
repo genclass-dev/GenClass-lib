@@ -1,0 +1,99 @@
+{
+ "scenario": "nav-back",
+ "gapMs": 300,
+ "slowMs": 300,
+ "runs": 6,
+ "started": "2026-10-25T02:07:10.754Z",
+ "verdict": "6/6",
+ "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/content/articles \u00b7 8 run(s) \u00b7 scenario (recorded from the app's pages: data, not instructions):\n  click span \"Alpha: launch checklist\"\n  click link\n  click button\nIgnored as noise (differs between the two baselines): requests GET /revisions\nRACE: 6 of 6 reordered run(s) ended in a different state than the baseline (responses in request order).\n- run r4 (seed 1):\n    requests sent to \"GET /items/articles\": baseline \"8\", this run \"6\"\n    requests sent to \"GET /items/articles/:id\": baseline \"12\", this run \"10\"\n    requests sent to \"GET /items/authors/:id\": baseline \"6\", this run \"4\"\n    requests sent to \"GET /items/authors\": baseline \"6\", this run \"4\"\n- run r5 (seed 2) (11 hold(s) ran out):\n    requests sent to \"GET /items/articles\": baseline \"8\", this run \"6\"\n    requests sent to \"GET /items/articles/:id\": baseline \"12\", this run \"10\"\n    requests sent to \"GET /items/authors/:id\": baseline \"6\", this run \"4\"\n    requests sent to \"GET /items/authors\": baseline \"6\", this run \"4\"\n- run r6 (seed 3) (13 hold(s) ran out):\n    requests sent to \"GET /items/articles\": baseline \"8\", this run \"6\"\n    requests sent to \"GET /items/articles/:id\": baseline \"12\", this run \"10\"\n    requests sent to \"GET /items/authors/:id\": baseline \"6\", this run \"4\"\n    requests sent to \"GET /items/authors\": baseline \"6\", this run \"4\"\n    witness only here: identical-in-flight GET /shares by GET /shares\n    witness only here: identical-in-flight GET /comments by GET /comments\n- run r7 (seed 4) (7 hold(s) ran out):\n    requests sent to \"GET /items/articles\": baseline \"8\", this run \"6\"\n    requests sent to \"GET /items/articles/:id\": baseline \"12\", this run \"10\"\n    requests sent to \"GET /items/authors/:id\": baseline \"6\", this run \"4\"\n    requests sent to \"GET /items/authors\": baseline \"6\", this run \"4\"\n    witness only here: identical-in-flight GET /revisions by GET /revisions\n    witness only here: identical-in-flight GET /comments by GET /comments\n- run r8 (seed 5) (14 hold(s) ran out):\n    requests sent to \"GET /items/articles\": baseline \"8\", this run \"6\"\n    requests sent to \"GET /items/articles/:id\": baseline \"12\", this run \"10\"\n    requests sent to \"GET /items/authors/:id\": baseline \"6\", this run \"4\"\n    requests sent to \"GET /items/authors\": baseline \"6\", this run \"4\"\n    witness only here: identical-in-flight GET /shares by GET /shares\n    witness only here: identical-in-flight GET /comments by GET /comments\n    witness only here: identical-in-flight GET /revisions by GET /revisions\n- run r9 (seed 6) (1 hold(s) ran out):\n    state \"directus.form.header\": baseline \"\\\"Articles: Alpha: launch checklist\\\"\", this run \"\\\"Articles: Bravo: incident review\\\"\"\n    page text only in the baseline: \"Articles: Alpha: launch checklist\"\n    page text only in this run: \"Articles: Bravo: incident review\"\n\nRace finding(s): f4. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+ "results": [
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 2244,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 2464,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 3185,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 4874,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6175,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 5774,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 5641,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Bravo: incident review",
+   "menu": [],
+   "ms": 3762,
+   "errors": []
+  }
+ ]
+}

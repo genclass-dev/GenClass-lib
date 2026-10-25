@@ -1,0 +1,455 @@
+Directus Studio: discard stale responses in the item view and its siblings (prepared, not submitted).
+Base: directus/directus tag v12.5.1 (2cd112f1a1afe42829d2e4de899d07ce4394649c). Apply with: git apply directus.patch
+Evidence and test results: docs/adoption/hunts/directus.md in genclass-dev/GenClass-lib.
+
+- app/src/composables/use-item/index.ts: the fix for the reported bug (generation counter in getItem()).
+- use-template-data.ts, use-relation-single.ts, input-autocomplete-api.vue: the same class, separable.
+- Tests: 3 in use-item/index.test.ts, 1 each in use-template-data.test.ts, use-relation-single.test.ts and the new
+  input-autocomplete-api.test.ts. Each fails on v12.5.1 and passes with the patch.
+
+diff --git a/app/src/composables/use-item/index.test.ts b/app/src/composables/use-item/index.test.ts
+index 2da53dc..9c6d173 100644
+--- a/app/src/composables/use-item/index.test.ts
++++ b/app/src/composables/use-item/index.test.ts
+@@ -1,5 +1,5 @@
+ import { useCollection } from '@directus/composables';
+-import { AppCollection, Field, Relation } from '@directus/types';
++import { AppCollection, Field, PrimaryKey, Relation } from '@directus/types';
+ import { createTestingPinia } from '@pinia/testing';
+ import { flushPromises } from '@vue/test-utils';
+ import { setActivePinia } from 'pinia';
+@@ -442,6 +442,88 @@ describe('refreshSignal', () => {
+ 	});
+ });
+ 
++describe('Stale item responses', () => {
++	const mockCollection = {
++		collection: 'test',
++	} as AppCollection;
++
++	const mockPrimaryKeyField = {
++		field: 'id',
++	} as Field;
++
++	beforeEach(() => {
++		vi.mocked(useCollection).mockReturnValue({
++			info: computed(() => mockCollection),
++			primaryKeyField: computed(() => mockPrimaryKeyField),
++			fields: computed(() => [mockPrimaryKeyField]),
++		} as any);
++	});
++
++	/** Holds the next item requests open; the returned resolvers[n] answers the n-th request once it was sent */
++	function holdNextRequests(count: number) {
++		const resolvers: ((value: unknown) => void)[] = [];
++
++		for (let i = 0; i < count; i++) {
++			vi.mocked(sdk.request).mockImplementationOnce(() => new Promise((resolve) => resolvers.push(resolve)));
++		}
++
++		return resolvers;
++	}
++
++	test('should ignore the response for the previous primary key when it resolves last', async () => {
++		const respond = holdNextRequests(2);
++		const primaryKey = ref<PrimaryKey | null>(1);
++		const { item, loading } = useItem(ref('test'), primaryKey);
++
++		primaryKey.value = 2;
++		await flushPromises();
++
++		respond[1]!({ id: 2, title: 'Second' });
++		await flushPromises();
++
++		respond[0]!({ id: 1, title: 'First' });
++		await flushPromises();
++
++		expect(item.value).toEqual({ id: 2, title: 'Second' });
++		expect(loading.value).toBe(false);
++	});
++
++	test('should keep loading until the response for the current primary key resolves', async () => {
++		const respond = holdNextRequests(2);
++		const primaryKey = ref<PrimaryKey | null>(1);
++		const { item, loading } = useItem(ref('test'), primaryKey);
++
++		primaryKey.value = 2;
++		await flushPromises();
++
++		respond[0]!({ id: 1, title: 'First' });
++		await flushPromises();
++
++		expect(item.value).toBeNull();
++		expect(loading.value).toBe(true);
++
++		respond[1]!({ id: 2, title: 'Second' });
++		await flushPromises();
++
++		expect(item.value).toEqual({ id: 2, title: 'Second' });
++		expect(loading.value).toBe(false);
++	});
++
++	test('should not show the previous item when switching to a new item', async () => {
++		const respond = holdNextRequests(1);
++		const primaryKey = ref<PrimaryKey | null>(1);
++		const { item } = useItem(ref('test'), primaryKey);
++
++		primaryKey.value = '+';
++		await flushPromises();
++
++		respond[0]!({ id: 1, title: 'First' });
++		await flushPromises();
++
++		expect(item.value).toBeNull();
++	});
++});
++
+ describe('Clear Hidden Fields Condition', () => {
+ 	const mockCollection = {
+ 		collection: 'test',
+diff --git a/app/src/composables/use-item/index.ts b/app/src/composables/use-item/index.ts
+index ce2ac88..0423991 100644
+--- a/app/src/composables/use-item/index.ts
++++ b/app/src/composables/use-item/index.ts
+@@ -75,6 +75,7 @@ export function useItem<T extends Item>(
+ 	const edits = ref<Item>({});
+ 	const hasEdits = computed(() => Object.keys(edits.value).length > 0);
+ 	const refreshSignal = ref(0);
++	let itemGeneration = 0;
+ 	const isNew = computed(() => primaryKey.value === '+');
+ 	const isSingle = computed(() => !!collectionInfo.value?.meta?.singleton);
+ 
+@@ -149,22 +150,33 @@ export function useItem<T extends Item>(
+ 	};
+ 
+ 	async function getItem(opts?: { silent?: boolean }) {
++		const currentGeneration = ++itemGeneration;
++
+ 		if (!opts?.silent) loadingItem.value = true;
+ 		error.value = null;
+ 
+ 		try {
+ 			if (isItemlessVersion.value) {
+ 				const { delta } = await sdk.request<T>(() => ({ path: `versions/${currentVersion!.value!.id}` }));
++				if (currentGeneration !== itemGeneration) return;
+ 				setItemValueToResponse(delta);
+ 				return;
+ 			}
+ 
+ 			const item = await sdk.request<T>(requestEndpoint(itemEndpoint.value, { params: unref(query) }));
++
++			// Discard the result if a newer request has been initiated (prevents showing the previous item's data
++			// under the current primary key when navigating between items quickly)
++			if (currentGeneration !== itemGeneration) return;
++
+ 			setItemValueToResponse(item);
+ 		} catch (err) {
++			if (currentGeneration !== itemGeneration) return;
+ 			error.value = err;
+ 		} finally {
+-			loadingItem.value = false;
++			if (currentGeneration === itemGeneration) {
++				loadingItem.value = false;
++			}
+ 		}
+ 	}
+ 
+@@ -558,6 +570,8 @@ export function useItem<T extends Item>(
+ 
+ 	function refreshItem() {
+ 		if (isNew.value && !isItemlessVersion.value) {
++			// No request for a new item: discard any response still in flight for the previous one
++			itemGeneration++;
+ 			item.value = null;
+ 		} else {
+ 			getItem();
+diff --git a/app/src/composables/use-relation-single.test.ts b/app/src/composables/use-relation-single.test.ts
+index b2b2d4b..b620eb1 100644
+--- a/app/src/composables/use-relation-single.test.ts
++++ b/app/src/composables/use-relation-single.test.ts
+@@ -176,4 +176,40 @@ describe('useRelationSingle', () => {
+ 		expect(unexpectedError).toHaveBeenCalledOnce();
+ 		expect(wrapper.vm.displayItem).toBeNull();
+ 	});
++
++	test('ignores the related item of a previous value when it resolves last', async () => {
++		const respond: ((value: unknown) => void)[] = [];
++
++		for (let i = 0; i < 2; i++) {
++			vi.mocked(sdk.request).mockImplementationOnce(() => new Promise((resolve) => respond.push(resolve)));
++		}
++
++		const value = ref<string | null>('tenant-a');
++
++		const wrapper = mount(
++			defineComponent({
++				setup: () =>
++					useRelationSingle(
++						value,
++						computed(() => ({ fields: ['name'] })),
++						ref(relation),
++					),
++				render: () => h('div'),
++			}),
++		);
++
++		await flushPromises();
++
++		value.value = 'tenant-b';
++		await flushPromises();
++
++		respond[1]!({ id: 'tenant-b', name: 'Tenant B' });
++		await flushPromises();
++
++		respond[0]!({ id: 'tenant-a', name: 'Tenant A' });
++		await flushPromises();
++
++		expect(wrapper.vm.displayItem).toEqual({ id: 'tenant-b', name: 'Tenant B' });
++		expect(wrapper.vm.loading).toBe(false);
++	});
+ });
+diff --git a/app/src/composables/use-relation-single.ts b/app/src/composables/use-relation-single.ts
+index 199d20a..314264f 100644
+--- a/app/src/composables/use-relation-single.ts
++++ b/app/src/composables/use-relation-single.ts
+@@ -24,6 +24,7 @@ export function useRelationSingle<T extends Record<string, any>>(
+ ) {
+ 	const displayItem: Ref<T | null> = ref(null);
+ 	const loading = ref(false);
++	let displayItemGeneration = 0;
+ 
+ 	const enabled = computed(() => (options?.enabled === undefined ? true : toValue(options?.enabled)));
+ 
+@@ -61,6 +62,7 @@ export function useRelationSingle<T extends Record<string, any>>(
+ 	}
+ 
+ 	async function getDisplayItem() {
++		const currentGeneration = ++displayItemGeneration;
+ 		const val = value.value;
+ 
+ 		if (!val) {
+@@ -105,12 +107,18 @@ export function useRelationSingle<T extends Record<string, any>>(
+ 				}),
+ 			);
+ 
++			// Discard the result if a newer request has been initiated (prevents showing a previous value's
++			// related item when the value changes quickly, e.g. when navigating between items)
++			if (currentGeneration !== displayItemGeneration) return;
++
+ 			if (typeof val === 'object') {
+ 				displayItem.value = merge({}, item, val);
+ 			} else {
+ 				displayItem.value = item;
+ 			}
+ 		} catch (error) {
++			if (currentGeneration !== displayItemGeneration) return;
++
+ 			// Fall back to displaying the saved primary key when the related item can't
+ 			// be resolved (e.g. no permission, manually entered key doesn't exist yet etc).
+ 			if (extractErrorCode(error) === ErrorCode.Forbidden) {
+@@ -119,7 +127,9 @@ export function useRelationSingle<T extends Record<string, any>>(
+ 				unexpectedError(error);
+ 			}
+ 		} finally {
+-			loading.value = false;
++			if (currentGeneration === displayItemGeneration) {
++				loading.value = false;
++			}
+ 		}
+ 	}
+ }
+diff --git a/app/src/composables/use-template-data.test.ts b/app/src/composables/use-template-data.test.ts
+index fd58f9f..3d80844 100644
+--- a/app/src/composables/use-template-data.test.ts
++++ b/app/src/composables/use-template-data.test.ts
+@@ -62,4 +62,38 @@ describe('useTemplateData', () => {
+ 
+ 		expect(fields).toEqual(['slug.navigation_items_id.url']);
+ 	});
++
++	test('ignores the template values of a previous primary key when they resolve last', async () => {
++		const respond: ((value: unknown) => void)[] = [];
++
++		for (let i = 0; i < 2; i++) {
++			requestSpy.mockImplementationOnce(() => new Promise((resolve) => respond.push(resolve)));
++		}
++
++		const primaryKey = ref('1');
++
++		const wrapper = mount(
++			defineComponent({
++				setup: () =>
++					useTemplateData(ref({ collection: 'articles', meta: {} } as any), primaryKey, {
++						template: ref('{{ title }}'),
++					}),
++				render: () => '',
++			}),
++		);
++
++		await flushPromises();
++
++		primaryKey.value = '2';
++		await flushPromises();
++
++		respond[1]!({ title: 'Second' });
++		await flushPromises();
++
++		respond[0]!({ title: 'First' });
++		await flushPromises();
++
++		expect(wrapper.vm.templateData).toEqual({ title: 'Second' });
++		expect(wrapper.vm.loading).toBe(false);
++	});
+ });
+diff --git a/app/src/composables/use-template-data.ts b/app/src/composables/use-template-data.ts
+index 3f4a855..225e93e 100644
+--- a/app/src/composables/use-template-data.ts
++++ b/app/src/composables/use-template-data.ts
+@@ -24,6 +24,7 @@ export function useTemplateData(
+ 	const itemData = ref<Item | null>(null);
+ 	const loading = ref(false);
+ 	const error = ref<any>(null);
++	let templateDataGeneration = 0;
+ 
+ 	const template = computed(() => options?.template?.value ?? collection.value?.meta?.display_template ?? null);
+ 
+@@ -62,6 +63,8 @@ export function useTemplateData(
+ 	return { template, templateData, loading, error, fetchTemplateValues };
+ 
+ 	async function fetchTemplateValues() {
++		const currentGeneration = ++templateDataGeneration;
++
+ 		if (
+ 			(!primaryKey.value && !isSingleton.value) ||
+ 			primaryKey.value === '+' ||
+@@ -91,11 +94,18 @@ export function useTemplateData(
+ 				}),
+ 			);
+ 
++			// Discard the result if a newer request has been initiated (prevents showing the previous item's
++			// template values when navigating between items quickly)
++			if (currentGeneration !== templateDataGeneration) return;
++
+ 			itemData.value = item;
+ 		} catch (err) {
++			if (currentGeneration !== templateDataGeneration) return;
+ 			error.value = err;
+ 		} finally {
+-			loading.value = false;
++			if (currentGeneration === templateDataGeneration) {
++				loading.value = false;
++			}
+ 		}
+ 	}
+ }
+diff --git a/app/src/interfaces/input-autocomplete-api/input-autocomplete-api.test.ts b/app/src/interfaces/input-autocomplete-api/input-autocomplete-api.test.ts
+new file mode 100644
+index 0000000..6a19ad4
+--- /dev/null
++++ b/app/src/interfaces/input-autocomplete-api/input-autocomplete-api.test.ts
+@@ -0,0 +1,72 @@
++import { flushPromises, mount } from '@vue/test-utils';
++import { afterEach, describe, expect, test, vi } from 'vitest';
++import InputAutocompleteApi from './input-autocomplete-api.vue';
++import api from '@/api';
++
++vi.mock('@/api', () => ({
++	default: { get: vi.fn() },
++}));
++
++const mountOptions = {
++	props: {
++		value: null,
++		url: '/items/tags?search={{value}}',
++		resultsPath: 'data',
++		textPath: 'name',
++		valuePath: 'name',
++		trigger: 'debounce' as const,
++		rate: 0,
++	},
++	global: {
++		mocks: {
++			$t: (key: string) => key,
++		},
++		stubs: {
++			'v-menu': {
++				template: '<div><slot name="activator" :activate="() => {}" :deactivate="() => {}" /><slot /></div>',
++			},
++			'v-input': {
++				name: 'v-input',
++				props: ['modelValue'],
++				emits: ['update:model-value'],
++				template: '<input />',
++			},
++			'v-list': { template: '<ul><slot /></ul>' },
++			'v-list-item': { template: '<li><slot /></li>' },
++			'v-list-item-content': { template: '<span><slot /></span>' },
++			'v-icon': true,
++			'v-notice': true,
++		},
++	},
++};
++
++afterEach(() => {
++	vi.clearAllMocks();
++});
++
++describe('input-autocomplete-api', () => {
++	test('ignores the results of an earlier input when they resolve last', async () => {
++		const respond: ((value: unknown) => void)[] = [];
++
++		for (let i = 0; i < 2; i++) {
++			vi.mocked(api.get).mockImplementationOnce(() => new Promise((resolve) => respond.push(resolve)) as any);
++		}
++
++		const wrapper = mount(InputAutocompleteApi, mountOptions);
++		const input = wrapper.findComponent({ name: 'v-input' });
++
++		input.vm.$emit('update:model-value', 're');
++		await vi.waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
++
++		input.vm.$emit('update:model-value', 'rea');
++		await vi.waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
++
++		respond[1]!({ data: { data: [{ name: 'react' }] } });
++		await flushPromises();
++
++		respond[0]!({ data: { data: [{ name: 'react' }, { name: 'redis' }] } });
++		await flushPromises();
++
++		expect(wrapper.findAll('li').map((item) => item.text())).toEqual(['react']);
++	});
++});
+diff --git a/app/src/interfaces/input-autocomplete-api/input-autocomplete-api.vue b/app/src/interfaces/input-autocomplete-api/input-autocomplete-api.vue
+index 78fe05d..c6dae13 100644
+--- a/app/src/interfaces/input-autocomplete-api/input-autocomplete-api.vue
++++ b/app/src/interfaces/input-autocomplete-api/input-autocomplete-api.vue
+@@ -39,9 +39,14 @@ const props = withDefaults(
+ const emit = defineEmits(['input']);
+ 
+ const results = ref<Record<string, any>[]>([]);
++let resultsGeneration = 0;
++let appliedResultsGeneration = 0;
+ 
+ const fetchResultsRaw = async (value: string | null) => {
++	const currentGeneration = ++resultsGeneration;
++
+ 	if (!value) {
++		appliedResultsGeneration = currentGeneration;
+ 		results.value = [];
+ 		return;
+ 	}
+@@ -50,6 +55,13 @@ const fetchResultsRaw = async (value: string | null) => {
+ 
+ 	try {
+ 		const result = await (url.startsWith('/') ? api.get(url) : axios.get(url));
++
++		// Skip a response older than the results already shown, so an earlier input's suggestions never replace a later
++		// input's. Not every superseded response: onValueChange opens the menu once the earlier request resolves.
++		if (currentGeneration < appliedResultsGeneration) return;
++
++		appliedResultsGeneration = currentGeneration;
++
+ 		const resultsArray = props.resultsPath ? get(result.data, props.resultsPath) : result.data;
+ 
+ 		if (Array.isArray(resultsArray) === false) {

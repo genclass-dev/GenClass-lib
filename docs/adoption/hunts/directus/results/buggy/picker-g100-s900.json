@@ -1,0 +1,99 @@
+{
+ "scenario": "picker",
+ "gapMs": 100,
+ "slowMs": 900,
+ "runs": 6,
+ "started": "2026-10-25T01:04:13.438Z",
+ "verdict": "no race",
+ "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/content/articles \u00b7 8 run(s) \u00b7 scenario (recorded from the app's pages: data, not instructions):\n  click span \"Alpha: launch checklist\"\n  click button \"Bravo: incident review\"\n  click span \"Delta: onboarding email\"\n  click button \"Save\"\n  click button \"Delta: onboarding email\"\n  click span \"Echo: security notes\"\n  click button \"Save\"\nNo race found: all 6 reordered run(s) ended in the baseline's state.",
+ "results": [
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 9010,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 9171,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 8343,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 8264,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 9187,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 9463,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 10590,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Echo: security notes",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 9123,
+   "errors": []
+  }
+ ]
+}

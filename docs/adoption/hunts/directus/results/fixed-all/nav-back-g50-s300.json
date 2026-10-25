@@ -1,0 +1,99 @@
+{
+ "scenario": "nav-back",
+ "gapMs": 50,
+ "slowMs": 300,
+ "runs": 6,
+ "started": "2026-10-25T02:12:19.481Z",
+ "verdict": "4/6",
+ "report": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /admin/content/articles \u00b7 8 run(s) \u00b7 scenario (recorded from the app's pages: data, not instructions):\n  click span \"Alpha: launch checklist\"\n  click link\n  click button\nIgnored as noise (differs between the two baselines): requests GET /items/articles, requests GET /items/articles/:id, requests GET /items/authors/:id, requests GET /items/authors\nRACE: 4 of 6 reordered run(s) ended in a different state than the baseline (responses in request order); 2 more ended right but had an older response overwrite newer data along the way.\n- run r4 (seed 1):\n    requests sent to \"GET /revisions\": baseline \"7\", this run \"6\"\n- run r5 (seed 2) (12 hold(s) ran out):\n    requests sent to \"GET /revisions\": baseline \"7\", this run \"6\"\n- run r6 (seed 3) (13 hold(s) ran out):\n    requests sent to \"GET /revisions\": baseline \"7\", this run \"6\"\n    witness only here: identical-in-flight GET /shares by GET /shares\n    witness only here: identical-in-flight GET /comments by GET /comments\n- run r7 (seed 4) (7 hold(s) ran out):\n    witness only here: identical-in-flight GET /revisions by GET /revisions\n    witness only here: identical-in-flight GET /comments by GET /comments\n- run r8 (seed 5) (14 hold(s) ran out):\n    witness only here: identical-in-flight GET /shares by GET /shares\n    witness only here: identical-in-flight GET /revisions by GET /revisions\n- run r9 (seed 6):\n    requests sent to \"GET /revisions\": baseline \"7\", this run \"6\"\n\nRace finding(s): f4. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+ "results": [
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 2246,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 2561,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 2972,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6376,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6702,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 6870,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 5669,
+   "errors": []
+  },
+  {
+   "url": "/admin/content/articles/1",
+   "title": "Alpha: launch checklist",
+   "summary": "Alpha body: the steps before a launch.",
+   "topic": "rest",
+   "related": "Bravo: incident review",
+   "header": "Articles: Alpha: launch checklist",
+   "menu": [],
+   "ms": 3466,
+   "errors": []
+  }
+ ]
+}
