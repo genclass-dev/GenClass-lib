@@ -139,8 +139,18 @@ npx @genclass/runtime@beta init --dry-run     # show the diff, write nothing
 npx @genclass/runtime@beta remove             # undo exactly what init added
 ```
 
-Other flags: `--no-install`, `--no-devtools`, `--cwd <dir>`, `--cdn <url>` and `--no-sri` (plain HTML),
+Other flags: `--no-install`, `--no-devtools`, `--cwd <dir>`, `--cdn <url>`, `--no-sri` and `--sync` (plain HTML),
 `remove --keep-package`.
+
+On a plain HTML site `init` writes the script tag with `defer` (after `0.3.0-beta.1`), so a slow or blocked CDN never
+holds up the page. GenClass then starts once the page is parsed: before your `defer` and `type="module"` scripts and
+before `DOMContentLoaded`, but after classic scripts that have neither `defer` nor `async`. Requests and errors those
+scripts cause while the page is still loading are not seen, and a library loaded that way before GenClass (a UMD React
+from a CDN) is not discovered; a click handler's `fetch` is seen either way, and the model still loads at idle after
+`load`, as before. `--sync` writes the blocking tag of earlier versions, which runs before every script. `remove` takes
+the tag out whatever attributes you add to it (`defer`, `async`, `nonce`). When a project looks mostly static (no
+`fetch`, XHR, WebSocket or EventSource call in its sources, or a plain HTML page with one script), `init` says so in one
+sentence and points to the visual checks and the page scan (`npx @genclass/runtime@beta scan <url>`).
 
 **Token and dashboard** (`0.3.0`; `init` in `0.2.x` creates no token). On a new setup, once you approve the
 diff (or pass `--yes`), `init` also creates a project for your app at genclass.dev: it sends `package.json`'s `name`
@@ -766,6 +776,7 @@ are skipped, not guessed.
 | `page-blank` | the main region shows no text and no media after the page settled |
 | `click-blocked`, `pointer-events-leak`, `scroll-lock-stuck` | an invisible layer that took two clicks; `pointer-events: none` or a scroll lock left on `body` |
 | `control-unreachable`, `focus-obscured`, `dialog-covered` | a control under a fixed bar with no controls of its own; a focused element or anchor target under a sticky header or banner that paints over it; a dialog under other elements |
+| `request-stalled` | a `fetch` or XHR request still pending after 15 s (`visual: { checks: { stallMs } }`), and the button the page disabled or marked `aria-busy` when it started, if it still is; long polls, streams, sockets and endpoints that usually take that long are not checked |
 
 **Where they run.** On by default on development hosts (a dev server's port on `localhost`, `127.0.0.1`, `[::1]` or a
 `*.localhost` name, and `*.test` names) and when the devtools overlay mounts, where the developer reads the console;
@@ -875,6 +886,15 @@ Standing questions ride along with built-in decisions: `rt.question({ id, on: ["
   detections (observe, `0.3.0`) are one `console.debug` line each, ending in `(possible)`; a report function gets
   them only with `detect: "possible"`.
 - **Events:** `rt.on("detect" | "decide" | "act" | "event" | "status" | "report", fn)` returns an unsubscribe function.
+- **What it saw:** `rt.summary().requests` counts the `fetch` and XHR requests of this page load, in total and per host
+  (`"same-origin"` or the API's host): `requests`, answers by status class (`2xx` to `5xx`), `network` (no answer),
+  `aborted`, `notJson` (read with `response.json()` while the Content-Type is not JSON), `byGenClass`, `pending`, and
+  `latency` (`p50`, `p95` of the answers that did not fail). A quiet summary with `requests: 0` means GenClass did not
+  see your requests (it loaded after them, or the app keeps its own `fetch` reference); requests counted with nothing
+  in `detections` means it saw them and nothing was salient: a 404 or a non-JSON answer your own `catch` handles is
+  counted here, not reported as a detection. It is counted by the measured checks' chunk, so it is there wherever the
+  checks run (development hosts by default; `visual: true` or `data-visual="on"` in production, the devtools overlay,
+  `rt.checkNow()`), and it costs no first-load bytes. Kept in the page: telemetry does not send it.
 - **`rt.explain(id)`:** the exact situation text the model read, its facts and timeline, every answer with
   probabilities, and what changed.
 - **`rt.decisions()`, `rt.interventions()`, `rt.history()`, `rt.inflight()`, `rt.situation()`** for introspection.

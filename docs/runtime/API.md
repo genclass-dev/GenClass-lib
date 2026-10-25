@@ -162,7 +162,7 @@ interface InitOptions {
 ```
 
 Runtime additions: `rt.audit(n?)` (the audit trail, below), `rt.disable({ undo? })` (permanent; `undo: true` rolls back the last minute's actions),
-`rt.summary(): SessionSummary` (0.3.0: `possibleDetections` per diagnosis next to `detections`, the likely ones), `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
+`rt.summary(): SessionSummary` (0.3.0: `possibleDetections` per diagnosis next to `detections`, the likely ones; after 0.3.0-beta.1: `requests`, below), `rt.setSession({ id?, tags? })`, `rt.breaker.{tripped, reset()}`, `rt.learn.clear()`,
 `rt.learned()` (below), events `shadow`, `breaker`, `limit`, `modelBudget`, `expectation`. `status` adds `effectiveMode`, `sampled`, `breaker`, `scope`,
 `modelBudget`, and states `"disabled" | "skipped" | "unloaded"`. `status.scope` is what is in force on the current
 route: `mode` is the effective mode there (equal to `effectiveMode`: the requested mode demoted by sampling, the breaker
@@ -697,7 +697,7 @@ await rt.checkNow();                                                   // a pass
 
 interface VisualOptions {
   on?: boolean | "local";            // ["local" in GenClass.init in a browser; false in createRuntime] "local": development hosts and the devtools overlay only
-  checks?: Partial<Record<CheckKind, boolean>>;   // [every kind on]
+  checks?: Partial<Record<CheckKind, boolean>> & { stallMs?: number }; // [every kind on; stallMs 15000]
   fix?: boolean | ("text-invisible" | "pointer-events-leak" | "scroll-lock-stuck")[]; // [false] needs on: true and guard or heal
   ignore?: string[];                 // selectors never checked (and image hosts for text-placeholder)
   budgetMs?: number;                 // [8] per idle slice, clamped to 2..16
@@ -712,7 +712,7 @@ type CheckKind = "image-broken" | "image-css-broken" | "media-failed" | "stylesh
   | "icon-font-failed" | "csp-blocked" | "text-invisible" | "text-template-leak" | "text-placeholder" | "text-encoding"
   | "css-var-undefined" | "image-distorted" | "page-overflow-x" | "viewport-meta-missing" | "layout-shift"
   | "page-blank" | "click-blocked" | "pointer-events-leak" | "scroll-lock-stuck" | "control-unreachable"
-  | "focus-obscured" | "dialog-covered";
+  | "focus-obscured" | "dialog-covered" | "request-stalled";
 
 interface CheckFinding {
   id: string;                        // "c1", "c2", ...
@@ -753,6 +753,14 @@ interface CheckFinding {
 - **Sinks** get `kind: "check"` records (`check: { kind, severity, fixed }`, `route`) only when their `kinds` list
   `"check"`; `evidence: true` adds `message`, `target` and `selector`.
 - **Audit.** Every fix applied, undone or dropped is an entry of kind `"fix"`: `fix: { what, checkId, kind, css, reason? }`.
+- **Stalled requests.** `request-stalled` (after 0.3.0-beta.1): a `fetch` or XHR request still pending after
+  `visual: { checks: { stallMs } }` (default 15,000 ms, clamped to 1 s..10 min) is reported once, with its method, host
+  and normalised path (no query), how long it has waited, and the control the page disabled (`disabled`,
+  `aria-disabled="true"`) or marked `aria-busy="true"` from 1 s before the request started, if it still is (severity
+  high then, medium otherwise; `measured.control` is `"not watched"` for a request older than the checks). Not checked:
+  EventSource and WebSocket, a request on a background schedule the runtime learned (long polling), an endpoint whose
+  learned p95 latency is at least `stallMs`. `visual.ignore` takes a host or a path prefix. Needs the runtime (not in
+  `checkPage()`); judged on the Clock at most every 2 s, from the start of the page (not after it settles).
 - **Summary.** `rt.summary().visual`, once the checks have run: `checks` (per kind), `checksByRoute` (at most 20
   routes), `fixes` (`applied`, `undone`), `passes`, `elements`, `ms`, `maxSliceMs`, `partial`, `abstained`,
   `unsupported` (kinds this browser cannot measure), `tier`, `stopped`.
@@ -769,6 +777,41 @@ interface CheckFinding {
   running runtime).
 - **Devtools.** A Checks tab lists every finding with its measured value and threshold, the suggested CSS (Copy), a
   Show button that scrolls to the element and outlines it inside the overlay, and Undo for an applied fix.
+
+### Requests in `rt.summary()`
+
+`rt.summary().requests` (after 0.3.0-beta.1, issue 94) answers "did GenClass see my requests?" without a model
+decision. Counted from the `fetch` and XHR operations the runtime records; reporting only (never a situation, a fact,
+the gate or the model), and not sent by telemetry. It is counted in the measured checks' chunk (`src/visual/requests.ts`),
+so it is present once that chunk has loaded: wherever `visual` is on (development hosts by default, `visual: true`
+elsewhere), when the devtools overlay mounts, or after `rt.checkNow()`. On load it counts the requests the runtime
+still holds (its op store keeps the last 2,000 operations of every kind), then follows its event stream.
+
+```ts
+interface RequestHealth {
+  requests: number;            // fetch and XHR requests started (GenClass's own retries and hedges excluded)
+  "2xx": number; "3xx": number; "4xx": number; "5xx": number; // answers by status class
+  network: number;             // no answer: network error, timeout (XHR timeout, AbortSignal.timeout), status 0
+  aborted: number;             // aborted by the app
+  notJson: number;             // fetch answers read with response.json() whose Content-Type is not JSON
+  byGenClass: number;          // answered by GenClass (blocked, reused response; guard and heal only)
+  pending: number;             // still in flight
+  latency?: { n: number; p50: number; p95: number }; // ms, answers that did not fail (the learned baselines, last 64 per endpoint)
+}
+interface RequestSummary extends RequestHealth {
+  hosts: Record<string, RequestHealth>; // "same-origin", "api.example.com", ...; "other" past 30 hosts
+}
+```
+
+- `requests: 0` after the app sent requests means GenClass did not see them: it was loaded after them (a deferred
+  script tag starts after classic scripts), or the app calls a `fetch` it captured before GenClass loaded. Requests
+  counted and nothing in `detections` means it saw them and none was salient: a 404 or a non-JSON answer the app's own
+  `catch` handles is counted here, not detected.
+- `notJson` reads the Content-Type header, never the body: an API that sends invalid JSON as `application/json` is not
+  counted, and neither is XHR's `responseType = "json"`. Its first-load cost is one flag on the request (34 B gzip).
+- A sink's `summary` record carries the totals with an empty `hosts` (the per-host counts stay in `rt.summary()`).
+- A request answered by GenClass from its cache before the chunk loaded counts by its status, not as `byGenClass`.
+- A request still pending past `visual.checks.stallMs` is also a `request-stalled` check (Visual checks, below).
 
 ### Audit trail
 
