@@ -465,3 +465,33 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     await close();
   });
 });
+
+describe("dashboard page: the closed loop (Fig. 3)", () => {
+  it("has a Loop view: seven stages, this app's numbers on observe, find and confirm, a human gate on ship", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, text, close } = await render(st);
+    expect(text('.snav a[href="#loop"]')).toBe("Loop");
+    const section = doc.getElementById("loop")!;
+    expect(section.getAttribute("data-v")).toBe("loop");
+    const stages = [...doc.querySelectorAll("#loopv > li")].map((li) => li.getAttribute("data-s"));
+    expect(stages).toEqual(["observe", "find", "reproduce", "fix", "prove", "ship", "confirm"]);
+    expect(text("#loop-observe")).toContain(`${nf.format(st.totals.sessions!)} page loads`);
+    expect(text("#loop-find")).toContain(`${nf.format(st.totals.detections!)} problems`);
+    expect(text("#loop-confirm")).toMatch(/^Problems (down|up|unchanged)/);
+    expect(doc.querySelector('#loopv li[data-s="ship"]')!.classList.contains("gate")).toBe(true);
+    expect(text('#loopv li[data-s="ship"]')).toContain("A person");
+    expect(text("#loop")).toContain("@genclass/mcp");
+    close();
+  });
+
+  it("with nothing found, the find and confirm lines say so instead of showing zeros", async () => {
+    const st = sampleStats("7d", NOW);
+    st.totals.detections = 0; st.totals.possible = 0; st.breakdowns.detect_diagnosis = []; st.breakdowns.detect_route = [];
+    st.previous = { sessions: 0, detections: 0, acted: 0, ix_views: 0 };
+    const { text, close } = await render(st);
+    expect(text("#loop-find")).toContain("Nothing found in this period");
+    expect(text("#loop-reproduce")).toBe("");
+    expect(text("#loop-confirm")).toBe("Nothing to compare with yet.");
+    close();
+  });
+});

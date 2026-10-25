@@ -521,6 +521,22 @@ main.wrap:has(.app){max-width:1360px}
 .side nav.snav a span{margin-left:auto}
 .snav a::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.8;-webkit-mask:var(--ic) center/16px no-repeat;mask:var(--ic) center/16px no-repeat}
 .snav a[href="#top"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%223%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3Crect x=%2214%22 y=%2212%22 width=%227%22 height=%229%22 rx=%221%22/%3E%3Crect x=%223%22 y=%2216%22 width=%227%22 height=%225%22 rx=%221%22/%3E%3C/svg%3E")}.snav a[href="#found"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z%22/%3E%3Cpath d=%22M12 9v4M12 17h.01%22/%3E%3C/svg%3E")}.snav a[href="#where"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z%22/%3E%3Cpath d=%22M14 2v6h6M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E")}.snav a[href="#did"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E")}.snav a[href="#recent-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 12h-4l-3 9L9 3l-3 9H2%22/%3E%3C/svg%3E")}.snav a[href="#visits"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 9l5 12 1.8-5.2L21 14z%22/%3E%3Cpath d=%22M7.2 2.2 8 5.1M5.1 8l-2.9-.8M14 4.1 12 6M6 12l-1.9 2%22/%3E%3C/svg%3E")}.snav a[href="#health-s"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z%22/%3E%3C/svg%3E")}.snav a[href="#setup"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#connect"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z%22/%3E%3C/svg%3E")}.snav a[href="#forwarding"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m22 2-7 20-4-9-9-4z%22/%3E%3Cpath d=%22M22 2 11 13%22/%3E%3C/svg%3E")}.snav a[href="#export"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3%22/%3E%3C/svg%3E")}
+.snav a[href="#loop"]{--ic:url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M20 12a8 8 0 1 1-2.3-5.7%22/%3E%3Cpath d=%22M20 3v5h-5%22/%3E%3C/svg%3E")}
+/* the closed loop (Fig. 3): seven stage cards read left to right and wrap; each card points at the next, the last back to the first */
+.loop-lead,.loop-foot{font-size:14.5px;color:var(--ink2);max-width:80ch;margin-top:14px}
+.loop{list-style:none;counter-reset:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:14px;margin-top:22px}
+.loop li{position:relative;background:var(--panel);border:1px solid var(--rule);padding:16px 18px 14px;min-width:0;display:grid;gap:6px;align-content:start}
+.loop li .n{font:500 12px var(--mono);color:var(--accent);letter-spacing:.04em}
+.loop li h3{font:500 17px var(--sans);letter-spacing:-.01em;margin:0}
+.loop li p{font-size:13.5px;color:var(--ink2);margin:0}
+.loop li p code{font-size:12.5px}
+.loop li .live{color:var(--ink);font-size:13.5px;border-top:1px solid var(--rule);padding-top:8px;margin-top:4px}
+.loop li .live:empty{display:none}
+.loop li::after{content:"";position:absolute;right:-9px;top:50%;width:12px;height:12px;border-top:1px solid var(--ink3);border-right:1px solid var(--ink3);transform:translateY(-50%) rotate(45deg);background:var(--paper)}
+.loop li:last-child::after{content:"↻ 01";position:absolute;right:14px;left:auto;top:14px;width:auto;height:auto;border:0;transform:none;background:none;font:500 12px var(--mono);color:var(--accent)}
+.loop li.gate{border-left:3px solid var(--warn)}
+.loop li.gate .n{color:var(--warn)}
+@media (max-width:560px){.loop li::after{right:50%;top:auto;bottom:-9px;transform:translateX(50%) rotate(135deg)}.loop li:last-child::after{bottom:auto;transform:none;right:14px}}
 .crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12.5px var(--mono);color:var(--ink3);margin-bottom:10px}
 .crumbs a{color:var(--ink2);text-decoration:none}
 .crumbs a:hover{color:var(--ink)}
@@ -974,6 +990,18 @@ const DASH_JS = `
     document.getElementById("c-visits").textContent = fmt(views);
   }
 
+  // ---------- the closed loop: this app's own numbers on the stages that happen here (observe, find, confirm)
+  function loop(S){
+    var T0 = S.totals, B = S.breakdowns, prev = S.previous || {}, pagesN = count(S, "detect_route");
+    var found = (B.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length;
+    var set = function(id, t){ var e = document.getElementById(id); if (e) e.textContent = t; };
+    set("loop-observe", fmt(T0.sessions) + " page loads watched in this period; " + fmt(T0.decisions) + " decisions, all made on the device.");
+    set("loop-find", T0.detections ? fmt(T0.detections) + " problems of " + found + " kinds on " + fmt(pagesN) + " pages" + (T0.possible ? ", and " + fmt(T0.possible) + " possible ones" : "") + ". Start with the top row under Problems." : "Nothing found in this period: nothing to send to an agent.");
+    var top = (B.detect_route || [])[0];
+    set("loop-reproduce", top ? "Where to look first: " + top.key + "." : "");
+    var d = (T0.detections || 0) - (prev.detections || 0);
+    set("loop-confirm", prev.detections || T0.detections ? "Problems " + (d < 0 ? "down " + fmt(-d) : d > 0 ? "up " + fmt(d) : "unchanged") + " vs " + PREV[range] + (d < 0 ? ": a fix is holding, or traffic fell." : ".") : "Nothing to compare with yet.");
+  }
   function render(S){
     var live = !!S.lastEvent, st = document.getElementById("status");
     st.classList.toggle("on", live);
@@ -983,7 +1011,7 @@ const DASH_JS = `
     document.getElementById("content").classList.toggle("hidden", !live);
     var per = document.getElementById("period"); if (per) per.classList.toggle("hidden", !live);
     if (!live) { var ins = document.getElementById("install"); if (ins) ins.open = true; return; }
-    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); recent(S); visits(S); advanced(S);
+    summary(S); tiles(S); trend(S); possibleTrend(S); cards(S); possibleCards(S); pages(S); acted(S); health(S); loop(S); recent(S); visits(S); advanced(S);
     var B2 = S.breakdowns, T2 = S.totals;
     document.getElementById("c-trend").textContent = fmt(T2.detections);
     document.getElementById("c-found").textContent = String((B2.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).length);
@@ -998,7 +1026,7 @@ const DASH_JS = `
   // the link, so a view can be linked to and the back button works. While an app waits for its first event the view
   // is Connect.
   (function(){
-    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
+    var VIEW = { top: "overview", trend: "overview", found: "problems", where: "pages", did: "pages", "recent-s": "activity", visits: "visitors", "health-s": "health", loop: "loop", connect: "connect", setup: "setup", forwarding: "forwarding", "export": "export" };
     var links = [].slice.call(document.querySelectorAll(".snav a"));
     var parts = [].slice.call(document.querySelectorAll("[data-v]"));
     function show(id, jump){
@@ -1250,6 +1278,7 @@ export function dashboardPage(
     <a href="#recent-s">Activity</a>
     <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
     <a href="#health-s">Health</a>
+    <a href="#loop">Loop</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
   </nav>`;
   const help = `<div class="grp">Help</div>
@@ -1340,6 +1369,20 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
 </section>
 <section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
+<section class="blk" id="loop" data-v="loop" aria-labelledby="loop-h">
+  <div class="blk-h"><h2 id="loop-h">Closed-loop development</h2><span class="aside">Fig. 3. From a problem on this app to a proven, shipped fix</span></div>
+  <p class="loop-lead">Production reports itself; your coding agent reproduces the bug, fixes it and proves the fix; a person ships it. The loop closes when this dashboard stops reporting the problem. The first two stages and the last are this app, now; the middle four run on a developer's machine with <a href="https://genclass.dev/docs/mcp">@genclass/mcp</a>.</p>
+  <ol class="loop" id="loopv">
+    <li data-s="observe"><span class="n">01</span><h3>Observe</h3><p>@genclass/runtime in your users' browsers: the on-device model reports stale responses, double submits and failing endpoints. Counts only reach here, never page text.</p><p class="live" id="loop-observe"></p></li>
+    <li data-s="find"><span class="n">02</span><h3>Find</h3><p>This dashboard groups them by page and diagnosis. Forwarding puts each one in Sentry, PostHog, Datadog, Slack or your webhook; <code>genclass_analytics</code> hands the same counts to your agent.</p><p class="live" id="loop-find"></p></li>
+    <li data-s="reproduce"><span class="n">03</span><h3>Reproduce</h3><p>In the app's dev build the agent runs the same steps with the responses delivered in other orders (<code>genclass_explore</code>, <code>focus</code> on the flagged request), then replays the one order that produced it: reproduced.</p><p class="live" id="loop-reproduce"></p></li>
+    <li data-s="fix"><span class="n">04</span><h3>Fix</h3><p><code>genclass_explain</code> gives the agent the evidence in causal order, the recorded steps and a Playwright test that fails while the bug is there. The agent edits the code.</p></li>
+    <li data-s="prove"><span class="n">05</span><h3>Prove</h3><p>The same replay after the fix: not reproduced. <code>@genclass/playwright</code> runs your suite under seeded network chaos and posts one report on the pull request.</p></li>
+    <li data-s="ship" class="gate"><span class="n">06</span><h3>Ship</h3><p>A person reads the report and the test, and merges. Nothing merges or deploys itself.</p></li>
+    <li data-s="confirm"><span class="n">07</span><h3>Confirm</h3><p>After the deploy, the same runtime says whether the problem is gone; the regression test keeps it gone. Then back to 01.</p><p class="live" id="loop-confirm"></p></li>
+  </ol>
+  <p class="loop-foot">Connect your agent: <code>npx -y @genclass/mcp@0.1.0 init</code> in the project, and <code>connectAgent(rt)</code> in the dev build (<a href="https://genclass.dev/docs/coding-agents">how it works</a>). As a service, GenClass runs the loop for your developers, hosted or inside your network (<a href="https://genclass.dev/enterprise">Enterprise</a>).</p>
+</section>
 </div>
 ${setup}
 ${opts.extra?.html ?? ""}
