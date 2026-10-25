@@ -25,7 +25,7 @@ export const ANALYTICS_RUNTIME = "0.3.0-beta.1";
  * set SNIPPET_RUNTIME to "0.3.0" and RUNTIME_PKG to "@genclass/runtime" (and RUNTIME_ON_NPM in wrangler.toml), then
  * deploy.
  */
-export const SNIPPET_RUNTIME = "0.3.0-beta.1";
+export const SNIPPET_RUNTIME = "0.3.0-beta.2";
 export const RUNTIME_PKG = "@genclass/runtime@beta";
 export const CDN_SCRIPT = `https://cdn.jsdelivr.net/npm/@genclass/runtime@${SNIPPET_RUNTIME}`;
 /** What local and private hosts do, as the runtime behaves (src/telemetry/config.ts) and PRIVACY.md says. */
