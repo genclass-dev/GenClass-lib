@@ -58,6 +58,7 @@ import {
   PROJECT_ID_RE,
   projectBySecret,
   projectsCreatedSince,
+  putFunnels,
   randomBase62,
   sanitizeName,
   SECRET_RE,
@@ -1637,7 +1638,7 @@ async function deleteAccount(c: C): Promise<Response> {
     c.db.prepare(`DELETE FROM forward_log WHERE project_id IN (${owned})`).bind(id),
     c.db.prepare("DELETE FROM export_keys WHERE account_id = ?").bind(id),
     c.db.prepare("DELETE FROM custom_requests WHERE account_id = ?").bind(id),
-    ...["daily", "hourly", "recent", "sessions"].map((t) => c.db.prepare(`DELETE FROM ${t} WHERE token IN (${own})`).bind(id)),
+    ...["daily", "hourly", "recent", "sessions", "visits"].map((t) => c.db.prepare(`DELETE FROM ${t} WHERE token IN (${own})`).bind(id)),
     c.db.prepare("DELETE FROM projects WHERE account_id = ? AND private_link = 0").bind(id),
     c.db.prepare("UPDATE projects SET account_id = NULL WHERE account_id = ?").bind(id),
     c.db.prepare("DELETE FROM credentials WHERE account_id = ?").bind(id),
@@ -1865,6 +1866,16 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
     const range = pickRange(url.searchParams.get("range"), viewRanges(access.plan));
     return json(200, await stats(c.db, p, range, c.now));
   }
+  const fun = /^\/api\/account\/projects\/([^/]+)\/funnels$/.exec(path);
+  if (fun) {
+    if (m !== "PUT") return method();
+    const a = await browserWriter(c, "funnels can be changed");
+    if (a instanceof Response) return a;
+    const p = await ownedProject(c, a.account.id, fun[1]!);
+    if (!p) return fail(404, "not found");
+    if (!hasDashboard(await accountAccess(c.db, a.account.id, env, c.now))) return lockedJson(c);
+    return putFunnels(c.req, c.db, p.token);
+  }
   const link = /^\/api\/account\/projects\/([^/]+)\/link$/.exec(path);
   if (link) return m === "DELETE" ? turnOffLink(c, link[1]!) : method();
   const ses = /^\/api\/account\/sessions\/([^/]+)$/.exec(path);
@@ -1888,6 +1899,7 @@ export async function routeAuth(request: Request, url: URL, path: string, env: E
       privateLink: !!p.private_link,
       runtimeReady: runtimeHasTokens(env),
       endpoint: ownEndpoint(env),
+      origin: c.cfg.origin,
     };
     const project = { name: p.name, token: p.token, created: p.created, lastEvent: p.last_event };
     // locked (a plan file without the dashboard): the app's key and Connect panel, and the plans; no stats
