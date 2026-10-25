@@ -1,11 +1,12 @@
 {
   "schema": "genclass-hunt/1",
-  "started": "2026-10-24T19:15:53.622Z",
-  "finished": "2026-10-24T19:16:07.872Z",
-  "durationMs": 14250,
+  "started": "2026-10-25T00:28:57.703Z",
+  "finished": "2026-10-25T00:29:14.720Z",
+  "durationMs": 17017,
   "harness": {
     "version": "0.1.0",
-    "commit": "d77ffd810103"
+    "commit": "bd943285a162",
+    "dirty": false
   },
   "app": {
     "url": "http://127.0.0.1:4777/fixed",
@@ -14,19 +15,20 @@
   },
   "runtime": {
     "version": "0.3.0-beta.1",
-    "commit": "d77ffd810103",
+    "commit": "bd943285a162",
     "dirty": false
   },
   "mcp": {
     "version": "0.1.0",
-    "commit": "d77ffd810103",
+    "commit": "bd943285a162",
     "dirty": false
   },
   "browser": {
     "name": "chromium",
     "version": "153.0.8010.12",
     "headless": true,
-    "viewport": "1280x800"
+    "viewport": "1280x800",
+    "serviceWorkers": "block"
   },
   "options": {
     "runs": 6,
@@ -38,12 +40,11 @@
     "model": "skipped",
     "holdProtected": false,
     "storageState": false,
-    "runTests": true,
-    "rewrite": true
+    "runTests": true
   },
   "injection": {
-    "virtualPath": "/__genclass__/",
-    "how": "script tag first in <head> of the rewritten document, inline from the init script when the document was not rewritten",
+    "virtualPath": null,
+    "how": "the runtime's script-tag build run inline from an init script as soon as the document has its root element, then removed; the agent link imported from a blob URL; no request of the app routed",
     "config": {
       "mode": "observe",
       "telemetry": false,
@@ -79,6 +80,12 @@
         "verdict": {
           "kind": "no-race",
           "of": 6,
+          "compared": 6,
+          "notCompared": 0,
+          "seeded": 6,
+          "armed": 8,
+          "reordered": 6,
+          "groups": 1,
           "findingIds": []
         },
         "groups": [
@@ -93,7 +100,8 @@
             "noise": [],
             "diffs": [],
             "missingBaseline": false,
-            "insufficientBaselines": false
+            "insufficientBaselines": false,
+            "unfiltered": 0
           }
         ],
         "scenario": "type input \"Search\" = react"
@@ -104,6 +112,9 @@
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r1",
+          "runs": [
+            "r1"
+          ],
           "schedule": {
             "order": "fifo",
             "delay": {
@@ -118,20 +129,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 165,
-            "connected": 208,
-            "steps": 685,
-            "settled": 1053,
-            "total": 1580
+            "goto": 130,
+            "connected": 157,
+            "ready": 552,
+            "steps": 1001,
+            "settled": 1363,
+            "total": 1881
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -145,6 +159,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -153,13 +169,20 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 0
+          }
         },
         {
           "index": 1,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r2",
+          "runs": [
+            "r2"
+          ],
           "schedule": {
             "order": "fifo",
             "delay": {
@@ -174,20 +197,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 140,
-            "connected": 165,
-            "steps": 628,
-            "settled": 994,
-            "total": 1511
+            "goto": 122,
+            "connected": 150,
+            "ready": 536,
+            "steps": 989,
+            "settled": 1350,
+            "total": 1864
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -201,6 +227,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -209,13 +237,20 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 0
+          }
         },
         {
           "index": 2,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r3",
+          "runs": [
+            "r3"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 1,
@@ -231,20 +266,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 125,
-            "connected": 161,
-            "steps": 635,
-            "settled": 1003,
-            "total": 1523
+            "goto": 150,
+            "connected": 172,
+            "ready": 569,
+            "steps": 1016,
+            "settled": 1379,
+            "total": 1893
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -258,6 +296,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -266,13 +306,20 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 3
+          }
         },
         {
           "index": 3,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r4",
+          "runs": [
+            "r4"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 2,
@@ -288,20 +335,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 114,
-            "connected": 143,
-            "steps": 618,
-            "settled": 1378,
-            "total": 1895
+            "goto": 105,
+            "connected": 126,
+            "ready": 515,
+            "steps": 962,
+            "settled": 1724,
+            "total": 2237
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -315,6 +365,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -323,13 +375,20 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 4
+          }
         },
         {
           "index": 4,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r5",
+          "runs": [
+            "r5"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 3,
@@ -345,20 +404,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 111,
-            "connected": 144,
-            "steps": 609,
-            "settled": 1376,
-            "total": 1893
+            "goto": 105,
+            "connected": 127,
+            "ready": 516,
+            "steps": 961,
+            "settled": 1722,
+            "total": 2233
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -372,6 +434,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -380,13 +444,20 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 2
+          }
         },
         {
           "index": 5,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r6",
+          "runs": [
+            "r6"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 4,
@@ -402,20 +473,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 122,
-            "connected": 147,
-            "steps": 610,
-            "settled": 1376,
-            "total": 1901
+            "goto": 116,
+            "connected": 136,
+            "ready": 536,
+            "steps": 984,
+            "settled": 1746,
+            "total": 2259
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -429,6 +503,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -437,13 +513,20 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 2
+          }
         },
         {
           "index": 6,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r7",
+          "runs": [
+            "r7"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 5,
@@ -459,20 +542,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 112,
-            "connected": 139,
-            "steps": 601,
-            "settled": 1368,
-            "total": 1884
+            "goto": 120,
+            "connected": 143,
+            "ready": 530,
+            "steps": 976,
+            "settled": 1738,
+            "total": 2256
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -486,6 +572,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -494,13 +582,20 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 4
+          }
         },
         {
           "index": 7,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/fixed",
           "run": "r8",
+          "runs": [
+            "r8"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 6,
@@ -516,20 +611,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 121,
-            "connected": 146,
-            "steps": 605,
-            "settled": 1370,
-            "total": 1888
+            "goto": 128,
+            "connected": 152,
+            "ready": 538,
+            "steps": 983,
+            "settled": 1746,
+            "total": 2259
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -543,6 +641,8 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/fixed",
           "oracle": {
             "heading": "Results for react",
             "rows": [
@@ -551,7 +651,11 @@
             ]
           },
           "route": "/fixed",
-          "actions": 1
+          "actions": 1,
+          "reorder": {
+            "delivered": 5,
+            "late": 2
+          }
         }
       ],
       "findings": [],
@@ -567,7 +671,7 @@
         "examples": []
       },
       "timings": {
-        "totalMs": 14085
+        "totalMs": 16889
       },
       "error": null
     }

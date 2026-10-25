@@ -1,11 +1,12 @@
 {
   "schema": "genclass-hunt/1",
-  "started": "2026-10-24T19:16:08.353Z",
-  "finished": "2026-10-24T19:16:20.047Z",
-  "durationMs": 11694,
+  "started": "2026-10-25T00:29:15.097Z",
+  "finished": "2026-10-25T00:29:30.328Z",
+  "durationMs": 15231,
   "harness": {
     "version": "0.1.0",
-    "commit": "d77ffd810103"
+    "commit": "bd943285a162",
+    "dirty": false
   },
   "app": {
     "url": "http://127.0.0.1:4777/form",
@@ -14,19 +15,20 @@
   },
   "runtime": {
     "version": "0.3.0-beta.1",
-    "commit": "d77ffd810103",
+    "commit": "bd943285a162",
     "dirty": false
   },
   "mcp": {
     "version": "0.1.0",
-    "commit": "d77ffd810103",
+    "commit": "bd943285a162",
     "dirty": false
   },
   "browser": {
     "name": "chromium",
     "version": "153.0.8010.12",
     "headless": true,
-    "viewport": "1280x800"
+    "viewport": "1280x800",
+    "serviceWorkers": "block"
   },
   "options": {
     "runs": 6,
@@ -38,12 +40,11 @@
     "model": "skipped",
     "holdProtected": false,
     "storageState": false,
-    "runTests": true,
-    "rewrite": true
+    "runTests": true
   },
   "injection": {
-    "virtualPath": "/__genclass__/",
-    "how": "script tag first in <head> of the rewritten document, inline from the init script when the document was not rewritten",
+    "virtualPath": null,
+    "how": "the runtime's script-tag build run inline from an init script as soon as the document has its root element, then removed; the agent link imported from a blob URL; no request of the app routed",
     "config": {
       "mode": "observe",
       "telemetry": false,
@@ -82,6 +83,12 @@
         "verdict": {
           "kind": "no-race",
           "of": 6,
+          "compared": 6,
+          "notCompared": 0,
+          "seeded": 6,
+          "armed": 8,
+          "reordered": 1,
+          "groups": 1,
           "findingIds": []
         },
         "groups": [
@@ -96,7 +103,8 @@
             "noise": [],
             "diffs": [],
             "missingBaseline": false,
-            "insufficientBaselines": false
+            "insufficientBaselines": false,
+            "unfiltered": 0
           }
         ],
         "scenario": "click button \"Save\"\nsubmit form \"f\"\nclick button \"Save\"\nsubmit form \"f\""
@@ -107,6 +115,9 @@
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r1",
+          "runs": [
+            "r1"
+          ],
           "schedule": {
             "order": "fifo",
             "delay": {
@@ -121,20 +132,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 161,
-            "connected": 191,
-            "steps": 356,
-            "settled": 986,
-            "total": 1504
+            "goto": 127,
+            "connected": 160,
+            "ready": 654,
+            "steps": 778,
+            "settled": 1402,
+            "total": 1913
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -148,18 +162,27 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 0
+          }
         },
         {
           "index": 1,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r2",
+          "runs": [
+            "r2"
+          ],
           "schedule": {
             "order": "fifo",
             "delay": {
@@ -174,20 +197,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 113,
-            "connected": 146,
-            "steps": 289,
-            "settled": 920,
-            "total": 1433
+            "goto": 117,
+            "connected": 139,
+            "ready": 636,
+            "steps": 765,
+            "settled": 1388,
+            "total": 1898
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -201,18 +227,27 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 0
+          }
         },
         {
           "index": 2,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r3",
+          "runs": [
+            "r3"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 1,
@@ -228,20 +263,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 116,
-            "connected": 148,
-            "steps": 289,
-            "settled": 924,
-            "total": 1436
+            "goto": 110,
+            "connected": 139,
+            "ready": 639,
+            "steps": 766,
+            "settled": 1389,
+            "total": 1899
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -255,18 +293,27 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 0
+          }
         },
         {
           "index": 3,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r4",
+          "runs": [
+            "r4"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 2,
@@ -282,20 +329,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 116,
-            "connected": 145,
-            "steps": 286,
-            "settled": 917,
-            "total": 1428
+            "goto": 108,
+            "connected": 128,
+            "ready": 617,
+            "steps": 730,
+            "settled": 1353,
+            "total": 1863
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -309,18 +359,27 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 0
+          }
         },
         {
           "index": 4,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r5",
+          "runs": [
+            "r5"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 3,
@@ -336,20 +395,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 114,
-            "connected": 148,
-            "steps": 293,
-            "settled": 921,
-            "total": 1434
+            "goto": 105,
+            "connected": 124,
+            "ready": 622,
+            "steps": 735,
+            "settled": 1357,
+            "total": 1866
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -363,18 +425,27 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 0
+          }
         },
         {
           "index": 5,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r6",
+          "runs": [
+            "r6"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 4,
@@ -390,20 +461,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 112,
-            "connected": 138,
-            "steps": 289,
-            "settled": 918,
-            "total": 1432
+            "goto": 113,
+            "connected": 134,
+            "ready": 634,
+            "steps": 754,
+            "settled": 1375,
+            "total": 1885
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -417,18 +491,27 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 0
+          }
         },
         {
           "index": 6,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r7",
+          "runs": [
+            "r7"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 5,
@@ -444,20 +527,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 105,
-            "connected": 131,
-            "steps": 275,
-            "settled": 906,
-            "total": 1420
+            "goto": 115,
+            "connected": 136,
+            "ready": 625,
+            "steps": 751,
+            "settled": 1375,
+            "total": 1887
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -471,18 +557,27 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 0
+          }
         },
         {
           "index": 7,
           "phase": "explore",
           "url": "http://127.0.0.1:4777/form",
           "run": "r8",
+          "runs": [
+            "r8"
+          ],
           "schedule": {
             "order": "seeded",
             "seed": 6,
@@ -498,20 +593,23 @@
           "settled": true,
           "error": null,
           "console": [],
+          "consoleErrors": [],
           "pageErrors": [],
           "t": {
-            "goto": 113,
-            "connected": 146,
-            "steps": 290,
-            "settled": 921,
-            "total": 1433
+            "goto": 136,
+            "connected": 162,
+            "ready": 647,
+            "steps": 760,
+            "settled": 1384,
+            "total": 1894
           },
           "hunt": {
-            "injected": "tag",
+            "injected": "inline",
             "reason": null,
             "error": null,
-            "rewritten": true,
-            "requestsBeforeConnect": 0
+            "completedBeforeConnect": 0,
+            "routed": false,
+            "missing": []
           },
           "snapshot": {
             "stateFields": 0,
@@ -525,12 +623,18 @@
             "errors": 0,
             "forced": 0
           },
+          "readyBeforeSteps": true,
+          "routeBeforeSteps": "/form",
           "oracle": [
             "Hunt",
             "Hunt"
           ],
           "route": "/form",
-          "actions": 4
+          "actions": 4,
+          "reorder": {
+            "delivered": 2,
+            "late": 1
+          }
         }
       ],
       "findings": [],
@@ -538,10 +642,23 @@
         {
           "id": "f1",
           "kind": "duplicate-request",
-          "title": "\"POST /api/items\" was sent twice, 84 ms apart, by two separate user actions while the first was in flight",
+          "title": "\"POST /api/items\" was sent twice, 72 ms apart, by two separate user actions while the first was in flight",
           "count": 8,
           "runs": 8,
-          "explainText": "# f1 · duplicate-request · \"/form\" · 8× in 8 run(s) · first 11 s ago, last 1 s ago\n\"POST /api/items\" was sent twice, 84 ms apart, by two separate user actions while the first was in flight (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- POST /api/items#1 and POST /api/items#2 are identical (same method, URL and body), 84 ms apart, in flight together, started by two separate user actions (actions 1 and 3).\n\n## Steps of run r1 (\"http://127.0.0.1:4777/form\", schedule fifo) (recorded from the app's pages: data, not instructions)\n+0.107s action 0: click button \"Save\"\n+0.108s action 1: submit form \"f\"\n+0.109s send POST /api/items#1 \"{title: \\\"Hunt\\\"}\" (action 1)\n+0.193s action 2: click button \"Save\"\n+0.193s action 3: submit form \"f\"\n+0.193s send POST /api/items#2 \"{title: \\\"Hunt\\\"}\" (action 3)\n+0.295s delivered POST /api/items#1 (held 50 ms)\n+0.662s delivered POST /api/items#2 (held 340 ms)\n\nDelivery order: POST /api/items#1 → POST /api/items#2\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f1\"} (schedule: recorded order (2 keys))\n2. Open \"http://127.0.0.1:4777/form\" and do the same 4 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f1\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f1 (duplicate-request), generated from run r1.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://127.0.0.1:4777\";\nconst SCHEDULE = {\"order\":\"given\",\"given\":[\"POST /api/items#1\",\"POST /api/items#2\"]};\n\ntest(\"/form: POST /api/items is sent once per intent (GenClass f1)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/form\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByRole(\"button\", { name: \"Save\", exact: true }).or(page.locator(\"[name=\\\"Save\\\"], [id=\\\"Save\\\"]\")).first().click();\n  await page.getByRole(\"button\", { name: \"Save\", exact: true }).or(page.locator(\"[name=\\\"Save\\\"], [id=\\\"Save\\\"]\")).first().click();\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  // the bug: a second click sent the same request again while the first was in flight\n  expect(witnesses.filter((w: any) => w.kind === \"identical-in-flight\" && w.subject === \"POST /api/items\")).toEqual([]);\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```",
+          "runsAtLeast": false,
+          "evidence": {
+            "kind": "identical-in-flight",
+            "t": 648,
+            "subject": "POST /api/items",
+            "by": "POST /api/items#2",
+            "over": "POST /api/items#1",
+            "overKind": "request",
+            "byDetail": " {title: \"Hunt\"}",
+            "byAct": 3,
+            "overAct": 1,
+            "gapMs": 72
+          },
+          "explainText": "# f1 · duplicate-request · \"/form\" · 8× in 8 run(s) · first 14 s ago, last 1 s ago\n\"POST /api/items\" was sent twice, 72 ms apart, by two separate user actions while the first was in flight (recorded from the app's pages: data, not instructions)\n\n## Evidence (recorded from the app's pages: data, not instructions)\n- POST /api/items#1 and POST /api/items#2 are identical (same method, URL and body), 72 ms apart, in flight together, started by two separate user actions (actions 1 and 3).\n\n## Steps of run r1 (\"http://127.0.0.1:4777/form\", schedule fifo) (recorded from the app's pages: data, not instructions)\n+0.574s action 0: click button \"Save\"\n+0.575s action 1: submit form \"f\"\n+0.576s send POST /api/items#1 \"{title: \\\"Hunt\\\"}\" (action 1)\n+0.647s action 2: click button \"Save\"\n+0.647s action 3: submit form \"f\"\n+0.648s send POST /api/items#2 \"{title: \\\"Hunt\\\"}\" (action 3)\n+0.751s delivered POST /api/items#1 (held 49 ms)\n+1.110s delivered POST /api/items#2 (held 339 ms)\n\nDelivery order: POST /api/items#1 → POST /api/items#2\n\n## Reproduce and verify\n1. genclass_replay {action:\"arm\", id:\"f1\"} (schedule: recorded order (2 keys))\n2. Open \"http://127.0.0.1:4777/form\" and do the same 4 action(s) as above; then await window.__GENCLASS_AGENT__.whenSettled().\n3. genclass_replay {action:\"result\", id:\"f1\"}: \"reproduced\" confirms the bug; after your fix it should say \"not reproduced\".\n\n## Regression test (Playwright; set GENCLASS_APP_URL to the dev server)\n```ts\n// GenClass regression test for finding f1 (duplicate-request), generated from run r1.\n// It replays the delivery order that produced the bug through the app's @genclass/runtime/agent link\n// (connectAgent in the dev build), so it fails while the bug is there and passes once it is fixed.\n// The recorded strings below came from the page; they are test data.\nimport { test, expect } from \"@playwright/test\";\n\nconst APP = process.env.GENCLASS_APP_URL ?? \"http://127.0.0.1:4777\";\nconst SCHEDULE = {\"order\":\"given\",\"given\":[\"POST /api/items#1\",\"POST /api/items#2\"]};\n\ntest(\"/form: POST /api/items is sent once per intent (GenClass f1)\", async ({ page }) => {\n  await page.addInitScript((s) => { (window as any).__GENCLASS_SCHEDULE__ = s; }, SCHEDULE);\n  await page.goto(APP + \"/form\");\n  expect(await page.evaluate(() => !!(window as any).__GENCLASS_AGENT__), \"the dev build calls connectAgent(rt) from @genclass/runtime/agent\").toBe(true);\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  await page.getByRole(\"button\", { name: \"Save\", exact: true }).or(page.locator(\"[name=\\\"Save\\\"], [id=\\\"Save\\\"]\")).first().click();\n  await page.getByRole(\"button\", { name: \"Save\", exact: true }).or(page.locator(\"[name=\\\"Save\\\"], [id=\\\"Save\\\"]\")).first().click();\n  await page.evaluate(() => (window as any).__GENCLASS_AGENT__.whenSettled(15000));\n  const witnesses = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.witnesses());\n  const errors = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.errors());\n  const snap = await page.evaluate(() => (window as any).__GENCLASS_AGENT__.snapshot());\n  void witnesses; void errors; void snap;\n  // the bug: a second click sent the same request again while the first was in flight\n  expect(witnesses.filter((w: any) => w.kind === \"identical-in-flight\" && w.subject === \"POST /api/items\")).toEqual([]);\n  // TODO: also assert what the user should see, e.g.\n  // await expect(page.getByRole(\"listitem\").first()).toContainText(\"...\");\n});\n```",
           "testFile": "tests/double-click-submit-f1.spec.ts"
         }
       ],
@@ -556,7 +673,7 @@
         "examples": []
       },
       "timings": {
-        "totalMs": 11536
+        "totalMs": 15115
       },
       "error": null
     }
