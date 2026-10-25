@@ -776,7 +776,10 @@ export interface OpScope {
 export interface InitOptions {
   /**
    * Default "observe": reports what GenClass sees and would do, and never holds, delays or changes anything.
-   * "guard" (opt-in) takes minimal guard-tier actions at very high confidence; "heal" is experimental.
+   * "guard" (opt-in) takes minimal guard-tier actions at very high confidence; "heal" is experimental. The URL
+   * switches (`?genclass=`, `?genclass-mode=`) and `localStorage.genclass` may only lower it, with or without `debug`;
+   * `?genclass=` and `localStorage.genclass` may raise it only on a development host (http(s) on localhost, 127.0.0.1,
+   * [::1] or *.localhost with an explicit port, or *.test).
    */
   mode?: Mode;
   /** false: no model (observe-only). */
@@ -790,7 +793,10 @@ export interface InitOptions {
   report?: "console" | "interventions" | "silent" | ((r: Report) => void);
   /** Default true. A predicate / Promise / subscribable flag; while false nothing is decided or downloaded. */
   enabled?: boolean | (() => boolean | Promise<boolean>) | EnabledSource;
-  /** Fraction of sessions allowed to act (default 1); the rest observe. */
+  /**
+   * Fraction of sessions allowed to act (default 1); the rest observe. `?genclass-sample=0` makes a session observe; no
+   * URL value makes it act.
+   */
   sample?: number;
   /** Per-route mode and aggressiveness (demote only); the first matching rule wins. */
   routes?: RouteRule[];
@@ -854,7 +860,10 @@ export interface InitOptions {
   plugins?: Plugin[];
   /** Events kept, default 500. */
   historySize?: number;
-  /** Console logging of every decision. */
+  /**
+   * Console logging of every decision. Logging only: it never lets a URL or localStorage switch raise the mode, the
+   * aggressiveness or the sampling.
+   */
   debug?: boolean;
   /** Learned state (transition profiles, flow expectations) and its persistence; see LearnOptions. */
   learn?: LearnOptions;
@@ -865,7 +874,8 @@ export interface InitOptions {
   /**
    * How eagerly GenClass fixes client-side errors (default "balanced"). A number in [0, 1] interpolates (0 cautious,
    * 0.5 balanced, 1 eager). Selects the model's gate profile; explicit policy.thresholds still win. The URL parameter
-   * `?genclass-aggr=cautious|balanced|eager|<number>` overrides it; `runtime.setAggressiveness()` changes it later.
+   * `?genclass-aggr=cautious|balanced|eager|<number>` may only lower it (on every host, with or without `debug`);
+   * `runtime.setAggressiveness()` changes it later.
    */
   aggressiveness?: Aggressiveness;
   /**

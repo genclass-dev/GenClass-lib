@@ -3,14 +3,16 @@
 // It resolves InitOptions.visual. Off means nothing at all: no listener, no timer, no download. On means: buffer
 // securitypolicyviolation events (violations during page load cannot be queried later), wait for `load` (at most
 // 6.5 s) and 1.5 s more, and for a visible tab that is not prerendering, then import the chunk (src/visual/index.ts);
-// the chunk does all its work in idle callbacks. "local" means on for development hosts (devHost) only; elsewhere it
-// loads the chunk only when the devtools overlay mounts or checkNow() is called. Everything else (the host the checks see,
-// checks, messages, colour maths, selectors) lives in the chunk, so this file stays small: the first-load budget is
-// 0.5 KB gzip for all of visual (test/bundle.test.ts). All timing uses the runtime's Clock (AGENTS.md rule 5).
+// the chunk does all its work in idle callbacks. "local" means on for development hosts (devHost, src/devhost.ts)
+// only; elsewhere it loads the chunk only when the devtools overlay mounts or checkNow() is called. Everything else
+// (the host the checks see, checks, messages, colour maths, selectors) lives in the chunk, so this file stays small:
+// the first-load budget is 0.5 KB gzip for all of visual (test/bundle.test.ts). All timing uses the runtime's Clock
+// (AGENTS.md rule 5).
 
 import type { RuntimeImpl } from "../runtime.js";
 import type { CheckFinding, InitOptions, VisualOptions } from "../types.js";
 import type { VisualChunk, VisualController } from "./host.js";
+import { devHost } from "../devhost.js";
 import { describeElement } from "../observe/dom-user.js";
 import { normalizePath } from "../util.js";
 import { visualRegistry } from "./registry.js";
@@ -35,15 +37,10 @@ type G = Record<string, unknown> & {
   addEventListener?: (t: string, fn: () => void) => void;
 };
 
-/**
- * A development host, where the "local" default turns the checks on (VISUAL.md 7.2): http(s) on localhost, 127.0.0.1,
- * [::1] or a *.localhost name with an explicit port (a dev server), or a *.test name. Narrower than telemetry's
- * isLocalHost on purpose: a false "local" there sends less, here it would run the checks for a production app's
- * visitors (Capacitor on https://localhost, Tauri on tauri.localhost, Electron on file:, intranet apps on private
- * addresses and bare names).
- */
-export const devHost = (l?: Loc): boolean =>
-  /^https?:$/.test(l?.protocol ?? "") && (/\.test$/.test(l?.hostname ?? "") || (!!l?.port && /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(l?.hostname ?? "")));
+// The development host, where the "local" default turns the checks on (VISUAL.md 7.2), is src/devhost.ts's devHost
+// (http(s) on a loopback name with an explicit port, or *.test; never Capacitor, Tauri, Electron or intranet hosts),
+// re-exported here for the existing imports.
+export { devHost };
 
 /**
  * Called by createRuntime (src/index.ts) once the runtime exists. `init`: the GenClass.init() default ("local")
