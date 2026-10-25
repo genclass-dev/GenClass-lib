@@ -853,3 +853,39 @@ MCP findings over the 40 runs: 4 `stale-write`, 1 the bug and 3 bookkeeping (tru
 none from the control. The Playwright test `genclass_explain` generated for the bug passed 5 of 5 on the buggy app
 (the witness depends on the click's timing, which a delivery-order replay does not recreate). One case, not a recall
 figure.
+
+## 18. The hunt harness on the e2e pages (cloud session, 2026-10-24, branch `claude/optimistic-feynman-8lbnyg`)
+
+[bench/hunt](../../bench/hunt/README.md) runs the same loop against an app it does not own: the runtime's script-tag
+build is put first in the page's `<head>` by rewriting the document on its way to the browser, the agent link is
+connected to an in-process bridge, and the MCP tools are driven over `tools/call`. The pages are the e2e search page
+and a double-submit form served by `bench/hunt/scenarios/e2e-search-server.mjs` with **no GenClass in the page** (state
+in a closure, so no store is discovered: the verdicts rest on page text and request counts). Headless Chromium 153
+through Playwright 1.63.0, runtime 0.3.0-beta.1 and mcp 0.1.0 built from `d77ffd81`, 6 seeded orders, `slow 600`.
+Reports: `bench/hunt/results/e2e-*/`.
+
+| measurement | buggy search page (`/`) | fixed (`/fixed`) | double submit (`/form`) | fixed (`/form-fixed`) |
+|---|---|---|---|---|
+| the two baselines (request order) | agree | agree | agree | agree |
+| `genclass_explore`, 6 seeded orders | **5 of 6** ended with an older query's results ("reac", "rea", "r") | **0 of 6** differ (no false report) | 0 of 6 differ (both clicks land in every order) | 0 of 6 differ |
+| other findings on the loads | none | none | one `duplicate-request`: `POST /api/items` twice in flight from two clicks, on 8 of 8 loads | none |
+| `genclass_replay` of the race finding | reproduced | | | |
+| the generated regression test | fails on the buggy page; passes against the fix at the same path | | | |
+| the harness's own DOM oracle | differs in 5 of 6 | same in 6 of 6 | same | same |
+| wall time (9 or 8 page loads, the test run included) | 19 s | 14 s | 12 s | 12 s |
+
+The same counts as section 16, through the harness. One page and two planted bugs: a check that the harness and the
+injection do not change what GenClass finds, not a recall figure.
+
+One real app through the same command (`bench/hunt/results/sample/`, the README's section "A real app"): Strapi
+5.59.0 from `npx create-strapi@latest --example` (sqlite), logged in, the Article list searched twice in a row, 6 seeded
+orders, `slow 600`, 9 page loads. Redux and React state discovered (300 fields, the snapshot cap). The search: no race
+in the table (every seeded load that ran the steps ended with the baselines' rows; the same end state in 3 of 3 runs
+with the first search's response delayed 2 s and no GenClass on the page). GenClass's verdict still reads "RACE: 1 of
+4": one discovered field, `AuthProvider.external1.requestId`, redacted in both baselines and a fresh id under one
+seed, a per-run value the noise filter cannot see when the baselines show it redacted; replay not reproduced, generated
+test passes, reported as such. Three more seeded loads had flicker-class witnesses and ended right. The page load: in 2 of 6 seeded orders the permissions
+response was delivered after the content manager's init and the page stayed on "You don't have the permissions to
+access that content"; the same screen in 3 of 3 runs with only that response delayed 2.5 s and no GenClass on the page
+(`plain-permissions.txt`). Not reported upstream; the mechanism was not traced. 24 `stale-write` witnesses on the
+store's injected reducers, listed as facts. False reports on the fixed e2e variants: 0 of 6 (search) and 0 of 6 (form).

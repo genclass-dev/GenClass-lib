@@ -1,0 +1,555 @@
+{
+  "schema": "genclass-hunt/1",
+  "started": "2026-10-24T19:16:20.520Z",
+  "finished": "2026-10-24T19:16:32.179Z",
+  "durationMs": 11659,
+  "harness": {
+    "version": "0.1.0",
+    "commit": "d77ffd810103"
+  },
+  "app": {
+    "url": "http://127.0.0.1:4777/form-fixed",
+    "origin": "http://127.0.0.1:4777",
+    "commit": "this repository, bench/hunt/scenarios/e2e-search-server.mjs"
+  },
+  "runtime": {
+    "version": "0.3.0-beta.1",
+    "commit": "d77ffd810103",
+    "dirty": false
+  },
+  "mcp": {
+    "version": "0.1.0",
+    "commit": "d77ffd810103",
+    "dirty": false
+  },
+  "browser": {
+    "name": "chromium",
+    "version": "153.0.8010.12",
+    "headless": true,
+    "viewport": "1280x800"
+  },
+  "options": {
+    "runs": 6,
+    "slow": 600,
+    "seed": 1,
+    "focus": [],
+    "route": null,
+    "timeout": 30000,
+    "model": "skipped",
+    "holdProtected": false,
+    "storageState": false,
+    "runTests": true,
+    "rewrite": true
+  },
+  "injection": {
+    "virtualPath": "/__genclass__/",
+    "how": "script tag first in <head> of the rewritten document, inline from the init script when the document was not rewritten",
+    "config": {
+      "mode": "observe",
+      "telemetry": false,
+      "visual": false,
+      "analytics": false,
+      "report": "console",
+      "model": false
+    }
+  },
+  "node": "v22.22.0",
+  "scenarios": [
+    {
+      "name": "double-click-submit",
+      "file": "bench/hunt/scenarios/double-click-submit.mjs",
+      "url": "http://127.0.0.1:4777/form-fixed",
+      "route": null,
+      "params": {
+        "button": "text:Save",
+        "results": "#items"
+      },
+      "settleMs": 500,
+      "explore": {
+        "session": "x1",
+        "plan": [
+          "baseline 1 (responses in request order)",
+          "baseline 2 (responses in request order)",
+          "seed 1",
+          "seed 2",
+          "seed 3",
+          "seed 4",
+          "seed 5",
+          "seed 6"
+        ],
+        "startText": "Explore x1 armed: the next 8 page loads of the page the first one loads (later loads of other pages and tabs are left alone) get these delivery schedules, in order:\n  1. baseline 1 (responses in request order)\n  2. baseline 2 (responses in request order)\n  3. seed 1\n  4. seed 2\n  5. seed 3\n  6. seed 4\n  7. seed 5\n  8. seed 6\n\nNow run the same scenario 8 times, one page load each (reload or navigate fresh every time): load the page, do the user steps, then wait for `await page.evaluate(() => window.__GENCLASS_AGENT__.whenSettled(15000))`.\nWith Playwright: `npx playwright test <spec> --repeat-each 8 --workers 1`. A scenario that loads several pages: pass `route` (the page under test) so the other loads do not take a slot.\nThen: genclass_explore {action:\"report\", id:\"x1\"}.",
+        "reportText": "Explore x1: 8 of 8 planned loads recorded (8 reached a quiet point).\n\n## /form-fixed · 8 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  click button \"Save\"\n  submit form \"f\"\nNo race found: all 6 reordered run(s) ended in the baseline's state.",
+        "verdict": {
+          "kind": "no-race",
+          "of": 6,
+          "findingIds": []
+        },
+        "groups": [
+          {
+            "route": "/form-fixed",
+            "scenario": "click button \"Save\"\nsubmit form \"f\"",
+            "baselines": [
+              "r1",
+              "r2"
+            ],
+            "runs": 8,
+            "noise": [],
+            "diffs": [],
+            "missingBaseline": false,
+            "insufficientBaselines": false
+          }
+        ],
+        "scenario": "click button \"Save\"\nsubmit form \"f\""
+      },
+      "loads": [
+        {
+          "index": 0,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r1",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 1 (responses in request order)"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 151,
+            "connected": 185,
+            "steps": 329,
+            "settled": 889,
+            "total": 1405
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        },
+        {
+          "index": 1,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r2",
+          "schedule": {
+            "order": "fifo",
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "baseline 2 (responses in request order)"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 146,
+            "connected": 182,
+            "steps": 329,
+            "settled": 886,
+            "total": 1401
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        },
+        {
+          "index": 2,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r3",
+          "schedule": {
+            "order": "seeded",
+            "seed": 1,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 1"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 118,
+            "connected": 148,
+            "steps": 288,
+            "settled": 848,
+            "total": 1367
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        },
+        {
+          "index": 3,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r4",
+          "schedule": {
+            "order": "seeded",
+            "seed": 2,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 2"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 133,
+            "connected": 167,
+            "steps": 315,
+            "settled": 869,
+            "total": 1380
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        },
+        {
+          "index": 4,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r5",
+          "schedule": {
+            "order": "seeded",
+            "seed": 3,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 3"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 121,
+            "connected": 150,
+            "steps": 293,
+            "settled": 1354,
+            "total": 1867
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        },
+        {
+          "index": 5,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r6",
+          "schedule": {
+            "order": "seeded",
+            "seed": 4,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 4"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 116,
+            "connected": 142,
+            "steps": 290,
+            "settled": 853,
+            "total": 1366
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        },
+        {
+          "index": 6,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r7",
+          "schedule": {
+            "order": "seeded",
+            "seed": 5,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 5"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 110,
+            "connected": 145,
+            "steps": 292,
+            "settled": 853,
+            "total": 1366
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        },
+        {
+          "index": 7,
+          "phase": "explore",
+          "url": "http://127.0.0.1:4777/form-fixed",
+          "run": "r8",
+          "schedule": {
+            "order": "seeded",
+            "seed": 6,
+            "delay": {
+              "minMs": 0,
+              "maxMs": 600
+            },
+            "maxHoldMs": 2100,
+            "id": "x1",
+            "label": "seed 6"
+          },
+          "connected": true,
+          "settled": true,
+          "error": null,
+          "console": [],
+          "pageErrors": [],
+          "t": {
+            "goto": 111,
+            "connected": 141,
+            "steps": 278,
+            "settled": 836,
+            "total": 1348
+          },
+          "hunt": {
+            "injected": "tag",
+            "reason": null,
+            "error": null,
+            "rewritten": true,
+            "requestsBeforeConnect": 0
+          },
+          "snapshot": {
+            "stateFields": 0,
+            "statePaths": [],
+            "textLines": 3,
+            "fields": 1,
+            "requests": {
+              "POST /api/items": 1
+            },
+            "witnesses": 0,
+            "errors": 0,
+            "forced": 0
+          },
+          "oracle": [
+            "Hunt"
+          ],
+          "route": "/form-fixed",
+          "actions": 2
+        }
+      ],
+      "findings": [],
+      "otherFindings": [],
+      "oracle": {
+        "status": "same",
+        "of": 6,
+        "differing": [],
+        "note": "all 6 seeded loads ended with the baselines' oracle"
+      },
+      "discovered": {
+        "fields": 0,
+        "examples": []
+      },
+      "timings": {
+        "totalMs": 11506
+      },
+      "error": null
+    }
+  ],
+  "summary": {
+    "scenarios": 1,
+    "races": 0,
+    "noRace": 1,
+    "noVerdict": 0,
+    "reproduced": 0,
+    "findings": 0,
+    "otherFindings": 0
+  }
+}

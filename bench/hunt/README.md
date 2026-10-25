@@ -1,0 +1,299 @@
+# bench/hunt: explore and replay against any running app
+
+A harness that runs GenClass's explore and replay loop ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
+sections 5 and 7) against a web app that is already running at a URL, without changing a line of the app. It is the
+loop `packages/mcp/test/e2e/race.e2e.mjs` runs on its own demo page, made reusable: one command, one scenario file, one
+report per app.
+
+What one run does:
+
+1. starts the GenClass MCP server in-process (`@genclass/mcp`, its bridge on a free loopback port) and headless
+   Chromium;
+2. arms `genclass_explore` (two baselines with responses in request order, then N seeded orders, optionally slower,
+   like a bad network) and, for each planned load, opens a fresh browser context, puts `@genclass/runtime` on the page
+   (see "How the injection works"), connects the agent link to the bridge, waits for the page's first quiet point (as
+   the generated regression test does), runs the scenario's `steps(page)`, waits for the next quiet point
+   (`whenSettled`), and records the scenario's `oracle(page)`;
+3. asks for `genclass_explore report`: the verdict is GenClass's comparison of each seeded run's final state with the
+   baselines (store fields, page text lines, form values, request counts, errors, witnesses), noise between the two
+   baselines removed. No pattern is matched anywhere. The harness counts the verdict from the report's structured
+   groups and says how many seeded orders it rests on, how many of them actually delivered a response out of request
+   order, and how many GenClass could not compare;
+4. for every race finding: `genclass_explain` (the evidence in causal order; the generated Playwright regression test
+   is saved), `genclass_replay arm`, the scenario once more, `genclass_replay result` (REPRODUCED or not), and the
+   generated test run against the app as it stands (it should fail while the bug is there);
+5. lists every other finding GenClass recorded on those loads (an uncaught error, a duplicate request from two clicks,
+   a response that overwrote newer data), the first three with their full explanation and generated test;
+6. compares the scenario's own DOM oracle across the loads (the harness's check, labelled as such, never GenClass's
+   verdict), and writes `report.md` and `report.json`.
+
+The harness orchestrates and records. It never decides anything about the app (AGENTS.md rule 2) and never changes it:
+the runtime runs in observe mode, which holds, delays and changes nothing; a schedule only moves the moment each
+response reaches the app, and every response is delivered unchanged (CONTRACT.md section 16). No request of the app is
+routed or rewritten. Nothing leaves the machine: telemetry is off, the model is skipped, the bridge is a loopback port.
+
+## Install
+
+From the repository root (Node 20 or later; the harness uses the repository's own `@playwright/test`, which is pinned
+to the Chromium build Playwright installs):
+
+```sh
+ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
+npm run build -w @genclass/runtime && npm run build -w @genclass/mcp     # the harness builds nothing itself
+npx playwright install --with-deps chromium                              # once per machine
+```
+
+`node bench/hunt/hunt.mjs --help` lists the options. Relative `--out` and `--storage-state` paths are relative to the
+working directory; scenario and login modules are looked up there, then under `bench/hunt/`.
+
+## Five-minute walkthrough on the e2e page
+
+The e2e page is a search box whose results are written by each response, with no staleness guard; a slower answer to an
+older query can land last. `scenarios/e2e-search-server.mjs` serves it with no GenClass in the page at all (its state
+lives in a closure, so GenClass discovers no store: the verdict rests on page text and request counts, as it would for
+any app whose state GenClass does not see), plus a second planted bug, a Save button that sends one POST per click,
+and that form again on a page that navigates to `/done` after saving.
+
+```sh
+node bench/hunt/scenarios/e2e-search-server.mjs --port 4777 &
+# 1. the buggy page: a race, reproduced, with a failing regression test
+node bench/hunt/hunt.mjs --url http://127.0.0.1:4777/ --scenario scenarios/e2e-search.mjs --out bench/hunt/results/e2e-buggy --expect race
+# 2. the fixed page (the same steps): no race
+node bench/hunt/hunt.mjs --url http://127.0.0.1:4777/fixed --scenario scenarios/e2e-search.mjs --out bench/hunt/results/e2e-fixed --expect no-race
+# 3. the same race with no GenClass on the page: only the 4th search request ("reac") answered 1.5 s late
+node bench/hunt/plain.mjs --url http://127.0.0.1:4777/ --scenario scenarios/e2e-search.mjs --delay 'GET /api/search#4=1500'
+# 4. the second bug with a generic scenario: a duplicate-request finding, no race (the final state is the same)
+node bench/hunt/hunt.mjs --url http://127.0.0.1:4777/form --scenario scenarios/double-click-submit.mjs --param button='text:Save' --param results='#items' --out bench/hunt/results/e2e-form
+# 5. the saved regression test against the fix at the same path (as a developer would run it after fixing)
+node bench/hunt/scenarios/e2e-search-server.mjs --port 4778 --fixed &
+GENCLASS_APP_URL=http://127.0.0.1:4778 npx playwright test --config bench/hunt/results/e2e-buggy/tests/playwright.config.mjs
+```
+
+The committed reports are in `results/e2e-*/`; RESULTS.md section 17 has the counts.
+
+## A real app: Strapi 5.59.0 (`results/sample/`)
+
+A section filled in from the committed runs (see the end of this file's history if it is missing).
+
+## How to write a scenario
+
+A scenario is an ES module. Named exports or a default object, these fields:
+
+```js
+// scenarios/my-search.mjs
+import { textLines } from "../lib/dom.mjs";
+
+export const name = "my-search";        // the results directory's default name, and the report's label
+export const url = "/admin/articles";   // optional: a path resolved against --url, or an absolute URL; omit to use --url as given
+export const settleMs = 400;            // optional: quiet time before GenClass snapshots the page (--settle overrides)
+export const route = undefined;         // optional: arm only page loads of this path; the default lets the first armed load decide
+export const settleBeforeSteps = true;  // optional: false starts the steps as soon as GenClass is connected, before the page is quiet
+
+/** The user's steps, the same on every load. ctx: { params, url, log, phase }. */
+export async function steps(page, ctx) {
+  await page.getByRole("searchbox").pressSequentially(ctx.params.word ?? "react", { delay: 80 });
+}
+
+/** Optional: what the user sees at the end; compared across loads by the harness (not by GenClass). */
+export async function oracle(page) {
+  return { heading: await page.locator("h2").textContent(), rows: await textLines(page, "ul.results") };
+}
+```
+
+Rules that matter:
+
+- **Same steps every load.** GenClass groups runs by their recorded user actions (typing bursts with their final
+  value, named by the element's label); a seeded load whose actions differ from the baselines' is not compared, and
+  the report counts it as "not compared". Keep random values out of the steps. Keystrokes merge into one typing burst
+  while the target keeps its name and the gaps stay under a second, so type at a steady pace below that. By default the
+  steps start from the page's first quiet point: a label a load response changes while you type (Strapi's "author"
+  becoming "author (1)") would otherwise split the burst differently on different loads.
+- **Reach a quiet point.** After the steps the harness waits for `whenSettled`: no event for `settleMs`, nothing in
+  flight or held, no pending short timer. A page that polls every 500 ms never looks quiet; raise `settleMs` only if
+  the page has a longer debounce, and pass `--timeout` when the app is slow.
+- **Requests that overlap.** Explore reorders responses of fetch and XHR requests that are in flight together. A typeahead
+  overlaps only when the keystrokes come slower than its debounce; the report says per load how many responses were
+  delivered after the answer to a later request, and a "no race" with none of those is reported as "nothing was
+  reordered" instead.
+- **One page under test.** A scenario whose steps navigate to another document (a form that posts and redirects) is
+  followed to the new document, but that page load takes an explore slot of its own: set `route` (or `--route`) to the
+  page under test. The first document left before its quiet point, so GenClass cannot compare it (AGENT.md section 8);
+  what it recorded on the way (a duplicate request, an error) is still reported.
+- **Parameters** come from `--param key=value` (repeatable) as `ctx.params`; `lib/dom.mjs` has `param`, `numberParam`,
+  `textLines` and `countOf`. A parameter whose name looks like a secret (password, token, email, user, ...), and such a
+  key inside a JSON parameter (a `fill`'s selector), is shown as `[redacted]` in the reports.
+- The generic scenarios `scenarios/typeahead.mjs` (a word typed into a search field: `input`, `open`, `word`, `delay`,
+  `results`) and `scenarios/double-click-submit.mjs` (fill fields, click a submit button twice: `button`, `fill`,
+  `clicks`, `gap`, `results`) cover the two commonest races without a scenario file of your own.
+
+## How to log in
+
+Most apps worth hunting sit behind a login. Write a login module once (see `scenarios/strapi-login.mjs`):
+
+```js
+export async function login(page, ctx) {
+  await page.goto(new URL("/login", ctx.url).href);
+  await page.locator('input[name="email"]').fill(process.env.APP_EMAIL);
+  await page.locator('input[name="password"]').fill(process.env.APP_PASSWORD);
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL((u) => !u.pathname.includes("/login"));
+}
+```
+
+`--login scenarios/x-login.mjs` runs it once in a browser context without GenClass and saves the context's storage
+state (cookies, local storage) to `bench/hunt/.storage/<scenario>.json` (or `--storage-state <file>`); every later page
+load starts from it. `--storage-state` alone reuses a saved file, but sessions expire (Strapi's admin access token lasts
+30 minutes, and a session saved a few hours earlier landed every load on the login page): pass `--login` on every run
+unless the login is slow. A load that ends on another page than asked is listed in the report, and the run warns when
+a baseline was not on the requested page before its steps. The file holds a session: `.gitignore` covers any
+`.storage/` directory and any `storage-state*.json` file. Keep credentials in the environment, never in a scenario file.
+
+## How to read a report
+
+`report.md` (and the same data in `report.json`), from the top:
+
+- **the header table**: the app URL and commit (`--app-commit`), the runtime and MCP versions and the checkout commit
+  (the harness does not check that `dist/` was rebuilt from it), the harness commit and whether `bench/hunt` had
+  uncommitted changes, the browser, the explore settings, whether the model ran, exactly what was injected;
+- **Summary**: one row per scenario: the loads the explore armed out of planned, GenClass's explore verdict, race
+  findings, their replay verdicts, other findings, the DOM-oracle status;
+- **per scenario**: the recorded actions as GenClass grouped them; how many state fields were discovered (0 means the
+  verdict rests on page text, form values, request counts, errors and witnesses); the explore report verbatim; for
+  each race finding the explanation verbatim (evidence in causal order, the steps of the failing run with each
+  request's send and delivery time, the delivery order, how to replay), the replay result, the path of the generated
+  test and how it ended on the app as it stands; every other finding (the first three explained in full); the loads
+  that were not on the requested page and the loads whose steps could not be done, with the page's text; the DOM-oracle
+  comparison; a table of every page load (schedule assigned, run id, quiet point reached, responses delivered after the
+  answer to a later request, forced deliveries, witnesses, errors, timings); GenClass's console messages, the page's
+  uncaught errors and its console errors;
+- **What this does not show**: what the verdict cannot cover on this app (state not discovered, the model skipped,
+  explore's limits, the injection), with this run's own numbers.
+
+What the verdicts mean:
+
+- `RACE: n of N compared orders ended differently` is GenClass's statement that the final state depended on the
+  delivery order in n of the N seeded orders it compared. The evidence names what differed. "n more overwrote newer
+  data along the way" is a flicker the page repaired before the quiet point. Read the evidence before the count: a
+  single state field that differs on every run (an id the baselines happened to show redacted) is noise GenClass did
+  not catch, and its replay says "not reproduced".
+- `no race: 0 of N compared orders differ (k of them delivered a response after the answer to a later request)` means
+  none of these N orders changed the final state, and k of them did reorder something. It is not a proof that none
+  can: raise `--runs`, add `--slow`, or `--focus` the request you suspect.
+- `j seeded load(s) not compared`: GenClass put them in another group than the baselines (their steps failed, the page
+  ended elsewhere, or their recorded actions differed). Each is listed in the report with what the page showed. Seeded
+  loads that cannot even do the steps while the baselines can mean the page's state before the user acts depended on
+  the order: a finding of its own, outside GenClass's verdict.
+- `no verdict` means nothing was tested, and the reason says why: every page load failed; no load was armed (the path
+  did not match `--route`); the steps failed on a baseline; nothing was reordered in any compared order (no two
+  requests over fetch or XHR overlapped, or the app's data does not go over the network); no seeded load shared the
+  baselines' group; or no load reached a quiet point.
+- `REPRODUCED` is the replay's verdict: the finding's exact order produced the failing run's state again. "not
+  reproduced" after a fix is the evidence the fix holds for that order.
+- The generated test's result: "failed" on one of its state assertions (the baseline's values or page lines, its first
+  error is quoted) is the bug showing; "failed" before them (a locator, a timeout, the agent-link check) is not evidence
+  either way; "passed" on a finding means the finding did not hold up.
+- The **DOM oracle** rows are the harness comparing the scenario author's own reading of the page. When GenClass says
+  race and the oracle differs too, they agree on independent evidence; when the oracle differs and GenClass does not,
+  read the explore report's noise line first (the oracle may be noisy), then the page.
+
+## Using a result publicly
+
+An issue or a pull request on someone else's project carries their name. Before a result leaves your machine:
+
+1. **Evidence first.** Quote the explore report and the explanation (the steps, the send and delivery times, what
+   differed), not the summary line. Name the scenario file and the exact command.
+2. **Reproduce without GenClass.** Show the same wrong state with nothing of GenClass on the page. `plain.mjs` does
+   that with the same scenario: it runs it twice with no delay (the reference, which must agree with itself), then
+   with only the responses you name answered late, through plain Playwright routing:
+
+   ```sh
+   node bench/hunt/plain.mjs --url <page> --scenario scenarios/x.mjs --storage-state bench/hunt/.storage/x.json \
+     --delay 'GET /api/search#4=1500' --runs 4
+   ```
+
+   `METHOD /path#N` delays only the N-th matching request of the page load, the way GenClass numbers request keys in a
+   finding's delivery order; `METHOD /path` delays every match, `/regex/` matches "METHOD URL", any other text a URL
+   substring. Take the delay from the finding's delivery order (the response that landed last, and by how much). A
+   race only GenClass can show is a question, not a bug report.
+3. **The fixed variant must show no race.** Run the same scenario against your fix (or the upstream fix) and include
+   that report (`no race`, with reordered orders), and run the regression test saved from the buggy run against the
+   fix: it must pass.
+4. **Name the commit of the app** (`--app-commit`), the browser and the runtime version, and say that GenClass was
+   injected by this harness, not part of the app.
+5. **Mind what the report holds.** Page text and form values from a logged-in app are in it (passwords, hidden, card
+   and one-time-code fields and secret-named fields are left out by the runtime; secret-looking parameters by the
+   harness; nothing else is). Read it before publishing it, and never publish a storage state file.
+6. Offer the fix and the generated regression test together; a report alone is a chore for the maintainer.
+
+## How the injection works
+
+The app's source is not touched, and none of its requests is routed or rewritten. For every page load, an init script
+(Playwright's `addInitScript`, run in every document before any of the document's own scripts):
+
+- sets the page configuration (`window.GENCLASS_CONFIG`: observe, telemetry off, visual checks off, the model off unless
+  `--model`) and the bridge's URL;
+- as soon as the document has its root element, runs the runtime's script-tag build (`dist/genclass.global.min.js`,
+  carried in the init script itself) as an inline script, and removes that script element again right away: the
+  document an app later hydrates has no node of the harness. In Chromium this is before the first script of the page's
+  own `<head>` (checked with a page whose first head script reads `typeof window.GenClass`), so the runtime sees the
+  page's first requests and the React discovery hook is installed before react-dom. Redirect targets are injected the
+  same way;
+- imports the agent link (`dist/agent.js`, one file with no imports) from a `blob:` URL and connects it to the bridge;
+  a hello the bridge never answers is reported after 5 s instead of a bare timeout.
+
+Each context also has `bypassCSP: true` (so the inline script, the blob import and the loopback bridge are allowed),
+service workers blocked (so a worker cannot answer requests from its cache; `--allow-service-workers` lets them run,
+which apps mocked with MSW need), HTTPS errors ignored, and the `local-network-access` permission granted. These apply to
+the test browser only. Only with `--model` or `--model-dir` does the context route one virtual same-origin path,
+`/__genclass__/`, where the model worker, onnxruntime-web and a model directory load from; Playwright turns the HTTP
+cache off for a context with routing.
+
+For a page on a name other than localhost (a `*.test` name, a LAN address) the harness passes `anyHost` to the agent
+link and allows the page's exact origin on the bridge (`GENCLASS_AGENT_ORIGINS`), as AGENT.md section 1 describes.
+
+An app that already includes GenClass (`GenClass.init()` in its own code) is not a target for this harness: a second
+runtime would observe the page twice. Use `connectAgent` from `@genclass/runtime/agent` in its development build instead.
+
+## The generated regression test
+
+`genclass_explain` writes a Playwright test that sets the finding's schedule through `window.__GENCLASS_SCHEDULE__`
+(no bridge needed), performs the recorded actions and asserts the baseline's state. It expects the page to have the
+agent link, which a hunted app does not, so the harness saves two files under `<out>/tests/`: the test as generated
+(`<scenario>-<id>.spec.ts`, for the app's own repository once GenClass is in its dev build), and a copy whose import
+comes from `bench/hunt/fixture.mjs` (`<scenario>-<id>.hunt.spec.mts`). The fixture applies the same injection to the
+test's browser context, makes `page.goto` wait until the agent link exists, and points the link at an address that
+answers nothing, so a test run never reaches a GenClass bridge you run for your own work. Next to them,
+`playwright.config.mjs` carries the hunt's browser settings and injection options. `hunt.mjs` runs the copy right away
+and records how it ended; run it yourself with `GENCLASS_APP_URL=<origin> npx playwright test --config
+<out>/tests/playwright.config.mjs` (`GENCLASS_HUNT_STORAGE=<file>` for a logged-in app).
+
+## Limits
+
+- Data that does not go over fetch or XHR (an in-memory provider such as react-admin's `ra-data-fakerest`, a WebSocket
+  backend) is never reordered: the verdict says "nothing was reordered". WebSocket and EventSource messages are
+  recorded, not reordered; failure responses are not held; protected requests (payments, auth) are never held unless
+  `--hold-protected`.
+- A snapshot holds at most 300 state fields; on a large store (Strapi's admin reaches the cap) state beyond that is not
+  compared, page text and form values still are.
+- Steps that navigate to another document cannot be compared (above); a scenario that needs several pages should set
+  `route` to the page under test.
+- The explore is a sample of N orders, not a proof. A no-race verdict on an app is "these orders did not change the
+  end state".
+
+## Files
+
+| file | what |
+|---|---|
+| `hunt.mjs` | the command: options, the MCP server and the browser, the explore and replay loop, the report |
+| `lib/inject.mjs` | the injection: the init script with the runtime and the agent link, the model's virtual path |
+| `lib/mcp.mjs` | the in-process MCP server driven over JSON-RPC (`tools/call`), plus the structured agent API and the store |
+| `lib/report.mjs` | `report.md` from `report.json`; the DOM-oracle comparison |
+| `lib/dom.mjs` | helpers for scenarios (`textLines`, `countOf`, `param`, `numberParam`) |
+| `lib/args.mjs` | the command line |
+| `fixture.mjs` | the Playwright fixture that injects GenClass for the generated tests |
+| `plain.mjs` | the same scenario with no GenClass on the page and chosen responses answered late: the reproduction step |
+| `scenarios/` | `e2e-search.mjs` and its server, `typeahead.mjs`, `double-click-submit.mjs`, `strapi-login.mjs`, `strapi-search.mjs` |
+| `results/` | committed reports: the e2e pages (`e2e-*`), and a real app (`sample/`, `strapi-search/`) |
+
+Not in CI. It needs Chromium and an app to point at; the e2e pages above are the regression check for the harness
+itself.

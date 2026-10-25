@@ -48,3 +48,8 @@ packages/mcp/.mcpb/
 .react-router/
 .angular/
 templates/react-router/build/
+# bench/hunt: a login's storage state holds a session (cookies, local storage); never commit one, wherever it lands
+.storage/
+storage-state*.json
+# bench/hunt and plain.mjs write their output relative to the working directory: from the repo root that is results/
+/results/
