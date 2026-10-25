@@ -245,3 +245,70 @@ What the build (2026-10-18) does where this note was not specific, or differs:
   `interactions` events.
 - **Not done here:** `billing/plans.json` still says "Interaction analytics (coming next)" for Free (every plan has it); it becomes
   available when a runtime with analytics is on npm. genclass.dev's own pages are unchanged (section 7).
+
+## 11. Navigation paths (2026-10-25)
+
+The owner asked on 2026-10-25 for "exact specifics of how a user navigates the site". This widens what interaction
+analytics send (AGENTS.md rule 8); the owner asked for it, and it stays inside the same opt-in: nothing of it exists
+unless the app sets `analytics: true`, with the app's token, every telemetry opt-out and Global Privacy Control
+turning it off, and the same consent advice (section 5). Built on branch `strange-sites`.
+
+### 11.1 What is added
+
+Four things per page load, on the existing `interactions` events, aggregated by the collector like views, clicks and
+scroll depth (counts per route and per element key, never a stored sequence per visitor):
+
+| field | on which event | what it is |
+|---|---|---|
+| `nav` | a view's first event (`start: true`) | how the visitor reached this view: `load` (a normal page load), `reload`, `back_forward` (a page load or a restore from the back/forward cache by the browser's back or forward button, from Navigation Timing's `type` and `pageshow.persisted`), `push` (an in-app route change by `pushState` or `replaceState`, or one seen at the next input when the nav observer is off), `back` or `forward` (an in-app history traversal, `popstate`, the direction read from the Navigation API's entry index where the browser has it), `pop` (a traversal whose direction the browser does not expose) |
+| `from`, `fromMs` | a view's first event, from the second view of a page load on | the previous view's route in this page load, and the ms from that view's start to this one's (on the runtime's Clock): the route-to-route step and the time between |
+| `first`, `firstMs` | the event after the view's first interaction, once per view | the element key (section 1, the same keys clicks use) of the first click, or of the first focus on a form field (`input`, `select`, `textarea`, an editable region) for keyboard users, and the ms from the view's start |
+| `exit`, `path` | the page load's last event (`pagehide`) | `exit: true` marks where the page load ended; `path` lists the routes of its views in order, at most 10 (a longer path ends with `"(more)"`). After a restore from the back/forward cache a new path starts |
+
+Everything else in section 1 holds: routes are normalised as telemetry sends them (ids and `@` segments as `:id`, no
+query, no fragment), element keys come from markup only and never from text, there is no visitor id and nothing is
+written to the device.
+
+What changes in the "Never recorded" list: the **order of page views within one page load** and the time between
+them are now recorded (the order and timing of clicks still are not). Two page loads still cannot be linked: a full
+page navigation to another page of the same app ends one page load (an exit) and starts another (an entry with
+`nav: "load"`), because the referrer is not read and no id is stored. So on a site without client-side routing every
+page view is its own path of one, and exits there mean "the visitor left this page", not "left the site".
+
+Not sent: the referrer, the URL a link pointed to beyond its element key, the history length, the Navigation API's
+entry keys or ids, scroll positions per step, the time of day beyond the batch's own timestamp.
+
+A page load that ends without `pagehide` (a phone that discards a background tab, a crash) sends no `exit` and no
+`path`: its views and steps are counted, its end is not.
+
+### 11.2 Collector and dashboard
+
+New `ix_*` counters in `summarize()` (the same per-batch budget of 200, no migration):
+
+| metric | key | count |
+|---|---|---|
+| `ix_entry` | `''` and the route | views with no `from` (where page loads start) |
+| `ix_nav` | from TAB to | route-to-route steps |
+| `ix_nav_ms` | from TAB to | the sum of `fromMs` (the dashboard shows the average) |
+| `ix_arrive` | `nav`, and route TAB `nav` | views by how they were reached |
+| `ix_first` | route TAB element key | views whose first interaction was on that element |
+| `ix_first_ms`, `ix_first_n` | the route | the sum of `firstMs` and the views that had a first interaction |
+| `ix_exit` | `''` and the route | where page loads ended |
+| `ix_path` | the first 5 routes joined with ` > ` (` > …` when longer), at most 240 characters | page loads that took that path |
+
+Bounds, as for the other fields: `fromMs` and `firstMs` above 24 h are ignored, `nav` outside the list above is
+`(other)`, routes are cut to 100 characters and element keys to 120.
+
+The dashboard's Visitors view gets "How visitors move through this app": entries, exits and back/forward use with the
+change on the previous period; Table 7, the most taken paths; Table 8, page-to-page steps with the average time
+before the step; Table 9, per page: entries, exits and the exit rate (exits over views), back/forward arrivals, the
+most frequent first interaction and the average time to it. The footer's clause becomes "page views, the path between
+pages, time on page, scroll depth and clicks per element".
+
+### 11.3 Disclosures
+
+`packages/runtime/TELEMETRY.md` (the `interactions` row and the section), `PRIVACY.md`, the console notice
+("Interaction analytics are on (this app turned them on): page views and the path between them, time on page, scroll
+depth and clicks per element, never page text."), the JSDoc of `InitOptions.analytics`, `docs/runtime/API.md`,
+`packages/runtime/CHANGELOG.md` and the dashboard footer say what is added. genclass.dev's privacy page lives in the
+site repository and is updated there when the site takes a runtime with this.

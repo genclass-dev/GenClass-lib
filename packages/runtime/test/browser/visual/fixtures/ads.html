@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ad-heavy page</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .site-header { height: 56px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid #e5e7eb; }
+  .wrap { display: grid; grid-template-columns: 1fr 320px; gap: 24px; padding: 24px; max-width: 1232px; }
+  .slot { background: #f3f4f6; border: 1px dashed #9ca3af; box-sizing: border-box; max-width: 100%; }
+  .billboard { width: 970px; height: 250px; margin: 16px auto; }
+  .leader { width: 728px; height: 90px; margin: 16px 0; }
+  .rect { width: 300px; height: 250px; margin: 16px 0; }
+  aside iframe { display: block; border: 0; margin-bottom: 16px; }
+  article p { margin: 0 0 16px; }
+</style>
+</head>
+<body>
+<header class="site-header"><strong>Daily Example</strong></header>
+<div id="div-gpt-ad-billboard" class="slot billboard" data-k="a1" data-expect="ad-heavy"></div>
+<div class="wrap">
+  <article>
+    <h1>Council approves the new library budget</h1>
+    <p>The council voted on Tuesday to fund the library's renovation, which will add a reading room and longer opening hours on weekends.</p>
+    <div class="slot leader ad-unit"></div>
+    <p>Work starts in the spring. The library stays open during the first phase, with the children's section moving to the community hall.</p>
+    <ins class="adsbygoogle slot rect" style="display: block" data-ad-client="ca-pub-0000000000000000" data-ad-slot="1234567890"></ins>
+    <p>Residents can comment on the plans until the end of the month at the town hall or by post.</p>
+    <div class="slot rect sponsored-post"></div>
+    <p>The next council meeting is on the first Tuesday of next month.</p>
+    <div class="slot rect" id="inline-ad-3"></div>
+  </article>
+  <aside>
+    <iframe src="https://ads.example.test/frame?w=300&amp;h=600" width="300" height="600" title="Advertisement"></iframe>
+    <iframe src="https://ads.example.test/frame?w=300&amp;h=600&amp;n=2" width="300" height="600" title="Advertisement"></iframe>
+  </aside>
+</div>
+</body>
+</html>

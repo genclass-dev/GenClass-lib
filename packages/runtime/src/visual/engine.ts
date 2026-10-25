@@ -26,6 +26,8 @@ import * as A from "./checks/assets.js";
 import * as T from "./checks/text.js";
 import * as L from "./checks/layout.js";
 import * as I from "./checks/interact.js";
+import * as AD from "./checks/ads.js";
+import * as W from "./checks/warped.js";
 
 export const KINDS: CheckKind[] = [
   "image-broken",
@@ -51,6 +53,8 @@ export const KINDS: CheckKind[] = [
   "control-unreachable",
   "focus-obscured",
   "dialog-covered",
+  "ad-heavy",
+  "text-warped",
 ];
 
 /** The near-free kinds: browser-reported facts and interaction hooks. Low-end and sampled-out sessions run only these. */
@@ -83,8 +87,8 @@ const MO_OPTS: MutationObserverInit = { childList: true, subtree: true, characte
 /** Mutation records per second above which the observer rests for 5 s (an animation library writing styles every frame). */
 const MO_RATE = 3000;
 let engines = 0;
-const TEXT = new Set<CheckKind>(["text-invisible", "text-template-leak", "text-placeholder", "text-encoding", "page-overflow-x"]);
-const LAYOUT = new Set<CheckKind>(["page-overflow-x", "viewport-meta-missing", "control-unreachable", "focus-obscured", "dialog-covered", "click-blocked"]);
+const TEXT = new Set<CheckKind>(["text-invisible", "text-template-leak", "text-placeholder", "text-encoding", "page-overflow-x", "text-warped"]);
+const LAYOUT = new Set<CheckKind>(["page-overflow-x", "viewport-meta-missing", "control-unreachable", "focus-obscured", "dialog-covered", "click-blocked", "ad-heavy"]);
 
 export interface Cfg {
   checks: Record<CheckKind, boolean>;
@@ -785,14 +789,17 @@ export class Visual implements VisualController {
         yield* A.brokenCssImages(ctx, env, drafts);
         yield* L.pageOverflow(ctx, drafts);
         yield* self.cssVars(ctx, drafts);
+        yield* AD.adHeavy(ctx, drafts);
       }
       yield* L.distortedImages(ctx, rts, drafts);
       const text = ctx.on("text-template-leak") || ctx.on("text-placeholder") || ctx.on("text-encoding");
-      if (text || ctx.on("text-invisible")) {
-        yield* T.walkText(ctx, rts, scan, 5000, ctx.on("text-invisible"));
+      const cands = ctx.on("text-invisible") || ctx.on("text-warped");
+      if (text || cands) {
+        yield* T.walkText(ctx, rts, scan, 5000, cands);
         T.placeholderImages(ctx, rts, scan);
         T.patternDrafts(ctx, scan, drafts);
         yield* T.measureContrast(ctx, scan.cands, drafts, self.rest);
+        yield* W.measureWarped(ctx, scan.cands, drafts);
       }
       yield;
       self.dialogs(ctx, drafts);

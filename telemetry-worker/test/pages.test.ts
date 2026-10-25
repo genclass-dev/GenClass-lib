@@ -452,6 +452,32 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     await close();
   });
 
+  it("how visitors move (ANALYTICS.md section 11): entries, steps, back and forward, exits; paths, page to page, per page", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, text, hidden, heads, close } = await render(st);
+    expect(hidden("moves")).toBe(false);
+    for (const t of ["Entries", "Steps between pages", "Back and forward", "Exits", "page loads are never linked"]) expect(text("#ixmoves")).toContain(t);
+    expect(heads("#ixpaths")).toEqual(["Path (first 5 pages)", "Page loads", ""]);
+    expect(text("#ixpaths")).toContain("/ > /products > /products/:id");
+    expect(heads("#ixsteps")).toEqual(["From", "To", "Steps", "Time before the step"]);
+    expect(doc.querySelectorAll("#ixsteps tbody tr").length).toBe(Math.min(12, st.breakdowns.ix_nav!.length));
+    expect(heads("#ixexits")).toEqual(["Page", "Entries", "Exits", "Exit rate", "Back/forward", "First interaction", "Time to it"]);
+    expect(text("#ixexits")).toContain('[data-genclass-name="add-to-cart"]');
+    expect(doc.querySelector(".dfoot")!.textContent).toContain("the path between pages");
+    await close();
+  });
+
+  it("the navigation section stays hidden for a runtime that sends no navigation fields", async () => {
+    const st = sampleStats("7d", NOW);
+    for (const k of ["ix_entry", "ix_exit", "ix_nav", "ix_nav_ms", "ix_arrive", "ix_first", "ix_first_n", "ix_first_ms", "ix_path"]) delete st.breakdowns[k];
+    delete st.totals.ix_entry;
+    delete st.totals.ix_exit;
+    const { hidden, close } = await render(st);
+    expect(hidden("visits")).toBe(false);
+    expect(hidden("moves")).toBe(true);
+    await close();
+  });
+
   it("hidden for an app that has not turned analytics on; the footer says what interaction data is", async () => {
     const st = sampleStats("7d", NOW);
     for (const k of Object.keys(st.breakdowns)) if (k.startsWith("ix_")) delete st.breakdowns[k];
@@ -460,6 +486,7 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     expect(hidden("visits")).toBe(true);
     expect(hidden("clicks")).toBe(true);
     expect(hidden("nav-visits")).toBe(true);
+    expect(hidden("moves")).toBe(true);
     expect(doc.querySelector(".dfoot")!.textContent).toContain("never its text");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("No text from your pages, no IP addresses and no user agents are stored.");
     await close();

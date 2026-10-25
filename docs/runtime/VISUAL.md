@@ -7,6 +7,8 @@ of the checks (section 19, "Review of 2026-10-13") found correct pages that look
 and the code changed again (measured as run 5). The open owner decisions are in
 [section 17](#17-owner-decisions-and-open-questions). [CONTRACT.md](CONTRACT.md) section 14,
 [API.md](API.md), [OPTIONS-SPEC.md](OPTIONS-SPEC.md) section 4.20 and the CHANGELOG have the matching entries.
+Two checks were added on 2026-10-25 at the owner's request for "strange sites": `ad-heavy` (section 3.24) and
+`text-warped` (section 3.25), with their implementation notes at the end of section 19.
 
 The owner asked on 2026-10-13 for GenClass to find visual and CSS bugs that never throw an error (white text on a
 white background, broken images, "so much more") and to fix them. Many generated ("vibecoded") sites and company
@@ -226,10 +228,12 @@ wrong but usable; **low** means a defect with a small visible effect.
 | 21 | `control-unreachable` | a control covered by a fixed element even at max scroll | high | no | all |
 | 22 | `focus-obscured` | a focused element or anchor target hidden under a sticky header | medium | no | all |
 | 23 | `dialog-covered` | an open dialog covered by other elements, or its buttons off-screen | high | no | all |
+| 24 | `ad-heavy` | ad slots cover more than 30% of the page or half the first screen, a sticky ad over 30% of the screen, or an ad interstitial (added 2026-10-25, section 3.24) | high or medium | no | all |
+| 25 | `text-warped` | text that cannot be read as text: overlapping lines, a line cut mid-way by its box, characters no font can draw, mirrored or skewed text, letter spacing that splits words, text rendered below 8 px (added 2026-10-25, section 3.25) | medium | no | all |
 
 Checks 1 to 7, 15 and 16 are mostly browser-reported and cost close to nothing (event listeners and property reads).
-Checks 8 to 14 and 17 are measured layout and text checks behind the settle and persistence gates. Checks 18 to 23
-run on interaction or on a cheap periodic read.
+Checks 8 to 14, 17, 24 and 25 are measured layout and text checks behind the settle and persistence gates. Checks 18
+to 23 run on interaction or on a cheap periodic read.
 
 Each entry lists: what it measures, when it reports, what it skips, the evidence fields (local), the severity, the
 suggested developer fix, and the runtime fix if any.
@@ -705,6 +709,125 @@ The owner's first example. One check with two dimensions: the colour scheme the 
   `max-height: 90dvh; overflow-y: auto;`.
 - Runtime fix: none (moving elements or changing `z-index` is risky).
 
+### 3.24 `ad-heavy`
+
+Added 2026-10-25 at the owner's request ("the classifier should detect strange sites, like too many ads, warped text").
+It is a measured check like the others: geometry of elements the markup names as ad slots, against fixed shares taken
+from the Coalition for Better Ads standards. It does not judge whether an ad is good, and it never feeds the model.
+
+- Measures (full passes only, in the pass's idle slices: one `querySelectorAll` for elements whose `id` or `class`
+  contains `ad` or `sponsor`, the ad attributes below and `iframe`; at most 5,000 names read, no layout read for
+  them, a step every 50; at most 50 regions measured):
+  - **ad-like regions**, each `visible` (section 2.1), at least 40 x 20 px:
+    - an element whose `id` or a class name, split into words at `-`, `_`, digits and lower-to-upper case changes,
+      contains one of the words `ad`, `ads`, `advert`, `adverts`, `advertisement`, `advertisements`, `advertising`,
+      `adslot`, `adunit`, `adbox`, `adsbygoogle`, `adsense`, `sponsored`, or that has one of the attributes
+      `data-ad-slot`, `data-ad-client`, `data-ad-unit`, `data-ad-unit-path`, `data-adunit`, `data-google-query-id`
+      (the ad tags Google AdSense, Google Ad Manager and Prebid write; `div-gpt-ad-…` and `google_ads_iframe_…` match
+      through the word `ad` and `ads`). Only names are read, never text: `header`, `shadow`, `badge`, `add-to-cart`
+      and `adaptive` contain no such word;
+    - an `iframe` from another site (a different registrable domain, as the asset checks compare hosts) whose box is
+      a fixed display ad size within 2 px: 300 x 250, 336 x 280, 728 x 90, 970 x 90, 970 x 250, 300 x 600, 160 x 600,
+      120 x 600, 300 x 1050, 320 x 50, 320 x 100, 300 x 50, 468 x 60, 250 x 250, 200 x 200 (the IAB standard units
+      and the sizes Google AdSense lists). Other cross-site iframes (video players, maps, payment fields, captchas,
+      chat widgets) are not ad-like.
+  - Only the outermost region counts when regions nest (an ad container holding an ad iframe is one region). A named
+    element larger than half the page (an in-flow wrapper such as `<main class="has-ads">`), `html` and `body` are not
+    regions; their descendants still can be.
+  - **Shares**, each the area of the union of the regions' boxes (overlaps counted once), with the viewport width `vw`
+    (`clientWidth`) and height `vh`:
+    - `firstShare`: the regions inside the first screen (document box `0..vw` x `0..vh`; a `fixed` region at its place
+      on the screen) over `vw x vh`;
+    - `fixedShare`: the largest single `fixed` region on the screen over `vw x vh` (a `sticky` region is measured at its
+      place in the page, an under-count while it is stuck);
+    - `pageShare`: the in-flow regions over the page (`vw x scrollHeight`), combined with the fixed ones, which cover
+      their share of every screen: `1 - (1 - inFlow) x (1 - fixedAll)`.
+- Reports when, at two measurements 2,000 ms apart and after network quiet (ads load late and rotate), the same
+  reason holds, in this order:
+  - `interstitial`: one `fixed` region covers at least **50%** of the screen and is on top at its centre
+    (`elementFromPoint`). Better Ads: prestitial ads and full-screen scrollovers.
+  - `sticky`: one `fixed` region covers at least **30%** of the screen. Better Ads: large sticky ads (desktop, "more
+    than 30% of the screen").
+  - `density`: `pageShare` at least **30%**. Better Ads: mobile ad density higher than 30% (the standard measures the
+    ads' height in the main content; the share of the page's area is the same on a phone, where ads are as wide as the
+    content, and lower on a desktop with side rails).
+  - `first-screen`: `firstShare` at least **50%**: more than half of what a visitor first sees is ads.
+- Skips: regions in `[data-genclass-ignore]`, `aria-hidden` or `visual.ignore` (an app can list its own house
+  promos); empty slots an ad blocker collapsed (they are not `visible`); pinch zoom (abstain list); the light tier.
+  Same-site iframes are never ad-like by size alone.
+- Evidence: `reason`, `count` (regions), `firstShare`, `pageShare`, `fixedShare` (fractions, two decimals), the
+  largest region as the finding's element with every region folded into it.
+- Severity: high for `interstitial` (the page cannot be used until it is closed), medium otherwise.
+- Suggested fix (text, not CSS): fewer or smaller ad units; keep ads under 30% of the page on phones, no sticky unit
+  over 30% of the screen, no full-screen interstitial before the content; reserve the slots' space so they do not
+  shift the page.
+- Runtime fix: none (hiding an ad changes what the site's owner sells).
+
+### 3.25 `text-warped`
+
+Added 2026-10-25 with `ad-heavy`. Text that is on the page and visible but that a reader cannot read as text. Every
+reason is a measurement of boxes (`Range.getClientRects()` line boxes, `getBoundingClientRect()`, computed
+`transform`, `font-size`, `letter-spacing`, `word-spacing`) or of code points; nothing reads what the text says.
+
+- Measures, on the `text-invisible` candidates (elements with a direct text node in the viewport, at most 200 per pass,
+  one element per step), after `skipText` (section 3.8: disabled controls, SVG text, single icon glyphs, emoji,
+  `[aria-busy]`) and the walk exclusions of section 3.9 (`code`, `pre`, inputs and editable regions):
+  - `overlap`: two line boxes of the element's first text node overlap vertically by at least **50%** of the smaller
+    one's height and horizontally by at least 8 px (lines on the same row never overlap horizontally; normal
+    `line-height` from 1.0 leaves at most about 25% overlap of the font's content area). Not when the element or one of
+    its 3 nearest ancestors sets `text-overflow: ellipsis` (Chromium gives a truncated line two boxes, the whole run and
+    the part shown, one inside the other). Also between the first lines
+    of two different candidates, when at the centre of the overlap `elementsFromPoint` holds both, nothing between
+    them paints a background, an image or a replaced element (the upper text does not hide the lower one), neither is
+    `fixed` or `sticky` (a sticky header over scrolling text is normal), neither contains the other, both have opaque
+    colour and no partial opacity, both have at least 3 letters, and their font sizes are within a factor of 2
+    (decorative backdrop lettering is larger and usually translucent).
+  - `clipped`: the nearest ancestor-or-self with `overflow` `hidden` or `clip` (at most 3 levels up, at least 20 px
+    wide) cuts the first line mid-way: horizontally, the line runs at least 4 px past the box's right edge (left edge
+    in right-to-left text) while at least 4 px of it are inside; vertically, only the first line's visible part is
+    between **20% and 80%** of its height (a control whose text is cut through the middle). Not when, from the element
+    up to the box, something sets `text-overflow: ellipsis`, `-webkit-line-clamp` or a `transform` (a carousel track,
+    a marquee); when, from the element up to 3 levels above the box, something has a `mask-image` (a "read more"
+    fade); when the element is inside a container that scrolls on its own; or when the element or the box is
+    animating.
+  - `tofu`: the text node holds a lone UTF-16 surrogate (a string cut through an emoji) or a code point the browser's
+    Unicode tables call unassigned (`\p{Cn}`, which includes the noncharacters), and its line box is drawn (width
+    above 0). No font has a glyph for these, so they render as boxes. U+FFFD is `text-encoding` (section 3.11), not
+    counted twice. Whether a font has a glyph for an assigned character is not readable from the DOM and is not
+    measured (a canvas probe would compare widths, and monospace fonts make that a guess).
+  - `mirrored` and `skewed`: the product of the computed `transform`, `scale` and `rotate` of the element and its
+    ancestors (2 x 2 part; a `matrix3d` is projected) has a negative determinant (the text reads backwards; not when
+    an ancestor sets `backface-visibility: hidden`, the back face of a flip card; and only for text with at least 3
+    letters, so a flipped arrow or icon glyph is not text), or its two axes are more than
+    **20°** away from a right angle (design slants are 8 to 15°), or one axis is stretched to at least **2x** the
+    other. Pure rotation is never reported (vertical axis labels and rotated badges read fine). For a rotated or skewed
+    element the line boxes are bounding boxes, not the text's own, so `overlap`, `clipped` and `tiny` are measured
+    only when the transform product has no rotation or skew.
+  - `spacing`: computed `letter-spacing` at least **0.5 em** with at least two words of two or more letters (the gap
+    between letters is then wider than a space, about 0.25 to 0.33 em, so words no longer stand apart), or at most
+    **-0.2 em** with at least 3 letters (letters run into each other; tight display headings use -0.02 to -0.05 em),
+    or `word-spacing` at most -0.2 em with at least two words (the space between words is gone).
+  - `tiny`: `font-size` times the scale of that transform product (the square root of the determinant) is below
+    **8 px** and the drawn line box is under 10 px tall, for text still meant to be read: at least 3 letters, opaque
+    colour, no partial opacity, not `pointer-events: none` (miniature previews of a page set it), not inert or
+    `aria-hidden`.
+- Reports when: the same reason holds at two measurements 1,000 ms apart and the element is not animating. One
+  finding per element, for the first reason that holds in the order `tofu`, `mirrored`, `skewed`, `spacing`, `tiny`,
+  `overlap`, `clipped`; the overlap between two elements is tested only for elements without a finding, at most 50
+  overlapping pairs per pass.
+- Skips: translated pages (abstain list), `rt` and `rp` (ruby annotations sit over their base), elements in
+  `[data-genclass-ignore]` or `visual.ignore`, the light tier.
+- Evidence: `reason`, and per reason: the overlap fraction and the line heights, `line-height` and `font-size`; the cut
+  px and the clipping box's selector; the offending code points (`U+D83D`); the skew angle, determinant and stretch and
+  the selector of the element whose transform does it; the spacing in em; the rendered px and the scale. Text is in the
+  finding's `target` only, as for every check (local).
+- Severity: medium.
+- Suggested fix, by reason: `line-height: 1.4;`; `text-overflow: ellipsis;` on the clipping box, or `height: auto;`
+  for a control; slice strings by code point (`Array.from(s).slice(0, n)` or `Intl.Segmenter`), never by UTF-16 index;
+  `transform: none;` on the element that mirrors or skews; `letter-spacing: 0.1em;` or `word-spacing: normal;`;
+  `font-size: 12px;` or remove the scale.
+- Runtime fix: none.
+
 ## 4. Held back from v1 until measured
 
 These were researched and are useful, but their expected precision is medium, or they judge design rather than
@@ -713,7 +836,7 @@ breakage. Each needs bench numbers (section 15) before it ships, and some belong
 | candidate | why it waits |
 |---|---|
 | content stuck at `opacity: 0` (a scroll-reveal animation that never ran) | expected medium-high; cross-fade slideshows, tabs and hover reveals look the same. Report-only first |
-| clipped text in a control (`scrollWidth > clientWidth + 2`, overflow hidden, no ellipsis) | expected medium-high; icons and ripples also enlarge `scrollWidth` |
+| clipped text in a control (`scrollWidth > clientWidth + 2`, overflow hidden, no ellipsis) | expected medium-high; icons and ripples also enlarge `scrollWidth`. The line-box form (a line cut by its box, measured with `Range.getClientRects()`, which icons and ripples do not enlarge) shipped on 2026-10-25 as `text-warped` reason `clipped` (section 3.25) |
 | raw markdown in rendered text (`**bold**`, `[text](https://...)`) | chat UIs show typed markdown on purpose |
 | lazy image that never loads | needs a reliable network-quiet signal per image |
 | text over images and gradients | the runtime cannot read pixels; gradient stops are feasible, sampled images need same-origin canvas reads or a scanner |
@@ -916,6 +1039,8 @@ Budgets:
 | overflow culprit | 3,000 elements | only when the page fact holds |
 | `control-unreachable` | 50 controls | 250 hit tests at most, once per max-scroll event |
 | `css-var-undefined` | 5,000 rules | once per stylesheet set, in steps of 200 rules and one reference per step; a cross-origin sheet stops it before any walk |
+| `ad-heavy` | 5,000 names, 50 regions | full passes only; one `querySelectorAll` for names and iframes, names read in steps of 50 without layout, the union of at most 50 boxes |
+| `text-warped` | the 200 `text-invisible` candidates | one element per step (its line boxes, its transform chain up to 30 ancestors); the pairwise overlap test compares first-line boxes and hit-tests only pairs that overlap |
 | event handlers | no page reads | an event records what it needs (the target, the point); the read runs in the next idle callback |
 
 Back-off: if one step takes more than 16 ms (a forced layout on a huge DOM), the pass ends, the settle wait doubles
@@ -940,7 +1065,7 @@ type CheckKind =
   | "icon-font-failed" | "csp-blocked" | "text-invisible" | "text-template-leak" | "text-placeholder"
   | "text-encoding" | "css-var-undefined" | "image-distorted" | "page-overflow-x" | "viewport-meta-missing"
   | "layout-shift" | "page-blank" | "click-blocked" | "pointer-events-leak" | "scroll-lock-stuck"
-  | "control-unreachable" | "focus-obscured" | "dialog-covered";
+  | "control-unreachable" | "focus-obscured" | "dialog-covered" | "ad-heavy" | "text-warped";
 
 interface CheckFinding {
   /** "c1", "c2", ... per runtime (a counter). */
@@ -1461,3 +1586,19 @@ finds it). Run 5 of the bench measured the result (RESULTS.md section 14).
 - **Defaults and telemetry.** The `"local"` default used telemetry's `isLocalHost`, which also covers Capacitor,
   Tauri, Electron and intranet hosts; it now uses the narrow `devHost` (7.2). The stub no longer loads the chunk in a
   hidden tab or a prerendered page. The `visual` telemetry fields were removed (section 10).
+
+### `ad-heavy` and `text-warped` (2026-10-25, branch `strange-sites`)
+
+What the build does where sections 3.24 and 3.25 were not specific, and what the first measurements changed:
+
+- **Where they run.** `ad-heavy` in full passes only (it is a page-level share; dirty-subtree passes skip it), after
+  `css-var-undefined`; `text-warped` after `text-invisible` on the same candidates (the text walk now collects them when
+  either check is on). Both are full-tier kinds (not in the light tier), `text-warped` abstains on translated pages and
+  `ad-heavy` under pinch zoom. Code: `src/visual/checks/ads.ts` and `src/visual/checks/warped.ts`, in the lazy chunk.
+- **The ellipsis case.** The first browser run reported `overlap` on two correct elements with `text-overflow:
+  ellipsis`: Chromium returns two line boxes for a truncated line (the whole run and the part shown, the second inside
+  the first), which also describes three lines at `line-height: 0`. Self-overlap is now skipped under an ellipsis
+  (section 3.25); a `line-height: 0` paragraph is still found.
+- **Recall and false reports** are in RESULTS.md section 21 (the Chromium fixtures, and the demos and templates bench
+  run on a development machine). The compat apps and the public sites were not run for these two kinds yet: they
+  need the bench workflow (section 15), which loads public sites and is the owner's to start.

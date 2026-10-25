@@ -1,6 +1,6 @@
 # GenClass Runtime: privacy policy
 
-_Last updated: 2026-10-22._
+_Last updated: 2026-10-25._
 
 This policy covers the diagnostics that `@genclass/runtime` (from `0.1.0-beta.3`) sends to its maintainers. It does not
 cover the website or app that uses GenClass; that site has its own privacy policy.
@@ -45,9 +45,14 @@ object; version 0.2.1 sent from those hosts by default, by mistake, fixed in 0.2
   the page the visitor scrolled (25, 50, 75 or 100 %), and how many times each element was clicked, clicked 3 or more
   times within a second, or clicked without anything changing on the page. An element is named from the page's code
   (a name the developer gave it, an id, a link's address on the same site, the other site's address only, class names
-  or its position on the page), never by its text. We do not collect what visitors type, where the mouse was, the
-  order of clicks, or anything that links one page load to another. We use this data only to show it on that
-  website's dashboard and in its export, never to train or evaluate the model.
+  or its position on the page), never by its text. From the runtime release after 0.3.0-beta.1, also how the visitor
+  moved within one page load: how each page view was reached (a page load, a reload, the browser's back or forward
+  button, a link inside the site), the previous page's path and the time spent before moving on, the element they
+  first clicked or (with the keyboard) first moved to on each page and how long that took, and, when the page load
+  ends, the paths of its page views in order (at most 10) and where it ended. We do not collect what visitors type,
+  where the mouse was, the order of clicks, where the visitor came from (the referrer), or anything that links one
+  page load to another. We use this data only to show it on that website's dashboard and in its export, never to
+  train or evaluate the model.
 
 We do **not** store IP addresses, browser user-agent strings or cookies, and the runtime sets no cookies. Each page
 load gets a random session ID that is not saved anywhere.
@@ -61,7 +66,7 @@ works on their own site. We do not sell the data, use it for advertising, or try
 
 A website owner can get a private dashboard link for their site's token. Whoever holds that link can see aggregated diagnostics for that site (counts of decisions, detections, possible detections and actions, the site's hostnames,
 routes, the names the developer gave to protected functions, model speed, versions; with interaction analytics on,
-page views, time on page, scroll depth and clicks per page and element) and a list of recent detections
+page views, the paths between pages, time on page, scroll depth and clicks per page and element) and a list of recent detections
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 

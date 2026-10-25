@@ -901,7 +901,10 @@ export interface InitOptions {
    * per page view, the page route, page views, engaged time (the tab visible, at most 30 s after the last input),
    * scroll depth (25 / 50 / 75 / 100 %) and clicks, rage clicks and dead clicks per element, the element named from
    * markup only (`data-genclass-name`, `data-testid`, an id, a link's target, stable class names or a short
-   * structural path; never its text). Sent as `interactions` telemetry events, never fed to a decision or the model.
+   * structural path; never its text), and navigation within one page load: how each view was reached (a load, a
+   * reload, back/forward, an in-app route change), the previous view's route and the ms between, the element key of
+   * the view's first interaction, and at pagehide the exit and the routes in order (at most 10). Page loads are never
+   * linked. Sent as `interactions` telemetry events, never fed to a decision or the model.
    * **Default: off.** Needs telemetry on and the app's `token` (or your own `telemetry.endpoint`); every telemetry
    * opt-out and Global Privacy Control turn it off too. Nothing is stored on the device. Where analytics need consent
    * (the EU, EEA and UK), leave it off and call `runtime.analytics.start()` once the visitor agrees. Also
@@ -1085,7 +1088,12 @@ export interface Learned {
 
 // --------------------------------------------------------------------------- measured visual checks (VISUAL.md)
 
-/** The v1 measured visual checks (docs/runtime/VISUAL.md section 3). */
+/**
+ * The measured visual checks (docs/runtime/VISUAL.md section 3). `ad-heavy` (3.24): ad slots cover 30% of the page,
+ * half the first screen, a sticky ad 30% of the screen, or an ad interstitial half of it. `text-warped` (3.25): text a
+ * reader cannot read as text (overlapping lines, a line cut mid-way, characters no font can draw, mirrored or skewed
+ * text, letter spacing that splits words, text drawn below 8 px). Both report only, never fix, never feed the model.
+ */
 export type CheckKind =
   | "image-broken"
   | "image-css-broken"
@@ -1109,7 +1117,9 @@ export type CheckKind =
   | "scroll-lock-stuck"
   | "control-unreachable"
   | "focus-obscured"
-  | "dialog-covered";
+  | "dialog-covered"
+  | "ad-heavy"
+  | "text-warped";
 
 /** The checks that may apply a runtime fix (opt-in, reversible, never in observe). */
 export type VisualFixKind = "text-invisible" | "pointer-events-leak" | "scroll-lock-stuck";

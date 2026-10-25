@@ -9,6 +9,10 @@
 // - Counts per page view, sent as `interactions` events whose counts are deltas since the view's previous event:
 //   page views, engaged time, scroll milestones, and clicks, rage clicks and dead clicks per element key. Never element
 //   text, input values, coordinates, the order or timing of clicks, the query string or a visitor id.
+// - Navigation paths (ANALYTICS.md section 11): on a view's first event, how it was reached (`nav`) and the previous
+//   view of this page load with the ms between (`from`, `fromMs`); once per view, the element key of the first
+//   interaction (`first`, `firstMs`); on the page load's last event (pagehide), `exit` and the ordered `path` of its
+//   routes (at most PATH_MAX). Never the referrer, history entries' keys or anything that links two page loads.
 // - Element keys come from markup only (keyOf); every part read from an attribute goes through telemetry's DATA_LIKE.
 // - Only trusted events count (isTrusted, whatever observe.untrustedEvents says), never those inside
 //   [data-genclass-ignore] (the devtools overlay).
@@ -34,6 +38,10 @@ export const DEAD_MS = 1000;
 export const MAX_CLICK_KEYS = 50;
 export const MAX_FLAG_KEYS = 20;
 export const KEY_MAX = 120;
+/** Routes in a page load's `path`; a longer path ends with "(more)". */
+export const PATH_MAX = 10;
+/** How a view was reached (ANALYTICS.md section 11.1). */
+export type NavType = "load" | "reload" | "back_forward" | "push" | "back" | "forward" | "pop";
 /** Scroll position reads at most this often; other inputs update the engagement anchor at most this often. */
 const SCROLL_MS = 250;
 const INPUT_MS = 500;
@@ -43,6 +51,10 @@ const INTERACTIVE =
   "button,a,input,select,textarea,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=checkbox],[role=option],[role=switch],[contenteditable=''],[contenteditable=true]";
 /** Links and buttons: the elements a dead click is counted on. */
 const DEAD = "a,button,[role=button],[role=link],[role=tab],[role=menuitem],input[type=button],input[type=submit],input[type=reset]";
+/** Form fields: a keyboard user's first interaction is often a focus on one. */
+const FIELD = "input,select,textarea,[contenteditable=''],[contenteditable=true]";
+/** A focus counts as an interaction when a key was pressed this recently (Tab), not when the page moved focus. */
+const FOCUS_KEY_MS = 1000;
 const LANDMARKS = new Set(["header", "nav", "main", "aside", "footer", "form", "dialog"]);
 // From src/visual/measure.ts (the visual chunk; a static import would make this chunk depend on another file).
 const GENERATED_ID = /^[:«]|[:»]$|^(headlessui|radix|react-aria|mui|chakra|ember|ext-gen|yui_|j_id|rc_|__next)|^[a-f0-9-]{12,}$|\d{4,}/i;
@@ -202,7 +214,23 @@ export interface AnalyticsChunk {
 }
 
 let noticeShown = false;
-export const ANALYTICS_NOTICE = "[GenClass] Interaction analytics are on (this app turned them on): page views, time on page, scroll depth and clicks per element, never page text.";
+export const ANALYTICS_NOTICE = "[GenClass] Interaction analytics are on (this app turned them on): page views and the path between them, time on page, scroll depth and clicks per element, never page text.";
+
+/** Navigation Timing's type for the page load's first view: "load", "reload" or "back_forward". */
+export function loadNav(g: { performance?: { getEntriesByType?: (t: string) => { type?: string }[] } }): NavType {
+  try {
+    const t = g.performance?.getEntriesByType?.("navigation")?.[0]?.type;
+    return t === "reload" ? "reload" : t === "back_forward" ? "back_forward" : "load";
+  } catch {
+    return "load";
+  }
+}
+
+/** The direction of a history traversal from the Navigation API's entry indexes ("pop" when either is unknown). */
+export function popNav(before: number | undefined, after: number | undefined): NavType {
+  if (typeof before !== "number" || typeof after !== "number" || before === after) return "pop";
+  return after < before ? "back" : "forward";
+}
 
 /** Start recording (the stub checked telemetry and the token). `ignored`: dom-user's ignoredEvent; `data`: DATA_LIKE. */
 export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp): AnalyticsController {
@@ -241,6 +269,28 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
   let pid = 0;
   let mo: MutationObserver | null = null;
   const timers = new Set<unknown>();
+  // navigation: how the open view was reached, the previous view of this page load, the first interaction, the path
+  let nav: NavType = loadNav(g as Parameters<typeof loadNav>[0]);
+  let pendingNav: NavType | null = null;
+  let from: string | undefined;
+  let fromMs = 0;
+  let opened = 0;
+  let prevRoute: string | undefined;
+  let prevOpened = 0;
+  let firstKey = "";
+  let firstMs = 0;
+  let firstSent = false;
+  let lastKey = -Infinity;
+  let path: string[] = [];
+  const entryIndex = (): number | undefined => {
+    try {
+      const i = (g.navigation as { currentEntry?: { index?: number } } | undefined)?.currentEntry?.index;
+      return typeof i === "number" && i >= 0 ? i : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  let navIndex = entryIndex();
 
   const here = () => t.route();
   const account = (at: number) => {
@@ -251,6 +301,19 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     view = ++views;
     route = here();
     start = true;
+    // the first view of a page load keeps its load type; later ones were reached by a traversal or a route change
+    if (pendingNav) nav = pendingNav;
+    else if (prevRoute !== undefined) nav = "push";
+    pendingNav = null;
+    from = prevRoute;
+    fromMs = prevRoute !== undefined ? Math.max(0, Math.round(at - prevOpened)) : 0;
+    prevRoute = route;
+    prevOpened = opened = at;
+    navIndex = entryIndex();
+    firstKey = "";
+    firstSent = false;
+    if (path.length < PATH_MAX) path.push(route ?? "(unknown)");
+    else if (path.length === PATH_MAX) path.push("(more)");
     engaged = 0;
     acc = at;
     last = visible ? at : -Infinity;
@@ -278,14 +341,27 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     }
   };
 
-  /** Queue this view's `interactions` event if anything changed; `end` closes the view. */
-  const emit = (end: boolean, measure = true) => {
+  /** Queue this view's `interactions` event if anything changed; `end` closes the view, `exit` the page load. */
+  const emit = (end: boolean, measure = true, exit = false) => {
     if (!view) return;
     account(clock.now());
     if (measure) read();
     const e: Record<string, unknown> = { t: "interactions", view, route };
     let any = start;
-    if (start) e.start = true;
+    if (start) {
+      e.start = true;
+      e.nav = nav;
+      if (from !== undefined) {
+        e.from = from;
+        e.fromMs = fromMs;
+      }
+    }
+    if (firstKey && !firstSent) {
+      e.first = firstKey;
+      e.firstMs = firstMs;
+      firstSent = true;
+      any = true;
+    }
     const ms = Math.round(engaged);
     if (ms > 0) {
       e.engagedMs = ms;
@@ -311,6 +387,14 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     if (end) {
       e.end = true;
       view = 0;
+    }
+    if (exit) {
+      // where this page load ended, and the routes it went through; a restore from the back/forward cache starts anew
+      e.exit = true;
+      e.path = path;
+      path = [];
+      prevRoute = undefined;
+      any = true;
     }
     if (any) t.push(e);
   };
@@ -379,6 +463,33 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     timers.add(tm);
   };
 
+  /** The view's first interaction: a click, or a focus on a form field right after a key press. */
+  const firstAt = (key: string, at: number) => {
+    if (firstKey || !view) return;
+    firstKey = key;
+    firstMs = Math.max(0, Math.round(at - opened));
+  };
+  const onKey = (e: Event) => {
+    if (e.isTrusted !== false) lastKey = clock.now();
+    onInput(e);
+  };
+  const onFocus = (e: Event) => {
+    const at = clock.now();
+    if (firstKey || at - lastKey > FOCUS_KEY_MS || !trusted(e)) return;
+    const el = targetOf(e);
+    const field = el?.closest?.(FIELD);
+    if (!field) return;
+    touch(at);
+    firstAt(keyOf(field, k), at);
+  };
+  const onPop = () => {
+    const dir = popNav(navIndex, entryIndex());
+    navIndex = entryIndex();
+    if (here() !== route) pendingNav = dir;
+    // the nav observer's listener ran first and already opened this view as a route change: it was a traversal
+    else if (view && start && nav === "push" && clock.now() - opened < 50) nav = dir;
+  };
+
   const onClick = (ev: Event) => {
     if (!trusted(ev)) return;
     const at = clock.now();
@@ -386,6 +497,7 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     const el = targetOf(ev);
     const key = keyOf(el, k);
     bump(clicks, key, MAX_CLICK_KEYS);
+    firstAt(key, at);
     // rage: RAGE_CLICKS on one element within RAGE_MS, once per burst; not while the visitor selects text
     if (key !== rk) {
       rk = key;
@@ -430,8 +542,13 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
   const onPageHide = () => {
     gone = true;
   };
-  const onPageShow = () => {
+  const onPageShow = (e: Event) => {
     gone = false;
+    // restored from the back/forward cache: the next view starts a new path, reached by back or forward
+    if ((e as PageTransitionEvent).persisted) {
+      pendingNav = "back_forward";
+      prevRoute = undefined;
+    }
   };
   const onNav = (e: RtEvent) => {
     if (e.kind === "nav" && view && here() !== route) {
@@ -445,7 +562,10 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
     [g as unknown as EventTarget, "click", onClick, opts],
     [g as unknown as EventTarget, "pointerdown", onInput, opts],
     [g as unknown as EventTarget, "pointermove", onInput, opts],
-    [g as unknown as EventTarget, "keydown", onInput, opts],
+    [g as unknown as EventTarget, "keydown", onKey, opts],
+    [g as unknown as EventTarget, "focusin", onFocus, opts],
+    // capture: at the window it runs before the nav observer's own popstate listener
+    [g as unknown as EventTarget, "popstate", onPop, { capture: true }],
     [g as unknown as EventTarget, "wheel", onInput, opts],
     [g as unknown as EventTarget, "touchstart", onInput, opts],
     // the document's own scroll only (a scrolling container's events do not reach the window in the bubble phase)
@@ -462,7 +582,7 @@ export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e:
       /* analytics never break the runtime */
     }
   });
-  t.pre = (reason) => emit(reason === "pagehide" || reason === "destroy");
+  t.pre = (reason) => emit(reason === "pagehide" || reason === "destroy", true, reason === "pagehide");
 
   // the first page view: now, or when a prerendered page is shown
   const first = () => open(clock.now());

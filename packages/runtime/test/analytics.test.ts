@@ -8,7 +8,7 @@ import { createRuntime } from "../src/index.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import { DATA_LIKE, type TelemetryClient } from "../src/telemetry/client.js";
 import { fromPairs, readMetaConfig } from "../src/cdn/config.js";
-import { ANALYTICS_NOTICE, IDLE_MS, KEY_MAX, keyOf, type KeyContext } from "../src/analytics/index.js";
+import { ANALYTICS_NOTICE, IDLE_MS, KEY_MAX, keyOf, loadNav, PATH_MAX, popNav, type KeyContext } from "../src/analytics/index.js";
 import { normalizePath } from "../src/util.js";
 import type { TelemetryTransport } from "../src/types.js";
 import { FakeClock, ScriptedDecider } from "./helpers.js";
@@ -335,6 +335,132 @@ describe("interaction analytics: what a page view records (ANALYTICS.md section 
     fire($("b"), "click");
     setVisibility("hidden");
     expect(ix(transport)).toEqual([expect.objectContaining({ view: 1, start: true, clicks: { "button#b": 1 } })]);
+  });
+});
+
+describe("interaction analytics: navigation paths (ANALYTICS.md section 11)", () => {
+  /** A history traversal as the browser reports it: the URL is already the new one when popstate fires. */
+  function traverse(path: string, index?: number) {
+    window.history.replaceState({}, "", path);
+    if (index !== undefined) (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index = index;
+    window.dispatchEvent(new Event("popstate"));
+  }
+  const pagehide = () => window.dispatchEvent(new Event("pagehide"));
+  afterEach(() => {
+    delete (window as unknown as Record<string, unknown>).navigation;
+  });
+
+  it("how each view was reached, the previous route with the time between, and at pagehide the exit and the path", async () => {
+    document.body.innerHTML = `<button id="b">B</button>`;
+    Object.defineProperty(window, "navigation", { value: { currentEntry: { index: 0 } }, configurable: true, writable: true });
+    for (const nav of [true, false]) {
+      (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index = 0;
+      const { clock, transport, rt: r } = await arun({ nav });
+      await clock.advance(1500);
+      window.history.pushState({}, "", "/pricing");
+      (window as unknown as { navigation: { currentEntry: { index: number } } }).navigation.currentEntry.index = 1;
+      if (!nav) fire($("b"), "click"); // without the nav observer the route change is seen at the next input
+      await clock.advance(2500);
+      traverse("/", 0);
+      if (!nav) fire($("b"), "click");
+      await clock.advance(500);
+      pagehide();
+      const evs = ix(transport);
+      const starts = evs.filter((e) => e.start).map((e) => [e.route, e.nav, e.from, e.fromMs]);
+      expect(starts, `nav ${nav}`).toEqual([
+        ["/", "load", undefined, undefined],
+        ["/pricing", "push", "/", 1500],
+        ["/", "back", "/pricing", 2500],
+      ]);
+      const last = evs[evs.length - 1];
+      expect(last, `nav ${nav}`).toMatchObject({ route: "/", exit: true, end: true, path: ["/", "/pricing", "/"] });
+      expect(evs.filter((e) => e.exit)).toHaveLength(1);
+      r.destroy();
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  it("forward, and a traversal whose direction the browser does not expose", async () => {
+    expect(popNav(2, 1)).toBe("back");
+    expect(popNav(1, 2)).toBe("forward");
+    expect(popNav(undefined, 2)).toBe("pop");
+    expect(popNav(2, 2)).toBe("pop");
+    const { clock, transport } = await arun({ nav: true });
+    window.history.pushState({}, "", "/a");
+    await clock.advance(100);
+    traverse("/"); // no Navigation API in this environment
+    await clock.advance(100);
+    setVisibility("hidden");
+    expect(ix(transport).filter((e) => e.start).map((e) => e.nav)).toEqual(["load", "push", "pop"]);
+  });
+
+  it("the page load's own type: reload and back_forward from Navigation Timing; load otherwise", () => {
+    const g = (type?: string) => ({ performance: { getEntriesByType: () => (type ? [{ type }] : []) } });
+    expect(loadNav(g("reload"))).toBe("reload");
+    expect(loadNav(g("back_forward"))).toBe("back_forward");
+    expect(loadNav(g("navigate"))).toBe("load");
+    expect(loadNav(g("prerender"))).toBe("load");
+    expect(loadNav(g())).toBe("load");
+    expect(loadNav({})).toBe("load");
+  });
+
+  it("the first interaction per view: a click, or a focus on a form field after a key press; once per view, never text", async () => {
+    document.body.innerHTML = `<input id="email" type="email" value="alice@example.com"><a id="docs" href="/docs">Read the docs</a>`;
+    const { clock, transport } = await arun({ nav: true });
+    $("email").focus(); // the page moving focus is not the visitor's interaction
+    await clock.advance(1200);
+    key(document.body, "Tab");
+    $("email").blur();
+    const ev = new FocusEvent("focusin", { bubbles: true, composed: true });
+    Object.defineProperty(ev, "isTrusted", { value: true });
+    $("email").dispatchEvent(ev);
+    await clock.advance(800);
+    fire($("docs"), "click");
+    window.history.pushState({}, "", "/docs");
+    await clock.advance(3000);
+    fire(document.body, "click");
+    setVisibility("hidden");
+    const evs = ix(transport);
+    const firsts = evs.filter((e) => e.first).map((e) => [e.route, e.first, e.firstMs]);
+    expect(firsts).toEqual([
+      ["/", "input#email", 1200],
+      ["/docs", "body", 3000],
+    ]);
+    const text = JSON.stringify(transport.sent);
+    for (const t of ["alice", "Read the docs"]) expect(text).not.toContain(t);
+  });
+
+  it("a restore from the back/forward cache starts a new path, reached by back_forward", async () => {
+    const { clock, transport } = await arun({ nav: true });
+    window.history.pushState({}, "", "/a");
+    await clock.advance(100);
+    pagehide();
+    const show = new Event("pageshow");
+    Object.defineProperty(show, "persisted", { value: true });
+    window.dispatchEvent(show);
+    setVisibility("hidden");
+    setVisibility("visible");
+    await clock.advance(100);
+    setVisibility("hidden");
+    const evs = ix(transport);
+    expect(evs.filter((e) => e.exit).map((e) => e.path)).toEqual([["/", "/a"]]);
+    expect(evs.filter((e) => e.start).map((e) => [e.route, e.nav, e.from])).toEqual([
+      ["/", "load", undefined],
+      ["/a", "push", "/"],
+      ["/a", "back_forward", undefined],
+    ]);
+  });
+
+  it(`a path holds at most PATH_MAX (${PATH_MAX}) routes, then "(more)"`, async () => {
+    const { clock, transport } = await arun({ nav: true });
+    for (let i = 1; i <= PATH_MAX + 3; i++) {
+      window.history.pushState({}, "", `/p${i}`);
+      await clock.advance(10);
+    }
+    pagehide();
+    const exit = ix(transport).find((e) => e.exit)!;
+    expect((exit.path as string[]).length).toBe(PATH_MAX + 1);
+    expect((exit.path as string[]).at(-1)).toBe("(more)");
   });
 });
 

@@ -987,6 +987,75 @@ const DASH_JS = `
       .sort(function(a, b){ return b.count - a.count; });
     ixTable(document.getElementById("ixflags"), flags, "Clicks", "No rage or dead clicks in this period.");
     document.getElementById("c-visits").textContent = fmt(views);
+    moves(S);
+  }
+  // navigation paths (ANALYTICS.md section 11): entries, steps, how views were reached, first interactions, exits, paths
+  var NAVS = { load: "page load", reload: "reload", back_forward: "browser back/forward (page load)", push: "in-app link", back: "in-app back", forward: "in-app forward", pop: "in-app back or forward" };
+  function moves(S){
+    var B = S.breakdowns, T0 = S.totals, views = T0.ix_views || 0, entries = T0.ix_entry || 0, exits = T0.ix_exit || 0;
+    var arrive = (B.ix_arrive || []).filter(function(x){ return x.key.indexOf("\\t") < 0; });
+    var on = entries > 0 || arrive.length > 0 || (B.ix_nav || []).length > 0;
+    var sec = document.getElementById("moves"); if (sec) sec.classList.toggle("hidden", !on);
+    if (!on) return;
+    var am = map(arrive), hist = (am.back || 0) + (am.forward || 0) + (am.pop || 0) + (am.back_forward || 0);
+    var dl = el("dl", "health");
+    row(dl, "Entries", fmt(entries), "page views that started a page load");
+    row(dl, "Steps between pages", fmt(sum(B.ix_nav || [])), entries ? (Math.round(10 * sum(B.ix_nav || []) / entries) / 10) + " per page load" : "");
+    row(dl, "Back and forward", views ? share(hist, views) + " of views" : "-", arrive.length ? arrive.slice().sort(function(a, b){ return b.count - a.count; }).slice(0, 4).map(function(x){ return (NAVS[x.key] || x.key) + " " + share(x.count, views); }).join(", ") : "");
+    row(dl, "Exits", fmt(exits), entries ? share(Math.min(exits, entries), entries) + " of page loads sent their end (a closed or discarded background tab may not)" : "");
+    var mh = document.getElementById("ixmoves"); mh.textContent = ""; mh.appendChild(dl);
+    mh.appendChild(el("figcaption", null, "A full page load to another page of this app ends one path and starts another: page loads are never linked, so on a site without client-side routing each page view is a path of one."));
+    var ph = document.getElementById("ixpaths"); ph.textContent = "";
+    var paths = (B.ix_path || []).slice().sort(function(a, b){ return b.count - a.count; });
+    if (paths.length) {
+      var tb = el("table", "dt"), hd = el("thead"), hr = el("tr");
+      ["Path (first 5 pages)", "Page loads", ""].forEach(function(h, i){ hr.appendChild(el("th", i === 1 ? "num" : null, h)); });
+      hd.appendChild(hr); tb.appendChild(hd); var body = el("tbody"), max = paths[0].count || 1;
+      paths.slice(0, 10).forEach(function(x){
+        var tr = el("tr"), pc = el("td", "route", x.key); pc.title = x.key; tr.appendChild(pc);
+        tr.appendChild(el("td", "num", fmt(x.count)));
+        var td = el("td", "wide"), mix = el("div", "mix"), i = el("i"); i.style.width = (100 * x.count / max) + "%"; i.style.background = "var(--accent-f)"; mix.appendChild(i); td.appendChild(mix); tr.appendChild(td);
+        body.appendChild(tr);
+      });
+      tb.appendChild(body); ph.appendChild(tb);
+      ph.appendChild(el("figcaption", null, "Table 7. The most taken paths: the routes of one page load in order, counted when the page load ended."));
+    }
+    var sh = document.getElementById("ixsteps"); sh.textContent = "";
+    var gaps = map(B.ix_nav_ms), steps = pairs(B.ix_nav).sort(function(a, b){ return b.count - a.count; });
+    if (steps.length) {
+      var tb2 = el("table", "dt"), hd2 = el("thead"), hr2 = el("tr");
+      ["From", "To", "Steps", "Time before the step"].forEach(function(h, i){ hr2.appendChild(el("th", i > 1 ? "num" : null, h)); });
+      hd2.appendChild(hr2); tb2.appendChild(hd2); var body2 = el("tbody");
+      steps.slice(0, 12).forEach(function(x){
+        var tr = el("tr"), a = el("td", "route", x.route), b = el("td", "route", x.key); a.title = x.route; b.title = x.key; tr.appendChild(a); tr.appendChild(b);
+        tr.appendChild(el("td", "num", fmt(x.count)));
+        tr.appendChild(el("td", "num", x.count ? dur((gaps[x.route + "\\t" + x.key] || 0) / x.count) : "-"));
+        body2.appendChild(tr);
+      });
+      tb2.appendChild(body2); sh.appendChild(tb2);
+      sh.appendChild(el("figcaption", null, "Table 8. Page to page: in-app steps between routes, with the average time from the first page's start to the step."));
+    }
+    var xh = document.getElementById("ixexits"); xh.textContent = "";
+    var vm = map(B.ix_views), em = map(B.ix_entry), xm = map(B.ix_exit), fn = map(B.ix_first_n), fms = map(B.ix_first_ms), back = {}, firsts = {};
+    pairs(B.ix_arrive).forEach(function(x){ if (x.key === "back" || x.key === "forward" || x.key === "pop" || x.key === "back_forward") back[x.route] = (back[x.route] || 0) + x.count; });
+    pairs(B.ix_first).forEach(function(x){ if (!firsts[x.route] || firsts[x.route].count < x.count) firsts[x.route] = x; });
+    var list = (B.ix_views || []).slice().sort(function(a, b){ return b.count - a.count; });
+    if (!list.length) return;
+    var tb3 = el("table", "dt"), hd3 = el("thead"), hr3 = el("tr");
+    ["Page", "Entries", "Exits", "Exit rate", "Back/forward", "First interaction", "Time to it"].forEach(function(h, i){ hr3.appendChild(el("th", i && i !== 5 ? "num" : null, h)); });
+    hd3.appendChild(hr3); tb3.appendChild(hd3); var body3 = el("tbody");
+    list.slice(0, 12).forEach(function(x){
+      var tr = el("tr"), rc = el("td", "route", x.key); rc.title = x.key; tr.appendChild(rc);
+      tr.appendChild(el("td", "num", fmt(em[x.key] || 0)));
+      tr.appendChild(el("td", "num", fmt(xm[x.key] || 0)));
+      tr.appendChild(el("td", "num", share(Math.min(xm[x.key] || 0, x.count), x.count)));
+      tr.appendChild(el("td", "num", share(Math.min(back[x.key] || 0, x.count), x.count)));
+      var f = firsts[x.key], fc = el("td", "route", f ? f.key : "-"); if (f) fc.title = f.key + " (" + fmt(f.count) + " views)"; tr.appendChild(fc);
+      tr.appendChild(el("td", "num", fn[x.key] ? dur((fms[x.key] || 0) / fn[x.key]) : "-"));
+      body3.appendChild(tr);
+    });
+    tb3.appendChild(body3); xh.appendChild(tb3);
+    xh.appendChild(el("figcaption", null, "Table 9. Per page: where page loads started and ended (exit rate: exits over views), arrivals by back or forward, and the element most often interacted with first (a click, or a focus on a form field after a key press) with the average time to the first interaction."));
   }
 
   // ---------- the closed loop (Fig. 3): this app's problems, what the agent does with each, the shared fix, prove, ship
@@ -1451,6 +1520,13 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <div><div class="blk-h"><h2>Most clicked</h2><span class="aside">Table 5. Elements by clicks</span></div><div id="ixclicks"></div></div>
   <div><div class="blk-h"><h2>Rage and dead clicks</h2><span class="aside">Table 6. Where clicks went nowhere</span></div><div id="ixflags"></div></div>
 </section>
+<section class="blk hidden" id="moves" data-v="visitors">
+  <div class="blk-h"><h2>How visitors move through this app</h2><span class="aside">Navigation paths, for apps that turn on interaction analytics</span></div>
+  <div id="ixmoves"></div>
+  <div id="ixpaths" class="mt-l"></div>
+  <div id="ixsteps" class="mt-l"></div>
+  <div id="ixexits" class="mt-l"></div>
+</section>
 <section class="blk" data-v="health"><details class="more"><summary>All breakdowns</summary><div class="kv mt-s" id="adv"></div></details></section>
 <section class="blk" id="loop" data-v="loop" aria-labelledby="loop-h">
   <div class="blk-h"><h2 id="loop-h">Closed-loop development</h2><span class="aside">Fig. 3. What broke on this app, and what your agent does with each</span></div>
@@ -1462,8 +1538,8 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
 ${setup}
 ${opts.extra?.html ?? ""}
 <footer class="dfoot">This page shows counts only: the kind of problem, the page route, confidence, what GenClass did and how fast it
-decided, and, for apps that turn on interaction analytics, page views, time on page, scroll depth and clicks per element (named by a
-selector or a name the app gave it, never its text). No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
+decided, and, for apps that turn on interaction analytics, page views, the path between pages, time on page, scroll depth and clicks
+per element (named by a selector or a name the app gave it, never its text). No text from your pages, no IP addresses and no user agents are stored. Data is kept ${(opts.keepDays ?? 90) >= 365 ? "1 year" : `${opts.keepDays ?? 90} days`} (hourly detail 48 hours). ${privacy}</footer>
 </div>
 </div>`;
   return shell(
