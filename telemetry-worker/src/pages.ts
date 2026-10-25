@@ -195,28 +195,12 @@ function snippets(tok, ep){
 function gcSelect(node){
   try { var r = document.createRange(); r.selectNodeContents(node); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); return true; } catch (e) { return false; }
 }
-// Copy text with the Clipboard API; when the browser refuses (no secure context, the document not focused, an embedded
-// page), copy through a temporary textarea and execCommand, which works on the click itself; failing both, select the
-// text in node so the person can copy it by hand.
-function gcLegacyCopy(text){
-  try {
-    var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0";
-    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-    var ok = document.execCommand("copy"); document.body.removeChild(ta); return ok;
-  } catch (e) { return false; }
-}
+// Copy text with the Clipboard API; when the browser refuses, select it in node so the person can copy it by hand.
 function gcCopy(b, text, node){
   var label = b.getAttribute("data-label") || b.textContent;
   b.setAttribute("data-label", label);
   function say(t){ b.textContent = t; clearTimeout(b.gcT); b.gcT = setTimeout(function(){ b.textContent = label; }, 2000); }
-  // a textarea fallback (the big prompt button): show it selected, so one keystroke copies it
-  function fallback(){
-    if (node && node.tagName === "TEXTAREA") { node.hidden = false; node.focus(); node.select(); say("Selected, now copy"); return; }
-    say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy");
-  }
-  // the legacy path first: it needs the click's own activation, which the async Clipboard API's rejection would have spent
-  var legacy = gcLegacyCopy(text);
-  if (legacy) { say("Copied"); return; }
+  function fallback(){ say(node && gcSelect(node) ? "Selected, now copy" : "Could not copy"); }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function(){ say("Copied"); }, fallback);
   else fallback();
 }
@@ -530,7 +514,6 @@ main.wrap:has(.app){max-width:1360px}
 .btn.xl{min-height:58px;padding:0 30px;font-size:17px;font-weight:600}
 .cprompt{padding:26px 0;display:grid;justify-items:start;gap:12px}
 .cprompt .cp-sub{font-size:14px;color:var(--ink2);max-width:64ch;line-height:1.5}
-.cprompt textarea.cp-text{width:100%;max-width:72ch;min-height:150px;padding:10px 12px;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--rule2);resize:vertical}
 .connect .cana{padding:22px 0 0;border-bottom:1px solid var(--rule)}
 .connect .cana .cprompt{padding-top:12px}
 @media (max-width:560px){.cprompt .btn.xl{width:100%;white-space:normal;text-align:center;padding:12px 18px}}
@@ -1496,7 +1479,7 @@ const DASH_JS = `
     if (!show(first, false)) show(per && per.classList.contains("hidden") ? "connect" : "top", false);
   })();
   document.title = P.name + " | GenClass dashboard";
-  document.querySelectorAll("#ixsetup [data-copy]").forEach(function(b){ b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), b.parentNode ? b.parentNode.querySelector("textarea.cp-text") : null); }); });
+  document.querySelectorAll("#ixsetup [data-copy]").forEach(function(b){ b.addEventListener("click", function(){ gcCopy(b, b.getAttribute("data-copy"), null); }); });
   if (document.getElementById("ptok")) {
     document.getElementById("ptok").textContent = P.token;
     document.getElementById("ptokc").appendChild(copyBtn(function(){ return P.token; }, "token", function(){ return document.getElementById("ptok"); }));
@@ -1653,8 +1636,7 @@ export function analyticsPrompt(token: string, where: string, endpoint: string |
 
 /** One big primary button that copies analyticsPrompt, and at most two lines under it. */
 function promptBlock(token: string, where: string, endpoint: string | null, sub: string): string {
-  const prompt = analyticsPrompt(token, where, endpoint);
-  return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(prompt)}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p><textarea class="cp-text" readonly hidden aria-label="The prompt, to copy by hand" rows="8">${esc(prompt)}</textarea></div>`;
+  return `<div class="cprompt"><button class="btn green xl" type="button" data-copy="${esc(analyticsPrompt(token, where, endpoint))}">Copy the prompt for your coding agent</button><p class="cp-sub">${sub}</p></div>`;
 }
 
 function connectPanel(token: string, connected: boolean, runtimeReady: boolean, endpoint: string | null = null, analytics = ""): string {
