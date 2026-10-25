@@ -308,13 +308,40 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   };
 }
 
-/** What a coding agent reported on the sample app: one problem proven fixed, one reproduced and tested, one found. */
+/**
+ * What a coding agent reported on the sample app: one problem proven fixed and closed (after a first fix that did not
+ * hold), one reproduced and tested, one found; and the log those steps left, newest first.
+ */
 function sampleAgent(now: Date): Stats["agent"] {
   const t = (minAgo: number) => new Date(now.getTime() - minAgo * 60_000).toISOString();
   const findings: Stats["agent"]["findings"] = [
-    { id: "f3", kind: "stale-write", route: "/search", found: t(310), replayed: t(42), reproduced: false, tested: t(240), proven: t(42), updated: t(42) },
-    { id: "f7", kind: "duplicate-request", route: "/checkout", found: t(95), replayed: t(80), reproduced: true, tested: t(70), proven: null, updated: t(70) },
-    { id: "f9", kind: "error", route: "/products/:id", found: t(12), replayed: null, reproduced: null, tested: null, proven: null, updated: t(12) },
+    { id: "f3", kind: "stale-write", route: "/search", found: t(310), explained: t(245), replayed: t(42), reproduced: false, reproducedN: 2, tested: t(240), proven: t(42), closed: true, updated: t(42) },
+    { id: "f7", kind: "duplicate-request", route: "/checkout", found: t(95), explained: t(72), replayed: t(80), reproduced: true, reproducedN: 1, tested: t(70), proven: null, closed: false, updated: t(70) },
+    { id: "f9", kind: "error", route: "/products/:id", found: t(12), explained: null, replayed: null, reproduced: null, reproducedN: 0, tested: null, proven: null, closed: false, updated: t(12) },
   ];
-  return { findings, counts: { found: 3, reproduced: 2, tested: 2, proven: 1 }, last: t(12) };
+  const f3 = { id: "f3", kind: "stale-write", route: "/search" };
+  const f7 = { id: "f7", kind: "duplicate-request", route: "/checkout" };
+  const none = { id: null, kind: null, route: null };
+  const row = (minAgo: number, t2: string, f: { id: string | null; kind: string | null; route: string | null }, x: Partial<Stats["agent"]["log"][number]> = {}): Stats["agent"]["log"][number] => ({
+    at: t(minAgo), t: t2, id: f.id, kind: f.kind, route: f.route, reproduced: null, runs: null, races: null, what: null, ...x,
+  });
+  const log: Stats["agent"]["log"] = [
+    row(12, "found", { id: "f9", kind: "error", route: "/products/:id" }),
+    row(42, "replay", f3, { reproduced: false }),
+    row(55, "armed", f3),
+    row(70, "test", f7),
+    row(72, "explain", f7),
+    row(80, "replay", f7, { reproduced: true }),
+    row(85, "armed", f7),
+    row(95, "found", f7),
+    row(120, "replay", f3, { reproduced: true }),
+    row(130, "armed", f3),
+    row(180, "explore", { ...none, route: "/search" }, { runs: 8, races: 1 }),
+    row(240, "test", f3),
+    row(245, "explain", f3),
+    row(290, "replay", f3, { reproduced: true }),
+    row(300, "armed", f3),
+    row(310, "found", f3),
+  ];
+  return { findings, counts: { found: 3, reproduced: 2, tested: 2, proven: 1 }, stages: { found: 3, explained: 2, reproduced: 2, fixed: 1, closed: 1, open: 2, continued: 1 }, log, last: t(12) };
 }

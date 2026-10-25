@@ -688,7 +688,7 @@ describe("dashboard page: the closed loop (Fig. 3)", () => {
   it("draws this app's problems, one agent step each, the shared fix, prove and ship, and observe with the deltas", async () => {
     const st = sampleStats("7d", NOW);
     const { doc, text, close } = await render(st);
-    expect(text('.snav a[href="#loop"]')).toBe("Loop");
+    expect(text('.snav a[href="#loop"]')).toBe("Closed loop");
     expect(doc.getElementById("loop")!.getAttribute("data-v")).toBe("loop");
     const kinds = st.breakdowns.detect_diagnosis!.filter((x) => x.key !== "expected").slice(0, 5).map((x) => x.key);
     const problems = [...doc.querySelectorAll('#loopsvg rect[data-s="problem"]')].map((r) => r.getAttribute("data-k"));
@@ -733,12 +733,65 @@ describe("dashboard page: the closed loop (Fig. 3)", () => {
 
   it("without agent reports the rows carry no agent line and the foot says reporting is off by default", async () => {
     const st = sampleStats("7d", NOW);
-    st.agent = { findings: [], counts: { found: 0, reproduced: 0, tested: 0, proven: 0 }, last: null };
-    const { doc, text, close } = await render(st);
+    st.agent = { findings: [], counts: { found: 0, reproduced: 0, tested: 0, proven: 0 }, stages: { found: 0, explained: 0, reproduced: 0, fixed: 0, closed: 0, open: 0, continued: 0 }, log: [], last: null };
+    const { doc, text, hidden, close } = await render(st);
     expect([...doc.querySelectorAll('#loopsvg rect[data-s="problem"]')].every((r) => r.getAttribute("data-agent") === "")).toBe(true);
     expect(text("#loopsvg")).not.toContain("Agent:");
     expect(text("#loop-foot")).toContain("No agent has reported on this app");
     expect(text("#loop-foot")).toContain("GENCLASS_REPORT");
+    // the stages show dashes, not zeros, and say reporting is off; the log is empty with the same hint
+    expect([...doc.querySelectorAll("#loopstages rect[data-stage]")].map((r) => r.getAttribute("data-n"))).toEqual(["", "", "", ""]);
+    expect(doc.querySelectorAll("#loopstages .nn.off").length).toBe(4);
+    expect(text("#loopstages")).toContain("reporting is off (GENCLASS_REPORT)");
+    expect(doc.querySelectorAll("#agentlog tr").length).toBe(0);
+    expect(hidden("agentlog0")).toBe(false);
+    expect(text("#agentlog0")).toContain("GENCLASS_REPORT");
+    close();
+  });
+
+  it("the stages (Fig. 3): every issue's path with the period's counts, the round-again edge and the loop back to production", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, text, close } = await render(st);
+    expect(text("#loop-h")).toBe("Closed-loop development");
+    const nodes = [...doc.querySelectorAll("#loopstages rect[data-stage]")];
+    expect(nodes.map((r) => r.getAttribute("data-stage"))).toEqual(["found", "reproduced", "fixed", "closed"]);
+    expect(nodes.map((r) => Number(r.getAttribute("data-n")))).toEqual([st.agent.stages.found, st.agent.stages.reproduced, st.agent.stages.fixed, st.agent.stages.closed]);
+    expect(doc.querySelector('#loopstages rect[data-stage="closed"]')!.classList.contains("closed")).toBe(true);
+    const t = text("#loopstages");
+    for (const s of ["Issue found", "Reproduced", "Fix proven", "Closed", "replay", "fix, replay", "write test", "genclass_replay", "handed to the agent.", "A person ships."]) expect(t).toContain(s);
+    expect(t).toContain(`still reproduces: round again (${st.agent.stages.continued})`);
+    expect(t).toContain(`production is watched again · ${st.agent.stages.open} issues open now`);
+    // three forward edges, the round-again edge and the loop edge, the two back edges dashed
+    expect(doc.querySelectorAll("#loopstages path.edge").length).toBe(5);
+    expect(doc.querySelector('#loopstages path[data-edge="continue"]')!.classList.contains("dim")).toBe(true);
+    expect(doc.querySelector('#loopstages path[data-edge="loop"]')!.classList.contains("dim")).toBe(true);
+    close();
+  });
+
+  it("the log (Table 15): the agent's steps newest first, each with its finding, page and outcome; never page text", async () => {
+    const st = sampleStats("7d", NOW);
+    const { doc, text, hidden, close } = await render(st);
+    const rows = [...doc.querySelectorAll("#agentlog tr")];
+    expect(rows.length).toBe(st.agent.log.length);
+    expect(rows.map((r) => r.getAttribute("data-t"))).toEqual(st.agent.log.map((e) => e.t));
+    expect(hidden("agentlog0")).toBe(true);
+    const row = (i: number) => [...rows[i]!.children].map((c) => c.textContent!.replace(/\s+/g, " ").trim());
+    expect(row(0).slice(1)).toEqual(["Found", "f9 · error", "/products/:id", "open"]);
+    expect(row(1).slice(1)).toEqual(["Replay", "f3 · stale response", "/search", "not reproduced: the fix holds"]);
+    expect(rows[1]!.children[4]!.className).toBe("did-a");
+    expect(row(2).slice(1)).toEqual(["Replay armed", "f3 · stale response", "/search", "waiting for the next page load"]);
+    expect(row(3).slice(1)).toEqual(["Test written", "f7 · duplicate request", "/checkout", "guards the fix"]);
+    expect(row(4).slice(1)).toEqual(["Evidence read", "f7 · duplicate request", "/checkout", "genclass_explain: the evidence in causal order"]);
+    expect(row(5).slice(1)).toEqual(["Replay", "f7 · duplicate request", "/checkout", "reproduced: the bug is still there"]);
+    expect(row(10).slice(1)).toEqual(["Explore", "–", "/search", "8 page loads compared, 1 race found"]);
+    expect(rows[0]!.children[0]!.getAttribute("title")).toBe(st.agent.log[0]!.at);
+    expect(text("#agentlog")).not.toMatch(/overwrote|q=rea|results/);
+    // a clear shows what was cleared on the developer's machine
+    st.agent.log = [{ at: st.agent.log[0]!.at, t: "cleared", id: null, kind: null, route: null, reproduced: null, runs: null, races: null, what: "runs" }];
+    const r2 = await render(st);
+    expect([...r2.doc.querySelectorAll("#agentlog tr")].length).toBe(1);
+    expect(r2.text("#agentlog")).toContain("runs cleared on the developer's machine");
+    r2.close();
     close();
   });
 });
@@ -772,7 +825,7 @@ describe("dashboard page: the Supabase Studio frame (src/studio.ts): header, rai
   it("the rail in Studio's order; its links switch views, with the view's title and its product menu", async () => {
     const r = await render(sampleStats("7d", NOW), { account, id: "0123456789abcdef", firstEvent: "2026-10-12T09:00:00.000Z", runtimeReady: true });
     expect([...r.doc.querySelectorAll(".snav a .lbl")].map((x) => x.textContent)).toEqual(
-      ["Project overview", "Problems", "Pages", "Actions", "Activity", "Visitors", "Health", "MCP", "Loop", "Project Settings"],
+      ["Project overview", "Problems", "Pages", "Actions", "Activity", "Visitors", "Health", "MCP", "Closed loop", "Project Settings"],
     );
     const vh = (sel: string) => r.doc.querySelector(sel)!.classList.contains("vh");
     // the overview first: the name, its parts; no product menu

@@ -1045,6 +1045,12 @@ export const AGENT_KINDS = ["race", "stale-write", "error", "duplicate-request",
 export const AGENT_SCHEMA = "genclass-agent/1";
 export const AGENT_MAX_EVENTS = 50;
 export const AGENT_MAX_BODY = 16 * 1024;
+/** Log rows kept per app (the oldest go first). */
+export const AGENT_LOG_CAP = 500;
+/** Log rows the stats carry. */
+export const AGENT_LOG_SHOWN = 50;
+/** The steps of the loop the MCP server mirrors (packages/mcp/src/report.ts ReportKind); anything else is dropped. */
+export const AGENT_EVENTS = ["found", "explain", "armed", "replay", "test", "explore", "cleared"];
 const AGENT_ID_RE = /^f[0-9]{1,9}$/;
 
 export interface AgentFinding {
@@ -1052,16 +1058,51 @@ export interface AgentFinding {
   kind: string;
   route: string;
   found: string | null;
+  /** When the agent first read its evidence (genclass_explain). */
+  explained: string | null;
   replayed: string | null;
   reproduced: boolean | null;
+  /** How many replays reproduced it; more than one means a fix was tried and the bug was still there. */
+  reproducedN: number;
   tested: string | null;
   proven: string | null;
+  /** Closed: the fix is proven and a regression test guards it. */
+  closed: boolean;
   updated: string;
+}
+/** One step of the loop as the MCP server logged it, mirrored (docs/runtime/AGENT.md section 4.5). */
+export interface AgentLogEntry {
+  at: string;
+  t: string;
+  id: string | null;
+  kind: string | null;
+  route: string | null;
+  reproduced: boolean | null;
+  runs: number | null;
+  races: number | null;
+  what: string | null;
+}
+/** How many of the period's findings reached each stage of the loop (every finding changed in the period, not only the listed ones). */
+export interface AgentStages {
+  found: number;
+  explained: number;
+  reproduced: number;
+  /** A replay no longer reproduces it after one that did. */
+  fixed: number;
+  /** Fixed and a regression test written. */
+  closed: number;
+  /** Found and not closed. */
+  open: number;
+  /** Replays that still reproduced a finding already reproduced once: a fix tried, the loop went round again. */
+  continued: number;
 }
 export interface AgentStats {
   /** The findings reported in the period, newest change first (at most 25). */
   findings: AgentFinding[];
   counts: { found: number; reproduced: number; tested: number; proven: number };
+  stages: AgentStages;
+  /** The agent's log in the period, newest first (at most AGENT_LOG_SHOWN). */
+  log: AgentLogEntry[];
   /** When the agent last reported anything for this app, in the period. */
   last: string | null;
 }
@@ -1084,9 +1125,13 @@ export function normalizeRoute(v: unknown): string | null {
 }
 
 /**
- * Store what an agent reported (POST /api/projects/<secret>/agent): `found` (kind, route), `replay` (reproduced true or
- * false; a false after a true marks the fix proven) and `test` (a regression test was written). Anything else in an
- * event is dropped. Returns how many events were stored, or the reason none were.
+ * Store what an agent reported (POST /api/projects/<secret>/agent), the MCP server's log of the loop mirrored: `found`
+ * (kind, route), `explain` (the evidence was read), `armed` (a replay was armed), `replay` (reproduced true or false; a
+ * false after a true marks the fix proven, a second true marks the loop going round again), `test` (a regression test
+ * was written), `explore` (an explore report: page loads and race findings, counts only) and `cleared` (what the
+ * developer cleared on their machine). Every accepted event is one log row (AGENT_LOG_CAP per app); the ones about a
+ * finding also update its row in agent_reports. Anything else in an event is dropped. Returns how many events were
+ * stored, or the reason none were.
  */
 export async function agentReport(db: D1Like, token: string, body: unknown, now: Date): Promise<{ stored: number } | { error: string }> {
   if (body === null || typeof body !== "object" || Array.isArray(body)) return { error: "body must be a JSON object" };
@@ -1095,18 +1140,43 @@ export async function agentReport(db: D1Like, token: string, body: unknown, now:
   if (!Array.isArray(b.events)) return { error: "events must be an array" };
   if (b.events.length > AGENT_MAX_EVENTS) return { error: `at most ${AGENT_MAX_EVENTS} events per request` };
   const nowMs = now.getTime();
+  const iso = now.toISOString();
   const stmts: D1Stmt[] = [];
+  let stored = 0;
+  const count = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(1_000_000, Math.floor(v)) : null);
+  const log = (at: string, t: string, f: { id: string | null; kind: string | null; route: string | null }, x: { reproduced?: number | null; runs?: number | null; races?: number | null; what?: string | null } = {}) => {
+    stmts.push(
+      db
+        .prepare("INSERT INTO agent_log (token, at, t, finding, kind, route, reproduced, runs, races, what, received) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(token, at, t, f.id, f.kind, f.route, x.reproduced ?? null, x.runs ?? null, x.races ?? null, x.what ?? null, iso),
+    );
+    stored++;
+  };
   for (const raw of b.events) {
     if (raw === null || typeof raw !== "object" || Array.isArray(raw)) continue;
     const e = raw as Record<string, unknown>;
+    const t = typeof e.t === "string" && AGENT_EVENTS.includes(e.t) ? e.t : null;
+    if (!t) continue;
+    const atMs = typeof e.at === "number" && Number.isFinite(e.at) && Math.abs(e.at - nowMs) < 86_400_000 ? e.at : nowMs;
+    const at = new Date(atMs).toISOString();
+    if (t === "explore") {
+      const runs = count(e.runs);
+      const races = count(e.races);
+      if (runs === null || races === null) continue;
+      log(at, t, { id: null, kind: null, route: normalizeRoute(e.route) }, { runs, races });
+      continue;
+    }
+    if (t === "cleared") {
+      if (e.what !== "all" && e.what !== "findings" && e.what !== "runs") continue;
+      log(at, t, { id: null, kind: null, route: null }, { what: e.what });
+      continue;
+    }
     const id = typeof e.id === "string" && AGENT_ID_RE.test(e.id) ? e.id : null;
     const kind = typeof e.kind === "string" && AGENT_KINDS.includes(e.kind) ? e.kind : null;
     const route = normalizeRoute(e.route);
     if (!id || !kind || !route) continue;
-    const atMs = typeof e.at === "number" && Number.isFinite(e.at) && Math.abs(e.at - nowMs) < 86_400_000 ? e.at : nowMs;
-    const at = new Date(atMs).toISOString();
-    const iso = now.toISOString();
-    if (e.t === "found") {
+    const f = { id, kind, route };
+    if (t === "found") {
       stmts.push(
         db
           .prepare(
@@ -1114,16 +1184,30 @@ export async function agentReport(db: D1Like, token: string, body: unknown, now:
           )
           .bind(token, id, kind, route, at, iso),
       );
-    } else if (e.t === "replay" && typeof e.reproduced === "boolean") {
+      log(at, t, f);
+    } else if (t === "explain") {
+      stmts.push(
+        db
+          .prepare(
+            "INSERT INTO agent_reports (token, finding, kind, route, explained, updated) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, explained = COALESCE(agent_reports.explained, excluded.explained), updated = excluded.updated",
+          )
+          .bind(token, id, kind, route, at, iso),
+      );
+      log(at, t, f);
+    } else if (t === "armed") {
+      log(at, t, f);
+    } else if (t === "replay") {
+      if (typeof e.reproduced !== "boolean") continue;
       const r = e.reproduced ? 1 : 0;
       stmts.push(
         db
           .prepare(
-            "INSERT INTO agent_reports (token, finding, kind, route, replayed, reproduced, reproduced_once, proven, updated) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, replayed = excluded.replayed, reproduced = excluded.reproduced, reproduced_once = MAX(agent_reports.reproduced_once, excluded.reproduced_once), proven = CASE WHEN excluded.reproduced = 0 AND agent_reports.reproduced_once = 1 THEN excluded.replayed ELSE agent_reports.proven END, updated = excluded.updated",
+            "INSERT INTO agent_reports (token, finding, kind, route, replayed, reproduced, reproduced_once, reproduced_n, proven, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?) ON CONFLICT (token, finding) DO UPDATE SET kind = excluded.kind, route = excluded.route, replayed = excluded.replayed, reproduced = excluded.reproduced, reproduced_once = MAX(agent_reports.reproduced_once, excluded.reproduced_once), reproduced_n = agent_reports.reproduced_n + excluded.reproduced_n, proven = CASE WHEN excluded.reproduced = 0 AND agent_reports.reproduced_once = 1 THEN excluded.replayed ELSE agent_reports.proven END, updated = excluded.updated",
           )
-          .bind(token, id, kind, route, at, r, r, iso),
+          .bind(token, id, kind, route, at, r, r, r, iso),
       );
-    } else if (e.t === "test") {
+      log(at, t, f, { reproduced: r });
+    } else if (t === "test") {
       stmts.push(
         db
           .prepare(
@@ -1131,27 +1215,42 @@ export async function agentReport(db: D1Like, token: string, body: unknown, now:
           )
           .bind(token, id, kind, route, at, iso),
       );
+      log(at, t, f);
     }
   }
-  if (stmts.length) await db.batch(stmts);
-  return { stored: stmts.length };
+  if (stored) {
+    // the oldest rows past the cap go, like `recent`
+    stmts.push(db.prepare("DELETE FROM agent_log WHERE token = ?1 AND id < (SELECT id FROM agent_log WHERE token = ?1 ORDER BY id DESC LIMIT 1 OFFSET ?2)").bind(token, AGENT_LOG_CAP - 1));
+    await db.batch(stmts);
+  }
+  return { stored };
 }
 
-/** The agent's reports for the dashboard: the findings changed in the period and the counts. */
+/** The agent's reports for the dashboard: the findings changed in the period, the counts, the stages and the log. */
 export async function agentStats(db: D1Like, token: string, fromIso: string): Promise<AgentStats> {
-  const r = await db
-    .prepare("SELECT finding, kind, route, found, replayed, reproduced, reproduced_once, tested, proven, updated FROM agent_reports WHERE token = ? AND updated >= ? ORDER BY updated DESC LIMIT 25")
-    .bind(token, fromIso)
-    .all<Record<string, unknown>>();
-  const findings: AgentFinding[] = (r.results ?? []).map((x) => ({
+  const [r, st, lg] = (await db.batch([
+    db
+      .prepare("SELECT finding, kind, route, found, explained, replayed, reproduced, reproduced_once, reproduced_n, tested, proven, updated FROM agent_reports WHERE token = ? AND updated >= ? ORDER BY updated DESC LIMIT 25")
+      .bind(token, fromIso),
+    db
+      .prepare(
+        "SELECT COUNT(*) AS found, SUM(explained IS NOT NULL) AS explained, SUM(reproduced_once) AS reproduced, SUM(proven IS NOT NULL) AS fixed, SUM(proven IS NOT NULL AND tested IS NOT NULL) AS closed, SUM(CASE WHEN reproduced_n > 1 THEN reproduced_n - 1 ELSE 0 END) AS continued FROM agent_reports WHERE token = ? AND updated >= ?",
+      )
+      .bind(token, fromIso),
+    db.prepare("SELECT at, t, finding, kind, route, reproduced, runs, races, what FROM agent_log WHERE token = ? AND at >= ? ORDER BY id DESC LIMIT ?").bind(token, fromIso, AGENT_LOG_SHOWN),
+  ])) as { results?: unknown[] }[];
+  const findings: AgentFinding[] = ((r!.results ?? []) as Record<string, unknown>[]).map((x) => ({
     id: String(x.finding),
     kind: String(x.kind),
     route: String(x.route),
     found: x.found == null ? null : String(x.found),
+    explained: x.explained == null ? null : String(x.explained),
     replayed: x.replayed == null ? null : String(x.replayed),
     reproduced: x.reproduced == null ? null : !!x.reproduced,
+    reproducedN: Number(x.reproduced_n) || 0,
     tested: x.tested == null ? null : String(x.tested),
     proven: x.proven == null ? null : String(x.proven),
+    closed: x.proven != null && x.tested != null,
     updated: String(x.updated),
   }));
   const counts = { found: 0, reproduced: 0, tested: 0, proven: 0 };
@@ -1161,7 +1260,22 @@ export async function agentStats(db: D1Like, token: string, fromIso: string): Pr
     if (f.tested) counts.tested++;
     if (f.proven) counts.proven++;
   }
-  return { findings, counts, last: findings[0]?.updated ?? null };
+  const a = ((st!.results ?? [])[0] ?? {}) as Record<string, unknown>;
+  const n = (k: string) => Number(a[k]) || 0;
+  const stages: AgentStages = { found: n("found"), explained: n("explained"), reproduced: n("reproduced"), fixed: n("fixed"), closed: n("closed"), open: Math.max(0, n("found") - n("closed")), continued: n("continued") };
+  const log: AgentLogEntry[] = ((lg!.results ?? []) as Record<string, unknown>[]).map((x) => ({
+    at: String(x.at),
+    t: String(x.t),
+    id: x.finding == null ? null : String(x.finding),
+    kind: x.kind == null ? null : String(x.kind),
+    route: x.route == null ? null : String(x.route),
+    reproduced: x.reproduced == null ? null : !!x.reproduced,
+    runs: x.runs == null ? null : Number(x.runs),
+    races: x.races == null ? null : Number(x.races),
+    what: x.what == null ? null : String(x.what),
+  }));
+  const last = [findings[0]?.updated, log[0]?.at].filter((v): v is string => !!v).sort().pop() ?? null;
+  return { findings, counts, stages, log, last };
 }
 
 export async function stats(db: D1Like, p: Project, range: Range, now: Date): Promise<Stats> {
@@ -1282,6 +1396,7 @@ export async function retention(db: D1Like, now: Date, longer?: { tokens: string
     db.prepare(`DELETE FROM recent WHERE t < ?${keep}`).bind(cutoff.toISOString(), ...p),
     db.prepare("DELETE FROM sessions WHERE day < ?").bind(dayKey(new Date(now.getTime() - 2 * 86_400_000))),
     db.prepare("DELETE FROM agent_reports WHERE updated < ?").bind(cutoff.toISOString()),
+    db.prepare("DELETE FROM agent_log WHERE at < ?").bind(cutoff.toISOString()),
     db.prepare("DELETE FROM visits WHERE started < ?").bind(cutoff.toISOString()),
   ];
   if (longer) {
