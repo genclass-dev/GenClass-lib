@@ -82,6 +82,7 @@ and the round trip sends none; the sample page shows it filled.
 - The real `@genclass/mcp` process end to end over stdio with a real page: the round trip drives the same `Store`,
   `reportingApi` and `createReporter` the process uses, with the reporter's `fetch` pointed at the collector's
   `handle()` instead of the network. `packages/mcp/test/mcp.test.ts` covers the process.
-- The deployed collector: migration 0011 must be applied to the remote D1 before the worker is deployed
+- The deployed collector. Migration 0011 was applied to the remote D1 on 2026-10-25
   (`cd telemetry-worker && npx --yes wrangler@4 d1 migrations apply genclass-dashboard --remote`, with a login that
-  has the D1 scope).
+  has the D1 scope; it is additive, so the worker running the previous code keeps working); the worker itself is
+  deployed separately (`npx --yes wrangler@4 deploy` from `telemetry-worker/`).
