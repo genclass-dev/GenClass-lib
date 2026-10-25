@@ -24,6 +24,8 @@ export interface Draft {
   el: Element | null;
   /** Dedupe key: one report per key per route. */
   key: string;
+  /** The finding's target when it has no element (request-stalled: the request). */
+  target?: string;
   severity: CheckSeverity;
   measured: Record<string, number | string | boolean>;
   threshold: CheckFinding["threshold"];

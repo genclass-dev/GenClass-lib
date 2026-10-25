@@ -3,14 +3,15 @@
 // the only module of src/visual that touches it. Everything else in the chunk sees only the narrow VisualHost.
 //
 // What it may do with the runtime, and nothing more:
-// - read: the clock, the global, the effective mode, sampling, pause state, the in-flight count, the error count;
+// - read: the clock, the global, the effective mode, sampling, pause state, the in-flight count and requests (with
+//   the learned cadence and latency that make a request long-lived, for request-stalled), the error count;
 // - report a finding: the rt.checks() buffer, the "check" event, a kind "check" Report (report: "silent",
 //   "interventions" and a function behave as for every other report), and a sink record for sinks whose `kinds`
 //   lists "check";
 // - write an audit entry of kind "fix";
 // - follow status changes (mode, enabled, breaker) and the runtime's teardown.
 // It never pushes RtEvents, facts or situations and never touches the gate, the queue or the model (AGENTS.md rule 2
-// exception). Some members it reads are private in TypeScript only (reporter, sinks, fire, pushAudit, auditBase,
+// exception). Some members it reads are private in TypeScript only (cadence, reporter, sinks, fire, pushAudit, auditBase,
 // sessionId, sessionTags, sampled, reportMode, _aggr): the RtLike interface below names them, and
 // test/visual-bridge.test.ts fails when one of them is renamed.
 
@@ -22,7 +23,8 @@ import type { VisualStub } from "./start.js";
 export interface RtLike {
   readonly clock: Clock;
   readonly global: Record<string, unknown>;
-  readonly ops: { inFlight: { size: number } };
+  readonly ops: { inFlight: Set<{ id: number; kind: string; name: string; start: number; genclass?: boolean }> };
+  readonly base: { latency(sig: string): { p95: number } | undefined };
   readonly isPaused: boolean;
   vis: VisualStub | null;
   effectiveMode(): ModeOrOff;
@@ -30,6 +32,7 @@ export interface RtLike {
   on(type: "status", fn: () => void): () => void;
   addTeardown(fn: () => void): void;
   // TypeScript-private members of RuntimeImpl
+  cadence: { get(sig: string, now: number): { kind: string } | undefined };
   sessionId: string;
   sessionTags: Record<string, string | number | boolean>;
   sampled: boolean;
@@ -71,6 +74,15 @@ export function hostFor(rt0: unknown, describe: (el: Element) => string, normali
     sampled: () => rt.sampled !== false,
     active: () => !rt.isPaused,
     inflight: () => rt.ops.inFlight.size,
+    pending: (ms) => {
+      const now = rt.clock.now();
+      const out = [];
+      for (const op of rt.ops.inFlight) {
+        if ((op.kind !== "fetch" && op.kind !== "xhr") || op.genclass || rt.cadence.get(op.name, now)?.kind === "periodic" || (rt.base.latency(op.name)?.p95 ?? 0) >= ms) continue;
+        out.push({ id: String(op.id), sig: op.name, start: op.start });
+      }
+      return out;
+    },
     errors: () => rt.summary().errors,
     describe,
     // as sink records and telemetry send a route (runtime.ts toSinkRecord): a segment holding an @ (raw or %40) is :id

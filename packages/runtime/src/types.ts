@@ -1153,7 +1153,8 @@ export type CheckKind =
   | "scroll-lock-stuck"
   | "control-unreachable"
   | "focus-obscured"
-  | "dialog-covered";
+  | "dialog-covered"
+  | "request-stalled";
 
 /** The checks that may apply a runtime fix (opt-in, reversible, never in observe). */
 export type VisualFixKind = "text-invisible" | "pointer-events-leak" | "scroll-lock-stuck";
@@ -1165,8 +1166,11 @@ export type CheckSeverity = "high" | "medium" | "low";
 export interface VisualOptions {
   /** Same values as the shorthand. Default "local" in GenClass.init() (browser), false in createRuntime(). */
   on?: boolean | "local";
-  /** Turn single kinds on or off. Default: every v1 kind on. */
-  checks?: Partial<Record<CheckKind, boolean>>;
+  /**
+   * Turn single kinds on or off. Default: every kind on. `stallMs`: how long a fetch or XHR request may stay pending
+   * before `request-stalled` reports it (default 15,000; clamped to 1,000..600,000).
+   */
+  checks?: Partial<Record<CheckKind, boolean>> & { stallMs?: number };
   /**
    * Runtime fixes (VISUAL.md section 11). Default false. true allows the three fix kinds; or a list of them. Needs
    * `on: true` (the "local" default and ?genclass-visual=on never fix) and guard or heal mode (heal alone never turns
