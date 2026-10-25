@@ -78,7 +78,7 @@ Questions, bug reports and false detections: [GitHub Issues](https://github.com/
 
 ## Contents
 
-[Install](#install) · [Your coding agent](#your-coding-agent-replay-and-explore) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
+[Install](#install) · [Audit a page](#audit-a-page) · [Your coding agent](#your-coding-agent-replay-and-explore) · [Function-specific: protect()](#function-specific-protect) · [Your dashboard](#your-dashboard) ·
 [Automatic state discovery](#automatic-state-discovery) ·
 [Why it's an easy yes](#why-its-an-easy-yes-measured) · [Modes](#modes) ·
 [What it looks for](#what-it-looks-for) · [Visual and CSS checks](#visual-and-css-checks-new-in-030) ·
@@ -276,6 +276,47 @@ The unscoped `genclass-runtime` alias is deprecated; use `@genclass/runtime`.
 
 **ESM only.** The package ships ES modules (no `require`). Jest users need a `transformIgnorePatterns` entry that lets
 `@genclass/runtime` be transformed, for example `["/node_modules/(?!@genclass/runtime)"]`.
+
+## Audit a page
+
+One command checks any page, yours or not, with GenClass's 23 measured visual checks (below) and prints a score and
+each problem with the element, its selector and a suggested CSS fix, worst first. Nothing needs to be installed in
+the page:
+
+```bash
+npx @genclass/runtime@beta scan https://example.com          # also: audit; a dev server works too (localhost:5173)
+npx @genclass/runtime@beta scan localhost:5173/pricing --json # the same report as JSON on stdout, for agents and CI
+```
+
+```
+  GenClass scan • https://genclass-scan-fixture.mehar-144.workers.dev/
+  ran locally: Chromium 153.0.8010.12, desktop 1280x800, phone 390x844; @genclass/runtime 0.3.0-beta.1 visual checks in observe mode (no telemetry, no model, nothing sent)
+
+  Visual score 15/100  •  7 problems (6 high, 1 medium)
+
+  HIGH
+  ✖ control-unreachable (desktop)
+      link "Terms"  body > footer > a
+      body > footer > a "Terms" cannot be clicked: div.chatbar (position: fixed) covers all 5 of its hit points even at the end of the page.
+      fix: body { padding-bottom: 72px; }  (Reserves space for div.chatbar, or move it on small screens: ...)
+  ✖ text-invisible (desktop, phone)
+      p "This sentence is nearly white on white."  p.fine
+      text contrast 1.08:1 on p.fine "This sentence is nearly white on white.", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #f6f6f6 on #ffffff from body.
+      fix: p.fine { color: #767676; }  (Reaches 4.5:1. ...)
+  ...
+```
+
+It runs on your machine when Playwright's Chromium is available (`npm i -D playwright && npx playwright install
+chromium`, in the project or globally): headless Chromium loads the page at desktop (1280x800) and phone (390x844)
+sizes with this package's script-tag build injected before the page's first script, in observe mode with telemetry
+off and no model, presses Tab and scrolls to the end so the focus and fixed-bar checks see something, and reads
+`rt.checks()`. The only requests are the page's own. The score is the hosted page check's "Visual bugs" category
+formula on these findings. Without Playwright, or with `--hosted`, the page is checked by the
+[genclass.dev page check](https://genclass-scan.mehar-144.workers.dev/scan) instead (it says so, and adds
+accessibility, speed and security audits); a `localhost` or private address is never sent there, and `--local` never
+uses it. `--phone` checks the phone size only, `--timeout <s>` sets the page load timeout. Exit code 0 when nothing
+is found, 1 when the checks found something, 2 on an error. Coding agents get the same as the `genclass_scan` tool of
+[`@genclass/mcp`](https://github.com/genclass-dev/GenClass-lib/tree/main/packages/mcp).
 
 ## Your coding agent: replay and explore
 
@@ -761,7 +802,8 @@ can be undone (`rt.checks().find(c => c.id === "c3").fix.undo()` or the devtools
 mode drops to observe. Observe mode never changes the page.
 
 **In your own tests.** `import { checkPage } from "@genclass/runtime/visual"` runs one report-only pass in the page and
-resolves with the findings, for a Playwright or Cypress test.
+resolves with the findings, for a Playwright or Cypress test. For any URL without writing a test:
+`npx @genclass/runtime@beta scan <url>` ([Audit a page](#audit-a-page)).
 
 Not covered yet: text over photos, video and gradients; canvas and WebGL content; the colour scheme, viewport or hover
 state the visitor is not using; layout shifts and failed CSS images outside Chromium; low contrast that is readable but

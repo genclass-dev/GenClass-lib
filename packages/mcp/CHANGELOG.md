@@ -2,6 +2,15 @@
 
 ## 0.1.0 (unreleased)
 
+- **`genclass_scan {url, phone?, hosted?}`: audit any page in one step** ([docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
+  section 4.2). It runs `@genclass/runtime`'s `scan --json` (the project's own runtime when it has the command, else
+  `npx -y @genclass/runtime@beta`) in the project's folder: headless Chromium at desktop and phone sizes with the 23
+  measured visual checks, and returns a score and each problem with its element, selector and suggested CSS fix (page
+  text cleaned and labelled as data), plus the report as JSON (a second text block and `structuredContent`). It passes
+  `--local` unless the agent sets `hosted: true`, so without Playwright's Chromium it says how to install it instead
+  of sending the URL anywhere; `hosted: true` uses the genclass.dev page check (public pages only). The server's
+  instructions and the plugin skill say to scan a page before calling a UI change done. Nine tools.
+
 - **Opt-in reporting to the app's dashboard** (`GENCLASS_REPORT`; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
   section 4.5). Set to `on` (with `GENCLASS_DASHBOARD`) or to a dashboard link, the server sends that dashboard each
   finding the bridge makes, each replay verdict and each regression test written: `POST /api/projects/<secret>/agent`,
