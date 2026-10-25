@@ -290,6 +290,9 @@ export function scriptTag(o, pkgDir, version) {
   const sri = o.sri === false ? null : integrityFor(url, pkgDir, version);
   const attrs = [`src="${url}"`];
   if (sri) attrs.push(`integrity="${sri}"`, 'crossorigin="anonymous"');
+  // defer (the default, issue 94): a slow or blocked CDN never holds up parsing; it still runs before the page's
+  // deferred and module scripts. --sync writes the blocking tag of 0.3.0-beta.1 and earlier.
+  if (!o.sync) attrs.push("defer");
   // no data-mode: observe, the runtime's default
   if (o.mode) attrs.push(`data-mode="${o.mode}"`);
   if (o.devtools) attrs.push('data-devtools="local"');
