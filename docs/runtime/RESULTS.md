@@ -1056,3 +1056,44 @@ Caveats: the DOM oracle is the harness's (secondary, the same for both batches),
 reads; for double-save it leaves out the notifications and blanks the digits of the title the scenario makes unique.
 The two small apps were written by the author of the rules they measure (a mechanism check on the libraries'
 documented patterns, not an independent recall figure). One Strapi, one seed, one machine; seeds 1 to 6 only.
+
+## 21. Issue 94: `request-stalled` on the demos, and the first-load cost of `summary().requests` (local, 2026-10-25, branch `issue-94`)
+
+**`request-stalled` (VISUAL.md 3.24), default threshold 15 s.** `bench/stall/run.ts`, headless Chromium through
+Playwright 1.63.0 on a Mac, the demos built against this branch's runtime (`DEMOS_OUT_DIR=... node
+demos/scripts/build.mjs`, no demo code changed), each run a fresh page in the demos' `off` mode (GenClass observes, no
+model; the checks are on because `127.0.0.1:<port>` is a development host). The demo's own synthetic user runs its
+scripted steps (`window.__trial.runSynthetic()`), then the page stays open 20 s more so anything still pending
+(EventSource streams, the status dashboard's polls, slow answers) has time to be reported. Findings are read from the
+runtime's console lines. Clean trials: no chaos, correct apps, so every finding is a false report. Chaos trials: the
+demos' chaos (hangs of 6 to 8 s, slowdown spikes, failures, outages). Planted: after a clean trial, the mock server
+holds every response 60 s and the same steps run again.
+
+| demo | clean runs | clean runs with a finding (false reports) | chaos runs | chaos runs with a finding | planted runs | planted runs found | planted findings naming a control |
+|---|---|---|---|---|---|---|---|
+| search | 10 | 0 | 10 | 0 | 3 | 3 | 0 of 26 |
+| editor | 10 | 0 | 10 | 0 | 3 | 3 | 0 of 6 |
+| checkout | 10 | 0 | 10 | 0 | 3 | 0 | 0 of 0 |
+| status | 10 | 0 | 10 | 0 | 3 | 0 | 0 of 0 |
+| board | 10 | 0 | 10 | 0 | 3 | 3 | 0 of 6 |
+| decisions | 10 | 0 | 10 | 0 | 3 | 2 | 0 of 2 |
+| all | 60 | **0** | 60 | 0 | 18 | **11** | 0 of 40 |
+
+- False reports: 0 in 120 runs (60 clean, 60 chaos), with the board's EventSource stream and the status dashboard's
+  polls open through the 20 s hold. The chaos runs' longest answers (8 s hangs) stay under the threshold, as intended.
+- Recall on the planted hang: 11 of 18 runs. Status (0 of 3): its requests are polls on a schedule the cadence layer
+  learned, which the check skips by design (the long-polling rule), so a poll that hangs is not reported. Checkout
+  (0 of 3) was not diagnosed: the replayed steps may send no new request once the first order is placed. Decisions
+  missed one of 3.
+- No planted finding named a control: the demos that stalled (typeahead, autosave, kanban, photo grid) do not disable
+  a control or set `aria-busy` while they wait. The control path (the reporter's disabled button) is covered by the
+  unit tests (`test/visual-stall.test.ts`), not measured on an app yet.
+- A typeahead that stalls reports one finding per stalled request (26 in 3 search runs), as specified (one check per
+  request); the console folds them only by the per-pass line limit.
+
+**First-load cost.** `node packages/runtime/test/first-load-size.mjs` against main's build on the same machine:
+`/auto` 108.354 KB vs 108.320 KB (+34 B), the main entry 100.259 KB vs 100.225 KB (+35 B): the flag the fetch observer
+sets when the app reads a non-JSON answer with `response.json()`. The request counting itself, the per-host
+snapshot and `request-stalled` are in the measured checks' chunk. A first version that counted in the first load cost
++583 / +556 B and needed the owner-approved limits raised (`test/bundle.test.ts`), so it was moved; CI's build
+measures about 0.2 KB more than this machine for both branches.

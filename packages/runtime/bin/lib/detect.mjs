@@ -334,6 +334,32 @@ export function detectState(project, files) {
   return found;
 }
 
+// --------------------------------------------------------------------------------------- little to watch
+
+// A request in the source text: fetch, XHR, sockets, streams, and the common wrappers around them.
+const NET_RE = /\bfetch\s*\(|\bXMLHttpRequest\b|\bnew\s+(?:WebSocket|EventSource)\b|\$\.(?:ajax|get|post|getJSON)\s*\(|\baxios\b|\bnavigator\.sendBeacon\b/;
+const NET_DEPS = ["axios", "ky", "ofetch", "swr", "@tanstack/react-query", "@tanstack/vue-query", "@tanstack/svelte-query", "@apollo/client", "urql", "graphql-request", "socket.io-client", "firebase", "@supabase/supabase-js", "@trpc/client", "@angular/common", "jquery"];
+const SCRIPT_TAG_RE = /<script\b[^>]*>/gi;
+
+/**
+ * Whether the project looks mostly static, for init's note (issue 94): "none" when no source file under it calls
+ * fetch, XHR, WebSocket or EventSource (nor a library that does, by name or dependency); "one-script" for a plain
+ * HTML site whose pages hold one script besides GenClass's; null otherwise. A heuristic over the source text.
+ */
+export function littleToWatch(project, files) {
+  const h = project.has ?? (() => false);
+  if (NET_DEPS.some((d) => h(d))) return null;
+  let scripts = 0;
+  let calls = false;
+  for (const f of files) {
+    const t = readText(f) ?? "";
+    if (!calls && NET_RE.test(t)) calls = true;
+    if (project.framework === "html" && /\.html?$/i.test(f)) scripts = Math.max(scripts, (t.match(SCRIPT_TAG_RE) ?? []).filter((tag) => !/genclass/i.test(tag)).length);
+  }
+  if (!calls) return "none";
+  return project.framework === "html" && scripts <= 1 ? "one-script" : null;
+}
+
 // ------------------------------------------------------------------------------------- Content-Security-Policy
 
 const CSP_RE = /Content-Security-Policy/i;

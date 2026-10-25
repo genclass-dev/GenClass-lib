@@ -21,6 +21,8 @@ export interface OpRec extends Op {
   startSeq: number;
   method?: string;
   url?: string;
+  /** The app read the answer with response.json() and its Content-Type is not JSON (rt.summary().requests, src/visual/requests.ts). */
+  nj?: 1;
   /** Error message/name for failed ops. */
   errorText?: string;
   /** Instantaneous op (user action, timer tick, ws message). */
