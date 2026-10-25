@@ -66,6 +66,26 @@
 - **`init` notes when a project looks mostly static** (no `fetch`, XHR, WebSocket or EventSource call in its sources,
   or a plain HTML page with one script): one sentence that GenClass will have little to find there, pointing to the
   visual checks and the page scan, `npx @genclass/runtime@beta scan <url>`.
+- **Two measured visual checks: `ad-heavy` and `text-warped`** ([docs/runtime/VISUAL.md](../../docs/runtime/VISUAL.md)
+  sections 3.25 and 3.26). `ad-heavy` reports a page whose ad slots (elements whose id or class names an ad slot, the
+  AdSense, Ad Manager and Prebid attributes, cross-site frames at a fixed ad size) cover 30% of the page, half the first
+  screen, a fixed ad 30% of the screen (the Coalition for Better Ads thresholds), or a full-screen ad on top of the page
+  (an interstitial, high). `text-warped` reports text a reader cannot read as text, from line boxes, rects, transforms
+  and code points: two lines overlapping by half a line, a line cut mid-way by its overflow box, lone surrogates and
+  unassigned code points (half an emoji), mirrored text, text skewed over 20° or stretched 2x, letter spacing of
+  0.5 em or more (or -0.2 em and less), and text drawn below 8 px that is still meant to be read. Both are kind
+  `"check"`, report only (no runtime fix), run in the lazy chunk's idle slices on the full tier, and never feed the
+  model; `CheckKind` gains both. First load unchanged (0 B of first-load code; the lazy visual chunk grows by about
+  6.7 KB gzip).
+- **Interaction analytics: navigation paths** ([docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) section
+  11, TELEMETRY.md "Interaction analytics"). With `analytics: true` (still off by default, still only with the app's
+  token), `interactions` events also say how each page view was reached (`nav`: load, reload, back_forward, push, back,
+  forward, pop), the previous view's route in the same page load and the ms between (`from`, `fromMs`), the element key
+  of the view's first click or keyboard focus on a form field (`first`, `firstMs`), and at pagehide that the page load
+  ended there with its routes in order (`exit`, `path`, at most 10). Never text or the referrer; these fields describe
+  one page load (visits, above, follow pages across page loads). The console notice now also says "the path between
+  them". The dashboard's Visitors view shows the most taken paths, page-to-page steps, page load starts and ends,
+  back/forward use, and the first interaction per page.
 - **`scan <url>` (alias `audit`): audit any page in one command.** `npx @genclass/runtime@beta scan https://example.com`
   loads the page in headless Chromium through Playwright (resolved from the project, this package or the global
   node_modules, never a dependency) at desktop (1280x800) and phone (390x844) sizes, with the script-tag build

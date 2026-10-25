@@ -9,11 +9,14 @@
 //       text-template-leak ([object Object], $NaN), text-encoding, text-placeholder
 //   A2  an inserted box with image-broken, image-distorted, image-css-broken, media-failed, icon-font-failed,
 //       stylesheet-failed, csp-blocked
+//   T1  text-warped (2026-10-25): line-height that stacks lines, a line cut by a narrow overflow box, half an emoji,
+//       mirrored, skewed, letters spaced wider than words, 6 px text
 // Page faults (one per load): page-overflow-x, pointer-events-leak, scroll-lock-stuck, click-blocked,
-//   control-unreachable, focus-obscured, dialog-covered, layout-shift; at document start: page-blank,
-//   viewport-meta-missing.
+//   control-unreachable, focus-obscured, dialog-covered, layout-shift, ad-heavy (2026-10-25: ad slots inserted at the
+//   top of the page until they are 40% of it); at document start: page-blank, viewport-meta-missing.
 
 import { contrast, luminance, parseColor, toHex, type RGBA } from "../../packages/runtime/src/visual/math.js";
+import { unionArea } from "../../packages/runtime/src/visual/checks/ads.js";
 
 export interface FaultResult {
   kind: string;
@@ -511,6 +514,74 @@ export function inject(kind: string, seed: number, extra: Record<string, unknown
         planted.set(id, { el: d, extra: { cover } });
         return { kind: base, id, ok: true };
       }
+      case "ad-heavy": {
+        // a run of full-width ad slots at the top of the content, 40% of the page once inserted
+        const host = document.body;
+        if (!host) return fail("no body");
+        const w = Math.min(970, document.documentElement.clientWidth);
+        const h = document.documentElement.scrollHeight;
+        const n = Math.max(1, Math.ceil((0.7 * h) / 250));
+        const wrap = document.createElement("div");
+        setImp(wrap, { display: "block", position: "relative", "z-index": "0" });
+        for (let i = 0; i < n; i++) {
+          const a = document.createElement("div");
+          a.className = "ad-slot";
+          a.id = `div-gpt-ad-bench-${seed}-${i}`;
+          setImp(a, { display: "block", width: `${w}px`, "max-width": "100%", height: "250px", margin: "0 auto", background: "#e5e7eb", "box-sizing": "border-box", border: "1px solid #9ca3af" });
+          a.setAttribute("data-bench-fault", base);
+          a.setAttribute("data-bench-id", id);
+          wrap.appendChild(a);
+        }
+        host.prepend(wrap);
+        used.add(wrap);
+        planted.set(id, { el: wrap });
+        return { kind: base, id, ok: true, info: { slots: n } };
+      }
+      case "text-warped:overlap":
+      case "text-warped:clipped":
+      case "text-warped:tofu":
+      case "text-warped:mirrored":
+      case "text-warped:skewed":
+      case "text-warped:spacing":
+      case "text-warped:tiny": {
+        const how = kind.split(":")[1];
+        const lines = (el: Element) => {
+          const t = firstText(el);
+          if (!t) return 0;
+          const rg = document.createRange();
+          rg.selectNodeContents(t);
+          return new Set([...rg.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size;
+        };
+        const words = (el: Element) => ((firstText(el)?.data ?? "").match(/\p{L}{2,}/gu) ?? []).length;
+        let cands = textCands(how === "tofu").filter((el) => !pinned(el) && !translucentOrFiltered(el));
+        if (how === "overlap") cands = cands.filter((el) => lines(el) >= 2);
+        if (how === "spacing") cands = cands.filter((el) => words(el) >= 2);
+        if (how === "clipped") cands = cands.filter((el) => (firstText(el)?.data.trim().length ?? 0) >= 12);
+        const el = pick(cands, r);
+        if (!el) return fail(`no visible text element in the viewport for ${how}`);
+        if (how === "tofu") {
+          const span = document.createElement("span");
+          span.textContent = " Great deal \ud83d";
+          el.appendChild(span);
+          span.setAttribute("data-bench-fault", base);
+          span.setAttribute("data-bench-id", id);
+          hosts.add(el);
+          planted.set(id, { el: span, extra: { how } });
+          return { kind: base, id, ok: true, info: { how } };
+        }
+        const inline = getComputedStyle(el).display === "inline";
+        if (how === "overlap") setImp(el, { "line-height": "0.3" });
+        else if (how === "clipped") {
+          const w = Math.max(40, Math.floor(el.getBoundingClientRect().width / 2));
+          setImp(el, { display: "inline-block", "white-space": "nowrap", overflow: "hidden", "text-overflow": "clip", width: `${w}px`, "max-width": `${w}px`, "vertical-align": "top" });
+        } else if (how === "mirrored") setImp(el, { ...(inline ? { display: "inline-block" } : {}), transform: "scaleX(-1)", transition: "none" });
+        else if (how === "skewed") setImp(el, { ...(inline ? { display: "inline-block" } : {}), transform: "skewX(30deg)", transition: "none" });
+        else if (how === "spacing") setImp(el, { "letter-spacing": "0.8em" });
+        else setImp(el, { "font-size": "6px", "line-height": "1.2" });
+        mark(el, base, id);
+        planted.set(id, { el, extra: { how } });
+        return { kind: base, id, ok: true, info: { how, tag: el.tagName.toLowerCase() } };
+      }
       case "layout-shift": {
         const d = document.createElement("div");
         setImp(d, { display: "block", height: "60vh", width: "100%" });
@@ -690,6 +761,63 @@ export function truth(id: string, B: BenchState): { ok: boolean; why: string; va
         if (visible(t.parentElement)) return no("some text is still visible");
       }
       return { ok: true, why: "" };
+    }
+    case "ad-heavy": {
+      const slots = [...el.children].filter((c) => visible(c));
+      const vw = document.documentElement.clientWidth;
+      const ph = Math.max(document.documentElement.scrollHeight, innerHeight);
+      const share = unionArea(slots.map((c) => {
+        const rc = c.getBoundingClientRect();
+        return { left: rc.left, top: rc.top + scrollY, right: rc.right, bottom: rc.bottom + scrollY };
+      }), { left: 0, top: 0, right: vw, bottom: ph }) / (vw * ph);
+      return share >= 0.3 ? { ok: true, why: "", value: Math.round(share * 100) / 100 } : no(`the slots cover ${Math.round(share * 100)}% of the page`);
+    }
+    case "text-warped": {
+      if (!el.isConnected || !visible(el) || !intersects(el)) return no("the element left the viewport or the page");
+      const how = p.extra?.how;
+      const s = getComputedStyle(el);
+      const fs = parseFloat(s.fontSize) || 16;
+      const t = firstText(el);
+      const rects = (() => {
+        if (!t) return [];
+        const rg = document.createRange();
+        rg.selectNodeContents(t);
+        return [...rg.getClientRects()].filter((x) => x.width > 0 && x.height > 0);
+      })();
+      switch (how) {
+        case "overlap": {
+          let best = 0;
+          for (let i = 0; i + 1 < rects.length; i++) {
+            const a = rects[i];
+            const b = rects[i + 1];
+            if (Math.min(a.right, b.right) - Math.max(a.left, b.left) < 8) continue;
+            best = Math.max(best, (Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) / Math.min(a.height, b.height));
+          }
+          return best >= 0.5 ? { ok: true, why: "", value: Math.round(best * 100) / 100 } : no(`lines overlap by ${Math.round(best * 100)}%`);
+        }
+        case "clipped": {
+          const box = el.getBoundingClientRect();
+          const a = rects[0];
+          return a && a.right > box.right + 4 && a.left < box.right - 4 ? { ok: true, why: "", value: Math.round(a.right - box.right) } : no("the first line is not cut");
+        }
+        case "tofu":
+          return /[\ud800-\udfff]/u.test(el.textContent ?? "") ? { ok: true, why: "" } : no("the lone surrogate is gone");
+        case "mirrored":
+        case "skewed": {
+          const m = new DOMMatrixReadOnly(s.transform === "none" ? undefined : s.transform);
+          const det = m.a * m.d - m.b * m.c;
+          if (how === "mirrored") return det < 0 ? { ok: true, why: "" } : no("not mirrored");
+          return Math.abs(m.c) > Math.tan((20 * Math.PI) / 180) ? { ok: true, why: "" } : no("not skewed above 20 degrees");
+        }
+        case "spacing": {
+          const ls = parseFloat(s.letterSpacing) / fs;
+          return ls >= 0.5 ? { ok: true, why: "", value: Math.round(ls * 100) / 100 } : no(`letter-spacing ${ls.toFixed(2)} em`);
+        }
+        case "tiny":
+          return fs < 8 && rects.some((x) => x.height < 10) ? { ok: true, why: "", value: fs } : no(`font-size ${fs} px`);
+        default:
+          return no("unknown text-warped fault");
+      }
     }
     case "viewport-meta-missing": {
       const sw = screen.width;

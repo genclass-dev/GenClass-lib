@@ -50,6 +50,33 @@ const IX_PAGES: [string, number, number, number[]][] = [
   ["/account", 0.03, 35, [0.9, 0.71, 0.5, 0.42]],
   ["/orders", 0.02, 29, [0.93, 0.66, 0.45, 0.37]],
 ];
+/** Navigation (simulated, ANALYTICS.md section 11): steps per 100 page views with seconds before the step, paths per 100 page loads, first interactions. */
+const IX_STEPS: [string, string, number, number][] = [
+  ["/", "/products", 14, 31],
+  ["/products", "/products/:id", 12, 44],
+  ["/products/:id", "/cart", 5, 63],
+  ["/", "/search", 6, 18],
+  ["/search", "/products/:id", 5, 27],
+  ["/cart", "/checkout", 4, 41],
+  ["/products/:id", "/products", 4, 52],
+  ["/checkout", "/orders", 1.5, 96],
+];
+const IX_PATHS: [string, number][] = [
+  ["/", 34],
+  ["/ > /products > /products/:id", 9],
+  ["/products/:id", 8],
+  ["/ > /search > /products/:id", 5],
+  ["/ > /products > /products/:id > /cart > /checkout", 3],
+  ["/products/:id > /cart > /checkout > /orders", 1.5],
+];
+const IX_FIRST: [string, string, number][] = [
+  ["/", 'a[href="/products"]', 0.41],
+  ["/products", '[data-genclass-name="filter-size"]', 0.38],
+  ["/products/:id", '[data-genclass-name="add-to-cart"]', 0.36],
+  ["/search", "input#q", 0.71],
+  ["/cart", "button.qty-plus", 0.33],
+  ["/checkout", "input#email", 0.68],
+];
 /** Clicks per 100 page views (simulated), and rage and dead clicks per 1,000, per page and element key. */
 const IX_CLICKS: [string, string, number][] = [
   ["/", 'a[href="/products"]', 21],
@@ -178,6 +205,14 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
   const per = (list: [string, string, number][], unit: number) => list.map(([route, k, rate]) => ({ key: `${route}\t${k}`, count: Math.max(1, Math.round((views * rate) / unit)) }));
   const ixClick = per(IX_CLICKS, 100), ixRage = per(IX_RAGE, 1000), ixDead = per(IX_DEAD, 1000);
   const total = (l: { count: number }[]) => l.reduce((a, x) => a + x.count, 0);
+  const steps = IX_STEPS.map(([a, b, rate, secs]) => ({ key: `${a}\t${b}`, count: Math.round((views * rate) / 100), secs }));
+  const entries = Math.max(1, views - total(steps));
+  const viewsOf = (r0: string) => ixViews.find((p) => p.route === r0)?.n ?? 0;
+  const entryOf = (r0: string) => Math.max(0, viewsOf(r0) - steps.filter((x) => x.key.endsWith(`\t${r0}`)).reduce((a, x) => a + x.count, 0));
+  const exitOf = (r0: string) => Math.round(Math.max(0, viewsOf(r0) - steps.filter((x) => x.key.startsWith(`${r0}\t`)).reduce((a, x) => a + x.count, 0)) * 0.86);
+  const ixEntry = ixViews.map((p) => ({ key: p.route, count: entryOf(p.route) }));
+  const ixExit = ixViews.map((p) => ({ key: p.route, count: exitOf(p.route) }));
+  const ixFirst = IX_FIRST.map(([r0, k, rate]) => ({ key: `${r0}\t${k}`, count: Math.round(viewsOf(r0) * rate) }));
   const coalesce = Math.round((tot.duplicate ?? 0) * 0.55), discard = Math.round((tot.stale ?? 0) * 0.4);
   const interventions = coalesce + discard;
   const undone = interventions > 6 ? 1 : 0;
@@ -223,6 +258,18 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
     ix_click: ixClick.sort((a, b) => b.count - a.count),
     ix_rage: ixRage.sort((a, b) => b.count - a.count),
     ix_dead: ixDead.sort((a, b) => b.count - a.count),
+    ix_entry: ixEntry.sort((a, b) => b.count - a.count),
+    ix_exit: ixExit.sort((a, b) => b.count - a.count),
+    ix_nav: steps.map(({ key, count }) => ({ key, count })).sort((a, b) => b.count - a.count),
+    ix_nav_ms: steps.map(({ key, count, secs }) => ({ key, count: count * secs * 1000 })),
+    ix_arrive: [
+      ...[["load", 0.78], ["push", 0.15], ["back", 0.04], ["back_forward", 0.02], ["reload", 0.01]].map(([k, f]) => ({ key: k as string, count: Math.round(views * (f as number)) })),
+      ...ixViews.map((p) => ({ key: `${p.route}\tback`, count: Math.round(p.n * 0.04) })),
+    ],
+    ix_first: ixFirst.sort((a, b) => b.count - a.count),
+    ix_first_n: IX_FIRST.map(([r0]) => ({ key: r0, count: Math.round(viewsOf(r0) * 0.8) })),
+    ix_first_ms: IX_FIRST.map(([r0], i) => ({ key: r0, count: Math.round(viewsOf(r0) * 0.8) * (3200 + 1700 * i) })),
+    ix_path: IX_PATHS.map(([key, rate]) => ({ key, count: Math.round((entries * rate) / 100) })),
     ...Object.fromEntries(Object.entries(IX_SHARES).map(([m, list]) => [m, shareOf(list)])),
   };
   return {
@@ -238,6 +285,7 @@ export function sampleStats(rangeParam: string | null, now: Date): Stats {
       model_ready: ready, model_load_failed: failed, modelLoadAvgMs: 1340, latency_ms_n: Math.round(sessions * 0.66), latencyAvgMs: 168, failOpens: Math.round(sessions * 0.011), modelErrors: failed,
       detectionsWithPage: detections, possible, possibleWithPage: possible, hidden_skipped: Math.round(sessions * 0.05), model_dropped: hourly ? 0 : Math.round(sessions * 0.002), telemetry_dropped: 0,
       ix_views: views, ix_engaged_ms: engagedMs, ix_click: total(ixClick), ix_rage: total(ixRage), ix_dead: total(ixDead), ix_sessions: visitCount,
+      ix_entry: total(ixEntry), ix_exit: total(ixExit),
     },
     breakdowns,
     distinct: Object.fromEntries(Object.entries(breakdowns).map(([k, v]) => [k, v.length])),

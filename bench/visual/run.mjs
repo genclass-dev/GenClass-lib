@@ -3,7 +3,7 @@
 // (.github/workflows/visual-measure.yml): it starts Chromium, which never runs on a developer machine here.
 //
 //   node bench/visual/run.mjs --group demos|templates|compat|sites [--shard 0/4] [--parts clean,cost,faults,integration]
-//                            [--workers 2] [--seed 1] [--out <dir>]
+//                            [--workers 2] [--seed 1] [--out <dir>] [--faults T1,ad-heavy]
 //
 // Loads, per page:
 //   clean        desktop 1280 x 800 and phone 390 x 844, light and dark (public sites: dark only where the site has a
@@ -56,14 +56,17 @@ const VIEWPORTS = {
 const GROUPS = {
   A1: ["text-invisible:equal", "text-invisible:1.3", "font-failed", "css-var-undefined", "text-template-leak:object", "text-template-leak:nan", "text-encoding", "text-placeholder"],
   A2: ["image-broken", "image-distorted", "image-css-broken", "media-failed", "icon-font-failed", "stylesheet-failed", "csp-blocked"],
+  T1: ["text-warped:overlap", "text-warped:clipped", "text-warped:tofu", "text-warped:mirrored", "text-warped:skewed", "text-warped:spacing", "text-warped:tiny"],
 };
 const FAULTS = {
-  desktop: ["A1", "A2", "page-overflow-x", "pointer-events-leak", "scroll-lock-stuck", "click-blocked", "control-unreachable", "focus-obscured", "dialog-covered", "layout-shift", "page-blank"],
-  phone: ["A1", "A2", "viewport-meta-missing", "page-overflow-x", "control-unreachable", "scroll-lock-stuck"],
+  desktop: ["A1", "A2", "T1", "page-overflow-x", "pointer-events-leak", "scroll-lock-stuck", "click-blocked", "control-unreachable", "focus-obscured", "dialog-covered", "layout-shift", "page-blank", "ad-heavy"],
+  phone: ["A1", "A2", "T1", "viewport-meta-missing", "page-overflow-x", "control-unreachable", "scroll-lock-stuck", "ad-heavy"],
 };
+/** --faults a,b: only these fault groups (a local run of the new checks' recall); default all. */
+const ONLY = opt("faults", null)?.split(",") ?? null;
 const EARLY = new Set(["page-blank", "viewport-meta-missing"]);
 /** Kinds matched by kind alone (the finding names html, body or a moved element, not the planted one). */
-const PAGE_LEVEL = new Set(["pointer-events-leak", "scroll-lock-stuck", "layout-shift", "page-blank", "viewport-meta-missing", "csp-blocked"]);
+const PAGE_LEVEL = new Set(["pointer-events-leak", "scroll-lock-stuck", "layout-shift", "page-blank", "viewport-meta-missing", "csp-blocked", "ad-heavy"]);
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 let publicDone = 0;
@@ -586,7 +589,7 @@ async function main() {
         save();
       }
       if (PARTS.has("faults")) {
-        const jobs = pages.filter((p) => p.faults).flatMap((spec) => Object.entries(FAULTS).flatMap(([viewport, list]) => list.map((fault) => ({ spec, o: { viewport, fault } }))));
+        const jobs = pages.filter((p) => p.faults).flatMap((spec) => Object.entries(FAULTS).flatMap(([viewport, list]) => list.filter((fault) => !ONLY || ONLY.includes(fault)).map((fault) => ({ spec, o: { viewport, fault } }))));
         out.loads.push(...(await pool(jobs, Math.max(WORKERS, 3), (j) => faultLoad(browser, j.spec, j.o))));
         save();
       }

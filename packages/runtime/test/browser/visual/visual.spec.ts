@@ -36,6 +36,8 @@ interface Seen {
 /** Open a fixture and wait until the first automatic pass has run. */
 async function open(page: Page, path: string): Promise<void> {
   await page.route("https://placehold.co/**", (r) => r.fulfill({ status: 200, contentType: "image/png", body: png(300, 120) }));
+  // cross-site frames for ad-heavy's fixtures (an ad server, a video player, a map): blank documents
+  await page.route(/^https:\/\/(ads|video|maps)\.example\.test\//, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>frame</title><body style=\"margin:0;background:#e5e7eb\"></body>" }));
   await page.goto(`${base}${path}`);
   expect(await page.evaluate(() => document.visibilityState)).toBe("visible");
   await page.waitForFunction(() => ((window as unknown as { GenClass?: { runtime?: { summary(): { visual?: { passes: number } } } } }).GenClass?.runtime?.summary().visual?.passes ?? 0) >= 1, null, { timeout: 30_000 });
@@ -314,6 +316,53 @@ test.describe("measured visual checks (VISUAL.md section 14)", () => {
       return w.GenClass.runtime.history().filter((e) => e.kind === "perf" && e.t >= w.__t0).length;
     });
     expect(perf).toBe(0);
+  });
+});
+
+test.describe("ad-heavy and text-warped (VISUAL.md 3.25, 3.26)", () => {
+  test("ad-heavy: ad slots and ad-sized cross-site frames over 30% of the page", async ({ page }) => {
+    await open(page, "/f/ads.html");
+    const found = await settle(page);
+    exact(found, await planted(page));
+    const f = found.find((x) => x.kind === "ad-heavy")!;
+    expect(f.message).toMatch(/^\[GenClass\] Check \(measured\): ad slots cover \d+% of the page \(threshold 30%, Better Ads ad density\): 7 ad slots/);
+    const m = await page.evaluate(() => (window as unknown as { GenClass: { runtime: { checks(): { kind: string; measured: Record<string, unknown>; severity: string; count?: number }[] } } }).GenClass.runtime.checks().find((c) => c.kind === "ad-heavy"));
+    expect(m!.measured.reason).toBe("density");
+    expect(m!.measured.pageShare as number).toBeGreaterThanOrEqual(0.3);
+    expect(m!.severity).toBe("medium");
+    expect(await page.evaluate(() => document.querySelectorAll("[data-genclass-fix]").length + document.adoptedStyleSheets.length)).toBe(0);
+  });
+
+  test("ad-heavy: a full-screen ad on top of the page is an interstitial (high)", async ({ page }) => {
+    await open(page, "/f/ads-interstitial.html");
+    const found = await settle(page);
+    exact(found, await planted(page));
+    const m = await page.evaluate(() => (window as unknown as { GenClass: { runtime: { checks(): { kind: string; measured: Record<string, unknown>; severity: string }[] } } }).GenClass.runtime.checks().find((c) => c.kind === "ad-heavy"));
+    expect(m).toMatchObject({ severity: "high", measured: { reason: "interstitial", count: 1 } });
+  });
+
+  test("text-warped: overlapping lines, cut lines, half an emoji, mirrored, skewed, spaced-out and tiny text", async ({ page }) => {
+    await open(page, "/f/warped.html");
+    const found = await settle(page);
+    exact(found, await planted(page));
+    const reasons = await page.evaluate(() =>
+      Object.fromEntries((window as unknown as { GenClass: { runtime: { checks(): { kind: string; measured: Record<string, unknown>; element(): Element | null }[] } } }).GenClass.runtime.checks().filter((c) => c.kind === "text-warped").map((c) => [c.element()?.getAttribute("data-k"), c.measured.reason])),
+    );
+    expect(reasons).toEqual({ w1: "overlap", w2: "overlap", w3: "clipped", w4: "clipped", w5: "tofu", w6: "mirrored", w7: "skewed", w8: "spacing", w9: "tiny", w10: "tiny" });
+    for (const f of found) expect(f.message).not.toMatch(/\(\w+, 0\.\d\d\)$/);
+  });
+
+  test("a clean page of ads and text that look strange but are correct: zero findings", async ({ page }) => {
+    await open(page, "/f/clean-strange.html");
+    expect((await settle(page)).map((f) => f.message)).toEqual([]);
+  });
+
+  test("the same clean page on a phone (390 x 844): zero findings", async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    const page = await ctx.newPage();
+    await open(page, "/f/clean-strange.html");
+    expect((await settle(page)).map((f) => f.message)).toEqual([]);
+    await ctx.close();
   });
 });
 

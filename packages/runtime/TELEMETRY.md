@@ -103,7 +103,7 @@ Every event has `t` (type), `seq` (0, 1, 2, … per page) and `at` (ms since sta
 | `breaker` | the breaker tripped or reset | `tripped`, `reason`, `undos`, `errors`, `decisions` (ids) |
 | `model-error` | model errors (first 20 per page; all are counted) | `code`, `message` (≤ 200 chars, URLs replaced by `<url>`: a model host's message can quote the browser's worker error, which names the script and the page origin) |
 | `summary` | about once a minute (≥ 60 s apart) while decisions continue, never capped; when the tab is hidden, on pagehide and on destroy | `reason`, `counts` (decisions, acted, detections (likely ones), `possibleDetections` (0.3.0: the possible ones, counted apart), actions applied/failed, late reverts, undos, vetoes, breaker trips, per trigger / diagnosis / action ran, detections per diagnosis, action limits hit, model errors per code, fail-opens per reason and trigger), `runtime` (model p50/p95 latency, decisions, dropped, hidden-tab skips, held time, denied and shadow counts, error count), `telemetry` (queued, dropped, send failures, events sent, `decisionRecords` (decisions whose records were sent), `decisionsSampledOut`, `decisionsCapped`) |
-| `interactions` | only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction analytics](#interaction-analytics)) | `view` (page view number in this page load), `route` (normalised as on `session`), `start` (the view's first event: a page view), `engagedMs`, `scroll` (milestones 25 / 50 / 75 / 100 first reached since the previous event), `clicks`, `rage`, `dead` (counts per element key, at most 50 / 20 / 20 keys, the rest under `(other)`), `end` (the view ended). Counts are deltas since the view's previous event. Unreleased, on a view's first event only: `visit` (16 hex characters, random, see [Visits](#visits)); and when that view opened the visit, `entry: true`, `ref` (the referring site's host, `www.` dropped, when it is another site; `(other)` when the host looks like data), `utm` (`source`, `medium`, `campaign`: lower case, letters, digits, `. _ + -` and spaces, words that look like ids dropped, at most 40 characters each), `device` (`desktop` / `mobile` / `tablet`), `browser` (`Chrome`, `Safari`, `Firefox`, `Edge`, `Opera`, `Samsung Internet`, `Other`), `os` (`Windows`, `macOS`, `iOS`, `Android`, `Linux`, `ChromeOS`, `Other`), `returning` (whether this browser had a visit before; absent when storage is blocked) |
+| `interactions` | only with `analytics: true` and a token (or a custom endpoint): when a page view ends (a route change, page exit), when the tab is hidden, and before a `summary`, if anything changed ([Interaction analytics](#interaction-analytics)) | `view` (page view number in this page load), `route` (normalised as on `session`), `start` (the view's first event: a page view), `engagedMs`, `scroll` (milestones 25 / 50 / 75 / 100 first reached since the previous event), `clicks`, `rage`, `dead` (counts per element key, at most 50 / 20 / 20 keys, the rest under `(other)`), `end` (the view ended). Counts are deltas since the view's previous event. Unreleased, on a view's first event only: `visit` (16 hex characters, random, see [Visits](#visits)); and when that view opened the visit, `entry: true`, `ref` (the referring site's host, `www.` dropped, when it is another site; `(other)` when the host looks like data), `utm` (`source`, `medium`, `campaign`: lower case, letters, digits, `. _ + -` and spaces, words that look like ids dropped, at most 40 characters each), `device` (`desktop` / `mobile` / `tablet`), `browser` (`Chrome`, `Safari`, `Firefox`, `Edge`, `Opera`, `Samsung Internet`, `Other`), `os` (`Windows`, `macOS`, `iOS`, `Android`, `Linux`, `ChromeOS`, `Other`), `returning` (whether this browser had a visit before; absent when storage is blocked). Navigation paths (Unreleased): on the view's first event `nav` (how it was reached: `load`, `reload`, `back_forward`, `push`, `back`, `forward`, `pop`) and, from a page load's second view on, `from` (the previous view's route) and `fromMs`; once per view `first` (the element key of the first click, or of the first focus on a form field after a key press) and `firstMs`; on the page load's last event (pagehide) `exit: true` and `path` (its routes in order, at most 10, then `"(more)"`) |
 
 Not sent: `expectation` reports (a learned step that did not happen, `docs/runtime/EXPECTATIONS.md`) and anything
 else learned about the page (flows, profiles, relations); those stay in the browser (`localStorage`, `rt.learned()`).
@@ -185,7 +185,7 @@ without either, `analytics: true` warns once in the console and records nothing.
 Privacy Control and the local-host default turn them off too. When they start, the console says so once:
 
 ```
-[GenClass] Interaction analytics are on (this app turned them on): page views, visits, time on page, scroll depth, clicks per element, the referring site, campaign and device type, never page text.
+[GenClass] Interaction analytics are on (this app turned them on): page views and the path between them, visits, time on page, scroll depth, clicks per element, the referring site, campaign and device type, never page text.
 ```
 
 What is recorded, per page view (a page load, and each route change to a new path):
@@ -203,7 +203,14 @@ What is recorded, per page view (a page load, and each route change to a new pat
   `[data-testid="…"]`, `tag#id` (ids that look generated or like data are skipped), a link's target (`a[href="/route"]`
   on your site, the other site's origin only), the tag with up to two stable class names, or an `nth-of-type` path of
   up to 4 levels under a named ancestor or a landmark. At most 120 characters. Any attribute value that looks like data
-  (an e-mail address, a URL, 4 or more digits, 12 or more hex digits) is not used.
+  (an e-mail address, a URL, 4 or more digits, 12 or more hex digits) is not used;
+- **navigation within the page load** (added after `0.3.0-beta.1`, [design](../../docs/runtime/ANALYTICS.md#11-navigation-paths-2026-10-25)):
+  how each view was reached (a page load, a reload, the browser's back or forward button, an in-app route change, an
+  in-app back or forward), the previous view's route and the time from its start to this view's, the element key of
+  the view's first interaction (a click, or a focus on a form field right after a key press) and the time to it, and
+  when the page load ends (`pagehide`), the routes of its views in order (at most 10) and that it ended there. These
+  describe one page load: a full page navigation to another page of the same site starts a new path (the visit, below,
+  follows pages across page loads), so on a site without client-side routing each path is one page long.
 
 #### Visits
 
@@ -235,7 +242,8 @@ app), and each step counts the visits that reached the steps before it in that o
 coordinates, the order or timing of clicks, the query string or fragment (beyond the three utm values), the
 referrer's path or query, the page title, the screen size, the user agent string, a visitor id. No cookies are set,
 and nothing links two visits of one browser except the yes-or-no `returning` flag, so the dashboard does not count
-unique visitors. Synthetic events (`isTrusted` false) and events inside `[data-genclass-ignore]` are not counted.
+unique visitors. The order of page views and the time between them are sent only within one page load (the visit's
+pages in order are stored by the collector, keyed by a hash of the visit id). Synthetic events (`isTrusted` false) and events inside `[data-genclass-ignore]` are not counted.
 
 They never reach the model or a decision: they are recorded by their own listeners (a separate file the runtime loads
 only when analytics are on), outside GenClass's event log, and change nothing on the page in any mode. The

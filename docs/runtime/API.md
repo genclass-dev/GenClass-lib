@@ -73,7 +73,10 @@ page view the route, engaged time, scroll milestones, and clicks, rage clicks an
 from markup: `data-genclass-name`, `data-testid`, a stable id, a link's target, stable classes, a short structural
 path; never element text), and (Unreleased) per visit a random visit id kept 30 minutes in `localStorage`
 (`genclass.analytics.<token>`), the referring host, utm values without ids, device class, browser and OS families and
-whether the browser visited before. Every telemetry opt-out and Global Privacy Control turn them off; without a token
+whether the browser visited before, and how visitors move within a page load: how each view was reached (`nav`), the
+previous route and the time between (`from`, `fromMs`), the first element interacted with (`first`, `firstMs`), and at
+the end of the page load where it ended and its routes in order (`exit`, `path`, at most 10; ANALYTICS.md section 11).
+Every telemetry opt-out and Global Privacy Control turn them off; without a token
 `analytics: true` warns once and records nothing. They run in a lazy chunk (`dist/analytics/index.js`), outside the
 event log: nothing reaches a situation, a decision or the model. `rt.analytics.start()` / `stop()` turn them on and
 off later (consent; `stop()` drops the counts not sent yet and removes the visit entry). Also `data-analytics="on"`, `analytics=on` in the meta
@@ -131,7 +134,8 @@ interface InitOptions {
   token?: string;                                       // (0.3.0) app token, gc_ + 22 letters/digits: groups telemetry under your private dashboard
   analytics?: boolean;                                  // (0.3.0-beta.1) [false] interaction analytics for the app's dashboard: page views, engaged time,
                                                         // scroll depth, clicks, rage and dead clicks per element key; visits, sources, devices
-                                                        // (Unreleased); needs telemetry and the token
+                                                        // (Unreleased); navigation within a page load (how each view was reached, the previous route,
+                                                        // the first interaction, the end and the path); needs telemetry and the token
   scope?: "app" | "functions";                          // (0.3.0) ["app"]; "functions": decisions and standing questions only for activity inside protect()ed functions (rt.ask() still answered)
 
   // batch 12 (docs/runtime/OPTIONS-SPEC.md); defaults in brackets
@@ -720,7 +724,7 @@ type CheckKind = "image-broken" | "image-css-broken" | "media-failed" | "stylesh
   | "icon-font-failed" | "csp-blocked" | "text-invisible" | "text-template-leak" | "text-placeholder" | "text-encoding"
   | "css-var-undefined" | "image-distorted" | "page-overflow-x" | "viewport-meta-missing" | "layout-shift"
   | "page-blank" | "click-blocked" | "pointer-events-leak" | "scroll-lock-stuck" | "control-unreachable"
-  | "focus-obscured" | "dialog-covered" | "request-stalled";
+  | "focus-obscured" | "dialog-covered" | "request-stalled" | "ad-heavy" | "text-warped";  // ad-heavy, text-warped: VISUAL.md 3.25, 3.26 (report only)
 
 interface CheckFinding {
   id: string;                        // "c1", "c2", ...

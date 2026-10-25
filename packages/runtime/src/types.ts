@@ -948,8 +948,10 @@ export interface InitOptions {
    * markup only (`data-genclass-name`, `data-testid`, an id, a link's target, stable class names or a short
    * structural path; never its text). Per visit (page views with no gap over 30 minutes) also a random visit id, the
    * referring host, the utm_source / utm_medium / utm_campaign values without ids, the device class, browser and OS
-   * families (buckets, never the user agent) and whether the browser visited before. Sent as `interactions`
-   * telemetry events, never fed to a decision or the model.
+   * families (buckets, never the user agent) and whether the browser visited before. Within one page load also how
+   * each view was reached (a load, a reload, back/forward, an in-app route change), the previous view's route and the
+   * ms between, the element key of the view's first interaction, and at pagehide the exit and the routes in order (at
+   * most 10). Sent as `interactions` telemetry events, never fed to a decision or the model.
    * **Default: off.** Needs telemetry on and the app's `token` (or your own `telemetry.endpoint`); every telemetry
    * opt-out and Global Privacy Control turn it off too. While it runs, one `localStorage` entry
    * (`genclass.analytics.<token>`) holds the visit id and the visited-before flag. Where analytics need consent
@@ -1136,7 +1138,12 @@ export interface Learned {
 
 // --------------------------------------------------------------------------- measured visual checks (VISUAL.md)
 
-/** The v1 measured visual checks (docs/runtime/VISUAL.md section 3). */
+/**
+ * The measured visual checks (docs/runtime/VISUAL.md section 3). `ad-heavy` (3.25): ad slots cover 30% of the page,
+ * half the first screen, a sticky ad 30% of the screen, or an ad interstitial half of it. `text-warped` (3.26): text a
+ * reader cannot read as text (overlapping lines, a line cut mid-way, characters no font can draw, mirrored or skewed
+ * text, letter spacing that splits words, text drawn below 8 px). Both report only, never fix, never feed the model.
+ */
 export type CheckKind =
   | "image-broken"
   | "image-css-broken"
@@ -1161,7 +1168,9 @@ export type CheckKind =
   | "control-unreachable"
   | "focus-obscured"
   | "dialog-covered"
-  | "request-stalled";
+  | "request-stalled"
+  | "ad-heavy"
+  | "text-warped";
 
 /** The checks that may apply a runtime fix (opt-in, reversible, never in observe). */
 export type VisualFixKind = "text-invisible" | "pointer-events-leak" | "scroll-lock-stuck";

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warped text</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 16px; }
+  .grid > section { min-height: 120px; }
+  p { margin: 0; }
+  .squashed { width: 220px; line-height: 0.4; }
+  .stack p { margin: 0; }
+  .stack .shifted { position: relative; top: -24px; }
+  .nowrap { width: 140px; white-space: nowrap; overflow: hidden; }
+  .short { height: 14px; font-size: 20px; line-height: 24px; overflow: hidden; padding: 0 8px; border: 1px solid #9ca3af; background: #fff; color: #111827; }
+  .mirror { display: inline-block; transform: scaleX(-1); }
+  .skew { display: inline-block; transform: skewX(35deg); }
+  .spaced { letter-spacing: 0.8em; }
+  .six { font-size: 6px; }
+  .mini { transform: scale(0.4); transform-origin: left top; width: 400px; }
+  /* clean controls next to the faults */
+  .ok-tight { font-size: 32px; line-height: 1; width: 220px; font-weight: 700; }
+  .ok-ellipsis { width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ok-slant { display: inline-block; transform: skewX(-10deg); background: #fde68a; padding: 2px 8px; }
+  .ok-eyebrow { text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; }
+  .ok-small { font-size: 11px; color: #4b5563; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <section><p class="squashed" data-k="w1" data-expect="text-warped">Lines of this paragraph sit on top of each other because its line height is far too small.</p></section>
+  <section class="stack"><p data-k="w2" data-expect="text-warped">Delivery in two days</p><p class="shifted">Free returns for a month</p></section>
+  <section><div class="nowrap" data-k="w3" data-expect="text-warped">Free shipping on every single order</div></section>
+  <section><button class="short" type="button" data-k="w4" data-expect="text-warped">Continue</button></section>
+  <section><p id="cut" data-k="w5" data-expect="text-warped">Loading</p></section>
+  <section><p class="mirror" data-k="w6" data-expect="text-warped">Mirrored headline text</p></section>
+  <section><p class="skew" data-k="w7" data-expect="text-warped">Skewed label text</p></section>
+  <section><p class="spaced" data-k="w8" data-expect="text-warped">Summer sale</p></section>
+  <section><p class="six" data-k="w9" data-expect="text-warped">Terms and conditions apply to every order</p></section>
+  <section><div class="mini"><p data-k="w10" data-expect="text-warped">Scaled down text that people still need to read</p></div></section>
+  <section><p class="ok-tight">A tight display heading</p></section>
+  <section><div class="ok-ellipsis">Free shipping on every single order</div><p class="ok-eyebrow">New this week</p><p class="ok-small">Prices include VAT.</p><span class="ok-slant">Sale</span></section>
+</div>
+<script src="/f/warped.js"></script>
+</body>
+</html>

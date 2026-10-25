@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean page: ads and text that look strange but are correct</title>
+<script src="/dist/genclass.global.js" data-model="off" data-telemetry="off"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111827; background: #fff; }
+  header.site-header { position: sticky; top: 0; z-index: 10; height: 56px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: #fff; box-shadow: 0 1px 0 #e5e7eb; }
+  .badge { background: #dcfce7; color: #166534; border-radius: 999px; padding: 0 8px; font-size: 12px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; padding: 24px; }
+  @media (max-width: 700px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .slot { background: #f3f4f6; max-width: 100%; }
+  .leader { width: 728px; height: 90px; }
+  .rect { width: 300px; height: 250px; }
+  iframe { border: 0; max-width: 100%; display: block; }
+  .shadow { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); padding: 16px; border-radius: 12px; }
+  h1.display { font-size: 44px; line-height: 1; letter-spacing: -0.03em; margin: 0 0 16px; max-width: 520px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; color: #4b5563; }
+  .logo { letter-spacing: 0.6em; font-weight: 700; }
+  .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 260px; }
+  .fade { max-height: 62px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); max-width: 320px; }
+  .axis { display: inline-block; transform: rotate(-90deg); margin: 24px 0; }
+  .slant { display: inline-block; transform: skewX(-10deg); background: #fde68a; padding: 2px 10px; }
+  .flip { position: relative; width: 220px; height: 60px; perspective: 600px; }
+  .flip > div { position: absolute; inset: 0; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #e5e7eb; background: #fff; }
+  .flip .back { transform: rotateY(180deg); }
+  .carousel { overflow: hidden; width: 300px; }
+  .track { display: flex; width: 900px; transform: translateX(-150px); }
+  .track p { width: 300px; flex: none; padding: 8px; margin: 0; white-space: nowrap; }
+  .backdrop { position: relative; padding-top: 24px; }
+  .backdrop .word { position: absolute; top: 0; left: 0; font-size: 96px; line-height: 1; font-weight: 800; color: rgba(17, 24, 39, 0.06); }
+  .backdrop h2 { position: relative; margin: 24px 0 0; }
+  .preview { width: 1000px; transform: scale(0.25); transform-origin: left top; pointer-events: none; height: 0; }
+  .card { position: relative; width: 260px; }
+  .card .new { position: absolute; top: 8px; right: 8px; }
+  .card img { width: 100%; height: 120px; object-fit: cover; display: block; }
+  .field { position: relative; width: 260px; }
+  .field label { position: absolute; left: 10px; top: -9px; background: #fff; padding: 0 4px; font-size: 12px; }
+  .field input { width: 100%; padding: 10px; font: inherit; border: 1px solid #9ca3af; border-radius: 6px; }
+  .vertical { writing-mode: vertical-rl; height: 140px; }
+  footer.address { padding: 24px; color: #374151; }
+  .cookie-banner { position: fixed; left: 16px; bottom: 16px; width: 320px; background: #111827; color: #f9fafb; padding: 12px; border-radius: 8px; }
+  .cookie-banner button { margin-top: 8px; }
+</style>
+</head>
+<body>
+<header class="site-header"><strong class="logo">ACME</strong><a href="#news">News</a><span class="badge">New</span><button type="button" class="add-to-cart">Add to cart</button></header>
+<div class="layout">
+  <main>
+    <p class="eyebrow">Product update</p>
+    <h1 class="display">A display heading that wraps onto a second line</h1>
+    <div class="slot leader ad-slot"></div>
+    <p>This page has two ad slots and two cross-site embeds, far below the ad thresholds, and text set in ways that look unusual but read fine.</p>
+    <p class="truncate">A long title that ends in an ellipsis on purpose</p>
+    <p class="clamp">A description clamped to two lines with an ellipsis: the rest of this sentence is hidden on purpose, as card layouts do.</p>
+    <div class="fade"><p>A "read more" box shows the start of a long text and fades out the line it cuts through. The rest of the text appears when the visitor opens it, so the cut is a design.</p></div>
+    <p><span class="slant">Limited offer</span> <sup>1</sup> <ruby>漢字<rt>かんじ</rt></ruby> <span>Great 👍</span> <span dir="rtl">שלום עולם</span></p>
+    <span class="axis">Revenue</span>
+    <div class="flip"><div class="front">Front of the card</div><div class="back">Back of the card</div></div>
+    <div class="carousel"><div class="track"><p>First slide caption</p><p>Second slide caption text</p><p>Third slide caption</p></div></div>
+    <div class="backdrop"><span class="word" aria-hidden="true">2026</span><h2>Our year in review</h2></div>
+    <div class="preview"><p>A miniature preview of another page, scaled to a quarter and not meant to be read here.</p><p>Its second paragraph is just as small.</p></div>
+    <div class="card shadow"><img src="/img/520x240.png" alt="Product"><span class="new badge">New</span><p>Card title next to a badge</p></div>
+    <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@example.com"></div>
+    <p class="vertical">縦書きの文章</p>
+    <iframe src="https://video.example.test/embed" width="560" height="315" title="Video"></iframe>
+  </main>
+  <aside>
+    <div class="slot rect" id="sidebar-ad"></div>
+    <iframe src="https://maps.example.test/embed" width="300" height="200" title="Map"></iframe>
+    <section class="sponsors"><h3>Sponsors</h3><p>Thanks to the companies that support this project.</p></section>
+  </aside>
+</div>
+<footer class="address">ACME Ltd, 1 Example Street</footer>
+<div class="cookie-banner" role="region" aria-label="Cookies"><p>We use one cookie to remember this choice.</p><button type="button">OK</button></div>
+</body>
+</html>

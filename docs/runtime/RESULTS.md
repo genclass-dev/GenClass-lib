@@ -1097,3 +1097,75 @@ sets when the app reads a non-JSON answer with `response.json()`. The request co
 snapshot and `request-stalled` are in the measured checks' chunk. A first version that counted in the first load cost
 +583 / +556 B and needed the owner-approved limits raised (`test/bundle.test.ts`), so it was moved; CI's build
 measures about 0.2 KB more than this machine for both branches.
+## 22. Measured visual checks `ad-heavy` and `text-warped` (development Mac, Chromium 153 through Playwright 1.63.0, 2026-10-25, branch `strange-sites`)
+
+Measured checks, not model results (VISUAL.md sections 3.25 and 3.26). Run on a 16 GB development Mac, not on GitHub
+runners, so the cost figures are this machine's and only the comparison with main's engine on the same machine,
+the same day, means anything. The faults and the fixtures were written by the author of the checks, so the recall
+below is a mechanism check (each planted fault is found, nothing else is), not an independent recall figure.
+
+**Fixtures** (`test/browser/visual`, Chromium; the whole suite, 49 tests, passed):
+
+| fixture | planted | found | other findings |
+|---|---|---|---|
+| `ads.html` (ad slots and ad-sized cross-site frames over 30% of the page) | 1 `ad-heavy` (density) | 1 | 0 |
+| `ads-interstitial.html` (a full-screen ad with a close button) | 1 `ad-heavy` (interstitial, high) | 1 | 0 |
+| `warped.html` (10 faults across the 7 reasons, 5 clean controls next to them) | 10 `text-warped` | 10, each with its reason | 0 |
+| `clean-strange.html` (two ad slots, video and map embeds, a sticky header, a cookie banner, an ellipsis, a line clamp, a masked "read more", a flip card, a carousel track, a rotated axis label, a 10° slant, tracking at 0.2 em and a logo at 0.6 em, a tight display heading, ruby, emoji, right-to-left text, vertical text, a backdrop word, a quarter-scale preview with `pointer-events: none`, a floating label), desktop and phone | 0 | 0 | 0 |
+| the 44 existing fixture tests (their exact finding sets) | unchanged | unchanged | 0 new |
+
+The first browser run had one false report on two clean elements (`overlap` on text with `text-overflow: ellipsis`,
+VISUAL.md section 19); after the change, none.
+
+**Demos** (`bench/visual`, group `demos`: the six demos and their index, desktop 1280 x 800 and phone 390 x 844, light
+and dark, scripted hover, Tab and scrolling; faults `T1` and `ad-heavy` only, `--faults T1,ad-heavy`):
+
+and the four starter templates the same way (`npm run dev`, prepared with `corpus.mjs prepare templates`):
+
+| clean pages, every kind | page views | findings | false reports | per page view | fixes applied |
+|---|---|---|---|---|---|
+| demos, 7 pages | 28 | 0 | 0 | 0 | 0 |
+| templates, 4 | 16 | 0 | 0 | 0 | 0 |
+
+| kind | group | planted | took | found | recall | desktop | phone |
+|---|---|---|---|---|---|---|---|
+| `text-warped` (7 reasons per load) | demos | 98 | 95 | 95 | 1.00 | 48 / 48 | 47 / 47 |
+| `text-warped` | templates | 56 | 15 | 15 | 1.00 | 7 / 7 | 8 / 8 |
+| `ad-heavy` | demos | 14 | 14 | 14 | 1.00 | 7 / 7 | 7 / 7 |
+| `ad-heavy` | templates | 8 | 8 | 8 | 1.00 | 4 / 4 | 4 / 4 |
+
+The templates are small pages: after the first two text faults no free text element was left in view for the others
+(40 not applicable), so their `text-warped` figure covers mostly `overlap` and `clipped`. The demos' fault loads ran
+twice, before and after the cost change below, with the same result.
+
+Not applicable (left out of the denominator): on the index page at phone width no text element in view had two words
+for `spacing` or was free for `tiny`; on the status page the planted half-emoji left the viewport; on one template the
+clipped line did not take. Every `ad-heavy`
+load also reported `layout-shift` on the content below the inserted slots: the harness inserts them after load, so
+the shift is real, and it is the only finding outside the planted faults. No fix was applied anywhere (neither check
+has one).
+
+**Cost on the demos, the same machine, main's engine (`10f0c1d`) against this branch** (7 loads at 4x CPU throttling,
+28 at 1x; the check time of the automatic first pass, the longest slice, the session's check time):
+
+| | first pass p50 / p95 | first pass inside the 100 ms budget | longest slice p95 / max | session p50 / p95 |
+|---|---|---|---|---|
+| 1x, main | 15.1 / 26.3 ms | 100% | 9.6 / 9.6 ms | 39.1 / 62.4 ms |
+| 1x, this branch | 21.4 / 36.3 ms | 100% | 10.5 / 10.9 ms | 47.9 / 75.4 ms |
+| 4x, main | 70.5 / 87.2 ms | 100% | 15.3 / 15.3 ms | 94.8 / 127.8 ms |
+| 4x, this branch | 78.8 / 112.3 ms | 86% (6 of 7) | 13.9 / 13.9 ms | 106.3 / 162.8 ms |
+
+The first measurement of this branch was slower (4x first pass p50 98.1 ms); reading each element's line boxes and
+transforms once per pass and building element descriptions only for findings brought it to the figures above (on the
+10,000-element fixture `big.html` the session's check time went from 136 to 48 ms, longest slice 8.1 ms). Long
+tasks during the 4x loads come from the throttled pages themselves (main: 6 of 7 loads, up to 258 ms; this branch: 6
+of 7, up to 160 ms); the checks' own slices stay under 16 ms.
+
+**First load** (`test/first-load-size.mjs` against main's dist built from `10f0c1d`): `/auto` 108.324 KB against
+108.320 KB, the main entry 100.227 KB against 100.225 KB. The first-load code is byte-identical (checked by diffing the
+two bundles); the 4 B and 2 B are the content-hashed file names of the two lazy chunks it imports. The lazy chunks grow:
+`dist/visual/index.js` 40.38 to 47.06 KB gzip (+6.69 KB), `dist/analytics/index.js` 3.69 to 4.26 KB gzip (+0.57 KB), each loaded only where its
+feature is on.
+
+**Not run:** the compat apps and the public sites for these two kinds (the bench workflow, `visual-measure.yml`, which
+loads about 40 public sites and is the owner's to start); Firefox and WebKit.

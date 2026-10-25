@@ -21,6 +21,9 @@
 //   returning) and every view's route goes into the visit's row (`visits`, keyed by a hash of the token and the
 //   visit id), which entry and exit pages, pages per visit and funnels are counted from. Every value is checked
 //   against an allowlist or a pattern here, whatever the client sent.
+//   Navigation paths (ANALYTICS.md section 11): within one page load, route-to-route steps with the time between, how
+//   each view was reached, the first element interacted with per page, where page loads started and ended, and the
+//   first 5 routes of each page load's path, all as counters per route or element key.
 // - Funnels: up to MAX_FUNNELS per app (projects.funnels), each 2 to MAX_STEPS routes; a step is counted for the visits
 //   whose routes include every step up to it in order (GLOB on the visit's route list), so a funnel defined today
 //   counts the visits already stored.
@@ -356,6 +359,14 @@ const IX_FIELDS: [string, string][] = [
   ["dead", "ix_dead"],
 ];
 const chars = (s: string, n: number): string => [...s].slice(0, n).join("");
+const IX_NAV = new Set(["load", "reload", "back_forward", "push", "back", "forward", "pop"]);
+/** Routes of a path the collector keeps, and the key's length. */
+const IX_PATH_STEPS = 5;
+const IX_PATH_MAX = 240;
+const ixRoute = (v: unknown): string | undefined => {
+  const r = str(v);
+  return r ? chars(r, 100) : undefined;
+};
 
 // Visits: what the view opening one may say (the runtime's buckets, src/analytics/index.ts deviceOf), and bounds.
 export const VISIT_RE = /^[0-9a-f]{16}$/;
@@ -379,7 +390,9 @@ const visitRoute = (r: string): string => chars(r.replace(/\t/g, " "), 100);
 /**
  * One `interactions` event into ix_* counters (key "" is the total; the route, or route TAB element key, the
  * breakdown): ix_views (a view's first event), ix_engaged_ms, ix_scroll (route TAB milestone), ix_click, ix_rage,
- * ix_dead. Element keys are selectors and names from the page's markup, never its text (the runtime builds them).
+ * ix_dead; and the navigation counters of ANALYTICS.md 11.2: ix_entry, ix_nav and ix_nav_ms (from TAB to), ix_arrive
+ * (nav, and route TAB nav), ix_first (route TAB element key), ix_first_n and ix_first_ms (route), ix_exit, ix_path.
+ * Element keys are selectors and names from the page's markup, never its text (the runtime builds them).
  */
 function interactions(ix: Counters, e: Ev, visits: Map<string, VisitPart>, country: string | null | undefined): void {
   const route = chars(str(e.route) ?? "(unknown)", 100);
@@ -403,6 +416,37 @@ function interactions(ix: Counters, e: Ev, visits: Map<string, VisitPart>, count
     ix.add("ix_engaged_ms", route, ms);
   }
   if (Array.isArray(e.scroll)) for (const m of new Set(e.scroll)) if (IX_MILESTONES.has(m as number)) ix.add("ix_scroll", `${route}\t${m}`);
+  if (e.start === true) {
+    const nav = typeof e.nav === "string" ? (IX_NAV.has(e.nav) ? e.nav : "(other)") : undefined;
+    if (nav) {
+      ix.add("ix_arrive", nav);
+      ix.add("ix_arrive", `${route}\t${nav}`);
+    }
+    const from = ixRoute(e.from);
+    if (from) {
+      ix.add("ix_nav", `${from}\t${route}`);
+      const gap = num(e.fromMs);
+      if (gap !== undefined && gap >= 0 && gap <= IX_MAX_MS) ix.add("ix_nav_ms", `${from}\t${route}`, gap);
+    } else {
+      ix.add("ix_entry");
+      ix.add("ix_entry", route);
+    }
+  }
+  const first = str(e.first);
+  if (first && first.trim()) {
+    ix.add("ix_first", `${route}\t${chars(first.trim(), KEY_MAX)}`);
+    ix.add("ix_first_n", route);
+    const ms = num(e.firstMs);
+    if (ms !== undefined && ms >= 0 && ms <= IX_MAX_MS) ix.add("ix_first_ms", route, ms);
+  }
+  if (e.exit === true) {
+    ix.add("ix_exit");
+    ix.add("ix_exit", route);
+    if (Array.isArray(e.path)) {
+      const steps = e.path.slice(0, IX_PATH_STEPS).map(ixRoute);
+      if (steps.length && steps.every((x) => x)) ix.add("ix_path", chars(steps.join(" > ") + (e.path.length > IX_PATH_STEPS ? " > …" : ""), IX_PATH_MAX));
+    }
+  }
   for (const [field, metric] of IX_FIELDS) {
     for (const [k, v] of Object.entries(obj(e[field])).slice(0, IX_KEYS)) {
       const n = num(v);
