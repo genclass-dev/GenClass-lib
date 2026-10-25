@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.2.0 (2026-10-25)
+
+The `0.1.0` on npm (published 2026-10-25) is an earlier build: eight tools, no `genclass_scan`, no `GENCLASS_REPORT`.
+Everything below ships first in `0.2.0`.
 
 - **`genclass_setup` installs the newest runtime line.** It prints `npm install @genclass/runtime@beta` (the agent
   entry and interaction analytics need 0.3.0-beta.1 or later) for a project on 0.2.x, on a range without a version

@@ -1,11 +1,14 @@
 {
   "name": "genclass",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Find race conditions in your web app by reordering its responses, replay one, prove the fix.",
   "mcpServers": {
     "genclass": {
       "command": "npx",
-      "args": ["-y", "@genclass/mcp@0.1.0"]
+      "args": [
+        "-y",
+        "@genclass/mcp@0.2.0"
+      ]
     }
   }
 }

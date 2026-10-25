@@ -1,13 +1,16 @@
 {
   "name": "genclass",
-  "owner": { "name": "GenClass", "url": "https://genclass.dev" },
+  "owner": {
+    "name": "GenClass",
+    "url": "https://genclass.dev"
+  },
   "description": "GenClass for Claude Code: see the race, replay it, prove the fix.",
   "plugins": [
     {
       "name": "genclass",
       "source": "./packages/mcp/plugin",
       "description": "The GenClass MCP server, a prompt hook that brings new findings to each prompt, and a skill for intermittent and timing-dependent frontend bugs.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "development"
     }
   ]

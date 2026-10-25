@@ -23,7 +23,7 @@ merging it with the servers already there:
   "mcpServers": {
     "genclass": {
       "command": "npx",
-      "args": ["-y", "@genclass/mcp@0.1.0"]
+      "args": ["-y", "@genclass/mcp@0.2.0"]
     }
   }
 }

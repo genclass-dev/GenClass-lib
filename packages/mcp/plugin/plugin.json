@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "genclass",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "See what happens inside your app's pages in causal order, find race conditions by replaying different response orders, reproduce a bug exactly and prove the fix with a generated Playwright test. Local only.",
   "author": {
     "name": "GenClass",
@@ -10,5 +10,13 @@
   "homepage": "https://genclass.dev",
   "repository": "https://github.com/genclass-dev/GenClass-lib",
   "license": "Apache-2.0",
-  "keywords": ["race-condition", "debugging", "playwright", "frontend", "mcp", "stale-response", "double-submit"]
+  "keywords": [
+    "race-condition",
+    "debugging",
+    "playwright",
+    "frontend",
+    "mcp",
+    "stale-response",
+    "double-submit"
+  ]
 }
