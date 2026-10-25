@@ -1,0 +1,30 @@
+agent % genclass_setup {}
+@genclass/runtime is installed.
+1. In the app's entry (src/main.tsx or src/main.ts), before the app renders:
+```ts
+import { GenClass } from "@genclass/runtime";
+import { connectAgent } from "@genclass/runtime/agent";
+
+const rt = GenClass.init();
+// development builds only: the link records and schedules nothing in production (and is tree-shaken out)
+if (import.meta.env.DEV) connectAgent(rt);
+```
+2. Load a page of the dev server, then genclass_status: it should list the page as active.
+
+Notes: connectAgent runs only on pages served from this machine (localhost, 127.0.0.1, *.localhost); for a *.test or *.local name or a LAN address use connectAgent(rt, { anyHost: true }) and allow the origin with GENCLASS_AGENT_ORIGINS=http://host:port in the MCP server's environment. It talks only to this machine's bridge (http://127.0.0.1:47357; GENCLASS_AGENT_PORT changes it, and the page then needs connectAgent(rt, { url })). A Content-Security-Policy in development needs connect-src http://127.0.0.1:47357; a mock service worker (MSW) should let 127.0.0.1:47357 through. Production: GenClass.init() alone, unchanged.
+
+To keep GenClass configured in Claude Code (in the project where the client reads a project file):
+
+As a plugin (the server, a prompt hook that brings new findings to each prompt, and a skill that tells Claude when to use it):
+
+```
+/plugin marketplace add genclass-dev/GenClass-lib
+/plugin install genclass@genclass
+```
+
+Or the server alone (`--scope project` writes `.mcp.json` for everyone on the project; `--scope user` for all your projects):
+
+```bash
+claude mcp add --scope project genclass -- npx -y @genclass/mcp@0.1.0
+# or: npx -y @genclass/mcp@0.1.0 init --hook   (.mcp.json, plus the prompt hook in .claude/settings.json)
+```

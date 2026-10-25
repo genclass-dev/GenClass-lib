@@ -360,3 +360,29 @@ describe("store: digest and persistence (AGENT.md §4.4)", () => {
     expect(mergeOrder(["a", "b"], [])).toEqual(["a", "b"]);
   });
 });
+
+describe("store: a race replay counts page lines (AGENT.md §5.2)", () => {
+  it("a line the page always shows, and the failing run showed once more, reproduces only when the replay shows it that often", () => {
+    const s = new Store();
+    const x = s.armExplore({ runs: 1 });
+    // two baselines show the product card once; the seeded run shows "Reading lamp" twice (the card and a stale result)
+    for (let i = 0; i < 3; i++) {
+      const r = load(s);
+      r.send([{ t: "steps", steps: [typeReact], order: [] }, { t: "snapshot", snapshot: snap({ "search.results": "x" }, i === 2 ? ["Reading lamp", "Reading lamp"] : ["Reading lamp"]) }]);
+    }
+    const f = s.reportExplore(x.id)!.findings[0]!;
+    expect(f.kind).toBe("race");
+    expect(f.evidence.textOnlyRun).toEqual(["Reading lamp"]);
+    expect(f.evidence.textCounts).toEqual({ "Reading lamp": { baseline: 1, run: 2 } });
+    // after a fix the page shows the card alone: not reproduced, although the line is on the page
+    s.armReplay(f.id);
+    let r = load(s);
+    r.send([{ t: "steps", steps: [typeReact], order: [] }, { t: "snapshot", snapshot: snap({ "search.results": "x" }, ["Reading lamp"]) }]);
+    expect(s.replayResult(f.id)!.results.at(-1)).toMatchObject({ reproduced: false, note: "the page shows the baseline's text" });
+    // the bug still there: the line twice again
+    s.armReplay(f.id);
+    r = load(s);
+    r.send([{ t: "steps", steps: [typeReact], order: [] }, { t: "snapshot", snapshot: snap({ "search.results": "x" }, ["Reading lamp", "Reading lamp"]) }]);
+    expect(s.replayResult(f.id)!.results.at(-1)).toMatchObject({ reproduced: true, note: "the page shows the failing run's text again" });
+  });
+});

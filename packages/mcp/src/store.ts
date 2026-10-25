@@ -13,7 +13,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { compareRuns, endedDifferently, sameScenario, sameValue, settledAfterActs, shownField, stateValue, type FieldDiff, type GroupReport, type RunDiff } from "./compare.js";
+import { compareRuns, endedDifferently, sameScenario, sameValue, settledAfterActs, shownField, stateValue, type FieldDiff, type GroupReport, type RunDiff, multiset } from "./compare.js";
 import { clean, pathShape, q, shape, sigOf } from "./text.js";
 import type { ExploreSession, Finding, FindingKind, ReplayArm, Run, ScheduleSpec, Step } from "./types.js";
 import * as V from "./validate.js";
@@ -735,12 +735,16 @@ function raceVerdict(ev: Record<string, unknown>, r: Run): { reproduced: boolean
     const hit = errors.some((m) => r.errors.some((e) => shape(e.message) === shape(m)));
     return { reproduced: hit, note: hit ? "the same error was thrown again" : "the error did not recur" };
   }
-  const shown = new Set(snap.text ?? []);
+  // lines count: a line the page always shows once (a product card) and the failing run showed twice (a stale result
+  // too) reproduces only when the replay shows it as many times as the failing run did
+  const shownN = multiset(snap.text ?? []);
+  const counts = (ev.textCounts as Record<string, { baseline: number; run: number }> | undefined) ?? {};
+  const seen = (l: string) => shownN.get(l) ?? 0;
   const onlyRun = (ev.textOnlyRun as string[] | undefined) ?? [];
   const onlyBase = (ev.textOnlyBaseline as string[] | undefined) ?? [];
   if (onlyRun.length || onlyBase.length) {
-    const again = onlyRun.some((l) => shown.has(l));
-    const missing = onlyBase.filter((l) => !shown.has(l));
+    const again = onlyRun.some((l) => seen(l) >= Math.max(1, counts[l]?.run ?? 1));
+    const missing = onlyBase.filter((l) => seen(l) < Math.max(1, counts[l]?.baseline ?? 1));
     if (again || (!onlyRun.length && missing.length === onlyBase.length)) return { reproduced: true, note: "the page shows the failing run's text again" };
     if (!missing.length) return { reproduced: false, note: "the page shows the baseline's text" };
     return { reproduced: null, note: `the page shows neither the failing run's text nor all of the baseline's (missing ${q(missing[0], 60)})` };

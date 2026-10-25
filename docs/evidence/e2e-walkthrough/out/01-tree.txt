@@ -1,0 +1,36 @@
+~/tiny-shop % ls -a && cat package.json && head -8 src/main.js
+.
+..
+.gitignore
+api.mjs
+dev.mjs
+index.html
+node_modules
+package-lock.json
+package.json
+public
+src
+vite.config.js
+{
+  "name": "tiny-shop",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "api": "node api.mjs",
+    "vite": "vite"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}
+// Tiny Shop's page script, as a small shop might write it: fetch on every keystroke with no cancellation, add-to-cart
+// without an idempotency key, a checkout that does not handle a failure well, and a profile handler that trusts the
+// response's shape. The store is a plain object with get/set so the page has one place its state lives.
+import { store } from "./store.js";
+
+const $ = (s) => document.querySelector(s);
+
+// Search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
+

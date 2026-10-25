@@ -15,6 +15,16 @@
   of sending the URL anywhere; `hosted: true` uses the genclass.dev page check (public pages only). The server's
   instructions and the plugin skill say to scan a page before calling a UI change done. Nine tools.
 
+- **Fixed: a race replay counts page lines.** Explore compares page text as counts, so a product name the page
+  always shows once and a stale result showed a second time was "only in the failing run"; the replay verdict then
+  checked presence only, and the card alone made every replay "reproduced", including after the fix. The finding's
+  evidence now keeps the counts (`textCounts`) and the verdict needs the line as many times as the failing run showed
+  it. Found by the end-to-end walkthrough, covered by a test.
+- **Fixed: with `GENCLASS_REPORT` set, the tools' own calls are mirrored too.** The server's in-process API (what
+  `genclass_explain`, `genclass_replay`, `genclass_explore` and `genclass_clear` call when this session owns the
+  bridge) bypassed the reporting wrapper, so a dashboard only ever received the findings; the evidence read, the test,
+  replays armed and their verdicts, explore reports and clears reached it only through the bridge's HTTP path. Found
+  by the end-to-end walkthrough (`docs/evidence/e2e-walkthrough`), covered by a test.
 - **Opt-in reporting to the app's dashboard** (`GENCLASS_REPORT`; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
   section 4.5). Set to `on` (with `GENCLASS_DASHBOARD`) or to a dashboard link, the server mirrors its log of the loop
   to that dashboard: each finding the bridge makes, each time the agent reads its evidence (`genclass_explain`), each

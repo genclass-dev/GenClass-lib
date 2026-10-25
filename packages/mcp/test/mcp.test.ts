@@ -308,3 +308,36 @@ describe("mcp: tools against a live bridge", () => {
     expect(e.meta.kind).toBe("duplicate_request");
   });
 });
+
+describe("mcp: GENCLASS_REPORT mirrors the tools' own calls (AGENT.md section 4.5)", () => {
+  it("a clear, an explore report and a replay armed through the in-process API reach the dashboard reporter, not only the findings", async () => {
+    const bodies: { events: { t: string }[] }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+      if (String(url).endsWith("/agent")) {
+        bodies.push(JSON.parse(String(init?.body)));
+        return new Response('{"ok":true}', { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return real(url as string, init);
+    }) as typeof fetch;
+    try {
+      const { c, port } = await start({ GENCLASS_REPORT: "on", GENCLASS_DASHBOARD: "https://genclass.dev/dashboard/abcdefghijklmnopqrstuvwxyz012345" });
+      // a page records a stale write: the finding is reported from the store
+      const r = await page(port, "/search");
+      await r.send([{ t: "steps", steps: [act(0, "type", 'searchbox "Search"', "react", { count: 5, dur: 400 })], order: ["GET /api/search#2", "GET /api/search#1"] }, { t: "witness", witness: { kind: "overwrote-newer", t: 900, subject: "search.results", by: "GET /api/search#1", over: "GET /api/search#2", overKind: "request", gapMs: 20 } }, { t: "snapshot", snapshot: snap({ "search.results": "x" }) }]);
+      const f = await call(c, "genclass_findings");
+      const id = /\b(f\d+)\b/.exec(f.text)![1]!;
+      // the tools' own calls, in process: explain (and its test), a replay armed, an explore report, a clear
+      await call(c, "genclass_explain", { id });
+      await call(c, "genclass_replay", { action: "arm", id });
+      await call(c, "genclass_explore", { action: "start", runs: 1 });
+      await call(c, "genclass_explore", { action: "report" });
+      await call(c, "genclass_clear", { what: "runs" });
+      await served!.close();
+      const types = bodies.flatMap((b) => b.events.map((e) => e.t));
+      expect(types).toEqual(expect.arrayContaining(["found", "explain", "test", "armed", "explore", "cleared"]));
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+});

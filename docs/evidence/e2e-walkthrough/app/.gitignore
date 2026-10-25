@@ -1,0 +1,7 @@
+node_modules
+dist
+.genclass/
+.genclass.local
+src/genclass.config.js
+.mcp.json
+tests/

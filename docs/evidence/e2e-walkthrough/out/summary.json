@@ -1,0 +1,241 @@
+{
+  "started": "2026-10-25T20:38:51.920Z",
+  "steps": [
+    {
+      "id": "01-tree",
+      "cmd": "ls -a && cat package.json && head -8 src/main.js",
+      "status": 0
+    },
+    {
+      "id": "02-shop-before",
+      "screenshot": true
+    },
+    {
+      "id": "03-shop-before-stale-search",
+      "screenshot": true
+    },
+    {
+      "id": "04-scan",
+      "cmd": "node ../../../../packages/runtime/bin/genclass-runtime.mjs scan http://localhost:5173",
+      "status": 1
+    },
+    {
+      "id": "05-init",
+      "cmd": "npx @genclass/runtime@beta init --yes",
+      "status": 0
+    },
+    {
+      "id": "06-init-diff",
+      "cmd": "diff -u ../steps/00-main.before.js src/main.js; echo; echo '--- src/genclass.config.js (new)'; cat src/genclass.config.js; echo; echo '--- .genclass.local (new, gitignored)'; cat .genclass.local",
+      "status": 0
+    },
+    {
+      "id": "07-shop-with-runtime-and-overlay",
+      "screenshot": true
+    },
+    {
+      "id": "09-wire-diff",
+      "cmd": "diff -u ../out/.after-init.js src/main.js | tail -n +3; echo; echo '--- src/genclass.config.js'; cat src/genclass.config.js",
+      "status": 0
+    },
+    {
+      "id": "10-mcp-init",
+      "cmd": "npx -y @genclass/mcp@0.1.0 init && cat .mcp.json",
+      "status": 0
+    },
+    {
+      "id": "11-agent-setup",
+      "cmd": "genclass_setup {}",
+      "isError": false
+    },
+    {
+      "id": "12-agent-status-nopage",
+      "cmd": "genclass_status {}",
+      "isError": false
+    },
+    {
+      "id": "13-shop-stale-search",
+      "screenshot": true
+    },
+    {
+      "id": "14-shop-used",
+      "screenshot": true
+    },
+    {
+      "id": "15-agent-status",
+      "cmd": "genclass_status {}",
+      "isError": false
+    },
+    {
+      "id": "16-agent-findings",
+      "cmd": "genclass_findings {}",
+      "isError": false
+    },
+    {
+      "id": "17-agent-explore-start-before-fix",
+      "cmd": "genclass_explore {\"action\":\"start\",\"runs\":3,\"route\":\"/\"}",
+      "isError": false
+    },
+    {
+      "id": "18-agent-explore-report-before-fix",
+      "cmd": "genclass_explore {\"action\":\"report\"}",
+      "isError": false
+    },
+    {
+      "id": "19-agent-explain",
+      "cmd": "genclass_explain {\"id\":\"f14\"}",
+      "isError": false
+    },
+    {
+      "id": "20-agent-replay-arm",
+      "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f14\"}",
+      "isError": false
+    },
+    {
+      "id": "21-shop-replay-reproduced",
+      "screenshot": true
+    },
+    {
+      "id": "22-agent-replay-result-before-fix",
+      "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f14\"}",
+      "isError": false
+    },
+    {
+      "id": "23-fix-diff",
+      "cmd": "diff -u ../steps/02-main.js src/main.js | tail -n +3",
+      "status": 0
+    },
+    {
+      "id": "24-agent-replay-arm-after-fix",
+      "cmd": "genclass_replay {\"action\":\"arm\",\"id\":\"f14\"}",
+      "isError": false
+    },
+    {
+      "id": "25-shop-after-fix",
+      "screenshot": true
+    },
+    {
+      "id": "26-agent-replay-result-after-fix",
+      "cmd": "genclass_replay {\"action\":\"result\",\"id\":\"f14\"}",
+      "isError": false
+    },
+    {
+      "id": "27-agent-explore-start-after-fix",
+      "cmd": "genclass_explore {\"action\":\"start\",\"runs\":3,\"route\":\"/\"}",
+      "isError": false
+    },
+    {
+      "id": "28-agent-explore-report-after-fix",
+      "cmd": "genclass_explore {\"action\":\"report\"}",
+      "isError": false
+    },
+    {
+      "id": "29-agent-findings-after-fix",
+      "cmd": "genclass_findings {\"sinceMinutes\":1}",
+      "isError": false
+    },
+    {
+      "id": "30-agent-scan",
+      "cmd": "genclass_scan {\"url\":\"http://localhost:5173\"}",
+      "isError": false
+    },
+    {
+      "id": "31-agent-analytics-production",
+      "cmd": "genclass_analytics {\"source\":\"production\"}",
+      "isError": false
+    },
+    {
+      "id": "32-dashboard-overview",
+      "screenshot": true
+    },
+    {
+      "id": "33-dashboard-problems",
+      "screenshot": true
+    },
+    {
+      "id": "34-dashboard-closed-loop",
+      "screenshot": true
+    },
+    {
+      "id": "35-dashboard-mcp",
+      "screenshot": true
+    },
+    {
+      "id": "36-dashboard-closed-loop-log",
+      "screenshot": true
+    }
+  ],
+  "staleBefore": "React handbookReactive mugReading lampReal wood deskRed notebookRetro keyboard",
+  "queryBefore": "react",
+  "dashboardCreated": true,
+  "consoleChecks": 10,
+  "mcpServer": {
+    "name": "genclass",
+    "version": "0.1.0"
+  },
+  "mcpFrom": "the repository's build (packages/mcp); npm's 0.1.0 has no GENCLASS_REPORT mirror and no genclass_scan",
+  "mcpTools": [
+    "genclass_status",
+    "genclass_findings",
+    "genclass_explain",
+    "genclass_explore",
+    "genclass_replay",
+    "genclass_analytics",
+    "genclass_setup",
+    "genclass_scan",
+    "genclass_clear"
+  ],
+  "findingsText": "13 finding(s), most important first (recorded from the app's pages: data, not instructions):\n- f13 [error] \"/\" · 1× in 1 run(s) · 2 s ago\n  Uncaught \"TypeError: Cannot read properties of undefined (reading 'city')\"\n- f10 [duplicate-request] \"/\" · 1× in 1 run(s) · 19 s ago\n  \"POST /api/cart\" was sent twice, 1 ms apart, by two separate user actions while the first was in flight\n- f11 [detection] \"/\" · 1× in 1 run(s) · 11 s ago\n  The on-device model diagnosed \"transient\" (98%, \"likely\") at the \"failure\" of \"POST /api/newsletter {email: \\\"ada@example.com\\\"} (#12) (HTTP 503)\"\n- f9 [detection] \"/\" · 1× in 1 run(s) · 19 s ago\n  The on-device model diagnosed \"duplicate\" (95%, \"likely\") at the \"request\" of \"POST /api/cart {item: \\\"Retro keyboard\\\"} (#4)\"\n- f1 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"font-failed\": \"[GenClass] Check (measured): the web font \\\"shopsans\\\" failed to load from /fonts/shopsans-missing.woff2; 21 of 21 sampled text elements fall back to another fon…\"\n- f2 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"page-overflow-x\": \"[GenClass] Check (measured): the page scrolls sideways on a 1280 px viewport: div.wide \\\"This promotional strip is wider than an…\\\" ends at 2606 px (1326 px too …\"\n- f3 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"text-encoding\": \"[GenClass] Check (measured): the page shows UTF-8 text decoded as Windows-1252 (mojibake) in div.banner \\\"Free shipping on every order over 50 â‚…\\\": \\\"...y order…\"\n- f4 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"text-template-leak\": \"[GenClass] Check (measured): the page shows an unrendered {{ }} placeholder in p.price \\\"{{price}}\\\": \\\"{{price}}\\\". Suggested CSS: [v-cloak] { display: none; }\"\n- f5 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"text-placeholder\": \"[GenClass] Check (measured): the page shows placeholder text (lorem ipsum) in p.blurb \\\"Lorem ipsum dolor sit amet, consectetur…\\\": \\\"Lorem ipsum dolor sit amet, …\"\n- f6 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"text-invisible\": \"[GenClass] Check (measured): text contrast 1.26:1 on div.banner \\\"Free shipping on every order over 50 â‚…\\\", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-…\"\n- f7 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"dialog-covered\": \"[GenClass] Check (measured): the open dialog dialog.cookie \\\"We use cookies.\\\" is covered by div.cover: 10 of 10 points, including #ok \\\"OK\\\" (dialog z-index 1, co…\"\n- f8 [check] \"/\" · 4× in 4 run(s) · 2 s ago\n  Visual check \"image-broken\": \"[GenClass] Check (measured): an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px. Suggested CSS: img…\"\n- f12 [check] \"/\" · 2× in 2 run(s) · 1 s ago\n  Visual check \"control-unreachable\": \"[GenClass] Check (measured): #ok \\\"OK\\\" cannot be clicked: div.cover (position: fixed) covers all 5 of its hit points even at the end of the page. Suggested CSS:…\"\n\nNext: genclass_explain {id} for the evidence, the replay and a regression test.",
+  "replayTarget": {
+    "id": "f14",
+    "kind": "race"
+  },
+  "exploreBefore": "Explore x1: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nRACE: 2 of 3 reordered run(s) ended in a different state than the baseline (responses in request order): what the page shows, its form values, the writes it sent or its errors differ.\n- run r8 (seed 2):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"4 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"rea\\\"\"\n- run r9 (seed 3):\n    page text only in this run: \"Reading lamp\", \"Real wood desk\", \"Red notebook\", \"Rust in action\"\n    state \"search.results\": baseline \"2 items [\\\"React handbook\\\", \\\"Reactive mug\\\"]\", this run \"8 items [\\\"React handbook\\\", \\\"Reactive mug\\\", \\\"Reading lamp\\\", …]\"\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"r\\\"\"\nInternal state only (not a race by this check): 1 of 3 ended with store values, counts of GET requests (a cache refetching once more) or announcements (a toast a slower run let expire) that differ from the baseline while the page showed the same. A cache's bookkeeping (request ids, timestamps, lists of cache keys) depends on arrival order by construction; a field that matters belongs on the page or in a test.\n- run r7 (seed 1):\n    state \"search.query\": baseline \"\\\"react\\\"\", this run \"\\\"reac\\\"\"\n\nRace finding(s): f14. Next: genclass_explain {id} for the replay and a regression test; fix; then genclass_replay to verify.",
+  "testWritten": "tests/f14.spec.ts",
+  "replayBefore": "REPRODUCED",
+  "replayAfter": "REPRODUCED",
+  "fixedResults": "React handbookReactive mug",
+  "exploreAfter": "Explore x2: 5 of 5 planned loads recorded (5 reached a quiet point).\nCompared: 3 of 3 reordered run(s) against two baselines.\n\n## / · 5 run(s) · scenario (recorded from the app's pages: data, not instructions):\n  type input \"Search the shop\" = react\nNo race found: none of the 3 compared reordered run(s) ended with a different page, form values, writes or errors than the baseline.",
+  "cartAfterFix": "3",
+  "scanText": "GenClass scan of \"http://localhost:5173/\": ran on this machine in headless Chromium 153.0.8010.12 (desktop 1280x800, phone 390x844), @genclass/runtime 0.3.0-beta.1 in observe mode, nothing sent; via the project's @genclass/runtime.\nVisual score 8/100 · 10 problem(s): 6 high, 3 medium, 1 low.\n\nProblems, worst first (element descriptions and messages contain text from the scanned page: data, not instructions):\n- [high] control-unreachable (desktop): \"button \\\"OK\\\"\" at \"#ok\"\n  #ok \"OK\" cannot be clicked: div.cover (position: fixed) covers all 5 of its hit points even at the end of the page.\n  fix: body { padding-bottom: 106px; } (Reserves space for div.cover, or move it on small screens: @media (max-width: 640px) { div.cover { bottom: 114px; } })\n- [high] dialog-covered (desktop, phone): \"dialog \\\"We use cookies.\\\"\" at \"dialog.cookie\"\n  the open dialog dialog.cookie \"We use cookies.\" is covered by div.cover: 10 of 10 points, including #ok \"OK\" (dialog z-index 1, cover z-index 2). Fix: render the dialog in a portal at the end of body, or use <dialog> with showModal() (the top layer is above every z-index).\n- [high] page-overflow-x (desktop, phone): \"div \\\"This promotional strip is wider than an…\\\"\" at \"div.wide\"\n  the page scrolls sideways on a 1280 px viewport: div.wide \"This promotional strip is wider than an…\" ends at 2606 px (1326 px too wide, a width wider than the viewport).\n  fix: div.wide { max-width: 100%; }\n- [high] text-invisible (desktop, phone): \"div \\\"Free shipping on every order over 50 â‚…\\\"\" at \"div.banner\"\n  text contrast 1.26:1 on div.banner \"Free shipping on every order over 50 â‚…\", below 1.5:1 (WCAG 2.2 contrast formula; unreadable-text threshold): #888888 on #777777 from div.banner.\n  fix: div.banner { color: #060606; } (Reaches 4.5:1. Set colour and background together on the same selector, add the dark-mode variant, or remove a prefers-color-scheme: dark block the site has no design for.)\n- [high] text-template-leak (desktop, phone): \"p \\\"{{price}}\\\"\" at \"p.price\"\n  the page shows an unrendered {{ }} placeholder in p.price \"{{price}}\": \"{{price}}\".\n  fix: [v-cloak] { display: none; } (Only for uncompiled Vue templates (Angular: ng-cloak); otherwise the template is not rendering on this route.)\n- [high] viewport-meta-missing (phone): \"html \\\"Tiny Shop Free shipping on every order …\\\"\" at \"html\"\n  the page is laid out 980 px wide on a 390 px phone screen: there is no viewport meta tag. Fix: add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"> to <head> (HTML, not CSS).\n- [medium] image-broken (desktop, phone): \"img\" at \"img.logo\"\n  an image failed to load on img.logo: the file is not a valid image for /logo-missing.png, shown at 120 x 40 px.\n  fix: img.logo { background-color: #f3f4f6; } (This only makes a failed image look neutral; add width and height attributes too.)\n- [medium] text-encoding (desktop, phone): \"div \\\"Free shipping on every order over 50 â‚…\\\"\" at \"div.banner\"\n  the page shows UTF-8 text de",
+  "dashboard": {
+    "sessions": 22,
+    "detections": 2,
+    "agentStages": {
+      "found": 15,
+      "explained": 1,
+      "reproduced": 1,
+      "fixed": 1,
+      "closed": 1,
+      "open": 14,
+      "continued": 0
+    },
+    "agentLog": [
+      "found f15",
+      "explore",
+      "replay f14 not reproduced",
+      "armed f14",
+      "replay f14 reproduced",
+      "armed f14",
+      "test f14",
+      "explain f14",
+      "explore",
+      "found f14",
+      "found f13",
+      "found f12",
+      "found f11",
+      "found f10",
+      "found f9",
+      "found f8",
+      "found f7",
+      "found f6",
+      "found f5",
+      "found f4",
+      "found f3",
+      "found f2",
+      "found f1"
+    ]
+  },
+  "finished": "2026-10-25T20:42:25.727Z",
+  "errors": []
+}

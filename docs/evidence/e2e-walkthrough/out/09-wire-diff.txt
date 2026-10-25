@@ -1,0 +1,26 @@
+~/tiny-shop % diff -u ../out/.after-init.js src/main.js | tail -n +3; echo; echo '--- src/genclass.config.js'; cat src/genclass.config.js
+@@ -1,5 +1,6 @@
+ import "./genclass.config"; // genclass:init
+ import genclass from "@genclass/runtime/auto"; // genclass:init
++import { connectAgent } from "@genclass/runtime/agent"; // genclass:agent
+ // Tiny Shop's page script, as a small shop might write it: fetch on every keystroke with no cancellation, add-to-cart
+ // without an idempotency key, a checkout that does not handle a failure well, and a profile handler that trusts the
+ // response's shape. The store is a plain object with get/set so the page has one place its state lives.
+@@ -75,4 +76,10 @@
+ });
+ 
+ $("#ok").addEventListener("click", () => $("dialog.cookie").close());
++
++// GenClass watches the shop's state: every write to a key is recorded with the response or click that caused it.
++for (const k of store.keys()) genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v), subscribe: (fn) => store.subscribe(k, () => fn()) });
++// Development builds only: the agent link records what happens on this page for @genclass/mcp (the port is set
++// because another GenClass MCP server already owns the default one on this machine; GENCLASS_AGENT_PORT matches).
++if (import.meta.env.DEV) connectAgent(genclass, { url: "http://127.0.0.1:47400" }); // genclass:agent
+ if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.mountDevtools(genclass)); // genclass:init
+
+--- src/genclass.config.js
+// genclass:init start: GenClass Runtime, added by `npx @genclass/runtime init` (`npx @genclass/runtime remove` takes it out)
+// Read by @genclass/runtime/auto, imported right after this file: any GenClass.init() option works here (see the README).
+globalThis.GENCLASS_CONFIG = { token: "gc_<redacted>", telemetry: true }; // telemetry: true also sends from localhost (this demo runs there)
+// genclass:init end
+

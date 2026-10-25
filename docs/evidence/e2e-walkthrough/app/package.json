@@ -1,0 +1,14 @@
+{
+  "name": "tiny-shop",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "api": "node api.mjs",
+    "vite": "vite"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

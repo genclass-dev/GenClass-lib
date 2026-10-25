@@ -1,0 +1,85 @@
+import "./genclass.config"; // genclass:init
+import genclass from "@genclass/runtime/auto"; // genclass:init
+import { connectAgent } from "@genclass/runtime/agent"; // genclass:agent
+// Tiny Shop's page script, as a small shop might write it: fetch on every keystroke with no cancellation, add-to-cart
+// without an idempotency key, a checkout that does not handle a failure well, and a profile handler that trusts the
+// response's shape. The store is a plain object with get/set so the page has one place its state lives.
+import { store } from "./store.js";
+
+const $ = (s) => document.querySelector(s);
+
+// Search: every keystroke fetches; whichever response arrives last wins, even if it answers an older query.
+$("#q").addEventListener("input", async (e) => {
+  const q = e.target.value;
+  const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+  const data = await r.json();
+  store.set("search.results", data.results);
+  store.set("search.query", data.q);
+});
+store.subscribe("search.results", (results) => {
+  const ul = $("#results");
+  ul.textContent = "";
+  for (const name of results) {
+    const li = document.createElement("li");
+    li.textContent = name;
+    ul.appendChild(li);
+  }
+});
+
+// Cart: each click posts; two quick clicks post twice.
+for (const b of document.querySelectorAll("button.add")) {
+  b.addEventListener("click", async () => {
+    const r = await fetch("/api/cart", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: b.dataset.item }) });
+    const data = await r.json();
+    store.set("cart.count", data.count);
+  });
+}
+store.subscribe("cart.count", (n) => ($("#cartcount").textContent = String(n)));
+
+// Checkout: the API answers 500; the page shows a generic line and keeps the button enabled.
+$("#checkout").addEventListener("click", async () => {
+  $("#checkout-msg").textContent = "Placing your order…";
+  const r = await fetch("/api/checkout", { method: "POST", body: "{}" });
+  const data = await r.json();
+  $("#checkout-msg").textContent = r.ok ? "Thank you!" : `Could not place the order (${data.error}).`;
+});
+
+// Reviews: a slow endpoint with no loading state.
+$("#reviews").addEventListener("click", async () => {
+  const r = await fetch("/api/reviews");
+  const data = await r.json();
+  store.set("reviews", data.reviews);
+});
+store.subscribe("reviews", (list) => {
+  const ul = $("#reviewlist");
+  ul.textContent = "";
+  for (const rv of list) {
+    const li = document.createElement("li");
+    li.textContent = `${rv.who}: ${rv.text}`;
+    ul.appendChild(li);
+  }
+});
+
+// Profile: the response has no `address`, so reading `.city` throws inside the click handler.
+$("#profile").addEventListener("click", async () => {
+  const r = await fetch("/api/profile");
+  const profile = await r.json();
+  $("#profilemsg").textContent = `Ships to ${profile.address.city}`;
+});
+
+// Newsletter: the form posts; a 503 now and then is shown as is.
+$("#newsletter").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = new FormData(e.target).get("email");
+  const r = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
+  $("#newsmsg").textContent = r.ok ? "Subscribed." : `Failed (${r.status}).`;
+});
+
+$("#ok").addEventListener("click", () => $("dialog.cookie").close());
+
+// GenClass watches the shop's state: every write to a key is recorded with the response or click that caused it.
+for (const k of store.keys()) genclass.guard(k, { get: () => store.get(k), set: (v) => store.set(k, v), subscribe: (fn) => store.subscribe(k, () => fn()) });
+// Development builds only: the agent link records what happens on this page for @genclass/mcp (the port is set
+// because another GenClass MCP server already owns the default one on this machine; GENCLASS_AGENT_PORT matches).
+if (import.meta.env.DEV) connectAgent(genclass, { url: "http://127.0.0.1:47400" }); // genclass:agent
+if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.mountDevtools(genclass)); // genclass:init
