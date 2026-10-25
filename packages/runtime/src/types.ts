@@ -815,7 +815,7 @@ export interface InitOptions {
    * record on the console) and `@genclass/runtime/sinks/webhook` (batched POSTs to a URL you configure). The zero-code
    * entries also take them by name (`console-json:noevidence` sends no evidence text): `window.GENCLASS_CONFIG = {
    * sinks: ["webhook:/genclass"] }`, `<meta name="genclass" content="sink=console-json">`, `data-sink="console-json"`
-   * on the script tag, or `npx @genclass/runtime init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
+   * on the script tag, or `npx @genclass/runtime@beta init --sink webhook:/genclass`. Forwarding to Sentry, PostHog or
    * Datadog is not part of the runtime (on every genclass.dev plan, Free included, the GenClass collector forwards to
    * them once turned on: https://genclass.dev/pricing); a page config that names `sentry`, `posthog` or `datadog` gets one console warning
    * that says so and nothing else.
@@ -906,6 +906,8 @@ export interface InitOptions {
    * opt-out and Global Privacy Control turn it off too. Nothing is stored on the device. Where analytics need consent
    * (the EU, EEA and UK), leave it off and call `runtime.analytics.start()` once the visitor agrees. Also
    * `data-analytics="on"`, `<meta name="genclass" content="analytics=on">`, `window.GENCLASS_CONFIG.analytics`.
+   * Since 0.3.0-beta.1 (`npm install @genclass/runtime@beta`; 0.2.x, npm's `latest` until 0.3.0, ignores it). When the
+   * analytics code does not load, one console warning and `runtime.analytics.reason` "error".
    */
   analytics?: boolean;
   /**
@@ -933,7 +935,7 @@ export interface InitOptions {
    */
   visual?: boolean | "local" | VisualOptions;
   /**
-   * Your app's GenClass token (`gc_` + 22 letters/digits; get one with `npx @genclass/runtime init` or at
+   * Your app's GenClass token (`gc_` + 22 letters/digits; get one with `npx @genclass/runtime@beta init` or at
    * https://genclass.dev/start). Public: it only lets this app's telemetry batches be grouped under your private
    * dashboard link. It does nothing while telemetry is off (opt-outs and Global Privacy Control still win). An invalid
    * value logs one console warning and is ignored. Also `data-token`, `<meta name="genclass" content="token=...">`,

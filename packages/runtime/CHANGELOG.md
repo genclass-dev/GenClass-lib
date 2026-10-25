@@ -2,7 +2,27 @@
 
 ## Unreleased
 
-- **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime dashboard` prints the link
+- **Every path lands on the newest line.** npm's `latest` is still `0.2.2`, so `npx @genclass/runtime init` and
+  `npm install @genclass/runtime` give an app the older line without the token, the dashboard, analytics, visual
+  checks or the agent link. Now `init` (and `login`, `connect`) prints its own version and the npm dist-tag it came
+  from (`Version  @genclass/runtime 0.3.0-beta.1 (npm dist-tag beta)`), asks npm's dist-tags once
+  (`npm view @genclass/runtime dist-tags`, at most 3 s; never with `--dry-run`, the new `--no-network`, `--no-token`
+  or `--no-telemetry`; nothing when offline) and says when a newer release is on npm, with the command that runs it.
+  A project that already has an older `@genclass/runtime` (a 0.2.x from `init` without `@beta`) is upgraded to
+  `^<this version>` after the same diff and question, instead of being kept; the plain "install it by hand" hint
+  names the version too. Every command the CLI prints, and the console messages that name one (an invalid token, a
+  blocked model, the mode and token hints), say `npx @genclass/runtime@beta` while the runtime is a prerelease. The
+  READMEs, templates (`^0.3.0-beta.1`), TELEMETRY.md, API.md and the script tags (pinned to `@0.3.0-beta.1`) put the
+  newest line first and the stable `0.2.x` as the exception. No model-visible text changed (`situation-v2.3`).
+- **Interaction analytics are loud when their code is missing or from another release**
+  ([docs/runtime/ANALYTICS.md](../../docs/runtime/ANALYTICS.md) section 4.1). `0.2.x` and `0.3.0-beta.0` ignore
+  `analytics: true` without a word (reproduced on 0.2.2; they cannot change). On this line, a chunk that does not load
+  (a self-hosted `dist/` without `analytics/`, a stale bundler chunk) warns once, `[GenClass] analytics code of
+  <version> did not load; nothing is recorded.`, with `runtime.analytics.reason` `"error"` as before; the stub passes
+  its version to the chunk, and a chunk of another release warns once per page with both versions and the install
+  line, and still records. First load: +48 B gzip on `/auto`, +40 B on the main entry for this (the check itself is
+  in the chunk); +67 B and +60 B with the `@beta` console messages above. The dashboard's Visitors view and Connect panel name the version analytics need.
+- **`dashboard` prints the link to this app's free dashboard.** `npx @genclass/runtime@beta dashboard` prints the link
   to the dashboard of the app in the current folder: the private link in `.genclass.local` (nothing is contacted),
   else the app's page in the signed-in account (one `GET /api/me`), else the account's apps; `--open` also opens it in
   the browser. `init`'s dashboard notice says what the dashboard shows and how to print the link again, and `whoami`

@@ -2,7 +2,7 @@
 // through packages/runtime): what a developer reads on the page, the possible-issues tier and the display fixes.
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { CDN_SCRIPT, DASH_CSS, dashboardPage, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
+import { ANALYTICS_RUNTIME, CDN_SCRIPT, DASH_CSS, dashboardPage, KEY_RUNTIME, MESH_SCRIPT, RUNTIME_PKG, securityHeaders, SNIPPET_RUNTIME, startPage, type DashboardOptions } from "../src/pages.js";
 import { accountPage, devicePage, forgotPage, lockedLinkPage, loginPage, messagePage, passkeyStepPage, pendingPage, signupPage } from "../src/account-pages.js";
 import { sampleStats } from "../src/sample.js";
 import type { Stats } from "../src/dashboard.js";
@@ -210,6 +210,10 @@ describe("dashboard page: account mode (/account/apps/<id>) with live stats", ()
     // not on npm yet (runtimeReady unset): said first, with the @beta command
     expect(r.text("#cnote")).toContain(`Project keys ship in @genclass/runtime ${KEY_RUNTIME} (npm dist-tag beta), which is not published yet`);
     expect(r.text("#connect")).toContain(`npx ${RUNTIME_PKG} login`);
+    // analytics: the version they need and the exact install line
+    expect(r.text("#canalytics")).toBe(
+      `Interaction analytics (the Visitors view) need @genclass/runtime ${ANALYTICS_RUNTIME} or later and analytics: true: npm install ${RUNTIME_PKG}. Earlier versions ignore the option without a word.`,
+    );
     await r.close();
   });
 });
@@ -452,16 +456,34 @@ describe("dashboard page: interaction analytics (docs/runtime/ANALYTICS.md secti
     await close();
   });
 
-  it("hidden for an app that has not turned analytics on; the footer says what interaction data is", async () => {
+  it("an app without interaction data: the empty state says the version and install line; the footer says what interaction data is", async () => {
     const st = sampleStats("7d", NOW);
     for (const k of Object.keys(st.breakdowns)) if (k.startsWith("ix_")) delete st.breakdowns[k];
     for (const k of Object.keys(st.totals)) if (k.startsWith("ix_")) delete st.totals[k];
-    const { doc, hidden, close } = await render(st);
-    expect(hidden("visits")).toBe(true);
+    const { doc, hidden, text, close } = await render(st);
+    expect(hidden("visits")).toBe(false);
     expect(hidden("clicks")).toBe(true);
-    expect(hidden("nav-visits")).toBe(true);
+    expect(hidden("nav-visits")).toBe(false);
+    expect(text("#c-visits")).toBe("");
+    expect(text("#ixsum")).toContain("No interaction analytics in this period.");
+    expect(text("#ixsum")).toContain(`They need @genclass/runtime ${ANALYTICS_RUNTIME} or later; earlier versions ignore analytics: true without a word.`);
+    expect(text("#ixsum")).not.toContain("This app sends from");
+    expect(doc.querySelector("#ixsum pre")!.textContent).toBe(`npm install ${RUNTIME_PKG}\n\nGenClass.init({ token: "gc_...", analytics: true });`);
+    expect(ANALYTICS_RUNTIME).toBe("0.3.0-beta.1");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("never its text");
     expect(doc.querySelector(".dfoot")!.textContent).toContain("No text from your pages, no IP addresses and no user agents are stored.");
+    await close();
+  });
+});
+
+describe("dashboard page: the Visitors empty state names the app's older runtime (docs/runtime/ANALYTICS.md section 4.1)", () => {
+  it("lists the versions older than the first with analytics, not the newer ones", async () => {
+    const st = sampleStats("7d", NOW);
+    for (const k of Object.keys(st.breakdowns)) if (k.startsWith("ix_")) delete st.breakdowns[k];
+    for (const k of Object.keys(st.totals)) if (k.startsWith("ix_")) delete st.totals[k];
+    st.breakdowns.runtime = [{ key: "0.2.2", count: 5 }, { key: "0.3.0-beta.0", count: 3 }, { key: "0.3.0-beta.1", count: 2 }, { key: "0.3.0", count: 1 }, { key: "(unknown)", count: 1 }];
+    const { text, close } = await render(st);
+    expect(text("#ixsum")).toContain("This app sends from @genclass/runtime 0.2.2, 0.3.0-beta.0, which has no analytics.");
     await close();
   });
 });

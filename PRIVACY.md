@@ -65,7 +65,7 @@ page views, time on page, scroll depth and clicks per page and element) and a li
 (time, route or function name, diagnosis, action). Dashboards do not show the situation text. Data from browsers that opted out or
 send Global Privacy Control never reaches a dashboard.
 
-When a developer creates a token with `npx @genclass/runtime init`, after approving its changes, the tool sends us
+When a developer creates a token with `npx @genclass/runtime@beta init`, after approving its changes, the tool sends us
 the name in their project's `package.json`. We keep one record per token: the token, that name, when it was created,
 when data first and last arrived, a one-way hash of the dashboard link's secret, and the account it belongs to, if
 any. These records are kept until the owner
@@ -74,7 +74,7 @@ asks us to delete them (contact below, with the token); the dashboard data itsel
 ## Accounts on genclass.dev
 
 An account is optional: GenClass, its diagnostics and the private dashboard links work without one. A developer who
-creates one (at genclass.dev/signup, or with `npx @genclass/runtime login`, runtime 0.3.0-beta.0 and later) can keep
+creates one (at genclass.dev/signup, or with `npx @genclass/runtime@beta login`, runtime 0.3.0-beta.0 and later) can keep
 their apps in one place. An account stores:
 
 - **An email address:** as Google returned it when you sign in with Google, or as you typed it (trimmed and

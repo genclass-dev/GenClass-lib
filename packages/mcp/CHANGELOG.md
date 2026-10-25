@@ -2,6 +2,11 @@
 
 ## 0.1.0 (unreleased)
 
+- **`genclass_setup` installs the newest runtime line.** It prints `npm install @genclass/runtime@beta` (the agent
+  entry and interaction analytics need 0.3.0-beta.1 or later) for a project on 0.2.x, on a range without a version
+  (`*`, `latest`: npm's `latest` is still 0.2.x) or with an older copy in `node_modules`, and says what the project
+  has. The README's connect step names `@beta` first.
+
 - **Opt-in reporting to the app's dashboard** (`GENCLASS_REPORT`; [docs/runtime/AGENT.md](../../docs/runtime/AGENT.md)
   section 4.5). Set to `on` (with `GENCLASS_DASHBOARD`) or to a dashboard link, the server sends that dashboard each
   finding the bridge makes, each replay verdict and each regression test written: `POST /api/projects/<secret>/agent`,

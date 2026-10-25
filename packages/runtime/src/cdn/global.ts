@@ -1,6 +1,6 @@
 // Script-tag build (dist/genclass.global.js, dist/genclass.global.min.js). Owner: INSTALL.
 //
-//   <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime/dist/genclass.global.min.js" data-mode="guard" data-devtools></script>
+//   <script src="https://cdn.jsdelivr.net/npm/@genclass/runtime@0.3.0-beta.1/dist/genclass.global.min.js" data-mode="guard" data-devtools></script>
 //
 // Runs GenClass.init() as soon as the tag executes (put it first in <head> so it sees the page's first requests),
 // with options from the tag's data attributes, <meta name="genclass"> and window.GENCLASS_CONFIG (src/cdn/config.ts),

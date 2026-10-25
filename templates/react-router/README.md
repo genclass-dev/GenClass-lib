@@ -25,7 +25,7 @@ import genclass from "@genclass/runtime/auto";
 It goes first so GenClass is installed before React Router hydrates and before your state exists. GenClass runs in the
 browser only: server rendering, loaders on the server and your server's `fetch` are untouched. It watches fetch, XHR,
 WebSocket, EventSource, user input and timers, and finds React state on its own (automatic state discovery).
-`npx @genclass/runtime init` writes the same line into an existing app (`npx react-router reveal` creates
+`npx @genclass/runtime@beta init` writes the same line into an existing app (`npx react-router reveal` creates
 `entry.client.tsx` if your project does not have one yet).
 
 ## Observe, then guard
@@ -51,7 +51,7 @@ if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.moun
 
 - For one page load: add `?genclass=off` to the URL (nothing is installed).
 - For a browser: `localStorage.genclass = "off"`.
-- For good: remove the import (or run `npx @genclass/runtime remove`).
+- For good: remove the import (or run `npx @genclass/runtime@beta remove`).
 
 ## Privacy
 

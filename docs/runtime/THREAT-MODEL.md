@@ -85,7 +85,7 @@ gate, or run hostile code.
   ([decide/policy.ts](../../packages/runtime/src/decide/policy.ts) `gate`). In `observe` (the default) nothing it says
   changes anything (`test/invariants/observe.test.ts`).
 - Inference runs in a module Web Worker; the ONNX graph has no network or DOM access.
-- Self-hosting: `npx @genclass/runtime fetch-model <dir>` plus `model: { baseUrl, ortWasmPaths }` and a
+- Self-hosting: `npx @genclass/runtime@beta fetch-model <dir>` plus `model: { baseUrl, ortWasmPaths }` and a
   Content-Security-Policy limiting `connect-src`, `script-src` and `worker-src` to your origin
   ([README](../../packages/runtime/README.md#content-security-policy-and-self-hosting)). The script-tag build pins
   every URL it loads later to its own version ([cdn/config.ts](../../packages/runtime/src/cdn/config.ts)).

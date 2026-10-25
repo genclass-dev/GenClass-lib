@@ -14,6 +14,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { credentialsPath } from "../../bin/lib/account.mjs";
 // @ts-expect-error plain ESM module without types
 import { hostConfig } from "../../bin/lib/host.mjs";
+import { CMD } from "../../bin/lib/version.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(HERE, "..", "..", "bin", "genclass-runtime.mjs");
@@ -235,7 +236,7 @@ describe("login: the device flow (RFC 8628 shapes, fake genclass.dev)", () => {
   it("is outside a project: no connect question, a hint instead", () => {
     const r = run(["login", "--cwd", tmp("gc-empty-")], { env: { GENCLASS_TEST_DEVICE: "ok" } });
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toContain("npx @genclass/runtime connect");
+    expect(r.out).toContain(`${CMD} connect`);
     expect(routes(r.calls)).toEqual(["POST /api/device/code", "POST /api/device/token"]);
   });
 });
@@ -246,7 +247,7 @@ describe("connect: the app in this folder and an app of the account", () => {
     const r = run(["connect", "--cwd", dir]);
     expect(r.code).toBe(1);
     expect(r.out).toContain("Not signed in");
-    expect(r.out).toContain("npx @genclass/runtime login");
+    expect(r.out).toContain(`${CMD} login`);
     expect(r.calls).toEqual([]);
   });
 
@@ -390,12 +391,12 @@ describe("connect: the app in this folder and an app of the account", () => {
     const unknown = run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env: { GENCLASS_TEST_CLAIM: "404" } });
     expect(unknown.code).toBe(1);
     expect(unknown.out).toContain("does not know the dashboard link in .genclass.local");
-    expect(unknown.out).toContain("npx @genclass/runtime connect --name shop-web");
+    expect(unknown.out).toContain(`${CMD} connect --name shop-web`);
     expect(unknown.out).not.toContain("Add an existing dashboard");
     const taken = run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env: { GENCLASS_TEST_CLAIM: "409" } });
     expect(taken.code).toBe(1);
     expect(taken.out).toContain("That dashboard belongs to another GenClass account");
-    expect(taken.out).toContain("npx @genclass/runtime connect --name shop-web");
+    expect(taken.out).toContain(`${CMD} connect --name shop-web`);
     expect(taken.out).not.toContain("Add an existing dashboard");
     const down = run(["connect", "--yes", "--no-install", "--cwd", dir], { config, env: { GENCLASS_TEST_CLAIM: "500" } });
     expect(down.code).toBe(1);
@@ -431,7 +432,7 @@ describe("connect: the app in this folder and an app of the account", () => {
     const r = run(["connect", "--yes", "--no-install", "--cwd", viteApp()], { config: signedIn(), env: { GENCLASS_TEST_ME: "401" } });
     expect(r.code).toBe(1);
     expect(r.out).toContain("no longer works");
-    expect(r.out).toContain("npx @genclass/runtime login");
+    expect(r.out).toContain(`${CMD} login`);
   });
 
   it("a hand-written setup: prints the key to add, edits nothing", () => {
@@ -510,7 +511,7 @@ describe("dashboard: this app's free analytics, as a link in the terminal", () =
   it("no token and not signed in: says how to get a free dashboard, exit 1, contacts nothing", () => {
     const r = run(["dashboard", "--cwd", viteApp()]);
     expect(r.code).toBe(1);
-    expect(r.out).toContain("npx @genclass/runtime init");
+    expect(r.out).toContain(`${CMD} init`);
     expect(r.out).toContain("free");
     expect(r.out).not.toMatch(PAYWALL);
     expect(r.calls).toEqual([]);
@@ -519,7 +520,7 @@ describe("dashboard: this app's free analytics, as a link in the terminal", () =
   it("a key in this folder but no link here and not signed in: says where its dashboard is, exit 1, contacts nothing", () => {
     const r = run(["dashboard", "--cwd", viteApp(KEYED)]);
     expect(r.code).toBe(1);
-    expect(r.out).toContain("npx @genclass/runtime login");
+    expect(r.out).toContain(`${CMD} login`);
     expect(r.out).toContain("https://genclass.dev/account");
     expect(r.calls).toEqual([]);
   });
@@ -527,7 +528,7 @@ describe("dashboard: this app's free analytics, as a link in the terminal", () =
   it("init and whoami point at it; help lists it", () => {
     const r = run(["init", "--no-install", "--cwd", viteApp()], { config: signedIn(), input: "y\ny\n" });
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toContain("npx @genclass/runtime dashboard");
+    expect(r.out).toContain(`${CMD} dashboard`);
     expect(r.out).not.toMatch(PAYWALL);
     const who = run(["whoami"], { config: signedIn(), env: { GENCLASS_TEST_PROJECTS: JSON.stringify([SHOP]) } });
     expect(who.out).toContain("free");

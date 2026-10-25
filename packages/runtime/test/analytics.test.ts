@@ -8,7 +8,9 @@ import { createRuntime } from "../src/index.js";
 import type { RuntimeImpl } from "../src/runtime.js";
 import { DATA_LIKE, type TelemetryClient } from "../src/telemetry/client.js";
 import { fromPairs, readMetaConfig } from "../src/cdn/config.js";
-import { ANALYTICS_NOTICE, IDLE_MS, KEY_MAX, keyOf, type KeyContext } from "../src/analytics/index.js";
+import { ANALYTICS_NOTICE, ANALYTICS_SINCE, IDLE_MS, KEY_MAX, keyOf, versionMismatch, type KeyContext } from "../src/analytics/index.js";
+import { analyticsRegistry } from "../src/analytics/start.js";
+import { RUNTIME_VERSION } from "../src/version.js";
 import { normalizePath } from "../src/util.js";
 import type { TelemetryTransport } from "../src/types.js";
 import { FakeClock, ScriptedDecider } from "./helpers.js";
@@ -59,7 +61,7 @@ let rt: RuntimeImpl | null = null;
 const w = window as unknown as { crypto?: { getRandomValues?: unknown } };
 if (typeof w.crypto?.getRandomValues !== "function") Object.defineProperty(window, "crypto", { value: globalThis.crypto, configurable: true });
 
-async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean } = {}) {
+async function arun(o: { analytics?: boolean; token?: string | null; telemetry?: Record<string, unknown> | false; nav?: boolean; user?: boolean; noWait?: boolean } = {}) {
   const clock = new FakeClock();
   const transport = recorder();
   rt = createRuntime({
@@ -73,7 +75,7 @@ async function arun(o: { analytics?: boolean; token?: string | null; telemetry?:
     ...(o.analytics === undefined ? { analytics: true } : { analytics: o.analytics }),
   }) as RuntimeImpl;
   const client = rt.telemetry as unknown as TelemetryClient;
-  if (rt.analytics?.enabled) await vi.waitFor(() => expect(client.pre).toBeTypeOf("function"));
+  if (rt.analytics?.enabled && !o.noWait) await vi.waitFor(() => expect(client.pre).toBeTypeOf("function"));
   return { clock, transport, rt, client };
 }
 
@@ -161,6 +163,52 @@ describe("interaction analytics: off by default, telemetry and token required, e
     expect(ANALYTICS_NOTICE).toContain("never page text");
     // shown once per page: by this test or an earlier one in the file
     expect(info.mock.calls.flat().filter((m) => m === ANALYTICS_NOTICE).length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("interaction analytics: loud when the code is missing or from another version (ANALYTICS.md section 4.1)", () => {
+  afterEach(() => {
+    delete analyticsRegistry.loader;
+  });
+
+  it("a chunk that does not load: one warning naming the version, enabled false, reason error", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    analyticsRegistry.loader = () => Promise.reject(new Error("404"));
+    const { rt: r } = await arun({ noWait: true });
+    await vi.waitFor(() => expect(r.analytics).toMatchObject({ enabled: false, reason: "error" }));
+    expect(r.analytics!.start()).toBe(true);
+    await vi.waitFor(() => expect(r.analytics).toMatchObject({ reason: "error" }));
+    const said = warn.mock.calls.flat().filter((m) => String(m).includes("did not load"));
+    expect(said).toEqual([`[GenClass] analytics code of ${RUNTIME_VERSION} did not load; nothing is recorded.`]);
+  });
+
+  it("the stub passes its version to the chunk; the same release says nothing, another one warns", async () => {
+    const seen: unknown[] = [];
+    analyticsRegistry.loader = () =>
+      import("../src/analytics/index.js").then((m) => ({
+        startAnalytics: (...a: Parameters<typeof m.startAnalytics>) => (seen.push(a[4]), m.startAnalytics(...a)),
+      }));
+    await arun();
+    expect(seen).toEqual([RUNTIME_VERSION]);
+    expect(versionMismatch(RUNTIME_VERSION)).toBeNull();
+    expect(versionMismatch("0.3.0-beta.9")).toContain(`is @genclass/runtime ${RUNTIME_VERSION} but the runtime that loaded it is 0.3.0-beta.9`);
+    const older = versionMismatch(undefined)!;
+    expect(older).toContain(`older than ${ANALYTICS_SINCE}`);
+    expect(older).toContain("npm install @genclass/runtime@beta");
+    expect(ANALYTICS_SINCE).toBe("0.3.0-beta.1");
+  });
+
+  it("a chunk from another release warns once per page and still records", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    analyticsRegistry.loader = () =>
+      import("../src/analytics/index.js").then((m) => ({
+        startAnalytics: (rt: Parameters<typeof m.startAnalytics>[0], t: TelemetryClient, i: (e: Event) => boolean, d: RegExp) => m.startAnalytics(rt, t, i, d, "0.3.0-beta.9"),
+      }));
+    const a = await arun();
+    expect(a.rt.analytics).toMatchObject({ enabled: true });
+    a.rt.destroy();
+    await arun();
+    expect(warn.mock.calls.flat().filter((m) => String(m).includes("but the runtime that loaded it is 0.3.0-beta.9")).length).toBe(1);
   });
 });
 

@@ -24,7 +24,7 @@ import genclass from "@genclass/runtime/auto";
 That is all the setup. GenClass runs in the browser only: on the server (SSR, route handlers) the import is inert,
 so server rendering, hydration and your server's `fetch` are untouched. It watches fetch, XHR, WebSocket,
 EventSource, user input and timers, and finds the state of your client components on its own (automatic state
-discovery). `npx @genclass/runtime init` writes the same file into an existing app (for Next.js before 15.3 it uses a
+discovery). `npx @genclass/runtime@beta init` writes the same file into an existing app (for Next.js before 15.3 it uses a
 small client component in the root layout instead).
 
 ## Observe, then guard
@@ -52,7 +52,7 @@ if (process.env.NODE_ENV === "development") {
 
 - For one page load: add `?genclass=off` to the URL (nothing is installed).
 - For a browser: `localStorage.genclass = "off"`.
-- For good: delete `instrumentation-client.ts` (or run `npx @genclass/runtime remove`).
+- For good: delete `instrumentation-client.ts` (or run `npx @genclass/runtime@beta remove`).
 
 ## Privacy
 
@@ -64,7 +64,7 @@ To turn that off, add a meta tag through the root layout's metadata:
 export const metadata: Metadata = { title: "…", other: { genclass: "telemetry=off" } };
 ```
 
-or run `npx @genclass/runtime init --no-telemetry`.
+or run `npx @genclass/runtime@beta init --no-telemetry`.
 
 ## Content-Security-Policy
 

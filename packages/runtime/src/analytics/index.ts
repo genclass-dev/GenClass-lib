@@ -21,6 +21,10 @@ import type { RuntimeImpl } from "../runtime.js";
 import type { RtEvent } from "../types.js";
 import type { TelemetryClient } from "../telemetry/client.js";
 
+// the version as a build-time constant (tsup.config.ts), not src/version.ts: this chunk has no static imports
+declare const __GENCLASS_PKG_VERSION__: string;
+const VERSION: string = typeof __GENCLASS_PKG_VERSION__ === "string" ? __GENCLASS_PKG_VERSION__ : "0.0.0";
+
 /** Engaged time counts at most this long after the visitor's last input. */
 export const IDLE_MS = 30_000;
 /** Scroll depth milestones, in % of the page height reached by the bottom of the viewport. */
@@ -198,16 +202,42 @@ export interface AnalyticsController {
 }
 
 export interface AnalyticsChunk {
-  startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp): AnalyticsController;
+  startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp, version?: string): AnalyticsController;
 }
 
 let noticeShown = false;
+let mismatchShown = false;
 export const ANALYTICS_NOTICE = "[GenClass] Interaction analytics are on (this app turned them on): page views, time on page, scroll depth and clicks per element, never page text.";
 
-/** Start recording (the stub checked telemetry and the token). `ignored`: dom-user's ignoredEvent; `data`: DATA_LIKE. */
-export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp): AnalyticsController {
+/** Interaction analytics first shipped in this runtime; the stub (src/analytics/start.ts) passes its own version. */
+export const ANALYTICS_SINCE = "0.3.0-beta.1";
+
+/**
+ * The warning when this chunk and the runtime that loaded it are not the same release (a self-hosted dist/ with files
+ * of two versions, a stale bundler chunk), or null. `version`: what the stub passed; none means a runtime from before
+ * the stub passed it.
+ */
+export function versionMismatch(version: string | undefined): string | null {
+  if (version === VERSION) return null;
+  return `[GenClass] analytics: this analytics code is @genclass/runtime ${VERSION} but the runtime that loaded it is ${version ?? `older than ${ANALYTICS_SINCE}`}. Serve every file from one version's dist/ (interaction analytics need ${ANALYTICS_SINCE} or later: npm install @genclass/runtime@beta).`;
+}
+
+/**
+ * Start recording (the stub checked telemetry and the token). `ignored`: dom-user's ignoredEvent; `data`: DATA_LIKE;
+ * `version`: the stub's runtime version (one warning per page when it is not this chunk's; recording still starts).
+ */
+export function startAnalytics(rt: RuntimeImpl, t: TelemetryClient, ignored: (e: Event) => boolean, data: RegExp, version?: string): AnalyticsController {
   const g = rt.global as G;
   const doc = g.document;
+  const mismatch = versionMismatch(version);
+  if (mismatch && !mismatchShown) {
+    mismatchShown = true;
+    try {
+      ((g.console as Console | undefined) ?? (globalThis as { console?: Console }).console)?.warn?.(mismatch);
+    } catch {
+      /* ignore */
+    }
+  }
   const clock = rt.clock;
   if (t.stopped || !doc || typeof g.addEventListener !== "function") return { stop() {} };
   const k: KeyContext = { route: (p) => t.route(p), loc: g.location, url: g.URL ?? (globalThis as { URL?: typeof URL }).URL, data };

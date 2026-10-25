@@ -55,7 +55,7 @@
     "@nuxt/kit": "^4.6.2"
   },
   "peerDependencies": {
-    "@genclass/runtime": ">=0.2.0 || ^0.3.0-beta.0"
+    "@genclass/runtime": ">=0.3.0-beta.1"
   },
   "devDependencies": {
     "@nuxt/module-builder": "^1.0.3",

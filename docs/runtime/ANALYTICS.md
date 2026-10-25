@@ -110,7 +110,8 @@ Interaction counters get their own per-batch budget (200 counters), so they neve
 (1 year on Enterprise), hourly rows 48 hours.
 
 **Dashboard.** A "How visitors use this app" section on the app dashboard (`src/pages.ts`, every plan, the same range
-picker), shown once the app has sent `interactions` events, using the page's existing table and card styles:
+picker), filled once the app has sent `interactions` events (before that, an empty state with the runtime they need:
+section 4.1), using the page's existing table and card styles:
 
 - page views, average engaged time per view, clicks, rage clicks, dead clicks, with the change against the previous
   period, and page views on the timeline;
@@ -136,6 +137,30 @@ GenClass.init({ token: "gc_…", analytics: true });
   counts not sent yet. `rt.analytics` reports `{ enabled, reason? }` (`option`, `telemetry-off`, `no-token`,
   `stopped`).
 - `telemetry.sample` below 1 samples analytics with the page load; the dashboard does not scale counts up.
+
+### 4.1 Which runtime: loud, never silent
+
+Interaction analytics first shipped in `@genclass/runtime` **0.3.0-beta.1**, on npm's `beta` dist-tag (install it with
+`npm install @genclass/runtime@beta`, `npx @genclass/runtime@beta init`, or a script tag pinned to
+`@0.3.0-beta.1`). npm's `latest` is still `0.2.2` until 0.3.0 is stable, and `0.2.x` and `0.3.0-beta.0` have no
+analytics: they ignore `analytics: true` without a word (reproduced on 0.2.2 in jsdom: no warning, no
+`runtime.analytics`, nothing sent; a TypeScript app gets a type error for the unknown option). Those releases cannot
+change, so every path that the newest line controls says it instead:
+
+- **The runtime.** When the analytics chunk does not load (a self-hosted `dist/` without `analytics/`, a stale bundler
+  chunk after a deploy), the stub warns once, `[GenClass] analytics code of <version> did not load; nothing is
+  recorded.`, and `runtime.analytics` reports `{ enabled: false, reason: "error" }`. The stub passes its own version to
+  the chunk; a chunk of another release (files of two versions in one `dist/`) warns once per page with both versions
+  and the install line, and still records. The version check is in the chunk, so the first load grows only by the
+  argument and the warning (48 B gzip on `/auto`, 40 B on the main entry).
+- **The CLI.** `init` prints its version and the dist-tag it came from, says when npm has a newer release, and
+  upgrades an older `@genclass/runtime` in the project instead of keeping it (packages/runtime/README.md, "Which
+  version").
+- **`genclass_setup`** (`@genclass/mcp`) prints `npm install @genclass/runtime@beta` for a project on 0.2.x, on a range
+  without a version (`*`, `latest`) or with an older installed copy.
+- **The dashboard.** The Visitors view of an app without interaction data says that analytics need 0.3.0-beta.1 or
+  later, names the app's older runtime versions from its own telemetry, and shows the install line; the Connect
+  panel says the same.
 
 ## 5. Consent and opt-outs
 

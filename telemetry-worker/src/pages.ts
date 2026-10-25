@@ -8,13 +8,17 @@
 
 /** The first @genclass/runtime that reads project keys (tokens) and has `login`; earlier versions ignore a key. */
 export const KEY_RUNTIME = "0.3.0-beta.0";
+/** The first @genclass/runtime with interaction analytics (`analytics: true`); earlier versions ignore the option. */
+export const ANALYTICS_RUNTIME = "0.3.0-beta.1";
 /**
- * The runtime the snippets install, pinned in the script tag: the unversioned jsDelivr URL serves npm's `latest`
- * (0.2.x until 0.3.0, which ignores a key) and may serve an older release from the CDN cache. While it is a
- * prerelease, the npm and npx commands name its dist-tag (`@beta`): without it they install `latest`. At 0.3.0 set
- * SNIPPET_RUNTIME to "0.3.0" and RUNTIME_PKG to "@genclass/runtime" (and RUNTIME_ON_NPM in wrangler.toml), then deploy.
+ * The runtime the snippets install: always the newest release on npm, prerelease or not (release.yml: set it with
+ * RUNTIME_ON_NPM after each publish). The script tag pins it: the unversioned jsDelivr URL serves npm's `latest`
+ * (0.2.x until 0.3.0, which ignores a key and analytics) and may serve an older release from the CDN cache. While it
+ * is a prerelease, the npm and npx commands name its dist-tag (`@beta`): without it they install `latest`. At 0.3.0
+ * set SNIPPET_RUNTIME to "0.3.0" and RUNTIME_PKG to "@genclass/runtime" (and RUNTIME_ON_NPM in wrangler.toml), then
+ * deploy.
  */
-export const SNIPPET_RUNTIME = "0.3.0-beta.0";
+export const SNIPPET_RUNTIME = "0.3.0-beta.1";
 export const RUNTIME_PKG = "@genclass/runtime@beta";
 export const CDN_SCRIPT = `https://cdn.jsdelivr.net/npm/@genclass/runtime@${SNIPPET_RUNTIME}`;
 /** What local and private hosts do, as the runtime behaves (src/telemetry/config.ts) and PRIVACY.md says. */
@@ -950,10 +954,28 @@ const DASH_JS = `
     });
     tb.appendChild(body); host.appendChild(tb);
   }
+  // a.b.c(-pre.n) older than b.c.d(-pre.n); unreadable versions are not older
+  function vOlder(a, b){
+    var re = /^(\\d+)\\.(\\d+)\\.(\\d+)(?:-[a-z]+\\.(\\d+))?/i, x = re.exec(a || ""), y = re.exec(b || ""), i;
+    if (!x || !y) return false;
+    for (i = 1; i <= 3; i++) if (+x[i] !== +y[i]) return +x[i] < +y[i];
+    if (x[4] === undefined || y[4] === undefined) return x[4] !== undefined && y[4] === undefined;
+    return +x[4] < +y[4];
+  }
+  // no interaction data yet: what turns analytics on and the runtime they need (earlier ones ignore the option)
+  function ixEmpty(B){
+    var host = document.getElementById("ixsum"); host.textContent = ""; document.getElementById("ixpages").textContent = "";
+    var old = (B.runtime || []).map(function(x){ return x.key; }).filter(function(v){ return vOlder(v, "${ANALYTICS_RUNTIME}"); });
+    host.appendChild(el("p", null, "No interaction analytics in this period. Page views, time on page, scroll depth and clicks per element appear here once the app turns them on with analytics: true and its token."));
+    host.appendChild(el("p", "quiet", "They need @genclass/runtime ${ANALYTICS_RUNTIME} or later; earlier versions ignore analytics: true without a word." + (old.length ? " This app sends from @genclass/runtime " + old.slice(0, 3).join(", ") + ", which has no analytics." : "")));
+    host.appendChild(el("pre", "code", "npm install ${RUNTIME_PKG}\\n\\nGenClass.init({ token: \\"gc_...\\", analytics: true });"));
+    document.getElementById("c-visits").textContent = "";
+  }
   function visits(S){
     var B = S.breakdowns, T0 = S.totals, views = T0.ix_views || 0, on = views > 0 || (B.ix_click || []).length > 0;
-    ["visits", "clicks", "nav-visits"].forEach(function(id){ var e = document.getElementById(id); if (e) e.classList.toggle("hidden", !on); });
-    if (!on) return;
+    document.getElementById("clicks").classList.toggle("hidden", !on);
+    ["visits", "nav-visits"].forEach(function(id){ var e = document.getElementById(id); if (e) e.classList.remove("hidden"); });
+    if (!on) return ixEmpty(B);
     var dl = el("dl", "health"), prev = (S.previous || {}).ix_views;
     row(dl, "Page views", fmt(views), typeof prev === "number" && prev ? (views >= prev ? "+" : "") + share(views - prev, prev) + " on the previous period" : "page loads and in-app route changes");
     row(dl, "Time on page", views ? dur((T0.ix_engaged_ms || 0) / views) : "-", "average engaged time per view: the tab visible, at most 30 s after the last input");
@@ -1313,6 +1335,7 @@ function connectPanel(token: string, connected: boolean, runtimeReady: boolean, 
       ${snip(endpoint ? "With a bundler" : "Meta tag, with a bundler", endpoint ? "the bundler setup" : "the meta tag", meta)}
     </div>
   </div>
+  <p class="fine" id="canalytics">Interaction analytics (the Visitors view) need @genclass/runtime ${ANALYTICS_RUNTIME} or later and <code>analytics: true</code>: <code>npm install ${RUNTIME_PKG}</code>. Earlier versions ignore the option without a word.</p>
   <p class="fine">The key needs @genclass/runtime ${KEY_RUNTIME} or later: 0.2.x does not send it. Events arrive in batches every 10 seconds.
   Local hosts (localhost, *.local, *.test, private networks) do not send by default, even with a key (telemetry: true or a telemetry options object opts them in), so the first event usually comes from your deployed site.<span id="cpoll"> The status line above checks every 5 seconds.</span></p>
 </section>`;
@@ -1359,7 +1382,7 @@ export function dashboardPage(
     <a href="#where">Pages <span id="c-pages"></span></a>
     <a href="#did">Actions <span id="c-did"></span></a>
     <a href="#recent-s">Activity</a>
-    <a href="#visits" id="nav-visits" class="hidden">Visitors <span id="c-visits"></span></a>
+    <a href="#visits" id="nav-visits">Visitors <span id="c-visits"></span></a>
     <a href="#health-s">Health</a>
     <a href="#loop">Loop</a>
     ${acct ? "" : '<a href="#setup">Setup</a>'}
@@ -1442,7 +1465,7 @@ versions ignore it. ${LOCAL_HOSTS} Your deployed site sends by default.</p></sec
   <tbody id="recent"></tbody></table></div>
   <p class="quiet hidden" id="recent0">Nothing detected in this period.</p>
 </section>
-<section class="blk hidden" id="visits" data-v="visitors">
+<section class="blk" id="visits" data-v="visitors">
   <div class="blk-h"><h2>How visitors use this app</h2><span class="aside">Interaction analytics, for apps that turn them on</span></div>
   <div id="ixsum"></div>
   <div id="ixpages" class="mt-l"></div>

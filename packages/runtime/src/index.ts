@@ -314,11 +314,11 @@ function warnIgnored(rt: Runtime, options: InitOptions): void {
   const parts = [
     `[GenClass] Already running in ${rt.mode} mode (started by @genclass/runtime/auto, the script tag or an earlier GenClass.init()), so this call's options are ignored.`,
   ];
-  if (mode) parts.push(`To change the mode: GenClass.runtime.setMode("${options.mode}"), or re-run \`npx @genclass/runtime init --mode ${options.mode}\`.`);
+  if (mode) parts.push(`To change the mode: GenClass.runtime.setMode("${options.mode}"), or re-run \`npx @genclass/runtime@beta init --mode ${options.mode}\`.`);
   if (token || scope) {
     const what = [token ? "token" : null, scope ? `scope "${options.scope}"` : null].filter(Boolean).join(" and ");
     parts.push(
-      `The ${what} must be set where GenClass starts: GENCLASS_CONFIG = { ${token ? 'token: "gc_..."' : ""}${token && scope ? ", " : ""}${scope ? `scope: "${options.scope}"` : ""} } on window before the auto import (\`npx @genclass/runtime init\` writes it to genclass.config.ts/js), <meta name="genclass" content="${[token ? "token=gc_..." : null, scope ? `scope=${options.scope}` : null].filter(Boolean).join(", ")}"> in <head>, or ${[token ? "data-token" : null, scope ? "data-scope" : null].filter(Boolean).join(" / ")} on the script tag.`,
+      `The ${what} must be set where GenClass starts: GENCLASS_CONFIG = { ${token ? 'token: "gc_..."' : ""}${token && scope ? ", " : ""}${scope ? `scope: "${options.scope}"` : ""} } on window before the auto import (\`npx @genclass/runtime@beta init\` writes it to genclass.config.ts/js), <meta name="genclass" content="${[token ? "token=gc_..." : null, scope ? `scope=${options.scope}` : null].filter(Boolean).join(", ")}"> in <head>, or ${[token ? "data-token" : null, scope ? "data-scope" : null].filter(Boolean).join(" / ")} on the script tag.`,
     );
   }
   (g.console as Console | undefined)?.warn?.(parts.join(" "));

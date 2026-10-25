@@ -28,7 +28,7 @@ The integration injects `import "@genclass/runtime/auto"` into every page as a s
 other scripts, so GenClass is installed before your islands hydrate and before their first request. It runs in the
 browser only: the build, endpoints and server rendering are untouched. It watches fetch, XHR, WebSocket, EventSource,
 user input and timers; in React islands it also finds component state on its own (automatic state discovery).
-`npx @genclass/runtime init` installs GenClass in an existing Astro project without the integration (a `<script>` line
+`npx @genclass/runtime@beta init` installs GenClass in an existing Astro project without the integration (a `<script>` line
 in your layout's head); `npx astro add @genclass/astro` adds the integration.
 
 **What it sees here.** This starter has no framework island: the search box is a plain `<script>`, so GenClass works

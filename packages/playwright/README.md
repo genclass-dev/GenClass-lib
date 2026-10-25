@@ -28,7 +28,7 @@ response reaches the page, never what it says; no finding changes a test's outco
 Not on npm yet (version 0.1.0 is unreleased). Once published:
 
 ```bash
-npm install -D @genclass/playwright @genclass/runtime
+npm install -D @genclass/playwright @genclass/runtime@beta
 ```
 
 Playwright 1.40 or later; `@genclass/runtime` 0.3.0-beta.1 or later (the fixture reads its `dist/` from the

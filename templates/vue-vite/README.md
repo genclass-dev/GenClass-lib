@@ -22,7 +22,7 @@ import genclass from "@genclass/runtime/auto";
 ```
 
 It goes first so GenClass is installed before Vue and your first requests. GenClass then watches fetch, XHR,
-WebSocket, EventSource, user input and timers. `npx @genclass/runtime init` writes the same line into an existing
+WebSocket, EventSource, user input and timers. `npx @genclass/runtime@beta init` writes the same line into an existing
 app.
 
 **What it sees in a Vue app.** Automatic state discovery covers React, Redux and Zustand, not Vue refs or Pinia
@@ -54,7 +54,7 @@ if (import.meta.env.DEV) import("@genclass/runtime/devtools").then((d) => d.moun
 
 - For one page load: add `?genclass=off` to the URL (nothing is installed).
 - For a browser: `localStorage.genclass = "off"`.
-- For good: remove the import (or run `npx @genclass/runtime remove`).
+- For good: remove the import (or run `npx @genclass/runtime@beta remove`).
 
 ## Privacy
 

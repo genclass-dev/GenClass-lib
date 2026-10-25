@@ -3312,7 +3312,7 @@ export class RuntimeImpl implements Runtime {
     this.warnOnce(
       "worker-unavailable",
       `The model worker could not start (${s.workerError ?? "unknown"}) and model.inlineFallback is false, so the model is not loaded; GenClass keeps observing without it. ` +
-        `If a Content-Security-Policy blocks the worker, allow worker-src 'self' (blob: for the script tag) or self-host (npx @genclass/runtime fetch-model).`,
+        `If a Content-Security-Policy blocks the worker, allow worker-src 'self' (blob: for the script tag) or self-host (npx @genclass/runtime@beta fetch-model).`,
     );
   }
 
