@@ -78,7 +78,6 @@ import { StoreHub, toChanges, type MutationRec, type StoreRec, type Verdict } fr
 import { cloneValue, flatten, normalizeLeafKind, type FieldChange, type Leaf } from "./state/fields.js";
 import { InvariantMiner } from "./state/invariants.js";
 import { Baselines } from "./learn/baselines.js";
-import { RequestStats } from "./learn/requests.js";
 import { Cadence } from "./learn/cadence.js";
 import { analyzeBody, createdIds, vhash } from "./situation/content.js";
 import { commitAmbiguity, failureOf, hostOfSig } from "./situation/evidence.js";
@@ -421,8 +420,6 @@ export class RuntimeImpl implements Runtime {
   private createsBuf: CreateRec[] = [];
   /** Completed requests of the last 30 s across signatures (failure scope, F5). */
   private outcomesBuf: OutcomeRec[] = [];
-  /** rt.summary().requests: counts per host (reporting only). */
-  private readonly reqs = new RequestStats();
   /** Live channels that went down: path -> when and why (F9 marks when they come back). */
   private channelsDown = new Map<string, { t: number; code: number | string; channel: "websocket" | "eventsource" }>();
   /** Deliveries released without waiting whose background decision is pending: it covers their chain's writes. */
@@ -1044,7 +1041,7 @@ export class RuntimeImpl implements Runtime {
   }
 
   summary(): SessionSummary {
-    const s = this.sum.snapshot(this.decider?.status.state ?? "off", this.reqs.snapshot(this.base));
+    const s = this.sum.snapshot(this.decider?.status.state ?? "off");
     s.model.dropped = this.queue.budget().dropped;
     return s;
   }
@@ -1351,7 +1348,6 @@ export class RuntimeImpl implements Runtime {
         this.runDelivery({ op: o.op, channel: "response", req: o.req, status: o.status, ...(o.body ? { body: o.body } : {}), ...(typeof now === "function" ? { bodyNow: now } : {}) }, release);
       },
       noteResponse: (o) => this.noteResponse(o),
-      notJson: (op) => op.nj || ((op.nj = 1), this.reqs.add(op.name, 7)),
       setIdentity: (op, req, identity) => {
         if (op.identity === identity) return;
         op.identity = identity;
@@ -1414,7 +1410,6 @@ export class RuntimeImpl implements Runtime {
     }
     if ((kind === "fetch" || kind === "xhr") && !op.genclass) {
       this.base.start(name, t);
-      this.reqs.add(name, 0);
       if (op.identity) this.registerIdentity(op);
       // cadence: background (schedule) vs a steady delay after a user action through a timer (debounce)
       const u = this.ops.userOf(op);
@@ -1444,8 +1439,6 @@ export class RuntimeImpl implements Runtime {
     if (o.code !== undefined) data.code = o.code;
     if (o.synthetic) data.synthetic = true;
     this.events.push(t, "op.end", op.name, { op: op.id, data });
-    // rt.summary().requests: by GenClass (8), aborted (6), status class (1-4), else no response (5)
-    if ((op.kind === "fetch" || op.kind === "xhr") && !op.genclass) this.reqs.add(op.name, o.synthetic ? 8 : status === "aborted" ? 6 : typeof o.code == "number" && o.code >= 200 && o.code < 600 ? ((o.code / 100) | 0) - 1 : 5);
     if ((op.kind === "fetch" || op.kind === "xhr") && !o.synthetic && !op.genclass) {
       const outcome = status === "aborted" ? "aborted" : o.code !== undefined ? String(o.code) : status;
       const ok = status === "ok" && (typeof o.code !== "number" || o.code < 400);

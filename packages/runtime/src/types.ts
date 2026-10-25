@@ -654,12 +654,13 @@ export interface SessionSummary {
   /**
    * The fetch and XHR requests GenClass saw in this page load, in total and per host (issue 94): how many started,
    * how they ended (status class, no response, aborted, answered by GenClass), how many answers were not JSON where
-   * JSON was read or asked for, and their latency. `requests: 0` means GenClass saw no request (loaded after the app
+   * the app read them as JSON, and their latency. `requests: 0` means GenClass saw no request (loaded after the app
    * sent them, or the app keeps a `fetch` reference of its own); requests with nothing in `detections` means it saw
-   * them and found nothing salient. Local only: telemetry does not send it, and a sink's summary record carries the
-   * totals with an empty `hosts` unless the sink asks for `evidence`.
+   * them and found nothing salient. Present once the measured checks' chunk has loaded (`visual`: development hosts
+   * by default, `visual: true` elsewhere, or the devtools overlay, `rt.checkNow()`), so first load carries no code for
+   * it. Local only: telemetry does not send it, and a sink's summary record carries the totals with an empty `hosts`.
    */
-  requests: RequestSummary;
+  requests?: RequestSummary;
   /**
    * Measured visual checks (InitOptions.visual): findings per kind and per route, fixes, cost and coverage. Present
    * only once the checks have run, so a summary without them is unchanged.
@@ -681,8 +682,8 @@ export interface RequestHealth {
   /** Aborted by the app (an AbortController, `xhr.abort()`). */
   aborted: number;
   /**
-   * Answers whose Content-Type is not JSON although the app read them as JSON: `response.json()` or XHR
-   * `responseType = "json"`, any status. Judged from the header, never by parsing the body.
+   * fetch answers whose Content-Type is not JSON although the app read them with `response.json()`, any status.
+   * Judged from the header, never by parsing the body. (XHR `responseType = "json"` is not counted.)
    */
   notJson: number;
   /** Answered by GenClass instead of the network: a blocked request or a reused response (guard and heal only). */

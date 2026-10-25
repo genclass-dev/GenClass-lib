@@ -3,11 +3,11 @@
 // `possible: true`. Dispatch is queued (a microtask batch, then idle
 // time) and never runs on a decision or hold path; sink errors are swallowed.
 
-import type { Clock, ModelStatus, RequestSummary, SessionSummary, Sink, SinkKind, SinkObject, SinkRecord } from "../types.js";
+import type { Clock, ModelStatus, SessionSummary, Sink, SinkKind, SinkObject, SinkRecord } from "../types.js";
 import { hash32 } from "../util/match.js";
 
 export class SummaryTracker {
-  readonly s: Omit<SessionSummary, "requests">;
+  readonly s: SessionSummary;
   private lat: number[] = [];
   constructor(private readonly clock: Clock) {
     this.s = {
@@ -37,7 +37,7 @@ export class SummaryTracker {
     this.s.heldMs.total += ms;
     this.s.heldMs.max = Math.max(this.s.heldMs.max, ms);
   }
-  snapshot(state: ModelStatus["state"], requests: RequestSummary): SessionSummary {
+  snapshot(state: ModelStatus["state"]): SessionSummary {
     const a = [...this.lat].sort((x, y) => x - y);
     const q = (p: number) => (a.length ? a[Math.min(a.length - 1, Math.max(0, Math.ceil(p * a.length) - 1))] : undefined);
     const p50 = q(0.5);
@@ -52,7 +52,6 @@ export class SummaryTracker {
       shadow: { ...this.s.shadow },
       heldMs: { ...this.s.heldMs },
       model: { ...this.s.model, state, ...(p50 !== undefined ? { p50Ms: p50 } : {}), ...(p95 !== undefined ? { p95Ms: p95 } : {}) },
-      requests,
     };
   }
 }
@@ -164,9 +163,7 @@ export class SinkDispatcher {
 }
 
 function stripEvidence(r: SinkRecord): SinkRecord {
-  // a summary's per-host request counts name third-party hosts: only for sinks that ask for evidence
-  const sum = r.summary?.requests?.hosts ? { ...r.summary, requests: { ...r.summary.requests, hosts: {} } } : r.summary;
-  if (!r.evidence && sum === r.summary) return r;
+  if (!r.evidence) return r;
   const { evidence: _e, ...rest } = r;
-  return sum === r.summary ? rest : { ...rest, summary: sum };
+  return rest;
 }

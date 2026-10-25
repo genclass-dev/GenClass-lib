@@ -846,12 +846,13 @@ Standing questions ride along with built-in decisions: `rt.question({ id, on: ["
 - **Events:** `rt.on("detect" | "decide" | "act" | "event" | "status" | "report", fn)` returns an unsubscribe function.
 - **What it saw:** `rt.summary().requests` counts the `fetch` and XHR requests of this page load, in total and per host
   (`"same-origin"` or the API's host): `requests`, answers by status class (`2xx` to `5xx`), `network` (no answer),
-  `aborted`, `notJson` (read with `response.json()` or `responseType = "json"` while the Content-Type is not JSON),
-  `byGenClass`, `pending`, and `latency` (`p50`, `p95` of the answers that did not fail). A quiet summary with
-  `requests: 0` means GenClass did not see your requests (it loaded after them, or the app keeps its own `fetch`
-  reference); requests counted with nothing in `detections` means it saw them and nothing was salient: a 404 or a
-  non-JSON answer your own `catch` handles is counted here, not reported as a detection. Kept in the page: telemetry
-  does not send it.
+  `aborted`, `notJson` (read with `response.json()` while the Content-Type is not JSON), `byGenClass`, `pending`, and
+  `latency` (`p50`, `p95` of the answers that did not fail). A quiet summary with `requests: 0` means GenClass did not
+  see your requests (it loaded after them, or the app keeps its own `fetch` reference); requests counted with nothing
+  in `detections` means it saw them and nothing was salient: a 404 or a non-JSON answer your own `catch` handles is
+  counted here, not reported as a detection. It is counted by the measured checks' chunk, so it is there wherever the
+  checks run (development hosts by default; `visual: true` or `data-visual="on"` in production, the devtools overlay,
+  `rt.checkNow()`), and it costs no first-load bytes. Kept in the page: telemetry does not send it.
 - **`rt.explain(id)`:** the exact situation text the model read, its facts and timeline, every answer with
   probabilities, and what changed.
 - **`rt.decisions()`, `rt.interventions()`, `rt.history()`, `rt.inflight()`, `rt.situation()`** for introspection.

@@ -781,7 +781,10 @@ interface CheckFinding {
 
 `rt.summary().requests` (after 0.3.0-beta.1, issue 94) answers "did GenClass see my requests?" without a model
 decision. Counted from the `fetch` and XHR operations the runtime records; reporting only (never a situation, a fact,
-the gate or the model), and not sent by telemetry.
+the gate or the model), and not sent by telemetry. It is counted in the measured checks' chunk (`src/visual/requests.ts`),
+so it is present once that chunk has loaded: wherever `visual` is on (development hosts by default, `visual: true`
+elsewhere), when the devtools overlay mounts, or after `rt.checkNow()`. On load it counts the requests the runtime
+still holds (its op store keeps the last 2,000 operations of every kind), then follows its event stream.
 
 ```ts
 interface RequestHealth {
@@ -789,7 +792,7 @@ interface RequestHealth {
   "2xx": number; "3xx": number; "4xx": number; "5xx": number; // answers by status class
   network: number;             // no answer: network error, timeout (XHR timeout, AbortSignal.timeout), status 0
   aborted: number;             // aborted by the app
-  notJson: number;             // read as JSON (response.json(), XHR responseType "json"), Content-Type not JSON
+  notJson: number;             // fetch answers read with response.json() whose Content-Type is not JSON
   byGenClass: number;          // answered by GenClass (blocked, reused response; guard and heal only)
   pending: number;             // still in flight
   latency?: { n: number; p50: number; p95: number }; // ms, answers that did not fail (the learned baselines, last 64 per endpoint)
@@ -804,8 +807,9 @@ interface RequestSummary extends RequestHealth {
   counted and nothing in `detections` means it saw them and none was salient: a 404 or a non-JSON answer the app's own
   `catch` handles is counted here, not detected.
 - `notJson` reads the Content-Type header, never the body: an API that sends invalid JSON as `application/json` is not
-  counted.
-- A sink's `summary` record carries the totals with an empty `hosts` unless the sink sets `evidence: true`.
+  counted, and neither is XHR's `responseType = "json"`. Its first-load cost is one flag on the request (34 B gzip).
+- A sink's `summary` record carries the totals with an empty `hosts` (the per-host counts stay in `rt.summary()`).
+- A request answered by GenClass from its cache before the chunk loaded counts by its status, not as `byGenClass`.
 - A request still pending past `visual.checks.stallMs` is also a `request-stalled` check (Visual checks, below).
 
 ### Audit trail

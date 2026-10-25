@@ -89,11 +89,7 @@ describe.skipIf(!built)("dist as an app bundles it", () => {
   // 0.29 KB to /auto and 0.27 KB to the main entry over main (108.25 / 100.13 KB; 108.53 / 100.40 KB with it, measured
   // with test/first-load-size.mjs on the train VM, 2026-10-18); the recording itself is a lazy chunk (dist/analytics/index.js, asserted below). The
   // limits are the measured sizes plus 0.05 / 0.07 KB, as before. Both sizes are printed before either is asserted.
-  // Issue 94 (request counts and per-host health in summary(), src/learn/requests.ts and the counting in fetch / XHR)
-  // adds 583 B to /auto and 556 B to the main entry over main (108.32 / 100.23 KB): 108.89 / 100.77 KB measured with
-  // test/first-load-size.mjs. The limits below are those plus 0.05 / 0.07 KB, PENDING THE OWNER'S OK in that PR
-  // (request-stalled itself lives in the lazy visual chunk and adds nothing here).
-  const LIMIT_KB: Record<string, number> = { "auto.js": 108.94, "index.js": 100.84 };
+  const LIMIT_KB: Record<string, number> = { "auto.js": 108.6, "index.js": 100.48 };
   it("first-load cost of /auto and the main entry, minified + gzip: under the limits", async () => {
     const { build } = await import("esbuild");
     const uses: Record<string, string> = { "auto.js": "", "index.js": "GenClass.init({});" };

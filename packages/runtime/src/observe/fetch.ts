@@ -308,7 +308,7 @@ export function instrumentResponse(host: NetHost, res: Response, op: OpRec): Res
         writable: true,
         // rt.summary().requests: the app reads this answer as JSON; its Content-Type says whether it is (no parsing)
         value: (...args: unknown[]) => (
-          m == "json" && notJson(res) && host.notJson?.(op),
+          m == "json" && !/json/i.test(res.headers?.get?.("content-type") ?? "") && (op.nj = 1),
           (orig as (...a: unknown[]) => Promise<unknown>).apply(res, args).then(
             (v) => {
               host.ctx.stick(op);
@@ -334,15 +334,6 @@ export function instrumentResponse(host: NetHost, res: Response, op: OpRec): Res
     }
   }
   return res;
-}
-
-/** The response's Content-Type does not name JSON ("application/json", "application/problem+json", ...). */
-function notJson(res: Response): boolean {
-  try {
-    return !/json/i.test(res.headers.get("content-type") ?? "");
-  } catch {
-    return false;
-  }
 }
 
 /** Resolve with `p`, or with `fallback` after `ms` of the host clock. */

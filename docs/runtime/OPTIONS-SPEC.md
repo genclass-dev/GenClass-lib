@@ -429,9 +429,9 @@ Only `rt.breaker.reset()` clears a trip. `setMode` does not.
 - Dispatch is queued (a microtask batch, then `requestIdleCallback`) and never runs on the decision or hold path.
 - Errors from a sink are swallowed, with at most one status event per sink per minute.
 - On `pagehide`, or once on `visibilitychange→hidden` as a fallback, one `summary` record is emitted and each sink's `flush()` is called.
-- `rt.summary().requests` (issue 94): request counts in total and per host (API.md). In a sink's `summary` record,
-  `requests.hosts` is empty unless the sink sets `evidence: true` (host names are request URLs in part). Telemetry
-  does not send `requests` (§4.21 proposes it).
+- `rt.summary().requests` (issue 94): request counts in total and per host (API.md), present once the measured
+  checks' chunk has loaded. In a sink's `summary` record `requests.hosts` is always empty (host names are request URLs
+  in part). Telemetry does not send `requests` (§4.21 proposes it).
 - `rt.summary()` is always available. Two vendor-neutral adapters ship as entries of the package, outside the first-load bundle: `@genclass/runtime/sinks/{console-json,webhook}` (`src/sinks/`, each a function returning a `SinkObject` that never throws and sends only the record: one JSON line per record on the console, or batched POSTs to the URL the developer configures). The zero-code entries take them by name (`src/cdn/sinks.ts`: `window.GENCLASS_CONFIG.sinks: ["webhook:/genclass"]`, `<meta name="genclass" content="sink=console-json">`, `data-sink`, `init --sink`), as one proxy sink that queues records and loads the adapters on the first record, never before (`src/cdn/sinks-fanout.ts`, a lazy chunk of `/auto`; `dist/sinks/<name>.js` from the CDN for the script tag), so only the proxy is in the first load; a `webhook:<url>` is made absolute at init (against `document.baseURI`) and its endpoint (origin and path) joins `requests.ignore` as an exact match, and from a `<meta>` tag it must be same-origin as the browser resolves it (against the page and `document.baseURI`). Each adapter takes `evidence` (default true; false sends the structured fields only; `console-json:noevidence` in the no-code forms); the webhook caps repeats of one bug at `maxPerSignature` (10) per page load. A string in `GenClass.init({ sinks })` is ignored with one warning.
 - No Sentry, PostHog or Datadog adapter (owner decision, 2026-10-13): forwarding to those tools is not part of the free runtime. The owner intends it as a paid, server-side feature; it is not built, and no plan on https://genclass.dev/pricing offers it yet. A page config that names `sentry`, `posthog` or `datadog` (any case, with or without an option) gets one console warning for them all that says so, with https://genclass.dev/pricing, and nothing is loaded or sent for those names (`applySinks`); `init --sink sentry` is a usage error that says the same.
 
@@ -594,7 +594,8 @@ fix gate, undo), `test/visual-purity.test.ts` (no effect on situations, history 
 
 **Status: proposed in the issue 94 pull request; nothing below is in the code. Each part needs the owner's OK** (the
 timeout because of AGENTS.md rules 1 and 2, the telemetry fields and the alert because of rule 8). What shipped for
-issue 94 is local only: `rt.summary().requests` (API.md) and the `request-stalled` check (VISUAL.md 3.24).
+issue 94 is local only: `rt.summary().requests` (API.md) and the `request-stalled` check (VISUAL.md 3.24), both in the
+measured checks' chunk, so a public site gets them with `visual: true`.
 
 **`requestTimeoutMs` (heal only).** `GenClass.init({ mode: "heal", requestTimeoutMs: 15000 })`, or
 `{ ms, methods?: string[] }` (default methods `GET` and `HEAD`). Default off.

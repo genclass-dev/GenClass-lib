@@ -18,18 +18,20 @@
 import type { AuditEntry, CheckFinding, Clock, ModeOrOff, Report, SessionSummary, SinkRecord } from "../types.js";
 import type { VisualHost } from "./host.js";
 import type { VisualStub } from "./start.js";
+import { RequestCounter, type RequestsRt } from "./requests.js";
 
 /** The parts of RuntimeImpl the bridge uses (some are TypeScript-private there). */
 export interface RtLike {
   readonly clock: Clock;
   readonly global: Record<string, unknown>;
-  readonly ops: { inFlight: Set<{ id: number; kind: string; name: string; start: number; genclass?: boolean }> };
-  readonly base: { latency(sig: string): { p95: number } | undefined };
+  readonly ops: { inFlight: Set<{ id: number; kind: string; name: string; start: number; genclass?: boolean }> } & RequestsRt["ops"];
+  readonly base: { latency(sig: string): { p95: number } | undefined } & RequestsRt["base"];
   readonly isPaused: boolean;
   vis: VisualStub | null;
   effectiveMode(): ModeOrOff;
   summary(): SessionSummary;
   on(type: "status", fn: () => void): () => void;
+  on(type: "event", fn: Parameters<RequestsRt["on"]>[1]): () => void;
   addTeardown(fn: () => void): void;
   // TypeScript-private members of RuntimeImpl
   cadence: { get(sig: string, now: number): { kind: string } | undefined };
@@ -117,12 +119,23 @@ export function hostFor(rt0: unknown, describe: (el: Element) => string, normali
 
 /**
  * Follow the runtime: status changes re-check the fix gate, teardown stops the checks, and rt.summary() of this
- * runtime gains its `visual` key once the checks have run (added here, so first load carries no code for it).
+ * runtime gains its `requests` key (src/visual/requests.ts) and, once the checks have run, its `visual` key (added
+ * here, so first load carries no code for either).
  */
 export function follow(rt0: unknown, ctl: { gateFixes(): void; stop(): void; summary(): object | null }): void {
   const rt = rt0 as RtLike & { summary: () => SessionSummary };
+  const reqs = new RequestCounter(rt);
   rt.on("status", () => ctl.gateFixes());
-  rt.addTeardown(() => ctl.stop());
+  rt.addTeardown(() => {
+    reqs.stop();
+    ctl.stop();
+  });
   const base = rt.summary.bind(rt);
-  rt.summary = () => Object.assign(base(), ctl.summary());
+  rt.summary = () => Object.assign(base(), { requests: reqs.snapshot() }, ctl.summary());
+  // a sink's summary record gets the totals only: per-host counts name the hosts a page calls (rt.summary() has them)
+  const push = rt.sinks.push.bind(rt.sinks);
+  rt.sinks.push = (r) => {
+    const q = r.summary?.requests;
+    push(q ? { ...r, summary: { ...r.summary!, requests: { ...q, hosts: {} } } } : r);
+  };
 }
