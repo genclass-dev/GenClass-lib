@@ -1,0 +1,10 @@
+/* Shared look for every strategy page: plain and quick to render, the same markup in every framework. */
+body { font: 15px/1.45 system-ui, sans-serif; margin: 0; padding: 24px; color: #1d2433; background: #fff; }
+main { max-width: 560px; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+input { font: inherit; padding: 8px 10px; width: 100%; box-sizing: border-box; border: 1px solid #b9c0cf; border-radius: 6px; }
+button { font: inherit; padding: 8px 16px; margin-top: 10px; border-radius: 6px; border: 1px solid #2453c9; background: #2f63e3; color: #fff; }
+button:disabled { opacity: 0.55; }
+ul { padding-left: 18px; }
+#error { color: #a3192b; }
+.muted { color: #5b6476; }

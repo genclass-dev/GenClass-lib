@@ -35,6 +35,10 @@ internal/
 bench/visual/.out/
 bench/visual/.work/
 
+# fix bench (bench/fixes): page bundles, the fetched model and the local TLS certificate
+bench/fixes/.out/
+bench/fixes/.cache/
+
 # @genclass/mcp e2e: generated regression test
 packages/mcp/test/e2e/.gen/
 .genclass/

@@ -23,6 +23,7 @@ Default mode is `observe` (report only); `guard` is opt-in; `heal` is experiment
 | `packages/mcp/` | `@genclass/mcp`: the MCP server for coding agents (bridge on 127.0.0.1:47357, store, explore verdicts, replays, regression-test generation, 8 tools); no runtime deps; `test/e2e/race.e2e.mjs` is the real-browser check (not in CI's main job) |
 | `packages/playwright/` | `@genclass/playwright`: Playwright reporter + pure summariser that read the GenClass fixture's `test-results/genclass/*.json` (`genclass-races/1`) and write `genclass-report.md` for the PR; injects nothing, no runtime deps |
 | `bench/visual/` | the visual checks' bench (GitHub Actions only, `.github/workflows/visual-measure.yml`): false reports on the demos, templates, compat apps and about 40 public sites, recall on faults planted from the harness, cost; public sites are counted per check kind only, never named in the repo, its run logs or plain artifacts (per-site results only encrypted with the `VISUAL_BENCH_KEY` secret) |
+| `bench/fixes/` | the fix bench (local, `./bench/fixes/run.sh`, not in CI): 14 small pages, one per common race fix (stale search results in React, TanStack Query, SWR, RxJS, Vue, Svelte 5; double submits), a seeded HTTP/2 latency server and Playwright; wrong-final-state rate, requests and time per fix, and GenClass observe's detections next to its false reports (`bench/fixes/RESULTS.md`, `docs/runtime/RESULTS.md` section 17); written fresh, no `demos/` or `sim/` code |
 | `compat/`, `templates/` | framework compatibility matrix (`RESULTS.md`) and starter templates; evaluation only |
 | `telemetry-worker/` | the diagnostics collector with the dashboards and accounts (Cloudflare Worker). genclass.dev itself (the site, its admin and the pitch deck) and the page check (`scan-worker/`) live in the private repo genclass-dev/genclass-site, which has this repo as its `lib/` submodule |
 | `research/` | earlier Jev research: extension, `jev_local` (Python encoder the training scripts import), benchmarks |
@@ -55,8 +56,8 @@ One test: `npx vitest run test/delivery.test.ts -t "<name>"`. The 14 skipped tes
 growth on the visual branch, 0.5 KB before the review, pending the owner's OK) and `npx playwright test --config test/browser/visual/playwright.config.ts` in Chromium. The visual bench
 (`visual-measure.yml`) is a separate workflow: manual dispatch (and pushes to `bench/visual/` on the visual branch);
 it loads public sites, so it does not run on pull requests. Not in CI, ask before running: the model Playwright suite (`npm run test:browser`), `test/smoke/smoke.sh`, the
-install suite (`test/install/run-all.sh`), the sim and realapps generators, the demos' eval, training, anything on
-Azure, `git push`, `npm publish`.
+install suite (`test/install/run-all.sh`), the sim and realapps generators, the demos' eval, the fix bench
+(`bench/fixes/run.sh`, hours), training, anything on Azure, `git push`, `npm publish`.
 
 ## Hard rules
 

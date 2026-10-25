@@ -1,0 +1,24 @@
+{
+  "name": "genclass-bench-fixes",
+  "private": true,
+  "type": "module",
+  "description": "Measured comparison of the usual race-condition fixes (stale search results, double submits), with GenClass observe on every variant.",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "node server.mjs",
+    "bench": "node run.mjs",
+    "report": "node report.mjs"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.104.5",
+    "esbuild": "0.27.7",
+    "playwright": "1.63.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "rxjs": "7.8.2",
+    "svelte": "5.57.2",
+    "swr": "2.5.1",
+    "vue": "3.5.44"
+  },
+  "license": "Apache-2.0"
+}
