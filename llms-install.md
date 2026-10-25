@@ -27,14 +27,14 @@ merging it with the servers already there:
 ```
 
 Keep the version pinned as shown. No environment variables are required. Optional ones: `GENCLASS_AGENT_PORT` (the
-bridge's port, default 47357), `GENCLASS_STATE_DIR` (default `.genclass/agent` in the project; `none` keeps findings in
-memory).
+bridge's port, default 47357), `GENCLASS_STATE_DIR` (default `.genclass/agent` in the server's working directory, which is
+the project when the client starts servers there; `none` keeps findings in memory).
 
 ## 3. Connect the app's development build
 
 The page side is `@genclass/runtime` 0.3.0-beta.1 or later, which has the agent link (`@genclass/runtime/agent`). Call
-the `genclass_setup` tool from the project's directory: it reads `package.json` and prints the exact lines for the
-framework. In general:
+the `genclass_setup` tool (it reads `package.json` in the server's working directory; if that is not the project,
+use the lines below) and it prints the exact lines for the framework. In general:
 
 ```bash
 npm install @genclass/runtime@beta

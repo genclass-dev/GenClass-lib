@@ -60,6 +60,8 @@ const PINS: Pin[] = [
   { file: "llms-install.md", text: (s) => s.replace(PINNED, pinned(V)) },
   { file: "docs/adoption/listings/mcp.md", text: (s) => s.replace(PINNED, pinned(V)) },
   { file: "docs/runtime/AGENT.md", text: (s) => s.replace(PINNED, pinned(V)) },
+  { file: "README.md", text: (s) => s.replace(PINNED, pinned(V)) },
+  { file: "packages/runtime/README.md", text: (s) => s.replace(PINNED, pinned(V)) },
 ];
 
 function read(file: string): string {
@@ -90,8 +92,8 @@ describe("versions and pinned launchers (every manifest names package.json's ver
     const unpinned = /npx(?: -y)? @genclass\/mcp(?![@\w/-])|"@genclass\/mcp"(?=\s*[\],])/;
     for (const p of PINS) {
       if (p.file.endsWith(".ts") || p.file.endsWith("server.json")) continue;
-      const all = read(p.file);
-      const body = p.file.endsWith(".md") ? all.slice(all.indexOf(START), all.indexOf(END)) : all;
+      const body = read(p.file);
+      if (/(\.md|mcp\.json|hooks\.json|gemini-extension\.json)$/.test(p.file)) expect(body, p.file).toContain(`@genclass/mcp@${V}`);
       expect(unpinned.test(body), `${p.file} has an unpinned @genclass/mcp launcher`).toBe(false);
     }
   });

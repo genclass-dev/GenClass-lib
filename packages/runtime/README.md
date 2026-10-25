@@ -281,7 +281,7 @@ Claude Code and other coding agents, and lets the agent:
 - **keep the proof:** a generated Playwright test that sets the same order and fails while the bug is there.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp
+claude mcp add genclass -- npx -y @genclass/mcp@0.1.0
 ```
 
 ```ts

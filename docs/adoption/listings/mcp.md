@@ -241,7 +241,7 @@ Source: google-gemini/gemini-cli `docs/extensions/releasing.md` and `docs/extens
   committed `gemini-extension.json` starts `npx -y @genclass/mcp@0.1.0` (kept equal to the package version by
   `manifests.test.ts`).
 - **Install line for the entry.** `gemini extensions install https://github.com/genclass-dev/GenClass-lib`. This
-  clones the whole repository, which is large; `gemini mcp add genclass npx -y @genclass/mcp@0.1.0` adds the server
+  clones the whole repository, which is large; `gemini mcp add genclass npx -- -y @genclass/mcp@0.1.0` adds the server
   alone.
 
 ## 12. Smithery (smithery.ai)

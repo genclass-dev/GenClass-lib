@@ -122,7 +122,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "genclass_setup",
     title: "Set up GenClass",
-    description: "The lines to add so this project's dev build connects to GenClass (detects Vite, Next.js and others from package.json), how to check it works, and this MCP client's config lines for keeping the server in the project. It changes no file.",
+    description: "The lines to add so this project's dev build connects to GenClass (detects Vite, Next.js and others from package.json), how to check it works, and this MCP client's config lines for keeping the server configured. It changes no file.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: { title: "Set up GenClass", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
@@ -513,7 +513,7 @@ export function setupText(cwd: string, client?: string | null): string {
     "Notes: connectAgent runs only on pages served from this machine (localhost, 127.0.0.1, *.localhost); for a *.test or *.local name or a LAN address use connectAgent(rt, { anyHost: true }) and allow the origin with GENCLASS_AGENT_ORIGINS=http://host:port in the MCP server's environment. It talks only to this machine's bridge (http://127.0.0.1:47357; GENCLASS_AGENT_PORT changes it, and the page then needs connectAgent(rt, { url })). A Content-Security-Policy in development needs connect-src http://127.0.0.1:47357; a mock service worker (MSW) should let 127.0.0.1:47357 through. Production: GenClass.init() alone, unchanged.",
   ];
   const c = clientFor(client);
-  if (c) lines.push("", `To keep GenClass configured for everyone who opens this project in ${c.label}:`, "", c.block(VERSION));
+  if (c) lines.push("", `To keep GenClass configured in ${c.label} (in the project where the client reads a project file):`, "", c.block(VERSION));
   else lines.push("", `To add GenClass to another MCP client: npx -y ${pinned(VERSION)} config <client> (${CLIENTS.map((x) => x.id).join(", ")}).`);
   return lines.join("\n");
 }

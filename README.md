@@ -80,7 +80,7 @@ steps again with the network answering in different orders (and slower) to find 
 exact order that broke, and write a Playwright test that fails until the fix is in. Everything stays on your machine.
 
 ```bash
-claude mcp add genclass -- npx -y @genclass/mcp
+claude mcp add genclass -- npx -y @genclass/mcp@0.1.0
 ```
 
 ```ts

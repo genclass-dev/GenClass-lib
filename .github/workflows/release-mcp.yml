@@ -127,6 +127,7 @@ jobs:
             packages/mcp/.mcpb/*.mcpb
             packages/mcp/.mcpb/*.mcpb.sha256
           if-no-files-found: error
+          include-hidden-files: true # .mcpb/ is a dot directory, which upload-artifact skips by default
 
       - uses: actions/upload-artifact@v4
         with:

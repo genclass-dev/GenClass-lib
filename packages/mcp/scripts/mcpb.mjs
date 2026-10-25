@@ -49,7 +49,8 @@ export function manifestFor(pkg, server, tools) {
 }
 
 function mcpb(args, cwd) {
-  execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["--no-install", "mcpb", ...args], { cwd, stdio: "inherit" });
+  // npx is a .cmd shim on Windows, which Node spawns only through a shell
+  execFileSync("npx", ["--no-install", "mcpb", ...args], { cwd, stdio: "inherit", shell: process.platform === "win32" });
 }
 
 async function main() {
@@ -79,7 +80,7 @@ async function main() {
   const unpacked = join(out, "unpacked");
   mcpb(["unpack", file, unpacked], pkgDir);
   const init = `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "mcpb-check", version: "1" } } })}\n`;
-  const r = spawnSync(process.execPath, [join(unpacked, "bin", "genclass-mcp.mjs")], { input: init, env: { ...process.env, GENCLASS_STATE_DIR: "none", GENCLASS_AGENT_PORT: "0" }, timeout: 15000, encoding: "utf8" });
+  const r = spawnSync(process.execPath, [join(unpacked, "bin", "genclass-mcp.mjs")], { input: init, env: { ...process.env, GENCLASS_STATE_DIR: "none", GENCLASS_AGENT_PORT: String(40000 + (process.pid % 20000)), GENCLASS_TOKEN_DIR: join(out, "token") }, timeout: 15000, encoding: "utf8" });
   const first = (r.stdout ?? "").split("\n")[0];
   if (!first.includes('"serverInfo":{"name":"genclass"')) throw new Error(`the unpacked bundle did not answer initialize: ${first || r.stderr}`);
   rmSync(unpacked, { recursive: true, force: true });

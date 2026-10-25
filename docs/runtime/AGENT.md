@@ -291,7 +291,7 @@ measurements above were taken again after all fixes. The first pass also found a
 whose aborted held delivery could release the next request's listeners early, a defect of the runtime's own holds as
 well, fixed in `src/observe/xhr.ts`.
 
-Tests: 36 in `packages/runtime/test/agent.test.ts`, 57 in `packages/mcp/test/`; the runtime's whole suite passes, and
+Tests: 36 in `packages/runtime/test/agent.test.ts`, 104 in `packages/mcp/test/`; the runtime's whole suite passes, and
 the first load stays within its limits.
 
 This is one page and one bug class, a proof of the mechanism, not a recall figure. The demos' and real apps' numbers

@@ -340,7 +340,8 @@ your machine. See section 6 of
 ## Privacy
 
 The server collects nothing and sends nothing to GenClass or anyone else. Findings stay on your machine, in
-`.genclass/agent/` in the project (the server gitignores it) and in the bridge's memory; the bridge's token is in
+`.genclass/agent/` in the server's working directory (the project, for clients that start servers there; set
+`GENCLASS_STATE_DIR` for clients that do not, such as Claude Desktop), which the server gitignores, and in the bridge's memory; the bridge's token is in
 `~/.genclass`. The one request that leaves the machine is `genclass_analytics` `{source: "production"}`, which reads
 your own GenClass dashboard when you set `GENCLASS_DASHBOARD` to its private link. The runtime in your app has its
 own disclosed diagnostics ([PRIVACY.md](https://github.com/genclass-dev/GenClass-lib/blob/main/PRIVACY.md)), which

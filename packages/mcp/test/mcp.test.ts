@@ -67,7 +67,7 @@ describe("mcp: genclass_setup and the client named at initialize (README Install
     const r = await call(c, "genclass_setup");
     expect(r.isError).toBe(false);
     expect(r.text).toContain("connectAgent(rt)");
-    expect(r.text).toContain("in Claude Code:");
+    expect(r.text).toContain("in Claude Code (");
     expect(r.text).toContain("/plugin install genclass@genclass");
     expect(r.text).toContain(`npx -y @genclass/mcp@${VERSION}`);
   });
