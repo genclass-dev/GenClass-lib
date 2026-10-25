@@ -454,7 +454,7 @@ token, each telemetry batch carries it and decisions about protected functions c
 changes about what is sent ([Privacy and telemetry](#privacy-and-telemetry)). Dashboard data is kept for 90 days.
 
 **Which version:** the token option, `scope`, `protect()` and the `login`, `connect`, `whoami` and `logout` commands
-are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)); `dashboard` from `0.3.0-beta.1`. A key
+are in `0.3.0` (first as `0.3.0-beta.0`, see the [CHANGELOG](CHANGELOG.md)); `dashboard` from `0.3.0-beta.2`. A key
 needs `@genclass/runtime` `0.3.0-beta.0` or later in your app. A dashboard opens on every plan, whichever runtime
 version sends to it.
 
