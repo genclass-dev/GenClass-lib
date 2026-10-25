@@ -226,7 +226,15 @@ async function scenario() {
   await page.evaluate((t) => window.__GENCLASS_AGENT__.whenSettled(t), 20_000);
   const dom = await page.evaluate((rowsSel) => {
     const el = document.querySelector('input[type="search"]');
+    const snap = window.__GENCLASS_AGENT__?.snapshot?.() ?? { state: {}, fields: {} };
     return {
+      // what GenClass's own snapshot holds for the search: the form field, and every store field whose value is a
+      // short string (where a discovered useState holding the box's text would show)
+      genclass: {
+        fields: snap.fields ?? {},
+        storeFields: Object.keys(snap.state).length,
+        stringState: Object.fromEntries(Object.entries(snap.state).filter(([, v]) => /^"[^"]{0,40}"$/.test(v))),
+      },
       value: el ? el.value : null,
       urlSearch: new URL(location.href).searchParams.get("search"),
       rows: [...document.querySelectorAll(rowsSel)].map((a) => a.textContent.trim()).filter(Boolean),
@@ -257,6 +265,7 @@ async function scenario() {
     rsc,
     timeline: dom.timeline,
     stores: dom.stores,
+    genclass: dom.genclass,
     agent: { ...dom.agent, witnesses: dom.agent.witnesses.map((w) => `${w.kind} ${w.subject} by ${w.by} over ${w.over}`) },
   };
 }
