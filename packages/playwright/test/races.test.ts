@@ -36,10 +36,13 @@ describe("races: operations and evidence lines", () => {
     expect(opOf("write to cart.items")).toBe("write to cart.items");
     expect(opOf(undefined)).toBe("");
     expect(opOf(`x${"y".repeat(200)}`)).toHaveLength(120);
+    // per-run op ids come out, so one detection is one signature across seeds
+    expect(opOf("relation total == sum(items) (#12)")).toBe("relation total == sum(items)");
+    expect(opOf("write to cart.items (#7)")).toBe(opOf("write to cart.items (#31)"));
   });
 
   it("witnessLine says what happened, in the agent's request keys", () => {
-    expect(witnessLine(overwrote)).toBe("The response of GET /api/search#1 wrote search.results over what newer GET /api/search#4 had written 0.26s after GET /api/search#1 started (2 items → 2 items).");
+    expect(witnessLine(overwrote)).toBe("The response of GET /api/search#1 wrote search.results over what newer GET /api/search#4, started 0.26s after GET /api/search#1, had written (2 items → 2 items).");
     expect(witnessLine({ ...overwrote, overKind: "user", over: 'type textbox "Title"', change: undefined })).toBe('The response of GET /api/search#1 wrote search.results over what the user (type textbox "Title") had written 0.26s after GET /api/search#1 started.');
     expect(witnessLine(identical)).toBe("POST /api/orders#2 was sent while the identical POST /api/orders#1 was still in flight (0.03s earlier), from a separate user action.");
     expect(witnessLine({ kind: "other", by: "A", over: "B" })).toBe("other:  by A over B");
@@ -89,6 +92,21 @@ describe("races: signatures and the file", () => {
     ]);
   });
 
+  it("carries the fixture's record and validates it; a bad record is reported, not half-read", () => {
+    const fixture = { model: "skip" as const, agent: null, chaosApplied: 3, serviceWorker: false, modeOverridden: "heal" };
+    const file = buildRacesFile({ test: "t", seed: 1, mode: "observe", model: { state: "off" }, chaos: null, records: [], witnesses: [], fixture });
+    const r = validateRaces(file);
+    expect(r.ok && r.file.fixture).toEqual(fixture);
+    const bad = validateRaces({ ...file, fixture: { model: "maybe", agent: 1, chaosApplied: -1, serviceWorker: "no" } });
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.errors).toEqual([
+      'fixture.model: expected "skip" or "load", got "maybe"',
+      "fixture.agent: expected a string or null, got 1",
+      "fixture.chaosApplied: expected a whole number or null, got -1",
+      'fixture.serviceWorker: expected true or false, got "no"',
+    ]);
+  });
+
   it("a page where GenClass never started: model null, no mode, no signatures (still a valid file)", () => {
     const file = buildRacesFile({ test: "t", seed: 1, mode: null, model: null, chaos: null, records: [], witnesses: [] });
     expect(file).toEqual({ schema: "genclass-races/1", test: "t", seed: 1, signatures: [], model: null, chaos: null });
@@ -100,6 +118,9 @@ describe("races: signatures and the file", () => {
     expect(racesFileName("[chromium] checkout.spec.ts > checkout > places one order", "a1b2-c3d4", 2)).toBe("chromium-checkout-spec-ts-checkout-places-one-order-a1b2-c3d4-s2.json");
     expect(racesFileName("x".repeat(200), "id", 1)).toBe(`${"x".repeat(80)}-id-s1.json`);
     expect(racesFileName("", "../../etc", 1)).toBe("test-etc-s1.json");
+    // a retry gets a file of its own, so the failing first attempt is kept
+    expect(racesFileName("t", "id", 2, 1)).toBe("t-id-s2-r1.json");
+    expect(racesFileName("t", "id", 2, 0)).toBe("t-id-s2.json");
   });
 });
 

@@ -9,26 +9,36 @@
   with `page.route`, never from a CDN. The model is skipped by default (`model: "skip"`: no 13 MB download) and the
   file carries the runtime's witnesses, computed without the model through the agent entry connected with every
   hold off (`overwrote-newer`, `identical-in-flight`); `model: "load"` adds the model's detections with their
-  confidence. At the end of each test it writes one `genclass-races/1` file to `test-results/genclass/` (or
-  `outDir`), named after the test, its id and its seed, with the seed and the chaos settings. `enabled: false`
-  makes it inert. Peer dependencies only (`@playwright/test`, `@genclass/runtime`, both optional: the reporter
-  needs neither).
-- **Seeded chaos** (`chaos: { seed, delayMs, reorder, match }`): with `page.route` the real response is fetched at
-  once and its delivery to the page held for a latency derived from the seed and the request's key (method, path,
-  occurrence), so a run repeats exactly; `reorder: false` keeps the request order (latency only). Only fetch and
-  XHR requests inside `match` (default: same-origin `/api*` or JSON responses); never the runtime's own files,
-  documents, scripts or anything outside the filter. Off unless given. With `repeatEach`, the repeat index is
-  added to the seed, so two repeats give the report its two seeds.
+  confidence (the model's diagnosis probability, from the runtime's `decide` event). At the end of each test it
+  writes one `genclass-races/1` file to `genclass` in the project's outputDir (test-results/genclass, emptied by
+  Playwright at each run; or `outDir`), named after the test, its id, its seed and, for a retry, the attempt, with
+  the seed, the chaos settings and a `fixture` record (the model option, whether the agent entry connected, how many
+  requests chaos held, whether a service worker controlled the page, a mode switch it overrode). A test skipped in
+  its body writes nothing. The runtime is held to observe: a URL or localStorage switch that raised the mode is set
+  back. The agent link gets a stand-in fetch for its own address, so the fixture adds no console error, failed
+  request or CSP report to the page. `enabled: false` makes it inert. Peer dependencies only (`@playwright/test`,
+  `@genclass/runtime`, both optional: the reporter needs neither); `typesVersions` for `moduleResolution: node`;
+  `engines` `^20.19.0 || >=22.12.0` (CommonJS test projects load the ESM-only fixture with require).
+- **Seeded chaos** (`chaos: { seed, delayMs, reorder, match }`): with `page.route` each matched request is held for a
+  latency derived from the seed and the request's key (method, path, occurrence, assigned when the page sends it),
+  then passed on with `route.fallback()`, so it still reaches the test's own routes (`context.route`,
+  `routeFromHAR`) and the browser's network stack, with redirects, cookies, CORS and streaming as they are, and a run
+  repeats exactly. `reorder: false` sends matched requests in their order, at least 30 ms apart (latency only). Only
+  fetch and XHR requests inside `match` (default: same-origin `/api*` or an Accept header asking for JSON, decided
+  from the request); never the runtime's own files, documents, scripts or anything outside the filter. Off unless
+  given. With `repeatEach`, the repeat index is added to the seed, so two repeats give the report its two seeds.
 - **Witnesses in the report**: signatures with trigger `witness` get their own group (shown only when there are
   any), no confidence on the line (a fact that happened, not a probability) and a footer sentence saying what they
-  are; they are never counted as duplicate submits or stale responses. A model state `off` (no model by choice)
-  no longer gets the "model was not ready" note. The model-only report is byte for byte what it was.
-- **Measured** (`test/e2e`, run by the workflow in Chromium): on the MCP e2e search page with latency 0 to 600 ms
-  and reordering, the buggy page gets `witness:overwrote-newer` on `GET /api/search` in 5 of 5 seeds, the same
-  page with latency only in 0 of 5, and the fixed page in 0 of 5; no other signature anywhere. With `model: "load"`
-  (one run by hand, two seeds) the model loaded through the fixture's path and gave no likely detection on that
-  page (`stale` at 0.64 in one seed, below the 0.90 report gate; nothing in the other), while the witness was
-  recorded in both.
+  are; they are never counted as duplicate submits or stale responses. Files with a `fixture` record get notes
+  for runs the fixture could not check (no witnesses recorded, a service worker in control) and for chaos that held
+  no request; a `model: "skip"` file gets no model note. Files without a `fixture` record are reported as before.
+- **Measured** (`test/e2e`, run by the workflow in Chromium; six runs of five seeds): on the MCP e2e search page
+  (its store on the fixture's runtime through the script-tag mapping) with latency 0 to 600 ms and reordering, the
+  buggy page gets `witness:overwrote-newer` on `GET /api/search` in 30 of 30 seeds, the same page with latency only
+  in 0 of 30, and the fixed page in 0 of 30; no other signature, console error or failed request anywhere. With
+  `model: "load"` (one run by hand, two seeds, before chaos moved to requests) the model loaded through the
+  fixture's path and gave no likely detection on that page (`stale` at 0.64 in one seed, below the 0.90 report
+  gate; nothing in the other), while the witness was recorded in both.
 - First version of the reader side: `@genclass/playwright/reporter` (a Playwright reporter by shape: reads
   `test-results/genclass/*.json` in the `genclass-races/1` format at the end of the run, writes and prints
   `genclass-report.md`), `@genclass/playwright/summarize` (the pure files-to-markdown function, with

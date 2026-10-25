@@ -13,16 +13,18 @@ on:
   push:
     paths:
       - "packages/playwright/**"
-      - "packages/runtime/src/agent/**"
-      - "packages/runtime/src/cdn/**"
+      - "packages/runtime/src/**"
+      - "packages/runtime/package.json"
+      - "packages/runtime/tsup.config.ts"
       - "packages/mcp/test/e2e/app/**"
       - "package-lock.json"
       - ".github/workflows/playwright-reporter.yml"
   pull_request:
     paths:
       - "packages/playwright/**"
-      - "packages/runtime/src/agent/**"
-      - "packages/runtime/src/cdn/**"
+      - "packages/runtime/src/**"
+      - "packages/runtime/package.json"
+      - "packages/runtime/tsup.config.ts"
       - "packages/mcp/test/e2e/app/**"
       - "package-lock.json"
       - ".github/workflows/playwright-reporter.yml"
@@ -109,6 +111,11 @@ jobs:
 
       - name: Chromium
         run: npx playwright install --with-deps chromium
+
+      # the unit test that resolves the installed runtime's dist/ by default needs the runtime built, as here
+      - name: Unit tests with the runtime built
+        working-directory: packages/playwright
+        run: npx vitest run test/install.test.ts
 
       - name: The fixture end to end (buggy page flagged, fixed page and latency-only run clean, report rendered)
         # shell: bash runs with pipefail, so a failing run.mjs fails the step even though tee succeeds

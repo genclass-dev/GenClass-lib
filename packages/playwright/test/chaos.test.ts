@@ -3,7 +3,7 @@
 // overtakes. The scheduler is driven with hand-cranked timers, so nothing here waits on the clock.
 
 import { describe, expect, it } from "vitest";
-import { ChaosScheduler, DEFAULT_DELAY_MS, MAX_DELAY_MS, RUNTIME_PATH, confirms, delayFor, describeMatch, hash32, isCandidate, isRuntimeUrl, mulberry32, resolveChaos, type ChaosRequest } from "../src/chaos.js";
+import { ChaosScheduler, DEFAULT_DELAY_MS, FIFO_GAP_MS, MAX_DELAY_MS, RUNTIME_PATH, delayFor, describeMatch, hash32, isCandidate, isRuntimeUrl, mulberry32, resolveChaos, type ChaosRequest } from "../src/chaos.js";
 
 function manualTimers() {
   const q: { at: number; fn: () => void; id: number }[] = [];
@@ -21,15 +21,19 @@ function manualTimers() {
         if (i >= 0) q.splice(i, 1);
       },
     },
+    /** Moves time forward 1 ms at a time, firing what is due and letting promise chains queue new timers. */
     async advance(ms: number): Promise<void> {
-      now += ms;
-      for (const x of [...q].filter((x) => x.at <= now).sort((a, b) => a.at - b.at)) {
-        q.splice(q.indexOf(x), 1);
-        x.fn();
-        await Promise.resolve();
+      for (let i = 0; i < ms; i++) {
+        now += 1;
+        for (const x of [...q].filter((x) => x.at <= now).sort((a, b) => a.at - b.at)) {
+          q.splice(q.indexOf(x), 1);
+          x.fn();
+        }
+        for (let k = 0; k < 5; k++) await Promise.resolve();
       }
       await new Promise((r) => setTimeout(r, 0));
     },
+    now: () => now,
     pending: () => q.length,
   };
 }
@@ -85,15 +89,17 @@ describe("chaos: the filter", () => {
     expect(isRuntimeUrl("http://a/api/__genclass__/x")).toBe(false);
   });
 
-  it("by default: same-origin requests, confirmed by an /api path or a JSON response", () => {
+  it("by default: same-origin requests with an /api path or an Accept header asking for JSON, decided from the request alone", () => {
+    expect(isCandidate(req(), undefined)).toBe(true); // /api path
     expect(isCandidate(req({ sameOrigin: false }), undefined)).toBe(false);
-    expect(confirms(req(), undefined, "text/html")).toBe(true); // /api path
-    expect(confirms(req({ url: "http://app.test/graphql" }), undefined, "application/json; charset=utf-8")).toBe(true);
-    expect(confirms(req({ url: "http://app.test/graphql" }), undefined, "text/html")).toBe(false);
-    expect(confirms(req({ url: "http://app.test/graphql" }), undefined, null)).toBe(false);
+    expect(isCandidate(req({ url: "http://app.test/graphql", accept: "application/json, text/plain, */*" }), undefined)).toBe(true);
+    expect(isCandidate(req({ url: "http://app.test/graphql", accept: "*/*" }), undefined)).toBe(false);
+    // a stream or any other same-origin fetch outside the filter is never held
+    expect(isCandidate(req({ url: "http://app.test/events", accept: "text/event-stream" }), undefined)).toBe(false);
+    expect(isCandidate(req({ url: "http://app.test/fragment" }), undefined)).toBe(false);
   });
 
-  it("with a match: a path prefix, a URL prefix, a RegExp, a function or a list, decided before the fetch", () => {
+  it("with a match: a path prefix, a URL prefix, a RegExp, a function or a list", () => {
     expect(isCandidate(req({ url: "http://app.test/graphql" }), "/graphql")).toBe(true);
     expect(isCandidate(req({ url: "http://app.test/graphql" }), "/api")).toBe(false);
     expect(isCandidate(req({ url: "https://api.other.com/v1/x", sameOrigin: false }), "https://api.other.com/")).toBe(true);
@@ -103,12 +109,10 @@ describe("chaos: the filter", () => {
     expect(isCandidate(req({ method: "GET" }), (r) => r.method === "POST")).toBe(false);
     expect(isCandidate(req({ url: "http://app.test/graphql" }), ["/api", "/graphql"])).toBe(true);
     expect(isCandidate(req({ url: "http://app.test/other" }), ["/api", "/graphql"])).toBe(false);
-    // the filter already said yes: the response does not matter
-    expect(confirms(req({ url: "http://app.test/other" }), "/other", "text/plain")).toBe(true);
   });
 
   it("describeMatch for the race file", () => {
-    expect(describeMatch(undefined)).toEqual(["same-origin /api* or JSON responses"]);
+    expect(describeMatch(undefined)).toEqual(["same-origin /api* or Accept: json"]);
     expect(describeMatch(["/api", /x\/y/, () => true])).toEqual(["/api", "/x\\/y/", "function"]);
     expect(describeMatch("https://a/")).toEqual(["https://a/"]);
   });
@@ -130,6 +134,8 @@ describe("chaos: the scheduler", () => {
     for (const p of pa) expect(p.delayMs >= 0 && p.delayMs <= 600).toBe(true);
     expect(a.plans).toEqual(pa);
     expect(a.plan("GET", "https://other.test/api/x", false).key).toBe("GET other.test/api/x#1");
+    // a cross-origin backend on another random port keeps its key, so the seed gives it the same delay
+    expect(b.plan("GET", "http://127.0.0.1:41234/api/x", false).key).toBe(c.plan("GET", "http://127.0.0.1:50999/api/x", false).key);
   });
 
   it("reorder on: each response waits for its own delay only, so a later one can overtake", async () => {
@@ -145,18 +151,31 @@ describe("chaos: the scheduler", () => {
     expect(order).toEqual(["B", "A"]);
   });
 
-  it("reorder off: a response is never released before an earlier matched one (latency only)", async () => {
+  it("reorder off: requests leave in the order they were sent, at least FIFO_GAP_MS apart (latency only)", async () => {
     const t = manualTimers();
     const s = new ChaosScheduler(resolveChaos({ seed: 1, delayMs: [0, 600], reorder: false }), t.timers);
-    const order: string[] = [];
-    const a = s.hold({ key: "A", delayMs: 300 }).then(() => order.push("A"));
-    const b = s.hold({ key: "B", delayMs: 50 }).then(() => order.push("B"));
-    const c = s.hold({ key: "C", delayMs: 0 }).then(() => order.push("C"));
+    const at: Record<string, number> = {};
+    const a = s.hold({ key: "A", delayMs: 300 }).then(() => (at.A = t.now()));
+    const b = s.hold({ key: "B", delayMs: 50 }).then(() => (at.B = t.now()));
+    const c = s.hold({ key: "C", delayMs: 0 }).then(() => (at.C = t.now()));
     await t.advance(100);
-    expect(order).toEqual([]);
-    await t.advance(300);
+    expect(at).toEqual({});
+    await t.advance(400);
     await Promise.all([a, b, c]);
-    expect(order).toEqual(["A", "B", "C"]);
+    expect(Object.keys(at).sort((x, y) => at[x] - at[y])).toEqual(["A", "B", "C"]);
+    expect(at.A).toBe(300);
+    expect(at.B - at.A).toBeGreaterThanOrEqual(FIFO_GAP_MS);
+    expect(at.C - at.B).toBeGreaterThanOrEqual(FIFO_GAP_MS);
+    // a request whose own delay is longer than the gap leaves on its own delay
+    const late = new ChaosScheduler(resolveChaos({ seed: 1, reorder: false }), t.timers);
+    const t0 = t.now();
+    let first = 0;
+    let second = 0;
+    void late.hold({ key: "X", delayMs: 0 }).then(() => (first = t.now() - t0));
+    void late.hold({ key: "Y", delayMs: 200 }).then(() => (second = t.now() - t0));
+    await t.advance(250);
+    expect(first).toBeLessThanOrEqual(1); // at once (seen at the next tick of the hand-cranked clock)
+    expect(second).toBe(200);
   });
 
   it("a zero delay resolves at once; dispose releases every hold and clears the timers", async () => {

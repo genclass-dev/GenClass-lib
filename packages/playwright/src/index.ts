@@ -3,6 +3,7 @@
 // Node APIs): the format, its validator and the summariser, the same as `@genclass/playwright/summarize`. The
 // Playwright reporter is `@genclass/playwright/reporter` and the command `genclass-playwright-report`.
 //
-// This package injects nothing: it does not route requests, start a runtime or touch a page.
+// This entry injects nothing: it does not route requests, start a runtime or touch a page. The fixture that does is
+// `@genclass/playwright/fixture`.
 
 export * from "./summarize.js";

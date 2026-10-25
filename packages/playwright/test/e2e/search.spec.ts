@@ -7,6 +7,13 @@
 import { expect, test } from "@genclass/playwright/fixture";
 
 async function search(page: import("@playwright/test").Page, path: string): Promise<void> {
+  // the fixture must leave no trace a suite would fail on: no console error, no failed request
+  const noise: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") noise.push(`console.error: ${m.text()}`);
+  });
+  page.on("requestfailed", (r) => noise.push(`requestfailed: ${r.url()} ${r.failure()?.errorText ?? ""}`));
+  page.on("pageerror", (e) => noise.push(`pageerror: ${e.message}`));
   await page.goto(path);
   await page.getByLabel("Search").pressSequentially("react", { delay: 80 });
   // every answer has landed: nothing in flight on the fixture's runtime (its chaos holds each one up to 600 ms)
@@ -17,6 +24,7 @@ async function search(page: import("@playwright/test").Page, path: string): Prom
   }, null, { timeout: 15_000 });
   await page.waitForTimeout(300);
   await expect(page.locator("#results li")).toHaveCount(2);
+  expect(noise).toEqual([]);
 }
 
 test.describe("search", () => {

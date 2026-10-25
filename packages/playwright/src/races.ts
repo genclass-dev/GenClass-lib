@@ -14,7 +14,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RACES_SCHEMA, type GenClassRacesFile, type RaceSignature } from "./types.js";
+import { RACES_SCHEMA, type GenClassRacesFile, type RaceSignature, type RacesFixtureInfo } from "./types.js";
 
 /** The `trigger` of a witness signature. */
 export const WITNESS_TRIGGER = "witness";
@@ -48,16 +48,21 @@ export interface RacesInput {
   chaos: GenClassRacesFile["chaos"];
   records: readonly unknown[];
   witnesses: readonly unknown[];
+  /** What the fixture could and could not do on the page (written as the file's `fixture`). */
+  fixture?: RacesFixtureInfo;
 }
 
 const METHOD_RE = /\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+([^\s()?#]+)/;
 
-/** "GET /api/search?q=… (#21)" or "GET /api/search#3~retry2" -> "GET /api/search"; anything else is kept (trimmed). */
+/**
+ * "GET /api/search?q=… (#21)" or "GET /api/search#3~retry2" -> "GET /api/search". Anything else is kept with the
+ * runtime's per-run op ids ("#12", "(#12)") taken out, so the same detection gives one signature in every seed.
+ */
 export function opOf(text: string | undefined): string {
   const t = (text ?? "").replace(/\s+/g, " ").trim();
   const m = METHOD_RE.exec(t);
   if (m) return `${m[1]} ${m[2]}`;
-  return t.slice(0, 120);
+  return t.replace(/\s*\(#\d+\)/g, "").replace(/#\d+(~\w+)?/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
 }
 
 function secs(ms: number | undefined): string {
@@ -68,9 +73,10 @@ function secs(ms: number | undefined): string {
 export function witnessLine(w: WitnessRecord): string {
   const by = w.by ?? "?";
   if (w.kind === "overwrote-newer") {
-    const over = w.overKind === "user" ? `the user (${w.over ?? "?"})` : `newer ${w.over ?? "?"}`;
     const change = w.change ? ` (${w.change})` : "";
-    return `The response of ${by} wrote ${w.subject ?? "?"} over what ${over} had written ${secs(w.gapMs)} after ${by} started${change}.`;
+    // gapMs: for a newer request, how long after `by` it started; for the user, how long after `by` they wrote
+    if (w.overKind === "user") return `The response of ${by} wrote ${w.subject ?? "?"} over what the user (${w.over ?? "?"}) had written ${secs(w.gapMs)} after ${by} started${change}.`;
+    return `The response of ${by} wrote ${w.subject ?? "?"} over what newer ${w.over ?? "?"}, started ${secs(w.gapMs)} after ${by}, had written${change}.`;
   }
   if (w.kind === "identical-in-flight") return `${by} was sent while the identical ${w.over ?? "?"} was still in flight (${secs(w.gapMs)} earlier), from a separate user action.`;
   return `${w.kind ?? "witness"}: ${w.subject ?? ""} by ${by} over ${w.over ?? "?"}`.trim();
@@ -119,11 +125,12 @@ export function buildRacesFile(i: RacesInput): GenClassRacesFile {
   if (i.mode) file.mode = i.mode;
   file.model = i.model ?? null;
   if (i.chaos !== undefined) file.chaos = i.chaos;
+  if (i.fixture) file.fixture = { ...i.fixture };
   return file;
 }
 
-/** A file name for a test: a slug of its title (at most 80 characters), its id and its seed. */
-export function racesFileName(test: string, id: string, seed: number): string {
+/** A file name for a test: a slug of its title (at most 80 characters), its id, its seed and, for a retry, its attempt. */
+export function racesFileName(test: string, id: string, seed: number, retry = 0): string {
   const slug = test
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -131,7 +138,8 @@ export function racesFileName(test: string, id: string, seed: number): string {
     .slice(0, 80)
     .replace(/-+$/, "");
   const safeId = id.replace(/[^A-Za-z0-9_-]+/g, "");
-  return `${slug || "test"}-${safeId || "0"}-s${seed}.json`;
+  const attempt = Number.isInteger(retry) && retry > 0 ? `-r${retry}` : "";
+  return `${slug || "test"}-${safeId || "0"}-s${seed}${attempt}.json`;
 }
 
 /** Writes the file (creating the directory) and returns its path. */

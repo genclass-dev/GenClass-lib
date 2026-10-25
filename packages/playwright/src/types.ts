@@ -54,12 +54,29 @@ export interface GenClassRacesFile {
    * Optional: the page's model status when the fixture collected (null: GenClass never started in the page). When a
    * file flagged nothing and its model was not "ready" (for example "loading"), the report notes that the run may
    * not have been checked. A file with detections is reported whatever the state: the runtime can unload an idle
-   * model after it ran ("unloaded"). State "off" (no model by choice: the fixture's default, which still computes
-   * witnesses) gets no note either.
+   * model after it ran ("unloaded"). A file whose `fixture.model` is "skip" gets no model note (no model by choice);
+   * the agent state decides instead.
    */
   model?: { state?: string; name?: string; version?: string; device?: string } | null;
   /** Optional: the chaos the fixture applied (its `chaos` option: `latencyMs` is its `delayMs`), shown when present. */
   chaos?: { latencyMs?: [number, number]; reorder?: boolean; failRate?: number; routes?: unknown[] } | null;
+  /**
+   * Optional, written by the fixture: what it could and could not do on the page, so the report can tell a run it
+   * checked from one it could not. `model`: the fixture's model option. `agent`: null when the agent entry connected
+   * (witnesses recorded), else why not. `chaosApplied`: how many requests chaos held (null: chaos off). `serviceWorker`:
+   * a service worker controlled the page (page.route, and so chaos, does not see what it handles).
+   * `modeOverridden`: the mode a URL or localStorage switch had asked for, set back to observe.
+   */
+  fixture?: RacesFixtureInfo;
+}
+
+/** The fixture's own record in a race file (GenClassRacesFile.fixture). */
+export interface RacesFixtureInfo {
+  model: "skip" | "load";
+  agent: string | null;
+  chaosApplied: number | null;
+  serviceWorker: boolean;
+  modeOverridden?: string;
 }
 
 /** One input of the summariser: a file's name (shown in the report) and its content (JSON text or parsed). */

@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AGENT_URL, BINDING, initScriptContent, install, resolveRuntimeDir, runtimeFile, type PageLike, type RequestLike, type ResponseLike, type RouteLike } from "../src/install.js";
+import { AGENT_URL, BINDING, initScriptContent, install, isAgentUrl, resolveRuntimeDir, runtimeFile, type PageLike, type RequestLike, type RouteLike } from "../src/install.js";
 import { RUNTIME_PATH, resolveChaos } from "../src/chaos.js";
 import { here } from "./helpers.js";
 
@@ -47,30 +47,25 @@ class FakePage implements PageLike {
 class FakeRoute implements RouteLike {
   calls: string[] = [];
   fulfilled: Parameters<RouteLike["fulfill"]>[0] | null = null;
-  constructor(
-    private readonly response: ResponseLike | Error = { headers: () => ({ "content-type": "application/json" }) },
-  ) {}
-  async fetch(): Promise<ResponseLike> {
-    this.calls.push("fetch");
-    if (this.response instanceof Error) throw this.response;
-    return this.response;
-  }
+  at = -1;
   async fulfill(o: Parameters<RouteLike["fulfill"]>[0]): Promise<void> {
     this.calls.push("fulfill");
     this.fulfilled = o;
   }
   async fallback(): Promise<void> {
     this.calls.push("fallback");
+    this.at = Date.now();
   }
   async abort(code?: string): Promise<void> {
     this.calls.push(`abort:${code ?? ""}`);
   }
 }
 
-const request = (url: string, o: { method?: string; resourceType?: string; frameUrl?: string } = {}): RequestLike => ({
+const request = (url: string, o: { method?: string; resourceType?: string; frameUrl?: string; accept?: string } = {}): RequestLike => ({
   url: () => url,
   method: () => o.method ?? "GET",
   resourceType: () => o.resourceType ?? "fetch",
+  headers: () => (o.accept ? { accept: o.accept } : {}),
   frame: () => ({ url: () => o.frameUrl ?? "http://app.test/page" }),
 });
 
@@ -130,6 +125,18 @@ describe("install: what goes on the page", () => {
     expect(script).toContain('telemetry: false');
     expect(script).toContain('mode: "observe"');
     expect(script).toContain("hold: false");
+    // the agent link gets a stand-in fetch for its own URL (no request, no console error), and no sink is configured
+    expect(script).toContain("standIn");
+    expect(script).not.toContain("sinks:");
+    expect(script).toContain('"decide"');
+    expect(script).toContain('setMode');
+  });
+
+  it("isAgentUrl: the agent's address only, not an app on 127.0.0.1:9xxx", () => {
+    expect(isAgentUrl(AGENT_URL)).toBe(true);
+    expect(isAgentUrl(`${AGENT_URL}/v1/hello`)).toBe(true);
+    expect(isAgentUrl("http://127.0.0.1:9000/api/search")).toBe(false);
+    expect(isAgentUrl("http://127.0.0.1:9323/")).toBe(false);
   });
 
   it("the init script is the page function applied to its config and the build, as plain JavaScript", () => {
@@ -198,35 +205,44 @@ describe("install: chaos routes", () => {
     }
   });
 
-  it("fetches a candidate, delays a confirmed one and fulfils with the real response; a non-JSON non-API response goes through at once", async () => {
+  it("holds a matched request for its planned time, then passes it on with fallback (never fetches it); unmatched ones go at once", async () => {
     const page = new FakePage();
-    const session = await install(page, { runtimeDir, model: "skip", chaos: resolveChaos({ seed: 1, delayMs: [5, 5] }) });
+    const session = await install(page, { runtimeDir, model: "skip", chaos: resolveChaos({ seed: 1, delayMs: [40, 40] }) });
     const chaos = page.handler("**/*");
-    const api = new FakeRoute({ headers: () => ({ "content-type": "text/html" }) });
     const t0 = Date.now();
+    const api = new FakeRoute();
     await chaos(api, request("http://app.test/api/items?page=2", { resourceType: "xhr" }));
-    expect(api.calls).toEqual(["fetch", "fulfill"]);
-    expect(Date.now() - t0).toBeGreaterThanOrEqual(4);
-    const json = new FakeRoute({ headers: () => ({ "Content-Type": "application/json" }) });
-    await chaos(json, request("http://app.test/graphql", { method: "POST" }));
-    expect(json.calls).toEqual(["fetch", "fulfill"]);
-    const html = new FakeRoute({ headers: () => ({ "content-type": "text/html" }) });
-    await chaos(html, request("http://app.test/fragment"));
-    expect(html.calls).toEqual(["fetch", "fulfill"]);
+    expect(api.calls).toEqual(["fallback"]);
+    expect(api.at - t0).toBeGreaterThanOrEqual(35);
+    const json = new FakeRoute();
+    await chaos(json, request("http://app.test/graphql", { method: "POST", accept: "application/json" }));
+    expect(json.calls).toEqual(["fallback"]);
+    const t1 = Date.now();
+    const stream = new FakeRoute();
+    await chaos(stream, request("http://app.test/events", { accept: "text/event-stream" }));
+    expect(stream.calls).toEqual(["fallback"]);
+    expect(stream.at - t1).toBeLessThan(30);
     const c = await session.finish();
     expect(c.plans.map((p) => p.key)).toEqual(["GET /api/items#1", "POST /graphql#1"]);
-    expect(c.plans.every((p) => p.delayMs === 5)).toBe(true);
+    expect(c.plans.every((p) => p.delayMs === 40)).toBe(true);
   });
 
-  it("a request that fails to fetch is aborted so the app sees the failure; a closed page is not an error", async () => {
+  it("keys requests in the order the page sent them, whatever order they are released in", async () => {
+    const page = new FakePage();
+    const session = await install(page, { runtimeDir, model: "skip", chaos: resolveChaos({ seed: 7, delayMs: [0, 80] }) });
+    const chaos = page.handler("**/*");
+    const urls = ["a", "b", "c", "d"].map((q) => `http://app.test/api/search?q=${q}`);
+    await Promise.all(urls.map((u) => chaos(new FakeRoute(), request(u))));
+    const c = await session.finish();
+    expect(c.plans.map((p) => p.key)).toEqual(["GET /api/search#1", "GET /api/search#2", "GET /api/search#3", "GET /api/search#4"]);
+  });
+
+  it("a page that closes while a request is held is not an error", async () => {
     const page = new FakePage();
     await install(page, { runtimeDir, model: "skip", chaos: resolveChaos({ seed: 1, delayMs: [0, 0] }) });
     const chaos = page.handler("**/*");
-    const down = new FakeRoute(new Error("connection refused"));
-    await chaos(down, request("http://app.test/api/x"));
-    expect(down.calls).toEqual(["fetch", "abort:failed"]);
-    const gone = new FakeRoute({ headers: () => ({ "content-type": "application/json" }) });
-    gone.fulfill = async () => {
+    const gone = new FakeRoute();
+    gone.fallback = async () => {
       throw new Error("Target page, context or browser has been closed");
     };
     await expect(chaos(gone, request("http://app.test/api/x"))).resolves.toBeUndefined();
@@ -241,12 +257,21 @@ describe("install: collecting", () => {
     page.push({ t: "record", record: { kind: "detection", diagnosis: "stale" } });
     page.push({ t: "witness", witness: { kind: "overwrote-newer" } });
     page.push({ t: "agent", ok: true, reason: null });
+    page.push({ t: "status", mode: "observe", model: { state: "off", name: "none" }, overridden: "heal" });
     page.push({ t: "nonsense" });
     page.push(null);
-    page.evaluateResult = { mode: "observe", model: { state: "off", name: "none", version: "0" }, agent: null };
+    page.evaluateResult = { mode: "observe", model: { state: "off", name: "none", version: "0" }, agent: null, serviceWorker: true };
     const c = await session.finish();
     expect(page.evaluated).toHaveLength(1);
-    expect(c).toEqual({ records: [{ kind: "detection", diagnosis: "stale" }], witnesses: [{ kind: "overwrote-newer" }], mode: "observe", model: { state: "off", name: "none", version: "0" }, agent: null, plans: [] });
+    expect(c).toEqual({ records: [{ kind: "detection", diagnosis: "stale" }], witnesses: [{ kind: "overwrote-newer" }], mode: "observe", model: { state: "off", name: "none", version: "0" }, agent: null, plans: [], serviceWorker: true, modeOverridden: "heal" });
+  });
+
+  it("keeps a specific reason the page pushed over collect()'s generic not-loaded", async () => {
+    const page = new FakePage();
+    const session = await install(page, { runtimeDir, model: "skip", chaos: null });
+    page.push({ t: "agent", ok: false, reason: "Failed to fetch dynamically imported module" });
+    page.evaluateResult = { mode: "observe", model: { state: "off" }, agent: "not-loaded" };
+    expect((await session.finish()).agent).toBe("Failed to fetch dynamically imported module");
   });
 
   it("a page that never started GenClass, or that is closed, or whose agent failed", async () => {
