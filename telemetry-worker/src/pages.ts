@@ -1321,7 +1321,8 @@ const DASH_JS = `
     var byIssue = issues(B), recentBy = {};
     (S.recent || []).forEach(function(r){ if (r.kind === "detect" && r.diagnosis && r.route) { var m = recentBy[r.diagnosis] = recentBy[r.diagnosis] || {}; m[r.route] = (m[r.route] || 0) + 1; } });
     var list = (B.detect_diagnosis || []).filter(function(x){ return x.key !== "expected"; }).slice(0, 5);
-    var n = Math.max(list.length, 1), R = 118, NH = 102, W = 1000, obsY = n * R + 28, H = Math.max(obsY + 72, 3 * R) + 8;
+    // Observe sits under the last problem row, and never above the bottom of Ship (its return edge would cross Prove)
+    var n = Math.max(list.length, 1), R = 118, NH = 102, W = 1000, obsY = Math.max(n * R + 28, 24 + 2 * R + NH + 14), H = obsY + 72 + 8;
     host.setAttribute("viewBox", "0 0 " + W + " " + H);
     var defs = svg("defs"), m = svg("marker", { id: "fa", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
     m.appendChild(svg("path", { d: "M0 0L10 5L0 10z" })); defs.appendChild(m); host.appendChild(defs);
